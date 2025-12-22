@@ -27,7 +27,7 @@ function createTx(
     timestamp: Date.parse(options.datetime ?? '2023-01-01T00:00:00Z'),
     status: 'success',
     movements: {
-      inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
+      inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
     },
     fees: [],
     operation: { category: 'transfer', type: 'deposit' },

@@ -1,5 +1,5 @@
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -62,6 +62,72 @@ export class CosmosProcessor extends BaseTransactionProcessor {
         const userInitiatedTransaction = normalizedTx.from === context.primaryAddress;
         const shouldRecordFeeEntry = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
+        // Build movements with assetId
+        let hasAssetIdError = false;
+        const inflows = [];
+        for (const inflow of fundFlow.inflows) {
+          const assetIdResult = this.buildCosmosAssetId(inflow, normalizedTx.id);
+          if (assetIdResult.isErr()) {
+            const errorMsg = `Failed to build assetId for inflow: ${assetIdResult.error.message}`;
+            processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+            this.logger.error(
+              `${errorMsg} for ${this.chainConfig.chainName} transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`
+            );
+            hasAssetIdError = true;
+            break;
+          }
+
+          const amount = parseDecimal(inflow.amount);
+          inflows.push({
+            assetId: assetIdResult.value,
+            assetSymbol: inflow.asset,
+            grossAmount: amount,
+            netAmount: amount,
+          });
+        }
+
+        if (hasAssetIdError) {
+          continue;
+        }
+
+        const outflows = [];
+        for (const outflow of fundFlow.outflows) {
+          const assetIdResult = this.buildCosmosAssetId(outflow, normalizedTx.id);
+          if (assetIdResult.isErr()) {
+            const errorMsg = `Failed to build assetId for outflow: ${assetIdResult.error.message}`;
+            processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+            this.logger.error(
+              `${errorMsg} for ${this.chainConfig.chainName} transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`
+            );
+            hasAssetIdError = true;
+            break;
+          }
+
+          const amount = parseDecimal(outflow.amount);
+          outflows.push({
+            assetId: assetIdResult.value,
+            assetSymbol: outflow.asset,
+            grossAmount: amount,
+            netAmount: amount,
+          });
+        }
+
+        if (hasAssetIdError) {
+          continue;
+        }
+
+        // Build fee assetId (always native asset for Cosmos)
+        const feeAssetIdResult = buildBlockchainNativeAssetId(this.chainConfig.chainName);
+        if (feeAssetIdResult.isErr()) {
+          const errorMsg = `Failed to build fee assetId: ${feeAssetIdResult.error.message}`;
+          processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+          this.logger.error(
+            `${errorMsg} for ${this.chainConfig.chainName} transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`
+          );
+          continue;
+        }
+        const feeAssetId = feeAssetIdResult.value;
+
         // Convert to ProcessedTransaction with enhanced metadata
         const universalTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
@@ -74,22 +140,8 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
           // Structured movements from fund flow analysis
           movements: {
-            inflows: fundFlow.inflows.map((inflow) => {
-              const amount = parseDecimal(inflow.amount);
-              return {
-                assetSymbol: inflow.asset,
-                grossAmount: amount,
-                netAmount: amount,
-              };
-            }),
-            outflows: fundFlow.outflows.map((outflow) => {
-              const amount = parseDecimal(outflow.amount);
-              return {
-                assetSymbol: outflow.asset,
-                grossAmount: amount,
-                netAmount: amount,
-              };
-            }),
+            inflows,
+            outflows,
           },
 
           // Structured fees - only deduct from balance if user paid them
@@ -97,6 +149,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
             shouldRecordFeeEntry && !parseDecimal(fundFlow.feeAmount).isZero()
               ? [
                   {
+                    assetId: feeAssetId,
                     assetSymbol: fundFlow.feeCurrency,
                     amount: parseDecimal(fundFlow.feeAmount),
                     scope: 'network',
@@ -117,16 +170,17 @@ export class CosmosProcessor extends BaseTransactionProcessor {
           },
         };
 
-        // Scam detection: Check inflows only (scam tokens arrive as airdrops)
-        for (const inflow of fundFlow.inflows) {
+        // Scam detection: Check all movements (both inflows and outflows)
+        const allMovements = [...fundFlow.inflows, ...fundFlow.outflows];
+        for (const movement of allMovements) {
           // Cosmos-specific airdrop detection: inflows without outflows and not user-initiated
           const context = {
-            amount: parseDecimal(inflow.amount).toNumber(),
-            contractAddress: inflow.tokenAddress,
+            amount: parseDecimal(movement.amount).toNumber(),
+            denom: movement.denom,
             isAirdrop: fundFlow.outflows.length === 0 && !userInitiatedTransaction,
           };
 
-          const scamNote = await this.detectScamForAsset(inflow.asset, context.contractAddress, {
+          const scamNote = await this.detectScamForAsset(movement.asset, context.denom, {
             amount: context.amount,
             isAirdrop: context.isAirdrop,
           });
@@ -170,5 +224,38 @@ export class CosmosProcessor extends BaseTransactionProcessor {
     }
 
     return okAsync(universalTransactions);
+  }
+
+  /**
+   * Build assetId for a Cosmos movement
+   * - Native asset (no denom): blockchain:<chain>:native
+   * - Token with denom (IBC, CW20, factory, etc.): blockchain:<chain>:<denom>
+   * - Token without denom (edge case): fail-fast with an error
+   *
+   * Per Asset Identity Specification, denom should be available for IBC and CW20 tokens.
+   * If missing for a non-native asset, we fail-fast to prevent silent data corruption.
+   */
+  private buildCosmosAssetId(
+    movement: {
+      asset: string;
+      denom?: string | undefined;
+    },
+    transactionId: string
+  ): Result<string, Error> {
+    // Native asset - no denom
+    if (!movement.denom) {
+      const assetSymbol = movement.asset.trim().toUpperCase();
+      const nativeSymbol = this.chainConfig.nativeCurrency.toUpperCase();
+
+      if (assetSymbol === nativeSymbol) {
+        return buildBlockchainNativeAssetId(this.chainConfig.chainName);
+      }
+
+      // If it's not the native asset and has no denom, this is an error
+      return err(new Error(`Missing denom for non-native asset ${movement.asset} in transaction ${transactionId}`));
+    }
+
+    // Token with denom (IBC, CW20, factory, etc.)
+    return buildBlockchainTokenAssetId(this.chainConfig.chainName, movement.denom);
   }
 }

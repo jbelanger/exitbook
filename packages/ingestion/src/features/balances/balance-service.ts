@@ -83,6 +83,7 @@ export class BalanceService {
 
       const liveSnapshot = liveBalanceResult.value;
       let liveBalances = convertBalancesToDecimals(liveSnapshot.balances);
+      let liveAssetMetadata = liveSnapshot.assetMetadata;
 
       // 3. Fetch and calculate balance from transactions
       const calculatedBalancesResult = await this.calculateBalancesFromTransactions(account);
@@ -90,15 +91,15 @@ export class BalanceService {
         return err(calculatedBalancesResult.error);
       }
 
-      const calculatedBalances = calculatedBalancesResult.value;
+      let { balances: calculatedBalances, assetMetadata: calculatedAssetMetadata } = calculatedBalancesResult.value;
 
       // 4. Get excluded asset amounts (scam tokens) and subtract them from live balance
-      const excludedAmountsResult = await this.getExcludedAssetAmounts(account);
-      if (excludedAmountsResult.isErr()) {
-        return err(excludedAmountsResult.error);
+      const excludedInfoResult = await this.getExcludedAssetInfo(account);
+      if (excludedInfoResult.isErr()) {
+        return err(excludedInfoResult.error);
       }
 
-      const excludedAmounts = excludedAmountsResult.value;
+      const { amounts: excludedAmounts, scamAssetIds } = excludedInfoResult.value;
       if (Object.keys(excludedAmounts).length > 0) {
         const excludedAssets = Object.keys(excludedAmounts);
         logger.info(
@@ -107,8 +108,17 @@ export class BalanceService {
         liveBalances = this.subtractExcludedAmounts(liveBalances, excludedAmounts);
       }
 
-      // 5. Compare balances
-      const comparisons = compareBalances(calculatedBalances, liveBalances);
+      if (scamAssetIds.size > 0) {
+        logger.info(`Filtering ${scamAssetIds.size} scam assets from balance comparison`);
+        liveBalances = this.removeAssetsById(liveBalances, scamAssetIds);
+        calculatedBalances = this.removeAssetsById(calculatedBalances, scamAssetIds);
+        liveAssetMetadata = this.removeAssetMetadata(liveAssetMetadata, scamAssetIds);
+        calculatedAssetMetadata = this.removeAssetMetadata(calculatedAssetMetadata, scamAssetIds);
+      }
+
+      // 5. Compare balances (merge metadata from both calculated and live)
+      const mergedAssetMetadata = { ...calculatedAssetMetadata, ...liveAssetMetadata };
+      const comparisons = compareBalances(calculatedBalances, liveBalances, mergedAssetMetadata);
 
       // 6. Get last import timestamp for suggestion generation
       const lastImportTimestamp = await this.getLastImportTimestamp(account);
@@ -189,8 +199,11 @@ export class BalanceService {
   /**
    * Calculate balances from transactions in the database.
    * Aggregates transactions from ALL completed sessions for the account and its child accounts.
+   * Returns both balances and asset metadata for display.
    */
-  private async calculateBalancesFromTransactions(account: Account): Promise<Result<Record<string, Decimal>, Error>> {
+  private async calculateBalancesFromTransactions(
+    account: Account
+  ): Promise<Result<{ assetMetadata: Record<string, string>; balances: Record<string, Decimal> }, Error>> {
     try {
       // Get child accounts if this is a parent account (e.g., xpub)
       const childAccountsResult = await this.accountRepository.findByParent(account.id);
@@ -233,7 +246,7 @@ export class BalanceService {
 
       if (allTransactions.length === 0) {
         logger.warn(`No transactions found for ${account.sourceName} - calculated balance will be empty`);
-        return ok({});
+        return ok({ balances: {}, assetMetadata: {} });
       }
 
       const accountInfo =
@@ -243,9 +256,9 @@ export class BalanceService {
       logger.info(
         `Calculating balances from ${allTransactions.length} transactions across all completed sessions for ${accountInfo}`
       );
-      const calculatedBalances = calculateBalances(allTransactions);
+      const calculationResult = calculateBalances(allTransactions);
 
-      return ok(calculatedBalances);
+      return ok(calculationResult);
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
@@ -316,7 +329,9 @@ export class BalanceService {
    * Returns a map of asset -> total amount to subtract from live balance.
    * Aggregates excluded transactions from ALL completed sessions.
    */
-  private async getExcludedAssetAmounts(account: Account): Promise<Result<Record<string, Decimal>, Error>> {
+  private async getExcludedAssetInfo(
+    account: Account
+  ): Promise<Result<{ amounts: Record<string, Decimal>; scamAssetIds: Set<string> }, Error>> {
     try {
       // Get child accounts if this is a parent account (e.g., xpub)
       const childAccountsResult = await this.accountRepository.findByParent(account.id);
@@ -336,13 +351,13 @@ export class BalanceService {
       const allSessions = sessionsResult.value;
 
       if (allSessions.length === 0) {
-        return ok({});
+        return ok({ amounts: {}, scamAssetIds: new Set() });
       }
 
       // Check if there's at least one completed session
       const hasCompletedSession = allSessions.some((s) => s.status === 'completed');
       if (!hasCompletedSession) {
-        return ok({});
+        return ok({ amounts: {}, scamAssetIds: new Set() });
       }
 
       // Fetch ALL excluded transactions for all accounts in one query (avoids N+1)
@@ -358,8 +373,8 @@ export class BalanceService {
 
       const allExcludedTransactions = excludedTxResult.value;
 
-      const excludedAmounts = this.sumExcludedInflowAmounts(allExcludedTransactions);
-      return ok(excludedAmounts);
+      const excludedInfo = this.collectExcludedAssetInfo(allExcludedTransactions);
+      return ok(excludedInfo);
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
@@ -388,7 +403,8 @@ export class BalanceService {
       const discrepancies = comparisons
         .filter((c) => c.status !== 'match')
         .map((c) => ({
-          assetSymbol: c.currency,
+          assetId: c.assetId,
+          assetSymbol: c.assetSymbol,
           calculated: c.calculatedBalance,
           live: c.liveBalance,
           difference: c.difference,
@@ -441,21 +457,41 @@ export class BalanceService {
   }
 
   /**
-   * Sum up amounts from excluded transactions (inflows only - scams are airdrops).
+   * Summarize excluded assets from transactions.
+   * - amounts: sum of excluded inflows (airdrops) by assetId
+   * - scamAssetIds: assetIds seen in scam transactions (notes or isSpam)
    */
-  private sumExcludedInflowAmounts(transactions: UniversalTransactionData[]): Record<string, Decimal> {
+  private collectExcludedAssetInfo(transactions: UniversalTransactionData[]): {
+    amounts: Record<string, Decimal>;
+    scamAssetIds: Set<string>;
+  } {
     const excludedTransactions = transactions.filter((tx) => tx.excludedFromAccounting === true);
     const amounts: Record<string, Decimal> = {};
+    const scamAssetIds = new Set<string>();
 
     for (const tx of excludedTransactions) {
+      const isScam = tx.isSpam === true || (tx.notes?.some((note) => note.type === 'SCAM_TOKEN') ?? false);
+
+      if (isScam) {
+        for (const inflow of tx.movements.inflows ?? []) {
+          scamAssetIds.add(inflow.assetId);
+        }
+        for (const outflow of tx.movements.outflows ?? []) {
+          scamAssetIds.add(outflow.assetId);
+        }
+        for (const fee of tx.fees ?? []) {
+          scamAssetIds.add(fee.assetId);
+        }
+      }
+
       // Only count inflows (received scam tokens)
       for (const inflow of tx.movements.inflows ?? []) {
-        const existing = amounts[inflow.assetSymbol];
-        amounts[inflow.assetSymbol] = existing ? existing.plus(inflow.grossAmount) : inflow.grossAmount;
+        const existing = amounts[inflow.assetId];
+        amounts[inflow.assetId] = existing ? existing.plus(inflow.grossAmount) : inflow.grossAmount;
       }
     }
 
-    return amounts;
+    return { amounts, scamAssetIds };
   }
 
   /**
@@ -483,6 +519,32 @@ export class BalanceService {
     }
 
     return adjusted;
+  }
+
+  /**
+   * Remove assets from a balance map.
+   */
+  private removeAssetsById<T>(balances: Record<string, T>, assetIds: Set<string>): Record<string, T> {
+    const filtered: Record<string, T> = {};
+    for (const [assetId, balance] of Object.entries(balances)) {
+      if (!assetIds.has(assetId)) {
+        filtered[assetId] = balance;
+      }
+    }
+    return filtered;
+  }
+
+  /**
+   * Remove assets from metadata map.
+   */
+  private removeAssetMetadata(assetMetadata: Record<string, string>, assetIds: Set<string>): Record<string, string> {
+    const filtered: Record<string, string> = {};
+    for (const [assetId, symbol] of Object.entries(assetMetadata)) {
+      if (!assetIds.has(assetId)) {
+        filtered[assetId] = symbol;
+      }
+    }
+    return filtered;
   }
 
   /**

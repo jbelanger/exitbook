@@ -1,7 +1,10 @@
-import { parseDecimal } from '@exitbook/core';
+import { buildExchangeAssetId, parseDecimal } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { ProcessedTransaction } from '../../../shared/types/processors.js';
+
+const EXCHANGE_NAME = 'kucoin';
 
 import type {
   CsvAccountHistoryRow,
@@ -14,6 +17,7 @@ import type {
 /**
  * Pure business logic functions for processing KuCoin CSV data.
  * These functions extract and transform KuCoin transaction data into ProcessedTransaction format.
+ * All functions return Result types to prevent silent failures and enable proper error handling.
  */
 
 /**
@@ -23,7 +27,7 @@ export function convertKucoinAccountHistoryConvertToTransaction(
   deposit: CsvAccountHistoryRow,
   withdrawal: CsvAccountHistoryRow,
   timestamp: string
-): ProcessedTransaction {
+): Result<ProcessedTransaction, Error> {
   const timestampMs = new Date(timestamp).getTime();
 
   const sellCurrency = withdrawal.Currency;
@@ -31,13 +35,27 @@ export function convertKucoinAccountHistoryConvertToTransaction(
   const buyCurrency = deposit.Currency;
   const buyAmount = parseDecimal(deposit.Amount);
 
+  // Build assetIds
+  const sellAssetIdResult = buildExchangeAssetId(EXCHANGE_NAME, sellCurrency);
+  if (sellAssetIdResult.isErr()) {
+    return err(
+      new Error(`Failed to build assetId for ${sellCurrency} on ${EXCHANGE_NAME}: ${sellAssetIdResult.error.message}`)
+    );
+  }
+
+  const buyAssetIdResult = buildExchangeAssetId(EXCHANGE_NAME, buyCurrency);
+  if (buyAssetIdResult.isErr()) {
+    return err(
+      new Error(`Failed to build assetId for ${buyCurrency} on ${EXCHANGE_NAME}: ${buyAssetIdResult.error.message}`)
+    );
+  }
+
   // Calculate total fees (both deposit and withdrawal fees)
   const withdrawalFee = withdrawal.Fee ? parseDecimal(withdrawal.Fee) : parseDecimal('0');
   const depositFee = deposit.Fee ? parseDecimal(deposit.Fee) : parseDecimal('0');
   const totalFee = withdrawalFee.plus(depositFee);
-  const platformFee = { amount: totalFee, assetSymbol: sellCurrency };
 
-  return {
+  return ok({
     externalId: `${withdrawal.UID}-${timestampMs}-convert-market-${sellCurrency}-${buyCurrency}`,
     datetime: timestamp,
     timestamp: timestampMs,
@@ -48,6 +66,7 @@ export function convertKucoinAccountHistoryConvertToTransaction(
     movements: {
       outflows: [
         {
+          assetId: sellAssetIdResult.value,
           assetSymbol: sellCurrency,
           grossAmount: sellAmount,
           netAmount: sellAmount,
@@ -55,6 +74,7 @@ export function convertKucoinAccountHistoryConvertToTransaction(
       ],
       inflows: [
         {
+          assetId: buyAssetIdResult.value,
           assetSymbol: buyCurrency,
           grossAmount: buyAmount,
           netAmount: buyAmount,
@@ -62,33 +82,48 @@ export function convertKucoinAccountHistoryConvertToTransaction(
       ],
     },
 
-    // Structured fees - convert market has platform fees
-    fees: platformFee ? [{ ...platformFee, scope: 'platform' as const, settlement: 'balance' as const }] : [],
+    // Structured fees - convert market has platform fees (always included, even if zero)
+    fees: [
+      {
+        assetId: sellAssetIdResult.value,
+        assetSymbol: sellCurrency,
+        amount: totalFee,
+        scope: 'platform' as const,
+        settlement: 'balance' as const,
+      },
+    ],
 
     // Operation classification - 10/10 confidence: convert market is a swap
     operation: {
       category: 'trade',
       type: 'swap',
     },
-  };
+  });
 }
 
 /**
  * Convert KuCoin deposit row into ProcessedTransaction
  */
-export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow): ProcessedTransaction {
+export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow): Result<ProcessedTransaction, Error> {
   const timestamp = new Date(row['Time(UTC)']).getTime();
   const grossAmount = parseDecimal(row.Amount);
   const fee = row.Fee ? parseDecimal(row.Fee) : parseDecimal('0');
+
+  // Build assetId
+  const assetIdResult = buildExchangeAssetId(EXCHANGE_NAME, row.Coin);
+  if (assetIdResult.isErr()) {
+    return err(
+      new Error(`Failed to build assetId for ${row.Coin} on ${EXCHANGE_NAME}: ${assetIdResult.error.message}`)
+    );
+  }
 
   // For KuCoin deposits: Amount field is what arrived on-chain
   // netAmount must equal grossAmount for transfer matching to work
   // (needs to match the on-chain amount from the source withdrawal)
   // Fee is charged separately from user's credited balance
   const netAmount = grossAmount;
-  const platformFee = { amount: fee, assetSymbol: row.Coin };
 
-  return {
+  return ok({
     externalId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
     datetime: row['Time(UTC)'],
     timestamp,
@@ -99,6 +134,7 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
     movements: {
       inflows: [
         {
+          assetId: assetIdResult.value,
           assetSymbol: row.Coin,
           grossAmount: grossAmount,
           netAmount: netAmount,
@@ -108,8 +144,16 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
     },
 
     // Structured fees - deposit fees charged separately from credited balance
-    fees: platformFee.amount.greaterThan(0)
-      ? [{ ...platformFee, scope: 'platform' as const, settlement: 'balance' as const }]
+    fees: fee.greaterThan(0)
+      ? [
+          {
+            assetId: assetIdResult.value,
+            assetSymbol: row.Coin,
+            amount: fee,
+            scope: 'platform' as const,
+            settlement: 'balance' as const,
+          },
+        ]
       : [],
 
     // Operation classification - 10/10 confidence: deposit is transfer/deposit
@@ -117,30 +161,111 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
       category: 'transfer',
       type: 'deposit',
     },
-  };
+  });
 }
 
 /**
  * Convert KuCoin order-splitting row (individual fill) into ProcessedTransaction
  */
-export function convertKucoinOrderSplittingToTransaction(row: CsvOrderSplittingRow): ProcessedTransaction {
+export function convertKucoinOrderSplittingToTransaction(
+  row: CsvOrderSplittingRow
+): Result<ProcessedTransaction, Error> {
   const timestamp = new Date(row['Filled Time(UTC)']).getTime();
-  const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
+
+  // Guard against missing Symbol field
+  if (!row.Symbol) {
+    return err(new Error(`Missing Symbol field in order-splitting row (Order ID: ${row['Order ID'] || 'unknown'})`));
+  }
+
+  // Guard against missing Side field
+  if (!row.Side) {
+    return err(new Error(`Missing Side field in order-splitting row (Order ID: ${row['Order ID'] || 'unknown'})`));
+  }
+
+  // Validate Side field
+  const side = row.Side.trim().toLowerCase();
+  if (side !== 'buy' && side !== 'sell') {
+    return err(
+      new Error(
+        `Invalid Side value '${row.Side}' in order-splitting row (Order ID: ${row['Order ID'] || 'unknown'}). Expected 'buy' or 'sell'.`
+      )
+    );
+  }
+
+  // Parse symbol - CRITICAL: fail-fast if malformed (prevents exchange:kucoin:unknown collisions)
+  const symbolParts = row.Symbol.split('-');
+  if (symbolParts.length !== 2) {
+    return err(
+      new Error(
+        `Invalid symbol format '${row.Symbol}' in order-splitting row (Order ID: ${row['Order ID']}). Expected format: BASE-QUOTE`
+      )
+    );
+  }
+
+  const [baseCurrency, quoteCurrency] = symbolParts;
+  if (!baseCurrency || !quoteCurrency || baseCurrency.trim() === '' || quoteCurrency.trim() === '') {
+    return err(
+      new Error(
+        `Empty base or quote currency in symbol '${row.Symbol}' (Order ID: ${row['Order ID']}). Cannot create assetId.`
+      )
+    );
+  }
+
   const filledAmount = row['Filled Amount'];
   const filledVolume = row['Filled Volume'];
   const fee = parseDecimal(row.Fee);
-  const platformFee = { amount: fee, assetSymbol: row['Fee Currency'] };
-  const side = row.Side.toLowerCase() as 'buy' | 'sell';
 
   // For order-splitting (individual fills):
   // - Buy: spent quoteCurrency (filledVolume), received baseCurrency (filledAmount)
   // - Sell: spent baseCurrency (filledAmount), received quoteCurrency (filledVolume)
   const isBuy = side === 'buy';
 
+  // Build assetIds - currencies are validated, no 'unknown' defaults
+  const baseAssetIdResult = buildExchangeAssetId(EXCHANGE_NAME, baseCurrency);
+  if (baseAssetIdResult.isErr()) {
+    return err(
+      new Error(
+        `Failed to build assetId for base currency ${baseCurrency} on ${EXCHANGE_NAME}: ${baseAssetIdResult.error.message}`
+      )
+    );
+  }
+
+  const quoteAssetIdResult = buildExchangeAssetId(EXCHANGE_NAME, quoteCurrency);
+  if (quoteAssetIdResult.isErr()) {
+    return err(
+      new Error(
+        `Failed to build assetId for quote currency ${quoteCurrency} on ${EXCHANGE_NAME}: ${quoteAssetIdResult.error.message}`
+      )
+    );
+  }
+
+  // Build fee assetId - CRITICAL: never silently drop fees
+  let feeAssetId: string | undefined;
+  if (fee.greaterThan(0)) {
+    // Fee exists - Fee Currency must be present
+    if (!row['Fee Currency'] || row['Fee Currency'].trim() === '') {
+      return err(
+        new Error(
+          `Fee amount ${fee.toFixed()} exists but Fee Currency is missing in order-splitting row (Order ID: ${row['Order ID']}). Cannot determine fee asset.`
+        )
+      );
+    }
+
+    const feeAssetIdResult = buildExchangeAssetId(EXCHANGE_NAME, row['Fee Currency']);
+    if (feeAssetIdResult.isErr()) {
+      return err(
+        new Error(
+          `Failed to build fee assetId for ${row['Fee Currency']} on ${EXCHANGE_NAME}: ${feeAssetIdResult.error.message}`
+        )
+      );
+    }
+    feeAssetId = feeAssetIdResult.value;
+  }
+
   // Generate unique ID using order ID + timestamp + filled amount to handle multiple fills
   const uniqueId = `${row['Order ID']}-${timestamp}-${filledAmount}`;
 
-  return {
+  return ok({
     externalId: uniqueId,
     datetime: row['Filled Time(UTC)'],
     timestamp,
@@ -148,17 +273,21 @@ export function convertKucoinOrderSplittingToTransaction(row: CsvOrderSplittingR
     status: 'closed', // Order-splitting data only shows completed fills
 
     // Structured movements - trade has both outflow and inflow
+    // Buy: spent quoteCurrency (filledVolume), received baseCurrency (filledAmount)
+    // Sell: spent baseCurrency (filledAmount), received quoteCurrency (filledVolume)
     movements: {
       outflows: [
         {
-          assetSymbol: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
+          assetId: isBuy ? quoteAssetIdResult.value : baseAssetIdResult.value,
+          assetSymbol: isBuy ? quoteCurrency : baseCurrency,
           grossAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
           netAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
         },
       ],
       inflows: [
         {
-          assetSymbol: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
+          assetId: isBuy ? baseAssetIdResult.value : quoteAssetIdResult.value,
+          assetSymbol: isBuy ? baseCurrency : quoteCurrency,
           grossAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
           netAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
         },
@@ -166,37 +295,130 @@ export function convertKucoinOrderSplittingToTransaction(row: CsvOrderSplittingR
     },
 
     // Structured fees - exchange trades have platform fees
-    fees: platformFee ? [{ ...platformFee, scope: 'platform' as const, settlement: 'balance' as const }] : [],
+    fees: feeAssetId
+      ? [
+          {
+            assetId: feeAssetId,
+            assetSymbol: row['Fee Currency'],
+            amount: fee,
+            scope: 'platform' as const,
+            settlement: 'balance' as const,
+          },
+        ]
+      : [],
 
     // Operation classification - 10/10 confidence: order-splitting is trade/buy or trade/sell
     operation: {
       category: 'trade',
       type: side, // 'buy' or 'sell'
     },
-  };
+  });
 }
 
 /**
  * Convert KuCoin trading bot row into ProcessedTransaction
  */
-export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): ProcessedTransaction {
+export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Result<ProcessedTransaction, Error> {
   const timestamp = new Date(row['Time Filled(UTC)']).getTime();
-  const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
+
+  // Guard against missing Symbol field
+  if (!row.Symbol) {
+    return err(new Error(`Missing Symbol field in trading bot row (Order ID: ${row['Order ID'] || 'unknown'})`));
+  }
+
+  // Validate required field: Side
+  if (!row.Side || row.Side.trim() === '') {
+    return err(
+      new Error(
+        `Missing required field 'Side' in trading bot row (Order ID: ${row['Order ID']}). Cannot determine buy/sell direction.`
+      )
+    );
+  }
+
+  // Validate Side value
+  const side = row.Side.trim().toLowerCase();
+  if (side !== 'buy' && side !== 'sell') {
+    return err(
+      new Error(
+        `Invalid Side value '${row.Side}' in trading bot row (Order ID: ${row['Order ID'] || 'unknown'}). Expected 'buy' or 'sell'.`
+      )
+    );
+  }
+
+  // Parse symbol - CRITICAL: fail-fast if malformed (prevents exchange:kucoin:unknown collisions)
+  const symbolParts = row.Symbol.split('-');
+  if (symbolParts.length !== 2) {
+    return err(
+      new Error(
+        `Invalid symbol format '${row.Symbol}' in trading bot row (Order ID: ${row['Order ID']}). Expected format: BASE-QUOTE`
+      )
+    );
+  }
+
+  const [baseCurrency, quoteCurrency] = symbolParts;
+  if (!baseCurrency || !quoteCurrency || baseCurrency.trim() === '' || quoteCurrency.trim() === '') {
+    return err(
+      new Error(
+        `Empty base or quote currency in symbol '${row.Symbol}' (Order ID: ${row['Order ID']}). Cannot create assetId.`
+      )
+    );
+  }
+
   const filledAmount = row['Filled Amount'];
   const filledVolume = row['Filled Volume'];
   const fee = parseDecimal(row.Fee);
-  const platformFee = { amount: fee, assetSymbol: row['Fee Currency'] };
-  const side = row.Side.toLowerCase() as 'buy' | 'sell';
 
   // For trading bot fills (similar to order-splitting):
   // - Buy: spent quoteCurrency (filledVolume), received baseCurrency (filledAmount)
   // - Sell: spent baseCurrency (filledAmount), received quoteCurrency (filledVolume)
   const isBuy = side === 'buy';
 
+  // Build assetIds - currencies are validated, no 'unknown' defaults
+  const baseAssetIdResult = buildExchangeAssetId(EXCHANGE_NAME, baseCurrency);
+  if (baseAssetIdResult.isErr()) {
+    return err(
+      new Error(
+        `Failed to build assetId for base currency ${baseCurrency} on ${EXCHANGE_NAME}: ${baseAssetIdResult.error.message}`
+      )
+    );
+  }
+
+  const quoteAssetIdResult = buildExchangeAssetId(EXCHANGE_NAME, quoteCurrency);
+  if (quoteAssetIdResult.isErr()) {
+    return err(
+      new Error(
+        `Failed to build assetId for quote currency ${quoteCurrency} on ${EXCHANGE_NAME}: ${quoteAssetIdResult.error.message}`
+      )
+    );
+  }
+
+  // Build fee assetId - CRITICAL: never silently drop fees
+  let feeAssetId: string | undefined;
+  if (fee.greaterThan(0)) {
+    // Fee exists - Fee Currency must be present
+    if (!row['Fee Currency'] || row['Fee Currency'].trim() === '') {
+      return err(
+        new Error(
+          `Fee amount ${fee.toFixed()} exists but Fee Currency is missing in trading bot row (Order ID: ${row['Order ID']}). Cannot determine fee asset.`
+        )
+      );
+    }
+
+    const feeAssetIdResult = buildExchangeAssetId(EXCHANGE_NAME, row['Fee Currency']);
+    if (feeAssetIdResult.isErr()) {
+      return err(
+        new Error(
+          `Failed to build fee assetId for ${row['Fee Currency']} on ${EXCHANGE_NAME}: ${feeAssetIdResult.error.message}`
+        )
+      );
+    }
+    feeAssetId = feeAssetIdResult.value;
+  }
+
   // Generate unique ID using order ID + timestamp + filled amount to handle multiple fills
   const uniqueId = `${row['Order ID']}-${timestamp}-${filledAmount}`;
 
-  return {
+  return ok({
     externalId: uniqueId,
     datetime: row['Time Filled(UTC)'],
     timestamp,
@@ -204,17 +426,21 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Pro
     status: 'closed', // Trading bot data only shows completed fills
 
     // Structured movements - trade has both outflow and inflow
+    // Buy: spent quoteCurrency (filledVolume), received baseCurrency (filledAmount)
+    // Sell: spent baseCurrency (filledAmount), received quoteCurrency (filledVolume)
     movements: {
       outflows: [
         {
-          assetSymbol: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
+          assetId: isBuy ? quoteAssetIdResult.value : baseAssetIdResult.value,
+          assetSymbol: isBuy ? quoteCurrency : baseCurrency,
           grossAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
           netAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
         },
       ],
       inflows: [
         {
-          assetSymbol: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
+          assetId: isBuy ? baseAssetIdResult.value : quoteAssetIdResult.value,
+          assetSymbol: isBuy ? baseCurrency : quoteCurrency,
           grossAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
           netAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
         },
@@ -222,34 +448,127 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Pro
     },
 
     // Structured fees - exchange trades have platform fees
-    fees: platformFee ? [{ ...platformFee, scope: 'platform' as const, settlement: 'balance' as const }] : [],
+    fees: feeAssetId
+      ? [
+          {
+            assetId: feeAssetId,
+            assetSymbol: row['Fee Currency'],
+            amount: fee,
+            scope: 'platform' as const,
+            settlement: 'balance' as const,
+          },
+        ]
+      : [],
 
     // Operation classification - 10/10 confidence: trading bot is trade/buy or trade/sell
     operation: {
       category: 'trade',
       type: side, // 'buy' or 'sell'
     },
-  };
+  });
 }
 
 /**
  * Convert KuCoin spot order row into ProcessedTransaction
  */
-export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): ProcessedTransaction {
+export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Result<ProcessedTransaction, Error> {
   const timestamp = new Date(row['Filled Time(UTC)']).getTime();
-  const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
+
+  // Guard against missing Symbol field
+  if (!row.Symbol) {
+    return err(new Error(`Missing Symbol field in spot order row (Order ID: ${row['Order ID'] || 'unknown'})`));
+  }
+
+  // Validate required field: Side
+  if (!row.Side || row.Side.trim() === '') {
+    return err(
+      new Error(
+        `Missing required field 'Side' in spot order row (Order ID: ${row['Order ID']}). Cannot determine buy/sell direction.`
+      )
+    );
+  }
+
+  // Validate Side value
+  const side = row.Side.trim().toLowerCase();
+  if (side !== 'buy' && side !== 'sell') {
+    return err(
+      new Error(
+        `Invalid Side value '${row.Side}' in spot order row (Order ID: ${row['Order ID'] || 'unknown'}). Expected 'buy' or 'sell'.`
+      )
+    );
+  }
+
+  // Parse symbol - CRITICAL: fail-fast if malformed (prevents exchange:kucoin:unknown collisions)
+  const symbolParts = row.Symbol.split('-');
+  if (symbolParts.length !== 2) {
+    return err(
+      new Error(
+        `Invalid symbol format '${row.Symbol}' in spot order row (Order ID: ${row['Order ID']}). Expected format: BASE-QUOTE`
+      )
+    );
+  }
+
+  const [baseCurrency, quoteCurrency] = symbolParts;
+  if (!baseCurrency || !quoteCurrency || baseCurrency.trim() === '' || quoteCurrency.trim() === '') {
+    return err(
+      new Error(
+        `Empty base or quote currency in symbol '${row.Symbol}' (Order ID: ${row['Order ID']}). Cannot create assetId.`
+      )
+    );
+  }
+
   const filledAmount = row['Filled Amount'];
   const filledVolume = row['Filled Volume'];
   const fee = parseDecimal(row.Fee);
-  const platformFee = { amount: fee, assetSymbol: row['Fee Currency'] };
-  const side = row.Side.toLowerCase() as 'buy' | 'sell';
 
   // For spot orders:
   // - Buy: spent quoteCurrency (filledVolume), received baseCurrency (filledAmount)
   // - Sell: spent baseCurrency (filledAmount), received quoteCurrency (filledVolume)
   const isBuy = side === 'buy';
 
-  return {
+  // Build assetIds - currencies are validated, no 'unknown' defaults
+  const baseAssetIdResult = buildExchangeAssetId(EXCHANGE_NAME, baseCurrency);
+  if (baseAssetIdResult.isErr()) {
+    return err(
+      new Error(
+        `Failed to build assetId for base currency ${baseCurrency} on ${EXCHANGE_NAME}: ${baseAssetIdResult.error.message}`
+      )
+    );
+  }
+
+  const quoteAssetIdResult = buildExchangeAssetId(EXCHANGE_NAME, quoteCurrency);
+  if (quoteAssetIdResult.isErr()) {
+    return err(
+      new Error(
+        `Failed to build assetId for quote currency ${quoteCurrency} on ${EXCHANGE_NAME}: ${quoteAssetIdResult.error.message}`
+      )
+    );
+  }
+
+  // Build fee assetId - CRITICAL: never silently drop fees
+  let feeAssetId: string | undefined;
+  if (fee.greaterThan(0)) {
+    // Fee exists - Fee Currency must be present
+    if (!row['Fee Currency'] || row['Fee Currency'].trim() === '') {
+      return err(
+        new Error(
+          `Fee amount ${fee.toFixed()} exists but Fee Currency is missing in spot order row (Order ID: ${row['Order ID']}). Cannot determine fee asset.`
+        )
+      );
+    }
+
+    const feeAssetIdResult = buildExchangeAssetId(EXCHANGE_NAME, row['Fee Currency']);
+    if (feeAssetIdResult.isErr()) {
+      return err(
+        new Error(
+          `Failed to build fee assetId for ${row['Fee Currency']} on ${EXCHANGE_NAME}: ${feeAssetIdResult.error.message}`
+        )
+      );
+    }
+    feeAssetId = feeAssetIdResult.value;
+  }
+
+  return ok({
     externalId: row['Order ID'],
     datetime: row['Filled Time(UTC)'],
     timestamp,
@@ -257,17 +576,21 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Proce
     status: mapKucoinStatus(row.Status, 'spot'),
 
     // Structured movements - trade has both outflow and inflow
+    // Buy: spent quoteCurrency (filledVolume), received baseCurrency (filledAmount)
+    // Sell: spent baseCurrency (filledAmount), received quoteCurrency (filledVolume)
     movements: {
       outflows: [
         {
-          assetSymbol: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
+          assetId: isBuy ? quoteAssetIdResult.value : baseAssetIdResult.value,
+          assetSymbol: isBuy ? quoteCurrency : baseCurrency,
           grossAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
           netAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
         },
       ],
       inflows: [
         {
-          assetSymbol: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
+          assetId: isBuy ? baseAssetIdResult.value : quoteAssetIdResult.value,
+          assetSymbol: isBuy ? baseCurrency : quoteCurrency,
           grossAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
           netAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
         },
@@ -275,26 +598,45 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Proce
     },
 
     // Structured fees - exchange trades have platform fees
-    fees: platformFee ? [{ ...platformFee, scope: 'platform' as const, settlement: 'balance' as const }] : [],
+    fees: feeAssetId
+      ? [
+          {
+            assetId: feeAssetId,
+            assetSymbol: row['Fee Currency'],
+            amount: fee,
+            scope: 'platform' as const,
+            settlement: 'balance' as const,
+          },
+        ]
+      : [],
 
     // Operation classification - 10/10 confidence: spot order is trade/buy or trade/sell
     operation: {
       category: 'trade',
       type: side, // 'buy' or 'sell'
     },
-  };
+  });
 }
 
 /**
  * Convert KuCoin withdrawal row into ProcessedTransaction
  */
-export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRow): ProcessedTransaction {
+export function convertKucoinWithdrawalToTransaction(
+  row: CsvDepositWithdrawalRow
+): Result<ProcessedTransaction, Error> {
   const timestamp = new Date(row['Time(UTC)']).getTime();
   const grossAmount = parseDecimal(row.Amount).abs();
   const fee = parseDecimal(row.Fee ?? '0');
-  const platformFee = { amount: fee, assetSymbol: row.Coin };
 
-  return {
+  // Build assetId
+  const assetIdResult = buildExchangeAssetId(EXCHANGE_NAME, row.Coin);
+  if (assetIdResult.isErr()) {
+    return err(
+      new Error(`Failed to build assetId for ${row.Coin} on ${EXCHANGE_NAME}: ${assetIdResult.error.message}`)
+    );
+  }
+
+  return ok({
     externalId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-withdrawal-${row.Amount}`,
     datetime: row['Time(UTC)'],
     timestamp,
@@ -306,6 +648,7 @@ export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRo
       inflows: [],
       outflows: [
         {
+          assetId: assetIdResult.value,
           assetSymbol: row.Coin,
           grossAmount: grossAmount,
           netAmount: grossAmount,
@@ -314,8 +657,16 @@ export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRo
     },
 
     // Structured fees - exchange withdrawals have platform fees
-    fees: platformFee.amount.greaterThan(0)
-      ? [{ ...platformFee, scope: 'platform' as const, settlement: 'balance' as const }]
+    fees: fee.greaterThan(0)
+      ? [
+          {
+            assetId: assetIdResult.value,
+            assetSymbol: row.Coin,
+            amount: fee,
+            scope: 'platform' as const,
+            settlement: 'balance' as const,
+          },
+        ]
       : [],
 
     // Operation classification - 10/10 confidence: withdrawal is transfer/withdrawal
@@ -323,7 +674,7 @@ export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRo
       category: 'transfer',
       type: 'withdrawal',
     },
-  };
+  });
 }
 
 /**
@@ -372,7 +723,7 @@ export function mapKucoinStatus(
 export function processKucoinAccountHistory(
   filteredRows: CsvAccountHistoryRow[],
   logger: Logger
-): ProcessedTransaction[] {
+): Result<ProcessedTransaction[], Error> {
   const convertTransactions: ProcessedTransaction[] = [];
   const convertMarketRows = filteredRows.filter((row) => row.Type === 'Convert Market');
 
@@ -394,8 +745,15 @@ export function processKucoinAccountHistory(
       const withdrawal = group.find((row) => row.Side === 'Withdrawal');
 
       if (deposit && withdrawal) {
-        const convertTx = convertKucoinAccountHistoryConvertToTransaction(deposit, withdrawal, timestamp);
-        convertTransactions.push(convertTx);
+        const convertTxResult = convertKucoinAccountHistoryConvertToTransaction(deposit, withdrawal, timestamp);
+        if (convertTxResult.isErr()) {
+          logger.error(
+            { error: convertTxResult.error },
+            `Failed to convert account history convert transaction - Timestamp: ${timestamp}`
+          );
+          return err(convertTxResult.error);
+        }
+        convertTransactions.push(convertTxResult.value);
       } else {
         logger.warn(
           `Convert Market group missing deposit/withdrawal pair - Timestamp: ${timestamp}, Group: ${JSON.stringify(group)}`
@@ -408,5 +766,5 @@ export function processKucoinAccountHistory(
     }
   }
 
-  return convertTransactions;
+  return ok(convertTransactions);
 }

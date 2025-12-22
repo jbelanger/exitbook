@@ -1,5 +1,5 @@
 import type { CardanoTransaction } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -60,6 +60,71 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
         const feeAmount = parseDecimal(fundFlow.feeAmount || '0');
         const shouldRecordFeeEntry = fundFlow.feePaidByUser && !feeAmount.isZero();
 
+        // Build assetId for fee (always ADA)
+        const feeAssetIdResult = buildBlockchainNativeAssetId('cardano');
+        if (feeAssetIdResult.isErr()) {
+          const errorMsg = `Failed to build fee assetId: ${feeAssetIdResult.error.message}`;
+          processingErrors.push({ error: errorMsg, txHash: normalizedTx.id });
+          this.logger.error(`${errorMsg} for Cardano transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
+          continue;
+        }
+        const feeAssetId = feeAssetIdResult.value;
+
+        // Build movements with assetId
+        let hasAssetIdError = false;
+        const inflows = [];
+        for (const inflow of fundFlow.inflows) {
+          const assetIdResult = this.buildCardanoAssetId(inflow);
+          if (assetIdResult.isErr()) {
+            const errorMsg = `Failed to build assetId for inflow: ${assetIdResult.error.message}`;
+            processingErrors.push({ error: errorMsg, txHash: normalizedTx.id });
+            this.logger.error(`${errorMsg} for Cardano transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
+            hasAssetIdError = true;
+            break;
+          }
+
+          const amount = parseDecimal(inflow.amount);
+          inflows.push({
+            assetId: assetIdResult.value,
+            assetSymbol: inflow.asset,
+            grossAmount: amount,
+            netAmount: amount, // Inflows: no fee adjustment needed
+          });
+        }
+
+        if (hasAssetIdError) {
+          continue;
+        }
+
+        const outflows = [];
+        for (const outflow of fundFlow.outflows) {
+          const assetIdResult = this.buildCardanoAssetId(outflow);
+          if (assetIdResult.isErr()) {
+            const errorMsg = `Failed to build assetId for outflow: ${assetIdResult.error.message}`;
+            processingErrors.push({ error: errorMsg, txHash: normalizedTx.id });
+            this.logger.error(`${errorMsg} for Cardano transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
+            hasAssetIdError = true;
+            break;
+          }
+
+          const grossAmount = parseDecimal(outflow.amount);
+          // For ADA outflows when user paid fee: netAmount = grossAmount - fee
+          // For other assets or when no fee: netAmount = grossAmount
+          const netAmount =
+            outflow.asset === 'ADA' && shouldRecordFeeEntry ? grossAmount.minus(feeAmount) : grossAmount;
+
+          outflows.push({
+            assetId: assetIdResult.value,
+            assetSymbol: outflow.asset,
+            grossAmount, // Includes fee (total that left wallet)
+            netAmount, // Actual transfer amount (excludes fee)
+          });
+        }
+
+        if (hasAssetIdError) {
+          continue;
+        }
+
         // Build movements from fund flow
         // Convert to ProcessedTransaction format
         // ADR-005: For UTXO chains, grossAmount includes fees, netAmount is the actual transfer amount
@@ -74,32 +139,14 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
 
           // Structured movements from multi-asset UTXO analysis
           movements: {
-            inflows: fundFlow.inflows.map((inflow) => {
-              const amount = parseDecimal(inflow.amount);
-              return {
-                assetSymbol: inflow.asset,
-                grossAmount: amount,
-                netAmount: amount, // Inflows: no fee adjustment needed
-              };
-            }),
-            outflows: fundFlow.outflows.map((outflow) => {
-              const grossAmount = parseDecimal(outflow.amount);
-              // For ADA outflows when user paid fee: netAmount = grossAmount - fee
-              // For other assets or when no fee: netAmount = grossAmount
-              const netAmount =
-                outflow.asset === 'ADA' && shouldRecordFeeEntry ? grossAmount.minus(feeAmount) : grossAmount;
-
-              return {
-                assetSymbol: outflow.asset,
-                grossAmount, // Includes fee (total that left wallet)
-                netAmount, // Actual transfer amount (excludes fee)
-              };
-            }),
+            inflows,
+            outflows,
           },
 
           fees: shouldRecordFeeEntry
             ? [
                 {
+                  assetId: feeAssetId,
                   assetSymbol: fundFlow.feeCurrency,
                   amount: feeAmount,
                   scope: 'network',
@@ -136,16 +183,17 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
             : undefined,
         };
 
-        // Scam detection: Check inflows only (scam tokens arrive as airdrops)
-        for (const inflow of fundFlow.inflows) {
+        // Scam detection: Check all movements (both inflows and outflows)
+        const allMovements = [...fundFlow.inflows, ...fundFlow.outflows];
+        for (const movement of allMovements) {
           // Cardano-specific context: uses policyId instead of contract address
           const context = {
-            amount: parseDecimal(inflow.amount).toNumber(),
-            contractAddress: inflow.policyId,
+            amount: parseDecimal(movement.amount).toNumber(),
+            contractAddress: movement.policyId,
             isAirdrop: fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser,
           };
 
-          const scamNote = await this.detectScamForAsset(inflow.asset, context.contractAddress, {
+          const scamNote = await this.detectScamForAsset(movement.asset, context.contractAddress, {
             amount: context.amount,
             isAirdrop: context.isAirdrop,
           });
@@ -192,5 +240,28 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
     }
 
     return okAsync(transactions);
+  }
+
+  /**
+   * Build assetId for a Cardano movement
+   * - ADA (unit === 'lovelace'): blockchain:cardano:native
+   * - Native token: blockchain:cardano:<unit> where unit = policyId + assetName (full unique identifier)
+   *
+   * CRITICAL: Must use the full unit (policyId + assetName), not just policyId.
+   * Multiple assets can share the same policyId but have different assetNames.
+   */
+  private buildCardanoAssetId(movement: {
+    asset: string;
+    policyId?: string | undefined;
+    unit: string;
+  }): Result<string, Error> {
+    // ADA is the native asset
+    if (movement.unit === 'lovelace') {
+      return buildBlockchainNativeAssetId('cardano');
+    }
+
+    // Native token - use the full unit (policyId + assetName) for uniqueness
+    // The unit field already contains the complete unique identifier
+    return buildBlockchainTokenAssetId('cardano', movement.unit);
   }
 }

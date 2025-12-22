@@ -1,5 +1,5 @@
 import type { BitcoinChainConfig, BitcoinTransaction } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -58,6 +58,16 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         const shouldRecordFeeEntry = fundFlow.isOutgoing && !walletInputAmount.isZero();
         const effectiveFeeAmount = shouldRecordFeeEntry ? feeAmount : zeroDecimal;
 
+        // Build assetId for native asset
+        const assetIdResult = buildBlockchainNativeAssetId(this.chainConfig.chainName);
+        if (assetIdResult.isErr()) {
+          const errorMsg = `Failed to build assetId: ${assetIdResult.error.message}`;
+          processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+          this.logger.error(`${errorMsg} for Bitcoin transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
+          continue;
+        }
+        const assetId = assetIdResult.value;
+
         // Measure wallet spend in two views:
         // - grossOutflow: balance impact (amount removed from wallet after accounting for change)
         // - netOutflow: amount that actually left to external parties (excludes change, still excludes fees)
@@ -101,6 +111,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             outflows: hasOutflow
               ? [
                   {
+                    assetId,
                     assetSymbol: this.chainConfig.nativeCurrency,
                     grossAmount: grossOutflowAmount,
                     netAmount: netOutflowAmount,
@@ -110,6 +121,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             inflows: includeWalletOutputAsInflow
               ? [
                   {
+                    assetId,
                     assetSymbol: this.chainConfig.nativeCurrency,
                     grossAmount: walletOutputAmount,
                     netAmount: walletOutputAmount,
@@ -122,6 +134,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             shouldRecordFeeEntry && !feeAmount.isZero()
               ? [
                   {
+                    assetId,
                     assetSymbol: normalizedTx.feeCurrency || this.chainConfig.nativeCurrency,
                     amount: feeAmount,
                     scope: 'network',

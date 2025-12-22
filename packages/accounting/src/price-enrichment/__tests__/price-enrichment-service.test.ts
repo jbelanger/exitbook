@@ -79,12 +79,14 @@ describe('PriceEnrichmentService', () => {
         '2024-01-01T10:00:00Z',
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
           },
         ],
         [
           {
+            assetId: 'test:usd',
             assetSymbol: 'USD',
             grossAmount: parseDecimal('50000'),
           },
@@ -99,12 +101,14 @@ describe('PriceEnrichmentService', () => {
         '2024-01-01T11:00:00Z',
         [
           {
+            assetId: 'test:sol',
             assetSymbol: 'SOL',
             grossAmount: parseDecimal('100'),
           },
         ],
         [
           {
+            assetId: 'test:ada',
             assetSymbol: 'ADA',
             grossAmount: parseDecimal('1000'),
           },
@@ -209,12 +213,14 @@ describe('PriceEnrichmentService', () => {
         '2024-01-01T10:00:00Z',
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
           },
         ],
         [
           {
+            assetId: 'test:usd',
             assetSymbol: 'USD',
             grossAmount: parseDecimal('50000'),
           },
@@ -229,12 +235,14 @@ describe('PriceEnrichmentService', () => {
         '2024-01-01T10:00:00Z',
         [
           {
+            assetId: 'test:eth',
             assetSymbol: 'ETH',
             grossAmount: parseDecimal('20'),
           },
         ],
         [
           {
+            assetId: 'test:usd',
             assetSymbol: 'USD',
             grossAmount: parseDecimal('60000'),
           },
@@ -277,8 +285,8 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         baseTime.toISOString(),
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1') }],
-        [{ assetSymbol: 'USDT', grossAmount: parseDecimal('50000') }]
+        [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1') }],
+        [{ assetId: 'test:usdt', assetSymbol: 'USDT', grossAmount: parseDecimal('50000') }]
       );
 
       // Step 2: Withdraw BTC from Kraken (has price from trade)
@@ -290,6 +298,7 @@ describe('PriceEnrichmentService', () => {
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             priceAtTxTime: {
@@ -308,7 +317,7 @@ describe('PriceEnrichmentService', () => {
         'blockchain',
         'bitcoin',
         new Date(baseTime.getTime() + 120000).toISOString(), // 2 minutes later
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.999') }], // Slightly less due to network fee
+        [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.999') }], // Slightly less due to network fee
         []
       );
 
@@ -375,8 +384,8 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         baseTime.toISOString(),
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1') }],
-        [{ assetSymbol: 'USDT', grossAmount: parseDecimal('50000') }]
+        [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1') }],
+        [{ assetId: 'test:usdt', assetSymbol: 'USDT', grossAmount: parseDecimal('50000') }]
       );
 
       const tx2 = createMockTransaction(
@@ -384,7 +393,7 @@ describe('PriceEnrichmentService', () => {
         'blockchain',
         'bitcoin',
         new Date(baseTime.getTime() + 60000).toISOString(),
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.999') }],
+        [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.999') }],
         []
       );
 

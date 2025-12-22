@@ -47,6 +47,7 @@ export function createMovement(
   currency = 'USD'
 ): AssetMovement {
   return {
+    assetId: `test:${assetSymbol.toLowerCase()}`,
     assetSymbol,
     grossAmount: parseDecimal(amount),
     priceAtTxTime: createPriceAtTxTime(priceAmount, currency),
@@ -67,6 +68,7 @@ export function createFee(
   }
 ): FeeMovement {
   return {
+    assetId: `test:${assetSymbol.toLowerCase()}`,
     assetSymbol: assetSymbol,
     amount: parseDecimal(amount),
     scope: options?.scope ?? 'platform',

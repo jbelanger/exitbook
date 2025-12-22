@@ -573,7 +573,7 @@ export class RoutescanApiClient extends BaseApiClient {
       }
 
       const transactions = res.result || [];
-      const hasMore = transactions.length >= ROUTESCAN_PAGE_SIZE;
+      const hasMore = transactions.length >= ROUTESCAN_TOKEN_PAGE_SIZE;
       const lastTx = transactions[transactions.length - 1];
       const lastBlock = lastTx ? Number(lastTx.blockNumber) : undefined;
       const nextPageToken = hasMore ? this.getNextPageTokenFromLastBlock(lastBlock) : undefined;

@@ -6,6 +6,7 @@ import type { AccountType, BalanceCommandStatus, SourceType } from '@exitbook/co
 export interface BalanceCommandResult {
   status: BalanceCommandStatus;
   balances: {
+    assetId: string;
     calculatedBalance: string;
     currency: string;
     difference: string;
@@ -13,6 +14,38 @@ export interface BalanceCommandResult {
     percentageDiff: number;
     status: 'match' | 'warning' | 'mismatch';
   }[];
+  debug?:
+    | {
+        assetId: string;
+        assetSymbol: string;
+        topFees: {
+          amount: string;
+          datetime: string;
+          transactionHash?: string | undefined;
+        }[];
+        topInflows: {
+          amount: string;
+          datetime: string;
+          from?: string | undefined;
+          to?: string | undefined;
+          transactionHash?: string | undefined;
+        }[];
+        topOutflows: {
+          amount: string;
+          datetime: string;
+          from?: string | undefined;
+          to?: string | undefined;
+          transactionHash?: string | undefined;
+        }[];
+        totals: {
+          fees: string;
+          inflows: string;
+          net: string;
+          outflows: string;
+          txCount: number;
+        };
+      }
+    | undefined;
   summary: {
     matches: number;
     mismatches: number;

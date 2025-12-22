@@ -245,6 +245,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         sourceChannel: 'channel-8',
         sourcePort: 'transfer',
         to: USER_ADDRESS,
+        tokenAddress: 'ibc/D189335C6E0A38B075C43331493BEE2027372A1302E5D7EE0A1C6593121914F4',
         tokenType: 'ibc',
       }),
     ];
@@ -279,6 +280,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         messageType: '/ibc.applications.transfer.v1.MsgTransfer',
         sourceChannel: 'channel-8',
         sourcePort: 'transfer',
+        tokenAddress: 'ibc/D189335C6E0A38B075C43331493BEE2027372A1302E5D7EE0A1C6593121914F4',
         tokenType: 'ibc',
       }),
     ];

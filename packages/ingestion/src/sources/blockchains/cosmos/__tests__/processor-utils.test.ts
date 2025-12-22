@@ -263,7 +263,7 @@ describe('Cosmos Processor Utils', () => {
 
       expect(fundFlow.inflows).toHaveLength(1);
       expect(fundFlow.inflows[0]?.asset).toBe('USDT');
-      expect(fundFlow.inflows[0]?.tokenAddress).toBe('inj1usdt000000000000000000000000000000000');
+      expect(fundFlow.inflows[0]?.denom).toBe('inj1usdt000000000000000000000000000000000');
       expect(fundFlow.inflows[0]?.tokenDecimals).toBe(6);
       expect(fundFlow.hasContractInteraction).toBe(true);
     });

@@ -3,29 +3,46 @@ import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 /**
- * Calculate balances for all currencies from a set of transactions.
- * Returns all currencies that have transactions, including zero balances.
+ * Result from balance calculation including balances and asset metadata
  */
-export function calculateBalances(transactions: UniversalTransactionData[]): Record<string, Decimal> {
+export interface BalanceCalculationResult {
+  balances: Record<string, Decimal>; // assetId -> balance
+  assetMetadata: Record<string, string>; // assetId -> assetSymbol
+}
+
+/**
+ * Calculate balances for all assets from a set of transactions.
+ * Returns balances keyed by assetId and metadata mapping assetId -> assetSymbol for display.
+ */
+export function calculateBalances(transactions: UniversalTransactionData[]): BalanceCalculationResult {
   const balances: Record<string, Decimal> = {};
+  const assetMetadata: Record<string, string> = {};
 
   for (const transaction of transactions) {
-    processTransactionForBalance(transaction, balances);
+    processTransactionForBalance(transaction, balances, assetMetadata);
   }
 
-  return balances;
+  return { balances, assetMetadata };
 }
 
 /**
  * Process a single transaction's movements and fees to update balances.
  * Handles inflows, outflows, and fees from the transaction's structured data.
+ * Groups balances by assetId (unique identity) rather than assetSymbol (display label).
+ * Also tracks assetId -> assetSymbol mapping for display purposes.
  */
-function processTransactionForBalance(transaction: UniversalTransactionData, balances: Record<string, Decimal>): void {
+function processTransactionForBalance(
+  transaction: UniversalTransactionData,
+  balances: Record<string, Decimal>,
+  assetMetadata: Record<string, string>
+): void {
   // Initialize balance for any assets we encounter
-  const ensureBalance = (asset: string) => {
-    if (!balances[asset]) {
-      balances[asset] = parseDecimal('0');
+  const ensureBalance = (assetId: string, assetSymbol: string) => {
+    if (!balances[assetId]) {
+      balances[assetId] = parseDecimal('0');
     }
+    // Store assetSymbol for display (overwrites with same value if already exists)
+    assetMetadata[assetId] = assetSymbol;
   };
 
   // Process inflows (what user gained)
@@ -33,11 +50,11 @@ function processTransactionForBalance(transaction: UniversalTransactionData, bal
   const inflows = transaction.movements.inflows;
   if (inflows && Array.isArray(inflows) && inflows.length > 0) {
     for (const inflow of inflows) {
-      ensureBalance(inflow.assetSymbol);
+      ensureBalance(inflow.assetId, inflow.assetSymbol);
       // Use grossAmount - it represents what the user's balance increased by
       // (netAmount is for transfer matching, not balance calculation)
       const amount = inflow.grossAmount;
-      balances[inflow.assetSymbol] = balances[inflow.assetSymbol]!.plus(amount);
+      balances[inflow.assetId] = balances[inflow.assetId]!.plus(amount);
     }
   }
 
@@ -46,12 +63,12 @@ function processTransactionForBalance(transaction: UniversalTransactionData, bal
   const outflows = transaction.movements.outflows;
   if (outflows && Array.isArray(outflows) && outflows.length > 0) {
     for (const outflow of outflows) {
-      ensureBalance(outflow.assetSymbol);
+      ensureBalance(outflow.assetId, outflow.assetSymbol);
       // Use grossAmount - it represents what the user's balance decreased by
       // For UTXO chains (Bitcoin): grossAmount includes the fee (inputs - change)
       // For account-based chains (Ethereum, Solana, etc.): grossAmount = netAmount, fee deducted separately below
       const amount = outflow.grossAmount;
-      balances[outflow.assetSymbol] = balances[outflow.assetSymbol]!.minus(amount);
+      balances[outflow.assetId] = balances[outflow.assetId]!.minus(amount);
     }
   }
 
@@ -68,8 +85,8 @@ function processTransactionForBalance(transaction: UniversalTransactionData, bal
       }
 
       // Subtract balance-settled and external fees separately
-      ensureBalance(fee.assetSymbol);
-      balances[fee.assetSymbol] = balances[fee.assetSymbol]!.minus(fee.amount);
+      ensureBalance(fee.assetId, fee.assetSymbol);
+      balances[fee.assetId] = balances[fee.assetId]!.minus(fee.amount);
     }
   }
 }

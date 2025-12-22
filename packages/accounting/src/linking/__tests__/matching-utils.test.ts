@@ -940,7 +940,7 @@ describe('matching-utils', () => {
             type: 'transfer',
           },
           movements: {
-            inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.5') }],
+            inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.5') }],
             outflows: [],
           },
         },

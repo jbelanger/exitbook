@@ -15,6 +15,7 @@ import { enrichMovementWithPrice, enrichMovementsWithPrices } from '../movement-
 
 describe('enrichMovementWithPrice', () => {
   const createMovement = (price?: PriceAtTxTime): AssetMovement => ({
+    assetId: 'test:btc',
     assetSymbol: 'BTC',
     grossAmount: parseDecimal('1.0'),
     priceAtTxTime: price,
@@ -152,9 +153,9 @@ describe('enrichMovementWithPrice', () => {
 describe('enrichMovementsWithPrices', () => {
   it('should enrich multiple movements using price map', () => {
     const movements: AssetMovement[] = [
-      { assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') },
-      { assetSymbol: 'ETH', grossAmount: parseDecimal('10.0') },
-      { assetSymbol: 'SOL', grossAmount: parseDecimal('100.0') },
+      { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') },
+      { assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('10.0') },
+      { assetId: 'test:sol', assetSymbol: 'SOL', grossAmount: parseDecimal('100.0') },
     ];
 
     const pricesMap = new Map<string, PriceAtTxTime>([
@@ -192,6 +193,7 @@ describe('enrichMovementsWithPrices', () => {
     const movements: AssetMovement[] = [
       {
         assetSymbol: 'BTC',
+        assetId: 'test:btc',
         grossAmount: parseDecimal('1.0'),
         priceAtTxTime: {
           price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
@@ -201,6 +203,7 @@ describe('enrichMovementsWithPrices', () => {
         },
       },
       {
+        assetId: 'test:eth',
         assetSymbol: 'ETH',
         grossAmount: parseDecimal('10.0'),
         priceAtTxTime: {

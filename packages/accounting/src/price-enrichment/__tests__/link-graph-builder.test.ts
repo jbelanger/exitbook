@@ -24,10 +24,18 @@ function createTransaction(params: {
     status: 'success',
     movements: {
       inflows: params.inflows
-        ? params.inflows.map((m) => ({ assetSymbol: m.assetSymbol, grossAmount: parseDecimal(m.amount) }))
+        ? params.inflows.map((m) => ({
+            assetId: `test:${m.assetSymbol.toLowerCase()}`,
+            assetSymbol: m.assetSymbol,
+            grossAmount: parseDecimal(m.amount),
+          }))
         : [],
       outflows: params.outflows
-        ? params.outflows.map((m) => ({ assetSymbol: m.assetSymbol, grossAmount: parseDecimal(m.amount) }))
+        ? params.outflows.map((m) => ({
+            assetId: `test:${m.assetSymbol.toLowerCase()}`,
+            assetSymbol: m.assetSymbol,
+            grossAmount: parseDecimal(m.amount),
+          }))
         : [],
     },
     fees: [],

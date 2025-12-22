@@ -5,7 +5,7 @@ import {
   type EvmChainConfig,
   type EvmTransaction,
 } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal } from '@exitbook/core';
 import { err, okAsync, ok, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -98,6 +98,72 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
         shouldRecordFeeEntry = feePayerMatches;
       }
 
+      // Build movements with assetId
+      let hasAssetIdError = false;
+      const inflows = [];
+      for (const inflow of fundFlow.inflows) {
+        const assetIdResult = this.buildEvmAssetId(inflow, hash);
+        if (assetIdResult.isErr()) {
+          const errorMsg = `Failed to build assetId for inflow: ${assetIdResult.error.message}`;
+          processingErrors.push({ error: errorMsg, hash, txCount: txGroup.length });
+          this.logger.error(
+            `${errorMsg} for ${this.chainConfig.chainName} transaction ${hash} - THIS TRANSACTION GROUP WILL BE LOST`
+          );
+          hasAssetIdError = true;
+          break;
+        }
+
+        const amount = parseDecimal(inflow.amount);
+        inflows.push({
+          assetId: assetIdResult.value,
+          assetSymbol: inflow.asset,
+          grossAmount: amount,
+          netAmount: amount,
+        });
+      }
+
+      if (hasAssetIdError) {
+        continue;
+      }
+
+      const outflows = [];
+      for (const outflow of fundFlow.outflows) {
+        const assetIdResult = this.buildEvmAssetId(outflow, hash);
+        if (assetIdResult.isErr()) {
+          const errorMsg = `Failed to build assetId for outflow: ${assetIdResult.error.message}`;
+          processingErrors.push({ error: errorMsg, hash, txCount: txGroup.length });
+          this.logger.error(
+            `${errorMsg} for ${this.chainConfig.chainName} transaction ${hash} - THIS TRANSACTION GROUP WILL BE LOST`
+          );
+          hasAssetIdError = true;
+          break;
+        }
+
+        const amount = parseDecimal(outflow.amount);
+        outflows.push({
+          assetId: assetIdResult.value,
+          assetSymbol: outflow.asset,
+          grossAmount: amount,
+          netAmount: amount,
+        });
+      }
+
+      if (hasAssetIdError) {
+        continue;
+      }
+
+      // Build fee assetId (always native asset for EVM)
+      const feeAssetIdResult = buildBlockchainNativeAssetId(this.chainConfig.chainName);
+      if (feeAssetIdResult.isErr()) {
+        const errorMsg = `Failed to build fee assetId: ${feeAssetIdResult.error.message}`;
+        processingErrors.push({ error: errorMsg, hash, txCount: txGroup.length });
+        this.logger.error(
+          `${errorMsg} for ${this.chainConfig.chainName} transaction ${hash} - THIS TRANSACTION GROUP WILL BE LOST`
+        );
+        continue;
+      }
+      const feeAssetId = feeAssetIdResult.value;
+
       const universalTransaction: ProcessedTransaction = {
         externalId: primaryTx.id,
         datetime: new Date(primaryTx.timestamp).toISOString(),
@@ -109,28 +175,15 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
         // Structured movements from fund flow analysis
         movements: {
-          inflows: fundFlow.inflows.map((inflow) => {
-            const amount = parseDecimal(inflow.amount);
-            return {
-              assetSymbol: inflow.asset,
-              grossAmount: amount,
-              netAmount: amount,
-            };
-          }),
-          outflows: fundFlow.outflows.map((outflow) => {
-            const amount = parseDecimal(outflow.amount);
-            return {
-              assetSymbol: outflow.asset,
-              grossAmount: amount,
-              netAmount: amount,
-            };
-          }),
+          inflows,
+          outflows,
         },
 
         fees:
           shouldRecordFeeEntry && !parseDecimal(fundFlow.feeAmount).isZero()
             ? [
                 {
+                  assetId: feeAssetId,
                   assetSymbol: fundFlow.feeCurrency,
                   amount: parseDecimal(fundFlow.feeAmount),
                   scope: 'network',
@@ -151,16 +204,17 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
         },
       };
 
-      // Scam detection: Check inflows only (scam tokens arrive as airdrops)
-      for (const inflow of fundFlow.inflows) {
+      // Scam detection: Check all movements (both inflows and outflows)
+      const allMovements = [...fundFlow.inflows, ...fundFlow.outflows];
+      for (const movement of allMovements) {
         // EVM-specific airdrop detection: inflows without outflows and not user-initiated
         const context = {
-          amount: parseDecimal(inflow.amount).toNumber(),
-          contractAddress: inflow.tokenAddress,
+          amount: parseDecimal(movement.amount).toNumber(),
+          contractAddress: movement.tokenAddress,
           isAirdrop: fundFlow.outflows.length === 0 && !userInitiatedTransaction,
         };
 
-        const scamNote = await this.detectScamForAsset(inflow.asset, context.contractAddress, {
+        const scamNote = await this.detectScamForAsset(movement.asset, context.contractAddress, {
           amount: context.amount,
           isAirdrop: context.isAirdrop,
         });
@@ -289,5 +343,46 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     const isContract = result.value.data.isContract;
     this.addressInfoCache.set(address, isContract);
     return isContract;
+  }
+
+  /**
+   * Build assetId for an EVM movement
+   * - Native asset (no tokenAddress): blockchain:<chain>:native
+   * - Token with tokenAddress: blockchain:<chain>:<tokenAddress>
+   * - Token without tokenAddress (edge case): fail-fast with an error
+   *
+   * Per Asset Identity Specification, tokenAddress should usually be available for ERC-20 transfers.
+   * If missing for a non-native asset, we fail-fast to prevent silent data corruption.
+   */
+  private buildEvmAssetId(
+    movement: {
+      asset: string;
+      tokenAddress?: string | undefined;
+    },
+    transactionHash: string
+  ): Result<string, Error> {
+    // Native asset (ETH, MATIC, etc.) - no token address
+    if (!movement.tokenAddress) {
+      const assetSymbol = movement.asset;
+      const nativeSymbol = this.chainConfig.nativeCurrency;
+      const isNativeSymbol = assetSymbol.trim().toLowerCase() === nativeSymbol.trim().toLowerCase();
+
+      if (isNativeSymbol) {
+        return buildBlockchainNativeAssetId(this.chainConfig.chainName);
+      }
+
+      if (looksLikeContractAddress(assetSymbol, 40)) {
+        return err(
+          new Error(`Missing tokenAddress for token-like asset symbol ${assetSymbol} in transaction ${transactionHash}`)
+        );
+      }
+
+      return err(
+        new Error(`Missing tokenAddress for non-native asset ${assetSymbol} in transaction ${transactionHash}`)
+      );
+    }
+
+    // Token with contract address
+    return buildBlockchainTokenAssetId(this.chainConfig.chainName, movement.tokenAddress);
   }
 }

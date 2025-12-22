@@ -266,7 +266,9 @@ describe('TransactionRepository - scam token filtering', () => {
           transaction_datetime: new Date().toISOString(),
           is_spam: false,
           excluded_from_accounting: false,
-          movements_inflows: JSON.stringify([{ assetSymbol: 'ETH', grossAmount: '1.0', netAmount: '1.0' }]),
+          movements_inflows: JSON.stringify([
+            { assetId: 'blockchain:ethereum:native', assetSymbol: 'ETH', grossAmount: '1.0', netAmount: '1.0' },
+          ]),
           operation_type: 'transfer' as const,
           created_at: new Date().toISOString(),
         })
@@ -288,7 +290,9 @@ describe('TransactionRepository - scam token filtering', () => {
           notes_json: JSON.stringify([{ type: 'SCAM_TOKEN', message: 'Scam token detected', severity: 'error' }]),
           is_spam: true,
           excluded_from_accounting: true, // Scam tokens excluded
-          movements_inflows: JSON.stringify([{ assetSymbol: 'SCAM', grossAmount: '1000.0', netAmount: '1000.0' }]),
+          movements_inflows: JSON.stringify([
+            { assetId: 'blockchain:ethereum:0xscam', assetSymbol: 'SCAM', grossAmount: '1000.0', netAmount: '1000.0' },
+          ]),
           operation_type: 'transfer' as const,
           created_at: new Date().toISOString(),
         })
@@ -413,6 +417,7 @@ describe('TransactionRepository - isSpam field', () => {
       movements: {
         inflows: [
           {
+            assetId: 'test:scam',
             assetSymbol: 'SCAM',
             grossAmount: parseDecimal('1000'),
             netAmount: parseDecimal('1000'),
@@ -458,6 +463,7 @@ describe('TransactionRepository - isSpam field', () => {
       movements: {
         inflows: [
           {
+            assetId: 'test:eth',
             assetSymbol: 'ETH',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('1'),
@@ -496,6 +502,7 @@ describe('TransactionRepository - isSpam field', () => {
       movements: {
         inflows: [
           {
+            assetId: 'test:eth',
             assetSymbol: 'ETH',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('1'),
@@ -657,8 +664,18 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         operation_type: 'swap',
         is_spam: false,
         excluded_from_accounting: false,
-        movements_inflows: JSON.stringify([{ assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
-        fees: JSON.stringify([{ assetSymbol: 'BTC', amount: '0.0001', scope: 'network', settlement: 'on-chain' }]),
+        movements_inflows: JSON.stringify([
+          { assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' },
+        ]),
+        fees: JSON.stringify([
+          {
+            assetId: 'blockchain:bitcoin:native',
+            assetSymbol: 'BTC',
+            amount: '0.0001',
+            scope: 'network',
+            settlement: 'on-chain',
+          },
+        ]),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -677,6 +694,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       movements: {
         inflows: [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
@@ -692,6 +710,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       },
       fees: [
         {
+          assetId: 'test:btc',
           assetSymbol: 'BTC',
           amount: parseDecimal('0.0001'),
           scope: 'network',
@@ -761,6 +780,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       movements: {
         inflows: [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
@@ -856,7 +876,9 @@ describe.skip('TransactionRepository - deduplication across sessions (deprecated
           transaction_datetime: new Date('2024-01-01').toISOString(),
           is_spam: false,
           excluded_from_accounting: false,
-          movements_inflows: JSON.stringify([{ assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
+          movements_inflows: JSON.stringify([
+            { assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' },
+          ]),
           operation_type: 'deposit' as const,
           created_at: new Date('2024-01-01').toISOString(),
         })
@@ -886,7 +908,9 @@ describe.skip('TransactionRepository - deduplication across sessions (deprecated
           transaction_datetime: new Date('2024-01-02').toISOString(),
           is_spam: false,
           excluded_from_accounting: false,
-          movements_inflows: JSON.stringify([{ assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
+          movements_inflows: JSON.stringify([
+            { assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' },
+          ]),
           operation_type: 'deposit' as const,
           created_at: new Date('2024-01-02').toISOString(),
         })

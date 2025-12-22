@@ -73,7 +73,7 @@ export function transformNormalTransaction(
   const transaction: EvmTransaction = {
     amount: rawData.value,
     blockHeight: parseInt(rawData.blockNumber),
-    blockId: rawData.blockHash,
+    blockId: rawData.blockHash ?? undefined,
     currency: nativeCurrency,
     eventId: generateUniqueTransactionEventId({
       amount: rawData.value,
@@ -85,7 +85,7 @@ export function transformNormalTransaction(
       type: transactionType,
     }),
     from,
-    gasPrice: rawData.gasPrice,
+    gasPrice: rawData.gasPrice ?? undefined,
     gasUsed: rawData.gasUsed ?? undefined,
     id: rawData.hash,
     providerName: 'routescan',
@@ -130,7 +130,7 @@ export function transformTokenTransfer(
   const transaction: EvmTransaction = {
     amount: rawData.value,
     blockHeight: parseInt(rawData.blockNumber),
-    blockId: rawData.blockHash,
+    blockId: rawData.blockHash ?? undefined,
     // Use contract address for currency to keep eventId stable across providers.
     currency: tokenAddress ?? rawData.contractAddress,
     eventId: generateUniqueTransactionEventId({
@@ -144,7 +144,7 @@ export function transformTokenTransfer(
       type: 'token_transfer',
     }),
     from,
-    gasPrice: rawData.gasPrice,
+    gasPrice: rawData.gasPrice ?? undefined,
     gasUsed: rawData.gasUsed ?? undefined,
     id: rawData.hash,
     providerName: 'routescan',

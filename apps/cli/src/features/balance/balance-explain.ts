@@ -4,7 +4,9 @@ import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 interface BalanceMismatchInput {
-  currency: string;
+  assetId: string; // Unique asset identity for filtering
+  assetSymbol: string; // Display symbol
+  currency: string; // Deprecated: use assetSymbol for display
   live: Decimal;
   calculated: Decimal;
 }
@@ -48,7 +50,8 @@ export function buildBalanceMismatchExplanation(params: {
   );
 
   for (const mismatch of params.mismatches) {
-    const asset = mismatch.currency;
+    const assetId = mismatch.assetId;
+    const assetSymbol = mismatch.assetSymbol;
     const inflows: MovementSample[] = [];
     const outflows: MovementSample[] = [];
 
@@ -61,7 +64,7 @@ export function buildBalanceMismatchExplanation(params: {
       let touched = false;
 
       for (const inflow of tx.movements.inflows ?? []) {
-        if (inflow.assetSymbol !== asset) continue;
+        if (inflow.assetId !== assetId) continue;
         touched = true;
         inflowTotal = inflowTotal.plus(inflow.grossAmount);
         inflows.push({
@@ -74,7 +77,7 @@ export function buildBalanceMismatchExplanation(params: {
       }
 
       for (const outflow of tx.movements.outflows ?? []) {
-        if (outflow.assetSymbol !== asset) continue;
+        if (outflow.assetId !== assetId) continue;
         touched = true;
         outflowTotal = outflowTotal.plus(outflow.grossAmount);
         outflows.push({
@@ -87,7 +90,7 @@ export function buildBalanceMismatchExplanation(params: {
       }
 
       for (const fee of tx.fees ?? []) {
-        if (fee.assetSymbol !== asset) continue;
+        if (fee.assetId !== assetId) continue;
         if (fee.settlement !== 'balance') continue;
         touched = true;
         feeTotal = feeTotal.plus(fee.amount);
@@ -102,15 +105,15 @@ export function buildBalanceMismatchExplanation(params: {
     const impliedOpeningOrMissing = mismatch.live.minus(mismatch.calculated);
 
     lines.push(
-      `${asset}: tx-derived net=${netFromTxs.toFixed()} (in=${inflowTotal.toFixed()}, out=${outflowTotal.toFixed()}, fees=${feeTotal.toFixed()}) across ${txCountWithAsset} tx(s)`
+      `${assetSymbol}: tx-derived net=${netFromTxs.toFixed()} (in=${inflowTotal.toFixed()}, out=${outflowTotal.toFixed()}, fees=${feeTotal.toFixed()}) across ${txCountWithAsset} tx(s)`
     );
     lines.push(
-      `${asset}: live=${mismatch.live.toFixed()}, calculated=${mismatch.calculated.toFixed()}, implied missing history/opening balance=${impliedOpeningOrMissing.toFixed()}`
+      `${assetSymbol}: live=${mismatch.live.toFixed()}, calculated=${mismatch.calculated.toFixed()}, implied missing history/opening balance=${impliedOpeningOrMissing.toFixed()}`
     );
 
     if (inflows.length === 0 && outflows.length === 0 && feeTotal.isZero()) {
       lines.push(
-        `${asset}: no movements found in imported transactions; live balance may be dust, minted/burned, or missing history.`
+        `${assetSymbol}: no movements found in imported transactions; live balance may be dust, minted/burned, or missing history.`
       );
       continue;
     }
@@ -119,7 +122,7 @@ export function buildBalanceMismatchExplanation(params: {
     outflows.sort((a, b) => b.amount.abs().comparedTo(a.amount.abs()));
 
     if (outflows.length > 0) {
-      lines.push(`${asset}: top outflows:`);
+      lines.push(`${assetSymbol}: top outflows:`);
       for (const sample of outflows.slice(0, topN)) {
         lines.push(
           `  - ${sample.amount.toFixed()} on ${sample.datetime} to ${sample.to ?? 'unknown'} (tx ${sample.transactionHash ?? 'unknown'})`
@@ -128,7 +131,7 @@ export function buildBalanceMismatchExplanation(params: {
     }
 
     if (inflows.length > 0) {
-      lines.push(`${asset}: top inflows:`);
+      lines.push(`${assetSymbol}: top inflows:`);
       for (const sample of inflows.slice(0, topN)) {
         lines.push(
           `  - ${sample.amount.toFixed()} on ${sample.datetime} from ${sample.from ?? 'unknown'} (tx ${sample.transactionHash ?? 'unknown'})`

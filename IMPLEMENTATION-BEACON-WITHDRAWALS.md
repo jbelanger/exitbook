@@ -1185,7 +1185,7 @@ Test cases:
 
 - ✅ Import for `0x51b4096d4bde1b883f6d6ca3b1b7eb54dc20b913`
 - ✅ Verify withdrawals saved to raw_transactions
-- ✅ Verify withdrawals processed to universal_transactions
+- ✅ Verify withdrawals processed to transactions
 - ✅ Verify balance calculation includes withdrawals
 
 - ✅ Verify warning logged when skipped

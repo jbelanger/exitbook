@@ -85,17 +85,17 @@ export function analyzeFundFlowFromNormalized(
       transaction.messageType?.includes('contract')
   );
 
-  // Collect ALL assets that flow in/out
+  // Collect ALL assets that flow in/out (using Cosmos-specific 'denom' terminology)
   const inflows: {
     amount: string;
     asset: string;
-    tokenAddress?: string;
+    denom?: string;
     tokenDecimals?: number;
   }[] = [];
   const outflows: {
     amount: string;
     asset: string;
-    tokenAddress?: string;
+    denom?: string;
     tokenDecimals?: number;
   }[] = [];
 
@@ -112,7 +112,7 @@ export function analyzeFundFlowFromNormalized(
     const movement: {
       amount: string;
       asset: string;
-      tokenAddress?: string;
+      denom?: string;
       tokenDecimals?: number;
     } = {
       amount,
@@ -120,8 +120,9 @@ export function analyzeFundFlowFromNormalized(
     };
 
     // Only add optional fields if they have values
+    // Map tokenAddress from provider to denom (Cosmos-specific terminology)
     if (transaction.tokenAddress !== undefined) {
-      movement.tokenAddress = transaction.tokenAddress;
+      movement.denom = transaction.tokenAddress;
     }
     if (transaction.tokenDecimals !== undefined) {
       movement.tokenDecimals = transaction.tokenDecimals;
@@ -146,7 +147,7 @@ export function analyzeFundFlowFromNormalized(
   const primary: {
     amount: string;
     asset: string;
-    tokenAddress?: string;
+    denom?: string;
     tokenDecimals?: number;
   } = {
     amount: transaction.amount,
@@ -154,8 +155,9 @@ export function analyzeFundFlowFromNormalized(
   };
 
   // Only add optional fields if they have values
+  // Map tokenAddress from provider to denom (Cosmos-specific terminology)
   if (transaction.tokenAddress !== undefined) {
-    primary.tokenAddress = transaction.tokenAddress;
+    primary.denom = transaction.tokenAddress;
   }
   if (transaction.tokenDecimals !== undefined) {
     primary.tokenDecimals = transaction.tokenDecimals;

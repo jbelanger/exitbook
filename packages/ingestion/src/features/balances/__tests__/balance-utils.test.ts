@@ -44,9 +44,14 @@ describe('fetchExchangeBalance', () => {
     if (result.isOk()) {
       expect(result.value).toEqual({
         balances: {
-          BTC: '1.5',
-          ETH: '10.25',
-          USDT: '5000',
+          'exchange:kraken:btc': '1.5',
+          'exchange:kraken:eth': '10.25',
+          'exchange:kraken:usdt': '5000',
+        },
+        assetMetadata: {
+          'exchange:kraken:btc': 'BTC',
+          'exchange:kraken:eth': 'ETH',
+          'exchange:kraken:usdt': 'USDT',
         },
         timestamp: 1234567890000,
         sourceType: 'exchange',
@@ -148,7 +153,7 @@ describe('fetchBlockchainBalance', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.balances).toEqual({
-        BTC: '2.5',
+        'blockchain:bitcoin:native': '2.5',
       });
       expect(result.value.sourceType).toBe('blockchain');
       expect(result.value.sourceName).toBe('bitcoin:bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
@@ -245,7 +250,7 @@ describe('fetchBlockchainBalance', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.balances).toEqual({
-        ETH: '15.75',
+        'blockchain:ethereum:native': '15.75',
       });
     }
   });
@@ -287,7 +292,7 @@ describe('fetchBlockchainBalance', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.balances).toEqual({
-        SOL: '0',
+        'blockchain:solana:native': '0',
       });
     }
   });

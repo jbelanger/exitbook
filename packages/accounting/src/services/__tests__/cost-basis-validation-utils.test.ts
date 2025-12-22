@@ -31,6 +31,7 @@ describe('cost-basis-validation-utils', () => {
         movements: {
           inflows: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               grossAmount: new Decimal('1.0'),
               netAmount: new Decimal('1.0'),
@@ -43,6 +44,7 @@ describe('cost-basis-validation-utils', () => {
           ],
           outflows: [
             {
+              assetId: 'test:usd',
               assetSymbol: 'USD',
               grossAmount: new Decimal('50000'),
               netAmount: new Decimal('50000'),
@@ -56,6 +58,7 @@ describe('cost-basis-validation-utils', () => {
         },
         fees: [
           {
+            assetId: 'test:usd',
             assetSymbol: 'USD',
             amount: new Decimal('10'),
             scope: 'platform',
@@ -111,6 +114,7 @@ describe('cost-basis-validation-utils', () => {
         movements: {
           inflows: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               grossAmount: new Decimal('1.0'),
               netAmount: new Decimal('1.0'),
@@ -147,6 +151,7 @@ describe('cost-basis-validation-utils', () => {
         movements: {
           inflows: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               grossAmount: new Decimal('1.0'),
               netAmount: new Decimal('1.0'),
@@ -199,6 +204,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
@@ -236,6 +242,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
@@ -275,6 +282,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
@@ -316,6 +324,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
@@ -353,6 +362,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
@@ -392,6 +402,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
@@ -436,6 +447,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
@@ -476,6 +488,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
@@ -614,6 +627,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
@@ -626,6 +640,7 @@ describe('cost-basis-validation-utils', () => {
             ],
             outflows: [
               {
+                assetId: 'test:usd',
                 assetSymbol: 'USD',
                 grossAmount: new Decimal('50000'),
                 netAmount: new Decimal('50000'),
@@ -663,6 +678,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
@@ -700,6 +716,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
@@ -741,6 +758,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
@@ -785,6 +803,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
@@ -793,6 +812,7 @@ describe('cost-basis-validation-utils', () => {
             ],
             outflows: [
               {
+                assetId: 'test:eth',
                 assetSymbol: 'ETH',
                 grossAmount: new Decimal('10.0'),
                 netAmount: new Decimal('10.0'),
@@ -806,6 +826,7 @@ describe('cost-basis-validation-utils', () => {
           },
           fees: [
             {
+              assetId: 'test:usd',
               assetSymbol: 'USD',
               amount: new Decimal('10'),
               scope: 'platform',

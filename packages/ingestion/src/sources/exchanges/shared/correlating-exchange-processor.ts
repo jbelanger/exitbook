@@ -89,6 +89,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
             const net = parseDecimal(inflow.netAmount ?? inflow.grossAmount);
 
             return {
+              assetId: inflow.assetId,
               assetSymbol: inflow.assetSymbol,
               grossAmount: gross,
               netAmount: net,
@@ -100,6 +101,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
             const net = parseDecimal(outflow.netAmount ?? outflow.grossAmount);
 
             return {
+              assetId: outflow.assetId,
               assetSymbol: outflow.assetSymbol,
               grossAmount: gross,
               netAmount: net,
@@ -108,6 +110,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         },
 
         fees: fundFlow.fees.map((fee) => ({
+          assetId: fee.assetId,
           assetSymbol: fee.assetSymbol,
           amount: parseDecimal(fee.amount),
           scope: fee.scope,
@@ -158,9 +161,14 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     const allFees: FeeInput[] = [];
 
     for (const entry of entryGroup) {
-      // Interpretation strategy sees both raw and normalized
-      const interp = this.interpretation.interpret(entry, entryGroup);
+      // Interpretation strategy sees both raw and normalized, and returns Result
+      const interpResult = this.interpretation.interpret(entry, entryGroup, this.sourceName);
 
+      if (interpResult.isErr()) {
+        return err(`Interpretation failed for entry ${entry.normalized.id}: ${interpResult.error.message}`);
+      }
+
+      const interp = interpResult.value;
       allInflows.push(...interp.inflows);
       allOutflows.push(...interp.outflows);
       allFees.push(...interp.fees);

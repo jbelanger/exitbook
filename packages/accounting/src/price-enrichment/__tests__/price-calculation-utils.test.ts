@@ -8,6 +8,7 @@ describe('extractTradeMovements', () => {
   it('should extract simple trade pattern (1 inflow + 1 outflow)', () => {
     const inflows: AssetMovement[] = [
       {
+        assetId: 'test:btc',
         assetSymbol: 'BTC',
         grossAmount: parseDecimal('1'),
       },
@@ -15,6 +16,7 @@ describe('extractTradeMovements', () => {
 
     const outflows: AssetMovement[] = [
       {
+        assetId: 'test:usdt',
         assetSymbol: 'USDT',
         grossAmount: parseDecimal('50000'),
       },
@@ -33,10 +35,12 @@ describe('extractTradeMovements', () => {
   it('should return undefined for complex patterns', () => {
     const inflows: AssetMovement[] = [
       {
+        assetId: 'test:btc',
         assetSymbol: 'BTC',
         grossAmount: parseDecimal('1'),
       },
       {
+        assetId: 'test:eth',
         assetSymbol: 'ETH',
         grossAmount: parseDecimal('10'),
       },
@@ -44,6 +48,7 @@ describe('extractTradeMovements', () => {
 
     const outflows: AssetMovement[] = [
       {
+        assetId: 'test:usdt',
         assetSymbol: 'USDT',
         grossAmount: parseDecimal('50000'),
       },
@@ -63,10 +68,12 @@ describe('calculatePriceFromTrade', () => {
     // Stablecoins are fetched in Stage 3 to capture de-peg events
     const trade = {
       inflow: {
+        assetId: 'test:btc',
         assetSymbol: 'BTC',
         grossAmount: parseDecimal('1'),
       },
       outflow: {
+        assetId: 'test:usdt',
         assetSymbol: 'USDT',
         grossAmount: parseDecimal('50000'),
       },
@@ -83,10 +90,12 @@ describe('calculatePriceFromTrade', () => {
     // Sell 2 ETH for 6,000 USD
     const trade = {
       inflow: {
+        assetId: 'test:usd',
         assetSymbol: 'USD',
         grossAmount: parseDecimal('6000'),
       },
       outflow: {
+        assetId: 'test:eth',
         assetSymbol: 'ETH',
         grossAmount: parseDecimal('2'),
       },
@@ -112,10 +121,12 @@ describe('calculatePriceFromTrade', () => {
     // from Stage 3 to capture de-peg events
     const trade = {
       inflow: {
+        assetId: 'test:usdc',
         assetSymbol: 'USDC',
         grossAmount: parseDecimal('999.5'),
       },
       outflow: {
+        assetId: 'test:usdt',
         assetSymbol: 'USDT',
         grossAmount: parseDecimal('1000'),
       },
@@ -132,10 +143,12 @@ describe('calculatePriceFromTrade', () => {
     // Swap 1 BTC for 20 ETH (no fiat/stablecoin)
     const trade = {
       inflow: {
+        assetId: 'test:eth',
         assetSymbol: 'ETH',
         grossAmount: parseDecimal('20'),
       },
       outflow: {
+        assetId: 'test:btc',
         assetSymbol: 'BTC',
         grossAmount: parseDecimal('1'),
       },
@@ -151,10 +164,12 @@ describe('calculatePriceFromTrade', () => {
     // Buy 0.5 BTC with 25,000 USD (actual USD, not stablecoin)
     const trade = {
       inflow: {
+        assetId: 'test:btc',
         assetSymbol: 'BTC',
         grossAmount: parseDecimal('0.5'),
       },
       outflow: {
+        assetId: 'test:usd',
         assetSymbol: 'USD',
         grossAmount: parseDecimal('25000'),
       },
@@ -180,10 +195,12 @@ describe('calculatePriceFromTrade', () => {
     // If Stage 1 fails, Stage 3 providers (priority 1) can overwrite
     const trade = {
       inflow: {
+        assetId: 'test:btc',
         assetSymbol: 'BTC',
         grossAmount: parseDecimal('1'),
       },
       outflow: {
+        assetId: 'test:eur',
         assetSymbol: 'EUR',
         grossAmount: parseDecimal('40000'),
       },
@@ -217,10 +234,12 @@ describe('calculatePriceFromTrade', () => {
     // If Stage 1 fails, Stage 3 providers (priority 1) can overwrite
     const trade = {
       inflow: {
+        assetId: 'test:btc',
         assetSymbol: 'BTC',
         grossAmount: parseDecimal('1'),
       },
       outflow: {
+        assetId: 'test:cad',
         assetSymbol: 'CAD',
         grossAmount: parseDecimal('65000'),
       },
@@ -251,10 +270,12 @@ describe('calculatePriceFromTrade', () => {
     // Buy 1 BTC with 50,000 USD (actual USD)
     const trade = {
       inflow: {
+        assetId: 'test:btc',
         assetSymbol: 'BTC',
         grossAmount: parseDecimal('1'),
       },
       outflow: {
+        assetId: 'test:usd',
         assetSymbol: 'USD',
         grossAmount: parseDecimal('50000'),
       },

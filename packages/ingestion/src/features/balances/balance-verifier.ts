@@ -7,20 +7,22 @@ import type { BalanceComparison, BalanceVerificationResult } from './balance-ver
 /**
  * Compare calculated balances against live balances from an API.
  * Pure function that performs balance verification logic.
+ * Now uses assetId as the key and includes assetSymbol for display.
  */
 export function compareBalances(
   calculated: Record<string, Decimal>,
   live: Record<string, Decimal>,
+  assetMetadata: Record<string, string>, // assetId -> assetSymbol mapping
   tolerance = 0.00000001 // Default tolerance for floating point comparison
 ): BalanceComparison[] {
   const comparisons: BalanceComparison[] = [];
 
-  // Get all unique currencies from both calculated and live balances
-  const allCurrencies = new Set([...Object.keys(calculated), ...Object.keys(live)]);
+  // Get all unique assetIds from both calculated and live balances
+  const allAssetIds = new Set([...Object.keys(calculated), ...Object.keys(live)]);
 
-  for (const currency of allCurrencies) {
-    const calcBalance = calculated[currency] || parseDecimal('0');
-    const liveBalance = live[currency] || parseDecimal('0');
+  for (const assetId of allAssetIds) {
+    const calcBalance = calculated[assetId] || parseDecimal('0');
+    const liveBalance = live[assetId] || parseDecimal('0');
 
     const difference = calcBalance.minus(liveBalance);
     const absDifference = difference.abs();
@@ -48,8 +50,13 @@ export function compareBalances(
       }
     }
 
+    // Get assetSymbol for display (fallback to assetId if not found)
+    const assetSymbol = assetMetadata[assetId] ?? assetId;
+
     comparisons.push({
-      currency,
+      assetId,
+      assetSymbol,
+      currency: assetSymbol, // Deprecated field, kept for backwards compatibility
       calculatedBalance: calcBalance.toFixed(),
       liveBalance: liveBalance.toFixed(),
       difference: difference.toFixed(),

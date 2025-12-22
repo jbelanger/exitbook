@@ -25,7 +25,8 @@ describe('calculateBalances', () => {
   it('should return empty balances for empty transactions array', () => {
     const result = calculateBalances([]);
 
-    expect(result).toEqual({});
+    expect(result.balances).toEqual({});
+    expect(result.assetMetadata).toEqual({});
   });
 
   it('should calculate balance from single inflow transaction', () => {
@@ -35,6 +36,7 @@ describe('calculateBalances', () => {
       movements: {
         inflows: [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1.5'),
             netAmount: parseDecimal('1.5'),
@@ -46,8 +48,9 @@ describe('calculateBalances', () => {
 
     const result = calculateBalances([transaction]);
 
-    expect(result.BTC).toBeDefined();
-    expect(result.BTC?.toString()).toBe('1.5');
+    expect(result.balances['test:btc']).toBeDefined();
+    expect(result.balances['test:btc']?.toString()).toBe('1.5');
+    expect(result.assetMetadata['test:btc']).toBe('BTC');
   });
 
   it('should calculate balance from single outflow transaction', () => {
@@ -58,6 +61,7 @@ describe('calculateBalances', () => {
         inflows: [],
         outflows: [
           {
+            assetId: 'test:eth',
             assetSymbol: 'ETH',
             grossAmount: parseDecimal('2.0'),
             netAmount: parseDecimal('2.0'),
@@ -68,8 +72,8 @@ describe('calculateBalances', () => {
 
     const result = calculateBalances([transaction]);
 
-    expect(result.ETH).toBeDefined();
-    expect(result.ETH?.toString()).toBe('-2');
+    expect(result.balances['test:eth']).toBeDefined();
+    expect(result.balances['test:eth']?.toString()).toBe('-2');
   });
 
   it('should calculate balance with network fees', () => {
@@ -83,19 +87,28 @@ describe('calculateBalances', () => {
       movements: {
         outflows: [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('0.5001'), // Includes the 0.0001 fee
             netAmount: parseDecimal('0.5'), // What actually transferred
           },
         ],
       },
-      fees: [{ assetSymbol: 'BTC', amount: parseDecimal('0.0001'), scope: 'network', settlement: 'on-chain' }],
+      fees: [
+        {
+          assetId: 'test:btc',
+          assetSymbol: 'BTC',
+          amount: parseDecimal('0.0001'),
+          scope: 'network',
+          settlement: 'on-chain',
+        },
+      ],
     });
 
     const result = calculateBalances([transaction]);
 
-    expect(result.BTC).toBeDefined();
-    expect(result.BTC?.toString()).toBe('-0.5001');
+    expect(result.balances['test:btc']).toBeDefined();
+    expect(result.balances['test:btc']?.toString()).toBe('-0.5001');
   });
 
   it('should calculate balance with platform fees', () => {
@@ -105,6 +118,7 @@ describe('calculateBalances', () => {
       movements: {
         inflows: [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
@@ -112,21 +126,30 @@ describe('calculateBalances', () => {
         ],
         outflows: [
           {
+            assetId: 'test:usdt',
             assetSymbol: 'USDT',
             grossAmount: parseDecimal('50000'),
             netAmount: parseDecimal('50000'),
           },
         ],
       },
-      fees: [{ assetSymbol: 'BTC', amount: parseDecimal('0.001'), scope: 'platform', settlement: 'balance' }],
+      fees: [
+        {
+          assetId: 'test:btc',
+          assetSymbol: 'BTC',
+          amount: parseDecimal('0.001'),
+          scope: 'platform',
+          settlement: 'balance',
+        },
+      ],
     });
 
     const result = calculateBalances([transaction]);
 
-    expect(result.BTC).toBeDefined();
-    expect(result.BTC?.toString()).toBe('0.999');
-    expect(result.USDT).toBeDefined();
-    expect(result.USDT?.toString()).toBe('-50000');
+    expect(result.balances['test:btc']).toBeDefined();
+    expect(result.balances['test:btc']?.toString()).toBe('0.999');
+    expect(result.balances['test:usdt']).toBeDefined();
+    expect(result.balances['test:usdt']?.toString()).toBe('-50000');
   });
 
   it('should calculate balance with both network and platform fees', () => {
@@ -140,6 +163,7 @@ describe('calculateBalances', () => {
       movements: {
         outflows: [
           {
+            assetId: 'test:eth',
             assetSymbol: 'ETH',
             grossAmount: parseDecimal('5.0'), // Recipient receives full amount
             netAmount: parseDecimal('5.0'), // Same as gross for account-based chains
@@ -147,15 +171,27 @@ describe('calculateBalances', () => {
         ],
       },
       fees: [
-        { assetSymbol: 'ETH', amount: parseDecimal('0.005'), scope: 'network', settlement: 'balance' },
-        { assetSymbol: 'ETH', amount: parseDecimal('0.001'), scope: 'platform', settlement: 'balance' },
+        {
+          assetId: 'test:eth',
+          assetSymbol: 'ETH',
+          amount: parseDecimal('0.005'),
+          scope: 'network',
+          settlement: 'balance',
+        },
+        {
+          assetId: 'test:eth',
+          assetSymbol: 'ETH',
+          amount: parseDecimal('0.001'),
+          scope: 'platform',
+          settlement: 'balance',
+        },
       ],
     });
 
     const result = calculateBalances([transaction]);
 
-    expect(result.ETH).toBeDefined();
-    expect(result.ETH?.toString()).toBe('-5.006');
+    expect(result.balances['test:eth']).toBeDefined();
+    expect(result.balances['test:eth']?.toString()).toBe('-5.006');
   });
 
   it('should aggregate balances across multiple transactions', () => {
@@ -167,6 +203,7 @@ describe('calculateBalances', () => {
         movements: {
           inflows: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('1.0'),
               netAmount: parseDecimal('1.0'),
@@ -181,6 +218,7 @@ describe('calculateBalances', () => {
         movements: {
           inflows: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('0.5'),
               netAmount: parseDecimal('0.5'),
@@ -195,20 +233,29 @@ describe('calculateBalances', () => {
         movements: {
           outflows: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('0.3'),
               netAmount: parseDecimal('0.3'),
             },
           ],
         },
-        fees: [{ assetSymbol: 'BTC', amount: parseDecimal('0.001'), scope: 'platform', settlement: 'balance' }],
+        fees: [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            amount: parseDecimal('0.001'),
+            scope: 'platform',
+            settlement: 'balance',
+          },
+        ],
       }),
     ];
 
     const result = calculateBalances(transactions);
 
-    expect(result.BTC).toBeDefined();
-    expect(result.BTC?.toString()).toBe('1.199');
+    expect(result.balances['test:btc']).toBeDefined();
+    expect(result.balances['test:btc']?.toString()).toBe('1.199');
   });
 
   it('should handle multiple currencies in one transaction', () => {
@@ -218,6 +265,7 @@ describe('calculateBalances', () => {
       movements: {
         inflows: [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('0.5'),
             netAmount: parseDecimal('0.5'),
@@ -225,21 +273,30 @@ describe('calculateBalances', () => {
         ],
         outflows: [
           {
+            assetId: 'test:usdt',
             assetSymbol: 'USDT',
             grossAmount: parseDecimal('25000'),
             netAmount: parseDecimal('25000'),
           },
         ],
       },
-      fees: [{ assetSymbol: 'USDT', amount: parseDecimal('10'), scope: 'platform', settlement: 'balance' }],
+      fees: [
+        {
+          assetId: 'test:usdt',
+          assetSymbol: 'USDT',
+          amount: parseDecimal('10'),
+          scope: 'platform',
+          settlement: 'balance',
+        },
+      ],
     });
 
     const result = calculateBalances([transaction]);
 
-    expect(result.BTC).toBeDefined();
-    expect(result.BTC?.toString()).toBe('0.5');
-    expect(result.USDT).toBeDefined();
-    expect(result.USDT?.toString()).toBe('-25010');
+    expect(result.balances['test:btc']).toBeDefined();
+    expect(result.balances['test:btc']?.toString()).toBe('0.5');
+    expect(result.balances['test:usdt']).toBeDefined();
+    expect(result.balances['test:usdt']?.toString()).toBe('-25010');
   });
 
   it('should handle transactions with null/empty movement fields', () => {
@@ -250,7 +307,8 @@ describe('calculateBalances', () => {
 
     const result = calculateBalances([transaction]);
 
-    expect(result).toEqual({});
+    expect(result.balances).toEqual({});
+    expect(result.assetMetadata).toEqual({});
   });
 
   it('should handle very small decimal amounts', () => {
@@ -262,6 +320,7 @@ describe('calculateBalances', () => {
       movements: {
         inflows: [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('0.00000001'),
             netAmount: parseDecimal('0.00000001'),
@@ -272,8 +331,8 @@ describe('calculateBalances', () => {
 
     const result = calculateBalances([transaction]);
 
-    expect(result.BTC).toBeDefined();
-    expect(result.BTC?.toString()).toBe('1e-8');
+    expect(result.balances['test:btc']).toBeDefined();
+    expect(result.balances['test:btc']?.toString()).toBe('1e-8');
   });
 
   it('should handle very large amounts', () => {
@@ -283,6 +342,7 @@ describe('calculateBalances', () => {
       movements: {
         inflows: [
           {
+            assetId: 'test:shib',
             assetSymbol: 'SHIB',
             grossAmount: parseDecimal('1000000000000'),
             netAmount: parseDecimal('1000000000000'),
@@ -293,8 +353,8 @@ describe('calculateBalances', () => {
 
     const result = calculateBalances([transaction]);
 
-    expect(result.SHIB).toBeDefined();
-    expect(result.SHIB?.toString()).toBe('1000000000000');
+    expect(result.balances['test:shib']).toBeDefined();
+    expect(result.balances['test:shib']?.toString()).toBe('1000000000000');
   });
 
   it('should handle multiple inflows for same asset', () => {
@@ -304,11 +364,13 @@ describe('calculateBalances', () => {
       movements: {
         inflows: [
           {
+            assetId: 'test:eth',
             assetSymbol: 'ETH',
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
           },
           {
+            assetId: 'test:eth',
             assetSymbol: 'ETH',
             grossAmount: parseDecimal('2.5'),
             netAmount: parseDecimal('2.5'),
@@ -319,8 +381,8 @@ describe('calculateBalances', () => {
 
     const result = calculateBalances([transaction]);
 
-    expect(result.ETH).toBeDefined();
-    expect(result.ETH?.toString()).toBe('3.5');
+    expect(result.balances['test:eth']).toBeDefined();
+    expect(result.balances['test:eth']?.toString()).toBe('3.5');
   });
 
   it('should result in zero balance when inflows equal outflows plus fees', () => {
@@ -332,6 +394,7 @@ describe('calculateBalances', () => {
         movements: {
           inflows: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('1.0'),
               netAmount: parseDecimal('1.0'),
@@ -346,19 +409,28 @@ describe('calculateBalances', () => {
         movements: {
           outflows: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('0.999'),
               netAmount: parseDecimal('0.999'),
             },
           ],
         },
-        fees: [{ assetSymbol: 'BTC', amount: parseDecimal('0.001'), scope: 'platform', settlement: 'balance' }],
+        fees: [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            amount: parseDecimal('0.001'),
+            scope: 'platform',
+            settlement: 'balance',
+          },
+        ],
       }),
     ];
 
     const result = calculateBalances(transactions);
 
-    expect(result.BTC).toBeDefined();
-    expect(result.BTC?.toString()).toBe('0');
+    expect(result.balances['test:btc']).toBeDefined();
+    expect(result.balances['test:btc']?.toString()).toBe('0');
   });
 });

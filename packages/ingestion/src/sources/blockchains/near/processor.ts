@@ -1,5 +1,5 @@
 import type { NearTransaction } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal } from '@exitbook/core';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -75,6 +75,68 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
 
         const shouldRecordFeeEntry = fundFlow.feePaidByUser && !feeAccountedInMovements;
 
+        // Build movements with assetId
+        let hasAssetIdError = false;
+        const inflows = [];
+        for (const inflow of fundFlow.inflows) {
+          const assetIdResult = this.buildNearAssetId(inflow, normalizedTx.id);
+          if (assetIdResult.isErr()) {
+            const errorMsg = `Failed to build assetId for inflow: ${assetIdResult.error.message}`;
+            processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+            this.logger.error(`${errorMsg} for NEAR transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
+            hasAssetIdError = true;
+            break;
+          }
+
+          const amount = parseDecimal(inflow.amount);
+          inflows.push({
+            assetId: assetIdResult.value,
+            assetSymbol: inflow.asset,
+            grossAmount: amount,
+            netAmount: amount,
+          });
+        }
+
+        if (hasAssetIdError) {
+          continue;
+        }
+
+        const outflows = [];
+        for (const outflow of fundFlow.outflows) {
+          const assetIdResult = this.buildNearAssetId(outflow, normalizedTx.id);
+          if (assetIdResult.isErr()) {
+            const errorMsg = `Failed to build assetId for outflow: ${assetIdResult.error.message}`;
+            processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+            this.logger.error(`${errorMsg} for NEAR transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
+            hasAssetIdError = true;
+            break;
+          }
+
+          // For outflows, use grossAmount if available (before fee deduction), otherwise use amount
+          const netAmount = parseDecimal(outflow.amount);
+          const grossAmount = outflow.grossAmount ? parseDecimal(outflow.grossAmount) : netAmount;
+          outflows.push({
+            assetId: assetIdResult.value,
+            assetSymbol: outflow.asset,
+            grossAmount,
+            netAmount,
+          });
+        }
+
+        if (hasAssetIdError) {
+          continue;
+        }
+
+        // Build fee assetId (always NEAR for NEAR blockchain)
+        const feeAssetIdResult = buildBlockchainNativeAssetId('near');
+        if (feeAssetIdResult.isErr()) {
+          const errorMsg = `Failed to build fee assetId: ${feeAssetIdResult.error.message}`;
+          processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+          this.logger.error(`${errorMsg} for NEAR transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
+          continue;
+        }
+        const feeAssetId = feeAssetIdResult.value;
+
         // Convert to ProcessedTransaction with structured fields
         const universalTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
@@ -87,30 +149,15 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
 
           // Structured movements from fund flow analysis
           movements: {
-            inflows: fundFlow.inflows.map((inflow) => {
-              const amount = parseDecimal(inflow.amount);
-              return {
-                assetSymbol: inflow.asset,
-                grossAmount: amount,
-                netAmount: amount,
-              };
-            }),
-            outflows: fundFlow.outflows.map((outflow) => {
-              // For outflows, use grossAmount if available (before fee deduction), otherwise use amount
-              const netAmount = parseDecimal(outflow.amount);
-              const grossAmount = outflow.grossAmount ? parseDecimal(outflow.grossAmount) : netAmount;
-              return {
-                assetSymbol: outflow.asset,
-                grossAmount,
-                netAmount,
-              };
-            }),
+            inflows,
+            outflows,
           },
 
           fees:
             shouldRecordFeeEntry && !parseDecimal(normalizedTx.feeAmount || '0').isZero()
               ? [
                   {
+                    assetId: feeAssetId,
                     assetSymbol: normalizedTx.feeCurrency || 'NEAR',
                     amount: parseDecimal(normalizedTx.feeAmount || '0'),
                     scope: 'network',
@@ -131,10 +178,11 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
           },
         };
 
-        // Scam detection: Check inflows only (scam tokens arrive as airdrops)
-        for (const inflow of fundFlow.inflows) {
-          const scamNote = await this.detectScamForAsset(inflow.asset, inflow.tokenAddress, {
-            amount: parseDecimal(inflow.amount).toNumber(),
+        // Scam detection: Check all movements (both inflows and outflows)
+        const allMovements = [...fundFlow.inflows, ...fundFlow.outflows];
+        for (const movement of allMovements) {
+          const scamNote = await this.detectScamForAsset(movement.asset, movement.tokenAddress, {
+            amount: parseDecimal(movement.amount).toNumber(),
             isAirdrop: fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser,
           });
           if (scamNote) {
@@ -231,5 +279,41 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
 
     this.logger.debug('Successfully enriched token metadata from cache/provider');
     return ok(undefined);
+  }
+
+  /**
+   * Build assetId for a NEAR movement
+   * - Native asset (NEAR, no tokenAddress): blockchain:near:native
+   * - NEP-141 token (has contract address): blockchain:near:<contract_address>
+   * - Token without contract address (edge case): fail-fast with an error
+   *
+   * Per Asset Identity Specification, tokenAddress (contract) should usually be available for NEP-141 tokens.
+   * If missing for a non-native asset, we fail-fast to prevent silent data corruption.
+   */
+  private buildNearAssetId(
+    movement: {
+      asset: string;
+      tokenAddress?: string | undefined;
+    },
+    transactionId: string
+  ): Result<string, Error> {
+    // Native asset (NEAR) - no contract address
+    if (!movement.tokenAddress) {
+      const assetSymbol = movement.asset.trim().toUpperCase();
+
+      if (assetSymbol === 'NEAR') {
+        return buildBlockchainNativeAssetId('near');
+      }
+
+      // If it's not NEAR and has no contract address, this is an error
+      return err(
+        new Error(
+          `Missing tokenAddress (contract) for non-native asset ${movement.asset} in transaction ${transactionId}`
+        )
+      );
+    }
+
+    // NEP-141 token with contract address
+    return buildBlockchainTokenAssetId('near', movement.tokenAddress);
   }
 }

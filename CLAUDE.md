@@ -129,7 +129,7 @@ KUCOIN_PASSPHRASE=...
    - `@RegisterApiClient` decorator on client
    - Import in blockchain's `register-apis.ts`
 
-2. **Ingestion:** `packages/ingestion/src/infrastructure/blockchains/<blockchain>/`
+2. **Ingestion:** `packages/ingestion/src/sources/blockchains/<blockchain>/`
    - Importer (implements `IImporter`)
    - Processor (transforms to `UniversalTransaction`)
    - Utilities and types
@@ -143,12 +143,12 @@ KUCOIN_PASSPHRASE=...
    - Credentials validation, error handling
    - Export from `packages/exchange-providers/src/index.ts`
 
-2. **Importer/Processor:** `packages/ingestion/src/infrastructure/exchanges/<exchange>/`
+2. **Importer/Processor:** `packages/ingestion/src/sources/exchanges/<exchange>/`
    - Importer (implements `IImporter`) for CSV/API
    - Processor (transforms to `UniversalTransaction`)
    - Schemas, types, utilities
 
-3. **Registration:** Add to factory in `packages/ingestion/src/infrastructure/exchanges/shared/`
+3. **Registration:** Add to factory in `packages/ingestion/src/sources/exchanges/shared/`
 
 ### Testing Changes
 

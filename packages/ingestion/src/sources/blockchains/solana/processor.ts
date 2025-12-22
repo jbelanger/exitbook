@@ -1,5 +1,5 @@
 import type { SolanaTransaction } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal } from '@exitbook/core';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -67,6 +67,66 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
         const shouldRecordFeeEntry = fundFlow.feePaidByUser && !feeAccountedInMovements;
 
+        // Build movements with assetId
+        let hasAssetIdError = false;
+        const inflows = [];
+        for (const inflow of fundFlow.inflows) {
+          const assetIdResult = this.buildSolanaAssetId(inflow, normalizedTx.id);
+          if (assetIdResult.isErr()) {
+            const errorMsg = `Failed to build assetId for inflow: ${assetIdResult.error.message}`;
+            processingErrors.push({ error: errorMsg, signature: normalizedTx.id });
+            this.logger.error(`${errorMsg} for Solana transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
+            hasAssetIdError = true;
+            break;
+          }
+
+          const amount = parseDecimal(inflow.amount);
+          inflows.push({
+            assetId: assetIdResult.value,
+            assetSymbol: inflow.asset,
+            grossAmount: amount,
+            netAmount: amount,
+          });
+        }
+
+        if (hasAssetIdError) {
+          continue;
+        }
+
+        const outflows = [];
+        for (const outflow of fundFlow.outflows) {
+          const assetIdResult = this.buildSolanaAssetId(outflow, normalizedTx.id);
+          if (assetIdResult.isErr()) {
+            const errorMsg = `Failed to build assetId for outflow: ${assetIdResult.error.message}`;
+            processingErrors.push({ error: errorMsg, signature: normalizedTx.id });
+            this.logger.error(`${errorMsg} for Solana transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
+            hasAssetIdError = true;
+            break;
+          }
+
+          const amount = parseDecimal(outflow.amount);
+          outflows.push({
+            assetId: assetIdResult.value,
+            assetSymbol: outflow.asset,
+            grossAmount: amount,
+            netAmount: amount,
+          });
+        }
+
+        if (hasAssetIdError) {
+          continue;
+        }
+
+        // Build fee assetId (always SOL for Solana)
+        const feeAssetIdResult = buildBlockchainNativeAssetId('solana');
+        if (feeAssetIdResult.isErr()) {
+          const errorMsg = `Failed to build fee assetId: ${feeAssetIdResult.error.message}`;
+          processingErrors.push({ error: errorMsg, signature: normalizedTx.id });
+          this.logger.error(`${errorMsg} for Solana transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
+          continue;
+        }
+        const feeAssetId = feeAssetIdResult.value;
+
         // Convert to ProcessedTransaction with structured fields
         const universalTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
@@ -79,28 +139,15 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
           // Structured movements from fund flow analysis
           movements: {
-            inflows: fundFlow.inflows.map((inflow) => {
-              const amount = parseDecimal(inflow.amount);
-              return {
-                assetSymbol: inflow.asset,
-                grossAmount: amount,
-                netAmount: amount,
-              };
-            }),
-            outflows: fundFlow.outflows.map((outflow) => {
-              const amount = parseDecimal(outflow.amount);
-              return {
-                assetSymbol: outflow.asset,
-                grossAmount: amount,
-                netAmount: amount,
-              };
-            }),
+            inflows,
+            outflows,
           },
 
           fees:
             shouldRecordFeeEntry && !parseDecimal(normalizedTx.feeAmount || '0').isZero()
               ? [
                   {
+                    assetId: feeAssetId,
                     assetSymbol: normalizedTx.feeCurrency || 'SOL',
                     amount: parseDecimal(normalizedTx.feeAmount || '0'),
                     scope: 'network',
@@ -121,10 +168,11 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
           },
         };
 
-        // Scam detection: Check inflows only (scam tokens arrive as airdrops)
-        for (const inflow of fundFlow.inflows) {
-          const scamNote = await this.detectScamForAsset(inflow.asset, inflow.tokenAddress, {
-            amount: parseDecimal(inflow.amount).toNumber(),
+        // Scam detection: Check all movements (both inflows and outflows)
+        const allMovements = [...fundFlow.inflows, ...fundFlow.outflows];
+        for (const movement of allMovements) {
+          const scamNote = await this.detectScamForAsset(movement.asset, movement.tokenAddress, {
+            amount: parseDecimal(movement.amount).toNumber(),
             isAirdrop: fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser,
           });
           if (scamNote) {
@@ -219,5 +267,41 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
     this.logger.debug('Successfully enriched token metadata from cache/provider');
     return ok(undefined);
+  }
+
+  /**
+   * Build assetId for a Solana movement
+   * - Native asset (SOL, no tokenAddress): blockchain:solana:native
+   * - SPL token (has mint address): blockchain:solana:<mint_address>
+   * - Token without mint address (edge case): fail-fast with an error
+   *
+   * Per Asset Identity Specification, tokenAddress (mint) should usually be available for SPL tokens.
+   * If missing for a non-native asset, we fail-fast to prevent silent data corruption.
+   */
+  private buildSolanaAssetId(
+    movement: {
+      asset: string;
+      tokenAddress?: string | undefined;
+    },
+    transactionSignature: string
+  ): Result<string, Error> {
+    // Native asset (SOL) - no mint address
+    if (!movement.tokenAddress) {
+      const assetSymbol = movement.asset.trim().toUpperCase();
+
+      if (assetSymbol === 'SOL') {
+        return buildBlockchainNativeAssetId('solana');
+      }
+
+      // If it's not SOL and has no mint address, this is an error
+      return err(
+        new Error(
+          `Missing tokenAddress (mint) for non-native asset ${movement.asset} in transaction ${transactionSignature}`
+        )
+      );
+    }
+
+    // SPL token with mint address
+    return buildBlockchainTokenAssetId('solana', movement.tokenAddress);
   }
 }

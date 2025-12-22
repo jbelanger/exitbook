@@ -157,6 +157,8 @@ export const BalanceCommandOptionsSchema = z
       apiKey: z.string().min(1).optional(),
       apiSecret: z.string().min(1).optional(),
       apiPassphrase: z.string().optional(),
+      debugAssetId: z.string().min(1).optional(),
+      debugTop: z.coerce.number().int().positive().optional(),
       explain: z.boolean().optional(),
     }).shape
   )
@@ -171,6 +173,17 @@ export const BalanceCommandOptionsSchema = z
     },
     {
       message: 'Both --api-key and --api-secret must be provided together',
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.debugTop !== undefined && !data.debugAssetId) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: '--debug-top requires --debug-asset-id',
     }
   );
 

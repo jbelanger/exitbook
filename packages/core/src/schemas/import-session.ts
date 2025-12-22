@@ -37,6 +37,7 @@ export const SourceParamsSchema = z.union([
  * Schema for balance discrepancy details
  */
 export const BalanceDiscrepancySchema = z.object({
+  assetId: z.string().optional(),
   assetSymbol: z.string(),
   calculated: z.string(),
   difference: z.string(),

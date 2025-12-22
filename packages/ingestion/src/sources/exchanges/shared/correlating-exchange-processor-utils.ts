@@ -77,31 +77,38 @@ export function selectPrimaryMovement(
 
 /**
  * Consolidate duplicate assets by summing amounts.
+ * Groups by assetId (not assetSymbol) to prevent cross-exchange or cross-chain collisions.
  */
 export function consolidateExchangeMovements(movements: MovementInput[]): MovementInput[] {
   const assetMap = new Map<
     string,
     {
       amount: Decimal;
+      assetId: string;
+      assetSymbol: string;
       grossAmount: Decimal;
       netAmount: Decimal;
     }
   >();
 
   for (const movement of movements) {
-    const existing = assetMap.get(movement.assetSymbol);
+    const existing = assetMap.get(movement.assetId);
     const amount = parseDecimal(movement.grossAmount);
     const grossAmount = movement.grossAmount ? parseDecimal(movement.grossAmount) : amount;
     const netAmount = movement.netAmount ? parseDecimal(movement.netAmount) : grossAmount;
 
     if (existing) {
-      assetMap.set(movement.assetSymbol, {
+      assetMap.set(movement.assetId, {
+        assetId: movement.assetId,
+        assetSymbol: movement.assetSymbol,
         amount: existing.amount.plus(amount),
         grossAmount: existing.grossAmount.plus(grossAmount),
         netAmount: existing.netAmount.plus(netAmount),
       });
     } else {
-      assetMap.set(movement.assetSymbol, {
+      assetMap.set(movement.assetId, {
+        assetId: movement.assetId,
+        assetSymbol: movement.assetSymbol,
         amount,
         grossAmount,
         netAmount,
@@ -109,8 +116,9 @@ export function consolidateExchangeMovements(movements: MovementInput[]): Moveme
     }
   }
 
-  return Array.from(assetMap.entries()).map(([assetSymbol, amounts]) => ({
-    assetSymbol,
+  return Array.from(assetMap.values()).map((amounts) => ({
+    assetId: amounts.assetId,
+    assetSymbol: amounts.assetSymbol,
     amount: amounts.amount.toFixed(),
     grossAmount: amounts.grossAmount.toFixed(),
     netAmount: amounts.netAmount?.toFixed(),
@@ -120,12 +128,13 @@ export function consolidateExchangeMovements(movements: MovementInput[]): Moveme
 /**
  * Consolidate fees by asset, scope, and settlement.
  * Multiple fees with same dimensions are summed together.
+ * Groups by assetId (not assetSymbol) to prevent cross-exchange or cross-chain collisions.
  */
 export function consolidateExchangeFees(fees: FeeInput[]): FeeInput[] {
   const feeMap = new Map<string, Omit<FeeInput, 'amount'> & { amount: Decimal }>();
 
   for (const fee of fees) {
-    const key = `${fee.assetSymbol}:${fee.scope}:${fee.settlement}`;
+    const key = `${fee.assetId}:${fee.scope}:${fee.settlement}`;
     const existing = feeMap.get(key);
 
     if (existing) {
@@ -135,6 +144,7 @@ export function consolidateExchangeFees(fees: FeeInput[]): FeeInput[] {
       });
     } else {
       feeMap.set(key, {
+        assetId: fee.assetId,
         assetSymbol: fee.assetSymbol,
         amount: parseDecimal(fee.amount),
         scope: fee.scope,
@@ -144,6 +154,7 @@ export function consolidateExchangeFees(fees: FeeInput[]): FeeInput[] {
   }
 
   return Array.from(feeMap.values()).map((fee) => ({
+    assetId: fee.assetId,
     assetSymbol: fee.assetSymbol,
     amount: fee.amount.toFixed(),
     scope: fee.scope,
@@ -159,10 +170,10 @@ export function classifyExchangeOperationFromFundFlow(fundFlow: ExchangeFundFlow
 
   // Pattern 1: Single asset swap
   if (outflows.length === 1 && inflows.length === 1) {
-    const outAsset = outflows[0]?.assetSymbol;
-    const inAsset = inflows[0]?.assetSymbol;
+    const outAssetId = outflows[0]?.assetId;
+    const inAssetId = inflows[0]?.assetId;
 
-    if (outAsset !== inAsset) {
+    if (outAssetId !== inAssetId) {
       return {
         operation: {
           category: 'trade',
@@ -194,10 +205,10 @@ export function classifyExchangeOperationFromFundFlow(fundFlow: ExchangeFundFlow
 
   // Pattern 4: Self-transfer (same asset in and out)
   if (outflows.length === 1 && inflows.length === 1) {
-    const outAsset = outflows[0]?.assetSymbol;
-    const inAsset = inflows[0]?.assetSymbol;
+    const outAssetId = outflows[0]?.assetId;
+    const inAssetId = inflows[0]?.assetId;
 
-    if (outAsset === inAsset) {
+    if (outAssetId === inAssetId) {
       return {
         operation: {
           category: 'transfer',
@@ -276,10 +287,10 @@ export function detectExchangeClassificationUncertainty(
 export function determinePrimaryDirection(
   inflows: MovementInput[],
   outflows: MovementInput[],
-  primaryAssetSymbol: string
+  primaryAssetId: string
 ): 'inflow' | 'outflow' | 'neutral' {
-  const hasInflow = inflows.some((i) => i.assetSymbol === primaryAssetSymbol);
-  const hasOutflow = outflows.some((o) => o.assetSymbol === primaryAssetSymbol);
+  const hasInflow = inflows.some((i) => i.assetId === primaryAssetId);
+  const hasOutflow = outflows.some((o) => o.assetId === primaryAssetId);
 
   if (hasInflow && hasOutflow) return 'neutral';
   if (hasInflow) return 'inflow';

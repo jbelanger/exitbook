@@ -18,6 +18,7 @@ import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { BalanceCommandOptionsSchema } from '../shared/schemas.js';
 
+import { buildBalanceAssetDebug, type BalanceAssetDebugResult } from './balance-debug.js';
 import { buildBalanceMismatchExplanation } from './balance-explain.js';
 import { BalanceHandler } from './balance-handler.js';
 import type { BalanceCommandResult } from './balance-types.js';
@@ -39,6 +40,8 @@ export function registerBalanceCommand(program: Command): void {
     .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange (if required)')
     .option('--explain', 'Print diagnostic breakdown for mismatches')
+    .option('--debug-asset-id <assetId>', 'Debug a single assetId (totals + top transactions)')
+    .option('--debug-top <n>', 'Limit debug samples per section (default: 5)')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
@@ -47,6 +50,8 @@ Examples:
   $ exitbook balance --account-id 5                          # blockchain or exchange-csv account (no creds)
   $ exitbook balance --account-id 7 --api-key KEY --api-secret SECRET   # exchange-api or exchange-csv with live API fetch
   $ exitbook balance --account-id 5 --explain                # show mismatch diagnostics
+  $ exitbook balance --account-id 5 --debug-asset-id blockchain:ethereum:native
+                                                          # show totals + top txs for one assetId
 
 Notes:
   - API credentials are accepted for exchange-api and exchange-csv accounts to fetch live balances from the exchange.
@@ -155,7 +160,15 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
     }
 
     // Display results
-    await handleBalanceSuccess(output, result.value, accountRepository, transactionRepository, options.explain);
+    await handleBalanceSuccess(
+      output,
+      result.value,
+      accountRepository,
+      transactionRepository,
+      options.explain,
+      options.debugAssetId,
+      options.debugTop
+    );
   } catch (error) {
     resetLoggerContext();
     output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
@@ -174,7 +187,9 @@ async function handleBalanceSuccess(
   verificationResult: BalanceVerificationResult,
   accountRepository: AccountRepository,
   transactionRepository: TransactionRepository,
-  explain?: boolean
+  explain?: boolean,
+  debugAssetId?: string,
+  debugTop?: number
 ) {
   const account = verificationResult.account;
 
@@ -198,6 +213,63 @@ async function handleBalanceSuccess(
       }
     } else {
       beaconStatus = { beaconWithdrawalsSkippedReason: 'unsupported-chain' };
+    }
+  }
+
+  const wantsExplain = Boolean(explain && verificationResult.summary.mismatches > 0);
+  const wantsDebug = Boolean(debugAssetId);
+  let explainLines: string[] | undefined;
+  let debugData: BalanceAssetDebugResult | undefined;
+
+  if (wantsExplain || wantsDebug) {
+    const childAccountsResult = await accountRepository.findByParent(account.id);
+    if (childAccountsResult.isErr()) {
+      output.warn(`Diagnostics: failed to load child accounts: ${childAccountsResult.error.message}`);
+    } else {
+      const accountIds = [account.id, ...childAccountsResult.value.map((child) => child.id)];
+      const txResult = await transactionRepository.getTransactions({ accountIds });
+      if (txResult.isErr()) {
+        output.warn(`Diagnostics: failed to load transactions: ${txResult.error.message}`);
+      } else {
+        const transactions = txResult.value;
+
+        if (wantsExplain) {
+          const mismatches = verificationResult.comparisons.filter((c) => c.status === 'mismatch');
+          const explainData = buildBalanceMismatchExplanation({
+            accountIdentifier: account.identifier,
+            transactions,
+            mismatches: mismatches.map((m) => ({
+              assetId: m.assetId,
+              assetSymbol: m.assetSymbol,
+              currency: m.currency, // Deprecated but kept for backwards compatibility
+              live: parseDecimal(m.liveBalance),
+              calculated: parseDecimal(m.calculatedBalance),
+            })),
+          });
+
+          if (explainData.isErr()) {
+            output.warn(`Explain: ${explainData.error.message}`);
+          } else {
+            explainLines = explainData.value.lines;
+          }
+        }
+
+        if (wantsDebug && debugAssetId) {
+          const comparison = verificationResult.comparisons.find((c) => c.assetId === debugAssetId);
+          const debugResult = buildBalanceAssetDebug({
+            assetId: debugAssetId,
+            assetSymbol: comparison?.assetSymbol,
+            topN: debugTop,
+            transactions,
+          });
+
+          if (debugResult.isErr()) {
+            output.warn(`Debug: ${debugResult.error.message}`);
+          } else {
+            debugData = debugResult.value;
+          }
+        }
+      }
     }
   }
 
@@ -266,35 +338,52 @@ async function handleBalanceSuccess(
       output.warn(`Suggestion: ${verificationResult.suggestion}`);
     }
 
-    // Optional diagnostics for mismatches
-    if (explain && verificationResult.summary.mismatches > 0) {
-      const childAccountsResult = await accountRepository.findByParent(account.id);
-      if (childAccountsResult.isErr()) {
-        output.warn(`Explain: failed to load child accounts: ${childAccountsResult.error.message}`);
-      } else {
-        const accountIds = [account.id, ...childAccountsResult.value.map((child) => child.id)];
-        const txResult = await transactionRepository.getTransactions({ accountIds });
-        if (txResult.isErr()) {
-          output.warn(`Explain: failed to load transactions: ${txResult.error.message}`);
-        } else {
-          const mismatches = verificationResult.comparisons.filter((c) => c.status === 'mismatch');
-          const explainData = buildBalanceMismatchExplanation({
-            accountIdentifier: account.identifier,
-            transactions: txResult.value,
-            mismatches: mismatches.map((m) => ({
-              currency: m.currency,
-              live: parseDecimal(m.liveBalance),
-              calculated: parseDecimal(m.calculatedBalance),
-            })),
-          });
+    if (wantsExplain && explainLines && explainLines.length > 0) {
+      output.info('Explain:');
+      for (const line of explainLines) {
+        output.log(`  ${line}`);
+      }
+    }
 
-          if (explainData.isErr()) {
-            output.warn(`Explain: ${explainData.error.message}`);
-          } else if (explainData.value.lines.length > 0) {
-            output.info('Explain:');
-            for (const line of explainData.value.lines) {
-              output.log(`  ${line}`);
-            }
+    if (wantsDebug && debugAssetId) {
+      if (!debugData) {
+        output.warn(`Debug: no diagnostics available for assetId ${debugAssetId}`);
+      } else {
+        output.info(`Debug Asset: ${debugData.assetSymbol}`);
+        output.log(`  Asset ID: ${debugData.assetId}`);
+        output.log(`  Transactions: ${debugData.totals.txCount}`);
+        output.log(
+          `  Totals: inflows=${debugData.totals.inflows.toFixed()} outflows=${debugData.totals.outflows.toFixed()} fees=${debugData.totals.fees.toFixed()} net=${debugData.totals.net.toFixed()}`
+        );
+
+        if (debugData.totals.txCount === 0) {
+          output.warn('Debug: no movements found for this assetId in imported transactions');
+        }
+
+        if (debugData.topOutflows.length > 0) {
+          output.log('  Top outflows:');
+          for (const sample of debugData.topOutflows) {
+            output.log(
+              `    - ${sample.amount.toFixed()} on ${sample.datetime} to ${sample.to ?? 'unknown'} (tx ${sample.transactionHash ?? 'unknown'})`
+            );
+          }
+        }
+
+        if (debugData.topInflows.length > 0) {
+          output.log('  Top inflows:');
+          for (const sample of debugData.topInflows) {
+            output.log(
+              `    - ${sample.amount.toFixed()} on ${sample.datetime} from ${sample.from ?? 'unknown'} (tx ${sample.transactionHash ?? 'unknown'})`
+            );
+          }
+        }
+
+        if (debugData.topFees.length > 0) {
+          output.log('  Top fees:');
+          for (const sample of debugData.topFees) {
+            output.log(
+              `    - ${sample.amount.toFixed()} on ${sample.datetime} (tx ${sample.transactionHash ?? 'unknown'})`
+            );
           }
         }
       }
@@ -310,6 +399,7 @@ async function handleBalanceSuccess(
   const resultData: BalanceCommandResult = {
     status: verificationResult.status,
     balances: verificationResult.comparisons.map((c) => ({
+      assetId: c.assetId,
       currency: c.currency,
       liveBalance: c.liveBalance,
       calculatedBalance: c.calculatedBalance,
@@ -317,6 +407,38 @@ async function handleBalanceSuccess(
       percentageDiff: c.percentageDiff,
       status: c.status,
     })),
+    debug: debugData
+      ? {
+          assetId: debugData.assetId,
+          assetSymbol: debugData.assetSymbol,
+          totals: {
+            inflows: debugData.totals.inflows.toFixed(),
+            outflows: debugData.totals.outflows.toFixed(),
+            fees: debugData.totals.fees.toFixed(),
+            net: debugData.totals.net.toFixed(),
+            txCount: debugData.totals.txCount,
+          },
+          topInflows: debugData.topInflows.map((sample) => ({
+            amount: sample.amount.toFixed(),
+            datetime: sample.datetime,
+            from: sample.from,
+            to: sample.to,
+            transactionHash: sample.transactionHash,
+          })),
+          topOutflows: debugData.topOutflows.map((sample) => ({
+            amount: sample.amount.toFixed(),
+            datetime: sample.datetime,
+            from: sample.from,
+            to: sample.to,
+            transactionHash: sample.transactionHash,
+          })),
+          topFees: debugData.topFees.map((sample) => ({
+            amount: sample.amount.toFixed(),
+            datetime: sample.datetime,
+            transactionHash: sample.transactionHash,
+          })),
+        }
+      : undefined,
     summary: verificationResult.summary,
     source: {
       type: isExchange ? 'exchange' : 'blockchain',

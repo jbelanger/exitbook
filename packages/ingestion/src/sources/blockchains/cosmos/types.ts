@@ -1,27 +1,26 @@
 /**
  * Cosmos fund flow analysis result - multi-asset tracking
  *
- * This structure follows the EVM pattern for consistency across all blockchain types,
- * while supporting Cosmos-specific features like IBC and bridge transfers.
+ * Supports Cosmos-specific features like IBC and bridge transfers.
  */
 export interface CosmosFundFlow {
-  // Multi-asset tracking (following EVM pattern)
+  // Multi-asset tracking with Cosmos-specific terminology
   inflows: {
     amount: string;
     asset: string;
-    tokenAddress?: string | undefined;
+    denom?: string | undefined; // Denomination (e.g., uatom, ibc/..., factory/...)
     tokenDecimals?: number | undefined;
   }[];
   outflows: {
     amount: string;
     asset: string;
-    tokenAddress?: string | undefined;
+    denom?: string | undefined; // Denomination (e.g., uatom, ibc/..., factory/...)
     tokenDecimals?: number | undefined;
   }[];
   primary: {
     amount: string;
     asset: string;
-    tokenAddress?: string | undefined;
+    denom?: string | undefined; // Denomination (e.g., uatom, ibc/..., factory/...)
     tokenDecimals?: number | undefined;
   };
 

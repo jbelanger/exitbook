@@ -63,7 +63,7 @@ describe('coinbaseGrossAmounts', () => {
       },
     });
 
-    const result = coinbaseGrossAmounts.interpret(entry, [entry]);
+    const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
 
     expect(result.inflows).toHaveLength(1);
     expect(result.inflows[0]?.grossAmount).toBe('61.902');
@@ -83,7 +83,7 @@ describe('coinbaseGrossAmounts', () => {
       },
     });
 
-    const result = coinbaseGrossAmounts.interpret(entry, [entry]);
+    const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
 
     expect(result.inflows).toHaveLength(1);
     expect(result.inflows[0]?.grossAmount).toBe('61.902');

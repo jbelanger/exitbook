@@ -152,6 +152,7 @@ describe('CostBasisCalculator', () => {
         movements: {
           inflows: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               grossAmount: new Decimal('1'),
               // Missing priceAtTxTime
@@ -193,6 +194,7 @@ describe('CostBasisCalculator', () => {
         movements: {
           inflows: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               grossAmount: new Decimal('1'),
               priceAtTxTime: {
@@ -205,6 +207,7 @@ describe('CostBasisCalculator', () => {
           ],
           outflows: [
             {
+              assetId: 'test:usd',
               assetSymbol: 'USD',
               grossAmount: new Decimal('30000'),
               // Missing priceAtTxTime - but should be OK since USD is fiat
@@ -574,6 +577,7 @@ describe('CostBasisCalculator', () => {
             inflows: [],
             outflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('0.5'),
                 priceAtTxTime: {
@@ -622,6 +626,7 @@ describe('CostBasisCalculator', () => {
         movements: {
           inflows: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               grossAmount: new Decimal('1'),
               priceAtTxTime: {
@@ -639,6 +644,7 @@ describe('CostBasisCalculator', () => {
           {
             scope: 'platform',
             settlement: 'balance',
+            assetId: 'test:eur',
             assetSymbol: 'EUR',
             amount: new Decimal('10'),
             priceAtTxTime: {
@@ -681,6 +687,7 @@ describe('CostBasisCalculator', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1'),
                 priceAtTxTime: {
@@ -708,6 +715,7 @@ describe('CostBasisCalculator', () => {
             inflows: [],
             outflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('0.5'),
                 priceAtTxTime: {
@@ -755,6 +763,7 @@ describe('CostBasisCalculator', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: new Decimal('1'),
                 priceAtTxTime: {

@@ -75,6 +75,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     const movement: FeeMovement = {
       scope,
       settlement,
+      assetId: `test:${assetSymbol.toLowerCase()}`,
       assetSymbol: assetSymbol,
       amount: new Decimal(amount),
     };
@@ -124,7 +125,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'kraken',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
         []
       );
 
@@ -135,6 +143,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
@@ -148,7 +157,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T11:30:00Z',
         'blockchain-wallet',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
@@ -194,7 +210,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'kraken',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
         []
       );
 
@@ -205,6 +228,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
@@ -218,7 +242,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'blockchain-wallet',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
@@ -279,7 +310,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'kraken',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
         []
       );
 
@@ -290,6 +328,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
@@ -303,7 +342,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'blockchain-wallet',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
@@ -351,7 +397,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'kraken',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
         []
       );
 
@@ -362,6 +415,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
@@ -378,7 +432,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'blockchain-wallet',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
@@ -417,7 +478,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'kraken',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
         []
       );
 
@@ -428,6 +496,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
@@ -441,7 +510,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
@@ -452,6 +528,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('0.9995'),
             netAmount: parseDecimal('0.9992'),
@@ -465,7 +542,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         5,
         '2024-03-01T14:00:00Z',
         'coinbase',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9992'), priceAtTxTime: createPriceAtTxTime('65000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.9992'),
+            priceAtTxTime: createPriceAtTxTime('65000'),
+          },
+        ],
         []
       );
 
@@ -516,7 +600,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'exchange',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
         []
       );
 
@@ -524,7 +615,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         2,
         '2024-01-01T00:00:00Z',
         'exchange',
-        [{ assetSymbol: 'ETH', grossAmount: parseDecimal('10'), priceAtTxTime: createPriceAtTxTime('3000') }],
+        [
+          {
+            assetId: 'test:eth',
+            assetSymbol: 'ETH',
+            grossAmount: parseDecimal('10'),
+            priceAtTxTime: createPriceAtTxTime('3000'),
+          },
+        ],
         []
       );
 
@@ -534,8 +632,18 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         'exchange',
         [],
         [
-          { assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') },
-          { assetSymbol: 'ETH', grossAmount: parseDecimal('0.01'), priceAtTxTime: createPriceAtTxTime('3500') },
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+          {
+            assetId: 'test:eth',
+            assetSymbol: 'ETH',
+            grossAmount: parseDecimal('0.01'),
+            priceAtTxTime: createPriceAtTxTime('3500'),
+          },
         ],
         [createFeeMovement('network', 'on-chain', 'ETH', '0.01', '3500')]
       );
@@ -544,7 +652,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         4,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
@@ -588,7 +703,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'exchange',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('2'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('2'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
         []
       );
 
@@ -599,12 +721,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.99975'),
             priceAtTxTime: createPriceAtTxTime('60000'),
           },
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.99975'),
@@ -618,7 +742,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet-a',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.99975'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.99975'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
@@ -626,7 +757,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         4,
         '2024-02-01T14:00:00Z',
         'wallet-b',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.99975'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.99975'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
@@ -674,7 +812,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'exchange-a',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
         []
       );
 
@@ -685,6 +830,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
@@ -699,8 +845,18 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-02-01T14:00:00Z',
         'exchange-b',
         [
-          { assetSymbol: 'BTC', grossAmount: parseDecimal('0.5'), priceAtTxTime: createPriceAtTxTime('60000') },
-          { assetSymbol: 'BTC', grossAmount: parseDecimal('0.4995'), priceAtTxTime: createPriceAtTxTime('60000') },
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.5'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.4995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
         ],
         []
       );
@@ -741,7 +897,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'exchange',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
         []
       );
 
@@ -752,6 +915,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
@@ -768,7 +932,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
@@ -809,7 +980,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'binance',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
         []
       );
 
@@ -820,6 +998,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9875'),
@@ -833,7 +1012,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9875'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.9875'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
@@ -870,7 +1056,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'binance',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
         []
       );
 
@@ -881,6 +1074,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.94'),
@@ -894,7 +1088,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.94'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.94'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
@@ -931,7 +1132,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'binance',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
         []
       );
 
@@ -942,6 +1150,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.98'),
@@ -955,7 +1164,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.98'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.98'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
@@ -989,7 +1205,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'kraken',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
         []
       );
 
@@ -1000,6 +1223,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
@@ -1013,7 +1237,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
