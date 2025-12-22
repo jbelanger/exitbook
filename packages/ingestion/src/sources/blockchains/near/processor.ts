@@ -4,7 +4,6 @@ import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
-import { looksLikeContractAddress, isMissingMetadata } from '../../../features/token-metadata/token-metadata-utils.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
 
 import { analyzeNearFundFlow, classifyNearOperationFromFundFlow } from './processor-utils.js';
@@ -182,7 +181,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
         const allMovements = [...fundFlow.inflows, ...fundFlow.outflows];
         for (const movement of allMovements) {
           const scamNote = await this.detectScamForAsset(movement.asset, movement.tokenAddress, {
-            amount: parseDecimal(movement.amount).toNumber(),
+            amount: parseDecimal(movement.amount),
             isAirdrop: fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser,
           });
           if (scamNote) {
@@ -232,19 +231,17 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
   }
 
   /**
-   * Enrich token metadata for all transactions
-   * Only fetches metadata for symbols that look like contract addresses
+   * Enrich token metadata for all token transfers.
+   * Fetches metadata upfront in batch to populate cache for later use (asset ID building, scam detection).
    */
   private async enrichTokenMetadata(transactions: NearTransaction[]): Promise<Result<void, Error>> {
-    // Collect all token transfers that need enrichment
+    // Collect all token transfers with contract addresses for batch enrichment
+    // We enrich ALL of them upfront (not just those with missing/incomplete metadata) because:
+    // 1. Scam detection needs metadata for all tokens with contract addresses
+    // 2. Batching all fetches upfront is more efficient than separate calls later
     const tokenTransfersToEnrich = transactions.flatMap((tx) => {
       if (!tx.tokenTransfers) return [];
-      // Enrich if metadata is incomplete OR if symbol looks like a contract address
-      return tx.tokenTransfers.filter(
-        (transfer) =>
-          isMissingMetadata(transfer.symbol, transfer.decimals) ||
-          (transfer.symbol ? looksLikeContractAddress(transfer.symbol, 2) : false)
-      );
+      return tx.tokenTransfers.filter((transfer) => !!transfer.contractAddress);
     });
 
     if (tokenTransfersToEnrich.length === 0) {

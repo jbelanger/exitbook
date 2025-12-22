@@ -150,9 +150,9 @@ export class MoralisApiClient extends BaseApiClient {
         return (await this.getAddressTokenBalances(address, contractAddresses)) as Result<T, Error>;
       }
       case 'getTokenMetadata': {
-        const { contractAddress } = operation;
-        this.logger.debug(`Fetching token metadata - Contract: ${contractAddress}`);
-        return (await this.getTokenMetadata(contractAddress)) as Result<T, Error>;
+        const { contractAddresses } = operation;
+        this.logger.debug(`Fetching token metadata - Contracts: ${contractAddresses.length} addresses`);
+        return (await this.getTokenMetadata(contractAddresses)) as Result<T, Error>;
       }
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
@@ -209,29 +209,38 @@ export class MoralisApiClient extends BaseApiClient {
     };
   }
 
-  async getTokenMetadata(contractAddress: string): Promise<Result<TokenMetadata, Error>> {
+  async getTokenMetadata(contractAddresses: string[]): Promise<Result<TokenMetadata[], Error>> {
+    if (contractAddresses.length === 0) {
+      return ok([]);
+    }
+
     const params = new URLSearchParams({
       chain: this.moralisChainId,
     });
-    params.append('addresses[0]', contractAddress);
+
+    // Build addresses[0], addresses[1], etc. for batch request
+    contractAddresses.forEach((address, index) => {
+      params.append(`addresses[${index}]`, address);
+    });
 
     const endpoint = `/erc20/metadata?${params.toString()}`;
     const result = await this.httpClient.get(endpoint, { schema: z.array(MoralisTokenMetadataSchema) });
 
     if (result.isErr()) {
-      this.logger.warn(`Failed to fetch token metadata for ${contractAddress}: ${getErrorMessage(result.error)}`);
+      this.logger.warn(
+        `Failed to fetch token metadata for ${contractAddresses.length} addresses: ${getErrorMessage(result.error)}`
+      );
       return err(result.error);
     }
 
-    const rawMetadata = result.value?.[0];
-    if (!rawMetadata) {
-      return err(new Error(`No metadata returned for token ${contractAddress}`));
+    const rawMetadataArray = result.value;
+    if (!rawMetadataArray || rawMetadataArray.length === 0) {
+      return err(new Error(`No metadata returned for ${contractAddresses.length} token(s)`));
     }
 
-    const metadata = rawMetadata;
-
-    return ok({
-      contractAddress: contractAddress,
+    // Map each returned metadata to our format
+    const metadataResults: TokenMetadata[] = rawMetadataArray.map((metadata) => ({
+      contractAddress: metadata.address || '',
       refreshedAt: new Date(),
       decimals: metadata.decimals ?? undefined,
       logoUrl: metadata.logo ?? undefined,
@@ -248,7 +257,9 @@ export class MoralisApiClient extends BaseApiClient {
       blockNumber: metadata.block_number ?? undefined,
 
       source: 'moralis',
-    });
+    }));
+
+    return ok(metadataResults);
   }
 
   private async getAddressBalances(address: string): Promise<Result<RawBalanceData, Error>> {

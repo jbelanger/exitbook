@@ -147,7 +147,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         // USDC on Ethereum
         const usdcAddress = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 
-        const result = await provider.getTokenMetadata(usdcAddress);
+        const result = await provider.getTokenMetadata([usdcAddress]);
 
         expect(result.isOk()).toBe(true);
         if (result.isErr()) {
@@ -155,7 +155,11 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
           return;
         }
 
-        const metadata = result.value;
+        const metadataArray = result.value;
+        expect(Array.isArray(metadataArray)).toBe(true);
+        expect(metadataArray.length).toBe(1);
+
+        const metadata = metadataArray[0]!;
         expect(metadata).toHaveProperty('contractAddress', usdcAddress);
         expect(metadata).toHaveProperty('name');
         expect(metadata).toHaveProperty('symbol');
@@ -170,7 +174,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         // USDT on Ethereum (known to have a logo)
         const usdtAddress = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 
-        const result = await provider.getTokenMetadata(usdtAddress);
+        const result = await provider.getTokenMetadata([usdtAddress]);
 
         expect(result.isOk()).toBe(true);
         if (result.isErr()) {
@@ -178,7 +182,11 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
           return;
         }
 
-        const metadata = result.value;
+        const metadataArray = result.value;
+        expect(Array.isArray(metadataArray)).toBe(true);
+        expect(metadataArray.length).toBe(1);
+
+        const metadata = metadataArray[0]!;
         expect(metadata).toHaveProperty('contractAddress', usdtAddress);
         expect(metadata.decimals).toBe(6);
 
@@ -192,14 +200,18 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         // Zero address - Moralis may or may not have metadata for this
         const zeroAddress = '0x0000000000000000000000000000000000000000';
 
-        const result = await provider.getTokenMetadata(zeroAddress);
+        const result = await provider.getTokenMetadata([zeroAddress]);
 
         // Moralis may return data for any address, so we just verify the call completes
         // If it succeeds, verify the structure is correct
         if (result.isOk()) {
-          const metadata = result.value;
-          expect(metadata).toHaveProperty('contractAddress', zeroAddress);
-          expect(metadata).toHaveProperty('refreshedAt');
+          const metadataArray = result.value;
+          expect(Array.isArray(metadataArray)).toBe(true);
+          if (metadataArray.length > 0) {
+            const metadata = metadataArray[0]!;
+            expect(metadata).toHaveProperty('contractAddress', zeroAddress);
+            expect(metadata).toHaveProperty('refreshedAt');
+          }
         } else {
           // If it fails, that's also acceptable
           expect(result.error.message).toBeTruthy();
@@ -210,8 +222,8 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         // DAI on Ethereum
         const daiAddress = '0x6B175474E89094C44Da98b954EedeAC495271d0F';
 
-        const result = await provider.execute<TokenMetadata>({
-          contractAddress: daiAddress,
+        const result = await provider.execute<TokenMetadata[]>({
+          contractAddresses: [daiAddress],
           type: 'getTokenMetadata',
         });
 
@@ -221,7 +233,11 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
           return;
         }
 
-        const metadata = result.value;
+        const metadataArray = result.value;
+        expect(Array.isArray(metadataArray)).toBe(true);
+        expect(metadataArray.length).toBe(1);
+
+        const metadata = metadataArray[0]!;
         expect(metadata).toHaveProperty('contractAddress', daiAddress);
         expect(metadata).toHaveProperty('symbol');
         expect(metadata).toHaveProperty('decimals');

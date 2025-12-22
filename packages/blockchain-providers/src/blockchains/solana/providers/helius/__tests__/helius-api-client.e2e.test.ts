@@ -262,7 +262,7 @@ describe('HeliusApiClient Integration', () => {
       // Mad Lads NFT #8420 from the example
       const nftMintAddress = 'F9Lw3ki3hJ7PF9HQXsBzoY8GyE6sPoEZZdXJBsTTD2rk';
 
-      const result = await provider.getTokenMetadata(nftMintAddress);
+      const result = await provider.getTokenMetadata([nftMintAddress]);
 
       expect(result.isOk()).toBe(true);
       if (result.isErr()) {
@@ -270,7 +270,11 @@ describe('HeliusApiClient Integration', () => {
         return;
       }
 
-      const metadata = result.value;
+      const metadataArray = result.value;
+      expect(Array.isArray(metadataArray)).toBe(true);
+      expect(metadataArray.length).toBe(1);
+
+      const metadata = metadataArray[0]!;
       expect(metadata).toHaveProperty('contractAddress', nftMintAddress);
       expect(metadata).toHaveProperty('name');
       expect(metadata).toHaveProperty('symbol');
@@ -290,7 +294,7 @@ describe('HeliusApiClient Integration', () => {
       // USDC on Solana
       const usdcMintAddress = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
-      const result = await provider.getTokenMetadata(usdcMintAddress);
+      const result = await provider.getTokenMetadata([usdcMintAddress]);
 
       expect(result.isOk()).toBe(true);
       if (result.isErr()) {
@@ -298,7 +302,11 @@ describe('HeliusApiClient Integration', () => {
         return;
       }
 
-      const metadata = result.value;
+      const metadataArray = result.value;
+      expect(Array.isArray(metadataArray)).toBe(true);
+      expect(metadataArray.length).toBe(1);
+
+      const metadata = metadataArray[0]!;
       expect(metadata).toHaveProperty('contractAddress', usdcMintAddress);
 
       // USDC should have 6 decimals
@@ -310,7 +318,7 @@ describe('HeliusApiClient Integration', () => {
     it('should handle non-existent token gracefully', async () => {
       const invalidMintAddress = '11111111111111111111111111111111';
 
-      const result = await provider.getTokenMetadata(invalidMintAddress);
+      const result = await provider.getTokenMetadata([invalidMintAddress]);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -322,8 +330,8 @@ describe('HeliusApiClient Integration', () => {
       // USDT on Solana
       const usdtMintAddress = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 
-      const result = await provider.execute<TokenMetadata>({
-        contractAddress: usdtMintAddress,
+      const result = await provider.execute<TokenMetadata[]>({
+        contractAddresses: [usdtMintAddress],
         type: 'getTokenMetadata',
       });
 
@@ -333,7 +341,11 @@ describe('HeliusApiClient Integration', () => {
         return;
       }
 
-      const metadata = result.value;
+      const metadataArray = result.value;
+      expect(Array.isArray(metadataArray)).toBe(true);
+      expect(metadataArray.length).toBe(1);
+
+      const metadata = metadataArray[0]!;
       expect(metadata).toHaveProperty('contractAddress', usdtMintAddress);
       expect(metadata).toHaveProperty('refreshedAt');
 

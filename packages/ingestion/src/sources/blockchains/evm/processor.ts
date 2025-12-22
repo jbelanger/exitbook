@@ -10,7 +10,7 @@ import { err, okAsync, ok, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
-import { looksLikeContractAddress, isMissingMetadata } from '../../../features/token-metadata/token-metadata-utils.js';
+import { looksLikeContractAddress } from '../../../features/token-metadata/token-metadata-utils.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
 
 import {
@@ -204,28 +204,31 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
         },
       };
 
-      // Scam detection: Check all movements (both inflows and outflows)
+      // Scam detection: Batch check all movements (both inflows and outflows)
       const allMovements = [...fundFlow.inflows, ...fundFlow.outflows];
-      for (const movement of allMovements) {
-        // EVM-specific airdrop detection: inflows without outflows and not user-initiated
-        const context = {
-          amount: parseDecimal(movement.amount).toNumber(),
-          contractAddress: movement.tokenAddress,
-          isAirdrop: fundFlow.outflows.length === 0 && !userInitiatedTransaction,
-        };
+      const isAirdrop = fundFlow.outflows.length === 0 && !userInitiatedTransaction;
 
-        const scamNote = await this.detectScamForAsset(movement.asset, context.contractAddress, {
-          amount: context.amount,
-          isAirdrop: context.isAirdrop,
-        });
-        if (scamNote) {
-          // Apply scam detection results based on severity
-          if (scamNote.severity === 'error') {
-            universalTransaction.isSpam = true;
-          }
-          universalTransaction.notes = [...(universalTransaction.notes || []), scamNote];
-          break;
+      // Map movements to format expected by batch detection
+      const movementsForDetection = allMovements.map((m) => {
+        const item: { asset: string; contractAddress?: string | undefined } = { asset: m.asset };
+        if (m.tokenAddress !== undefined) {
+          item.contractAddress = m.tokenAddress;
         }
+        return item;
+      });
+
+      // Batch detect scam across all movements - fetches metadata in parallel
+      const scamNote = await this.detectScamBatch(movementsForDetection, {
+        amount: allMovements[0] ? parseDecimal(allMovements[0].amount) : parseDecimal('0'),
+        isAirdrop,
+      });
+
+      if (scamNote) {
+        // Apply scam detection results based on severity
+        if (scamNote.severity === 'error') {
+          universalTransaction.isSpam = true;
+        }
+        universalTransaction.notes = [...(universalTransaction.notes || []), scamNote];
       }
 
       transactions.push(universalTransaction);
@@ -258,19 +261,16 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
   }
 
   /**
-   * Enrich token metadata for all transactions.
-   * Only fetches metadata for symbols that look like contract addresses.
+   * Enrich token metadata for all token transfers.
+   * Fetches metadata upfront in batch to populate cache for later use (asset ID building, scam detection).
    */
   private async enrichTokenMetadata(transactions: EvmTransaction[]): Promise<Result<void, Error>> {
-    // Collect all token transfers that need enrichment
+    // Collect all token transfers with contract addresses
+    // We enrich ALL of them upfront (not just those with missing/incomplete metadata) because:
+    // 1. Scam detection needs metadata for all tokens with contract addresses
+    // 2. Batching all fetches upfront is more efficient than separate calls later
     const transactionsToEnrich = transactions.filter((tx) => {
-      if (tx.type !== 'token_transfer' || !tx.tokenAddress) {
-        return false;
-      }
-
-      const symbol = tx.tokenSymbol || tx.currency;
-      // Enrich if metadata is incomplete OR if symbol looks like a contract address (EVM = 40 chars)
-      return isMissingMetadata(symbol, tx.tokenDecimals) || (symbol ? looksLikeContractAddress(symbol, 40) : false);
+      return tx.type === 'token_transfer' && !!tx.tokenAddress;
     });
 
     if (transactionsToEnrich.length === 0) {

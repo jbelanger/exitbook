@@ -39,6 +39,7 @@ function createMockTokenMetadataService(): ITokenMetadataService {
   return {
     enrichBatch: vi.fn().mockResolvedValue(ok()),
     getOrFetch: vi.fn().mockResolvedValue(ok()),
+    getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
   } as unknown as ITokenMetadataService;
 }
 
@@ -1449,6 +1450,7 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
           }
         ),
       getOrFetch: vi.fn().mockResolvedValue(ok()),
+      getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
     } as unknown as ITokenMetadataService;
   });
 
@@ -1503,7 +1505,7 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
     expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('USDC');
   });
 
-  test('skips enrichment when symbol is already readable', async () => {
+  test('enriches all token transfers to populate cache for scam detection', async () => {
     const processor = new EvmTransactionProcessor(
       ETHEREUM_CONFIG,
       createMockProviderManager(),
@@ -1531,8 +1533,9 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
 
     expect(result.isOk()).toBe(true);
 
-    // Verify enrichBatch was NOT called for readable symbols
-    expect(mockTokenMetadataService.enrichBatch).not.toHaveBeenCalled();
+    // Verify enrichBatch IS called even for tokens with complete metadata
+    // This populates the cache upfront for later use by scam detection
+    expect(mockTokenMetadataService.enrichBatch).toHaveBeenCalled();
   });
 
   test('enriches decimals when missing from transaction', async () => {

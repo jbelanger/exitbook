@@ -7,6 +7,7 @@ import type {
   UniversalTransactionData,
   VerificationMetadata,
 } from '@exitbook/core';
+import { parseAssetId } from '@exitbook/core';
 import type {
   AccountRepository,
   IImportSessionRepository,
@@ -99,7 +100,7 @@ export class BalanceService {
         return err(excludedInfoResult.error);
       }
 
-      const { amounts: excludedAmounts, scamAssetIds } = excludedInfoResult.value;
+      const { amounts: excludedAmounts, spamAssetIds: spamAssetIds } = excludedInfoResult.value;
       if (Object.keys(excludedAmounts).length > 0) {
         const excludedAssets = Object.keys(excludedAmounts);
         logger.info(
@@ -108,12 +109,12 @@ export class BalanceService {
         liveBalances = this.subtractExcludedAmounts(liveBalances, excludedAmounts);
       }
 
-      if (scamAssetIds.size > 0) {
-        logger.info(`Filtering ${scamAssetIds.size} scam assets from balance comparison`);
-        liveBalances = this.removeAssetsById(liveBalances, scamAssetIds);
-        calculatedBalances = this.removeAssetsById(calculatedBalances, scamAssetIds);
-        liveAssetMetadata = this.removeAssetMetadata(liveAssetMetadata, scamAssetIds);
-        calculatedAssetMetadata = this.removeAssetMetadata(calculatedAssetMetadata, scamAssetIds);
+      if (spamAssetIds.size > 0) {
+        logger.info(`Filtering ${spamAssetIds.size} scam assets from balance comparison`);
+        liveBalances = this.removeAssetsById(liveBalances, spamAssetIds);
+        calculatedBalances = this.removeAssetsById(calculatedBalances, spamAssetIds);
+        liveAssetMetadata = this.removeAssetMetadata(liveAssetMetadata, spamAssetIds);
+        calculatedAssetMetadata = this.removeAssetMetadata(calculatedAssetMetadata, spamAssetIds);
       }
 
       // 5. Compare balances (merge metadata from both calculated and live)
@@ -331,7 +332,7 @@ export class BalanceService {
    */
   private async getExcludedAssetInfo(
     account: Account
-  ): Promise<Result<{ amounts: Record<string, Decimal>; scamAssetIds: Set<string> }, Error>> {
+  ): Promise<Result<{ amounts: Record<string, Decimal>; spamAssetIds: Set<string> }, Error>> {
     try {
       // Get child accounts if this is a parent account (e.g., xpub)
       const childAccountsResult = await this.accountRepository.findByParent(account.id);
@@ -351,13 +352,13 @@ export class BalanceService {
       const allSessions = sessionsResult.value;
 
       if (allSessions.length === 0) {
-        return ok({ amounts: {}, scamAssetIds: new Set() });
+        return ok({ amounts: {}, spamAssetIds: new Set() });
       }
 
       // Check if there's at least one completed session
       const hasCompletedSession = allSessions.some((s) => s.status === 'completed');
       if (!hasCompletedSession) {
-        return ok({ amounts: {}, scamAssetIds: new Set() });
+        return ok({ amounts: {}, spamAssetIds: new Set() });
       }
 
       // Fetch ALL excluded transactions for all accounts in one query (avoids N+1)
@@ -459,28 +460,48 @@ export class BalanceService {
   /**
    * Summarize excluded assets from transactions.
    * - amounts: sum of excluded inflows (airdrops) by assetId
-   * - scamAssetIds: assetIds seen in scam transactions (notes or isSpam)
+   * - spamAssetIds: assetIds seen in scam transactions (notes or isSpam)
    */
   private collectExcludedAssetInfo(transactions: UniversalTransactionData[]): {
     amounts: Record<string, Decimal>;
-    scamAssetIds: Set<string>;
+    spamAssetIds: Set<string>;
   } {
     const excludedTransactions = transactions.filter((tx) => tx.excludedFromAccounting === true);
     const amounts: Record<string, Decimal> = {};
-    const scamAssetIds = new Set<string>();
+    const spamAssetIds = new Set<string>();
+
+    const shouldMarkScamAsset = (assetId: string): boolean => {
+      const parsed = parseAssetId(assetId);
+      if (parsed.isErr()) {
+        logger.warn({ assetId, error: parsed.error }, 'Failed to parse assetId for scam filtering, skipping');
+        return false;
+      }
+
+      if (parsed.value.namespace !== 'blockchain') {
+        return false;
+      }
+
+      // Never exclude native assets from balance comparisons (e.g., ETH gas fees on spam txs)
+      if (parsed.value.ref === 'native') {
+        return false;
+      }
+
+      return true;
+    };
 
     for (const tx of excludedTransactions) {
       const isScam = tx.isSpam === true || (tx.notes?.some((note) => note.type === 'SCAM_TOKEN') ?? false);
 
       if (isScam) {
         for (const inflow of tx.movements.inflows ?? []) {
-          scamAssetIds.add(inflow.assetId);
+          if (shouldMarkScamAsset(inflow.assetId)) {
+            spamAssetIds.add(inflow.assetId);
+          }
         }
         for (const outflow of tx.movements.outflows ?? []) {
-          scamAssetIds.add(outflow.assetId);
-        }
-        for (const fee of tx.fees ?? []) {
-          scamAssetIds.add(fee.assetId);
+          if (shouldMarkScamAsset(outflow.assetId)) {
+            spamAssetIds.add(outflow.assetId);
+          }
         }
       }
 
@@ -491,7 +512,7 @@ export class BalanceService {
       }
     }
 
-    return { amounts, scamAssetIds };
+    return { amounts, spamAssetIds };
   }
 
   /**

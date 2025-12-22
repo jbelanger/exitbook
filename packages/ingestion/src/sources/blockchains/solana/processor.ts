@@ -4,7 +4,6 @@ import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
-import { looksLikeContractAddress, isMissingMetadata } from '../../../features/token-metadata/token-metadata-utils.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
 
 import { analyzeSolanaFundFlow, classifySolanaOperationFromFundFlow } from './processor-utils.js';
@@ -172,7 +171,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         const allMovements = [...fundFlow.inflows, ...fundFlow.outflows];
         for (const movement of allMovements) {
           const scamNote = await this.detectScamForAsset(movement.asset, movement.tokenAddress, {
-            amount: parseDecimal(movement.amount).toNumber(),
+            amount: parseDecimal(movement.amount),
             isAirdrop: fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser,
           });
           if (scamNote) {
@@ -222,19 +221,17 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
   }
 
   /**
-   * Enrich token metadata for all transactions
-   * Only fetches metadata for symbols that look like mint addresses
+   * Enrich token metadata for all token changes.
+   * Fetches metadata upfront in batch to populate cache for later use (asset ID building, scam detection).
    */
   private async enrichTokenMetadata(transactions: SolanaTransaction[]): Promise<Result<void, Error>> {
-    // Collect all token changes that need enrichment
+    // Collect all token changes with mint addresses for batch enrichment
+    // We enrich ALL of them upfront (not just those with missing/incomplete metadata) because:
+    // 1. Scam detection needs metadata for all tokens with contract addresses
+    // 2. Batching all fetches upfront is more efficient than separate calls later
     const tokenChangesToEnrich = transactions.flatMap((tx) => {
       if (!tx.tokenChanges) return [];
-      // Enrich if metadata is incomplete OR if symbol looks like a mint address (Solana = 32+ chars)
-      return tx.tokenChanges.filter(
-        (change) =>
-          isMissingMetadata(change.symbol, change.decimals) ||
-          (change.symbol ? looksLikeContractAddress(change.symbol, 32) : false)
-      );
+      return tx.tokenChanges.filter((change) => !!change.mint);
     });
 
     if (tokenChangesToEnrich.length === 0) {

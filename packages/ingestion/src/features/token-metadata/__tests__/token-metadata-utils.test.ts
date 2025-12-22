@@ -94,7 +94,7 @@ describe('token-metadata-utils', () => {
       ] as IBlockchainProvider[]);
       vi.mocked(mockProviderManager.executeWithFailoverOnce).mockResolvedValue(
         ok({
-          data: mockMetadata,
+          data: [mockMetadata],
           providerName: 'test-provider',
         })
       );
@@ -113,7 +113,7 @@ describe('token-metadata-utils', () => {
       expect(returnedMetadata?.refreshedAt).toBeInstanceOf(Date);
       expect(mockProviderManager.executeWithFailoverOnce).toHaveBeenCalledWith('ethereum', {
         type: 'getTokenMetadata',
-        contractAddress: '0x123',
+        contractAddresses: ['0x123'],
       });
       // Should save complete metadata with refreshedAt
       expect(mockRepository.save).toHaveBeenCalledWith(
@@ -141,7 +141,7 @@ describe('token-metadata-utils', () => {
       expect(result._unsafeUnwrap()).toBeUndefined();
       expect(mockProviderManager.executeWithFailoverOnce).toHaveBeenCalledWith('ethereum', {
         type: 'getTokenMetadata',
-        contractAddress: '0x123',
+        contractAddresses: ['0x123'],
       });
     });
 
@@ -165,7 +165,7 @@ describe('token-metadata-utils', () => {
       ] as IBlockchainProvider[]);
       vi.mocked(mockProviderManager.executeWithFailoverOnce).mockResolvedValue(
         ok({
-          data: mockMetadata,
+          data: [mockMetadata],
           providerName: 'test-provider',
         })
       );

@@ -20,7 +20,7 @@ export type ProviderOperationParams =
       type: 'getAddressTokenTransactions';
     }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressTokenBalances' }
-  | { contractAddress: string; type: 'getTokenMetadata' }
+  | { contractAddresses: string[]; type: 'getTokenMetadata' }
   | { address: string; limit?: number | undefined; type: 'getAddressBeaconWithdrawals' }
   | { address: string; type: 'getAddressInfo' };
 

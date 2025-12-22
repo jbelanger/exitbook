@@ -696,7 +696,7 @@ describe('Preferred Provider Behavior', () => {
     // Test operation that routescan does NOT support (token metadata)
     const operation: ProviderOperation = {
       type: 'getTokenMetadata',
-      contractAddress: '0xabc',
+      contractAddresses: ['0xabc'],
     };
 
     const result = await manager.executeWithFailoverOnce<{ success: boolean }>('ethereum', operation);

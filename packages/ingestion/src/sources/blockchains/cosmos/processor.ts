@@ -175,7 +175,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
         for (const movement of allMovements) {
           // Cosmos-specific airdrop detection: inflows without outflows and not user-initiated
           const context = {
-            amount: parseDecimal(movement.amount).toNumber(),
+            amount: parseDecimal(movement.amount),
             denom: movement.denom,
             isAirdrop: fundFlow.outflows.length === 0 && !userInitiatedTransaction,
           };

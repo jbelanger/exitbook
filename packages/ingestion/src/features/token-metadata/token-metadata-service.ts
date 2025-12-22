@@ -4,7 +4,11 @@ import type { TokenMetadataRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
 import type { ITokenMetadataService } from './token-metadata-service.interface.js';
-import { enrichTokenMetadataBatch, getOrFetchTokenMetadata } from './token-metadata-utils.js';
+import {
+  enrichTokenMetadataBatch,
+  getOrFetchTokenMetadata,
+  getOrFetchTokenMetadataBatch,
+} from './token-metadata-utils.js';
 
 /**
  * Token metadata service implementation.
@@ -53,5 +57,22 @@ export class TokenMetadataService implements ITokenMetadataService {
     contractAddress: string
   ): Promise<Result<TokenMetadataRecord | undefined, Error>> {
     return getOrFetchTokenMetadata(blockchain, contractAddress, this.tokenMetadataRepository, this.providerManager);
+  }
+
+  /**
+   * Get token metadata for multiple contracts from cache or fetch from provider if not available.
+   * Optimized batch version that reduces API calls.
+   * Delegates to the pure function in token-metadata-utils.js
+   */
+  async getOrFetchBatch(
+    blockchain: string,
+    contractAddresses: string[]
+  ): Promise<Result<Map<string, TokenMetadataRecord | undefined>, Error>> {
+    return getOrFetchTokenMetadataBatch(
+      blockchain,
+      contractAddresses,
+      this.tokenMetadataRepository,
+      this.providerManager
+    );
   }
 }

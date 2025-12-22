@@ -124,7 +124,7 @@ export class HeliusApiClient extends BaseApiClient {
           contractAddresses: operation.contractAddresses,
         })) as Result<T, Error>;
       case 'getTokenMetadata':
-        return (await this.getTokenMetadata(operation.contractAddress)) as Result<T, Error>;
+        return (await this.getTokenMetadata(operation.contractAddresses)) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
     }
@@ -166,7 +166,45 @@ export class HeliusApiClient extends BaseApiClient {
     };
   }
 
-  async getTokenMetadata(mintAddress: string): Promise<Result<TokenMetadata, Error>> {
+  async getTokenMetadata(mintAddresses: string[]): Promise<Result<TokenMetadata[], Error>> {
+    if (mintAddresses.length === 0) {
+      return ok([]);
+    }
+
+    // For batch requests, use getAssetBatch method
+    if (mintAddresses.length > 1) {
+      const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse[]>>(
+        '/',
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'getAssetBatch',
+          params: {
+            displayOptions: {
+              showFungible: true,
+            },
+            ids: mintAddresses,
+          },
+        },
+        { schema: HeliusAssetJsonRpcResponseSchema }
+      );
+
+      if (result.isErr()) {
+        return err(result.error);
+      }
+
+      const response = result.value;
+      if (!response?.result) {
+        return err(new Error(`Token metadata not found for ${mintAddresses.length} mint addresses`));
+      }
+
+      // Response.result should be an array for getAssetBatch
+      const assets = Array.isArray(response.result) ? response.result : [response.result];
+      const metadata = assets.map((asset, index) => this.extractTokenMetadata(asset, mintAddresses[index]!));
+      return ok(metadata);
+    }
+
+    // Single address - use getAsset method
     const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>(
       '/',
       {
@@ -177,7 +215,7 @@ export class HeliusApiClient extends BaseApiClient {
           displayOptions: {
             showFungible: true,
           },
-          id: mintAddress,
+          id: mintAddresses[0],
         },
       },
       { schema: HeliusAssetJsonRpcResponseSchema }
@@ -189,11 +227,11 @@ export class HeliusApiClient extends BaseApiClient {
 
     const response = result.value;
     if (!response?.result) {
-      return err(new Error(`Token metadata not found for mint address: ${mintAddress}`));
+      return err(new Error(`Token metadata not found for mint address: ${mintAddresses[0]}`));
     }
 
     const asset = response.result;
-    return ok(this.extractTokenMetadata(asset, mintAddress));
+    return ok([this.extractTokenMetadata(asset, mintAddresses[0]!)]);
   }
 
   private extractTokenMetadata(asset: HeliusAssetResponse, mintAddress: string): TokenMetadata {

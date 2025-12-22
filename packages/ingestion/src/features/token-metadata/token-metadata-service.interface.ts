@@ -49,4 +49,18 @@ export interface ITokenMetadataService {
    * @returns Token metadata or undefined if not found
    */
   getOrFetch(blockchain: string, contractAddress: string): Promise<Result<TokenMetadataRecord | undefined, Error>>;
+
+  /**
+   * Get token metadata for multiple contracts from cache or fetch from provider if not available.
+   * Optimized batch version that reduces API calls by fetching uncached contracts in a single batch request.
+   * Implements cache-aside pattern with background refresh for stale data.
+   *
+   * @param blockchain - Blockchain identifier
+   * @param contractAddresses - Array of token contract addresses
+   * @returns Map of contract address to metadata (undefined if not found)
+   */
+  getOrFetchBatch(
+    blockchain: string,
+    contractAddresses: string[]
+  ): Promise<Result<Map<string, TokenMetadataRecord | undefined>, Error>>;
 }

@@ -347,7 +347,7 @@ describe('KucoinProcessor (CSV) - Trading Bot Handling', () => {
 });
 
 describe('KucoinProcessor (CSV) - Error Handling', () => {
-  test('handles malformed row gracefully', async () => {
+  test('handles malformed row by failing (strict mode)', async () => {
     const processor = createProcessor();
 
     const malformedRow = {
@@ -358,14 +358,15 @@ describe('KucoinProcessor (CSV) - Error Handling', () => {
 
     const result = await processor.process([malformedRow]);
 
-    // Should not throw, but should skip the malformed row
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    // Should fail in strict mode
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
 
-    expect(result.value).toHaveLength(0);
+    expect(result.error).toContain('KuCoin CSV processing failed');
+    expect(result.error).toContain('1 conversion error(s)');
   });
 
-  test('handles unknown row type', async () => {
+  test('handles unknown row type by failing (strict mode)', async () => {
     const processor = createProcessor();
 
     const unknownRow = {
@@ -375,11 +376,12 @@ describe('KucoinProcessor (CSV) - Error Handling', () => {
 
     const result = await processor.process([unknownRow]);
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    // Should fail in strict mode
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
 
-    // Unknown rows should be skipped
-    expect(result.value).toHaveLength(0);
+    expect(result.error).toContain('KuCoin CSV processing failed');
+    expect(result.error).toContain('1 unknown row type(s)');
   });
 });
 

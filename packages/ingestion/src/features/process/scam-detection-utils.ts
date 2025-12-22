@@ -49,7 +49,7 @@ export function detectScamToken(
   contractAddress: string,
   tokenMetadata: TokenMetadataRecord,
   transactionContext?: {
-    amount: number;
+    amount: Decimal;
     isAirdrop: boolean;
   }
 ): TransactionNote | undefined {
@@ -167,7 +167,7 @@ export function detectScamToken(
   // ============================================================
   // TIER 3: HEURISTICS (Context-based signals)
   // ============================================================
-  if (transactionContext?.isAirdrop && transactionContext.amount > 0) {
+  if (transactionContext?.isAirdrop && transactionContext.amount.greaterThan(0)) {
     // Add airdrop warning based on context:
     // 1. If there are already other suspicious indicators, add as additional signal
     // 2. If explicitly unverified (false), escalate to error

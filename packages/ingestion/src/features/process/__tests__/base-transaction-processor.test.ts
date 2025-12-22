@@ -1,4 +1,5 @@
 import type { TokenMetadataRecord } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import { ok } from 'neverthrow';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -16,7 +17,7 @@ class TestProcessor extends BaseTransactionProcessor {
   public async testDetectScamForAsset(
     assetSymbol: string,
     contractAddress?: string,
-    transactionContext?: { amount: number; isAirdrop: boolean }
+    transactionContext?: { amount: Decimal; isAirdrop: boolean }
   ) {
     return this.detectScamForAsset(assetSymbol, contractAddress, transactionContext);
   }
@@ -100,7 +101,7 @@ describe('BaseTransactionProcessor - Scam Detection', () => {
 
     // Context: Airdrop of > 0 amount
     const result = await processor.testDetectScamForAsset('MEME', MOCK_CONTRACT, {
-      amount: 100,
+      amount: new Decimal(100),
       isAirdrop: true,
     });
 

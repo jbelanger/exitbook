@@ -188,7 +188,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
         for (const movement of allMovements) {
           // Cardano-specific context: uses policyId instead of contract address
           const context = {
-            amount: parseDecimal(movement.amount).toNumber(),
+            amount: parseDecimal(movement.amount),
             contractAddress: movement.policyId,
             isAirdrop: fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser,
           };

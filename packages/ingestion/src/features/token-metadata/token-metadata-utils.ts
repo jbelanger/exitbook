@@ -108,31 +108,240 @@ async function fetchFromProvider(
   providerManager: BlockchainProviderManager
 ): Promise<Result<TokenMetadataRecord | undefined, Error>> {
   try {
+    // For single contract, use the batch function with array of 1
+    const batchResult = await fetchBatchFromProvider(blockchain, [contractAddress], providerManager);
+
+    if (batchResult.isErr()) {
+      return err(batchResult.error);
+    }
+
+    const results = batchResult.value;
+    return ok(results.length > 0 ? results[0] : undefined);
+  } catch (error) {
+    return wrapError(error, `Failed to fetch token metadata from provider for ${blockchain}:${contractAddress}`);
+  }
+}
+
+/**
+ * Fetch token metadata for multiple contracts in a single batch request.
+ * Returns empty array if providers don't support metadata operation.
+ * Populates the source field with the actual provider name for each result.
+ */
+async function fetchBatchFromProvider(
+  blockchain: string,
+  contractAddresses: string[],
+  providerManager: BlockchainProviderManager
+): Promise<Result<TokenMetadataRecord[], Error>> {
+  try {
+    if (contractAddresses.length === 0) {
+      return ok([]);
+    }
+
     // executeWithFailover handles auto-registration and capability checking
-    const result = await providerManager.executeWithFailoverOnce<TokenMetadata>(blockchain, {
+    const result = await providerManager.executeWithFailoverOnce<TokenMetadata[]>(blockchain, {
       type: 'getTokenMetadata',
-      contractAddress,
+      contractAddresses,
     });
 
     if (result.isErr()) {
       // Check if error is due to unsupported operation (not a failure)
       if (result.error instanceof ProviderError && result.error.code === 'NO_PROVIDERS') {
-        return ok(undefined);
+        return ok([]);
       }
       return err(result.error);
     }
 
     // Populate source with the actual provider name for provenance tracking
-    const metadataWithSource: TokenMetadataRecord = {
-      ...result.value.data,
+    const metadataWithSource: TokenMetadataRecord[] = result.value.data.map((metadata) => ({
+      ...metadata,
       source: result.value.providerName,
       blockchain,
       refreshedAt: new Date(),
-    };
+    }));
 
     return ok(metadataWithSource);
   } catch (error) {
-    return wrapError(error, `Failed to fetch token metadata from provider for ${blockchain}:${contractAddress}`);
+    return wrapError(
+      error,
+      `Failed to fetch batch token metadata from provider for ${blockchain} (${contractAddresses.length} addresses)`
+    );
+  }
+}
+
+/**
+ * Get token metadata for multiple contracts from cache or fetch from provider if not available.
+ * Optimized batch version of getOrFetchTokenMetadata that reduces API calls.
+ *
+ * Flow:
+ * 1. Check DB cache for all contracts first
+ * 2. Batch fetch only uncached contracts from provider
+ * 3. Return Map of contract address -> metadata
+ * 4. Background refresh for stale cached data
+ *
+ * @param blockchain - Blockchain identifier
+ * @param contractAddresses - Array of token contract addresses
+ * @param tokenMetadataRepository - Repository for DB caching
+ * @param providerManager - Provider manager for fetching from APIs
+ * @returns Map of contract address to metadata (undefined if not found)
+ */
+export async function getOrFetchTokenMetadataBatch(
+  blockchain: string,
+  contractAddresses: string[],
+  tokenMetadataRepository: TokenMetadataRepository,
+  providerManager: BlockchainProviderManager
+): Promise<Result<Map<string, TokenMetadataRecord | undefined>, Error>> {
+  try {
+    const metadataMap = new Map<string, TokenMetadataRecord | undefined>();
+
+    if (contractAddresses.length === 0) {
+      return ok(metadataMap);
+    }
+
+    // Step 1: Check cache for all contracts in parallel
+    const uncachedContracts: string[] = [];
+    const staleContracts: string[] = [];
+
+    // Fetch all cache lookups in parallel
+    const cachePromises = contractAddresses.map((contractAddress) =>
+      tokenMetadataRepository.getByContract(blockchain, contractAddress).then((result) => ({
+        contractAddress,
+        result,
+      }))
+    );
+
+    const cacheResults = await Promise.all(cachePromises);
+
+    for (const { contractAddress, result: cacheResult } of cacheResults) {
+      if (cacheResult.isErr()) {
+        logger.warn({ error: cacheResult.error, blockchain, contractAddress }, 'Cache lookup failed');
+        uncachedContracts.push(contractAddress);
+        continue;
+      }
+
+      const cached = cacheResult.value;
+      if (cached) {
+        metadataMap.set(contractAddress, cached);
+        const isStale = tokenMetadataRepository.isStale(cached.refreshedAt);
+        if (isStale) {
+          staleContracts.push(contractAddress);
+        }
+      } else {
+        uncachedContracts.push(contractAddress);
+      }
+    }
+
+    // Step 2: Batch fetch uncached contracts from provider in chunks to avoid HTTP 414 (URL too large)
+    if (uncachedContracts.length > 0) {
+      const BATCH_SIZE = 100;
+      logger.info(
+        { blockchain, count: uncachedContracts.length, batches: Math.ceil(uncachedContracts.length / BATCH_SIZE) },
+        `Fetching ${uncachedContracts.length} uncached tokens in ${Math.ceil(uncachedContracts.length / BATCH_SIZE)} batch(es) of up to ${BATCH_SIZE}`
+      );
+
+      // Process in batches to avoid URL length limits
+      for (let i = 0; i < uncachedContracts.length; i += BATCH_SIZE) {
+        const batchAddresses = uncachedContracts.slice(i, i + BATCH_SIZE);
+        const fetchResult = await fetchBatchFromProvider(blockchain, batchAddresses, providerManager);
+
+        if (fetchResult.isErr()) {
+          logger.warn(
+            {
+              error: fetchResult.error,
+              blockchain,
+              count: batchAddresses.length,
+              batch: Math.floor(i / BATCH_SIZE) + 1,
+            },
+            'Batch fetch from provider failed'
+          );
+          // Mark uncached contracts as undefined (not found)
+          for (const addr of batchAddresses) {
+            metadataMap.set(addr, undefined);
+          }
+        } else {
+          const fetchedMetadata = fetchResult.value;
+
+          // Cache each fetched metadata in parallel and add to result map
+          const savePromises = fetchedMetadata
+            .filter((metadata) => metadata.contractAddress)
+            .map((metadata) =>
+              tokenMetadataRepository
+                .save(blockchain, metadata.contractAddress, metadata)
+                .then((saveResult) => {
+                  if (saveResult.isErr()) {
+                    logger.error(
+                      { error: saveResult.error, blockchain, contractAddress: metadata.contractAddress },
+                      'Failed to cache token metadata'
+                    );
+                  }
+                  return metadata;
+                })
+                .catch((error) => {
+                  logger.error(
+                    { error, blockchain, contractAddress: metadata.contractAddress },
+                    'Save operation threw'
+                  );
+                  return metadata;
+                })
+            );
+
+          const savedMetadata = await Promise.all(savePromises);
+
+          // Add to result map
+          for (const metadata of savedMetadata) {
+            metadataMap.set(metadata.contractAddress, metadata);
+          }
+
+          // Mark any contracts that weren't returned by provider as undefined
+          for (const addr of batchAddresses) {
+            if (!metadataMap.has(addr)) {
+              metadataMap.set(addr, undefined);
+            }
+          }
+        }
+      }
+    }
+
+    // Step 3: Background refresh for stale contracts (fire and forget)
+    if (staleContracts.length > 0) {
+      fetchBatchFromProvider(blockchain, staleContracts, providerManager)
+        .then((result) => {
+          if (result.isOk()) {
+            for (const metadata of result.value) {
+              if (metadata.contractAddress) {
+                tokenMetadataRepository.save(blockchain, metadata.contractAddress, metadata).catch((error) => {
+                  logger.error(
+                    { error, blockchain, contractAddress: metadata.contractAddress },
+                    'Background refresh: Failed to cache token metadata'
+                  );
+                });
+              }
+            }
+          }
+        })
+        .catch((error) => {
+          logger.warn({ error, blockchain, count: staleContracts.length }, 'Background refresh failed');
+        });
+    }
+
+    // Log summary of batch operation
+    const cachedCount = contractAddresses.length - uncachedContracts.length;
+    const BATCH_SIZE = 100;
+    const numBatches = Math.ceil(uncachedContracts.length / BATCH_SIZE);
+    const batchDesc = numBatches === 1 ? 'single API call' : `${numBatches} API calls`;
+    logger.info(
+      {
+        blockchain,
+        total: contractAddresses.length,
+        cached: cachedCount,
+        fetched: uncachedContracts.length,
+        batches: numBatches,
+      },
+      `Batch metadata fetch complete: ${cachedCount} from cache, ${uncachedContracts.length} from ${uncachedContracts.length > 0 ? batchDesc : 'API'}`
+    );
+
+    return ok(metadataMap);
+  } catch (error) {
+    return wrapError(error, `Failed to get or fetch token metadata batch for ${blockchain}`);
   }
 }
 
@@ -190,36 +399,135 @@ export async function enrichTokenMetadataBatch<T>(
       return ok();
     }
 
-    // Fetch metadata for all unique contracts (sequential due to provider-manager limitations)
+    // Fetch metadata for all unique contracts using batch operation
     const metadataMap = new Map<string, TokenMetadataRecord>();
     const failedContracts = new Set<string>();
     let successCount = 0;
     let failureCount = 0;
 
-    for (const contractAddress of contractAddresses) {
-      const result = await getOrFetchTokenMetadata(
-        blockchain,
-        contractAddress,
-        tokenMetadataRepository,
-        providerManager
-      );
+    // Step 1: Check cache for all contracts in parallel
+    const cachedMetadata = new Map<string, TokenMetadataRecord>();
+    const uncachedContracts: string[] = [];
+    const staleContracts: string[] = [];
 
-      if (result.isErr()) {
-        failureCount++;
-        failedContracts.add(contractAddress);
-        logger.warn(
-          { error: result.error, blockchain, contractAddress },
-          'Failed to fetch token metadata, continuing with remaining tokens'
-        );
+    // Fetch all cache lookups in parallel
+    const cachePromises = Array.from(contractAddresses).map((contractAddress) =>
+      tokenMetadataRepository.getByContract(blockchain, contractAddress).then((result) => ({
+        contractAddress,
+        result,
+      }))
+    );
+
+    const cacheResults = await Promise.all(cachePromises);
+
+    for (const { contractAddress, result: cacheResult } of cacheResults) {
+      if (cacheResult.isErr()) {
+        logger.warn({ error: cacheResult.error, blockchain, contractAddress }, 'Cache lookup failed');
+        uncachedContracts.push(contractAddress);
         continue;
       }
 
-      const metadata = result.value;
-      if (metadata) {
-        metadataMap.set(contractAddress, metadata);
+      const cached = cacheResult.value;
+      if (cached) {
+        cachedMetadata.set(contractAddress, cached);
+        const isStale = tokenMetadataRepository.isStale(cached.refreshedAt);
+        if (isStale) {
+          staleContracts.push(contractAddress);
+        }
+      } else {
+        uncachedContracts.push(contractAddress);
       }
-      // Count undefined as success (provider doesn't support metadata, not a failure)
+    }
+
+    // Step 2: Batch fetch uncached contracts from provider in chunks to avoid HTTP 414 (URL too large)
+    if (uncachedContracts.length > 0) {
+      const BATCH_SIZE = 100;
+      logger.info(
+        { blockchain, count: uncachedContracts.length, batches: Math.ceil(uncachedContracts.length / BATCH_SIZE) },
+        `Fetching ${uncachedContracts.length} uncached tokens in ${Math.ceil(uncachedContracts.length / BATCH_SIZE)} batch(es) of up to ${BATCH_SIZE}`
+      );
+
+      // Process in batches to avoid URL length limits
+      for (let i = 0; i < uncachedContracts.length; i += BATCH_SIZE) {
+        const batchAddresses = uncachedContracts.slice(i, i + BATCH_SIZE);
+        const fetchResult = await fetchBatchFromProvider(blockchain, batchAddresses, providerManager);
+
+        if (fetchResult.isErr()) {
+          logger.warn(
+            {
+              error: fetchResult.error,
+              blockchain,
+              count: batchAddresses.length,
+              batch: Math.floor(i / BATCH_SIZE) + 1,
+            },
+            'Batch fetch from provider failed'
+          );
+          failureCount += batchAddresses.length;
+          batchAddresses.forEach((addr) => failedContracts.add(addr));
+        } else {
+          const fetchedMetadata = fetchResult.value;
+
+          // Cache each fetched metadata in parallel
+          const savePromises = fetchedMetadata
+            .filter((metadata) => metadata.contractAddress)
+            .map((metadata) =>
+              tokenMetadataRepository
+                .save(blockchain, metadata.contractAddress, metadata)
+                .then((saveResult) => {
+                  if (saveResult.isErr()) {
+                    logger.error(
+                      { error: saveResult.error, blockchain, contractAddress: metadata.contractAddress },
+                      'Failed to cache token metadata'
+                    );
+                  }
+                  return metadata;
+                })
+                .catch((error) => {
+                  logger.error(
+                    { error, blockchain, contractAddress: metadata.contractAddress },
+                    'Save operation threw'
+                  );
+                  return metadata;
+                })
+            );
+
+          const savedMetadata = await Promise.all(savePromises);
+
+          // Add to result map
+          for (const metadata of savedMetadata) {
+            metadataMap.set(metadata.contractAddress, metadata);
+            successCount++;
+          }
+        }
+      }
+    }
+
+    // Step 3: Add cached metadata to result map
+    for (const [contractAddress, metadata] of cachedMetadata) {
+      metadataMap.set(contractAddress, metadata);
       successCount++;
+    }
+
+    // Step 4: Background refresh for stale contracts (fire and forget)
+    if (staleContracts.length > 0) {
+      fetchBatchFromProvider(blockchain, staleContracts, providerManager)
+        .then((result) => {
+          if (result.isOk()) {
+            for (const metadata of result.value) {
+              if (metadata.contractAddress) {
+                tokenMetadataRepository.save(blockchain, metadata.contractAddress, metadata).catch((error) => {
+                  logger.error(
+                    { error, blockchain, contractAddress: metadata.contractAddress },
+                    'Background refresh: Failed to cache token metadata'
+                  );
+                });
+              }
+            }
+          }
+        })
+        .catch((error) => {
+          logger.warn({ error, blockchain, count: staleContracts.length }, 'Background refresh failed');
+        });
     }
 
     // Check if enrichment failures are acceptable (all failed items already have decimals)
