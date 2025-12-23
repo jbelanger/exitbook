@@ -297,4 +297,269 @@ describe('RawDataRepository', () => {
       }
     });
   });
+
+  describe('loadPendingByHashBatch', () => {
+    beforeEach(async () => {
+      // Clear existing test data
+      await db.deleteFrom('raw_transactions').execute();
+
+      // Create test data with blockchain transaction hashes
+      // Account 2 (ethereum): 3 hashes with varying event counts
+      // Hash 'hash-1': 3 events (normal, internal, token)
+      // Hash 'hash-2': 2 events (normal, internal)
+      // Hash 'hash-3': 1 event (normal)
+      const testData = [
+        // Hash 1 - 3 events
+        {
+          account_id: 2,
+          provider_name: 'alchemy',
+          event_id: 'evt-1-1',
+          blockchain_transaction_hash: 'hash-1',
+          source_address: null,
+          transaction_type_hint: 'normal',
+          provider_data: JSON.stringify({ type: 'normal' }),
+          normalized_data: JSON.stringify({ type: 'normal' }),
+          processing_status: 'pending' as const,
+          processed_at: undefined,
+          created_at: new Date('2024-01-01T10:00:00Z').toISOString(),
+        },
+        {
+          account_id: 2,
+          provider_name: 'alchemy',
+          event_id: 'evt-1-2',
+          blockchain_transaction_hash: 'hash-1',
+          source_address: null,
+          transaction_type_hint: 'internal',
+          provider_data: JSON.stringify({ type: 'internal' }),
+          normalized_data: JSON.stringify({ type: 'internal' }),
+          processing_status: 'pending' as const,
+          processed_at: undefined,
+          created_at: new Date('2024-01-01T10:00:01Z').toISOString(),
+        },
+        {
+          account_id: 2,
+          provider_name: 'alchemy',
+          event_id: 'evt-1-3',
+          blockchain_transaction_hash: 'hash-1',
+          source_address: null,
+          transaction_type_hint: 'token',
+          provider_data: JSON.stringify({ type: 'token' }),
+          normalized_data: JSON.stringify({ type: 'token' }),
+          processing_status: 'pending' as const,
+          processed_at: undefined,
+          created_at: new Date('2024-01-01T10:00:02Z').toISOString(),
+        },
+        // Hash 2 - 2 events
+        {
+          account_id: 2,
+          provider_name: 'alchemy',
+          event_id: 'evt-2-1',
+          blockchain_transaction_hash: 'hash-2',
+          source_address: null,
+          transaction_type_hint: 'normal',
+          provider_data: JSON.stringify({ type: 'normal' }),
+          normalized_data: JSON.stringify({ type: 'normal' }),
+          processing_status: 'pending' as const,
+          processed_at: undefined,
+          created_at: new Date('2024-01-01T11:00:00Z').toISOString(),
+        },
+        {
+          account_id: 2,
+          provider_name: 'alchemy',
+          event_id: 'evt-2-2',
+          blockchain_transaction_hash: 'hash-2',
+          source_address: null,
+          transaction_type_hint: 'internal',
+          provider_data: JSON.stringify({ type: 'internal' }),
+          normalized_data: JSON.stringify({ type: 'internal' }),
+          processing_status: 'pending' as const,
+          processed_at: undefined,
+          created_at: new Date('2024-01-01T11:00:01Z').toISOString(),
+        },
+        // Hash 3 - 1 event
+        {
+          account_id: 2,
+          provider_name: 'alchemy',
+          event_id: 'evt-3-1',
+          blockchain_transaction_hash: 'hash-3',
+          source_address: null,
+          transaction_type_hint: 'normal',
+          provider_data: JSON.stringify({ type: 'normal' }),
+          normalized_data: JSON.stringify({ type: 'normal' }),
+          processing_status: 'pending' as const,
+          processed_at: undefined,
+          created_at: new Date('2024-01-01T12:00:00Z').toISOString(),
+        },
+        // Hash 4 - already processed (should be filtered out)
+        {
+          account_id: 2,
+          provider_name: 'alchemy',
+          event_id: 'evt-4-1',
+          blockchain_transaction_hash: 'hash-4',
+          source_address: null,
+          transaction_type_hint: 'normal',
+          provider_data: JSON.stringify({ type: 'normal' }),
+          normalized_data: JSON.stringify({ type: 'normal' }),
+          processing_status: 'processed' as const,
+          processed_at: new Date().toISOString(),
+          created_at: new Date('2024-01-01T13:00:00Z').toISOString(),
+        },
+        // Different account (should be filtered out)
+        {
+          account_id: 1,
+          provider_name: 'kraken',
+          event_id: 'evt-other',
+          blockchain_transaction_hash: 'hash-other',
+          source_address: null,
+          transaction_type_hint: null,
+          provider_data: JSON.stringify({ type: 'exchange' }),
+          normalized_data: JSON.stringify({ type: 'exchange' }),
+          processing_status: 'pending' as const,
+          processed_at: undefined,
+          created_at: new Date('2024-01-01T14:00:00Z').toISOString(),
+        },
+      ];
+
+      for (const data of testData) {
+        await db.insertInto('raw_transactions').values(data).execute();
+      }
+    });
+
+    it('should load all events for the first N distinct hashes', async () => {
+      const result = await repository.loadPendingByHashBatch(2, 2);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        // Should get 5 events total: 3 from hash-1 + 2 from hash-2
+        expect(transactions).toHaveLength(5);
+
+        // Verify all events belong to hash-1 or hash-2
+        const hashes = new Set(transactions.map((t) => t.blockchainTransactionHash));
+        expect(hashes.size).toBe(2);
+        expect(hashes.has('hash-1')).toBe(true);
+        expect(hashes.has('hash-2')).toBe(true);
+      }
+    });
+
+    it('should group all events for the same hash together', async () => {
+      const result = await repository.loadPendingByHashBatch(2, 1);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        // Should get all 3 events from hash-1
+        expect(transactions).toHaveLength(3);
+
+        // All should have the same hash
+        expect(transactions.every((t) => t.blockchainTransactionHash === 'hash-1')).toBe(true);
+
+        // Verify we got all 3 event types
+        const hints = transactions.map((t) => t.transactionTypeHint).sort();
+        expect(hints).toEqual(['internal', 'normal', 'token']);
+      }
+    });
+
+    it('should respect hash limit', async () => {
+      const result = await repository.loadPendingByHashBatch(2, 10);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        // Should get all pending events (3 + 2 + 1 = 6)
+        expect(transactions).toHaveLength(6);
+
+        // Should have exactly 3 distinct hashes (hash-1, hash-2, hash-3)
+        const hashes = new Set(transactions.map((t) => t.blockchainTransactionHash));
+        expect(hashes.size).toBe(3);
+      }
+    });
+
+    it('should order by hash then by id', async () => {
+      const result = await repository.loadPendingByHashBatch(2, 10);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+
+        // Extract hashes in order
+        const hashes = transactions.map((t) => t.blockchainTransactionHash);
+
+        // Should be grouped by hash
+        expect(hashes.slice(0, 3)).toEqual(['hash-1', 'hash-1', 'hash-1']);
+        expect(hashes.slice(3, 5)).toEqual(['hash-2', 'hash-2']);
+        expect(hashes.slice(5, 6)).toEqual(['hash-3']);
+
+        // Within each hash, events should be ordered by id
+        for (let i = 1; i < transactions.length; i++) {
+          const current = transactions[i];
+          const prev = transactions[i - 1];
+          if (current && prev && current.blockchainTransactionHash === prev.blockchainTransactionHash) {
+            expect(current.id).toBeGreaterThan(prev.id);
+          }
+        }
+      }
+    });
+
+    it('should filter by account_id', async () => {
+      const result = await repository.loadPendingByHashBatch(1, 10);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        // Should only get the kraken event (account 1 has hash-other)
+        // But hash-other has blockchain_transaction_hash, so it should be loaded
+        expect(transactions).toHaveLength(1);
+        expect(transactions[0]?.accountId).toBe(1);
+        expect(transactions[0]?.blockchainTransactionHash).toBe('hash-other');
+      }
+    });
+
+    it('should only load pending events', async () => {
+      const result = await repository.loadPendingByHashBatch(2, 10);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        // Should not include hash-4 which is processed
+        expect(transactions.every((t) => t.blockchainTransactionHash !== 'hash-4')).toBe(true);
+        expect(transactions.every((t) => t.processingStatus === 'pending')).toBe(true);
+      }
+    });
+
+    it('should return empty array when no pending data', async () => {
+      // Mark all as processed
+      await db
+        .updateTable('raw_transactions')
+        .set({ processing_status: 'processed', processed_at: new Date().toISOString() })
+        .execute();
+
+      const result = await repository.loadPendingByHashBatch(2, 10);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toHaveLength(0);
+      }
+    });
+
+    it('should return empty array for non-existent account', async () => {
+      const result = await repository.loadPendingByHashBatch(999, 10);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toHaveLength(0);
+      }
+    });
+
+    it('should handle database errors', async () => {
+      await db.destroy();
+
+      const result = await repository.loadPendingByHashBatch(2, 10);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message.length).toBeGreaterThan(0);
+      }
+    });
+  });
 });

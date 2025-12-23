@@ -90,7 +90,20 @@ export const EvmTransactionSchema = NormalizedTransactionBaseSchema.extend({
   // Beacon withdrawal metadata (Ethereum post-Shanghai only)
   withdrawalIndex: z.string().optional(),
   validatorIndex: z.string().optional(),
-});
+}).refine(
+  (data) => {
+    // Validation: token_transfer transactions MUST have tokenAddress
+    if (data.type === 'token_transfer' && !data.tokenAddress) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message:
+      'Token transfers must have tokenAddress (contract address). ' +
+      'Import should fail if this data is missing from provider.',
+  }
+);
 
 // Type exports inferred from schemas (single source of truth)
 export type EvmTransaction = z.infer<typeof EvmTransactionSchema>;

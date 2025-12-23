@@ -3,6 +3,7 @@ import { buildBlockchainNativeAssetId, parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
+import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
 
 import {
@@ -20,8 +21,8 @@ import {
 export class SubstrateProcessor extends BaseTransactionProcessor {
   private chainConfig: SubstrateChainConfig;
 
-  constructor(chainConfig: SubstrateChainConfig) {
-    super(chainConfig.chainName);
+  constructor(chainConfig: SubstrateChainConfig, scamDetectionService?: IScamDetectionService) {
+    super(chainConfig.chainName, undefined, scamDetectionService);
     this.chainConfig = chainConfig;
   }
 

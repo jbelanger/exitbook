@@ -3,6 +3,10 @@ import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
+import type {
+  IScamDetectionService,
+  MovementWithContext,
+} from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
 
 import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './processor-utils.js';
@@ -23,8 +27,8 @@ import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './proce
  * 4. Determine transaction type based on fund flow direction
  */
 export class CardanoTransactionProcessor extends BaseTransactionProcessor {
-  constructor() {
-    super('cardano');
+  constructor(scamDetectionService?: IScamDetectionService) {
+    super('cardano', undefined, scamDetectionService);
   }
 
   /**
@@ -36,6 +40,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
   ): Promise<Result<ProcessedTransaction[], string>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txHash: string }[] = [];
+    const movementsForScamDetection: MovementWithContext[] = [];
 
     for (const item of normalizedData) {
       const normalizedTx = item as CardanoTransaction;
@@ -183,28 +188,21 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
             : undefined,
         };
 
-        // Scam detection: Check all movements (both inflows and outflows)
+        // Collect token movements for batch scam detection later
         const allMovements = [...fundFlow.inflows, ...fundFlow.outflows];
-        for (const movement of allMovements) {
-          // Cardano-specific context: uses policyId instead of contract address
-          const context = {
-            amount: parseDecimal(movement.amount),
-            contractAddress: movement.policyId,
-            isAirdrop: fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser,
-          };
+        const isAirdrop = fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser;
 
-          const scamNote = await this.detectScamForAsset(movement.asset, context.contractAddress, {
-            amount: context.amount,
-            isAirdrop: context.isAirdrop,
-          });
-          if (scamNote) {
-            // Apply scam detection results based on severity
-            if (scamNote.severity === 'error') {
-              universalTransaction.isSpam = true;
-            }
-            universalTransaction.notes = [...(universalTransaction.notes || []), scamNote];
-            break;
+        for (const movement of allMovements) {
+          if (!movement.policyId) {
+            continue;
           }
+          movementsForScamDetection.push({
+            contractAddress: movement.policyId, // Cardano uses policyId as contract address
+            asset: movement.asset,
+            amount: parseDecimal(movement.amount),
+            isAirdrop,
+            transactionIndex: transactions.length, // Index of transaction we're about to push
+          });
         }
 
         transactions.push(universalTransaction);
@@ -218,6 +216,13 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
         this.logger.error(`${errorMsg} for ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
         continue;
       }
+    }
+
+    // Batch scam detection: Cardano has no metadata service, so detection is symbol-only
+    // Token movements only (skip ADA)
+    if (movementsForScamDetection.length > 0 && this.scamDetectionService) {
+      this.applyScamDetection(transactions, movementsForScamDetection, new Map());
+      this.logger.debug(`Applied symbol-only scam detection to ${transactions.length} transactions`);
     }
 
     // Log processing summary

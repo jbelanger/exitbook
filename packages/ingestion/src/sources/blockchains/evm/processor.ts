@@ -5,10 +5,19 @@ import {
   type EvmChainConfig,
   type EvmTransaction,
 } from '@exitbook/blockchain-providers';
-import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal } from '@exitbook/core';
+import {
+  buildBlockchainNativeAssetId,
+  buildBlockchainTokenAssetId,
+  parseDecimal,
+  type TokenMetadataRecord,
+} from '@exitbook/core';
 import { err, okAsync, ok, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
+import type {
+  IScamDetectionService,
+  MovementWithContext,
+} from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { looksLikeContractAddress } from '../../../features/token-metadata/token-metadata-utils.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
@@ -32,9 +41,10 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
   constructor(
     private readonly chainConfig: EvmChainConfig,
     private readonly providerManager: BlockchainProviderManager,
-    tokenMetadataService: ITokenMetadataService
+    tokenMetadataService: ITokenMetadataService,
+    scamDetectionService?: IScamDetectionService
   ) {
-    super(chainConfig.chainName, tokenMetadataService);
+    super(chainConfig.chainName, tokenMetadataService, scamDetectionService);
   }
 
   protected async processInternal(
@@ -57,6 +67,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; hash: string; txCount: number }[] = [];
+    const tokenMovementsForScamDetection: MovementWithContext[] = [];
 
     for (const [hash, txGroup] of transactionGroups) {
       const fundFlowResult = analyzeEvmFundFlow(txGroup, context, this.chainConfig);
@@ -204,36 +215,55 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
         },
       };
 
-      // Scam detection: Batch check all movements (both inflows and outflows)
+      // Collect token movements for batch scam detection later
       const allMovements = [...fundFlow.inflows, ...fundFlow.outflows];
       const isAirdrop = fundFlow.outflows.length === 0 && !userInitiatedTransaction;
 
-      // Map movements to format expected by batch detection
-      const movementsForDetection = allMovements.map((m) => {
-        const item: { asset: string; contractAddress?: string | undefined } = { asset: m.asset };
-        if (m.tokenAddress !== undefined) {
-          item.contractAddress = m.tokenAddress;
+      for (const movement of allMovements) {
+        if (!movement.tokenAddress) {
+          continue;
         }
-        return item;
-      });
-
-      // Batch detect scam across all movements - fetches metadata in parallel
-      const scamNote = await this.detectScamBatch(movementsForDetection, {
-        amount: allMovements[0] ? parseDecimal(allMovements[0].amount) : parseDecimal('0'),
-        isAirdrop,
-      });
-
-      if (scamNote) {
-        // Apply scam detection results based on severity
-        if (scamNote.severity === 'error') {
-          universalTransaction.isSpam = true;
-        }
-        universalTransaction.notes = [...(universalTransaction.notes || []), scamNote];
+        tokenMovementsForScamDetection.push({
+          contractAddress: movement.tokenAddress,
+          asset: movement.asset,
+          amount: parseDecimal(movement.amount),
+          isAirdrop,
+          transactionIndex: transactions.length, // Index of transaction we're about to push
+        });
       }
 
       transactions.push(universalTransaction);
       this.logger.debug(
         `Successfully processed correlated transaction group ${universalTransaction.externalId} (${fundFlow.transactionCount} items)`
+      );
+    }
+
+    // Batch scam detection: token movements only (skip native)
+    if (tokenMovementsForScamDetection.length > 0) {
+      const uniqueContracts = Array.from(new Set(tokenMovementsForScamDetection.map((m) => m.contractAddress)));
+      let metadataMap = new Map<string, TokenMetadataRecord | undefined>();
+      let detectionMode: 'metadata' | 'symbol-only' = 'symbol-only';
+
+      if (this.tokenMetadataService && uniqueContracts.length > 0) {
+        const metadataResult = await this.tokenMetadataService.getOrFetchBatch(
+          this.chainConfig.chainName,
+          uniqueContracts
+        );
+
+        if (metadataResult.isOk()) {
+          metadataMap = metadataResult.value;
+          detectionMode = 'metadata';
+        } else {
+          this.logger.warn(
+            { error: metadataResult.error.message },
+            'Metadata fetch failed for scam detection (falling back to symbol-only)'
+          );
+        }
+      }
+
+      this.applyScamDetection(transactions, tokenMovementsForScamDetection, metadataMap);
+      this.logger.debug(
+        `Applied ${detectionMode} scam detection to ${transactions.length} transactions (${uniqueContracts.length} tokens)`
       );
     }
 

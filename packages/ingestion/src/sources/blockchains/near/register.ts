@@ -2,6 +2,7 @@ import { isValidNearAccountId } from '@exitbook/blockchain-providers';
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
+import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
@@ -26,11 +27,15 @@ export function registerNearChain(): void {
         preferredProvider: providerName,
       }),
 
-    createProcessor: (_providerManager, tokenMetadataService?: ITokenMetadataService) => {
+    createProcessor: (
+      _providerManager,
+      tokenMetadataService?: ITokenMetadataService,
+      scamDetectionService?: IScamDetectionService
+    ) => {
       if (!tokenMetadataService) {
         return err(new Error('TokenMetadataService is required for NEAR processor'));
       }
-      return ok(new NearTransactionProcessor(tokenMetadataService));
+      return ok(new NearTransactionProcessor(tokenMetadataService, scamDetectionService));
     },
   });
 }

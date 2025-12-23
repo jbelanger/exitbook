@@ -196,6 +196,7 @@ export class ManualPriceService {
  * @param price - Price value as Decimal or string
  * @param currency - Currency code (default: 'USD')
  * @param source - Source attribution (default: 'manual')
+ * @param databasePath - Optional path to the database file
  * @returns Result indicating success or failure
  */
 export async function saveManualPrice(
@@ -203,9 +204,10 @@ export async function saveManualPrice(
   date: Date,
   price: Decimal | string,
   currency = 'USD',
-  source = 'manual'
+  source = 'manual',
+  databasePath?: string
 ): Promise<Result<void, Error>> {
-  const service = new ManualPriceService();
+  const service = new ManualPriceService(databasePath);
   return service.savePrice({
     assetSymbol: assetSymbol,
     date,
@@ -225,6 +227,7 @@ export async function saveManualPrice(
  * @param date - Date/time for the rate
  * @param rate - FX rate value as Decimal or string
  * @param source - Source attribution (default: 'user-provided')
+ * @param databasePath - Optional path to the database file
  * @returns Result indicating success or failure
  */
 export async function saveManualFxRate(
@@ -232,9 +235,10 @@ export async function saveManualFxRate(
   to: string,
   date: Date,
   rate: Decimal | string,
-  source = 'user-provided'
+  source = 'user-provided',
+  databasePath?: string
 ): Promise<Result<void, Error>> {
-  const service = new ManualPriceService();
+  const service = new ManualPriceService(databasePath);
   return service.saveFxRate({
     from,
     to,

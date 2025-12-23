@@ -180,7 +180,21 @@ export const SolanaTransactionSchema = NormalizedTransactionBaseSchema.extend({
   tokenChanges: z.array(SolanaTokenChangeSchema).optional(),
   tokenDecimals: z.number().nonnegative().optional(),
   tokenSymbol: z.string().optional(),
-});
+}).refine(
+  (data) => {
+    // Validation: SPL token transfers (non-SOL) MUST have tokenAddress (mint address)
+    const isNativeSol = data.currency.trim().toUpperCase() === 'SOL';
+    if (!isNativeSol && !data.tokenAddress) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message:
+      'SPL token transfers must have tokenAddress (mint address). ' +
+      'Import should fail if this data is missing from provider.',
+  }
+);
 
 // Type exports inferred from schemas (single source of truth)
 export type SolanaTokenAmount = z.infer<typeof SolanaTokenAmountSchema>;

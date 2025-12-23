@@ -130,7 +130,7 @@ export function mapInjectiveExplorerTransaction(
       bridgeType = 'ibc';
       sourceChannel = ibcResult.sourceChannel;
       sourcePort = ibcResult.sourcePort;
-
+      tokenAddress = ibcResult.currency;
       if (!isTransactionRelevant(from, to, relevantAddress, amount)) {
         logger.debug(
           `Skipping message not relevant to wallet. MessageType="${messageType}", relevantAddress="${relevantAddress}", from="${from}", to="${to}", tx=${transactionHash}`

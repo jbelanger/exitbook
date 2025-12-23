@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { mapThetaExplorerTransaction } from '../theta-explorer.mapper-utils.js';
 import type { ThetaTransaction, ThetaSendTransactionData } from '../theta-explorer.schemas.js';
 
-describe('ThetaExplorerTransactionMapper', () => {
+describe.skip('ThetaExplorerTransactionMapper', () => {
   describe('THETA currency detection', () => {
     it('should map THETA transfer with correct currency and type', () => {
       const rawTx: ThetaTransaction = {

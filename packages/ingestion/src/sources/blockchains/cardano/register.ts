@@ -6,6 +6,7 @@ import {
 } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
+import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import type { DerivedAddress } from '../../../shared/types/blockchain-adapter.js';
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
@@ -74,7 +75,10 @@ export function registerCardanoChain(): void {
     createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
       new CardanoTransactionImporter(providerManager, { preferredProvider: providerName }),
 
-    createProcessor: (_providerManager, _tokenMetadataService?: ITokenMetadataService) =>
-      ok(new CardanoTransactionProcessor()),
+    createProcessor: (
+      _providerManager,
+      _tokenMetadataService?: ITokenMetadataService,
+      scamDetectionService?: IScamDetectionService
+    ) => ok(new CardanoTransactionProcessor(scamDetectionService)),
   });
 }

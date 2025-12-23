@@ -30,12 +30,11 @@ const __dirname = path.dirname(__filename);
  */
 export function createPricesDatabase(dbPath?: string): Result<Kysely<PricesDatabase>, Error> {
   try {
-    const defaultPath = path.join(getDataDirectory(), 'prices.db');
-    const finalPath = dbPath || defaultPath;
+    const finalPath = dbPath || path.join(getDataDirectory(), 'prices.db');
 
     // Ensure data directory exists
     const dataDir = path.dirname(finalPath);
-    if (!fs.existsSync(dataDir)) {
+    if (finalPath !== ':memory:' && !fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
 

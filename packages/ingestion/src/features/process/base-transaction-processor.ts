@@ -1,14 +1,12 @@
-import type { TransactionNote } from '@exitbook/core';
+import type { TokenMetadataRecord } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
-import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ITransactionProcessor, ProcessingContext, ProcessedTransaction } from '../../shared/types/processors.js';
 import { ProcessedTransactionSchema } from '../../shared/types/processors.js';
+import type { IScamDetectionService, MovementWithContext } from '../scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.js';
-
-import { detectScamToken, detectScamFromSymbol } from './scam-detection-utils.js';
 
 /**
  * Base class providing common functionality for all processors.
@@ -18,7 +16,8 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
 
   constructor(
     protected sourceName: string,
-    protected tokenMetadataService?: ITokenMetadataService
+    protected tokenMetadataService?: ITokenMetadataService,
+    protected scamDetectionService?: IScamDetectionService
   ) {
     this.logger = getLogger(`${sourceName}Processor`);
   }
@@ -57,170 +56,37 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
   }
 
   /**
-   * Detect scam for a specific asset with optional contract address.
-   * Called by blockchain processors that have contract address information.
+   * Apply scam detection to transactions using pre-fetched metadata.
+   * Call AFTER building all transactions but BEFORE returning from processInternal().
    *
-   * @param assetSymbol - Token symbol (e.g., "USDC")
-   * @param contractAddress - Optional contract address for metadata lookup
-   * @param transactionContext - Optional context about the transaction (amount, isAirdrop)
-   * @returns TransactionNote if scam detected, undefined otherwise
+   * @param transactions - All processed transactions
+   * @param movements - Token movements with context from fund flow
+   * @param metadataMap - Pre-fetched metadata (from single getOrFetchBatch call, may contain undefined for unfound contracts)
    */
-  protected async detectScamForAsset(
-    assetSymbol: string,
-    contractAddress?: string,
-    transactionContext?: { amount: Decimal; isAirdrop: boolean }
-  ): Promise<TransactionNote | undefined> {
-    // Tier 1: Full metadata-based detection (if service available and contract address provided)
-    if (this.tokenMetadataService && contractAddress) {
-      const metadataResult = await this.tokenMetadataService.getOrFetch(this.sourceName, contractAddress);
-      if (metadataResult.isErr()) {
-        this.logger.warn(
-          { assetSymbol, contractAddress, error: metadataResult.error.message, source: this.sourceName },
-          'Failed to fetch token metadata for scam detection'
-        );
-      } else if (metadataResult.value) {
-        // Use full detection with all metadata fields and transaction context
-        const scamNote = detectScamToken(contractAddress, metadataResult.value, transactionContext);
-        if (scamNote) {
-          this.logger.warn(
-            {
-              assetSymbol,
-              contractAddress,
-              detectionSource: scamNote.metadata?.detectionSource,
-              indicators: scamNote.metadata?.indicators,
-              source: 'metadata',
-            },
-            'Scam token detected via metadata'
-          );
-          return scamNote;
-        }
-      }
+  protected applyScamDetection(
+    transactions: ProcessedTransaction[],
+    movements: MovementWithContext[],
+    metadataMap: Map<string, TokenMetadataRecord | undefined>
+  ): void {
+    if (!this.scamDetectionService) {
+      return; // No service available
     }
 
-    // Tier 2: Symbol-only detection (fallback when no contract address or metadata service)
-    const scamResult = detectScamFromSymbol(assetSymbol);
-    if (scamResult.isScam) {
-      this.logger.warn(
-        { assetSymbol, reason: scamResult.reason, source: 'symbol' },
-        'Scam token detected via symbol check'
-      );
-      return {
-        message: `⚠️ Potential scam token (${assetSymbol}): ${scamResult.reason}`,
-        metadata: { scamReason: scamResult.reason, scamAsset: assetSymbol, detectionSource: 'symbol' },
-        severity: 'warning' as const,
-        type: 'SCAM_TOKEN',
-      };
-    }
+    // Get scam notes keyed by transaction index
+    const scamNotes = this.scamDetectionService.detectScams(movements, metadataMap);
 
-    return undefined;
-  }
-
-  /**
-   * Batch scam detection for multiple assets.
-   * Optimizes metadata fetching by processing unique contract addresses in batches of 100.
-   *
-   * @param assets - Array of assets to check
-   * @returns First scam note found, or undefined if no scams detected
-   */
-  protected async detectScamBatch<T extends { asset: string; contractAddress?: string | undefined }>(
-    assets: T[],
-    transactionContext?: { amount: Decimal; isAirdrop: boolean }
-  ): Promise<TransactionNote | undefined> {
-    if (assets.length === 0) {
-      return undefined;
-    }
-
-    if (!this.tokenMetadataService) {
-      // No metadata service - fall back to symbol-only detection
-      for (const asset of assets) {
-        const scamResult = detectScamFromSymbol(asset.asset);
-        if (scamResult.isScam) {
-          this.logger.warn(
-            { assetSymbol: asset.asset, reason: scamResult.reason, source: 'symbol' },
-            'Scam token detected via symbol check'
-          );
-          return {
-            message: `⚠️ Potential scam token (${asset.asset}): ${scamResult.reason}`,
-            metadata: { scamReason: scamResult.reason, scamAsset: asset.asset, detectionSource: 'symbol' },
-            severity: 'warning' as const,
-            type: 'SCAM_TOKEN',
-          };
-        }
-      }
-      return undefined;
-    }
-
-    // Collect unique contract addresses for batch metadata fetching
-    const uniqueContracts = new Map<string, T>();
-    for (const asset of assets) {
-      if (asset.contractAddress) {
-        uniqueContracts.set(asset.contractAddress, asset);
-      }
-    }
-
-    // Process in batches of 100 to avoid overwhelming the API
-    const BATCH_SIZE = 100;
-    const contractAddresses = Array.from(uniqueContracts.keys());
-
-    for (let i = 0; i < contractAddresses.length; i += BATCH_SIZE) {
-      const batchAddresses = contractAddresses.slice(i, i + BATCH_SIZE);
-
-      // Fetch metadata for this batch in a single batch request
-      const metadataMapResult = await this.tokenMetadataService.getOrFetchBatch(this.sourceName, batchAddresses);
-
-      if (metadataMapResult.isErr()) {
-        this.logger.warn(
-          { error: metadataMapResult.error.message, count: batchAddresses.length, source: this.sourceName },
-          'Failed to fetch token metadata batch for scam detection'
-        );
+    // Apply notes to transactions
+    for (const [txIndex, note] of scamNotes) {
+      const tx = transactions[txIndex];
+      if (!tx) {
+        this.logger.warn(`Transaction at index ${txIndex} not found when applying scam detection notes`);
         continue;
       }
-
-      const metadataMap = metadataMapResult.value;
-
-      // Check metadata-based scam detection for this batch
-      for (const contractAddress of batchAddresses) {
-        const metadata = metadataMap.get(contractAddress);
-        if (!metadata) {
-          continue;
-        }
-
-        const asset = uniqueContracts.get(contractAddress)!;
-        const scamNote = detectScamToken(contractAddress, metadata, transactionContext);
-        if (scamNote) {
-          this.logger.warn(
-            {
-              assetSymbol: asset.asset,
-              contractAddress,
-              detectionSource: scamNote.metadata?.detectionSource,
-              indicators: scamNote.metadata?.indicators,
-              source: 'metadata',
-            },
-            'Scam token detected via metadata'
-          );
-          return scamNote;
-        }
+      if (note.severity === 'error') {
+        tx.isSpam = true;
       }
+      tx.notes = [...(tx.notes || []), note];
     }
-
-    // Fallback to symbol-only detection for all assets
-    for (const asset of assets) {
-      const scamResult = detectScamFromSymbol(asset.asset);
-      if (scamResult.isScam) {
-        this.logger.warn(
-          { assetSymbol: asset.asset, reason: scamResult.reason, source: 'symbol' },
-          'Scam token detected via symbol check'
-        );
-        return {
-          message: `⚠️ Potential scam token (${asset.asset}): ${scamResult.reason}`,
-          metadata: { scamReason: scamResult.reason, scamAsset: asset.asset, detectionSource: 'symbol' },
-          severity: 'warning' as const,
-          type: 'SCAM_TOKEN',
-        };
-      }
-    }
-
-    return undefined;
   }
 
   /**

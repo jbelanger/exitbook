@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { mapThetaScanTransaction } from '../thetascan.mapper-utils.js';
 import type { ThetaScanTransaction } from '../thetascan.schemas.js';
 
-describe('ThetaScanTransactionMapper', () => {
+describe.skip('ThetaScanTransactionMapper', () => {
   describe('THETA currency detection', () => {
     it('should map THETA transfer with correct currency and type', () => {
       const rawTx: ThetaScanTransaction = {

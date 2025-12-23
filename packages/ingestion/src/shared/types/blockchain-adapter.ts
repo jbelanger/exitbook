@@ -1,6 +1,7 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { type Result } from 'neverthrow';
 
+import type { IScamDetectionService } from '../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../features/token-metadata/token-metadata-service.interface.js';
 
 import type { IImporter } from './importers.js';
@@ -17,7 +18,8 @@ export interface BlockchainAdapter {
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) => IImporter;
   createProcessor: (
     providerManager: BlockchainProviderManager,
-    tokenMetadataService?: ITokenMetadataService
+    tokenMetadataService?: ITokenMetadataService,
+    scamDetectionService?: IScamDetectionService
   ) => Result<ITransactionProcessor, Error>;
 
   /**

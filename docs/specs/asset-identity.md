@@ -113,7 +113,7 @@ exchange:coinbase:usdc
 - **Solana**: `tokenAddress` (mint) is usually available for SPL tokens.
 - **Cosmos/IBC**: use denom when provided by provider (e.g., `ibc/...`).
 - **Native assets**: use `native` sentinel (consistent across all chains: Bitcoin, Solana, etc.).
-- **If missing**: **fail-fast** by returning an error. This stops processing the transaction group and logs a detailed error message. Rationale: Missing token references indicate provider data quality issues that must be surfaced immediately rather than silently papered over with ambiguous `unknown` identifiers. The `buildUnknownAssetId` utility exists for future use cases but is not used in current blockchain processors.
+- **If missing**: **fail-fast** by returning an error. This stops processing the transaction group and logs a detailed error message. Rationale: Missing token references indicate provider data quality issues that must be surfaced immediately rather than silently papered over with ambiguous identifiers. Schema validation enforces this requirement by rejecting any `blockchain:*:unknown:*` patterns.
 
 ### Exchange
 

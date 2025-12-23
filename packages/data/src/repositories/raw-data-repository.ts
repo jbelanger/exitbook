@@ -96,6 +96,17 @@ export interface IRawDataRepository {
    * Efficient query that doesn't load all raw data into memory.
    */
   getAccountsWithPendingData(): Promise<Result<number[], Error>>;
+
+  /**
+   * Load pending raw data grouped by transaction hash.
+   * Returns all pending raw rows for the first N distinct blockchain_transaction_hash values.
+   * Ensures all events sharing the same hash are processed together.
+   *
+   * @param accountId - Account to load data for
+   * @param hashLimit - Maximum number of distinct hashes to load
+   * @returns All raw transactions for the first hashLimit distinct hashes
+   */
+  loadPendingByHashBatch(accountId: number, hashLimit: number): Promise<Result<RawTransaction[], Error>>;
 }
 
 /**
@@ -431,6 +442,47 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       return ok(rows.map((row) => row.account_id));
     } catch (error) {
       return wrapError(error, 'Failed to get accounts with pending data');
+    }
+  }
+
+  async loadPendingByHashBatch(accountId: number, hashLimit: number): Promise<Result<RawTransaction[], Error>> {
+    try {
+      // CTE to get first N distinct transaction hashes for this account
+      const hashesSubquery = this.db
+        .selectFrom('raw_transactions')
+        .select('blockchain_transaction_hash')
+        .distinct()
+        .where('account_id', '=', accountId)
+        .where('processing_status', '=', 'pending')
+        .where('blockchain_transaction_hash', 'is not', null)
+        .orderBy('blockchain_transaction_hash', 'asc')
+        .limit(hashLimit);
+
+      // Main query: get all raw rows for those hashes
+      const rows = await this.db
+        .with('hashes', () => hashesSubquery)
+        .selectFrom('raw_transactions as rt')
+        .innerJoin('hashes as h', 'rt.blockchain_transaction_hash', 'h.blockchain_transaction_hash')
+        .selectAll('rt')
+        .where('rt.account_id', '=', accountId)
+        .where('rt.processing_status', '=', 'pending')
+        .orderBy('rt.blockchain_transaction_hash', 'asc')
+        .orderBy('rt.id', 'asc')
+        .execute();
+
+      // Convert rows to domain models
+      const transactions: RawTransaction[] = [];
+      for (const row of rows) {
+        const result = this.toRawTransaction(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        transactions.push(result.value);
+      }
+
+      return ok(transactions);
+    } catch (error) {
+      return wrapError(error, 'Failed to load pending data by hash batch');
     }
   }
 

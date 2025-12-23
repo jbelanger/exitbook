@@ -104,7 +104,22 @@ export const CosmosTransactionSchema = NormalizedTransactionBaseSchema.extend({
   contractAddress: CosmosAddressSchema.optional(),
   contractAction: z.string().optional(),
   contractResult: z.string().optional(),
-});
+}).refine(
+  (data) => {
+    // Validation: CW20 and IBC token transfers MUST have tokenAddress (denom)
+    if (data.tokenType && (data.tokenType === 'cw20' || data.tokenType === 'ibc')) {
+      if (!data.tokenAddress) {
+        return false;
+      }
+    }
+    return true;
+  },
+  {
+    message:
+      'CW20 and IBC token transfers must have tokenAddress (denom). ' +
+      'Import should fail if this data is missing from provider.',
+  }
+);
 
 /**
  * Type inferred from schema (schema-first approach)

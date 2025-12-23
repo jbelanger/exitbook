@@ -87,6 +87,45 @@ export const AssetMovementSchema = z
       return true;
     },
     { message: 'netAmount cannot exceed grossAmount' }
+  )
+  .refine(
+    (data) => {
+      // Validation: Reject unknown assetId pattern (blockchain:*:unknown:*)
+      // This pattern should never be used - processors must fail-fast when token reference is missing
+      const parts = data.assetId.split(':');
+      if (parts.length >= 3 && parts[0] === 'blockchain' && parts[2] === 'unknown') {
+        return false;
+      }
+      return true;
+    },
+    {
+      message:
+        'Invalid assetId format: blockchain assets with unknown token reference are not allowed. ' +
+        'Token movements must have contract address, mint address, policyId, or denom. ' +
+        'Import should fail if this data is missing.',
+    }
+  )
+  .refine(
+    (data) => {
+      // Validation: Blockchain assetId must have proper format
+      const parts = data.assetId.split(':');
+      if (parts[0] === 'blockchain') {
+        // Must have at least namespace:chain:ref
+        if (parts.length < 3) {
+          return false;
+        }
+        // Ref (parts[2]) must not be empty
+        if (!parts[2] || parts[2].trim() === '') {
+          return false;
+        }
+      }
+      return true;
+    },
+    {
+      message:
+        'Invalid blockchain assetId format: must be blockchain:<chain>:native or blockchain:<chain>:<tokenRef>. ' +
+        'Token reference (contract/mint/denom) must not be empty.',
+    }
   );
 
 /**
@@ -145,19 +184,58 @@ export const AssetMovementSchema = z
  * - Account-based chains (settlement='balance'): Deduct grossAmount + fee amount separately
  * - This ensures accurate balance tracking across different blockchain architectures
  */
-export const FeeMovementSchema = z.object({
-  // Asset identity (required)
-  assetId: z.string().min(1, 'Asset ID must not be empty'), // Unique key for math & storage (e.g., blockchain:ethereum:0xa0b8...)
-  assetSymbol: z.string().min(1, 'Asset symbol must not be empty'), // Display symbol (e.g., USDC, ETH)
-  amount: DecimalSchema,
+export const FeeMovementSchema = z
+  .object({
+    // Asset identity (required)
+    assetId: z.string().min(1, 'Asset ID must not be empty'), // Unique key for math & storage (e.g., blockchain:ethereum:0xa0b8...)
+    assetSymbol: z.string().min(1, 'Asset symbol must not be empty'), // Display symbol (e.g., USDC, ETH)
+    amount: DecimalSchema,
 
-  // Fee semantics (required)
-  scope: z.enum(['network', 'platform', 'spread', 'tax', 'other']),
-  settlement: z.enum(['on-chain', 'balance', 'external']),
+    // Fee semantics (required)
+    scope: z.enum(['network', 'platform', 'spread', 'tax', 'other']),
+    settlement: z.enum(['on-chain', 'balance', 'external']),
 
-  // Price metadata
-  priceAtTxTime: PriceAtTxTimeSchema.optional(),
-});
+    // Price metadata
+    priceAtTxTime: PriceAtTxTimeSchema.optional(),
+  })
+  .refine(
+    (data) => {
+      // Validation: Reject unknown assetId pattern (blockchain:*:unknown:*)
+      const parts = data.assetId.split(':');
+      if (parts.length >= 3 && parts[0] === 'blockchain' && parts[2] === 'unknown') {
+        return false;
+      }
+      return true;
+    },
+    {
+      message:
+        'Invalid assetId format: blockchain assets with unknown token reference are not allowed. ' +
+        'Fee movements must have contract address, mint address, policyId, or denom. ' +
+        'Import should fail if this data is missing.',
+    }
+  )
+  .refine(
+    (data) => {
+      // Validation: Blockchain assetId must have proper format
+      const parts = data.assetId.split(':');
+      if (parts[0] === 'blockchain') {
+        // Must have at least namespace:chain:ref
+        if (parts.length < 3) {
+          return false;
+        }
+        // Ref (parts[2]) must not be empty
+        if (!parts[2] || parts[2].trim() === '') {
+          return false;
+        }
+      }
+      return true;
+    },
+    {
+      message:
+        'Invalid blockchain assetId format: must be blockchain:<chain>:native or blockchain:<chain>:<tokenRef>. ' +
+        'Token reference (contract/mint/denom) must not be empty.',
+    }
+  );
 
 // Transaction note schema - allows additional properties for flexible metadata
 export const TransactionNoteSchema = z.object({

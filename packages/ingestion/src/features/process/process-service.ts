@@ -14,14 +14,17 @@ import type {
   ProcessedTransaction,
   ITransactionProcessor,
 } from '../../shared/types/processors.js';
+import type { IScamDetectionService } from '../scam-detection/scam-detection-service.interface.js';
+import { ScamDetectionService } from '../scam-detection/scam-detection-service.js';
 import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.js';
 
 const TRANSACTION_SAVE_BATCH_SIZE = 500;
 const RAW_DATA_MARK_BATCH_SIZE = 500;
-const RAW_DATA_LOAD_CHUNK_SIZE = 1000; // For blockchain accounts, process in chunks to avoid loading 100k+ tx in memory
+const RAW_DATA_HASH_BATCH_SIZE = 100; // For blockchain accounts, process in hash-grouped batches to ensure correlation integrity
 
 export class TransactionProcessService {
   private logger: Logger;
+  private scamDetectionService: IScamDetectionService;
 
   constructor(
     private rawDataRepository: IRawDataRepository,
@@ -31,6 +34,7 @@ export class TransactionProcessService {
     private tokenMetadataService: ITokenMetadataService
   ) {
     this.logger = getLogger('TransactionProcessService');
+    this.scamDetectionService = new ScamDetectionService();
   }
 
   /**
@@ -100,7 +104,9 @@ export class TransactionProcessService {
       const account = accountResult.value;
       const sourceType = account.accountType;
 
-      // For blockchain accounts, use chunked processing to avoid loading 100k+ transactions into memory
+      // For blockchain accounts, use hash-grouped batch processing to:
+      // 1. Avoid loading 100k+ transactions into memory
+      // 2. Ensure all events with same blockchain_transaction_hash are processed together
       if (sourceType === 'blockchain') {
         return this.processAccountTransactionsChunked(accountId, account);
       }
@@ -199,7 +205,10 @@ export class TransactionProcessService {
   }
 
   /**
-   * Process blockchain account transactions in chunks to avoid loading 100k+ transactions into memory.
+   * Process blockchain account transactions in hash-grouped batches.
+   * Groups by blockchain_transaction_hash to ensure all events for the same on-chain transaction
+   * are processed together, preventing partial fund-flow and balance mismatches.
+   * Processes in bounded batches to avoid loading 100k+ transactions into memory.
    */
   private async processAccountTransactionsChunked(
     accountId: number,
@@ -220,17 +229,14 @@ export class TransactionProcessService {
     }
     const processor = processorResult.value;
 
-    // Process in chunks until no more pending data
+    // Process in hash-grouped batches until no more pending data
     while (true) {
       chunkNumber++;
-      const offset = 0; // Always load from start since we mark as processed after each chunk
 
-      const rawDataItemsResult = await this.rawDataRepository.load({
-        processingStatus: 'pending',
+      const rawDataItemsResult = await this.rawDataRepository.loadPendingByHashBatch(
         accountId,
-        limit: RAW_DATA_LOAD_CHUNK_SIZE,
-        offset,
-      });
+        RAW_DATA_HASH_BATCH_SIZE
+      );
 
       if (rawDataItemsResult.isErr()) {
         return err(rawDataItemsResult.error);
@@ -288,10 +294,7 @@ export class TransactionProcessService {
         return err(markResult.error);
       }
 
-      // If we got fewer items than the chunk size, we're done
-      if (rawDataItems.length < RAW_DATA_LOAD_CHUNK_SIZE) {
-        break;
-      }
+      // Continue until no more pending data (checked at loop start)
     }
 
     const accountLabel = `Account ${accountId} (${sourceName})`.padEnd(25);
@@ -342,7 +345,7 @@ export class TransactionProcessService {
       if (!adapter) {
         return err(new Error(`Unknown blockchain: ${sourceName}`));
       }
-      return adapter.createProcessor(this.providerManager, this.tokenMetadataService);
+      return adapter.createProcessor(this.providerManager, this.tokenMetadataService, this.scamDetectionService);
     } else {
       const adapter = getExchangeAdapter(sourceName);
       if (!adapter) {

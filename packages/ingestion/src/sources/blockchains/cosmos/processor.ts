@@ -3,6 +3,10 @@ import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
+import type {
+  IScamDetectionService,
+  MovementWithContext,
+} from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
 
 import {
@@ -20,8 +24,8 @@ import {
 export class CosmosProcessor extends BaseTransactionProcessor {
   private chainConfig: CosmosChainConfig;
 
-  constructor(chainConfig: CosmosChainConfig) {
-    super(chainConfig.chainName);
+  constructor(chainConfig: CosmosChainConfig, scamDetectionService?: IScamDetectionService) {
+    super(chainConfig.chainName, undefined, scamDetectionService);
     this.chainConfig = chainConfig;
   }
 
@@ -43,6 +47,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
     const universalTransactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
+    const movementsForScamDetection: MovementWithContext[] = [];
 
     for (const transaction of deduplicatedData) {
       const normalizedTx = transaction;
@@ -170,28 +175,21 @@ export class CosmosProcessor extends BaseTransactionProcessor {
           },
         };
 
-        // Scam detection: Check all movements (both inflows and outflows)
+        // Collect token movements for batch scam detection later
         const allMovements = [...fundFlow.inflows, ...fundFlow.outflows];
-        for (const movement of allMovements) {
-          // Cosmos-specific airdrop detection: inflows without outflows and not user-initiated
-          const context = {
-            amount: parseDecimal(movement.amount),
-            denom: movement.denom,
-            isAirdrop: fundFlow.outflows.length === 0 && !userInitiatedTransaction,
-          };
+        const isAirdrop = fundFlow.outflows.length === 0 && !userInitiatedTransaction;
 
-          const scamNote = await this.detectScamForAsset(movement.asset, context.denom, {
-            amount: context.amount,
-            isAirdrop: context.isAirdrop,
-          });
-          if (scamNote) {
-            // Apply scam detection results based on severity
-            if (scamNote.severity === 'error') {
-              universalTransaction.isSpam = true;
-            }
-            universalTransaction.notes = [...(universalTransaction.notes || []), scamNote];
-            break;
+        for (const movement of allMovements) {
+          if (!movement.denom) {
+            continue;
           }
+          movementsForScamDetection.push({
+            contractAddress: movement.denom, // Cosmos uses denom as identifier
+            asset: movement.asset,
+            amount: parseDecimal(movement.amount),
+            isAirdrop,
+            transactionIndex: universalTransactions.length, // Index of transaction we're about to push
+          });
         }
 
         universalTransactions.push(universalTransaction);
@@ -201,6 +199,13 @@ export class CosmosProcessor extends BaseTransactionProcessor {
         this.logger.error(`${errorMsg} for ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
         continue;
       }
+    }
+
+    // Batch scam detection: Cosmos has no metadata service, so detection is symbol-only
+    // Token movements only (skip native denom)
+    if (movementsForScamDetection.length > 0 && this.scamDetectionService) {
+      this.applyScamDetection(universalTransactions, movementsForScamDetection, new Map());
+      this.logger.debug(`Applied symbol-only scam detection to ${universalTransactions.length} transactions`);
     }
 
     // Log processing summary

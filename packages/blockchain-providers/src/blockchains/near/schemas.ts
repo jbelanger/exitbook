@@ -97,7 +97,23 @@ export const NearTransactionSchema = NormalizedTransactionBaseSchema.extend({
   to: NearAccountIdSchema,
   tokenTransfers: z.array(NearTokenTransferSchema).optional(),
   type: z.enum(['transfer', 'token_transfer', 'contract_call']),
-});
+}).refine(
+  (data) => {
+    // Validation: token_transfer transactions MUST have tokenTransfers array with at least one transfer
+    if (data.type === 'token_transfer') {
+      if (!data.tokenTransfers || data.tokenTransfers.length === 0) {
+        return false;
+      }
+      // Each token transfer must have contractAddress (already enforced by NearTokenTransferSchema)
+    }
+    return true;
+  },
+  {
+    message:
+      'Token transfer transactions must have tokenTransfers array with at least one transfer containing contractAddress. ' +
+      'Import should fail if this data is missing from provider.',
+  }
+);
 
 // Type exports inferred from schemas (single source of truth)
 export type NearAction = z.infer<typeof NearActionSchema>;

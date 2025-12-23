@@ -5,7 +5,6 @@ import {
   buildBlockchainTokenAssetId,
   buildExchangeAssetId,
   buildFiatAssetId,
-  buildUnknownAssetId,
   parseAssetId,
 } from '../asset-id-utils.js';
 
@@ -108,30 +107,6 @@ describe('buildFiatAssetId', () => {
 
   it('returns error for empty currency code', () => {
     const result = buildFiatAssetId('');
-    expect(result.isErr()).toBe(true);
-  });
-});
-
-describe('buildUnknownAssetId', () => {
-  it('builds fallback assetId when token reference is missing', () => {
-    const result = buildUnknownAssetId('ethereum', 'USDC');
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe('blockchain:ethereum:unknown:usdc');
-  });
-
-  it('normalizes to lowercase', () => {
-    const result = buildUnknownAssetId('Ethereum', 'USDC');
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe('blockchain:ethereum:unknown:usdc');
-  });
-
-  it('returns error for empty chain name', () => {
-    const result = buildUnknownAssetId('', 'USDC');
-    expect(result.isErr()).toBe(true);
-  });
-
-  it('returns error for empty symbol', () => {
-    const result = buildUnknownAssetId('ethereum', '');
     expect(result.isErr()).toBe(true);
   });
 });

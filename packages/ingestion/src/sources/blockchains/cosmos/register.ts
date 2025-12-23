@@ -2,6 +2,7 @@ import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { COSMOS_CHAINS, getCosmosChainConfig } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
+import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
@@ -30,8 +31,11 @@ export function registerCosmosChains(): void {
           preferredProvider: providerName,
         }),
 
-      createProcessor: (_providerManager, _tokenMetadataService?: ITokenMetadataService) =>
-        ok(new CosmosProcessor(config)),
+      createProcessor: (
+        _providerManager,
+        _tokenMetadataService?: ITokenMetadataService,
+        scamDetectionService?: IScamDetectionService
+      ) => ok(new CosmosProcessor(config, scamDetectionService)),
     });
   }
 }

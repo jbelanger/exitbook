@@ -16,6 +16,7 @@ function createProcessor(customMetadataService?: ITokenMetadataService) {
     // Return NO_PROVIDERS ProviderError to simulate provider not supporting metadata
     enrichBatch: vi.fn().mockResolvedValue(ok()),
     getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+    getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
   } as unknown as ITokenMetadataService;
 
   return new SolanaTransactionProcessor(customMetadataService || defaultMockService);
@@ -1053,6 +1054,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
           }
         ),
       getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+      getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
     } as unknown as ITokenMetadataService;
 
     const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -1129,6 +1131,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
     const mockTokenMetadataService = {
       enrichBatch: vi.fn().mockResolvedValue(ok()),
       getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+      getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
     } as unknown as ITokenMetadataService;
 
     const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -1170,6 +1173,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
     const mockTokenMetadataService = {
       enrichBatch: vi.fn().mockResolvedValue(ok()),
       getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+      getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
     } as unknown as ITokenMetadataService;
 
     const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -1224,9 +1228,32 @@ describe('SolanaTransactionProcessor - Scam Detection', () => {
           refreshedAt: new Date(),
         })
       ),
+      getOrFetchBatch: vi.fn().mockResolvedValue(
+        ok(
+          new Map([
+            [
+              'ScamTokenAddress123',
+              {
+                contractAddress: 'ScamTokenAddress123',
+                blockchain: 'solana',
+                name: 'Free Money 🎁',
+                symbol: 'SCAM',
+                decimals: 9,
+                possibleSpam: true, // Professional detection
+                source: 'provider-api',
+                refreshedAt: new Date(),
+              },
+            ],
+          ])
+        )
+      ),
     } as unknown as ITokenMetadataService;
 
-    const processor = createProcessor(mockMetadataService);
+    // Import and instantiate real scam detection service
+    const { ScamDetectionService } = await import('../../../../features/scam-detection/scam-detection-service.js');
+    const scamDetectionService = new ScamDetectionService();
+
+    const processor = new SolanaTransactionProcessor(mockMetadataService, scamDetectionService);
 
     const normalizedData = createTransaction({
       id: 'sigScam1',

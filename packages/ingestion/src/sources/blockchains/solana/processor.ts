@@ -1,8 +1,17 @@
 import type { SolanaTransaction } from '@exitbook/blockchain-providers';
-import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal } from '@exitbook/core';
+import {
+  buildBlockchainNativeAssetId,
+  buildBlockchainTokenAssetId,
+  parseDecimal,
+  type TokenMetadataRecord,
+} from '@exitbook/core';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
+import type {
+  IScamDetectionService,
+  MovementWithContext,
+} from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
 
@@ -17,8 +26,8 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
   // Override to make tokenMetadataService required (guaranteed by factory)
   declare protected readonly tokenMetadataService: ITokenMetadataService;
 
-  constructor(tokenMetadataService: ITokenMetadataService) {
-    super('solana', tokenMetadataService);
+  constructor(tokenMetadataService: ITokenMetadataService, scamDetectionService?: IScamDetectionService) {
+    super('solana', tokenMetadataService, scamDetectionService);
   }
 
   /**
@@ -37,6 +46,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; signature: string }[] = [];
+    const tokenMovementsForScamDetection: MovementWithContext[] = [];
 
     for (const item of normalizedData) {
       const normalizedTx = item as SolanaTransaction;
@@ -167,21 +177,21 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
           },
         };
 
-        // Scam detection: Check all movements (both inflows and outflows)
+        // Collect token movements for batch scam detection later
         const allMovements = [...fundFlow.inflows, ...fundFlow.outflows];
+        const isAirdrop = fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser;
+
         for (const movement of allMovements) {
-          const scamNote = await this.detectScamForAsset(movement.asset, movement.tokenAddress, {
-            amount: parseDecimal(movement.amount),
-            isAirdrop: fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser,
-          });
-          if (scamNote) {
-            // Apply scam detection results based on severity
-            if (scamNote.severity === 'error') {
-              universalTransaction.isSpam = true;
-            }
-            universalTransaction.notes = [...(universalTransaction.notes || []), scamNote];
-            break;
+          if (!movement.tokenAddress) {
+            continue;
           }
+          tokenMovementsForScamDetection.push({
+            contractAddress: movement.tokenAddress,
+            asset: movement.asset,
+            amount: parseDecimal(movement.amount),
+            isAirdrop,
+            transactionIndex: transactions.length, // Index of transaction we're about to push
+          });
         }
 
         transactions.push(universalTransaction);
@@ -195,6 +205,32 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         this.logger.error(`${errorMsg} for ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
         continue;
       }
+    }
+
+    // Batch scam detection: token movements only (skip native SOL)
+    if (tokenMovementsForScamDetection.length > 0) {
+      const uniqueContracts = Array.from(new Set(tokenMovementsForScamDetection.map((m) => m.contractAddress)));
+      let metadataMap = new Map<string, TokenMetadataRecord | undefined>();
+      let detectionMode: 'metadata' | 'symbol-only' = 'symbol-only';
+
+      if (this.tokenMetadataService && uniqueContracts.length > 0) {
+        const metadataResult = await this.tokenMetadataService.getOrFetchBatch('solana', uniqueContracts);
+
+        if (metadataResult.isOk()) {
+          metadataMap = metadataResult.value;
+          detectionMode = 'metadata';
+        } else {
+          this.logger.warn(
+            { error: metadataResult.error.message },
+            'Metadata fetch failed for scam detection (falling back to symbol-only)'
+          );
+        }
+      }
+
+      this.applyScamDetection(transactions, tokenMovementsForScamDetection, metadataMap);
+      this.logger.debug(
+        `Applied ${detectionMode} scam detection to ${transactions.length} transactions (${uniqueContracts.length} tokens)`
+      );
     }
 
     // Log processing summary

@@ -103,27 +103,6 @@ export function buildFiatAssetId(currencyCode: string): Result<string, Error> {
 }
 
 /**
- * Build fallback assetId when token reference is missing
- * This should be used as a last resort and a warning should be logged.
- *
- * @param chain - Blockchain name
- * @param symbol - Asset symbol
- * @returns Asset ID in format: blockchain:<chain>:unknown:<symbol>
- *
- * @example
- * buildUnknownAssetId('ethereum', 'USDC') // Ok('blockchain:ethereum:unknown:usdc')
- */
-export function buildUnknownAssetId(chain: string, symbol: string): Result<string, Error> {
-  if (!chain || chain.trim() === '') {
-    return err(new Error('Chain name must not be empty'));
-  }
-  if (!symbol || symbol.trim() === '') {
-    return err(new Error('Asset symbol must not be empty'));
-  }
-  return ok(`blockchain:${chain.toLowerCase()}:unknown:${symbol.toLowerCase()}`);
-}
-
-/**
  * Parse an assetId to extract its components
  *
  * @param assetId - Asset ID to parse
