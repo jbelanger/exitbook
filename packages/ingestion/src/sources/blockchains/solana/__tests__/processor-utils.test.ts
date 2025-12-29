@@ -706,15 +706,13 @@ describe('Solana Processor Utils', () => {
 
     // Helper to create minimal valid SolanaTransaction
     const createTx = (overrides: Partial<SolanaTransaction> = {}): SolanaTransaction => ({
-      amount: '0',
-      currency: 'SOL',
-      from: userAddress,
       id: 'tx1',
       eventId: 'event1',
       providerName: 'helius',
       status: 'success',
       timestamp: Date.now(),
-      to: otherAddress,
+      feePayer: userAddress,
+      accountChanges: [],
       ...overrides,
     });
 
@@ -741,8 +739,7 @@ describe('Solana Processor Utils', () => {
 
     it('should collect SOL inflows from account changes', () => {
       const tx = createTx({
-        from: otherAddress,
-        to: userAddress,
+        feePayer: otherAddress,
         feeAmount: '0.000005', // 0.000005 SOL
         feeCurrency: 'SOL',
         accountChanges: [
@@ -791,8 +788,7 @@ describe('Solana Processor Utils', () => {
 
     it('should collect token inflows from token changes', () => {
       const tx = createTx({
-        from: otherAddress,
-        to: userAddress,
+        feePayer: otherAddress,
         feeAmount: '0.000005', // 0.000005 SOL
         feeCurrency: 'SOL',
         tokenChanges: [
@@ -836,8 +832,7 @@ describe('Solana Processor Utils', () => {
 
     it('should determine feePaidByUser is false when user only has inflows', () => {
       const tx = createTx({
-        from: otherAddress,
-        to: userAddress,
+        feePayer: otherAddress,
         feeAmount: '0.000005', // 0.000005 SOL
         feeCurrency: 'SOL',
         accountChanges: [
@@ -856,11 +851,16 @@ describe('Solana Processor Utils', () => {
 
     it('should determine feePaidByUser when user initiated transaction with no movements', () => {
       const tx = createTx({
-        from: userAddress,
-        to: userAddress,
+        feePayer: userAddress,
         feeAmount: '0.000005', // 0.000005 SOL
         feeCurrency: 'SOL',
-        accountChanges: [],
+        accountChanges: [
+          {
+            account: userAddress,
+            preBalance: '1000000000',
+            postBalance: '999995000', // Only fee deducted
+          },
+        ],
         tokenChanges: [],
       });
 
@@ -893,8 +893,7 @@ describe('Solana Processor Utils', () => {
 
       it('should handle fee-only transaction by removing zero outflow', () => {
         const tx = createTx({
-          from: userAddress,
-          to: userAddress,
+          feePayer: userAddress,
           feeAmount: '0.000005', // 0.000005 SOL
           feeCurrency: 'SOL',
           accountChanges: [
@@ -915,8 +914,7 @@ describe('Solana Processor Utils', () => {
 
       it('should set feeAbsorbedByMovement when fee removes all outflows', () => {
         const tx = createTx({
-          from: userAddress,
-          to: userAddress,
+          feePayer: userAddress,
           feeAmount: '0.000005', // 0.000005 SOL
           feeCurrency: 'SOL',
           accountChanges: [
@@ -1029,8 +1027,7 @@ describe('Solana Processor Utils', () => {
 
     it('should ignore non-user accounts', () => {
       const tx = createTx({
-        from: otherAddress,
-        to: otherAddress,
+        feePayer: otherAddress,
         feeAmount: '0.000005', // 0.000005 SOL
         feeCurrency: 'SOL',
         accountChanges: [
@@ -1092,8 +1089,7 @@ describe('Solana Processor Utils', () => {
 
     it('should select largest inflow as primary', () => {
       const tx = createTx({
-        from: otherAddress,
-        to: userAddress,
+        feePayer: otherAddress,
         feeAmount: '0.000005', // 0.000005 SOL
         feeCurrency: 'SOL',
         tokenChanges: [

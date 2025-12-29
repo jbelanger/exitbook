@@ -3,8 +3,6 @@ import { describe, expect, it } from 'vitest';
 import type { SolanaTokenBalance } from '../types.js';
 import {
   deduplicateTransactionsBySignature,
-  determinePrimaryTransfer,
-  determineRecipient,
   extractAccountChanges,
   extractAccountChangesFromSolscan,
   extractTokenChanges,
@@ -269,100 +267,6 @@ describe('utils', () => {
 
       const result = extractTokenChanges(preTokenBalances, postTokenBalances, true);
       expect(result).toHaveLength(0);
-    });
-  });
-
-  describe('determinePrimaryTransfer', () => {
-    it('should prioritize token changes over SOL changes', () => {
-      const accountChanges = [
-        { account: 'addr1', preBalance: '1000000000', postBalance: '900000000' },
-        { account: 'addr2', preBalance: '2000000000', postBalance: '2100000000' },
-      ];
-
-      const tokenChanges = [
-        {
-          account: 'owner1',
-          decimals: 9,
-          mint: 'token1',
-          owner: 'owner1',
-          preAmount: '1000',
-          postAmount: '2000',
-          symbol: 'USDC',
-        },
-      ];
-
-      const result = determinePrimaryTransfer(accountChanges, tokenChanges);
-
-      expect(result).toEqual({
-        primaryAmount: '1000',
-        primaryCurrency: 'USDC',
-      });
-    });
-
-    it('should use largest SOL change when no token changes', () => {
-      const accountChanges = [
-        { account: 'addr1', preBalance: '1000000000', postBalance: '900000000' },
-        { account: 'addr2', preBalance: '2000000000', postBalance: '2500000000' },
-      ];
-
-      const result = determinePrimaryTransfer(accountChanges, []);
-
-      expect(result).toEqual({
-        primaryAmount: '500000000',
-        primaryCurrency: 'SOL',
-      });
-    });
-
-    it('should default to zero SOL when no changes', () => {
-      const result = determinePrimaryTransfer([], []);
-
-      expect(result).toEqual({
-        primaryAmount: '0',
-        primaryCurrency: 'SOL',
-      });
-    });
-
-    it('should handle single account change (fee-only transaction)', () => {
-      const accountChanges = [{ account: 'addr1', preBalance: '1000000000', postBalance: '999995000' }];
-
-      const result = determinePrimaryTransfer(accountChanges, []);
-
-      expect(result).toEqual({
-        primaryAmount: '5000',
-        primaryCurrency: 'SOL',
-      });
-    });
-  });
-
-  describe('determineRecipient', () => {
-    it('should find account with positive balance change', () => {
-      const inputAccount = [
-        { account: 'addr1', preBalance: 1000000000, postBalance: 900000000 },
-        { account: 'addr2', preBalance: 2000000000, postBalance: 2100000000 },
-      ];
-
-      const result = determineRecipient(inputAccount, 'addr1');
-
-      expect(result).toBe('addr2');
-    });
-
-    it('should exclude fee payer account', () => {
-      const inputAccount = [
-        { account: 'addr1', preBalance: 1000000000, postBalance: 1100000000 },
-        { account: 'addr2', preBalance: 2000000000, postBalance: 2100000000 },
-      ];
-
-      const result = determineRecipient(inputAccount, 'addr1');
-
-      expect(result).toBe('addr2');
-    });
-
-    it('should return empty string when no recipient found', () => {
-      const inputAccount = [{ account: 'addr1', preBalance: 1000000000, postBalance: 900000000 }];
-
-      const result = determineRecipient(inputAccount, 'addr1');
-
-      expect(result).toBe('');
     });
   });
 });

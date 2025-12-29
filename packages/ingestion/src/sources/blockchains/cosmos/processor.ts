@@ -233,9 +233,14 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
   /**
    * Build assetId for a Cosmos movement
-   * - Native asset (no denom): blockchain:<chain>:native
+   * - Native asset: blockchain:<chain>:native (always check symbol first!)
    * - Token with denom (IBC, CW20, factory, etc.): blockchain:<chain>:<denom>
    * - Token without denom (edge case): fail-fast with an error
+   *
+   * CRITICAL: Check if asset is native BEFORE checking for denom.
+   * Bridge transactions (e.g., Peggy from Ethereum) may include a tokenAddress (the Ethereum
+   * contract address) even for native assets. We must prioritize the asset symbol to avoid
+   * creating duplicate assetIds for the same native currency.
    *
    * Per Asset Identity Specification, denom should be available for IBC and CW20 tokens.
    * If missing for a non-native asset, we fail-fast to prevent silent data corruption.
@@ -247,16 +252,17 @@ export class CosmosProcessor extends BaseTransactionProcessor {
     },
     transactionId: string
   ): Result<string, Error> {
-    // Native asset - no denom
+    const assetSymbol = movement.asset.trim().toUpperCase();
+    const nativeSymbol = this.chainConfig.nativeCurrency.toUpperCase();
+
+    // Check if it's the native asset FIRST (regardless of whether denom is present)
+    // This handles bridge scenarios where native assets have Ethereum contract addresses
+    if (assetSymbol === nativeSymbol) {
+      return buildBlockchainNativeAssetId(this.chainConfig.chainName);
+    }
+
+    // Non-native asset - must have denom
     if (!movement.denom) {
-      const assetSymbol = movement.asset.trim().toUpperCase();
-      const nativeSymbol = this.chainConfig.nativeCurrency.toUpperCase();
-
-      if (assetSymbol === nativeSymbol) {
-        return buildBlockchainNativeAssetId(this.chainConfig.chainName);
-      }
-
-      // If it's not the native asset and has no denom, this is an error
       return err(new Error(`Missing denom for non-native asset ${movement.asset} in transaction ${transactionId}`));
     }
 

@@ -29,13 +29,16 @@ function createTransaction(overrides: Partial<SolanaTransaction>): SolanaTransac
     status: 'success',
     timestamp: Date.now(),
     slot: 100000,
-    from: EXTERNAL_ADDRESS,
-    to: USER_ADDRESS,
-    amount: '0',
-    currency: 'SOL',
+    feePayer: USER_ADDRESS,
     feeAmount: '0.000005',
     feeCurrency: 'SOL',
-    accountChanges: [],
+    accountChanges: [
+      {
+        account: USER_ADDRESS,
+        preBalance: '1000000',
+        postBalance: '995000', // Fee deducted by default
+      },
+    ],
     ...overrides,
   };
 }
@@ -49,14 +52,17 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         accountChanges: [
           {
             account: USER_ADDRESS,
-            postBalance: '500000000', // -1.5 SOL (1 sent + 0.000005 fee)
             preBalance: '1500005000',
+            postBalance: '500000000', // -1.000005 SOL (1 sent + 0.000005 fee)
+          },
+          {
+            account: EXTERNAL_ADDRESS,
+            preBalance: '1000000000',
+            postBalance: '2000000000', // +1 SOL received
           },
         ],
-        amount: '1000000000', // 1 SOL sent
-        from: USER_ADDRESS,
         id: 'sig1abc',
-        to: EXTERNAL_ADDRESS,
+        feePayer: USER_ADDRESS,
       }),
     ];
 
@@ -73,7 +79,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User paid the fee (outflow exists), so it should be deducted
-    // Fees are stored in lamports (raw units), not SOL
+    // Fees are stored in SOL (decimal-adjusted units)
     expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('0.000005');
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.movements.outflows).toHaveLength(1);
@@ -87,16 +93,19 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       createTransaction({
         accountChanges: [
           {
+            account: EXTERNAL_ADDRESS,
+            preBalance: '2000005000',
+            postBalance: '1000000000', // -1.000005 SOL (1 sent + fee paid)
+          },
+          {
             account: USER_ADDRESS,
-            postBalance: '2000000000', // +1 SOL
             preBalance: '1000000000',
+            postBalance: '2000000000', // +1 SOL received
           },
         ],
-        amount: '1000000000', // 1 SOL received
-        from: EXTERNAL_ADDRESS, // External sender (not user)
         id: 'sig2def',
         slot: 100001,
-        to: USER_ADDRESS,
+        feePayer: EXTERNAL_ADDRESS, // External sender paid the fee
       }),
     ];
 
@@ -127,14 +136,13 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         accountChanges: [
           {
             account: USER_ADDRESS,
-            postBalance: '995000', // -0.000005 SOL (fee only)
             preBalance: '1000000',
+            postBalance: '995000', // -0.000005 SOL (fee only)
           },
         ],
-        from: USER_ADDRESS,
         id: 'sig3ghi',
         slot: 100002,
-        to: USER_ADDRESS,
+        feePayer: USER_ADDRESS,
       }),
     ];
 
@@ -167,11 +175,11 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         accountChanges: [
           {
             account: USER_ADDRESS,
-            postBalance: '995000', // -0.000005 SOL (fee only)
             preBalance: '1000000',
+            postBalance: '995000', // -0.000005 SOL (fee only)
           },
         ],
-        from: USER_ADDRESS, // User initiates interaction
+        feePayer: USER_ADDRESS, // User initiates interaction
         id: 'sig4jkl',
         instructions: [
           {
@@ -179,7 +187,6 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         slot: 100003,
-        to: CONTRACT_ADDRESS,
       }),
     ];
 
@@ -205,27 +212,27 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
 
     const normalizedData: SolanaTransaction[] = [
       createTransaction({
-        amount: '1000000', // 1 USDC received
-        currency: 'USDC',
-        from: CONTRACT_ADDRESS, // Contract/minter is sender
+        accountChanges: [
+          {
+            account: USER_ADDRESS,
+            preBalance: '1000000000',
+            postBalance: '1000000000', // No SOL change for user
+          },
+        ],
+        feePayer: CONTRACT_ADDRESS, // Contract/minter paid fee
         id: 'sig5mno',
         slot: 100004,
-        to: USER_ADDRESS, // User receives tokens
-        tokenAccount: TOKEN_ACCOUNT,
-        tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC mint
         tokenChanges: [
           {
             account: TOKEN_ACCOUNT,
             decimals: 6,
             mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
             owner: USER_ADDRESS,
-            postAmount: '1000000',
             preAmount: '0',
+            postAmount: '1000000', // +1 USDC received
             symbol: 'USDC',
           },
         ],
-        tokenDecimals: 6,
-        tokenSymbol: 'USDC',
       }),
     ];
 
@@ -253,12 +260,17 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
 
     const normalizedData: SolanaTransaction[] = [
       createTransaction({
-        amount: '2000000000', // 2 SOL (failed send)
-        from: USER_ADDRESS, // User initiated transaction
+        accountChanges: [
+          {
+            account: USER_ADDRESS,
+            preBalance: '1000000000',
+            postBalance: '999995000', // Only fee deducted (transaction failed, so no transfer)
+          },
+        ],
+        feePayer: USER_ADDRESS, // User initiated transaction
         id: 'sig6pqr',
         slot: 100005,
         status: 'failed',
-        to: EXTERNAL_ADDRESS,
       }),
     ];
 
@@ -275,7 +287,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User initiated failed transaction, so they still paid the gas fee
-    // (No outflows due to failure, but from === userAddress triggers fee deduction)
+    // (No outflows due to failure, but feePayer === userAddress triggers fee deduction)
     expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('0.000005');
     expect(transaction.status).toBe('failed');
   });
@@ -288,12 +300,11 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         accountChanges: [
           {
             account: USER_ADDRESS,
-            postBalance: '500000000', // -0.5 SOL
             preBalance: '1000000000',
+            postBalance: '500000000', // -0.5 SOL
           },
         ],
-        amount: '500000000', // 0.5 SOL sent
-        from: USER_ADDRESS, // User initiates swap
+        feePayer: USER_ADDRESS, // User initiates swap
         id: 'sigSwap1',
         instructions: [
           {
@@ -301,15 +312,14 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         slot: 100006,
-        to: CONTRACT_ADDRESS,
         tokenChanges: [
           {
             account: TOKEN_ACCOUNT,
             decimals: 6,
             mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
             owner: USER_ADDRESS,
-            postAmount: '1000000000', // +1000 USDC
             preAmount: '0',
+            postAmount: '1000000000', // +1000 USDC
             symbol: 'USDC',
           },
         ],
@@ -345,15 +355,18 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         accountChanges: [
           {
             account: USER_ADDRESS,
-            postBalance: '500000000',
             preBalance: '1500005000',
+            postBalance: '500000000',
+          },
+          {
+            account: EXTERNAL_ADDRESS,
+            preBalance: '1000000000',
+            postBalance: '2000000000',
           },
         ],
-        amount: '1000000000',
-        from: mixedCaseUser.toUpperCase(), // Different case but same address
+        feePayer: mixedCaseUser.toUpperCase(), // Different case but same address
         id: 'sig7stu',
         slot: 100007,
-        to: EXTERNAL_ADDRESS,
       }),
     ];
 
@@ -381,13 +394,12 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         accountChanges: [
           {
             account: USER_ADDRESS,
-            postBalance: '1000100000', // +0.0001 SOL reward
             preBalance: '1000000000',
+            postBalance: '1000100000', // +0.0001 SOL reward
           },
         ],
-        amount: '100000', // 0.0001 SOL reward
         feeAmount: '0', // No fee for rewards (validator pays)
-        from: CONTRACT_ADDRESS, // Validator/staking program
+        feePayer: CONTRACT_ADDRESS, // Validator/staking program
         id: 'sigReward1',
         instructions: [
           {
@@ -395,7 +407,6 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         slot: 100008,
-        to: USER_ADDRESS,
       }),
     ];
 
@@ -426,12 +437,11 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         accountChanges: [
           {
             account: USER_ADDRESS,
-            postBalance: '500000000', // -0.5 SOL staked
             preBalance: '1000005000',
+            postBalance: '500000000', // -0.500005 SOL (0.5 staked + 0.000005 fee)
           },
         ],
-        amount: '500000000', // 0.5 SOL staked
-        from: USER_ADDRESS, // User initiates staking
+        feePayer: USER_ADDRESS, // User initiates staking
         id: 'sigStake1',
         instructions: [
           {
@@ -439,7 +449,6 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         slot: 100009,
-        to: CONTRACT_ADDRESS,
       }),
     ];
 
@@ -472,16 +481,19 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       createTransaction({
         accountChanges: [
           {
+            account: EXTERNAL_ADDRESS,
+            preBalance: '2000005000',
+            postBalance: '1000000000', // -1.000005 SOL (sent + fee)
+          },
+          {
             account: derivedAddress1,
-            postBalance: '2000000000', // +1 SOL to derived wallet
             preBalance: '1000000000',
+            postBalance: '2000000000', // +1 SOL to derived wallet
           },
         ],
-        amount: '1000000000',
-        from: EXTERNAL_ADDRESS, // Someone else sends to derived wallet
+        feePayer: EXTERNAL_ADDRESS, // External sender paid fee
         id: 'sig8vwx',
         slot: 100010,
-        to: derivedAddress1,
       }),
     ];
 
@@ -513,15 +525,18 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         accountChanges: [
           {
             account: derivedAddress1,
-            postBalance: '500000000', // -1 SOL from derived wallet
             preBalance: '1500005000',
+            postBalance: '500000000', // -1.000005 SOL from derived wallet
+          },
+          {
+            account: EXTERNAL_ADDRESS,
+            preBalance: '1000000000',
+            postBalance: '2000000000', // +1 SOL
           },
         ],
-        amount: '1000000000',
-        from: derivedAddress1, // Derived wallet sends
+        feePayer: derivedAddress1, // Derived wallet sends and pays fee
         id: 'sig9xyz',
         slot: 100011,
-        to: EXTERNAL_ADDRESS,
       }),
     ];
 
@@ -550,23 +565,21 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         accountChanges: [
           {
             account: USER_ADDRESS,
-            postBalance: '500000000', // -0.5 SOL
             preBalance: '1000000000',
+            postBalance: '500000000', // -0.5 SOL
           },
         ],
-        amount: '500000000',
-        from: USER_ADDRESS, // User initiates liquidity provision
+        feePayer: USER_ADDRESS, // User initiates liquidity provision
         id: 'sigDefi1',
         slot: 100012,
-        to: CONTRACT_ADDRESS,
         tokenChanges: [
           {
             account: TOKEN_ACCOUNT,
             decimals: 6,
             mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
             owner: USER_ADDRESS,
-            postAmount: '0', // -1000 USDC
             preAmount: '1000000000',
+            postAmount: '0', // -1000 USDC
             symbol: 'USDC',
           },
           {
@@ -574,8 +587,8 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
             decimals: 9,
             mint: 'LPTokenMint111111111111111111111111111111111',
             owner: USER_ADDRESS,
-            postAmount: '5000000000', // +5 LP tokens received
             preAmount: '0',
+            postAmount: '5000000000', // +5 LP tokens received
             symbol: 'LP-SOL-USDC',
           },
         ],
@@ -604,27 +617,27 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
 
     const normalizedData: SolanaTransaction[] = [
       createTransaction({
-        amount: '1', // 1 NFT
-        currency: 'NFT',
-        from: CONTRACT_ADDRESS, // Candy machine/minter
+        accountChanges: [
+          {
+            account: USER_ADDRESS,
+            preBalance: '1000000000',
+            postBalance: '1000000000', // No SOL change
+          },
+        ],
+        feePayer: CONTRACT_ADDRESS, // Candy machine/minter paid fee
         id: 'sigNFT1',
         slot: 100013,
-        to: USER_ADDRESS,
-        tokenAccount: TOKEN_ACCOUNT,
-        tokenAddress: 'NFTMint1111111111111111111111111111111111111',
         tokenChanges: [
           {
             account: TOKEN_ACCOUNT,
             decimals: 0,
             mint: 'NFTMint1111111111111111111111111111111111111',
             owner: USER_ADDRESS,
-            postAmount: '1',
             preAmount: '0',
+            postAmount: '1', // +1 NFT
             symbol: 'NFT',
           },
         ],
-        tokenDecimals: 0,
-        tokenSymbol: 'NFT',
       }),
     ];
 

@@ -513,6 +513,63 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     expect(transaction.notes?.[0]?.type).toBe('bridge_transfer');
     expect(transaction.notes?.[0]?.message).toContain('IBC transfer to another chain');
   });
+
+  test('handles Peggy bridge deposit of native asset with Ethereum token address', async () => {
+    const processor = createInjectiveProcessor();
+
+    // This is a real-world scenario: bridging INJ from Ethereum to Injective
+    // The transaction includes the Ethereum contract address for INJ token,
+    // but it's still the native INJ asset on Injective chain
+    const normalizedData: CosmosTransaction[] = [
+      createTransaction({
+        amount: '1', // 1 INJ
+        blockHeight: 102931205,
+        bridgeType: 'peggy',
+        currency: 'INJ',
+        ethereumSender: '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf',
+        eventNonce: '76827',
+        from: '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf',
+        id: '0x1139cdf3f34d481b5ed56629ca68c5a7004857f804077a6d173bbfc83c0f0b8e',
+        messageType: '/injective.peggy.v1.MsgDepositClaim',
+        to: USER_ADDRESS,
+        // Key issue: tokenAddress is the Ethereum contract address for INJ,
+        // but currency is "INJ" (native asset) and tokenType is "native"
+        tokenAddress: '0xe28b3b32b6c345a34ff64674606124dd5aceca30',
+        tokenSymbol: 'INJ',
+        tokenType: 'native',
+      }),
+    ];
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // Verify it's classified as a bridge deposit
+    expect(transaction.operation.category).toBe('transfer');
+    expect(transaction.operation.type).toBe('deposit');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('bridge_transfer');
+    expect(transaction.notes?.[0]?.message).toContain('Peggy bridge from Ethereum');
+
+    // CRITICAL: Verify the assetId is for native INJ, not a token
+    // This is the bug we're fixing - it should NOT create a token assetId
+    // just because tokenAddress is present
+    expect(transaction.movements.inflows).toHaveLength(1);
+    const inflow = transaction.movements.inflows[0];
+    expect(inflow).toBeDefined();
+    if (!inflow) return;
+    expect(inflow.assetSymbol).toBe('INJ');
+    expect(inflow.assetId).toBe('blockchain:injective:native');
+    // Should NOT be 'blockchain:injective:0xe28b3b32b6c345a34ff64674606124dd5aceca30'
+  });
 });
 
 describe('CosmosProcessor - Multi-Chain Support', () => {

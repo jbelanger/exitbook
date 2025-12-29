@@ -24,19 +24,22 @@ function createProcessor(customMetadataService?: ITokenMetadataService) {
 
 function createTransaction(overrides: Partial<SolanaTransaction> = {}): SolanaTransaction[] {
   const base: SolanaTransaction = {
-    accountChanges: [],
-    amount: '0',
-    currency: 'SOL',
+    accountChanges: [
+      {
+        account: USER_ADDRESS,
+        preBalance: '1000000000',
+        postBalance: '999995000', // Fee deducted by default
+      },
+    ],
     feeAmount: '0.000005',
     feeCurrency: 'SOL',
-    from: USER_ADDRESS,
+    feePayer: USER_ADDRESS,
     id: 'defaultSig',
     eventId: '0xdefaultEvent',
     providerName: 'helius',
     slot: 100000,
     status: 'success',
     timestamp: Date.now(),
-    to: EXTERNAL_ADDRESS,
   };
   return [{ ...base, ...overrides }];
 }
@@ -51,14 +54,17 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
       slot: 100000,
       accountChanges: [
         {
+          account: EXTERNAL_ADDRESS,
+          preBalance: '2000000000',
+          postBalance: '1000000000', // External address sent 1 SOL
+        },
+        {
           account: USER_ADDRESS,
-          postBalance: '2000000000', // 2 SOL
-          preBalance: '1000000000', // 1 SOL
+          preBalance: '1000000000',
+          postBalance: '2000000000', // User received 1 SOL
         },
       ],
-      amount: '1000000000', // 1 SOL in lamports
-      from: EXTERNAL_ADDRESS,
-      to: USER_ADDRESS,
+      feePayer: EXTERNAL_ADDRESS, // External party paid the fee
     });
 
     const result = await processor.process(normalizedData, {
@@ -92,13 +98,16 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
       accountChanges: [
         {
           account: USER_ADDRESS,
-          postBalance: '500000000', // 0.5 SOL
           preBalance: '2500005000', // 2.500005 SOL (includes fee)
+          postBalance: '500000000', // 0.5 SOL (sent 2 SOL, paid 0.000005 fee)
+        },
+        {
+          account: EXTERNAL_ADDRESS,
+          preBalance: '1000000000',
+          postBalance: '3000000000', // External address received 2 SOL
         },
       ],
-      amount: '2000000000', // 2 SOL in lamports
-      from: USER_ADDRESS,
-      to: EXTERNAL_ADDRESS,
+      feePayer: USER_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -122,7 +131,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
     expect(transaction.operation.type).toBe('withdrawal');
   });
 
-  test('classifies self-transfer as transfer', async () => {
+  test('classifies self-transfer as fee-only transaction', async () => {
     const processor = createProcessor();
 
     const normalizedData = createTransaction({
@@ -132,13 +141,11 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
       accountChanges: [
         {
           account: USER_ADDRESS,
-          postBalance: '995000', // Same balance minus fee (fee-only transaction)
           preBalance: '1000000',
+          postBalance: '995000', // Only fee deducted (5000 lamports = 0.000005 SOL)
         },
       ],
-      amount: '0', // No net change for self-transfer
-      from: USER_ADDRESS,
-      to: USER_ADDRESS,
+      feePayer: USER_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -168,25 +175,25 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
       id: 'sig4jkl',
       eventId: '0xevent4',
       slot: 100003,
-      amount: '1000000', // 1 USDC (6 decimals)
-      currency: 'USDC',
-      from: EXTERNAL_ADDRESS,
-      to: USER_ADDRESS,
-      tokenAccount: TOKEN_ACCOUNT,
-      tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC mint
+      accountChanges: [
+        {
+          account: USER_ADDRESS,
+          preBalance: '1000000000',
+          postBalance: '1000000000', // No SOL change
+        },
+      ],
       tokenChanges: [
         {
           account: TOKEN_ACCOUNT,
           decimals: 6,
           mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
           owner: USER_ADDRESS,
-          postAmount: '2000000',
           preAmount: '1000000',
+          postAmount: '2000000', // +1 USDC (1000000 raw = 1 USDC with 6 decimals)
           symbol: 'USDC',
         },
       ],
-      tokenDecimals: 6,
-      tokenSymbol: 'USDC',
+      feePayer: EXTERNAL_ADDRESS, // External party paid the fee
     });
 
     const result = await processor.process(normalizedData, {
@@ -201,7 +208,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Check structured fields - amounts are not normalized from token decimals
+    // Check structured fields - amounts are normalized from token decimals
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.type).toBe('deposit');
@@ -214,25 +221,25 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
       id: 'sig5mno',
       eventId: '0xevent5',
       slot: 100004,
-      amount: '5000000', // 5 USDC (6 decimals)
-      currency: 'USDC',
-      from: USER_ADDRESS,
-      to: EXTERNAL_ADDRESS,
-      tokenAccount: TOKEN_ACCOUNT,
-      tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      accountChanges: [
+        {
+          account: USER_ADDRESS,
+          preBalance: '1000005000',
+          postBalance: '1000000000', // Paid fee in SOL
+        },
+      ],
       tokenChanges: [
         {
           account: TOKEN_ACCOUNT,
           decimals: 6,
           mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
           owner: USER_ADDRESS,
-          postAmount: '0',
           preAmount: '5000000',
+          postAmount: '0', // Sent 5 USDC (5000000 raw = 5 USDC with 6 decimals)
           symbol: 'USDC',
         },
       ],
-      tokenDecimals: 6,
-      tokenSymbol: 'USDC',
+      feePayer: USER_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -247,7 +254,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Check structured fields - amounts are not normalized from token decimals
+    // Check structured fields - amounts are normalized from token decimals
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.inflows).toHaveLength(0);
     expect(transaction.operation.type).toBe('withdrawal');
@@ -262,9 +269,14 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
       id: 'sig6pqr',
       eventId: '0xevent6',
       slot: 100005,
-      accountChanges: [],
-      amount: '0',
-      to: CONTRACT_ADDRESS,
+      accountChanges: [
+        {
+          account: USER_ADDRESS,
+          preBalance: '1000000',
+          postBalance: '995000', // Only fee deducted
+        },
+      ],
+      feePayer: USER_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -293,14 +305,17 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
       slot: 100006,
       accountChanges: [
         {
+          account: EXTERNAL_ADDRESS,
+          preBalance: '1000001000',
+          postBalance: '1000000000', // Sent 1000 lamports
+        },
+        {
           account: USER_ADDRESS,
-          postBalance: '1000001000', // +0.000001 SOL
           preBalance: '1000000000',
+          postBalance: '1000001000', // Received 1000 lamports (0.000001 SOL)
         },
       ],
-      amount: '1000', // 0.000001 SOL (small amount)
-      from: EXTERNAL_ADDRESS,
-      to: USER_ADDRESS,
+      feePayer: EXTERNAL_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -328,10 +343,15 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
       id: 'sig8vwx',
       eventId: '0xevent8',
       slot: 100007,
-      accountChanges: [],
-      amount: '1000000000',
+      accountChanges: [
+        {
+          account: USER_ADDRESS,
+          preBalance: '1000005000',
+          postBalance: '1000000000', // Only fee deducted (transaction failed)
+        },
+      ],
       status: 'failed',
-      to: EXTERNAL_ADDRESS,
+      feePayer: USER_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -363,12 +383,10 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
       accountChanges: [
         {
           account: USER_ADDRESS,
-          postBalance: '500000000', // -0.5 SOL
           preBalance: '1000005000', // 1.000005 SOL (includes fee)
+          postBalance: '500000000', // 0.5 SOL after swap
         },
       ],
-      amount: '1000000000',
-      to: CONTRACT_ADDRESS,
       instructions: [
         {
           programId: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', // Jupiter
@@ -380,11 +398,12 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
           decimals: 6,
           mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
           owner: USER_ADDRESS,
-          postAmount: '1000000000', // +1000 USDC
           preAmount: '0',
+          postAmount: '1000000000', // +1000 USDC
           symbol: 'USDC',
         },
       ],
+      feePayer: USER_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -422,13 +441,10 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
       accountChanges: [
         {
           account: USER_ADDRESS,
-          postBalance: '1500000000', // +0.5 SOL
           preBalance: '1000000000',
+          postBalance: '1500000000', // +0.5 SOL
         },
       ],
-      amount: '1000000000',
-      currency: 'USDC',
-      to: CONTRACT_ADDRESS,
       instructions: [
         {
           programId: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', // Jupiter
@@ -440,11 +456,12 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
           decimals: 6,
           mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
           owner: USER_ADDRESS,
-          postAmount: '0',
-          preAmount: '500000000', // -500 USDC
+          preAmount: '500000000',
+          postAmount: '0', // -500 USDC
           symbol: 'USDC',
         },
       ],
+      feePayer: USER_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -482,17 +499,16 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
       accountChanges: [
         {
           account: USER_ADDRESS,
-          postBalance: '500000000', // -0.5 SOL
           preBalance: '1000000000',
+          postBalance: '500000000', // -0.5 SOL to stake account
         },
       ],
-      amount: '500000000', // 0.5 SOL staked
-      to: CONTRACT_ADDRESS,
       instructions: [
         {
           programId: 'Stake11111111111111111111111111111111111112', // Stake Program
         },
       ],
+      feePayer: USER_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -521,18 +537,16 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
       accountChanges: [
         {
           account: USER_ADDRESS,
-          postBalance: '6000000000', // +5 SOL (larger amount to avoid reward classification)
           preBalance: '1000000000',
+          postBalance: '6000000000', // +5 SOL (larger amount to avoid reward classification)
         },
       ],
-      amount: '5000000000', // 5 SOL unstaked (>1 to avoid reward classification)
-      from: CONTRACT_ADDRESS,
-      to: USER_ADDRESS,
       instructions: [
         {
           programId: 'Stake11111111111111111111111111111111111112',
         },
       ],
+      feePayer: USER_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -562,19 +576,17 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
       accountChanges: [
         {
           account: USER_ADDRESS,
-          postBalance: '1000100000', // +0.0001 SOL (small reward)
           preBalance: '1000000000',
+          postBalance: '1000100000', // +0.0001 SOL (small reward)
         },
       ],
-      amount: '100000', // 0.0001 SOL reward
       feeAmount: '0', // No fee for rewards
-      from: CONTRACT_ADDRESS,
-      to: USER_ADDRESS,
       instructions: [
         {
           programId: 'Stake11111111111111111111111111111111111112',
         },
       ],
+      feePayer: CONTRACT_ADDRESS, // System paid the fee
     });
 
     const result = await processor.process(normalizedData, {
@@ -605,20 +617,18 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
       accountChanges: [
         {
           account: USER_ADDRESS,
-          postBalance: '500000000', // -0.5 SOL
           preBalance: '1000000000',
+          postBalance: '500000000', // -0.5 SOL
         },
       ],
-      amount: '1000000000',
-      to: CONTRACT_ADDRESS,
       tokenChanges: [
         {
           account: TOKEN_ACCOUNT,
           decimals: 6,
           mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
           owner: USER_ADDRESS,
-          postAmount: '1000000000', // +1000 USDC
           preAmount: '0',
+          postAmount: '1000000000', // +1000 USDC
           symbol: 'USDC',
         },
         {
@@ -626,11 +636,12 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
           decimals: 9,
           mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
           owner: USER_ADDRESS,
-          postAmount: '500000000000', // +500 USDT
           preAmount: '0',
+          postAmount: '500000000000', // +500 USDT
           symbol: 'USDT',
         },
       ],
+      feePayer: USER_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -672,21 +683,18 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
       accountChanges: [
         {
           account: USER_ADDRESS,
-          postBalance: '2000000000', // +1 SOL
           preBalance: '1000000000',
+          postBalance: '2000000000', // +1 SOL
         },
       ],
-      amount: '1000000000',
-      from: EXTERNAL_ADDRESS,
-      to: USER_ADDRESS,
       tokenChanges: [
         {
           account: TOKEN_ACCOUNT,
           decimals: 6,
           mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
           owner: USER_ADDRESS,
-          postAmount: '1500000', // +1.5 USDC total
-          preAmount: '500000', // +0.5 USDC from this change
+          preAmount: '500000',
+          postAmount: '1500000', // +1 USDC from this token account
           symbol: 'USDC',
         },
         {
@@ -694,11 +702,12 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
           decimals: 6,
           mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // Same USDC mint
           owner: USER_ADDRESS,
-          postAmount: '1000000', // +1 USDC from this change
           preAmount: '0',
+          postAmount: '1000000', // +1 USDC from this token account
           symbol: 'USDC',
         },
       ],
+      feePayer: EXTERNAL_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -736,14 +745,17 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
       slot: 100041,
       accountChanges: [
         {
+          account: EXTERNAL_ADDRESS,
+          preBalance: '2000000000',
+          postBalance: '1000000000',
+        },
+        {
           account: USER_ADDRESS,
-          postBalance: '2000000000',
           preBalance: '1000000000',
+          postBalance: '2000000000',
         },
       ],
-      amount: '1000000000',
-      from: EXTERNAL_ADDRESS,
-      to: USER_ADDRESS,
+      feePayer: EXTERNAL_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -772,15 +784,18 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
       slot: 100042,
       accountChanges: [
         {
+          account: EXTERNAL_ADDRESS,
+          preBalance: '2000000000',
+          postBalance: '1000000000',
+        },
+        {
           account: USER_ADDRESS,
-          postBalance: '2000000000',
           preBalance: '1000000000',
+          postBalance: '2000000000',
         },
       ],
-      amount: '1000000000',
-      from: EXTERNAL_ADDRESS,
-      to: USER_ADDRESS,
-      feeAmount: undefined, // No feeAmount field
+      feeAmount: undefined,
+      feePayer: EXTERNAL_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -807,15 +822,18 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
       eventId: '0xevent18',
       accountChanges: [
         {
+          account: EXTERNAL_ADDRESS,
+          preBalance: '2000000000',
+          postBalance: '1000000000',
+        },
+        {
           account: USER_ADDRESS,
-          postBalance: '2000000000',
           preBalance: '1000000000',
+          postBalance: '2000000000',
         },
       ],
-      amount: '1000000000',
-      from: EXTERNAL_ADDRESS,
-      to: USER_ADDRESS,
-      slot: undefined, // Missing: slot, blockHeight, blockId, signature, etc.
+      slot: undefined,
+      feePayer: EXTERNAL_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -844,14 +862,17 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
         slot: 100050,
         accountChanges: [
           {
+            account: EXTERNAL_ADDRESS,
+            preBalance: '2000000000',
+            postBalance: '1000000000',
+          },
+          {
             account: USER_ADDRESS,
-            postBalance: '2000000000',
             preBalance: '1000000000',
+            postBalance: '2000000000',
           },
         ],
-        amount: '1000000000',
-        from: EXTERNAL_ADDRESS,
-        to: USER_ADDRESS,
+        feePayer: EXTERNAL_ADDRESS,
       }),
       ...createTransaction({
         id: 'sig2',
@@ -860,14 +881,17 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
         accountChanges: [
           {
             account: USER_ADDRESS,
-            postBalance: '1000000000',
             preBalance: '2000000000',
+            postBalance: '1000000000',
+          },
+          {
+            account: EXTERNAL_ADDRESS,
+            preBalance: '1000000000',
+            postBalance: '2000000000',
           },
         ],
-        amount: '1000000000',
-        from: USER_ADDRESS,
-        to: EXTERNAL_ADDRESS,
         timestamp: Date.now() + 1000,
+        feePayer: USER_ADDRESS,
       }),
     ];
 
@@ -900,20 +924,18 @@ describe('SolanaTransactionProcessor - Classification Uncertainty', () => {
       accountChanges: [
         {
           account: USER_ADDRESS,
-          postBalance: '500000000', // -0.5 SOL
           preBalance: '1000000000',
+          postBalance: '500000000', // -0.5 SOL
         },
       ],
-      amount: '500000000',
-      to: CONTRACT_ADDRESS,
       tokenChanges: [
         {
           account: TOKEN_ACCOUNT,
           decimals: 6,
           mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
           owner: USER_ADDRESS,
-          postAmount: '0',
-          preAmount: '1000000000', // -1000 USDC
+          preAmount: '1000000000',
+          postAmount: '0', // -1000 USDC
           symbol: 'USDC',
         },
         {
@@ -921,11 +943,12 @@ describe('SolanaTransactionProcessor - Classification Uncertainty', () => {
           decimals: 18,
           mint: '6D7NaB2xsLd7cauWu1wKk6KBsJohJmP2qZH9GEfVi5Ui',
           owner: USER_ADDRESS,
-          postAmount: '5000000000000000000000', // +5000 DAI
           preAmount: '0',
+          postAmount: '5000000000000000000000', // +5000 DAI
           symbol: 'DAI',
         },
       ],
+      feePayer: USER_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -957,15 +980,20 @@ describe('SolanaTransactionProcessor - Classification Uncertainty', () => {
       id: 'sigBatch1',
       eventId: '0xevent22',
       slot: 100061,
-      accountChanges: [],
-      amount: '0',
-      to: CONTRACT_ADDRESS,
+      accountChanges: [
+        {
+          account: USER_ADDRESS,
+          preBalance: '1000000',
+          postBalance: '995000', // Only fee deducted
+        },
+      ],
       instructions: [
         { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' },
         { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' },
         { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' },
         { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' },
       ],
+      feePayer: USER_ADDRESS,
     });
     const result = await processor.process(normalizedData, {
       primaryAddress: USER_ADDRESS,
@@ -996,18 +1024,21 @@ describe('SolanaTransactionProcessor - Blockchain Metadata', () => {
       slot: 100000,
       accountChanges: [
         {
+          account: EXTERNAL_ADDRESS,
+          preBalance: '2000000000',
+          postBalance: '1000000000',
+        },
+        {
           account: USER_ADDRESS,
-          postBalance: '2000000000',
           preBalance: '1000000000',
+          postBalance: '2000000000',
         },
       ],
-      amount: '1000000000',
       blockHeight: 100000,
       blockId: 'block123',
       computeUnitsConsumed: 150000,
-      from: EXTERNAL_ADDRESS,
       signature: 'sigMeta1abc',
-      to: USER_ADDRESS,
+      feePayer: EXTERNAL_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -1063,21 +1094,26 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
       id: 'sigEnrich1',
       eventId: '0xevent24',
       slot: 100000,
-      accountChanges: [],
-      amount: '1000000',
-      to: EXTERNAL_ADDRESS,
+      accountChanges: [
+        {
+          account: USER_ADDRESS,
+          preBalance: '1000000000',
+          postBalance: '1000000000',
+        },
+      ],
       tokenChanges: [
         {
           account: TOKEN_ACCOUNT,
           decimals: 6,
           mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
           owner: USER_ADDRESS,
-          postAmount: '1000000',
           preAmount: '0',
+          postAmount: '1000000',
           // Symbol is the mint address (will be enriched)
           symbol: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         },
       ],
+      feePayer: EXTERNAL_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -1099,20 +1135,25 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
       id: 'sigNoEnrich1',
       eventId: '0xevent25',
       slot: 100000,
-      accountChanges: [],
-      amount: '1000000',
-      to: EXTERNAL_ADDRESS,
+      accountChanges: [
+        {
+          account: USER_ADDRESS,
+          preBalance: '1000000000',
+          postBalance: '1000000000',
+        },
+      ],
       tokenChanges: [
         {
           account: TOKEN_ACCOUNT,
           decimals: 6,
           mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
           owner: USER_ADDRESS,
-          postAmount: '1000000',
           preAmount: '0',
+          postAmount: '1000000',
           symbol: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         },
       ],
+      feePayer: EXTERNAL_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -1140,21 +1181,26 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
       id: 'sigHumanReadable1',
       eventId: '0xevent26',
       slot: 100000,
-      accountChanges: [],
-      amount: '1000000',
-      to: EXTERNAL_ADDRESS,
+      accountChanges: [
+        {
+          account: USER_ADDRESS,
+          preBalance: '1000000000',
+          postBalance: '1000000000',
+        },
+      ],
       tokenChanges: [
         {
           account: TOKEN_ACCOUNT,
           decimals: 6,
           mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
           owner: USER_ADDRESS,
-          postAmount: '1000000',
           preAmount: '0',
+          postAmount: '1000000',
           // Symbol is already human-readable (not a mint address)
           symbol: 'USDC',
         },
       ],
+      feePayer: EXTERNAL_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -1182,20 +1228,25 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
       id: 'sigRepoError1',
       eventId: '0xevent27',
       slot: 100000,
-      accountChanges: [],
-      amount: '1000000',
-      to: EXTERNAL_ADDRESS,
+      accountChanges: [
+        {
+          account: USER_ADDRESS,
+          preBalance: '1000000000',
+          postBalance: '1000000000',
+        },
+      ],
       tokenChanges: [
         {
           account: TOKEN_ACCOUNT,
           decimals: 6,
           mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
           owner: USER_ADDRESS,
-          postAmount: '1000000',
           preAmount: '0',
+          postAmount: '1000000',
           symbol: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         },
       ],
+      feePayer: EXTERNAL_ADDRESS,
     });
 
     const result = await processor.process(normalizedData, {
@@ -1262,26 +1313,22 @@ describe('SolanaTransactionProcessor - Scam Detection', () => {
       accountChanges: [
         {
           account: USER_ADDRESS,
-          postBalance: '1000000000',
           preBalance: '1000000000',
+          postBalance: '1000000000',
         },
       ],
-      amount: '0',
-      from: EXTERNAL_ADDRESS,
-      to: USER_ADDRESS,
-      tokenAddress: 'ScamTokenAddress123',
       tokenChanges: [
         {
           account: TOKEN_ACCOUNT,
           decimals: 9,
           mint: 'ScamTokenAddress123',
           owner: USER_ADDRESS,
-          postAmount: '1000000000', // +1 SCAM
           preAmount: '0',
+          postAmount: '1000000000', // +1 SCAM
           symbol: 'SCAM',
         },
       ],
-      // Transaction not paid by user (airdrop characteristics)
+      feePayer: EXTERNAL_ADDRESS, // Not paid by user (airdrop characteristics)
     });
 
     const result = await processor.process(normalizedData, {

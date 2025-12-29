@@ -9,7 +9,6 @@ import {
   lamportsToSol,
   extractAccountChanges,
   extractTokenChanges,
-  determinePrimaryTransfer,
   generateSolanaTransactionEventId,
 } from '../../utils.ts';
 
@@ -42,24 +41,17 @@ export function mapHeliusTransaction(rawData: HeliusTransaction): Result<SolanaT
       true
     );
 
-    const { primaryAmount, primaryCurrency } = determinePrimaryTransfer(accountChanges, tokenChanges);
-    const amount = primaryAmount ?? '0';
-    const currency = primaryCurrency ?? 'SOL';
-    const from = accountKeys?.[0] || '';
-    const to = accountKeys?.[1] || '';
     const timestamp =
       typeof rawData.blockTime === 'number' ? rawData.blockTime * 1000 : (rawData.blockTime?.getTime() ?? 0);
 
     const solanaTransaction: SolanaTransaction = {
       accountChanges,
-      amount,
       blockHeight: rawData.slot,
       blockId: signature,
-      currency,
       eventId: generateSolanaTransactionEventId({ signature }),
-      feeAmount: fee.toString(),
+      feeAmount: fee.toFixed(),
       feeCurrency: 'SOL',
-      from,
+      feePayer: accountKeys?.[0], // First account is always the fee payer in Solana
       id: signature,
       instructions: (rawData.transaction.message.instructions || []).map((instruction) => ({
         accounts: [],
@@ -72,7 +64,6 @@ export function mapHeliusTransaction(rawData: HeliusTransaction): Result<SolanaT
       slot: rawData.slot,
       status: rawData.meta.err ? 'failed' : 'success',
       timestamp,
-      to,
       tokenChanges,
     };
 

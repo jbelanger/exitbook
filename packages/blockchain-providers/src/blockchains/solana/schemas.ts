@@ -158,14 +158,12 @@ export const SolanaInstructionSchema = z.object({
 export const SolanaTransactionSchema = NormalizedTransactionBaseSchema.extend({
   // Solana-specific transaction data
   accountChanges: z.array(SolanaAccountChangeSchema).optional(),
-  amount: DecimalStringSchema,
   blockHeight: z.number().optional(),
   blockId: z.string().optional(),
   computeUnitsConsumed: z.number().nonnegative().optional(),
-  currency: z.string().min(1, 'Currency must not be empty'),
   feeAmount: DecimalStringSchema.optional(),
   feeCurrency: z.string().optional(),
-  from: SolanaAddressSchema, // From address - case-sensitive
+  feePayer: SolanaAddressSchema.optional(), // Transaction fee payer (first signer) - case-sensitive
   innerInstructions: z.array(SolanaInstructionSchema).optional(),
   instructions: z.array(SolanaInstructionSchema).optional(),
   logMessages: z.array(z.string()).optional(),
@@ -174,27 +172,13 @@ export const SolanaTransactionSchema = NormalizedTransactionBaseSchema.extend({
   slot: z.number().nonnegative().optional(),
   status: z.enum(['success', 'failed', 'pending']),
   timestamp: z.number().positive('Timestamp must be positive'),
-  to: SolanaAddressSchema, // To address - case-sensitive
+  tokenChanges: z.array(SolanaTokenChangeSchema).optional(),
+
   tokenAccount: SolanaAddressSchema.optional(), // Token account address
   tokenAddress: SolanaAddressSchema.optional(), // Token mint address
-  tokenChanges: z.array(SolanaTokenChangeSchema).optional(),
   tokenDecimals: z.number().nonnegative().optional(),
   tokenSymbol: z.string().optional(),
-}).refine(
-  (data) => {
-    // Validation: SPL token transfers (non-SOL) MUST have tokenAddress (mint address)
-    const isNativeSol = data.currency.trim().toUpperCase() === 'SOL';
-    if (!isNativeSol && !data.tokenAddress) {
-      return false;
-    }
-    return true;
-  },
-  {
-    message:
-      'SPL token transfers must have tokenAddress (mint address). ' +
-      'Import should fail if this data is missing from provider.',
-  }
-);
+});
 
 // Type exports inferred from schemas (single source of truth)
 export type SolanaTokenAmount = z.infer<typeof SolanaTokenAmountSchema>;

@@ -96,7 +96,7 @@ export const HeliusSignatureResponseSchema = z.object({
 export const HeliusAssetJsonRpcResponseSchema = z.object({
   jsonrpc: z.string().nullish(),
   id: z.union([z.string(), z.number()]).nullish(),
-  result: HeliusAssetResponseSchema.nullish(),
+  result: z.union([HeliusAssetResponseSchema, z.array(HeliusAssetResponseSchema)]).nullish(),
   error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 

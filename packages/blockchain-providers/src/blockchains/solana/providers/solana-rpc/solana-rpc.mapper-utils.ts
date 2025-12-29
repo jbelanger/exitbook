@@ -9,7 +9,6 @@ import {
   lamportsToSol,
   extractAccountChanges,
   extractTokenChanges,
-  determinePrimaryTransfer,
   generateSolanaTransactionEventId,
 } from '../../utils.ts';
 
@@ -34,22 +33,16 @@ export function mapSolanaRPCTransaction(rawData: SolanaRPCTransaction): Result<S
 
     const tokenChanges = extractTokenChanges(rawData.meta.preTokenBalances, rawData.meta.postTokenBalances, false);
 
-    const { primaryAmount, primaryCurrency } = determinePrimaryTransfer(accountChanges, tokenChanges);
-
     const timestamp = rawData.blockTime?.getTime() ?? 0;
-    const from = accountKeys?.[0] || '';
-    const to = accountKeys?.[1] || '';
 
     const solanaTransaction: SolanaTransaction = {
       accountChanges,
-      amount: primaryAmount,
       blockHeight: rawData.slot,
       blockId: signature,
-      currency: primaryCurrency,
       eventId: generateSolanaTransactionEventId({ signature }),
-      feeAmount: fee.toString(),
+      feeAmount: fee.toFixed(),
       feeCurrency: 'SOL',
-      from,
+      feePayer: accountKeys?.[0], // First account is always the fee payer in Solana
       id: signature,
       instructions: rawData.transaction.message.instructions.map((instruction) => ({
         accounts: instruction.accounts.map((accountIndex) => accountKeys[accountIndex] || ''),
@@ -62,7 +55,6 @@ export function mapSolanaRPCTransaction(rawData: SolanaRPCTransaction): Result<S
       slot: rawData.slot,
       status: rawData.meta.err ? 'failed' : 'success',
       timestamp,
-      to,
       tokenChanges,
     };
 

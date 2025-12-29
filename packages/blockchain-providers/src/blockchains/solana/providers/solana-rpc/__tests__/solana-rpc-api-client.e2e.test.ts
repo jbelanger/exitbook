@@ -68,8 +68,6 @@ describe('SolanaRPCApiClient Integration', () => {
         expect(typeof normalized.id).toBe('string');
         expect(normalized.id.length).toBeGreaterThan(0);
         expect(['success', 'failed']).toContain(normalized.status);
-        expect(typeof normalized.amount).toBe('string');
-        expect(typeof normalized.currency).toBe('string');
         expect(normalized.timestamp).toBeGreaterThan(0);
       }
     }, 60000);

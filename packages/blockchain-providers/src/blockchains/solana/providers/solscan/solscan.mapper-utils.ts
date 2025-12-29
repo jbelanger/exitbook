@@ -5,13 +5,7 @@ import { type NormalizationError } from '../../../../core/index.ts';
 import { validateOutput } from '../../../../core/index.ts';
 import type { SolanaTransaction, SolanaTokenChange } from '../../schemas.ts';
 import { SolanaTransactionSchema } from '../../schemas.ts';
-import {
-  lamportsToSol,
-  extractAccountChangesFromSolscan,
-  determinePrimaryTransfer,
-  determineRecipient,
-  generateSolanaTransactionEventId,
-} from '../../utils.ts';
+import { lamportsToSol, extractAccountChangesFromSolscan, generateSolanaTransactionEventId } from '../../utils.ts';
 
 import type { SolscanTransaction } from './solscan.schemas.js';
 
@@ -32,22 +26,16 @@ export function mapSolscanTransaction(rawData: SolscanTransaction): Result<Solan
 
     const tokenChanges: SolanaTokenChange[] = [];
 
-    const { primaryAmount, primaryCurrency } = determinePrimaryTransfer(accountChanges, tokenChanges);
-
-    const feePayerAccount = rawData.signer?.[0] || '';
-    const recipient = rawData.inputAccount ? determineRecipient(rawData.inputAccount, feePayerAccount) : '';
     const timestamp = rawData.blockTime?.getTime() ?? 0;
 
     const solanaTransaction: SolanaTransaction = {
       accountChanges,
-      amount: primaryAmount,
       blockHeight: rawData.slot,
       blockId: rawData.txHash,
-      currency: primaryCurrency,
       eventId: generateSolanaTransactionEventId({ signature: rawData.txHash }),
-      feeAmount: fee.toString(),
+      feeAmount: fee.toFixed(),
       feeCurrency: 'SOL',
-      from: feePayerAccount,
+      feePayer: rawData.signer?.[0], // First signer is the fee payer in Solana
       id: rawData.txHash,
       instructions:
         rawData.parsedInstruction?.map((instruction) => ({
@@ -62,7 +50,6 @@ export function mapSolscanTransaction(rawData: SolscanTransaction): Result<Solan
       slot: rawData.slot,
       status: rawData.status === 'Success' ? 'success' : 'failed',
       timestamp,
-      to: recipient,
       tokenChanges,
     };
 

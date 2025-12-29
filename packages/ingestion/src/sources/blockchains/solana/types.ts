@@ -15,11 +15,12 @@ export interface SolanaBalanceChangeAnalysis {
   inflows: SolanaMovement[];
   outflows: SolanaMovement[];
   primary: SolanaMovement;
-  fromAddress: string;
-  toAddress: string;
+  fromAddress?: string | undefined;
+  toAddress?: string | undefined;
   feePaidByUser: boolean;
   feeAbsorbedByMovement: boolean;
   classificationUncertainty?: string | undefined;
+  inferenceFailureReason?: string | undefined; // Why from/to couldn't be inferred
 }
 
 /**
@@ -56,4 +57,5 @@ export interface SolanaFundFlow {
 
   // Classification uncertainty tracking
   classificationUncertainty?: string | undefined;
+  inferenceFailureReason?: string | undefined; // Why from/to couldn't be inferred
 }
