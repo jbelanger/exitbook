@@ -17,6 +17,7 @@ import { NearTransactionImporter } from '../importer.js';
 
 const mockNearTx = {
   id: 'AbCdEf123456',
+  eventId: '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
   from: 'alice.near',
   to: 'bob.near',
   amount: '1000000000000000000000000', // 1 NEAR in yoctoNEAR
@@ -29,6 +30,7 @@ const mockNearTx = {
 
 const mockNearFunctionCallTx = {
   id: 'FunctionCallTx456',
+  eventId: 'fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321',
   from: 'alice.near',
   to: 'usdt.tether-token.near',
   amount: '1',
@@ -51,38 +53,23 @@ describe('NearTransactionImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   /**
-   * Helper to setup default mocks for both normal and token transaction calls
+   * Helper to setup default mocks for receipt events
    */
-  const setupDefaultMocks = (normalData: unknown[] = [], tokenData: unknown[] = []) => {
-    mockProviderManager.executeWithFailover
-      .mockImplementationOnce(async function* () {
-        yield okAsync({
-          data: normalData,
-          providerName: 'nearblocks',
-          cursor: {
-            primary: { type: 'blockNumber' as const, value: 0 },
-            lastTransactionId: '',
-            totalFetched: normalData.length,
-            metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
-          },
-          isComplete: true,
-          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
-        });
-      })
-      .mockImplementationOnce(async function* () {
-        yield okAsync({
-          data: tokenData,
-          providerName: 'nearblocks',
-          cursor: {
-            primary: { type: 'blockNumber' as const, value: 0 },
-            lastTransactionId: '',
-            totalFetched: tokenData.length,
-            metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
-          },
-          isComplete: true,
-          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
-        });
+  const setupDefaultMocks = (receiptData: unknown[] = []) => {
+    mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
+      yield okAsync({
+        data: receiptData,
+        providerName: 'nearblocks',
+        cursor: {
+          primary: { type: 'blockNumber' as const, value: 0 },
+          lastTransactionId: '',
+          totalFetched: receiptData.length,
+          metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
+        },
+        isComplete: true,
+        stats: { fetched: 0, deduplicated: 0, yielded: 0 },
       });
+    });
   };
 
   beforeEach(() => {
@@ -135,7 +122,7 @@ describe('NearTransactionImporter', () => {
       const address = 'alice.near';
       const mockNormalizedTransfer = mockNearTx;
       const mockNormalizedFunctionCall = mockNearFunctionCallTx;
-      // Mock normal transactions call
+      // Mock receipt events (includes both native and token transfers)
       mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
         yield okAsync({
           data: [
@@ -147,21 +134,6 @@ describe('NearTransactionImporter', () => {
             primary: { type: 'blockNumber' as const, value: 0 },
             lastTransactionId: '',
             totalFetched: 2,
-            metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
-          },
-          isComplete: true,
-          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
-        });
-      });
-      // Mock token transactions call
-      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
-        yield okAsync({
-          data: [],
-          providerName: 'nearblocks',
-          cursor: {
-            primary: { type: 'blockNumber' as const, value: 0 },
-            lastTransactionId: '',
-            totalFetched: 0,
             metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
           },
           isComplete: true,
@@ -195,23 +167,19 @@ describe('NearTransactionImporter', () => {
         transactionTypeHint: 'normal',
       });
       expect(value.rawTransactions[1]?.eventId).toMatch(/^[a-f0-9]{64}$/);
-      // Verify API calls were made (normal + token)
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(2);
+      // Verify API call was made
+      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(1);
       const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
-      const [, normalOperation] = executeCalls[0]!;
-      assertOperationType(normalOperation, 'getAddressTransactions');
-      expect(normalOperation.address).toBe(address);
-      expect(normalOperation.getCacheKey).toBeDefined();
-      const [, tokenOperation] = executeCalls[1]!;
-      assertOperationType(tokenOperation, 'getAddressTokenTransactions');
-      expect(tokenOperation.address).toBe(address);
-      expect(tokenOperation.getCacheKey).toBeDefined();
+      const [, operation] = executeCalls[0]!;
+      assertOperationType(operation, 'getAddressTransactions');
+      expect(operation.address).toBe(address);
+      expect(operation.getCacheKey).toBeDefined();
     });
     test('should handle empty transaction list', async () => {
       const importer = createImporter();
       const address = 'alice.near';
-      setupDefaultMocks([], []);
+      setupDefaultMocks([]);
       const result = await consumeImportStream(importer, {
         sourceName: 'near',
         sourceType: 'blockchain' as const,
@@ -312,7 +280,7 @@ describe('NearTransactionImporter', () => {
     });
   });
   describe('Import - Error Cases', () => {
-    test('should fail if normal transactions provider fails', async () => {
+    test('should fail if provider fails', async () => {
       const importer = createImporter();
       const address = 'alice.near';
       mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
@@ -330,42 +298,6 @@ describe('NearTransactionImporter', () => {
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toBe('Failed to fetch transactions');
-      }
-    });
-    test('should fail if token transactions provider fails', async () => {
-      const importer = createImporter();
-      const address = 'alice.near';
-      // Normal transactions succeed
-      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
-        yield okAsync({
-          data: [],
-          providerName: 'nearblocks',
-          cursor: {
-            primary: { type: 'blockNumber' as const, value: 0 },
-            lastTransactionId: '',
-            totalFetched: 0,
-            metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
-          },
-          isComplete: true,
-          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
-        });
-      });
-      // Token transactions fail
-      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
-        yield errAsync(
-          new ProviderError('Failed to fetch token transactions', 'ALL_PROVIDERS_FAILED', {
-            blockchain: 'near',
-          })
-        );
-      });
-      const result = await consumeImportStream(importer, {
-        sourceName: 'near',
-        sourceType: 'blockchain' as const,
-        address,
-      });
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toBe('Failed to fetch token transactions');
       }
     });
     test('should return error if address is not provided', async () => {
@@ -426,14 +358,10 @@ describe('NearTransactionImporter', () => {
       await consumeImportStream(importer, { sourceName: 'near', sourceType: 'blockchain' as const, address });
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
-      // First call is for normal transactions
-      const normalCall = calls[0]![1];
-      const normalCacheKey = normalCall.getCacheKey!(normalCall);
-      expect(normalCacheKey).toBe('near:normal-txs:alice.near:all');
-      // Second call is for token transactions
-      const tokenCall = calls[1]![1];
-      const tokenCacheKey = tokenCall.getCacheKey!(tokenCall);
-      expect(tokenCacheKey).toBe('near:token-txs:alice.near:all');
+      // Single call for receipt events (includes both native and token transfers)
+      const call = calls[0]![1];
+      const cacheKey = call.getCacheKey!(call);
+      expect(cacheKey).toBe('near:receipt-events:alice.near:all');
     });
     test('should generate correct cache keys for implicit accounts', async () => {
       const importer = createImporter();
@@ -441,12 +369,9 @@ describe('NearTransactionImporter', () => {
       await consumeImportStream(importer, { sourceName: 'near', sourceType: 'blockchain' as const, address });
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
-      const normalCall = calls[0]![1];
-      const normalCacheKey = normalCall.getCacheKey!(normalCall);
-      expect(normalCacheKey).toBe(`near:normal-txs:${address}:all`);
-      const tokenCall = calls[1]![1];
-      const tokenCacheKey = tokenCall.getCacheKey!(tokenCall);
-      expect(tokenCacheKey).toBe(`near:token-txs:${address}:all`);
+      const call = calls[0]![1];
+      const cacheKey = call.getCacheKey!(call);
+      expect(cacheKey).toBe(`near:receipt-events:${address}:all`);
     });
     test('should generate correct cache keys for sub-accounts', async () => {
       const importer = createImporter();
@@ -454,20 +379,25 @@ describe('NearTransactionImporter', () => {
       await consumeImportStream(importer, { sourceName: 'near', sourceType: 'blockchain' as const, address });
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
-      const normalCall = calls[0]![1];
-      const normalCacheKey = normalCall.getCacheKey!(normalCall);
-      expect(normalCacheKey).toBe('near:normal-txs:token.sub.alice.near:all');
-      const tokenCall = calls[1]![1];
-      const tokenCacheKey = tokenCall.getCacheKey!(tokenCall);
-      expect(tokenCacheKey).toBe('near:token-txs:token.sub.alice.near:all');
+      const call = calls[0]![1];
+      const cacheKey = call.getCacheKey!(call);
+      expect(cacheKey).toBe('near:receipt-events:token.sub.alice.near:all');
     });
   });
   describe('Transaction ID Generation', () => {
     test('should generate unique transaction IDs', async () => {
       const importer = createImporter();
       const address = 'alice.near';
-      const tx1 = { ...mockNearTx, id: 'Tx1' };
-      const tx2 = { ...mockNearTx, id: 'Tx2' };
+      const tx1 = {
+        ...mockNearTx,
+        id: 'Tx1',
+        eventId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      };
+      const tx2 = {
+        ...mockNearTx,
+        id: 'Tx2',
+        eventId: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      };
       mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
         yield okAsync({
           data: [

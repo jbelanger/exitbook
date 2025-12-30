@@ -395,7 +395,10 @@ export class HeliusApiClient extends BaseApiClient {
   ): AsyncIterableIterator<Result<StreamingBatchResult<SolanaTransaction>, Error>> {
     const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<HeliusTransaction>, Error>> => {
       const limit = 100;
-      const options: { before?: string; limit: number } = { limit };
+      const options: { before?: string; limit: number; sortDirection?: string } = {
+        limit,
+        sortDirection: 'asc', // Fetch oldest to newest for proper cursor resume
+      };
 
       // Use pageToken as the 'before' cursor for pagination
       if (ctx.pageToken) {
@@ -509,7 +512,11 @@ export class HeliusApiClient extends BaseApiClient {
           if (tokenAccountsResult.isErr()) {
             return err(tokenAccountsResult.error);
           }
-          tokenAccounts = tokenAccountsResult.value.slice(0, 20); // Limit to 20
+          tokenAccounts = tokenAccountsResult.value;
+
+          this.logger.info(
+            `Found ${tokenAccounts.length} token accounts for address - Address: ${maskAddress(address)}`
+          );
         }
 
         // If resuming, restore the account index from metadata
@@ -532,7 +539,10 @@ export class HeliusApiClient extends BaseApiClient {
 
       const currentAccount = tokenAccounts[currentAccountIndex]!;
       const limit = 50;
-      const options: { before?: string; limit: number } = { limit };
+      const options: { before?: string; limit: number; sortDirection?: string } = {
+        limit,
+        sortDirection: 'asc', // Fetch oldest to newest for proper cursor resume
+      };
 
       // Use pageToken for current account pagination
       if (ctx.pageToken) {

@@ -40,8 +40,9 @@ describe('SolanaTransactionImporter', () => {
   /**
    * Helper to setup mock for transaction data
    */
-  const setupMockData = (data: unknown[] = []) => {
-    mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+  const setupMockData = (normalData: unknown[] = [], tokenData: unknown[] = []) => {
+    mockProviderManager.executeWithFailover.mockImplementation(async function* (_blockchain, operation) {
+      const data = operation.type === 'getAddressTransactions' ? normalData : tokenData;
       yield okAsync({
         data,
         providerName: 'helius',
@@ -134,15 +135,20 @@ describe('SolanaTransactionImporter', () => {
       expect(value.rawTransactions[1]?.eventId).toMatch(/^[a-f0-9]{64}$/);
 
       // Verify API call was made
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(1);
+      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(2);
 
       const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 
-      const [, operation] = executeCalls[0]!;
-      assertOperationType(operation, 'getAddressTransactions');
-      expect(operation.address).toBe(address);
-      expect(operation.getCacheKey).toBeDefined();
+      const [, operation1] = executeCalls[0]!;
+      assertOperationType(operation1, 'getAddressTransactions');
+      expect(operation1.address).toBe(address);
+
+      const [, operation2] = executeCalls[1]!;
+      assertOperationType(operation2, 'getAddressTokenTransactions');
+      expect(operation2.address).toBe(address);
+      expect(operation1.getCacheKey).toBeDefined();
+      expect(operation2.getCacheKey).toBeDefined();
     });
 
     test('should handle empty transaction list', async () => {
@@ -170,9 +176,9 @@ describe('SolanaTransactionImporter', () => {
       const tx3 = { ...mockSolTx, signature: 'sig012' };
 
       const multipleTxs = [
-        { normalized: { id: 'sig123abc' }, raw: tx1 },
-        { normalized: { id: 'sig789' }, raw: tx2 },
-        { normalized: { id: 'sig012' }, raw: tx3 },
+        { normalized: { id: 'sig123abc', eventId: '0'.repeat(64) }, raw: tx1 },
+        { normalized: { id: 'sig789', eventId: '1'.repeat(64) }, raw: tx2 },
+        { normalized: { id: 'sig012', eventId: '2'.repeat(64) }, raw: tx3 },
       ];
 
       setupMockData(multipleTxs);

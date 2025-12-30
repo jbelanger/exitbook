@@ -40,6 +40,7 @@ export class SolanaTransactionImporter implements IImporter {
   /**
    * Streaming import implementation
    * Streams transaction batches without accumulating everything in memory
+   * Fetches both normal address transactions and token account transactions
    */
   async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address) {
@@ -49,8 +50,15 @@ export class SolanaTransactionImporter implements IImporter {
 
     this.logger.info(`Starting Solana streaming import for address: ${params.address.substring(0, 20)}...`);
 
+    // Stream normal address transactions (where address signed)
     const normalCursor = params.cursor?.['normal'];
-    for await (const batchResult of this.streamTransactionsForAddress(params.address, normalCursor)) {
+    for await (const batchResult of this.streamTransactionsForAddress(params.address, normalCursor, 'normal')) {
+      yield batchResult;
+    }
+
+    // Stream token account transactions (where token accounts received transfers)
+    const tokenCursor = params.cursor?.['token'];
+    for await (const batchResult of this.streamTransactionsForAddress(params.address, tokenCursor, 'token')) {
       yield batchResult;
     }
 
@@ -60,22 +68,35 @@ export class SolanaTransactionImporter implements IImporter {
   /**
    * Stream transactions for a single address with resume support
    * Uses provider manager's streaming failover to handle pagination and provider switching
+   * Supports both normal address transactions and token account transactions
    */
   private async *streamTransactionsForAddress(
     address: string,
-    resumeCursor?: CursorState
+    resumeCursor: CursorState | undefined,
+    operationType: 'normal' | 'token'
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+    const operationTypeMap = {
+      normal: 'getAddressTransactions' as const,
+      token: 'getAddressTokenTransactions' as const,
+    };
+
+    const operation = operationTypeMap[operationType];
+    const operationLabel = operationType === 'normal' ? 'address' : 'token account';
+
+    this.logger.info(`Starting ${operationLabel} transaction stream for address: ${address.substring(0, 20)}...`);
+
     const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<SolanaTransaction>>(
       'solana',
       {
-        type: 'getAddressTransactions',
+        type: operation,
         address,
         getCacheKey: (params) =>
-          `solana:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:all`,
+          `solana:raw-txs:${params.type === 'getAddressTransactions' ? params.address : params.type === 'getAddressTokenTransactions' ? `${params.address}:tokens` : 'unknown'}:all`,
       },
       resumeCursor
     );
 
+    let totalFetched = 0;
     for await (const providerBatchResult of iterator) {
       if (providerBatchResult.isErr()) {
         yield err(providerBatchResult.error);
@@ -85,10 +106,12 @@ export class SolanaTransactionImporter implements IImporter {
       const providerBatch = providerBatchResult.value;
       const transactionsWithRaw = providerBatch.data;
 
+      totalFetched += transactionsWithRaw.length;
+
       // Log batch stats including in-memory deduplication
       if (providerBatch.stats.deduplicated > 0) {
         this.logger.info(
-          `Provider batch stats: ${providerBatch.stats.fetched} fetched, ${providerBatch.stats.deduplicated} deduplicated by provider, ${providerBatch.stats.yielded} yielded`
+          `${operationType} batch stats: ${providerBatch.stats.fetched} fetched, ${providerBatch.stats.deduplicated} deduplicated by provider, ${providerBatch.stats.yielded} yielded (total: ${totalFetched})`
         );
       }
 
@@ -104,10 +127,14 @@ export class SolanaTransactionImporter implements IImporter {
 
       yield ok({
         rawTransactions: rawTransactions,
-        operationType: 'normal',
+        operationType,
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,
       });
     }
+
+    this.logger.info(
+      `Completed ${operationLabel} transaction stream - Total: ${totalFetched} transactions for address: ${address.substring(0, 20)}...`
+    );
   }
 }

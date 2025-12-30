@@ -1,8 +1,12 @@
 /**
- * NEAR blockchain provider exports
+ * NEAR blockchain provider exports - V2 (receipt-based model)
  */
 
-// Core exports
-export * from './schemas.js';
-export * from './types.js';
-export * from './utils.js';
+// V2 schemas (receipt-based event model)
+export * from './schemas.v2.js';
+
+// V2 utilities (includes account validation, fee extraction, conversion utilities)
+export * from './utils.v2.js';
+
+// Additional utility functions (balance transformations)
+export { formatNearAccountId, nearToYoctoNear, yoctoNearToNear } from './utils.js';

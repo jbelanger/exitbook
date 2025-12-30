@@ -1,9 +1,8 @@
 import type {
   BlockchainProviderManager,
-  NearTransaction,
+  NearReceiptEvent,
   TransactionWithRawData,
 } from '@exitbook/blockchain-providers';
-import { generateUniqueTransactionEventId } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -17,7 +16,7 @@ import type { IImporter, ImportParams, ImportBatchResult } from '../../../shared
  *
  * The provider layer handles all enrichment internally:
  * - Account changes (native NEAR balance deltas) are populated in getAddressTransactions
- * - Token transfers (NEP-141) are fetched via getAddressTokenTransactions
+ * - Token transfers (NEP-141) are enriched into receipt events via batch correlation
  */
 export class NearTransactionImporter implements IImporter {
   private readonly logger: Logger;
@@ -44,7 +43,7 @@ export class NearTransactionImporter implements IImporter {
 
   /**
    * Streaming import implementation
-   * Streams NORMAL + TOKEN batches without accumulating everything in memory
+   * Streams receipt events (includes both native and token transfers)
    */
   async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address) {
@@ -54,24 +53,13 @@ export class NearTransactionImporter implements IImporter {
 
     this.logger.info(`Starting NEAR streaming import for account: ${params.address.substring(0, 20)}...`);
 
-    // Stream normal transactions (with resume support)
-    const normalCursor = params.cursor?.['normal'];
+    // Stream all receipt events (includes native balance changes and token transfers)
+    const cursor = params.cursor?.['normal'];
     for await (const batchResult of this.streamTransactionType(
       params.address,
       'normal',
       'getAddressTransactions',
-      normalCursor
-    )) {
-      yield batchResult;
-    }
-
-    // Stream token transactions (with resume support)
-    const tokenCursor = params.cursor?.['token'];
-    for await (const batchResult of this.streamTransactionType(
-      params.address,
-      'token',
-      'getAddressTokenTransactions',
-      tokenCursor
+      cursor
     )) {
       yield batchResult;
     }
@@ -80,18 +68,18 @@ export class NearTransactionImporter implements IImporter {
   }
 
   /**
-   * Stream a specific transaction type with resume support
+   * Stream receipt events with resume support
    * Uses provider manager's streaming failover to handle pagination and provider switching
    */
   private async *streamTransactionType(
     address: string,
-    operationType: 'normal' | 'token',
-    providerOperationType: 'getAddressTransactions' | 'getAddressTokenTransactions',
+    operationType: 'normal',
+    providerOperationType: 'getAddressTransactions',
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const cacheKeyPrefix = operationType === 'normal' ? 'normal-txs' : 'token-txs';
+    const cacheKeyPrefix = 'receipt-events';
 
-    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<NearTransaction>>(
+    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<NearReceiptEvent>>(
       'near',
       {
         type: providerOperationType,
@@ -119,17 +107,11 @@ export class NearTransactionImporter implements IImporter {
       }
 
       // Map to raw transactions
+      // V2 Note: NearReceiptEvent always has eventId (receiptId), no fallback needed
       const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
         providerName: providerBatch.providerName,
-        eventId:
-          txWithRaw.normalized.eventId ??
-          (() => {
-            this.logger.warn(
-              `Missing provider eventId; falling back to generateUniqueTransactionEventId() - Provider: ${providerBatch.providerName}`
-            );
-            return generateUniqueTransactionEventId(txWithRaw.normalized);
-          })(),
-        blockchainTransactionHash: txWithRaw.normalized.id,
+        eventId: txWithRaw.normalized.eventId, // Receipt ID (always present in V2)
+        blockchainTransactionHash: txWithRaw.normalized.id, // Parent transaction hash
         transactionTypeHint: operationType,
         sourceAddress: address,
         normalizedData: txWithRaw.normalized,

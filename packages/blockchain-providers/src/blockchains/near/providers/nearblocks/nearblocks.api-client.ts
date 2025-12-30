@@ -1,5 +1,5 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type {
@@ -308,7 +308,26 @@ export class NearBlocksApiClient extends BaseApiClient {
     }
 
     const accountData = accounts[0]!;
-    const balanceData = transformNearBalance(accountData.amount);
+    const amountYocto = accountData.amount;
+    const lockedYocto = accountData.locked;
+
+    let availableYocto = amountYocto.toString();
+    if (lockedYocto !== null && lockedYocto !== undefined) {
+      const lockedDecimal = parseDecimal(lockedYocto.toString());
+      if (!lockedDecimal.isZero()) {
+        const amountDecimal = parseDecimal(amountYocto.toString());
+        const remaining = amountDecimal.minus(lockedDecimal);
+        if (remaining.isNegative()) {
+          this.logger.warn(
+            `NearBlocks returned locked > amount for ${maskAddress(address)} (locked=${lockedDecimal.toFixed()}, amount=${amountDecimal.toFixed()}); using total amount`
+          );
+        } else {
+          availableYocto = remaining.toFixed();
+        }
+      }
+    }
+
+    const balanceData = transformNearBalance(availableYocto);
 
     this.logger.debug(
       `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, NEAR: ${balanceData.decimalAmount}`
