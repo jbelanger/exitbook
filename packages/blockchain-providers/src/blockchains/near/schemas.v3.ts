@@ -147,8 +147,15 @@ export type NearBalanceChangeCause = z.infer<typeof NearBalanceChangeCauseSchema
 /**
  * V3: Normalized balance change from /activities endpoint
  * Contains balance changes (deltas)
- * Note: receiptId can be undefined or invalid (not matching any receipt).
- * Processor will attach orphaned items to a synthetic receipt for visibility.
+ *
+ * NEAR's asynchronous architecture creates balance changes at two lifecycle stages:
+ * - TRANSACTION-LEVEL (cause: TRANSACTION): Transaction acceptance costs (gas prepayment, deposits)
+ *   → receiptId is null (correct NEAR semantics) → processor attaches to transaction-level receipt
+ * - RECEIPT-LEVEL (cause: RECEIPT, TRANSFER, etc.): Execution outcomes (state changes, transfers)
+ *   → receiptId must be present → processor correlates to specific receipt
+ *
+ * Note: receiptId can be undefined (expected for TRANSACTION cause) or invalid (data quality issue).
+ * Processor differentiates based on 'cause' field to handle each case appropriately.
  */
 export const NearBalanceChangeSchema = NormalizedTransactionBaseSchema.extend({
   streamType: z.literal('balance-changes'),
@@ -169,8 +176,13 @@ export type NearBalanceChange = z.infer<typeof NearBalanceChangeSchema>;
 /**
  * V3: Normalized token transfer from /ft-txns endpoint
  * Contains fungible token transfers
+ *
+ * Token transfers come from receipt execution (NEP-141 events), so they should
+ * always have receiptId. If receiptId is missing or invalid, it indicates a
+ * data quality issue with the provider.
+ *
  * Note: receiptId can be undefined or invalid (not matching any receipt).
- * Processor will attach orphaned items to a synthetic receipt for visibility.
+ * Processor will log a warning and attach to transaction-level synthetic receipt.
  */
 export const NearTokenTransferSchema = NormalizedTransactionBaseSchema.extend({
   streamType: z.literal('token-transfers'),

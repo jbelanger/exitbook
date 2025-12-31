@@ -20,6 +20,7 @@ import {
   canProviderResume,
   createDeduplicationWindow,
   createInitialHealth,
+  DEFAULT_DEDUP_WINDOW_SIZE,
   deduplicateTransactions,
   getProviderHealthWithCircuit,
   hasAvailableProviders,
@@ -48,11 +49,19 @@ interface CacheEntry {
   result: unknown;
 }
 
+// Provider request cache timeout: Balance between fresh data and API rate limits
+// 30 seconds allows rapid successive calls to use cached results while ensuring reasonable freshness
+const PROVIDER_CACHE_TIMEOUT_MS = 30000;
+
+// Provider health check interval: Balance between timely failure detection and overhead
+// 1 minute provides reasonable responsiveness while minimizing background health check traffic
+const PROVIDER_HEALTH_CHECK_INTERVAL_MS = 60000;
+
 export class BlockchainProviderManager {
   private cacheCleanupTimer?: NodeJS.Timeout | undefined;
-  private readonly cacheTimeout = 30000; // 30 seconds
+  private readonly cacheTimeout = PROVIDER_CACHE_TIMEOUT_MS;
   private circuitStates = new Map<string, CircuitState>();
-  private readonly healthCheckInterval = 60000; // 1 minute
+  private readonly healthCheckInterval = PROVIDER_HEALTH_CHECK_INTERVAL_MS;
   private healthCheckTimer?: NodeJS.Timeout | undefined;
   private healthStatus = new Map<string, ProviderHealth>();
   private instrumentation?: InstrumentationCollector | undefined;
@@ -487,10 +496,6 @@ export class BlockchainProviderManager {
     let currentCursor = resumeCursor;
     let providerIndex = 0;
 
-    // Bounded deduplication window prevents unbounded memory growth during long streams
-    // Window size (1000) covers typical replay overlap: 5 blocks × ~200 txs/block
-    const DEDUP_WINDOW_SIZE = 1000;
-
     // ✅ CRITICAL: Populate dedup set from recent database transactions to prevent duplicates
     // during replay window (5 blocks/minutes can be dozens of transactions)
     const initialIds = resumeCursor ? [resumeCursor.lastTransactionId] : [];
@@ -562,7 +567,7 @@ export class BlockchainProviderManager {
           const deduplicated = deduplicateTransactions(
             batch.data as { normalized: NormalizedTransactionBase }[],
             deduplicationWindow,
-            DEDUP_WINDOW_SIZE
+            DEFAULT_DEDUP_WINDOW_SIZE
           );
           const deduplicatedCount = fetchedCount - deduplicated.length;
 

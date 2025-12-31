@@ -11,6 +11,7 @@
  */
 import type {
   NearBalanceChangeV3,
+  NearBalanceChangeCause,
   NearReceiptV3,
   NearTokenTransferV3,
   NearTransactionV3,
@@ -406,16 +407,83 @@ describe('NEAR V3 Processor Utils - correlateTransactionData', () => {
     }
   });
 
-  test('should handle orphaned activities and transfers', () => {
-    // Activities/transfers with receipt IDs that don't match any receipt
+  test('should fail fast for RECEIPT-cause balance changes with invalid receipt_id', () => {
+    // Balance changes with cause: RECEIPT that reference unknown receipt_ids
+    // This indicates incomplete data from the provider or cross-contract receipts not fetched
     const group: RawTransactionGroup = {
       transaction: createTransaction(),
       receipts: [createReceipt({ receiptId: 'receipt1' })],
       balanceChanges: [
         createBalanceChange({ receiptId: 'receipt1', deltaAmountYocto: '-1000000000000000000000000' }),
-        createBalanceChange({ receiptId: 'orphan-receipt', deltaAmountYocto: '500000000000000000000000' }),
+        createBalanceChange({
+          receiptId: 'orphan-receipt',
+          deltaAmountYocto: '500000000000000000000000',
+          cause: 'RECEIPT',
+        }),
       ],
+      tokenTransfers: [],
+    };
+
+    const result = correlateTransactionData(group);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain("has invalid receipt_id 'orphan-receipt'");
+      expect(result.error.message).toContain('does not match any known receipt');
+    }
+  });
+
+  test('should fail fast for token transfers with invalid receipt_id', () => {
+    // Token transfers must have valid receipt_id (they come from receipt execution)
+    const group: RawTransactionGroup = {
+      transaction: createTransaction(),
+      receipts: [createReceipt({ receiptId: 'receipt1' })],
+      balanceChanges: [],
       tokenTransfers: [createTokenTransfer({ receiptId: 'orphan-receipt', deltaAmountYocto: '-1000000' })],
+    };
+
+    const result = correlateTransactionData(group);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain("has invalid receipt_id 'orphan-receipt'");
+      expect(result.error.message).toContain('Token transfer');
+    }
+  });
+
+  test('should fail fast for token transfers missing receipt_id', () => {
+    // Token transfers must have receipt_id
+    const group: RawTransactionGroup = {
+      transaction: createTransaction(),
+      receipts: [createReceipt({ receiptId: 'receipt1' })],
+      balanceChanges: [],
+      tokenTransfers: [createTokenTransfer({ receiptId: undefined, deltaAmountYocto: '-1000000' })],
+    };
+
+    const result = correlateTransactionData(group);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Token transfer missing receipt_id');
+      expect(result.error.message).toContain('data quality issues');
+    }
+  });
+
+  test('should attach TRANSACTION-cause balance changes to transaction-level synthetic receipt', () => {
+    // Balance changes with cause: TRANSACTION represent transaction acceptance costs (gas prepayment, deposits)
+    // These SHOULD NOT have receipt_id (correct NEAR semantics)
+    const group: RawTransactionGroup = {
+      transaction: createTransaction(),
+      receipts: [createReceipt({ receiptId: 'receipt1' })],
+      balanceChanges: [
+        createBalanceChange({ receiptId: 'receipt1', deltaAmountYocto: '1000000000000000000000000' }),
+        createBalanceChange({
+          receiptId: undefined,
+          deltaAmountYocto: '-50000000000000000000000',
+          cause: 'TRANSACTION',
+        }),
+      ],
+      tokenTransfers: [],
     };
 
     const result = correlateTransactionData(group);
@@ -428,17 +496,97 @@ describe('NEAR V3 Processor Utils - correlateTransactionData', () => {
     expect(correlated.receipts).toHaveLength(2);
 
     const primary = correlated.receipts.find((r) => r.receiptId === 'receipt1');
-    const synthetic = correlated.receipts.find((r) => r.receiptId.startsWith('tx:'));
+    const txLevel = correlated.receipts.find((r) => r.receiptId.includes('transaction-level'));
 
     expect(primary).toBeDefined();
     expect(primary!.balanceChanges).toHaveLength(1);
-    expect(primary!.tokenTransfers).toHaveLength(0);
-    expect(primary!.isSynthetic).toBeUndefined();
 
-    expect(synthetic).toBeDefined();
-    expect(synthetic!.balanceChanges).toHaveLength(1);
-    expect(synthetic!.tokenTransfers).toHaveLength(1);
-    expect(synthetic!.isSynthetic).toBe(true);
+    expect(txLevel).toBeDefined();
+    expect(txLevel!.balanceChanges).toHaveLength(1);
+    const txLevelBalance = txLevel!.balanceChanges![0];
+    expect(txLevelBalance).toBeDefined();
+    expect(txLevelBalance!.cause).toBe('TRANSACTION');
+    expect(txLevel!.isSynthetic).toBe(true);
+  });
+
+  test('should fail fast for unknown balance change causes', () => {
+    // Unknown causes should fail fast to force proper categorization
+    const group: RawTransactionGroup = {
+      transaction: createTransaction(),
+      receipts: [createReceipt({ receiptId: 'receipt1' })],
+      balanceChanges: [
+        createBalanceChange({
+          receiptId: 'receipt1',
+          deltaAmountYocto: '500000000000000000000000',
+          cause: 'UNKNOWN_CAUSE' as NearBalanceChangeCause,
+        }),
+      ],
+      tokenTransfers: [],
+    };
+
+    const result = correlateTransactionData(group);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain("Unknown balance change cause 'UNKNOWN_CAUSE'");
+      expect(result.error.message).toContain('must be added to');
+    }
+  });
+
+  test('should attach ambiguous-cause balance changes to transaction-level when receipt_id missing', () => {
+    // Ambiguous causes (FEE, GAS, GAS_REFUND, etc.) can appear at either level
+    // Gracefully fall back to transaction-level when no valid receipt_id
+    const group: RawTransactionGroup = {
+      transaction: createTransaction(),
+      receipts: [createReceipt({ receiptId: 'receipt1' })],
+      balanceChanges: [
+        createBalanceChange({ receiptId: 'receipt1', deltaAmountYocto: '1000000000000000000000000' }),
+        createBalanceChange({
+          receiptId: undefined,
+          deltaAmountYocto: '-10000000000000000000',
+          cause: 'GAS_REFUND',
+        }),
+      ],
+      tokenTransfers: [],
+    };
+
+    const result = correlateTransactionData(group);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const correlated = result.value;
+    expect(correlated.receipts).toHaveLength(2);
+
+    const txLevel = correlated.receipts.find((r) => r.receiptId.includes('transaction-level'));
+    expect(txLevel).toBeDefined();
+    expect(txLevel!.balanceChanges).toHaveLength(1);
+    expect(txLevel!.balanceChanges![0]!.cause).toBe('GAS_REFUND');
+  });
+
+  test('should fail fast for RECEIPT-cause balance changes without receipt_id', () => {
+    // Balance changes with cause: RECEIPT represent execution outcomes and MUST have receipt_id
+    // Missing receipt_id indicates data quality issues with the provider
+    const group: RawTransactionGroup = {
+      transaction: createTransaction(),
+      receipts: [createReceipt({ receiptId: 'receipt1' })],
+      balanceChanges: [
+        createBalanceChange({
+          receiptId: undefined,
+          deltaAmountYocto: '500000000000000000000000',
+          cause: 'RECEIPT',
+        }),
+      ],
+      tokenTransfers: [],
+    };
+
+    const result = correlateTransactionData(group);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain("Balance change with cause 'RECEIPT' missing receipt_id");
+      expect(result.error.message).toContain('data quality issues');
+    }
   });
 
   test('should handle receipts with no activities or transfers', () => {
@@ -641,7 +789,7 @@ describe('NEAR V3 Processor Utils - extractReceiptFees', () => {
     expect(result.movements[0]!.amount.toFixed()).toBe('0.00001');
   });
 
-  test('should ignore TRANSACTION cause for fee extraction', () => {
+  test('should handle TRANSACTION cause balance changes (transaction-level costs, not receipt fees)', () => {
     const receipt: NearReceipt = {
       ...createReceipt(),
       gasBurnt: undefined,

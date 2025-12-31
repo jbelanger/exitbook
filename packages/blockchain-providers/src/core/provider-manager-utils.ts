@@ -19,6 +19,10 @@ import type {
   ProviderOperationType,
 } from './types/index.js';
 
+// Deduplication window size: Used for in-memory dedup during streaming and loading recent transaction IDs
+// Sized to cover typical replay overlap (5 blocks × ~200 txs/block = ~1000 items max)
+export const DEFAULT_DEDUP_WINDOW_SIZE = 1000;
+
 /**
  * Check if cache entry is still valid
  */
@@ -358,10 +362,13 @@ export function deduplicateTransactions<T extends { normalized: NormalizedTransa
  * storage integration to the provider manager.
  *
  * @param importSessionId - Import session to load transactions from
- * @param windowSize - Number of recent transactions to load (default: 1000)
+ * @param windowSize - Number of recent transactions to load
  * @returns Promise resolving to array of transaction IDs from the last N transactions
  */
-export function loadRecentTransactionIds(importSessionId: number, _windowSize = 1000): Promise<string[]> {
+export function loadRecentTransactionIds(
+  importSessionId: number,
+  _windowSize = DEFAULT_DEDUP_WINDOW_SIZE
+): Promise<string[]> {
   // TODO: Implement in Phase 2.3
   // This will query the repository:
   // Query: SELECT event_id FROM raw_transactions

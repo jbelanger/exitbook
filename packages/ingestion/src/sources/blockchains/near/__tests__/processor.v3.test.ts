@@ -1039,7 +1039,8 @@ describe('NearTransactionProcessorV3', () => {
       expect(result.value).toHaveLength(0);
     });
 
-    test('should handle orphaned balance changes (no matching receipt)', async () => {
+    test('should fail fast for orphaned balance changes with RECEIPT-level cause', async () => {
+      // With stricter validation, RECEIPT/TRANSFER-cause balance changes MUST have valid receipt_id
       const mockTokenMetadataService = createMockTokenMetadataService();
       const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
 
@@ -1049,9 +1050,37 @@ describe('NearTransactionProcessorV3', () => {
         {
           ...createBalanceChangeEvent({
             receiptId: 'orphan-receipt', // No matching receipt
+            cause: 'TRANSFER', // RECEIPT-level cause
             deltaAmountYocto: '1000000000000000000000000',
           }),
           id: 'tx1', // Must have same id to be grouped with the transaction
+        },
+      ];
+
+      const result = await processor.process(events, createProcessingContext());
+
+      // Should fail fast due to invalid receipt_id for RECEIPT-level cause
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error).toContain("has invalid receipt_id 'orphan-receipt'");
+      }
+    });
+
+    test('should handle orphaned balance changes with ambiguous causes gracefully', async () => {
+      // Ambiguous causes (CONTRACT_REWARD, MINT, STAKE, etc.) fall back to transaction-level
+      const mockTokenMetadataService = createMockTokenMetadataService();
+      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+
+      const events: NearStreamEvent[] = [
+        createTransactionEvent({ transactionHash: 'tx1' }),
+        createReceiptEvent({ receiptId: 'receipt1', transactionHash: 'tx1' }),
+        {
+          ...createBalanceChangeEvent({
+            receiptId: 'orphan-receipt', // No matching receipt
+            cause: 'CONTRACT_REWARD', // Ambiguous cause - can be transaction or receipt level
+            deltaAmountYocto: '1000000000000000000000000',
+          }),
+          id: 'tx1',
         },
       ];
 
@@ -1062,8 +1091,7 @@ describe('NearTransactionProcessorV3', () => {
 
       const tx = result.value[0]!;
 
-      // Orphaned balance change is attached to a synthetic receipt
-      // and included in movements as an inflow
+      // Orphaned ambiguous-cause balance change attached to transaction-level receipt
       expect(tx.movements.inflows!).toHaveLength(1);
       expect(tx.movements.inflows![0]!.grossAmount.toFixed()).toBe('1');
     });

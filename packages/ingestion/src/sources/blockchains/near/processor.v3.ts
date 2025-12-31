@@ -100,10 +100,14 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
       }
 
       if (derivedResult.warnings.length > 0) {
-        const preview = derivedResult.warnings.slice(0, 3).join(' | ');
         this.logger.warn(
-          `NEAR balance delta derivation warnings (${derivedResult.warnings.length}). ` + `Examples: ${preview}`
+          `NEAR balance delta derivation encountered ${derivedResult.warnings.length} warning(s). ` +
+            `These represent assumptions or missing data that may affect financial accuracy. ` +
+            `Review all warnings below:`
         );
+        for (const warning of derivedResult.warnings) {
+          this.logger.warn(`  - ${warning}`);
+        }
       }
     }
 

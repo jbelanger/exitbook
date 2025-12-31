@@ -4,7 +4,11 @@
  * Pure utility functions for processing NEAR transactions in V3 architecture:
  * - Group normalized data by transaction hash
  * - Two-hop correlation: receipts → transactions, activities/ft-transfers → receipts
- * - Attach orphaned activities/ft-transfers (missing/invalid receipt_id) to synthetic receipts with logging
+ * - Handle NEAR's two-phase balance change model:
+ *   • TRANSACTION-LEVEL: Balance changes from transaction acceptance (gas prepayment, deposits)
+ *     → Attached to transaction-level synthetic receipt (correct NEAR semantics)
+ *   • RECEIPT-LEVEL: Balance changes from receipt execution (actual state changes)
+ *     → Must correlate to specific receipts (fails fast if missing receipt_id)
  * - Extract fees with single source of truth
  * - Extract fund flows from receipts
  * - Aggregate movements by asset
@@ -30,6 +34,41 @@ import type { CorrelatedTransaction, NearReceipt, RawTransactionGroup } from './
 const logger = getLogger('near-processor-utils-v3');
 
 const NEAR_DECIMALS = 24;
+
+// Fee mismatch threshold: Tolerance for differences between receipt tokensBurnt and balance change fees
+// Set at 1% to catch significant discrepancies while allowing for rounding/timing differences
+const FEE_MISMATCH_THRESHOLD_PERCENT = 1;
+
+/**
+ * Balance change causes categorized by their expected correlation level.
+ *
+ * NEAR's asynchronous architecture creates balance changes at two distinct lifecycle stages:
+ *
+ * 1. TRANSACTION-LEVEL: Balance changes that occur when a transaction is accepted by the network
+ *    - These represent transaction initiation costs (gas prepayment, deposit reservation)
+ *    - SHOULD have transaction_hash but NOT receipt_id (correct NEAR semantics)
+ *    - Attached to transaction-level synthetic receipt (this is valid!)
+ *
+ * 2. RECEIPT-LEVEL: Balance changes that occur when a receipt executes
+ *    - These represent execution outcomes (actual state changes, fund transfers)
+ *    - MUST have receipt_id (may have transaction_hash = null for cross-contract calls)
+ *    - Attached to specific receipt (required for correct accounting)
+ *
+ * 3. AMBIGUOUS: Causes that can appear at either level depending on context
+ *    - Use receipt_id if present, otherwise fall back to transaction-level
+ */
+const TRANSACTION_LEVEL_CAUSES = new Set<NearBalanceChangeCause>(['TRANSACTION']);
+
+const RECEIPT_LEVEL_CAUSES = new Set<NearBalanceChangeCause>(['RECEIPT', 'TRANSFER']);
+
+const AMBIGUOUS_CAUSES = new Set<NearBalanceChangeCause>([
+  'FEE',
+  'GAS',
+  'GAS_REFUND',
+  'CONTRACT_REWARD',
+  'MINT',
+  'STAKE',
+]);
 
 const FEE_CAUSES = new Set<NearBalanceChangeCause>(['FEE', 'GAS', 'GAS_REFUND']);
 
@@ -349,7 +388,11 @@ export function convertReceiptToProcessorType(receipt: NearReceiptSchema): NearR
  * Attaches balance changes and token transfers to their corresponding receipts.
  * This implements the two-hop correlation: transactions → receipts → activities/ft-transfers.
  *
- * Items without receipt_id are attached to a synthetic receipt at the transaction level.
+ * NEAR's asynchronous architecture means balance changes occur at two distinct stages:
+ * - TRANSACTION-LEVEL: Transaction acceptance costs (gas prepayment, deposits)
+ *   → Attached to transaction-level synthetic receipt (expected behavior)
+ * - RECEIPT-LEVEL: Execution outcomes (actual state changes, fund transfers)
+ *   → Must correlate to specific receipt (fails fast if missing receipt_id)
  *
  * IMPORTANT: Assumes deltas have already been derived by deriveBalanceChangeDeltasFromAbsolutes()
  * before this function is called. This function validates delta presence and fails fast if missing.
@@ -380,48 +423,156 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
   }
 
   // Group balance changes and token transfers by receipt_id
-  // Items without receipt_id OR with receipt_id that doesn't match any receipt
-  // are attached to a synthetic receipt at the transaction level.
+  // NEAR's async architecture means some balance changes are transaction-level (expected to lack receipt_id)
+  // while others are receipt-level (must have receipt_id). We differentiate by 'cause' field.
   const balanceChangesByReceipt = new Map<string, NearBalanceChangeV3[]>();
   const tokenTransfersByReceipt = new Map<string, NearTokenTransferV3[]>();
-  const syntheticReceiptId = `tx:${group.transaction.transactionHash}:missing-receipt`;
-  let hasSyntheticItems = false;
+  const txLevelReceiptId = `tx:${group.transaction.transactionHash}:transaction-level`;
+  let hasTransactionLevelItems = false;
 
   // Build set of valid receipt IDs
   const validReceiptIds = new Set(processedReceipts.map((r) => r.receiptId));
 
   for (const balanceChange of group.balanceChanges) {
-    // Use synthetic receipt if balance change has no receipt_id or receipt_id doesn't match any receipt
-    let receiptId = balanceChange.receiptId;
-    if (!receiptId || !validReceiptIds.has(receiptId)) {
-      receiptId = syntheticReceiptId;
-      hasSyntheticItems = true;
+    let receiptId: string;
+
+    if (TRANSACTION_LEVEL_CAUSES.has(balanceChange.cause)) {
+      // Transaction-level balance changes (gas prepayment, deposit reservation)
+      // These SHOULD NOT have receipt_id - it's correct NEAR semantics
+      receiptId = txLevelReceiptId;
+      hasTransactionLevelItems = true;
+
+      if (balanceChange.receiptId) {
+        logger.debug(
+          {
+            transactionHash: group.transaction.transactionHash,
+            cause: balanceChange.cause,
+            receiptId: balanceChange.receiptId,
+          },
+          'Transaction-level balance change unexpectedly has receipt_id (will use transaction-level receipt)'
+        );
+      }
+    } else if (RECEIPT_LEVEL_CAUSES.has(balanceChange.cause)) {
+      // Receipt-level balance changes (execution outcomes)
+      // These MUST have valid receipt_id - fail fast on data quality issues
+      if (!balanceChange.receiptId) {
+        return err(
+          new Error(
+            `Balance change with cause '${balanceChange.cause}' missing receipt_id. ` +
+              `This indicates data quality issues with the provider. ` +
+              `Transaction: ${group.transaction.transactionHash}, ` +
+              `Account: ${balanceChange.affectedAccountId}, ` +
+              `Delta: ${balanceChange.deltaAmountYocto ?? 'null'}`
+          )
+        );
+      }
+
+      if (!validReceiptIds.has(balanceChange.receiptId)) {
+        return err(
+          new Error(
+            `Balance change with cause '${balanceChange.cause}' has invalid receipt_id '${balanceChange.receiptId}'. ` +
+              `Receipt ID does not match any known receipt for this transaction. ` +
+              `This indicates incomplete data from the provider or cross-contract receipts not fetched. ` +
+              `Transaction: ${group.transaction.transactionHash}, ` +
+              `Valid receipt IDs: ${Array.from(validReceiptIds).join(', ')}`
+          )
+        );
+      }
+
+      receiptId = balanceChange.receiptId;
+    } else if (AMBIGUOUS_CAUSES.has(balanceChange.cause)) {
+      // Ambiguous causes can appear at either level
+      // Prefer receipt_id if present and valid, otherwise use transaction-level (graceful)
+      if (balanceChange.receiptId && validReceiptIds.has(balanceChange.receiptId)) {
+        receiptId = balanceChange.receiptId;
+      } else {
+        receiptId = txLevelReceiptId;
+        hasTransactionLevelItems = true;
+        logger.debug(
+          {
+            transactionHash: group.transaction.transactionHash,
+            cause: balanceChange.cause,
+            hasReceiptId: !!balanceChange.receiptId,
+            isValidReceiptId: balanceChange.receiptId ? validReceiptIds.has(balanceChange.receiptId) : false,
+          },
+          'Ambiguous-cause balance change without valid receipt_id (attaching to transaction-level)'
+        );
+      }
+    } else {
+      // Unknown cause - fail fast to force proper handling
+      return err(
+        new Error(
+          `Unknown balance change cause '${balanceChange.cause}' encountered. ` +
+            `Transaction: ${group.transaction.transactionHash}, ` +
+            `Account: ${balanceChange.affectedAccountId}. ` +
+            `This cause must be added to TRANSACTION_LEVEL_CAUSES, RECEIPT_LEVEL_CAUSES, or AMBIGUOUS_CAUSES.`
+        )
+      );
     }
+
     const existing = balanceChangesByReceipt.get(receiptId) || [];
     existing.push(balanceChange);
     balanceChangesByReceipt.set(receiptId, existing);
   }
 
   for (const tokenTransfer of group.tokenTransfers) {
-    // Use synthetic receipt if transfer has no receipt_id or receipt_id doesn't match any receipt
-    let receiptId = tokenTransfer.receiptId;
-    if (!receiptId || !validReceiptIds.has(receiptId)) {
-      receiptId = syntheticReceiptId;
-      hasSyntheticItems = true;
+    // Token transfers come from receipt execution (NEP-141 events)
+    // They MUST have valid receipt_id - fail fast on data quality issues
+    if (!tokenTransfer.receiptId) {
+      return err(
+        new Error(
+          `Token transfer missing receipt_id. ` +
+            `Token transfers come from receipt execution and must have receipt_id. ` +
+            `This indicates data quality issues with the provider. ` +
+            `Transaction: ${group.transaction.transactionHash}, ` +
+            `Contract: ${tokenTransfer.contractAddress}, ` +
+            `Account: ${tokenTransfer.affectedAccountId}`
+        )
+      );
     }
+
+    if (!validReceiptIds.has(tokenTransfer.receiptId)) {
+      return err(
+        new Error(
+          `Token transfer has invalid receipt_id '${tokenTransfer.receiptId}'. ` +
+            `Receipt ID does not match any known receipt for this transaction. ` +
+            `This indicates incomplete data from the provider or cross-contract receipts not fetched. ` +
+            `Transaction: ${group.transaction.transactionHash}, ` +
+            `Contract: ${tokenTransfer.contractAddress}, ` +
+            `Valid receipt IDs: ${Array.from(validReceiptIds).join(', ')}`
+        )
+      );
+    }
+
+    const receiptId = tokenTransfer.receiptId;
     const existing = tokenTransfersByReceipt.get(receiptId) || [];
     existing.push(tokenTransfer);
     tokenTransfersByReceipt.set(receiptId, existing);
   }
 
-  if (hasSyntheticItems) {
-    const bcCount = balanceChangesByReceipt.get(syntheticReceiptId)?.length || 0;
-    const ttCount = tokenTransfersByReceipt.get(syntheticReceiptId)?.length || 0;
-    logger.warn(
-      `Created synthetic receipt for tx ${group.transaction.transactionHash}: ${bcCount} balance change(s), ${ttCount} token transfer(s)`
+  if (hasTransactionLevelItems) {
+    const bcCount = balanceChangesByReceipt.get(txLevelReceiptId)?.length || 0;
+    const ttCount = tokenTransfersByReceipt.get(txLevelReceiptId)?.length || 0;
+
+    // Categorize balance changes by cause for informative logging
+    const balanceChanges = balanceChangesByReceipt.get(txLevelReceiptId) || [];
+    const causeBreakdown = new Map<NearBalanceChangeCause, number>();
+    for (const bc of balanceChanges) {
+      causeBreakdown.set(bc.cause, (causeBreakdown.get(bc.cause) || 0) + 1);
+    }
+
+    logger.info(
+      {
+        transactionHash: group.transaction.transactionHash,
+        balanceChangesCount: bcCount,
+        tokenTransfersCount: ttCount,
+        causeBreakdown: Object.fromEntries(causeBreakdown),
+      },
+      'Created transaction-level synthetic receipt for balance changes and/or token transfers'
     );
+
     processedReceipts.push({
-      receiptId: syntheticReceiptId,
+      receiptId: txLevelReceiptId,
       transactionHash: group.transaction.transactionHash,
       predecessorAccountId: group.transaction.signerAccountId,
       receiverAccountId: group.transaction.receiverAccountId,
@@ -499,11 +650,10 @@ export function extractReceiptFees(receipt: NearReceipt, primaryAddress: string)
   // Detect conflicts if both sources exist
   let warning: string | undefined;
   if (receiptFee && balanceChangeFee && isPrimaryPayer) {
-    // Check if they differ by more than 1%
     const diff = receiptFee.minus(balanceChangeFee).abs();
     const percentDiff = diff.dividedBy(receiptFee).times(100);
 
-    if (percentDiff.greaterThan(1)) {
+    if (percentDiff.greaterThan(FEE_MISMATCH_THRESHOLD_PERCENT)) {
       warning =
         `Fee mismatch for receipt ${receipt.receiptId}: ` +
         `receipt tokensBurnt=${receiptFee.toFixed()} NEAR vs ` +

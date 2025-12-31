@@ -18,6 +18,10 @@ import type {
   StreamingBatchResult,
 } from '../types/index.js';
 
+// Burst benchmark batch size: Number of concurrent requests to send when testing burst rate limits
+// Set at 5 to balance speed of detection with avoiding overwhelming the API endpoint
+const BURST_BENCHMARK_BATCH_SIZE = 5;
+
 /**
  * Abstract base class for registry-based providers
  * Handles all common provider functionality using registry metadata
@@ -213,10 +217,9 @@ export abstract class BaseApiClient implements IBlockchainProvider {
           let failedOnRequest: number | undefined;
 
           // Send requests in parallel batches to truly test burst limits
-          const batchSize = 5; // Send 5 requests at a time
-          for (let batch = 0; batch < Math.ceil(burstLimit / batchSize); batch++) {
-            const batchStart = batch * batchSize;
-            const batchEnd = Math.min(batchStart + batchSize, burstLimit);
+          for (let batch = 0; batch < Math.ceil(burstLimit / BURST_BENCHMARK_BATCH_SIZE); batch++) {
+            const batchStart = batch * BURST_BENCHMARK_BATCH_SIZE;
+            const batchEnd = Math.min(batchStart + BURST_BENCHMARK_BATCH_SIZE, burstLimit);
             const batchPromises: Promise<number>[] = [];
 
             for (let i = batchStart; i < batchEnd; i++) {
@@ -264,7 +267,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
             }
 
             // Tiny delay between batches to avoid overwhelming connection pool
-            if (batch < Math.ceil(burstLimit / batchSize) - 1) {
+            if (batch < Math.ceil(burstLimit / BURST_BENCHMARK_BATCH_SIZE) - 1) {
               await new Promise((resolve) => setTimeout(resolve, 50));
             }
           }

@@ -49,6 +49,13 @@ import {
   type NearBlocksTransactionV2,
 } from './nearblocks.schemas.js';
 
+// NearBlocks API pagination: Optimal batch size balancing API limits, memory usage, and latency
+const NEARBLOCKS_PAGE_SIZE = 25;
+
+// Deduplication window: Covers replay overlap (3 blocks × ~70 txs/block = ~210 items max)
+// Sized conservatively at 200 to prevent duplicates without excessive memory usage
+const NEARBLOCKS_DEDUP_WINDOW_SIZE = 200;
+
 /**
  * NearBlocks API Client V3 - Four discrete transaction types for raw streaming
  *
@@ -247,12 +254,11 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
     const fetchPage = async (
       ctx: StreamingPageContext
     ): Promise<Result<StreamingPage<NearBlocksTransactionV2>, Error>> => {
-      const perPage = 25;
       const cursor = ctx.pageToken;
 
       const url = cursor
-        ? `/v1/account/${address}/txns-only?cursor=${cursor}&per_page=${perPage}&order=asc`
-        : `/v1/account/${address}/txns-only?per_page=${perPage}&order=asc`;
+        ? `/v1/account/${address}/txns-only?cursor=${cursor}&per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`
+        : `/v1/account/${address}/txns-only?per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`;
 
       const result = await this.httpClient.get(url, {
         schema: NearBlocksTransactionsResponseSchema,
@@ -303,7 +309,7 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
       },
       extractCursors: (event) => this.extractCursors(event),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
-      dedupWindowSize: 200,
+      dedupWindowSize: NEARBLOCKS_DEDUP_WINDOW_SIZE,
       logger: this.logger,
     });
   }
@@ -317,12 +323,11 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<NearReceipt>, Error>> {
     const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<NearBlocksReceiptV2>, Error>> => {
-      const perPage = 25;
       const cursor = ctx.pageToken;
 
       const url = cursor
-        ? `/v1/account/${address}/receipts?cursor=${cursor}&per_page=${perPage}&order=asc`
-        : `/v1/account/${address}/receipts?per_page=${perPage}&order=asc`;
+        ? `/v1/account/${address}/receipts?cursor=${cursor}&per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`
+        : `/v1/account/${address}/receipts?per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`;
 
       const result = await this.httpClient.get(url, {
         schema: NearBlocksReceiptsV2ResponseSchema,
@@ -373,7 +378,7 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
       },
       extractCursors: (event) => this.extractCursors(event),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
-      dedupWindowSize: 200,
+      dedupWindowSize: NEARBLOCKS_DEDUP_WINDOW_SIZE,
       logger: this.logger,
     });
   }
@@ -392,12 +397,11 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<NearBalanceChange>, Error>> {
     const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<NearBlocksActivity>, Error>> => {
-      const perPage = 25;
       const cursor = ctx.pageToken;
 
       const url = cursor
-        ? `/v1/account/${address}/activities?cursor=${cursor}&per_page=${perPage}&order=asc`
-        : `/v1/account/${address}/activities?per_page=${perPage}&order=asc`;
+        ? `/v1/account/${address}/activities?cursor=${cursor}&per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`
+        : `/v1/account/${address}/activities?per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`;
 
       const result = await this.httpClient.get(url, {
         schema: NearBlocksActivitiesResponseSchema,
@@ -462,7 +466,7 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
       },
       extractCursors: (event) => this.extractCursors(event),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
-      dedupWindowSize: 200,
+      dedupWindowSize: NEARBLOCKS_DEDUP_WINDOW_SIZE,
       logger: this.logger,
     });
   }
@@ -483,12 +487,11 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
     const fetchPage = async (
       ctx: StreamingPageContext
     ): Promise<Result<StreamingPage<NearBlocksFtTransaction>, Error>> => {
-      const perPage = 25;
       const cursor = ctx.pageToken;
 
       const url = cursor
-        ? `/v1/account/${address}/ft-txns?cursor=${cursor}&per_page=${perPage}&order=asc`
-        : `/v1/account/${address}/ft-txns?per_page=${perPage}&order=asc`;
+        ? `/v1/account/${address}/ft-txns?cursor=${cursor}&per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`
+        : `/v1/account/${address}/ft-txns?per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`;
 
       const result = await this.httpClient.get(url, {
         schema: NearBlocksFtTransactionsResponseSchema,
@@ -563,7 +566,7 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
       },
       extractCursors: (event) => this.extractCursors(event),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
-      dedupWindowSize: 200,
+      dedupWindowSize: NEARBLOCKS_DEDUP_WINDOW_SIZE,
       logger: this.logger,
     });
   }
