@@ -18,6 +18,7 @@ import type {
   NearReceiptV3 as NearReceiptSchema,
   NearTokenTransferV3,
   NearTransactionV3,
+  NearBalanceChangeCause,
 } from '@exitbook/blockchain-providers';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -28,6 +29,8 @@ import type { CorrelatedTransaction, NearReceipt, RawTransactionGroup } from './
 const logger = getLogger('near-processor-utils-v3');
 
 const NEAR_DECIMALS = 24;
+
+const FEE_CAUSES = new Set<NearBalanceChangeCause>(['FEE', 'GAS', 'GAS_REFUND']);
 
 function normalizeNearAmount(yoctoAmount: Decimal | string): Decimal {
   return new Decimal(yoctoAmount).dividedBy(new Decimal(10).pow(NEAR_DECIMALS));
@@ -90,6 +93,11 @@ export function deriveBalanceChangeDeltasFromAbsolutes(balanceChanges: NearBalan
       if (heightA !== heightB) {
         return heightA - heightB;
       }
+      const hasReceiptA = a.receiptId !== undefined && a.receiptId !== null;
+      const hasReceiptB = b.receiptId !== undefined && b.receiptId !== null;
+      if (hasReceiptA !== hasReceiptB) {
+        return hasReceiptA ? -1 : 1;
+      }
       const receiptA = a.receiptId ?? '';
       const receiptB = b.receiptId ?? '';
       if (receiptA !== receiptB) {
@@ -144,6 +152,7 @@ export function deriveBalanceChangeDeltasFromAbsolutes(balanceChanges: NearBalan
 export interface FeeExtractionResult {
   movements: Movement[];
   warning?: string | undefined;
+  source?: 'receipt' | 'balance-change' | undefined;
 }
 
 /**
@@ -210,35 +219,35 @@ export function groupNearEventsByTransaction(
   for (const row of rawData) {
     let txHash = row.blockchainTransactionHash;
 
-    // Resolve transaction hash for activities/ft-transfers via receipt lookup
+    // Resolve transaction hash for balance changes/token transfers via receipt lookup
     if (row.transactionTypeHint === 'activities' || row.transactionTypeHint === 'balance-changes') {
-      const activity = row.normalizedData as NearBalanceChangeV3;
-      if (activity.receiptId && receiptIdToTxHash.has(activity.receiptId)) {
-        txHash = receiptIdToTxHash.get(activity.receiptId)!;
-      } else if (!activity.receiptId && !txHash) {
+      const balanceChange = row.normalizedData as NearBalanceChangeV3;
+      if (balanceChange.receiptId && receiptIdToTxHash.has(balanceChange.receiptId)) {
+        txHash = receiptIdToTxHash.get(balanceChange.receiptId)!;
+      } else if (!balanceChange.receiptId && !txHash) {
         // CRITICAL: Cannot correlate this balance change - missing both receipt_id and transaction_hash
         logger.warn(
           `Skipping orphaned balance change - missing both receipt_id and transaction_hash. ` +
-            `Account: ${activity.affectedAccountId}, Block: ${activity.blockHeight}, ` +
-            `Delta: ${activity.deltaAmountYocto ?? 'null'}, Cause: ${activity.cause}. ` +
+            `Account: ${balanceChange.affectedAccountId}, Block: ${balanceChange.blockHeight}, ` +
+            `Delta: ${balanceChange.deltaAmountYocto ?? 'null'}, Cause: ${balanceChange.cause}. ` +
             `THIS DATA WILL BE LOST.`
         );
-        skippedBalanceChanges.push(activity);
+        skippedBalanceChanges.push(balanceChange);
         continue;
       }
     } else if (row.transactionTypeHint === 'ft-transfers' || row.transactionTypeHint === 'token-transfers') {
-      const ftTransfer = row.normalizedData as NearTokenTransferV3;
-      if (ftTransfer.receiptId && receiptIdToTxHash.has(ftTransfer.receiptId)) {
-        txHash = receiptIdToTxHash.get(ftTransfer.receiptId)!;
-      } else if (!ftTransfer.receiptId && !txHash) {
+      const tokenTransfer = row.normalizedData as NearTokenTransferV3;
+      if (tokenTransfer.receiptId && receiptIdToTxHash.has(tokenTransfer.receiptId)) {
+        txHash = receiptIdToTxHash.get(tokenTransfer.receiptId)!;
+      } else if (!tokenTransfer.receiptId && !txHash) {
         // CRITICAL: Cannot correlate this token transfer - missing both receipt_id and transaction_hash
         logger.warn(
           `Skipping orphaned token transfer - missing both receipt_id and transaction_hash. ` +
-            `Account: ${ftTransfer.affectedAccountId}, Contract: ${ftTransfer.contractAddress}, ` +
-            `Block: ${ftTransfer.blockHeight}, Delta: ${ftTransfer.deltaAmountYocto ?? 'null'}. ` +
+            `Account: ${tokenTransfer.affectedAccountId}, Contract: ${tokenTransfer.contractAddress}, ` +
+            `Block: ${tokenTransfer.blockHeight}, Delta: ${tokenTransfer.deltaAmountYocto ?? 'null'}. ` +
             `THIS DATA WILL BE LOST.`
         );
-        skippedTokenTransfers.push(ftTransfer);
+        skippedTokenTransfers.push(tokenTransfer);
         continue;
       }
     }
@@ -248,8 +257,8 @@ export function groupNearEventsByTransaction(
       group = {
         transaction: undefined,
         receipts: [],
-        activities: [],
-        ftTransfers: [],
+        balanceChanges: [],
+        tokenTransfers: [],
       };
       groups.set(txHash, group);
     }
@@ -266,11 +275,11 @@ export function groupNearEventsByTransaction(
         break;
       case 'activities':
       case 'balance-changes':
-        group.activities.push(row.normalizedData as NearBalanceChangeV3);
+        group.balanceChanges.push(row.normalizedData as NearBalanceChangeV3);
         break;
       case 'ft-transfers':
       case 'token-transfers':
-        group.ftTransfers.push(row.normalizedData as NearTokenTransferV3);
+        group.tokenTransfers.push(row.normalizedData as NearTokenTransferV3);
         break;
       default:
         throw new Error(`Unknown transaction type hint: ${row.transactionTypeHint}`);
@@ -325,7 +334,7 @@ export function convertReceiptToProcessorType(receipt: NearReceiptSchema): NearR
     blockTimestamp: receipt.blockTimestamp,
     executorAccountId: receipt.executorAccountId,
     gasBurnt: receipt.gasBurnt,
-    tokensBurnt: receipt.tokensBurntYocto,
+    tokensBurntYocto: receipt.tokensBurntYocto,
     status: receipt.status,
     logs: receipt.logs,
     actions: receipt.actions,
@@ -357,55 +366,53 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
   // Convert receipts to processor type (adds empty balanceChanges/tokenTransfers arrays)
   const processedReceipts = group.receipts.map(convertReceiptToProcessorType);
 
-  // Validate that all activities have deltas (should have been derived earlier)
-  // Fail-fast on activities with missing deltas that would be used for correlation
-  const activitiesWithoutDeltas = group.activities.filter(
-    (activity) => !activity.deltaAmountYocto && activity.receiptId
-  );
+  // Validate that all balance changes have deltas (should have been derived earlier)
+  // Fail-fast on balance changes with missing deltas that would be used for correlation
+  const balanceChangesWithoutDeltas = group.balanceChanges.filter((bc) => !bc.deltaAmountYocto && bc.receiptId);
 
-  if (activitiesWithoutDeltas.length > 0) {
-    const first = activitiesWithoutDeltas[0]!;
+  if (balanceChangesWithoutDeltas.length > 0) {
+    const first = balanceChangesWithoutDeltas[0]!;
     return err(
       new Error(
-        `Activity missing deltaAmount for receipt ${first.receiptId} (account ${first.affectedAccountId}). ` +
+        `Balance change missing deltaAmount for receipt ${first.receiptId} (account ${first.affectedAccountId}). ` +
           `Deltas should have been derived before correlation.`
       )
     );
   }
 
-  // Group activities and ft-transfers by receipt_id
+  // Group balance changes and token transfers by receipt_id
   // Items without receipt_id OR with receipt_id that doesn't match any receipt
   // are attached to a synthetic receipt at the transaction level.
-  const activitiesByReceipt = new Map<string, NearBalanceChangeV3[]>();
-  const ftTransfersByReceipt = new Map<string, NearTokenTransferV3[]>();
+  const balanceChangesByReceipt = new Map<string, NearBalanceChangeV3[]>();
+  const tokenTransfersByReceipt = new Map<string, NearTokenTransferV3[]>();
   const syntheticReceiptId = `tx:${group.transaction.transactionHash}:missing-receipt`;
   let hasSyntheticItems = false;
 
   // Build set of valid receipt IDs
   const validReceiptIds = new Set(processedReceipts.map((r) => r.receiptId));
 
-  for (const activity of group.activities) {
-    // Use synthetic receipt if activity has no receipt_id or receipt_id doesn't match any receipt
-    let receiptId = activity.receiptId;
+  for (const balanceChange of group.balanceChanges) {
+    // Use synthetic receipt if balance change has no receipt_id or receipt_id doesn't match any receipt
+    let receiptId = balanceChange.receiptId;
     if (!receiptId || !validReceiptIds.has(receiptId)) {
       receiptId = syntheticReceiptId;
       hasSyntheticItems = true;
     }
-    const existing = activitiesByReceipt.get(receiptId) || [];
-    existing.push(activity);
-    activitiesByReceipt.set(receiptId, existing);
+    const existing = balanceChangesByReceipt.get(receiptId) || [];
+    existing.push(balanceChange);
+    balanceChangesByReceipt.set(receiptId, existing);
   }
 
-  for (const ftTransfer of group.ftTransfers) {
+  for (const tokenTransfer of group.tokenTransfers) {
     // Use synthetic receipt if transfer has no receipt_id or receipt_id doesn't match any receipt
-    let receiptId = ftTransfer.receiptId;
+    let receiptId = tokenTransfer.receiptId;
     if (!receiptId || !validReceiptIds.has(receiptId)) {
       receiptId = syntheticReceiptId;
       hasSyntheticItems = true;
     }
-    const existing = ftTransfersByReceipt.get(receiptId) || [];
-    existing.push(ftTransfer);
-    ftTransfersByReceipt.set(receiptId, existing);
+    const existing = tokenTransfersByReceipt.get(receiptId) || [];
+    existing.push(tokenTransfer);
+    tokenTransfersByReceipt.set(receiptId, existing);
   }
 
   if (hasSyntheticItems) {
@@ -426,8 +433,8 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
 
   // Attach to receipts
   for (const receipt of processedReceipts) {
-    receipt.balanceChanges = activitiesByReceipt.get(receipt.receiptId) || [];
-    receipt.tokenTransfers = ftTransfersByReceipt.get(receipt.receiptId) || [];
+    receipt.balanceChanges = balanceChangesByReceipt.get(receipt.receiptId) || [];
+    receipt.tokenTransfers = tokenTransfersByReceipt.get(receipt.receiptId) || [];
   }
 
   return ok({
@@ -446,16 +453,18 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
  * Logs a warning if both sources exist and differ significantly (>1% variance).
  *
  * @param receipt - Enriched receipt with balance changes
+ * @param primaryAddress - User's address (fee payer filter)
  * @returns Fee extraction result with movements and optional warning
  */
-export function extractFees(receipt: NearReceipt): FeeExtractionResult {
+export function extractReceiptFees(receipt: NearReceipt, primaryAddress: string): FeeExtractionResult {
   // Calculate both sources if they exist
   let receiptFee: Decimal | undefined;
   let balanceChangeFee: Decimal | undefined;
+  const isPrimaryPayer = receipt.predecessorAccountId === primaryAddress;
 
   // Source 1: Explicit gas fees from receipt
-  if (receipt.gasBurnt && receipt.tokensBurnt) {
-    const tokensBurnt = new Decimal(receipt.tokensBurnt);
+  if (receipt.gasBurnt && receipt.tokensBurntYocto) {
+    const tokensBurnt = new Decimal(receipt.tokensBurntYocto);
     if (!tokensBurnt.isZero()) {
       receiptFee = normalizeNearAmount(tokensBurnt);
     }
@@ -465,7 +474,7 @@ export function extractFees(receipt: NearReceipt): FeeExtractionResult {
   // IMPORTANT: These conditions must match extractFlows to avoid double-counting
   if (receipt.balanceChanges && receipt.balanceChanges.length > 0) {
     const feeActivities = receipt.balanceChanges.filter(
-      (bc) => bc.cause.toLowerCase().includes('fee') || bc.cause.toLowerCase().includes('gas')
+      (bc) => FEE_CAUSES.has(bc.cause) && bc.affectedAccountId === primaryAddress
     );
 
     if (feeActivities.length > 0) {
@@ -484,7 +493,7 @@ export function extractFees(receipt: NearReceipt): FeeExtractionResult {
 
   // Detect conflicts if both sources exist
   let warning: string | undefined;
-  if (receiptFee && balanceChangeFee) {
+  if (receiptFee && balanceChangeFee && isPrimaryPayer) {
     // Check if they differ by more than 1%
     const diff = receiptFee.minus(balanceChangeFee).abs();
     const percentDiff = diff.dividedBy(receiptFee).times(100);
@@ -499,7 +508,7 @@ export function extractFees(receipt: NearReceipt): FeeExtractionResult {
   }
 
   // Priority 1: Use receipt fee if available
-  if (receiptFee) {
+  if (receiptFee && isPrimaryPayer) {
     return {
       movements: [
         {
@@ -510,6 +519,7 @@ export function extractFees(receipt: NearReceipt): FeeExtractionResult {
         },
       ],
       warning,
+      source: 'receipt',
     };
   }
 
@@ -525,6 +535,7 @@ export function extractFees(receipt: NearReceipt): FeeExtractionResult {
         },
       ],
       warning,
+      source: 'balance-change',
     };
   }
 
@@ -548,9 +559,12 @@ export function extractFlows(receipt: NearReceipt, primaryAddress: string): Move
   // Process balance changes (NEAR)
   if (receipt.balanceChanges) {
     for (const activity of receipt.balanceChanges) {
-      // Skip fee-related activities (handled by extractFees)
-      // Must match the same conditions as extractFees to avoid double-counting
-      if (activity.cause.toLowerCase().includes('fee') || activity.cause.toLowerCase().includes('gas')) {
+      if (activity.affectedAccountId !== primaryAddress) {
+        continue;
+      }
+      // Skip fee-related activities (handled by extractReceiptFees)
+      // Must match the same conditions as extractReceiptFees to avoid double-counting
+      if (FEE_CAUSES.has(activity.cause)) {
         continue;
       }
 
@@ -563,7 +577,14 @@ export function extractFlows(receipt: NearReceipt, primaryAddress: string): Move
         continue;
       }
 
-      const direction = activity.direction === 'INBOUND' ? 'in' : 'out';
+      const direction = delta.isNegative() ? 'out' : 'in';
+      const expectedDirection = activity.direction === 'INBOUND' ? 'in' : 'out';
+      if (direction !== expectedDirection) {
+        logger.warn(
+          `NEAR balance change direction mismatch for ${activity.receiptId ?? 'unknown-receipt'}: ` +
+            `declared=${activity.direction}, derived=${direction}, delta=${delta.toFixed()}`
+        );
+      }
       const normalizedAmount = normalizeNearAmount(delta.abs());
 
       movements.push({

@@ -24,7 +24,7 @@ import {
   convertReceiptToProcessorType,
   correlateTransactionData,
   deriveBalanceChangeDeltasFromAbsolutes,
-  extractFees,
+  extractReceiptFees,
   extractFlows,
   groupNearEventsByTransaction,
   type Movement,
@@ -132,8 +132,8 @@ describe('NEAR V3 Processor Utils - groupByTransactionHash', () => {
     expect(group).toBeDefined();
     expect(group!.transaction).toBeDefined();
     expect(group!.receipts).toHaveLength(1);
-    expect(group!.activities).toHaveLength(1);
-    expect(group!.ftTransfers).toHaveLength(1);
+    expect(group!.balanceChanges).toHaveLength(1);
+    expect(group!.tokenTransfers).toHaveLength(1);
   });
 
   test('should handle legacy transaction type hints (activities, ft-transfers)', () => {
@@ -159,8 +159,8 @@ describe('NEAR V3 Processor Utils - groupByTransactionHash', () => {
 
     expect(groups.size).toBe(1);
     const group = groups.get('tx1');
-    expect(group!.activities).toHaveLength(1);
-    expect(group!.ftTransfers).toHaveLength(1);
+    expect(group!.balanceChanges).toHaveLength(1);
+    expect(group!.tokenTransfers).toHaveLength(1);
   });
 
   test('should group multiple transactions separately', () => {
@@ -228,7 +228,7 @@ describe('NEAR V3 Processor Utils - groupByTransactionHash', () => {
 
     expect(groups.size).toBe(1);
     const group = groups.get('tx1');
-    expect(group!.activities).toHaveLength(2);
+    expect(group!.balanceChanges).toHaveLength(2);
   });
 
   test('should throw error on duplicate transaction record', () => {
@@ -271,8 +271,8 @@ describe('NEAR V3 Processor Utils - validateTransactionGroup', () => {
     const group: RawTransactionGroup = {
       transaction: createTransaction(),
       receipts: [],
-      activities: [],
-      ftTransfers: [],
+      balanceChanges: [],
+      tokenTransfers: [],
     };
 
     const result = validateTransactionGroup('tx123', group);
@@ -284,8 +284,8 @@ describe('NEAR V3 Processor Utils - validateTransactionGroup', () => {
     const group: RawTransactionGroup = {
       transaction: undefined,
       receipts: [],
-      activities: [],
-      ftTransfers: [],
+      balanceChanges: [],
+      tokenTransfers: [],
     };
 
     const result = validateTransactionGroup('tx123', group);
@@ -300,8 +300,8 @@ describe('NEAR V3 Processor Utils - validateTransactionGroup', () => {
     const group: RawTransactionGroup = {
       transaction: createTransaction(),
       receipts: [],
-      activities: [],
-      ftTransfers: [],
+      balanceChanges: [],
+      tokenTransfers: [],
     };
 
     const result = validateTransactionGroup('tx123', group);
@@ -322,7 +322,7 @@ describe('NEAR V3 Processor Utils - convertReceiptToProcessorType', () => {
 
     expect(converted.receiptId).toBe('receipt1');
     expect(converted.gasBurnt).toBe('1000000000000');
-    expect(converted.tokensBurnt).toBe('100000000000000000000');
+    expect(converted.tokensBurntYocto).toBe('100000000000000000000');
     expect(converted.balanceChanges).toEqual([]);
     expect(converted.tokenTransfers).toEqual([]);
   });
@@ -368,11 +368,11 @@ describe('NEAR V3 Processor Utils - correlateTransactionData', () => {
         createReceipt({ receiptId: 'receipt1', transactionHash: 'tx1' }),
         createReceipt({ receiptId: 'receipt2', transactionHash: 'tx1' }),
       ],
-      activities: [
+      balanceChanges: [
         createBalanceChange({ receiptId: 'receipt1', deltaAmountYocto: '-1000000000000000000000000' }),
         createBalanceChange({ receiptId: 'receipt2', deltaAmountYocto: '500000000000000000000000' }),
       ],
-      ftTransfers: [createTokenTransfer({ receiptId: 'receipt1', deltaAmountYocto: '-1000000' })],
+      tokenTransfers: [createTokenTransfer({ receiptId: 'receipt1', deltaAmountYocto: '-1000000' })],
     };
 
     const result = correlateTransactionData(group);
@@ -396,21 +396,21 @@ describe('NEAR V3 Processor Utils - correlateTransactionData', () => {
     const group: RawTransactionGroup = {
       transaction: createTransaction(),
       receipts: [createReceipt({ receiptId: 'receipt1' })],
-      activities: [
+      balanceChanges: [
         createBalanceChange({
           receiptId: 'receipt1',
           affectedAccountId: 'alice.near',
           deltaAmountYocto: undefined,
         }),
       ],
-      ftTransfers: [],
+      tokenTransfers: [],
     };
 
     const result = correlateTransactionData(group);
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error.message).toContain('Activity missing deltaAmount');
+      expect(result.error.message).toContain('Balance change missing deltaAmount');
       expect(result.error.message).toContain('receipt1');
       expect(result.error.message).toContain('alice.near');
     }
@@ -420,8 +420,8 @@ describe('NEAR V3 Processor Utils - correlateTransactionData', () => {
     const group: RawTransactionGroup = {
       transaction: undefined,
       receipts: [],
-      activities: [],
-      ftTransfers: [],
+      balanceChanges: [],
+      tokenTransfers: [],
     };
 
     const result = correlateTransactionData(group);
@@ -437,11 +437,11 @@ describe('NEAR V3 Processor Utils - correlateTransactionData', () => {
     const group: RawTransactionGroup = {
       transaction: createTransaction(),
       receipts: [createReceipt({ receiptId: 'receipt1' })],
-      activities: [
+      balanceChanges: [
         createBalanceChange({ receiptId: 'receipt1', deltaAmountYocto: '-1000000000000000000000000' }),
         createBalanceChange({ receiptId: 'orphan-receipt', deltaAmountYocto: '500000000000000000000000' }),
       ],
-      ftTransfers: [createTokenTransfer({ receiptId: 'orphan-receipt', deltaAmountYocto: '-1000000' })],
+      tokenTransfers: [createTokenTransfer({ receiptId: 'orphan-receipt', deltaAmountYocto: '-1000000' })],
     };
 
     const result = correlateTransactionData(group);
@@ -469,8 +469,8 @@ describe('NEAR V3 Processor Utils - correlateTransactionData', () => {
     const group: RawTransactionGroup = {
       transaction: createTransaction(),
       receipts: [createReceipt({ receiptId: 'receipt1' })],
-      activities: [],
-      ftTransfers: [],
+      balanceChanges: [],
+      tokenTransfers: [],
     };
 
     const result = correlateTransactionData(group);
@@ -488,12 +488,12 @@ describe('NEAR V3 Processor Utils - correlateTransactionData', () => {
     const group: RawTransactionGroup = {
       transaction: createTransaction(),
       receipts: [createReceipt({ receiptId: 'receipt1' })],
-      activities: [
+      balanceChanges: [
         createBalanceChange({ receiptId: 'receipt1', affectedAccountId: 'alice.near', deltaAmountYocto: '-1000' }),
         createBalanceChange({ receiptId: 'receipt1', affectedAccountId: 'bob.near', deltaAmountYocto: '1000' }),
         createBalanceChange({ receiptId: 'receipt1', affectedAccountId: 'carol.near', deltaAmountYocto: '-500' }),
       ],
-      ftTransfers: [],
+      tokenTransfers: [],
     };
 
     const result = correlateTransactionData(group);
@@ -562,19 +562,52 @@ describe('NEAR V3 Processor Utils - deriveBalanceChangeDeltasFromAbsolutes', () 
     expect(result.warnings.length).toBe(1);
     expect(result.warnings[0]).toContain('Unable to derive');
   });
+
+  test('should prioritize receipt-linked events when timestamps match', () => {
+    const changes: NearBalanceChangeV3[] = [
+      createBalanceChange({
+        receiptId: 'r0',
+        deltaAmountYocto: '90',
+        absoluteNonstakedAmount: '90',
+        direction: 'INBOUND',
+        timestamp: 1,
+        blockHeight: '1',
+      }),
+      createBalanceChange({
+        receiptId: 'r1',
+        deltaAmountYocto: undefined,
+        absoluteNonstakedAmount: '100',
+        direction: 'INBOUND',
+        timestamp: 2,
+        blockHeight: '2',
+      }),
+      createBalanceChange({
+        receiptId: undefined,
+        deltaAmountYocto: undefined,
+        absoluteNonstakedAmount: '100',
+        direction: 'OUTBOUND',
+        timestamp: 2,
+        blockHeight: '2',
+      }),
+    ];
+
+    const result = deriveBalanceChangeDeltasFromAbsolutes(changes);
+
+    expect(result.derivedDeltas.get('r1:bc:0')).toBe('10');
+  });
 });
 
-describe('NEAR V3 Processor Utils - extractFees', () => {
+describe('NEAR V3 Processor Utils - extractReceiptFees', () => {
   test('should extract fee from receipt gasBurnt and tokensBurnt (priority 1)', () => {
     const receipt: NearReceipt = {
       ...createReceipt(),
       gasBurnt: '2428000000000',
-      tokensBurnt: '242800000000000000000', // Raw yoctoNEAR
+      tokensBurntYocto: '242800000000000000000', // Raw yoctoNEAR
       balanceChanges: [],
       tokenTransfers: [],
     };
 
-    const result = extractFees(receipt);
+    const result = extractReceiptFees(receipt, 'alice.near');
 
     expect(result.movements).toHaveLength(1);
     expect(result.movements[0]!.asset).toBe('NEAR');
@@ -588,21 +621,21 @@ describe('NEAR V3 Processor Utils - extractFees', () => {
     const receipt: NearReceipt = {
       ...createReceipt(),
       gasBurnt: undefined,
-      tokensBurnt: undefined,
+      tokensBurntYocto: undefined,
       balanceChanges: [
         createBalanceChange({
           cause: 'CONTRACT_REWARD',
           deltaAmountYocto: '100000000000000000000000',
         }),
         createBalanceChange({
-          cause: 'fee',
+          cause: 'FEE',
           deltaAmountYocto: '-50000000000000000000',
         }),
       ],
       tokenTransfers: [],
     };
 
-    const result = extractFees(receipt);
+    const result = extractReceiptFees(receipt, 'alice.near');
 
     expect(result.movements).toHaveLength(1);
     expect(result.movements[0]!.asset).toBe('NEAR');
@@ -616,17 +649,17 @@ describe('NEAR V3 Processor Utils - extractFees', () => {
     const receipt: NearReceipt = {
       ...createReceipt(),
       gasBurnt: undefined,
-      tokensBurnt: undefined,
+      tokensBurntYocto: undefined,
       balanceChanges: [
         createBalanceChange({
-          cause: 'gas_refund',
+          cause: 'GAS_REFUND',
           deltaAmountYocto: '10000000000000000000',
         }),
       ],
       tokenTransfers: [],
     };
 
-    const result = extractFees(receipt);
+    const result = extractReceiptFees(receipt, 'alice.near');
 
     expect(result.movements).toHaveLength(1);
     expect(result.movements[0]!.amount.toFixed()).toBe('0.00001');
@@ -636,7 +669,7 @@ describe('NEAR V3 Processor Utils - extractFees', () => {
     const receipt: NearReceipt = {
       ...createReceipt(),
       gasBurnt: undefined,
-      tokensBurnt: undefined,
+      tokensBurntYocto: undefined,
       balanceChanges: [
         createBalanceChange({
           cause: 'TRANSACTION',
@@ -646,7 +679,7 @@ describe('NEAR V3 Processor Utils - extractFees', () => {
       tokenTransfers: [],
     };
 
-    const result = extractFees(receipt);
+    const result = extractReceiptFees(receipt, 'alice.near');
 
     expect(result.movements).toHaveLength(0);
   });
@@ -655,17 +688,17 @@ describe('NEAR V3 Processor Utils - extractFees', () => {
     const receipt: NearReceipt = {
       ...createReceipt(),
       gasBurnt: '2428000000000',
-      tokensBurnt: '1000000000000000000000',
+      tokensBurntYocto: '1000000000000000000000',
       balanceChanges: [
         createBalanceChange({
-          cause: 'fee',
+          cause: 'FEE',
           deltaAmountYocto: '-500000000000000000000',
         }),
       ],
       tokenTransfers: [],
     };
 
-    const result = extractFees(receipt);
+    const result = extractReceiptFees(receipt, 'alice.near');
 
     // Should use receipt value (priority 1)
     expect(result.movements).toHaveLength(1);
@@ -683,17 +716,17 @@ describe('NEAR V3 Processor Utils - extractFees', () => {
     const receipt: NearReceipt = {
       ...createReceipt(),
       gasBurnt: '2428000000000',
-      tokensBurnt: '1000000000000000000000',
+      tokensBurntYocto: '1000000000000000000000',
       balanceChanges: [
         createBalanceChange({
-          cause: 'fee',
+          cause: 'FEE',
           deltaAmountYocto: '-1005000000000000000000',
         }),
       ],
       tokenTransfers: [],
     };
 
-    const result = extractFees(receipt);
+    const result = extractReceiptFees(receipt, 'alice.near');
 
     expect(result.movements).toHaveLength(1);
     expect(result.warning).toBeUndefined();
@@ -703,12 +736,12 @@ describe('NEAR V3 Processor Utils - extractFees', () => {
     const receipt: NearReceipt = {
       ...createReceipt(),
       gasBurnt: '2428000000000',
-      tokensBurnt: '0',
+      tokensBurntYocto: '0',
       balanceChanges: [],
       tokenTransfers: [],
     };
 
-    const result = extractFees(receipt);
+    const result = extractReceiptFees(receipt, 'alice.near');
 
     expect(result.movements).toHaveLength(0);
     expect(result.warning).toBeUndefined();
@@ -718,7 +751,7 @@ describe('NEAR V3 Processor Utils - extractFees', () => {
     const receipt: NearReceipt = {
       ...createReceipt(),
       gasBurnt: undefined,
-      tokensBurnt: undefined,
+      tokensBurntYocto: undefined,
       balanceChanges: [
         createBalanceChange({
           cause: 'TRANSFER',
@@ -728,7 +761,7 @@ describe('NEAR V3 Processor Utils - extractFees', () => {
       tokenTransfers: [],
     };
 
-    const result = extractFees(receipt);
+    const result = extractReceiptFees(receipt, 'alice.near');
 
     expect(result.movements).toHaveLength(0);
     expect(result.warning).toBeUndefined();
@@ -738,14 +771,14 @@ describe('NEAR V3 Processor Utils - extractFees', () => {
     const receipt: NearReceipt = {
       ...createReceipt(),
       gasBurnt: undefined,
-      tokensBurnt: undefined,
+      tokensBurntYocto: undefined,
       balanceChanges: [
         createBalanceChange({
-          cause: 'fee',
+          cause: 'FEE',
           deltaAmountYocto: '-100000000000000000000',
         }),
         createBalanceChange({
-          cause: 'gas',
+          cause: 'GAS',
           deltaAmountYocto: '-50000000000000000000',
         }),
         createBalanceChange({
@@ -756,7 +789,7 @@ describe('NEAR V3 Processor Utils - extractFees', () => {
       tokenTransfers: [],
     };
 
-    const result = extractFees(receipt);
+    const result = extractReceiptFees(receipt, 'alice.near');
 
     expect(result.movements).toHaveLength(1);
     expect(result.movements[0]!.amount.toFixed()).toBe('0.00015');
@@ -808,16 +841,35 @@ describe('NEAR V3 Processor Utils - extractFlows', () => {
     expect(flows[0]!.flowType).toBe('native');
   });
 
+  test('should derive direction from delta sign when mismatch occurs', () => {
+    const receipt: NearReceipt = {
+      ...createReceipt(),
+      balanceChanges: [
+        createBalanceChange({
+          direction: 'INBOUND',
+          cause: 'RECEIPT',
+          deltaAmountYocto: '-1000000000000000000000',
+        }),
+      ],
+      tokenTransfers: [],
+    };
+
+    const flows = extractFlows(receipt, 'alice.near');
+
+    expect(flows).toHaveLength(1);
+    expect(flows[0]!.direction).toBe('out');
+  });
+
   test('should skip fee-related balance changes', () => {
     const receipt: NearReceipt = {
       ...createReceipt(),
       balanceChanges: [
         createBalanceChange({
-          cause: 'fee',
+          cause: 'FEE',
           deltaAmountYocto: '-100000000000000000000',
         }),
         createBalanceChange({
-          cause: 'gas_refund',
+          cause: 'GAS_REFUND',
           deltaAmountYocto: '50000000000000000000',
         }),
         createBalanceChange({

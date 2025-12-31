@@ -34,7 +34,7 @@ import {
   consolidateByAsset,
   correlateTransactionData,
   deriveBalanceChangeDeltasFromAbsolutes,
-  extractFees,
+  extractReceiptFees,
   extractFlows,
   groupNearEventsByTransaction,
   validateTransactionGroup,
@@ -222,12 +222,20 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
     const allInflows: Movement[] = [];
     const allOutflows: Movement[] = [];
     const allFees: Movement[] = [];
+    let receiptFeeBurntTotal = new Decimal(0);
 
     // Extract flows from all receipts
     for (const receipt of correlated.receipts) {
       // Extract fees with conflict detection
-      const feeResult = extractFees(receipt);
+      const feeResult = extractReceiptFees(receipt, context.primaryAddress);
       allFees.push(...feeResult.movements);
+      if (feeResult.source === 'receipt' && feeResult.movements.length > 0) {
+        for (const fee of feeResult.movements) {
+          if (fee.asset === 'NEAR') {
+            receiptFeeBurntTotal = receiptFeeBurntTotal.plus(fee.amount);
+          }
+        }
+      }
 
       // Log warning if fee sources conflict
       if (feeResult.warning) {
@@ -247,15 +255,45 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
 
     // Consolidate by asset
     const consolidatedInflows = Array.from(consolidateByAsset(allInflows).values());
-    const consolidatedOutflows = Array.from(consolidateByAsset(allOutflows).values());
+    let consolidatedOutflows = Array.from(consolidateByAsset(allOutflows).values());
     const consolidatedFees = Array.from(consolidateByAsset(allFees).values());
 
-    const isFeeOnlyCandidate =
+    if (receiptFeeBurntTotal.greaterThan(0)) {
+      const nearOutflow = consolidatedOutflows.find(
+        (movement) => movement.asset === 'NEAR' && movement.contractAddress === undefined
+      );
+      if (nearOutflow) {
+        if (nearOutflow.amount.greaterThan(receiptFeeBurntTotal)) {
+          nearOutflow.amount = nearOutflow.amount.minus(receiptFeeBurntTotal);
+        } else {
+          if (!nearOutflow.amount.equals(receiptFeeBurntTotal)) {
+            this.logger.warn(
+              `Receipt fee total exceeds NEAR outflow for tx ${correlated.transaction.transactionHash}. ` +
+                `Outflow=${nearOutflow.amount.toFixed()}, Fee=${receiptFeeBurntTotal.toFixed()}. ` +
+                `Clamping outflow to 0 to avoid negative balance impact.`
+            );
+          }
+          nearOutflow.amount = new Decimal(0);
+        }
+      }
+
+      consolidatedOutflows = consolidatedOutflows.filter((movement) => !movement.amount.isZero());
+    }
+
+    const hasFeeOnlyOutflows =
       consolidatedInflows.length === 0 &&
       consolidatedOutflows.length > 0 &&
       !hasTokenTransfers &&
       !hasActionDeposits &&
       consolidatedOutflows.every((movement) => movement.asset === 'NEAR');
+    const hasFeeOnlyFees =
+      consolidatedInflows.length === 0 &&
+      consolidatedOutflows.length === 0 &&
+      consolidatedFees.length > 0 &&
+      !hasTokenTransfers &&
+      !hasActionDeposits &&
+      consolidatedFees.every((movement) => movement.asset === 'NEAR');
+    const isFeeOnlyCandidate = hasFeeOnlyOutflows || hasFeeOnlyFees;
 
     // Build assetIds for movements
     const inflowMovements = [];
@@ -324,8 +362,10 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
       settlement: 'balance' as const,
     }));
 
-    if (isFeeOnlyCandidate) {
-      const totalFee = consolidatedOutflows.reduce((sum, movement) => sum.plus(movement.amount), new Decimal(0));
+    if (hasFeeOnlyOutflows) {
+      const outflowTotal = consolidatedOutflows.reduce((sum, movement) => sum.plus(movement.amount), new Decimal(0));
+      const feeTotal = consolidatedFees.reduce((sum, movement) => sum.plus(movement.amount), new Decimal(0));
+      const totalFee = outflowTotal.plus(feeTotal);
       feeMovements = totalFee.isZero()
         ? []
         : [

@@ -12,6 +12,7 @@ import type {
   NearReceiptV3 as NearReceiptSchema,
   NearBalanceChangeV3,
   NearTokenTransferV3,
+  NearReceiptActionV3,
 } from '@exitbook/blockchain-providers';
 
 /**
@@ -29,21 +30,10 @@ export interface NearReceipt {
   blockTimestamp?: number | undefined;
   executorAccountId?: string | undefined;
   gasBurnt?: string | undefined;
-  tokensBurnt?: string | undefined;
+  tokensBurntYocto?: string | undefined;
   status?: boolean | undefined;
   logs?: string[] | undefined;
-  actions?:
-    | {
-        accessKey?: unknown;
-        actionType: string;
-        args?: Record<string, unknown> | string | null | undefined;
-        beneficiaryId?: string | undefined;
-        deposit?: string | undefined;
-        gas?: string | undefined;
-        methodName?: string | undefined;
-        publicKey?: string | undefined;
-      }[]
-    | undefined;
+  actions?: NearReceiptActionV3[] | undefined;
   /**
    * Balance changes correlated to this receipt
    * Populated during correlation phase
@@ -77,13 +67,13 @@ export interface RawTransactionGroup {
    * Balance changes from /activities endpoint
    * Contains NEAR balance deltas (INBOUND/OUTBOUND)
    */
-  activities: NearBalanceChangeV3[];
+  balanceChanges: NearBalanceChangeV3[];
 
   /**
    * Token transfers from /ft-txns endpoint
    * Contains NEP-141 token transfer data
    */
-  ftTransfers: NearTokenTransferV3[];
+  tokenTransfers: NearTokenTransferV3[];
 }
 
 /**

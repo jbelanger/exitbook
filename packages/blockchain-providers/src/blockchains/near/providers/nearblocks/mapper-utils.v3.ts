@@ -24,6 +24,7 @@ import type {
   NearBalanceChange,
   NearTokenTransfer,
 } from '../../schemas.v3.js';
+import type { NearBalanceChangeCause } from '../../schemas.v3.js';
 
 import type {
   NearBlocksTransactionV2,
@@ -198,6 +199,50 @@ export function mapRawReceiptToNearReceipt(rawReceipt: NearBlocksReceiptV2): Res
 }
 
 /**
+ * Normalize cause from provider-specific string to internal enum
+ * Throws error on unknown values to ensure API contract is maintained
+ */
+function normalizeCause(rawCause: string): NearBalanceChangeCause {
+  const upperCause = rawCause.toUpperCase();
+
+  // Direct matches (case-insensitive)
+  if (upperCause === 'TRANSFER') return 'TRANSFER';
+  if (upperCause === 'TRANSACTION') return 'TRANSACTION';
+  if (upperCause === 'RECEIPT') return 'RECEIPT';
+  if (upperCause === 'CONTRACT_REWARD') return 'CONTRACT_REWARD';
+  if (upperCause === 'MINT') return 'MINT';
+  if (upperCause === 'STAKE') return 'STAKE';
+
+  // Fee-related pattern matching
+  if (upperCause === 'FEE') return 'FEE';
+  if (upperCause === 'GAS') return 'GAS';
+  if (upperCause === 'GAS_REFUND') return 'GAS_REFUND';
+
+  // Catch common variations with logging
+  if (/FEE/i.test(rawCause)) {
+    logger.warn({ rawCause }, 'Unknown fee variant detected, normalizing to FEE');
+    return 'FEE';
+  }
+
+  if (/GAS.*REFUND|REFUND.*GAS/i.test(rawCause)) {
+    logger.warn({ rawCause }, 'Unknown gas refund variant detected, normalizing to GAS_REFUND');
+    return 'GAS_REFUND';
+  }
+
+  if (/GAS/i.test(rawCause)) {
+    logger.warn({ rawCause }, 'Unknown gas variant detected, normalizing to GAS');
+    return 'GAS';
+  }
+
+  // Fail fast on unknown cause - must be added to enum
+  throw new Error(
+    `Unknown balance change cause: "${rawCause}". ` +
+      `This value must be added to NearBalanceChangeCauseSchema in schemas.v3.ts. ` +
+      `Known values: TRANSFER, TRANSACTION, RECEIPT, CONTRACT_REWARD, MINT, STAKE, FEE, GAS, GAS_REFUND`
+  );
+}
+
+/**
  * Map NearBlocks activity to native NEAR balance change
  * No correlation - just transforms the shape
  */
@@ -225,7 +270,7 @@ export function mapRawActivityToBalanceChange(rawActivity: NearBlocksActivity): 
       absoluteStakedAmount: rawActivity.absolute_staked_amount,
       timestamp: blockTimestamp,
       blockHeight: rawActivity.block_height,
-      cause: rawActivity.cause,
+      cause: normalizeCause(rawActivity.cause),
       involvedAccountId: rawActivity.involved_account_id ?? undefined,
     };
 

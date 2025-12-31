@@ -5,6 +5,8 @@
  * used by the V3 processor during correlation and aggregation.
  */
 
+import type { NearBalanceChangeCause } from './schemas.v3.js';
+
 /**
  * NEAR receipt action with normalized fields
  */
@@ -27,12 +29,12 @@ export interface NearBalanceChange {
   receiptId: string;
   affectedAccountId: string;
   direction: 'INBOUND' | 'OUTBOUND';
-  deltaAmount: string | undefined;
+  deltaAmountYocto: string | undefined;
   absoluteNonstakedAmount: string;
   absoluteStakedAmount: string;
   timestamp: number;
   blockHeight: string;
-  cause: string;
+  cause: NearBalanceChangeCause;
   involvedAccountId: string | undefined;
 }
 
@@ -44,7 +46,7 @@ export interface NearTokenTransfer {
   receiptId: string;
   affectedAccountId: string;
   contractAddress: string;
-  deltaAmount: string | undefined;
+  deltaAmountYocto: string | undefined;
   decimals: number;
   symbol: string | undefined;
   name: string | undefined;
@@ -69,7 +71,7 @@ export interface NearReceipt {
   blockTimestamp: number | undefined;
   executorAccountId: string | undefined;
   gasBurnt: string | undefined;
-  tokensBurnt: string | undefined;
+  tokensBurntYocto: string | undefined;
   status: boolean | undefined;
   logs: string[] | undefined;
   actions: NearReceiptAction[] | undefined;

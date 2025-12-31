@@ -83,6 +83,37 @@ export const NearReceiptSchema = NormalizedTransactionBaseSchema.extend({
 export type NearReceipt = z.infer<typeof NearReceiptSchema>;
 
 /**
+ * Normalized cause values for balance changes
+ * These values are normalized from provider-specific strings to a stable internal enum
+ *
+ * Known values from NearBlocks API:
+ * - TRANSFER: Balance change from transfers
+ * - TRANSACTION: Balance change from transaction execution
+ * - RECEIPT: Balance change from receipt execution
+ * - CONTRACT_REWARD: Rewards from contract interaction
+ * - MINT: Token minting
+ * - STAKE: Staking operations
+ * - FEE: Transaction fees
+ * - GAS: Gas costs
+ * - GAS_REFUND: Refunded gas
+ *
+ * If a new cause appears, normalization will fail and must be added to this enum.
+ */
+export const NearBalanceChangeCauseSchema = z.enum([
+  'TRANSFER',
+  'TRANSACTION',
+  'RECEIPT',
+  'CONTRACT_REWARD',
+  'MINT',
+  'STAKE',
+  'FEE',
+  'GAS',
+  'GAS_REFUND',
+]);
+
+export type NearBalanceChangeCause = z.infer<typeof NearBalanceChangeCauseSchema>;
+
+/**
  * V3: Normalized balance change from /activities endpoint
  * Contains balance changes (deltas)
  * Note: receiptId can be undefined for orphaned activities (will be skipped in processor)
@@ -97,7 +128,7 @@ export const NearBalanceChangeSchema = NormalizedTransactionBaseSchema.extend({
   absoluteStakedAmount: DecimalStringSchema,
   timestamp: z.number().positive('Timestamp must be positive'),
   blockHeight: z.string().min(1, 'Block height must not be empty'),
-  cause: z.string().min(1, 'Cause must not be empty'),
+  cause: NearBalanceChangeCauseSchema,
   involvedAccountId: z.string().optional(),
 });
 
