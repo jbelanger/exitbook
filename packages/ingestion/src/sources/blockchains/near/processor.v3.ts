@@ -37,6 +37,8 @@ import {
   extractReceiptFees,
   extractFlows,
   groupNearEventsByTransaction,
+  isFeeOnlyFromOutflows,
+  isFeeOnlyTransaction,
   validateTransactionGroup,
   type Movement,
 } from './processor-utils.v3.js';
@@ -281,20 +283,13 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
       consolidatedOutflows = consolidatedOutflows.filter((movement) => !movement.amount.isZero());
     }
 
-    const hasFeeOnlyOutflows =
-      consolidatedInflows.length === 0 &&
-      consolidatedOutflows.length > 0 &&
-      !hasTokenTransfers &&
-      !hasActionDeposits &&
-      consolidatedOutflows.every((movement) => movement.asset === 'NEAR');
-    const hasFeeOnlyFees =
-      consolidatedInflows.length === 0 &&
-      consolidatedOutflows.length === 0 &&
-      consolidatedFees.length > 0 &&
-      !hasTokenTransfers &&
-      !hasActionDeposits &&
-      consolidatedFees.every((movement) => movement.asset === 'NEAR');
-    const isFeeOnlyCandidate = hasFeeOnlyOutflows || hasFeeOnlyFees;
+    const isFeeOnlyCandidate = isFeeOnlyTransaction(
+      consolidatedInflows,
+      consolidatedOutflows,
+      consolidatedFees,
+      hasTokenTransfers,
+      hasActionDeposits
+    );
 
     // Build assetIds for movements
     const inflowMovements = [];
@@ -363,7 +358,7 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
       settlement: 'balance' as const,
     }));
 
-    if (hasFeeOnlyOutflows) {
+    if (isFeeOnlyFromOutflows(consolidatedInflows, consolidatedOutflows, hasTokenTransfers, hasActionDeposits)) {
       const outflowTotal = consolidatedOutflows.reduce((sum, movement) => sum.plus(movement.amount), new Decimal(0));
       const feeTotal = consolidatedFees.reduce((sum, movement) => sum.plus(movement.amount), new Decimal(0));
       const totalFee = outflowTotal.plus(feeTotal);

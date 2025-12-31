@@ -4,7 +4,7 @@
  * Pure utility functions for processing NEAR transactions in V3 architecture:
  * - Group normalized data by transaction hash
  * - Two-hop correlation: receipts → transactions, activities/ft-transfers → receipts
- * - Skip activities/ft-transfers without receipt_id (cannot correlate)
+ * - Attach orphaned activities/ft-transfers (missing/invalid receipt_id) to synthetic receipts with logging
  * - Extract fees with single source of truth
  * - Extract fund flows from receipts
  * - Aggregate movements by asset
@@ -396,6 +396,17 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
     // Use synthetic receipt if balance change has no receipt_id or receipt_id doesn't match any receipt
     let receiptId = balanceChange.receiptId;
     if (!receiptId || !validReceiptIds.has(receiptId)) {
+      logger.warn(
+        {
+          transactionHash: group.transaction.transactionHash,
+          originalReceiptId: balanceChange.receiptId,
+          affectedAccount: balanceChange.affectedAccountId,
+          deltaAmount: balanceChange.deltaAmountYocto,
+          cause: balanceChange.cause,
+          validReceiptIds: Array.from(validReceiptIds),
+        },
+        'Balance change has missing/invalid receipt_id - attaching to synthetic receipt'
+      );
       receiptId = syntheticReceiptId;
       hasSyntheticItems = true;
     }
@@ -408,6 +419,17 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
     // Use synthetic receipt if transfer has no receipt_id or receipt_id doesn't match any receipt
     let receiptId = tokenTransfer.receiptId;
     if (!receiptId || !validReceiptIds.has(receiptId)) {
+      logger.warn(
+        {
+          transactionHash: group.transaction.transactionHash,
+          originalReceiptId: tokenTransfer.receiptId,
+          affectedAccount: tokenTransfer.affectedAccountId,
+          contractAddress: tokenTransfer.contractAddress,
+          deltaAmount: tokenTransfer.deltaAmountYocto,
+          validReceiptIds: Array.from(validReceiptIds),
+        },
+        'Token transfer has missing/invalid receipt_id - attaching to synthetic receipt'
+      );
       receiptId = syntheticReceiptId;
       hasSyntheticItems = true;
     }
@@ -417,6 +439,15 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
   }
 
   if (hasSyntheticItems) {
+    logger.warn(
+      {
+        transactionHash: group.transaction.transactionHash,
+        syntheticReceiptId,
+        balanceChangesCount: balanceChangesByReceipt.get(syntheticReceiptId)?.length || 0,
+        tokenTransfersCount: tokenTransfersByReceipt.get(syntheticReceiptId)?.length || 0,
+      },
+      'Created synthetic receipt for orphaned balance changes and/or token transfers'
+    );
     processedReceipts.push({
       receiptId: syntheticReceiptId,
       transactionHash: group.transaction.transactionHash,
@@ -429,6 +460,7 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
       status: group.transaction.status,
       balanceChanges: [],
       tokenTransfers: [],
+      isSynthetic: true,
     });
   }
 
@@ -650,6 +682,80 @@ export function consolidateByAsset(movements: Movement[]): Map<string, Movement>
   }
 
   return consolidated;
+}
+
+/**
+ * Check if transaction is fee-only based on outflows
+ *
+ * A transaction has fee-only outflows when:
+ * - No inflows
+ * - Has outflows (which are treated as fees)
+ * - No token transfers
+ * - No deposit actions
+ * - All outflows are NEAR native asset
+ */
+export function isFeeOnlyFromOutflows(
+  consolidatedInflows: Movement[],
+  consolidatedOutflows: Movement[],
+  hasTokenTransfers: boolean,
+  hasActionDeposits: boolean
+): boolean {
+  return (
+    consolidatedInflows.length === 0 &&
+    consolidatedOutflows.length > 0 &&
+    !hasTokenTransfers &&
+    !hasActionDeposits &&
+    consolidatedOutflows.every((movement) => movement.asset === 'NEAR')
+  );
+}
+
+/**
+ * Check if transaction is fee-only based on fees
+ *
+ * A transaction has fee-only fees when:
+ * - No inflows
+ * - No outflows
+ * - Has fees
+ * - No token transfers
+ * - No deposit actions
+ * - All fees are NEAR native asset
+ */
+function isFeeOnlyFromFees(
+  consolidatedInflows: Movement[],
+  consolidatedOutflows: Movement[],
+  consolidatedFees: Movement[],
+  hasTokenTransfers: boolean,
+  hasActionDeposits: boolean
+): boolean {
+  return (
+    consolidatedInflows.length === 0 &&
+    consolidatedOutflows.length === 0 &&
+    consolidatedFees.length > 0 &&
+    !hasTokenTransfers &&
+    !hasActionDeposits &&
+    consolidatedFees.every((movement) => movement.asset === 'NEAR')
+  );
+}
+
+/**
+ * Determine if transaction is fee-only
+ *
+ * Fee-only transactions have no meaningful fund flows, only network fees.
+ * This occurs in two scenarios:
+ * 1. Outflows that represent fees (no inflows, NEAR-only outflows)
+ * 2. Pure fees with no other movements
+ */
+export function isFeeOnlyTransaction(
+  consolidatedInflows: Movement[],
+  consolidatedOutflows: Movement[],
+  consolidatedFees: Movement[],
+  hasTokenTransfers: boolean,
+  hasActionDeposits: boolean
+): boolean {
+  return (
+    isFeeOnlyFromOutflows(consolidatedInflows, consolidatedOutflows, hasTokenTransfers, hasActionDeposits) ||
+    isFeeOnlyFromFees(consolidatedInflows, consolidatedOutflows, consolidatedFees, hasTokenTransfers, hasActionDeposits)
+  );
 }
 
 /**

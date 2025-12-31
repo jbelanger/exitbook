@@ -147,7 +147,8 @@ export type NearBalanceChangeCause = z.infer<typeof NearBalanceChangeCauseSchema
 /**
  * V3: Normalized balance change from /activities endpoint
  * Contains balance changes (deltas)
- * Note: receiptId can be undefined for orphaned activities (will be skipped in processor)
+ * Note: receiptId can be undefined or invalid (not matching any receipt).
+ * Processor will attach orphaned items to a synthetic receipt for visibility.
  */
 export const NearBalanceChangeSchema = NormalizedTransactionBaseSchema.extend({
   streamType: z.literal('balance-changes'),
@@ -168,7 +169,8 @@ export type NearBalanceChange = z.infer<typeof NearBalanceChangeSchema>;
 /**
  * V3: Normalized token transfer from /ft-txns endpoint
  * Contains fungible token transfers
- * Note: receiptId can be undefined for orphaned FT transfers (will be skipped in processor)
+ * Note: receiptId can be undefined or invalid (not matching any receipt).
+ * Processor will attach orphaned items to a synthetic receipt for visibility.
  */
 export const NearTokenTransferSchema = NormalizedTransactionBaseSchema.extend({
   streamType: z.literal('token-transfers'),

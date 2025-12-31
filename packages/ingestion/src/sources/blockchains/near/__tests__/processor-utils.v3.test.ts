@@ -460,10 +460,12 @@ describe('NEAR V3 Processor Utils - correlateTransactionData', () => {
     expect(primary).toBeDefined();
     expect(primary!.balanceChanges).toHaveLength(1);
     expect(primary!.tokenTransfers).toHaveLength(0);
+    expect(primary!.isSynthetic).toBeUndefined();
 
     expect(synthetic).toBeDefined();
     expect(synthetic!.balanceChanges).toHaveLength(1);
     expect(synthetic!.tokenTransfers).toHaveLength(1);
+    expect(synthetic!.isSynthetic).toBe(true);
   });
 
   test('should handle receipts with no activities or transfers', () => {

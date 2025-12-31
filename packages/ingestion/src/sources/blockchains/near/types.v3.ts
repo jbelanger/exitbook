@@ -44,6 +44,11 @@ export interface NearReceipt {
    * Populated during correlation phase
    */
   tokenTransfers?: NearTokenTransferV3[];
+  /**
+   * Flag indicating this receipt was synthetically created for orphaned data
+   * True when balance changes or token transfers have missing/invalid receipt_id
+   */
+  isSynthetic?: boolean | undefined;
 }
 
 /**

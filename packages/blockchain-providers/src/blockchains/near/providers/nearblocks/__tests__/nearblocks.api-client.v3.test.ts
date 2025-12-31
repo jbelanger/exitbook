@@ -517,7 +517,7 @@ describe('NearBlocksApiClientV3', () => {
       expect(hasError).toBe(true);
     });
 
-    it('should WARN but continue if balance change missing receipt_id (will be skipped in processor)', async () => {
+    it('should WARN but continue if balance change missing receipt_id (will be attached to synthetic receipt in processor)', async () => {
       const uncorrelatableActivity = {
         ...mockActivity,
         receipt_id: undefined,
