@@ -23,8 +23,10 @@ import type {
   NearReceiptAction,
   NearBalanceChange,
   NearTokenTransfer,
+  NearBalanceChangeCause,
+  NearActionType,
 } from '../../schemas.v3.js';
-import type { NearBalanceChangeCause } from '../../schemas.v3.js';
+import { NearActionTypeSchema } from '../../schemas.v3.js';
 
 import type {
   NearBlocksTransactionV2,
@@ -84,18 +86,28 @@ function generateEventId(
 }
 
 /**
- * Normalize action type to snake_case
- * Handles both PascalCase (e.g., "FunctionCall") and SCREAMING_SNAKE_CASE (e.g., "TRANSFER")
+ * Normalize action type from SCREAMING_SNAKE_CASE to snake_case
+ * Validates against known NEAR protocol action types
+ *
+ * NearBlocks API returns action types in SCREAMING_SNAKE_CASE (e.g., "TRANSFER", "FUNCTION_CALL").
+ * This function normalizes to snake_case and validates against the NearActionTypeSchema enum.
+ *
+ * @throws Error if action type is unknown and must be added to NearActionTypeSchema
  */
-function normalizeActionType(action: string): string {
-  if (/^[A-Z_]+$/.test(action)) {
-    return action.toLowerCase();
+function normalizeActionType(rawAction: string): NearActionType {
+  const normalized = rawAction.toLowerCase();
+
+  const parseResult = NearActionTypeSchema.safeParse(normalized);
+
+  if (!parseResult.success) {
+    throw new Error(
+      `Unknown NEAR action type: "${rawAction}". ` +
+        `This action must be added to NearActionTypeSchema in schemas.v3.ts. ` +
+        `Known actions: ${NearActionTypeSchema.options.join(', ')}`
+    );
   }
 
-  return action
-    .replace(/([A-Z])/g, '_$1')
-    .toLowerCase()
-    .replace(/^_/, '');
+  return parseResult.data;
 }
 
 /**
@@ -146,15 +158,6 @@ export function mapRawReceiptToNearReceipt(rawReceipt: NearBlocksReceiptV2): Res
         return err(failed.error);
       }
       actions = actionResults.map((r) => r._unsafeUnwrap());
-    }
-
-    if (!rawReceipt.receipt_block?.block_timestamp) {
-      return err(
-        new Error(
-          `Receipt ${rawReceipt.receipt_id} missing block timestamp. ` +
-            `This is required for event ordering and cannot be null.`
-        )
-      );
     }
 
     const blockHeight = rawReceipt.receipt_block?.block_height;
@@ -286,10 +289,6 @@ export function mapRawActivityToBalanceChange(rawActivity: NearBlocksActivity): 
  */
 export function mapRawFtToTokenTransfer(rawFt: NearBlocksFtTransaction): Result<NearTokenTransfer, Error> {
   try {
-    if (!rawFt.ft?.contract) {
-      return err(new Error(`FT transfer missing contract address for receipt ${rawFt.receipt_id ?? 'unknown'}`));
-    }
-
     const blockTimestamp = parseNearBlocksTimestamp(rawFt.block_timestamp);
 
     // Use transaction_hash as id if available, otherwise fall back to receipt_id

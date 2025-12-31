@@ -40,6 +40,7 @@ import {
   validateTransactionGroup,
   type Movement,
 } from './processor-utils.v3.js';
+import type { CorrelatedTransaction } from './types.v3.js';
 
 /**
  * NEAR V3 transaction processor that converts raw multi-stream data
@@ -203,7 +204,7 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
    * and builds the final transaction structure.
    */
   private async aggregateToUniversalTransaction(
-    correlated: ReturnType<typeof correlateTransactionData> extends Result<infer T, unknown> ? T : never,
+    correlated: CorrelatedTransaction,
     context: ProcessingContext,
     tokenMovementsForScamDetection: MovementWithContext[],
     transactionIndex: number

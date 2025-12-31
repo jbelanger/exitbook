@@ -5,13 +5,13 @@
  * used by the V3 processor during correlation and aggregation.
  */
 
-import type { NearBalanceChangeCause } from './schemas.v3.js';
+import type { NearBalanceChangeCause, NearActionType } from './schemas.v3.js';
 
 /**
  * NEAR receipt action with normalized fields
  */
 export interface NearReceiptAction {
-  actionType: string;
+  actionType: NearActionType;
   methodName: string | undefined;
   args: Record<string, unknown> | string | null | undefined;
   deposit: string | undefined;

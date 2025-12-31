@@ -340,7 +340,7 @@ describe('NEAR V3 Processor Utils - convertReceiptToProcessorType', () => {
       executorAccountId: 'bob.near',
       status: true,
       logs: ['log1', 'log2'],
-      actions: [{ actionType: 'TRANSFER', deposit: '1000' }],
+      actions: [{ actionType: 'transfer', deposit: '1000' }],
     });
 
     const converted = convertReceiptToProcessorType(receipt);

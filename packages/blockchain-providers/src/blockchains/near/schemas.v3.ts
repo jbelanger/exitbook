@@ -26,10 +26,41 @@ export const NearStreamTypeSchema = z.enum(['transactions', 'receipts', 'balance
 export type NearStreamType = z.infer<typeof NearStreamTypeSchema>;
 
 /**
+ * Normalized NEAR action types (snake_case)
+ * Normalized from provider's SCREAMING_SNAKE_CASE format
+ *
+ * Known NEAR protocol action types:
+ * - transfer: NEAR token transfer between accounts
+ * - function_call: Smart contract method invocation
+ * - create_account: New account creation
+ * - delete_account: Account deletion
+ * - add_key: Add access key to account
+ * - delete_key: Remove access key from account
+ * - stake: Staking operations (stake/unstake)
+ * - deploy_contract: Smart contract deployment
+ * - delegate_action: Delegated action (meta-transaction)
+ *
+ * If a new action type appears, normalization will fail and must be added to this enum.
+ */
+export const NearActionTypeSchema = z.enum([
+  'transfer',
+  'function_call',
+  'create_account',
+  'delete_account',
+  'add_key',
+  'delete_key',
+  'stake',
+  'deploy_contract',
+  'delegate_action',
+]);
+
+export type NearActionType = z.infer<typeof NearActionTypeSchema>;
+
+/**
  * NEAR receipt action with normalized fields
  */
 export const NearReceiptActionSchema = z.object({
-  actionType: z.string().min(1, 'Action type must not be empty'),
+  actionType: NearActionTypeSchema,
   methodName: z.string().optional(),
   args: z.union([z.record(z.string(), z.unknown()), z.string(), z.null()]).optional(),
   deposit: DecimalStringSchema.optional(),

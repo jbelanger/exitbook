@@ -174,6 +174,8 @@ export const NearBlocksReceiptsResponseSchema = z.object({
 /**
  * Schema for NearBlocks FT (fungible token) transaction item
  * From /v1/account/{account}/ft-txns endpoint
+ *
+ * Note: ft object is REQUIRED - a fungible token transaction without token metadata is invalid
  */
 export const NearBlocksFtTransactionSchema = z.object({
   affected_account_id: z.string().min(1, 'Affected account ID must not be empty'),
@@ -181,14 +183,12 @@ export const NearBlocksFtTransactionSchema = z.object({
   block_timestamp: z.string().min(1, 'Block timestamp must not be empty'),
   cause: z.string().nullish(),
   delta_amount: z.string().nullish(),
-  ft: z
-    .object({
-      contract: z.string().min(1, 'Contract must not be empty'),
-      decimals: z.number().nonnegative(),
-      name: z.string().nullish(),
-      symbol: z.string().nullish(),
-    })
-    .nullish(),
+  ft: z.object({
+    contract: z.string().min(1, 'Contract must not be empty'),
+    decimals: z.number().nonnegative(),
+    name: z.string().nullish(),
+    symbol: z.string().nullish(),
+  }),
   involved_account_id: z.string().nullish(),
   receipt_id: z.string().min(1, 'Receipt ID must not be empty'),
   transaction_hash: z.string().nullish(),
@@ -255,7 +255,7 @@ export const NearBlocksReceiptOutcomeV2Schema = z.object({
  * This is used for the /v1/account/{account}/receipts endpoint when fetching full details
  *
  * API returns nested objects:
- * - receipt_block: { block_hash, block_height, block_timestamp }
+ * - receipt_block: { block_hash, block_height, block_timestamp } - REQUIRED for event ordering
  * - receipt_outcome: { executor_account_id, gas_burnt, status, tokens_burnt, logs }
  */
 export const NearBlocksReceiptV2Schema = z.object({
@@ -264,7 +264,7 @@ export const NearBlocksReceiptV2Schema = z.object({
   predecessor_account_id: z.string().min(1, 'Predecessor account ID must not be empty'),
   receiver_account_id: z.string().min(1, 'Receiver account ID must not be empty'),
   receipt_kind: z.string().nullish(),
-  receipt_block: NearBlocksReceiptBlockSchema.nullish(),
+  receipt_block: NearBlocksReceiptBlockSchema, // Required for event ordering and timestamp
   receipt_outcome: NearBlocksReceiptOutcomeV2Schema.nullish(),
   actions: z.array(NearBlocksActionV2Schema).nullish(),
 });

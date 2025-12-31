@@ -11,6 +11,7 @@ export * from './utils.ts';
 // Export only specific items to avoid conflicts with V2
 export {
   NearStreamTypeSchema,
+  NearActionTypeSchema,
   NearReceiptActionSchema,
   NearTransactionSchema,
   NearReceiptSchema,
@@ -23,6 +24,7 @@ export {
 // Export V3 types with V3 suffix to avoid conflicts with V2
 export type {
   NearStreamType,
+  NearActionType,
   NearReceiptAction as NearReceiptActionV3,
   NearTransaction as NearTransactionV3,
   NearReceipt as NearReceiptV3,
