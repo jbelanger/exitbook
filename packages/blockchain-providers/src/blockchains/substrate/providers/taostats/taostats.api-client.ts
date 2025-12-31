@@ -235,7 +235,7 @@ export class TaostatsApiClient extends BaseApiClient {
 
     return createStreamingIterator<TaostatsTransaction, SubstrateTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', transactionType: 'normal', address },
+      operation: { type: 'getAddressTransactions', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

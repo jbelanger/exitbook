@@ -265,7 +265,7 @@ export class TatumBCashApiClient extends BaseApiClient {
 
     return createStreamingIterator<TatumBCashTransaction, BitcoinTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', transactionType: 'normal', address },
+      operation: { type: 'getAddressTransactions', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

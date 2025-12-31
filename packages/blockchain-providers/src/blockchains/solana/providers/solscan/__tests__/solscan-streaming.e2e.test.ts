@@ -22,7 +22,6 @@ describe.sequential('SolscanApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'normal' as const,
       };
       const stream = client.executeStreaming<SolanaTransaction>(operation);
 
@@ -95,7 +94,6 @@ describe.sequential('SolscanApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'normal' as const,
       };
 
       // First stream: get first batch and cursor
@@ -142,7 +140,6 @@ describe.sequential('SolscanApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: emptyAddress,
-        transactionType: 'normal' as const,
       };
       const stream = client.executeStreaming<SolanaTransaction>(operation);
 
@@ -166,7 +163,6 @@ describe.sequential('SolscanApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'normal' as const,
       };
       const stream = client.executeStreaming<SolanaTransaction>(operation);
 

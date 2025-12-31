@@ -278,7 +278,6 @@ describe('BlockfrostApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'normal' as const,
       };
 
       // Fetch first batch and get its cursor

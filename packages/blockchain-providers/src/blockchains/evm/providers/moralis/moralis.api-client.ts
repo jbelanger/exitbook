@@ -387,7 +387,7 @@ export class MoralisApiClient extends BaseApiClient {
 
     return createStreamingIterator<MoralisTransaction, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', transactionType: 'normal', address },
+      operation: { type: 'getAddressTransactions', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

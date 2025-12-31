@@ -402,7 +402,7 @@ export class BlockCypherApiClient extends BaseApiClient {
 
     return createStreamingIterator<BlockCypherTransaction, BitcoinTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', transactionType: 'normal', address },
+      operation: { type: 'getAddressTransactions', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

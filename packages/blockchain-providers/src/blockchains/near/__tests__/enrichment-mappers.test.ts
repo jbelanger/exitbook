@@ -451,7 +451,8 @@ describe('mapNearBlocksFtTransactionToTokenTransfer', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       const errorMessage = result.error.type === 'error' ? result.error.message : result.error.reason;
-      expect(errorMessage).toContain('FT transaction missing token metadata');
+      expect(errorMessage).toContain('Invalid NearBlocksFtTransaction input');
+      expect(errorMessage).toContain('at ft');
     }
   });
 

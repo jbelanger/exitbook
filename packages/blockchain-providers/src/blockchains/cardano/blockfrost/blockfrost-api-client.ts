@@ -452,7 +452,7 @@ export class BlockfrostApiClient extends BaseApiClient {
 
     return createStreamingIterator<BlockfrostTransactionWithMetadata, CardanoTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', transactionType: 'normal', address },
+      operation: { type: 'getAddressTransactions', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

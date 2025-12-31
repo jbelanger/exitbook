@@ -19,6 +19,7 @@ import type {
   NearTokenTransferV3,
   NearTransactionV3,
   NearBalanceChangeCause,
+  NearActionType,
 } from '@exitbook/blockchain-providers';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -652,6 +653,54 @@ export function consolidateByAsset(movements: Movement[]): Map<string, Movement>
 }
 
 /**
+ * Extract all action types from receipts
+ */
+function getActionTypes(receipts: NearReceipt[]): NearActionType[] {
+  const actionTypes: NearActionType[] = [];
+  for (const receipt of receipts) {
+    if (receipt.actions) {
+      for (const action of receipt.actions) {
+        actionTypes.push(action.actionType);
+      }
+    }
+  }
+  return actionTypes;
+}
+
+/**
+ * Check if actions contain specific type
+ */
+function hasActionType(actionTypes: NearActionType[], type: NearActionType): boolean {
+  return actionTypes.includes(type);
+}
+
+/**
+ * Analyze balance change causes to determine operation context
+ */
+function analyzeBalanceChangeCauses(receipts: NearReceipt[]): {
+  hasRefunds: boolean;
+  hasRewards: boolean;
+} {
+  let hasRewards = false;
+  let hasRefunds = false;
+
+  for (const receipt of receipts) {
+    if (receipt.balanceChanges) {
+      for (const change of receipt.balanceChanges) {
+        if (change.cause === 'CONTRACT_REWARD') {
+          hasRewards = true;
+        }
+        if (change.cause === 'GAS_REFUND') {
+          hasRefunds = true;
+        }
+      }
+    }
+  }
+
+  return { hasRewards, hasRefunds };
+}
+
+/**
  * Classify operation type from correlated transaction
  *
  * Determines the transaction type based on receipts, actions, and fund flows.
@@ -666,35 +715,72 @@ export function classifyOperation(
   allInflows: Movement[],
   allOutflows: Movement[]
 ): OperationClassification {
-  // Simple classification based on flow patterns
-  // TODO: Enhance with action analysis for more specific types
-
   const hasInflows = allInflows.length > 0;
   const hasOutflows = allOutflows.length > 0;
   const hasTokenTransfers =
     allInflows.some((m) => m.flowType === 'token_transfer') || allOutflows.some((m) => m.flowType === 'token_transfer');
 
+  const actionTypes = getActionTypes(correlated.receipts);
+  const { hasRewards, hasRefunds } = analyzeBalanceChangeCauses(correlated.receipts);
+
+  // Staking operations
+  if (hasActionType(actionTypes, 'stake')) {
+    return {
+      category: 'staking',
+      type: 'stake',
+    };
+  }
+
+  // Staking rewards (inflow with reward cause)
+  if (hasInflows && !hasOutflows && hasRewards) {
+    return {
+      category: 'staking',
+      type: 'reward',
+    };
+  }
+
+  // Refunds (inflow with refund cause)
+  if (hasInflows && !hasOutflows && hasRefunds) {
+    return {
+      category: 'transfer',
+      type: 'refund',
+    };
+  }
+
+  // Account creation
+  if (hasActionType(actionTypes, 'create_account')) {
+    return {
+      category: 'defi',
+      type: 'batch',
+    };
+  }
+
+  // Inflows only (deposits)
   if (hasInflows && !hasOutflows) {
     return {
       category: 'transfer',
-      type: hasTokenTransfers ? 'deposit' : 'deposit',
+      type: 'deposit',
     };
   }
 
+  // Outflows only (withdrawals)
   if (hasOutflows && !hasInflows) {
     return {
       category: 'transfer',
-      type: hasTokenTransfers ? 'withdrawal' : 'withdrawal',
+      type: 'withdrawal',
     };
   }
 
+  // Both flows with tokens (swap/trade)
+  if (hasInflows && hasOutflows && hasTokenTransfers) {
+    return {
+      category: 'trade',
+      type: 'swap',
+    };
+  }
+
+  // Both flows without tokens (transfer)
   if (hasInflows && hasOutflows) {
-    if (hasTokenTransfers) {
-      return {
-        category: 'trade',
-        type: 'swap',
-      };
-    }
     return {
       category: 'transfer',
       type: 'transfer',

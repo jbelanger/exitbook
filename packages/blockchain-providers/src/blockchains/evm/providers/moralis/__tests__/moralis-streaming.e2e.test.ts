@@ -827,7 +827,6 @@ describe('MoralisApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -852,7 +851,6 @@ describe('MoralisApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {

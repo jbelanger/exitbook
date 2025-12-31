@@ -76,7 +76,6 @@ describe('InjectiveExplorerApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<CosmosTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
-        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);

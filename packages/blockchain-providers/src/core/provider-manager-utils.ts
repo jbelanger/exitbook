@@ -72,13 +72,14 @@ export function supportsOperation(capabilities: ProviderCapabilities, operation:
     return false;
   }
 
-  // For getAddressTransactions, also check supportedTransactionTypes if specified
-  if (operation.type === 'getAddressTransactions' && operation.transactionType) {
+  // For getAddressTransactions, check supportedTransactionTypes (defaults to 'normal')
+  if (operation.type === 'getAddressTransactions') {
+    const transactionType = operation.transactionType || 'normal';
     if (!capabilities.supportedTransactionTypes) {
       // If provider doesn't declare supported types, assume it only supports 'normal'
-      return operation.transactionType === 'normal';
+      return transactionType === 'normal';
     }
-    return capabilities.supportedTransactionTypes.includes(operation.transactionType);
+    return capabilities.supportedTransactionTypes.includes(transactionType);
   }
 
   return true;

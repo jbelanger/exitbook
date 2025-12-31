@@ -260,7 +260,7 @@ export class BlockstreamApiClient extends BaseApiClient {
 
     return createStreamingIterator<BlockstreamTransaction, BitcoinTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', transactionType: 'normal', address },
+      operation: { type: 'getAddressTransactions', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

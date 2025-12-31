@@ -14,6 +14,7 @@ import type {
   NearReceiptV3,
   NearTokenTransferV3,
   NearTransactionV3,
+  NearReceiptActionV3,
 } from '@exitbook/blockchain-providers';
 import { Decimal } from 'decimal.js';
 import { describe, expect, test } from 'vitest';
@@ -1299,5 +1300,164 @@ describe('NEAR V3 Processor Utils - classifyOperation', () => {
 
     expect(classification.category).toBe('defi');
     expect(classification.type).toBe('batch');
+  });
+
+  test('should classify staking operation (stake action)', () => {
+    const stakeAction: NearReceiptActionV3 = {
+      actionType: 'stake',
+    };
+
+    const receipts: NearReceipt[] = [
+      {
+        ...createReceipt(),
+        actions: [stakeAction],
+      },
+    ];
+
+    const outflows: Movement[] = [
+      {
+        asset: 'NEAR',
+        amount: new Decimal('100'),
+        direction: 'out',
+        flowType: 'native',
+      },
+    ];
+
+    const classification = classifyOperation(createCorrelated({ receipts }), [], outflows);
+
+    expect(classification.category).toBe('staking');
+    expect(classification.type).toBe('stake');
+  });
+
+  test('should classify staking reward (inflow with contract reward cause)', () => {
+    const balanceChange = createBalanceChange({
+      direction: 'INBOUND',
+      cause: 'CONTRACT_REWARD',
+      deltaAmountYocto: '1000000000000000000000000',
+    });
+
+    const receipts: NearReceipt[] = [
+      {
+        ...createReceipt(),
+        balanceChanges: [balanceChange],
+      },
+    ];
+
+    const inflows: Movement[] = [
+      {
+        asset: 'NEAR',
+        amount: new Decimal('0.5'),
+        direction: 'in',
+        flowType: 'native',
+      },
+    ];
+
+    const classification = classifyOperation(createCorrelated({ receipts }), inflows, []);
+
+    expect(classification.category).toBe('staking');
+    expect(classification.type).toBe('reward');
+  });
+
+  test('should classify refund (inflow with gas refund cause)', () => {
+    const balanceChange = createBalanceChange({
+      direction: 'INBOUND',
+      cause: 'GAS_REFUND',
+      deltaAmountYocto: '250000000000000000000000',
+    });
+
+    const receipts: NearReceipt[] = [
+      {
+        ...createReceipt(),
+        balanceChanges: [balanceChange],
+      },
+    ];
+
+    const inflows: Movement[] = [
+      {
+        asset: 'NEAR',
+        amount: new Decimal('0.25'),
+        direction: 'in',
+        flowType: 'native',
+      },
+    ];
+
+    const classification = classifyOperation(createCorrelated({ receipts }), inflows, []);
+
+    expect(classification.category).toBe('transfer');
+    expect(classification.type).toBe('refund');
+  });
+
+  test('should classify account creation (create_account action)', () => {
+    const createAccountAction: NearReceiptActionV3 = {
+      actionType: 'create_account',
+    };
+
+    const receipts: NearReceipt[] = [
+      {
+        ...createReceipt(),
+        actions: [createAccountAction],
+      },
+    ];
+
+    const classification = classifyOperation(createCorrelated({ receipts }), [], []);
+
+    expect(classification.category).toBe('defi');
+    expect(classification.type).toBe('batch');
+  });
+
+  test('should prioritize staking over regular deposit (stake action with outflow)', () => {
+    const stakeAction: NearReceiptActionV3 = {
+      actionType: 'stake',
+    };
+
+    const receipts: NearReceipt[] = [
+      {
+        ...createReceipt(),
+        actions: [stakeAction],
+      },
+    ];
+
+    const outflows: Movement[] = [
+      {
+        asset: 'NEAR',
+        amount: new Decimal('100'),
+        direction: 'out',
+        flowType: 'native',
+      },
+    ];
+
+    const classification = classifyOperation(createCorrelated({ receipts }), [], outflows);
+
+    expect(classification.category).toBe('staking');
+    expect(classification.type).toBe('stake');
+  });
+
+  test('should prioritize rewards over regular deposit (contract reward cause with inflow)', () => {
+    const balanceChange = createBalanceChange({
+      direction: 'INBOUND',
+      cause: 'CONTRACT_REWARD',
+      deltaAmountYocto: '1000000000000000000000000',
+    });
+
+    const receipts: NearReceipt[] = [
+      {
+        ...createReceipt(),
+        balanceChanges: [balanceChange],
+      },
+    ];
+
+    const inflows: Movement[] = [
+      {
+        asset: 'NEAR',
+        amount: new Decimal('1'),
+        direction: 'in',
+        flowType: 'native',
+      },
+    ];
+
+    const classification = classifyOperation(createCorrelated({ receipts }), inflows, []);
+
+    expect(classification.category).toBe('staking');
+    expect(classification.type).toBe('reward');
   });
 });

@@ -431,6 +431,12 @@ describe('NearBlocksFtTransactionsResponseSchema', () => {
           affected_account_id: 'alice.near',
           block_timestamp: '1640000000000000000',
           receipt_id: 'receipt123',
+          ft: {
+            contract: 'token.near',
+            decimals: 18,
+            name: 'Test Token',
+            symbol: 'TEST',
+          },
         },
       ],
     };

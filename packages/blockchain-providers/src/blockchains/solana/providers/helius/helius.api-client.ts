@@ -476,7 +476,7 @@ export class HeliusApiClient extends BaseApiClient {
 
     return createStreamingIterator<HeliusTransaction, SolanaTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', transactionType: 'normal', address },
+      operation: { type: 'getAddressTransactions', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

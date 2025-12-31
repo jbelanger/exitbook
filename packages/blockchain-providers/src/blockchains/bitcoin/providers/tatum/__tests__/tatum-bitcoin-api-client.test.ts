@@ -119,7 +119,6 @@ describe('TatumBitcoinApiClient', () => {
       const operation = {
         address: mockAddress,
         type: 'getAddressTransactions' as const,
-        transactionType: 'normal' as const,
       };
 
       const results: TatumBitcoinTransaction[] = [];

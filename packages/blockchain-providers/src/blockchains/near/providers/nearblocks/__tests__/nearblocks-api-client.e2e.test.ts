@@ -201,7 +201,6 @@ describe.sequential('NearBlocksApiClient E2E', () => {
       const result = await client.execute<TransactionWithRawData<NearTransaction>[]>({
         address: invalidAddress,
         type: 'getAddressTransactions',
-        transactionType: 'normal' as const,
       });
 
       expect(result.isErr()).toBe(true);
@@ -226,7 +225,6 @@ describe.sequential('NearBlocksApiClient E2E', () => {
       const result = await client.execute<TransactionWithRawData<NearTransaction>[]>({
         address: emptyAddress,
         type: 'getAddressTransactions',
-        transactionType: 'normal' as const,
       });
 
       // Should either succeed with empty array or fail gracefully

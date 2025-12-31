@@ -26,7 +26,6 @@ describe('ThetaScanApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
-        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -116,7 +115,6 @@ describe('ThetaScanApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: invalidAddress,
         type: 'getAddressTransactions',
-        transactionType: 'normal' as const,
       });
 
       expect(result.isErr()).toBe(true);
@@ -132,7 +130,6 @@ describe('ThetaScanApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: validAddress,
         type: 'getAddressTransactions',
-        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -150,7 +147,6 @@ describe('ThetaScanApiClient Integration', () => {
       for await (const result of provider.executeStreaming<EvmTransaction>({
         address: testAddress,
         type: 'getAddressTransactions',
-        transactionType: 'normal' as const,
       })) {
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -192,7 +188,6 @@ describe('ThetaScanApiClient Integration', () => {
       for await (const result of provider.executeStreaming<EvmTransaction>({
         address: testAddress,
         type: 'getAddressTransactions',
-        transactionType: 'normal' as const,
       })) {
         if (result.isOk()) {
           batches.push(result.value);
