@@ -517,7 +517,7 @@ describe('NearBlocksApiClientV3', () => {
       expect(hasError).toBe(true);
     });
 
-    it('should WARN but continue if balance change missing receipt_id (will be attached to synthetic receipt in processor)', async () => {
+    it('should continue if balance change missing receipt_id (will be attached to synthetic receipt in processor)', async () => {
       const uncorrelatableActivity = {
         ...mockActivity,
         receipt_id: undefined,
@@ -536,7 +536,7 @@ describe('NearBlocksApiClientV3', () => {
         transactionType: 'balance-changes' as const,
       };
 
-      // Activity without receipt_id should still be emitted but will be skipped in processor
+      // Activity without receipt_id should still be emitted (will be handled in processor)
       const events: NearBalanceChange[] = [];
       for await (const result of client.executeStreaming<NearBalanceChange>(operation)) {
         expect(result.isOk()).toBe(true);
@@ -546,8 +546,6 @@ describe('NearBlocksApiClientV3', () => {
       }
       expect(events).toHaveLength(1);
       expect(events[0]?.receiptId).toBeUndefined();
-      const warnings = getLoggedWarnings();
-      expect(warnings.some((message) => message.includes('no receipt_id'))).toBe(true);
     });
 
     it('should handle balance changes without deltaAmountYocto', async () => {

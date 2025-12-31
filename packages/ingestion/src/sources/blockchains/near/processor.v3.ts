@@ -75,19 +75,27 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
       (event): event is NearBalanceChangeV3 => (event as NearStreamEvent).streamType === 'balance-changes'
     );
 
+    // Create enriched data with derived deltas (immutable - no mutation)
+    let enrichedNormalizedData = normalizedData;
+
     if (balanceChanges.length > 0) {
       const derivedResult = deriveBalanceChangeDeltasFromAbsolutes(balanceChanges);
 
       if (derivedResult.derivedDeltas.size > 0) {
-        // Mutate balance changes in place to add derived deltas
-        for (const change of balanceChanges) {
-          if (!change.deltaAmountYocto) {
-            const derivedDelta = derivedResult.derivedDeltas.get(change.eventId);
-            if (derivedDelta) {
-              change.deltaAmountYocto = derivedDelta;
+        // Create new enriched objects instead of mutating
+        enrichedNormalizedData = normalizedData.map((event) => {
+          if ((event as NearStreamEvent).streamType === 'balance-changes') {
+            const change = event as NearBalanceChangeV3;
+            if (!change.deltaAmountYocto) {
+              const derivedDelta = derivedResult.derivedDeltas.get(change.eventId);
+              if (derivedDelta) {
+                return { ...change, deltaAmountYocto: derivedDelta };
+              }
             }
           }
-        }
+          return event;
+        });
+
         this.logger.info(`Derived ${derivedResult.derivedDeltas.size} missing NEAR balance deltas from absolutes`);
       }
 
@@ -100,14 +108,14 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
     }
 
     // Enrich token metadata upfront for all ft-transfers
-    const enrichResult = await this.enrichTokenMetadata(normalizedData as NearStreamEvent[]);
+    const enrichResult = await this.enrichTokenMetadata(enrichedNormalizedData as NearStreamEvent[]);
     if (enrichResult.isErr()) {
       return err(`Token metadata enrichment failed: ${enrichResult.error.message}`);
     }
 
-    // Group normalized data by transaction hash
+    // Group enriched normalized data by transaction hash
     const transactionGroups = groupNearEventsByTransaction(
-      normalizedData.map((item) => {
+      enrichedNormalizedData.map((item) => {
         const event = item as NearStreamEvent;
         return {
           blockchainTransactionHash: event.id,
@@ -117,7 +125,9 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
       })
     );
 
-    this.logger.debug(`Grouped ${normalizedData.length} raw events into ${transactionGroups.size} transaction groups`);
+    this.logger.debug(
+      `Grouped ${enrichedNormalizedData.length} raw events into ${transactionGroups.size} transaction groups`
+    );
 
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txHash: string }[] = [];

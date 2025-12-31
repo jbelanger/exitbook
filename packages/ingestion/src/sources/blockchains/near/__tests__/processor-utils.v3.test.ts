@@ -3,7 +3,7 @@
  *
  * Tests pure utility functions for V3 architecture:
  * - Grouping normalized data by transaction hash
- * - Correlating receipts with activities and ft-transfers
+ * - Correlating receipts with balance changes and token transfers
  * - Extracting fees with single source of truth
  * - Extracting fund flows
  * - Consolidating movements by asset
@@ -133,33 +133,6 @@ describe('NEAR V3 Processor Utils - groupByTransactionHash', () => {
     expect(group).toBeDefined();
     expect(group!.transaction).toBeDefined();
     expect(group!.receipts).toHaveLength(1);
-    expect(group!.balanceChanges).toHaveLength(1);
-    expect(group!.tokenTransfers).toHaveLength(1);
-  });
-
-  test('should handle legacy transaction type hints (activities, ft-transfers)', () => {
-    const rawData = [
-      {
-        blockchainTransactionHash: 'tx1',
-        normalizedData: createTransaction({ transactionHash: 'tx1' }),
-        transactionTypeHint: 'transactions',
-      },
-      {
-        blockchainTransactionHash: 'tx1',
-        normalizedData: createBalanceChange({ receiptId: 'receipt1' }),
-        transactionTypeHint: 'activities',
-      },
-      {
-        blockchainTransactionHash: 'tx1',
-        normalizedData: createTokenTransfer({ receiptId: 'receipt1' }),
-        transactionTypeHint: 'ft-transfers',
-      },
-    ];
-
-    const groups = groupNearEventsByTransaction(rawData);
-
-    expect(groups.size).toBe(1);
-    const group = groups.get('tx1');
     expect(group!.balanceChanges).toHaveLength(1);
     expect(group!.tokenTransfers).toHaveLength(1);
   });
@@ -297,7 +270,7 @@ describe('NEAR V3 Processor Utils - validateTransactionGroup', () => {
     }
   });
 
-  test('should allow empty receipts, activities, and ftTransfers', () => {
+  test('should allow empty receipts, balance changes, and token transfers', () => {
     const group: RawTransactionGroup = {
       transaction: createTransaction(),
       receipts: [],

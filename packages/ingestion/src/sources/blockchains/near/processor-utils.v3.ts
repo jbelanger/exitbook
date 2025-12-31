@@ -221,7 +221,7 @@ export function groupNearEventsByTransaction(
     let txHash = row.blockchainTransactionHash;
 
     // Resolve transaction hash for balance changes/token transfers via receipt lookup
-    if (row.transactionTypeHint === 'activities' || row.transactionTypeHint === 'balance-changes') {
+    if (row.transactionTypeHint === 'balance-changes') {
       const balanceChange = row.normalizedData as NearBalanceChangeV3;
       if (balanceChange.receiptId && receiptIdToTxHash.has(balanceChange.receiptId)) {
         txHash = receiptIdToTxHash.get(balanceChange.receiptId)!;
@@ -236,7 +236,7 @@ export function groupNearEventsByTransaction(
         skippedBalanceChanges.push(balanceChange);
         continue;
       }
-    } else if (row.transactionTypeHint === 'ft-transfers' || row.transactionTypeHint === 'token-transfers') {
+    } else if (row.transactionTypeHint === 'token-transfers') {
       const tokenTransfer = row.normalizedData as NearTokenTransferV3;
       if (tokenTransfer.receiptId && receiptIdToTxHash.has(tokenTransfer.receiptId)) {
         txHash = receiptIdToTxHash.get(tokenTransfer.receiptId)!;
@@ -274,11 +274,9 @@ export function groupNearEventsByTransaction(
       case 'receipts':
         group.receipts.push(row.normalizedData as NearReceiptSchema);
         break;
-      case 'activities':
       case 'balance-changes':
         group.balanceChanges.push(row.normalizedData as NearBalanceChangeV3);
         break;
-      case 'ft-transfers':
       case 'token-transfers':
         group.tokenTransfers.push(row.normalizedData as NearTokenTransferV3);
         break;
@@ -396,17 +394,6 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
     // Use synthetic receipt if balance change has no receipt_id or receipt_id doesn't match any receipt
     let receiptId = balanceChange.receiptId;
     if (!receiptId || !validReceiptIds.has(receiptId)) {
-      logger.warn(
-        {
-          transactionHash: group.transaction.transactionHash,
-          originalReceiptId: balanceChange.receiptId,
-          affectedAccount: balanceChange.affectedAccountId,
-          deltaAmount: balanceChange.deltaAmountYocto,
-          cause: balanceChange.cause,
-          validReceiptIds: Array.from(validReceiptIds),
-        },
-        'Balance change has missing/invalid receipt_id - attaching to synthetic receipt'
-      );
       receiptId = syntheticReceiptId;
       hasSyntheticItems = true;
     }
@@ -419,17 +406,6 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
     // Use synthetic receipt if transfer has no receipt_id or receipt_id doesn't match any receipt
     let receiptId = tokenTransfer.receiptId;
     if (!receiptId || !validReceiptIds.has(receiptId)) {
-      logger.warn(
-        {
-          transactionHash: group.transaction.transactionHash,
-          originalReceiptId: tokenTransfer.receiptId,
-          affectedAccount: tokenTransfer.affectedAccountId,
-          contractAddress: tokenTransfer.contractAddress,
-          deltaAmount: tokenTransfer.deltaAmountYocto,
-          validReceiptIds: Array.from(validReceiptIds),
-        },
-        'Token transfer has missing/invalid receipt_id - attaching to synthetic receipt'
-      );
       receiptId = syntheticReceiptId;
       hasSyntheticItems = true;
     }
@@ -439,14 +415,10 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
   }
 
   if (hasSyntheticItems) {
+    const bcCount = balanceChangesByReceipt.get(syntheticReceiptId)?.length || 0;
+    const ttCount = tokenTransfersByReceipt.get(syntheticReceiptId)?.length || 0;
     logger.warn(
-      {
-        transactionHash: group.transaction.transactionHash,
-        syntheticReceiptId,
-        balanceChangesCount: balanceChangesByReceipt.get(syntheticReceiptId)?.length || 0,
-        tokenTransfersCount: tokenTransfersByReceipt.get(syntheticReceiptId)?.length || 0,
-      },
-      'Created synthetic receipt for orphaned balance changes and/or token transfers'
+      `Created synthetic receipt for tx ${group.transaction.transactionHash}: ${bcCount} balance change(s), ${ttCount} token transfer(s)`
     );
     processedReceipts.push({
       receiptId: syntheticReceiptId,

@@ -523,14 +523,16 @@ export class BlockchainProviderManager {
       // This handles: same-provider resumption, cross-provider failover, replay windows
       const adjustedCursor = resolveCursorStateForProvider(currentCursor, provider, isFailover, logger);
 
-      logger.info(
-        `Using provider ${provider.name} for ${operation.type}` +
-          (isFailover
-            ? ` (failover from ${currentCursor!.metadata?.providerName}, replay window applied)`
-            : currentCursor
-              ? ` (resuming same provider)`
-              : '')
-      );
+      // Log at info level only when there's something notable (failover or resume)
+      if (isFailover) {
+        logger.info(
+          `Using provider ${provider.name} for ${operation.type} (failover from ${currentCursor!.metadata?.providerName}, replay window applied)`
+        );
+      } else if (currentCursor) {
+        logger.info(`Using provider ${provider.name} for ${operation.type} (resuming same provider)`);
+      } else {
+        logger.debug(`Using provider ${provider.name} for ${operation.type}`);
+      }
 
       try {
         const iterator = provider.executeStreaming(operation, adjustedCursor);
@@ -599,7 +601,7 @@ export class BlockchainProviderManager {
           continue;
         }
 
-        logger.info(`Provider ${provider.name} completed successfully`);
+        logger.debug(`Provider ${provider.name} completed successfully`);
         return;
       } catch (error) {
         // ✅ Unexpected errors (outside Result chain) - wrap and yield

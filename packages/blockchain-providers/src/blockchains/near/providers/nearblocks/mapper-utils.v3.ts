@@ -91,23 +91,23 @@ function generateEventId(
  *
  * NearBlocks API returns action types in SCREAMING_SNAKE_CASE (e.g., "TRANSFER", "FUNCTION_CALL").
  * This function normalizes to snake_case and validates against the NearActionTypeSchema enum.
- *
- * @throws Error if action type is unknown and must be added to NearActionTypeSchema
  */
-function normalizeActionType(rawAction: string): NearActionType {
+function normalizeActionType(rawAction: string): Result<NearActionType, Error> {
   const normalized = rawAction.toLowerCase();
 
   const parseResult = NearActionTypeSchema.safeParse(normalized);
 
   if (!parseResult.success) {
-    throw new Error(
-      `Unknown NEAR action type: "${rawAction}". ` +
-        `This action must be added to NearActionTypeSchema in schemas.v3.ts. ` +
-        `Known actions: ${NearActionTypeSchema.options.join(', ')}`
+    return err(
+      new Error(
+        `Unknown NEAR action type: "${rawAction}". ` +
+          `This action must be added to NearActionTypeSchema in schemas.v3.ts. ` +
+          `Known actions: ${NearActionTypeSchema.options.join(', ')}`
+      )
     );
   }
 
-  return parseResult.data;
+  return ok(parseResult.data);
 }
 
 /**
@@ -125,22 +125,23 @@ function parseNearBlocksTimestamp(timestamp: string | undefined | null): number 
  * Map NearBlocks action to native NEAR action
  */
 export function mapRawActionToNearAction(rawAction: NearBlocksActionV2): Result<NearReceiptAction, Error> {
-  try {
-    const action: NearReceiptAction = {
-      actionType: normalizeActionType(rawAction.action),
-      methodName: rawAction.method ?? undefined,
-      args: rawAction.args ?? undefined,
-      deposit: rawAction.deposit ?? undefined,
-      gas: rawAction.gas ?? undefined,
-      publicKey: rawAction.public_key ?? undefined,
-      beneficiaryId: rawAction.beneficiary_id ?? undefined,
-      accessKey: rawAction.access_key ?? undefined,
-    };
-
-    return ok(action);
-  } catch (error) {
-    return err(new Error(`Failed to map action: ${error instanceof Error ? error.message : String(error)}`));
+  const actionTypeResult = normalizeActionType(rawAction.action);
+  if (actionTypeResult.isErr()) {
+    return err(new Error(`Failed to map action: ${actionTypeResult.error.message}`));
   }
+
+  const action: NearReceiptAction = {
+    actionType: actionTypeResult.value,
+    methodName: rawAction.method ?? undefined,
+    args: rawAction.args ?? undefined,
+    deposit: rawAction.deposit ?? undefined,
+    gas: rawAction.gas ?? undefined,
+    publicKey: rawAction.public_key ?? undefined,
+    beneficiaryId: rawAction.beneficiary_id ?? undefined,
+    accessKey: rawAction.access_key ?? undefined,
+  };
+
+  return ok(action);
 }
 
 /**
@@ -164,16 +165,13 @@ export function mapRawReceiptToNearReceipt(rawReceipt: NearBlocksReceiptV2): Res
     const blockHash = rawReceipt.receipt_block?.block_hash ?? undefined;
     const blockTimestamp = parseNearBlocksTimestamp(String(rawReceipt.receipt_block.block_timestamp));
 
-    let receiptKind: string | undefined;
-    if (rawReceipt.receipt_kind) {
-      receiptKind = rawReceipt.receipt_kind.toUpperCase();
-    } else {
-      receiptKind = rawReceipt.actions && rawReceipt.actions.length > 0 ? 'ACTION' : 'DATA';
-      logger.warn(
-        { receiptId: rawReceipt.receipt_id, inferredKind: receiptKind, hasActions: !!rawReceipt.actions?.length },
-        'NearBlocks API missing receipt_kind, inferred from actions presence'
-      );
-    }
+    // NearBlocks API does not return receipt_kind, so we infer it from actions presence
+    // This is expected behavior and always happens
+    const receiptKind = rawReceipt.actions && rawReceipt.actions.length > 0 ? 'ACTION' : 'DATA';
+    logger.debug(
+      { receiptId: rawReceipt.receipt_id, inferredKind: receiptKind, hasActions: !!rawReceipt.actions?.length },
+      'Inferred receipt_kind from actions presence (NearBlocks API does not provide this field)'
+    );
 
     const receipt: NearReceipt = {
       eventId: generateEventId('receipts', rawReceipt),
@@ -203,45 +201,47 @@ export function mapRawReceiptToNearReceipt(rawReceipt: NearBlocksReceiptV2): Res
 
 /**
  * Normalize cause from provider-specific string to internal enum
- * Throws error on unknown values to ensure API contract is maintained
+ * Returns error on unknown values to ensure API contract is maintained
  */
-function normalizeCause(rawCause: string): NearBalanceChangeCause {
+function normalizeCause(rawCause: string): Result<NearBalanceChangeCause, Error> {
   const upperCause = rawCause.toUpperCase();
 
   // Direct matches (case-insensitive)
-  if (upperCause === 'TRANSFER') return 'TRANSFER';
-  if (upperCause === 'TRANSACTION') return 'TRANSACTION';
-  if (upperCause === 'RECEIPT') return 'RECEIPT';
-  if (upperCause === 'CONTRACT_REWARD') return 'CONTRACT_REWARD';
-  if (upperCause === 'MINT') return 'MINT';
-  if (upperCause === 'STAKE') return 'STAKE';
+  if (upperCause === 'TRANSFER') return ok('TRANSFER');
+  if (upperCause === 'TRANSACTION') return ok('TRANSACTION');
+  if (upperCause === 'RECEIPT') return ok('RECEIPT');
+  if (upperCause === 'CONTRACT_REWARD') return ok('CONTRACT_REWARD');
+  if (upperCause === 'MINT') return ok('MINT');
+  if (upperCause === 'STAKE') return ok('STAKE');
 
   // Fee-related pattern matching
-  if (upperCause === 'FEE') return 'FEE';
-  if (upperCause === 'GAS') return 'GAS';
-  if (upperCause === 'GAS_REFUND') return 'GAS_REFUND';
+  if (upperCause === 'FEE') return ok('FEE');
+  if (upperCause === 'GAS') return ok('GAS');
+  if (upperCause === 'GAS_REFUND') return ok('GAS_REFUND');
 
   // Catch common variations with logging
   if (/FEE/i.test(rawCause)) {
     logger.warn({ rawCause }, 'Unknown fee variant detected, normalizing to FEE');
-    return 'FEE';
+    return ok('FEE');
   }
 
   if (/GAS.*REFUND|REFUND.*GAS/i.test(rawCause)) {
     logger.warn({ rawCause }, 'Unknown gas refund variant detected, normalizing to GAS_REFUND');
-    return 'GAS_REFUND';
+    return ok('GAS_REFUND');
   }
 
   if (/GAS/i.test(rawCause)) {
     logger.warn({ rawCause }, 'Unknown gas variant detected, normalizing to GAS');
-    return 'GAS';
+    return ok('GAS');
   }
 
   // Fail fast on unknown cause - must be added to enum
-  throw new Error(
-    `Unknown balance change cause: "${rawCause}". ` +
-      `This value must be added to NearBalanceChangeCauseSchema in schemas.v3.ts. ` +
-      `Known values: TRANSFER, TRANSACTION, RECEIPT, CONTRACT_REWARD, MINT, STAKE, FEE, GAS, GAS_REFUND`
+  return err(
+    new Error(
+      `Unknown balance change cause: "${rawCause}". ` +
+        `This value must be added to NearBalanceChangeCauseSchema in schemas.v3.ts. ` +
+        `Known values: TRANSFER, TRANSACTION, RECEIPT, CONTRACT_REWARD, MINT, STAKE, FEE, GAS, GAS_REFUND`
+    )
   );
 }
 
@@ -250,37 +250,38 @@ function normalizeCause(rawCause: string): NearBalanceChangeCause {
  * No correlation - just transforms the shape
  */
 export function mapRawActivityToBalanceChange(rawActivity: NearBlocksActivity): Result<NearBalanceChange, Error> {
-  try {
-    const blockTimestamp = parseNearBlocksTimestamp(rawActivity.block_timestamp);
+  const blockTimestamp = parseNearBlocksTimestamp(rawActivity.block_timestamp);
 
-    // Use transaction_hash as id if available, otherwise fall back to receipt_id
-    // This allows for child receipts that don't have a transaction_hash
-    // Note: receipt_id can be null - processor will skip these during correlation
-    const id =
-      rawActivity.transaction_hash ??
-      rawActivity.receipt_id ??
-      `orphan-${rawActivity.affected_account_id}-${rawActivity.block_height}`;
+  // Use transaction_hash as id if available, otherwise fall back to receipt_id
+  // This allows for child receipts that don't have a transaction_hash
+  // Note: receipt_id can be null - processor will skip these during correlation
+  const id =
+    rawActivity.transaction_hash ??
+    rawActivity.receipt_id ??
+    `orphan-${rawActivity.affected_account_id}-${rawActivity.block_height}`;
 
-    const balanceChange: NearBalanceChange = {
-      eventId: generateEventId('balance-changes', rawActivity),
-      id,
-      streamType: 'balance-changes' as const,
-      receiptId: rawActivity.receipt_id ?? undefined,
-      affectedAccountId: rawActivity.affected_account_id,
-      direction: rawActivity.direction,
-      deltaAmountYocto: rawActivity.delta_nonstaked_amount ?? undefined,
-      absoluteNonstakedAmount: rawActivity.absolute_nonstaked_amount,
-      absoluteStakedAmount: rawActivity.absolute_staked_amount,
-      timestamp: blockTimestamp,
-      blockHeight: rawActivity.block_height,
-      cause: normalizeCause(rawActivity.cause),
-      involvedAccountId: rawActivity.involved_account_id ?? undefined,
-    };
-
-    return ok(balanceChange);
-  } catch (error) {
-    return err(new Error(`Failed to map activity: ${error instanceof Error ? error.message : String(error)}`));
+  const causeResult = normalizeCause(rawActivity.cause);
+  if (causeResult.isErr()) {
+    return err(new Error(`Failed to map activity: ${causeResult.error.message}`));
   }
+
+  const balanceChange: NearBalanceChange = {
+    eventId: generateEventId('balance-changes', rawActivity),
+    id,
+    streamType: 'balance-changes' as const,
+    receiptId: rawActivity.receipt_id ?? undefined,
+    affectedAccountId: rawActivity.affected_account_id,
+    direction: rawActivity.direction,
+    deltaAmountYocto: rawActivity.delta_nonstaked_amount ?? undefined,
+    absoluteNonstakedAmount: rawActivity.absolute_nonstaked_amount,
+    absoluteStakedAmount: rawActivity.absolute_staked_amount,
+    timestamp: blockTimestamp,
+    blockHeight: rawActivity.block_height,
+    cause: causeResult.value,
+    involvedAccountId: rawActivity.involved_account_id ?? undefined,
+  };
+
+  return ok(balanceChange);
 }
 
 /**

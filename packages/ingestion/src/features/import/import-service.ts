@@ -177,7 +177,7 @@ export class ImportExecutor {
         }
 
         // Save batch to database
-        this.logger.debug(`Saving ${batch.rawTransactions.length} ${batch.transactionType} transactions...`);
+        this.logger.debug(`Saving ${batch.rawTransactions.length} ${batch.transactionType}...`);
         const saveResult = await this.rawDataRepository.saveBatch(account.id, batch.rawTransactions);
 
         if (saveResult.isErr()) {
@@ -209,11 +209,11 @@ export class ImportExecutor {
         }
 
         this.logger.info(
-          `Batch saved: ${inserted} inserted, ${skipped} skipped of ${batch.rawTransactions.length} ${batch.transactionType} transactions (total: ${totalImported}, cursor progress: ${batch.cursor.totalFetched})`
+          `Batch saved: ${inserted} inserted, ${skipped} skipped of ${batch.rawTransactions.length} ${batch.transactionType} (total: ${totalImported}, cursor progress: ${batch.cursor.totalFetched})`
         );
 
         if (batch.isComplete) {
-          this.logger.info(`Import for ${batch.transactionType} marked complete by provider`);
+          this.logger.debug(`Import for ${batch.transactionType} marked complete by provider`);
         }
       }
 

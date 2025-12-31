@@ -425,14 +425,6 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
           this.logger.error(`Orphaned activity detected - ${error.message}`);
           return err(error);
         }
-        if (!activity.receipt_id) {
-          // Log warning for activities without receipt_id (can't correlate via receipts)
-          this.logger.warn(
-            `Activity has transaction_hash but no receipt_id - cannot correlate to receipt. ` +
-              `Transaction: ${activity.transaction_hash}, Account: ${activity.affected_account_id}, ` +
-              `Block: ${activity.block_height}. This activity will be skipped.`
-          );
-        }
       }
 
       this.logger.debug(

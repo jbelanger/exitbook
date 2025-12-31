@@ -1,8 +1,10 @@
 import type {
   BlockchainProviderManager,
   NearStreamEvent,
+  NearStreamType,
   TransactionWithRawData,
 } from '@exitbook/blockchain-providers';
+import { NearStreamTypeSchema } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -13,10 +15,10 @@ import type { IImporter, ImportParams, ImportBatchResult } from '../../../shared
  * NEAR transaction importer V3 - streams raw unenriched data from 4 discrete endpoints
  *
  * This importer fetches raw data from NearBlocks API in 4 sequential phases:
- * 1. transactions - Base transaction metadata from /txns-only
- * 2. receipts - Receipt execution records from /receipts
- * 3. activities - Balance changes from /activities
- * 4. ft-transfers - Token transfers from /ft-txns
+ * 1. transactions - Base transaction metadata
+ * 2. receipts - Receipt execution records
+ * 3. balance-changes - Balance changes
+ * 4. token-transfers - Token transfers
  *
  * Key characteristics:
  * - Raw data is stored WITHOUT correlation (deferred to processor)
@@ -50,14 +52,14 @@ export class NearTransactionImporter implements IImporter {
   /**
    * Streaming import implementation - V3 sequential phase execution
    *
-   * Streams all 4 transaction types sequentially:
+   * Streams all 4 stream types sequentially:
    * 1. transactions - Base transaction metadata
    * 2. receipts - Receipt execution records
-   * 3. activities - Balance changes
-   * 4. ft-transfers - Token transfers
+   * 3. balance-changes - Balance changes
+   * 4. token-transfers - Token transfers
    *
    * Each phase must complete before the next begins. Each phase is independently
-   * resumable using its transaction type cursor.
+   * resumable using its stream type cursor.
    */
   async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address) {
@@ -68,39 +70,38 @@ export class NearTransactionImporter implements IImporter {
     this.logger.info(`Starting NEAR V3 streaming import for account: ${params.address.substring(0, 20)}...`);
 
     // Define the 4 transaction types to stream in order
-    // Must match provider's supportedTransactionTypes for provider selection to work
-    const transactionTypes: string[] = ['transactions', 'receipts', 'balance-changes', 'token-transfers'];
+    // Derived from NearStreamTypeSchema - single source of truth
+    const transactionTypes = NearStreamTypeSchema.options;
 
     // Stream each transaction type sequentially
     for (let i = 0; i < transactionTypes.length; i++) {
       const transactionType = transactionTypes[i]!;
-      this.logger.info(`Phase ${i + 1}/4: Streaming ${transactionType}`);
+      this.logger.info(`Streaming ${transactionType} (${i + 1}/4)`);
 
       const cursor = params.cursor?.[transactionType];
       for await (const batchResult of this.streamTransactionType(params.address, transactionType, cursor)) {
         yield batchResult;
       }
 
-      this.logger.info(`Phase ${i + 1}/4: Completed ${transactionType}`);
+      this.logger.debug(`Completed ${transactionType} (${i + 1}/4)`);
     }
 
-    this.logger.info(`NEAR V3 streaming import completed - all 4 phases finished`);
+    this.logger.info(`NEAR V3 streaming import completed - all 4 stream types finished`);
   }
 
   /**
    * Stream a single transaction type with resume support
    *
    * Uses provider manager's streaming failover to handle pagination and provider switching.
-   * Each transaction type (transactions, receipts, activities, ft-transfers) is streamed
-   * independently from its corresponding API endpoint.
+   * Each stream type is streamed independently from its corresponding API endpoint.
    *
    * @param address - NEAR account ID
-   * @param transactionType - One of: 'transactions', 'receipts', 'activities', 'ft-transfers'
+   * @param transactionType - Stream type from NearStreamTypeSchema
    * @param resumeCursor - Optional cursor to resume from a previous interrupted stream
    */
   private async *streamTransactionType(
     address: string,
-    transactionType: string,
+    transactionType: NearStreamType,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<NearStreamEvent>>(
