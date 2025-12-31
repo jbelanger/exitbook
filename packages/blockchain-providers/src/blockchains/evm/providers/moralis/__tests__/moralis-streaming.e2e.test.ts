@@ -22,6 +22,7 @@ describe('MoralisApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
+          transactionType: 'normal' as const,
         };
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -85,6 +86,7 @@ describe('MoralisApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
+          transactionType: 'normal' as const,
         };
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -137,6 +139,7 @@ describe('MoralisApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
+          transactionType: 'normal' as const,
         };
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -176,6 +179,7 @@ describe('MoralisApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
+          transactionType: 'normal' as const,
         };
 
         // Fetch first batch
@@ -225,6 +229,7 @@ describe('MoralisApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
+          transactionType: 'normal' as const,
         };
 
         // Fetch first batch and get its cursor
@@ -303,6 +308,7 @@ describe('MoralisApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: smallAddress,
+          transactionType: 'normal' as const,
         };
 
         let lastBatch: StreamingBatchResult<EvmTransaction> | undefined;
@@ -337,7 +343,8 @@ describe('MoralisApiClient Streaming E2E', () => {
         const maxBatches = 1; // Only 1 batch to minimize API usage
 
         const operation = {
-          type: 'getAddressTokenTransactions' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'token' as const,
           address: testAddress,
         };
 
@@ -388,7 +395,8 @@ describe('MoralisApiClient Streaming E2E', () => {
         const usdcAddress = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 
         const operation = {
-          type: 'getAddressTokenTransactions' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'token' as const,
           address: testAddress,
           contractAddress: usdcAddress,
         };
@@ -410,7 +418,8 @@ describe('MoralisApiClient Streaming E2E', () => {
 
       it('should resume token transaction streaming from cursor', async () => {
         const operation = {
-          type: 'getAddressTokenTransactions' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'token' as const,
           address: testAddress,
         };
 
@@ -456,7 +465,8 @@ describe('MoralisApiClient Streaming E2E', () => {
 
       it('should extract cursors for token transactions', async () => {
         const operation = {
-          type: 'getAddressTokenTransactions' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'token' as const,
           address: testAddress,
         };
 
@@ -491,7 +501,8 @@ describe('MoralisApiClient Streaming E2E', () => {
     describe('streamAddressInternalTransactions via executeStreaming', () => {
       it('should yield empty completion batch for internal transactions', async () => {
         const operation = {
-          type: 'getAddressInternalTransactions' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'internal' as const,
           address: testAddress,
         };
 
@@ -541,7 +552,8 @@ describe('MoralisApiClient Streaming E2E', () => {
 
       it('should handle resume from internal transaction cursor', async () => {
         const operation = {
-          type: 'getAddressInternalTransactions' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'internal' as const,
           address: testAddress,
         };
 
@@ -582,6 +594,7 @@ describe('MoralisApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
+          transactionType: 'normal' as const,
         };
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -659,6 +672,7 @@ describe('MoralisApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
+          transactionType: 'normal' as const,
         };
 
         // Fetch first batch
@@ -735,6 +749,7 @@ describe('MoralisApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
+          transactionType: 'normal' as const,
         };
 
         let batchCount = 0;
@@ -788,6 +803,7 @@ describe('MoralisApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: invalidAddress,
+          transactionType: 'normal' as const,
         };
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -811,6 +827,7 @@ describe('MoralisApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -835,6 +852,7 @@ describe('MoralisApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {

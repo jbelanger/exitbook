@@ -292,7 +292,7 @@ export class KucoinCsvImporter implements IImporter {
             );
             return ok({
               rawTransactions: [],
-              operationType: `csv:kucoin:${filePath}`,
+              transactionType: `csv:kucoin:${filePath}`,
               cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
               isComplete: true,
             });
@@ -374,7 +374,7 @@ export class KucoinCsvImporter implements IImporter {
           this.logger.warn(`Skipping convert orders CSV file - using account history instead: ${fileName}`);
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -392,7 +392,7 @@ export class KucoinCsvImporter implements IImporter {
           }
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -411,7 +411,7 @@ export class KucoinCsvImporter implements IImporter {
           }
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -432,7 +432,7 @@ export class KucoinCsvImporter implements IImporter {
           }
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -450,7 +450,7 @@ export class KucoinCsvImporter implements IImporter {
           }
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -467,7 +467,7 @@ export class KucoinCsvImporter implements IImporter {
           }
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -480,7 +480,7 @@ export class KucoinCsvImporter implements IImporter {
           );
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -490,7 +490,7 @@ export class KucoinCsvImporter implements IImporter {
           this.logger.warn(`Skipping unrecognized CSV file: ${fileName}`);
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -500,7 +500,7 @@ export class KucoinCsvImporter implements IImporter {
           this.logger.warn(`No handler for file type: ${fileType} in file: ${fileName}`);
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -521,7 +521,7 @@ export class KucoinCsvImporter implements IImporter {
 
       return ok({
         rawTransactions,
-        operationType: `csv:kucoin:${filePath}`, // Use full path for uniqueness
+        transactionType: `csv:kucoin:${filePath}`, // Use full path for uniqueness
         cursor,
         isComplete: true, // Each file is complete when processed
       });

@@ -48,9 +48,9 @@ export interface SolanaRawTokenBalanceData {
       'getAddressTransactions',
       'getAddressBalances',
       'getAddressTokenBalances',
-      'getAddressTokenTransactions',
       'getTokenMetadata',
     ],
+    supportedTransactionTypes: ['normal', 'token'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
   },
@@ -134,19 +134,26 @@ export class HeliusApiClient extends BaseApiClient {
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
-    switch (operation.type) {
-      case 'getAddressTransactions':
+    if (operation.type !== 'getAddressTransactions') {
+      yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+      return;
+    }
+
+    // Route based on transaction type
+    const transactionType = operation.transactionType || 'normal';
+    switch (transactionType) {
+      case 'normal':
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
-      case 'getAddressTokenTransactions':
+      case 'token':
         yield* this.streamAddressTokenTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
       default:
-        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
     }
   }
 
@@ -469,7 +476,7 @@ export class HeliusApiClient extends BaseApiClient {
 
     return createStreamingIterator<HeliusTransaction, SolanaTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', address },
+      operation: { type: 'getAddressTransactions', transactionType: 'normal', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
@@ -632,7 +639,7 @@ export class HeliusApiClient extends BaseApiClient {
 
     return createStreamingIterator<HeliusTransaction, SolanaTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTokenTransactions', address },
+      operation: { type: 'getAddressTransactions', transactionType: 'token', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

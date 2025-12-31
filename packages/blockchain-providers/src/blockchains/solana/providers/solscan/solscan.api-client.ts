@@ -37,6 +37,7 @@ export interface SolscanRawBalanceData {
   blockchain: 'solana',
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
+    supportedTransactionTypes: ['normal'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
   },
@@ -120,14 +121,21 @@ export class SolscanApiClient extends BaseApiClient {
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
-    switch (operation.type) {
-      case 'getAddressTransactions':
+    if (operation.type !== 'getAddressTransactions') {
+      yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+      return;
+    }
+
+    // Route based on transaction type
+    const transactionType = operation.transactionType || 'normal';
+    switch (transactionType) {
+      case 'normal':
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
       default:
-        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
     }
   }
 
@@ -276,7 +284,7 @@ export class SolscanApiClient extends BaseApiClient {
 
     return createStreamingIterator<SolscanTransaction, SolanaTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', address },
+      operation: { type: 'getAddressTransactions', transactionType: 'normal', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

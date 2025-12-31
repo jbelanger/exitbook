@@ -177,7 +177,7 @@ export class ImportExecutor {
         }
 
         // Save batch to database
-        this.logger.debug(`Saving ${batch.rawTransactions.length} ${batch.operationType} transactions...`);
+        this.logger.debug(`Saving ${batch.rawTransactions.length} ${batch.transactionType} transactions...`);
         const saveResult = await this.rawDataRepository.saveBatch(account.id, batch.rawTransactions);
 
         if (saveResult.isErr()) {
@@ -199,21 +199,21 @@ export class ImportExecutor {
         // Update progress and cursor after EACH batch for crash recovery
         const cursorUpdateResult = await this.accountRepository.updateCursor(
           account.id,
-          batch.operationType,
+          batch.transactionType,
           batch.cursor
         );
 
         if (cursorUpdateResult.isErr()) {
-          this.logger.warn(`Failed to update cursor for ${batch.operationType}: ${cursorUpdateResult.error.message}`);
+          this.logger.warn(`Failed to update cursor for ${batch.transactionType}: ${cursorUpdateResult.error.message}`);
           // Don't fail the import, just log warning
         }
 
         this.logger.info(
-          `Batch saved: ${inserted} inserted, ${skipped} skipped of ${batch.rawTransactions.length} ${batch.operationType} transactions (total: ${totalImported}, cursor progress: ${batch.cursor.totalFetched})`
+          `Batch saved: ${inserted} inserted, ${skipped} skipped of ${batch.rawTransactions.length} ${batch.transactionType} transactions (total: ${totalImported}, cursor progress: ${batch.cursor.totalFetched})`
         );
 
         if (batch.isComplete) {
-          this.logger.info(`Import for ${batch.operationType} marked complete by provider`);
+          this.logger.info(`Import for ${batch.transactionType} marked complete by provider`);
         }
       }
 

@@ -15,6 +15,7 @@ import type {
   IBlockchainProvider,
   ProviderCapabilities,
   ProviderHealth,
+  ProviderOperation,
   ProviderOperationType,
 } from './types/index.js';
 
@@ -66,8 +67,21 @@ export function scoreProvider(
 /**
  * Check if provider supports the requested operation
  */
-export function supportsOperation(capabilities: ProviderCapabilities, operationType: string): boolean {
-  return capabilities.supportedOperations.includes(operationType as ProviderOperationType);
+export function supportsOperation(capabilities: ProviderCapabilities, operation: ProviderOperation): boolean {
+  if (!capabilities.supportedOperations.includes(operation.type as ProviderOperationType)) {
+    return false;
+  }
+
+  // For getAddressTransactions, also check supportedTransactionTypes if specified
+  if (operation.type === 'getAddressTransactions' && operation.transactionType) {
+    if (!capabilities.supportedTransactionTypes) {
+      // If provider doesn't declare supported types, assume it only supports 'normal'
+      return operation.transactionType === 'normal';
+    }
+    return capabilities.supportedTransactionTypes.includes(operation.transactionType);
+  }
+
+  return true;
 }
 
 /**
@@ -78,7 +92,7 @@ export function selectProvidersForOperation(
   providers: IBlockchainProvider[],
   healthMap: Map<string, ProviderHealth>,
   circuitMap: Map<string, CircuitState>,
-  operationType: string,
+  operation: ProviderOperation,
   now: number
 ): {
   health: ProviderHealth;
@@ -86,7 +100,7 @@ export function selectProvidersForOperation(
   score: number;
 }[] {
   return providers
-    .filter((p) => supportsOperation(p.capabilities, operationType))
+    .filter((p) => supportsOperation(p.capabilities, operation))
     .map((provider) => {
       const health = healthMap.get(provider.name);
       const circuitState = circuitMap.get(provider.name);
@@ -528,4 +542,49 @@ export function buildProviderNotFoundError(
   ];
 
   return `Preferred provider '${preferredProvider}' not found for ${blockchain}.\n${suggestions.join('\n')}`;
+}
+
+/**
+ * Resolve and wrap cursor for a specific provider
+ *
+ * Handles cross-provider failover, replay windows, and cursor translation
+ * by wrapping the resolved value back into a CursorState for the provider.
+ */
+export function resolveCursorStateForProvider(
+  currentCursor: CursorState | undefined,
+  provider: IBlockchainProvider,
+  isFailover: boolean,
+  logger: { info: (msg: string) => void; warn: (msg: string) => void }
+): CursorState | undefined {
+  if (!currentCursor) return undefined;
+
+  const resolved = resolveCursorForResumption(
+    currentCursor,
+    {
+      providerName: provider.name,
+      supportedCursorTypes: provider.capabilities.supportedCursorTypes || [],
+      isFailover,
+      applyReplayWindow: (c) => provider.applyReplayWindow(c),
+    },
+    logger
+  );
+
+  if (resolved.pageToken) {
+    return {
+      ...currentCursor,
+      primary: { type: 'pageToken' as const, value: resolved.pageToken, providerName: provider.name },
+    };
+  } else if (resolved.fromBlock !== undefined) {
+    return {
+      ...currentCursor,
+      primary: { type: 'blockNumber' as const, value: resolved.fromBlock },
+    };
+  } else if (resolved.fromTimestamp !== undefined) {
+    return {
+      ...currentCursor,
+      primary: { type: 'timestamp' as const, value: resolved.fromTimestamp },
+    };
+  }
+
+  return currentCursor;
 }

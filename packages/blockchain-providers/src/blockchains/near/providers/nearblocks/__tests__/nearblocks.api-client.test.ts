@@ -145,6 +145,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         address: mockAddress,
         type: 'getAddressTransactions' as const,
+        transactionType: 'normal' as const,
       };
 
       const allTransactions: { normalized: unknown; raw: unknown }[] = [];
@@ -192,6 +193,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         address: mockAddress,
         type: 'getAddressTransactions' as const,
+        transactionType: 'normal' as const,
       };
 
       const allTransactions: unknown[] = [];
@@ -220,6 +222,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         address: mockAddress,
         type: 'getAddressTransactions' as const,
+        transactionType: 'normal' as const,
       };
 
       const allTransactions: unknown[] = [];
@@ -253,6 +256,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         address: mockAddress,
         type: 'getAddressTransactions' as const,
+        transactionType: 'normal' as const,
       };
 
       const allTransactions: unknown[] = [];
@@ -343,6 +347,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         address: mockAddress,
         type: 'getAddressTransactions' as const,
+        transactionType: 'normal' as const,
       };
 
       const allTransactions: { normalized: NearTransaction; raw: unknown }[] = [];
@@ -398,6 +403,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         address: mockAddress,
         type: 'getAddressTransactions' as const,
+        transactionType: 'normal' as const,
       };
 
       const allTransactions: unknown[] = [];
@@ -418,6 +424,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         address: mockAddress,
         type: 'getAddressTransactions' as const,
+        transactionType: 'normal' as const,
       };
 
       let hasError = false;
@@ -447,6 +454,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         address: mockAddress,
         type: 'getAddressTransactions' as const,
+        transactionType: 'normal' as const,
       };
 
       const allTransactions: unknown[] = [];
@@ -465,6 +473,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         address: invalidAddress,
         type: 'getAddressTransactions' as const,
+        transactionType: 'normal' as const,
       };
 
       let hasError = false;
@@ -508,6 +517,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         address: implicitAddress,
         type: 'getAddressTransactions' as const,
+        transactionType: 'normal' as const,
       };
 
       const allTransactions: unknown[] = [];
@@ -728,8 +738,9 @@ describe('NearBlocksApiClient', () => {
 
       expect(capabilities.supportedOperations).toContain('getAddressTransactions');
       expect(capabilities.supportedOperations).toContain('getAddressBalances');
-      expect(capabilities.supportedOperations).toContain('getAddressTokenTransactions');
-      expect(capabilities.supportedOperations).toHaveLength(3);
+      expect(capabilities.supportedOperations).toHaveLength(2);
+      expect(capabilities.supportedTransactionTypes).toContain('normal');
+      expect(capabilities.supportedTransactionTypes).toContain('token');
     });
   });
 

@@ -119,6 +119,7 @@ describe('TatumBitcoinApiClient', () => {
       const operation = {
         address: mockAddress,
         type: 'getAddressTransactions' as const,
+        transactionType: 'normal' as const,
       };
 
       const results: TatumBitcoinTransaction[] = [];
@@ -201,6 +202,7 @@ describe('TatumBitcoinApiClient', () => {
 
       expect(capabilities.supportedOperations).toContain('getAddressTransactions');
       expect(capabilities.supportedOperations).toContain('getAddressBalances');
+      expect(capabilities.supportedTransactionTypes).toContain('normal');
     });
   });
 });

@@ -28,6 +28,7 @@ describe('HeliusApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       if (result.isErr()) {
@@ -71,6 +72,7 @@ describe('HeliusApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -100,6 +102,7 @@ describe('HeliusApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -130,6 +133,7 @@ describe('HeliusApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -234,6 +238,7 @@ describe('HeliusApiClient Integration', () => {
       const result = await provider.execute<HeliusTransaction[]>({
         address: invalidAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isErr()).toBe(true);

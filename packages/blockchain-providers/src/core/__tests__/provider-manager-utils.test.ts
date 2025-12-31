@@ -170,14 +170,64 @@ describe('provider-manager-utils', () => {
       const capabilities = {
         supportedOperations: ['getAddressTransactions', 'getTransaction'],
       } as ProviderCapabilities;
-      expect(supportsOperation(capabilities, 'getAddressTransactions')).toBe(true);
+      expect(supportsOperation(capabilities, { type: 'getAddressTransactions', address: '0x123' })).toBe(true);
     });
 
     it('should return false for unsupported operation', () => {
       const capabilities = {
         supportedOperations: ['getAddressTransactions'],
       } as ProviderCapabilities;
-      expect(supportsOperation(capabilities, 'getBlock')).toBe(false);
+      expect(supportsOperation(capabilities, { type: 'getAddressInfo', address: '0x123' })).toBe(false);
+    });
+
+    it('should check transactionType for getAddressTransactions', () => {
+      const capabilities = {
+        supportedOperations: ['getAddressTransactions'],
+        supportedTransactionTypes: ['normal', 'internal'],
+      } as ProviderCapabilities;
+
+      expect(
+        supportsOperation(capabilities, {
+          type: 'getAddressTransactions',
+          address: '0x123',
+          transactionType: 'normal',
+        })
+      ).toBe(true);
+      expect(
+        supportsOperation(capabilities, {
+          type: 'getAddressTransactions',
+          address: '0x123',
+          transactionType: 'internal',
+        })
+      ).toBe(true);
+      expect(
+        supportsOperation(capabilities, {
+          type: 'getAddressTransactions',
+          address: '0x123',
+          transactionType: 'token',
+        })
+      ).toBe(false);
+    });
+
+    it('should default to normal if supportedTransactionTypes is missing', () => {
+      const capabilities = {
+        supportedOperations: ['getAddressTransactions'],
+      } as ProviderCapabilities;
+
+      expect(
+        supportsOperation(capabilities, {
+          type: 'getAddressTransactions',
+          address: '0x123',
+          transactionType: 'normal',
+        })
+      ).toBe(true);
+      expect(
+        supportsOperation(capabilities, {
+          type: 'getAddressTransactions',
+          address: '0x123',
+          transactionType: 'token',
+        })
+      ).toBe(false);
     });
   });
 
@@ -203,7 +253,7 @@ describe('provider-manager-utils', () => {
         [provider1, provider2, provider3],
         healthMap,
         circuitMap,
-        'getAddressTransactions',
+        { type: 'getAddressTransactions', address: '0x123' },
         Date.now()
       );
 
@@ -214,7 +264,7 @@ describe('provider-manager-utils', () => {
 
     it('should exclude providers that do not support operation', () => {
       const provider1 = createMockProvider('provider-1', ['getAddressTransactions']);
-      const provider2 = createMockProvider('provider-2', ['getBlock']);
+      const provider2 = createMockProvider('provider-2', ['getAddressInfo']);
 
       const healthMap = new Map<string, ProviderHealth>([
         ['provider-1', createInitialHealth()],
@@ -230,7 +280,7 @@ describe('provider-manager-utils', () => {
         [provider1, provider2],
         healthMap,
         circuitMap,
-        'getAddressTransactions',
+        { type: 'getAddressTransactions', address: '0x123' },
         Date.now()
       );
 
@@ -253,7 +303,7 @@ describe('provider-manager-utils', () => {
         [provider1, provider2],
         healthMap,
         circuitMap,
-        'getAddressTransactions',
+        { type: 'getAddressTransactions', address: '0x123' },
         Date.now()
       );
 

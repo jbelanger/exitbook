@@ -87,12 +87,8 @@ const ROUTESCAN_BLOCK_CURSOR_PREFIX = 'block:';
   baseUrl: 'https://api.routescan.io/v2/network/mainnet/evm/1/etherscan/api',
   blockchain: 'ethereum',
   capabilities: {
-    supportedOperations: [
-      'getAddressBalances',
-      'getAddressInternalTransactions',
-      'getAddressTransactions',
-      'getAddressTokenTransactions',
-    ],
+    supportedOperations: ['getAddressBalances', 'getAddressTransactions'],
+    supportedTransactionTypes: ['normal', 'internal', 'token'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
     replayWindow: { blocks: 2 },
@@ -190,27 +186,33 @@ export class RoutescanApiClient extends BaseApiClient {
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
-    // Route to appropriate streaming implementation
-    switch (operation.type) {
-      case 'getAddressTransactions':
+    if (operation.type !== 'getAddressTransactions') {
+      yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+      return;
+    }
+
+    // Route based on transaction type
+    const transactionType = operation.transactionType || 'normal';
+    switch (transactionType) {
+      case 'normal':
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
-      case 'getAddressTokenTransactions':
+      case 'token':
         yield* this.streamAddressTokenTransactions(
           operation.address,
           operation.contractAddress,
           resumeCursor
         ) as AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>>;
         break;
-      case 'getAddressInternalTransactions':
+      case 'internal':
         yield* this.streamAddressInternalTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
       default:
-        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
     }
   }
 
@@ -376,7 +378,7 @@ export class RoutescanApiClient extends BaseApiClient {
 
     return createStreamingIterator<RoutescanTransaction, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', address },
+      operation: { type: 'getAddressTransactions', transactionType: 'normal', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
@@ -483,7 +485,7 @@ export class RoutescanApiClient extends BaseApiClient {
 
     return createStreamingIterator<RoutescanInternalTransaction, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressInternalTransactions', address },
+      operation: { type: 'getAddressTransactions', transactionType: 'internal', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
@@ -593,7 +595,7 @@ export class RoutescanApiClient extends BaseApiClient {
 
     return createStreamingIterator<RoutescanTokenTransfer, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTokenTransactions', address, contractAddress },
+      operation: { type: 'getAddressTransactions', transactionType: 'token', address, contractAddress },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

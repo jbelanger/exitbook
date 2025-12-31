@@ -55,6 +55,7 @@ describe('SubscanApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<SubstrateTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);

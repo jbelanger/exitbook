@@ -44,6 +44,7 @@ import {
   blockchain: 'cardano',
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances', 'hasAddressTransactions'],
+    supportedTransactionTypes: ['normal'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
     replayWindow: { blocks: 2 },
@@ -123,6 +124,12 @@ export class BlockfrostApiClient extends BaseApiClient {
     // Route to appropriate streaming implementation
     switch (operation.type) {
       case 'getAddressTransactions':
+        if (operation.transactionType !== 'normal') {
+          yield err(
+            new Error(`Unsupported transaction type: ${operation.transactionType} for operation: ${operation.type}`)
+          );
+          return;
+        }
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
@@ -445,7 +452,7 @@ export class BlockfrostApiClient extends BaseApiClient {
 
     return createStreamingIterator<BlockfrostTransactionWithMetadata, CardanoTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', address },
+      operation: { type: 'getAddressTransactions', transactionType: 'normal', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

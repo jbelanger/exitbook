@@ -7,7 +7,7 @@ import type { ITokenMetadataService } from '../../../features/token-metadata/tok
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
 import { NearTransactionImporter } from './importer.js';
-import { NearTransactionProcessorV2 } from './processor.v2.js';
+import { NearTransactionProcessorV3 } from './processor.v3.js';
 
 export function registerNearChain(): void {
   registerBlockchain({
@@ -35,7 +35,7 @@ export function registerNearChain(): void {
       if (!tokenMetadataService) {
         return err(new Error('TokenMetadataService is required for NEAR processor'));
       }
-      return ok(new NearTransactionProcessorV2(tokenMetadataService, scamDetectionService));
+      return ok(new NearTransactionProcessorV3(tokenMetadataService, scamDetectionService));
     },
   });
 }

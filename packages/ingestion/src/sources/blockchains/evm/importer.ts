@@ -30,6 +30,12 @@ export class EvmImporter implements IImporter {
   private providerManager: BlockchainProviderManager;
   private chainConfig: EvmChainConfig;
 
+  /**
+   * Transaction types to fetch, in deterministic order for resumability
+   * Ethereum includes beacon_withdrawal, other EVM chains only have normal/internal/token
+   */
+  private readonly transactionTypes: string[];
+
   constructor(
     chainConfig: EvmChainConfig,
     blockchainProviderManager: BlockchainProviderManager,
@@ -46,6 +52,12 @@ export class EvmImporter implements IImporter {
 
     this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);
 
+    // Define transaction types in deterministic order
+    this.transactionTypes =
+      chainConfig.chainName === 'ethereum'
+        ? ['normal', 'internal', 'token', 'beacon_withdrawal']
+        : ['normal', 'internal', 'token'];
+
     this.logger.info(
       `Initialized ${chainConfig.chainName} transaction importer - ProvidersCount: ${this.providerManager.getProviders(chainConfig.chainName).length}`
     );
@@ -53,7 +65,7 @@ export class EvmImporter implements IImporter {
 
   /**
    * Streaming import implementation
-   * Streams NORMAL + INTERNAL + TOKEN + BEACON_WITHDRAWALS batches without accumulating everything in memory
+   * Streams all transaction types in deterministic order without accumulating everything in memory
    */
   async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address) {
@@ -72,42 +84,19 @@ export class EvmImporter implements IImporter {
     }
 
     try {
-      // Stream normal transactions (with resume support)
-      const normalCursor = params.cursor?.['normal'];
-      for await (const batchResult of this.streamTransactionType(
-        address,
-        'normal',
-        'getAddressTransactions',
-        normalCursor
-      )) {
-        yield batchResult;
-      }
+      // Loop through all transaction types in deterministic order
+      for (const transactionType of this.transactionTypes) {
+        const resumeCursor = params.cursor?.[transactionType];
 
-      // Stream internal transactions (with resume support)
-      const internalCursor = params.cursor?.['internal'];
-      for await (const batchResult of this.streamTransactionType(
-        address,
-        'internal',
-        'getAddressInternalTransactions',
-        internalCursor
-      )) {
-        yield batchResult;
-      }
-
-      // Stream token transactions (with resume support)
-      const tokenCursor = params.cursor?.['token'];
-      for await (const batchResult of this.streamTransactionType(
-        address,
-        'token',
-        'getAddressTokenTransactions',
-        tokenCursor
-      )) {
-        yield batchResult;
-      }
-
-      // Stream beacon withdrawals (Ethereum mainnet only, if supported)
-      if (this.chainConfig.chainName === 'ethereum') {
-        yield* this.streamBeaconWithdrawals(address, params.cursor?.['beacon_withdrawal']);
+        // Special handling for beacon withdrawals to check provider support
+        if (transactionType === 'beacon_withdrawal') {
+          yield* this.streamBeaconWithdrawals(address, resumeCursor);
+        } else {
+          // Standard transaction types (normal, internal, token)
+          for await (const batchResult of this.streamTransactionType(address, transactionType, resumeCursor)) {
+            yield batchResult;
+          }
+        }
       }
 
       this.logger.info(`${this.chainConfig.chainName} streaming import completed`);
@@ -123,30 +112,20 @@ export class EvmImporter implements IImporter {
    */
   private async *streamTransactionType(
     address: string,
-    operationType: 'normal' | 'internal' | 'token' | 'beacon_withdrawal',
-    providerOperationType:
-      | 'getAddressTransactions'
-      | 'getAddressInternalTransactions'
-      | 'getAddressTokenTransactions'
-      | 'getAddressBeaconWithdrawals',
+    transactionType: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const cacheKeyPrefix =
-      operationType === 'normal'
-        ? 'normal-txs'
-        : operationType === 'internal'
-          ? 'internal-txs'
-          : operationType === 'token'
-            ? 'token-txs'
-            : 'beacon-withdrawals';
-
     const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<EvmTransaction>>(
       this.chainConfig.chainName,
       {
-        type: providerOperationType,
+        type: 'getAddressTransactions',
         address,
-        getCacheKey: (params) =>
-          `${this.chainConfig.chainName}:${cacheKeyPrefix}:${params.type === providerOperationType ? params.address : 'unknown'}:all`,
+        transactionType,
+        getCacheKey: (params) => {
+          if (params.type !== 'getAddressTransactions') return 'unknown';
+          const txType = params.transactionType || 'default';
+          return `${this.chainConfig.chainName}:${txType}:${params.address}:all`;
+        },
       },
       resumeCursor
     );
@@ -175,12 +154,12 @@ export class EvmImporter implements IImporter {
         transactionsWithRaw,
         providerBatch.providerName,
         address,
-        operationType
+        transactionType
       );
 
       yield ok({
         rawTransactions: rawTransactions,
-        operationType,
+        transactionType,
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,
       });
@@ -199,8 +178,10 @@ export class EvmImporter implements IImporter {
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     const providers = this.providerManager.getProviders(this.chainConfig.chainName);
-    const hasSupport = providers.some((p) =>
-      p.capabilities.supportedOperations.includes('getAddressBeaconWithdrawals')
+    const hasSupport = providers.some(
+      (p) =>
+        p.capabilities.supportedOperations.includes('getAddressTransactions') &&
+        p.capabilities.supportedTransactionTypes?.includes('beacon_withdrawal')
     );
 
     if (!hasSupport) {
@@ -220,12 +201,7 @@ export class EvmImporter implements IImporter {
     this.logger.info('Fetching beacon chain withdrawals...');
     let batchCount = 0;
 
-    for await (const batchResult of this.streamTransactionType(
-      address,
-      'beacon_withdrawal',
-      'getAddressBeaconWithdrawals',
-      resumeCursor
-    )) {
+    for await (const batchResult of this.streamTransactionType(address, 'beacon_withdrawal', resumeCursor)) {
       if (batchResult.isErr()) {
         const errorMsg = batchResult.error.message;
         this.logger.warn(`Beacon withdrawal fetch failed: ${errorMsg}`);
@@ -264,7 +240,7 @@ export class EvmImporter implements IImporter {
   ): ImportBatchResult {
     return {
       rawTransactions: [],
-      operationType: 'beacon_withdrawal',
+      transactionType: 'beacon_withdrawal',
       cursor: {
         primary: { type: 'blockNumber', value: 0 },
         lastTransactionId,

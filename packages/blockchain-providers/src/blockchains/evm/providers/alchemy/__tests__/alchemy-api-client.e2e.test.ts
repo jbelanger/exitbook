@@ -25,6 +25,7 @@ describe('AlchemyApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -56,7 +57,8 @@ describe('AlchemyApiClient Integration', () => {
     it('should fetch raw internal transactions successfully', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
-        type: 'getAddressInternalTransactions',
+        type: 'getAddressTransactions',
+        transactionType: 'internal',
       });
 
       expect(result.isOk()).toBe(true);
@@ -80,7 +82,8 @@ describe('AlchemyApiClient Integration', () => {
     it('should fetch token transactions successfully with gas fees', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
-        type: 'getAddressTokenTransactions',
+        type: 'getAddressTransactions',
+        transactionType: 'token',
       });
 
       expect(result.isOk()).toBe(true);

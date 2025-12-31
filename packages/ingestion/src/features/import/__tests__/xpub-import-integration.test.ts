@@ -162,7 +162,7 @@ describe('xpub import integration tests', () => {
               normalizedData: { id: 'tx2', blockHeight: 101 },
             },
           ],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 101 },
             lastTransactionId: 'tx2',
@@ -226,7 +226,7 @@ describe('xpub import integration tests', () => {
             providerData: { txid: `tx-child${callCount}-${i}`, blockHeight: 100 + i },
             normalizedData: { id: `tx-child${callCount}-${i}`, blockHeight: 100 + i },
           })),
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 100 + txCount - 1 },
             lastTransactionId: `tx-child${callCount}-${txCount - 1}`,
@@ -285,7 +285,7 @@ describe('xpub import integration tests', () => {
               normalizedData: { id: 'tx3', blockHeight: 102 },
             },
           ],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 102 },
             lastTransactionId: 'tx3',
@@ -319,7 +319,7 @@ describe('xpub import integration tests', () => {
       mockImportStreamingFn.mockImplementationOnce(async function* () {
         yield okAsync({
           rawTransactions: [],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 102 },
             lastTransactionId: 'tx3',
@@ -365,7 +365,7 @@ describe('xpub import integration tests', () => {
       mockImportStreamingFn.mockImplementation(async function* () {
         yield okAsync({
           rawTransactions: [],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 0 },
             lastTransactionId: '',
@@ -438,7 +438,7 @@ describe('xpub import integration tests', () => {
               normalizedData: { id: sharedTxHash, blockHeight: 100 },
             },
           ],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 100 },
             lastTransactionId: sharedTxHash,
@@ -518,7 +518,7 @@ describe('xpub import integration tests', () => {
               normalizedData: { id: 'cardano-tx2' },
             },
           ],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 5000000 },
             lastTransactionId: 'cardano-tx2',
@@ -565,7 +565,7 @@ describe('xpub import integration tests', () => {
               normalizedData: { id: 'cardano-tx1' },
             },
           ],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 5000000 },
             lastTransactionId: 'cardano-tx1',
@@ -589,7 +589,7 @@ describe('xpub import integration tests', () => {
       mockImportStreamingFn.mockImplementationOnce(async function* () {
         yield okAsync({
           rawTransactions: [],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 5000000 },
             lastTransactionId: 'cardano-tx1',

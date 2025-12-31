@@ -1,0 +1,638 @@
+import type { CursorState, PaginationCursor } from '@exitbook/core';
+import { getErrorMessage, parseDecimal } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
+
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderOperation,
+  RawBalanceData,
+  StreamingBatchResult,
+} from '../../../../core/index.ts';
+import { RegisterApiClient, BaseApiClient, maskAddress, validateOutput } from '../../../../core/index.ts';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../core/streaming/streaming-adapter.js';
+import { transformNearBalance } from '../../balance-utils.ts';
+import type {
+  NearBalanceChange,
+  NearReceipt,
+  NearStreamEvent,
+  NearTokenTransfer,
+  NearTransaction,
+} from '../../schemas.v3.js';
+import {
+  NearBalanceChangeSchema,
+  NearReceiptSchema,
+  NearTokenTransferSchema,
+  NearTransactionSchema,
+} from '../../schemas.v3.js';
+import { isValidNearAccountId } from '../../utils.js';
+
+import {
+  mapRawActivityToBalanceChange,
+  mapRawFtToTokenTransfer,
+  mapRawReceiptToNearReceipt,
+  mapRawTransactionToNearTransaction,
+} from './mapper-utils.v3.js';
+import {
+  NearBlocksAccountSchema,
+  NearBlocksActivitiesResponseSchema,
+  NearBlocksFtTransactionsResponseSchema,
+  NearBlocksReceiptsV2ResponseSchema,
+  NearBlocksTransactionsResponseSchema,
+  type NearBlocksActivity,
+  type NearBlocksFtTransaction,
+  type NearBlocksReceiptV2,
+  type NearBlocksTransactionV2,
+} from './nearblocks.schemas.js';
+
+/**
+ * NearBlocks API Client V3 - Four discrete transaction types for raw streaming
+ *
+ * This V3 client provides 4 transaction types under getAddressTransactions:
+ * 1. transactions - Base transaction metadata from /txns-only
+ * 2. receipts - Receipt execution records from /receipts
+ * 3. balance-changes - Balance changes from /activities
+ * 4. token-transfers - Token transfers from /ft-txns
+ *
+ * Key features:
+ * - No correlation at provider level (deferred to processor)
+ * - Simple cursor-based pagination (no count dependencies)
+ * - Deterministic event IDs using SHA-256 hashing
+ * - Two-hop correlation via receipts (transactions → receipts → activities/ft-transfers)
+ * - Each transaction type independently resumable
+ *
+ * Correlation Strategy:
+ * - Activities and FT transfers have either transaction_hash OR receipt_id (not both null)
+ * - Processor uses receipt_id as correlation key (two-hop: tx → receipt → activity)
+ * - Items without receipt_id are logged and skipped (cannot correlate via receipts)
+ *
+ * Architecture:
+ * - Provider: Stream raw data for each transaction type
+ * - Importer: Run 4 sequential phases, save with transaction_type_hint
+ * - Processor: Correlate using receipts as bridge, then aggregate
+ */
+@RegisterApiClient({
+  apiKeyEnvVar: 'NEARBLOCKS_API_KEY',
+  baseUrl: 'https://api.nearblocks.io',
+  blockchain: 'near',
+  capabilities: {
+    supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
+    supportedTransactionTypes: ['transactions', 'receipts', 'balance-changes', 'token-transfers'],
+    supportedCursorTypes: ['pageToken'],
+    preferredCursorType: 'pageToken',
+    replayWindow: { blocks: 3 },
+  },
+  defaultConfig: {
+    rateLimit: {
+      burstLimit: 1,
+      requestsPerHour: 250,
+      requestsPerMinute: 6,
+      requestsPerSecond: 0.1,
+    },
+    retries: 3,
+    timeout: 30000,
+  },
+  description: 'NearBlocks API V3 for NEAR blockchain with 4 normalized transaction types for discrete streaming',
+  displayName: 'NearBlocks V3',
+  name: 'nearblocks-v3',
+  requiresApiKey: false,
+})
+export class NearBlocksApiClientV3 extends BaseApiClient {
+  constructor(config: ProviderConfig) {
+    super(config);
+
+    if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
+      this.reinitializeHttpClient({
+        baseUrl: this.baseUrl,
+        defaultHeaders: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+  }
+
+  extractCursors(event: NearStreamEvent): PaginationCursor[] {
+    const cursors: PaginationCursor[] = [];
+
+    // Access timestamp and blockHeight from normalized event based on stream type
+    let timestamp: number | undefined;
+    let blockHeight: number | undefined;
+
+    switch (event.streamType) {
+      case 'transactions':
+        timestamp = event.blockTimestamp;
+        blockHeight = event.blockHeight;
+        break;
+      case 'receipts':
+        timestamp = event.blockTimestamp;
+        blockHeight = event.blockHeight;
+        break;
+      case 'balance-changes':
+        timestamp = event.timestamp;
+        blockHeight = typeof event.blockHeight === 'string' ? parseInt(event.blockHeight, 10) : undefined;
+        break;
+      case 'token-transfers':
+        timestamp = event.timestamp;
+        blockHeight = event.blockHeight;
+        break;
+    }
+
+    if (timestamp) {
+      cursors.push({ type: 'timestamp', value: timestamp });
+    }
+
+    if (blockHeight !== undefined) {
+      cursors.push({ type: 'blockNumber', value: blockHeight });
+    }
+
+    return cursors;
+  }
+
+  applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
+    const replayWindow = this.capabilities.replayWindow;
+    if (!replayWindow || cursor.type !== 'blockNumber') return cursor;
+
+    return {
+      type: 'blockNumber',
+      value: Math.max(0, cursor.value - (replayWindow.blocks || 0)),
+    };
+  }
+
+  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
+    );
+
+    switch (operation.type) {
+      case 'getAddressBalances':
+        return (await this.getAddressBalances({
+          address: operation.address,
+        })) as Result<T, Error>;
+      default:
+        return err(new Error(`Unsupported operation: ${operation.type}`));
+    }
+  }
+
+  async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
+    operation: ProviderOperation,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
+    if (operation.type !== 'getAddressTransactions') {
+      yield err(new Error(`Streaming not supported for operation: ${operation.type}`));
+      return;
+    }
+
+    if (!('address' in operation)) {
+      yield err(new Error('Address required for streaming operations'));
+      return;
+    }
+
+    if (!isValidNearAccountId(operation.address)) {
+      yield err(new Error(`Invalid NEAR account ID: ${operation.address}`));
+      return;
+    }
+
+    const address = operation.address;
+    const transactionType = operation.transactionType || 'transactions';
+
+    switch (transactionType) {
+      case 'transactions':
+        yield* this.streamTransactions(address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      case 'receipts':
+        yield* this.streamReceipts(address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      case 'balance-changes':
+        yield* this.streamBalanceChanges(address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      case 'token-transfers':
+        yield* this.streamTokenTransfers(address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      default:
+        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
+    }
+  }
+
+  getHealthCheckConfig() {
+    return {
+      endpoint: '/v1/stats',
+      method: 'GET' as const,
+      validate: (response: unknown) => {
+        return response !== null && response !== undefined && typeof response === 'object';
+      },
+    };
+  }
+
+  /**
+   * Stream transactions from /txns-only endpoint
+   * Maps raw NearBlocks data to normalized NearTransaction type
+   */
+  private streamTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<NearTransaction>, Error>> {
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<NearBlocksTransactionV2>, Error>> => {
+      const perPage = 25;
+      const cursor = ctx.pageToken;
+
+      const url = cursor
+        ? `/v1/account/${address}/txns-only?cursor=${cursor}&per_page=${perPage}&order=asc`
+        : `/v1/account/${address}/txns-only?per_page=${perPage}&order=asc`;
+
+      const result = await this.httpClient.get(url, {
+        schema: NearBlocksTransactionsResponseSchema,
+      });
+
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch transactions - Address: ${maskAddress(address)}, Cursor: ${cursor || 'initial'}, Error: ${getErrorMessage(result.error)}`
+        );
+        return err(result.error);
+      }
+
+      const data = result.value;
+      const txns = data.txns || [];
+
+      this.logger.debug(
+        `Fetched transactions - Address: ${maskAddress(address)}, Count: ${txns.length}, Next: ${data.cursor ? 'yes' : 'no'}`
+      );
+
+      return ok({
+        items: txns,
+        nextPageToken: data.cursor ?? undefined,
+        isComplete: txns.length === 0 || !data.cursor,
+      });
+    };
+
+    return createStreamingIterator<NearBlocksTransactionV2, NearTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address, transactionType: 'transactions' },
+      resumeCursor,
+      fetchPage,
+      mapItem: (txn) => {
+        // Map raw NearBlocks transaction to normalized NearTransaction
+        const mapResult = mapRawTransactionToNearTransaction(txn);
+        if (mapResult.isErr()) {
+          return err(mapResult.error);
+        }
+
+        // Validate against schema
+        const validationResult = validateOutput(mapResult.value, NearTransactionSchema, 'NearTransaction');
+        if (validationResult.isErr()) {
+          const errorMessage =
+            validationResult.error.type === 'error' ? validationResult.error.message : validationResult.error.reason;
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok([{ raw: txn, normalized: validationResult.value }]);
+      },
+      extractCursors: (event) => this.extractCursors(event),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 200,
+      logger: this.logger,
+    });
+  }
+
+  /**
+   * Stream receipts from /receipts endpoint
+   * Maps raw NearBlocks data to normalized NearReceipt type
+   */
+  private streamReceipts(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<NearReceipt>, Error>> {
+    const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<NearBlocksReceiptV2>, Error>> => {
+      const perPage = 25;
+      const cursor = ctx.pageToken;
+
+      const url = cursor
+        ? `/v1/account/${address}/receipts?cursor=${cursor}&per_page=${perPage}&order=asc`
+        : `/v1/account/${address}/receipts?per_page=${perPage}&order=asc`;
+
+      const result = await this.httpClient.get(url, {
+        schema: NearBlocksReceiptsV2ResponseSchema,
+      });
+
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch receipts - Address: ${maskAddress(address)}, Cursor: ${cursor || 'initial'}, Error: ${getErrorMessage(result.error)}`
+        );
+        return err(result.error);
+      }
+
+      const data = result.value;
+      const receipts = data.txns || [];
+
+      this.logger.debug(
+        `Fetched receipts - Address: ${maskAddress(address)}, Count: ${receipts.length}, Next: ${data.cursor ? 'yes' : 'no'}`
+      );
+
+      return ok({
+        items: receipts,
+        nextPageToken: data.cursor ?? undefined,
+        isComplete: receipts.length === 0 || !data.cursor,
+      });
+    };
+
+    return createStreamingIterator<NearBlocksReceiptV2, NearReceipt>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address, transactionType: 'receipts' },
+      resumeCursor,
+      fetchPage,
+      mapItem: (receipt) => {
+        // Map raw NearBlocks receipt to normalized NearReceipt
+        const mapResult = mapRawReceiptToNearReceipt(receipt);
+        if (mapResult.isErr()) {
+          return err(mapResult.error);
+        }
+
+        // Validate against schema
+        const validationResult = validateOutput(mapResult.value, NearReceiptSchema, 'NearReceipt');
+        if (validationResult.isErr()) {
+          const errorMessage =
+            validationResult.error.type === 'error' ? validationResult.error.message : validationResult.error.reason;
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok([{ raw: receipt, normalized: validationResult.value }]);
+      },
+      extractCursors: (event) => this.extractCursors(event),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 200,
+      logger: this.logger,
+    });
+  }
+
+  /**
+   * Stream balance changes from /activities endpoint
+   * Maps raw NearBlocks data to normalized NearBalanceChange type
+   *
+   * Validation:
+   * - FAILS if both transaction_hash AND receipt_id are null (orphan)
+   * - WARNS if receipt_id is null (cannot correlate, will be skipped)
+   * - Allows transaction_hash to be null (child receipts)
+   */
+  private streamBalanceChanges(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<NearBalanceChange>, Error>> {
+    const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<NearBlocksActivity>, Error>> => {
+      const perPage = 25;
+      const cursor = ctx.pageToken;
+
+      const url = cursor
+        ? `/v1/account/${address}/activities?cursor=${cursor}&per_page=${perPage}&order=asc`
+        : `/v1/account/${address}/activities?per_page=${perPage}&order=asc`;
+
+      const result = await this.httpClient.get(url, {
+        schema: NearBlocksActivitiesResponseSchema,
+      });
+
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch activities - Address: ${maskAddress(address)}, Cursor: ${cursor || 'initial'}, Error: ${getErrorMessage(result.error)}`
+        );
+        return err(result.error);
+      }
+
+      const data = result.value;
+      const activities = data.activities || [];
+
+      // FAIL if BOTH transaction_hash AND receipt_id are missing (orphan detection)
+      // Activities can have either transaction_hash OR receipt_id (but not both null)
+      // We need receipt_id for two-hop correlation via receipts
+      for (const activity of activities) {
+        if (!activity.transaction_hash && !activity.receipt_id) {
+          const error = new Error(
+            `Activity missing both transaction_hash and receipt_id. ` +
+              `Account: ${activity.affected_account_id}, Block: ${activity.block_height}`
+          );
+          this.logger.error(`Orphaned activity detected - ${error.message}`);
+          return err(error);
+        }
+        if (!activity.receipt_id) {
+          // Log warning for activities without receipt_id (can't correlate via receipts)
+          this.logger.warn(
+            `Activity has transaction_hash but no receipt_id - cannot correlate to receipt. ` +
+              `Transaction: ${activity.transaction_hash}, Account: ${activity.affected_account_id}, ` +
+              `Block: ${activity.block_height}. This activity will be skipped.`
+          );
+        }
+      }
+
+      this.logger.debug(
+        `Fetched activities - Address: ${maskAddress(address)}, Count: ${activities.length}, Next: ${data.cursor ? 'yes' : 'no'}`
+      );
+
+      return ok({
+        items: activities,
+        nextPageToken: data.cursor ?? undefined,
+        isComplete: activities.length === 0 || !data.cursor,
+      });
+    };
+
+    return createStreamingIterator<NearBlocksActivity, NearBalanceChange>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address, transactionType: 'balance-changes' },
+      resumeCursor,
+      fetchPage,
+      mapItem: (activity) => {
+        // Map raw NearBlocks activity to normalized NearBalanceChange
+        const mapResult = mapRawActivityToBalanceChange(activity);
+        if (mapResult.isErr()) {
+          return err(mapResult.error);
+        }
+
+        // Validate against schema
+        const validationResult = validateOutput(mapResult.value, NearBalanceChangeSchema, 'NearBalanceChange');
+        if (validationResult.isErr()) {
+          const errorMessage =
+            validationResult.error.type === 'error' ? validationResult.error.message : validationResult.error.reason;
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok([{ raw: activity, normalized: validationResult.value }]);
+      },
+      extractCursors: (event) => this.extractCursors(event),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 200,
+      logger: this.logger,
+    });
+  }
+
+  /**
+   * Stream token transfers from /ft-txns endpoint
+   * Maps raw NearBlocks data to normalized NearTokenTransfer type
+   *
+   * Validation:
+   * - FAILS if both transaction_hash AND receipt_id are null (orphan)
+   * - WARNS if receipt_id is null (cannot correlate, will be skipped)
+   * - Allows transaction_hash to be null (child receipts)
+   */
+  private streamTokenTransfers(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<NearTokenTransfer>, Error>> {
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<NearBlocksFtTransaction>, Error>> => {
+      const perPage = 25;
+      const cursor = ctx.pageToken;
+
+      const url = cursor
+        ? `/v1/account/${address}/ft-txns?cursor=${cursor}&per_page=${perPage}&order=asc`
+        : `/v1/account/${address}/ft-txns?per_page=${perPage}&order=asc`;
+
+      const result = await this.httpClient.get(url, {
+        schema: NearBlocksFtTransactionsResponseSchema,
+      });
+
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch FT transfers - Address: ${maskAddress(address)}, Cursor: ${cursor || 'initial'}, Error: ${getErrorMessage(result.error)}`
+        );
+        return err(result.error);
+      }
+
+      const data = result.value;
+      const ftTransfers = data.txns || [];
+
+      // FAIL if BOTH transaction_hash AND receipt_id are missing (orphan detection)
+      // FT transfers can have either transaction_hash OR receipt_id (but not both null)
+      // We need receipt_id for two-hop correlation via receipts
+      for (const ft of ftTransfers) {
+        if (!ft.transaction_hash && !ft.receipt_id) {
+          const error = new Error(
+            `FT transfer missing both transaction_hash and receipt_id. ` +
+              `Account: ${ft.affected_account_id}, Contract: ${ft.ft?.contract || 'unknown'}, ` +
+              `Block: ${ft.block_height}`
+          );
+          this.logger.error({ ftTransfer: ft }, `Orphaned FT transfer detected - ${error.message}`);
+          return err(error);
+        }
+        if (!ft.receipt_id) {
+          // Log warning for FT transfers without receipt_id (can't correlate via receipts)
+          this.logger.warn(
+            `FT transfer has transaction_hash but no receipt_id - cannot correlate to receipt. ` +
+              `Transaction: ${ft.transaction_hash}, Account: ${ft.affected_account_id}, ` +
+              `Contract: ${ft.ft?.contract || 'unknown'}, Block: ${ft.block_height ?? 'unknown'}. ` +
+              `This transfer will be skipped.`
+          );
+        }
+      }
+
+      this.logger.debug(
+        `Fetched FT transfers - Address: ${maskAddress(address)}, Count: ${ftTransfers.length}, Next: ${data.cursor ? 'yes' : 'no'}`
+      );
+
+      return ok({
+        items: ftTransfers,
+        nextPageToken: data.cursor ?? undefined,
+        isComplete: ftTransfers.length === 0 || !data.cursor,
+      });
+    };
+
+    return createStreamingIterator<NearBlocksFtTransaction, NearTokenTransfer>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address, transactionType: 'token-transfers' },
+      resumeCursor,
+      fetchPage,
+      mapItem: (ft) => {
+        // Map raw NearBlocks FT transfer to normalized NearTokenTransfer
+        const mapResult = mapRawFtToTokenTransfer(ft);
+        if (mapResult.isErr()) {
+          return err(mapResult.error);
+        }
+
+        // Validate against schema
+        const validationResult = validateOutput(mapResult.value, NearTokenTransferSchema, 'NearTokenTransfer');
+        if (validationResult.isErr()) {
+          const errorMessage =
+            validationResult.error.type === 'error' ? validationResult.error.message : validationResult.error.reason;
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok([{ raw: ft, normalized: validationResult.value }]);
+      },
+      extractCursors: (event) => this.extractCursors(event),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 200,
+      logger: this.logger,
+    });
+  }
+
+  private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
+    const { address } = params;
+
+    if (!isValidNearAccountId(address)) {
+      return err(new Error(`Invalid NEAR account ID: ${address}`));
+    }
+
+    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
+
+    const result = await this.httpClient.get(`/v1/account/${address}`, { schema: NearBlocksAccountSchema });
+
+    if (result.isErr()) {
+      this.logger.error(
+        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
+      );
+      return err(result.error);
+    }
+
+    const accountResponse = result.value;
+
+    const accounts = accountResponse.account;
+    if (accounts.length === 0) {
+      return err(new Error('No account data returned from NearBlocks'));
+    }
+
+    if (accounts.length > 1) {
+      this.logger.warn(
+        `Unexpected: NearBlocks returned ${accounts.length} accounts for address ${maskAddress(address)}, using first account`
+      );
+    }
+
+    const accountData = accounts[0]!;
+    const amountYocto = accountData.amount;
+    const lockedYocto = accountData.locked;
+
+    let availableYocto = amountYocto.toString();
+    if (lockedYocto !== null && lockedYocto !== undefined) {
+      const lockedDecimal = parseDecimal(lockedYocto.toString());
+      if (!lockedDecimal.isZero()) {
+        const amountDecimal = parseDecimal(amountYocto.toString());
+        const remaining = amountDecimal.minus(lockedDecimal);
+        if (remaining.isNegative()) {
+          this.logger.warn(
+            `NearBlocks returned locked > amount for ${maskAddress(address)} (locked=${lockedDecimal.toFixed()}, amount=${amountDecimal.toFixed()}); using total amount`
+          );
+        } else {
+          availableYocto = remaining.toFixed();
+        }
+      }
+    }
+
+    const balanceData = transformNearBalance(availableYocto);
+
+    this.logger.debug(
+      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, NEAR: ${balanceData.decimalAmount}`
+    );
+
+    return ok(balanceData);
+  }
+}

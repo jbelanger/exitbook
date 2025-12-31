@@ -22,7 +22,8 @@ describe('EtherscanApiClient Streaming E2E', () => {
         const maxBatches = 1; // Only fetch 1 batch to minimize API usage
 
         const operation = {
-          type: 'getAddressBeaconWithdrawals' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'beacon_withdrawal' as const,
           address: testAddress,
         };
 
@@ -116,7 +117,8 @@ describe('EtherscanApiClient Streaming E2E', () => {
 
       it('should extract blockNumber and timestamp cursors from withdrawals', async () => {
         const operation = {
-          type: 'getAddressBeaconWithdrawals' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'beacon_withdrawal' as const,
           address: testAddress,
         };
 
@@ -170,7 +172,8 @@ describe('EtherscanApiClient Streaming E2E', () => {
         const maxBatches = 2; // Fetch 2 batches to test pagination
 
         const operation = {
-          type: 'getAddressBeaconWithdrawals' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'beacon_withdrawal' as const,
           address: testAddress,
         };
 
@@ -212,7 +215,8 @@ describe('EtherscanApiClient Streaming E2E', () => {
 
       it('should resume from cursor state (blockNumber)', async () => {
         const operation = {
-          type: 'getAddressBeaconWithdrawals' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'beacon_withdrawal' as const,
           address: testAddress,
         };
 
@@ -271,7 +275,8 @@ describe('EtherscanApiClient Streaming E2E', () => {
 
       it('should handle pagination with pages correctly', async () => {
         const operation = {
-          type: 'getAddressBeaconWithdrawals' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'beacon_withdrawal' as const,
           address: testAddress,
         };
 
@@ -352,7 +357,8 @@ describe('EtherscanApiClient Streaming E2E', () => {
 
       it('should mark isComplete when all withdrawals fetched', async () => {
         const operation = {
-          type: 'getAddressBeaconWithdrawals' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'beacon_withdrawal' as const,
           address: testAddress,
         };
 
@@ -394,7 +400,8 @@ describe('EtherscanApiClient Streaming E2E', () => {
         const addressWithoutWithdrawals = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4';
 
         const operation = {
-          type: 'getAddressBeaconWithdrawals' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'beacon_withdrawal' as const,
           address: addressWithoutWithdrawals,
         };
 
@@ -431,7 +438,8 @@ describe('EtherscanApiClient Streaming E2E', () => {
     describe('Cursor extraction and replay window', () => {
       it('should extract blockNumber and timestamp cursors from withdrawals', async () => {
         const operation = {
-          type: 'getAddressBeaconWithdrawals' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'beacon_withdrawal' as const,
           address: testAddress,
         };
 
@@ -473,7 +481,8 @@ describe('EtherscanApiClient Streaming E2E', () => {
     describe('Error handling', () => {
       it('should return error for non-streaming execute() call', async () => {
         const operation = {
-          type: 'getAddressBeaconWithdrawals' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'beacon_withdrawal' as const,
           address: testAddress,
         };
 
@@ -488,6 +497,7 @@ describe('EtherscanApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const, // Not supported by Etherscan provider
           address: testAddress,
+          transactionType: 'normal' as const,
         };
 
         for await (const result of provider.executeStreaming(operation)) {
@@ -503,7 +513,8 @@ describe('EtherscanApiClient Streaming E2E', () => {
         const invalidAddress = 'not-an-address';
 
         const operation = {
-          type: 'getAddressBeaconWithdrawals' as const,
+          type: 'getAddressTransactions' as const,
+          transactionType: 'beacon_withdrawal' as const,
           address: invalidAddress,
         };
 

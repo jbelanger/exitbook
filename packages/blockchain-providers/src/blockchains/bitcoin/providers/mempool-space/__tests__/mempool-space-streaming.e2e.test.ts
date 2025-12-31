@@ -23,6 +23,7 @@ describe('MempoolSpaceApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<BitcoinTransaction>(operation)) {
@@ -90,6 +91,7 @@ describe('MempoolSpaceApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<BitcoinTransaction>(operation)) {
@@ -150,6 +152,7 @@ describe('MempoolSpaceApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<BitcoinTransaction>(operation)) {
@@ -189,6 +192,7 @@ describe('MempoolSpaceApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       // Fetch first batch
@@ -238,6 +242,7 @@ describe('MempoolSpaceApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       // Fetch first batch and get its cursor
@@ -312,6 +317,7 @@ describe('MempoolSpaceApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: emptyAddress,
+        transactionType: 'normal' as const,
       };
 
       let lastBatch: StreamingBatchResult<BitcoinTransaction> | undefined;
@@ -344,6 +350,7 @@ describe('MempoolSpaceApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<BitcoinTransaction>(operation)) {
@@ -434,6 +441,7 @@ describe('MempoolSpaceApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       // Fetch first batch
@@ -507,6 +515,7 @@ describe('MempoolSpaceApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       let batchCount = 0;
@@ -560,6 +569,7 @@ describe('MempoolSpaceApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: invalidAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<BitcoinTransaction>(operation)) {
@@ -578,6 +588,7 @@ describe('MempoolSpaceApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<BitcoinTransaction>(operation)) {
@@ -619,6 +630,7 @@ describe('MempoolSpaceApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<BitcoinTransaction>(operation)) {

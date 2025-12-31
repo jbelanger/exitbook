@@ -50,6 +50,7 @@ describe('SolanaRPCApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -77,6 +78,7 @@ describe('SolanaRPCApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -154,6 +156,7 @@ describe('SolanaRPCApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
         address: invalidAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isErr()).toBe(true);

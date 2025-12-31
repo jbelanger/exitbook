@@ -33,7 +33,8 @@ import type { EtherscanBeaconWithdrawal } from './etherscan.schemas.js';
   baseUrl: 'https://api.etherscan.io/v2/api',
   blockchain: 'ethereum',
   capabilities: {
-    supportedOperations: ['getAddressBeaconWithdrawals'],
+    supportedOperations: ['getAddressTransactions'],
+    supportedTransactionTypes: ['beacon_withdrawal'],
     supportedCursorTypes: ['pageToken', 'blockNumber'],
     preferredCursorType: 'pageToken',
     replayWindow: { blocks: 2 },
@@ -109,14 +110,20 @@ export class EtherscanApiClient extends BaseApiClient {
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
-    switch (operation.type) {
-      case 'getAddressBeaconWithdrawals':
+    if (operation.type !== 'getAddressTransactions') {
+      yield err(new Error(`Streaming not supported for operation: ${operation.type}`));
+      return;
+    }
+
+    const transactionType = operation.transactionType || 'normal';
+    switch (transactionType) {
+      case 'beacon_withdrawal':
         yield* this.streamAddressBeaconWithdrawals(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
       default:
-        yield err(new Error(`Streaming not supported for operation: ${operation.type}`));
+        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
     }
   }
 
@@ -240,7 +247,7 @@ export class EtherscanApiClient extends BaseApiClient {
 
     return createStreamingIterator<EtherscanBeaconWithdrawal, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressBeaconWithdrawals', address },
+      operation: { type: 'getAddressTransactions', transactionType: 'beacon_withdrawal', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

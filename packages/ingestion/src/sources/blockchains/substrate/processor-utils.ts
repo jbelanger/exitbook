@@ -1,8 +1,7 @@
 import type { SubstrateChainConfig, SubstrateTransaction } from '@exitbook/blockchain-providers';
-import { derivePolkadotAddressVariants } from '@exitbook/blockchain-providers';
+import { derivePolkadotAddressVariants, normalizeNativeAmount } from '@exitbook/blockchain-providers';
 import type { OperationClassification } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ProcessingContext } from '../../../shared/types/processors.js';
@@ -89,7 +88,7 @@ export function analyzeFundFlowFromNormalized(
   const outflows: SubstrateMovement[] = [];
 
   const amount = parseDecimal(transaction.amount);
-  const normalizedAmountResult = normalizeAmount(transaction.amount, chainConfig.nativeDecimals);
+  const normalizedAmountResult = normalizeNativeAmount(transaction.amount, chainConfig.nativeDecimals);
   const currency = transaction.currency;
 
   // Skip zero amounts (but NOT fees)
@@ -147,7 +146,7 @@ export function analyzeFundFlowFromNormalized(
   }
 
   // Normalize fee amount with error handling
-  const feeAmountResult = normalizeAmount(transaction.feeAmount, chainConfig.nativeDecimals);
+  const feeAmountResult = normalizeNativeAmount(transaction.feeAmount, chainConfig.nativeDecimals);
   if (feeAmountResult.isErr()) {
     return err(
       new Error(
@@ -454,36 +453,6 @@ export function determineOperationFromFundFlow(
       type: 'transfer',
     },
   };
-}
-
-/**
- * Normalize amount from planck (or smallest unit) to token units using chain-specific decimals.
- * Similar to EVM's wei-to-ETH normalization.
- *
- * Pure function that converts raw on-chain amounts (in planck/smallest unit) to human-readable
- * token amounts. Different Substrate chains use different decimal places:
- * - Polkadot (DOT): 10 decimals
- * - Kusama (KSM): 12 decimals
- * - Bittensor (TAO): 9 decimals
- *
- * @param amountPlanck - Amount in planck (smallest unit) as string
- * @param nativeDecimals - Number of decimal places for the chain's native token
- * @returns Result containing normalized amount as string, or Error if conversion fails
- */
-export function normalizeAmount(amountPlanck: string | undefined, nativeDecimals: number): Result<string, Error> {
-  if (!amountPlanck || amountPlanck === '0') {
-    return ok('0');
-  }
-
-  try {
-    return ok(new Decimal(amountPlanck).dividedBy(new Decimal('10').pow(nativeDecimals)).toFixed());
-  } catch (error) {
-    return err(
-      new Error(
-        `Failed to convert ${amountPlanck} planck to main unit with ${nativeDecimals} decimals: ${String(error)}`
-      )
-    );
-  }
 }
 
 /**

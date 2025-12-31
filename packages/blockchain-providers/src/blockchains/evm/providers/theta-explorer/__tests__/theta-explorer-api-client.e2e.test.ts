@@ -26,6 +26,7 @@ describe('ThetaExplorerApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -48,6 +49,7 @@ describe('ThetaExplorerApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -68,6 +70,7 @@ describe('ThetaExplorerApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -91,6 +94,7 @@ describe('ThetaExplorerApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -109,6 +113,7 @@ describe('ThetaExplorerApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);

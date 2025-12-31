@@ -1,0 +1,138 @@
+/**
+ * V3 Zod schemas for NEAR normalized stream types
+ *
+ * These schemas define 4 normalized (provider-agnostic) stream types:
+ * 1. transactions - Base transaction metadata from /txns-only
+ * 2. receipts - Receipt execution records from /receipts
+ * 3. balance-changes - Balance changes from /activities
+ * 4. token-transfers - Token transfers from /ft-txns
+ *
+ * V3 Architecture:
+ * - Provider: Fetches raw data and maps to normalized types using mapper-utils.v3
+ * - Importer: Saves all 4 normalized types using transaction_type_hint
+ * - Processor: Correlates by receipt_id and aggregates to one transaction per parent hash
+ */
+
+import { DecimalStringSchema } from '@exitbook/core';
+import { z } from 'zod';
+
+import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.js';
+
+/**
+ * Stream type discriminator for the 4 normalized data types
+ */
+export const NearStreamTypeSchema = z.enum(['transactions', 'receipts', 'balance-changes', 'token-transfers']);
+
+export type NearStreamType = z.infer<typeof NearStreamTypeSchema>;
+
+/**
+ * NEAR receipt action with normalized fields
+ */
+export const NearReceiptActionSchema = z.object({
+  actionType: z.string().min(1, 'Action type must not be empty'),
+  methodName: z.string().optional(),
+  args: z.union([z.record(z.string(), z.unknown()), z.string(), z.null()]).optional(),
+  deposit: DecimalStringSchema.optional(),
+  gas: DecimalStringSchema.optional(),
+  publicKey: z.string().optional(),
+  beneficiaryId: z.string().optional(),
+  accessKey: z.unknown().optional(),
+});
+
+export type NearReceiptAction = z.infer<typeof NearReceiptActionSchema>;
+
+/**
+ * V3: Normalized transaction from /txns-only endpoint
+ * Contains base transaction metadata (parent transaction level)
+ */
+export const NearTransactionSchema = NormalizedTransactionBaseSchema.extend({
+  streamType: z.literal('transactions'),
+  transactionHash: z.string().min(1, 'Transaction hash must not be empty'),
+  signerAccountId: z.string().min(1, 'Signer account ID must not be empty'),
+  receiverAccountId: z.string().min(1, 'Receiver account ID must not be empty'),
+  blockTimestamp: z.number().positive('Block timestamp must be positive'),
+  blockHeight: z.number().positive('Block height must be positive').optional(),
+  blockHash: z.string().optional(),
+  status: z.boolean().optional(),
+});
+
+export type NearTransaction = z.infer<typeof NearTransactionSchema>;
+
+/**
+ * V3: Normalized receipt from /receipts endpoint
+ * Contains receipt execution records
+ */
+export const NearReceiptSchema = NormalizedTransactionBaseSchema.extend({
+  streamType: z.literal('receipts'),
+  receiptId: z.string().min(1, 'Receipt ID must not be empty'),
+  transactionHash: z.string().min(1, 'Transaction hash must not be empty'),
+  predecessorAccountId: z.string().min(1, 'Predecessor account ID must not be empty'),
+  receiverAccountId: z.string().min(1, 'Receiver account ID must not be empty'),
+  receiptKind: z.string().optional(),
+  blockHash: z.string().optional(),
+  blockHeight: z.number().positive('Block height must be positive').optional(),
+  blockTimestamp: z.number().positive('Block timestamp must be positive'),
+  executorAccountId: z.string().optional(),
+  gasBurnt: DecimalStringSchema.optional(),
+  tokensBurntYocto: DecimalStringSchema.optional(),
+  status: z.boolean().optional(),
+  logs: z.array(z.string()).optional(),
+  actions: z.array(NearReceiptActionSchema).optional(),
+});
+
+export type NearReceipt = z.infer<typeof NearReceiptSchema>;
+
+/**
+ * V3: Normalized balance change from /activities endpoint
+ * Contains balance changes (deltas)
+ * Note: receiptId can be undefined for orphaned activities (will be skipped in processor)
+ */
+export const NearBalanceChangeSchema = NormalizedTransactionBaseSchema.extend({
+  streamType: z.literal('balance-changes'),
+  receiptId: z.string().min(1, 'Receipt ID must not be empty').optional(),
+  affectedAccountId: z.string().min(1, 'Affected account ID must not be empty'),
+  direction: z.enum(['INBOUND', 'OUTBOUND']),
+  deltaAmountYocto: DecimalStringSchema.optional(),
+  absoluteNonstakedAmount: DecimalStringSchema,
+  absoluteStakedAmount: DecimalStringSchema,
+  timestamp: z.number().positive('Timestamp must be positive'),
+  blockHeight: z.string().min(1, 'Block height must not be empty'),
+  cause: z.string().min(1, 'Cause must not be empty'),
+  involvedAccountId: z.string().optional(),
+});
+
+export type NearBalanceChange = z.infer<typeof NearBalanceChangeSchema>;
+
+/**
+ * V3: Normalized token transfer from /ft-txns endpoint
+ * Contains fungible token transfers
+ * Note: receiptId can be undefined for orphaned FT transfers (will be skipped in processor)
+ */
+export const NearTokenTransferSchema = NormalizedTransactionBaseSchema.extend({
+  streamType: z.literal('token-transfers'),
+  receiptId: z.string().min(1, 'Receipt ID must not be empty').optional(),
+  affectedAccountId: z.string().min(1, 'Affected account ID must not be empty'),
+  contractAddress: z.string().min(1, 'Contract address must not be empty'),
+  deltaAmountYocto: DecimalStringSchema.optional(),
+  decimals: z.number().nonnegative('Decimals must be non-negative'),
+  symbol: z.string().optional(),
+  name: z.string().optional(),
+  timestamp: z.number().positive('Timestamp must be positive'),
+  blockHeight: z.number().positive('Block height must be positive').optional(),
+  cause: z.string().optional(),
+  involvedAccountId: z.string().optional(),
+});
+
+export type NearTokenTransfer = z.infer<typeof NearTokenTransferSchema>;
+
+/**
+ * Union type for all V3 normalized stream events
+ */
+export const NearStreamEventSchema = z.discriminatedUnion('streamType', [
+  NearTransactionSchema,
+  NearReceiptSchema,
+  NearBalanceChangeSchema,
+  NearTokenTransferSchema,
+]);
+
+export type NearStreamEvent = z.infer<typeof NearStreamEventSchema>;

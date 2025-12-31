@@ -73,25 +73,23 @@ export class SolanaTransactionImporter implements IImporter {
   private async *streamTransactionsForAddress(
     address: string,
     resumeCursor: CursorState | undefined,
-    operationType: 'normal' | 'token'
+    transactionType: 'normal' | 'token'
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const operationTypeMap = {
-      normal: 'getAddressTransactions' as const,
-      token: 'getAddressTokenTransactions' as const,
-    };
-
-    const operation = operationTypeMap[operationType];
-    const operationLabel = operationType === 'normal' ? 'address' : 'token account';
+    const operationLabel = transactionType === 'normal' ? 'address' : 'token account';
 
     this.logger.info(`Starting ${operationLabel} transaction stream for address: ${address.substring(0, 20)}...`);
 
     const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<SolanaTransaction>>(
       'solana',
       {
-        type: operation,
+        type: 'getAddressTransactions',
         address,
-        getCacheKey: (params) =>
-          `solana:raw-txs:${params.type === 'getAddressTransactions' ? params.address : params.type === 'getAddressTokenTransactions' ? `${params.address}:tokens` : 'unknown'}:all`,
+        transactionType,
+        getCacheKey: (params) => {
+          if (params.type !== 'getAddressTransactions') return 'unknown';
+          const txType = params.transactionType || 'default';
+          return `solana:raw-txs:${txType}:${params.address}:all`;
+        },
       },
       resumeCursor
     );
@@ -111,7 +109,7 @@ export class SolanaTransactionImporter implements IImporter {
       // Log batch stats including in-memory deduplication
       if (providerBatch.stats.deduplicated > 0) {
         this.logger.info(
-          `${operationType} batch stats: ${providerBatch.stats.fetched} fetched, ${providerBatch.stats.deduplicated} deduplicated by provider, ${providerBatch.stats.yielded} yielded (total: ${totalFetched})`
+          `${transactionType} batch stats: ${providerBatch.stats.fetched} fetched, ${providerBatch.stats.deduplicated} deduplicated by provider, ${providerBatch.stats.yielded} yielded (total: ${totalFetched})`
         );
       }
 
@@ -127,7 +125,7 @@ export class SolanaTransactionImporter implements IImporter {
 
       yield ok({
         rawTransactions: rawTransactions,
-        operationType,
+        transactionType,
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,
       });

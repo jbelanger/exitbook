@@ -44,7 +44,8 @@ const MAX_ENRICHMENT_EXTRA_PAGES = 5;
   baseUrl: 'https://api.nearblocks.io',
   blockchain: 'near',
   capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getAddressTokenTransactions', 'getAddressBalances'],
+    supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
+    supportedTransactionTypes: ['normal', 'token'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
     replayWindow: { blocks: 3 },
@@ -125,28 +126,31 @@ export class NearBlocksApiClient extends BaseApiClient {
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
-    // Route to appropriate streaming implementation
-    switch (operation.type) {
-      case 'getAddressTransactions':
-        if (!isValidNearAccountId(operation.address)) {
-          yield err(new Error(`Invalid NEAR account ID: ${operation.address}`));
-          return;
-        }
+    if (operation.type !== 'getAddressTransactions') {
+      yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+      return;
+    }
+
+    if (!isValidNearAccountId(operation.address)) {
+      yield err(new Error(`Invalid NEAR account ID: ${operation.address}`));
+      return;
+    }
+
+    // Route based on transaction type
+    const transactionType = operation.transactionType || 'normal';
+    switch (transactionType) {
+      case 'normal':
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
-      case 'getAddressTokenTransactions':
-        if (!isValidNearAccountId(operation.address)) {
-          yield err(new Error(`Invalid NEAR account ID: ${operation.address}`));
-          return;
-        }
+      case 'token':
         yield* this.streamAddressTokenTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
       default:
-        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
     }
   }
 
@@ -735,7 +739,7 @@ export class NearBlocksApiClient extends BaseApiClient {
 
     return createStreamingIterator<NearBlocksFtTransaction, NearTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTokenTransactions', address },
+      operation: { type: 'getAddressTransactions', address, transactionType: 'token' },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

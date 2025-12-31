@@ -14,7 +14,11 @@ describe.sequential('SubscanApiClient Streaming E2E', () => {
 
   describe('streamAddressTransactions', () => {
     it('should stream transactions with cursor management', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+        transactionType: 'normal' as const,
+      };
       const stream = client.executeStreaming<SubstrateTransaction>(operation);
 
       let batchCount = 0;
@@ -80,7 +84,11 @@ describe.sequential('SubscanApiClient Streaming E2E', () => {
     }, 90000);
 
     it('should resume streaming from cursor', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+        transactionType: 'normal' as const,
+      };
 
       // First stream: get first batch and cursor
       const stream1 = client.executeStreaming<SubstrateTransaction>(operation);
@@ -121,7 +129,11 @@ describe.sequential('SubscanApiClient Streaming E2E', () => {
     }, 90000);
 
     it('should handle pagination correctly', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+        transactionType: 'normal' as const,
+      };
       const stream = client.executeStreaming<SubstrateTransaction>(operation);
 
       const seenTransactionIds = new Set<string>();
@@ -154,7 +166,11 @@ describe.sequential('SubscanApiClient Streaming E2E', () => {
     it('should handle empty results gracefully', async () => {
       // Use an address format that might not have transactions
       const emptyAddress = '15kUt2i86LHRWCkE3D9Bg1HZAoc2smhn1fwPzDERTb1BXAkX';
-      const operation = { type: 'getAddressTransactions' as const, address: emptyAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: emptyAddress,
+        transactionType: 'normal' as const,
+      };
       const stream = client.executeStreaming<SubstrateTransaction>(operation);
 
       const results = [];
@@ -172,7 +188,11 @@ describe.sequential('SubscanApiClient Streaming E2E', () => {
 
   describe('Cursor Types and Replay Window', () => {
     it('should extract correct cursor types from transactions', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+        transactionType: 'normal' as const,
+      };
       const stream = client.executeStreaming<SubstrateTransaction>(operation);
 
       for await (const result of stream) {
@@ -221,7 +241,11 @@ describe.sequential('SubscanApiClient Streaming E2E', () => {
 
   describe('Transaction Data Quality', () => {
     it('should include all required fields in streamed transactions', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+        transactionType: 'normal' as const,
+      };
       const stream = client.executeStreaming<SubstrateTransaction>(operation);
 
       for await (const result of stream) {

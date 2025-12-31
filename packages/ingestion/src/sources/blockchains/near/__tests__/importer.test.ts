@@ -155,7 +155,7 @@ describe('NearTransactionImporter', () => {
         sourceAddress: address,
         normalizedData: mockNormalizedTransfer,
         providerData: { transaction_hash: 'AbCdEf123456' },
-        transactionTypeHint: 'normal',
+        transactionTypeHint: 'transactions',
       });
       expect(value.rawTransactions[0]?.eventId).toMatch(/^[a-f0-9]{64}$/);
       // Verify function call transaction
@@ -164,17 +164,23 @@ describe('NearTransactionImporter', () => {
         sourceAddress: address,
         normalizedData: mockNormalizedFunctionCall,
         providerData: { transaction_hash: 'FunctionCallTx456' },
-        transactionTypeHint: 'normal',
+        transactionTypeHint: 'transactions',
       });
       expect(value.rawTransactions[1]?.eventId).toMatch(/^[a-f0-9]{64}$/);
-      // Verify API call was made
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(1);
+      // Verify API calls were made (V3 makes 4 calls for 4 transaction types)
+      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(4);
       const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
-      const [, operation] = executeCalls[0]!;
-      assertOperationType(operation, 'getAddressTransactions');
-      expect(operation.address).toBe(address);
-      expect(operation.getCacheKey).toBeDefined();
+
+      // Verify all 4 transaction types were called
+      const transactionTypes = ['transactions', 'receipts', 'balance-changes', 'token-transfers'];
+      for (let i = 0; i < 4; i++) {
+        const [, operation] = executeCalls[i]!;
+        assertOperationType(operation, 'getAddressTransactions');
+        expect(operation.address).toBe(address);
+        expect(operation.transactionType).toBe(transactionTypes[i]);
+        expect(operation.getCacheKey).toBeDefined();
+      }
     });
     test('should handle empty transaction list', async () => {
       const importer = createImporter();
@@ -361,7 +367,7 @@ describe('NearTransactionImporter', () => {
       // Single call for receipt events (includes both native and token transfers)
       const call = calls[0]![1];
       const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe('near:receipt-events:alice.near:all');
+      expect(cacheKey).toBe('near:transactions:alice.near:all');
     });
     test('should generate correct cache keys for implicit accounts', async () => {
       const importer = createImporter();
@@ -371,7 +377,7 @@ describe('NearTransactionImporter', () => {
         mockProviderManager.executeWithFailover.mock.calls;
       const call = calls[0]![1];
       const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe(`near:receipt-events:${address}:all`);
+      expect(cacheKey).toBe(`near:transactions:${address}:all`);
     });
     test('should generate correct cache keys for sub-accounts', async () => {
       const importer = createImporter();
@@ -381,7 +387,7 @@ describe('NearTransactionImporter', () => {
         mockProviderManager.executeWithFailover.mock.calls;
       const call = calls[0]![1];
       const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe('near:receipt-events:token.sub.alice.near:all');
+      expect(cacheKey).toBe('near:transactions:token.sub.alice.near:all');
     });
   });
   describe('Transaction ID Generation', () => {

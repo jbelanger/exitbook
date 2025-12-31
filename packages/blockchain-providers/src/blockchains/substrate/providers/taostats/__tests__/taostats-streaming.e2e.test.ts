@@ -17,7 +17,11 @@ describe.sequential('TaostatsApiClient Streaming E2E', () => {
    */
   describe('streamAddressTransactions', () => {
     it('should stream transactions with cursor management', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+        transactionType: 'normal' as const,
+      };
       const stream = client.executeStreaming<SubstrateTransaction>(operation);
 
       let batchCount = 0;
@@ -84,7 +88,11 @@ describe.sequential('TaostatsApiClient Streaming E2E', () => {
     }, 90000);
 
     it('should resume streaming from cursor', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+        transactionType: 'normal' as const,
+      };
 
       // First stream: get first batch and cursor
       const stream1 = client.executeStreaming<SubstrateTransaction>(operation);
@@ -137,7 +145,11 @@ describe.sequential('TaostatsApiClient Streaming E2E', () => {
     it('should handle empty results gracefully', async () => {
       // Random address that should have no transactions
       const emptyAddress = '5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM';
-      const operation = { type: 'getAddressTransactions' as const, address: emptyAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: emptyAddress,
+        transactionType: 'normal' as const,
+      };
       const stream = client.executeStreaming<SubstrateTransaction>(operation);
 
       const results = [];
@@ -155,7 +167,11 @@ describe.sequential('TaostatsApiClient Streaming E2E', () => {
 
   describe('Cursor Extraction', () => {
     it('should extract correct cursor types from transactions', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+        transactionType: 'normal' as const,
+      };
       const stream = client.executeStreaming<SubstrateTransaction>(operation);
 
       for await (const result of stream) {

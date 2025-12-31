@@ -53,7 +53,8 @@ import {
   baseUrl: 'https://eth-mainnet.g.alchemy.com/v2', // Default for Ethereum
   blockchain: 'ethereum',
   capabilities: {
-    supportedOperations: ['getAddressInfo'],
+    supportedOperations: ['getAddressTransactions', 'getAddressInfo'],
+    supportedTransactionTypes: ['normal', 'internal', 'token'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
     replayWindow: { blocks: 2 },
@@ -202,27 +203,33 @@ export class AlchemyApiClient extends BaseApiClient {
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
-    // Route to appropriate streaming implementation
-    switch (operation.type) {
-      case 'getAddressTransactions':
+    if (operation.type !== 'getAddressTransactions') {
+      yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+      return;
+    }
+
+    // Route based on transaction type
+    const transactionType = operation.transactionType || 'normal';
+    switch (transactionType) {
+      case 'normal':
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
-      case 'getAddressTokenTransactions':
+      case 'token':
         yield* this.streamAddressTokenTransactions(
           operation.address,
           operation.contractAddress,
           resumeCursor
         ) as AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>>;
         break;
-      case 'getAddressInternalTransactions':
+      case 'internal':
         yield* this.streamAddressInternalTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
       default:
-        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
     }
   }
 
@@ -537,7 +544,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     return createStreamingIterator<AlchemyAssetTransfer, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', address },
+      operation: { type: 'getAddressTransactions', transactionType: 'normal', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
@@ -652,7 +659,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     return createStreamingIterator<AlchemyAssetTransfer, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressInternalTransactions', address },
+      operation: { type: 'getAddressTransactions', address, transactionType: 'internal' },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
@@ -772,7 +779,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     return createStreamingIterator<AlchemyAssetTransfer, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTokenTransactions', address, contractAddress },
+      operation: { type: 'getAddressTransactions', address, transactionType: 'token', contractAddress },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

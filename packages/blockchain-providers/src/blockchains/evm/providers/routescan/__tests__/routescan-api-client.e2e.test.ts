@@ -46,6 +46,7 @@ describe('RoutescanApiClient Integration - Ethereum', () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -69,7 +70,8 @@ describe('RoutescanApiClient Integration - Ethereum', () => {
     it('should fetch raw address internal transactions successfully', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
-        type: 'getAddressInternalTransactions',
+        type: 'getAddressTransactions',
+        transactionType: 'internal',
       });
 
       expect(result.isOk()).toBe(true);
@@ -94,7 +96,8 @@ describe('RoutescanApiClient Integration - Ethereum', () => {
     it('should fetch token transactions successfully', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
-        type: 'getAddressTokenTransactions',
+        type: 'getAddressTransactions',
+        transactionType: 'token',
       });
 
       expect(result.isOk()).toBe(true);
@@ -152,6 +155,7 @@ describe('RoutescanApiClient Integration - Optimism', () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);
@@ -210,6 +214,7 @@ describe('RoutescanApiClient Integration - BSC', () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
+        transactionType: 'normal' as const,
       });
 
       expect(result.isOk()).toBe(true);

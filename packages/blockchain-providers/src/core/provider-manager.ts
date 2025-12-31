@@ -23,7 +23,7 @@ import {
   deduplicateTransactions,
   getProviderHealthWithCircuit,
   hasAvailableProviders,
-  resolveCursorForResumption,
+  resolveCursorStateForProvider,
   selectProvidersForOperation,
   updateHealthMetrics,
   validateProviderApiKey,
@@ -38,7 +38,6 @@ import type {
   ProviderHealth,
   OneShotOperation,
   ProviderOperation,
-  StreamingOperation,
 } from './types/index.js';
 import type { BlockchainExplorersConfig, ProviderOverride } from './utils/config-utils.js';
 
@@ -207,17 +206,7 @@ export class BlockchainProviderManager {
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<FailoverStreamingExecutionResult<T>, Error>> {
-    // Define which operations require streaming pagination
-    const STREAMING_OPERATIONS: StreamingOperation['type'][] = [
-      'getAddressTransactions',
-      'getAddressInternalTransactions',
-      'getAddressTokenTransactions',
-      'getAddressBeaconWithdrawals',
-    ];
-    const isStreamingOperation = (op: ProviderOperation): op is StreamingOperation =>
-      STREAMING_OPERATIONS.includes(op.type as StreamingOperation['type']);
-
-    if (isStreamingOperation(operation)) {
+    if (operation.type === 'getAddressTransactions') {
       // Multi-batch streaming with pagination support
       yield* this.executeStreamingImpl<T>(blockchain, operation, resumeCursor);
     } else {
@@ -230,25 +219,7 @@ export class BlockchainProviderManager {
       }
 
       // Wrap one-shot result as single-element batch with completion marker
-      yield ok({
-        data: [result.value.data] as T[],
-        providerName: result.value.providerName,
-        cursor: {
-          primary: { type: 'blockNumber' as const, value: 0 },
-          lastTransactionId: '',
-          totalFetched: 1,
-          metadata: {
-            providerName: result.value.providerName,
-            updatedAt: Date.now(),
-          },
-        },
-        isComplete: true,
-        stats: {
-          fetched: 1,
-          deduplicated: 0,
-          yielded: 1,
-        },
-      });
+      yield ok(this.wrapOneShotResult(result.value));
     }
   }
 
@@ -274,15 +245,10 @@ export class BlockchainProviderManager {
     operation: OneShotOperation
   ): Promise<Result<FailoverExecutionResult<T>, Error>> {
     // Runtime guard in case typing is bypassed
-    const STREAMING_OPERATIONS = new Set<ProviderOperation['type']>([
-      'getAddressTransactions',
-      'getAddressInternalTransactions',
-      'getAddressTokenTransactions',
-    ]);
-    if (STREAMING_OPERATIONS.has(operation.type)) {
+    if ((operation as ProviderOperation).type === 'getAddressTransactions') {
       return err(
         new Error(
-          `executeWithFailoverOnce is only for one-shot operations; received streaming operation: ${operation.type}`
+          `executeWithFailoverOnce is only for one-shot operations; received streaming operation: ${(operation as ProviderOperation).type}`
         )
       );
     }
@@ -555,40 +521,7 @@ export class BlockchainProviderManager {
 
       // Use manager's cursor resolution for ALL cursor handling
       // This handles: same-provider resumption, cross-provider failover, replay windows
-      const adjustedCursor = currentCursor
-        ? (() => {
-            const resolved = resolveCursorForResumption(
-              currentCursor,
-              {
-                providerName: provider.name,
-                supportedCursorTypes: provider.capabilities.supportedCursorTypes || [],
-                isFailover, // Only apply replay window during cross-provider failover
-                applyReplayWindow: (c) => provider.applyReplayWindow(c),
-              },
-              logger
-            );
-
-            // Convert resolved cursor back to CursorState format
-            // Manager resolves to the specific value, provider just needs to receive it
-            if (resolved.pageToken) {
-              return {
-                ...currentCursor,
-                primary: { type: 'pageToken' as const, value: resolved.pageToken, providerName: provider.name },
-              };
-            } else if (resolved.fromBlock !== undefined) {
-              return {
-                ...currentCursor,
-                primary: { type: 'blockNumber' as const, value: resolved.fromBlock },
-              };
-            } else if (resolved.fromTimestamp !== undefined) {
-              return {
-                ...currentCursor,
-                primary: { type: 'timestamp' as const, value: resolved.fromTimestamp },
-              };
-            }
-            return currentCursor;
-          })()
-        : undefined;
+      const adjustedCursor = resolveCursorStateForProvider(currentCursor, provider, isFailover, logger);
 
       logger.info(
         `Using provider ${provider.name} for ${operation.type}` +
@@ -914,7 +847,7 @@ export class BlockchainProviderManager {
       candidates,
       this.healthStatus,
       this.circuitStates,
-      operation.type,
+      operation,
       now
     );
 
@@ -1115,5 +1048,31 @@ export class BlockchainProviderManager {
         }
       }
     }
+  }
+
+  /**
+   * Wrap a one-shot execution result into a streaming batch format
+   * @private
+   */
+  private wrapOneShotResult<T>(result: FailoverExecutionResult<T>): FailoverStreamingExecutionResult<T> {
+    return {
+      data: [result.data] as T[],
+      providerName: result.providerName,
+      cursor: {
+        primary: { type: 'blockNumber' as const, value: 0 },
+        lastTransactionId: '',
+        totalFetched: 1,
+        metadata: {
+          providerName: result.providerName,
+          updatedAt: Date.now(),
+        },
+      },
+      isComplete: true,
+      stats: {
+        fetched: 1,
+        deduplicated: 0,
+        yielded: 1,
+      },
+    };
   }
 }

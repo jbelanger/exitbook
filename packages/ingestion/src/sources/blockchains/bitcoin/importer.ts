@@ -108,7 +108,7 @@ export class BitcoinTransactionImporter implements IImporter {
 
       yield ok({
         rawTransactions: rawTransactions,
-        operationType: 'normal',
+        transactionType: 'normal',
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,
       });

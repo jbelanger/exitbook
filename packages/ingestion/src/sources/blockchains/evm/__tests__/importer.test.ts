@@ -240,16 +240,19 @@ describe('EvmImporter', () => {
       const [, normalOperation] = executeCalls[0]!;
       assertOperationType(normalOperation, 'getAddressTransactions');
       expect(normalOperation.address).toBe(address);
+      expect(normalOperation.transactionType).toBe('normal');
       expect(normalOperation.getCacheKey).toBeDefined();
 
       const [, internalOperation] = executeCalls[1]!;
-      assertOperationType(internalOperation, 'getAddressInternalTransactions');
+      assertOperationType(internalOperation, 'getAddressTransactions');
       expect(internalOperation.address).toBe(address);
+      expect(internalOperation.transactionType).toBe('internal');
       expect(internalOperation.getCacheKey).toBeDefined();
 
       const [, tokenOperation] = executeCalls[2]!;
-      assertOperationType(tokenOperation, 'getAddressTokenTransactions');
+      assertOperationType(tokenOperation, 'getAddressTransactions');
       expect(tokenOperation.address).toBe(address);
+      expect(tokenOperation.transactionType).toBe('token');
       expect(tokenOperation.getCacheKey).toBeDefined();
     });
   });
@@ -298,7 +301,8 @@ describe('EvmImporter', () => {
       // Add beacon withdrawal support to mock provider
       const providers = mockProviderManager.getProviders('ethereum');
       if (providers.length > 0) {
-        providers[0]!.capabilities.supportedOperations = ['getAddressBeaconWithdrawals'];
+        providers[0]!.capabilities.supportedOperations = ['getAddressTransactions'];
+        providers[0]!.capabilities.supportedTransactionTypes = ['beacon_withdrawal'];
       }
 
       // Setup mocks: normal, internal, token succeed; beacon withdrawals fail
@@ -351,8 +355,9 @@ describe('EvmImporter', () => {
       const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
       const [, beaconOperation] = executeCalls[3]!;
-      assertOperationType(beaconOperation, 'getAddressBeaconWithdrawals');
+      assertOperationType(beaconOperation, 'getAddressTransactions');
       expect(beaconOperation.address).toBe(address);
+      expect(beaconOperation.transactionType).toBe('beacon_withdrawal');
     });
   });
 
@@ -391,14 +396,17 @@ describe('EvmImporter', () => {
       const [, normalOperation] = executeCalls[0]!;
       assertOperationType(normalOperation, 'getAddressTransactions');
       expect(normalOperation.address).toBe(address);
+      expect(normalOperation.transactionType).toBe('normal');
 
       const [, internalOperation] = executeCalls[1]!;
-      assertOperationType(internalOperation, 'getAddressInternalTransactions');
+      assertOperationType(internalOperation, 'getAddressTransactions');
       expect(internalOperation.address).toBe(address);
+      expect(internalOperation.transactionType).toBe('internal');
 
       const [, tokenOperation] = executeCalls[2]!;
-      assertOperationType(tokenOperation, 'getAddressTokenTransactions');
+      assertOperationType(tokenOperation, 'getAddressTransactions');
       expect(tokenOperation.address).toBe(address);
+      expect(tokenOperation.transactionType).toBe('token');
     });
 
     test('should handle array of transactions from provider', async () => {
@@ -447,15 +455,15 @@ describe('EvmImporter', () => {
 
       const normalCall = calls[0]![1];
       const normalCacheKey = normalCall.getCacheKey!(normalCall);
-      expect(normalCacheKey).toBe('ethereum:normal-txs:0x1234567890123456789012345678901234567890:all');
+      expect(normalCacheKey).toBe('ethereum:normal:0x1234567890123456789012345678901234567890:all');
 
       const internalCall = calls[1]![1];
       const internalCacheKey = internalCall.getCacheKey!(internalCall);
-      expect(internalCacheKey).toBe('ethereum:internal-txs:0x1234567890123456789012345678901234567890:all');
+      expect(internalCacheKey).toBe('ethereum:internal:0x1234567890123456789012345678901234567890:all');
 
       const tokenCall = calls[2]![1];
       const tokenCacheKey = tokenCall.getCacheKey!(tokenCall);
-      expect(tokenCacheKey).toBe('ethereum:token-txs:0x1234567890123456789012345678901234567890:all');
+      expect(tokenCacheKey).toBe('ethereum:token:0x1234567890123456789012345678901234567890:all');
     });
   });
 });

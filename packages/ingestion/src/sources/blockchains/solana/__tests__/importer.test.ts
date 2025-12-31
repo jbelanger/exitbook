@@ -42,7 +42,8 @@ describe('SolanaTransactionImporter', () => {
    */
   const setupMockData = (normalData: unknown[] = [], tokenData: unknown[] = []) => {
     mockProviderManager.executeWithFailover.mockImplementation(async function* (_blockchain, operation) {
-      const data = operation.type === 'getAddressTransactions' ? normalData : tokenData;
+      const data =
+        operation.type === 'getAddressTransactions' && operation.transactionType === 'normal' ? normalData : tokenData;
       yield okAsync({
         data,
         providerName: 'helius',
@@ -143,10 +144,12 @@ describe('SolanaTransactionImporter', () => {
       const [, operation1] = executeCalls[0]!;
       assertOperationType(operation1, 'getAddressTransactions');
       expect(operation1.address).toBe(address);
+      expect(operation1.transactionType).toBe('normal');
 
       const [, operation2] = executeCalls[1]!;
-      assertOperationType(operation2, 'getAddressTokenTransactions');
+      assertOperationType(operation2, 'getAddressTransactions');
       expect(operation2.address).toBe(address);
+      expect(operation2.transactionType).toBe('token');
       expect(operation1.getCacheKey).toBeDefined();
       expect(operation2.getCacheKey).toBeDefined();
     });
@@ -248,7 +251,7 @@ describe('SolanaTransactionImporter', () => {
 
       const call = calls[0]![1];
       const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe('solana:raw-txs:user1111111111111111111111111111111111111111:all');
+      expect(cacheKey).toBe('solana:raw-txs:normal:user1111111111111111111111111111111111111111:all');
     });
   });
 });

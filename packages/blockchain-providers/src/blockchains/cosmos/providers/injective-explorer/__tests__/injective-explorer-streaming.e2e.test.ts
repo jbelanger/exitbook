@@ -23,6 +23,7 @@ describe('InjectiveExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<CosmosTransaction>(operation)) {
@@ -87,6 +88,7 @@ describe('InjectiveExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<CosmosTransaction>(operation)) {
@@ -149,6 +151,7 @@ describe('InjectiveExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<CosmosTransaction>(operation)) {
@@ -188,6 +191,7 @@ describe('InjectiveExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       // Fetch first batch
@@ -237,6 +241,7 @@ describe('InjectiveExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       // Fetch first batch and get its cursor
@@ -311,6 +316,7 @@ describe('InjectiveExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: emptyAddress,
+        transactionType: 'normal' as const,
       };
 
       let lastBatch: StreamingBatchResult<CosmosTransaction> | undefined;
@@ -343,6 +349,7 @@ describe('InjectiveExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<CosmosTransaction>(operation)) {
@@ -428,6 +435,7 @@ describe('InjectiveExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       // Fetch first batch
@@ -501,6 +509,7 @@ describe('InjectiveExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       let batchCount = 0;
@@ -554,6 +563,7 @@ describe('InjectiveExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: invalidAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<CosmosTransaction>(operation)) {
@@ -572,6 +582,7 @@ describe('InjectiveExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<CosmosTransaction>(operation)) {
@@ -605,6 +616,7 @@ describe('InjectiveExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<CosmosTransaction>(operation)) {

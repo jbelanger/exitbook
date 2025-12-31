@@ -21,6 +21,7 @@ describe('ThetaExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -83,6 +84,7 @@ describe('ThetaExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -134,6 +136,7 @@ describe('ThetaExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       // Fetch first batch
@@ -185,6 +188,7 @@ describe('ThetaExplorerApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
+        transactionType: 'normal' as const,
       };
 
       for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
