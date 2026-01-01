@@ -108,11 +108,15 @@ function parseBlockHeight(blockHeight: string | undefined): number {
  * Uses a single ordered stream per affected account to compute deltas:
  * delta = currentAbsolute - previousAbsolute
  *
- * If the first activity for an account is missing deltaAmount, we assume
+ * If the first activity for an account is missing deltaAmount, we use the
+ * prior balance from previousBalances when available. Otherwise we assume
  * a prior balance of 0 ONLY for INBOUND events (and warn). OUTBOUND events
  * without a prior balance remain unresolved.
  */
-export function deriveBalanceChangeDeltasFromAbsolutes(balanceChanges: NearBalanceChangeV3[]): DerivedDeltaResult {
+export function deriveBalanceChangeDeltasFromAbsolutes(
+  balanceChanges: NearBalanceChangeV3[],
+  previousBalances = new Map<string, string>()
+): DerivedDeltaResult {
   const derivedDeltas = new Map<string, string>();
   const warnings: string[] = [];
 
@@ -147,6 +151,14 @@ export function deriveBalanceChangeDeltasFromAbsolutes(balanceChanges: NearBalan
     });
 
     let previousBalance: Decimal | undefined;
+    const seededBalance = previousBalances.get(accountId);
+    if (seededBalance !== undefined) {
+      try {
+        previousBalance = new Decimal(seededBalance);
+      } catch {
+        warnings.push(`Invalid previous balance for account ${accountId}: ${seededBalance}`);
+      }
+    }
 
     for (const change of ordered) {
       const currentBalance = new Decimal(change.absoluteNonstakedAmount);
@@ -156,7 +168,7 @@ export function deriveBalanceChangeDeltasFromAbsolutes(balanceChanges: NearBalan
         continue;
       }
 
-      if (previousBalance) {
+      if (previousBalance !== undefined) {
         const delta = currentBalance.minus(previousBalance);
         const deltaStr = delta.toFixed();
         derivedDeltas.set(change.eventId, deltaStr);
@@ -277,12 +289,12 @@ export function groupNearEventsByTransaction(
       }
     } else if (row.transactionTypeHint === 'token-transfers') {
       const tokenTransfer = row.normalizedData as NearTokenTransferV3;
-      if (tokenTransfer.receiptId && receiptIdToTxHash.has(tokenTransfer.receiptId)) {
-        txHash = receiptIdToTxHash.get(tokenTransfer.receiptId)!;
-      } else if (!tokenTransfer.receiptId && !txHash) {
-        // CRITICAL: Cannot correlate this token transfer - missing both receipt_id and transaction_hash
+      // Token transfers now have required transactionHash field (no receiptId)
+      // Use transactionHash directly for correlation
+      if (!txHash) {
+        // CRITICAL: Cannot correlate this token transfer - missing transaction_hash
         logger.warn(
-          `Skipping orphaned token transfer - missing both receipt_id and transaction_hash. ` +
+          `Skipping orphaned token transfer - missing transaction_hash. ` +
             `Account: ${tokenTransfer.affectedAccountId}, Contract: ${tokenTransfer.contractAddress}, ` +
             `Block: ${tokenTransfer.blockHeight}, Delta: ${tokenTransfer.deltaAmountYocto ?? 'null'}. ` +
             `THIS DATA WILL BE LOST.`
@@ -515,39 +527,13 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
     balanceChangesByReceipt.set(receiptId, existing);
   }
 
-  for (const tokenTransfer of group.tokenTransfers) {
-    // Token transfers come from receipt execution (NEP-141 events)
-    // They MUST have valid receipt_id - fail fast on data quality issues
-    if (!tokenTransfer.receiptId) {
-      return err(
-        new Error(
-          `Token transfer missing receipt_id. ` +
-            `Token transfers come from receipt execution and must have receipt_id. ` +
-            `This indicates data quality issues with the provider. ` +
-            `Transaction: ${group.transaction.transactionHash}, ` +
-            `Contract: ${tokenTransfer.contractAddress}, ` +
-            `Account: ${tokenTransfer.affectedAccountId}`
-        )
-      );
-    }
-
-    if (!validReceiptIds.has(tokenTransfer.receiptId)) {
-      return err(
-        new Error(
-          `Token transfer has invalid receipt_id '${tokenTransfer.receiptId}'. ` +
-            `Receipt ID does not match any known receipt for this transaction. ` +
-            `This indicates incomplete data from the provider or cross-contract receipts not fetched. ` +
-            `Transaction: ${group.transaction.transactionHash}, ` +
-            `Contract: ${tokenTransfer.contractAddress}, ` +
-            `Valid receipt IDs: ${Array.from(validReceiptIds).join(', ')}`
-        )
-      );
-    }
-
-    const receiptId = tokenTransfer.receiptId;
-    const existing = tokenTransfersByReceipt.get(receiptId) || [];
-    existing.push(tokenTransfer);
-    tokenTransfersByReceipt.set(receiptId, existing);
+  // Token transfers no longer have receiptId - attach all to transaction-level synthetic receipt
+  // This is because token transfers now only have transactionHash (no receipt correlation)
+  if (group.tokenTransfers.length > 0) {
+    hasTransactionLevelItems = true;
+    const existing = tokenTransfersByReceipt.get(txLevelReceiptId) || [];
+    existing.push(...group.tokenTransfers);
+    tokenTransfersByReceipt.set(txLevelReceiptId, existing);
   }
 
   if (hasTransactionLevelItems) {

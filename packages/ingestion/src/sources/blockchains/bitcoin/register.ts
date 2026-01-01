@@ -28,7 +28,9 @@ export function registerBitcoinChains(): void {
       createProcessor: (
         _providerManager,
         _tokenMetadataService?: ITokenMetadataService,
-        scamDetectionService?: IScamDetectionService
+        scamDetectionService?: IScamDetectionService,
+        _rawDataRepository?,
+        _accountId?
       ) => ok(new BitcoinTransactionProcessor(config, scamDetectionService)),
 
       isExtendedPublicKey: (address: string) => BitcoinUtils.isXpub(address),

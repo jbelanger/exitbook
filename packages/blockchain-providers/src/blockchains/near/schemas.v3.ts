@@ -156,9 +156,12 @@ export type NearBalanceChangeCause = z.infer<typeof NearBalanceChangeCauseSchema
  *
  * Note: receiptId can be undefined (expected for TRANSACTION cause) or invalid (data quality issue).
  * Processor differentiates based on 'cause' field to handle each case appropriately.
+ *
+ * At least one of transactionHash or receiptId must be present for correlation.
  */
 export const NearBalanceChangeSchema = NormalizedTransactionBaseSchema.extend({
   streamType: z.literal('balance-changes'),
+  transactionHash: z.string().min(1, 'Transaction hash must not be empty').optional(),
   receiptId: z.string().min(1, 'Receipt ID must not be empty').optional(),
   affectedAccountId: z.string().min(1, 'Affected account ID must not be empty'),
   direction: z.enum(['INBOUND', 'OUTBOUND']),
@@ -169,6 +172,15 @@ export const NearBalanceChangeSchema = NormalizedTransactionBaseSchema.extend({
   blockHeight: z.string().min(1, 'Block height must not be empty'),
   cause: NearBalanceChangeCauseSchema,
   involvedAccountId: z.string().optional(),
+}).superRefine((data, ctx) => {
+  // At least one of transactionHash or receiptId must be present
+  if (!data.transactionHash && !data.receiptId) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'At least one of transactionHash or receiptId must be present',
+      path: ['transactionHash'],
+    });
+  }
 });
 
 export type NearBalanceChange = z.infer<typeof NearBalanceChangeSchema>;
@@ -177,16 +189,13 @@ export type NearBalanceChange = z.infer<typeof NearBalanceChangeSchema>;
  * V3: Normalized token transfer from /ft-txns endpoint
  * Contains fungible token transfers
  *
- * Token transfers come from receipt execution (NEP-141 events), so they should
- * always have receiptId. If receiptId is missing or invalid, it indicates a
- * data quality issue with the provider.
- *
- * Note: receiptId can be undefined or invalid (not matching any receipt).
- * Processor will log a warning and attach to transaction-level synthetic receipt.
+ * Token transfers are identified by transactionHash and event_index.
+ * The event_index is used to disambiguate multiple token transfers
+ * within the same transaction.
  */
 export const NearTokenTransferSchema = NormalizedTransactionBaseSchema.extend({
   streamType: z.literal('token-transfers'),
-  receiptId: z.string().min(1, 'Receipt ID must not be empty').optional(),
+  transactionHash: z.string().min(1, 'Transaction hash must not be empty'),
   affectedAccountId: z.string().min(1, 'Affected account ID must not be empty'),
   contractAddress: z.string().min(1, 'Contract address must not be empty'),
   deltaAmountYocto: DecimalStringSchema.optional(),

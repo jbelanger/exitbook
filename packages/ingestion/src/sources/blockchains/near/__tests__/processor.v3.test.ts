@@ -78,10 +78,10 @@ const createBalanceChangeEvent = (overrides: Partial<NearBalanceChangeV3> = {}):
 });
 
 const createTokenTransferEvent = (overrides: Partial<NearTokenTransferV3> = {}): NearStreamEvent => ({
-  id: overrides.receiptId || 'receipt1',
-  eventId: `${overrides.receiptId || 'receipt1'}:tt:0`,
+  id: overrides.transactionHash || 'tx1',
+  eventId: `${overrides.transactionHash || 'tx1'}:tt:${overrides.contractAddress || 'usdc.token.near'}:0`,
   streamType: 'token-transfers',
-  receiptId: 'receipt1',
+  transactionHash: 'tx1',
   affectedAccountId: 'alice.near',
   involvedAccountId: 'bob.near',
   deltaAmountYocto: '-1000000', // -1 USDC (6 decimals)
@@ -276,7 +276,7 @@ describe('NearTransactionProcessorV3', () => {
           tokensBurntYocto: '100000000000000000000',
         }),
         createTokenTransferEvent({
-          receiptId: 'receipt1',
+          transactionHash: 'tx1',
           affectedAccountId: 'bob.near', // NOT primary address = outflow
           involvedAccountId: 'alice.near',
           deltaAmountYocto: '1000000',
@@ -313,7 +313,7 @@ describe('NearTransactionProcessorV3', () => {
         createTransactionEvent({ transactionHash: 'tx1' }),
         createReceiptEvent({ receiptId: 'receipt1', transactionHash: 'tx1' }),
         createTokenTransferEvent({
-          receiptId: 'receipt1',
+          transactionHash: 'tx1',
           affectedAccountId: 'bob.near', // NOT primary address = outflow
           symbol: undefined,
           contractAddress: 'unknown.token.near',
@@ -338,7 +338,7 @@ describe('NearTransactionProcessorV3', () => {
         createReceiptEvent({ receiptId: 'receipt1', transactionHash: 'tx1' }),
         // Outflow: USDC
         createTokenTransferEvent({
-          receiptId: 'receipt1',
+          transactionHash: 'tx1',
           affectedAccountId: 'bob.near', // not primary address = outflow
           deltaAmountYocto: '1000000',
           symbol: 'USDC',
@@ -346,7 +346,7 @@ describe('NearTransactionProcessorV3', () => {
         }),
         // Inflow: USDT
         createTokenTransferEvent({
-          receiptId: 'receipt1',
+          transactionHash: 'tx1',
           affectedAccountId: 'alice.near', // primary address = inflow
           deltaAmountYocto: '1000000',
           symbol: 'USDT',
@@ -379,7 +379,7 @@ describe('NearTransactionProcessorV3', () => {
         createTransactionEvent({ transactionHash: 'tx1' }),
         createReceiptEvent({ receiptId: 'receipt1', transactionHash: 'tx1' }),
         createTokenTransferEvent({
-          receiptId: 'receipt1',
+          transactionHash: 'tx1',
           deltaAmountYocto: '0',
           symbol: 'USDC',
         }),
@@ -466,7 +466,7 @@ describe('NearTransactionProcessorV3', () => {
         // Receipt 2: Token transfer
         createReceiptEvent({ receiptId: 'receipt2', transactionHash: 'tx1' }),
         createTokenTransferEvent({
-          receiptId: 'receipt2',
+          transactionHash: 'tx1',
           affectedAccountId: 'bob.near', // NOT primary address = outflow
           deltaAmountYocto: '500000',
           symbol: 'USDC',
@@ -780,7 +780,7 @@ describe('NearTransactionProcessorV3', () => {
         createTransactionEvent({ transactionHash: 'tx1' }),
         createReceiptEvent({ receiptId: 'receipt1', transactionHash: 'tx1' }),
         createTokenTransferEvent({
-          receiptId: 'receipt1',
+          transactionHash: 'tx1',
           affectedAccountId: 'bob.near', // NOT primary address = outflow
           symbol: undefined, // No symbol
           contractAddress: 'unknown.token.near',
@@ -866,7 +866,7 @@ describe('NearTransactionProcessorV3', () => {
         createTransactionEvent({ transactionHash: 'tx1' }),
         createReceiptEvent({ receiptId: 'receipt1', transactionHash: 'tx1' }),
         createTokenTransferEvent({
-          receiptId: 'receipt1',
+          transactionHash: 'tx1',
           affectedAccountId: 'bob.near', // NOT primary address = outflow
           symbol: 'USDC',
           contractAddress: 'usdc.token.near',
@@ -894,7 +894,7 @@ describe('NearTransactionProcessorV3', () => {
           tokensBurntYocto: '0', // No fee
         }),
         createTokenTransferEvent({
-          receiptId: 'receipt1',
+          transactionHash: 'tx1',
           affectedAccountId: 'alice.near', // Primary address = inflow
           deltaAmountYocto: '1000000',
           symbol: 'SCAM',
@@ -919,7 +919,7 @@ describe('NearTransactionProcessorV3', () => {
         createTransactionEvent({ transactionHash: 'tx1' }),
         createReceiptEvent({ receiptId: 'receipt1', transactionHash: 'tx1' }),
         createTokenTransferEvent({
-          receiptId: 'receipt1',
+          transactionHash: 'tx1',
           symbol: 'USDC',
           contractAddress: 'usdc.token.near',
         }),
@@ -1189,7 +1189,7 @@ describe('NearTransactionProcessorV3', () => {
         createTransactionEvent({ transactionHash: 'tx1' }),
         createReceiptEvent({ receiptId: 'receipt1', transactionHash: 'tx1' }),
         createTokenTransferEvent({
-          receiptId: 'receipt1',
+          transactionHash: 'tx1',
           affectedAccountId: 'bob.near', // NOT primary address = outflow
           symbol: 'USDC',
           contractAddress: 'usdc.token.near',

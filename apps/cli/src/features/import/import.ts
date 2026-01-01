@@ -177,7 +177,8 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       accountRepository,
       transactionRepository,
       providerManager,
-      tokenMetadataService
+      tokenMetadataService,
+      importSessionRepository
     );
 
     // Create handler (pass the provider manager so it uses the same instance and can clean it up)

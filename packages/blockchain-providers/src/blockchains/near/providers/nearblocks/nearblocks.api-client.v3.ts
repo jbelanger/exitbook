@@ -73,9 +73,10 @@ const NEARBLOCKS_DEDUP_WINDOW_SIZE = 200;
  * - Each transaction type independently resumable
  *
  * Correlation Strategy:
- * - Activities and FT transfers have either transaction_hash OR receipt_id (not both null)
- * - Processor uses receipt_id as correlation key (two-hop: tx → receipt → activity)
- * - Items without receipt_id are logged and skipped (cannot correlate via receipts)
+ * - Activities have either transaction_hash OR receipt_id (not both null)
+ * - FT transfers always have transaction_hash (identified by transaction_hash + event_index)
+ * - Processor uses receipt_id as correlation key for activities when available (two-hop: tx → receipt → activity)
+ * - Activities with only transaction_hash are correlated directly to the transaction
  *
  * Architecture:
  * - Provider: Stream raw data for each transaction type
@@ -389,8 +390,7 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
    *
    * Validation:
    * - FAILS if both transaction_hash AND receipt_id are null (orphan)
-   * - WARNS if receipt_id is null (cannot correlate, will be skipped)
-   * - Allows transaction_hash to be null (child receipts)
+   * - Allows either transaction_hash or receipt_id to be null (will correlate via the available one)
    */
   private streamBalanceChanges(
     address: string,
@@ -475,10 +475,7 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
    * Stream token transfers from /ft-txns endpoint
    * Maps raw NearBlocks data to normalized NearTokenTransfer type
    *
-   * Validation:
-   * - FAILS if both transaction_hash AND receipt_id are null (orphan)
-   * - WARNS if receipt_id is null (cannot correlate, will be skipped)
-   * - Allows transaction_hash to be null (child receipts)
+   * Token transfers are identified by transaction_hash and event_index.
    */
   private streamTokenTransfers(
     address: string,
@@ -506,30 +503,6 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
 
       const data = result.value;
       const ftTransfers = data.txns || [];
-
-      // FAIL if BOTH transaction_hash AND receipt_id are missing (orphan detection)
-      // FT transfers can have either transaction_hash OR receipt_id (but not both null)
-      // We need receipt_id for two-hop correlation via receipts
-      for (const ft of ftTransfers) {
-        if (!ft.transaction_hash && !ft.receipt_id) {
-          const error = new Error(
-            `FT transfer missing both transaction_hash and receipt_id. ` +
-              `Account: ${ft.affected_account_id}, Contract: ${ft.ft?.contract || 'unknown'}, ` +
-              `Block: ${ft.block_height}`
-          );
-          this.logger.error({ ftTransfer: ft }, `Orphaned FT transfer detected - ${error.message}`);
-          return err(error);
-        }
-        if (!ft.receipt_id) {
-          // Log warning for FT transfers without receipt_id (can't correlate via receipts)
-          this.logger.warn(
-            `FT transfer has transaction_hash but no receipt_id - cannot correlate to receipt. ` +
-              `Transaction: ${ft.transaction_hash}, Account: ${ft.affected_account_id}, ` +
-              `Contract: ${ft.ft?.contract || 'unknown'}, Block: ${ft.block_height ?? 'unknown'}. ` +
-              `This transfer will be skipped.`
-          );
-        }
-      }
 
       this.logger.debug(
         `Fetched FT transfers - Address: ${maskAddress(address)}, Count: ${ftTransfers.length}, Next: ${data.cursor ? 'yes' : 'no'}`

@@ -18,6 +18,7 @@
 
 import type { NearBalanceChangeV3, NearStreamEvent } from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, type TokenMetadataRecord } from '@exitbook/core';
+import type { IRawDataRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { err, errAsync, ok, type Result } from 'neverthrow';
 
@@ -54,7 +55,12 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
   // Override to make tokenMetadataService required (guaranteed by factory)
   declare protected readonly tokenMetadataService: ITokenMetadataService;
 
-  constructor(tokenMetadataService: ITokenMetadataService, scamDetectionService?: IScamDetectionService) {
+  constructor(
+    tokenMetadataService: ITokenMetadataService,
+    scamDetectionService?: IScamDetectionService,
+    private readonly rawDataRepository?: IRawDataRepository,
+    private readonly accountId?: number | undefined
+  ) {
     super('near', tokenMetadataService, scamDetectionService);
   }
 
@@ -79,7 +85,18 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
     let enrichedNormalizedData = normalizedData;
 
     if (balanceChanges.length > 0) {
-      const derivedResult = deriveBalanceChangeDeltasFromAbsolutes(balanceChanges);
+      const missingDeltas = balanceChanges.some((change) => !change.deltaAmountYocto);
+      let previousBalances = new Map<string, string>();
+
+      if (missingDeltas) {
+        const previousResult = await this.loadPreviousBalances(balanceChanges);
+        if (previousResult.isErr()) {
+          return err(previousResult.error);
+        }
+        previousBalances = previousResult.value;
+      }
+
+      const derivedResult = deriveBalanceChangeDeltasFromAbsolutes(balanceChanges, previousBalances);
 
       if (derivedResult.derivedDeltas.size > 0) {
         // Create new enriched objects instead of mutating
@@ -211,6 +228,115 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
     }
 
     return ok(transactions);
+  }
+
+  private async loadPreviousBalances(
+    balanceChanges: NearBalanceChangeV3[]
+  ): Promise<Result<Map<string, string>, string>> {
+    if (!this.rawDataRepository || this.accountId === undefined) {
+      this.logger.warn(
+        'NEAR processor missing rawDataRepository/accountId. Proceeding without previous balance lookup.'
+      );
+      return ok(new Map());
+    }
+
+    const earliestByAccount = new Map<string, NearBalanceChangeV3>();
+    for (const change of balanceChanges) {
+      const existing = earliestByAccount.get(change.affectedAccountId);
+      if (!existing || this.compareBalanceChanges(change, existing) < 0) {
+        earliestByAccount.set(change.affectedAccountId, change);
+      }
+    }
+
+    if (earliestByAccount.size === 0) {
+      return ok(new Map());
+    }
+
+    let maxTimestamp = 0;
+    for (const change of earliestByAccount.values()) {
+      if (change.timestamp > maxTimestamp) {
+        maxTimestamp = change.timestamp;
+      }
+    }
+
+    const affectedAccounts = Array.from(earliestByAccount.keys());
+    const processedResult = await this.rawDataRepository.loadProcessedNearBalanceChangesByAccounts(
+      this.accountId,
+      affectedAccounts,
+      maxTimestamp
+    );
+
+    if (processedResult.isErr()) {
+      return err(`Failed to load previous NEAR balances: ${processedResult.error.message}`);
+    }
+
+    const processedByAccount = new Map<string, NearBalanceChangeV3[]>();
+    for (const row of processedResult.value) {
+      const change = row.normalizedData as NearBalanceChangeV3;
+      if (!change?.affectedAccountId || !change.absoluteNonstakedAmount) {
+        this.logger.warn(
+          { eventId: row.eventId, accountId: row.accountId },
+          'Skipping malformed processed balance change when deriving previous balances'
+        );
+        continue;
+      }
+
+      const existing = processedByAccount.get(change.affectedAccountId) || [];
+      existing.push(change);
+      processedByAccount.set(change.affectedAccountId, existing);
+    }
+
+    const previousBalances = new Map<string, string>();
+    for (const [accountId, earliest] of earliestByAccount.entries()) {
+      const candidates = processedByAccount.get(accountId);
+      if (!candidates || candidates.length === 0) {
+        continue;
+      }
+
+      let latest: NearBalanceChangeV3 | undefined;
+      for (const candidate of candidates) {
+        if (this.compareBalanceChanges(candidate, earliest) >= 0) {
+          continue;
+        }
+        if (!latest || this.compareBalanceChanges(candidate, latest) > 0) {
+          latest = candidate;
+        }
+      }
+
+      if (latest) {
+        previousBalances.set(accountId, latest.absoluteNonstakedAmount);
+      }
+    }
+
+    return ok(previousBalances);
+  }
+
+  private compareBalanceChanges(a: NearBalanceChangeV3, b: NearBalanceChangeV3): number {
+    if (a.timestamp !== b.timestamp) {
+      return a.timestamp - b.timestamp;
+    }
+    const heightA = this.parseBlockHeight(a.blockHeight);
+    const heightB = this.parseBlockHeight(b.blockHeight);
+    if (heightA !== heightB) {
+      return heightA - heightB;
+    }
+    const hasReceiptA = a.receiptId !== undefined && a.receiptId !== null;
+    const hasReceiptB = b.receiptId !== undefined && b.receiptId !== null;
+    if (hasReceiptA !== hasReceiptB) {
+      return hasReceiptA ? -1 : 1;
+    }
+    const receiptA = a.receiptId ?? '';
+    const receiptB = b.receiptId ?? '';
+    if (receiptA !== receiptB) {
+      return receiptA.localeCompare(receiptB);
+    }
+    return (a.eventId ?? '').localeCompare(b.eventId ?? '');
+  }
+
+  private parseBlockHeight(blockHeight: string | undefined): number {
+    if (!blockHeight) return 0;
+    const parsed = Number.parseInt(blockHeight, 10);
+    return Number.isNaN(parsed) ? 0 : parsed;
   }
 
   /**

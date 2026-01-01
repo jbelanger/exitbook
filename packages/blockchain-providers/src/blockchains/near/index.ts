@@ -2,9 +2,6 @@
  * NEAR blockchain provider exports
  */
 
-// V2 schemas (receipt-based event model)
-export * from './schemas.v2.js';
-
 export * from './utils.ts';
 
 // V3 schemas and types (normalized streaming model)

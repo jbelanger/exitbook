@@ -179,19 +179,24 @@ export const NearBlocksReceiptsResponseSchema = z.object({
  */
 export const NearBlocksFtTransactionSchema = z.object({
   affected_account_id: z.string().min(1, 'Affected account ID must not be empty'),
-  block_height: z.number().nullish(),
+  block: NearBlocksBlockSchema.nullish(),
   block_timestamp: z.string().min(1, 'Block timestamp must not be empty'),
   cause: z.string().nullish(),
   delta_amount: z.string().nullish(),
+  event_index: z.string().nullish(),
   ft: z.object({
     contract: z.string().min(1, 'Contract must not be empty'),
     decimals: z.number().nonnegative(),
+    icon: z.string().nullish(),
     name: z.string().nullish(),
+    reference: z.string().nullish(),
     symbol: z.string().nullish(),
   }),
+  included_in_block_hash: z.string().nullish(),
   involved_account_id: z.string().nullish(),
-  receipt_id: z.string().min(1, 'Receipt ID must not be empty'),
-  transaction_hash: z.string().nullish(),
+  outcomes: NearBlocksOutcomeSchema.nullish(),
+  outcomes_agg: z.record(z.string(), z.union([z.number(), z.string()])).nullish(),
+  transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
 });
 
 /**

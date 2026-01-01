@@ -311,7 +311,7 @@ describe('NearBlocksFtTransactionSchema', () => {
         name: 'USD Coin',
         symbol: 'USDC',
       },
-      receipt_id: 'receipt123',
+      transaction_hash: 'tx123',
     };
 
     const result = NearBlocksFtTransactionSchema.safeParse(validFtTx);
@@ -325,13 +325,13 @@ describe('NearBlocksFtTransactionSchema', () => {
       block_timestamp: '1640000000000000000',
       cause: 'MINT',
       delta_amount: '1000000',
+      event_index: '12345',
       ft: {
         contract: 'usdc.near',
         decimals: 6,
         symbol: 'USDC',
       },
       involved_account_id: 'bob.near',
-      receipt_id: 'receipt123',
       transaction_hash: 'tx123',
     };
 
@@ -341,6 +341,7 @@ describe('NearBlocksFtTransactionSchema', () => {
       expect(result.data.cause).toBe('MINT');
       expect(result.data.delta_amount).toBe('1000000');
       expect(result.data.involved_account_id).toBe('bob.near');
+      expect(result.data.event_index).toBe('12345');
     }
   });
 
@@ -348,7 +349,7 @@ describe('NearBlocksFtTransactionSchema', () => {
     const invalidFtTx = {
       affected_account_id: '',
       block_timestamp: '1640000000000000000',
-      receipt_id: 'receipt123',
+      transaction_hash: 'tx123',
     };
 
     const result = NearBlocksFtTransactionSchema.safeParse(invalidFtTx);
@@ -359,18 +360,22 @@ describe('NearBlocksFtTransactionSchema', () => {
     const invalidFtTx = {
       affected_account_id: 'alice.near',
       block_timestamp: '',
-      receipt_id: 'receipt123',
+      transaction_hash: 'tx123',
     };
 
     const result = NearBlocksFtTransactionSchema.safeParse(invalidFtTx);
     expect(result.success).toBe(false);
   });
 
-  test('should reject FT transaction with empty receipt_id', () => {
+  test('should reject FT transaction with empty transaction_hash', () => {
     const invalidFtTx = {
       affected_account_id: 'alice.near',
       block_timestamp: '1640000000000000000',
-      receipt_id: '',
+      ft: {
+        contract: 'usdc.near',
+        decimals: 6,
+      },
+      transaction_hash: '',
     };
 
     const result = NearBlocksFtTransactionSchema.safeParse(invalidFtTx);
@@ -385,7 +390,7 @@ describe('NearBlocksFtTransactionSchema', () => {
         contract: 'token.near',
         decimals: 18,
       },
-      receipt_id: 'receipt123',
+      transaction_hash: 'tx123',
     };
 
     const result = NearBlocksFtTransactionSchema.safeParse(ftTx);
@@ -400,7 +405,7 @@ describe('NearBlocksFtTransactionSchema', () => {
         contract: 'token.near',
         decimals: -1,
       },
-      receipt_id: 'receipt123',
+      transaction_hash: 'tx123',
     };
 
     const result = NearBlocksFtTransactionSchema.safeParse(ftTx);
@@ -415,7 +420,7 @@ describe('NearBlocksFtTransactionSchema', () => {
         contract: '',
         decimals: 6,
       },
-      receipt_id: 'receipt123',
+      transaction_hash: 'tx123',
     };
 
     const result = NearBlocksFtTransactionSchema.safeParse(ftTx);
@@ -430,7 +435,7 @@ describe('NearBlocksFtTransactionsResponseSchema', () => {
         {
           affected_account_id: 'alice.near',
           block_timestamp: '1640000000000000000',
-          receipt_id: 'receipt123',
+          transaction_hash: 'tx123',
           ft: {
             contract: 'token.near',
             decimals: 18,

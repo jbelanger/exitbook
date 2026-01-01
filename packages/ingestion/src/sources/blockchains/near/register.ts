@@ -30,12 +30,16 @@ export function registerNearChain(): void {
     createProcessor: (
       _providerManager,
       tokenMetadataService?: ITokenMetadataService,
-      scamDetectionService?: IScamDetectionService
+      scamDetectionService?: IScamDetectionService,
+      rawDataRepository?,
+      accountId?
     ) => {
       if (!tokenMetadataService) {
         return err(new Error('TokenMetadataService is required for NEAR processor'));
       }
-      return ok(new NearTransactionProcessorV3(tokenMetadataService, scamDetectionService));
+      return ok(
+        new NearTransactionProcessorV3(tokenMetadataService, scamDetectionService, rawDataRepository, accountId)
+      );
     },
   });
 }

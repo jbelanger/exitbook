@@ -34,7 +34,9 @@ export function registerEvmChains(): void {
       createProcessor: (
         providerManager: BlockchainProviderManager,
         tokenMetadataService?: ITokenMetadataService,
-        scamDetectionService?: IScamDetectionService
+        scamDetectionService?: IScamDetectionService,
+        _rawDataRepository?,
+        _accountId?
       ) => {
         if (!tokenMetadataService) {
           return err(new Error('TokenMetadataService is required for EVM processor'));

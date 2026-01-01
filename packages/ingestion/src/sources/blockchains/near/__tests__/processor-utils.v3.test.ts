@@ -87,10 +87,10 @@ const createBalanceChange = (overrides: Partial<NearBalanceChangeV3> = {}): Near
 });
 
 const createTokenTransfer = (overrides: Partial<NearTokenTransferV3> = {}): NearTokenTransferV3 => ({
-  id: `${overrides.receiptId || 'receipt1'}:tt:0`,
-  eventId: `${overrides.receiptId || 'receipt1'}:tt:0`,
+  id: overrides.transactionHash || 'tx1',
+  eventId: `token-transfers:${overrides.transactionHash || 'tx1'}:0`,
   streamType: 'token-transfers',
-  receiptId: 'receipt1',
+  transactionHash: 'tx1',
   affectedAccountId: 'alice.near',
   involvedAccountId: 'bob.near',
   deltaAmountYocto: '-1000000',
@@ -122,7 +122,7 @@ describe('NEAR V3 Processor Utils - groupByTransactionHash', () => {
       },
       {
         blockchainTransactionHash: 'tx1',
-        normalizedData: createTokenTransfer({ receiptId: 'receipt1' }),
+        normalizedData: createTokenTransfer({ transactionHash: 'tx1' }),
         transactionTypeHint: 'token-transfers',
       },
     ];
@@ -347,24 +347,33 @@ describe('NEAR V3 Processor Utils - correlateTransactionData', () => {
         createBalanceChange({ receiptId: 'receipt1', deltaAmountYocto: '-1000000000000000000000000' }),
         createBalanceChange({ receiptId: 'receipt2', deltaAmountYocto: '500000000000000000000000' }),
       ],
-      tokenTransfers: [createTokenTransfer({ receiptId: 'receipt1', deltaAmountYocto: '-1000000' })],
+      tokenTransfers: [createTokenTransfer({ transactionHash: 'tx1', deltaAmountYocto: '-1000000' })],
     };
 
     const result = correlateTransactionData(group);
 
     expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    if (result.isErr()) {
+      console.error(result.error);
+      return;
+    }
 
     const correlated = result.value;
-    expect(correlated.receipts).toHaveLength(2);
+    expect(correlated.receipts).toHaveLength(3); // receipt1, receipt2, and transaction-level synthetic receipt
 
-    // Receipt 1 should have 1 balance change and 1 token transfer
+    // Receipt 1 should have 1 balance change and 0 token transfers
     expect(correlated.receipts[0]!.balanceChanges).toHaveLength(1);
-    expect(correlated.receipts[0]!.tokenTransfers).toHaveLength(1);
+    expect(correlated.receipts[0]!.tokenTransfers).toHaveLength(0);
 
     // Receipt 2 should have 1 balance change and 0 token transfers
     expect(correlated.receipts[1]!.balanceChanges).toHaveLength(1);
     expect(correlated.receipts[1]!.tokenTransfers).toHaveLength(0);
+
+    // Transaction-level synthetic receipt should have 0 balance changes and 1 token transfer
+    const syntheticReceipt = correlated.receipts.find((r) => r.isSynthetic);
+    expect(syntheticReceipt).toBeDefined();
+    expect(syntheticReceipt!.balanceChanges).toHaveLength(0);
+    expect(syntheticReceipt!.tokenTransfers).toHaveLength(1);
   });
 
   test('should fail-fast when activity missing deltaAmount', () => {
@@ -430,42 +439,6 @@ describe('NEAR V3 Processor Utils - correlateTransactionData', () => {
     if (result.isErr()) {
       expect(result.error.message).toContain("has invalid receipt_id 'orphan-receipt'");
       expect(result.error.message).toContain('does not match any known receipt');
-    }
-  });
-
-  test('should fail fast for token transfers with invalid receipt_id', () => {
-    // Token transfers must have valid receipt_id (they come from receipt execution)
-    const group: RawTransactionGroup = {
-      transaction: createTransaction(),
-      receipts: [createReceipt({ receiptId: 'receipt1' })],
-      balanceChanges: [],
-      tokenTransfers: [createTokenTransfer({ receiptId: 'orphan-receipt', deltaAmountYocto: '-1000000' })],
-    };
-
-    const result = correlateTransactionData(group);
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toContain("has invalid receipt_id 'orphan-receipt'");
-      expect(result.error.message).toContain('Token transfer');
-    }
-  });
-
-  test('should fail fast for token transfers missing receipt_id', () => {
-    // Token transfers must have receipt_id
-    const group: RawTransactionGroup = {
-      transaction: createTransaction(),
-      receipts: [createReceipt({ receiptId: 'receipt1' })],
-      balanceChanges: [],
-      tokenTransfers: [createTokenTransfer({ receiptId: undefined, deltaAmountYocto: '-1000000' })],
-    };
-
-    const result = correlateTransactionData(group);
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toContain('Token transfer missing receipt_id');
-      expect(result.error.message).toContain('data quality issues');
     }
   });
 

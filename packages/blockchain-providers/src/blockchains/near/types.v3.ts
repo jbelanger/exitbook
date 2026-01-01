@@ -26,7 +26,8 @@ export interface NearReceiptAction {
  * Used after correlating activities with receipts
  */
 export interface NearBalanceChange {
-  receiptId: string;
+  transactionHash?: string | undefined;
+  receiptId?: string | undefined;
   affectedAccountId: string;
   direction: 'INBOUND' | 'OUTBOUND';
   deltaAmountYocto: string | undefined;
@@ -43,7 +44,7 @@ export interface NearBalanceChange {
  * Used after correlating ft-transfers with receipts
  */
 export interface NearTokenTransfer {
-  receiptId: string;
+  transactionHash: string;
   affectedAccountId: string;
   contractAddress: string;
   deltaAmountYocto: string | undefined;

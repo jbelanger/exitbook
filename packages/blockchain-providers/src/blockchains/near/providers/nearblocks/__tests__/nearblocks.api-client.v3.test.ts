@@ -1,7 +1,6 @@
 /* eslint-disable unicorn/no-null -- acceptable for tests */
 import { createHash } from 'node:crypto';
 
-import { getLogger } from '@exitbook/logger';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -46,17 +45,6 @@ vi.mock('@exitbook/logger', () => ({
 function generateDeterministicHash(data: unknown): string {
   const rawJson = JSON.stringify(sortKeys(data));
   return createHash('sha256').update(rawJson).digest('hex');
-}
-
-function getLoggedWarnings(): string[] {
-  return vi
-    .mocked(getLogger)
-    .mock.results.flatMap((result) => {
-      const logger = result.value as { warn: ReturnType<typeof vi.fn> } | undefined;
-      if (!logger?.warn) return [];
-      return logger.warn.mock.calls.map((call) => call[0] as unknown);
-    })
-    .filter((message): message is string => typeof message === 'string');
 }
 
 describe('NearBlocksApiClientV3', () => {
@@ -586,7 +574,6 @@ describe('NearBlocksApiClientV3', () => {
 
     const mockFtTransfer: NearBlocksFtTransaction = {
       transaction_hash: 'tx123',
-      receipt_id: 'receipt123',
       affected_account_id: 'alice.near',
       ft: {
         contract: 'usdc.near',
@@ -596,8 +583,8 @@ describe('NearBlocksApiClientV3', () => {
       },
       delta_amount: '1000000',
       block_timestamp: '1640000000000000000',
-      block_height: 100000,
       cause: 'TRANSFER',
+      event_index: '12345',
       involved_account_id: 'bob.near',
     };
 
@@ -626,7 +613,7 @@ describe('NearBlocksApiClientV3', () => {
       expect(allEvents).toHaveLength(1);
       expect(allEvents[0]).toMatchObject({
         streamType: 'token-transfers',
-        receiptId: 'receipt123',
+        transactionHash: 'tx123',
         affectedAccountId: 'alice.near',
         contractAddress: 'usdc.near',
         deltaAmountYocto: '1000000',
@@ -637,7 +624,7 @@ describe('NearBlocksApiClientV3', () => {
       });
     });
 
-    it('should generate deterministic event ID for token transfers', async () => {
+    it('should namespace event_index with transaction hash for token transfer IDs', async () => {
       const mockResponse = {
         txns: [mockFtTransfer],
         cursor: undefined,
@@ -660,76 +647,7 @@ describe('NearBlocksApiClientV3', () => {
       }
 
       const event = allEvents[0];
-      expect(event?.eventId).toBeDefined();
-      expect(event?.eventId).toMatch(/^token-transfers:[a-f0-9]{64}$/);
-
-      // Verify event ID is deterministic
-      const expectedHash = generateDeterministicHash(mockFtTransfer);
-      expect(event?.eventId).toBe(`token-transfers:${expectedHash}`);
-    });
-
-    it('should FAIL if token transfer missing BOTH transaction_hash AND receipt_id', async () => {
-      const orphanedFt = {
-        ...mockFtTransfer,
-        transaction_hash: undefined,
-        receipt_id: undefined,
-      };
-
-      const mockResponse = {
-        txns: [orphanedFt],
-        cursor: undefined,
-      };
-
-      mockHttpGet.mockResolvedValue(ok(mockResponse));
-
-      const operation = {
-        type: 'getAddressTransactions' as const,
-        address: mockAddress,
-        transactionType: 'token-transfers' as const,
-      };
-
-      let hasError = false;
-      for await (const result of client.executeStreaming<NearTokenTransfer>(operation)) {
-        expect(result.isErr()).toBe(true);
-        if (result.isErr()) {
-          expect(result.error.message).toContain('FT transfer missing both transaction_hash and receipt_id');
-          hasError = true;
-        }
-      }
-      expect(hasError).toBe(true);
-    });
-
-    it('should WARN but continue if token transfer missing receipt_id (will be skipped in processor)', async () => {
-      const uncorrelatableFt = {
-        ...mockFtTransfer,
-        receipt_id: undefined,
-      };
-
-      const mockResponse = {
-        txns: [uncorrelatableFt],
-        cursor: undefined,
-      };
-
-      mockHttpGet.mockResolvedValue(ok(mockResponse));
-
-      const operation = {
-        type: 'getAddressTransactions' as const,
-        address: mockAddress,
-        transactionType: 'token-transfers' as const,
-      };
-
-      // FT transfer without receipt_id should still be emitted but will be skipped in processor
-      const events: NearTokenTransfer[] = [];
-      for await (const result of client.executeStreaming<NearTokenTransfer>(operation)) {
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          events.push(...result.value.data.map((item) => item.normalized));
-        }
-      }
-      expect(events).toHaveLength(1);
-      expect(events[0]?.receiptId).toBeUndefined();
-      const warnings = getLoggedWarnings();
-      expect(warnings.some((message) => message.includes('no receipt_id'))).toBe(true);
+      expect(event?.eventId).toBe('token-transfers:tx123:12345');
     });
   });
 
@@ -797,10 +715,10 @@ describe('NearBlocksApiClientV3', () => {
 
     it('should extract cursors from token transfer event', () => {
       const event: NearTokenTransfer = {
-        eventId: 'token-transfers:hash123',
+        eventId: 'token-transfers:tx123:0',
         id: 'tx123',
         streamType: 'token-transfers',
-        receiptId: 'receipt123',
+        transactionHash: 'tx123',
         affectedAccountId: 'alice.near',
         contractAddress: 'usdc.near',
         decimals: 6,

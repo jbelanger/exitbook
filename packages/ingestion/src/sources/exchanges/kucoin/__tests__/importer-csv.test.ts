@@ -43,7 +43,7 @@ describe('KucoinCsvImporter - Streaming Import', () => {
 
   test('successfully streams transactions from CSV file', async () => {
     mockReaddir.mockResolvedValue([createMockDirent('Spot Orders_Filled Orders.csv')] as unknown as Dirent<
-      Buffer<ArrayBufferLike>
+      Buffer<ArrayBuffer>
     >[]);
 
     const csvContent = `UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status
@@ -66,7 +66,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
   test('sets cursor metadata with file information', async () => {
     mockReaddir.mockResolvedValue([createMockDirent('Spot Orders_Filled Orders.csv')] as unknown as Dirent<
-      Buffer<ArrayBufferLike>
+      Buffer<ArrayBuffer>
     >[]);
 
     const csvContent = `UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status
@@ -95,7 +95,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
   test('does not include legacy metadata in individual transactions', async () => {
     mockReaddir.mockResolvedValue([createMockDirent('Spot Orders_Filled Orders.csv')] as unknown as Dirent<
-      Buffer<ArrayBufferLike>
+      Buffer<ArrayBuffer>
     >[]);
 
     const csvContent = `UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status
@@ -125,7 +125,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     const completedFilePath = '/test/csv/Spot Orders_Filled Orders.csv';
 
     mockReaddir.mockResolvedValue([createMockDirent('Spot Orders_Filled Orders.csv')] as unknown as Dirent<
-      Buffer<ArrayBufferLike>
+      Buffer<ArrayBuffer>
     >[]);
 
     const params: ImportParams = {
@@ -166,7 +166,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     mockReaddir.mockResolvedValue([
       createMockDirent('Spot Orders_Filled Orders.csv'),
       createMockDirent('Deposits.csv'),
-    ] as unknown as Dirent<Buffer<ArrayBufferLike>>[]);
+    ] as unknown as Dirent<Buffer<ArrayBuffer>>[]);
 
     mockReadFile.mockImplementation((filePath) => {
       const path = filePath as string;
@@ -210,7 +210,7 @@ describe('KucoinCsvImporter - Transaction Type Metadata', () => {
 
   test('sets correct metadata for spot orders', async () => {
     mockReaddir.mockResolvedValue([createMockDirent('Spot Orders_Filled Orders.csv')] as unknown as Dirent<
-      Buffer<ArrayBufferLike>
+      Buffer<ArrayBuffer>
     >[]);
 
     const csvContent = `UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status
@@ -232,7 +232,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
   });
 
   test('sets correct metadata for deposits', async () => {
-    mockReaddir.mockResolvedValue([createMockDirent('Deposits.csv')] as unknown as Dirent<Buffer<ArrayBufferLike>>[]);
+    mockReaddir.mockResolvedValue([createMockDirent('Deposits.csv')] as unknown as Dirent<Buffer<ArrayBuffer>>[]);
 
     const csvContent = `UID,Account Type,Time(UTC),Coin,Amount,Fee,Hash,Deposit Address,Transfer Network,Status,Remarks
 user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,success,`;
@@ -253,9 +253,7 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
   });
 
   test('sets correct metadata for withdrawals', async () => {
-    mockReaddir.mockResolvedValue([createMockDirent('Withdrawals.csv')] as unknown as Dirent<
-      Buffer<ArrayBufferLike>
-    >[]);
+    mockReaddir.mockResolvedValue([createMockDirent('Withdrawals.csv')] as unknown as Dirent<Buffer<ArrayBuffer>>[]);
 
     const csvContent = `UID,Account Type,Time(UTC),Coin,Amount,Fee,Hash,Withdrawal Address/Account,Transfer Network,Status,Remarks
 user123,mainAccount,2024-01-02 10:00:00,BTC,0.5,0.0005,hash456,bc1q...,Bitcoin,success,`;
@@ -291,7 +289,7 @@ describe('KucoinCsvImporter - Row Type Marking', () => {
 
   test('adds _rowType to spot order data', async () => {
     mockReaddir.mockResolvedValue([createMockDirent('Spot Orders_Filled Orders.csv')] as unknown as Dirent<
-      Buffer<ArrayBufferLike>
+      Buffer<ArrayBuffer>
     >[]);
 
     const csvContent = `UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status
@@ -312,7 +310,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
   });
 
   test('adds _rowType to deposit data', async () => {
-    mockReaddir.mockResolvedValue([createMockDirent('Deposits.csv')] as unknown as Dirent<Buffer<ArrayBufferLike>>[]);
+    mockReaddir.mockResolvedValue([createMockDirent('Deposits.csv')] as unknown as Dirent<Buffer<ArrayBuffer>>[]);
 
     const csvContent = `UID,Account Type,Time(UTC),Coin,Amount,Fee,Hash,Deposit Address,Transfer Network,Status,Remarks
 user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,success,`;
@@ -331,9 +329,7 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
   });
 
   test('adds _rowType to withdrawal data', async () => {
-    mockReaddir.mockResolvedValue([createMockDirent('Withdrawals.csv')] as unknown as Dirent<
-      Buffer<ArrayBufferLike>
-    >[]);
+    mockReaddir.mockResolvedValue([createMockDirent('Withdrawals.csv')] as unknown as Dirent<Buffer<ArrayBuffer>>[]);
 
     const csvContent = `UID,Account Type,Time(UTC),Coin,Amount,Fee,Hash,Withdrawal Address/Account,Transfer Network,Status,Remarks
 user123,mainAccount,2024-01-02 10:00:00,BTC,0.5,0.0005,hash456,bc1q...,Bitcoin,success,`;
@@ -403,7 +399,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
 
   test('handles CSV parsing errors gracefully by skipping unreadable files', async () => {
     mockReaddir.mockResolvedValue([createMockDirent('Spot Orders_Filled Orders.csv')] as unknown as Dirent<
-      Buffer<ArrayBufferLike>
+      Buffer<ArrayBuffer>
     >[]);
     mockReadFile.mockRejectedValue(new Error('File read error'));
 

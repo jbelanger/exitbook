@@ -57,13 +57,13 @@ export function sortKeys(obj: unknown): unknown {
 }
 
 /**
- * Generate unique event ID using deterministic hashing
+ * Generate unique event ID using deterministic identifiers
  *
  * Event ID generation strategy:
  * - Transactions: Use transaction hash (already unique)
  * - Receipts: Use receipt ID (already unique)
  * - Balance changes: SHA-256 hash of sorted raw data (collision-resistant)
- * - Token transfers: SHA-256 hash of sorted raw data (collision-resistant)
+ * - Token transfers: Use event_index (API-provided unique event identifier)
  */
 function generateEventId(
   type: 'transactions' | 'receipts' | 'balance-changes' | 'token-transfers',
@@ -76,8 +76,19 @@ function generateEventId(
     case 'receipts':
       return (data as NearBlocksReceiptV2).receipt_id;
 
-    case 'balance-changes':
     case 'token-transfers': {
+      const ft = data as NearBlocksFtTransaction;
+      // Use transaction_hash + event_index for stable, unique IDs
+      const txHash = ft.transaction_hash ?? 'unknown';
+      if (ft.event_index) {
+        return `token-transfers:${txHash}:${ft.event_index}`;
+      }
+      const rawJson = JSON.stringify(sortKeys(data));
+      const hash = createHash('sha256').update(rawJson).digest('hex');
+      return `token-transfers:${txHash}:${hash}`;
+    }
+
+    case 'balance-changes': {
       const rawJson = JSON.stringify(sortKeys(data));
       const hash = createHash('sha256').update(rawJson).digest('hex');
       return `${type}:${hash}`;
@@ -269,6 +280,7 @@ export function mapRawActivityToBalanceChange(rawActivity: NearBlocksActivity): 
     eventId: generateEventId('balance-changes', rawActivity),
     id,
     streamType: 'balance-changes' as const,
+    transactionHash: rawActivity.transaction_hash ?? undefined,
     receiptId: rawActivity.receipt_id ?? undefined,
     affectedAccountId: rawActivity.affected_account_id,
     direction: rawActivity.direction,
@@ -292,16 +304,11 @@ export function mapRawFtToTokenTransfer(rawFt: NearBlocksFtTransaction): Result<
   try {
     const blockTimestamp = parseNearBlocksTimestamp(rawFt.block_timestamp);
 
-    // Use transaction_hash as id if available, otherwise fall back to receipt_id
-    // This allows for child receipts that don't have a transaction_hash
-    // Note: receipt_id can be null - processor will skip these during correlation
-    const id = rawFt.transaction_hash ?? rawFt.receipt_id ?? `orphan-${rawFt.affected_account_id}-${rawFt.ft.contract}`;
-
     const tokenTransfer: NearTokenTransfer = {
       eventId: generateEventId('token-transfers', rawFt),
-      id,
+      id: rawFt.transaction_hash,
       streamType: 'token-transfers' as const,
-      receiptId: rawFt.receipt_id ?? undefined,
+      transactionHash: rawFt.transaction_hash,
       affectedAccountId: rawFt.affected_account_id,
       contractAddress: rawFt.ft.contract,
       deltaAmountYocto: rawFt.delta_amount ?? undefined,
@@ -309,7 +316,7 @@ export function mapRawFtToTokenTransfer(rawFt: NearBlocksFtTransaction): Result<
       symbol: rawFt.ft.symbol ?? undefined,
       name: rawFt.ft.name ?? undefined,
       timestamp: blockTimestamp,
-      blockHeight: rawFt.block_height ?? undefined,
+      blockHeight: rawFt.block?.block_height ?? undefined,
       cause: rawFt.cause ?? undefined,
       involvedAccountId: rawFt.involved_account_id ?? undefined,
     };

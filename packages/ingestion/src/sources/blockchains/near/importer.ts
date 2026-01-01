@@ -140,7 +140,7 @@ export class NearTransactionImporter implements IImporter {
       const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
         providerName: providerBatch.providerName,
         eventId: txWithRaw.normalized.eventId, // Deterministic event ID
-        blockchainTransactionHash: txWithRaw.normalized.id, // Parent transaction hash
+        blockchainTransactionHash: txWithRaw.normalized.transactionHash ?? undefined, // Transaction hash from normalized data
         timestamp: txWithRaw.normalized.timestamp,
         transactionTypeHint: transactionType, // Stream type for processor correlation
         sourceAddress: address,

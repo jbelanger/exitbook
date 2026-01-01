@@ -1,6 +1,11 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getErrorMessage, type RawTransaction } from '@exitbook/core';
-import type { AccountRepository, IRawDataRepository, ITransactionRepository } from '@exitbook/data';
+import type {
+  AccountRepository,
+  IImportSessionRepository,
+  IRawDataRepository,
+  ITransactionRepository,
+} from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import { err, ok } from 'neverthrow';
@@ -18,6 +23,13 @@ import type { IScamDetectionService } from '../scam-detection/scam-detection-ser
 import { ScamDetectionService } from '../scam-detection/scam-detection-service.js';
 import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.js';
 
+import {
+  AllAtOnceBatchProvider,
+  HashGroupedBatchProvider,
+  NearStreamBatchProvider,
+  type IRawDataBatchProvider,
+} from './batch-providers/index.js';
+
 const TRANSACTION_SAVE_BATCH_SIZE = 500;
 const RAW_DATA_MARK_BATCH_SIZE = 500;
 const RAW_DATA_HASH_BATCH_SIZE = 100; // For blockchain accounts, process in hash-grouped batches to ensure correlation integrity
@@ -31,7 +43,8 @@ export class TransactionProcessService {
     private accountRepository: AccountRepository,
     private transactionRepository: ITransactionRepository,
     private providerManager: BlockchainProviderManager,
-    private tokenMetadataService: ITokenMetadataService
+    private tokenMetadataService: ITokenMetadataService,
+    private importSessionRepository: IImportSessionRepository
   ) {
     this.logger = getLogger('TransactionProcessService');
     this.scamDetectionService = new ScamDetectionService();
@@ -57,6 +70,12 @@ export class TransactionProcessService {
       }
 
       this.logger.debug(`Found pending records across ${accountIds.length} accounts`);
+
+      // CRITICAL: Check for active imports before processing to prevent data corruption
+      const activeImportsCheck = await this.checkForActiveImports(accountIds);
+      if (activeImportsCheck.isErr()) {
+        return err(activeImportsCheck.error);
+      }
 
       // Process each account
       let totalProcessed = 0;
@@ -95,6 +114,12 @@ export class TransactionProcessService {
    */
   async processAccountTransactions(accountId: number): Promise<Result<ProcessResult, Error>> {
     try {
+      // CRITICAL: Check for active import before processing to prevent data corruption
+      const activeImportsCheck = await this.checkForActiveImports([accountId]);
+      if (activeImportsCheck.isErr()) {
+        return err(activeImportsCheck.error);
+      }
+
       // Load account to get source information
       const accountResult = await this.accountRepository.findById(accountId);
       if (accountResult.isErr()) {
@@ -103,16 +128,13 @@ export class TransactionProcessService {
 
       const account = accountResult.value;
       const sourceType = account.accountType;
+      const sourceName = account.sourceName;
 
-      // For blockchain accounts, use hash-grouped batch processing to:
-      // 1. Avoid loading 100k+ transactions into memory
-      // 2. Ensure all events with same blockchain_transaction_hash are processed together
-      if (sourceType === 'blockchain') {
-        return this.processAccountTransactionsChunked(accountId, account);
-      }
+      // Choose batch provider based on source type
+      const batchProvider = this.createBatchProvider(sourceType, sourceName, accountId);
 
-      // Exchange processing - load all pending data at once
-      return this.processExchangeAccountTransactions(accountId, account);
+      // Process using batch provider
+      return this.processAccountWithBatchProvider(accountId, account, batchProvider);
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       this.logger.error(`CRITICAL: Unexpected processing failure for account ${accountId}: ${errorMessage}`);
@@ -121,122 +143,52 @@ export class TransactionProcessService {
   }
 
   /**
-   * Process exchange account transactions (all at once).
+   * Create appropriate batch provider based on source type and name.
    */
-  private async processExchangeAccountTransactions(
-    accountId: number,
-    account: { accountType: string; identifier: string; sourceName: string; userId?: number | undefined }
-  ): Promise<Result<ProcessResult, Error>> {
-    const sourceName = account.sourceName.toLowerCase();
-
-    const rawDataItemsResult = await this.rawDataRepository.load({
-      processingStatus: 'pending',
-      accountId,
-    });
-
-    if (rawDataItemsResult.isErr()) {
-      return err(rawDataItemsResult.error);
+  private createBatchProvider(sourceType: string, sourceName: string, accountId: number): IRawDataBatchProvider {
+    // NEAR requires special multi-stream batch provider
+    if (sourceType === 'blockchain' && sourceName.toLowerCase() === 'near') {
+      return new NearStreamBatchProvider(this.rawDataRepository, accountId, RAW_DATA_HASH_BATCH_SIZE);
     }
 
-    const rawDataItems = rawDataItemsResult.value;
-
-    if (rawDataItems.length === 0) {
-      this.logger.warn(`No pending raw data found for account ${accountId}`);
-      return ok({ errors: [], failed: 0, processed: 0 });
-    }
-
-    this.logger.debug(`Processing ${rawDataItems.length} pending items for account ${accountId} (${sourceName})`);
-
-    const processingContext = await this.getProcessingContext(account, accountId);
-    const normalizedRawDataItems = this.normalizeRawData(rawDataItems, account.accountType);
-
-    const processorResult = this.getProcessor(sourceName, account.accountType);
-    if (processorResult.isErr()) {
-      return err(processorResult.error);
-    }
-    const processor = processorResult.value;
-
-    // Process raw data into universal transactions
-    const transactionsResult = await processor.process(normalizedRawDataItems, processingContext);
-
-    if (transactionsResult.isErr()) {
-      this.logger.error(`CRITICAL: Processing failed for account ${accountId} - ${transactionsResult.error}`);
-      return err(
-        new Error(
-          `Cannot proceed: Account ${accountId} processing failed. ${transactionsResult.error}. ` +
-            `This would corrupt portfolio calculations by losing transactions from this account.`
-        )
-      );
-    }
-
-    const transactions = transactionsResult.value;
-    this.logger.debug(`Processed ${transactions.length} transactions for account ${accountId}`);
-
-    // Save transactions
-    const saveResult = await this.saveTransactions(transactions, accountId);
-    if (saveResult.isErr()) {
-      return err(saveResult.error);
-    }
-    const { saved, duplicates } = saveResult.value;
-
-    if (duplicates > 0) {
-      this.logger.debug(`Account ${accountId}: ${duplicates} duplicate transactions were skipped during save`);
-    }
-
-    // Mark raw data items as processed
-    const markResult = await this.markRawDataAsProcessed(rawDataItems);
-    if (markResult.isErr()) {
-      return err(markResult.error);
-    }
-
-    const skippedCount = rawDataItems.length - transactions.length;
-    const accountLabel = `Account ${accountId} (${sourceName})`.padEnd(25);
-    if (skippedCount > 0) {
-      this.logger.info(`• ${accountLabel}: Correlated ${rawDataItems.length} items into ${saved} transactions.`);
+    if (sourceType === 'blockchain') {
+      // Hash-grouped batching for blockchains to ensure correlation integrity
+      return new HashGroupedBatchProvider(this.rawDataRepository, accountId, RAW_DATA_HASH_BATCH_SIZE);
     } else {
-      this.logger.info(`• ${accountLabel}: Processed ${rawDataItems.length} items.`);
+      // All-at-once batching for exchanges (manageable data volumes)
+      return new AllAtOnceBatchProvider(this.rawDataRepository, accountId);
     }
-
-    return ok({
-      errors: [],
-      failed: 0,
-      processed: saved,
-    });
   }
 
   /**
-   * Process blockchain account transactions in hash-grouped batches.
-   * Groups by blockchain_transaction_hash to ensure all events for the same on-chain transaction
-   * are processed together, preventing partial fund-flow and balance mismatches.
-   * Processes in bounded batches to avoid loading 100k+ transactions into memory.
+   * Process account transactions using a batch provider.
+   * Handles both exchange (all-at-once) and blockchain (hash-grouped) processing.
    */
-  private async processAccountTransactionsChunked(
+  private async processAccountWithBatchProvider(
     accountId: number,
-    account: { accountType: string; identifier: string; sourceName: string; userId?: number | undefined }
+    account: { accountType: string; identifier: string; sourceName: string; userId?: number | undefined },
+    batchProvider: IRawDataBatchProvider
   ): Promise<Result<ProcessResult, Error>> {
     const sourceName = account.sourceName.toLowerCase();
     let totalSaved = 0;
     let totalProcessed = 0;
-    let chunkNumber = 0;
+    let batchNumber = 0;
 
-    // Build processing context once (used for all chunks)
+    // Build processing context once (used for all batches)
     const processingContext = await this.getProcessingContext(account, accountId);
 
-    // Create processor once (reused for all chunks)
-    const processorResult = this.getProcessor(sourceName, account.accountType);
+    // Create processor once (reused for all batches)
+    const processorResult = this.getProcessor(sourceName, account.accountType, accountId);
     if (processorResult.isErr()) {
       return err(processorResult.error);
     }
     const processor = processorResult.value;
 
-    // Process in hash-grouped batches until no more pending data
-    while (true) {
-      chunkNumber++;
+    // Process batches until no more pending data
+    while (batchProvider.hasMore()) {
+      batchNumber++;
 
-      const rawDataItemsResult = await this.rawDataRepository.loadPendingByHashBatch(
-        accountId,
-        RAW_DATA_HASH_BATCH_SIZE
-      );
+      const rawDataItemsResult = await batchProvider.fetchNextBatch();
 
       if (rawDataItemsResult.isErr()) {
         return err(rawDataItemsResult.error);
@@ -250,7 +202,7 @@ export class TransactionProcessService {
       }
 
       this.logger.debug(
-        `Processing chunk ${chunkNumber}: ${rawDataItems.length} items for account ${accountId} (${sourceName})`
+        `Processing batch ${batchNumber}: ${rawDataItems.length} items for account ${accountId} (${sourceName})`
       );
 
       const normalizedRawDataItems = this.normalizeRawData(rawDataItems, account.accountType);
@@ -260,11 +212,11 @@ export class TransactionProcessService {
 
       if (transactionsResult.isErr()) {
         this.logger.error(
-          `CRITICAL: Processing failed for account ${accountId} chunk ${chunkNumber} - ${transactionsResult.error}`
+          `CRITICAL: Processing failed for account ${accountId} batch ${batchNumber} - ${transactionsResult.error}`
         );
         return err(
           new Error(
-            `Cannot proceed: Account ${accountId} processing failed at chunk ${chunkNumber}. ${transactionsResult.error}. ` +
+            `Cannot proceed: Account ${accountId} processing failed at batch ${batchNumber}. ${transactionsResult.error}. ` +
               `This would corrupt portfolio calculations by losing transactions from this account.`
           )
         );
@@ -284,7 +236,7 @@ export class TransactionProcessService {
 
       if (duplicates > 0) {
         this.logger.debug(
-          `Account ${accountId} chunk ${chunkNumber}: ${duplicates} duplicate blockchain transactions were skipped during save`
+          `Account ${accountId} batch ${batchNumber}: ${duplicates} duplicate transactions were skipped during save`
         );
       }
 
@@ -293,12 +245,28 @@ export class TransactionProcessService {
       if (markResult.isErr()) {
         return err(markResult.error);
       }
-
-      // Continue until no more pending data (checked at loop start)
     }
 
+    // No data was processed
+    if (totalProcessed === 0) {
+      this.logger.warn(`No pending raw data found for account ${accountId}`);
+      return ok({ errors: [], failed: 0, processed: 0 });
+    }
+
+    // Log completion message
     const accountLabel = `Account ${accountId} (${sourceName})`.padEnd(25);
-    this.logger.info(`• ${accountLabel}: Processed ${totalProcessed} items in ${chunkNumber} chunks.`);
+    if (batchNumber === 1) {
+      // Single batch - simpler message
+      const skippedCount = totalProcessed - totalSaved;
+      if (skippedCount > 0) {
+        this.logger.info(`• ${accountLabel}: Correlated ${totalProcessed} items into ${totalSaved} transactions.`);
+      } else {
+        this.logger.info(`• ${accountLabel}: Processed ${totalProcessed} items.`);
+      }
+    } else {
+      // Multiple batches - show batch count
+      this.logger.info(`• ${accountLabel}: Processed ${totalProcessed} items in ${batchNumber} batches.`);
+    }
 
     return ok({
       errors: [],
@@ -339,13 +307,23 @@ export class TransactionProcessService {
     return processingContext;
   }
 
-  private getProcessor(sourceName: string, sourceType: string): Result<ITransactionProcessor, Error> {
+  private getProcessor(
+    sourceName: string,
+    sourceType: string,
+    accountId: number
+  ): Result<ITransactionProcessor, Error> {
     if (sourceType === 'blockchain') {
       const adapter = getBlockchainAdapter(sourceName);
       if (!adapter) {
         return err(new Error(`Unknown blockchain: ${sourceName}`));
       }
-      return adapter.createProcessor(this.providerManager, this.tokenMetadataService, this.scamDetectionService);
+      return adapter.createProcessor(
+        this.providerManager,
+        this.tokenMetadataService,
+        this.scamDetectionService,
+        this.rawDataRepository,
+        accountId
+      );
     } else {
       const adapter = getExchangeAdapter(sourceName);
       if (!adapter) {
@@ -420,6 +398,46 @@ export class TransactionProcessService {
         return err(markAsProcessedResult.error);
       }
     }
+    return ok(undefined);
+  }
+
+  /**
+   * Check for active imports (status='started') across specified accounts.
+   * CRITICAL: This prevents processing incomplete data from in-progress imports.
+   *
+   * @param accountIds - Account IDs to check for active imports
+   * @returns Error if any active imports found, ok otherwise
+   */
+  private async checkForActiveImports(accountIds: number[]): Promise<Result<void, Error>> {
+    if (accountIds.length === 0) {
+      return ok(undefined);
+    }
+
+    const sessionsResult = await this.importSessionRepository.findByAccounts(accountIds);
+    if (sessionsResult.isErr()) {
+      return err(new Error(`Failed to check for active imports: ${sessionsResult.error.message}`));
+    }
+
+    const activeSessions = sessionsResult.value.filter((session) => session.status === 'started');
+
+    if (activeSessions.length > 0) {
+      const affectedAccounts = [...new Set(activeSessions.map((s) => s.accountId))];
+      const accountsStr = affectedAccounts.join(', ');
+
+      this.logger.warn(
+        `Cannot process: ${activeSessions.length} active import(s) in progress for account(s): ${accountsStr}. ` +
+          `Wait for imports to complete before processing.`
+      );
+
+      return err(
+        new Error(
+          `Processing blocked: Active import(s) in progress for account(s) ${accountsStr}. ` +
+            `All transaction history must be fully fetched before processing to ensure data integrity. ` +
+            `Please wait for the import to complete, then run processing again.`
+        )
+      );
+    }
+
     return ok(undefined);
   }
 }
