@@ -7,7 +7,7 @@ import type { ITokenMetadataService } from '../../../features/token-metadata/tok
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
 import { NearTransactionImporter } from './importer.js';
-import { NearTransactionProcessorV3 } from './processor.v3.js';
+import { NearTransactionProcessorV3 } from './processor.js';
 
 export function registerNearChain(): void {
   registerBlockchain({

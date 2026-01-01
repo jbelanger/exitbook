@@ -5,7 +5,7 @@
  * used by the V3 processor during correlation and aggregation.
  */
 
-import type { NearBalanceChangeCause, NearActionType } from './schemas.v3.js';
+import type { NearBalanceChangeCause, NearActionType } from './schemas.ts';
 
 /**
  * NEAR receipt action with normalized fields

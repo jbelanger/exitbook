@@ -29,7 +29,7 @@ import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { CorrelatedTransaction, NearReceipt, RawTransactionGroup } from './types.v3.js';
+import type { CorrelatedTransaction, NearReceipt, RawTransactionGroup } from './types.js';
 
 const logger = getLogger('near-processor-utils-v3');
 

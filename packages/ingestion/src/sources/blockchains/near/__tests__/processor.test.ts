@@ -20,10 +20,10 @@ import type {
 import { ok } from 'neverthrow';
 import { describe, expect, test, vi, type Mock } from 'vitest';
 
-import type { IScamDetectionService } from '../../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
-import type { ProcessingContext } from '../../../../shared/types/processors.js';
-import { NearTransactionProcessorV3 } from '../processor.v3.js';
+import type { IScamDetectionService } from '../../../../features/scam-detection/scam-detection-service.interface.ts';
+import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.ts';
+import type { ProcessingContext } from '../../../../shared/types/processors.ts';
+import { NearTransactionProcessorV3 } from '../processor.js';
 
 // Test data factories for V3 normalized types
 const createTransactionEvent = (overrides: Partial<NearTransactionV3> = {}): NearStreamEvent => ({
@@ -156,7 +156,7 @@ describe('NearTransactionProcessorV3', () => {
       expect(tx.to).toBeUndefined(); // No inflows, so no 'to' address
 
       // NEAR outflow is consumed by fees in fee-only transactions, so outflows is empty
-      expect(tx.movements.outflows!).toHaveLength(0);
+      expect(tx.movements.outflows).toHaveLength(0);
 
       // Should have fee - only outflow amount since receipt.predecessorAccountId ('alice.near')
       // doesn't extract fees (needs to match primaryAddress)
@@ -201,7 +201,7 @@ describe('NearTransactionProcessorV3', () => {
       const tx = result.value[0]!;
 
       // Should have inflow, no outflow
-      expect(tx.movements.inflows!).toHaveLength(1);
+      expect(tx.movements.inflows).toHaveLength(1);
       expect(tx.movements.inflows![0]!.grossAmount.toFixed()).toBe('2');
       expect(tx.movements.outflows).toHaveLength(0);
 
@@ -297,7 +297,7 @@ describe('NearTransactionProcessorV3', () => {
       const tx = result.value[0]!;
 
       // Should have token outflow
-      expect(tx.movements.outflows!).toHaveLength(1);
+      expect(tx.movements.outflows).toHaveLength(1);
       expect(tx.movements.outflows![0]!.assetSymbol).toBe('USDC');
       expect(tx.movements.outflows![0]!.grossAmount.toFixed()).toBe('1');
 
@@ -361,9 +361,9 @@ describe('NearTransactionProcessorV3', () => {
 
       const tx = result.value[0]!;
 
-      expect(tx.movements.inflows!).toHaveLength(1);
+      expect(tx.movements.inflows).toHaveLength(1);
       expect(tx.movements.inflows![0]!.assetSymbol).toBe('USDT');
-      expect(tx.movements.outflows!).toHaveLength(1);
+      expect(tx.movements.outflows).toHaveLength(1);
       expect(tx.movements.outflows![0]!.assetSymbol).toBe('USDC');
 
       // Should classify as swap
@@ -446,7 +446,7 @@ describe('NearTransactionProcessorV3', () => {
       expect(tx.fees[0]!.amount.toFixed()).toBe('0.5001');
 
       // Outflows moved to fees in fee-only transactions
-      expect(tx.movements.outflows!).toHaveLength(0);
+      expect(tx.movements.outflows).toHaveLength(0);
     });
 
     test('should handle mixed NEAR and token flows across multiple receipts', async () => {
@@ -482,7 +482,7 @@ describe('NearTransactionProcessorV3', () => {
       const tx = result.value[0]!;
 
       // Should have 2 outflows (NEAR + USDC)
-      expect(tx.movements.outflows!).toHaveLength(2);
+      expect(tx.movements.outflows).toHaveLength(2);
 
       const nearOutflow = tx.movements.outflows!.find((m) => m.assetSymbol === 'NEAR');
       const usdcOutflow = tx.movements.outflows!.find((m) => m.assetSymbol === 'USDC');
@@ -626,7 +626,7 @@ describe('NearTransactionProcessorV3', () => {
       const tx = result.value[0]!;
 
       // Should only have the TRANSFER in flows (fee/gas skipped)
-      expect(tx.movements.inflows!).toHaveLength(1);
+      expect(tx.movements.inflows).toHaveLength(1);
       expect(tx.movements.inflows![0]!.grossAmount.toFixed()).toBe('1');
     });
 
@@ -975,13 +975,13 @@ describe('NearTransactionProcessorV3', () => {
       expect(tx1).toBeDefined();
       expect(tx1!.from).toBe('alice.near');
       // NEAR-only outflows are treated as fee-only transactions
-      expect(tx1!.movements.outflows!).toHaveLength(0);
+      expect(tx1!.movements.outflows).toHaveLength(0);
       expect(tx1!.fees).toHaveLength(1);
       expect(tx1!.fees[0]!.amount.toFixed()).toBe('1');
 
       expect(tx2).toBeDefined();
       expect(tx2!.from).toBe('bob.near');
-      expect(tx2!.movements.outflows!).toHaveLength(0);
+      expect(tx2!.movements.outflows).toHaveLength(0);
       expect(tx2!.fees).toHaveLength(1);
       expect(tx2!.fees[0]!.amount.toFixed()).toBe('2');
     });
@@ -1092,7 +1092,7 @@ describe('NearTransactionProcessorV3', () => {
       const tx = result.value[0]!;
 
       // Orphaned ambiguous-cause balance change attached to transaction-level receipt
-      expect(tx.movements.inflows!).toHaveLength(1);
+      expect(tx.movements.inflows).toHaveLength(1);
       expect(tx.movements.inflows![0]!.grossAmount.toFixed()).toBe('1');
     });
 
@@ -1122,7 +1122,7 @@ describe('NearTransactionProcessorV3', () => {
 
       // NEAR-only outflows are treated as fee-only transactions
       // Balance changes consolidated: 0.5 + 0.5 = 1 NEAR, moved to fees
-      expect(tx.movements.outflows!).toHaveLength(0);
+      expect(tx.movements.outflows).toHaveLength(0);
       expect(tx.fees).toHaveLength(1);
       expect(tx.fees[0]!.amount.toFixed()).toBe('1');
     });

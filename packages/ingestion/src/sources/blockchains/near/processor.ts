@@ -22,13 +22,13 @@ import type { IRawDataRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { err, errAsync, ok, type Result } from 'neverthrow';
 
-import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
+import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.ts';
 import type {
   IScamDetectionService,
   MovementWithContext,
-} from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
-import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
+} from '../../../features/scam-detection/scam-detection-service.interface.ts';
+import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.ts';
+import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.ts';
 
 import {
   classifyOperation,
@@ -42,8 +42,8 @@ import {
   isFeeOnlyTransaction,
   validateTransactionGroup,
   type Movement,
-} from './processor-utils.v3.js';
-import type { CorrelatedTransaction } from './types.v3.js';
+} from './processor-utils.ts';
+import type { CorrelatedTransaction } from './types.js';
 
 /**
  * NEAR V3 transaction processor that converts raw multi-stream data

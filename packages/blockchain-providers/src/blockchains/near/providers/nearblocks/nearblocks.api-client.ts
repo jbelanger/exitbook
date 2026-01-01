@@ -14,7 +14,7 @@ import {
   createStreamingIterator,
   type StreamingPage,
   type StreamingPageContext,
-} from '../../../../core/streaming/streaming-adapter.js';
+} from '../../../../core/streaming/streaming-adapter.ts';
 import { transformNearBalance } from '../../balance-utils.ts';
 import type {
   NearBalanceChange,
@@ -22,21 +22,21 @@ import type {
   NearStreamEvent,
   NearTokenTransfer,
   NearTransaction,
-} from '../../schemas.v3.js';
+} from '../../schemas.ts';
 import {
   NearBalanceChangeSchema,
   NearReceiptSchema,
   NearTokenTransferSchema,
   NearTransactionSchema,
-} from '../../schemas.v3.js';
-import { isValidNearAccountId } from '../../utils.js';
+} from '../../schemas.ts';
+import { isValidNearAccountId } from '../../utils.ts';
 
 import {
   mapRawActivityToBalanceChange,
   mapRawFtToTokenTransfer,
   mapRawReceiptToNearReceipt,
   mapRawTransactionToNearTransaction,
-} from './mapper-utils.v3.js';
+} from './mapper-utils.ts';
 import {
   NearBlocksAccountSchema,
   NearBlocksActivitiesResponseSchema,
@@ -47,7 +47,7 @@ import {
   type NearBlocksFtTransaction,
   type NearBlocksReceiptV2,
   type NearBlocksTransactionV2,
-} from './nearblocks.schemas.js';
+} from './nearblocks.schemas.ts';
 
 // NearBlocks API pagination: Optimal batch size balancing API limits, memory usage, and latency
 const NEARBLOCKS_PAGE_SIZE = 25;

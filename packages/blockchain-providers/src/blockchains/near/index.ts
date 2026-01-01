@@ -16,7 +16,7 @@ export {
   NearBalanceChangeSchema,
   NearTokenTransferSchema,
   NearStreamEventSchema,
-} from './schemas.v3.js';
+} from './schemas.ts';
 
 // Export V3 types with V3 suffix to avoid conflicts with V2
 export type {
@@ -29,13 +29,13 @@ export type {
   NearBalanceChange as NearBalanceChangeV3,
   NearTokenTransfer as NearTokenTransferV3,
   NearStreamEvent,
-} from './schemas.v3.js';
+} from './schemas.ts';
 
 // Provider schemas (NearBlocks API responses)
 export * from './providers/nearblocks/nearblocks.schemas.js';
 
 // V3 mapper utilities (used by processor)
-export * from './providers/nearblocks/mapper-utils.v3.js';
+export * from './providers/nearblocks/mapper-utils.ts';
 
 // Additional utility functions (balance transformations)
 export { formatNearAccountId, isValidNearAccountId, nearToYoctoNear, yoctoNearToNear } from './utils.js';

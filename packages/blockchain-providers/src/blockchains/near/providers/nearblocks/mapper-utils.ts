@@ -6,7 +6,7 @@
  *
  * Key differences from V2:
  * - Normalization happens at API client level (not processor)
- * - Maps to provider-agnostic types defined in schemas.v3.ts
+ * - Maps to provider-agnostic types defined in schemas.ts
  * - No correlation logic (correlation happens in processor)
  */
 
@@ -25,8 +25,8 @@ import type {
   NearTokenTransfer,
   NearBalanceChangeCause,
   NearActionType,
-} from '../../schemas.v3.js';
-import { NearActionTypeSchema } from '../../schemas.v3.js';
+} from '../../schemas.ts';
+import { NearActionTypeSchema } from '../../schemas.ts';
 
 import type {
   NearBlocksTransactionV2,
@@ -34,7 +34,7 @@ import type {
   NearBlocksActionV2,
   NearBlocksActivity,
   NearBlocksFtTransaction,
-} from './nearblocks.schemas.js';
+} from './nearblocks.schemas.ts';
 
 const logger = getLogger('nearblocks-mapper-v3');
 
@@ -112,7 +112,7 @@ function normalizeActionType(rawAction: string): Result<NearActionType, Error> {
     return err(
       new Error(
         `Unknown NEAR action type: "${rawAction}". ` +
-          `This action must be added to NearActionTypeSchema in schemas.v3.ts. ` +
+          `This action must be added to NearActionTypeSchema in schemas.ts. ` +
           `Known actions: ${NearActionTypeSchema.options.join(', ')}`
       )
     );
@@ -250,7 +250,7 @@ function normalizeCause(rawCause: string): Result<NearBalanceChangeCause, Error>
   return err(
     new Error(
       `Unknown balance change cause: "${rawCause}". ` +
-        `This value must be added to NearBalanceChangeCauseSchema in schemas.v3.ts. ` +
+        `This value must be added to NearBalanceChangeCauseSchema in schemas.ts. ` +
         `Known values: TRANSFER, TRANSACTION, RECEIPT, CONTRACT_REWARD, MINT, STAKE, FEE, GAS, GAS_REFUND`
     )
   );
