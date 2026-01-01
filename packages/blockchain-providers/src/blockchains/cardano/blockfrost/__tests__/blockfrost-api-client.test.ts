@@ -459,6 +459,7 @@ describe('BlockfrostApiClient', () => {
       expect(capabilities.supportedOperations).toContain('getAddressBalances');
       expect(capabilities.supportedOperations).toContain('hasAddressTransactions');
       expect(capabilities.supportedOperations).toHaveLength(3);
+      expect(capabilities.supportedTransactionTypes).toContain('normal');
     });
   });
 });

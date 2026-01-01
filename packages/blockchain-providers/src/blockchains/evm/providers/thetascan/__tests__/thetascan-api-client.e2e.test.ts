@@ -203,6 +203,7 @@ describe('ThetaScanApiClient Integration', () => {
           {
             address: testAddress,
             type: 'getAddressTransactions',
+            transactionType: 'normal' as const,
           },
           cursor
         )) {

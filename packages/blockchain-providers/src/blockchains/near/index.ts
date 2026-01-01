@@ -2,7 +2,43 @@
  * NEAR blockchain provider exports
  */
 
-// Core exports
-export * from './schemas.js';
-export * from './types.js';
-export * from './utils.js';
+// V2 schemas (receipt-based event model)
+export * from './schemas.v2.js';
+
+export * from './utils.ts';
+
+// V3 schemas and types (normalized streaming model)
+// Export only specific items to avoid conflicts with V2
+export {
+  NearStreamTypeSchema,
+  NearActionTypeSchema,
+  NearReceiptActionSchema,
+  NearTransactionSchema,
+  NearReceiptSchema,
+  NearBalanceChangeCauseSchema,
+  NearBalanceChangeSchema,
+  NearTokenTransferSchema,
+  NearStreamEventSchema,
+} from './schemas.v3.js';
+
+// Export V3 types with V3 suffix to avoid conflicts with V2
+export type {
+  NearStreamType,
+  NearActionType,
+  NearReceiptAction as NearReceiptActionV3,
+  NearTransaction as NearTransactionV3,
+  NearReceipt as NearReceiptV3,
+  NearBalanceChangeCause,
+  NearBalanceChange as NearBalanceChangeV3,
+  NearTokenTransfer as NearTokenTransferV3,
+  NearStreamEvent,
+} from './schemas.v3.js';
+
+// Provider schemas (NearBlocks API responses)
+export * from './providers/nearblocks/nearblocks.schemas.js';
+
+// V3 mapper utilities (used by processor)
+export * from './providers/nearblocks/mapper-utils.v3.js';
+
+// Additional utility functions (balance transformations)
+export { formatNearAccountId, isValidNearAccountId, nearToYoctoNear, yoctoNearToNear } from './utils.js';

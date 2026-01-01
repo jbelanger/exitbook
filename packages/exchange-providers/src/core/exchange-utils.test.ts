@@ -236,6 +236,7 @@ describe('processItems', () => {
       },
     },
     eventId: parsed.id,
+    timestamp: parsed.time,
     normalizedData: {
       id: parsed.id,
       correlationId: parsed.id,
@@ -363,6 +364,7 @@ describe('processItems', () => {
         },
       },
       eventId: 'tx-1',
+      timestamp: 1000,
       normalizedData: {
         id: 'tx-1',
         // Missing required fields - will fail ExchangeLedgerEntrySchema validation

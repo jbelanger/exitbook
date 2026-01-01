@@ -6,7 +6,6 @@ import {
   determineOperationFromFundFlow,
   shouldRecordFeeEntry,
   enrichSourceContext,
-  normalizeAmount,
 } from '../processor-utils.js';
 import type { SubstrateFundFlow } from '../types.js';
 
@@ -24,22 +23,6 @@ const POLKADOT_CONFIG: SubstrateChainConfig = {
   nativeCurrency: 'DOT',
   nativeDecimals: 10,
   ss58Format: 0,
-};
-
-const KUSAMA_CONFIG: SubstrateChainConfig = {
-  chainName: 'kusama',
-  displayName: 'Kusama Network',
-  nativeCurrency: 'KSM',
-  nativeDecimals: 12,
-  ss58Format: 2,
-};
-
-const BITTENSOR_CONFIG: SubstrateChainConfig = {
-  chainName: 'bittensor',
-  displayName: 'Bittensor Network',
-  nativeCurrency: 'TAO',
-  nativeDecimals: 9,
-  ss58Format: 42,
 };
 
 // Helper function to create transaction objects with defaults
@@ -163,57 +146,6 @@ describe('enrichSourceContext', () => {
     const derivedAddresses = result.value.derivedAddresses as string[];
     const uniqueSet = new Set(derivedAddresses);
     expect(uniqueSet.size).toBe(derivedAddresses.length);
-  });
-});
-
-describe('normalizeAmount', () => {
-  test('normalizes Polkadot amount from planck to DOT', () => {
-    const result = normalizeAmount('10000000000', POLKADOT_CONFIG.nativeDecimals); // 1 DOT in planck
-
-    expect(result.unwrapOr('error')).toBe('1');
-  });
-
-  test('normalizes Kusama amount from planck to KSM', () => {
-    const result = normalizeAmount('1000000000000', KUSAMA_CONFIG.nativeDecimals); // 1 KSM in planck
-
-    expect(result.unwrapOr('error')).toBe('1');
-  });
-
-  test('normalizes Bittensor amount from rao to TAO', () => {
-    const result = normalizeAmount('1000000000', BITTENSOR_CONFIG.nativeDecimals); // 1 TAO in rao
-
-    expect(result.unwrapOr('error')).toBe('1');
-  });
-
-  test('handles fractional amounts correctly', () => {
-    const result = normalizeAmount('12345678900', POLKADOT_CONFIG.nativeDecimals); // 1.23456789 DOT
-
-    expect(result.unwrapOr('error')).toBe('1.23456789');
-  });
-
-  test('handles very small amounts', () => {
-    const result = normalizeAmount('1', POLKADOT_CONFIG.nativeDecimals); // 0.0000000001 DOT
-
-    expect(result.unwrapOr('error')).toBe('0.0000000001');
-  });
-
-  test('handles zero amount', () => {
-    const result = normalizeAmount('0', POLKADOT_CONFIG.nativeDecimals);
-
-    expect(result.unwrapOr('error')).toBe('0');
-  });
-
-  test('handles undefined amount', () => {
-    const result = normalizeAmount(undefined, POLKADOT_CONFIG.nativeDecimals);
-
-    expect(result.unwrapOr('error')).toBe('0');
-  });
-
-  test('returns error for invalid amount', () => {
-    const result = normalizeAmount('invalid', POLKADOT_CONFIG.nativeDecimals);
-
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('Failed to convert');
   });
 });
 

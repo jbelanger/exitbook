@@ -6,6 +6,8 @@
 ExitBook helps you track cryptocurrency activity across exchanges and blockchains by importing raw data, processing it into a universal transaction format, and verifying balances against live on-chain state.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Test Suite](https://github.com/jbelanger/exitbook/actions/workflows/test.yml/badge.svg)](https://github.com/jbelanger/exitbook/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/jbelanger/exitbook/branch/main/graph/badge.svg)](https://codecov.io/gh/jbelanger/exitbook)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D23-blue.svg)](https://nodejs.org)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D10.6.2-orange.svg)](https://pnpm.io)
 
@@ -22,17 +24,19 @@ We're building the infrastructure to support:
 
 ### Blockchains
 
-| Chain Family  | Sub-chains | Import Status       | Balance Verification |
-| ------------- | ---------- | ------------------- | -------------------- |
-| **Bitcoin**   | 4 chains   | Partial             | Partial              |
-| **Cardano**   | 1 chain    | Partial             | Partial              |
-| **Cosmos**    | 95 chains  | Partial             | Partial              |
-| **EVM**       | 113 chains | **Near Complete\*** | Partial              |
-| **NEAR**      | 1 chain    | Partial             | Partial              |
-| **Solana**    | 1 chain    | Partial             | Partial              |
-| **Substrate** | 89 chains  | Partial             | Partial              |
+| Chain Family  | Sub-chains | Import Status                   | Balance Verification            |
+| ------------- | ---------- | ------------------------------- | ------------------------------- |
+| **Bitcoin**   | 4 chains   | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
+| **Cardano**   | 1 chain    | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
+| **Cosmos**    | 95 chains  | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
+| **EVM**       | 113 chains | **Complete** (simple wallets)\* | **Complete** (simple wallets)\* |
+| **NEAR**      | 1 chain    | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
+| **Solana**    | 1 chain    | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
+| **Substrate** | 89 chains  | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
 
 \* EVM supports both address and contract address tracking
+
+**Note:** All chains support complete import and balance verification for simple user wallets (EOA addresses). Complex wallet scenarios (multi-sig, smart contract wallets, cross-chain interactions) require additional work.
 
 <details>
 <summary>View all supported chains</summary>
@@ -57,7 +61,7 @@ We're building the infrastructure to support:
 
 | Exchange | CSV Import | API Import |
 | -------- | ---------- | ---------- |
-| Kraken   | Working    | Working    |
+| Kraken   | -          | Working    |
 | KuCoin   | Working    | Working    |
 | Coinbase | -          | Working    |
 
@@ -171,13 +175,13 @@ To view full provider details including rate limits: `pnpm blockchain-providers:
 ### Core Operations
 
 ```bash
-# Import from exchange CSV
-pnpm run dev import --exchange kraken --csv-dir ./exports/kraken
+# Import from exchange CSV (KuCoin only)
+pnpm run dev import --exchange kucoin --csv-dir ./exports/kucoin
 
 # Import from exchange API
 pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET
 
-# Import blockchain transactions
+# Import blockchain transactions (simple wallets)
 pnpm run dev import --blockchain bitcoin --address bc1q...
 
 # Process raw data into universal format
@@ -231,8 +235,10 @@ pnpm build
 # Run tests
 pnpm test
 
-# Try an import
-pnpm run dev import --exchange kraken --csv-dir ./your-data
+# Try an import (KuCoin CSV or Kraken API)
+pnpm run dev import --exchange kucoin --csv-dir ./your-data
+# or
+pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET
 ```
 
 **Configuration:** Add API keys to `.env` in project root (see `CLAUDE.md` for details)
@@ -259,7 +265,7 @@ packages/
 
 ## What's Next
 
-- [ ] Complete balance verification for all chain families
+- [ ] Support complex wallet scenarios (multi-sig, smart contracts, cross-chain)
 - [ ] Transaction linking (correlate withdrawals with deposits)
 - [ ] Cost-basis calculation (FIFO, LIFO, Specific ID)
 - [ ] Multi-currency pricing pipeline

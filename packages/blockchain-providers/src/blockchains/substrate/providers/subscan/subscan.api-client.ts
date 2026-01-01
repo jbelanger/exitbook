@@ -125,6 +125,7 @@ const CHAIN_SUBDOMAIN_MAP: Record<string, string> = {
   blockchain: 'polkadot',
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
+    supportedTransactionTypes: ['normal'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
   },
@@ -218,6 +219,12 @@ export class SubscanApiClient extends BaseApiClient {
     // Route to appropriate streaming implementation
     switch (operation.type) {
       case 'getAddressTransactions':
+        if (operation.transactionType !== 'normal') {
+          yield err(
+            new Error(`Unsupported transaction type: ${operation.transactionType} for operation: ${operation.type}`)
+          );
+          return;
+        }
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;

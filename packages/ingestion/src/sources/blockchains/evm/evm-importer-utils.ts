@@ -32,19 +32,20 @@ function mapTransactionTypeToHint(type: EvmTransaction['type']): 'normal' | 'int
  * @param transactions - Array of transactions with raw data from provider
  * @param providerName - Name of the provider that fetched the data
  * @param sourceAddress - Address being imported
- * @param transactionTypeHint - Type of transaction (normal, internal, token) - only used as fallback
+ * @param transactionTypeHint - Type of transaction (chain-specific, only used as fallback) - unused since actual type comes from normalized data
  * @returns Array of raw transactions ready for database storage
  */
 export function mapToRawTransactions(
   transactions: TransactionWithRawData<EvmTransaction>[],
   providerName: string,
   sourceAddress: string,
-  _transactionTypeHint: 'normal' | 'internal' | 'token' | 'beacon_withdrawal'
+  _transactionTypeHint: string
 ): RawTransactionInput[] {
   return transactions.map((txWithRaw) => ({
     providerName,
     eventId: txWithRaw.normalized.eventId,
     blockchainTransactionHash: txWithRaw.normalized.id,
+    timestamp: txWithRaw.normalized.timestamp,
     // Use the actual transaction type instead of the blanket hint
     // This ensures internal transactions from Moralis (which includes them in the normal stream)
     // are correctly tagged as 'internal' instead of 'normal'

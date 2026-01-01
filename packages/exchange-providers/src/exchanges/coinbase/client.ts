@@ -361,6 +361,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                         },
                       },
                       eventId: validatedData.id,
+                      timestamp,
                       normalizedData,
                     };
                   },

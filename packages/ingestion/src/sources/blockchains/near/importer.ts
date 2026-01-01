@@ -1,9 +1,10 @@
 import type {
   BlockchainProviderManager,
-  NearTransaction,
+  NearStreamEvent,
+  NearStreamType,
   TransactionWithRawData,
 } from '@exitbook/blockchain-providers';
-import { generateUniqueTransactionEventId } from '@exitbook/blockchain-providers';
+import { NearStreamTypeSchema } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -11,13 +12,19 @@ import { err, ok, type Result } from 'neverthrow';
 import type { IImporter, ImportParams, ImportBatchResult } from '../../../shared/types/importers.js';
 
 /**
- * NEAR transaction importer that fetches raw transaction data from blockchain APIs.
- * Supports NEAR account IDs using multiple providers (NearBlocks).
- * Uses provider manager for failover between multiple blockchain API providers.
+ * NEAR transaction importer V3 - streams raw unenriched data from 4 discrete endpoints
  *
- * The provider layer handles all enrichment internally:
- * - Account changes (native NEAR balance deltas) are populated in getAddressTransactions
- * - Token transfers (NEP-141) are fetched via getAddressTokenTransactions
+ * This importer fetches raw data from NearBlocks API in 4 sequential phases:
+ * 1. transactions - Base transaction metadata
+ * 2. receipts - Receipt execution records
+ * 3. balance-changes - Balance changes
+ * 4. token-transfers - Token transfers
+ *
+ * Key characteristics:
+ * - Raw data is stored WITHOUT correlation (deferred to processor)
+ * - Each phase is independently resumable using transaction type cursors
+ * - All 4 phases must complete before processing can begin
+ * - Each raw record is saved with a transaction_type_hint for later correlation
  */
 export class NearTransactionImporter implements IImporter {
   private readonly logger: Logger;
@@ -43,8 +50,16 @@ export class NearTransactionImporter implements IImporter {
   }
 
   /**
-   * Streaming import implementation
-   * Streams NORMAL + TOKEN batches without accumulating everything in memory
+   * Streaming import implementation - V3 sequential phase execution
+   *
+   * Streams all 4 stream types sequentially:
+   * 1. transactions - Base transaction metadata
+   * 2. receipts - Receipt execution records
+   * 3. balance-changes - Balance changes
+   * 4. token-transfers - Token transfers
+   *
+   * Each phase must complete before the next begins. Each phase is independently
+   * resumable using its stream type cursor.
    */
   async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address) {
@@ -52,52 +67,54 @@ export class NearTransactionImporter implements IImporter {
       return;
     }
 
-    this.logger.info(`Starting NEAR streaming import for account: ${params.address.substring(0, 20)}...`);
+    this.logger.info(`Starting NEAR V3 streaming import for account: ${params.address.substring(0, 20)}...`);
 
-    // Stream normal transactions (with resume support)
-    const normalCursor = params.cursor?.['normal'];
-    for await (const batchResult of this.streamTransactionType(
-      params.address,
-      'normal',
-      'getAddressTransactions',
-      normalCursor
-    )) {
-      yield batchResult;
+    // Define the 4 transaction types to stream in order
+    // Derived from NearStreamTypeSchema - single source of truth
+    const transactionTypes = NearStreamTypeSchema.options;
+
+    // Stream each transaction type sequentially
+    for (let i = 0; i < transactionTypes.length; i++) {
+      const transactionType = transactionTypes[i]!;
+      this.logger.info(`Streaming ${transactionType} (${i + 1}/4)`);
+
+      const cursor = params.cursor?.[transactionType];
+      for await (const batchResult of this.streamTransactionType(params.address, transactionType, cursor)) {
+        yield batchResult;
+      }
+
+      this.logger.debug(`Completed ${transactionType} (${i + 1}/4)`);
     }
 
-    // Stream token transactions (with resume support)
-    const tokenCursor = params.cursor?.['token'];
-    for await (const batchResult of this.streamTransactionType(
-      params.address,
-      'token',
-      'getAddressTokenTransactions',
-      tokenCursor
-    )) {
-      yield batchResult;
-    }
-
-    this.logger.info(`NEAR streaming import completed`);
+    this.logger.info(`NEAR V3 streaming import completed - all 4 stream types finished`);
   }
 
   /**
-   * Stream a specific transaction type with resume support
-   * Uses provider manager's streaming failover to handle pagination and provider switching
+   * Stream a single transaction type with resume support
+   *
+   * Uses provider manager's streaming failover to handle pagination and provider switching.
+   * Each stream type is streamed independently from its corresponding API endpoint.
+   *
+   * @param address - NEAR account ID
+   * @param transactionType - Stream type from NearStreamTypeSchema
+   * @param resumeCursor - Optional cursor to resume from a previous interrupted stream
    */
   private async *streamTransactionType(
     address: string,
-    operationType: 'normal' | 'token',
-    providerOperationType: 'getAddressTransactions' | 'getAddressTokenTransactions',
+    transactionType: NearStreamType,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const cacheKeyPrefix = operationType === 'normal' ? 'normal-txs' : 'token-txs';
-
-    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<NearTransaction>>(
+    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<NearStreamEvent>>(
       'near',
       {
-        type: providerOperationType,
+        type: 'getAddressTransactions',
         address,
-        getCacheKey: (params) =>
-          `near:${cacheKeyPrefix}:${params.type === providerOperationType ? params.address : 'unknown'}:all`,
+        transactionType,
+        getCacheKey: (params) => {
+          if (params.type !== 'getAddressTransactions') return 'unknown';
+          const txType = params.transactionType || 'default';
+          return `near:${txType}:${params.address}:all`;
+        },
       },
       resumeCursor
     );
@@ -119,18 +136,13 @@ export class NearTransactionImporter implements IImporter {
       }
 
       // Map to raw transactions
+      // V3: Each event has deterministic eventId (hash-based for activities/ft-transfers)
       const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
         providerName: providerBatch.providerName,
-        eventId:
-          txWithRaw.normalized.eventId ??
-          (() => {
-            this.logger.warn(
-              `Missing provider eventId; falling back to generateUniqueTransactionEventId() - Provider: ${providerBatch.providerName}`
-            );
-            return generateUniqueTransactionEventId(txWithRaw.normalized);
-          })(),
-        blockchainTransactionHash: txWithRaw.normalized.id,
-        transactionTypeHint: operationType,
+        eventId: txWithRaw.normalized.eventId, // Deterministic event ID
+        blockchainTransactionHash: txWithRaw.normalized.id, // Parent transaction hash
+        timestamp: txWithRaw.normalized.timestamp,
+        transactionTypeHint: transactionType, // Stream type for processor correlation
         sourceAddress: address,
         normalizedData: txWithRaw.normalized,
         providerData: txWithRaw.raw,
@@ -138,7 +150,7 @@ export class NearTransactionImporter implements IImporter {
 
       yield ok({
         rawTransactions: rawTransactions,
-        operationType,
+        transactionType,
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,
       });

@@ -3,25 +3,14 @@ import type { CursorState } from '@exitbook/core';
 export type ProviderOperationParams =
   | {
       address: string;
-      limit?: number | undefined;
+      contractAddress?: string | undefined; // For token-specific queries
+      transactionType?: string | undefined; // Chain-specific transaction category (e.g., 'normal', 'internal', 'token', 'beacon_withdrawal')
       type: 'getAddressTransactions';
-    }
-  | {
-      address: string;
-      limit?: number | undefined;
-      type: 'getAddressInternalTransactions';
     }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressBalances' }
   | { address: string; type: 'hasAddressTransactions' }
-  | {
-      address: string;
-      contractAddress?: string | undefined;
-      limit?: number | undefined;
-      type: 'getAddressTokenTransactions';
-    }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressTokenBalances' }
   | { contractAddresses: string[]; type: 'getTokenMetadata' }
-  | { address: string; limit?: number | undefined; type: 'getAddressBeaconWithdrawals' }
   | { address: string; type: 'getAddressInfo' };
 
 export type ProviderOperation = {
@@ -29,15 +18,9 @@ export type ProviderOperation = {
 } & ProviderOperationParams;
 
 // Typed subsets that preserve getCacheKey support
-type StreamingOperationParams = Extract<
-  ProviderOperationParams,
-  | { type: 'getAddressTransactions' }
-  | { type: 'getAddressInternalTransactions' }
-  | { type: 'getAddressTokenTransactions' }
-  | { type: 'getAddressBeaconWithdrawals' }
->;
+type StreamingOperationParams = Extract<ProviderOperationParams, { type: 'getAddressTransactions' }>;
 
-type OneShotOperationParams = Exclude<ProviderOperationParams, StreamingOperationParams>;
+type OneShotOperationParams = Exclude<ProviderOperationParams, { type: 'getAddressTransactions' }>;
 
 export type StreamingOperation = {
   getCacheKey?: (params: ProviderOperationParams) => string;
@@ -48,12 +31,10 @@ export type ProviderOperationType =
   | 'getAddressTransactions'
   | 'getAddressBalances'
   | 'hasAddressTransactions'
-  | 'getAddressTokenTransactions'
   | 'getAddressTokenBalances'
-  | 'getAddressInternalTransactions'
   | 'getTokenMetadata'
-  | 'getAddressBeaconWithdrawals'
-  | 'getAddressInfo';
+  | 'getAddressInfo'
+  | (string & {}); // Allow custom operations while preserving autocomplete
 
 /**
  * Result from failover execution that includes provenance

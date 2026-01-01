@@ -18,6 +18,7 @@ export const RawTransactionInputSchema = z.object({
   transactionTypeHint: z.string().optional(),
   eventId: z.string().min(1, 'Event ID must not be empty'),
   blockchainTransactionHash: z.string().optional(), // On-chain transaction hash for deduplication (blockchain only)
+  timestamp: z.number().int().positive(), // Event timestamp in Unix milliseconds
   providerData: z.unknown(),
   normalizedData: z.unknown(),
 });

@@ -64,6 +64,7 @@ export function processItems<TRaw, TValidated>(
     cursorUpdates: Record<string, CursorState>;
     eventId: string;
     normalizedData: ExchangeLedgerEntry;
+    timestamp: number;
   },
   exchangeId: string
 ): Result<{ cursorUpdates: Record<string, CursorState>; transactions: RawTransactionInput[] }, PartialImportError> {
@@ -86,7 +87,7 @@ export function processItems<TRaw, TValidated>(
     }
 
     const validatedData = validationResult.value;
-    const { cursorUpdates, eventId, normalizedData } = metadataMapper(validatedData, item);
+    const { cursorUpdates, eventId, timestamp, normalizedData } = metadataMapper(validatedData, item);
 
     // Validate normalized data conforms to ExchangeLedgerEntry schema
     const normalizedValidation = ExchangeLedgerEntrySchema.safeParse(normalizedData);
@@ -103,6 +104,7 @@ export function processItems<TRaw, TValidated>(
 
     transactions.push({
       eventId: eventId,
+      timestamp,
       providerName: exchangeId,
       providerData: validatedData as unknown,
       normalizedData: normalizedValidation.data as unknown,

@@ -109,8 +109,6 @@ class MockProvider implements IBlockchainProvider {
     let data: T[];
     switch (operation.type) {
       case 'getAddressTransactions':
-      case 'getAddressInternalTransactions':
-      case 'getAddressTokenTransactions':
         // Return empty array of transactions in TransactionWithRawData format
         data = [] as T[];
         break;
@@ -336,10 +334,12 @@ describe('BlockchainProviderManager', () => {
   test('should route operations based on provider capabilities', async () => {
     // Create providers with different capabilities
     const tokenProvider = new MockProvider('token-specialist', 'ethereum');
-    tokenProvider.capabilities.supportedOperations = ['getAddressTokenTransactions', 'getAddressTokenBalances'];
+    tokenProvider.capabilities.supportedOperations = ['getAddressTransactions', 'getAddressTokenBalances'];
+    tokenProvider.capabilities.supportedTransactionTypes = ['token'];
 
     const basicProvider = new MockProvider('basic-provider', 'ethereum');
     basicProvider.capabilities.supportedOperations = ['getAddressTransactions', 'getAddressBalances'];
+    basicProvider.capabilities.supportedTransactionTypes = ['normal'];
 
     manager.registerProviders('ethereum', [basicProvider, tokenProvider]);
 
@@ -351,7 +351,8 @@ describe('BlockchainProviderManager', () => {
     const tokenOperation: ProviderOperation = {
       address: '0x123',
       contractAddress: '0xabc',
-      type: 'getAddressTokenTransactions',
+      type: 'getAddressTransactions',
+      transactionType: 'token',
     };
 
     // Consume iterator for transaction operation (streaming)
@@ -457,7 +458,6 @@ describe('ProviderRegistry', () => {
     expect(provider.blockchain).toBe('ethereum');
     expect(provider.capabilities).toBeDefined();
     expect(provider.capabilities.supportedOperations).toContain('getAddressTransactions');
-    expect(provider.capabilities.supportedOperations).toContain('getAddressInternalTransactions');
   });
 
   test('should validate legacy configuration correctly', () => {

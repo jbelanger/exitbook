@@ -49,12 +49,11 @@ const CHAIN_ID_MAP: Record<string, string> = {
   capabilities: {
     supportedOperations: [
       'getAddressTransactions',
-      'getAddressInternalTransactions',
       'getAddressBalances',
-      'getAddressTokenTransactions',
       'getAddressTokenBalances',
       'getTokenMetadata',
     ],
+    supportedTransactionTypes: ['normal', 'internal', 'token'],
     supportedCursorTypes: ['pageToken', 'blockNumber'],
     preferredCursorType: 'pageToken',
     replayWindow: { blocks: 2 },
@@ -163,21 +162,27 @@ export class MoralisApiClient extends BaseApiClient {
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
-    // Route to appropriate streaming implementation
-    switch (operation.type) {
-      case 'getAddressTransactions':
+    if (operation.type !== 'getAddressTransactions') {
+      yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+      return;
+    }
+
+    // Route based on transaction type
+    const transactionType = operation.transactionType || 'normal';
+    switch (transactionType) {
+      case 'normal':
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
-      case 'getAddressTokenTransactions':
+      case 'token':
         yield* this.streamAddressTokenTransactions(
           operation.address,
           operation.contractAddress,
           resumeCursor
         ) as AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>>;
         break;
-      case 'getAddressInternalTransactions':
+      case 'internal':
         // Moralis includes internal transactions automatically in getAddressTransactions
         // with the 'include=internal_transactions' parameter. Yield empty completion batch
         // to signal successful completion without duplicate fetching.
@@ -195,7 +200,7 @@ export class MoralisApiClient extends BaseApiClient {
         });
         break;
       default:
-        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
     }
   }
 
@@ -488,7 +493,7 @@ export class MoralisApiClient extends BaseApiClient {
 
     return createStreamingIterator<MoralisTokenTransfer, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTokenTransactions', address, contractAddress },
+      operation: { type: 'getAddressTransactions', transactionType: 'token', address, contractAddress },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

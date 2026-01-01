@@ -100,6 +100,7 @@ export class BitcoinTransactionImporter implements IImporter {
       const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
         eventId: txWithRaw.normalized.eventId,
         blockchainTransactionHash: txWithRaw.normalized.id,
+        timestamp: txWithRaw.normalized.timestamp,
         normalizedData: txWithRaw.normalized,
         providerName: providerBatch.providerName,
         providerData: txWithRaw.raw,
@@ -108,7 +109,7 @@ export class BitcoinTransactionImporter implements IImporter {
 
       yield ok({
         rawTransactions: rawTransactions,
-        operationType: 'normal',
+        transactionType: 'normal',
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,
       });

@@ -201,6 +201,7 @@ describe('TatumBitcoinApiClient', () => {
 
       expect(capabilities.supportedOperations).toContain('getAddressTransactions');
       expect(capabilities.supportedOperations).toContain('getAddressBalances');
+      expect(capabilities.supportedTransactionTypes).toContain('normal');
     });
   });
 });

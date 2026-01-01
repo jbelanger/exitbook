@@ -15,8 +15,13 @@ import type {
   IBlockchainProvider,
   ProviderCapabilities,
   ProviderHealth,
+  ProviderOperation,
   ProviderOperationType,
 } from './types/index.js';
+
+// Deduplication window size: Used for in-memory dedup during streaming and loading recent transaction IDs
+// Sized to cover typical replay overlap (5 blocks × ~200 txs/block = ~1000 items max)
+export const DEFAULT_DEDUP_WINDOW_SIZE = 1000;
 
 /**
  * Check if cache entry is still valid
@@ -66,8 +71,22 @@ export function scoreProvider(
 /**
  * Check if provider supports the requested operation
  */
-export function supportsOperation(capabilities: ProviderCapabilities, operationType: string): boolean {
-  return capabilities.supportedOperations.includes(operationType as ProviderOperationType);
+export function supportsOperation(capabilities: ProviderCapabilities, operation: ProviderOperation): boolean {
+  if (!capabilities.supportedOperations.includes(operation.type as ProviderOperationType)) {
+    return false;
+  }
+
+  // For getAddressTransactions, check supportedTransactionTypes (defaults to 'normal')
+  if (operation.type === 'getAddressTransactions') {
+    const transactionType = operation.transactionType || 'normal';
+    if (!capabilities.supportedTransactionTypes) {
+      // If provider doesn't declare supported types, assume it only supports 'normal'
+      return transactionType === 'normal';
+    }
+    return capabilities.supportedTransactionTypes.includes(transactionType);
+  }
+
+  return true;
 }
 
 /**
@@ -78,7 +97,7 @@ export function selectProvidersForOperation(
   providers: IBlockchainProvider[],
   healthMap: Map<string, ProviderHealth>,
   circuitMap: Map<string, CircuitState>,
-  operationType: string,
+  operation: ProviderOperation,
   now: number
 ): {
   health: ProviderHealth;
@@ -86,7 +105,7 @@ export function selectProvidersForOperation(
   score: number;
 }[] {
   return providers
-    .filter((p) => supportsOperation(p.capabilities, operationType))
+    .filter((p) => supportsOperation(p.capabilities, operation))
     .map((provider) => {
       const health = healthMap.get(provider.name);
       const circuitState = circuitMap.get(provider.name);
@@ -343,10 +362,13 @@ export function deduplicateTransactions<T extends { normalized: NormalizedTransa
  * storage integration to the provider manager.
  *
  * @param importSessionId - Import session to load transactions from
- * @param windowSize - Number of recent transactions to load (default: 1000)
+ * @param windowSize - Number of recent transactions to load
  * @returns Promise resolving to array of transaction IDs from the last N transactions
  */
-export function loadRecentTransactionIds(importSessionId: number, _windowSize = 1000): Promise<string[]> {
+export function loadRecentTransactionIds(
+  importSessionId: number,
+  _windowSize = DEFAULT_DEDUP_WINDOW_SIZE
+): Promise<string[]> {
   // TODO: Implement in Phase 2.3
   // This will query the repository:
   // Query: SELECT event_id FROM raw_transactions
@@ -528,4 +550,49 @@ export function buildProviderNotFoundError(
   ];
 
   return `Preferred provider '${preferredProvider}' not found for ${blockchain}.\n${suggestions.join('\n')}`;
+}
+
+/**
+ * Resolve and wrap cursor for a specific provider
+ *
+ * Handles cross-provider failover, replay windows, and cursor translation
+ * by wrapping the resolved value back into a CursorState for the provider.
+ */
+export function resolveCursorStateForProvider(
+  currentCursor: CursorState | undefined,
+  provider: IBlockchainProvider,
+  isFailover: boolean,
+  logger: { info: (msg: string) => void; warn: (msg: string) => void }
+): CursorState | undefined {
+  if (!currentCursor) return undefined;
+
+  const resolved = resolveCursorForResumption(
+    currentCursor,
+    {
+      providerName: provider.name,
+      supportedCursorTypes: provider.capabilities.supportedCursorTypes || [],
+      isFailover,
+      applyReplayWindow: (c) => provider.applyReplayWindow(c),
+    },
+    logger
+  );
+
+  if (resolved.pageToken) {
+    return {
+      ...currentCursor,
+      primary: { type: 'pageToken' as const, value: resolved.pageToken, providerName: provider.name },
+    };
+  } else if (resolved.fromBlock !== undefined) {
+    return {
+      ...currentCursor,
+      primary: { type: 'blockNumber' as const, value: resolved.fromBlock },
+    };
+  } else if (resolved.fromTimestamp !== undefined) {
+    return {
+      ...currentCursor,
+      primary: { type: 'timestamp' as const, value: resolved.fromTimestamp },
+    };
+  }
+
+  return currentCursor;
 }

@@ -728,8 +728,9 @@ describe('NearBlocksApiClient', () => {
 
       expect(capabilities.supportedOperations).toContain('getAddressTransactions');
       expect(capabilities.supportedOperations).toContain('getAddressBalances');
-      expect(capabilities.supportedOperations).toContain('getAddressTokenTransactions');
-      expect(capabilities.supportedOperations).toHaveLength(3);
+      expect(capabilities.supportedOperations).toHaveLength(2);
+      expect(capabilities.supportedTransactionTypes).toContain('normal');
+      expect(capabilities.supportedTransactionTypes).toContain('token');
     });
   });
 

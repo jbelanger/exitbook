@@ -22,6 +22,7 @@ import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBala
   blockchain: 'theta',
   capabilities: {
     supportedOperations: ['getAddressBalances', 'getAddressTransactions', 'getAddressTokenBalances'],
+    supportedTransactionTypes: ['normal'],
     supportedCursorTypes: ['blockNumber', 'timestamp'],
     preferredCursorType: 'blockNumber',
     replayWindow: { blocks: 2 },
@@ -98,15 +99,21 @@ export class ThetaScanApiClient extends BaseApiClient {
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
-    // Route to appropriate streaming implementation
-    switch (operation.type) {
-      case 'getAddressTransactions':
+    if (operation.type !== 'getAddressTransactions') {
+      yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+      return;
+    }
+
+    // Route based on transaction type
+    const transactionType = operation.transactionType || 'normal';
+    switch (transactionType) {
+      case 'normal':
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
       default:
-        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
     }
   }
 

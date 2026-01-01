@@ -149,6 +149,7 @@ describe('xpub import integration tests', () => {
           rawTransactions: [
             {
               providerName: 'test-provider',
+              timestamp: Date.now(),
               eventId: 'tx1',
               blockchainTransactionHash: 'tx1',
               providerData: { txid: 'tx1', blockHeight: 100 },
@@ -156,13 +157,14 @@ describe('xpub import integration tests', () => {
             },
             {
               providerName: 'test-provider',
+              timestamp: Date.now(),
               eventId: 'tx2',
               blockchainTransactionHash: 'tx2',
               providerData: { txid: 'tx2', blockHeight: 101 },
               normalizedData: { id: 'tx2', blockHeight: 101 },
             },
           ],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 101 },
             lastTransactionId: 'tx2',
@@ -222,11 +224,12 @@ describe('xpub import integration tests', () => {
           rawTransactions: Array.from({ length: txCount }, (_, i) => ({
             providerName: 'test-provider',
             eventId: `tx-child${callCount}-${i}`,
+            timestamp: Date.now() + i,
             blockchainTransactionHash: `tx-child${callCount}-${i}`,
             providerData: { txid: `tx-child${callCount}-${i}`, blockHeight: 100 + i },
             normalizedData: { id: `tx-child${callCount}-${i}`, blockHeight: 100 + i },
           })),
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 100 + txCount - 1 },
             lastTransactionId: `tx-child${callCount}-${txCount - 1}`,
@@ -265,6 +268,7 @@ describe('xpub import integration tests', () => {
           rawTransactions: [
             {
               providerName: 'test-provider',
+              timestamp: Date.now(),
               eventId: 'tx1',
               blockchainTransactionHash: 'tx1',
               providerData: { txid: 'tx1', blockHeight: 100 },
@@ -272,6 +276,7 @@ describe('xpub import integration tests', () => {
             },
             {
               providerName: 'test-provider',
+              timestamp: Date.now(),
               eventId: 'tx2',
               blockchainTransactionHash: 'tx2',
               providerData: { txid: 'tx2', blockHeight: 101 },
@@ -279,13 +284,14 @@ describe('xpub import integration tests', () => {
             },
             {
               providerName: 'test-provider',
+              timestamp: Date.now(),
               eventId: 'tx3',
               blockchainTransactionHash: 'tx3',
               providerData: { txid: 'tx3', blockHeight: 102 },
               normalizedData: { id: 'tx3', blockHeight: 102 },
             },
           ],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 102 },
             lastTransactionId: 'tx3',
@@ -319,7 +325,7 @@ describe('xpub import integration tests', () => {
       mockImportStreamingFn.mockImplementationOnce(async function* () {
         yield okAsync({
           rawTransactions: [],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 102 },
             lastTransactionId: 'tx3',
@@ -365,7 +371,7 @@ describe('xpub import integration tests', () => {
       mockImportStreamingFn.mockImplementation(async function* () {
         yield okAsync({
           rawTransactions: [],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 0 },
             lastTransactionId: '',
@@ -436,9 +442,10 @@ describe('xpub import integration tests', () => {
               blockchainTransactionHash: sharedTxHash, // Same hash for both!
               providerData: { txid: sharedTxHash, inputs: [derivedAddress1], outputs: [derivedAddress2] },
               normalizedData: { id: sharedTxHash, blockHeight: 100 },
+              timestamp: Date.now(),
             },
           ],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 100 },
             lastTransactionId: sharedTxHash,
@@ -509,6 +516,7 @@ describe('xpub import integration tests', () => {
               blockchainTransactionHash: 'cardano-tx1',
               providerData: { txHash: 'cardano-tx1' },
               normalizedData: { id: 'cardano-tx1' },
+              timestamp: Date.now(),
             },
             {
               providerName: 'test-provider',
@@ -516,9 +524,10 @@ describe('xpub import integration tests', () => {
               blockchainTransactionHash: 'cardano-tx2',
               providerData: { txHash: 'cardano-tx2' },
               normalizedData: { id: 'cardano-tx2' },
+              timestamp: Date.now() + 1,
             },
           ],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 5000000 },
             lastTransactionId: 'cardano-tx2',
@@ -563,9 +572,10 @@ describe('xpub import integration tests', () => {
               blockchainTransactionHash: 'cardano-tx1',
               providerData: { txHash: 'cardano-tx1' },
               normalizedData: { id: 'cardano-tx1' },
+              timestamp: Date.now(),
             },
           ],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 5000000 },
             lastTransactionId: 'cardano-tx1',
@@ -589,7 +599,7 @@ describe('xpub import integration tests', () => {
       mockImportStreamingFn.mockImplementationOnce(async function* () {
         yield okAsync({
           rawTransactions: [],
-          operationType: 'normal',
+          transactionType: 'normal',
           cursor: {
             primary: { type: 'blockNumber', value: 5000000 },
             lastTransactionId: 'cardano-tx1',

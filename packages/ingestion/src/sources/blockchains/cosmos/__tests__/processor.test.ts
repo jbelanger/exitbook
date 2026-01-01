@@ -563,7 +563,7 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     // This is the bug we're fixing - it should NOT create a token assetId
     // just because tokenAddress is present
     expect(transaction.movements.inflows).toHaveLength(1);
-    const inflow = transaction.movements.inflows[0];
+    const inflow = transaction.movements.inflows![0];
     expect(inflow).toBeDefined();
     if (!inflow) return;
     expect(inflow.assetSymbol).toBe('INJ');

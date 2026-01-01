@@ -29,6 +29,7 @@ describe.sequential('NearBlocksApiClient E2E', () => {
     const txResult = await client.execute<TransactionWithRawData<NearTransaction>[]>({
       address: testAddress,
       type: 'getAddressTransactions',
+      transactionType: 'normal' as const,
     });
     if (txResult.isOk()) {
       cachedTransactions = txResult.value;

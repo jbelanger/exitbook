@@ -342,10 +342,6 @@ export class SolanaTransactionBuilder {
     eventId: '0xdefaulteventid',
     slot: 100000,
     timestamp: TEST_TIMESTAMPS.now,
-    from: 'user1111111111111111111111111111111111111111',
-    to: 'external222222222222222222222222222222222222',
-    amount: '1000000000',
-    currency: 'SOL',
     feeAmount: '5000',
     feeCurrency: 'SOL',
     accountChanges: [],
@@ -365,22 +361,6 @@ export class SolanaTransactionBuilder {
 
   withTimestamp(timestamp: number): this {
     this.tx.timestamp = timestamp;
-    return this;
-  }
-
-  withFrom(from: string): this {
-    this.tx.from = from;
-    return this;
-  }
-
-  withTo(to: string): this {
-    this.tx.to = to;
-    return this;
-  }
-
-  withAmount(amount: string, currency = 'SOL'): this {
-    this.tx.amount = amount;
-    this.tx.currency = currency;
     return this;
   }
 

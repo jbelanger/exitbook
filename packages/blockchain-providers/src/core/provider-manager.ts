@@ -20,10 +20,11 @@ import {
   canProviderResume,
   createDeduplicationWindow,
   createInitialHealth,
+  DEFAULT_DEDUP_WINDOW_SIZE,
   deduplicateTransactions,
   getProviderHealthWithCircuit,
   hasAvailableProviders,
-  resolveCursorForResumption,
+  resolveCursorStateForProvider,
   selectProvidersForOperation,
   updateHealthMetrics,
   validateProviderApiKey,
@@ -38,7 +39,6 @@ import type {
   ProviderHealth,
   OneShotOperation,
   ProviderOperation,
-  StreamingOperation,
 } from './types/index.js';
 import type { BlockchainExplorersConfig, ProviderOverride } from './utils/config-utils.js';
 
@@ -49,11 +49,19 @@ interface CacheEntry {
   result: unknown;
 }
 
+// Provider request cache timeout: Balance between fresh data and API rate limits
+// 30 seconds allows rapid successive calls to use cached results while ensuring reasonable freshness
+const PROVIDER_CACHE_TIMEOUT_MS = 30000;
+
+// Provider health check interval: Balance between timely failure detection and overhead
+// 1 minute provides reasonable responsiveness while minimizing background health check traffic
+const PROVIDER_HEALTH_CHECK_INTERVAL_MS = 60000;
+
 export class BlockchainProviderManager {
   private cacheCleanupTimer?: NodeJS.Timeout | undefined;
-  private readonly cacheTimeout = 30000; // 30 seconds
+  private readonly cacheTimeout = PROVIDER_CACHE_TIMEOUT_MS;
   private circuitStates = new Map<string, CircuitState>();
-  private readonly healthCheckInterval = 60000; // 1 minute
+  private readonly healthCheckInterval = PROVIDER_HEALTH_CHECK_INTERVAL_MS;
   private healthCheckTimer?: NodeJS.Timeout | undefined;
   private healthStatus = new Map<string, ProviderHealth>();
   private instrumentation?: InstrumentationCollector | undefined;
@@ -207,17 +215,7 @@ export class BlockchainProviderManager {
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<FailoverStreamingExecutionResult<T>, Error>> {
-    // Define which operations require streaming pagination
-    const STREAMING_OPERATIONS: StreamingOperation['type'][] = [
-      'getAddressTransactions',
-      'getAddressInternalTransactions',
-      'getAddressTokenTransactions',
-      'getAddressBeaconWithdrawals',
-    ];
-    const isStreamingOperation = (op: ProviderOperation): op is StreamingOperation =>
-      STREAMING_OPERATIONS.includes(op.type as StreamingOperation['type']);
-
-    if (isStreamingOperation(operation)) {
+    if (operation.type === 'getAddressTransactions') {
       // Multi-batch streaming with pagination support
       yield* this.executeStreamingImpl<T>(blockchain, operation, resumeCursor);
     } else {
@@ -230,25 +228,7 @@ export class BlockchainProviderManager {
       }
 
       // Wrap one-shot result as single-element batch with completion marker
-      yield ok({
-        data: [result.value.data] as T[],
-        providerName: result.value.providerName,
-        cursor: {
-          primary: { type: 'blockNumber' as const, value: 0 },
-          lastTransactionId: '',
-          totalFetched: 1,
-          metadata: {
-            providerName: result.value.providerName,
-            updatedAt: Date.now(),
-          },
-        },
-        isComplete: true,
-        stats: {
-          fetched: 1,
-          deduplicated: 0,
-          yielded: 1,
-        },
-      });
+      yield ok(this.wrapOneShotResult(result.value));
     }
   }
 
@@ -274,15 +254,10 @@ export class BlockchainProviderManager {
     operation: OneShotOperation
   ): Promise<Result<FailoverExecutionResult<T>, Error>> {
     // Runtime guard in case typing is bypassed
-    const STREAMING_OPERATIONS = new Set<ProviderOperation['type']>([
-      'getAddressTransactions',
-      'getAddressInternalTransactions',
-      'getAddressTokenTransactions',
-    ]);
-    if (STREAMING_OPERATIONS.has(operation.type)) {
+    if ((operation as ProviderOperation).type === 'getAddressTransactions') {
       return err(
         new Error(
-          `executeWithFailoverOnce is only for one-shot operations; received streaming operation: ${operation.type}`
+          `executeWithFailoverOnce is only for one-shot operations; received streaming operation: ${(operation as ProviderOperation).type}`
         )
       );
     }
@@ -521,10 +496,6 @@ export class BlockchainProviderManager {
     let currentCursor = resumeCursor;
     let providerIndex = 0;
 
-    // Bounded deduplication window prevents unbounded memory growth during long streams
-    // Window size (1000) covers typical replay overlap: 5 blocks × ~200 txs/block
-    const DEDUP_WINDOW_SIZE = 1000;
-
     // ✅ CRITICAL: Populate dedup set from recent database transactions to prevent duplicates
     // during replay window (5 blocks/minutes can be dozens of transactions)
     const initialIds = resumeCursor ? [resumeCursor.lastTransactionId] : [];
@@ -555,49 +526,18 @@ export class BlockchainProviderManager {
 
       // Use manager's cursor resolution for ALL cursor handling
       // This handles: same-provider resumption, cross-provider failover, replay windows
-      const adjustedCursor = currentCursor
-        ? (() => {
-            const resolved = resolveCursorForResumption(
-              currentCursor,
-              {
-                providerName: provider.name,
-                supportedCursorTypes: provider.capabilities.supportedCursorTypes || [],
-                isFailover, // Only apply replay window during cross-provider failover
-                applyReplayWindow: (c) => provider.applyReplayWindow(c),
-              },
-              logger
-            );
+      const adjustedCursor = resolveCursorStateForProvider(currentCursor, provider, isFailover, logger);
 
-            // Convert resolved cursor back to CursorState format
-            // Manager resolves to the specific value, provider just needs to receive it
-            if (resolved.pageToken) {
-              return {
-                ...currentCursor,
-                primary: { type: 'pageToken' as const, value: resolved.pageToken, providerName: provider.name },
-              };
-            } else if (resolved.fromBlock !== undefined) {
-              return {
-                ...currentCursor,
-                primary: { type: 'blockNumber' as const, value: resolved.fromBlock },
-              };
-            } else if (resolved.fromTimestamp !== undefined) {
-              return {
-                ...currentCursor,
-                primary: { type: 'timestamp' as const, value: resolved.fromTimestamp },
-              };
-            }
-            return currentCursor;
-          })()
-        : undefined;
-
-      logger.info(
-        `Using provider ${provider.name} for ${operation.type}` +
-          (isFailover
-            ? ` (failover from ${currentCursor!.metadata?.providerName}, replay window applied)`
-            : currentCursor
-              ? ` (resuming same provider)`
-              : '')
-      );
+      // Log at info level only when there's something notable (failover or resume)
+      if (isFailover) {
+        logger.info(
+          `Using provider ${provider.name} for ${operation.type} (failover from ${currentCursor!.metadata?.providerName}, replay window applied)`
+        );
+      } else if (currentCursor) {
+        logger.info(`Using provider ${provider.name} for ${operation.type} (resuming same provider)`);
+      } else {
+        logger.debug(`Using provider ${provider.name} for ${operation.type}`);
+      }
 
       try {
         const iterator = provider.executeStreaming(operation, adjustedCursor);
@@ -627,7 +567,7 @@ export class BlockchainProviderManager {
           const deduplicated = deduplicateTransactions(
             batch.data as { normalized: NormalizedTransactionBase }[],
             deduplicationWindow,
-            DEDUP_WINDOW_SIZE
+            DEFAULT_DEDUP_WINDOW_SIZE
           );
           const deduplicatedCount = fetchedCount - deduplicated.length;
 
@@ -666,7 +606,7 @@ export class BlockchainProviderManager {
           continue;
         }
 
-        logger.info(`Provider ${provider.name} completed successfully`);
+        logger.debug(`Provider ${provider.name} completed successfully`);
         return;
       } catch (error) {
         // ✅ Unexpected errors (outside Result chain) - wrap and yield
@@ -914,7 +854,7 @@ export class BlockchainProviderManager {
       candidates,
       this.healthStatus,
       this.circuitStates,
-      operation.type,
+      operation,
       now
     );
 
@@ -1115,5 +1055,31 @@ export class BlockchainProviderManager {
         }
       }
     }
+  }
+
+  /**
+   * Wrap a one-shot execution result into a streaming batch format
+   * @private
+   */
+  private wrapOneShotResult<T>(result: FailoverExecutionResult<T>): FailoverStreamingExecutionResult<T> {
+    return {
+      data: [result.data] as T[],
+      providerName: result.providerName,
+      cursor: {
+        primary: { type: 'blockNumber' as const, value: 0 },
+        lastTransactionId: '',
+        totalFetched: 1,
+        metadata: {
+          providerName: result.providerName,
+          updatedAt: Date.now(),
+        },
+      },
+      isComplete: true,
+      stats: {
+        fetched: 1,
+        deduplicated: 0,
+        yielded: 1,
+      },
+    };
   }
 }

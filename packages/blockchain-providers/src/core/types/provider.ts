@@ -14,6 +14,13 @@ export interface ProviderCapabilities {
   supportedOperations: ProviderOperationType[];
 
   /**
+   * Supported transaction types for getAddressTransactions operation
+   * Chain-specific categories (e.g., ['normal', 'internal', 'token', 'beacon_withdrawal'] for EVM)
+   * Used to determine which transaction subtypes a provider can fetch
+   */
+  supportedTransactionTypes?: string[];
+
+  /**
    * Cursor types this provider can accept for resumption
    * Enables cross-provider failover for compatible cursor types
    * Optional during Phase 1 migration - providers will implement incrementally

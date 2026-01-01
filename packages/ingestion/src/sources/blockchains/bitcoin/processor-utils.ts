@@ -1,4 +1,5 @@
 import type { BitcoinTransaction } from '@exitbook/blockchain-providers';
+import { satoshisToBtcString } from '@exitbook/blockchain-providers';
 import { type Result, ok } from 'neverthrow';
 
 import type { ProcessingContext } from '../../../shared/types/processors.js';
@@ -45,7 +46,7 @@ export function analyzeBitcoinFundFlow(
     }
   }
 
-  const netAmount = (walletOutput - walletInput) / 100000000;
+  const netAmount = satoshisToBtcString(Math.abs(walletOutput - walletInput));
   const isIncoming = walletOutput > walletInput;
   const isOutgoing = walletInput > walletOutput;
 
@@ -63,12 +64,12 @@ export function analyzeBitcoinFundFlow(
     fromAddress,
     isIncoming,
     isOutgoing,
-    netAmount: Math.abs(netAmount).toString(),
+    netAmount,
     toAddress,
-    totalInput: (totalInput / 100000000).toString(),
-    totalOutput: (totalOutput / 100000000).toString(),
-    walletInput: (walletInput / 100000000).toString(),
-    walletOutput: (walletOutput / 100000000).toString(),
+    totalInput: satoshisToBtcString(totalInput),
+    totalOutput: satoshisToBtcString(totalOutput),
+    walletInput: satoshisToBtcString(walletInput),
+    walletOutput: satoshisToBtcString(walletOutput),
   });
 }
 

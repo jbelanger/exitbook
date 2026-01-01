@@ -12,7 +12,10 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
 
   describe('streamAddressTransactions', () => {
     it('should stream transactions with cursor management', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+      };
       const stream = client.executeStreaming<NearTransaction>(operation);
 
       let batchCount = 0;
@@ -76,7 +79,10 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
     }, 90000);
 
     it('should resume streaming from cursor', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+      };
 
       // First stream: get first batch and cursor
       const stream1 = client.executeStreaming<NearTransaction>(operation);
@@ -118,7 +124,10 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
     }, 90000);
 
     it('should handle enrichment in streaming mode', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+      };
       const stream = client.executeStreaming<NearTransaction>(operation);
 
       let foundEnrichedTransaction = false;
@@ -160,7 +169,10 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
 
     it('should handle empty results gracefully', async () => {
       const emptyAddress = 'nonexistent12345.near';
-      const operation = { type: 'getAddressTransactions' as const, address: emptyAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: emptyAddress,
+      };
       const stream = client.executeStreaming<NearTransaction>(operation);
 
       const results = [];
@@ -179,7 +191,11 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
 
   describe('streamAddressTokenTransactions', () => {
     it('should stream token transactions with cursor management', async () => {
-      const operation = { type: 'getAddressTokenTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        transactionType: 'token' as const,
+        address: testAddress,
+      };
       const stream = client.executeStreaming<NearTransaction>(operation);
 
       let batchCount = 0;
@@ -234,7 +250,11 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
     it('should handle addresses with no token transactions', async () => {
       // Use an address that likely has no FT transactions
       const noTokenAddress = 'system';
-      const operation = { type: 'getAddressTokenTransactions' as const, address: noTokenAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        transactionType: 'token' as const,
+        address: noTokenAddress,
+      };
       const stream = client.executeStreaming<NearTransaction>(operation);
 
       const results = [];
@@ -251,7 +271,10 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
 
   describe('Cursor Types and Replay Window', () => {
     it('should extract correct cursor types from transactions', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+      };
       const stream = client.executeStreaming<NearTransaction>(operation);
 
       for await (const result of stream) {

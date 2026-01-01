@@ -32,6 +32,7 @@ import { TaostatsBalanceResponseSchema, TaostatsTransactionsResponseSchema } fro
   blockchain: 'bittensor',
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
+    supportedTransactionTypes: ['normal'],
     supportedCursorTypes: ['blockNumber', 'timestamp'],
     preferredCursorType: 'blockNumber',
   },
@@ -122,6 +123,12 @@ export class TaostatsApiClient extends BaseApiClient {
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
     switch (operation.type) {
       case 'getAddressTransactions':
+        if (operation.transactionType !== 'normal') {
+          yield err(
+            new Error(`Unsupported transaction type: ${operation.transactionType} for operation: ${operation.type}`)
+          );
+          return;
+        }
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;

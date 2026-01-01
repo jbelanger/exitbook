@@ -19,7 +19,10 @@ describe.sequential('SolscanApiClient Streaming E2E', () => {
    */
   describe('streamAddressTransactions', () => {
     it.skip('should stream transactions with cursor management', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+      };
       const stream = client.executeStreaming<SolanaTransaction>(operation);
 
       let batchCount = 0;
@@ -88,7 +91,10 @@ describe.sequential('SolscanApiClient Streaming E2E', () => {
     }, 60000);
 
     it.skip('should resume streaming from cursor', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+      };
 
       // First stream: get first batch and cursor
       const stream1 = client.executeStreaming<SolanaTransaction>(operation);
@@ -131,7 +137,10 @@ describe.sequential('SolscanApiClient Streaming E2E', () => {
     it.skip('should handle empty results gracefully', async () => {
       // Random address that should have no transactions
       const emptyAddress = '11111111111111111111111111111111';
-      const operation = { type: 'getAddressTransactions' as const, address: emptyAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: emptyAddress,
+      };
       const stream = client.executeStreaming<SolanaTransaction>(operation);
 
       const results = [];
@@ -151,7 +160,10 @@ describe.sequential('SolscanApiClient Streaming E2E', () => {
 
   describe('Cursor Extraction', () => {
     it.skip('should extract correct cursor types from transactions', async () => {
-      const operation = { type: 'getAddressTransactions' as const, address: testAddress };
+      const operation = {
+        type: 'getAddressTransactions' as const,
+        address: testAddress,
+      };
       const stream = client.executeStreaming<SolanaTransaction>(operation);
 
       for await (const result of stream) {

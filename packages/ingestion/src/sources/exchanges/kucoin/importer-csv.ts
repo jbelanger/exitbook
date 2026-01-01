@@ -170,9 +170,12 @@ export class KucoinCsvImporter implements IImporter {
 
           for (const row of validationResult.valid) {
             const eventId = this.getUniqueEventlId(row['Order ID']);
+            // Use Filled Time if available, otherwise fall back to Order Time
+            const timeStr = row['Filled Time(UTC)'] || row['Order Time(UTC)'];
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'spot_order',
+              timestamp: this.parseTimestamp(timeStr),
               providerData: { _rowType: 'spot_order', ...row },
               normalizedData: { _rowType: 'spot_order', ...row },
               eventId: eventId,
@@ -207,6 +210,7 @@ export class KucoinCsvImporter implements IImporter {
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'deposit',
+              timestamp: this.parseTimestamp(row['Time(UTC)']),
               providerData: { _rowType: 'deposit', ...row },
               normalizedData: { _rowType: 'deposit', ...row },
               eventId: eventId,
@@ -241,6 +245,7 @@ export class KucoinCsvImporter implements IImporter {
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'withdrawal',
+              timestamp: this.parseTimestamp(row['Time(UTC)']),
               normalizedData: { _rowType: 'withdrawal', ...row },
               providerData: { _rowType: 'withdrawal', ...row },
               eventId: eventId,
@@ -275,6 +280,7 @@ export class KucoinCsvImporter implements IImporter {
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'account_history',
+              timestamp: this.parseTimestamp(row['Time(UTC)']),
               normalizedData: { _rowType: 'account_history', ...row },
               providerData: { _rowType: 'account_history', ...row },
               eventId: eventId,
@@ -292,7 +298,7 @@ export class KucoinCsvImporter implements IImporter {
             );
             return ok({
               rawTransactions: [],
-              operationType: `csv:kucoin:${filePath}`,
+              transactionType: `csv:kucoin:${filePath}`,
               cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
               isComplete: true,
             });
@@ -325,6 +331,7 @@ export class KucoinCsvImporter implements IImporter {
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'order_splitting',
+              timestamp: this.parseTimestamp(row['Filled Time(UTC)']),
               normalizedData: { _rowType: 'order_splitting', ...row },
               providerData: { _rowType: 'order_splitting', ...row },
               eventId: eventId,
@@ -356,12 +363,13 @@ export class KucoinCsvImporter implements IImporter {
           const mainAccountRows = this.filterMainAccountRows(validationResult.valid, fileName, 'trading bot');
 
           for (const row of mainAccountRows) {
-            const timestamp = new Date(row['Time Filled(UTC)']).getTime();
+            const timestamp = this.parseTimestamp(row['Time Filled(UTC)']);
             const baseId = `${row['Order ID']}-${timestamp}-${row['Filled Amount']}`;
             const eventId = this.getUniqueEventlId(baseId);
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'trading_bot',
+              timestamp,
               normalizedData: { _rowType: 'trading_bot', ...row },
               providerData: { _rowType: 'trading_bot', ...row },
               eventId: eventId,
@@ -374,7 +382,7 @@ export class KucoinCsvImporter implements IImporter {
           this.logger.warn(`Skipping convert orders CSV file - using account history instead: ${fileName}`);
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -392,7 +400,7 @@ export class KucoinCsvImporter implements IImporter {
           }
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -411,7 +419,7 @@ export class KucoinCsvImporter implements IImporter {
           }
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -432,7 +440,7 @@ export class KucoinCsvImporter implements IImporter {
           }
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -450,7 +458,7 @@ export class KucoinCsvImporter implements IImporter {
           }
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -467,7 +475,7 @@ export class KucoinCsvImporter implements IImporter {
           }
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -480,7 +488,7 @@ export class KucoinCsvImporter implements IImporter {
           );
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -490,7 +498,7 @@ export class KucoinCsvImporter implements IImporter {
           this.logger.warn(`Skipping unrecognized CSV file: ${fileName}`);
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -500,7 +508,7 @@ export class KucoinCsvImporter implements IImporter {
           this.logger.warn(`No handler for file type: ${fileType} in file: ${fileName}`);
           return ok({
             rawTransactions: [],
-            operationType: `csv:kucoin:${filePath}`,
+            transactionType: `csv:kucoin:${filePath}`,
             cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
             isComplete: true,
           });
@@ -521,7 +529,7 @@ export class KucoinCsvImporter implements IImporter {
 
       return ok({
         rawTransactions,
-        operationType: `csv:kucoin:${filePath}`, // Use full path for uniqueness
+        transactionType: `csv:kucoin:${filePath}`, // Use full path for uniqueness
         cursor,
         isComplete: true, // Each file is complete when processed
       });
@@ -682,23 +690,13 @@ export class KucoinCsvImporter implements IImporter {
   }
 
   /**
-   * Extract timestamp from raw data based on transaction type.
+   * Parse KuCoin CSV timestamp to Unix milliseconds
+   * KuCoin timestamps are in format "YYYY-MM-DD HH:MM:SS" (UTC)
    */
-  private extractTimestamp(rawData: unknown): number {
-    if (typeof rawData !== 'object' || rawData === null) {
-      return 0;
-    }
-
-    const data = rawData as Record<string, unknown>;
-
-    // Try different timestamp field names
-    if ('Filled Time(UTC)' in data && typeof data['Filled Time(UTC)'] === 'string') {
-      return new Date(data['Filled Time(UTC)']).getTime();
-    }
-    if ('Time(UTC)' in data && typeof data['Time(UTC)'] === 'string') {
-      return new Date(data['Time(UTC)']).getTime();
-    }
-
-    return 0;
+  private parseTimestamp(timeStr: string): number {
+    // KuCoin CSV timestamps are already in UTC
+    // Add 'Z' suffix to ensure proper UTC parsing
+    const isoString = timeStr.replace(' ', 'T') + 'Z';
+    return new Date(isoString).getTime();
   }
 }

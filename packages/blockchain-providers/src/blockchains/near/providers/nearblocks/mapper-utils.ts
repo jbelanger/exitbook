@@ -193,14 +193,6 @@ export function mapNearBlocksFtTransactionToTokenTransfer(
 
   const validatedFtTx = inputValidationResult.data;
 
-  // Ensure we have FT metadata
-  if (!validatedFtTx.ft) {
-    return err({
-      message: 'FT transaction missing token metadata',
-      type: 'error',
-    });
-  }
-
   // Normalize amount by decimals
   const rawAmount = validatedFtTx.delta_amount || '0';
   const decimals = validatedFtTx.ft.decimals;
