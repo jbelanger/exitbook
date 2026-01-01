@@ -119,7 +119,7 @@ export const NearBalanceChangeSchema = z.object({
   transactionHash: z.string().min(1).optional(),
 
   /** Block timestamp (for fallback correlation) */
-  blockTimestamp: z.number().positive(),
+  timestamp: z.number().positive(),
 });
 
 export type NearBalanceChange = z.infer<typeof NearBalanceChangeSchema>;
@@ -154,7 +154,7 @@ export const NearTokenTransferSchema = z.object({
   transactionHash: z.string().min(1),
 
   /** Block timestamp */
-  blockTimestamp: z.number().positive(),
+  timestamp: z.number().positive(),
 });
 
 export type NearTokenTransfer = z.infer<typeof NearTokenTransferSchema>;
@@ -189,7 +189,7 @@ export const NearReceiptSchema = z.object({
   blockHash: z.string().optional(),
 
   /** Block timestamp (Unix milliseconds) */
-  blockTimestamp: z.number().positive(),
+  timestamp: z.number().positive(),
 
   /** Actions executed by this receipt (for ACTION receipts) */
   actions: z.array(NearActionSchema).optional(),
@@ -227,7 +227,7 @@ export const NearTransactionSchema = z.object({
   blockHash: z.string().optional(),
 
   /** Block timestamp (Unix milliseconds) */
-  blockTimestamp: z.number().positive(),
+  timestamp: z.number().positive(),
 
   /**
    * Transaction-level actions (may differ from receipt actions)

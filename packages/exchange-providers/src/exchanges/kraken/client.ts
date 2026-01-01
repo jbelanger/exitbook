@@ -166,6 +166,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
                 // Add validated transaction to batch
                 transactions.push({
                   eventId: validatedData.id,
+                  timestamp: Math.floor(validatedData.time * 1000),
                   providerName: 'kraken',
                   providerData: validatedData,
                   normalizedData: normalizedValidation.data,

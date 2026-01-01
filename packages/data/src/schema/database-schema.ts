@@ -81,6 +81,7 @@ export interface RawTransactionTable {
   // Transaction identification
   event_id: string; // Unique transaction ID from exchange/blockchain
   blockchain_transaction_hash: string | null; // On-chain transaction hash for deduplication (null for exchange transactions)
+  timestamp: number; // Event timestamp in Unix milliseconds
 
   // Source metadata
   source_address: string | null; // For blockchain transactions (wallet address)

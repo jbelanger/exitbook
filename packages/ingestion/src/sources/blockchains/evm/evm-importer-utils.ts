@@ -45,6 +45,7 @@ export function mapToRawTransactions(
     providerName,
     eventId: txWithRaw.normalized.eventId,
     blockchainTransactionHash: txWithRaw.normalized.id,
+    timestamp: txWithRaw.normalized.timestamp,
     // Use the actual transaction type instead of the blanket hint
     // This ensures internal transactions from Moralis (which includes them in the normal stream)
     // are correctly tagged as 'internal' instead of 'normal'

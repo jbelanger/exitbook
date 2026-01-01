@@ -67,6 +67,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('event_id', 'text', (col) => col.notNull())
     .addColumn('source_address', 'text')
     .addColumn('blockchain_transaction_hash', 'text')
+    .addColumn('timestamp', 'integer', (col) => col.notNull()) // Event timestamp in Unix milliseconds
     .addColumn('transaction_type_hint', 'text')
     .addColumn('provider_data', 'text', (col) => col.notNull())
     .addColumn('normalized_data', 'text', (col) => col.notNull())
@@ -78,11 +79,11 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
   // Create index on account_id for fast account-scoped queries
   await db.schema.createIndex('idx_raw_tx_account_id').on('raw_transactions').column('account_id').execute();
 
-  // Create composite index on (account_id, processing_status) for fast pending record queries
+  // Create composite index on (account_id, processing_status, timestamp) for fast pending record queries ordered by time
   await db.schema
-    .createIndex('idx_raw_tx_account_processing_status')
+    .createIndex('idx_raw_tx_account_status_timestamp')
     .on('raw_transactions')
-    .columns(['account_id', 'processing_status'])
+    .columns(['account_id', 'processing_status', 'timestamp'])
     .execute();
 
   // Create index on (account_id, blockchain_transaction_hash) for performance only, no deduplication

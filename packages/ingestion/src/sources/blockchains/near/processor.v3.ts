@@ -406,8 +406,8 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
       to = correlated.transaction.receiverAccountId;
     }
 
-    // Build transaction timestamp (V3 blockTimestamp is already in milliseconds)
-    const timestamp = correlated.transaction.blockTimestamp;
+    // Build transaction timestamp (V3 timestamp is already in milliseconds)
+    const timestamp = correlated.transaction.timestamp;
 
     const transaction: ProcessedTransaction = {
       externalId: correlated.transaction.transactionHash,

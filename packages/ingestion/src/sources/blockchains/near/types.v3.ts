@@ -27,7 +27,7 @@ export interface NearReceipt {
   receiptKind?: string | undefined;
   blockHash?: string | undefined;
   blockHeight?: number | undefined;
-  blockTimestamp?: number | undefined;
+  timestamp?: number | undefined;
   executorAccountId?: string | undefined;
   gasBurnt?: string | undefined;
   tokensBurntYocto?: string | undefined;

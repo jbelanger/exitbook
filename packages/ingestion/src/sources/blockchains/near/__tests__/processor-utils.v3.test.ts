@@ -44,7 +44,7 @@ const createTransaction = (overrides: Partial<NearTransactionV3> = {}): NearTran
   receiverAccountId: 'bob.near',
   blockHash: 'block123',
   blockHeight: 12345,
-  blockTimestamp: 1640000000,
+  timestamp: 1640000000,
   status: true,
   ...overrides,
 });
@@ -60,7 +60,7 @@ const createReceipt = (overrides: Partial<NearReceiptV3> = {}): NearReceiptV3 =>
   receiptKind: 'ACTION',
   blockHash: 'block123',
   blockHeight: 12345,
-  blockTimestamp: 1640000000,
+  timestamp: 1640000000,
   executorAccountId: 'bob.near',
   gasBurnt: '2428000000000',
   tokensBurntYocto: '242800000000000000000',
@@ -311,7 +311,7 @@ describe('NEAR V3 Processor Utils - convertReceiptToProcessorType', () => {
       receiptKind: 'ACTION',
       blockHash: 'block123',
       blockHeight: 12345,
-      blockTimestamp: 1640000000,
+      timestamp: 1640000000,
       executorAccountId: 'bob.near',
       status: true,
       logs: ['log1', 'log2'],
@@ -327,7 +327,7 @@ describe('NEAR V3 Processor Utils - convertReceiptToProcessorType', () => {
     expect(converted.receiptKind).toBe('ACTION');
     expect(converted.blockHash).toBe('block123');
     expect(converted.blockHeight).toBe(12345);
-    expect(converted.blockTimestamp).toBe(1640000000);
+    expect(converted.timestamp).toBe(1640000000);
     expect(converted.executorAccountId).toBe('bob.near');
     expect(converted.status).toBe(true);
     expect(converted.logs).toEqual(['log1', 'log2']);

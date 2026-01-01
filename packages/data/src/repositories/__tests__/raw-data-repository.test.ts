@@ -92,6 +92,7 @@ describe('RawDataRepository', () => {
           processing_status: i % 2 === 0 ? 'processed' : 'pending',
           processed_at: i % 2 === 0 ? new Date().toISOString() : undefined,
           created_at: new Date().toISOString(),
+          timestamp: Date.now(),
         })
         .execute();
     }
@@ -322,6 +323,7 @@ describe('RawDataRepository', () => {
           processing_status: 'pending' as const,
           processed_at: undefined,
           created_at: new Date('2024-01-01T10:00:00Z').toISOString(),
+          timestamp: Date.now(),
         },
         {
           account_id: 2,
@@ -335,6 +337,7 @@ describe('RawDataRepository', () => {
           processing_status: 'pending' as const,
           processed_at: undefined,
           created_at: new Date('2024-01-01T10:00:01Z').toISOString(),
+          timestamp: Date.now(),
         },
         {
           account_id: 2,
@@ -348,6 +351,7 @@ describe('RawDataRepository', () => {
           processing_status: 'pending' as const,
           processed_at: undefined,
           created_at: new Date('2024-01-01T10:00:02Z').toISOString(),
+          timestamp: Date.now(),
         },
         // Hash 2 - 2 events
         {
@@ -362,6 +366,7 @@ describe('RawDataRepository', () => {
           processing_status: 'pending' as const,
           processed_at: undefined,
           created_at: new Date('2024-01-01T11:00:00Z').toISOString(),
+          timestamp: Date.now(),
         },
         {
           account_id: 2,
@@ -375,6 +380,7 @@ describe('RawDataRepository', () => {
           processing_status: 'pending' as const,
           processed_at: undefined,
           created_at: new Date('2024-01-01T11:00:01Z').toISOString(),
+          timestamp: Date.now(),
         },
         // Hash 3 - 1 event
         {
@@ -389,6 +395,7 @@ describe('RawDataRepository', () => {
           processing_status: 'pending' as const,
           processed_at: undefined,
           created_at: new Date('2024-01-01T12:00:00Z').toISOString(),
+          timestamp: Date.now(),
         },
         // Hash 4 - already processed (should be filtered out)
         {
@@ -403,6 +410,7 @@ describe('RawDataRepository', () => {
           processing_status: 'processed' as const,
           processed_at: new Date().toISOString(),
           created_at: new Date('2024-01-01T13:00:00Z').toISOString(),
+          timestamp: Date.now(),
         },
         // Different account (should be filtered out)
         {
@@ -417,6 +425,7 @@ describe('RawDataRepository', () => {
           processing_status: 'pending' as const,
           processed_at: undefined,
           created_at: new Date('2024-01-01T14:00:00Z').toISOString(),
+          timestamp: Date.now(),
         },
       ];
 

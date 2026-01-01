@@ -204,7 +204,7 @@ describe('NearBlocksApiClientV3', () => {
         transactionHash: 'tx123',
         signerAccountId: 'alice.near',
         receiverAccountId: 'bob.near',
-        blockTimestamp: 1640000000000,
+        timestamp: 1640000000000,
         blockHeight: 100000,
         status: true,
       });
@@ -742,7 +742,7 @@ describe('NearBlocksApiClientV3', () => {
         transactionHash: 'tx123',
         signerAccountId: 'alice.near',
         receiverAccountId: 'bob.near',
-        blockTimestamp: 1640000000000,
+        timestamp: 1640000000000,
         blockHeight: 100000,
       };
 
@@ -762,7 +762,7 @@ describe('NearBlocksApiClientV3', () => {
         transactionHash: 'tx123',
         predecessorAccountId: 'alice.near',
         receiverAccountId: 'bob.near',
-        blockTimestamp: 1640000000000,
+        timestamp: 1640000000000,
         blockHeight: 100000,
       };
 

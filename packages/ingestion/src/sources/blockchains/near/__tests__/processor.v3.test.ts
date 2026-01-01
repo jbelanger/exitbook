@@ -35,7 +35,7 @@ const createTransactionEvent = (overrides: Partial<NearTransactionV3> = {}): Nea
   receiverAccountId: 'bob.near',
   blockHash: 'block123',
   blockHeight: 12345,
-  blockTimestamp: 1640000000000, // milliseconds
+  timestamp: 1640000000000, // milliseconds
   status: true,
   ...overrides,
 });
@@ -51,7 +51,7 @@ const createReceiptEvent = (overrides: Partial<NearReceiptV3> = {}): NearStreamE
   receiptKind: 'ACTION',
   blockHash: 'block123',
   blockHeight: 12345,
-  blockTimestamp: 1640000000000,
+  timestamp: 1640000000000,
   executorAccountId: 'bob.near',
   gasBurnt: '2428000000000',
   tokensBurntYocto: '242800000000000000000', // 0.0002428 NEAR in yoctoNEAR
@@ -217,10 +217,10 @@ describe('NearTransactionProcessorV3', () => {
       const timestampMs = 1640000000000;
       const events: NearStreamEvent[] = [
         createTransactionEvent({
-          blockTimestamp: timestampMs,
+          timestamp: timestampMs,
         }),
         createReceiptEvent({
-          blockTimestamp: timestampMs,
+          timestamp: timestampMs,
         }),
         createBalanceChangeEvent({
           deltaAmountYocto: '1000000000000000000000000',

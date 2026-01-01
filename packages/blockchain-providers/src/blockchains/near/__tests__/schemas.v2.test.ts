@@ -146,7 +146,7 @@ describe('NEAR V2 Schemas', () => {
         postBalance: '99000000000000000000000000',
         receiptId: 'ABC123',
         transactionHash: 'TX123',
-        blockTimestamp: 1234567890000,
+        timestamp: 1234567890000,
       };
 
       const result = NearBalanceChangeSchema.parse(change);
@@ -162,7 +162,7 @@ describe('NEAR V2 Schemas', () => {
         preBalance: '100000000000000000000000000',
         postBalance: '99000000000000000000000000',
         transactionHash: 'TX123',
-        blockTimestamp: 1234567890000,
+        timestamp: 1234567890000,
       };
 
       const result = NearBalanceChangeSchema.parse(change);
@@ -182,7 +182,7 @@ describe('NEAR V2 Schemas', () => {
         symbol: 'USDT',
         receiptId: 'ABC123',
         transactionHash: 'TX123',
-        blockTimestamp: 1234567890000,
+        timestamp: 1234567890000,
       };
 
       const result = NearTokenTransferSchema.parse(transfer);
@@ -203,7 +203,7 @@ describe('NEAR V2 Schemas', () => {
         decimals: 18,
         receiptId: 'ABC123',
         transactionHash: 'TX123',
-        blockTimestamp: 1234567890000,
+        timestamp: 1234567890000,
       };
 
       const result = NearTokenTransferSchema.parse(transfer);
@@ -221,7 +221,7 @@ describe('NEAR V2 Schemas', () => {
         receiptKind: 'ACTION' as const,
         blockHeight: 123456,
         blockHash: 'BLOCK123',
-        blockTimestamp: 1234567890000,
+        timestamp: 1234567890000,
         actions: [
           {
             actionType: 'transfer',
@@ -251,7 +251,7 @@ describe('NEAR V2 Schemas', () => {
         receiverId: 'bob.near',
         receiptKind: 'DATA' as const,
         blockHeight: 123456,
-        blockTimestamp: 1234567890000,
+        timestamp: 1234567890000,
       };
 
       const result = NearReceiptSchema.parse(receipt);
@@ -267,7 +267,7 @@ describe('NEAR V2 Schemas', () => {
         receiverId: 'alice.near',
         receiptKind: 'REFUND' as const,
         blockHeight: 123456,
-        blockTimestamp: 1234567890000,
+        timestamp: 1234567890000,
       };
 
       const result = NearReceiptSchema.parse(receipt);
@@ -282,13 +282,13 @@ describe('NEAR V2 Schemas', () => {
         receiverId: 'bob.near',
         receiptKind: 'ACTION' as const,
         blockHeight: 123456,
-        blockTimestamp: 1234567890000,
+        timestamp: 1234567890000,
         balanceChanges: [
           {
             accountId: 'alice.near',
             preBalance: '100000000000000000000000000',
             postBalance: '99000000000000000000000000',
-            blockTimestamp: 1234567890000,
+            timestamp: 1234567890000,
           },
         ],
       };
@@ -305,7 +305,7 @@ describe('NEAR V2 Schemas', () => {
         receiverId: 'token.near',
         receiptKind: 'ACTION' as const,
         blockHeight: 123456,
-        blockTimestamp: 1234567890000,
+        timestamp: 1234567890000,
         tokenTransfers: [
           {
             contractId: 'token.near',
@@ -315,7 +315,7 @@ describe('NEAR V2 Schemas', () => {
             decimals: 18,
             receiptId: 'ABC123',
             transactionHash: 'TX123',
-            blockTimestamp: 1234567890000,
+            timestamp: 1234567890000,
           },
         ],
       };
@@ -333,7 +333,7 @@ describe('NEAR V2 Schemas', () => {
         receiverId: 'bob.near',
         blockHeight: 123456,
         blockHash: 'BLOCK123',
-        blockTimestamp: 1234567890000,
+        timestamp: 1234567890000,
         actions: [
           {
             actionType: 'transfer',
@@ -349,7 +349,7 @@ describe('NEAR V2 Schemas', () => {
             receiverId: 'bob.near',
             receiptKind: 'ACTION' as const,
             blockHeight: 123456,
-            blockTimestamp: 1234567890000,
+            timestamp: 1234567890000,
           },
         ],
         providerName: 'nearblocks',
@@ -368,7 +368,7 @@ describe('NEAR V2 Schemas', () => {
         signerId: 'alice.near',
         receiverId: 'contract.near',
         blockHeight: 123456,
-        blockTimestamp: 1234567890000,
+        timestamp: 1234567890000,
         actions: [
           {
             actionType: 'function_call',
@@ -384,7 +384,7 @@ describe('NEAR V2 Schemas', () => {
             receiverId: 'contract.near',
             receiptKind: 'ACTION' as const,
             blockHeight: 123456,
-            blockTimestamp: 1234567890000,
+            timestamp: 1234567890000,
           },
           {
             receiptId: 'ABC124',
@@ -393,7 +393,7 @@ describe('NEAR V2 Schemas', () => {
             receiverId: 'token.near',
             receiptKind: 'ACTION' as const,
             blockHeight: 123456,
-            blockTimestamp: 1234567890000,
+            timestamp: 1234567890000,
           },
         ],
         providerName: 'nearblocks',
@@ -409,7 +409,7 @@ describe('NEAR V2 Schemas', () => {
         signerId: 'alice.near',
         receiverId: 'bob.near',
         blockHeight: 123456,
-        blockTimestamp: 1234567890000,
+        timestamp: 1234567890000,
         actions: [{ actionType: 'transfer' }],
         status: 'failed' as const,
         receipts: [],
@@ -492,13 +492,13 @@ describe('NEAR V2 Schemas', () => {
             accountId: 'alice.near',
             preBalance: '100000000000000000000000000',
             postBalance: '99000000000000000000000000',
-            blockTimestamp: 1234567890000,
+            timestamp: 1234567890000,
           },
           {
             accountId: 'bob.near',
             preBalance: '50000000000000000000000000',
             postBalance: '51000000000000000000000000',
-            blockTimestamp: 1234567890000,
+            timestamp: 1234567890000,
           },
         ],
         providerName: 'nearblocks',
@@ -529,7 +529,7 @@ describe('NEAR V2 Schemas', () => {
             decimals: 18,
             receiptId: 'ABC123',
             transactionHash: 'TX123',
-            blockTimestamp: 1234567890000,
+            timestamp: 1234567890000,
           },
         ],
         providerName: 'nearblocks',

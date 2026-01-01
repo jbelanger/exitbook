@@ -149,6 +149,7 @@ describe('xpub import integration tests', () => {
           rawTransactions: [
             {
               providerName: 'test-provider',
+              timestamp: Date.now(),
               eventId: 'tx1',
               blockchainTransactionHash: 'tx1',
               providerData: { txid: 'tx1', blockHeight: 100 },
@@ -156,6 +157,7 @@ describe('xpub import integration tests', () => {
             },
             {
               providerName: 'test-provider',
+              timestamp: Date.now(),
               eventId: 'tx2',
               blockchainTransactionHash: 'tx2',
               providerData: { txid: 'tx2', blockHeight: 101 },
@@ -222,6 +224,7 @@ describe('xpub import integration tests', () => {
           rawTransactions: Array.from({ length: txCount }, (_, i) => ({
             providerName: 'test-provider',
             eventId: `tx-child${callCount}-${i}`,
+            timestamp: Date.now() + i,
             blockchainTransactionHash: `tx-child${callCount}-${i}`,
             providerData: { txid: `tx-child${callCount}-${i}`, blockHeight: 100 + i },
             normalizedData: { id: `tx-child${callCount}-${i}`, blockHeight: 100 + i },
@@ -265,6 +268,7 @@ describe('xpub import integration tests', () => {
           rawTransactions: [
             {
               providerName: 'test-provider',
+              timestamp: Date.now(),
               eventId: 'tx1',
               blockchainTransactionHash: 'tx1',
               providerData: { txid: 'tx1', blockHeight: 100 },
@@ -272,6 +276,7 @@ describe('xpub import integration tests', () => {
             },
             {
               providerName: 'test-provider',
+              timestamp: Date.now(),
               eventId: 'tx2',
               blockchainTransactionHash: 'tx2',
               providerData: { txid: 'tx2', blockHeight: 101 },
@@ -279,6 +284,7 @@ describe('xpub import integration tests', () => {
             },
             {
               providerName: 'test-provider',
+              timestamp: Date.now(),
               eventId: 'tx3',
               blockchainTransactionHash: 'tx3',
               providerData: { txid: 'tx3', blockHeight: 102 },
@@ -436,6 +442,7 @@ describe('xpub import integration tests', () => {
               blockchainTransactionHash: sharedTxHash, // Same hash for both!
               providerData: { txid: sharedTxHash, inputs: [derivedAddress1], outputs: [derivedAddress2] },
               normalizedData: { id: sharedTxHash, blockHeight: 100 },
+              timestamp: Date.now(),
             },
           ],
           transactionType: 'normal',
@@ -509,6 +516,7 @@ describe('xpub import integration tests', () => {
               blockchainTransactionHash: 'cardano-tx1',
               providerData: { txHash: 'cardano-tx1' },
               normalizedData: { id: 'cardano-tx1' },
+              timestamp: Date.now(),
             },
             {
               providerName: 'test-provider',
@@ -516,6 +524,7 @@ describe('xpub import integration tests', () => {
               blockchainTransactionHash: 'cardano-tx2',
               providerData: { txHash: 'cardano-tx2' },
               normalizedData: { id: 'cardano-tx2' },
+              timestamp: Date.now() + 1,
             },
           ],
           transactionType: 'normal',
@@ -563,6 +572,7 @@ describe('xpub import integration tests', () => {
               blockchainTransactionHash: 'cardano-tx1',
               providerData: { txHash: 'cardano-tx1' },
               normalizedData: { id: 'cardano-tx1' },
+              timestamp: Date.now(),
             },
           ],
           transactionType: 'normal',

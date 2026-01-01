@@ -132,11 +132,11 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
 
     switch (event.streamType) {
       case 'transactions':
-        timestamp = event.blockTimestamp;
+        timestamp = event.timestamp;
         blockHeight = event.blockHeight;
         break;
       case 'receipts':
-        timestamp = event.blockTimestamp;
+        timestamp = event.timestamp;
         blockHeight = event.blockHeight;
         break;
       case 'balance-changes':

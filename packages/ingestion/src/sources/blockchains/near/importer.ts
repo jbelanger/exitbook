@@ -141,6 +141,7 @@ export class NearTransactionImporter implements IImporter {
         providerName: providerBatch.providerName,
         eventId: txWithRaw.normalized.eventId, // Deterministic event ID
         blockchainTransactionHash: txWithRaw.normalized.id, // Parent transaction hash
+        timestamp: txWithRaw.normalized.timestamp,
         transactionTypeHint: transactionType, // Stream type for processor correlation
         sourceAddress: address,
         normalizedData: txWithRaw.normalized,
