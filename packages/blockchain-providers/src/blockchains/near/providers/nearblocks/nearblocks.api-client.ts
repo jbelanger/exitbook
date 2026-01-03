@@ -41,12 +41,12 @@ import {
   NearBlocksAccountSchema,
   NearBlocksActivitiesResponseSchema,
   NearBlocksFtTransactionsResponseSchema,
-  NearBlocksReceiptsV2ResponseSchema,
+  NearBlocksReceiptsResponseSchema,
   NearBlocksTransactionsResponseSchema,
   type NearBlocksActivity,
   type NearBlocksFtTransaction,
-  type NearBlocksReceiptV2,
-  type NearBlocksTransactionV2,
+  type NearBlocksReceipt,
+  type NearBlocksTransaction,
 } from './nearblocks.schemas.ts';
 
 // NearBlocks API pagination: Optimal batch size balancing API limits, memory usage, and latency
@@ -57,9 +57,9 @@ const NEARBLOCKS_PAGE_SIZE = 25;
 const NEARBLOCKS_DEDUP_WINDOW_SIZE = 200;
 
 /**
- * NearBlocks API Client V3 - Four discrete transaction types for raw streaming
+ * NearBlocks API Client - Four discrete transaction types for raw streaming
  *
- * This V3 client provides 4 transaction types under getAddressTransactions:
+ * This client provides 4 transaction types under getAddressTransactions:
  * 1. transactions - Base transaction metadata from /txns-only
  * 2. receipts - Receipt execution records from /receipts
  * 3. balance-changes - Balance changes from /activities
@@ -104,12 +104,12 @@ const NEARBLOCKS_DEDUP_WINDOW_SIZE = 200;
     retries: 3,
     timeout: 30000,
   },
-  description: 'NearBlocks API V3 for NEAR blockchain with 4 normalized transaction types for discrete streaming',
-  displayName: 'NearBlocks V3',
-  name: 'nearblocks-v3',
+  description: 'NearBlocks API for NEAR blockchain with 4 normalized transaction types for discrete streaming',
+  displayName: 'NearBlocks',
+  name: 'nearblocks',
   requiresApiKey: false,
 })
-export class NearBlocksApiClientV3 extends BaseApiClient {
+export class NearBlocksApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);
 
@@ -254,7 +254,7 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
   ): AsyncIterableIterator<Result<StreamingBatchResult<NearTransaction>, Error>> {
     const fetchPage = async (
       ctx: StreamingPageContext
-    ): Promise<Result<StreamingPage<NearBlocksTransactionV2>, Error>> => {
+    ): Promise<Result<StreamingPage<NearBlocksTransaction>, Error>> => {
       const cursor = ctx.pageToken;
 
       const url = cursor
@@ -286,7 +286,7 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
       });
     };
 
-    return createStreamingIterator<NearBlocksTransactionV2, NearTransaction>({
+    return createStreamingIterator<NearBlocksTransaction, NearTransaction>({
       providerName: this.name,
       operation: { type: 'getAddressTransactions', address, transactionType: 'transactions' },
       resumeCursor,
@@ -323,7 +323,7 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<NearReceipt>, Error>> {
-    const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<NearBlocksReceiptV2>, Error>> => {
+    const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<NearBlocksReceipt>, Error>> => {
       const cursor = ctx.pageToken;
 
       const url = cursor
@@ -331,7 +331,7 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
         : `/v1/account/${address}/receipts?per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`;
 
       const result = await this.httpClient.get(url, {
-        schema: NearBlocksReceiptsV2ResponseSchema,
+        schema: NearBlocksReceiptsResponseSchema,
       });
 
       if (result.isErr()) {
@@ -355,7 +355,7 @@ export class NearBlocksApiClientV3 extends BaseApiClient {
       });
     };
 
-    return createStreamingIterator<NearBlocksReceiptV2, NearReceipt>({
+    return createStreamingIterator<NearBlocksReceipt, NearReceipt>({
       providerName: this.name,
       operation: { type: 'getAddressTransactions', address, transactionType: 'receipts' },
       resumeCursor,

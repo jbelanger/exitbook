@@ -1,5 +1,5 @@
 /**
- * V3 Zod schemas for NEAR normalized stream types
+ * Zod schemas for NEAR normalized stream types
  *
  * These schemas define 4 normalized (provider-agnostic) stream types:
  * 1. transactions - Base transaction metadata from /txns-only
@@ -7,8 +7,8 @@
  * 3. balance-changes - Balance changes from /activities
  * 4. token-transfers - Token transfers from /ft-txns
  *
- * V3 Architecture:
- * - Provider: Fetches raw data and maps to normalized types using mapper-utils.v3
+ * Architecture:
+ * - Provider: Fetches raw data and maps to normalized types using mapper-utils
  * - Importer: Saves all 4 normalized types using transaction_type_hint
  * - Processor: Correlates by receipt_id and aggregates to one transaction per parent hash
  */
@@ -73,7 +73,7 @@ export const NearReceiptActionSchema = z.object({
 export type NearReceiptAction = z.infer<typeof NearReceiptActionSchema>;
 
 /**
- * V3: Normalized transaction from /txns-only endpoint
+ * Normalized transaction from /txns-only endpoint
  * Contains base transaction metadata (parent transaction level)
  */
 export const NearTransactionSchema = NormalizedTransactionBaseSchema.extend({
@@ -90,7 +90,7 @@ export const NearTransactionSchema = NormalizedTransactionBaseSchema.extend({
 export type NearTransaction = z.infer<typeof NearTransactionSchema>;
 
 /**
- * V3: Normalized receipt from /receipts endpoint
+ * Normalized receipt from /receipts endpoint
  * Contains receipt execution records
  */
 export const NearReceiptSchema = NormalizedTransactionBaseSchema.extend({
@@ -145,7 +145,7 @@ export const NearBalanceChangeCauseSchema = z.enum([
 export type NearBalanceChangeCause = z.infer<typeof NearBalanceChangeCauseSchema>;
 
 /**
- * V3: Normalized balance change from /activities endpoint
+ * Normalized balance change from /activities endpoint
  * Contains balance changes (deltas)
  *
  * NEAR's asynchronous architecture creates balance changes at two lifecycle stages:
@@ -156,6 +156,11 @@ export type NearBalanceChangeCause = z.infer<typeof NearBalanceChangeCauseSchema
  *
  * Note: receiptId can be undefined (expected for TRANSACTION cause) or invalid (data quality issue).
  * Processor differentiates based on 'cause' field to handle each case appropriately.
+ *
+ * Note on `id`: Although the base normalized schema documents `id` as the raw transaction hash,
+ * balance-change activities can legitimately omit transaction_hash. In that case, the mapper
+ * falls back to receipt_id (or an orphan marker) to keep a deterministic identifier for storage.
+ * Correlation and grouping rely on transactionHash + receiptId, not `id`, for this stream type.
  *
  * At least one of transactionHash or receiptId must be present for correlation.
  */
@@ -186,7 +191,7 @@ export const NearBalanceChangeSchema = NormalizedTransactionBaseSchema.extend({
 export type NearBalanceChange = z.infer<typeof NearBalanceChangeSchema>;
 
 /**
- * V3: Normalized token transfer from /ft-txns endpoint
+ * Normalized token transfer from /ft-txns endpoint
  * Contains fungible token transfers
  *
  * Token transfers are identified by transactionHash and event_index.
@@ -211,7 +216,7 @@ export const NearTokenTransferSchema = NormalizedTransactionBaseSchema.extend({
 export type NearTokenTransfer = z.infer<typeof NearTokenTransferSchema>;
 
 /**
- * Union type for all V3 normalized stream events
+ * Union type for all normalized stream events
  */
 export const NearStreamEventSchema = z.discriminatedUnion('streamType', [
   NearTransactionSchema,

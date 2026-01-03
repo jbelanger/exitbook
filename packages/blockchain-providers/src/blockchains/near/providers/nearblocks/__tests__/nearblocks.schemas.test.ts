@@ -195,19 +195,23 @@ describe('NearBlocksReceiptSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  test('should validate receipt with optional block_timestamp', () => {
+  test('should validate receipt with receipt_block', () => {
     const receiptWithTimestamp = {
-      block_timestamp: '1640000000000000000',
       transaction_hash: 'tx123',
       predecessor_account_id: 'alice.near',
       receipt_id: 'receipt123',
       receiver_account_id: 'bob.near',
+      receipt_block: {
+        block_hash: 'block123',
+        block_height: 100000,
+        block_timestamp: 1640000000000000000,
+      },
     };
 
     const result = NearBlocksReceiptSchema.safeParse(receiptWithTimestamp);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.block_timestamp).toBe('1640000000000000000');
+      expect(result.data.receipt_block.block_timestamp).toBe(1640000000000000000);
     }
   });
 

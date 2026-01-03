@@ -382,6 +382,16 @@ export class ImportOrchestrator {
         return err(new Error(`Xpub import failed: ${errorSummary}`));
       }
 
+      // If any child import failed, do not allow partial processing
+      if (errors.length > 0) {
+        const errorSummary = errors.length === 1 ? errors[0] : `${errors[0]} (+${errors.length - 1} more)`;
+        return err(
+          new Error(
+            `Xpub import incomplete: ${errors.length} child account(s) failed. ` + `First failure: ${errorSummary}`
+          )
+        );
+      }
+
       // Calculate totals for logging
       const totalImported = importSessions.reduce((sum, s) => sum + s.transactionsImported, 0);
       const totalSkipped = importSessions.reduce((sum, s) => sum + s.transactionsSkipped, 0);

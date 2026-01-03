@@ -1,9 +1,10 @@
 /**
- * NEAR V3 Processor Utilities
+ * NEAR Processor Utilities
  *
- * Pure utility functions for processing NEAR transactions in V3 architecture:
+ * Pure utility functions for processing NEAR transactions in architecture:
  * - Group normalized data by transaction hash
- * - Two-hop correlation: receipts → transactions, activities/ft-transfers → receipts
+ * - Two-hop correlation: receipts → transactions, activities → receipts
+ *   (token transfers are handled at transaction level)
  * - Handle NEAR's two-phase balance change model:
  *   • TRANSACTION-LEVEL: Balance changes from transaction acceptance (gas prepayment, deposits)
  *     → Attached to transaction-level synthetic receipt (correct NEAR semantics)
@@ -18,10 +19,9 @@
  */
 
 import type {
-  NearBalanceChangeV3,
-  NearReceiptV3 as NearReceiptSchema,
-  NearTokenTransferV3,
-  NearTransactionV3,
+  NearBalanceChange,
+  NearStreamEvent,
+  NearTokenTransfer,
   NearBalanceChangeCause,
   NearActionType,
 } from '@exitbook/blockchain-providers';
@@ -31,7 +31,7 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { CorrelatedTransaction, NearReceipt, RawTransactionGroup } from './types.js';
 
-const logger = getLogger('near-processor-utils-v3');
+const logger = getLogger('near-processor-utils');
 
 const NEAR_DECIMALS = 24;
 
@@ -114,13 +114,13 @@ function parseBlockHeight(blockHeight: string | undefined): number {
  * without a prior balance remain unresolved.
  */
 export function deriveBalanceChangeDeltasFromAbsolutes(
-  balanceChanges: NearBalanceChangeV3[],
+  balanceChanges: NearBalanceChange[],
   previousBalances = new Map<string, string>()
 ): DerivedDeltaResult {
   const derivedDeltas = new Map<string, string>();
   const warnings: string[] = [];
 
-  const byAccount = new Map<string, NearBalanceChangeV3[]>();
+  const byAccount = new Map<string, NearBalanceChange[]>();
   for (const change of balanceChanges) {
     const existing = byAccount.get(change.affectedAccountId) || [];
     existing.push(change);
@@ -233,7 +233,7 @@ export interface OperationClassification {
 /**
  * Group normalized transaction data by transaction hash
  *
- * Takes normalized data rows from the database and groups them by blockchain_transaction_hash.
+ * Takes normalized events and groups them by transactionHash.
  * Each group contains all 4 stream types (transactions, receipts, balance-changes, token-transfers)
  * for a single parent transaction.
  *
@@ -241,69 +241,31 @@ export interface OperationClassification {
  * 1. First pass: Build receipt_id → transaction_hash map from receipts
  * 2. Second pass: Resolve transaction hash for activities/ft-transfers using receipt map
  *
- * @param rawData - Normalized transaction rows from database
+ * @param events - Normalized stream events
  * @returns Map of transaction hash to grouped data
  */
-export function groupNearEventsByTransaction(
-  rawData: {
-    blockchainTransactionHash: string;
-    normalizedData: unknown;
-    transactionTypeHint: string;
-  }[]
-): Map<string, RawTransactionGroup> {
+export function groupNearEventsByTransaction(events: NearStreamEvent[]): Map<string, RawTransactionGroup> {
   // First pass: Build receipt_id → transaction_hash map
   const receiptIdToTxHash = new Map<string, string>();
 
-  for (const row of rawData) {
-    if (row.transactionTypeHint === 'receipts') {
-      const receipt = row.normalizedData as NearReceiptSchema;
-      if (receipt.receiptId && receipt.transactionHash) {
-        receiptIdToTxHash.set(receipt.receiptId, receipt.transactionHash);
+  for (const event of events) {
+    if (event.streamType === 'receipts') {
+      const receipt = event;
+      const receiptTxHash = receipt.transactionHash;
+      if (receipt.receiptId && receiptTxHash) {
+        receiptIdToTxHash.set(receipt.receiptId, receiptTxHash);
       }
     }
   }
 
   // Second pass: Group by transaction hash, resolving via receipt_id when needed
   const groups = new Map<string, RawTransactionGroup>();
-  const skippedBalanceChanges: NearBalanceChangeV3[] = [];
-  const skippedTokenTransfers: NearTokenTransferV3[] = [];
+  let skippedBalanceChanges = 0;
+  let skippedTokenTransfers = 0;
+  let skippedReceipts = 0;
+  let skippedTransactions = 0;
 
-  for (const row of rawData) {
-    let txHash = row.blockchainTransactionHash;
-
-    // Resolve transaction hash for balance changes/token transfers via receipt lookup
-    if (row.transactionTypeHint === 'balance-changes') {
-      const balanceChange = row.normalizedData as NearBalanceChangeV3;
-      if (balanceChange.receiptId && receiptIdToTxHash.has(balanceChange.receiptId)) {
-        txHash = receiptIdToTxHash.get(balanceChange.receiptId)!;
-      } else if (!balanceChange.receiptId && !txHash) {
-        // CRITICAL: Cannot correlate this balance change - missing both receipt_id and transaction_hash
-        logger.warn(
-          `Skipping orphaned balance change - missing both receipt_id and transaction_hash. ` +
-            `Account: ${balanceChange.affectedAccountId}, Block: ${balanceChange.blockHeight}, ` +
-            `Delta: ${balanceChange.deltaAmountYocto ?? 'null'}, Cause: ${balanceChange.cause}. ` +
-            `THIS DATA WILL BE LOST.`
-        );
-        skippedBalanceChanges.push(balanceChange);
-        continue;
-      }
-    } else if (row.transactionTypeHint === 'token-transfers') {
-      const tokenTransfer = row.normalizedData as NearTokenTransferV3;
-      // Token transfers now have required transactionHash field (no receiptId)
-      // Use transactionHash directly for correlation
-      if (!txHash) {
-        // CRITICAL: Cannot correlate this token transfer - missing transaction_hash
-        logger.warn(
-          `Skipping orphaned token transfer - missing transaction_hash. ` +
-            `Account: ${tokenTransfer.affectedAccountId}, Contract: ${tokenTransfer.contractAddress}, ` +
-            `Block: ${tokenTransfer.blockHeight}, Delta: ${tokenTransfer.deltaAmountYocto ?? 'null'}. ` +
-            `THIS DATA WILL BE LOST.`
-        );
-        skippedTokenTransfers.push(tokenTransfer);
-        continue;
-      }
-    }
-
+  const getOrCreateGroup = (txHash: string): RawTransactionGroup => {
     let group = groups.get(txHash);
     if (!group) {
       group = {
@@ -314,35 +276,110 @@ export function groupNearEventsByTransaction(
       };
       groups.set(txHash, group);
     }
+    return group;
+  };
 
-    switch (row.transactionTypeHint) {
-      case 'transactions':
+  for (const event of events) {
+    switch (event.streamType) {
+      case 'transactions': {
+        const transaction = event;
+        const txHash = transaction.transactionHash;
+        if (!txHash) {
+          logger.error(
+            `Skipping transaction with missing transaction_hash. ` +
+              `Signer: ${transaction.signerAccountId}, Receiver: ${transaction.receiverAccountId}. ` +
+              `THIS DATA WILL BE LOST.`
+          );
+          skippedTransactions++;
+          continue;
+        }
+        const group = getOrCreateGroup(txHash);
         if (group.transaction) {
           throw new Error(`Duplicate transaction record for hash ${txHash}`);
         }
-        group.transaction = row.normalizedData as NearTransactionV3;
+        group.transaction = transaction;
         break;
-      case 'receipts':
-        group.receipts.push(row.normalizedData as NearReceiptSchema);
+      }
+      case 'receipts': {
+        const receipt = event;
+        const txHash = receipt.transactionHash;
+        if (!txHash) {
+          logger.error(
+            `Skipping receipt with missing transaction_hash. ` +
+              `Receipt: ${receipt.receiptId}, Predecessor: ${receipt.predecessorAccountId}, ` +
+              `Receiver: ${receipt.receiverAccountId}. THIS DATA WILL BE LOST.`
+          );
+          skippedReceipts++;
+          continue;
+        }
+        const group = getOrCreateGroup(txHash);
+        group.receipts.push(receipt);
         break;
-      case 'balance-changes':
-        group.balanceChanges.push(row.normalizedData as NearBalanceChangeV3);
+      }
+      case 'balance-changes': {
+        const balanceChange = event;
+        let txHash = balanceChange.transactionHash;
+        if (!txHash && balanceChange.receiptId && receiptIdToTxHash.has(balanceChange.receiptId)) {
+          txHash = receiptIdToTxHash.get(balanceChange.receiptId)!;
+        }
+        if (!txHash) {
+          // CRITICAL: Cannot correlate this balance change - missing transaction_hash or missing receipt correlation
+          if (balanceChange.receiptId) {
+            logger.warn(
+              `Skipping balance change - receipt_id not found in receipts map and missing transaction_hash. ` +
+                `Receipt: ${balanceChange.receiptId}, Account: ${balanceChange.affectedAccountId}, ` +
+                `Block: ${balanceChange.blockHeight}, Delta: ${balanceChange.deltaAmountYocto ?? 'null'}, ` +
+                `Cause: ${balanceChange.cause}. THIS DATA WILL BE LOST.`
+            );
+          } else {
+            logger.warn(
+              `Skipping orphaned balance change - missing both receipt_id and transaction_hash. ` +
+                `Account: ${balanceChange.affectedAccountId}, Block: ${balanceChange.blockHeight}, ` +
+                `Delta: ${balanceChange.deltaAmountYocto ?? 'null'}, Cause: ${balanceChange.cause}. ` +
+                `THIS DATA WILL BE LOST.`
+            );
+          }
+          skippedBalanceChanges++;
+          continue;
+        }
+        const group = getOrCreateGroup(txHash);
+        group.balanceChanges.push(balanceChange);
         break;
-      case 'token-transfers':
-        group.tokenTransfers.push(row.normalizedData as NearTokenTransferV3);
+      }
+      case 'token-transfers': {
+        const tokenTransfer = event;
+        const txHash = tokenTransfer.transactionHash;
+        // Token transfers now have required transactionHash field (no receiptId)
+        // Use transactionHash directly for correlation
+        if (!txHash) {
+          // CRITICAL: Cannot correlate this token transfer - missing transaction_hash
+          logger.warn(
+            `Skipping orphaned token transfer - missing transaction_hash. ` +
+              `Account: ${tokenTransfer.affectedAccountId}, Contract: ${tokenTransfer.contractAddress}, ` +
+              `Block: ${tokenTransfer.blockHeight}, Delta: ${tokenTransfer.deltaAmountYocto ?? 'null'}. ` +
+              `THIS DATA WILL BE LOST.`
+          );
+          skippedTokenTransfers++;
+          continue;
+        }
+        const group = getOrCreateGroup(txHash);
+        group.tokenTransfers.push(tokenTransfer);
         break;
+      }
       default:
-        throw new Error(`Unknown transaction type hint: ${row.transactionTypeHint}`);
+        throw new Error(`Unknown transaction type hint: ${(event as { streamType?: string }).streamType}`);
     }
   }
 
   // Report summary of skipped items
-  if (skippedBalanceChanges.length > 0 || skippedTokenTransfers.length > 0) {
+  if (skippedBalanceChanges > 0 || skippedTokenTransfers > 0 || skippedReceipts > 0 || skippedTransactions > 0) {
+    const skippedTotal = skippedBalanceChanges + skippedTokenTransfers + skippedReceipts + skippedTransactions;
     logger.error(
-      `CRITICAL: Skipped ${skippedBalanceChanges.length} balance changes and ${skippedTokenTransfers.length} token transfers ` +
-        `due to missing correlation keys (receipt_id and transaction_hash). ` +
+      `CRITICAL: Skipped ${skippedBalanceChanges} balance changes, ${skippedTokenTransfers} token transfers, ` +
+        `${skippedReceipts} receipts, and ${skippedTransactions} transactions ` +
+        `due to missing correlation keys (receipt_id and/or transaction_hash). ` +
         `This represents data loss in a financial system. ` +
-        `Total raw events: ${rawData.length}, Successfully grouped: ${rawData.length - skippedBalanceChanges.length - skippedTokenTransfers.length}`
+        `Total raw events: ${events.length}, Successfully grouped: ${events.length - skippedTotal}`
     );
   }
 
@@ -366,14 +403,31 @@ export function validateTransactionGroup(txHash: string, group: RawTransactionGr
 }
 
 /**
- * Convert normalized V3 receipt schema to processor NearReceipt type
+ * Correlate receipts with balance changes by receipt_id
  *
- * The V3 normalized schema from the provider is already in the correct format.
- * This function just adds the balanceChanges and tokenTransfers arrays that will
- * be populated during correlation.
+ * Attaches balance changes to their corresponding receipts.
+ * This implements the two-hop correlation: transactions → receipts → activities.
+ * Token transfers are handled at transaction level (no receipt correlation).
+ *
+ * NEAR's asynchronous architecture means balance changes occur at two distinct stages:
+ * - TRANSACTION-LEVEL: Transaction acceptance costs (gas prepayment, deposits)
+ *   → Attached to transaction-level synthetic receipt (expected behavior)
+ * - RECEIPT-LEVEL: Execution outcomes (actual state changes, fund transfers)
+ *   → Must correlate to specific receipt (fails fast if missing receipt_id)
+ *
+ * IMPORTANT: Assumes deltas have already been derived by deriveBalanceChangeDeltasFromAbsolutes()
+ * before this function is called. This function validates delta presence and fails fast if missing.
+ *
+ * @param group - Transaction group with normalized data
+ * @returns Correlated transaction with enriched receipts
  */
-export function convertReceiptToProcessorType(receipt: NearReceiptSchema): NearReceipt {
-  return {
+export function correlateTransactionData(group: RawTransactionGroup): Result<CorrelatedTransaction, Error> {
+  if (!group.transaction) {
+    return err(new Error('Missing transaction in group'));
+  }
+
+  // Convert receipts to processor type (adds empty balanceChanges array)
+  const processedReceipts: NearReceipt[] = group.receipts.map((receipt) => ({
     receiptId: receipt.receiptId,
     transactionHash: receipt.transactionHash,
     predecessorAccountId: receipt.predecessorAccountId,
@@ -388,37 +442,8 @@ export function convertReceiptToProcessorType(receipt: NearReceiptSchema): NearR
     status: receipt.status,
     logs: receipt.logs,
     actions: receipt.actions,
-    // These will be populated during correlation
     balanceChanges: [],
-    tokenTransfers: [],
-  };
-}
-
-/**
- * Correlate receipts with activities and ft-transfers by receipt_id
- *
- * Attaches balance changes and token transfers to their corresponding receipts.
- * This implements the two-hop correlation: transactions → receipts → activities/ft-transfers.
- *
- * NEAR's asynchronous architecture means balance changes occur at two distinct stages:
- * - TRANSACTION-LEVEL: Transaction acceptance costs (gas prepayment, deposits)
- *   → Attached to transaction-level synthetic receipt (expected behavior)
- * - RECEIPT-LEVEL: Execution outcomes (actual state changes, fund transfers)
- *   → Must correlate to specific receipt (fails fast if missing receipt_id)
- *
- * IMPORTANT: Assumes deltas have already been derived by deriveBalanceChangeDeltasFromAbsolutes()
- * before this function is called. This function validates delta presence and fails fast if missing.
- *
- * @param group - Transaction group with normalized V3 data
- * @returns Correlated transaction with enriched receipts
- */
-export function correlateTransactionData(group: RawTransactionGroup): Result<CorrelatedTransaction, Error> {
-  if (!group.transaction) {
-    return err(new Error('Missing transaction in group'));
-  }
-
-  // Convert receipts to processor type (adds empty balanceChanges/tokenTransfers arrays)
-  const processedReceipts = group.receipts.map(convertReceiptToProcessorType);
+  }));
 
   // Validate that all balance changes have deltas (should have been derived earlier)
   // Fail-fast on balance changes with missing deltas that would be used for correlation
@@ -434,11 +459,10 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
     );
   }
 
-  // Group balance changes and token transfers by receipt_id
+  // Group balance changes by receipt_id
   // NEAR's async architecture means some balance changes are transaction-level (expected to lack receipt_id)
   // while others are receipt-level (must have receipt_id). We differentiate by 'cause' field.
-  const balanceChangesByReceipt = new Map<string, NearBalanceChangeV3[]>();
-  const tokenTransfersByReceipt = new Map<string, NearTokenTransferV3[]>();
+  const balanceChangesByReceipt = new Map<string, NearBalanceChange[]>();
   const txLevelReceiptId = `tx:${group.transaction.transactionHash}:transaction-level`;
   let hasTransactionLevelItems = false;
 
@@ -527,18 +551,8 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
     balanceChangesByReceipt.set(receiptId, existing);
   }
 
-  // Token transfers no longer have receiptId - attach all to transaction-level synthetic receipt
-  // This is because token transfers now only have transactionHash (no receipt correlation)
-  if (group.tokenTransfers.length > 0) {
-    hasTransactionLevelItems = true;
-    const existing = tokenTransfersByReceipt.get(txLevelReceiptId) || [];
-    existing.push(...group.tokenTransfers);
-    tokenTransfersByReceipt.set(txLevelReceiptId, existing);
-  }
-
   if (hasTransactionLevelItems) {
     const bcCount = balanceChangesByReceipt.get(txLevelReceiptId)?.length || 0;
-    const ttCount = tokenTransfersByReceipt.get(txLevelReceiptId)?.length || 0;
 
     // Categorize balance changes by cause for informative logging
     const balanceChanges = balanceChangesByReceipt.get(txLevelReceiptId) || [];
@@ -551,10 +565,9 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
       {
         transactionHash: group.transaction.transactionHash,
         balanceChangesCount: bcCount,
-        tokenTransfersCount: ttCount,
         causeBreakdown: Object.fromEntries(causeBreakdown),
       },
-      'Created transaction-level synthetic receipt for balance changes and/or token transfers'
+      'Created transaction-level synthetic receipt for balance changes'
     );
 
     processedReceipts.push({
@@ -568,7 +581,6 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
       timestamp: group.transaction.timestamp,
       status: group.transaction.status,
       balanceChanges: [],
-      tokenTransfers: [],
       isSynthetic: true,
     });
   }
@@ -576,12 +588,12 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
   // Attach to receipts
   for (const receipt of processedReceipts) {
     receipt.balanceChanges = balanceChangesByReceipt.get(receipt.receiptId) || [];
-    receipt.tokenTransfers = tokenTransfersByReceipt.get(receipt.receiptId) || [];
   }
 
   return ok({
     transaction: group.transaction,
     receipts: processedReceipts,
+    tokenTransfers: group.tokenTransfers,
   });
 }
 
@@ -737,30 +749,40 @@ export function extractFlows(receipt: NearReceipt, primaryAddress: string): Move
     }
   }
 
-  // Process token transfers
-  if (receipt.tokenTransfers) {
-    for (const transfer of receipt.tokenTransfers) {
-      if (!transfer.deltaAmountYocto) {
-        continue;
-      }
+  return movements;
+}
 
-      const delta = new Decimal(transfer.deltaAmountYocto);
-      if (delta.isZero()) {
-        continue;
-      }
+/**
+ * Extract fund flows from token transfers at transaction level
+ *
+ * @param tokenTransfers - Token transfers for the transaction
+ * @param primaryAddress - User's address
+ * @returns Array of movements
+ */
+export function extractTokenTransferFlows(tokenTransfers: NearTokenTransfer[], primaryAddress: string): Movement[] {
+  const movements: Movement[] = [];
 
-      // Determine direction based on affected account
-      const direction = transfer.affectedAccountId === primaryAddress ? 'in' : 'out';
-      const normalizedAmount = normalizeTokenAmount(delta.abs(), transfer.decimals);
-
-      movements.push({
-        asset: transfer.symbol || 'UNKNOWN',
-        amount: normalizedAmount,
-        contractAddress: transfer.contractAddress,
-        direction,
-        flowType: 'token_transfer',
-      });
+  for (const transfer of tokenTransfers) {
+    if (!transfer.deltaAmountYocto) {
+      continue;
     }
+
+    const delta = new Decimal(transfer.deltaAmountYocto);
+    if (delta.isZero()) {
+      continue;
+    }
+
+    // Determine direction based on affected account
+    const direction = transfer.affectedAccountId === primaryAddress ? 'in' : 'out';
+    const normalizedAmount = normalizeTokenAmount(delta.abs(), transfer.decimals);
+
+    movements.push({
+      asset: transfer.symbol || 'UNKNOWN',
+      amount: normalizedAmount,
+      contractAddress: transfer.contractAddress,
+      direction,
+      flowType: 'token_transfer',
+    });
   }
 
   return movements;

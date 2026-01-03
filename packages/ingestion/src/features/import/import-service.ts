@@ -217,6 +217,32 @@ export class ImportExecutor {
         }
       }
 
+      if (allWarnings.length > 0) {
+        const warningSummary =
+          allWarnings.length === 1 ? allWarnings[0] : `${allWarnings[0]} (+${allWarnings.length - 1} more)`;
+        const warningMessage =
+          `Import completed with warnings and was marked as failed to prevent processing incomplete data. ` +
+          `First warning: ${warningSummary}`;
+
+        const finalizeResult = await this.importSessionRepository.finalize(
+          importSessionId,
+          'failed',
+          startTime,
+          totalImported,
+          totalSkipped,
+          warningMessage,
+          { warnings: allWarnings }
+        );
+
+        if (finalizeResult.isErr()) {
+          return err(finalizeResult.error);
+        }
+
+        this.logger.warn(`⚠️  Import marked failed due to ${allWarnings.length} warning(s). Data may be incomplete.`);
+
+        return err(new Error(warningMessage));
+      }
+
       // Mark complete
       const finalizeResult = await this.importSessionRepository.finalize(
         importSessionId,
@@ -235,13 +261,6 @@ export class ImportExecutor {
       } else {
         this.logger.info(
           `Import completed for ${sourceName}: ${totalImported} items saved, ${totalSkipped} duplicates skipped`
-        );
-      }
-
-      // Log summary of warnings if any occurred
-      if (allWarnings.length > 0) {
-        this.logger.warn(
-          `⚠️  Import completed with ${allWarnings.length} warning(s). Data may be incomplete. Review warnings above for details.`
         );
       }
 

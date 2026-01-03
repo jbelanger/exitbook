@@ -661,6 +661,52 @@ describe('ImportExecutor', () => {
         })
       );
     });
+
+    it('should fail import when warnings are emitted to prevent partial processing', async () => {
+      const account = createMockAccount('exchange-api', 'kraken', 'test-api-key', {
+        credentials: {
+          apiKey: 'test-key',
+          apiSecret: 'test-secret',
+        },
+      });
+
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
+      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok({ inserted: 0, skipped: 0 }));
+      vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
+
+      mockExchangeImportStreamingFn.mockImplementationOnce(async function* () {
+        yield okAsync({
+          rawTransactions: [],
+          transactionType: 'ledger',
+          cursor: {
+            primary: { type: 'timestamp', value: 1 },
+            lastTransactionId: 'kraken-1',
+            totalFetched: 0,
+          },
+          isComplete: true,
+          warnings: ['Test warning: partial data'],
+        });
+      });
+
+      const result = await service.importFromSource(account);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('warnings');
+      }
+
+      expect(mockImportSessionRepo.finalize).toHaveBeenCalledWith(
+        1,
+        'failed',
+        expect.any(Number),
+        0,
+        0,
+        expect.stringContaining('warnings'),
+        { warnings: ['Test warning: partial data'] }
+      );
+    });
   });
 
   describe('importFromSource - blockchain - additional error cases', () => {

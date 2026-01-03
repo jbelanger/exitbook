@@ -72,7 +72,7 @@ export class TransactionProcessService {
       this.logger.debug(`Found pending records across ${accountIds.length} accounts`);
 
       // CRITICAL: Check for active imports before processing to prevent data corruption
-      const activeImportsCheck = await this.checkForActiveImports(accountIds);
+      const activeImportsCheck = await this.checkForIncompleteImports(accountIds);
       if (activeImportsCheck.isErr()) {
         return err(activeImportsCheck.error);
       }
@@ -115,7 +115,7 @@ export class TransactionProcessService {
   async processAccountTransactions(accountId: number): Promise<Result<ProcessResult, Error>> {
     try {
       // CRITICAL: Check for active import before processing to prevent data corruption
-      const activeImportsCheck = await this.checkForActiveImports([accountId]);
+      const activeImportsCheck = await this.checkForIncompleteImports([accountId]);
       if (activeImportsCheck.isErr()) {
         return err(activeImportsCheck.error);
       }
@@ -408,7 +408,7 @@ export class TransactionProcessService {
    * @param accountIds - Account IDs to check for active imports
    * @returns Error if any active imports found, ok otherwise
    */
-  private async checkForActiveImports(accountIds: number[]): Promise<Result<void, Error>> {
+  private async checkForIncompleteImports(accountIds: number[]): Promise<Result<void, Error>> {
     if (accountIds.length === 0) {
       return ok(undefined);
     }
@@ -418,22 +418,29 @@ export class TransactionProcessService {
       return err(new Error(`Failed to check for active imports: ${sessionsResult.error.message}`));
     }
 
-    const activeSessions = sessionsResult.value.filter((session) => session.status === 'started');
+    const latestByAccount = new Map<number, (typeof sessionsResult.value)[number]>();
+    for (const session of sessionsResult.value) {
+      if (!latestByAccount.has(session.accountId)) {
+        latestByAccount.set(session.accountId, session);
+      }
+    }
 
-    if (activeSessions.length > 0) {
-      const affectedAccounts = [...new Set(activeSessions.map((s) => s.accountId))];
+    const incompleteSessions = [...latestByAccount.values()].filter((session) => session.status !== 'completed');
+
+    if (incompleteSessions.length > 0) {
+      const affectedAccounts = incompleteSessions.map((s) => `${s.accountId}(${s.status})`);
       const accountsStr = affectedAccounts.join(', ');
 
       this.logger.warn(
-        `Cannot process: ${activeSessions.length} active import(s) in progress for account(s): ${accountsStr}. ` +
-          `Wait for imports to complete before processing.`
+        `Cannot process: latest import is incomplete for account(s): ${accountsStr}. ` +
+          `Finish or re-run imports before processing.`
       );
 
       return err(
         new Error(
-          `Processing blocked: Active import(s) in progress for account(s) ${accountsStr}. ` +
+          `Processing blocked: Latest import session is not completed for account(s) ${accountsStr}. ` +
             `All transaction history must be fully fetched before processing to ensure data integrity. ` +
-            `Please wait for the import to complete, then run processing again.`
+            `Please complete or re-run the import, then process again.`
         )
       );
     }

@@ -263,6 +263,36 @@ describe('ImportHandler', () => {
       });
     });
 
+    it('should fail when import sessions are not completed', async () => {
+      const params: ImportParams = {
+        sourceName: 'bitcoin',
+        sourceType: 'blockchain',
+        address: 'bc1qtest',
+        shouldProcess: true,
+      };
+
+      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
+        ok({
+          id: 123,
+          accountId: 1,
+          status: 'failed',
+          startedAt: new Date(),
+          transactionsImported: 10,
+          transactionsSkipped: 0,
+          createdAt: new Date(),
+        })
+      );
+
+      const result = await handler.execute(params);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('not complete');
+      }
+
+      expect(mockProcessService.processAccountTransactions).not.toHaveBeenCalled();
+    });
+
     it('should return error when import fails', async () => {
       const params: ImportParams = {
         sourceName: 'bitcoin',

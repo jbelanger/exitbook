@@ -8,12 +8,12 @@ import { ProviderRegistry } from '../../../../../core/index.ts';
 import type { RawBalanceData } from '../../../../../core/index.ts';
 import type { NearBalanceChange, NearReceipt, NearTokenTransfer, NearTransaction } from '../../../schemas.ts';
 import { sortKeys } from '../mapper-utils.ts';
-import { NearBlocksApiClientV3 } from '../nearblocks.api-client.ts';
+import { NearBlocksApiClient } from '../nearblocks.api-client.ts';
 import type {
   NearBlocksActivity,
   NearBlocksFtTransaction,
-  NearBlocksReceiptV2,
-  NearBlocksTransactionV2,
+  NearBlocksReceipt,
+  NearBlocksTransaction,
 } from '../nearblocks.schemas.ts';
 
 const mockHttpClient = {
@@ -47,8 +47,8 @@ function generateDeterministicHash(data: unknown): string {
   return createHash('sha256').update(rawJson).digest('hex');
 }
 
-describe('NearBlocksApiClientV3', () => {
-  let client: NearBlocksApiClientV3;
+describe('NearBlocksApiClient', () => {
+  let client: NearBlocksApiClient;
   let mockHttpGet: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -60,7 +60,7 @@ describe('NearBlocksApiClientV3', () => {
       resetTime: Date.now() + 60000,
     }));
 
-    const config = ProviderRegistry.createDefaultConfig('near', 'nearblocks-v3');
+    const config = ProviderRegistry.createDefaultConfig('near', 'nearblocks');
     // Disable rate limiting for tests
     config.rateLimit = {
       requestsPerSecond: 1000,
@@ -68,7 +68,7 @@ describe('NearBlocksApiClientV3', () => {
       requestsPerMinute: 60000,
       requestsPerHour: 3600000,
     };
-    client = new NearBlocksApiClientV3(config);
+    client = new NearBlocksApiClient(config);
     Object.defineProperty(client, 'httpClient', {
       configurable: true,
       value: mockHttpClient,
@@ -79,9 +79,9 @@ describe('NearBlocksApiClientV3', () => {
 
   describe('constructor', () => {
     it('should initialize with correct configuration', () => {
-      expect(client).toBeInstanceOf(NearBlocksApiClientV3);
+      expect(client).toBeInstanceOf(NearBlocksApiClient);
       expect(client.blockchain).toBe('near');
-      expect(client.name).toBe('nearblocks-v3');
+      expect(client.name).toBe('nearblocks');
     });
 
     it('should have correct rate limit configuration', () => {
@@ -93,8 +93,8 @@ describe('NearBlocksApiClientV3', () => {
     });
 
     it('should not require API key', () => {
-      const config = ProviderRegistry.createDefaultConfig('near', 'nearblocks-v3');
-      const newClient = new NearBlocksApiClientV3(config);
+      const config = ProviderRegistry.createDefaultConfig('near', 'nearblocks');
+      const newClient = new NearBlocksApiClient(config);
       expect(newClient).toBeDefined();
     });
 
@@ -102,8 +102,8 @@ describe('NearBlocksApiClientV3', () => {
       const originalApiKey = process.env.NEARBLOCKS_API_KEY;
       process.env.NEARBLOCKS_API_KEY = 'test-api-key';
       try {
-        const config = ProviderRegistry.createDefaultConfig('near', 'nearblocks-v3');
-        const newClient = new NearBlocksApiClientV3(config);
+        const config = ProviderRegistry.createDefaultConfig('near', 'nearblocks');
+        const newClient = new NearBlocksApiClient(config);
         expect(newClient).toBeDefined();
       } finally {
         process.env.NEARBLOCKS_API_KEY = originalApiKey;
@@ -144,7 +144,7 @@ describe('NearBlocksApiClientV3', () => {
   describe('streamTransactions', () => {
     const mockAddress = 'alice.near';
 
-    const mockTransaction: NearBlocksTransactionV2 = {
+    const mockTransaction: NearBlocksTransaction = {
       transaction_hash: 'tx123',
       signer_account_id: 'alice.near',
       receiver_account_id: 'bob.near',
@@ -161,7 +161,6 @@ describe('NearBlocksApiClientV3', () => {
       receipt_id: null,
       receipt_kind: null,
       receipt_outcome: null,
-      receipts: null,
     };
 
     it('should stream transactions successfully', async () => {
@@ -288,7 +287,7 @@ describe('NearBlocksApiClientV3', () => {
   describe('streamReceipts', () => {
     const mockAddress = 'alice.near';
 
-    const mockReceipt: NearBlocksReceiptV2 = {
+    const mockReceipt: NearBlocksReceipt = {
       receipt_id: 'receipt123',
       transaction_hash: 'tx123',
       predecessor_account_id: 'alice.near',
@@ -696,6 +695,7 @@ describe('NearBlocksApiClientV3', () => {
         eventId: 'balance-changes:hash123',
         id: 'tx123',
         streamType: 'balance-changes',
+        transactionHash: 'tx123',
         receiptId: 'receipt123',
         affectedAccountId: 'alice.near',
         direction: 'INBOUND',
@@ -889,7 +889,7 @@ describe('NearBlocksApiClientV3', () => {
     });
 
     it('should default to transactions type if not specified', async () => {
-      const mockTransaction: NearBlocksTransactionV2 = {
+      const mockTransaction: NearBlocksTransaction = {
         transaction_hash: 'tx123',
         signer_account_id: 'alice.near',
         receiver_account_id: 'bob.near',
@@ -906,7 +906,6 @@ describe('NearBlocksApiClientV3', () => {
         receipt_id: null,
         receipt_kind: null,
         receipt_outcome: null,
-        receipts: null,
       };
 
       const mockResponse = {

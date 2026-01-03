@@ -1,10 +1,10 @@
 /**
- * V3 Mapper utilities for converting raw NearBlocks data to normalized NEAR types
+ * Mapper utilities for converting raw NearBlocks data to normalized NEAR types
  *
- * These mappers are used by the V3 API client to convert raw provider data
+ * These mappers are used by the API client to convert raw provider data
  * to provider-agnostic normalized types before storage.
  *
- * Key differences from V2:
+ * Architecture:
  * - Normalization happens at API client level (not processor)
  * - Maps to provider-agnostic types defined in schemas.ts
  * - No correlation logic (correlation happens in processor)
@@ -29,14 +29,14 @@ import type {
 import { NearActionTypeSchema } from '../../schemas.ts';
 
 import type {
-  NearBlocksTransactionV2,
-  NearBlocksReceiptV2,
-  NearBlocksActionV2,
+  NearBlocksTransaction,
+  NearBlocksReceipt,
+  NearBlocksAction,
   NearBlocksActivity,
   NearBlocksFtTransaction,
 } from './nearblocks.schemas.ts';
 
-const logger = getLogger('nearblocks-mapper-v3');
+const logger = getLogger('nearblocks-mapper');
 
 /**
  * Sort object keys recursively for stable hashing
@@ -67,14 +67,14 @@ export function sortKeys(obj: unknown): unknown {
  */
 function generateEventId(
   type: 'transactions' | 'receipts' | 'balance-changes' | 'token-transfers',
-  data: NearBlocksTransactionV2 | NearBlocksReceiptV2 | NearBlocksActivity | NearBlocksFtTransaction
+  data: NearBlocksTransaction | NearBlocksReceipt | NearBlocksActivity | NearBlocksFtTransaction
 ): string {
   switch (type) {
     case 'transactions':
-      return (data as NearBlocksTransactionV2).transaction_hash;
+      return (data as NearBlocksTransaction).transaction_hash;
 
     case 'receipts':
-      return (data as NearBlocksReceiptV2).receipt_id;
+      return (data as NearBlocksReceipt).receipt_id;
 
     case 'token-transfers': {
       const ft = data as NearBlocksFtTransaction;
@@ -135,7 +135,7 @@ function parseNearBlocksTimestamp(timestamp: string | undefined | null): number 
 /**
  * Map NearBlocks action to native NEAR action
  */
-export function mapRawActionToNearAction(rawAction: NearBlocksActionV2): Result<NearReceiptAction, Error> {
+export function mapRawActionToNearAction(rawAction: NearBlocksAction): Result<NearReceiptAction, Error> {
   const actionTypeResult = normalizeActionType(rawAction.action);
   if (actionTypeResult.isErr()) {
     return err(new Error(`Failed to map action: ${actionTypeResult.error.message}`));
@@ -160,7 +160,7 @@ export function mapRawActionToNearAction(rawAction: NearBlocksActionV2): Result<
  * This is the base receipt without balance changes or token transfers
  * (those are attached during correlation)
  */
-export function mapRawReceiptToNearReceipt(rawReceipt: NearBlocksReceiptV2): Result<NearReceipt, Error> {
+export function mapRawReceiptToNearReceipt(rawReceipt: NearBlocksReceipt): Result<NearReceipt, Error> {
   try {
     let actions: NearReceiptAction[] | undefined;
     if (rawReceipt.actions && rawReceipt.actions.length > 0) {
@@ -302,6 +302,10 @@ export function mapRawActivityToBalanceChange(rawActivity: NearBlocksActivity): 
  */
 export function mapRawFtToTokenTransfer(rawFt: NearBlocksFtTransaction): Result<NearTokenTransfer, Error> {
   try {
+    if (!rawFt.transaction_hash) {
+      return err(new Error('FT transaction missing required transaction_hash'));
+    }
+
     const blockTimestamp = parseNearBlocksTimestamp(rawFt.block_timestamp);
 
     const tokenTransfer: NearTokenTransfer = {
@@ -331,7 +335,7 @@ export function mapRawFtToTokenTransfer(rawFt: NearBlocksFtTransaction): Result<
  * Map NearBlocks transaction to normalized NEAR transaction
  * Extracts base transaction metadata from /txns-only endpoint
  */
-export function mapRawTransactionToNearTransaction(rawTxn: NearBlocksTransactionV2): Result<NearTransaction, Error> {
+export function mapRawTransactionToNearTransaction(rawTxn: NearBlocksTransaction): Result<NearTransaction, Error> {
   try {
     const blockTimestamp = parseNearBlocksTimestamp(rawTxn.block_timestamp);
 

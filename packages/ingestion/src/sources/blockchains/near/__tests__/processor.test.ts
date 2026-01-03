@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 /**
- * Unit tests for NEAR V3 Transaction Processor
+ * Unit tests for NEAR Transaction Processor
  *
- * Tests the NearTransactionProcessorV3 class which:
+ * Tests the NearTransactionProcessor class which:
  * - Groups normalized data by transaction hash
  * - Correlates receipts with balance changes and token transfers
  * - Aggregates multiple receipts into one UniversalTransaction
@@ -11,11 +11,11 @@
  * - Integrates with token metadata and scam detection services
  */
 import type {
-  NearBalanceChangeV3,
-  NearReceiptV3,
+  NearBalanceChange,
+  NearReceipt,
   NearStreamEvent,
-  NearTokenTransferV3,
-  NearTransactionV3,
+  NearTokenTransfer,
+  NearTransaction,
 } from '@exitbook/blockchain-providers';
 import { ok } from 'neverthrow';
 import { describe, expect, test, vi, type Mock } from 'vitest';
@@ -23,10 +23,10 @@ import { describe, expect, test, vi, type Mock } from 'vitest';
 import type { IScamDetectionService } from '../../../../features/scam-detection/scam-detection-service.interface.ts';
 import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.ts';
 import type { ProcessingContext } from '../../../../shared/types/processors.ts';
-import { NearTransactionProcessorV3 } from '../processor.js';
+import { NearTransactionProcessor } from '../processor.js';
 
-// Test data factories for V3 normalized types
-const createTransactionEvent = (overrides: Partial<NearTransactionV3> = {}): NearStreamEvent => ({
+// Test data factories for normalized types
+const createTransactionEvent = (overrides: Partial<NearTransaction> = {}): NearStreamEvent => ({
   id: overrides.transactionHash || 'tx123',
   eventId: `${overrides.transactionHash || 'tx123'}:tx`,
   streamType: 'transactions',
@@ -40,7 +40,7 @@ const createTransactionEvent = (overrides: Partial<NearTransactionV3> = {}): Nea
   ...overrides,
 });
 
-const createReceiptEvent = (overrides: Partial<NearReceiptV3> = {}): NearStreamEvent => ({
+const createReceiptEvent = (overrides: Partial<NearReceipt> = {}): NearStreamEvent => ({
   id: overrides.transactionHash || 'tx123',
   eventId: `${overrides.receiptId || 'receipt1'}:receipt`,
   streamType: 'receipts',
@@ -61,7 +61,7 @@ const createReceiptEvent = (overrides: Partial<NearReceiptV3> = {}): NearStreamE
   ...overrides,
 });
 
-const createBalanceChangeEvent = (overrides: Partial<NearBalanceChangeV3> = {}): NearStreamEvent => ({
+const createBalanceChangeEvent = (overrides: Partial<NearBalanceChange> = {}): NearStreamEvent => ({
   id: overrides.receiptId || 'receipt1',
   eventId: `${overrides.receiptId || 'receipt1'}:bc:0`,
   streamType: 'balance-changes',
@@ -77,7 +77,7 @@ const createBalanceChangeEvent = (overrides: Partial<NearBalanceChangeV3> = {}):
   ...overrides,
 });
 
-const createTokenTransferEvent = (overrides: Partial<NearTokenTransferV3> = {}): NearStreamEvent => ({
+const createTokenTransferEvent = (overrides: Partial<NearTokenTransfer> = {}): NearStreamEvent => ({
   id: overrides.transactionHash || 'tx1',
   eventId: `${overrides.transactionHash || 'tx1'}:tt:${overrides.contractAddress || 'usdc.token.near'}:0`,
   streamType: 'token-transfers',
@@ -113,11 +113,11 @@ const createProcessingContext = (overrides: Partial<ProcessingContext> = {}): Pr
   ...overrides,
 });
 
-describe('NearTransactionProcessorV3', () => {
+describe('NearTransactionProcessor', () => {
   describe('Simple NEAR Transfer', () => {
     test('should process simple NEAR transfer with single receipt', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({
@@ -171,7 +171,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should process NEAR deposit (inbound transfer)', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({
@@ -212,7 +212,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should use receipt timestamp in milliseconds', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const timestampMs = 1640000000000;
       const events: NearStreamEvent[] = [
@@ -239,7 +239,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should handle failed transaction status', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({
@@ -266,7 +266,7 @@ describe('NearTransactionProcessorV3', () => {
   describe('Token Transfers', () => {
     test('should process token transfer with metadata enrichment', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -307,7 +307,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should handle token transfer without symbol (UNKNOWN)', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -331,7 +331,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should classify token swap (both token inflows and outflows)', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -373,7 +373,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should skip token transfers with zero delta', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -401,7 +401,7 @@ describe('NearTransactionProcessorV3', () => {
   describe('Multiple Receipts Per Transaction', () => {
     test('should aggregate multiple receipts into single transaction', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -451,7 +451,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should handle mixed NEAR and token flows across multiple receipts', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -499,7 +499,7 @@ describe('NearTransactionProcessorV3', () => {
   describe('Fee Extraction', () => {
     test('should extract fees from receipt tokensBurnt (priority 1)', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -530,7 +530,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should extract fees from balance changes with fee cause (priority 2)', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -565,7 +565,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should handle zero fee (no tokensBurnt)', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -593,7 +593,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should skip fee-related balance changes when extracting flows', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -632,7 +632,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should record fee-only transaction when only TRANSACTION balance change is present', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const orphanBalanceChange: NearStreamEvent = {
         id: 'tx1',
@@ -677,7 +677,7 @@ describe('NearTransactionProcessorV3', () => {
   describe('Error Handling & Fail-Fast', () => {
     test('should fail when transaction record is missing', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         // Missing transaction event
@@ -699,7 +699,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should fail when activity missing deltaAmountYocto', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -721,7 +721,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should handle duplicate transaction records', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -737,7 +737,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should accumulate errors from multiple failed transactions', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         // Transaction 1: missing transaction record
@@ -774,7 +774,7 @@ describe('NearTransactionProcessorV3', () => {
         ok(undefined) // Still succeeds but with warning
       );
 
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -801,7 +801,7 @@ describe('NearTransactionProcessorV3', () => {
   describe('Operation Classification', () => {
     test('should classify fee-only transaction as batch', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -827,7 +827,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should classify NEAR transfer as transfer type', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -860,7 +860,7 @@ describe('NearTransactionProcessorV3', () => {
     test('should call scam detection for token movements', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
       const mockScamDetectionService = createMockScamDetectionService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService, mockScamDetectionService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService, mockScamDetectionService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -884,7 +884,7 @@ describe('NearTransactionProcessorV3', () => {
     test('should detect airdrop transactions (inflow only, no fee)', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
       const mockScamDetectionService = createMockScamDetectionService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService, mockScamDetectionService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService, mockScamDetectionService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -913,7 +913,7 @@ describe('NearTransactionProcessorV3', () => {
     test('should handle scam detection service absence gracefully', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
       // No scam detection service
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -935,7 +935,7 @@ describe('NearTransactionProcessorV3', () => {
   describe('Multiple Transactions', () => {
     test('should process multiple independent transactions', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         // Transaction 1
@@ -988,7 +988,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should process successfully when some transactions fail', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         // Transaction 1: valid
@@ -1029,7 +1029,7 @@ describe('NearTransactionProcessorV3', () => {
   describe('Edge Cases', () => {
     test('should handle empty input', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const result = await processor.process([], createProcessingContext());
 
@@ -1042,7 +1042,7 @@ describe('NearTransactionProcessorV3', () => {
     test('should fail fast for orphaned balance changes with RECEIPT-level cause', async () => {
       // With stricter validation, RECEIPT/TRANSFER-cause balance changes MUST have valid receipt_id
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -1069,7 +1069,7 @@ describe('NearTransactionProcessorV3', () => {
     test('should handle orphaned balance changes with ambiguous causes gracefully', async () => {
       // Ambiguous causes (CONTRACT_REWARD, MINT, STAKE, etc.) fall back to transaction-level
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -1098,7 +1098,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should consolidate multiple balance changes of same asset', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -1129,7 +1129,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should handle receipts without any balance changes or token transfers', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -1158,7 +1158,7 @@ describe('NearTransactionProcessorV3', () => {
   describe('Asset ID Generation', () => {
     test('should generate correct assetId for NEAR', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -1183,7 +1183,7 @@ describe('NearTransactionProcessorV3', () => {
 
     test('should generate correct assetId for tokens', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -1211,7 +1211,7 @@ describe('NearTransactionProcessorV3', () => {
   describe('Blockchain Metadata', () => {
     test('should include blockchain metadata in transaction', async () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
-      const processor = new NearTransactionProcessorV3(mockTokenMetadataService);
+      const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({

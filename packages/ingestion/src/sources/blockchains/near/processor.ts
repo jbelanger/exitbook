@@ -1,22 +1,22 @@
 /**
- * NEAR V3 Transaction Processor
+ * NEAR Transaction Processor
  *
  * Processes raw multi-stream NEAR data by:
  * 1. Loading raw data from 4 stream types (transactions, receipts, activities, ft-transfers)
  * 2. Grouping by transaction hash
  * 3. Two-hop correlation: receipts link to transactions via transaction_hash,
- *    activities/ft-transfers link to receipts via receipt_id
+ *    activities link to receipts via receipt_id (token transfers are transaction-level)
  * 4. Aggregating multiple receipts into one UniversalTransaction per parent hash
  * 5. Fail-fast on missing deltas or incomplete data
  *
- * V3 Two-Hop Correlation Architecture:
+ * Two-Hop Correlation Architecture:
  * - Provider: Streams 4 discrete data types without correlation
  * - Importer: Saves all 4 types with transaction_type_hint
  * - Processor: Uses receipts as bridge (tx → receipts → activities/ft-transfers)
- * - Activities/FT-transfers without receipt_id are skipped (logged as warnings)
+ * - Activities without receipt_id are skipped (logged as warnings)
  */
 
-import type { NearBalanceChangeV3, NearStreamEvent } from '@exitbook/blockchain-providers';
+import type { NearBalanceChange, NearStreamEvent } from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, type TokenMetadataRecord } from '@exitbook/core';
 import type { IRawDataRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
@@ -36,6 +36,7 @@ import {
   correlateTransactionData,
   deriveBalanceChangeDeltasFromAbsolutes,
   extractReceiptFees,
+  extractTokenTransferFlows,
   extractFlows,
   groupNearEventsByTransaction,
   isFeeOnlyFromOutflows,
@@ -46,12 +47,12 @@ import {
 import type { CorrelatedTransaction } from './types.js';
 
 /**
- * NEAR V3 transaction processor that converts raw multi-stream data
+ * NEAR transaction processor that converts raw multi-stream data
  * into ProcessedTransaction format.
  *
  * Implements one-transaction-per-parent-hash architecture with receipt correlation.
  */
-export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
+export class NearTransactionProcessor extends BaseTransactionProcessor {
   // Override to make tokenMetadataService required (guaranteed by factory)
   declare protected readonly tokenMetadataService: ITokenMetadataService;
 
@@ -78,7 +79,7 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
     // - Sorting chronologically
     // - Computing delta = currentAbsolute - previousAbsolute
     const balanceChanges = normalizedData.filter(
-      (event): event is NearBalanceChangeV3 => (event as NearStreamEvent).streamType === 'balance-changes'
+      (event): event is NearBalanceChange => (event as NearStreamEvent).streamType === 'balance-changes'
     );
 
     // Create enriched data with derived deltas (immutable - no mutation)
@@ -102,7 +103,7 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
         // Create new enriched objects instead of mutating
         enrichedNormalizedData = normalizedData.map((event) => {
           if ((event as NearStreamEvent).streamType === 'balance-changes') {
-            const change = event as NearBalanceChangeV3;
+            const change = event as NearBalanceChange;
             if (!change.deltaAmountYocto) {
               const derivedDelta = derivedResult.derivedDeltas.get(change.eventId);
               if (derivedDelta) {
@@ -135,16 +136,7 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
     }
 
     // Group enriched normalized data by transaction hash
-    const transactionGroups = groupNearEventsByTransaction(
-      enrichedNormalizedData.map((item) => {
-        const event = item as NearStreamEvent;
-        return {
-          blockchainTransactionHash: event.id,
-          transactionTypeHint: event.streamType,
-          normalizedData: event,
-        };
-      })
-    );
+    const transactionGroups = groupNearEventsByTransaction(enrichedNormalizedData as NearStreamEvent[]);
 
     this.logger.debug(
       `Grouped ${enrichedNormalizedData.length} raw events into ${transactionGroups.size} transaction groups`
@@ -231,7 +223,7 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
   }
 
   private async loadPreviousBalances(
-    balanceChanges: NearBalanceChangeV3[]
+    balanceChanges: NearBalanceChange[]
   ): Promise<Result<Map<string, string>, string>> {
     if (!this.rawDataRepository || this.accountId === undefined) {
       this.logger.warn(
@@ -240,7 +232,7 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
       return ok(new Map());
     }
 
-    const earliestByAccount = new Map<string, NearBalanceChangeV3>();
+    const earliestByAccount = new Map<string, NearBalanceChange>();
     for (const change of balanceChanges) {
       const existing = earliestByAccount.get(change.affectedAccountId);
       if (!existing || this.compareBalanceChanges(change, existing) < 0) {
@@ -270,9 +262,9 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
       return err(`Failed to load previous NEAR balances: ${processedResult.error.message}`);
     }
 
-    const processedByAccount = new Map<string, NearBalanceChangeV3[]>();
+    const processedByAccount = new Map<string, NearBalanceChange[]>();
     for (const row of processedResult.value) {
-      const change = row.normalizedData as NearBalanceChangeV3;
+      const change = row.normalizedData as NearBalanceChange;
       if (!change?.affectedAccountId || !change.absoluteNonstakedAmount) {
         this.logger.warn(
           { eventId: row.eventId, accountId: row.accountId },
@@ -293,7 +285,7 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
         continue;
       }
 
-      let latest: NearBalanceChangeV3 | undefined;
+      let latest: NearBalanceChange | undefined;
       for (const candidate of candidates) {
         if (this.compareBalanceChanges(candidate, earliest) >= 0) {
           continue;
@@ -311,7 +303,7 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
     return ok(previousBalances);
   }
 
-  private compareBalanceChanges(a: NearBalanceChangeV3, b: NearBalanceChangeV3): number {
+  private compareBalanceChanges(a: NearBalanceChange, b: NearBalanceChange): number {
     if (a.timestamp !== b.timestamp) {
       return a.timestamp - b.timestamp;
     }
@@ -351,7 +343,8 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
     tokenMovementsForScamDetection: MovementWithContext[],
     transactionIndex: number
   ): Promise<Result<ProcessedTransaction, Error>> {
-    const hasTokenTransfers = correlated.receipts.some((receipt) => (receipt.tokenTransfers ?? []).length > 0);
+    const tokenTransferFlows = extractTokenTransferFlows(correlated.tokenTransfers, context.primaryAddress);
+    const hasTokenTransfers = correlated.tokenTransfers.length > 0 || tokenTransferFlows.length > 0;
     const hasActionDeposits = correlated.receipts.some((receipt) =>
       (receipt.actions ?? []).some((action) => {
         if (!action.deposit) return false;
@@ -393,6 +386,15 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
         } else {
           allOutflows.push(flow);
         }
+      }
+    }
+
+    // Extract flows from transaction-level token transfers
+    for (const flow of tokenTransferFlows) {
+      if (flow.direction === 'in') {
+        allInflows.push(flow);
+      } else {
+        allOutflows.push(flow);
       }
     }
 
@@ -532,7 +534,7 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
       to = correlated.transaction.receiverAccountId;
     }
 
-    // Build transaction timestamp (V3 timestamp is already in milliseconds)
+    // Build transaction timestamp (timestamp is already in milliseconds)
     const timestamp = correlated.transaction.timestamp;
 
     const transaction: ProcessedTransaction = {
@@ -580,7 +582,7 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
 
     this.logger.debug(`Enriching token metadata for ${ftTransferEvents.length} FT transfers`);
 
-    // Extract contract addresses from V3 normalized types
+    // Extract contract addresses from normalized types
     const contractAddresses = ftTransferEvents
       .map((e) => {
         if (e.streamType === 'token-transfers') {
@@ -594,7 +596,7 @@ export class NearTransactionProcessorV3 extends BaseTransactionProcessor {
       return ok(undefined);
     }
 
-    // Use token metadata service to enrich V3 normalized types
+    // Use token metadata service to enrich normalized types
     const enrichResult = await this.tokenMetadataService.enrichBatch(
       ftTransferEvents,
       'near',

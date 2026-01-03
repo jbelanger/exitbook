@@ -542,7 +542,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .where('account_id', '=', accountId)
         .where('processing_status', '=', 'pending')
         .where('blockchain_transaction_hash', 'is not', null)
-        .where('transaction_type_hint', 'in', ['transactions', 'receipts'])
+        .where('transaction_type_hint', 'in', ['transactions', 'receipts', 'token-transfers'])
         .orderBy('blockchain_transaction_hash', 'asc')
         .limit(limit)
         .execute();
@@ -602,7 +602,8 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .selectAll()
         .where('account_id', '=', accountId)
         .where('processing_status', '=', 'pending')
-        .where('transaction_type_hint', 'in', ['balance-changes', 'token-transfers'])
+        .where('transaction_type_hint', 'in', ['balance-changes'])
+        .where('blockchain_transaction_hash', 'is', null)
         .where(sql`json_extract(normalized_data, '$.receiptId')`, 'in', receiptIds)
         .orderBy('id', 'asc')
         .execute();

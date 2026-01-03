@@ -167,7 +167,7 @@ describe('NearTransactionImporter', () => {
         transactionTypeHint: 'transactions',
       });
       expect(value.rawTransactions[1]?.eventId).toMatch(/^[a-f0-9]{64}$/);
-      // Verify API calls were made (V3 makes 4 calls for 4 transaction types)
+      // Verify API calls were made (makes 4 calls for 4 transaction types)
       expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(4);
       const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;

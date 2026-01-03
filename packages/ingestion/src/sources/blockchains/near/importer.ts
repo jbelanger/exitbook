@@ -12,7 +12,7 @@ import { err, ok, type Result } from 'neverthrow';
 import type { IImporter, ImportParams, ImportBatchResult } from '../../../shared/types/importers.js';
 
 /**
- * NEAR transaction importer V3 - streams raw unenriched data from 4 discrete endpoints
+ * NEAR transaction importer - streams raw unenriched data from 4 discrete endpoints
  *
  * This importer fetches raw data from NearBlocks API in 4 sequential phases:
  * 1. transactions - Base transaction metadata
@@ -50,7 +50,7 @@ export class NearTransactionImporter implements IImporter {
   }
 
   /**
-   * Streaming import implementation - V3 sequential phase execution
+   * Streaming import implementation - sequential phase execution
    *
    * Streams all 4 stream types sequentially:
    * 1. transactions - Base transaction metadata
@@ -67,7 +67,7 @@ export class NearTransactionImporter implements IImporter {
       return;
     }
 
-    this.logger.info(`Starting NEAR V3 streaming import for account: ${params.address.substring(0, 20)}...`);
+    this.logger.info(`Starting NEAR streaming import for account: ${params.address.substring(0, 20)}...`);
 
     // Define the 4 transaction types to stream in order
     // Derived from NearStreamTypeSchema - single source of truth
@@ -86,7 +86,7 @@ export class NearTransactionImporter implements IImporter {
       this.logger.debug(`Completed ${transactionType} (${i + 1}/4)`);
     }
 
-    this.logger.info(`NEAR V3 streaming import completed - all 4 stream types finished`);
+    this.logger.info(`NEAR streaming import completed - all 4 stream types finished`);
   }
 
   /**
@@ -136,7 +136,7 @@ export class NearTransactionImporter implements IImporter {
       }
 
       // Map to raw transactions
-      // V3: Each event has deterministic eventId (hash-based for activities/ft-transfers)
+      // Each event has deterministic eventId (hash-based for activities/ft-transfers)
       const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
         providerName: providerBatch.providerName,
         eventId: txWithRaw.normalized.eventId, // Deterministic event ID

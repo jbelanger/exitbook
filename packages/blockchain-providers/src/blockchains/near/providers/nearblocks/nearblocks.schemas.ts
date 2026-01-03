@@ -6,16 +6,21 @@ import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
- * Schema for NearBlocks action
- * NOTE: deposit and fee are returned as unquoted numbers (including scientific notation like 1e+23)
+ * Schema for NearBlocks action with full details
+ * NOTE: deposit, fee, and gas are returned as unquoted numbers (including scientific notation like 1e+23)
  * and are converted to fixed-point decimal strings via DecimalStringSchema for precision-safe storage
+ *
+ * This schema includes all action-specific fields returned by the receipts endpoint
  */
 export const NearBlocksActionSchema = z.object({
   action: z.string().min(1, 'Action must not be empty'),
   args: z.union([z.record(z.string(), z.unknown()), z.string(), z.null()]).nullish(),
   deposit: DecimalStringSchema.nullish(),
-  fee: DecimalStringSchema.nullish(),
   method: z.string().nullish(),
+  gas: DecimalStringSchema.nullish(),
+  public_key: z.string().nullish(),
+  beneficiary_id: z.string().nullish(),
+  access_key: z.unknown().nullish(),
 });
 
 /**
@@ -35,15 +40,18 @@ export const NearBlocksReceiptBlockSchema = z.object({
 });
 
 /**
- * Schema for NearBlocks receipt outcome
+ * Schema for NearBlocks receipt outcome with full details
  * NOTE: gas_burnt and tokens_burnt are returned as unquoted numbers (including scientific notation)
  * and are converted to fixed-point decimal strings via DecimalStringSchema for precision-safe storage
+ *
+ * This schema includes logs array returned by the receipts endpoint
  */
 export const NearBlocksReceiptOutcomeSchema = z.object({
-  executor_account_id: z.string(),
+  executor_account_id: z.string().min(1, 'Executor account ID must not be empty'),
   gas_burnt: DecimalStringSchema,
   status: z.boolean(),
   tokens_burnt: DecimalStringSchema,
+  logs: z.array(z.string()).nullish(),
 });
 
 /**
@@ -151,20 +159,28 @@ export const NearBlocksActivitiesResponseSchema = z.object({
 });
 
 /**
- * Schema for NearBlocks receipt item
+ * Schema for NearBlocks receipt with full details
  * From /v1/account/{account}/receipts endpoint
+ *
+ * API returns enriched receipt data with nested objects:
+ * - receipt_block: { block_hash, block_height, block_timestamp } - REQUIRED for event ordering
+ * - receipt_outcome: { executor_account_id, gas_burnt, status, tokens_burnt, logs }
+ * - actions: Array of action objects with full details
  */
 export const NearBlocksReceiptSchema = z.object({
-  block_timestamp: z.string().nullish(),
+  receipt_id: z.string().min(1, 'Receipt ID must not be empty'),
   transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
   predecessor_account_id: z.string().min(1, 'Predecessor account ID must not be empty'),
-  receipt_id: z.string().min(1, 'Receipt ID must not be empty'),
   receiver_account_id: z.string().min(1, 'Receiver account ID must not be empty'),
+  receipt_kind: z.string().nullish(),
+  receipt_block: NearBlocksReceiptBlockSchema, // Required for event ordering and timestamp
+  receipt_outcome: NearBlocksReceiptOutcomeSchema.nullish(),
+  actions: z.array(NearBlocksActionSchema).nullish(),
 });
 
 /**
- * Schema for NearBlocks paginated receipts response
- * API returns receipts in 'txns' array
+ * Schema for NearBlocks paginated receipts response with full enriched data
+ * Note: API returns 'txns' array, not 'receipts'
  */
 export const NearBlocksReceiptsResponseSchema = z.object({
   cursor: z.string().nullish(),
@@ -196,7 +212,7 @@ export const NearBlocksFtTransactionSchema = z.object({
   involved_account_id: z.string().nullish(),
   outcomes: NearBlocksOutcomeSchema.nullish(),
   outcomes_agg: z.record(z.string(), z.union([z.number(), z.string()])).nullish(),
-  transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
+  transaction_hash: z.string().nullish(),
 });
 
 /**
@@ -224,76 +240,3 @@ export type NearBlocksReceipt = z.infer<typeof NearBlocksReceiptSchema>;
 export type NearBlocksReceiptsResponse = z.infer<typeof NearBlocksReceiptsResponseSchema>;
 export type NearBlocksFtTransaction = z.infer<typeof NearBlocksFtTransactionSchema>;
 export type NearBlocksFtTransactionsResponse = z.infer<typeof NearBlocksFtTransactionsResponseSchema>;
-
-// ============================================================================
-// V2 Schemas - Receipt-level data with full enrichment
-// ============================================================================
-
-/**
- * V2: Enriched receipt action schema with full details
- * Extends the basic action schema with all action-specific fields
- */
-export const NearBlocksActionV2Schema = z.object({
-  action: z.string().min(1, 'Action must not be empty'),
-  args: z.union([z.record(z.string(), z.unknown()), z.string(), z.null()]).nullish(),
-  deposit: DecimalStringSchema.nullish(),
-  method: z.string().nullish(),
-  gas: DecimalStringSchema.nullish(),
-  public_key: z.string().nullish(),
-  beneficiary_id: z.string().nullish(),
-  access_key: z.unknown().nullish(),
-});
-
-/**
- * V2: Enriched receipt outcome schema
- */
-export const NearBlocksReceiptOutcomeV2Schema = z.object({
-  executor_account_id: z.string().min(1, 'Executor account ID must not be empty'),
-  gas_burnt: DecimalStringSchema,
-  status: z.boolean(),
-  tokens_burnt: DecimalStringSchema,
-  logs: z.array(z.string()).nullish(),
-});
-
-/**
- * V2: Enriched receipt schema with actions and outcomes
- * This is used for the /v1/account/{account}/receipts endpoint when fetching full details
- *
- * API returns nested objects:
- * - receipt_block: { block_hash, block_height, block_timestamp } - REQUIRED for event ordering
- * - receipt_outcome: { executor_account_id, gas_burnt, status, tokens_burnt, logs }
- */
-export const NearBlocksReceiptV2Schema = z.object({
-  receipt_id: z.string().min(1, 'Receipt ID must not be empty'),
-  transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
-  predecessor_account_id: z.string().min(1, 'Predecessor account ID must not be empty'),
-  receiver_account_id: z.string().min(1, 'Receiver account ID must not be empty'),
-  receipt_kind: z.string().nullish(),
-  receipt_block: NearBlocksReceiptBlockSchema, // Required for event ordering and timestamp
-  receipt_outcome: NearBlocksReceiptOutcomeV2Schema.nullish(),
-  actions: z.array(NearBlocksActionV2Schema).nullish(),
-});
-
-/**
- * V2: Transaction schema with receipts array
- * Extends the basic transaction with enriched receipt data
- */
-export const NearBlocksTransactionV2Schema = NearBlocksTransactionSchema.extend({
-  receipts: z.array(NearBlocksReceiptV2Schema).nullish(),
-});
-
-/**
- * V2: Paginated receipts response with enriched data
- * Note: API returns 'txns' array, not 'receipts'
- */
-export const NearBlocksReceiptsV2ResponseSchema = z.object({
-  cursor: z.string().nullish(),
-  txns: z.array(NearBlocksReceiptV2Schema),
-});
-
-// V2 Type exports
-export type NearBlocksActionV2 = z.infer<typeof NearBlocksActionV2Schema>;
-export type NearBlocksReceiptOutcomeV2 = z.infer<typeof NearBlocksReceiptOutcomeV2Schema>;
-export type NearBlocksReceiptV2 = z.infer<typeof NearBlocksReceiptV2Schema>;
-export type NearBlocksTransactionV2 = z.infer<typeof NearBlocksTransactionV2Schema>;
-export type NearBlocksReceiptsV2Response = z.infer<typeof NearBlocksReceiptsV2ResponseSchema>;

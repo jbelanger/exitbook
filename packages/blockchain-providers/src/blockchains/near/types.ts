@@ -1,8 +1,8 @@
 /**
- * V3 NEAR native types for correlation and aggregation
+ * NEAR native types for correlation and aggregation
  *
  * These types represent NEAR-native concepts (receipts, actions, balance changes, token transfers)
- * used by the V3 processor during correlation and aggregation.
+ * used by the processor during correlation and aggregation.
  */
 
 import type { NearBalanceChangeCause, NearActionType } from './schemas.ts';

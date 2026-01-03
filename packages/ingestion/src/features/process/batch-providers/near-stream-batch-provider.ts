@@ -8,10 +8,10 @@ import type { IRawDataBatchProvider } from './raw-data-batch-provider.interface.
  * NEAR-specific batch provider that handles multi-stream data correlation.
  *
  * Strategy:
- * 1. Anchor on real tx hashes from transactions + receipts (avoiding polluted balance-change hashes)
+ * 1. Anchor on real tx hashes from transactions + receipts + token-transfers
  * 2. Load all pending rows for those hashes
  * 3. Extract receiptIds from receipt rows
- * 4. Fetch additional balance-changes/token-transfers by receiptId using JSON1
+ * 4. Fetch additional balance-changes missing transactionHash by receiptId using JSON1
  * 5. Merge and deduplicate by raw row ID
  *
  * This ensures all related NEAR events (transactions, receipts, balance changes, token transfers)
@@ -31,7 +31,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
       return ok([]);
     }
 
-    // 1) Anchor on transaction hashes from transactions + receipts only
+    // 1) Anchor on transaction hashes from transactions + receipts + token-transfers
     const hashesResult = await this.rawDataRepository.loadPendingNearAnchorHashes(this.accountId, this.hashBatchSize);
     if (hashesResult.isErr()) {
       return err(hashesResult.error);
@@ -60,7 +60,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
       }
     }
 
-    // 4) Fetch balance-changes/token-transfers linked by receiptId via JSON1
+    // 4) Fetch balance-changes missing transactionHash linked by receiptId via JSON1
     const extraRows: RawTransaction[] = [];
     if (receiptIds.size > 0) {
       const extraResult = await this.rawDataRepository.loadPendingNearByReceiptIds(this.accountId, [...receiptIds]);

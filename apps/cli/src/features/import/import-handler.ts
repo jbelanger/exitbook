@@ -107,6 +107,17 @@ export class ImportHandler {
         sessions,
       };
 
+      const incompleteSessions = sessions.filter((session) => session.status !== 'completed');
+      if (incompleteSessions.length > 0) {
+        const accountStatuses = incompleteSessions.map((session) => `${session.accountId}(${session.status})`);
+        return err(
+          new Error(
+            `Import did not complete for account(s): ${accountStatuses.join(', ')}. ` +
+              `Processing is blocked until all imports complete successfully.`
+          )
+        );
+      }
+
       // Process data if requested
       if (params.shouldProcess) {
         const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
