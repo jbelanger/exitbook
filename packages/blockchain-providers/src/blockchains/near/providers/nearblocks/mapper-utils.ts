@@ -1,13 +1,8 @@
 /**
  * Mapper utilities for converting raw NearBlocks data to normalized NEAR types
  *
- * These mappers are used by the API client to convert raw provider data
- * to provider-agnostic normalized types before storage.
- *
- * Architecture:
- * - Normalization happens at API client level (not processor)
- * - Maps to provider-agnostic types defined in schemas.ts
- * - No correlation logic (correlation happens in processor)
+ * Normalization occurs at the API client level, mapping provider-specific data
+ * to provider-agnostic types. Correlation logic is handled separately in the processor.
  */
 
 import { createHash } from 'node:crypto';
@@ -59,11 +54,11 @@ export function sortKeys(obj: unknown): unknown {
 /**
  * Generate unique event ID using deterministic identifiers
  *
- * Event ID generation strategy:
- * - Transactions: Use transaction hash (already unique)
- * - Receipts: Use receipt ID (already unique)
- * - Balance changes: SHA-256 hash of sorted raw data (collision-resistant)
- * - Token transfers: Use event_index (API-provided unique event identifier)
+ * Strategy:
+ * - Transactions: transaction hash
+ * - Receipts: receipt ID
+ * - Balance changes: SHA-256 hash of sorted raw data
+ * - Token transfers: transaction_hash + event_index
  */
 function generateEventId(
   type: 'transactions' | 'receipts' | 'balance-changes' | 'token-transfers',
@@ -98,10 +93,7 @@ function generateEventId(
 
 /**
  * Normalize action type from SCREAMING_SNAKE_CASE to snake_case
- * Validates against known NEAR protocol action types
- *
- * NearBlocks API returns action types in SCREAMING_SNAKE_CASE (e.g., "TRANSFER", "FUNCTION_CALL").
- * This function normalizes to snake_case and validates against the NearActionTypeSchema enum.
+ * and validate against known NEAR protocol action types
  */
 function normalizeActionType(rawAction: string): Result<NearActionType, Error> {
   const normalized = rawAction.toLowerCase();
@@ -157,8 +149,6 @@ export function mapRawActionToNearAction(rawAction: NearBlocksAction): Result<Ne
 
 /**
  * Map NearBlocks receipt to native NEAR receipt
- * This is the base receipt without balance changes or token transfers
- * (those are attached during correlation)
  */
 export function mapRawReceiptToNearReceipt(rawReceipt: NearBlocksReceipt): Result<NearReceipt, Error> {
   try {
@@ -176,12 +166,11 @@ export function mapRawReceiptToNearReceipt(rawReceipt: NearBlocksReceipt): Resul
     const blockHash = rawReceipt.receipt_block?.block_hash ?? undefined;
     const blockTimestamp = parseNearBlocksTimestamp(String(rawReceipt.receipt_block.block_timestamp));
 
-    // NearBlocks API does not return receipt_kind, so we infer it from actions presence
-    // This is expected behavior and always happens
+    // Infer receipt_kind from actions presence (NearBlocks API does not provide this field)
     const receiptKind = rawReceipt.actions && rawReceipt.actions.length > 0 ? 'ACTION' : 'DATA';
     logger.debug(
       { receiptId: rawReceipt.receipt_id, inferredKind: receiptKind, hasActions: !!rawReceipt.actions?.length },
-      'Inferred receipt_kind from actions presence (NearBlocks API does not provide this field)'
+      'Inferred receipt_kind from actions presence'
     );
 
     const receipt: NearReceipt = {
@@ -212,7 +201,7 @@ export function mapRawReceiptToNearReceipt(rawReceipt: NearBlocksReceipt): Resul
 
 /**
  * Normalize cause from provider-specific string to internal enum
- * Returns error on unknown values to ensure API contract is maintained
+ * Fails on unknown values to maintain API contract
  */
 function normalizeCause(rawCause: string): Result<NearBalanceChangeCause, Error> {
   const upperCause = rawCause.toUpperCase();
@@ -258,14 +247,11 @@ function normalizeCause(rawCause: string): Result<NearBalanceChangeCause, Error>
 
 /**
  * Map NearBlocks activity to native NEAR balance change
- * No correlation - just transforms the shape
  */
 export function mapRawActivityToBalanceChange(rawActivity: NearBlocksActivity): Result<NearBalanceChange, Error> {
   const blockTimestamp = parseNearBlocksTimestamp(rawActivity.block_timestamp);
 
-  // Use transaction_hash as id if available, otherwise fall back to receipt_id
-  // This allows for child receipts that don't have a transaction_hash
-  // Note: receipt_id can be null - processor will skip these during correlation
+  // Use transaction_hash as id, falling back to receipt_id for child receipts
   const id =
     rawActivity.transaction_hash ??
     rawActivity.receipt_id ??
@@ -298,14 +284,9 @@ export function mapRawActivityToBalanceChange(rawActivity: NearBlocksActivity): 
 
 /**
  * Map NearBlocks FT transaction to native NEAR token transfer
- * No correlation - just transforms the shape
  */
 export function mapRawFtToTokenTransfer(rawFt: NearBlocksFtTransaction): Result<NearTokenTransfer, Error> {
   try {
-    if (!rawFt.transaction_hash) {
-      return err(new Error('FT transaction missing required transaction_hash'));
-    }
-
     const blockTimestamp = parseNearBlocksTimestamp(rawFt.block_timestamp);
 
     const tokenTransfer: NearTokenTransfer = {

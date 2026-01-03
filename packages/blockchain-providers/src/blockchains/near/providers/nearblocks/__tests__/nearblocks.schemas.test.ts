@@ -189,6 +189,11 @@ describe('NearBlocksReceiptSchema', () => {
       predecessor_account_id: 'alice.near',
       receipt_id: 'receipt123',
       receiver_account_id: 'bob.near',
+      receipt_block: {
+        block_hash: 'block123',
+        block_height: 100000,
+        block_timestamp: 1640000000000000000,
+      },
     };
 
     const result = NearBlocksReceiptSchema.safeParse(validReceipt);
@@ -273,6 +278,11 @@ describe('NearBlocksReceiptsResponseSchema', () => {
           predecessor_account_id: 'alice.near',
           receipt_id: 'receipt123',
           receiver_account_id: 'bob.near',
+          receipt_block: {
+            block_hash: 'block123',
+            block_height: 100000,
+            block_timestamp: 1640000000000000000,
+          },
         },
       ],
     };

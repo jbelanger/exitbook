@@ -1,16 +1,11 @@
 /**
  * Zod schemas for NEAR normalized stream types
  *
- * These schemas define 4 normalized (provider-agnostic) stream types:
- * 1. transactions - Base transaction metadata from /txns-only
- * 2. receipts - Receipt execution records from /receipts
- * 3. balance-changes - Balance changes from /activities
- * 4. token-transfers - Token transfers from /ft-txns
- *
- * Architecture:
- * - Provider: Fetches raw data and maps to normalized types using mapper-utils
- * - Importer: Saves all 4 normalized types using transaction_type_hint
- * - Processor: Correlates by receipt_id and aggregates to one transaction per parent hash
+ * Defines 4 provider-agnostic stream types:
+ * 1. transactions - Base transaction metadata
+ * 2. receipts - Receipt execution records
+ * 3. balance-changes - Balance changes
+ * 4. token-transfers - Token transfers
  */
 
 import { DecimalStringSchema } from '@exitbook/core';
@@ -26,21 +21,19 @@ export const NearStreamTypeSchema = z.enum(['transactions', 'receipts', 'balance
 export type NearStreamType = z.infer<typeof NearStreamTypeSchema>;
 
 /**
- * Normalized NEAR action types (snake_case)
- * Normalized from provider's SCREAMING_SNAKE_CASE format
+ * NEAR action types (snake_case)
  *
- * Known NEAR protocol action types:
- * - transfer: NEAR token transfer between accounts
+ * Known protocol actions:
+ * - transfer: Token transfer between accounts
  * - function_call: Smart contract method invocation
- * - create_account: New account creation
+ * - create_account: Account creation
  * - delete_account: Account deletion
- * - add_key: Add access key to account
- * - delete_key: Remove access key from account
- * - stake: Staking operations (stake/unstake)
- * - deploy_contract: Smart contract deployment
- * - delegate_action: Delegated action (meta-transaction)
+ * - add_key/delete_key: Access key management
+ * - stake: Staking operations
+ * - deploy_contract: Contract deployment
+ * - delegate_action: Meta-transaction
  *
- * If a new action type appears, normalization will fail and must be added to this enum.
+ * New action types must be added to this enum.
  */
 export const NearActionTypeSchema = z.enum([
   'transfer',
@@ -57,7 +50,7 @@ export const NearActionTypeSchema = z.enum([
 export type NearActionType = z.infer<typeof NearActionTypeSchema>;
 
 /**
- * NEAR receipt action with normalized fields
+ * NEAR receipt action
  */
 export const NearReceiptActionSchema = z.object({
   actionType: NearActionTypeSchema,
@@ -73,8 +66,7 @@ export const NearReceiptActionSchema = z.object({
 export type NearReceiptAction = z.infer<typeof NearReceiptActionSchema>;
 
 /**
- * Normalized transaction from /txns-only endpoint
- * Contains base transaction metadata (parent transaction level)
+ * NEAR transaction with base metadata
  */
 export const NearTransactionSchema = NormalizedTransactionBaseSchema.extend({
   streamType: z.literal('transactions'),
@@ -90,8 +82,7 @@ export const NearTransactionSchema = NormalizedTransactionBaseSchema.extend({
 export type NearTransaction = z.infer<typeof NearTransactionSchema>;
 
 /**
- * Normalized receipt from /receipts endpoint
- * Contains receipt execution records
+ * NEAR receipt execution record
  */
 export const NearReceiptSchema = NormalizedTransactionBaseSchema.extend({
   streamType: z.literal('receipts'),
@@ -114,21 +105,17 @@ export const NearReceiptSchema = NormalizedTransactionBaseSchema.extend({
 export type NearReceipt = z.infer<typeof NearReceiptSchema>;
 
 /**
- * Normalized cause values for balance changes
- * These values are normalized from provider-specific strings to a stable internal enum
+ * Balance change cause values
  *
- * Known values from NearBlocks API:
- * - TRANSFER: Balance change from transfers
- * - TRANSACTION: Balance change from transaction execution
- * - RECEIPT: Balance change from receipt execution
- * - CONTRACT_REWARD: Rewards from contract interaction
+ * Known values:
+ * - TRANSFER: Transfers
+ * - TRANSACTION/RECEIPT: Transaction/receipt execution
+ * - CONTRACT_REWARD: Contract rewards
  * - MINT: Token minting
  * - STAKE: Staking operations
- * - FEE: Transaction fees
- * - GAS: Gas costs
- * - GAS_REFUND: Refunded gas
+ * - FEE/GAS/GAS_REFUND: Fee-related
  *
- * If a new cause appears, normalization will fail and must be added to this enum.
+ * New causes must be added to this enum.
  */
 export const NearBalanceChangeCauseSchema = z.enum([
   'TRANSFER',
@@ -145,22 +132,13 @@ export const NearBalanceChangeCauseSchema = z.enum([
 export type NearBalanceChangeCause = z.infer<typeof NearBalanceChangeCauseSchema>;
 
 /**
- * Normalized balance change from /activities endpoint
- * Contains balance changes (deltas)
+ * NEAR balance change
  *
  * NEAR's asynchronous architecture creates balance changes at two lifecycle stages:
  * - TRANSACTION-LEVEL (cause: TRANSACTION): Transaction acceptance costs (gas prepayment, deposits)
  *   → receiptId is null (correct NEAR semantics) → processor attaches to transaction-level receipt
  * - RECEIPT-LEVEL (cause: RECEIPT, TRANSFER, etc.): Execution outcomes (state changes, transfers)
  *   → receiptId must be present → processor correlates to specific receipt
- *
- * Note: receiptId can be undefined (expected for TRANSACTION cause) or invalid (data quality issue).
- * Processor differentiates based on 'cause' field to handle each case appropriately.
- *
- * Note on `id`: Although the base normalized schema documents `id` as the raw transaction hash,
- * balance-change activities can legitimately omit transaction_hash. In that case, the mapper
- * falls back to receipt_id (or an orphan marker) to keep a deterministic identifier for storage.
- * Correlation and grouping rely on transactionHash + receiptId, not `id`, for this stream type.
  *
  * At least one of transactionHash or receiptId must be present for correlation.
  */
@@ -191,12 +169,7 @@ export const NearBalanceChangeSchema = NormalizedTransactionBaseSchema.extend({
 export type NearBalanceChange = z.infer<typeof NearBalanceChangeSchema>;
 
 /**
- * Normalized token transfer from /ft-txns endpoint
- * Contains fungible token transfers
- *
- * Token transfers are identified by transactionHash and event_index.
- * The event_index is used to disambiguate multiple token transfers
- * within the same transaction.
+ * NEAR token transfer
  */
 export const NearTokenTransferSchema = NormalizedTransactionBaseSchema.extend({
   streamType: z.literal('token-transfers'),

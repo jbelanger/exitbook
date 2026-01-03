@@ -151,14 +151,33 @@ describe('ImportHandler', () => {
 
       (mockImportOrchestrator.importExchangeApi as Mock).mockResolvedValue(
         ok({
-          importSessionId: 789,
+          id: 789,
+          accountId: 3,
+          status: 'completed',
+          startedAt: new Date(),
           transactionsImported: 75,
+          transactionsSkipped: 0,
+          createdAt: new Date(),
         })
       );
 
       const result = await handler.execute(params);
 
       expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual({
+        sessions: [
+          {
+            id: 789,
+            accountId: 3,
+            status: 'completed',
+            startedAt: expect.any(Date),
+            transactionsImported: 75,
+            transactionsSkipped: 0,
+            createdAt: expect.any(Date),
+          },
+        ],
+      });
+
       expect(mockImportOrchestrator.importExchangeApi).toHaveBeenCalledWith('kucoin', {
         apiKey: 'test-key',
         apiSecret: 'test-secret',

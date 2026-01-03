@@ -1,4 +1,4 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { NormalizedTransactionBaseSchema, type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getErrorMessage, type RawTransaction } from '@exitbook/core';
 import type {
   AccountRepository,
@@ -205,7 +205,19 @@ export class TransactionProcessService {
         `Processing batch ${batchNumber}: ${rawDataItems.length} items for account ${accountId} (${sourceName})`
       );
 
-      const normalizedRawDataItems = this.normalizeRawData(rawDataItems, account.accountType);
+      const normalizedRawDataItemsResult = this.normalizeRawData(rawDataItems, account.accountType);
+      if (normalizedRawDataItemsResult.isErr()) {
+        this.logger.error(
+          `CRITICAL: Failed to normalize raw data for account ${accountId} batch ${batchNumber} - ${normalizedRawDataItemsResult.error.message}`
+        );
+        return err(
+          new Error(
+            `Cannot proceed: Account ${accountId} processing failed at batch ${batchNumber}. ${normalizedRawDataItemsResult.error.message}. ` +
+              `This would corrupt portfolio calculations by losing transactions from this account.`
+          )
+        );
+      }
+      const normalizedRawDataItems = normalizedRawDataItemsResult.value;
 
       // Process raw data into universal transactions
       const transactionsResult = await processor.process(normalizedRawDataItems, processingContext);
@@ -333,17 +345,16 @@ export class TransactionProcessService {
     }
   }
 
-  private normalizeRawData(rawDataItems: RawTransaction[], sourceType: string): unknown[] {
+  private normalizeRawData(rawDataItems: RawTransaction[], sourceType: string): Result<unknown[], Error> {
     const normalizedRawDataItems: unknown[] = [];
 
     for (const item of rawDataItems) {
-      let normalizedData: unknown = item.normalizedData;
-
-      if (!normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0) {
-        normalizedData = item.providerData;
-      }
-
       if (sourceType === 'exchange-api' || sourceType === 'exchange-csv') {
+        let normalizedData: unknown = item.normalizedData;
+
+        if (!normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0) {
+          normalizedData = item.providerData;
+        }
         const dataPackage = {
           raw: item.providerData,
           normalized: normalizedData,
@@ -351,10 +362,29 @@ export class TransactionProcessService {
         };
         normalizedRawDataItems.push(dataPackage);
       } else {
+        const normalizedData: unknown = item.normalizedData;
+        if (!normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0) {
+          return err(
+            new Error(
+              `Missing normalized_data for blockchain raw transaction ${item.id} (eventId: ${item.eventId}). ` +
+                `Reimport required to restore validated normalized data.`
+            )
+          );
+        }
+        const validationResult = NormalizedTransactionBaseSchema.safeParse(normalizedData);
+        if (!validationResult.success) {
+          return err(
+            new Error(
+              `Invalid normalized_data for blockchain raw transaction ${item.id} (eventId: ${item.eventId}). ` +
+                `Error: ${validationResult.error.message}`
+            )
+          );
+        }
         normalizedRawDataItems.push(normalizedData);
       }
     }
-    return normalizedRawDataItems;
+
+    return ok(normalizedRawDataItems);
   }
 
   private async saveTransactions(

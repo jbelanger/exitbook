@@ -110,8 +110,10 @@ describe('NEAR Processor Utils - groupByTransactionHash', () => {
       createTokenTransfer({ transactionHash: 'tx1' }),
     ];
 
-    const groups = groupNearEventsByTransaction(events);
+    const result = groupNearEventsByTransaction(events);
 
+    expect(result.isOk()).toBe(true);
+    const groups = result._unsafeUnwrap();
     expect(groups.size).toBe(1);
     const group = groups.get('tx1');
     expect(group).toBeDefined();
@@ -124,8 +126,10 @@ describe('NEAR Processor Utils - groupByTransactionHash', () => {
   test('should group multiple transactions separately', () => {
     const events = [createTransaction({ transactionHash: 'tx1' }), createTransaction({ transactionHash: 'tx2' })];
 
-    const groups = groupNearEventsByTransaction(events);
+    const result = groupNearEventsByTransaction(events);
 
+    expect(result.isOk()).toBe(true);
+    const groups = result._unsafeUnwrap();
     expect(groups.size).toBe(2);
     expect(groups.get('tx1')?.transaction).toBeDefined();
     expect(groups.get('tx2')?.transaction).toBeDefined();
@@ -138,8 +142,10 @@ describe('NEAR Processor Utils - groupByTransactionHash', () => {
       createReceipt({ transactionHash: 'tx1', receiptId: 'receipt3' }),
     ];
 
-    const groups = groupNearEventsByTransaction(events);
+    const result = groupNearEventsByTransaction(events);
 
+    expect(result.isOk()).toBe(true);
+    const groups = result._unsafeUnwrap();
     expect(groups.size).toBe(1);
     const group = groups.get('tx1');
     expect(group!.receipts).toHaveLength(3);
@@ -151,27 +157,38 @@ describe('NEAR Processor Utils - groupByTransactionHash', () => {
       createBalanceChange({ affectedAccountId: 'bob.near', transactionHash: 'tx1' }),
     ];
 
-    const groups = groupNearEventsByTransaction(events);
+    const result = groupNearEventsByTransaction(events);
 
+    expect(result.isOk()).toBe(true);
+    const groups = result._unsafeUnwrap();
     expect(groups.size).toBe(1);
     const group = groups.get('tx1');
     expect(group!.balanceChanges).toHaveLength(2);
   });
 
-  test('should throw error on duplicate transaction record', () => {
+  test('should return error on duplicate transaction record', () => {
     const events = [createTransaction({ transactionHash: 'tx1' }), createTransaction({ transactionHash: 'tx1' })];
 
-    expect(() => groupNearEventsByTransaction(events)).toThrow('Duplicate transaction record for hash tx1');
+    const result = groupNearEventsByTransaction(events);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toBe('Duplicate transaction record for hash tx1');
   });
 
-  test('should throw error on unknown transaction type hint', () => {
+  test('should return error on unknown transaction type hint', () => {
     const events = [{ streamType: 'unknown-type' } as unknown as NearBalanceChange];
 
-    expect(() => groupNearEventsByTransaction(events)).toThrow('Unknown transaction type hint: unknown-type');
+    const result = groupNearEventsByTransaction(events);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toBe('Unknown transaction type hint: unknown-type');
   });
 
   test('should handle empty input', () => {
-    const groups = groupNearEventsByTransaction([]);
+    const result = groupNearEventsByTransaction([]);
+
+    expect(result.isOk()).toBe(true);
+    const groups = result._unsafeUnwrap();
     expect(groups.size).toBe(0);
   });
 });

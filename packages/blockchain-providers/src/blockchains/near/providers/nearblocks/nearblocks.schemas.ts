@@ -7,10 +7,7 @@ import { z } from 'zod';
 
 /**
  * Schema for NearBlocks action with full details
- * NOTE: deposit, fee, and gas are returned as unquoted numbers (including scientific notation like 1e+23)
- * and are converted to fixed-point decimal strings via DecimalStringSchema for precision-safe storage
- *
- * This schema includes all action-specific fields returned by the receipts endpoint
+ * Numeric fields (deposit, fee, gas) are converted to decimal strings for precision-safe storage
  */
 export const NearBlocksActionSchema = z.object({
   action: z.string().min(1, 'Action must not be empty'),
@@ -41,10 +38,7 @@ export const NearBlocksReceiptBlockSchema = z.object({
 
 /**
  * Schema for NearBlocks receipt outcome with full details
- * NOTE: gas_burnt and tokens_burnt are returned as unquoted numbers (including scientific notation)
- * and are converted to fixed-point decimal strings via DecimalStringSchema for precision-safe storage
- *
- * This schema includes logs array returned by the receipts endpoint
+ * Numeric fields (gas_burnt, tokens_burnt) are converted to decimal strings for precision-safe storage
  */
 export const NearBlocksReceiptOutcomeSchema = z.object({
   executor_account_id: z.string().min(1, 'Executor account ID must not be empty'),
@@ -162,10 +156,8 @@ export const NearBlocksActivitiesResponseSchema = z.object({
  * Schema for NearBlocks receipt with full details
  * From /v1/account/{account}/receipts endpoint
  *
- * API returns enriched receipt data with nested objects:
- * - receipt_block: { block_hash, block_height, block_timestamp } - REQUIRED for event ordering
- * - receipt_outcome: { executor_account_id, gas_burnt, status, tokens_burnt, logs }
- * - actions: Array of action objects with full details
+ * Includes nested objects for receipt_block (required for ordering),
+ * receipt_outcome, and actions
  */
 export const NearBlocksReceiptSchema = z.object({
   receipt_id: z.string().min(1, 'Receipt ID must not be empty'),
@@ -179,8 +171,8 @@ export const NearBlocksReceiptSchema = z.object({
 });
 
 /**
- * Schema for NearBlocks paginated receipts response with full enriched data
- * Note: API returns 'txns' array, not 'receipts'
+ * Schema for NearBlocks paginated receipts response
+ * API returns 'txns' array
  */
 export const NearBlocksReceiptsResponseSchema = z.object({
   cursor: z.string().nullish(),
@@ -191,7 +183,7 @@ export const NearBlocksReceiptsResponseSchema = z.object({
  * Schema for NearBlocks FT (fungible token) transaction item
  * From /v1/account/{account}/ft-txns endpoint
  *
- * Note: ft object is REQUIRED - a fungible token transaction without token metadata is invalid
+ * Both ft object and transaction_hash are required for correlation and asset identification
  */
 export const NearBlocksFtTransactionSchema = z.object({
   affected_account_id: z.string().min(1, 'Affected account ID must not be empty'),
@@ -212,7 +204,7 @@ export const NearBlocksFtTransactionSchema = z.object({
   involved_account_id: z.string().nullish(),
   outcomes: NearBlocksOutcomeSchema.nullish(),
   outcomes_agg: z.record(z.string(), z.union([z.number(), z.string()])).nullish(),
-  transaction_hash: z.string().nullish(),
+  transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
 });
 
 /**

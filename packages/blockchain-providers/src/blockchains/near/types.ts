@@ -1,14 +1,11 @@
 /**
  * NEAR native types for correlation and aggregation
- *
- * These types represent NEAR-native concepts (receipts, actions, balance changes, token transfers)
- * used by the processor during correlation and aggregation.
  */
 
 import type { NearBalanceChangeCause, NearActionType } from './schemas.ts';
 
 /**
- * NEAR receipt action with normalized fields
+ * NEAR receipt action
  */
 export interface NearReceiptAction {
   actionType: NearActionType;
@@ -22,8 +19,7 @@ export interface NearReceiptAction {
 }
 
 /**
- * NEAR balance change with delta information
- * Used after correlating activities with receipts
+ * NEAR balance change
  */
 export interface NearBalanceChange {
   transactionHash?: string | undefined;
@@ -41,7 +37,6 @@ export interface NearBalanceChange {
 
 /**
  * NEAR token transfer
- * Used after correlating ft-transfers with receipts
  */
 export interface NearTokenTransfer {
   transactionHash: string;
@@ -59,7 +54,6 @@ export interface NearTokenTransfer {
 
 /**
  * NEAR receipt with correlated balance changes and token transfers
- * This is the enriched receipt used by the processor to build transactions
  */
 export interface NearReceipt {
   receiptId: string;
@@ -78,12 +72,10 @@ export interface NearReceipt {
   actions: NearReceiptAction[] | undefined;
   /**
    * Balance changes correlated to this receipt
-   * Populated during correlation phase
    */
   balanceChanges?: NearBalanceChange[];
   /**
    * Token transfers correlated to this receipt
-   * Populated during correlation phase
    */
   tokenTransfers?: NearTokenTransfer[];
 }

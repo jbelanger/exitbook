@@ -729,10 +729,10 @@ describe('NearTransactionProcessor', () => {
         createReceiptEvent({ transactionHash: 'tx1' }),
       ];
 
-      // Should throw during grouping
-      await expect(processor.process(events, createProcessingContext())).rejects.toThrow(
-        'Duplicate transaction record'
-      );
+      // Should return error during grouping
+      const result = await processor.process(events, createProcessingContext());
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toMatch(/Duplicate transaction record/);
     });
 
     test('should accumulate errors from multiple failed transactions', async () => {
@@ -1053,7 +1053,8 @@ describe('NearTransactionProcessor', () => {
             cause: 'TRANSFER', // RECEIPT-level cause
             deltaAmountYocto: '1000000000000000000000000',
           }),
-          id: 'tx1', // Must have same id to be grouped with the transaction
+          id: 'tx1',
+          transactionHash: 'tx1', // Provide transactionHash so it gets grouped
         },
       ];
 
@@ -1081,6 +1082,7 @@ describe('NearTransactionProcessor', () => {
             deltaAmountYocto: '1000000000000000000000000',
           }),
           id: 'tx1',
+          transactionHash: 'tx1', // Provide transactionHash so it gets grouped
         },
       ];
 

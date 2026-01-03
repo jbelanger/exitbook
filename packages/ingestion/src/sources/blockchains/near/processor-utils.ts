@@ -1,21 +1,13 @@
 /**
  * NEAR Processor Utilities
  *
- * Pure utility functions for processing NEAR transactions in architecture:
+ * Pure utility functions for processing NEAR transactions:
  * - Group normalized data by transaction hash
  * - Two-hop correlation: receipts → transactions, activities → receipts
- *   (token transfers are handled at transaction level)
- * - Handle NEAR's two-phase balance change model:
- *   • TRANSACTION-LEVEL: Balance changes from transaction acceptance (gas prepayment, deposits)
- *     → Attached to transaction-level synthetic receipt (correct NEAR semantics)
- *   • RECEIPT-LEVEL: Balance changes from receipt execution (actual state changes)
- *     → Must correlate to specific receipts (fails fast if missing receipt_id)
+ * - Handle NEAR's two-phase balance change model (transaction-level vs receipt-level)
  * - Extract fees with single source of truth
- * - Extract fund flows from receipts
- * - Aggregate movements by asset
+ * - Extract fund flows and aggregate by asset
  * - Classify operation types
- *
- * All functions are pure (no side effects) for easier testing.
  */
 
 import type {
@@ -233,18 +225,13 @@ export interface OperationClassification {
 /**
  * Group normalized transaction data by transaction hash
  *
- * Takes normalized events and groups them by transactionHash.
- * Each group contains all 4 stream types (transactions, receipts, balance-changes, token-transfers)
- * for a single parent transaction.
- *
- * IMPORTANT: This uses two-pass processing to resolve transaction hashes for orphaned items:
- * 1. First pass: Build receipt_id → transaction_hash map from receipts
- * 2. Second pass: Resolve transaction hash for activities/ft-transfers using receipt map
- *
- * @param events - Normalized stream events
- * @returns Map of transaction hash to grouped data
+ * Two-pass processing:
+ * 1. Build receipt_id → transaction_hash map from receipts
+ * 2. Resolve transaction hash for balance changes using receipt map
  */
-export function groupNearEventsByTransaction(events: NearStreamEvent[]): Map<string, RawTransactionGroup> {
+export function groupNearEventsByTransaction(
+  events: NearStreamEvent[]
+): Result<Map<string, RawTransactionGroup>, Error> {
   // First pass: Build receipt_id → transaction_hash map
   const receiptIdToTxHash = new Map<string, string>();
 
@@ -261,9 +248,6 @@ export function groupNearEventsByTransaction(events: NearStreamEvent[]): Map<str
   // Second pass: Group by transaction hash, resolving via receipt_id when needed
   const groups = new Map<string, RawTransactionGroup>();
   let skippedBalanceChanges = 0;
-  let skippedTokenTransfers = 0;
-  let skippedReceipts = 0;
-  let skippedTransactions = 0;
 
   const getOrCreateGroup = (txHash: string): RawTransactionGroup => {
     let group = groups.get(txHash);
@@ -283,36 +267,18 @@ export function groupNearEventsByTransaction(events: NearStreamEvent[]): Map<str
     switch (event.streamType) {
       case 'transactions': {
         const transaction = event;
-        const txHash = transaction.transactionHash;
-        if (!txHash) {
-          logger.error(
-            `Skipping transaction with missing transaction_hash. ` +
-              `Signer: ${transaction.signerAccountId}, Receiver: ${transaction.receiverAccountId}. ` +
-              `THIS DATA WILL BE LOST.`
-          );
-          skippedTransactions++;
-          continue;
-        }
-        const group = getOrCreateGroup(txHash);
+        // Schema guarantees transaction_hash is present and non-empty
+        const group = getOrCreateGroup(transaction.transactionHash);
         if (group.transaction) {
-          throw new Error(`Duplicate transaction record for hash ${txHash}`);
+          return err(new Error(`Duplicate transaction record for hash ${transaction.transactionHash}`));
         }
         group.transaction = transaction;
         break;
       }
       case 'receipts': {
         const receipt = event;
-        const txHash = receipt.transactionHash;
-        if (!txHash) {
-          logger.error(
-            `Skipping receipt with missing transaction_hash. ` +
-              `Receipt: ${receipt.receiptId}, Predecessor: ${receipt.predecessorAccountId}, ` +
-              `Receiver: ${receipt.receiverAccountId}. THIS DATA WILL BE LOST.`
-          );
-          skippedReceipts++;
-          continue;
-        }
-        const group = getOrCreateGroup(txHash);
+        // Schema guarantees transaction_hash is present and non-empty
+        const group = getOrCreateGroup(receipt.transactionHash);
         group.receipts.push(receipt);
         break;
       }
@@ -348,42 +314,28 @@ export function groupNearEventsByTransaction(events: NearStreamEvent[]): Map<str
       }
       case 'token-transfers': {
         const tokenTransfer = event;
-        const txHash = tokenTransfer.transactionHash;
-        // Token transfers now have required transactionHash field (no receiptId)
-        // Use transactionHash directly for correlation
-        if (!txHash) {
-          // CRITICAL: Cannot correlate this token transfer - missing transaction_hash
-          logger.warn(
-            `Skipping orphaned token transfer - missing transaction_hash. ` +
-              `Account: ${tokenTransfer.affectedAccountId}, Contract: ${tokenTransfer.contractAddress}, ` +
-              `Block: ${tokenTransfer.blockHeight}, Delta: ${tokenTransfer.deltaAmountYocto ?? 'null'}. ` +
-              `THIS DATA WILL BE LOST.`
-          );
-          skippedTokenTransfers++;
-          continue;
-        }
-        const group = getOrCreateGroup(txHash);
+        // Token transfers have required transactionHash field (guaranteed by schema)
+        // Use transactionHash directly for correlation (no receiptId correlation needed)
+        const group = getOrCreateGroup(tokenTransfer.transactionHash);
         group.tokenTransfers.push(tokenTransfer);
         break;
       }
       default:
-        throw new Error(`Unknown transaction type hint: ${(event as { streamType?: string }).streamType}`);
+        return err(new Error(`Unknown transaction type hint: ${(event as { streamType?: string }).streamType}`));
     }
   }
 
-  // Report summary of skipped items
-  if (skippedBalanceChanges > 0 || skippedTokenTransfers > 0 || skippedReceipts > 0 || skippedTransactions > 0) {
-    const skippedTotal = skippedBalanceChanges + skippedTokenTransfers + skippedReceipts + skippedTransactions;
+  // Report summary of skipped items (only balance changes can be skipped due to missing correlation keys)
+  if (skippedBalanceChanges > 0) {
     logger.error(
-      `CRITICAL: Skipped ${skippedBalanceChanges} balance changes, ${skippedTokenTransfers} token transfers, ` +
-        `${skippedReceipts} receipts, and ${skippedTransactions} transactions ` +
-        `due to missing correlation keys (receipt_id and/or transaction_hash). ` +
+      `CRITICAL: Skipped ${skippedBalanceChanges} balance changes ` +
+        `due to missing correlation keys (both receipt_id and transaction_hash missing or invalid). ` +
         `This represents data loss in a financial system. ` +
-        `Total raw events: ${events.length}, Successfully grouped: ${events.length - skippedTotal}`
+        `Total raw events: ${events.length}, Successfully grouped: ${events.length - skippedBalanceChanges}`
     );
   }
 
-  return groups;
+  return ok(groups);
 }
 
 /**
@@ -405,21 +357,14 @@ export function validateTransactionGroup(txHash: string, group: RawTransactionGr
 /**
  * Correlate receipts with balance changes by receipt_id
  *
- * Attaches balance changes to their corresponding receipts.
- * This implements the two-hop correlation: transactions → receipts → activities.
- * Token transfers are handled at transaction level (no receipt correlation).
+ * Implements two-hop correlation: transactions → receipts → balance changes.
+ * Token transfers are handled at transaction level.
  *
- * NEAR's asynchronous architecture means balance changes occur at two distinct stages:
- * - TRANSACTION-LEVEL: Transaction acceptance costs (gas prepayment, deposits)
- *   → Attached to transaction-level synthetic receipt (expected behavior)
- * - RECEIPT-LEVEL: Execution outcomes (actual state changes, fund transfers)
- *   → Must correlate to specific receipt (fails fast if missing receipt_id)
+ * NEAR's asynchronous architecture creates balance changes at two stages:
+ * - TRANSACTION-LEVEL: Transaction acceptance costs (attached to synthetic receipt)
+ * - RECEIPT-LEVEL: Execution outcomes (attached to specific receipt)
  *
- * IMPORTANT: Assumes deltas have already been derived by deriveBalanceChangeDeltasFromAbsolutes()
- * before this function is called. This function validates delta presence and fails fast if missing.
- *
- * @param group - Transaction group with normalized data
- * @returns Correlated transaction with enriched receipts
+ * Assumes deltas have been derived before calling this function.
  */
 export function correlateTransactionData(group: RawTransactionGroup): Result<CorrelatedTransaction, Error> {
   if (!group.transaction) {
@@ -600,15 +545,11 @@ export function correlateTransactionData(group: RawTransactionGroup): Result<Cor
 /**
  * Extract fees from a receipt with single source of truth and conflict detection
  *
- * Priority order (per V4 plan):
- * 1. Receipt gas_burnt and tokens_burnt (most authoritative)
- * 2. Balance changes with 'fee' or 'gas' cause
+ * Priority:
+ * 1. Receipt gas_burnt and tokens_burnt
+ * 2. Balance changes with fee/gas cause
  *
- * Logs a warning if both sources exist and differ significantly (>1% variance).
- *
- * @param receipt - Enriched receipt with balance changes
- * @param primaryAddress - User's address (fee payer filter)
- * @returns Fee extraction result with movements and optional warning
+ * Warns if both sources differ by >1%
  */
 export function extractReceiptFees(receipt: NearReceipt, primaryAddress: string): FeeExtractionResult {
   // Calculate both sources if they exist
@@ -625,7 +566,6 @@ export function extractReceiptFees(receipt: NearReceipt, primaryAddress: string)
   }
 
   // Source 2: Balance changes with fee/gas cause
-  // IMPORTANT: These conditions must match extractFlows to avoid double-counting
   if (receipt.balanceChanges && receipt.balanceChanges.length > 0) {
     const feeActivities = receipt.balanceChanges.filter(
       (bc) => FEE_CAUSES.has(bc.cause) && bc.affectedAccountId === primaryAddress
@@ -698,13 +638,7 @@ export function extractReceiptFees(receipt: NearReceipt, primaryAddress: string)
 
 /**
  * Extract fund flows (inflows/outflows) from a receipt
- *
- * Analyzes balance changes and token transfers to determine movements.
- * Excludes fee-related flows (handled separately).
- *
- * @param receipt - Enriched receipt
- * @param primaryAddress - User's address
- * @returns Array of movements
+ * Excludes fee-related flows (handled separately)
  */
 export function extractFlows(receipt: NearReceipt, primaryAddress: string): Movement[] {
   const movements: Movement[] = [];
@@ -716,7 +650,6 @@ export function extractFlows(receipt: NearReceipt, primaryAddress: string): Move
         continue;
       }
       // Skip fee-related activities (handled by extractReceiptFees)
-      // Must match the same conditions as extractReceiptFees to avoid double-counting
       if (FEE_CAUSES.has(activity.cause)) {
         continue;
       }
@@ -754,10 +687,6 @@ export function extractFlows(receipt: NearReceipt, primaryAddress: string): Move
 
 /**
  * Extract fund flows from token transfers at transaction level
- *
- * @param tokenTransfers - Token transfers for the transaction
- * @param primaryAddress - User's address
- * @returns Array of movements
  */
 export function extractTokenTransferFlows(tokenTransfers: NearTokenTransfer[], primaryAddress: string): Movement[] {
   const movements: Movement[] = [];
@@ -790,12 +719,7 @@ export function extractTokenTransferFlows(tokenTransfers: NearTokenTransfer[], p
 
 /**
  * Consolidate movements by asset
- *
- * Aggregates multiple movements of the same asset into a single movement.
- * Used to create transaction-level inflows/outflows from receipt-level movements.
- *
- * @param movements - Array of movements to consolidate
- * @returns Map of asset to consolidated movement
+ * Aggregates multiple movements of the same asset into a single movement
  */
 export function consolidateByAsset(movements: Movement[]): Map<string, Movement> {
   const consolidated = new Map<string, Movement>();
@@ -938,13 +862,7 @@ function analyzeBalanceChangeCauses(receipts: NearReceipt[]): {
 
 /**
  * Classify operation type from correlated transaction
- *
- * Determines the transaction type based on receipts, actions, and fund flows.
- *
- * @param correlated - Correlated transaction
- * @param allInflows - All inflows across receipts
- * @param allOutflows - All outflows across receipts
- * @returns Operation classification
+ * Determines transaction type based on receipts, actions, and fund flows
  */
 export function classifyOperation(
   correlated: CorrelatedTransaction,

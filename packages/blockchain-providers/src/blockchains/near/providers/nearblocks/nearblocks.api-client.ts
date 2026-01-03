@@ -57,31 +57,19 @@ const NEARBLOCKS_PAGE_SIZE = 25;
 const NEARBLOCKS_DEDUP_WINDOW_SIZE = 200;
 
 /**
- * NearBlocks API Client - Four discrete transaction types for raw streaming
+ * NearBlocks API Client
  *
- * This client provides 4 transaction types under getAddressTransactions:
- * 1. transactions - Base transaction metadata from /txns-only
- * 2. receipts - Receipt execution records from /receipts
- * 3. balance-changes - Balance changes from /activities
- * 4. token-transfers - Token transfers from /ft-txns
+ * Provides 4 transaction types for getAddressTransactions:
+ * 1. transactions - Base transaction metadata
+ * 2. receipts - Receipt execution records
+ * 3. balance-changes - Balance changes
+ * 4. token-transfers - Token transfers
  *
- * Key features:
+ * Features:
  * - No correlation at provider level (deferred to processor)
- * - Simple cursor-based pagination (no count dependencies)
- * - Deterministic event IDs using SHA-256 hashing
- * - Two-hop correlation via receipts (transactions → receipts → activities/ft-transfers)
- * - Each transaction type independently resumable
- *
- * Correlation Strategy:
- * - Activities have either transaction_hash OR receipt_id (not both null)
- * - FT transfers always have transaction_hash (identified by transaction_hash + event_index)
- * - Processor uses receipt_id as correlation key for activities when available (two-hop: tx → receipt → activity)
- * - Activities with only transaction_hash are correlated directly to the transaction
- *
- * Architecture:
- * - Provider: Stream raw data for each transaction type
- * - Importer: Run 4 sequential phases, save with transaction_type_hint
- * - Processor: Correlate using receipts as bridge, then aggregate
+ * - Cursor-based pagination
+ * - Two-hop correlation via receipts (transactions → receipts → balance changes)
+ * - Each type independently resumable
  */
 @RegisterApiClient({
   apiKeyEnvVar: 'NEARBLOCKS_API_KEY',
@@ -246,7 +234,6 @@ export class NearBlocksApiClient extends BaseApiClient {
 
   /**
    * Stream transactions from /txns-only endpoint
-   * Maps raw NearBlocks data to normalized NearTransaction type
    */
   private streamTransactions(
     address: string,
@@ -292,13 +279,11 @@ export class NearBlocksApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (txn) => {
-        // Map raw NearBlocks transaction to normalized NearTransaction
         const mapResult = mapRawTransactionToNearTransaction(txn);
         if (mapResult.isErr()) {
           return err(mapResult.error);
         }
 
-        // Validate against schema
         const validationResult = validateOutput(mapResult.value, NearTransactionSchema, 'NearTransaction');
         if (validationResult.isErr()) {
           const errorMessage =
@@ -317,7 +302,6 @@ export class NearBlocksApiClient extends BaseApiClient {
 
   /**
    * Stream receipts from /receipts endpoint
-   * Maps raw NearBlocks data to normalized NearReceipt type
    */
   private streamReceipts(
     address: string,
@@ -361,13 +345,11 @@ export class NearBlocksApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (receipt) => {
-        // Map raw NearBlocks receipt to normalized NearReceipt
         const mapResult = mapRawReceiptToNearReceipt(receipt);
         if (mapResult.isErr()) {
           return err(mapResult.error);
         }
 
-        // Validate against schema
         const validationResult = validateOutput(mapResult.value, NearReceiptSchema, 'NearReceipt');
         if (validationResult.isErr()) {
           const errorMessage =
@@ -386,11 +368,7 @@ export class NearBlocksApiClient extends BaseApiClient {
 
   /**
    * Stream balance changes from /activities endpoint
-   * Maps raw NearBlocks data to normalized NearBalanceChange type
-   *
-   * Validation:
-   * - FAILS if both transaction_hash AND receipt_id are null (orphan)
-   * - Allows either transaction_hash or receipt_id to be null (will correlate via the available one)
+   * Fails if both transaction_hash and receipt_id are null (orphan)
    */
   private streamBalanceChanges(
     address: string,
@@ -417,9 +395,7 @@ export class NearBlocksApiClient extends BaseApiClient {
       const data = result.value;
       const activities = data.activities || [];
 
-      // FAIL if BOTH transaction_hash AND receipt_id are missing (orphan detection)
-      // Activities can have either transaction_hash OR receipt_id (but not both null)
-      // We need receipt_id for two-hop correlation via receipts
+      // Fail if both transaction_hash and receipt_id are missing (orphan detection)
       for (const activity of activities) {
         if (!activity.transaction_hash && !activity.receipt_id) {
           const error = new Error(
@@ -448,13 +424,11 @@ export class NearBlocksApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (activity) => {
-        // Map raw NearBlocks activity to normalized NearBalanceChange
         const mapResult = mapRawActivityToBalanceChange(activity);
         if (mapResult.isErr()) {
           return err(mapResult.error);
         }
 
-        // Validate against schema
         const validationResult = validateOutput(mapResult.value, NearBalanceChangeSchema, 'NearBalanceChange');
         if (validationResult.isErr()) {
           const errorMessage =
@@ -473,9 +447,6 @@ export class NearBlocksApiClient extends BaseApiClient {
 
   /**
    * Stream token transfers from /ft-txns endpoint
-   * Maps raw NearBlocks data to normalized NearTokenTransfer type
-   *
-   * Token transfers are identified by transaction_hash and event_index.
    */
   private streamTokenTransfers(
     address: string,
@@ -521,13 +492,11 @@ export class NearBlocksApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (ft) => {
-        // Map raw NearBlocks FT transfer to normalized NearTokenTransfer
         const mapResult = mapRawFtToTokenTransfer(ft);
         if (mapResult.isErr()) {
           return err(mapResult.error);
         }
 
-        // Validate against schema
         const validationResult = validateOutput(mapResult.value, NearTokenTransferSchema, 'NearTokenTransfer');
         if (validationResult.isErr()) {
           const errorMessage =

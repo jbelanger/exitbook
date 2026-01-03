@@ -357,7 +357,7 @@ describe('ImportOrchestrator', () => {
       expect(mockAccountRepo.findOrCreate).toHaveBeenCalledTimes(1);
     });
 
-    it('should continue importing other addresses if one child import fails', async () => {
+    it('should fail fast if any child import fails', async () => {
       const parentAccount: Account = {
         id: 10,
         userId: 1,
@@ -419,13 +419,9 @@ describe('ImportOrchestrator', () => {
 
       const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        // Only second child succeeded, so array has 1 session
-        expect(Array.isArray(result.value)).toBe(true);
-        const sessions = result.value as ImportSession[];
-        expect(sessions).toHaveLength(1);
-        expect(sessions[0]?.transactionsImported).toBe(10);
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Network timeout');
       }
     });
 
