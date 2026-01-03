@@ -19,6 +19,17 @@ import type {
  * These functions extract and transform KuCoin transaction data into ProcessedTransaction format.
  * All functions return Result types to prevent silent failures and enable proper error handling.
  */
+function parseKucoinUtcTimestamp(timeStr: string): Result<{ datetime: string; timestamp: number }, Error> {
+  const isoBase = timeStr.includes('T') ? timeStr : timeStr.replace(' ', 'T');
+  const isoString = isoBase.endsWith('Z') ? isoBase : `${isoBase}Z`;
+  const parsed = new Date(isoString);
+
+  if (isNaN(parsed.getTime())) {
+    return err(new Error(`Invalid KuCoin timestamp: ${timeStr}`));
+  }
+
+  return ok({ timestamp: parsed.getTime(), datetime: parsed.toISOString() });
+}
 
 /**
  * Convert KuCoin account history convert market entries (deposit + withdrawal pair) into a swap transaction
@@ -28,7 +39,12 @@ export function convertKucoinAccountHistoryConvertToTransaction(
   withdrawal: CsvAccountHistoryRow,
   timestamp: string
 ): Result<ProcessedTransaction, Error> {
-  const timestampMs = new Date(timestamp).getTime();
+  const parsedTimestamp = parseKucoinUtcTimestamp(timestamp);
+  if (parsedTimestamp.isErr()) {
+    return err(parsedTimestamp.error);
+  }
+  const timestampMs = parsedTimestamp.value.timestamp;
+  const datetime = parsedTimestamp.value.datetime;
 
   const sellCurrency = withdrawal.Currency;
   const sellAmount = parseDecimal(withdrawal.Amount).abs();
@@ -57,7 +73,7 @@ export function convertKucoinAccountHistoryConvertToTransaction(
 
   return ok({
     externalId: `${withdrawal.UID}-${timestampMs}-convert-market-${sellCurrency}-${buyCurrency}`,
-    datetime: timestamp,
+    datetime,
     timestamp: timestampMs,
     source: 'kucoin',
     status: mapKucoinStatus('success', 'deposit_withdrawal'),
@@ -105,7 +121,11 @@ export function convertKucoinAccountHistoryConvertToTransaction(
  * Convert KuCoin deposit row into ProcessedTransaction
  */
 export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow): Result<ProcessedTransaction, Error> {
-  const timestamp = new Date(row['Time(UTC)']).getTime();
+  const parsedTimestamp = parseKucoinUtcTimestamp(row['Time(UTC)']);
+  if (parsedTimestamp.isErr()) {
+    return err(parsedTimestamp.error);
+  }
+  const { timestamp, datetime } = parsedTimestamp.value;
   const grossAmount = parseDecimal(row.Amount);
   const fee = row.Fee ? parseDecimal(row.Fee) : parseDecimal('0');
 
@@ -125,7 +145,7 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
 
   return ok({
     externalId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
-    datetime: row['Time(UTC)'],
+    datetime,
     timestamp,
     source: 'kucoin',
     status: mapKucoinStatus(row.Status, 'deposit_withdrawal'),
@@ -170,7 +190,11 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
 export function convertKucoinOrderSplittingToTransaction(
   row: CsvOrderSplittingRow
 ): Result<ProcessedTransaction, Error> {
-  const timestamp = new Date(row['Filled Time(UTC)']).getTime();
+  const parsedTimestamp = parseKucoinUtcTimestamp(row['Filled Time(UTC)']);
+  if (parsedTimestamp.isErr()) {
+    return err(parsedTimestamp.error);
+  }
+  const { timestamp, datetime } = parsedTimestamp.value;
 
   // Guard against missing Symbol field
   if (!row.Symbol) {
@@ -267,7 +291,7 @@ export function convertKucoinOrderSplittingToTransaction(
 
   return ok({
     externalId: uniqueId,
-    datetime: row['Filled Time(UTC)'],
+    datetime,
     timestamp,
     source: 'kucoin',
     status: 'closed', // Order-splitting data only shows completed fills
@@ -319,7 +343,11 @@ export function convertKucoinOrderSplittingToTransaction(
  * Convert KuCoin trading bot row into ProcessedTransaction
  */
 export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Result<ProcessedTransaction, Error> {
-  const timestamp = new Date(row['Time Filled(UTC)']).getTime();
+  const parsedTimestamp = parseKucoinUtcTimestamp(row['Time Filled(UTC)']);
+  if (parsedTimestamp.isErr()) {
+    return err(parsedTimestamp.error);
+  }
+  const { timestamp, datetime } = parsedTimestamp.value;
 
   // Guard against missing Symbol field
   if (!row.Symbol) {
@@ -420,7 +448,7 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Res
 
   return ok({
     externalId: uniqueId,
-    datetime: row['Time Filled(UTC)'],
+    datetime,
     timestamp,
     source: 'kucoin',
     status: 'closed', // Trading bot data only shows completed fills
@@ -472,7 +500,11 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Res
  * Convert KuCoin spot order row into ProcessedTransaction
  */
 export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Result<ProcessedTransaction, Error> {
-  const timestamp = new Date(row['Filled Time(UTC)']).getTime();
+  const parsedTimestamp = parseKucoinUtcTimestamp(row['Filled Time(UTC)']);
+  if (parsedTimestamp.isErr()) {
+    return err(parsedTimestamp.error);
+  }
+  const { timestamp, datetime } = parsedTimestamp.value;
 
   // Guard against missing Symbol field
   if (!row.Symbol) {
@@ -570,7 +602,7 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Resul
 
   return ok({
     externalId: row['Order ID'],
-    datetime: row['Filled Time(UTC)'],
+    datetime,
     timestamp,
     source: 'kucoin',
     status: mapKucoinStatus(row.Status, 'spot'),
@@ -624,7 +656,11 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Resul
 export function convertKucoinWithdrawalToTransaction(
   row: CsvDepositWithdrawalRow
 ): Result<ProcessedTransaction, Error> {
-  const timestamp = new Date(row['Time(UTC)']).getTime();
+  const parsedTimestamp = parseKucoinUtcTimestamp(row['Time(UTC)']);
+  if (parsedTimestamp.isErr()) {
+    return err(parsedTimestamp.error);
+  }
+  const { timestamp, datetime } = parsedTimestamp.value;
   const grossAmount = parseDecimal(row.Amount).abs();
   const fee = parseDecimal(row.Fee ?? '0');
 
@@ -638,7 +674,7 @@ export function convertKucoinWithdrawalToTransaction(
 
   return ok({
     externalId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-withdrawal-${row.Amount}`,
-    datetime: row['Time(UTC)'],
+    datetime,
     timestamp,
     source: 'kucoin',
     status: mapKucoinStatus(row.Status, 'deposit_withdrawal'),

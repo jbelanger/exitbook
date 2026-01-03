@@ -132,6 +132,8 @@ describe('convertKucoinDepositToTransaction', () => {
     expect(result.operation.category).toBe('transfer');
     expect(result.operation.type).toBe('deposit');
     expect(result.status).toBe('success');
+    expect(result.datetime).toBe('2024-01-10T08:00:00.000Z');
+    expect(result.timestamp).toBe(new Date('2024-01-10T08:00:00Z').getTime());
 
     // Check movements - deposit creates inflow
     expect(result.movements.outflows).toHaveLength(0);

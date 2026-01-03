@@ -169,7 +169,7 @@ export class KucoinCsvImporter implements IImporter {
           );
 
           for (const row of validationResult.valid) {
-            const eventId = this.getUniqueEventlId(row['Order ID']);
+            const eventId = this.getUniqueEventId(row['Order ID']);
             // Use Filled Time if available, otherwise fall back to Order Time
             const timeStr = row['Filled Time(UTC)'] || row['Order Time(UTC)'];
             rawTransactions.push({
@@ -206,7 +206,7 @@ export class KucoinCsvImporter implements IImporter {
 
           for (const row of validationResult.valid) {
             const baseId = row.Hash || this.generateEventId('deposit', row['Time(UTC)'], row.Coin, row.Amount);
-            const eventId = this.getUniqueEventlId(baseId);
+            const eventId = this.getUniqueEventId(baseId);
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'deposit',
@@ -241,7 +241,7 @@ export class KucoinCsvImporter implements IImporter {
 
           for (const row of validationResult.valid) {
             const baseId = row.Hash || this.generateEventId('withdrawal', row['Time(UTC)'], row.Coin, row.Amount);
-            const eventId = this.getUniqueEventlId(baseId);
+            const eventId = this.getUniqueEventId(baseId);
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'withdrawal',
@@ -276,7 +276,7 @@ export class KucoinCsvImporter implements IImporter {
 
           for (const row of validationResult.valid) {
             const baseId = this.generateEventId(row.Type, row['Time(UTC)'], row.Currency, row.Amount);
-            const eventId = this.getUniqueEventlId(baseId);
+            const eventId = this.getUniqueEventId(baseId);
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'account_history',
@@ -327,7 +327,7 @@ export class KucoinCsvImporter implements IImporter {
 
           for (const row of mainAccountRows) {
             const baseId = `${row['Order ID']}-${row['Filled Time(UTC)']}`;
-            const eventId = this.getUniqueEventlId(baseId);
+            const eventId = this.getUniqueEventId(baseId);
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'order_splitting',
@@ -365,7 +365,7 @@ export class KucoinCsvImporter implements IImporter {
           for (const row of mainAccountRows) {
             const timestamp = this.parseTimestamp(row['Time Filled(UTC)']);
             const baseId = `${row['Order ID']}-${timestamp}-${row['Filled Amount']}`;
-            const eventId = this.getUniqueEventlId(baseId);
+            const eventId = this.getUniqueEventId(baseId);
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'trading_bot',
@@ -682,7 +682,7 @@ export class KucoinCsvImporter implements IImporter {
    * Get a unique event ID, appending a counter if the ID has been used before.
    * This handles duplicate rows in CSV files.
    */
-  private getUniqueEventlId(baseId: string): string {
+  private getUniqueEventId(baseId: string): string {
     const count = this.usedEventIds.get(baseId) ?? 0;
     this.usedEventIds.set(baseId, count + 1);
 

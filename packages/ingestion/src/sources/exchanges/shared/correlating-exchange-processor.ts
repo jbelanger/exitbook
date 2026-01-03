@@ -64,7 +64,6 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
       }
 
       const fundFlow = fundFlowResult.value;
-      const classification = classifyExchangeOperationFromFundFlow(fundFlow);
       const primaryEntry = this.selectPrimaryEntry(entryGroup, fundFlow);
 
       if (!primaryEntry) {
@@ -75,6 +74,8 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         );
         continue;
       }
+
+      const classification = this.determineOperationFromFundFlow(fundFlow);
 
       const processedTransaction: ProcessedTransaction = {
         externalId: primaryEntry.normalized.id,
@@ -118,7 +119,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         })),
 
         operation: classification.operation,
-        notes: classification.notes,
+        notes: classification.note ? [classification.note] : undefined,
       };
 
       transactions.push(processedTransaction);
