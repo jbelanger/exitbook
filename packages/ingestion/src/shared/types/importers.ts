@@ -40,8 +40,8 @@ export interface ImportParams {
 export interface ImportBatchResult {
   // Successfully fetched and validated transactions in this batch
   rawTransactions: RawTransactionInput[];
-  // Transaction type (e.g., "normal", "internal", "token", "beacon_withdrawal" for blockchains, "ledger", "trade" for exchanges)
-  transactionType: string;
+  // Transaction streaming type (e.g., "normal", "internal", "token", "beacon_withdrawal" for blockchains, "ledger", "trade" for exchanges)
+  streamType: string;
   // Cursor state for this specific transaction type
   cursor: CursorState;
   // Whether this transaction type has completed (no more batches for this transaction type)

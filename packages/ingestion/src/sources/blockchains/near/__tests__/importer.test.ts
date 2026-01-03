@@ -178,7 +178,7 @@ describe('NearTransactionImporter', () => {
         const [, operation] = executeCalls[i]!;
         assertOperationType(operation, 'getAddressTransactions');
         expect(operation.address).toBe(address);
-        expect(operation.transactionType).toBe(transactionTypes[i]);
+        expect(operation.streamType).toBe(transactionTypes[i]);
         expect(operation.getCacheKey).toBeDefined();
       }
     });

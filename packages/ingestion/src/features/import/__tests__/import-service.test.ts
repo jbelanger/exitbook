@@ -57,7 +57,7 @@ const mockImportStreamingFn = vi.fn().mockImplementation(async function* () {
       { transactionHash: 'tx1', blockHeight: 100 },
       { transactionHash: 'tx2', blockHeight: 101 },
     ],
-    transactionType: 'normal',
+    streamType: 'normal',
     cursor: { primary: { type: 'offset', value: 2 }, totalFetched: 2 },
     isComplete: true,
   });
@@ -96,7 +96,7 @@ const mockExchangeImportStreamingFn = vi.fn().mockImplementation(async function*
       { refid: 'kraken-1', type: 'trade' },
       { refid: 'kraken-2', type: 'deposit' },
     ],
-    transactionType: 'ledger',
+    streamType: 'ledger',
     cursor: {
       primary: { type: 'timestamp', value: 1 },
       lastTransactionId: 'kraken-2',
@@ -158,7 +158,7 @@ describe('ImportExecutor', () => {
           { transactionHash: 'tx1', blockHeight: 100 },
           { transactionHash: 'tx2', blockHeight: 101 },
         ],
-        transactionType: 'normal',
+        streamType: 'normal',
         cursor: { primary: { type: 'blockNumber', value: 2 }, lastTransactionId: 'tx2', totalFetched: 2 },
         isComplete: true,
       });
@@ -181,7 +181,7 @@ describe('ImportExecutor', () => {
           { refid: 'kraken-1', type: 'trade' },
           { refid: 'kraken-2', type: 'deposit' },
         ],
-        transactionType: 'ledger',
+        streamType: 'ledger',
         cursor: {
           primary: { type: 'timestamp', value: 1 },
           lastTransactionId: 'kraken-2',
@@ -597,7 +597,7 @@ describe('ImportExecutor', () => {
         // First batch succeeds
         yield okAsync({
           rawTransactions: successfulItems,
-          transactionType: 'trade',
+          streamType: 'trade',
           cursor: { primary: { type: 'timestamp', value: 2 }, lastTransactionId: 'trade-2', totalFetched: 2 },
           isComplete: false,
         });
@@ -679,7 +679,7 @@ describe('ImportExecutor', () => {
       mockExchangeImportStreamingFn.mockImplementationOnce(async function* () {
         yield okAsync({
           rawTransactions: [],
-          transactionType: 'ledger',
+          streamType: 'ledger',
           cursor: {
             primary: { type: 'timestamp', value: 1 },
             lastTransactionId: 'kraken-1',

@@ -27,7 +27,7 @@ export async function consumeImportStream(
 
     const batch = batchResult.value;
     allTransactions.push(...batch.rawTransactions);
-    cursorUpdates[batch.transactionType] = batch.cursor;
+    cursorUpdates[batch.streamType] = batch.cursor;
 
     if (batch.warnings && batch.warnings.length > 0) {
       allWarnings.push(...batch.warnings);

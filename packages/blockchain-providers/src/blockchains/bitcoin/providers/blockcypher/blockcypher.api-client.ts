@@ -147,15 +147,15 @@ export class BlockCypherApiClient extends BaseApiClient {
     }
 
     // Route based on transaction type
-    const transactionType = operation.transactionType || 'normal';
-    switch (transactionType) {
+    const streamType = operation.streamType || 'normal';
+    switch (streamType) {
       case 'normal':
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
       default:
-        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
+        yield err(new Error(`Unsupported transaction type: ${streamType}`));
     }
   }
 

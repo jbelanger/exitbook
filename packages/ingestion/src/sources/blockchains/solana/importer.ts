@@ -73,9 +73,9 @@ export class SolanaTransactionImporter implements IImporter {
   private async *streamTransactionsForAddress(
     address: string,
     resumeCursor: CursorState | undefined,
-    transactionType: 'normal' | 'token'
+    streamType: 'normal' | 'token'
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const operationLabel = transactionType === 'normal' ? 'address' : 'token account';
+    const operationLabel = streamType === 'normal' ? 'address' : 'token account';
 
     this.logger.info(`Starting ${operationLabel} transaction stream for address: ${address.substring(0, 20)}...`);
 
@@ -84,10 +84,10 @@ export class SolanaTransactionImporter implements IImporter {
       {
         type: 'getAddressTransactions',
         address,
-        transactionType,
+        streamType: streamType,
         getCacheKey: (params) => {
           if (params.type !== 'getAddressTransactions') return 'unknown';
-          const txType = params.transactionType || 'default';
+          const txType = params.streamType || 'default';
           return `solana:raw-txs:${txType}:${params.address}:all`;
         },
       },
@@ -109,7 +109,7 @@ export class SolanaTransactionImporter implements IImporter {
       // Log batch stats including in-memory deduplication
       if (providerBatch.stats.deduplicated > 0) {
         this.logger.info(
-          `${transactionType} batch stats: ${providerBatch.stats.fetched} fetched, ${providerBatch.stats.deduplicated} deduplicated by provider, ${providerBatch.stats.yielded} yielded (total: ${totalFetched})`
+          `${streamType} batch stats: ${providerBatch.stats.fetched} fetched, ${providerBatch.stats.deduplicated} deduplicated by provider, ${providerBatch.stats.yielded} yielded (total: ${totalFetched})`
         );
       }
 
@@ -126,7 +126,7 @@ export class SolanaTransactionImporter implements IImporter {
 
       yield ok({
         rawTransactions: rawTransactions,
-        transactionType,
+        streamType,
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,
       });

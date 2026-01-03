@@ -61,7 +61,7 @@ export class KrakenApiImporter implements IImporter {
       // Map FetchBatchResult to ImportBatchResult
       yield ok({
         rawTransactions: batch.transactions,
-        transactionType: batch.operationType,
+        streamType: batch.operationType,
         cursor: batch.cursor,
         isComplete: batch.isComplete,
       });

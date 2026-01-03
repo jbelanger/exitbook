@@ -115,15 +115,15 @@ export class EtherscanApiClient extends BaseApiClient {
       return;
     }
 
-    const transactionType = operation.transactionType || 'normal';
-    switch (transactionType) {
+    const streamType = operation.streamType || 'normal';
+    switch (streamType) {
       case 'beacon_withdrawal':
         yield* this.streamAddressBeaconWithdrawals(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
       default:
-        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
+        yield err(new Error(`Unsupported transaction type: ${streamType}`));
     }
   }
 
@@ -247,7 +247,7 @@ export class EtherscanApiClient extends BaseApiClient {
 
     return createStreamingIterator<EtherscanBeaconWithdrawal, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', transactionType: 'beacon_withdrawal', address },
+      operation: { type: 'getAddressTransactions', streamType: 'beacon_withdrawal', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

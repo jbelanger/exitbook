@@ -78,12 +78,12 @@ export function supportsOperation(capabilities: ProviderCapabilities, operation:
 
   // For getAddressTransactions, check supportedTransactionTypes (defaults to 'normal')
   if (operation.type === 'getAddressTransactions') {
-    const transactionType = operation.transactionType || 'normal';
+    const streamType = operation.streamType || 'normal';
     if (!capabilities.supportedTransactionTypes) {
       // If provider doesn't declare supported types, assume it only supports 'normal'
-      return transactionType === 'normal';
+      return streamType === 'normal';
     }
-    return capabilities.supportedTransactionTypes.includes(transactionType);
+    return capabilities.supportedTransactionTypes.includes(streamType);
   }
 
   return true;

@@ -180,7 +180,7 @@ describe('provider-manager-utils', () => {
       expect(supportsOperation(capabilities, { type: 'getAddressInfo', address: '0x123' })).toBe(false);
     });
 
-    it('should check transactionType for getAddressTransactions', () => {
+    it('should check streamType for getAddressTransactions', () => {
       const capabilities = {
         supportedOperations: ['getAddressTransactions'],
         supportedTransactionTypes: ['normal', 'internal'],
@@ -190,21 +190,21 @@ describe('provider-manager-utils', () => {
         supportsOperation(capabilities, {
           type: 'getAddressTransactions',
           address: '0x123',
-          transactionType: 'normal',
+          streamType: 'normal',
         })
       ).toBe(true);
       expect(
         supportsOperation(capabilities, {
           type: 'getAddressTransactions',
           address: '0x123',
-          transactionType: 'internal',
+          streamType: 'internal',
         })
       ).toBe(true);
       expect(
         supportsOperation(capabilities, {
           type: 'getAddressTransactions',
           address: '0x123',
-          transactionType: 'token',
+          streamType: 'token',
         })
       ).toBe(false);
     });
@@ -218,14 +218,14 @@ describe('provider-manager-utils', () => {
         supportsOperation(capabilities, {
           type: 'getAddressTransactions',
           address: '0x123',
-          transactionType: 'normal',
+          streamType: 'normal',
         })
       ).toBe(true);
       expect(
         supportsOperation(capabilities, {
           type: 'getAddressTransactions',
           address: '0x123',
-          transactionType: 'token',
+          streamType: 'token',
         })
       ).toBe(false);
     });

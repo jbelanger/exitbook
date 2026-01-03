@@ -85,15 +85,15 @@ export class EvmImporter implements IImporter {
 
     try {
       // Loop through all transaction types in deterministic order
-      for (const transactionType of this.transactionTypes) {
-        const resumeCursor = params.cursor?.[transactionType];
+      for (const streamType of this.transactionTypes) {
+        const resumeCursor = params.cursor?.[streamType];
 
         // Special handling for beacon withdrawals to check provider support
-        if (transactionType === 'beacon_withdrawal') {
+        if (streamType === 'beacon_withdrawal') {
           yield* this.streamBeaconWithdrawals(address, resumeCursor);
         } else {
           // Standard transaction types (normal, internal, token)
-          for await (const batchResult of this.streamTransactionType(address, transactionType, resumeCursor)) {
+          for await (const batchResult of this.streamTransactionType(address, streamType, resumeCursor)) {
             yield batchResult;
           }
         }
@@ -112,7 +112,7 @@ export class EvmImporter implements IImporter {
    */
   private async *streamTransactionType(
     address: string,
-    transactionType: string,
+    streamType: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<EvmTransaction>>(
@@ -120,10 +120,10 @@ export class EvmImporter implements IImporter {
       {
         type: 'getAddressTransactions',
         address,
-        transactionType,
+        streamType: streamType,
         getCacheKey: (params) => {
           if (params.type !== 'getAddressTransactions') return 'unknown';
-          const txType = params.transactionType || 'default';
+          const txType = params.streamType || 'default';
           return `${this.chainConfig.chainName}:${txType}:${params.address}:all`;
         },
       },
@@ -154,12 +154,12 @@ export class EvmImporter implements IImporter {
         transactionsWithRaw,
         providerBatch.providerName,
         address,
-        transactionType
+        streamType
       );
 
       yield ok({
         rawTransactions: rawTransactions,
-        transactionType,
+        streamType,
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,
       });
@@ -240,7 +240,7 @@ export class EvmImporter implements IImporter {
   ): ImportBatchResult {
     return {
       rawTransactions: [],
-      transactionType: 'beacon_withdrawal',
+      streamType: 'beacon_withdrawal',
       cursor: {
         primary: { type: 'blockNumber', value: 0 },
         lastTransactionId,

@@ -194,9 +194,9 @@ export class NearBlocksApiClient extends BaseApiClient {
     }
 
     const address = operation.address;
-    const transactionType = operation.transactionType || 'transactions';
+    const streamType = operation.streamType || 'transactions';
 
-    switch (transactionType) {
+    switch (streamType) {
       case 'transactions':
         yield* this.streamTransactions(address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
@@ -218,7 +218,7 @@ export class NearBlocksApiClient extends BaseApiClient {
         >;
         break;
       default:
-        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
+        yield err(new Error(`Unsupported transaction type: ${streamType}`));
     }
   }
 
@@ -275,7 +275,7 @@ export class NearBlocksApiClient extends BaseApiClient {
 
     return createStreamingIterator<NearBlocksTransaction, NearTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', address, transactionType: 'transactions' },
+      operation: { type: 'getAddressTransactions', address, streamType: 'transactions' },
       resumeCursor,
       fetchPage,
       mapItem: (txn) => {
@@ -341,7 +341,7 @@ export class NearBlocksApiClient extends BaseApiClient {
 
     return createStreamingIterator<NearBlocksReceipt, NearReceipt>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', address, transactionType: 'receipts' },
+      operation: { type: 'getAddressTransactions', address, streamType: 'receipts' },
       resumeCursor,
       fetchPage,
       mapItem: (receipt) => {
@@ -420,7 +420,7 @@ export class NearBlocksApiClient extends BaseApiClient {
 
     return createStreamingIterator<NearBlocksActivity, NearBalanceChange>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', address, transactionType: 'balance-changes' },
+      operation: { type: 'getAddressTransactions', address, streamType: 'balance-changes' },
       resumeCursor,
       fetchPage,
       mapItem: (activity) => {
@@ -488,7 +488,7 @@ export class NearBlocksApiClient extends BaseApiClient {
 
     return createStreamingIterator<NearBlocksFtTransaction, NearTokenTransfer>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', address, transactionType: 'token-transfers' },
+      operation: { type: 'getAddressTransactions', address, streamType: 'token-transfers' },
       resumeCursor,
       fetchPage,
       mapItem: (ft) => {

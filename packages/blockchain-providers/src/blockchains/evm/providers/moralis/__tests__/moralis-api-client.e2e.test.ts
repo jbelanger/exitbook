@@ -45,7 +45,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
           address: testAddress,
           type: 'getAddressTransactions',
-          transactionType: 'normal' as const,
+          streamType: 'normal' as const,
         });
 
         expect(result.isOk()).toBe(true);
@@ -72,7 +72,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
           address: testAddress,
           type: 'getAddressTransactions',
-          transactionType: 'internal',
+          streamType: 'internal',
         });
 
         expect(result.isOk()).toBe(true);
@@ -272,7 +272,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
           address: testAddress,
           type: 'getAddressTransactions',
-          transactionType: 'normal' as const,
+          streamType: 'normal' as const,
         });
 
         expect(result.isOk()).toBe(true);
@@ -296,7 +296,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
           address: testAddress,
           type: 'getAddressTransactions',
-          transactionType: 'internal',
+          streamType: 'internal',
         });
 
         expect(result.isOk()).toBe(true);

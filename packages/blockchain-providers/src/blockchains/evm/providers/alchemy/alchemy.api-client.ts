@@ -209,8 +209,8 @@ export class AlchemyApiClient extends BaseApiClient {
     }
 
     // Route based on transaction type
-    const transactionType = operation.transactionType || 'normal';
-    switch (transactionType) {
+    const streamType = operation.streamType || 'normal';
+    switch (streamType) {
       case 'normal':
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
@@ -229,7 +229,7 @@ export class AlchemyApiClient extends BaseApiClient {
         >;
         break;
       default:
-        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
+        yield err(new Error(`Unsupported transaction type: ${streamType}`));
     }
   }
 
@@ -659,7 +659,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     return createStreamingIterator<AlchemyAssetTransfer, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', address, transactionType: 'internal' },
+      operation: { type: 'getAddressTransactions', address, streamType: 'internal' },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
@@ -779,7 +779,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     return createStreamingIterator<AlchemyAssetTransfer, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', address, transactionType: 'token', contractAddress },
+      operation: { type: 'getAddressTransactions', address, streamType: 'token', contractAddress },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

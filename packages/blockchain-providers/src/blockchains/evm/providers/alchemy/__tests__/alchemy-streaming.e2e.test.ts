@@ -22,7 +22,7 @@ describe('AlchemyApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
-          transactionType: 'normal' as const,
+          streamType: 'normal' as const,
         };
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -86,7 +86,7 @@ describe('AlchemyApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
-          transactionType: 'normal' as const,
+          streamType: 'normal' as const,
         };
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -135,7 +135,7 @@ describe('AlchemyApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
-          transactionType: 'normal' as const,
+          streamType: 'normal' as const,
         };
 
         // Fetch first batch
@@ -191,7 +191,7 @@ describe('AlchemyApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
-          transactionType: 'token',
+          streamType: 'token',
         };
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -243,7 +243,7 @@ describe('AlchemyApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
-          transactionType: 'token',
+          streamType: 'token',
           contractAddress: usdcAddress,
         };
 
@@ -272,7 +272,7 @@ describe('AlchemyApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
-          transactionType: 'internal',
+          streamType: 'internal',
         };
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -310,7 +310,7 @@ describe('AlchemyApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
-          transactionType: 'normal' as const,
+          streamType: 'normal' as const,
         };
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {

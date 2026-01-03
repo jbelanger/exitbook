@@ -140,8 +140,8 @@ export class HeliusApiClient extends BaseApiClient {
     }
 
     // Route based on transaction type
-    const transactionType = operation.transactionType || 'normal';
-    switch (transactionType) {
+    const streamType = operation.streamType || 'normal';
+    switch (streamType) {
       case 'normal':
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
@@ -153,7 +153,7 @@ export class HeliusApiClient extends BaseApiClient {
         >;
         break;
       default:
-        yield err(new Error(`Unsupported transaction type: ${transactionType}`));
+        yield err(new Error(`Unsupported transaction type: ${streamType}`));
     }
   }
 
@@ -639,7 +639,7 @@ export class HeliusApiClient extends BaseApiClient {
 
     return createStreamingIterator<HeliusTransaction, SolanaTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', transactionType: 'token', address },
+      operation: { type: 'getAddressTransactions', streamType: 'token', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {

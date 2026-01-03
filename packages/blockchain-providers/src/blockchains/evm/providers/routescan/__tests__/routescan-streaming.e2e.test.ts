@@ -22,7 +22,7 @@ describe('RoutescanApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
-          transactionType: 'normal' as const,
+          streamType: 'normal' as const,
         };
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -86,7 +86,7 @@ describe('RoutescanApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
-          transactionType: 'normal' as const,
+          streamType: 'normal' as const,
         };
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
@@ -135,7 +135,7 @@ describe('RoutescanApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
-          transactionType: 'normal' as const,
+          streamType: 'normal' as const,
         };
 
         // Fetch first batch
@@ -190,7 +190,7 @@ describe('RoutescanApiClient Streaming E2E', () => {
 
         const operation = {
           type: 'getAddressTransactions' as const,
-          transactionType: 'token' as const,
+          streamType: 'token' as const,
           address: testAddress,
         };
 
@@ -246,7 +246,7 @@ describe('RoutescanApiClient Streaming E2E', () => {
 
         const operation = {
           type: 'getAddressTransactions' as const,
-          transactionType: 'internal' as const,
+          streamType: 'internal' as const,
           address: testAddress,
         };
 
@@ -285,7 +285,7 @@ describe('RoutescanApiClient Streaming E2E', () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           address: testAddress,
-          transactionType: 'normal' as const,
+          streamType: 'normal' as const,
         };
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {

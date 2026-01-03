@@ -174,7 +174,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: mockAddress,
-        transactionType: 'transactions' as const,
+        streamType: 'transactions' as const,
       };
 
       const allEvents: NearTransaction[] = [];
@@ -217,7 +217,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: mockAddress,
-        transactionType: 'transactions' as const,
+        streamType: 'transactions' as const,
       };
 
       const allEvents: NearTransaction[] = [];
@@ -248,7 +248,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: invalidAddress,
-        transactionType: 'transactions' as const,
+        streamType: 'transactions' as const,
       };
 
       let hasError = false;
@@ -269,7 +269,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: mockAddress,
-        transactionType: 'transactions' as const,
+        streamType: 'transactions' as const,
       };
 
       let hasError = false;
@@ -326,7 +326,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: mockAddress,
-        transactionType: 'receipts' as const,
+        streamType: 'receipts' as const,
       };
 
       const allEvents: NearReceipt[] = [];
@@ -374,7 +374,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: mockAddress,
-        transactionType: 'receipts' as const,
+        streamType: 'receipts' as const,
       };
 
       const allEvents: NearReceipt[] = [];
@@ -419,7 +419,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: mockAddress,
-        transactionType: 'balance-changes' as const,
+        streamType: 'balance-changes' as const,
       };
 
       const allEvents: NearBalanceChange[] = [];
@@ -453,7 +453,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: mockAddress,
-        transactionType: 'balance-changes' as const,
+        streamType: 'balance-changes' as const,
       };
 
       const allEvents: NearBalanceChange[] = [];
@@ -490,7 +490,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: mockAddress,
-        transactionType: 'balance-changes' as const,
+        streamType: 'balance-changes' as const,
       };
 
       let hasError = false;
@@ -520,7 +520,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: mockAddress,
-        transactionType: 'balance-changes' as const,
+        streamType: 'balance-changes' as const,
       };
 
       // Activity without receipt_id should still be emitted (will be handled in processor)
@@ -551,7 +551,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: mockAddress,
-        transactionType: 'balance-changes' as const,
+        streamType: 'balance-changes' as const,
       };
 
       const allEvents: NearBalanceChange[] = [];
@@ -598,7 +598,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: mockAddress,
-        transactionType: 'token-transfers' as const,
+        streamType: 'token-transfers' as const,
       };
 
       const allEvents: NearTokenTransfer[] = [];
@@ -634,7 +634,7 @@ describe('NearBlocksApiClient', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: mockAddress,
-        transactionType: 'token-transfers' as const,
+        streamType: 'token-transfers' as const,
       };
 
       const allEvents: NearTokenTransfer[] = [];
@@ -877,7 +877,7 @@ describe('NearBlocksApiClient', () => {
       for await (const result of client.executeStreaming({
         type: 'getAddressTransactions',
         address: 'alice.near',
-        transactionType: 'unsupported' as never,
+        streamType: 'unsupported' as never,
       })) {
         expect(result.isErr()).toBe(true);
         if (result.isErr()) {

@@ -352,7 +352,7 @@ describe('BlockchainProviderManager', () => {
       address: '0x123',
       contractAddress: '0xabc',
       type: 'getAddressTransactions',
-      transactionType: 'token',
+      streamType: 'token',
     };
 
     // Consume iterator for transaction operation (streaming)

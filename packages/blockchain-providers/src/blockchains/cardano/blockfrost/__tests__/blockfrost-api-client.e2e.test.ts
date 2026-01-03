@@ -41,7 +41,7 @@ describe('BlockfrostApiClient E2E', () => {
     const result = await client.execute<TransactionWithRawData<CardanoTransaction>[]>({
       address: testAddress,
       type: 'getAddressTransactions',
-      transactionType: 'normal' as const,
+      streamType: 'normal' as const,
     });
 
     expect(result.isOk()).toBe(true);
@@ -168,7 +168,7 @@ describe('BlockfrostApiClient E2E', () => {
     const result = await client.execute<TransactionWithRawData<CardanoTransaction>[]>({
       address: testAddress,
       type: 'getAddressTransactions',
-      transactionType: 'normal' as const,
+      streamType: 'normal' as const,
     });
 
     expect(result.isOk()).toBe(true);

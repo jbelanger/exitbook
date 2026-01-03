@@ -4,7 +4,7 @@ export type ProviderOperationParams =
   | {
       address: string;
       contractAddress?: string | undefined; // For token-specific queries
-      transactionType?: string | undefined; // Chain-specific transaction category (e.g., 'normal', 'internal', 'token', 'beacon_withdrawal')
+      streamType?: string | undefined; // Chain-specific transaction category (e.g., 'normal', 'internal', 'token', 'beacon_withdrawal')
       type: 'getAddressTransactions';
     }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressBalances' }

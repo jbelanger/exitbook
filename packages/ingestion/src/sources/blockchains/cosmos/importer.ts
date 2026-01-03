@@ -115,7 +115,7 @@ export class CosmosImporter implements IImporter {
 
       yield ok({
         rawTransactions: rawTransactions,
-        transactionType: 'normal',
+        streamType: 'normal',
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,
       });

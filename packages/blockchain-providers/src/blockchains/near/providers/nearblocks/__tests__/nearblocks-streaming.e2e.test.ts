@@ -16,7 +16,7 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'transactions' as const,
+        streamType: 'transactions' as const,
       };
       const stream = client.executeStreaming<NearTransaction>(operation);
 
@@ -88,7 +88,7 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'transactions' as const,
+        streamType: 'transactions' as const,
       };
 
       // First stream: get first batch and cursor
@@ -132,7 +132,7 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'transactions' as const,
+        streamType: 'transactions' as const,
       };
       const stream = client.executeStreaming<NearTransaction>(operation);
 
@@ -169,7 +169,7 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'receipts' as const,
+        streamType: 'receipts' as const,
       };
       const stream = client.executeStreaming<NearReceipt>(operation);
 
@@ -212,7 +212,7 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'balance-changes' as const,
+        streamType: 'balance-changes' as const,
       };
       const stream = client.executeStreaming<NearBalanceChange>(operation);
 
@@ -256,7 +256,7 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'token-transfers' as const,
+        streamType: 'token-transfers' as const,
       };
       const stream = client.executeStreaming<NearTokenTransfer>(operation);
 
@@ -299,7 +299,7 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'transactions' as const,
+        streamType: 'transactions' as const,
       };
       const stream = client.executeStreaming<NearTransaction>(operation);
 
@@ -360,7 +360,7 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
       const operation = {
         type: 'getAddressTransactions' as const,
         address: testAddress,
-        transactionType: 'transactions' as const,
+        streamType: 'transactions' as const,
       };
       const stream = client.executeStreaming<NearTransaction>(operation);
 

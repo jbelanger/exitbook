@@ -240,19 +240,19 @@ describe('EvmImporter', () => {
       const [, normalOperation] = executeCalls[0]!;
       assertOperationType(normalOperation, 'getAddressTransactions');
       expect(normalOperation.address).toBe(address);
-      expect(normalOperation.transactionType).toBe('normal');
+      expect(normalOperation.streamType).toBe('normal');
       expect(normalOperation.getCacheKey).toBeDefined();
 
       const [, internalOperation] = executeCalls[1]!;
       assertOperationType(internalOperation, 'getAddressTransactions');
       expect(internalOperation.address).toBe(address);
-      expect(internalOperation.transactionType).toBe('internal');
+      expect(internalOperation.streamType).toBe('internal');
       expect(internalOperation.getCacheKey).toBeDefined();
 
       const [, tokenOperation] = executeCalls[2]!;
       assertOperationType(tokenOperation, 'getAddressTransactions');
       expect(tokenOperation.address).toBe(address);
-      expect(tokenOperation.transactionType).toBe('token');
+      expect(tokenOperation.streamType).toBe('token');
       expect(tokenOperation.getCacheKey).toBeDefined();
     });
   });
@@ -357,7 +357,7 @@ describe('EvmImporter', () => {
       const [, beaconOperation] = executeCalls[3]!;
       assertOperationType(beaconOperation, 'getAddressTransactions');
       expect(beaconOperation.address).toBe(address);
-      expect(beaconOperation.transactionType).toBe('beacon_withdrawal');
+      expect(beaconOperation.streamType).toBe('beacon_withdrawal');
     });
   });
 
@@ -396,17 +396,17 @@ describe('EvmImporter', () => {
       const [, normalOperation] = executeCalls[0]!;
       assertOperationType(normalOperation, 'getAddressTransactions');
       expect(normalOperation.address).toBe(address);
-      expect(normalOperation.transactionType).toBe('normal');
+      expect(normalOperation.streamType).toBe('normal');
 
       const [, internalOperation] = executeCalls[1]!;
       assertOperationType(internalOperation, 'getAddressTransactions');
       expect(internalOperation.address).toBe(address);
-      expect(internalOperation.transactionType).toBe('internal');
+      expect(internalOperation.streamType).toBe('internal');
 
       const [, tokenOperation] = executeCalls[2]!;
       assertOperationType(tokenOperation, 'getAddressTransactions');
       expect(tokenOperation.address).toBe(address);
-      expect(tokenOperation.transactionType).toBe('token');
+      expect(tokenOperation.streamType).toBe('token');
     });
 
     test('should handle array of transactions from provider', async () => {
