@@ -142,10 +142,14 @@ export function createStreamingIterator<Raw, Tx extends NormalizedTransactionBas
       const rawItems = page.items || [];
 
       if (rawItems.length === 0) {
-        if (!page.nextPageToken && page.isComplete) {
+        if (page.isComplete) {
           logger?.debug?.('Streaming adapter reached explicit completion with empty page', { providerName });
+          break;
         }
-        break;
+        // Empty page but not complete - advance to next page/sequence
+        pageToken = page.nextPageToken || undefined;
+        pageNumber += 1;
+        continue;
       }
 
       const mappedBatch: TransactionWithRawData<Tx>[] = [];
@@ -164,7 +168,7 @@ export function createStreamingIterator<Raw, Tx extends NormalizedTransactionBas
       // If everything was deduped but this is the terminal page, still emit a completion cursor
       if (deduped.length === 0) {
         pageToken = page.nextPageToken || undefined;
-        if (!pageToken) {
+        if (page.isComplete) {
           const cursorState = buildCursorState({
             transactions: mappedBatch,
             extractCursors: (tx) => extractCursors(tx),
@@ -202,7 +206,7 @@ export function createStreamingIterator<Raw, Tx extends NormalizedTransactionBas
       pageToken = page.nextPageToken || undefined;
       pageNumber += 1;
 
-      if (!pageToken || page.isComplete) {
+      if (page.isComplete) {
         return;
       }
     }
