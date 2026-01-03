@@ -44,16 +44,12 @@ async function promptExchangeParams(): Promise<ImportParams> {
   // Step 3: Import method (CSV or API)
   const importMethod = await promptImportMethod();
 
-  // Step 5: Process after import?
-  const shouldProcess = await promptConfirm('Process data after import?', true);
-
   if (importMethod === 'csv') {
     const csvDir = await promptCsvDirectory();
     return {
       sourceName,
       sourceType: 'exchange-csv',
       csvDirectory: csvDir,
-      shouldProcess,
     };
   } else {
     const credentials = await promptApiCredentials();
@@ -61,7 +57,6 @@ async function promptExchangeParams(): Promise<ImportParams> {
       sourceName,
       sourceType: 'exchange-api',
       credentials,
-      shouldProcess,
     };
   }
 }
@@ -90,15 +85,11 @@ async function promptBlockchainParams(): Promise<ImportParams> {
   // Step 4: Provider (optional)
   const providerName = await promptProvider(sourceName);
 
-  // Step 5: Process after import?
-  const shouldProcess = await promptConfirm('Process data after import?', true);
-
   return {
     sourceName,
     sourceType: 'blockchain',
     address: normalizedAddressResult.value,
     providerName,
-    shouldProcess,
   };
 }
 

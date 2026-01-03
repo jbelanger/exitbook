@@ -68,7 +68,7 @@ export class CoinbaseApiImporter implements IImporter {
       });
 
       // Log progress
-      this.logger.info(
+      this.logger.debug(
         `Coinbase batch (${batch.operationType}): ${batch.transactions.length} transactions, total: ${batch.cursor.totalFetched}, complete: ${batch.isComplete}`
       );
     }

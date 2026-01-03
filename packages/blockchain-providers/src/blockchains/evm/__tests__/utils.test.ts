@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-null -- needed for testing */
 import { describe, expect, it } from 'vitest';
 
-import { extractMethodId, getTransactionTypeFromFunctionName, normalizeEvmAddress } from './utils.js';
+import { extractMethodId, getTransactionTypeFromFunctionName, normalizeEvmAddress } from '../utils.ts';
 
 describe('evm/utils', () => {
   describe('normalizeEvmAddress', () => {

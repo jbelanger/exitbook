@@ -312,6 +312,13 @@ async function handleBalanceSuccess(
       }
     }
 
+    if (verificationResult.warnings && verificationResult.warnings.length > 0) {
+      output.warn('Warnings:');
+      for (const warning of verificationResult.warnings) {
+        output.log(`  - ${warning}`);
+      }
+    }
+
     // Summary
     output.info('Summary:');
     output.log(`  Total currencies: ${verificationResult.summary.totalCurrencies}`);
@@ -458,6 +465,7 @@ async function handleBalanceSuccess(
       beaconWithdrawalsSkippedReason: beaconStatus.beaconWithdrawalsSkippedReason,
     },
     suggestion: verificationResult.suggestion,
+    warnings: verificationResult.warnings,
   };
 
   output.json('balance', resultData);

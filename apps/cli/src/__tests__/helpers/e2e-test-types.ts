@@ -70,7 +70,8 @@ export interface BalanceCommandResult {
   meta: {
     timestamp: string;
   };
-  suggestion?: string;
+  suggestion?: string | undefined;
+  warnings?: string[] | undefined;
 }
 
 export interface AccountsViewResult {

@@ -122,17 +122,17 @@ export class TaostatsApiClient extends BaseApiClient {
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
     switch (operation.type) {
-      case 'getAddressTransactions':
-        if (operation.transactionType !== 'normal') {
-          yield err(
-            new Error(`Unsupported transaction type: ${operation.transactionType} for operation: ${operation.type}`)
-          );
+      case 'getAddressTransactions': {
+        const transactionType = operation.transactionType || 'normal';
+        if (transactionType !== 'normal') {
+          yield err(new Error(`Unsupported transaction type: ${transactionType} for operation: ${operation.type}`));
           return;
         }
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
+      }
       default:
         yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
     }

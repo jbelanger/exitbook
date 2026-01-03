@@ -72,4 +72,5 @@ export interface BalanceCommandResult {
     timestamp: string;
   };
   suggestion?: string | undefined;
+  warnings?: string[] | undefined;
 }

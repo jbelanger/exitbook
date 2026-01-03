@@ -317,7 +317,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
 
       // Log progress every 5 pages
       if (page % 5 === 0 || page === maxPages) {
-        this.logger.info({ page, totalPages: maxPages, totalCoins: allMarketCoins.length }, 'Coin sync progress');
+        this.logger.debug({ page, totalPages: maxPages, totalCoins: allMarketCoins.length }, 'Coin sync progress');
       }
     }
 

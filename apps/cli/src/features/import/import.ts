@@ -90,7 +90,6 @@ export function registerImportCommand(program: Command): void {
     .option('--api-key <key>', 'API key for exchange API access')
     .option('--api-secret <secret>', 'API secret for exchange API access')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange API access (if required)')
-    .option('--no-process', 'Skip processing after import (import raw data only)')
     .option('--json', 'Output results in JSON format')
     .action(async (options: ImportCommandOptions) => {
       await executeImportCommand(options);
@@ -172,7 +171,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       importSessionRepository,
       providerManager
     );
-    const processService = new TransactionProcessService(
+    const transactionProcessService = new TransactionProcessService(
       rawDataRepository,
       accountRepository,
       transactionRepository,
@@ -182,7 +181,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
     );
 
     // Create handler (pass the provider manager so it uses the same instance and can clean it up)
-    const handler = new ImportHandler(importOrchestrator, processService, providerManager);
+    const handler = new ImportHandler(importOrchestrator, transactionProcessService, providerManager);
 
     try {
       // Add warning callback for single address imports (only in interactive mode)
@@ -208,7 +207,27 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
           : undefined,
       };
 
-      const result = await handler.execute(paramsWithCallback);
+      // Step 1: Import
+      const importResult = await handler.executeImport(paramsWithCallback);
+
+      if (importResult.isErr()) {
+        spinner?.stop('Import failed');
+        handler.destroy();
+        await closeDatabase(database);
+        resetLoggerContext();
+        output.error('import', importResult.error, ExitCodes.GENERAL_ERROR);
+        return;
+      }
+
+      spinner?.stop('Import complete');
+
+      // Step 2: Process
+      if (spinner) {
+        const totalImported = importResult.value.sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
+        spinner.start(`Processing ${totalImported} transactions...`);
+      }
+
+      const processResult = await handler.processImportedSessions(importResult.value.sessions);
 
       // Get instrumentation summary
       const instrumentationSummary = instrumentation.getSummary();
@@ -218,20 +237,22 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       await closeDatabase(database);
       resetLoggerContext();
 
-      if (result.isErr()) {
-        spinner?.stop('Import failed');
-        output.error('import', result.error, ExitCodes.GENERAL_ERROR);
+      if (processResult.isErr()) {
+        spinner?.stop('Processing failed');
+        output.error('import', processResult.error, ExitCodes.GENERAL_ERROR);
         return;
       }
 
-      // Attach runStats to result
-      const resultWithStats = {
-        ...result.value,
+      // Combine results
+      const combinedResult = {
+        sessions: importResult.value.sessions,
+        processed: processResult.value.processed,
+        processingErrors: processResult.value.processingErrors,
         runStats: instrumentationSummary,
       };
 
-      const summary = handleImportSuccess(output, resultWithStats, params);
-      spinner?.stop('Import complete');
+      const summary = handleImportSuccess(output, combinedResult, params);
+      spinner?.stop('Processing complete');
       if (output.isTextMode() && summary) {
         output.outro(summary);
       }
@@ -250,11 +271,20 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 }
 
 /**
+ * Combined result with stats for display.
+ */
+interface CombinedImportResult extends ImportResult {
+  processed?: number | undefined;
+  processingErrors?: string[] | undefined;
+  runStats?: MetricsSummary | undefined;
+}
+
+/**
  * Handle successful import.
  */
 function handleImportSuccess(
   output: OutputManager,
-  importResult: ImportResult,
+  importResult: CombinedImportResult,
   params: ImportParams
 ): string | undefined {
   // Calculate totals from sessions
@@ -275,7 +305,7 @@ function handleImportSuccess(
         blockchain: sourceIsBlockchain ? params.sourceName : undefined,
         csvDir: params.csvDirectory,
         address: params.address,
-        processed: Boolean(importResult.processed ?? params.shouldProcess),
+        processed: importResult.processed !== undefined,
       },
       counts: {
         imported: totalImported,

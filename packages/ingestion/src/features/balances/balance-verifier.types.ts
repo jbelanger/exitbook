@@ -29,4 +29,5 @@ export interface BalanceVerificationResult {
     warnings: number;
   };
   suggestion?: string | undefined;
+  warnings?: string[] | undefined;
 }

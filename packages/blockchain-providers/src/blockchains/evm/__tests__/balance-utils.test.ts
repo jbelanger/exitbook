@@ -6,7 +6,7 @@ import {
   filterByContractAddresses,
   filterNonZeroBalances,
   isNativeToken,
-} from './balance-utils.js';
+} from '../balance-utils.ts';
 
 describe('balance-utils', () => {
   describe('convertWeiToDecimal', () => {

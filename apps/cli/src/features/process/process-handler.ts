@@ -17,13 +17,10 @@ export interface ProcessResult {
 }
 
 /**
- * Process handler parameters
+ * Reprocess handler parameters
  */
 export interface ProcessHandlerParams {
-  /** Force reprocessing by clearing derived data and resetting raw data to pending */
-  force?: boolean | undefined;
-
-  /** Process only a specific account ID */
+  /** Reprocess only a specific account ID */
   accountId?: number | undefined;
 }
 
@@ -35,7 +32,7 @@ export class ProcessHandler {
   private providerManager: BlockchainProviderManager;
 
   constructor(
-    private processService: TransactionProcessService,
+    private transactionProcessService: TransactionProcessService,
     providerManager?: BlockchainProviderManager,
     private clearService?: ClearService
   ) {
@@ -44,39 +41,38 @@ export class ProcessHandler {
   }
 
   /**
-   * Execute the process operation.
+   * Execute the reprocess operation.
+   * Always clears derived data and resets raw data to pending before reprocessing.
    */
   async execute(params: ProcessHandlerParams): Promise<Result<ProcessResult, Error>> {
-    const { force, accountId } = params;
+    const { accountId } = params;
 
-    // Handle --force flag: clear derived data and reset raw data to pending
-    if (force) {
-      if (!this.clearService) {
-        return err(new Error('Clear service is required when using --force flag'));
-      }
-
-      const clearResult = await this.clearService.execute({
-        accountId,
-        includeRaw: false, // Keep raw data, just reset processing status
-      });
-
-      if (clearResult.isErr()) {
-        return err(clearResult.error);
-      }
-      const deleted = clearResult.value.deleted;
-
-      logger.info(
-        `Cleared derived data (${deleted.links} links, ${deleted.lots} lots, ${deleted.disposals} disposals, ${deleted.calculations} calculations)`
-      );
-
-      logger.info(`Reset ${deleted.transactions} transactions for reprocessing`);
+    // Always clear derived data and reset raw data to pending
+    if (!this.clearService) {
+      return err(new Error('Clear service is required for reprocessing'));
     }
+
+    const clearResult = await this.clearService.execute({
+      accountId,
+      includeRaw: false, // Keep raw data, just reset processing status
+    });
+
+    if (clearResult.isErr()) {
+      return err(clearResult.error);
+    }
+    const deleted = clearResult.value.deleted;
+
+    logger.info(
+      `Cleared derived data (${deleted.links} links, ${deleted.lots} lots, ${deleted.disposals} disposals, ${deleted.calculations} calculations)`
+    );
+
+    logger.info(`Reset ${deleted.transactions} transactions for reprocessing`);
 
     // Process transactions
     if (accountId) {
-      return this.processService.processAccountTransactions(accountId);
+      return this.transactionProcessService.processAccountTransactions(accountId);
     } else {
-      return this.processService.processAllPending();
+      return this.transactionProcessService.processAllPending();
     }
   }
 

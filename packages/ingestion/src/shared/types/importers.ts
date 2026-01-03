@@ -30,9 +30,6 @@ export interface ImportParams {
   /** Resume cursors per operation type (for crash recovery) */
   cursor?: Record<string, CursorState> | undefined;
 
-  /** Whether to process data after import */
-  shouldProcess?: boolean | undefined;
-
   /** Callback to warn user about single address imports (returns false to abort) */
   onSingleAddressWarning?: (() => Promise<boolean>) | undefined;
 }

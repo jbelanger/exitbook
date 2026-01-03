@@ -50,7 +50,7 @@ export class BitcoinTransactionImporter implements IImporter {
       return;
     }
 
-    this.logger.info(`Starting Bitcoin streaming import for address: ${params.address.substring(0, 20)}...`);
+    this.logger.debug(`Starting Bitcoin streaming import for address: ${params.address.substring(0, 20)}...`);
 
     // Stream transactions for the address
     const normalCursor = params.cursor?.['normal'];

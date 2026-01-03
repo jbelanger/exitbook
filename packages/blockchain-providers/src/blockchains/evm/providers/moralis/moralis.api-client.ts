@@ -48,7 +48,8 @@ const CHAIN_ID_MAP: Record<string, string> = {
   blockchain: 'ethereum',
   capabilities: {
     supportedOperations: [
-      'getAddressTransactions',
+      // TEMP disable Moralis, balance mismatches being investigated
+      //'getAddressTransactions',
       'getAddressBalances',
       'getAddressTokenBalances',
       'getTokenMetadata',

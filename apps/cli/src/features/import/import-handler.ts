@@ -12,8 +12,6 @@ import { err, ok, type Result } from 'neverthrow';
 // Initialize all providers at startup
 initializeProviders();
 
-import type { MetricsSummary } from '@exitbook/http';
-
 /**
  * Result of the import operation.
  * Can be single ImportSession or array of ImportSessions (for xpub imports).
@@ -21,15 +19,17 @@ import type { MetricsSummary } from '@exitbook/http';
 export interface ImportResult {
   /** Import sessions (array for xpub imports, single for regular imports) */
   sessions: ImportSession[];
+}
 
-  /** Number of items processed (if shouldProcess is true) */
-  processed?: number | undefined;
+/**
+ * Result of the processing operation.
+ */
+export interface ProcessResult {
+  /** Number of items processed */
+  processed: number;
 
-  /** Processing errors (if shouldProcess is true) */
-  processingErrors?: string[] | undefined;
-
-  /** API call statistics from instrumentation */
-  runStats?: MetricsSummary | undefined;
+  /** Processing errors */
+  processingErrors: string[];
 }
 
 /**
@@ -42,7 +42,7 @@ export class ImportHandler {
 
   constructor(
     private importOrchestrator: ImportOrchestrator,
-    private processService: TransactionProcessService,
+    private transactionProcessService: TransactionProcessService,
     providerManager?: BlockchainProviderManager,
     explorerConfig?: BlockchainExplorersConfig
   ) {
@@ -51,9 +51,9 @@ export class ImportHandler {
   }
 
   /**
-   * Execute the import operation.
+   * Execute the import operation (without processing).
    */
-  async execute(params: ImportParams): Promise<Result<ImportResult, Error>> {
+  async executeImport(params: ImportParams): Promise<Result<ImportResult, Error>> {
     try {
       // Call appropriate orchestrator method based on source type
       let importResult: Result<ImportSession | ImportSession[], Error>;
@@ -118,39 +118,49 @@ export class ImportHandler {
         );
       }
 
-      // Process data if requested
-      if (params.shouldProcess) {
-        const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
+      return ok(result);
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
 
-        if (totalImported > 0) {
-          this.logger.info(`Processing ${totalImported} transactions...`);
+  /**
+   * Execute the processing operation for imported sessions.
+   */
+  async processImportedSessions(sessions: ImportSession[]): Promise<Result<ProcessResult, Error>> {
+    try {
+      const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
 
-          // Process only the accounts that were imported
-          const uniqueAccountIds = [...new Set(sessions.map((s) => s.accountId))];
-          let totalProcessed = 0;
-          const allErrors: string[] = [];
-
-          for (const accountId of uniqueAccountIds) {
-            const processResult = await this.processService.processAccountTransactions(accountId);
-
-            if (processResult.isErr()) {
-              return err(processResult.error);
-            }
-
-            totalProcessed += processResult.value.processed;
-            allErrors.push(...processResult.value.errors);
-          }
-
-          result.processed = totalProcessed;
-          result.processingErrors = allErrors;
-        } else {
-          this.logger.debug('No transactions imported, skipping processing');
-          result.processed = 0;
-          result.processingErrors = [];
-        }
+      if (totalImported === 0) {
+        this.logger.debug('No transactions imported, skipping processing');
+        return ok({
+          processed: 0,
+          processingErrors: [],
+        });
       }
 
-      return ok(result);
+      this.logger.info(`Processing ${totalImported} transactions...`);
+
+      // Process only the accounts that were imported
+      const uniqueAccountIds = [...new Set(sessions.map((s) => s.accountId))];
+      let totalProcessed = 0;
+      const allErrors: string[] = [];
+
+      for (const accountId of uniqueAccountIds) {
+        const processResult = await this.transactionProcessService.processAccountTransactions(accountId);
+
+        if (processResult.isErr()) {
+          return err(processResult.error);
+        }
+
+        totalProcessed += processResult.value.processed;
+        allErrors.push(...processResult.value.errors);
+      }
+
+      return ok({
+        processed: totalProcessed,
+        processingErrors: allErrors,
+      });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }

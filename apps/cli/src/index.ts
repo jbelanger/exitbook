@@ -17,7 +17,7 @@ import { registerImportCommand } from './features/import/import.js';
 import { registerLinksCommand } from './features/links/links.js';
 import { registerListBlockchainsCommand } from './features/list-blockchains/list-blockchains.js';
 import { registerPricesCommand } from './features/prices/prices.js';
-import { registerProcessCommand } from './features/process/process.js';
+import { registerReprocessCommand } from './features/process/process.js';
 import { registerTransactionsCommand } from './features/transactions/transactions.js';
 
 // Initialize all providers at startup
@@ -36,8 +36,8 @@ async function main() {
   // Import command - refactored with @clack/prompts (Phase 2)
   registerImportCommand(program);
 
-  // Process command - refactored with @clack/prompts (Phase 3)
-  registerProcessCommand(program);
+  // Reprocess command - clears derived data and reprocesses from raw data
+  registerReprocessCommand(program);
 
   // Links command - unified transaction link management (run, view, confirm, reject)
   registerLinksCommand(program);

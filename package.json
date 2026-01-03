@@ -17,6 +17,7 @@
     "build": "pnpm -r build",
     "clean": "pnpm -r run clean",
     "dev": "pnpm -F exitbook-cli dev",
+    "postinstall": "node scripts/fix-libsodium.mjs",
     "lint": "pnpm -r run lint",
     "prepare": "husky",
     "prettier": "pnpm -r run prettier",

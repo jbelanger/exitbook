@@ -73,12 +73,7 @@ export const ImportCommandOptionsSchema = z
     }).shape
   )
   .extend(CsvImportSchema.shape)
-  .extend(
-    z.object({
-      process: z.boolean().optional(), // --no-process flag
-      json: z.boolean().optional(),
-    }).shape
-  )
+  .extend(JsonFlagSchema.shape)
   .superRefine((data, ctx) => {
     // Cannot specify both exchange and blockchain
     if (data.exchange && data.blockchain) {
@@ -200,10 +195,9 @@ export const ExportCommandOptionsSchema = OptionalSourceSelectionSchema.merge(
 );
 
 /**
- * Process command options
+ * Reprocess command options
  */
 export const ProcessCommandOptionsSchema = JsonFlagSchema.extend({
-  force: z.boolean().optional(),
   accountId: z.coerce.number().int().positive().optional(),
 });
 

@@ -67,7 +67,7 @@ export class KrakenApiImporter implements IImporter {
       });
 
       // Log progress
-      this.logger.info(
+      this.logger.debug(
         `Kraken batch: ${batch.transactions.length} transactions, total: ${batch.cursor.totalFetched}, complete: ${batch.isComplete}`
       );
     }

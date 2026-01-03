@@ -121,12 +121,38 @@ export class BalanceService {
       const mergedAssetMetadata = { ...calculatedAssetMetadata, ...liveAssetMetadata };
       const comparisons = compareBalances(calculatedBalances, liveBalances, mergedAssetMetadata);
 
+      const warnings: string[] = [];
+      if (!isExchange) {
+        const providers = this.providerManager.getProviders(account.sourceName);
+        const supportsTokenBalances = providers.some((provider) =>
+          provider.capabilities.supportedOperations.includes('getAddressTokenBalances')
+        );
+        const supportsTokenTransactions = providers.some((provider) => {
+          if (!provider.capabilities.supportedOperations.includes('getAddressTransactions')) {
+            return false;
+          }
+          return provider.capabilities.supportedTransactionTypes?.includes('token') ?? false;
+        });
+
+        if (supportsTokenTransactions && !supportsTokenBalances) {
+          warnings.push(
+            `Token balances are not available for ${account.sourceName}. Live balance includes native assets only; token mismatches may be false negatives.`
+          );
+        }
+      }
+
       // 6. Get last import timestamp for suggestion generation
       const lastImportTimestamp = await this.getLastImportTimestamp(account);
 
       // 7. Create verification result
       const hasTransactions = Object.keys(calculatedBalances).length > 0;
-      const verificationResult = createVerificationResult(account, comparisons, lastImportTimestamp, hasTransactions);
+      const verificationResult = createVerificationResult(
+        account,
+        comparisons,
+        lastImportTimestamp,
+        hasTransactions,
+        warnings.length > 0 ? warnings : undefined
+      );
 
       // 8. Persist verification results to the account with adjusted live balances
       // Convert adjusted liveBalances (after scam token subtraction) to strings for storage

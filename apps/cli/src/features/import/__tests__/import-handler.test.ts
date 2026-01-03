@@ -59,7 +59,7 @@ describe('ImportHandler', () => {
     );
   });
 
-  describe('execute', () => {
+  describe('executeImport', () => {
     it('should successfully import blockchain data', async () => {
       const params: ImportParams = {
         sourceName: 'bitcoin',
@@ -79,7 +79,7 @@ describe('ImportHandler', () => {
         })
       );
 
-      const result = await handler.execute(params);
+      const result = await handler.executeImport(params);
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
@@ -118,7 +118,7 @@ describe('ImportHandler', () => {
         })
       );
 
-      const result = await handler.execute(params);
+      const result = await handler.executeImport(params);
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
@@ -161,7 +161,7 @@ describe('ImportHandler', () => {
         })
       );
 
-      const result = await handler.execute(params);
+      const result = await handler.executeImport(params);
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
@@ -185,109 +185,11 @@ describe('ImportHandler', () => {
       });
     });
 
-    it('should process data when shouldProcess is true', async () => {
-      const params: ImportParams = {
-        sourceName: 'bitcoin',
-        sourceType: 'blockchain',
-        address: 'bc1qtest',
-        shouldProcess: true,
-      };
-
-      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
-        ok({
-          id: 123,
-          accountId: 1,
-          status: 'completed',
-          startedAt: new Date(),
-          transactionsImported: 50,
-          transactionsSkipped: 0,
-          createdAt: new Date(),
-        })
-      );
-
-      (mockProcessService.processAccountTransactions as Mock).mockResolvedValue(
-        ok({
-          processed: 50,
-          errors: [],
-        })
-      );
-
-      const result = await handler.execute(params);
-
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual({
-        sessions: [
-          {
-            id: 123,
-            accountId: 1,
-            status: 'completed',
-            startedAt: expect.any(Date),
-            transactionsImported: 50,
-            transactionsSkipped: 0,
-            createdAt: expect.any(Date),
-          },
-        ],
-        processed: 50,
-        processingErrors: [],
-      });
-
-      expect(mockProcessService.processAccountTransactions).toHaveBeenCalledWith(1);
-    });
-
-    it('should return processing errors when present', async () => {
-      const params: ImportParams = {
-        sourceName: 'bitcoin',
-        sourceType: 'blockchain',
-        address: 'bc1qtest',
-        shouldProcess: true,
-      };
-
-      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
-        ok({
-          id: 123,
-          accountId: 1,
-          status: 'completed',
-          startedAt: new Date(),
-          transactionsImported: 50,
-          transactionsSkipped: 0,
-          createdAt: new Date(),
-        })
-      );
-
-      const processingErrors = ['Error 1', 'Error 2', 'Error 3'];
-      (mockProcessService.processAccountTransactions as Mock).mockResolvedValue(
-        ok({
-          processed: 47,
-          errors: processingErrors,
-        })
-      );
-
-      const result = await handler.execute(params);
-
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual({
-        sessions: [
-          {
-            id: 123,
-            accountId: 1,
-            status: 'completed',
-            startedAt: expect.any(Date),
-            transactionsImported: 50,
-            transactionsSkipped: 0,
-            createdAt: expect.any(Date),
-          },
-        ],
-        processed: 47,
-        processingErrors,
-      });
-    });
-
     it('should fail when import sessions are not completed', async () => {
       const params: ImportParams = {
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         address: 'bc1qtest',
-        shouldProcess: true,
       };
 
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
@@ -302,14 +204,12 @@ describe('ImportHandler', () => {
         })
       );
 
-      const result = await handler.execute(params);
+      const result = await handler.executeImport(params);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toContain('not complete');
       }
-
-      expect(mockProcessService.processAccountTransactions).not.toHaveBeenCalled();
     });
 
     it('should return error when import fails', async () => {
@@ -322,39 +222,119 @@ describe('ImportHandler', () => {
       const importError = new Error('Import failed: network timeout');
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(err(importError));
 
-      const result = await handler.execute(params);
+      const result = await handler.executeImport(params);
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toBe(importError);
     });
+  });
 
-    it('should return error when processing fails', async () => {
-      const params: ImportParams = {
-        sourceName: 'bitcoin',
-        sourceType: 'blockchain',
-        address: 'bc1qtest',
-        shouldProcess: true,
-      };
-
-      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
-        ok({
+  describe('processImportedSessions', () => {
+    it('should process imported transactions', async () => {
+      const sessions = [
+        {
           id: 123,
           accountId: 1,
-          status: 'completed',
+          status: 'completed' as const,
           startedAt: new Date(),
           transactionsImported: 50,
           transactionsSkipped: 0,
           createdAt: new Date(),
+        },
+      ];
+
+      (mockProcessService.processAccountTransactions as Mock).mockResolvedValue(
+        ok({
+          processed: 50,
+          errors: [],
         })
       );
+
+      const result = await handler.processImportedSessions(sessions);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual({
+        processed: 50,
+        processingErrors: [],
+      });
+
+      expect(mockProcessService.processAccountTransactions).toHaveBeenCalledWith(1);
+    });
+
+    it('should return processing errors when present', async () => {
+      const sessions = [
+        {
+          id: 123,
+          accountId: 1,
+          status: 'completed' as const,
+          startedAt: new Date(),
+          transactionsImported: 50,
+          transactionsSkipped: 0,
+          createdAt: new Date(),
+        },
+      ];
+
+      const processingErrors = ['Error 1', 'Error 2', 'Error 3'];
+      (mockProcessService.processAccountTransactions as Mock).mockResolvedValue(
+        ok({
+          processed: 47,
+          errors: processingErrors,
+        })
+      );
+
+      const result = await handler.processImportedSessions(sessions);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual({
+        processed: 47,
+        processingErrors,
+      });
+    });
+
+    it('should return error when processing fails', async () => {
+      const sessions = [
+        {
+          id: 123,
+          accountId: 1,
+          status: 'completed' as const,
+          startedAt: new Date(),
+          transactionsImported: 50,
+          transactionsSkipped: 0,
+          createdAt: new Date(),
+        },
+      ];
 
       const processingError = new Error('Processing failed');
       (mockProcessService.processAccountTransactions as Mock).mockResolvedValue(err(processingError));
 
-      const result = await handler.execute(params);
+      const result = await handler.processImportedSessions(sessions);
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toBe(processingError);
+    });
+
+    it('should skip processing when no transactions imported', async () => {
+      const sessions = [
+        {
+          id: 123,
+          accountId: 1,
+          status: 'completed' as const,
+          startedAt: new Date(),
+          transactionsImported: 0,
+          transactionsSkipped: 0,
+          createdAt: new Date(),
+        },
+      ];
+
+      const result = await handler.processImportedSessions(sessions);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual({
+        processed: 0,
+        processingErrors: [],
+      });
+
+      expect(mockProcessService.processAccountTransactions).not.toHaveBeenCalled();
     });
   });
 

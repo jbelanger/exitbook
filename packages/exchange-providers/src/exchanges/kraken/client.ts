@@ -218,14 +218,9 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
               pageCount++;
 
               // Log every page for debugging
-              logger.info(
+              logger.debug(
                 `Fetched Kraken page ${pageCount}: ${transactions.length} transactions (${cumulativeFetched} total)`
               );
-
-              // Report progress every 10 pages
-              if (pageCount % 10 === 0) {
-                logger.info(`Processed ${pageCount} pages (${cumulativeFetched} transactions so far)`);
-              }
 
               // Check if this is the last page
               const isComplete = ledgerEntries.length < limit;

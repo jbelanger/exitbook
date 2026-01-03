@@ -81,7 +81,8 @@ export function createVerificationResult(
   account: Account,
   comparisons: BalanceComparison[],
   lastImportTimestamp?: number,
-  hasTransactions = true
+  hasTransactions = true,
+  warnings?: string[]
 ): BalanceVerificationResult {
   const summary = {
     totalCurrencies: comparisons.length,
@@ -128,6 +129,7 @@ export function createVerificationResult(
     comparisons,
     summary,
     suggestion,
+    warnings,
   };
 }
 

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AlchemyAssetTransfer, AlchemyTransactionReceipt } from './providers/alchemy/alchemy.schemas.js';
+import type { AlchemyAssetTransfer, AlchemyTransactionReceipt } from '../providers/alchemy/alchemy.schemas.ts';
 import {
   calculateGasFee,
   calculateGasFeeBigInt,
   deduplicateTransactionHashes,
   mergeReceiptsIntoTransfers,
-} from './receipt-utils.js';
+} from '../receipt-utils.ts';
 
 describe('receipt-utils', () => {
   describe('calculateGasFee', () => {

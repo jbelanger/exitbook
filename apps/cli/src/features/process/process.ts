@@ -36,24 +36,23 @@ interface ProcessCommandResult {
 }
 
 /**
- * Register the process command.
+ * Register the reprocess command.
  */
-export function registerProcessCommand(program: Command): void {
+export function registerReprocessCommand(program: Command): void {
   program
-    .command('process')
-    .description('Process all pending raw data from all sources')
-    .option('--force', 'Clear all derived data (transactions, links, cost basis) and reprocess from raw data')
-    .option('--account-id <id>', 'Process only a specific account ID')
+    .command('reprocess')
+    .description('Clear all derived data and reprocess from raw data')
+    .option('--account-id <id>', 'Reprocess only a specific account ID')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
-      await executeProcessCommand(rawOptions);
+      await executeReprocessCommand(rawOptions);
     });
 }
 
 /**
- * Execute the process command.
+ * Execute the reprocess command.
  */
-async function executeProcessCommand(rawOptions: unknown): Promise<void> {
+async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
   // Check for --json flag early (even before validation) to determine output format
   const isJsonMode =
     typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
@@ -63,14 +62,14 @@ async function executeProcessCommand(rawOptions: unknown): Promise<void> {
   if (!validationResult.success) {
     const output = new OutputManager(isJsonMode ? 'json' : 'text');
     const firstError = validationResult.error.issues[0];
-    output.error('process', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
+    output.error('reprocess', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
     return;
   }
 
   const options = validationResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
-  output.intro('ExitBook | Process transactions');
+  output.intro('ExitBook | Reprocess transactions');
 
   try {
     const spinner = output.spinner();
@@ -109,7 +108,7 @@ async function executeProcessCommand(rawOptions: unknown): Promise<void> {
 
     // Initialize services
     const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, providerManager);
-    const processService = new TransactionProcessService(
+    const transactionProcessService = new TransactionProcessService(
       rawDataRepository,
       accountRepository,
       transactionRepository,
@@ -129,10 +128,9 @@ async function executeProcessCommand(rawOptions: unknown): Promise<void> {
     );
 
     // Create handler
-    const handler = new ProcessHandler(processService, providerManager, clearService);
+    const handler = new ProcessHandler(transactionProcessService, providerManager, clearService);
 
     const result = await handler.execute({
-      force: options.force,
       accountId: options.accountId,
     });
 
@@ -144,19 +142,19 @@ async function executeProcessCommand(rawOptions: unknown): Promise<void> {
     spinner?.stop();
 
     if (result.isErr()) {
-      output.error('process', result.error, ExitCodes.GENERAL_ERROR);
+      output.error('reprocess', result.error, ExitCodes.GENERAL_ERROR);
       return;
     }
 
     handleProcessSuccess(output, result.value);
   } catch (error) {
     resetLoggerContext();
-    output.error('process', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    output.error('reprocess', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }
 
 /**
- * Handle successful processing.
+ * Handle successful reprocessing.
  */
 function handleProcessSuccess(output: OutputManager, processResult: ProcessResult): void {
   // Prepare result data
@@ -175,6 +173,6 @@ function handleProcessSuccess(output: OutputManager, processResult: ProcessResul
       output.note(processResult.errors.slice(0, 5).join('\n'), 'First 5 errors');
     }
   } else {
-    output.json('process', resultData);
+    output.json('reprocess', resultData);
   }
 }

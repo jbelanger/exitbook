@@ -53,8 +53,8 @@ import {
   baseUrl: 'https://eth-mainnet.g.alchemy.com/v2', // Default for Ethereum
   blockchain: 'ethereum',
   capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getAddressInfo'],
-    supportedTransactionTypes: ['normal', 'internal', 'token'],
+    supportedOperations: ['getAddressInfo'],
+    //supportedTransactionTypes: ['normal', 'internal', 'token'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
     replayWindow: { blocks: 2 },

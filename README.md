@@ -184,9 +184,6 @@ pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET
 # Import blockchain transactions (simple wallets)
 pnpm run dev import --blockchain bitcoin --address bc1q...
 
-# Process raw data into universal format
-pnpm run dev process
-
 # Verify live balance
 pnpm run dev balance --account-id <id>
 ```
@@ -206,6 +203,9 @@ pnpm run dev prices set <symbol> <amount> --date YYYY-MM-DD
 
 # Export data
 pnpm run dev export --exchange kraken --format csv --output ./report.csv
+
+# Reprocess all raw data (clears derived data, rebuilds transactions)
+pnpm run dev reprocess
 ```
 
 ### Utilities
