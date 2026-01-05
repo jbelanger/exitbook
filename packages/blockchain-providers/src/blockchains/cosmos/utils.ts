@@ -312,12 +312,39 @@ export function isTransactionRelevant(from: string, to: string, relevantAddress:
  *
  * @public
  */
-export function formatDenom(denom: string | undefined): string {
-  if (!denom) {
-    return 'INJ';
+export interface FormatDenomOptions {
+  nativeCurrency?: string | undefined;
+  nativeDenom?: string | undefined;
+}
+
+export function formatDenom(denom: string | undefined, options?: FormatDenomOptions): string {
+  const nativeCurrency = options?.nativeCurrency?.toUpperCase();
+  const nativeCurrencyLower = options?.nativeCurrency?.toLowerCase();
+  const nativeDenomLower = options?.nativeDenom?.toLowerCase();
+
+  if (!denom || denom.trim() === '') {
+    return nativeCurrency ?? 'INJ';
   }
 
-  if (denom === 'inj' || denom === 'uinj') {
+  const denomLower = denom.toLowerCase();
+
+  if (nativeDenomLower && denomLower === nativeDenomLower) {
+    return nativeCurrency ?? denom.toUpperCase();
+  }
+
+  if (nativeCurrencyLower && denomLower === nativeCurrencyLower) {
+    return nativeCurrency ?? denom.toUpperCase();
+  }
+
+  if (nativeDenomLower && !nativeDenomLower.startsWith('u') && denomLower === `u${nativeDenomLower}`) {
+    return nativeCurrency ?? denom.toUpperCase();
+  }
+
+  if (nativeCurrencyLower && denomLower === `u${nativeCurrencyLower}`) {
+    return nativeCurrency ?? denom.toUpperCase();
+  }
+
+  if (!options && (denomLower === 'inj' || denomLower === 'uinj')) {
     return 'INJ';
   }
 

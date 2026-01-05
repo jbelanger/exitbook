@@ -92,6 +92,7 @@ export const COSMOS_CHAIN_CONFIGS = {
     displayName: 'Injective Protocol',
     nativeCurrency: 'INJ',
     nativeDecimals: 18,
+    nativeDenom: 'inj',
   } satisfies CosmosChainConfig,
 
   osmosis: {
@@ -101,6 +102,7 @@ export const COSMOS_CHAIN_CONFIGS = {
     displayName: 'Osmosis',
     nativeCurrency: 'OSMO',
     nativeDecimals: 6,
+    nativeDenom: 'uosmo',
   } satisfies CosmosChainConfig,
 } as const;
 

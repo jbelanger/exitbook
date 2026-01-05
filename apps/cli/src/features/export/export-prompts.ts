@@ -12,7 +12,7 @@ import {
 } from '../shared/prompts.js';
 
 import type { ExportHandlerParams } from './export-utils.js';
-import { EXPORT_FORMATS } from './export-utils.js';
+import { CSV_FORMATS, EXPORT_FORMATS } from './export-utils.js';
 
 /**
  * Interactive prompt flow for export parameters.
@@ -56,7 +56,30 @@ export async function promptForExportParams(): Promise<ExportHandlerParams> {
     throw new Error(`Invalid format: ${format}`);
   }
 
-  // Step 5: Date range
+  // Step 5: CSV format (only for CSV)
+  let csvFormat: ExportHandlerParams['csvFormat'];
+  if (format === 'csv') {
+    const csvFormatSelection = await p.select({
+      message: 'CSV format?',
+      options: [
+        { value: 'normalized' as const, label: 'Normalized', hint: '3 files: transactions, movements, fees' },
+        { value: 'simple' as const, label: 'Simple', hint: 'Single file with multi-value cells' },
+      ],
+      initialValue: 'normalized' as const,
+    });
+
+    if (isCancelled(csvFormatSelection)) {
+      handleCancellation();
+    }
+
+    if (!CSV_FORMATS.includes(csvFormatSelection)) {
+      throw new Error(`Invalid CSV format: ${csvFormatSelection}`);
+    }
+
+    csvFormat = csvFormatSelection;
+  }
+
+  // Step 6: Date range
   const filterByDate = await p.confirm({
     message: 'Filter by date range?',
     initialValue: false,
@@ -86,7 +109,7 @@ export async function promptForExportParams(): Promise<ExportHandlerParams> {
     since = sinceDate === '0' ? 0 : Date.parse(sinceDate);
   }
 
-  // Step 6: Output path
+  // Step 7: Output path
   const defaultOutput = `data/transactions.${format}`;
   const outputPath = await p.text({
     message: 'Output file path:',
@@ -104,6 +127,7 @@ export async function promptForExportParams(): Promise<ExportHandlerParams> {
   return {
     sourceName,
     format,
+    csvFormat,
     outputPath,
     since,
   };

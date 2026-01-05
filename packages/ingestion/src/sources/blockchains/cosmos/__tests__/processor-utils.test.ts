@@ -17,6 +17,7 @@ const INJECTIVE_CONFIG: CosmosChainConfig = {
   displayName: 'Injective Protocol',
   nativeCurrency: 'INJ',
   nativeDecimals: 18,
+  nativeDenom: 'inj',
 };
 
 const OSMOSIS_CONFIG: CosmosChainConfig = {
@@ -26,6 +27,7 @@ const OSMOSIS_CONFIG: CosmosChainConfig = {
   displayName: 'Osmosis',
   nativeCurrency: 'OSMO',
   nativeDecimals: 6,
+  nativeDenom: 'uosmo',
 };
 
 const USER_ADDRESS = 'inj1user000000000000000000000000000000000';

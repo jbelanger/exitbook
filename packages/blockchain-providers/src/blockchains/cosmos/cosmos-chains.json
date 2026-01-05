@@ -5,6 +5,7 @@
     "displayName": "Injective Protocol",
     "nativeCurrency": "INJ",
     "nativeDecimals": 18,
+    "nativeDenom": "inj",
     "bech32Prefix": "inj",
     "explorerUrls": ["https://explorer.injective.network"],
     "rpcEndpoints": ["https://tm.injective.network"],
@@ -16,6 +17,7 @@
     "displayName": "Osmosis",
     "nativeCurrency": "OSMO",
     "nativeDecimals": 6,
+    "nativeDenom": "uosmo",
     "bech32Prefix": "osmo",
     "explorerUrls": ["https://www.mintscan.io/osmosis"],
     "rpcEndpoints": ["https://rpc.osmosis.zone"],
@@ -30,7 +32,8 @@
     "bech32Prefix": "cosmos",
     "explorerUrls": ["https://www.mintscan.io/cosmos"],
     "rpcEndpoints": ["https://rpc.cosmos.network"],
-    "restEndpoints": ["https://lcd.cosmos.network"]
+    "restEndpoints": ["https://lcd.cosmos.network"],
+    "nativeDenom": "uatom"
   },
   "terra": {
     "chainId": "phoenix-1",
@@ -41,7 +44,8 @@
     "bech32Prefix": "terra",
     "explorerUrls": ["https://finder.terra.money"],
     "rpcEndpoints": ["https://rpc.terra.money"],
-    "restEndpoints": ["https://lcd.terra.money"]
+    "restEndpoints": ["https://lcd.terra.money"],
+    "nativeDenom": "uluna"
   },
   "juno": {
     "chainId": "juno-1",
@@ -52,7 +56,8 @@
     "bech32Prefix": "juno",
     "explorerUrls": ["https://www.mintscan.io/juno"],
     "rpcEndpoints": ["https://rpc.juno.strange.love"],
-    "restEndpoints": ["https://lcd.juno.strange.love"]
+    "restEndpoints": ["https://lcd.juno.strange.love"],
+    "nativeDenom": "ujuno"
   },
   "secret": {
     "chainId": "secret-4",
@@ -63,7 +68,8 @@
     "bech32Prefix": "secret",
     "explorerUrls": ["https://www.mintscan.io/secret"],
     "rpcEndpoints": ["https://rpc.secret.express"],
-    "restEndpoints": ["https://lcd.secret.express"]
+    "restEndpoints": ["https://lcd.secret.express"],
+    "nativeDenom": "uscrt"
   },
   "stargaze": {
     "chainId": "stargaze-1",
@@ -74,7 +80,8 @@
     "bech32Prefix": "stars",
     "explorerUrls": ["https://www.mintscan.io/stargaze"],
     "rpcEndpoints": ["https://rpc.stargaze-apis.com"],
-    "restEndpoints": ["https://rest.stargaze-apis.com"]
+    "restEndpoints": ["https://rest.stargaze-apis.com"],
+    "nativeDenom": "ustars"
   },
   "akash": {
     "chainId": "akashnet-2",
@@ -84,8 +91,15 @@
     "nativeDecimals": 6,
     "bech32Prefix": "akash",
     "explorerUrls": ["https://www.mintscan.io/akash"],
-    "rpcEndpoints": ["https://rpc.akash.forbole.com"],
-    "restEndpoints": ["https://lcd.akash.forbole.com"]
+    "rpcEndpoints": ["https://rpc.akashedge.com", "https://akash-rpc.polkachu.com"],
+    "restEndpoints": [
+      "https://api.akashedge.com",
+      "https://akash-api.polkachu.com",
+      "https://akash.api.pocket.network",
+      "https://api.akashnet.net",
+      "https://akash.c29r3.xyz/api"
+    ],
+    "nativeDenom": "uakt"
   },
   "kujira": {
     "chainId": "kaiyo-1",
@@ -96,7 +110,8 @@
     "bech32Prefix": "kujira",
     "explorerUrls": ["https://finder.kujira.network"],
     "rpcEndpoints": ["https://rpc.kujira.chaintools.tech"],
-    "restEndpoints": ["https://lcd.kujira.chaintools.tech"]
+    "restEndpoints": ["https://lcd.kujira.chaintools.tech"],
+    "nativeDenom": "ukuji"
   },
   "evmos": {
     "chainId": "evmos_9001-2",
@@ -107,7 +122,8 @@
     "bech32Prefix": "evmos",
     "explorerUrls": ["https://www.mintscan.io/evmos"],
     "rpcEndpoints": ["https://rpc.evmos.org"],
-    "restEndpoints": ["https://rest.evmos.org"]
+    "restEndpoints": ["https://rest.evmos.org"],
+    "nativeDenom": "aevmos"
   },
   "cronos": {
     "chainId": "crypto-org-chain-mainnet-1",
@@ -118,7 +134,8 @@
     "bech32Prefix": "cro",
     "explorerUrls": ["https://crypto.org/explorer"],
     "rpcEndpoints": ["https://rpc.mainnet.crypto.org"],
-    "restEndpoints": ["https://rest.mainnet.crypto.org"]
+    "restEndpoints": ["https://rest.mainnet.crypto.org"],
+    "nativeDenom": "cro"
   },
   "axelar": {
     "chainId": "axelar-dojo-1",
@@ -129,7 +146,8 @@
     "bech32Prefix": "axelar",
     "explorerUrls": ["https://www.mintscan.io/axelar"],
     "rpcEndpoints": ["https://rpc.axelar.chaintools.tech"],
-    "restEndpoints": ["https://lcd.axelar.chaintools.tech"]
+    "restEndpoints": ["https://lcd.axelar.chaintools.tech"],
+    "nativeDenom": "uaxl"
   },
   "celestia": {
     "chainId": "celestia",
@@ -140,7 +158,8 @@
     "bech32Prefix": "celestia",
     "explorerUrls": ["https://www.mintscan.io/celestia"],
     "rpcEndpoints": ["https://rpc.celestia.pops.one"],
-    "restEndpoints": ["https://api.celestia.pops.one"]
+    "restEndpoints": ["https://api.celestia.pops.one"],
+    "nativeDenom": "utia"
   },
   "stride": {
     "chainId": "stride-1",
@@ -151,7 +170,8 @@
     "bech32Prefix": "stride",
     "explorerUrls": ["https://www.mintscan.io/stride"],
     "rpcEndpoints": ["https://stride-rpc.polkachu.com"],
-    "restEndpoints": ["https://stride-api.polkachu.com"]
+    "restEndpoints": ["https://stride-api.polkachu.com"],
+    "nativeDenom": "ustrd"
   },
   "sommelier": {
     "chainId": "sommelier-3",
@@ -162,7 +182,8 @@
     "bech32Prefix": "somm",
     "explorerUrls": ["https://www.mintscan.io/sommelier"],
     "rpcEndpoints": ["https://rpc.sommelier.chaintools.tech"],
-    "restEndpoints": ["https://lcd.sommelier.chaintools.tech"]
+    "restEndpoints": ["https://lcd.sommelier.chaintools.tech"],
+    "nativeDenom": "usomm"
   },
   "comdex": {
     "chainId": "comdex-1",
@@ -173,7 +194,8 @@
     "bech32Prefix": "comdex",
     "explorerUrls": ["https://www.mintscan.io/comdex"],
     "rpcEndpoints": ["https://rpc.comdex.one"],
-    "restEndpoints": ["https://rest.comdex.one"]
+    "restEndpoints": ["https://rest.comdex.one"],
+    "nativeDenom": "ucmdx"
   },
   "band": {
     "chainId": "laozi-mainnet",
@@ -184,7 +206,8 @@
     "bech32Prefix": "band",
     "explorerUrls": ["https://www.cosmoscan.io"],
     "rpcEndpoints": ["https://rpc.laozi1.bandchain.org"],
-    "restEndpoints": ["https://laozi1.bandchain.org/api"]
+    "restEndpoints": ["https://laozi1.bandchain.org/api"],
+    "nativeDenom": "uband"
   },
   "persistence": {
     "chainId": "core-1",
@@ -195,7 +218,8 @@
     "bech32Prefix": "persistence",
     "explorerUrls": ["https://www.mintscan.io/persistence"],
     "rpcEndpoints": ["https://rpc.core.persistence.one"],
-    "restEndpoints": ["https://rest.core.persistence.one"]
+    "restEndpoints": ["https://rest.core.persistence.one"],
+    "nativeDenom": "uxprt"
   },
   "sentinel": {
     "chainId": "sentinelhub-2",
@@ -206,7 +230,8 @@
     "bech32Prefix": "sent",
     "explorerUrls": ["https://www.mintscan.io/sentinel"],
     "rpcEndpoints": ["https://rpc.sentinel.co"],
-    "restEndpoints": ["https://lcd.sentinel.co"]
+    "restEndpoints": ["https://lcd.sentinel.co"],
+    "nativeDenom": "udvpn"
   },
   "chihuahua": {
     "chainId": "chihuahua-1",
@@ -217,7 +242,8 @@
     "bech32Prefix": "chihuahua",
     "explorerUrls": ["https://www.mintscan.io/chihuahua"],
     "rpcEndpoints": ["https://rpc.chihuahua.wtf"],
-    "restEndpoints": ["https://api.chihuahua.wtf"]
+    "restEndpoints": ["https://api.chihuahua.wtf"],
+    "nativeDenom": "uhuahua"
   },
   "regen": {
     "chainId": "regen-1",
@@ -228,7 +254,8 @@
     "bech32Prefix": "regen",
     "explorerUrls": ["https://www.mintscan.io/regen"],
     "rpcEndpoints": ["https://rpc.regen.network"],
-    "restEndpoints": ["https://rest.regen.network"]
+    "restEndpoints": ["https://rest.regen.network"],
+    "nativeDenom": "uregen"
   },
   "bitcanna": {
     "chainId": "bitcanna-1",
@@ -239,7 +266,8 @@
     "bech32Prefix": "bcna",
     "explorerUrls": ["https://www.mintscan.io/bitcanna"],
     "rpcEndpoints": ["https://rpc.bitcanna.io"],
-    "restEndpoints": ["https://lcd.bitcanna.io"]
+    "restEndpoints": ["https://lcd.bitcanna.io"],
+    "nativeDenom": "ubcna"
   },
   "likecoin": {
     "chainId": "likecoin-mainnet-2",
@@ -250,7 +278,8 @@
     "bech32Prefix": "like",
     "explorerUrls": ["https://likecoin.bigdipper.live"],
     "rpcEndpoints": ["https://mainnet-node.like.co/rpc"],
-    "restEndpoints": ["https://mainnet-node.like.co"]
+    "restEndpoints": ["https://mainnet-node.like.co"],
+    "nativeDenom": "like"
   },
   "cheqd": {
     "chainId": "cheqd-mainnet-1",
@@ -261,7 +290,8 @@
     "bech32Prefix": "cheqd",
     "explorerUrls": ["https://explorer.cheqd.io"],
     "rpcEndpoints": ["https://rpc.cheqd.net"],
-    "restEndpoints": ["https://api.cheqd.net"]
+    "restEndpoints": ["https://api.cheqd.net"],
+    "nativeDenom": "cheq"
   },
   "omniflix": {
     "chainId": "omniflixhub-1",
@@ -272,7 +302,8 @@
     "bech32Prefix": "omniflix",
     "explorerUrls": ["https://www.mintscan.io/omniflix"],
     "rpcEndpoints": ["https://rpc.omniflix.network"],
-    "restEndpoints": ["https://rest.omniflix.network"]
+    "restEndpoints": ["https://rest.omniflix.network"],
+    "nativeDenom": "uflix"
   },
   "desmos": {
     "chainId": "desmos-mainnet",
@@ -283,7 +314,8 @@
     "bech32Prefix": "desmos",
     "explorerUrls": ["https://explorer.desmos.network"],
     "rpcEndpoints": ["https://rpc.mainnet.desmos.network"],
-    "restEndpoints": ["https://api.mainnet.desmos.network"]
+    "restEndpoints": ["https://api.mainnet.desmos.network"],
+    "nativeDenom": "udsm"
   },
   "crescent": {
     "chainId": "crescent-1",
@@ -294,7 +326,8 @@
     "bech32Prefix": "cre",
     "explorerUrls": ["https://www.mintscan.io/crescent"],
     "rpcEndpoints": ["https://rpc-crescent.pupmos.network"],
-    "restEndpoints": ["https://api-crescent.pupmos.network"]
+    "restEndpoints": ["https://api-crescent.pupmos.network"],
+    "nativeDenom": "ucre"
   },
   "canto": {
     "chainId": "canto_7700-1",
@@ -305,7 +338,8 @@
     "bech32Prefix": "canto",
     "explorerUrls": ["https://tuber.build"],
     "rpcEndpoints": ["https://canto.gravitychain.io"],
-    "restEndpoints": ["https://canto-api.polkachu.com"]
+    "restEndpoints": ["https://canto-api.polkachu.com"],
+    "nativeDenom": "acanto"
   },
   "kyve": {
     "chainId": "kyve-1",
@@ -316,7 +350,8 @@
     "bech32Prefix": "kyve",
     "explorerUrls": ["https://www.mintscan.io/kyve"],
     "rpcEndpoints": ["https://rpc.kyve.network"],
-    "restEndpoints": ["https://api.kyve.network"]
+    "restEndpoints": ["https://api.kyve.network"],
+    "nativeDenom": "ukyve"
   },
   "quicksilver": {
     "chainId": "quicksilver-2",
@@ -327,7 +362,8 @@
     "bech32Prefix": "quick",
     "explorerUrls": ["https://www.mintscan.io/quicksilver"],
     "rpcEndpoints": ["https://rpc.quicksilver.zone"],
-    "restEndpoints": ["https://lcd.quicksilver.zone"]
+    "restEndpoints": ["https://lcd.quicksilver.zone"],
+    "nativeDenom": "uqck"
   },
   "migaloo": {
     "chainId": "migaloo-1",
@@ -338,7 +374,8 @@
     "bech32Prefix": "migaloo",
     "explorerUrls": ["https://www.mintscan.io/migaloo"],
     "rpcEndpoints": ["https://migaloo-rpc.polkachu.com"],
-    "restEndpoints": ["https://migaloo-api.polkachu.com"]
+    "restEndpoints": ["https://migaloo-api.polkachu.com"],
+    "nativeDenom": "uwhale"
   },
   "neutron": {
     "chainId": "neutron-1",
@@ -349,7 +386,8 @@
     "bech32Prefix": "neutron",
     "explorerUrls": ["https://www.mintscan.io/neutron"],
     "rpcEndpoints": ["https://rpc.novel.remedy.tm.p2p.org"],
-    "restEndpoints": ["https://rest.novel.remedy.tm.p2p.org"]
+    "restEndpoints": ["https://rest.novel.remedy.tm.p2p.org"],
+    "nativeDenom": "untrn"
   },
   "archway": {
     "chainId": "archway-1",
@@ -360,7 +398,8 @@
     "bech32Prefix": "archway",
     "explorerUrls": ["https://www.mintscan.io/archway"],
     "rpcEndpoints": ["https://rpc.mainnet.archway.io"],
-    "restEndpoints": ["https://api.mainnet.archway.io"]
+    "restEndpoints": ["https://api.mainnet.archway.io"],
+    "nativeDenom": "aarch"
   },
   "noble": {
     "chainId": "noble-1",
@@ -371,7 +410,8 @@
     "bech32Prefix": "noble",
     "explorerUrls": ["https://www.mintscan.io/noble"],
     "rpcEndpoints": ["https://noble-rpc.polkachu.com"],
-    "restEndpoints": ["https://noble-api.polkachu.com"]
+    "restEndpoints": ["https://noble-api.polkachu.com"],
+    "nativeDenom": "uusdc"
   },
   "konstellation": {
     "chainId": "darchub",
@@ -382,7 +422,8 @@
     "bech32Prefix": "darc",
     "explorerUrls": ["https://www.mintscan.io/konstellation"],
     "rpcEndpoints": ["https://node1.konstellation.tech:26657"],
-    "restEndpoints": ["https://node1.konstellation.tech:1317"]
+    "restEndpoints": ["https://node1.konstellation.tech:1317"],
+    "nativeDenom": "udarc"
   },
   "umee": {
     "chainId": "umee-1",
@@ -393,7 +434,8 @@
     "bech32Prefix": "umee",
     "explorerUrls": ["https://www.mintscan.io/umee"],
     "rpcEndpoints": ["https://rpc.umee.cc"],
-    "restEndpoints": ["https://api.umee.cc"]
+    "restEndpoints": ["https://api.umee.cc"],
+    "nativeDenom": "uumee"
   },
   "carbon": {
     "chainId": "carbon-1",
@@ -404,7 +446,8 @@
     "bech32Prefix": "swth",
     "explorerUrls": ["https://scan.carbon.network"],
     "rpcEndpoints": ["https://tm-api.carbon.network"],
-    "restEndpoints": ["https://api.carbon.network"]
+    "restEndpoints": ["https://api.carbon.network"],
+    "nativeDenom": "swth"
   },
   "odin": {
     "chainId": "odin-mainnet-freya",
@@ -415,7 +458,8 @@
     "bech32Prefix": "odin",
     "explorerUrls": ["https://www.mintscan.io/odin"],
     "rpcEndpoints": ["https://node.odin-freya-website.odin.earth"],
-    "restEndpoints": ["https://node.odin-freya-website.odin.earth"]
+    "restEndpoints": ["https://node.odin-freya-website.odin.earth"],
+    "nativeDenom": "uodin"
   },
   "fetch": {
     "chainId": "fetchhub-4",
@@ -423,6 +467,7 @@
     "displayName": "Fetch.ai",
     "nativeCurrency": "FET",
     "nativeDecimals": 18,
+    "nativeDenom": "afet",
     "bech32Prefix": "fetch",
     "explorerUrls": ["https://www.mintscan.io/fetchai"],
     "rpcEndpoints": ["https://rpc-fetchhub.fetch.ai"],
@@ -437,7 +482,8 @@
     "bech32Prefix": "mantle",
     "explorerUrls": ["https://www.mintscan.io/asset-mantle"],
     "rpcEndpoints": ["https://rpc.assetmantle.one"],
-    "restEndpoints": ["https://rest.assetmantle.one"]
+    "restEndpoints": ["https://rest.assetmantle.one"],
+    "nativeDenom": "umntl"
   },
   "rizon": {
     "chainId": "titan-1",
@@ -448,7 +494,8 @@
     "bech32Prefix": "rizon",
     "explorerUrls": ["https://www.mintscan.io/rizon"],
     "rpcEndpoints": ["https://rpcapi.rizon.world"],
-    "restEndpoints": ["https://restapi.rizon.world"]
+    "restEndpoints": ["https://restapi.rizon.world"],
+    "nativeDenom": "uatolo"
   },
   "provenance": {
     "chainId": "pio-mainnet-1",
@@ -459,7 +506,8 @@
     "bech32Prefix": "pb",
     "explorerUrls": ["https://explorer.provenance.io"],
     "rpcEndpoints": ["https://rpc.provenance.io"],
-    "restEndpoints": ["https://api.provenance.io"]
+    "restEndpoints": ["https://api.provenance.io"],
+    "nativeDenom": "hash"
   },
   "passage": {
     "chainId": "passage-2",
@@ -470,7 +518,8 @@
     "bech32Prefix": "pasg",
     "explorerUrls": ["https://www.mintscan.io/passage"],
     "rpcEndpoints": ["https://rpc.passage.vitwit.com"],
-    "restEndpoints": ["https://api.passage.vitwit.com"]
+    "restEndpoints": ["https://api.passage.vitwit.com"],
+    "nativeDenom": "upasg"
   },
   "teritori": {
     "chainId": "teritori-1",
@@ -481,7 +530,8 @@
     "bech32Prefix": "tori",
     "explorerUrls": ["https://www.mintscan.io/teritori"],
     "rpcEndpoints": ["https://rpc.teritori.com"],
-    "restEndpoints": ["https://rest.teritori.com"]
+    "restEndpoints": ["https://rest.teritori.com"],
+    "nativeDenom": "utori"
   },
   "emoney": {
     "chainId": "emoney-3",
@@ -492,7 +542,8 @@
     "bech32Prefix": "emoney",
     "explorerUrls": ["https://www.mintscan.io/emoney"],
     "rpcEndpoints": ["https://rpc.emoney.chaintools.tech"],
-    "restEndpoints": ["https://lcd.emoney.chaintools.tech"]
+    "restEndpoints": ["https://lcd.emoney.chaintools.tech"],
+    "nativeDenom": "ungm"
   },
   "agoric": {
     "chainId": "agoric-3",
@@ -503,7 +554,8 @@
     "bech32Prefix": "agoric",
     "explorerUrls": ["https://www.mintscan.io/agoric"],
     "rpcEndpoints": ["https://main.rpc.agoric.net"],
-    "restEndpoints": ["https://main.api.agoric.net"]
+    "restEndpoints": ["https://main.api.agoric.net"],
+    "nativeDenom": "ubld"
   },
   "bostrom": {
     "chainId": "bostrom",
@@ -514,7 +566,8 @@
     "bech32Prefix": "bostrom",
     "explorerUrls": ["https://cyb.ai"],
     "rpcEndpoints": ["https://rpc.bostrom.cybernode.ai"],
-    "restEndpoints": ["https://lcd.bostrom.cybernode.ai"]
+    "restEndpoints": ["https://lcd.bostrom.cybernode.ai"],
+    "nativeDenom": "boot"
   },
   "ixo": {
     "chainId": "ixo-5",
@@ -525,7 +578,8 @@
     "bech32Prefix": "ixo",
     "explorerUrls": ["https://www.mintscan.io/ixo"],
     "rpcEndpoints": ["https://rpc.ixo.world"],
-    "restEndpoints": ["https://rest.ixo.world"]
+    "restEndpoints": ["https://rest.ixo.world"],
+    "nativeDenom": "uixo"
   },
   "nym": {
     "chainId": "nyx",
@@ -536,7 +590,8 @@
     "bech32Prefix": "n",
     "explorerUrls": ["https://www.mintscan.io/nym"],
     "rpcEndpoints": ["https://rpc.nyx.nodes.guru"],
-    "restEndpoints": ["https://api.nyx.nodes.guru"]
+    "restEndpoints": ["https://api.nyx.nodes.guru"],
+    "nativeDenom": "unym"
   },
   "impacthub": {
     "chainId": "impacthub-3",
@@ -547,7 +602,8 @@
     "bech32Prefix": "ixo",
     "explorerUrls": ["https://blockscan.ixo.world"],
     "rpcEndpoints": ["https://rpc-impacthub.keplr.app"],
-    "restEndpoints": ["https://lcd-impacthub.keplr.app"]
+    "restEndpoints": ["https://lcd-impacthub.keplr.app"],
+    "nativeDenom": "uixo"
   },
   "dydx": {
     "chainId": "dydx-mainnet-1",
@@ -558,7 +614,8 @@
     "bech32Prefix": "dydx",
     "explorerUrls": ["https://www.mintscan.io/dydx"],
     "rpcEndpoints": ["https://dydx-rpc.polkachu.com"],
-    "restEndpoints": ["https://dydx-api.polkachu.com"]
+    "restEndpoints": ["https://dydx-api.polkachu.com"],
+    "nativeDenom": "adydx"
   },
   "sei": {
     "chainId": "pacific-1",
@@ -569,7 +626,8 @@
     "bech32Prefix": "sei",
     "explorerUrls": ["https://www.seiscan.app"],
     "rpcEndpoints": ["https://rpc.sei-apis.com"],
-    "restEndpoints": ["https://rest.sei-apis.com"]
+    "restEndpoints": ["https://rest.sei-apis.com"],
+    "nativeDenom": "usei"
   },
   "nibiru": {
     "chainId": "cataclysm-1",
@@ -580,7 +638,8 @@
     "bech32Prefix": "nibi",
     "explorerUrls": ["https://explorer.nibiru.fi"],
     "rpcEndpoints": ["https://rpc.nibiru.fi"],
-    "restEndpoints": ["https://lcd.nibiru.fi"]
+    "restEndpoints": ["https://lcd.nibiru.fi"],
+    "nativeDenom": "unibi"
   },
   "dymension": {
     "chainId": "dymension_1100-1",
@@ -591,7 +650,8 @@
     "bech32Prefix": "dym",
     "explorerUrls": ["https://www.mintscan.io/dymension"],
     "rpcEndpoints": ["https://dymension-rpc.polkachu.com"],
-    "restEndpoints": ["https://dymension-api.polkachu.com"]
+    "restEndpoints": ["https://dymension-api.polkachu.com"],
+    "nativeDenom": "adym"
   },
   "nolus": {
     "chainId": "pirin-1",
@@ -602,7 +662,8 @@
     "bech32Prefix": "nolus",
     "explorerUrls": ["https://explorer.nolus.io"],
     "rpcEndpoints": ["https://pirin-cl.nolus.network:26657"],
-    "restEndpoints": ["https://pirin-cl.nolus.network:1317"]
+    "restEndpoints": ["https://pirin-cl.nolus.network:1317"],
+    "nativeDenom": "unls"
   },
   "composable": {
     "chainId": "centauri-1",
@@ -613,7 +674,8 @@
     "bech32Prefix": "centauri",
     "explorerUrls": ["https://www.mintscan.io/composable"],
     "rpcEndpoints": ["https://rpc-composable-ia.cosmosia.notional.ventures"],
-    "restEndpoints": ["https://api-composable-ia.cosmosia.notional.ventures"]
+    "restEndpoints": ["https://api-composable-ia.cosmosia.notional.ventures"],
+    "nativeDenom": "pica"
   },
   "xpla": {
     "chainId": "dimension_37-1",
@@ -624,7 +686,8 @@
     "bech32Prefix": "xpla",
     "explorerUrls": ["https://explorer.xpla.io"],
     "rpcEndpoints": ["https://dimension-rpc.xpla.dev"],
-    "restEndpoints": ["https://dimension-lcd.xpla.dev"]
+    "restEndpoints": ["https://dimension-lcd.xpla.dev"],
+    "nativeDenom": "axpla"
   },
   "coreum": {
     "chainId": "coreum-mainnet-1",
@@ -635,7 +698,8 @@
     "bech32Prefix": "core",
     "explorerUrls": ["https://explorer.coreum.com"],
     "rpcEndpoints": ["https://full-node.mainnet-1.coreum.dev:26657"],
-    "restEndpoints": ["https://full-node.mainnet-1.coreum.dev:1317"]
+    "restEndpoints": ["https://full-node.mainnet-1.coreum.dev:1317"],
+    "nativeDenom": "ucore"
   },
   "jackal": {
     "chainId": "jackal-1",
@@ -646,7 +710,8 @@
     "bech32Prefix": "jkl",
     "explorerUrls": ["https://www.mintscan.io/jackal"],
     "rpcEndpoints": ["https://rpc.jackalprotocol.com"],
-    "restEndpoints": ["https://api.jackalprotocol.com"]
+    "restEndpoints": ["https://api.jackalprotocol.com"],
+    "nativeDenom": "ujkl"
   },
   "planq": {
     "chainId": "planq_7070-2",
@@ -657,7 +722,8 @@
     "bech32Prefix": "plq",
     "explorerUrls": ["https://explorer.planq.network"],
     "rpcEndpoints": ["https://rpc.planq.network"],
-    "restEndpoints": ["https://rest.planq.network"]
+    "restEndpoints": ["https://rest.planq.network"],
+    "nativeDenom": "aplq"
   },
   "mars": {
     "chainId": "mars-1",
@@ -668,7 +734,8 @@
     "bech32Prefix": "mars",
     "explorerUrls": ["https://www.mintscan.io/mars-protocol"],
     "rpcEndpoints": ["https://rpc.marsprotocol.io"],
-    "restEndpoints": ["https://rest.marsprotocol.io"]
+    "restEndpoints": ["https://rest.marsprotocol.io"],
+    "nativeDenom": "umars"
   },
   "lambda": {
     "chainId": "lambda_92000-1",
@@ -679,6 +746,7 @@
     "bech32Prefix": "lambda",
     "explorerUrls": ["https://explorer.lambda.im"],
     "rpcEndpoints": ["https://rpc.lambda.im"],
-    "restEndpoints": ["https://rest.lambda.im"]
+    "restEndpoints": ["https://rest.lambda.im"],
+    "nativeDenom": "alamb"
   }
 }

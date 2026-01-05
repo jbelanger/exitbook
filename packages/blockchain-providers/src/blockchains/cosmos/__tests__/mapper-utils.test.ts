@@ -61,6 +61,16 @@ describe('mapper-utils', () => {
       expect(formatDenom('uinj')).toBe('INJ');
     });
 
+    it('should map native denom to native currency when provided', () => {
+      expect(formatDenom('afet', { nativeCurrency: 'FET', nativeDenom: 'afet' })).toBe('FET');
+      expect(formatDenom('uatom', { nativeCurrency: 'ATOM', nativeDenom: 'uatom' })).toBe('ATOM');
+      expect(formatDenom('uinj', { nativeCurrency: 'INJ', nativeDenom: 'inj' })).toBe('INJ');
+    });
+
+    it('should default to native currency when denom is missing and options provided', () => {
+      expect(formatDenom(undefined, { nativeCurrency: 'OSMO', nativeDenom: 'uosmo' })).toBe('OSMO');
+    });
+
     it('should uppercase other denoms', () => {
       expect(formatDenom('usdc')).toBe('USDC');
       expect(formatDenom('atom')).toBe('ATOM');

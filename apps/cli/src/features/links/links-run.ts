@@ -1,6 +1,6 @@
 import { TransactionLinkRepository } from '@exitbook/accounting';
 import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
-import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
+import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -13,8 +13,6 @@ import type { LinksRunResult } from './links-run-handler.js';
 import { LinksRunHandler } from './links-run-handler.js';
 import { promptForLinksRunParams } from './links-run-prompts.js';
 import { buildLinksRunParamsFromFlags } from './links-run-utils.js';
-
-const logger = getLogger('LinksRunCommand');
 
 /**
  * Command options validated by Zod at CLI boundary
@@ -135,8 +133,7 @@ function handleLinksRunSuccess(output: OutputManager, linkResult: LinksRunResult
   // Display results in text mode
   if (output.isTextMode()) {
     output.outro(linkResult.dryRun ? '✨ Linking preview complete!' : '✨ Transaction linking complete!');
-    console.log(''); // Add spacing before results
-    displayLinkingResults(linkResult);
+    displayLinkingResults(linkResult, output);
   }
 
   // Prepare result data for JSON mode
@@ -157,55 +154,69 @@ function handleLinksRunSuccess(output: OutputManager, linkResult: LinksRunResult
 /**
  * Display linking results in the console.
  */
-function displayLinkingResults(result: LinksRunResult): void {
-  logger.info('\nTransaction Linking Results');
-  logger.info('================================');
+function displayLinkingResults(result: LinksRunResult, output: OutputManager): void {
+  output.log('');
+  output.log('Transaction Linking Summary:');
 
+  // Build summary table
+  const rows: { label: string; value: string }[] = [
+    { label: 'Sources analyzed', value: result.totalSourceTransactions.toString() },
+    { label: 'Targets analyzed', value: result.totalTargetTransactions.toString() },
+    { label: 'Confirmed links', value: result.confirmedLinksCount.toString() },
+    { label: 'Suggested links', value: result.suggestedLinksCount.toString() },
+    { label: 'Unmatched sources', value: result.unmatchedSourceCount.toString() },
+    { label: 'Unmatched targets', value: result.unmatchedTargetCount.toString() },
+  ];
+
+  // Calculate column widths
+  const labelWidth = Math.max(16, ...rows.map((r) => r.label.length));
+  const valueWidth = Math.max(5, ...rows.map((r) => r.value.length));
+
+  // Print table
+  const headerLine = `┌─${'─'.repeat(labelWidth)}─┬─${'─'.repeat(valueWidth)}─┐`;
+  const separatorLine = `├─${'─'.repeat(labelWidth)}─┼─${'─'.repeat(valueWidth)}─┤`;
+  const footerLine = `└─${'─'.repeat(labelWidth)}─┴─${'─'.repeat(valueWidth)}─┘`;
+
+  output.log(headerLine);
+  output.log(`│ ${'Metric'.padEnd(labelWidth)} │ ${'Count'.padEnd(valueWidth)} │`);
+  output.log(separatorLine);
+
+  for (const row of rows) {
+    output.log(`│ ${row.label.padEnd(labelWidth)} │ ${row.value.padEnd(valueWidth)} │`);
+  }
+
+  output.log(footerLine);
+  output.log('');
+
+  // Additional context
   if (result.dryRun) {
-    logger.info('Mode: DRY RUN (no changes saved)');
+    output.log('Mode: DRY RUN (no changes saved)');
+    output.log('');
   }
 
-  // Show confirmed links
-  if (result.confirmedLinksCount > 0) {
-    logger.info(`✓ ${result.confirmedLinksCount} confirmed links (≥95% confidence)`);
-  }
-
-  // Show suggested links
-  if (result.suggestedLinksCount > 0) {
-    logger.info(`⚠ ${result.suggestedLinksCount} suggested links (70-95% confidence)`);
-  }
-
-  // Show analysis stats
-  logger.info(`ℹ ${result.totalSourceTransactions} sources analyzed`);
-  logger.info(`ℹ ${result.totalTargetTransactions} targets analyzed`);
-
-  // Show unmatched counts
-  if (result.unmatchedSourceCount > 0) {
-    logger.info(`ℹ ${result.unmatchedSourceCount} unmatched sources`);
-  }
-  if (result.unmatchedTargetCount > 0) {
-    logger.info(`ℹ ${result.unmatchedTargetCount} unmatched targets`);
-  }
-
-  // Summary
-  console.log(''); // Add spacing
   if (result.confirmedLinksCount === 0 && result.suggestedLinksCount === 0) {
-    logger.info('No transaction matches found.');
-    logger.info('This could mean:');
-    logger.info('  • All transfers are already linked');
-    logger.info('  • No matching withdrawals/deposits exist');
-    logger.info('  • Transactions are outside the matching time window (48 hours)');
-  } else if (result.dryRun) {
-    logger.info('Dry run complete - no changes saved to database.');
-    logger.info('Run without --dry-run to save confirmed links.');
-  } else if (result.confirmedLinksCount > 0) {
-    logger.info(`Successfully saved ${result.confirmedLinksCount} confirmed links to database.`);
-  }
+    output.log('No transaction matches found.');
+    output.log('This could mean:');
+    output.log('  • All transfers are already linked');
+    output.log('  • No matching withdrawals/deposits exist');
+    output.log('  • Transactions are outside the matching time window (48 hours)');
+    output.log('');
+  } else {
+    // Show what was saved
+    if (!result.dryRun && result.confirmedLinksCount > 0) {
+      output.log(`✓ Saved ${result.confirmedLinksCount} confirmed links (≥95% confidence)`);
+    } else if (result.dryRun && result.confirmedLinksCount > 0) {
+      output.log(`  ${result.confirmedLinksCount} confirmed links (≥95% confidence) - NOT SAVED (dry run)`);
+    }
 
-  if (result.suggestedLinksCount > 0) {
-    logger.info('\nSuggested links (70-95% confidence) require manual review.');
-    logger.info('Use `pnpm run dev links view --status suggested` to review them.');
-    logger.info('Use `pnpm run dev links confirm <id>` to confirm a link.');
-    logger.info('Use `pnpm run dev links reject <id>` to reject a link.');
+    if (result.suggestedLinksCount > 0) {
+      output.log(`⚠ ${result.suggestedLinksCount} suggested links (70-95% confidence) need manual review`);
+      output.log('');
+      output.log('Next steps:');
+      output.log('  • View suggested links: pnpm run dev links view --status suggested');
+      output.log('  • Confirm a link: pnpm run dev links confirm <id>');
+      output.log('  • Reject a link: pnpm run dev links reject <id>');
+    }
+    output.log('');
   }
 }

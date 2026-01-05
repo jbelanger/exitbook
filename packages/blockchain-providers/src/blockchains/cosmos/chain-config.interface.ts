@@ -53,6 +53,13 @@ export interface CosmosChainConfig {
   nativeDecimals: number;
 
   /**
+   * Native denomination as used in the blockchain API responses
+   * e.g., 'afet' for Fetch.ai (atto-FET), 'uosmo' for Osmosis (micro-OSMO), 'inj' for Injective
+   * This is the actual denom string returned by /cosmos/bank/v1beta1/balances
+   */
+  nativeDenom: string;
+
+  /**
    * Optional array of REST API endpoints for this chain
    * e.g., ['https://lcd.injective.network']
    */
@@ -63,4 +70,22 @@ export interface CosmosChainConfig {
    * e.g., ['https://tm.injective.network']
    */
   rpcEndpoints?: string[] | undefined;
+
+  /**
+   * Optional event filter configuration for transaction queries
+   * Different Cosmos chains index different event types
+   *
+   * Modern chains (SDK v0.45+): coin_spent.spender / coin_received.receiver
+   * Legacy chains: transfer.sender / transfer.recipient
+   *
+   * If not specified, defaults to modern filters with automatic fallback
+   */
+  eventFilters?:
+    | {
+        /** Event filter for incoming transactions (default: 'coin_received.receiver') */
+        receiver: string;
+        /** Event filter for outgoing transactions (default: 'coin_spent.spender') */
+        sender: string;
+      }
+    | undefined;
 }

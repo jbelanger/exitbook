@@ -188,11 +188,19 @@ export const BalanceCommandOptionsSchema = z
 export const ExportCommandOptionsSchema = OptionalSourceSelectionSchema.merge(
   z.object({
     format: z.enum(['csv', 'json']).optional().default('csv'),
+    csvFormat: z.enum(['normalized', 'simple']).optional(),
     output: z.string().optional(),
     since: z.string().optional(),
     json: z.boolean().optional(),
   })
-);
+).superRefine((data, ctx) => {
+  if (data.format !== 'csv' && data.csvFormat) {
+    ctx.addIssue({
+      code: 'custom',
+      message: '--csv-format is only supported when --format csv is selected',
+    });
+  }
+});
 
 /**
  * Reprocess command options

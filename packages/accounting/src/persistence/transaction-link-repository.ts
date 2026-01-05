@@ -249,6 +249,43 @@ export class TransactionLinkRepository extends BaseRepository {
   }
 
   /**
+   * Find links by related transaction IDs (source or target).
+   *
+   * @param transactionIds - Transaction IDs to match
+   * @returns Result with array of links
+   */
+  async findByTransactionIds(transactionIds: number[]): Promise<Result<TransactionLink[], Error>> {
+    try {
+      if (transactionIds.length === 0) {
+        return ok([]);
+      }
+
+      const rows = await this.db
+        .selectFrom('transaction_links')
+        .selectAll()
+        .where((eb) =>
+          eb.or([eb('source_transaction_id', 'in', transactionIds), eb('target_transaction_id', 'in', transactionIds)])
+        )
+        .orderBy('created_at', 'asc')
+        .execute();
+
+      const links: TransactionLink[] = [];
+      for (const row of rows) {
+        const result = this.toTransactionLink(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        links.push(result.value);
+      }
+
+      return ok(links);
+    } catch (error) {
+      this.logger.error({ error, transactionIds }, 'Failed to find links by transaction IDs');
+      return wrapError(error, 'Failed to find links by transaction IDs');
+    }
+  }
+
+  /**
    * Update link status
    *
    * @param id - Link ID

@@ -10,6 +10,7 @@ const INJECTIVE_CONFIG: CosmosChainConfig = {
   displayName: 'Injective Protocol',
   nativeCurrency: 'INJ',
   nativeDecimals: 18,
+  nativeDenom: 'inj',
 };
 
 const USER_ADDRESS = 'inj1user000000000000000000000000000000000';

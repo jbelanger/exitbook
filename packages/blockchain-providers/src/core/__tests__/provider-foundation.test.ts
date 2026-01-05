@@ -457,7 +457,7 @@ describe('ProviderRegistry', () => {
     expect(provider.name).toBe('moralis');
     expect(provider.blockchain).toBe('ethereum');
     expect(provider.capabilities).toBeDefined();
-    expect(provider.capabilities.supportedOperations).toContain('getAddressTransactions');
+    expect(provider.capabilities.supportedOperations).toContain('getAddressBalances');
   });
 
   test('should validate legacy configuration correctly', () => {

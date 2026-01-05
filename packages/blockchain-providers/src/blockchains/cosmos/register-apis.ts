@@ -5,6 +5,7 @@
  * The @RegisterApiClient decorator registers each client with the BlockchainProviderManager.
  *
  * Current providers:
+ * - Cosmos REST API (all Cosmos chains via standard REST endpoints)
  * - Injective Explorer (Injective only)
  *
  * Future providers:
@@ -12,6 +13,8 @@
  * - Cosmos Directory API (universal RPC/REST access)
  */
 
+// Cosmos REST API - Universal provider for all Cosmos chains
+import './providers/cosmos-rest/cosmos-rest.api-client.js';
 // Injective Explorer - Injective only
 import './providers/injective-explorer/injective-explorer.api-client.js';
 

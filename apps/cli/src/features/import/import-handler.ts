@@ -139,8 +139,6 @@ export class ImportHandler {
         });
       }
 
-      this.logger.info(`Processing ${totalImported} transactions...`);
-
       // Process only the accounts that were imported
       const uniqueAccountIds = [...new Set(sessions.map((s) => s.accountId))];
       let totalProcessed = 0;

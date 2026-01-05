@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type TransactionNote } from '@exitbook/core';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -119,7 +119,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         })),
 
         operation: classification.operation,
-        notes: classification.note ? [classification.note] : undefined,
+        notes: classification.notes,
       };
 
       transactions.push(processedTransaction);
@@ -206,9 +206,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
    * Can be overridden by subclasses for exchange-specific logic.
    */
   protected determineOperationFromFundFlow(fundFlow: ExchangeFundFlow): {
-    note?:
-      | { message: string; metadata?: Record<string, unknown> | undefined; severity: 'info' | 'warning'; type: string }
-      | undefined;
+    notes?: TransactionNote[] | undefined;
     operation: {
       category: 'trade' | 'transfer' | 'fee' | 'staking';
       type: 'swap' | 'deposit' | 'withdrawal' | 'transfer' | 'fee' | 'refund' | 'reward';

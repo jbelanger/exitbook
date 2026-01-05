@@ -261,6 +261,14 @@ export class CosmosProcessor extends BaseTransactionProcessor {
       return buildBlockchainNativeAssetId(this.chainConfig.chainName);
     }
 
+    const nativeDenom = this.chainConfig.nativeDenom?.trim().toUpperCase();
+    if (nativeDenom && assetSymbol === nativeDenom) {
+      this.logger.warn(
+        `Asset symbol matched native denom (${nativeDenom}) instead of native currency (${nativeSymbol}) in transaction ${transactionId}. Treating as native asset.`
+      );
+      return buildBlockchainNativeAssetId(this.chainConfig.chainName);
+    }
+
     // Non-native asset - must have denom
     if (!movement.denom) {
       return err(new Error(`Missing denom for non-native asset ${movement.asset} in transaction ${transactionId}`));

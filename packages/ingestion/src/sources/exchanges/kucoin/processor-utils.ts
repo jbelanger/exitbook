@@ -19,7 +19,11 @@ import type {
  * These functions extract and transform KuCoin transaction data into ProcessedTransaction format.
  * All functions return Result types to prevent silent failures and enable proper error handling.
  */
-function parseKucoinUtcTimestamp(timeStr: string): Result<{ datetime: string; timestamp: number }, Error> {
+function parseKucoinUtcTimestamp(timeStr: string | undefined): Result<{ datetime: string; timestamp: number }, Error> {
+  if (!timeStr || timeStr.trim() === '') {
+    return err(new Error('Missing KuCoin timestamp'));
+  }
+
   const isoBase = timeStr.includes('T') ? timeStr : timeStr.replace(' ', 'T');
   const isoString = isoBase.endsWith('Z') ? isoBase : `${isoBase}Z`;
   const parsed = new Date(isoString);

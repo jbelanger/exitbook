@@ -1,3 +1,4 @@
+import type { TransactionLink } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, it, expect } from 'vitest';
@@ -5,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildExportParamsFromFlags,
   convertToCSV,
+  convertToNormalizedCSV,
   convertToJSON,
   parseSinceDate,
   type ExportCommandOptions,
@@ -50,6 +52,7 @@ describe('export-utils', () => {
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
       expect(params.format).toBe('csv');
+      expect(params.csvFormat).toBe('normalized');
       expect(params.outputPath).toBe('data/transactions.csv');
       expect(params.sourceName).toBeUndefined();
       expect(params.since).toBeUndefined();
@@ -67,6 +70,7 @@ describe('export-utils', () => {
       const params = result._unsafeUnwrap();
       expect(params.sourceName).toBe('kraken');
       expect(params.format).toBe('json');
+      expect(params.csvFormat).toBeUndefined();
       expect(params.outputPath).toBe('./exports/kraken.json');
     });
 
@@ -82,6 +86,7 @@ describe('export-utils', () => {
       const params = result._unsafeUnwrap();
       expect(params.sourceName).toBe('bitcoin');
       expect(params.format).toBe('csv');
+      expect(params.csvFormat).toBe('normalized');
     });
 
     it('should build params with since date', () => {
@@ -104,6 +109,30 @@ describe('export-utils', () => {
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
       expect(params.since).toBe(0);
+    });
+
+    it('should build params with csv format override', () => {
+      const options: ExportCommandOptions = {
+        format: 'csv',
+        csvFormat: 'simple',
+      };
+      const result = buildExportParamsFromFlags(options);
+
+      expect(result.isOk()).toBe(true);
+      const params = result._unsafeUnwrap();
+      expect(params.format).toBe('csv');
+      expect(params.csvFormat).toBe('simple');
+    });
+
+    it('should reject csv format when exporting json', () => {
+      const options: ExportCommandOptions = {
+        format: 'json',
+        csvFormat: 'simple',
+      };
+      const result = buildExportParamsFromFlags(options);
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toContain('--csv-format');
     });
 
     it('should reject invalid since date', () => {
@@ -133,7 +162,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -145,9 +174,9 @@ describe('export-utils', () => {
 
       const result = convertToCSV([transaction]);
 
-      expect(result).toContain('id,source,operation_category');
-      expect(result).toContain('1,kraken,trade,buy');
-      expect(result).toContain('BTC,1.5,in');
+      expect(result).toContain('id,external_id,source,operation_category');
+      expect(result).toContain('1,ext-1,kraken,trade,buy');
+      expect(result).toContain('BTC,1.5');
     });
 
     it('should convert multiple transactions to CSV', () => {
@@ -161,7 +190,7 @@ describe('export-utils', () => {
           timestamp: Date.parse('2024-01-01T12:00:00Z'),
           status: 'success',
           movements: {
-            inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+            inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
             outflows: [],
           },
           fees: [],
@@ -180,7 +209,7 @@ describe('export-utils', () => {
           status: 'success',
           movements: {
             inflows: [],
-            outflows: [{ assetSymbol: 'ETH', grossAmount: parseDecimal('10.0') }],
+            outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('10.0') }],
           },
           fees: [],
           operation: {
@@ -194,9 +223,9 @@ describe('export-utils', () => {
       const lines = result.split('\n');
 
       expect(lines).toHaveLength(3); // header + 2 rows
-      expect(lines[0]).toContain('id,source,operation_category');
-      expect(lines[1]).toContain('1,kraken,trade,buy');
-      expect(lines[2]).toContain('2,kraken,trade,sell');
+      expect(lines[0]).toContain('id,external_id,source,operation_category');
+      expect(lines[1]).toContain('1,ext-1,kraken,trade,buy');
+      expect(lines[2]).toContain('2,ext-2,kraken,trade,sell');
     });
 
     it('should escape values with commas', () => {
@@ -209,7 +238,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -222,6 +251,38 @@ describe('export-utils', () => {
       const result = convertToCSV([transaction]);
 
       expect(result).toContain('"test,source"');
+    });
+
+    it('should include both inflow and outflow movements for swaps', () => {
+      const transaction: UniversalTransactionData = {
+        id: 1822,
+        accountId: 1,
+        externalId: 'ext-1822',
+        source: 'kraken',
+        datetime: '2024-01-03T12:00:00Z',
+        timestamp: Date.parse('2024-01-03T12:00:00Z'),
+        status: 'success',
+        movements: {
+          inflows: [{ assetId: 'test:stx', assetSymbol: 'STX', grossAmount: parseDecimal('59.289') }],
+          outflows: [{ assetId: 'test:cad', assetSymbol: 'CAD', grossAmount: parseDecimal('98.52') }],
+        },
+        fees: [],
+        operation: {
+          category: 'trade',
+          type: 'swap',
+        },
+      };
+
+      const result = convertToCSV([transaction]);
+      const [headerLine, dataLine] = result.split('\n');
+      const headers = headerLine?.split(',') ?? [];
+      const values = dataLine?.split(',') ?? [];
+      const record = Object.fromEntries(headers.map((header, index) => [header, values[index]]));
+
+      expect(record['inflow_assets']).toBe('STX');
+      expect(record['inflow_amounts']).toBe('59.289');
+      expect(record['outflow_assets']).toBe('CAD');
+      expect(record['outflow_amounts']).toBe('98.52');
     });
   });
 
@@ -241,7 +302,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -280,7 +341,7 @@ describe('export-utils', () => {
           timestamp: Date.parse('2024-01-01T12:00:00Z'),
           status: 'success',
           movements: {
-            inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+            inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
             outflows: [],
           },
           fees: [],
@@ -299,7 +360,7 @@ describe('export-utils', () => {
           status: 'success',
           movements: {
             inflows: [],
-            outflows: [{ assetSymbol: 'ETH', grossAmount: parseDecimal('10.0') }],
+            outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('10.0') }],
           },
           fees: [],
           operation: {
@@ -327,7 +388,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -371,7 +432,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -387,6 +448,71 @@ describe('export-utils', () => {
       expect(result).toContain('  "id"');
       expect(result).toContain('  "operation"');
       expect(result).toContain('    "category"');
+    });
+  });
+
+  describe('convertToNormalizedCSV', () => {
+    it('should convert transactions into normalized CSV files', () => {
+      const transaction: UniversalTransactionData = {
+        id: 1,
+        accountId: 1,
+        externalId: 'ext-1',
+        source: 'kraken',
+        datetime: '2024-01-01T12:00:00Z',
+        timestamp: Date.parse('2024-01-01T12:00:00Z'),
+        status: 'success',
+        movements: {
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+          outflows: [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('30000') }],
+        },
+        fees: [
+          {
+            assetId: 'test:usd',
+            assetSymbol: 'USD',
+            amount: parseDecimal('10'),
+            scope: 'platform',
+            settlement: 'balance',
+          },
+        ],
+        operation: {
+          category: 'trade',
+          type: 'buy',
+        },
+      };
+
+      const link: TransactionLink = {
+        id: 'link-1',
+        sourceTransactionId: 1,
+        targetTransactionId: 2,
+        assetSymbol: 'BTC',
+        sourceAmount: parseDecimal('1.5'),
+        targetAmount: parseDecimal('1.49'),
+        linkType: 'exchange_to_blockchain',
+        confidenceScore: parseDecimal('0.99'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.99'),
+          timingValid: true,
+          timingHours: 2,
+        },
+        status: 'confirmed',
+        reviewedBy: 'system',
+        reviewedAt: new Date('2024-01-02T00:00:00Z'),
+        createdAt: new Date('2024-01-02T00:00:00Z'),
+        updatedAt: new Date('2024-01-02T00:00:00Z'),
+      };
+
+      const result = convertToNormalizedCSV([transaction], [link]);
+
+      expect(result.transactionsCsv).toContain('id,external_id,account_id');
+      expect(result.transactionsCsv).toContain('1,ext-1,1,kraken,trade,buy');
+      expect(result.movementsCsv).toContain('tx_id,direction,asset_id,asset_symbol');
+      expect(result.movementsCsv).toContain('1,in,test:btc,BTC,1.5');
+      expect(result.movementsCsv).toContain('1,out,test:usd,USD,30000');
+      expect(result.feesCsv).toContain('tx_id,asset_id,asset_symbol,amount');
+      expect(result.feesCsv).toContain('1,test:usd,USD,10,platform,balance');
+      expect(result.linksCsv).toContain('link_id,source_transaction_id,target_transaction_id');
+      expect(result.linksCsv).toContain('link-1,1,2,BTC,1.5,1.49');
     });
   });
 });

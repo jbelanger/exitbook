@@ -1,3 +1,4 @@
+import { TransactionLinkRepository } from '@exitbook/accounting';
 import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
@@ -23,7 +24,8 @@ export type ExportCommandOptions = z.infer<typeof ExportCommandOptionsSchema>;
  */
 interface ExportCommandResult {
   format: string;
-  outputPath: string;
+  outputPaths: string[];
+  csvFormat?: string | undefined;
   sourceName?: string | undefined;
   transactionCount: number;
 }
@@ -36,6 +38,7 @@ export function registerExportCommand(program: Command): void {
     .command('export')
     .description('Export transactions to CSV or JSON')
     .option('--format <type>', 'Export format (csv|json)', 'csv')
+    .option('--csv-format <type>', 'CSV format (normalized|simple)')
     .option('--exchange <name>', 'Export from specific exchange only')
     .option('--blockchain <name>', 'Export from specific blockchain only')
     .option('--since <date>', 'Export transactions since date (YYYY-MM-DD, timestamp, or 0 for all history)')
@@ -93,7 +96,8 @@ async function executeExportCommand(rawOptions: unknown): Promise<void> {
 
     const database = await initializeDatabase();
     const transactionRepository = new TransactionRepository(database);
-    const handler = new ExportHandler(transactionRepository);
+    const transactionLinkRepository = new TransactionLinkRepository(database);
+    const handler = new ExportHandler(transactionRepository, transactionLinkRepository);
 
     try {
       const result = await handler.execute(params);
@@ -139,14 +143,17 @@ async function handleExportSuccess(output: OutputManager, exportResult: ExportRe
     return;
   }
 
-  // Write file
-  await import('node:fs').then((fs) => fs.promises.writeFile(exportResult.outputPath, exportResult.content));
+  // Write files
+  await import('node:fs').then((fs) =>
+    Promise.all(exportResult.outputs.map((output) => fs.promises.writeFile(output.path, output.content)))
+  );
 
   // Prepare result data for JSON mode
   const resultData: ExportCommandResult = {
     transactionCount: exportResult.transactionCount,
-    outputPath: exportResult.outputPath,
+    outputPaths: exportResult.outputs.map((output) => output.path),
     format: exportResult.format,
+    csvFormat: exportResult.csvFormat,
   };
 
   if (exportResult.sourceName) {
@@ -157,9 +164,12 @@ async function handleExportSuccess(output: OutputManager, exportResult: ExportRe
   if (output.isTextMode()) {
     output.outro('✨ Export complete!');
     const sourceInfo = exportResult.sourceName ? ` from ${exportResult.sourceName}` : '';
-    console.log(
-      `\n💾 Exported ${exportResult.transactionCount} transactions${sourceInfo} to: ${exportResult.outputPath}`
-    );
+    const outputSummary =
+      exportResult.outputs.length === 1
+        ? exportResult.outputs[0]?.path
+        : exportResult.outputs.map((output) => output.path).join('\n   - ');
+
+    console.log(`\n💾 Exported ${exportResult.transactionCount} transactions${sourceInfo} to:\n   - ${outputSummary}`);
   }
 
   output.json('export', resultData);

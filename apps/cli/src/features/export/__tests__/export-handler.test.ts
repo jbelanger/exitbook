@@ -1,3 +1,4 @@
+import type { TransactionLinkRepository } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
@@ -20,6 +21,9 @@ describe('ExportHandler', () => {
   let mockTransactionRepository: {
     getTransactions: Mock;
   };
+  let mockTransactionLinkRepository: {
+    findByTransactionIds: Mock;
+  };
   let handler: ExportHandler;
 
   beforeEach(() => {
@@ -30,7 +34,14 @@ describe('ExportHandler', () => {
       getTransactions: vi.fn(),
     };
 
-    handler = new ExportHandler(mockTransactionRepository as unknown as TransactionRepository);
+    mockTransactionLinkRepository = {
+      findByTransactionIds: vi.fn().mockResolvedValue(ok([])),
+    };
+
+    handler = new ExportHandler(
+      mockTransactionRepository as unknown as TransactionRepository,
+      mockTransactionLinkRepository as unknown as TransactionLinkRepository
+    );
   });
 
   const createMockTransaction = (id: number, source: string, assetSymbol: string): UniversalTransactionData => ({
@@ -42,7 +53,12 @@ describe('ExportHandler', () => {
     datetime: '2024-01-01T12:00:00Z',
     timestamp: Date.parse('2024-01-01T12:00:00Z'),
     status: 'success',
-    movements: { inflows: [{ assetSymbol: assetSymbol, grossAmount: parseDecimal('1.0') }], outflows: [] },
+    movements: {
+      inflows: [
+        { assetId: `test:${assetSymbol.toLowerCase()}`, assetSymbol: assetSymbol, grossAmount: parseDecimal('1.0') },
+      ],
+      outflows: [],
+    },
     fees: [],
   });
 
@@ -63,12 +79,16 @@ describe('ExportHandler', () => {
       const exportResult = result._unsafeUnwrap();
       expect(exportResult.transactionCount).toBe(2);
       expect(exportResult.format).toBe('csv');
-      expect(exportResult.outputPath).toBe('./data/transactions.csv');
-      expect(exportResult.content).toContain('id,source,operation_category');
-      expect(exportResult.content).toContain('1,kraken,trade');
-      expect(exportResult.content).toContain('2,kraken,trade');
+      expect(exportResult.csvFormat).toBe('normalized');
+      expect(exportResult.outputs).toHaveLength(4);
+      expect(exportResult.outputs[0]?.path).toBe('./data/transactions.csv');
+      expect(exportResult.outputs[0]?.content).toContain('id,external_id,account_id');
+      expect(exportResult.outputs[0]?.content).toContain('1,ext-1,1,kraken,trade');
+      expect(exportResult.outputs[0]?.content).toContain('2,ext-2,1,kraken,trade');
+      expect(exportResult.outputs[3]?.path).toBe('./data/transactions.links.csv');
 
       expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith({ includeExcluded: true });
+      expect(mockTransactionLinkRepository.findByTransactionIds).toHaveBeenCalledWith([1, 2]);
     });
 
     it('should successfully export transactions to JSON', async () => {
@@ -87,12 +107,36 @@ describe('ExportHandler', () => {
       const exportResult = result._unsafeUnwrap();
       expect(exportResult.transactionCount).toBe(1);
       expect(exportResult.format).toBe('json');
-      expect(exportResult.outputPath).toBe('./data/transactions.json');
+      expect(exportResult.outputs).toHaveLength(1);
+      expect(exportResult.outputs[0]?.path).toBe('./data/transactions.json');
+      expect(mockTransactionLinkRepository.findByTransactionIds).not.toHaveBeenCalled();
 
-      const parsedContent = JSON.parse(exportResult.content) as UniversalTransactionData[];
+      const parsedContent = JSON.parse(exportResult.outputs[0]?.content ?? '[]') as UniversalTransactionData[];
       expect(parsedContent).toHaveLength(1);
       expect(parsedContent[0]?.id).toBe(1);
       expect(parsedContent[0]?.source).toBe('kraken');
+    });
+
+    it('should export simple CSV when csvFormat is simple', async () => {
+      const params: ExportHandlerParams = {
+        format: 'csv',
+        csvFormat: 'simple',
+        outputPath: './data/transactions.csv',
+      };
+
+      const transactions = [createMockTransaction(1, 'kraken', 'BTC')];
+
+      mockTransactionRepository.getTransactions.mockResolvedValue(ok(transactions));
+
+      const result = await handler.execute(params);
+
+      expect(result.isOk()).toBe(true);
+      const exportResult = result._unsafeUnwrap();
+      expect(exportResult.format).toBe('csv');
+      expect(exportResult.csvFormat).toBe('simple');
+      expect(exportResult.outputs).toHaveLength(1);
+      expect(exportResult.outputs[0]?.content).toContain('id,external_id,source,operation_category');
+      expect(mockTransactionLinkRepository.findByTransactionIds).not.toHaveBeenCalled();
     });
 
     it('should filter by source name', async () => {
@@ -176,7 +220,7 @@ describe('ExportHandler', () => {
       expect(result.isOk()).toBe(true);
       const exportResult = result._unsafeUnwrap();
       expect(exportResult.transactionCount).toBe(0);
-      expect(exportResult.content).toBe('');
+      expect(exportResult.outputs[0]?.content).toBe('');
     });
 
     it('should handle empty transaction list for JSON', async () => {
@@ -192,7 +236,7 @@ describe('ExportHandler', () => {
       expect(result.isOk()).toBe(true);
       const exportResult = result._unsafeUnwrap();
       expect(exportResult.transactionCount).toBe(0);
-      expect(exportResult.content).toBe('[]');
+      expect(exportResult.outputs[0]?.content).toBe('[]');
     });
 
     // Note: Validation tests removed - validation now handled by ExportCommandOptionsSchema at CLI boundary
