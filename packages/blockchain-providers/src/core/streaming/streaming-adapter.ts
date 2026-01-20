@@ -1,9 +1,9 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { NormalizedTransactionBase, ProviderOperation } from '../index.js';
+import type { NormalizedTransactionBase } from '../index.js';
 import { createDeduplicationWindow, deduplicateTransactions } from '../provider-manager-utils.js';
-import type { StreamingBatchResult, TransactionWithRawData } from '../types/index.js';
+import type { StreamingBatchResult, StreamingOperation, TransactionWithRawData } from '../types/index.js';
 import { buildCursorState } from '../utils/cursor-utils.js';
 
 /**
@@ -58,7 +58,7 @@ export interface StreamingPageContext {
  */
 export interface StreamingAdapterOptions<Raw, Tx extends NormalizedTransactionBase = NormalizedTransactionBase> {
   providerName: string;
-  operation: ProviderOperation;
+  operation: StreamingOperation;
   resumeCursor?: CursorState | undefined;
   fetchPage: (ctx: StreamingPageContext) => Promise<Result<StreamingPage<Raw>, Error>>;
   /**

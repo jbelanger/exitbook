@@ -1,10 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/types/index.js';
-import type { SubstrateTransaction } from '../../../types.js';
+import type { RawBalanceData } from '../../../../../core/types/index.js';
 import { TaostatsApiClient } from '../taostats.api-client.js';
-import type { TaostatsTransaction } from '../taostats.schemas.js';
 
 describe('TaostatsApiClient Integration - Bittensor', () => {
   describe('Bittensor', () => {
@@ -50,68 +48,6 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
           const totalNum = parseFloat(balance.decimalAmount);
           expect(totalNum).not.toBeNaN();
           expect(totalNum).toBeGreaterThan(0);
-        }
-      }, 30000);
-    });
-
-    describe('Raw Address Transactions', () => {
-      it('should fetch raw address transactions with normalization', async () => {
-        const result = await provider.execute<TransactionWithRawData<SubstrateTransaction>[]>({
-          address: testAddress,
-          type: 'getAddressTransactions',
-          streamType: 'normal' as const,
-        });
-
-        expect(result.isOk()).toBe(true);
-        if (result.isErr()) {
-          throw result.error;
-        }
-
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-
-          expect(firstTx).toHaveProperty('raw');
-          expect(firstTx).toHaveProperty('normalized');
-
-          const rawData = firstTx.raw as TaostatsTransaction;
-
-          expect(rawData).toHaveProperty('transaction_hash');
-          expect(rawData).toHaveProperty('from');
-          expect(rawData).toHaveProperty('to');
-          expect(rawData).toHaveProperty('amount');
-          expect(rawData).toHaveProperty('block_number');
-          expect(rawData).toHaveProperty('timestamp');
-          expect(rawData).toHaveProperty('extrinsic_id');
-          expect(typeof rawData.transaction_hash).toBe('string');
-          expect(typeof rawData.from).toBe('object');
-          expect(rawData.from).toHaveProperty('ss58');
-          expect(rawData.from).toHaveProperty('hex');
-          expect(typeof rawData.to).toBe('object');
-          expect(rawData.to).toHaveProperty('ss58');
-          expect(rawData.to).toHaveProperty('hex');
-          expect(typeof rawData.timestamp).toBe('string'); // ISO string
-
-          const normalized = firstTx.normalized;
-          expect(normalized).toHaveProperty('id');
-          expect(normalized).toHaveProperty('from');
-          expect(normalized).toHaveProperty('to');
-          expect(normalized).toHaveProperty('amount');
-          expect(normalized).toHaveProperty('currency');
-          expect(normalized).toHaveProperty('timestamp');
-          expect(normalized).toHaveProperty('status');
-          expect(normalized).toHaveProperty('providerName');
-          expect(normalized).toHaveProperty('feeAmount');
-          expect(normalized).toHaveProperty('feeCurrency');
-
-          expect(normalized.currency).toBe('TAO');
-          expect(normalized.feeCurrency).toBe('TAO');
-          expect(normalized.providerName).toBe('taostats');
-          expect(normalized.chainName).toBe('bittensor');
-          expect(normalized.status).toBe('success');
-          expect(typeof normalized.amount).toBe('string');
-          expect(typeof normalized.timestamp).toBe('number');
         }
       }, 30000);
     });

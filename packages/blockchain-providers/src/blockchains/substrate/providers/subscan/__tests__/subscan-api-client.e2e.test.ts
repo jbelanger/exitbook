@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/types/index.js';
-import type { SubstrateTransaction } from '../../../types.js';
+import type { RawBalanceData } from '../../../../../core/types/index.js';
 import { SubscanApiClient } from '../subscan.api-client.js';
-import type { SubscanTransfer } from '../subscan.schemas.js';
 
 describe('SubscanApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('polkadot', 'subscan');
@@ -46,64 +44,6 @@ describe('SubscanApiClient Integration', () => {
         const numericValue = parseFloat(balance.decimalAmount);
         expect(numericValue).not.toBeNaN();
         expect(numericValue).toBeGreaterThanOrEqual(0);
-      }
-    }, 30000);
-  });
-
-  describe('Raw Address Transactions', () => {
-    it('should fetch raw address transactions successfully with normalization', async () => {
-      const result = await provider.execute<TransactionWithRawData<SubstrateTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) {
-        throw result.error;
-      }
-
-      const transactions = result.value;
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
-        const firstTx = transactions[0]!;
-
-        expect(firstTx).toHaveProperty('raw');
-        expect(firstTx).toHaveProperty('normalized');
-
-        const rawData = firstTx.raw as SubscanTransfer;
-
-        expect(rawData).toHaveProperty('hash');
-        expect(rawData).toHaveProperty('from');
-        expect(rawData).toHaveProperty('to');
-        expect(rawData).toHaveProperty('amount');
-        expect(rawData).toHaveProperty('block_num');
-        expect(rawData).toHaveProperty('block_timestamp');
-        expect(rawData).toHaveProperty('success');
-        expect(rawData).toHaveProperty('fee');
-
-        expect(rawData).toHaveProperty('_nativeCurrency');
-        expect(rawData).toHaveProperty('_nativeDecimals');
-        expect(rawData).toHaveProperty('_chainDisplayName');
-
-        const normalized = firstTx.normalized;
-        expect(normalized).toHaveProperty('id');
-        expect(normalized).toHaveProperty('from');
-        expect(normalized).toHaveProperty('to');
-        expect(normalized).toHaveProperty('amount');
-        expect(normalized).toHaveProperty('currency');
-        expect(normalized).toHaveProperty('timestamp');
-        expect(normalized).toHaveProperty('status');
-        expect(normalized).toHaveProperty('providerName');
-        expect(normalized).toHaveProperty('feeAmount');
-        expect(normalized).toHaveProperty('feeCurrency');
-
-        expect(normalized.currency).toBe('DOT');
-        expect(normalized.feeCurrency).toBe('DOT');
-        expect(normalized.providerName).toBe('subscan');
-        expect(normalized.chainName).toBe('polkadot');
-        expect(['success', 'failed']).toContain(normalized.status);
-        expect(typeof normalized.amount).toBe('string');
-        expect(typeof normalized.timestamp).toBe('number');
       }
     }, 30000);
   });

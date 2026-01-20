@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/types/index.js';
-import type { EvmTransaction } from '../../../types.js';
+import type { RawBalanceData } from '../../../../../core/types/index.js';
 import { RoutescanApiClient } from '../routescan.api-client.js';
 
 describe('RoutescanApiClient Integration - Ethereum', () => {
@@ -40,80 +39,6 @@ describe('RoutescanApiClient Integration - Ethereum', () => {
       }
     }, 30000);
   });
-
-  describe('Raw Address Transactions', () => {
-    it('should fetch raw address transactions successfully', async () => {
-      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-          expect(firstTx).toHaveProperty('raw');
-          expect(firstTx).toHaveProperty('normalized');
-          expect(firstTx.normalized).toHaveProperty('id');
-          expect(firstTx.normalized).toHaveProperty('from');
-          expect(firstTx.normalized).toHaveProperty('to');
-          expect(firstTx.normalized.currency).toBe('ETH');
-          expect(firstTx.normalized.providerName).toBe('routescan');
-        }
-      }
-    }, 60000);
-
-    it('should fetch raw address internal transactions successfully', async () => {
-      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-        streamType: 'internal',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-          expect(firstTx).toHaveProperty('raw');
-          expect(firstTx).toHaveProperty('normalized');
-          expect(firstTx.normalized).toHaveProperty('id');
-          expect(firstTx.normalized).toHaveProperty('from');
-          expect(firstTx.normalized).toHaveProperty('to');
-          expect(firstTx.normalized.providerName).toBe('routescan');
-        }
-      }
-    }, 60000);
-  });
-
-  describe('Token Transactions', () => {
-    it('should fetch token transactions successfully', async () => {
-      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-        streamType: 'token',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-          expect(firstTx).toHaveProperty('raw');
-          expect(firstTx).toHaveProperty('normalized');
-          expect(firstTx.normalized).toHaveProperty('id');
-          expect(firstTx.normalized.type).toBe('token_transfer');
-          expect(firstTx.normalized.providerName).toBe('routescan');
-        }
-      }
-    }, 60000);
-  });
 });
 
 describe('RoutescanApiClient Integration - Optimism', () => {
@@ -147,27 +72,6 @@ describe('RoutescanApiClient Integration - Optimism', () => {
         expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
       }
     }, 30000);
-  });
-
-  describe('Raw Address Transactions', () => {
-    it('should fetch raw address transactions successfully', async () => {
-      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-          expect(firstTx.normalized.currency).toBe('ETH');
-          expect(firstTx.normalized.providerName).toBe('routescan');
-        }
-      }
-    }, 60000);
   });
 });
 
@@ -205,27 +109,6 @@ describe('RoutescanApiClient Integration - BSC', () => {
         }
       }
     }, 30000);
-  });
-
-  describe('Raw Address Transactions', () => {
-    it('should fetch raw address transactions successfully', async () => {
-      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-          expect(firstTx.normalized.currency).toBe('BNB');
-          expect(firstTx.normalized.providerName).toBe('routescan');
-        }
-      }
-    }, 60000);
   });
 });
 

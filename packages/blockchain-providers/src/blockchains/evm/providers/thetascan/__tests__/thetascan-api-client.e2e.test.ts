@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { RawBalanceData, StreamingBatchResult, TransactionWithRawData } from '../../../../../core/types/index.js';
+import type { RawBalanceData, StreamingBatchResult } from '../../../../../core/types/index.js';
 import type { EvmTransaction } from '../../../types.js';
 import { ThetaScanApiClient } from '../thetascan.api-client.js';
 
@@ -17,32 +17,6 @@ describe('ThetaScanApiClient Integration', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toBe(true);
-      }
-    }, 30000);
-  });
-
-  describe('Raw Address Transactions', () => {
-    it('should fetch raw address transactions successfully', async () => {
-      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-          expect(firstTx).toHaveProperty('raw');
-          expect(firstTx).toHaveProperty('normalized');
-          expect(firstTx.normalized).toHaveProperty('id');
-          expect(firstTx.normalized).toHaveProperty('from');
-          expect(firstTx.normalized).toHaveProperty('to');
-          expect(firstTx.normalized).toHaveProperty('blockHeight');
-          expect(firstTx.normalized).toHaveProperty('timestamp');
-          expect(firstTx.normalized.providerName).toBe('thetascan');
-        }
       }
     }, 30000);
   });
@@ -104,38 +78,6 @@ describe('ThetaScanApiClient Integration', () => {
             expect(balances[0].symbol.length).toBeGreaterThan(0);
           }
         }
-      }
-    }, 30000);
-  });
-
-  describe('Address Validation', () => {
-    it('should reject invalid Theta addresses', async () => {
-      const invalidAddress = 'invalid-address';
-
-      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-        address: invalidAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Invalid Theta address');
-      }
-    });
-
-    it('should accept valid Ethereum-style addresses', async () => {
-      const validAddress = '0x0000000000000000000000000000000000000000';
-
-      // Should not throw
-      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-        address: validAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
       }
     }, 30000);
   });

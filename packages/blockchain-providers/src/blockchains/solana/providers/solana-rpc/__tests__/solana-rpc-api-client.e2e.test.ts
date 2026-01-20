@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/index.ts';
+import type { RawBalanceData } from '../../../../../core/index.ts';
 import { ProviderRegistry } from '../../../../../core/index.ts';
-import type { SolanaTransaction } from '../../../schemas.ts';
 import { SolanaRPCApiClient } from '../solana-rpc.api-client.js';
 
 describe('SolanaRPCApiClient Integration', () => {
@@ -42,50 +41,6 @@ describe('SolanaRPCApiClient Integration', () => {
         expect(numericBalance).toBeGreaterThanOrEqual(0);
       }
     }, 30000);
-  });
-
-  describe('Address Transactions', () => {
-    it.skip('should fetch and normalize transactions successfully', async () => {
-      // Skipping: Public Solana RPC is extremely slow and unreliable for E2E tests
-      const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-
-      const transactions = result.value;
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
-        const txData = transactions[0]!;
-
-        expect(txData).toHaveProperty('raw');
-        expect(txData).toHaveProperty('normalized');
-
-        const normalized = txData.normalized;
-        expect(normalized.providerName).toBe('solana-rpc');
-        expect(typeof normalized.id).toBe('string');
-        expect(normalized.id.length).toBeGreaterThan(0);
-        expect(['success', 'failed']).toContain(normalized.status);
-        expect(normalized.timestamp).toBeGreaterThan(0);
-      }
-    }, 60000);
-
-    it.skip('should limit results to reasonable count for public RPC', async () => {
-      // Skipping: Public Solana RPC is extremely slow and unreliable for E2E tests
-      const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-
-      const transactions = result.value;
-      // Public RPC should return limited results (25 transactions max based on code)
-      expect(transactions.length).toBeLessThanOrEqual(25);
-    }, 60000);
   });
 
   describe('Token Balances', () => {
@@ -148,20 +103,6 @@ describe('SolanaRPCApiClient Integration', () => {
   });
 
   describe('Error Handling', () => {
-    it('should handle invalid addresses gracefully', async () => {
-      const invalidAddress = 'invalid-address';
-
-      const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
-        address: invalidAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Invalid Solana address');
-      }
-    });
-
     it('should handle unsupported operations gracefully', async () => {
       const result = await provider.execute<unknown>({
         address: testAddress,

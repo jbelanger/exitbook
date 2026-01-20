@@ -2,8 +2,7 @@ import type { TokenMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/types/index.js';
-import type { EvmTransaction } from '../../../types.js';
+import type { RawBalanceData } from '../../../../../core/types/index.js';
 import { MoralisApiClient } from '../moralis.api-client.js';
 
 describe('MoralisApiClient Integration - Multi-Chain', () => {
@@ -36,51 +35,6 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
           expect(balance.symbol).toBe('ETH');
           expect(balance.decimals).toBe(18);
           expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
-        }
-      }, 30000);
-    });
-
-    describe('Raw Address Transactions', () => {
-      it('should fetch raw address transactions with augmented currency fields', async () => {
-        const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-          address: testAddress,
-          type: 'getAddressTransactions',
-          streamType: 'normal' as const,
-        });
-
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          const transactions = result.value;
-          expect(Array.isArray(transactions)).toBe(true);
-          if (transactions.length > 0) {
-            const firstTx = transactions[0]!;
-            expect(firstTx).toHaveProperty('raw');
-            expect(firstTx).toHaveProperty('normalized');
-            expect(firstTx.normalized).toHaveProperty('id');
-            expect(firstTx.normalized).toHaveProperty('from');
-            expect(firstTx.normalized).toHaveProperty('to');
-            expect(firstTx.normalized).toHaveProperty('blockHeight');
-            expect(firstTx.normalized.currency).toBe('ETH');
-            expect(firstTx.normalized.providerName).toBe('moralis');
-          }
-        }
-      }, 30000);
-    });
-
-    describe('Internal Transactions', () => {
-      it('should return empty array for internal transactions (included in main transactions)', async () => {
-        const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-          address: testAddress,
-          type: 'getAddressTransactions',
-          streamType: 'internal',
-        });
-
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          const transactions = result.value;
-          expect(Array.isArray(transactions)).toBe(true);
-          // Moralis includes internal transactions in the main transaction call, so this should be empty
-          expect(transactions).toHaveLength(0);
         }
       }, 30000);
     });
@@ -255,7 +209,6 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
   describe('Avalanche', () => {
     const config = ProviderRegistry.createDefaultConfig('avalanche', 'moralis');
     const provider = new MoralisApiClient(config);
-    const testAddress = '0x70c68a08d8c1C1Fa1CD5E5533e85a77c4Ac07022';
 
     describe('Health Checks', () => {
       it('should report healthy when API is accessible', async () => {
@@ -263,48 +216,6 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toBe(true);
-        }
-      }, 30000);
-    });
-
-    describe('Raw Address Transactions', () => {
-      it('should fetch raw address transactions with augmented currency fields', async () => {
-        const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-          address: testAddress,
-          type: 'getAddressTransactions',
-          streamType: 'normal' as const,
-        });
-
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          const transactions = result.value;
-          expect(Array.isArray(transactions)).toBe(true);
-          if (transactions.length > 0) {
-            const firstTx = transactions[0]!;
-            expect(firstTx).toHaveProperty('raw');
-            expect(firstTx).toHaveProperty('normalized');
-            expect(firstTx.normalized).toHaveProperty('id');
-            expect(firstTx.normalized.currency).toBe('AVAX');
-            expect(firstTx.normalized.providerName).toBe('moralis');
-          }
-        }
-      }, 30000);
-    });
-
-    describe('Internal Transactions', () => {
-      it('should return empty array for internal transactions (included in main transactions)', async () => {
-        const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-          address: testAddress,
-          type: 'getAddressTransactions',
-          streamType: 'internal',
-        });
-
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          const transactions = result.value;
-          expect(Array.isArray(transactions)).toBe(true);
-          // Moralis includes internal transactions in the main transaction call, so this should be empty
-          expect(transactions).toHaveLength(0);
         }
       }, 30000);
     });

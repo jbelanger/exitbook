@@ -10,7 +10,13 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import type { RawBalanceData, StreamingBatchResult, TransactionWithRawData } from '../../../../core/types/index.js';
+import type {
+  OneShotOperation,
+  RawBalanceData,
+  StreamingBatchResult,
+  StreamingOperation,
+  TransactionWithRawData,
+} from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import { createEmptyCompletionCursor } from '../../../../core/utils/cursor-utils.js';
 import { convertWeiToDecimal } from '../../balance-utils.js';
@@ -135,7 +141,7 @@ export class MoralisApiClient extends BaseApiClient {
     };
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
+  async execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
@@ -160,11 +166,11 @@ export class MoralisApiClient extends BaseApiClient {
   }
 
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
-    operation: ProviderOperation,
+    operation: StreamingOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
     if (operation.type !== 'getAddressTransactions') {
-      yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+      yield err(new Error(`Streaming not yet implemented for operation: ${(operation as ProviderOperation).type}`));
       return;
     }
 

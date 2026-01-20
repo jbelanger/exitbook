@@ -1,12 +1,9 @@
 import type { TokenMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { TransactionWithRawData, RawBalanceData } from '../../../../../core/index.ts';
+import type { RawBalanceData } from '../../../../../core/index.ts';
 import { ProviderRegistry } from '../../../../../core/index.ts';
-import type { SolanaTransaction } from '../../../schemas.ts';
-import { lamportsToSol } from '../../../utils.ts';
 import { HeliusApiClient } from '../helius.api-client.js';
-import type { HeliusTransaction } from '../helius.schemas.js';
 
 describe('HeliusApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('solana', 'helius');
@@ -19,130 +16,6 @@ describe('HeliusApiClient Integration', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toBe(true);
-      }
-    }, 30000);
-  });
-
-  describe('Address Transactions with Normalization', () => {
-    it('should fetch and normalize transactions successfully', async () => {
-      const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      if (result.isErr()) {
-        console.error('Transaction fetch error:', result.error.message);
-        console.error('Full error:', result.error);
-      }
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-
-      const transactions = result.value;
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
-        const txData = transactions[0]!;
-
-        expect(txData).toHaveProperty('raw');
-        expect(txData).toHaveProperty('normalized');
-
-        const raw = txData.raw as HeliusTransaction;
-        expect(raw).toHaveProperty('slot');
-        expect(raw).toHaveProperty('blockTime');
-        expect(raw).toHaveProperty('meta');
-        expect(raw).toHaveProperty('transaction');
-        expect(raw.transaction).toHaveProperty('signatures');
-        expect(raw.transaction).toHaveProperty('message');
-
-        const normalized = txData.normalized;
-        expect(normalized.providerName).toBe('helius');
-        expect(typeof normalized.id).toBe('string');
-        expect(normalized.id.length).toBeGreaterThan(0);
-        expect(['success', 'failed']).toContain(normalized.status);
-        expect(normalized.slot).toBe(raw.slot);
-        expect(normalized.timestamp).toBeGreaterThan(0);
-
-        const expectedSignature = raw.transaction.signatures?.[0] ?? raw.signature;
-        expect(normalized.id).toBe(expectedSignature);
-        expect(normalized.blockHeight).toBe(raw.slot);
-      }
-    }, 60000); // Increased timeout to 60 seconds for API calls
-
-    it('should include account balance changes in normalized transactions', async () => {
-      const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-
-      const transactions = result.value;
-      const txWithBalanceChanges = transactions.find(
-        (tx) => tx.normalized.accountChanges && tx.normalized.accountChanges.length > 0
-      );
-
-      if (!txWithBalanceChanges) {
-        console.warn('No transactions with balance changes found, skipping test');
-        return;
-      }
-
-      const normalized = txWithBalanceChanges.normalized;
-      expect(Array.isArray(normalized.accountChanges)).toBe(true);
-      expect(normalized.accountChanges!.length).toBeGreaterThan(0);
-
-      const change = normalized.accountChanges![0]!;
-      expect(typeof change.account).toBe('string');
-      expect(typeof change.preBalance).toBe('string');
-      expect(typeof change.postBalance).toBe('string');
-    }, 30000);
-
-    it('should include token changes when present', async () => {
-      const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-
-      const transactions = result.value;
-      const txWithTokenChanges = transactions.find(
-        (tx) => tx.normalized.tokenChanges && tx.normalized.tokenChanges.length > 0
-      );
-
-      if (!txWithTokenChanges) {
-        console.warn('No transactions with token changes found, skipping test');
-        return;
-      }
-
-      const normalized = txWithTokenChanges.normalized;
-      expect(Array.isArray(normalized.tokenChanges)).toBe(true);
-      expect(normalized.tokenChanges!.length).toBeGreaterThan(0);
-
-      const tokenChange = normalized.tokenChanges![0]!;
-      expect(typeof tokenChange.mint).toBe('string');
-      expect(typeof tokenChange.preAmount).toBe('string');
-      expect(typeof tokenChange.postAmount).toBe('string');
-      expect(typeof tokenChange.decimals).toBe('number');
-    }, 30000);
-
-    it('should convert fees from lamports to SOL', async () => {
-      const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-
-      const transactions = result.value;
-      if (transactions.length > 0) {
-        const txData = transactions[0]!;
-        const raw = txData.raw as HeliusTransaction;
-        const normalized = txData.normalized;
-
-        expect(normalized.feeCurrency).toBe('SOL');
-        expect(normalized.feeAmount).toBe(lamportsToSol(raw.meta.fee).toString());
       }
     }, 30000);
   });
@@ -228,20 +101,6 @@ describe('HeliusApiClient Integration', () => {
   });
 
   describe('Error Handling', () => {
-    it('should handle invalid addresses gracefully', async () => {
-      const invalidAddress = 'invalid-address';
-
-      const result = await provider.execute<HeliusTransaction[]>({
-        address: invalidAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Invalid Solana address');
-      }
-    });
-
     it('should handle unsupported operations gracefully', async () => {
       const result = await provider.execute<unknown>({
         address: testAddress,

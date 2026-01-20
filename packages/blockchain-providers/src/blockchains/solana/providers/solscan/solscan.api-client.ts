@@ -4,10 +4,12 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type {
   NormalizedTransactionBase,
+  OneShotOperation,
   ProviderConfig,
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
+  StreamingOperation,
 } from '../../../../core/index.ts';
 import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
 import {
@@ -102,7 +104,7 @@ export class SolscanApiClient extends BaseApiClient {
     return cursor;
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
+  async execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
     );
@@ -118,11 +120,11 @@ export class SolscanApiClient extends BaseApiClient {
   }
 
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
-    operation: ProviderOperation,
+    operation: StreamingOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
     if (operation.type !== 'getAddressTransactions') {
-      yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+      yield err(new Error(`Streaming not yet implemented for operation: ${(operation as ProviderOperation).type}`));
       return;
     }
 

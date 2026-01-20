@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { StreamingBatchResult } from '../../../../../core/types/index.js';
+import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
 import type { CosmosTransaction } from '../../../types.js';
 import { AkashConsoleApiClient } from '../akash-console.api-client.js';
 
@@ -361,7 +361,7 @@ describe('AkashConsoleApiClient Streaming E2E', () => {
         address: testAddress,
       };
 
-      for await (const result of provider.executeStreaming(operation)) {
+      for await (const result of provider.executeStreaming(operation as unknown as StreamingOperation)) {
         expect(result.isErr()).toBe(true);
         if (result.isErr()) {
           expect(result.error.message).toContain('Streaming not yet implemented');

@@ -9,7 +9,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import type { StreamingBatchResult } from '../../../../core/types/index.js';
+import type { OneShotOperation, StreamingBatchResult, StreamingOperation } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import type { EvmTransaction } from '../../types.js';
 
@@ -73,7 +73,7 @@ export class ThetaExplorerApiClient extends BaseApiClient {
     };
   }
 
-  execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
+  execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
@@ -83,11 +83,11 @@ export class ThetaExplorerApiClient extends BaseApiClient {
   }
 
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
-    operation: ProviderOperation,
+    operation: StreamingOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
     if (operation.type !== 'getAddressTransactions') {
-      yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+      yield err(new Error(`Streaming not yet implemented for operation: ${(operation as ProviderOperation).type}`));
       return;
     }
 

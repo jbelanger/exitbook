@@ -2,7 +2,7 @@ import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { StreamingBatchResult } from '../../../../../core/types/index.js';
+import type { OneShotOperation, StreamingBatchResult } from '../../../../../core/types/index.js';
 import type { EvmTransaction } from '../../../types.js';
 import { EtherscanApiClient } from '../etherscan.api-client.js';
 
@@ -486,7 +486,7 @@ describe('EtherscanApiClient Streaming E2E', () => {
           address: testAddress,
         };
 
-        const result = await provider.execute(operation);
+        const result = await provider.execute(operation as unknown as OneShotOperation);
         expect(result.isErr()).toBe(true);
         if (result.isErr()) {
           expect(result.error.message).toContain('only supports streaming');

@@ -5,7 +5,7 @@ import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.ts';
-import type { RawBalanceData } from '../../../../../core/index.ts';
+import type { RawBalanceData, StreamingOperation } from '../../../../../core/index.ts';
 import type { NearBalanceChange, NearReceipt, NearTokenTransfer, NearTransaction } from '../../../schemas.ts';
 import { sortKeys } from '../mapper-utils.ts';
 import { NearBlocksApiClient } from '../nearblocks.api-client.ts';
@@ -862,7 +862,10 @@ describe('NearBlocksApiClient', () => {
   describe('executeStreaming', () => {
     it('should return error for non-streaming operation', async () => {
       let hasError = false;
-      for await (const result of client.executeStreaming({ type: 'getAddressBalances', address: 'alice.near' })) {
+      for await (const result of client.executeStreaming({
+        type: 'getAddressBalances',
+        address: 'alice.near',
+      } as unknown as StreamingOperation)) {
         expect(result.isErr()).toBe(true);
         if (result.isErr()) {
           expect(result.error.message).toContain('Streaming not supported for operation');

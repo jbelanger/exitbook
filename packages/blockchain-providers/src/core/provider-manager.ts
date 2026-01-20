@@ -39,6 +39,7 @@ import type {
   ProviderHealth,
   OneShotOperation,
   ProviderOperation,
+  StreamingOperation,
 } from './types/index.js';
 import type { BlockchainExplorersConfig, ProviderOverride } from './utils/config-utils.js';
 
@@ -478,7 +479,7 @@ export class BlockchainProviderManager {
    */
   private async *executeStreamingImpl<T>(
     blockchain: string,
-    operation: ProviderOperation,
+    operation: StreamingOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<FailoverStreamingExecutionResult<T>, Error>> {
     const providers = this.getProvidersInOrder(blockchain, operation);
@@ -698,7 +699,7 @@ export class BlockchainProviderManager {
    */
   private async executeWithCircuitBreaker<T>(
     blockchain: string,
-    operation: ProviderOperation
+    operation: OneShotOperation
   ): Promise<Result<FailoverExecutionResult<T>, ProviderError>> {
     const providers = this.getProvidersInOrder(blockchain, operation);
 

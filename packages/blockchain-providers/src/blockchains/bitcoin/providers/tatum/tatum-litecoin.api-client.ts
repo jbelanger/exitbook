@@ -5,10 +5,12 @@ import { z, type ZodSchema } from 'zod';
 
 import type {
   NormalizedTransactionBase,
+  OneShotOperation,
   ProviderConfig,
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
+  StreamingOperation,
 } from '../../../../core/index.js';
 import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
@@ -109,7 +111,7 @@ export class TatumLitecoinApiClient extends BaseApiClient {
     };
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
+  async execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
     );
@@ -125,7 +127,7 @@ export class TatumLitecoinApiClient extends BaseApiClient {
   }
 
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
-    operation: ProviderOperation,
+    operation: StreamingOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
     // Route to appropriate streaming implementation
@@ -136,7 +138,7 @@ export class TatumLitecoinApiClient extends BaseApiClient {
         >;
         break;
       default:
-        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+        yield err(new Error(`Streaming not yet implemented for operation: ${(operation as ProviderOperation).type}`));
     }
   }
 

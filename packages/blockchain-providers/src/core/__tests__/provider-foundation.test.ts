@@ -13,13 +13,8 @@ import { initializeProviders } from '../../initialize.js';
 import { BlockchainProviderManager } from '../provider-manager.js';
 import { ProviderRegistry } from '../registry/provider-registry.js';
 import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.ts';
-import type { OneShotOperation, ProviderInfo, StreamingBatchResult } from '../types/index.js';
-import {
-  ProviderError,
-  type IBlockchainProvider,
-  type ProviderCapabilities,
-  type ProviderOperation,
-} from '../types/index.js';
+import type { OneShotOperation, ProviderInfo, StreamingBatchResult, StreamingOperation } from '../types/index.js';
+import { ProviderError, type IBlockchainProvider, type ProviderCapabilities } from '../types/index.js';
 
 // Mock explorer config for tests
 const mockExplorerConfig = {};
@@ -51,7 +46,7 @@ class MockProvider implements IBlockchainProvider {
     initializeProviders();
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
+  async execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
     if (this.responseDelay > 0) {
       await new Promise((resolve) => setTimeout(resolve, this.responseDelay));
     }
@@ -62,8 +57,6 @@ class MockProvider implements IBlockchainProvider {
 
     // Mock response based on operation type
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return ok({ address: operation.address, transactions: [] } as T);
       case 'getAddressBalances':
         return ok({ balance: 100, currency: 'ETH' } as T);
       default:
@@ -92,7 +85,7 @@ class MockProvider implements IBlockchainProvider {
   }
 
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
-    operation: ProviderOperation,
+    operation: StreamingOperation,
     _cursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
     if (this.responseDelay > 0) {
@@ -184,7 +177,7 @@ describe('BlockchainProviderManager', () => {
   });
 
   test('should execute operations with primary provider', async () => {
-    const operation: ProviderOperation = {
+    const operation: OneShotOperation = {
       address: '0x123',
       type: 'getAddressBalances',
     };
@@ -201,7 +194,7 @@ describe('BlockchainProviderManager', () => {
     // Make primary provider fail
     primaryProvider.setFailureMode(true);
 
-    const operation: ProviderOperation = {
+    const operation: OneShotOperation = {
       address: '0x123',
       type: 'getAddressBalances',
     };
@@ -217,7 +210,7 @@ describe('BlockchainProviderManager', () => {
     primaryProvider.setFailureMode(true);
     fallbackProvider.setFailureMode(true);
 
-    const operation: ProviderOperation = {
+    const operation: OneShotOperation = {
       address: '0x123',
       type: 'getAddressBalances',
     };
@@ -232,7 +225,7 @@ describe('BlockchainProviderManager', () => {
   });
 
   test('should cache results when cache key provided', async () => {
-    const operation: ProviderOperation = {
+    const operation: OneShotOperation = {
       address: '0x123',
       getCacheKey: (params) => {
         return `balance-${params.type === 'getAddressBalances' ? params.address : 'unknown'}`;
@@ -286,7 +279,7 @@ describe('BlockchainProviderManager', () => {
     const executeSpyFallback = vi.spyOn(fallbackProvider, 'execute');
 
     try {
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: '0x123',
         type: 'getAddressBalances',
       };
@@ -348,7 +341,7 @@ describe('BlockchainProviderManager', () => {
     const basicExecuteSpy = vi.spyOn(basicProvider, 'executeStreaming');
 
     // Execute token operation - should only use token provider
-    const tokenOperation: ProviderOperation = {
+    const tokenOperation: StreamingOperation = {
       address: '0x123',
       contractAddress: '0xabc',
       type: 'getAddressTransactions',
@@ -371,7 +364,7 @@ describe('BlockchainProviderManager', () => {
   test('should handle cache expiration correctly', async () => {
     vi.useFakeTimers();
 
-    const operation: ProviderOperation = {
+    const operation: OneShotOperation = {
       address: '0x123',
       getCacheKey: (params) => {
         return `balance-${params.type === 'getAddressBalances' ? params.address : 'unknown'}`;
@@ -571,7 +564,7 @@ describe('Provider System Integration', () => {
       manager.registerProviders('bitcoin', [provider]);
 
       // Test successful operation
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         address: 'bc1xyz',
         type: 'getAddressTransactions',
       };
@@ -668,7 +661,7 @@ describe('Preferred Provider Behavior', () => {
     const executeSpyMoralis = vi.spyOn(moralisProvider, 'execute');
 
     // Test operation that routescan DOES support
-    const operation: ProviderOperation = {
+    const operation: OneShotOperation = {
       address: '0x123',
       type: 'getAddressBalances',
     };
@@ -694,7 +687,7 @@ describe('Preferred Provider Behavior', () => {
     const executeSpyMoralis = vi.spyOn(moralisProvider, 'execute');
 
     // Test operation that routescan does NOT support (token metadata)
-    const operation: ProviderOperation = {
+    const operation: OneShotOperation = {
       type: 'getTokenMetadata',
       contractAddresses: ['0xabc'],
     };
@@ -723,7 +716,7 @@ describe('Preferred Provider Behavior', () => {
     const executeSpyMoralis = vi.spyOn(moralisProvider, 'execute');
 
     // Test operation that routescan DOES support
-    const operation: ProviderOperation = {
+    const operation: OneShotOperation = {
       address: '0x123',
       type: 'getAddressBalances',
     };
@@ -747,7 +740,7 @@ describe('Preferred Provider Behavior', () => {
     const executeSpyMoralis = vi.spyOn(moralisProvider, 'execute');
 
     // Test operation that both support
-    const operation: ProviderOperation = {
+    const operation: OneShotOperation = {
       address: '0x123',
       type: 'getAddressBalances',
     };
@@ -773,7 +766,7 @@ describe('Preferred Provider Behavior', () => {
     const executeStreamingSpyMoralis = vi.spyOn(moralisProvider, 'executeStreaming');
 
     // Test streaming operation that routescan DOES support
-    const operation: ProviderOperation = {
+    const operation: StreamingOperation = {
       address: '0x123',
       type: 'getAddressTransactions',
     };

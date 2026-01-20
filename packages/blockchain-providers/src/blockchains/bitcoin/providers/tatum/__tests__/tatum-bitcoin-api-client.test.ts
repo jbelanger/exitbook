@@ -2,7 +2,7 @@
 import { ok, err } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProviderOperation } from '../../../../../core/index.js';
+import type { OneShotOperation } from '../../../../../core/index.js';
 import { ProviderRegistry } from '../../../../../core/index.js';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
 import type { TatumBitcoinTransaction, TatumBitcoinBalance } from '../tatum.schemas.js';
@@ -160,7 +160,7 @@ describe('TatumBitcoinApiClient', () => {
       const result = await client.execute({
         address: mockAddress,
         type: 'unsupportedOperation' as const,
-      } as unknown as ProviderOperation);
+      } as unknown as OneShotOperation);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

@@ -13,9 +13,9 @@ import type { NormalizedTransactionBase } from '../schemas/normalized-transactio
 import type {
   FailoverStreamingExecutionResult,
   IBlockchainProvider,
-  ProviderOperation,
   ProviderOperationType,
   StreamingBatchResult,
+  StreamingOperation,
   TransactionWithRawData,
 } from '../types/index.js';
 
@@ -69,7 +69,7 @@ class MockProvider implements Partial<IBlockchainProvider> {
   }
 
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
-    _operation: ProviderOperation,
+    _operation: StreamingOperation,
     _cursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
     let batchIndex = 0;
@@ -152,7 +152,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       manager.registerProviders('ethereum', [provider1 as unknown as IBlockchainProvider]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -192,7 +192,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       manager.registerProviders('ethereum', [provider3 as unknown as IBlockchainProvider]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -237,7 +237,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       manager.registerProviders('ethereum', [provider3 as unknown as IBlockchainProvider]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -278,7 +278,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       manager.registerProviders('ethereum', [provider2WithPageToken as unknown as IBlockchainProvider]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -323,7 +323,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
         provider2 as unknown as IBlockchainProvider,
       ]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -348,7 +348,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
         provider2 as unknown as IBlockchainProvider,
       ]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -400,7 +400,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
         provider2 as unknown as IBlockchainProvider,
       ]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -438,7 +438,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       manager.registerProviders('ethereum', [provider1 as unknown as IBlockchainProvider]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -480,7 +480,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       manager.registerProviders('ethereum', [provider1 as unknown as IBlockchainProvider]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -533,7 +533,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
         provider2 as unknown as IBlockchainProvider,
       ]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -567,7 +567,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       manager.registerProviders('ethereum', [provider1 as unknown as IBlockchainProvider]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -606,7 +606,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       manager.registerProviders('ethereum', [provider1 as unknown as IBlockchainProvider]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -629,7 +629,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
     it('should handle no providers available', async () => {
       manager.registerProviders('ethereum', []);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -661,7 +661,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       manager.registerProviders('ethereum', [provider1 as unknown as IBlockchainProvider]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };
@@ -679,7 +679,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       manager.registerProviders('ethereum', [provider1 as unknown as IBlockchainProvider]);
 
-      const operation: ProviderOperation = {
+      const operation: StreamingOperation = {
         type: 'getAddressTransactions',
         address: '0x123',
       };

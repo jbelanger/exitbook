@@ -9,7 +9,12 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import type { StreamingBatchResult, TransactionWithRawData } from '../../../../core/types/index.js';
+import type {
+  OneShotOperation,
+  StreamingBatchResult,
+  StreamingOperation,
+  TransactionWithRawData,
+} from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
@@ -100,18 +105,18 @@ export class EtherscanApiClient extends BaseApiClient {
     };
   }
 
-  async execute<T>(_operation: ProviderOperation): Promise<Result<T, Error>> {
+  async execute<T>(_operation: OneShotOperation): Promise<Result<T, Error>> {
     return errAsync(
       new Error('Etherscan provider only supports streaming operations. Use executeStreaming() instead of execute().')
     );
   }
 
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
-    operation: ProviderOperation,
+    operation: StreamingOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
     if (operation.type !== 'getAddressTransactions') {
-      yield err(new Error(`Streaming not supported for operation: ${operation.type}`));
+      yield err(new Error(`Streaming not supported for operation: ${(operation as ProviderOperation).type}`));
       return;
     }
 

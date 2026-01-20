@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/types/index.js';
-import type { EvmTransaction } from '../../../types.js';
+import type { RawBalanceData } from '../../../../../core/types/index.js';
 import { AlchemyApiClient } from '../alchemy.api-client.js';
 
 describe('AlchemyApiClient Integration', () => {
@@ -16,96 +15,6 @@ describe('AlchemyApiClient Integration', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toBe(true);
-      }
-    }, 30000);
-  });
-
-  describe('Raw Address Transactions', () => {
-    it('should fetch raw address transactions successfully with gas fees', async () => {
-      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-          expect(firstTx).toHaveProperty('raw');
-          expect(firstTx).toHaveProperty('normalized');
-          expect(firstTx.normalized).toHaveProperty('id');
-          expect(firstTx.normalized).toHaveProperty('from');
-          expect(firstTx.normalized).toHaveProperty('to');
-          expect(firstTx.normalized).toHaveProperty('blockHeight');
-          expect(firstTx.normalized.providerName).toBe('alchemy');
-
-          // Verify gas fee data is populated
-          expect(firstTx.normalized).toHaveProperty('gasUsed');
-          expect(firstTx.normalized).toHaveProperty('gasPrice');
-          expect(firstTx.normalized).toHaveProperty('feeAmount');
-          expect(firstTx.normalized).toHaveProperty('feeCurrency');
-          expect(firstTx.normalized.feeCurrency).toBe('ETH'); // Ethereum native currency
-          expect(firstTx.normalized.gasUsed).toBeTruthy();
-          expect(firstTx.normalized.feeAmount).toBeTruthy();
-        }
-      }
-    }, 30000);
-
-    it('should fetch raw internal transactions successfully', async () => {
-      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-        streamType: 'internal',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-          expect(firstTx).toHaveProperty('raw');
-          expect(firstTx).toHaveProperty('normalized');
-          expect(firstTx.normalized).toHaveProperty('id');
-          expect(firstTx.normalized).toHaveProperty('from');
-          expect(firstTx.normalized).toHaveProperty('to');
-          expect(firstTx.normalized.providerName).toBe('alchemy');
-        }
-      }
-    }, 30000);
-  });
-
-  describe('Token Transactions', () => {
-    it('should fetch token transactions successfully with gas fees', async () => {
-      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-        streamType: 'token',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-          expect(firstTx).toHaveProperty('raw');
-          expect(firstTx).toHaveProperty('normalized');
-          expect(firstTx.normalized).toHaveProperty('id');
-          expect(firstTx.normalized.type).toBe('token_transfer');
-          expect(firstTx.normalized.providerName).toBe('alchemy');
-
-          // Verify gas fee data is populated (even for token transfers, gas is paid in native currency)
-          expect(firstTx.normalized).toHaveProperty('gasUsed');
-          expect(firstTx.normalized).toHaveProperty('gasPrice');
-          expect(firstTx.normalized).toHaveProperty('feeAmount');
-          expect(firstTx.normalized).toHaveProperty('feeCurrency');
-          expect(firstTx.normalized.feeCurrency).toBe('ETH'); // Gas always paid in native currency
-          expect(firstTx.normalized.gasUsed).toBeTruthy();
-          expect(firstTx.normalized.feeAmount).toBeTruthy();
-        }
       }
     }, 30000);
   });

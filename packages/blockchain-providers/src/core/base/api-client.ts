@@ -11,11 +11,12 @@ import type { NormalizedTransactionBase } from '../schemas/normalized-transactio
 import { createStreamingIterator, type StreamingAdapterOptions } from '../streaming/streaming-adapter.js';
 import type {
   IBlockchainProvider,
+  OneShotOperation,
   ProviderCapabilities,
   ProviderConfig,
   ProviderMetadata,
-  ProviderOperation,
   StreamingBatchResult,
+  StreamingOperation,
 } from '../types/index.js';
 
 // Burst benchmark batch size: Number of concurrent requests to send when testing burst rate limits
@@ -88,7 +89,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     return this.metadata.capabilities;
   }
 
-  abstract execute<T>(operation: ProviderOperation): Promise<Result<T, Error>>;
+  abstract execute<T>(operation: OneShotOperation): Promise<Result<T, Error>>;
 
   /**
    * Provide health check configuration for this provider
@@ -106,7 +107,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
    * Default implementation throws error - providers should implement when ready for Phase 1+
    */
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
-    _operation: ProviderOperation,
+    _operation: StreamingOperation,
     _cursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
     yield errAsync(

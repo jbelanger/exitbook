@@ -1,7 +1,7 @@
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProviderOperation, RawBalanceData } from '../../../../core/index.js';
+import type { OneShotOperation, RawBalanceData } from '../../../../core/index.js';
 import { ProviderRegistry } from '../../../../core/index.js';
 import { BlockfrostApiClient } from '../blockfrost-api-client.js';
 import type { BlockfrostAddress } from '../blockfrost.schemas.js';
@@ -91,7 +91,7 @@ describe('BlockfrostApiClient', () => {
     it('should fetch balance successfully', async () => {
       mockHttpGet.mockResolvedValue(ok(mockBalance));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: mockAddress,
         type: 'getAddressBalances' as const,
       };
@@ -125,7 +125,7 @@ describe('BlockfrostApiClient', () => {
 
       mockHttpGet.mockResolvedValue(ok(zeroBalance));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: mockAddress,
         type: 'getAddressBalances' as const,
       };
@@ -154,7 +154,7 @@ describe('BlockfrostApiClient', () => {
 
       mockHttpGet.mockResolvedValue(ok(byronBalance));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: byronAddress,
         type: 'getAddressBalances' as const,
       };
@@ -179,7 +179,7 @@ describe('BlockfrostApiClient', () => {
 
       mockHttpGet.mockResolvedValue(ok(scriptBalance));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: scriptAddress,
         type: 'getAddressBalances' as const,
       };
@@ -203,7 +203,7 @@ describe('BlockfrostApiClient', () => {
 
       mockHttpGet.mockResolvedValue(ok(stakedBalance));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: mockAddress,
         type: 'getAddressBalances' as const,
       };
@@ -226,7 +226,7 @@ describe('BlockfrostApiClient', () => {
 
       mockHttpGet.mockResolvedValue(ok(largeBalance));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: mockAddress,
         type: 'getAddressBalances' as const,
       };
@@ -250,7 +250,7 @@ describe('BlockfrostApiClient', () => {
 
       mockHttpGet.mockResolvedValue(ok(dustBalance));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: mockAddress,
         type: 'getAddressBalances' as const,
       };
@@ -274,7 +274,7 @@ describe('BlockfrostApiClient', () => {
 
       mockHttpGet.mockResolvedValue(ok(noLovelace));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: mockAddress,
         type: 'getAddressBalances' as const,
       };
@@ -294,7 +294,7 @@ describe('BlockfrostApiClient', () => {
       const error = new Error('API Error');
       mockHttpGet.mockResolvedValue(err(error));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: mockAddress,
         type: 'getAddressBalances' as const,
       };
@@ -311,7 +311,7 @@ describe('BlockfrostApiClient', () => {
       // With HTTP client schema validation, invalid data is rejected by the HTTP client
       mockHttpGet.mockResolvedValue(err(new Error('Schema validation failed')));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: mockAddress,
         type: 'getAddressBalances' as const,
       };
@@ -334,7 +334,7 @@ describe('BlockfrostApiClient', () => {
 
       mockHttpGet.mockResolvedValue(ok(emptyAmount));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: mockAddress,
         type: 'getAddressBalances' as const,
       };
@@ -354,7 +354,7 @@ describe('BlockfrostApiClient', () => {
       // With HTTP client schema validation, invalid quantity format is rejected by the HTTP client
       mockHttpGet.mockResolvedValue(err(new Error('Schema validation failed: quantity must be numeric')));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: mockAddress,
         type: 'getAddressBalances' as const,
       };
@@ -380,7 +380,7 @@ describe('BlockfrostApiClient', () => {
 
       mockHttpGet.mockResolvedValue(ok(multiAsset));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: mockAddress,
         type: 'getAddressBalances' as const,
       };
@@ -406,7 +406,7 @@ describe('BlockfrostApiClient', () => {
 
       mockHttpGet.mockResolvedValue(ok(noStake));
 
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: mockAddress,
         type: 'getAddressBalances' as const,
       };
@@ -425,7 +425,7 @@ describe('BlockfrostApiClient', () => {
       const result = await client.execute({
         address: 'addr1...',
         type: 'unsupportedOperation' as const,
-      } as unknown as ProviderOperation);
+      } as unknown as OneShotOperation);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

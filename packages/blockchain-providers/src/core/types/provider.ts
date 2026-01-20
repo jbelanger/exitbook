@@ -5,7 +5,7 @@ import type { Result } from 'neverthrow';
 import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.ts';
 
 import type { TransactionWithRawData } from './common.js';
-import type { ProviderOperation, ProviderOperationType } from './operations.js';
+import type { OneShotOperation, ProviderOperationType, StreamingOperation } from './operations.js';
 
 export interface ProviderCapabilities {
   /**
@@ -71,7 +71,7 @@ export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
   readonly blockchain: string;
   readonly capabilities: ProviderCapabilities;
   // Universal execution method - all operations go through this
-  execute<T>(operation: ProviderOperation, config: TConfig): Promise<Result<T, Error>>;
+  execute<T>(operation: OneShotOperation, config: TConfig): Promise<Result<T, Error>>;
   // Health and connectivity - returns Result to allow special error handling (e.g., RateLimitError)
   isHealthy(): Promise<Result<boolean, Error>>;
 
@@ -104,7 +104,7 @@ export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
    * ```
    */
   executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
-    operation: ProviderOperation,
+    operation: StreamingOperation,
     cursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>>;
 

@@ -14,7 +14,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import type { RawBalanceData } from '../../../../core/types/index.js';
+import type { OneShotOperation, RawBalanceData, StreamingOperation } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import { convertToMainUnit, createRawBalanceData } from '../../balance-utils.js';
 import type { SubstrateChainConfig } from '../../chain-config.interface.js';
@@ -197,7 +197,7 @@ export class SubscanApiClient extends BaseApiClient {
     return cursor;
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
+  async execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
     );
@@ -213,7 +213,7 @@ export class SubscanApiClient extends BaseApiClient {
   }
 
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
-    operation: ProviderOperation,
+    operation: StreamingOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
     // Route to appropriate streaming implementation
@@ -230,7 +230,7 @@ export class SubscanApiClient extends BaseApiClient {
         break;
       }
       default:
-        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+        yield err(new Error(`Streaming not yet implemented for operation: ${(operation as ProviderOperation).type}`));
     }
   }
 

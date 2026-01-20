@@ -31,6 +31,8 @@ import type {
   JsonRpcResponse,
   RawBalanceData,
   StreamingBatchResult,
+  OneShotOperation,
+  StreamingOperation,
 } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import { isNativeToken } from '../../balance-utils.js';
@@ -175,7 +177,7 @@ export class AlchemyApiClient extends BaseApiClient {
     };
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
+  async execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
@@ -200,11 +202,11 @@ export class AlchemyApiClient extends BaseApiClient {
   }
 
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
-    operation: ProviderOperation,
+    operation: StreamingOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
     if (operation.type !== 'getAddressTransactions') {
-      yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
+      yield err(new Error(`Streaming not yet implemented for operation: ${(operation as ProviderOperation).type}`));
       return;
     }
 

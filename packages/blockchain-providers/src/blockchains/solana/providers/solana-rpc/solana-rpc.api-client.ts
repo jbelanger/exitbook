@@ -1,7 +1,7 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, ProviderOperation, JsonRpcResponse, RawBalanceData } from '../../../../core/index.ts';
+import type { ProviderConfig, JsonRpcResponse, RawBalanceData, OneShotOperation } from '../../../../core/index.ts';
 import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
 import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.ts';
 import { isValidSolanaAddress } from '../../utils.ts';
@@ -37,7 +37,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
     super(config);
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
+  async execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
     );

@@ -6,7 +6,7 @@
 import { createInitialCircuitState, recordFailure, shouldCircuitBlock, type CircuitState } from '@exitbook/http';
 import { describe, expect, it } from 'vitest';
 
-import type { ProviderCapabilities, ProviderOperation } from '../types/index.js';
+import type { OneShotOperation, ProviderCapabilities } from '../types/index.js';
 
 // Pure types for provider info
 interface ProviderInfo {
@@ -18,7 +18,7 @@ interface ProviderInfo {
 }
 
 // Select capable providers for operation
-export const selectCapableProviders = (providers: ProviderInfo[], operation: ProviderOperation): ProviderInfo[] => {
+export const selectCapableProviders = (providers: ProviderInfo[], operation: OneShotOperation): ProviderInfo[] => {
   return providers.filter((provider) => {
     const { supportedOperations } = provider.capabilities;
     return supportedOperations.includes(operation.type);
@@ -47,7 +47,7 @@ export const sortByPriority = <T extends { priority: number }>(providers: T[]): 
 // Get failover sequence
 export const getFailoverSequence = (
   providers: ProviderInfo[],
-  operation: ProviderOperation,
+  operation: OneShotOperation,
   circuitStates: Map<string, CircuitState>,
   currentTime: number
 ): ProviderInfo[] => {
@@ -57,7 +57,7 @@ export const getFailoverSequence = (
 };
 
 // Generate cache key
-export const generateCacheKey = (blockchain: string, operation: ProviderOperation): string | undefined => {
+export const generateCacheKey = (blockchain: string, operation: OneShotOperation): string | undefined => {
   if (!operation.getCacheKey) {
     return;
   }
@@ -85,7 +85,7 @@ describe('Provider Selection (Pure Functions)', () => {
 
   describe('selectCapableProviders', () => {
     it('returns only providers that support the operation', () => {
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: '0x123',
         type: 'getAddressBalances',
       };
@@ -101,13 +101,13 @@ describe('Provider Selection (Pure Functions)', () => {
         type: 'custom',
       };
 
-      const capable = selectCapableProviders(providers, operation as ProviderOperation);
+      const capable = selectCapableProviders(providers, operation as OneShotOperation);
 
       expect(capable).toHaveLength(0);
     });
 
     it('handles token-specific operations', () => {
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: '0x123',
         contractAddresses: ['0xabc'],
         type: 'getAddressTokenBalances',
@@ -175,7 +175,7 @@ describe('Provider Selection (Pure Functions)', () => {
 
   describe('getFailoverSequence', () => {
     it('returns capable providers sorted by priority with closed circuits', () => {
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: '0x123',
         type: 'getAddressBalances',
       };
@@ -191,7 +191,7 @@ describe('Provider Selection (Pure Functions)', () => {
     });
 
     it('excludes providers with open circuits from sequence', () => {
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: '0x123',
         type: 'getAddressBalances',
       };
@@ -217,7 +217,7 @@ describe('Provider Selection (Pure Functions)', () => {
       };
 
       const circuitStates = new Map<string, CircuitState>();
-      const sequence = getFailoverSequence(providers, operation as ProviderOperation, circuitStates, 1000);
+      const sequence = getFailoverSequence(providers, operation as OneShotOperation, circuitStates, 1000);
 
       expect(sequence).toHaveLength(0);
     });
@@ -225,7 +225,7 @@ describe('Provider Selection (Pure Functions)', () => {
 
   describe('generateCacheKey', () => {
     it('generates cache key when getCacheKey is provided', () => {
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: '0x123',
         getCacheKey: (op) => `balance-${op.type === 'getAddressBalances' ? op.address : 'unknown'}`,
         type: 'getAddressBalances',
@@ -237,7 +237,7 @@ describe('Provider Selection (Pure Functions)', () => {
     });
 
     it('returns undefined when getCacheKey not provided', () => {
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: '0x123',
         type: 'getAddressBalances',
       };
@@ -248,7 +248,7 @@ describe('Provider Selection (Pure Functions)', () => {
     });
 
     it('includes blockchain in cache key', () => {
-      const operation: ProviderOperation = {
+      const operation: OneShotOperation = {
         address: 'bc1xyz',
         getCacheKey: (op) => `${op.type}-${String((op as { address?: string }).address)}`,
         type: 'getAddressBalances',

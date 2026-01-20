@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/types/index.js';
-import type { CosmosTransaction } from '../../../types.js';
+import type { RawBalanceData } from '../../../../../core/types/index.js';
 import { InjectiveExplorerApiClient } from '../injective-explorer.api-client.js';
-import type { InjectiveTransaction } from '../injective-explorer.schemas.js';
 
 describe('InjectiveExplorerApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('injective', 'injective-explorer');
@@ -67,55 +65,6 @@ describe('InjectiveExplorerApiClient Integration', () => {
       expect(balance.decimals).toBe(18);
       if (balance.decimalAmount) {
         expect(parseFloat(balance.decimalAmount)).toBeGreaterThanOrEqual(0);
-      }
-    }, 30000);
-  });
-
-  describe('Address Transactions', () => {
-    it('should fetch address transactions successfully with normalization', async () => {
-      const result = await provider.execute<TransactionWithRawData<CosmosTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) {
-        throw result.error;
-      }
-
-      const transactions = result.value;
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
-        const firstTx = transactions[0]!;
-
-        expect(firstTx).toHaveProperty('raw');
-        expect(firstTx).toHaveProperty('normalized');
-
-        const rawData = firstTx.raw as InjectiveTransaction;
-
-        expect(rawData).toHaveProperty('hash');
-        expect(rawData).toHaveProperty('messages');
-        expect(rawData).toHaveProperty('block_number');
-        expect(rawData).toHaveProperty('block_timestamp');
-        expect(rawData).toHaveProperty('gas_fee');
-        expect(rawData).toHaveProperty('gas_used');
-        expect(rawData).toHaveProperty('code');
-
-        expect(Array.isArray(rawData.messages)).toBe(true);
-        expect(rawData.messages.length).toBeGreaterThan(0);
-
-        const normalized = firstTx.normalized;
-        expect(normalized).toHaveProperty('id');
-        expect(normalized).toHaveProperty('timestamp');
-        expect(normalized).toHaveProperty('status');
-        expect(normalized).toHaveProperty('providerName');
-        expect(normalized).toHaveProperty('feeAmount');
-        expect(normalized).toHaveProperty('feeCurrency');
-
-        expect(normalized.providerName).toBe('injective-explorer');
-        expect(['success', 'failed']).toContain(normalized.status);
-        expect(normalized.feeCurrency).toBe('INJ');
-        expect(typeof normalized.timestamp).toBe('number');
       }
     }, 30000);
   });
