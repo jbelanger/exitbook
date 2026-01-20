@@ -55,7 +55,7 @@ export interface StreamingBatchResult<T extends NormalizedTransactionBase = Norm
   isComplete: boolean;
 }
 
-export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
+export interface IBlockchainProvider {
   // Rate limit benchmarking
   benchmarkRateLimit(
     maxRequestsPerSecond: number,
@@ -71,7 +71,7 @@ export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
   readonly blockchain: string;
   readonly capabilities: ProviderCapabilities;
   // Universal execution method - all operations go through this
-  execute<T>(operation: OneShotOperation, config: TConfig): Promise<Result<T, Error>>;
+  execute<T>(operation: OneShotOperation): Promise<Result<T, Error>>;
   // Health and connectivity - returns Result to allow special error handling (e.g., RateLimitError)
   isHealthy(): Promise<Result<boolean, Error>>;
 

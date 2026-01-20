@@ -748,7 +748,7 @@ export class BlockchainProviderManager {
       const startTime = Date.now();
       try {
         // Execute operation - rate limiting handled by provider's HttpClient
-        const result = await provider.execute<T>(operation, {});
+        const result = await provider.execute<T>(operation);
 
         // Unwrap Result type - throw error to trigger failover
         if (result.isErr()) {
