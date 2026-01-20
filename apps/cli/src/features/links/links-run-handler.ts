@@ -1,11 +1,14 @@
 import {
+  createTransactionLink,
   DEFAULT_MATCHING_CONFIG,
   TransactionLinkingService,
+  type TransactionLink,
   type TransactionLinkRepository,
 } from '@exitbook/accounting';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
+import { v4 as uuidv4 } from 'uuid';
 
 import type { LinksRunHandlerParams } from './links-run-utils.js';
 
@@ -111,14 +114,40 @@ export class LinksRunHandler {
         'Transaction linking completed'
       );
 
-      // Save confirmed links to database (unless dry-run)
-      if (!params.dryRun && confirmedLinks.length > 0) {
-        const saveResult = await this.linkRepository.createBulk(confirmedLinks);
-        if (saveResult.isErr()) {
-          return err(saveResult.error);
+      // Save links to database (unless dry-run)
+      if (!params.dryRun) {
+        const now = new Date();
+
+        // Save confirmed links
+        if (confirmedLinks.length > 0) {
+          const saveResult = await this.linkRepository.createBulk(confirmedLinks);
+          if (saveResult.isErr()) {
+            return err(saveResult.error);
+          }
+          logger.info({ count: saveResult.value }, 'Saved confirmed links to database');
         }
-        logger.info({ count: saveResult.value }, 'Saved confirmed links to database');
-      } else if (params.dryRun) {
+
+        // Save suggested links
+        if (suggestedLinks.length > 0) {
+          const suggestedLinkEntities: TransactionLink[] = [];
+          for (const match of suggestedLinks) {
+            const linkResult = createTransactionLink(match, 'suggested', uuidv4(), now);
+            if (linkResult.isErr()) {
+              logger.warn({ error: linkResult.error.message, match }, 'Failed to create suggested link - skipping');
+              continue;
+            }
+            suggestedLinkEntities.push(linkResult.value);
+          }
+
+          if (suggestedLinkEntities.length > 0) {
+            const saveResult = await this.linkRepository.createBulk(suggestedLinkEntities);
+            if (saveResult.isErr()) {
+              return err(saveResult.error);
+            }
+            logger.info({ count: saveResult.value }, 'Saved suggested links to database');
+          }
+        }
+      } else {
         logger.info('Dry run mode - no links saved to database');
       }
 

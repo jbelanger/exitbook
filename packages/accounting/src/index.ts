@@ -59,7 +59,7 @@ export type {
   LinkingResult,
 } from './linking/types.js';
 export { TransactionLinkingService } from './linking/transaction-linking-service.js';
-export { DEFAULT_MATCHING_CONFIG } from './linking/matching-utils.js';
+export { DEFAULT_MATCHING_CONFIG, createTransactionLink } from './linking/matching-utils.js';
 export { LinkIndex } from './linking/link-index.js';
 export { TransactionLinkRepository } from './persistence/transaction-link-repository.js';
 export { CostBasisRepository } from './persistence/cost-basis-repository.js';

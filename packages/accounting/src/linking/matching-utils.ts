@@ -176,7 +176,12 @@ export function calculateConfidenceScore(criteria: MatchCriteria): Decimal {
   }
 
   // Clamp to [0, 1]
-  return Decimal.min(Decimal.max(score, parseDecimal('0')), parseDecimal('1'));
+  score = Decimal.min(Decimal.max(score, parseDecimal('0')), parseDecimal('1'));
+
+  // Round to 6 decimal places to ensure deterministic threshold comparisons
+  // and avoid floating point precision issues. This precision is more than
+  // sufficient for financial matching (effective similarity precision: ~2.5 ppm)
+  return score.toDecimalPlaces(6, Decimal.ROUND_HALF_UP);
 }
 
 /**
