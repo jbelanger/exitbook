@@ -210,6 +210,9 @@ describe('links-view-utils', () => {
         id: 'link-123',
         source_transaction_id: 1,
         target_transaction_id: 2,
+        asset_symbol: 'BTC',
+        source_amount: '1',
+        target_amount: '1',
         link_type: 'exchange_to_blockchain',
         confidence_score: '0.85',
         match_criteria: {
@@ -224,6 +227,10 @@ describe('links-view-utils', () => {
         reviewed_at: undefined,
         created_at: '2024-01-01T12:00:00.000Z',
         updated_at: '2024-01-01T12:00:00.000Z',
+        source_timestamp: undefined,
+        target_timestamp: undefined,
+        source_transaction: undefined,
+        target_transaction: undefined,
       });
     });
 

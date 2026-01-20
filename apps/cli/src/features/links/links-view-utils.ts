@@ -37,6 +37,9 @@ export interface LinkInfo {
   id: string;
   source_transaction_id: number;
   target_transaction_id: number;
+  asset_symbol: string;
+  source_amount: string;
+  target_amount: string;
   link_type: string;
   confidence_score: string;
   match_criteria: MatchCriteria;
@@ -45,6 +48,8 @@ export interface LinkInfo {
   reviewed_at: string | undefined;
   created_at: string;
   updated_at: string;
+  source_timestamp?: string | undefined;
+  target_timestamp?: string | undefined;
   source_transaction?: TransactionDetails | undefined;
   target_transaction?: TransactionDetails | undefined;
 }
@@ -108,6 +113,9 @@ export function formatLinkInfo(
     id: link.id,
     source_transaction_id: link.sourceTransactionId,
     target_transaction_id: link.targetTransactionId,
+    asset_symbol: link.assetSymbol,
+    source_amount: link.sourceAmount.toFixed(),
+    target_amount: link.targetAmount.toFixed(),
     link_type: link.linkType,
     confidence_score: link.confidenceScore.toFixed(),
     match_criteria: link.matchCriteria,
@@ -116,9 +124,11 @@ export function formatLinkInfo(
     reviewed_at: link.reviewedAt?.toISOString(),
     created_at: link.createdAt.toISOString(),
     updated_at: link.updatedAt.toISOString(),
+    source_timestamp: sourceTx?.datetime,
+    target_timestamp: targetTx?.datetime,
   };
 
-  // Add transaction details if provided
+  // Add full transaction details if provided (for verbose mode)
   if (sourceTx) {
     linkInfo.source_transaction = mapTransactionToDetails(sourceTx);
   }
@@ -228,10 +238,22 @@ export function formatLinkForDisplay(link: LinkInfo): string {
   const statusIcon = getLinkStatusIcon(link.status);
   const lines: string[] = [];
 
+  // Title line with asset symbol
   lines.push(
-    `${statusIcon} Link #${link.id.slice(0, 8)} - ${link.link_type.replace(/_/g, ' ')} (${formatConfidence(link.confidence_score)})`
+    `${statusIcon} Link #${link.id.slice(0, 8)} - ${link.asset_symbol} ${link.link_type.replace(/_/g, ' ')} (${formatConfidence(link.confidence_score)})`
   );
+
+  // Transaction IDs and amounts
   lines.push(`   Source TX: #${link.source_transaction_id} → Target TX: #${link.target_transaction_id}`);
+  lines.push(`   Amount: ${link.source_amount} ${link.asset_symbol} → ${link.target_amount} ${link.asset_symbol}`);
+
+  // Transaction timestamps (always show if available)
+  if (link.source_timestamp || link.target_timestamp) {
+    const sourceTime = link.source_timestamp ?? '?';
+    const targetTime = link.target_timestamp ?? '?';
+    lines.push(`   Time: ${sourceTime} → ${targetTime}`);
+  }
+
   lines.push(`   Status: ${link.status}`);
   lines.push(`   Match: ${formatMatchCriteria(link.match_criteria)}`);
   lines.push(`   Created: ${link.created_at}`);

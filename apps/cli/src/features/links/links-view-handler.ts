@@ -45,14 +45,15 @@ export class LinksViewHandler {
       links = links.slice(0, params.limit);
     }
 
-    // Format links with transaction details if verbose mode
+    // Format links with transaction details
     const linkInfos: LinkInfo[] = [];
     for (const link of links) {
-      // Fetch transactions if verbose mode and txRepo is available (imperative shell)
+      // Always fetch transactions if txRepo is available (for timestamps and amounts)
+      // In verbose mode, full transaction details will be displayed
       let sourceTx;
       let targetTx;
 
-      if (params.verbose && this.txRepo) {
+      if (this.txRepo) {
         const sourceTxResult = await this.txRepo.findById(link.sourceTransactionId);
         if (sourceTxResult.isOk() && sourceTxResult.value) {
           sourceTx = sourceTxResult.value;
@@ -65,7 +66,15 @@ export class LinksViewHandler {
       }
 
       // Format link info (functional core)
+      // Verbose mode controls whether full transaction details are included
       const linkInfo = formatLinkInfo(link, sourceTx, targetTx);
+
+      // Remove full transaction details if not in verbose mode
+      if (!params.verbose) {
+        linkInfo.source_transaction = undefined;
+        linkInfo.target_transaction = undefined;
+      }
+
       linkInfos.push(linkInfo);
     }
 
