@@ -88,4 +88,11 @@ export interface CosmosChainConfig {
         sender: string;
       }
     | undefined;
+
+  /**
+   * Whether the chain's Cosmos REST API supports transaction event indexing
+   * for /cosmos/tx/v1beta1/txs queries. If false, REST-based transaction
+   * streaming should be disabled for this chain.
+   */
+  restTxSearchEnabled?: boolean | undefined;
 }

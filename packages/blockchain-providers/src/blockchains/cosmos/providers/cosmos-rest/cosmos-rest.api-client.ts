@@ -437,6 +437,9 @@ export class CosmosRestApiClient extends BaseApiClient {
 
 // Register the Cosmos REST provider for each Cosmos chain
 for (const [chainName, chainConfig] of Object.entries(COSMOS_CHAINS)) {
+  if (chainConfig.restTxSearchEnabled === false) {
+    continue;
+  }
   ProviderRegistry.register({
     create: (config: ProviderConfig) =>
       new CosmosRestApiClient({

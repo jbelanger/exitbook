@@ -99,7 +99,8 @@
       "https://api.akashnet.net",
       "https://akash.c29r3.xyz/api"
     ],
-    "nativeDenom": "uakt"
+    "nativeDenom": "uakt",
+    "restTxSearchEnabled": false
   },
   "kujira": {
     "chainId": "kaiyo-1",

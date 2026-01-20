@@ -7,6 +7,7 @@
  * Current providers:
  * - Cosmos REST API (all Cosmos chains via standard REST endpoints)
  * - Injective Explorer (Injective only)
+ * - Akash Console API (Akash only - custom indexer with full historical data)
  *
  * Future providers:
  * - Mintscan (multi-chain: Injective, Osmosis, Cosmos Hub, Terra, etc.)
@@ -17,6 +18,8 @@
 import './providers/cosmos-rest/cosmos-rest.api-client.js';
 // Injective Explorer - Injective only
 import './providers/injective-explorer/injective-explorer.api-client.js';
+// Akash Console API - Akash only (custom indexer with full historical data)
+import './providers/akash-console/akash-console.api-client.js';
 
 // Future: Add more multi-chain providers here
 // import './providers/mintscan/mintscan.api-client.js';

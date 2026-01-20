@@ -1,10 +1,345 @@
-# Akash RPC Client Implementation Guide
+# Akash API Implementation Guide
 
 ## Executive Summary
 
-**Problem**: Akash REST API (`/cosmos/tx/v1beta1/txs`) does NOT have transaction event indexing enabled. All event-based queries return 0 results, making it impossible to fetch transactions by address.
+**Problem**: Standard Cosmos REST API (`/cosmos/tx/v1beta1/txs`) does NOT have transaction event indexing enabled on Akash. All event-based queries return 0 results.
 
-**Solution**: Implement a Cosmos RPC client using CometBFT's `/tx_search` endpoint, which DOES have event indexing enabled on Akash nodes.
+**✅ SOLUTION FOUND**: Akash has a **custom Console API** (`console-api.akash.network`) with:
+
+- ✅ Full historical transaction data (back to Dec 2024, likely earlier)
+- ✅ Clean REST API with address-based queries
+- ✅ Balance information with delegation/staking details
+- ✅ Transaction details with full sender/recipient info
+- ✅ Simple offset/limit pagination
+
+**Alternative**: Implement CometBFT RPC client (limited to ~2 months retention on public nodes)
+
+## ⭐ Akash Console API (RECOMMENDED)
+
+### Base URL
+
+```
+https://console-api.akash.network/v1
+```
+
+### Available Endpoints
+
+#### 1. Get Address Balance and Info
+
+```bash
+GET /addresses/{address}
+
+# Example:
+curl -s "https://console-api.akash.network/v1/addresses/akash1asagzdynnr5h6c7sq3qgn4azjmsewt0lr97wj5"
+```
+
+**Response Structure:**
+
+```json
+{
+  "total": 748426495,           // Total balance in uakt
+  "available": 748426495,        // Available balance in uakt
+  "delegated": 0,                // Delegated amount in uakt
+  "rewards": 0,                  // Staking rewards in uakt
+  "commission": 0,               // Validator commission in uakt
+  "assets": [
+    {
+      "symbol": "AKT",
+      "logoUrl": "https://console.akash.network/images/akash-logo.svg",
+      "amount": 748.426495       // Already converted to AKT (decimal)
+    }
+  ],
+  "delegations": [],             // Array of delegation objects
+  "redelegations": [],           // Array of redelegation objects
+  "latestTransactions": [...]    // Last 5 transactions (same structure as transactions endpoint)
+}
+```
+
+#### 2. Get Address Transactions (Paginated)
+
+```bash
+GET /addresses/{address}/transactions/{skip}/{limit}
+
+# Examples:
+curl -s "https://console-api.akash.network/v1/addresses/akash1asagzdynnr5h6c7sq3qgn4azjmsewt0lr97wj5/transactions/0/10"
+curl -s "https://console-api.akash.network/v1/addresses/akash1asagzdynnr5h6c7sq3qgn4azjmsewt0lr97wj5/transactions/10/10"
+```
+
+**Response Structure:**
+
+```json
+{
+  "count": 5, // Total number of transactions
+  "results": [
+    {
+      "height": 24481569,
+      "datetime": "2025-12-04T18:41:56.335Z",
+      "hash": "4407219321D8F430A89B3B3A788383DF292A93B8F78438377779135376B47A6C",
+      "isSuccess": true,
+      "error": null,
+      "gasUsed": 16693330,
+      "gasWanted": 20000000,
+      "fee": 500000, // Fee in uakt
+      "memo": "...",
+      "isSigner": false, // Whether address is the transaction signer
+      "messages": [
+        {
+          "id": "83eb0370-dfe6-48a9-a369-e26673213345",
+          "type": "/cosmos.bank.v1beta1.MsgMultiSend",
+          "amount": 0, // Amount in uakt (0 for MsgMultiSend, use detail endpoint)
+          "isReceiver": true // Whether address is receiver in this message
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Pagination:**
+
+- `skip`: Offset (0-indexed)
+- `limit`: Number of results (test with different limits to find max)
+- Results ordered by newest first (descending by height)
+
+#### 3. Get Transaction Details
+
+```bash
+GET /transactions/{hash}
+
+# Example:
+curl -s "https://console-api.akash.network/v1/transactions/CB485D29C234BA4C507F30A8A9C8B8512A1151235D0BE3F84B6E36B3ACED0DA8"
+```
+
+**Response Structure:**
+
+```json
+{
+  "height": 19538016,
+  "datetime": "2024-12-27T15:46:28.783Z",
+  "hash": "CB485D29C234BA4C507F30A8A9C8B8512A1151235D0BE3F84B6E36B3ACED0DA8",
+  "isSuccess": true,
+  "multisigThreshold": null,
+  "signers": ["akash14pkmzwzatmv6rcwc365zypxrn7s92lfedyz85v"],
+  "error": null,
+  "gasUsed": 67141,
+  "gasWanted": 103749,
+  "fee": 5188, // Fee in uakt
+  "memo": "",
+  "messages": [
+    {
+      "id": "d5ab3124-211f-4169-a272-0bf8bf1a1bd5",
+      "type": "/cosmos.bank.v1beta1.MsgSend",
+      "data": {
+        "from_address": "akash14pkmzwzatmv6rcwc365zypxrn7s92lfedyz85v",
+        "to_address": "akash1asagzdynnr5h6c7sq3qgn4azjmsewt0lr97wj5",
+        "amount": [
+          {
+            "denom": "uakt",
+            "amount": "284870994"
+          }
+        ]
+      },
+      "relatedDeploymentId": null
+    }
+  ]
+}
+```
+
+### Data Retention
+
+✅ **Historical data confirmed**: December 27, 2024 transactions retrieved successfully
+✅ **Likely full history**: This is a custom indexer, not a pruning node
+
+### Implementation Guidance
+
+#### Create Akash Console API Client
+
+```typescript
+// packages/blockchain-providers/src/blockchains/cosmos/providers/akash-console/
+// akash-console.api-client.ts
+
+export class AkashConsoleApiClient extends BaseApiClient {
+  constructor(config: ProviderConfig) {
+    super({
+      ...config,
+      baseUrl: 'https://console-api.akash.network/v1',
+    });
+  }
+
+  async getAddressBalances(address: string): Promise<Result<RawBalanceData, Error>> {
+    const result = await this.httpClient.get(`/addresses/${address}`);
+    // Parse result.assets[0].amount (already in AKT decimal)
+    // Convert to uakt for consistency: amount * 1e6
+  }
+
+  async *streamAddressTransactions(address: string, resumeCursor?: CursorState) {
+    let skip = resumeCursor?.metadata?.skip ?? 0;
+    const limit = 100; // Test to find optimal limit
+
+    while (true) {
+      const result = await this.httpClient.get(`/addresses/${address}/transactions/${skip}/${limit}`);
+
+      if (result.isErr() || result.value.results.length === 0) {
+        break;
+      }
+
+      // Fetch full transaction details for sender/recipient info
+      const enrichedTxs = await Promise.all(
+        result.value.results.map((tx) => this.httpClient.get(`/transactions/${tx.hash}`))
+      );
+
+      yield ok({
+        data: enrichedTxs,
+        cursorState: { metadata: { skip: skip + limit } },
+      });
+
+      skip += limit;
+
+      if (result.value.results.length < limit) {
+        break; // Last page
+      }
+    }
+  }
+}
+```
+
+#### Key Implementation Notes
+
+1. **Balance Endpoint**:
+   - Returns `assets[0].amount` already in AKT decimal format
+   - Convert back to `uakt` for consistency: `amount * 1e6`
+   - Also provides delegation/staking info if needed
+
+2. **Transaction List**:
+   - Lightweight response (no sender/recipient in messages)
+   - Use for initial pagination
+   - Fetch `/transactions/{hash}` for full details when needed
+
+3. **Transaction Details**:
+   - Full `from_address` and `to_address` in message data
+   - Complete amount information with denom
+   - Consider batching detail fetches to reduce API calls
+
+4. **Pagination Strategy**:
+   - Use offset/limit pattern (`skip`/`limit`)
+   - Store `skip` value in cursor metadata
+   - Results are pre-sorted (newest first)
+
+5. **Error Handling**:
+   - Test with invalid addresses to see error format
+   - Handle empty results (`.count === 0`)
+   - Check rate limits (unknown, test with rapid requests)
+
+#### Zod Schemas
+
+```typescript
+// akash-console.schemas.ts
+
+const AkashAssetSchema = z.object({
+  symbol: z.string(),
+  logoUrl: z.string().optional(),
+  amount: z.number(),
+});
+
+const AkashBalanceResponseSchema = z.object({
+  total: z.number(),
+  available: z.number(),
+  delegated: z.number(),
+  rewards: z.number(),
+  commission: z.number(),
+  assets: z.array(AkashAssetSchema),
+  delegations: z.array(z.unknown()),
+  redelegations: z.array(z.unknown()),
+  latestTransactions: z.array(z.unknown()).optional(),
+});
+
+const AkashTransactionMessageSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  amount: z.number(),
+  isReceiver: z.boolean().optional(),
+});
+
+const AkashTransactionSchema = z.object({
+  height: z.number(),
+  datetime: z.string(),
+  hash: z.string(),
+  isSuccess: z.boolean(),
+  error: z.string().nullable(),
+  gasUsed: z.number(),
+  gasWanted: z.number(),
+  fee: z.number(),
+  memo: z.string(),
+  isSigner: z.boolean(),
+  messages: z.array(AkashTransactionMessageSchema),
+});
+
+const AkashTransactionListResponseSchema = z.object({
+  count: z.number(),
+  results: z.array(AkashTransactionSchema),
+});
+
+const AkashMessageDataSchema = z.object({
+  from_address: z.string().optional(),
+  to_address: z.string().optional(),
+  amount: z
+    .array(
+      z.object({
+        denom: z.string(),
+        amount: z.string(),
+      })
+    )
+    .optional(),
+  // Add other message types as needed
+});
+
+const AkashTransactionDetailMessageSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  data: AkashMessageDataSchema,
+  relatedDeploymentId: z.string().nullable(),
+});
+
+const AkashTransactionDetailSchema = z.object({
+  height: z.number(),
+  datetime: z.string(),
+  hash: z.string(),
+  isSuccess: z.boolean(),
+  multisigThreshold: z.number().nullable(),
+  signers: z.array(z.string()),
+  error: z.string().nullable(),
+  gasUsed: z.number(),
+  gasWanted: z.number(),
+  fee: z.number(),
+  memo: z.string(),
+  messages: z.array(AkashTransactionDetailMessageSchema),
+});
+```
+
+### Testing
+
+Test address: `akash1asagzdynnr5h6c7sq3qgn4azjmsewt0lr97wj5`
+
+- Has 5 transactions (as of 2026-01-19)
+- Date range: Dec 27, 2024 - Dec 4, 2025
+- Balance: 748.426495 AKT
+
+### Comparison: Console API vs RPC
+
+| Feature              | Console API                    | RPC API                        |
+| -------------------- | ------------------------------ | ------------------------------ |
+| **Historical Data**  | ✅ Full history (Dec 2024+)    | ❌ ~2 months only              |
+| **Ease of Use**      | ✅ Clean REST JSON             | ⚠️ Protobuf decoding needed    |
+| **Pagination**       | ✅ Simple offset/limit         | ⚠️ Page numbers                |
+| **Balance Info**     | ✅ Included with staking       | ⚠️ Separate endpoints          |
+| **Sender/Recipient** | ✅ Full details in tx endpoint | ✅ In events                   |
+| **Rate Limits**      | ❓ Unknown (test needed)       | ✅ Known (varies by node)      |
+| **Timestamp**        | ✅ Included in response        | ❌ Requires block fetch        |
+| **Akash-Specific**   | ⚠️ Only works for Akash        | ✅ Works for all Cosmos chains |
+
+**Recommendation**: Use Console API for Akash, RPC for other Cosmos chains without REST indexing.
+
+---
 
 ## REST API Limitations (Current Implementation)
 
@@ -357,13 +692,25 @@ curl -s "https://akash-rpc.polkachu.com:443/status" | jq '.result.sync_info | {
 
 ## Next Steps
 
+### Recommended: Implement Akash Console API Client
+
+1. Create `AkashConsoleApiClient` class extending `BaseApiClient`
+2. Implement Zod schemas (see schemas above)
+3. Implement mapper utilities to transform Console API responses to `CosmosTransaction`
+4. Write E2E tests using test address: `akash1asagzdynnr5h6c7sq3qgn4azjmsewt0lr97wj5`
+5. Register provider specifically for Akash blockchain
+6. Test pagination limits and rate limits
+7. Handle MsgMultiSend and other Akash-specific message types
+
+### Alternative: Implement Cosmos RPC Client (for other chains)
+
 1. Create `CosmosRpcApiClient` class extending `BaseApiClient`
 2. Implement Zod schemas for RPC responses (`cosmos-rpc.schemas.ts`)
 3. Implement mapper utilities to transform RPC responses to `CosmosTransaction`
 4. Handle timestamp fetching from block data
-5. Write E2E tests using Akash test address: `akash1asagzdynnr5h6c7sq3qgn4azjmsewt0lr97wj5`
-6. Register provider for Akash and other affected chains
-7. Update chain configs to indicate which provider to use (REST vs RPC)
+5. Write E2E tests
+6. Register provider for chains without REST event indexing (Osmosis, etc.)
+7. Update chain configs to indicate which provider to use
 
 ## Reference: Akash Chain Config
 
@@ -396,6 +743,24 @@ Current configuration at `packages/blockchain-providers/src/blockchains/cosmos/c
 ```
 
 ## Testing Checklist
+
+### Console API (Akash)
+
+- [ ] Verify Console API endpoint connectivity
+- [ ] Test `/addresses/{address}` balance endpoint
+- [ ] Test `/addresses/{address}/transactions/{skip}/{limit}` pagination
+- [ ] Test `/transactions/{hash}` detail endpoint
+- [ ] Verify pagination with different limits (10, 50, 100)
+- [ ] Test with address having 0 transactions
+- [ ] Test with invalid address format
+- [ ] Verify cursor resumption works (skip parameter)
+- [ ] Check error handling for non-existent transactions
+- [ ] Measure rate limits (rapid consecutive requests)
+- [ ] Test MsgMultiSend message parsing
+- [ ] Verify historical data retrieval (Dec 2024)
+- [ ] Compare balance values: uakt vs AKT decimal conversion
+
+### RPC API (Other Cosmos Chains)
 
 - [ ] Verify RPC endpoint connectivity
 - [ ] Test `/tx_search` with `transfer.recipient` query
