@@ -371,14 +371,21 @@ describe('AlchemyApiClient Streaming E2E', () => {
       });
 
       it('should handle zero block edge case in replay window', () => {
-        const blockNumberCursor = { type: 'blockNumber' as const, value: 3 };
-        const adjustedCursor = provider.applyReplayWindow(blockNumberCursor);
+        // Test block 0 stays at 0
+        const block0Cursor = { type: 'blockNumber' as const, value: 0 };
+        const adjusted0 = provider.applyReplayWindow(block0Cursor);
+        expect(adjusted0.type).toBe('blockNumber');
+        if (adjusted0.type === 'blockNumber') {
+          expect(adjusted0.value).toBe(0);
+        }
 
-        expect(adjustedCursor.type).toBe('blockNumber');
-        if (adjustedCursor.type === 'blockNumber') {
-          // Should not go below 0
-          expect(adjustedCursor.value).toBe(0);
-          expect(adjustedCursor.value).toBeGreaterThanOrEqual(0);
+        // Test block 1 doesn't go negative (1 - 2 = -1, clamped to 0)
+        const block1Cursor = { type: 'blockNumber' as const, value: 1 };
+        const adjusted1 = provider.applyReplayWindow(block1Cursor);
+        expect(adjusted1.type).toBe('blockNumber');
+        if (adjusted1.type === 'blockNumber') {
+          expect(adjusted1.value).toBe(0);
+          expect(adjusted1.value).toBeGreaterThanOrEqual(0);
         }
       });
     });

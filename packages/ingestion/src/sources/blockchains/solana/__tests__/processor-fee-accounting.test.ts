@@ -403,7 +403,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         id: 'sigReward1',
         instructions: [
           {
-            programId: 'Stake11111111111111111111111111111111111112',
+            programId: 'Stake11111111111111111111111111111111111111',
           },
         ],
         slot: 100008,
@@ -445,7 +445,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         id: 'sigStake1',
         instructions: [
           {
-            programId: 'Stake11111111111111111111111111111111111112',
+            programId: 'Stake11111111111111111111111111111111111111',
           },
         ],
         slot: 100009,

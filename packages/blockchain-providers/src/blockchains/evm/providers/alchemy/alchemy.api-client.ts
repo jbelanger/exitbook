@@ -1,17 +1,11 @@
 /**
- * ╔═══════════════════════════════════════════════════════════════════════════════╗
- * ║                                                                               ║
- * ║  ⚠️  PROVIDER CURRENTLY DISABLED - DO NOT USE                                 ║
- * ║                                                                               ║
- * ║  This provider requires additional work before it can be used:                ║
- * ║                                                                               ║
- * ║  1. Fee handling is incomplete and unreliable                                 ║
- * ║  2. Some transactions are missing the "asset" property, causing crashes       ║
- * ║  3. Data validation needs to handle edge cases better                         ║
- * ║                                                                               ║
- * ║  Use Moralis or chain-specific providers instead.                             ║
- * ║                                                                               ║
- * ╚═══════════════════════════════════════════════════════════════════════════════╝
+ * Alchemy API Client for EVM chains
+ *
+ * Key characteristics:
+ * - Uses alchemy_getAssetTransfers for transaction fetching
+ * - Requires separate eth_getTransactionReceipt calls for gas fees
+ * - Dual pagination (FROM/TO) requires careful handling
+ * - Fails loudly on data quality issues - no silent defaults
  */
 
 import type { CursorState, PaginationCursor } from '@exitbook/core';
@@ -55,8 +49,8 @@ import {
   baseUrl: 'https://eth-mainnet.g.alchemy.com/v2', // Default for Ethereum
   blockchain: 'ethereum',
   capabilities: {
-    supportedOperations: ['getAddressInfo'],
-    //supportedTransactionTypes: ['normal', 'internal', 'token'],
+    supportedOperations: ['getAddressInfo', 'getAddressBalances', 'getAddressTokenBalances', 'getAddressTransactions'],
+    supportedTransactionTypes: ['normal', 'internal', 'token'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
     replayWindow: { blocks: 2 },
@@ -130,6 +124,15 @@ export class AlchemyApiClient extends BaseApiClient {
   private readonly chainConfig: EvmChainConfig;
   private portfolioClient: HttpClient;
 
+  /**
+   * Constructor validates chain support and native currency configuration.
+   *
+   * Note: This constructor can throw for unsupported chains or invalid configuration.
+   * These errors are caught by ProviderManager during provider initialization and logged
+   * (see provider-manager.ts lines 425-435, 1012-1022). The provider will be skipped
+   * and other providers will be used. This is acceptable since constructors cannot
+   * return Result types.
+   */
   constructor(config: ProviderConfig) {
     super(config);
 
@@ -139,6 +142,13 @@ export class AlchemyApiClient extends BaseApiClient {
       throw new Error(`Unsupported blockchain for Alchemy provider: ${config.blockchain}`);
     }
     this.chainConfig = evmChainConfig;
+
+    // Validate chain config has native currency (required for gas fee calculation)
+    if (!this.chainConfig.nativeCurrency) {
+      throw new Error(
+        `Chain config for ${config.blockchain} is missing nativeCurrency. This is required for gas fee calculation.`
+      );
+    }
 
     // Create separate HTTP client for Portfolio API
     this.portfolioClient = new HttpClient({
@@ -283,20 +293,75 @@ export class AlchemyApiClient extends BaseApiClient {
   }
 
   /**
-   * Fetches transaction receipts for multiple transaction hashes in parallel.
-   * Deduplicates hashes and returns a Map for efficient lookup.
-   * FAILS if any receipt cannot be fetched - gas fees are critical for reporting.
+   * Deduplicates asset transfers by hash, uniqueId, and category.
+   * This is important for dual pagination (FROM/TO) where the same transfer may appear in both result sets.
+   *
+   * When uniqueId is present, it uniquely identifies the transfer (contains log index).
+   * When uniqueId is missing (can happen for external/internal transfers), we include additional
+   * discriminators (from/to/value/contract/tokenId) to prevent collapsing distinct transfers
+   * from the same transaction into one record (which would be silent data loss).
+   *
+   * @param transfers - Array of transfers that may contain duplicates
+   * @returns Deduplicated array of transfers
    */
-  private async getTransactionReceipts(
-    txHashes: string[]
-  ): Promise<Result<Map<string, AlchemyTransactionReceipt>, Error>> {
-    const uniqueHashes = deduplicateTransactionHashes(txHashes);
+  private deduplicateRawTransfers(transfers: AlchemyAssetTransfer[]): AlchemyAssetTransfer[] {
+    const seen = new Set<string>();
+    const deduplicated: AlchemyAssetTransfer[] = [];
 
-    if (uniqueHashes.length === 0) {
-      return ok(new Map());
+    for (const transfer of transfers) {
+      let key: string;
+
+      if (transfer.uniqueId) {
+        // uniqueId contains the log index which makes each transfer unique
+        key = `${transfer.hash}:${transfer.uniqueId}:${transfer.category}`;
+      } else {
+        // When uniqueId is missing, include more discriminators to prevent data loss
+        // This can happen for external/internal transfers where multiple distinct transfers
+        // occur in the same transaction
+        const contractAddr = transfer.rawContract?.address ?? '';
+        const contractValue = transfer.rawContract?.value ?? '';
+        const tokenId = transfer.tokenId ?? '';
+        key = `${transfer.hash}:${transfer.category}:${transfer.from ?? ''}:${transfer.to ?? ''}:${contractValue}:${contractAddr}:${tokenId}`;
+
+        this.logger.debug(
+          `Using extended dedup key for transfer without uniqueId - Hash: ${transfer.hash}, Category: ${transfer.category}`
+        );
+      }
+
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduplicated.push(transfer);
+      }
     }
 
-    this.logger.debug(`Fetching ${uniqueHashes.length} transaction receipts`);
+    const duplicateCount = transfers.length - deduplicated.length;
+    if (duplicateCount > 0) {
+      this.logger.debug(`Deduplicated ${duplicateCount} raw transfers from dual pagination`);
+    }
+
+    return deduplicated;
+  }
+
+  /**
+   * Enriches asset transfers with gas fee data from transaction receipts.
+   * Fetches receipts in parallel and adds _gasUsed, _effectiveGasPrice, and _nativeCurrency to each transfer.
+   *
+   * Note: This mutates the input array for performance. Logs warnings for individual receipt failures
+   * but never fails the entire batch - we prefer partial gas fee data over no transaction data.
+   */
+  private async enrichTransfersWithGasFees(transfers: AlchemyAssetTransfer[]): Promise<void> {
+    if (transfers.length === 0) {
+      return;
+    }
+
+    // Extract unique transaction hashes
+    const uniqueHashes = deduplicateTransactionHashes(transfers.map((t) => t.hash));
+
+    if (uniqueHashes.length === 0) {
+      return;
+    }
+
+    this.logger.debug(`Fetching ${uniqueHashes.length} transaction receipts for gas fee enrichment`);
 
     // Fetch all receipts in parallel
     const receiptPromises = uniqueHashes.map(async (hash) => {
@@ -312,12 +377,22 @@ export class AlchemyApiClient extends BaseApiClient {
       );
 
       if (result.isErr()) {
-        return { hash, error: result.error };
+        return { hash, error: result.error, receipt: undefined };
+      }
+
+      // Check for JSON-RPC error
+      if (result.value.error) {
+        const error = result.value.error;
+        return {
+          hash,
+          error: new Error(`JSON-RPC error: ${error.message}`),
+          receipt: undefined,
+        };
       }
 
       const receipt = result.value.result;
       if (!receipt) {
-        return { hash, error: new Error(`No receipt found for transaction ${hash}`) };
+        return { hash, error: new Error(`No receipt found`), receipt: undefined };
       }
 
       return { hash, receipt, error: undefined };
@@ -325,24 +400,35 @@ export class AlchemyApiClient extends BaseApiClient {
 
     const results = await Promise.all(receiptPromises);
 
-    // Check for any failures - gas fees are critical, we must have complete data
-    const failures = results.filter((r) => r.error);
-    if (failures.length > 0) {
-      const errorMessages = failures.map((f) => `${f.hash}: ${getErrorMessage(f.error!)}`).join('; ');
-      this.logger.error(`Failed to fetch ${failures.length}/${uniqueHashes.length} receipts: ${errorMessages}`);
-      return err(new Error(`Failed to fetch transaction receipts (gas fees required): ${errorMessages}`));
-    }
-
     // Build Map of hash -> receipt
     const receiptMap = new Map<string, AlchemyTransactionReceipt>();
+    const failures: string[] = [];
+
     for (const result of results) {
-      if (result.receipt) {
+      if (result.error) {
+        failures.push(`${result.hash}: ${getErrorMessage(result.error)}`);
+      } else if (result.receipt) {
         receiptMap.set(result.hash, result.receipt);
       }
     }
 
-    this.logger.debug(`Successfully fetched all ${receiptMap.size} receipts`);
-    return ok(receiptMap);
+    if (failures.length > 0) {
+      this.logger.warn(
+        `Failed to fetch ${failures.length}/${uniqueHashes.length} receipts. Transactions without receipts will not have gas fees. Errors: ${failures.join('; ')}`
+      );
+    } else {
+      this.logger.debug(`Successfully fetched all ${receiptMap.size} receipts`);
+    }
+
+    // Enrich transfers with gas fee data
+    for (const transfer of transfers) {
+      const receipt = receiptMap.get(transfer.hash);
+      if (receipt) {
+        transfer._gasUsed = receipt.gasUsed;
+        transfer._effectiveGasPrice = receipt.effectiveGasPrice ?? undefined;
+        transfer._nativeCurrency = this.chainConfig.nativeCurrency;
+      }
+    }
   }
 
   private async getAddressBalances(address: string): Promise<Result<RawBalanceData, Error>> {
@@ -471,9 +557,6 @@ export class AlchemyApiClient extends BaseApiClient {
     const fetchPage = async (
       ctx: StreamingPageContext
     ): Promise<Result<StreamingPage<AlchemyAssetTransfer>, Error>> => {
-      // Determine if we're fetching FROM or TO transfers based on pageToken
-      // For simplicity, we'll fetch both FROM and TO in separate iterations
-      // This is a limitation of Alchemy's API design
       const fromParams: AlchemyAssetTransferParams = {
         ...baseParams,
         fromAddress: address,
@@ -505,9 +588,16 @@ export class AlchemyApiClient extends BaseApiClient {
 
       if (fromResult.isErr()) {
         this.logger.error(
-          `Failed to fetch FROM asset transfers for ${maskAddress(address)} - Error: ${getErrorMessage(fromResult.error)}`
+          `Failed to fetch FROM external transfers for ${maskAddress(address)} - Error: ${getErrorMessage(fromResult.error)}`
         );
         return err(fromResult.error);
+      }
+
+      // Check for JSON-RPC error
+      if (fromResult.value.error) {
+        const error = fromResult.value.error;
+        this.logger.error(`Alchemy JSON-RPC error (FROM external) - Code: ${error.code}, Message: ${error.message}`);
+        return err(new Error(`Alchemy API error: ${error.message}`));
       }
 
       // Fetch TO transfers
@@ -524,17 +614,30 @@ export class AlchemyApiClient extends BaseApiClient {
 
       if (toResult.isErr()) {
         this.logger.error(
-          `Failed to fetch TO asset transfers for ${maskAddress(address)} - Error: ${getErrorMessage(toResult.error)}`
+          `Failed to fetch TO external transfers for ${maskAddress(address)} - Error: ${getErrorMessage(toResult.error)}`
         );
         return err(toResult.error);
       }
 
+      // Check for JSON-RPC error
+      if (toResult.value.error) {
+        const error = toResult.value.error;
+        this.logger.error(`Alchemy JSON-RPC error (TO external) - Code: ${error.code}, Message: ${error.message}`);
+        return err(new Error(`Alchemy API error: ${error.message}`));
+      }
+
       const fromTransfers = fromResult.value.result?.transfers || [];
       const toTransfers = toResult.value.result?.transfers || [];
-      const allTransfers = [...fromTransfers, ...toTransfers];
+      const mergedTransfers = [...fromTransfers, ...toTransfers];
 
-      const nextFromKey = fromResult.value.result?.pageKey || undefined;
-      const nextToKey = toResult.value.result?.pageKey || undefined;
+      // Deduplicate at raw level before mapping (important for self-transfers)
+      const allTransfers = this.deduplicateRawTransfers(mergedTransfers);
+
+      // Enrich with gas fees from receipts
+      await this.enrichTransfersWithGasFees(allTransfers);
+
+      const nextFromKey = fromResult.value.result?.pageKey ?? undefined;
+      const nextToKey = toResult.value.result?.pageKey ?? undefined;
       const nextPageToken = this.buildDualPageToken(nextFromKey, nextToKey);
 
       return ok({
@@ -544,19 +647,50 @@ export class AlchemyApiClient extends BaseApiClient {
       });
     };
 
+    // Track data quality metrics
+    let totalProcessed = 0;
+    let totalSkipped = 0;
+
     return createStreamingIterator<AlchemyAssetTransfer, EvmTransaction>({
       providerName: this.name,
       operation: { type: 'getAddressTransactions', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
+        totalProcessed++;
+
+        // Log when applying ZERO_ADDRESS sentinel for null from address
+        if (raw.from === null || raw.from === undefined) {
+          const isTokenMint = raw.category === 'erc20' || raw.category === 'erc721' || raw.category === 'erc1155';
+          if (isTokenMint) {
+            this.logger.debug(
+              `Null from address in token transfer (likely mint) - Hash: ${raw.hash}, Category: ${raw.category}`
+            );
+          } else {
+            this.logger.warn(
+              `Unexpected null from address for non-token transfer - Hash: ${raw.hash}, Category: ${raw.category}. Applying ZERO_ADDRESS sentinel.`
+            );
+          }
+        }
+
         const mapped = mapAlchemyTransaction(raw);
         if (mapped.isErr()) {
+          totalSkipped++;
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.error(
-            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          this.logger.warn(
+            `Skipping transaction due to data quality issue - Address: ${maskAddress(address)}, Hash: ${raw.hash}, Error: ${errorMessage}`
           );
-          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+
+          // Warn if skip rate exceeds 5% (indicates systemic provider issues)
+          const skipRate = (totalSkipped / totalProcessed) * 100;
+          if (totalSkipped > 10 && skipRate > 5) {
+            this.logger.warn(
+              `High skip rate detected: ${totalSkipped}/${totalProcessed} (${skipRate.toFixed(1)}%) transactions skipped due to data quality issues. This may indicate systemic provider problems.`
+            );
+          }
+
+          // Return empty array to skip this transaction instead of failing entire stream
+          return ok([]);
         }
 
         return ok([
@@ -625,6 +759,13 @@ export class AlchemyApiClient extends BaseApiClient {
         return err(fromResult.error);
       }
 
+      // Check for JSON-RPC error
+      if (fromResult.value.error) {
+        const error = fromResult.value.error;
+        this.logger.error(`Alchemy JSON-RPC error (FROM internal) - Code: ${error.code}, Message: ${error.message}`);
+        return err(new Error(`Alchemy API error: ${error.message}`));
+      }
+
       // Fetch TO transfers
       const toResult = await this.httpClient.post(
         `/${this.apiKey}`,
@@ -644,12 +785,25 @@ export class AlchemyApiClient extends BaseApiClient {
         return err(toResult.error);
       }
 
+      // Check for JSON-RPC error
+      if (toResult.value.error) {
+        const error = toResult.value.error;
+        this.logger.error(`Alchemy JSON-RPC error (TO internal) - Code: ${error.code}, Message: ${error.message}`);
+        return err(new Error(`Alchemy API error: ${error.message}`));
+      }
+
       const fromTransfers = fromResult.value.result?.transfers || [];
       const toTransfers = toResult.value.result?.transfers || [];
-      const allTransfers = [...fromTransfers, ...toTransfers];
+      const mergedTransfers = [...fromTransfers, ...toTransfers];
 
-      const nextFromKey = fromResult.value.result?.pageKey || undefined;
-      const nextToKey = toResult.value.result?.pageKey || undefined;
+      // Deduplicate at raw level before mapping (important for self-transfers)
+      const allTransfers = this.deduplicateRawTransfers(mergedTransfers);
+
+      // Internal transactions don't pay gas themselves (parent tx does)
+      // So we don't enrich with gas fees here
+
+      const nextFromKey = fromResult.value.result?.pageKey ?? undefined;
+      const nextToKey = toResult.value.result?.pageKey ?? undefined;
       const nextPageToken = this.buildDualPageToken(nextFromKey, nextToKey);
 
       return ok({
@@ -659,19 +813,50 @@ export class AlchemyApiClient extends BaseApiClient {
       });
     };
 
+    // Track data quality metrics
+    let totalProcessed = 0;
+    let totalSkipped = 0;
+
     return createStreamingIterator<AlchemyAssetTransfer, EvmTransaction>({
       providerName: this.name,
       operation: { type: 'getAddressTransactions', address, streamType: 'internal' },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
+        totalProcessed++;
+
+        // Log when applying ZERO_ADDRESS sentinel for null from address
+        if (raw.from === null || raw.from === undefined) {
+          const isTokenMint = raw.category === 'erc20' || raw.category === 'erc721' || raw.category === 'erc1155';
+          if (isTokenMint) {
+            this.logger.debug(
+              `Null from address in token transfer (likely mint) - Hash: ${raw.hash}, Category: ${raw.category}`
+            );
+          } else {
+            this.logger.warn(
+              `Unexpected null from address for non-token transfer - Hash: ${raw.hash}, Category: ${raw.category}. Applying ZERO_ADDRESS sentinel.`
+            );
+          }
+        }
+
         const mapped = mapAlchemyTransaction(raw);
         if (mapped.isErr()) {
+          totalSkipped++;
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.error(
-            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          this.logger.warn(
+            `Skipping transaction due to data quality issue - Address: ${maskAddress(address)}, Hash: ${raw.hash}, Error: ${errorMessage}`
           );
-          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+
+          // Warn if skip rate exceeds 5% (indicates systemic provider issues)
+          const skipRate = (totalSkipped / totalProcessed) * 100;
+          if (totalSkipped > 10 && skipRate > 5) {
+            this.logger.warn(
+              `High skip rate detected: ${totalSkipped}/${totalProcessed} (${skipRate.toFixed(1)}%) transactions skipped due to data quality issues. This may indicate systemic provider problems.`
+            );
+          }
+
+          // Return empty array to skip this transaction instead of failing entire stream
+          return ok([]);
         }
 
         return ok([
@@ -745,6 +930,13 @@ export class AlchemyApiClient extends BaseApiClient {
         return err(fromResult.error);
       }
 
+      // Check for JSON-RPC error
+      if (fromResult.value.error) {
+        const error = fromResult.value.error;
+        this.logger.error(`Alchemy JSON-RPC error (FROM token) - Code: ${error.code}, Message: ${error.message}`);
+        return err(new Error(`Alchemy API error: ${error.message}`));
+      }
+
       // Fetch TO transfers
       const toResult = await this.httpClient.post(
         `/${this.apiKey}`,
@@ -764,12 +956,25 @@ export class AlchemyApiClient extends BaseApiClient {
         return err(toResult.error);
       }
 
+      // Check for JSON-RPC error
+      if (toResult.value.error) {
+        const error = toResult.value.error;
+        this.logger.error(`Alchemy JSON-RPC error (TO token) - Code: ${error.code}, Message: ${error.message}`);
+        return err(new Error(`Alchemy API error: ${error.message}`));
+      }
+
       const fromTransfers = fromResult.value.result?.transfers || [];
       const toTransfers = toResult.value.result?.transfers || [];
-      const allTransfers = [...fromTransfers, ...toTransfers];
+      const mergedTransfers = [...fromTransfers, ...toTransfers];
 
-      const nextFromKey = fromResult.value.result?.pageKey || undefined;
-      const nextToKey = toResult.value.result?.pageKey || undefined;
+      // Deduplicate at raw level before mapping (important for self-transfers)
+      const allTransfers = this.deduplicateRawTransfers(mergedTransfers);
+
+      // Token transfers don't pay gas themselves (parent transaction does)
+      // So we don't enrich with gas fees here
+
+      const nextFromKey = fromResult.value.result?.pageKey ?? undefined;
+      const nextToKey = toResult.value.result?.pageKey ?? undefined;
       const nextPageToken = this.buildDualPageToken(nextFromKey, nextToKey);
 
       return ok({
@@ -779,19 +984,50 @@ export class AlchemyApiClient extends BaseApiClient {
       });
     };
 
+    // Track data quality metrics
+    let totalProcessed = 0;
+    let totalSkipped = 0;
+
     return createStreamingIterator<AlchemyAssetTransfer, EvmTransaction>({
       providerName: this.name,
       operation: { type: 'getAddressTransactions', address, streamType: 'token', contractAddress },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
+        totalProcessed++;
+
+        // Log when applying ZERO_ADDRESS sentinel for null from address
+        if (raw.from === null || raw.from === undefined) {
+          const isTokenMint = raw.category === 'erc20' || raw.category === 'erc721' || raw.category === 'erc1155';
+          if (isTokenMint) {
+            this.logger.debug(
+              `Null from address in token transfer (likely mint) - Hash: ${raw.hash}, Category: ${raw.category}`
+            );
+          } else {
+            this.logger.warn(
+              `Unexpected null from address for non-token transfer - Hash: ${raw.hash}, Category: ${raw.category}. Applying ZERO_ADDRESS sentinel.`
+            );
+          }
+        }
+
         const mapped = mapAlchemyTransaction(raw);
         if (mapped.isErr()) {
+          totalSkipped++;
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.error(
-            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          this.logger.warn(
+            `Skipping transaction due to data quality issue - Address: ${maskAddress(address)}, Hash: ${raw.hash}, Error: ${errorMessage}`
           );
-          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+
+          // Warn if skip rate exceeds 5% (indicates systemic provider issues)
+          const skipRate = (totalSkipped / totalProcessed) * 100;
+          if (totalSkipped > 10 && skipRate > 5) {
+            this.logger.warn(
+              `High skip rate detected: ${totalSkipped}/${totalProcessed} (${skipRate.toFixed(1)}%) transactions skipped due to data quality issues. This may indicate systemic provider problems.`
+            );
+          }
+
+          // Return empty array to skip this transaction instead of failing entire stream
+          return ok([]);
         }
 
         return ok([

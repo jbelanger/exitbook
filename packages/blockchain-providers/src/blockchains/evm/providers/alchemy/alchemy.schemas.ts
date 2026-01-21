@@ -20,7 +20,7 @@ export const AlchemyRawContractSchema = z.object({
  * Schema for Alchemy metadata structure
  */
 export const AlchemyMetadataSchema = z.object({
-  blockTimestamp: timestampToDate,
+  blockTimestamp: timestampToDate.nullish(),
 });
 
 /**
@@ -42,6 +42,7 @@ export const AlchemyAssetTransferParamsSchema = z.object({
 
 /**
  * Schema for Alchemy asset transfer structure
+ * Made lenient to handle edge cases where fields may be missing
  */
 export const AlchemyAssetTransferSchema = z.object({
   asset: z.string().nullish(),
@@ -56,9 +57,9 @@ export const AlchemyAssetTransferSchema = z.object({
     )
     .nullish(),
   erc721TokenId: z.string().nullish(),
-  from: EvmAddressSchema,
+  from: EvmAddressSchema.nullish(), // Can be null for minting operations
   hash: z.string().min(1, 'Transaction hash must not be empty'),
-  metadata: AlchemyMetadataSchema,
+  metadata: AlchemyMetadataSchema.nullish(), // Can be missing in rare cases
   rawContract: AlchemyRawContractSchema.nullish(),
   to: EvmAddressSchema.nullish(),
   tokenId: z.string().nullish(),

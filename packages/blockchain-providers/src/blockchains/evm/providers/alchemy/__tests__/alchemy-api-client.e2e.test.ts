@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access -- acceptable for tests */
+/* eslint-disable @typescript-eslint/no-unsafe-call -- acceptable for tests */
+/* eslint-disable @typescript-eslint/no-explicit-any -- acceptable for tests */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.js';
@@ -8,6 +12,140 @@ describe('AlchemyApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('ethereum', 'alchemy');
   const provider = new AlchemyApiClient(config);
   const testAddress = '0xE472E43C3417cd0E39F7289B2bC836C08F529CA7'; // Vitalik's address
+
+  describe('Deduplication Logic', () => {
+    it('should not drop distinct transfers when uniqueId is missing', () => {
+      // Access private method for testing via type assertion
+      const alchemyProvider = provider as any;
+
+      // Simulate multiple transfers in same transaction without uniqueId
+      const transfers = [
+        {
+          blockNum: '0x123456',
+          category: 'external',
+          from: '0xsender1',
+          to: '0xrecipient1',
+          hash: '0xabc123',
+          metadata: { blockTimestamp: new Date('2024-01-01') },
+          rawContract: { value: '1000000000000000000' },
+          uniqueId: undefined,
+        },
+        {
+          blockNum: '0x123456',
+          category: 'external',
+          from: '0xsender2',
+          to: '0xrecipient2',
+          hash: '0xabc123',
+          metadata: { blockTimestamp: new Date('2024-01-01') },
+          rawContract: { value: '2000000000000000000' },
+          uniqueId: undefined,
+        },
+      ];
+
+      const result = alchemyProvider.deduplicateRawTransfers(transfers);
+
+      // Both transfers should be preserved because they have different from/to/value
+      expect(result).toHaveLength(2);
+      expect(result[0].from).toBe('0xsender1');
+      expect(result[1].from).toBe('0xsender2');
+    });
+
+    it('should deduplicate identical transfers when uniqueId is present', () => {
+      const alchemyProvider = provider as any;
+
+      const transfers = [
+        {
+          blockNum: '0x123456',
+          category: 'erc20',
+          from: '0xsender',
+          to: '0xrecipient',
+          hash: '0xabc123',
+          metadata: { blockTimestamp: new Date('2024-01-01') },
+          rawContract: { address: '0xtoken', value: '1000000' },
+          uniqueId: 'log_0',
+        },
+        {
+          blockNum: '0x123456',
+          category: 'erc20',
+          from: '0xsender',
+          to: '0xrecipient',
+          hash: '0xabc123',
+          metadata: { blockTimestamp: new Date('2024-01-01') },
+          rawContract: { address: '0xtoken', value: '1000000' },
+          uniqueId: 'log_0',
+        },
+      ];
+
+      const result = alchemyProvider.deduplicateRawTransfers(transfers);
+
+      // Identical transfers with same uniqueId should be deduplicated
+      expect(result).toHaveLength(1);
+    });
+
+    it('should preserve distinct transfers with different uniqueId', () => {
+      const alchemyProvider = provider as any;
+
+      const transfers = [
+        {
+          blockNum: '0x123456',
+          category: 'erc20',
+          from: '0xsender',
+          to: '0xrecipient',
+          hash: '0xabc123',
+          metadata: { blockTimestamp: new Date('2024-01-01') },
+          rawContract: { address: '0xtoken', value: '1000000' },
+          uniqueId: 'log_0',
+        },
+        {
+          blockNum: '0x123456',
+          category: 'erc20',
+          from: '0xsender',
+          to: '0xrecipient',
+          hash: '0xabc123',
+          metadata: { blockTimestamp: new Date('2024-01-01') },
+          rawContract: { address: '0xtoken', value: '1000000' },
+          uniqueId: 'log_1',
+        },
+      ];
+
+      const result = alchemyProvider.deduplicateRawTransfers(transfers);
+
+      // Different uniqueId means different transfers (different log entries)
+      expect(result).toHaveLength(2);
+    });
+
+    it('should handle mixed transfers with and without uniqueId', () => {
+      const alchemyProvider = provider as any;
+
+      const transfers = [
+        {
+          blockNum: '0x123456',
+          category: 'erc20',
+          from: '0xsender',
+          to: '0xrecipient',
+          hash: '0xabc123',
+          metadata: { blockTimestamp: new Date('2024-01-01') },
+          rawContract: { address: '0xtoken', value: '1000000' },
+          uniqueId: 'log_0',
+        },
+        {
+          blockNum: '0x123456',
+          category: 'external',
+          from: '0xsender',
+          to: '0xrecipient',
+          hash: '0xabc123',
+          metadata: { blockTimestamp: new Date('2024-01-01') },
+          rawContract: { value: '1000000000000000000' },
+          uniqueId: undefined,
+        },
+      ];
+
+      const result = alchemyProvider.deduplicateRawTransfers(transfers);
+
+      // Both should be preserved as they use different dedup strategies
+      expect(result).toHaveLength(2);
+    });
+  });
 
   describe('Health Checks', () => {
     it('should report healthy when API is accessible', async () => {

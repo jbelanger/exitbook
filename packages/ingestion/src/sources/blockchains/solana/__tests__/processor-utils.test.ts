@@ -23,19 +23,19 @@ describe('Solana Processor Utils', () => {
       expect(detectSolanaStakingInstructions([])).toBe(false);
     });
 
-    it('should detect System Program staking', () => {
+    it('should NOT detect System Program (used for many non-staking operations)', () => {
       const instructions: SolanaTransaction['instructions'] = [
         {
-          programId: '11111111111111111111111111111112',
+          programId: '11111111111111111111111111111111',
         },
       ];
-      expect(detectSolanaStakingInstructions(instructions)).toBe(true);
+      expect(detectSolanaStakingInstructions(instructions)).toBe(false);
     });
 
     it('should detect Stake Program', () => {
       const instructions: SolanaTransaction['instructions'] = [
         {
-          programId: 'Stake11111111111111111111111111111111111112',
+          programId: 'Stake11111111111111111111111111111111111111',
         },
       ];
       expect(detectSolanaStakingInstructions(instructions)).toBe(true);

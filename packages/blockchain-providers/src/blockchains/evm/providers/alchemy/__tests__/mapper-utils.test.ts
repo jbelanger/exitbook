@@ -11,6 +11,7 @@ import {
   extractNativeTransferData,
   extractTokenTransferData,
   isTokenTransfer,
+  mapAlchemyTransaction,
 } from '../alchemy.mapper-utils.js';
 import type { AlchemyAssetTransfer } from '../alchemy.schemas.js';
 
@@ -67,12 +68,15 @@ describe('alchemy/mapper-utils', () => {
 
       const result = extractTokenTransferData(rawData);
 
-      expect(result.amount.toFixed()).toBe('1000000');
-      expect(result.currency).toBe('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48');
-      expect(result.tokenType).toBe('erc20');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.amount.toFixed()).toBe('1000000');
+        expect(result.value.currency).toBe('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48');
+        expect(result.value.tokenType).toBe('erc20');
+      }
     });
 
-    it('should handle missing rawContract by using value field', () => {
+    it('should fail when contract address is missing', () => {
       const rawData: AlchemyAssetTransfer = {
         blockNum: '0x123456',
         category: 'erc20',
@@ -84,8 +88,13 @@ describe('alchemy/mapper-utils', () => {
 
       const result = extractTokenTransferData(rawData);
 
-      expect(result.amount.toFixed()).toBe('5000000');
-      expect(result.currency).toBe('UNKNOWN');
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.type).toBe('error');
+        if (result.error.type === 'error') {
+          expect(result.error.message).toContain('Missing contract address');
+        }
+      }
     });
 
     it('should extract ERC-721 token transfer data', () => {
@@ -103,9 +112,12 @@ describe('alchemy/mapper-utils', () => {
 
       const result = extractTokenTransferData(rawData);
 
-      expect(result.amount.toFixed()).toBe('1');
-      expect(result.currency).toBe('0xnftcontract');
-      expect(result.tokenType).toBe('erc721');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.amount.toFixed()).toBe('1');
+        expect(result.value.currency).toBe('0xnftcontract');
+        expect(result.value.tokenType).toBe('erc721');
+      }
     });
 
     it('should extract ERC-1155 token transfer data', () => {
@@ -124,9 +136,12 @@ describe('alchemy/mapper-utils', () => {
 
       const result = extractTokenTransferData(rawData);
 
-      expect(result.amount.toFixed()).toBe('5');
-      expect(result.currency).toBe('0xnftcontract');
-      expect(result.tokenType).toBe('erc1155');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.amount.toFixed()).toBe('5');
+        expect(result.value.currency).toBe('0xnftcontract');
+        expect(result.value.tokenType).toBe('erc1155');
+      }
     });
 
     it('should handle zero value', () => {
@@ -144,7 +159,10 @@ describe('alchemy/mapper-utils', () => {
 
       const result = extractTokenTransferData(rawData);
 
-      expect(result.amount.toFixed()).toBe('0');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.amount.toFixed()).toBe('0');
+      }
     });
   });
 
@@ -273,9 +291,12 @@ describe('alchemy/mapper-utils', () => {
 
       const result = extractNativeTransferData(rawData);
 
-      expect(result.amount.toFixed()).toBe('1000000000000000000');
-      expect(result.currency).toBe('ETH');
-      expect(result.tokenType).toBe('native');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.amount.toFixed()).toBe('1000000000000000000');
+        expect(result.value.currency).toBe('ETH');
+        expect(result.value.tokenType).toBe('native');
+      }
     });
 
     it('should convert value to smallest unit when rawContract.value is missing', () => {
@@ -294,11 +315,14 @@ describe('alchemy/mapper-utils', () => {
 
       const result = extractNativeTransferData(rawData);
 
-      expect(result.amount.toFixed()).toBe('1500000000000000000');
-      expect(result.currency).toBe('ETH');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.amount.toFixed()).toBe('1500000000000000000');
+        expect(result.value.currency).toBe('ETH');
+      }
     });
 
-    it('should use rawContract.address as currency when asset is missing', () => {
+    it('should fail when asset field is missing', () => {
       const rawData: AlchemyAssetTransfer = {
         blockNum: '0x123456',
         category: 'external',
@@ -313,22 +337,13 @@ describe('alchemy/mapper-utils', () => {
 
       const result = extractNativeTransferData(rawData);
 
-      expect(result.currency).toBe('0xmatic');
-    });
-
-    it('should default to UNKNOWN when both asset and rawContract.address are missing', () => {
-      const rawData: AlchemyAssetTransfer = {
-        blockNum: '0x123456',
-        category: 'external',
-        from: '0xsender',
-        hash: '0xhash',
-        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
-        value: '1',
-      };
-
-      const result = extractNativeTransferData(rawData);
-
-      expect(result.currency).toBe('UNKNOWN');
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.type).toBe('error');
+        if (result.error.type === 'error') {
+          expect(result.error.message).toContain('Missing asset field');
+        }
+      }
     });
   });
 
@@ -478,8 +493,11 @@ describe('alchemy/mapper-utils', () => {
 
       const result = extractAmountAndCurrency(rawData);
 
-      expect(result.tokenType).toBe('erc20');
-      expect(result.currency).toBe('0xtoken');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.tokenType).toBe('erc20');
+        expect(result.value.currency).toBe('0xtoken');
+      }
     });
 
     it('should route to native transfer extraction for external', () => {
@@ -497,8 +515,11 @@ describe('alchemy/mapper-utils', () => {
 
       const result = extractAmountAndCurrency(rawData);
 
-      expect(result.tokenType).toBe('native');
-      expect(result.currency).toBe('ETH');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.tokenType).toBe('native');
+        expect(result.value.currency).toBe('ETH');
+      }
     });
 
     it('should route to native transfer extraction for internal', () => {
@@ -516,8 +537,219 @@ describe('alchemy/mapper-utils', () => {
 
       const result = extractAmountAndCurrency(rawData);
 
-      expect(result.tokenType).toBe('native');
-      expect(result.currency).toBe('ETH');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.tokenType).toBe('native');
+        expect(result.value.currency).toBe('ETH');
+      }
+    });
+  });
+
+  describe('mapAlchemyTransaction', () => {
+    describe('edge cases and validation', () => {
+      it('should fail when blockTimestamp is missing', () => {
+        const rawData: AlchemyAssetTransfer = {
+          blockNum: '0x123456',
+          category: 'external',
+          from: '0xsender',
+          hash: '0xhash',
+          metadata: { blockTimestamp: undefined },
+          asset: 'ETH',
+          rawContract: {
+            value: '1000000000000000000',
+          },
+        };
+
+        const result = mapAlchemyTransaction(rawData);
+
+        expect(result.isErr()).toBe(true);
+        if (result.isErr()) {
+          expect(result.error.type).toBe('error');
+          if (result.error.type === 'error') {
+            expect(result.error.message).toContain('Missing blockTimestamp');
+          }
+        }
+      });
+
+      it('should use zero address sentinel when from is null (minting)', () => {
+        const rawData: AlchemyAssetTransfer = {
+          blockNum: '0x123456',
+          category: 'erc721',
+          from: undefined,
+          to: '0xrecipient',
+          hash: '0xhash',
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
+          rawContract: {
+            address: '0xnftcontract',
+            value: '1',
+          },
+        };
+
+        const result = mapAlchemyTransaction(rawData);
+
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          expect(result.value.from).toBe('0x0000000000000000000000000000000000000000');
+          expect(result.value.to).toBe('0xrecipient');
+        }
+      });
+
+      it('should fail when asset is missing for native transfer', () => {
+        const rawData: AlchemyAssetTransfer = {
+          blockNum: '0x123456',
+          category: 'external',
+          from: '0xsender',
+          hash: '0xhash',
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
+          rawContract: {
+            value: '1000000000000000000',
+          },
+          // asset field is missing
+        };
+
+        const result = mapAlchemyTransaction(rawData);
+
+        expect(result.isErr()).toBe(true);
+        if (result.isErr()) {
+          expect(result.error.type).toBe('error');
+          if (result.error.type === 'error') {
+            expect(result.error.message).toContain('Missing asset field');
+          }
+        }
+      });
+
+      it('should fail when contract address is missing for token transfer', () => {
+        const rawData: AlchemyAssetTransfer = {
+          blockNum: '0x123456',
+          category: 'erc20',
+          from: '0xsender',
+          hash: '0xhash',
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
+          value: '1000000',
+          // rawContract.address is missing
+        };
+
+        const result = mapAlchemyTransaction(rawData);
+
+        expect(result.isErr()).toBe(true);
+        if (result.isErr()) {
+          expect(result.error.type).toBe('error');
+          if (result.error.type === 'error') {
+            expect(result.error.message).toContain('Missing contract address');
+          }
+        }
+      });
+
+      it('should handle transactions with gas fees', () => {
+        const rawData: AlchemyAssetTransfer = {
+          blockNum: '0x123456',
+          category: 'external',
+          from: '0xsender',
+          to: '0xrecipient',
+          hash: '0xhash',
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
+          asset: 'ETH',
+          rawContract: {
+            value: '1000000000000000000',
+          },
+          _gasUsed: '21000',
+          _effectiveGasPrice: '50000000000',
+          _nativeCurrency: 'ETH',
+        };
+
+        const result = mapAlchemyTransaction(rawData);
+
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          expect(result.value.gasUsed).toBe('21000');
+          expect(result.value.gasPrice).toBe('50000000000');
+          expect(result.value.feeAmount).toBe('1050000000000000');
+          expect(result.value.feeCurrency).toBe('ETH');
+        }
+      });
+
+      it('should handle transactions without gas fees (internal or gas fetch failed)', () => {
+        const rawData: AlchemyAssetTransfer = {
+          blockNum: '0x123456',
+          category: 'internal',
+          from: '0xsender',
+          to: '0xrecipient',
+          hash: '0xhash',
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
+          asset: 'ETH',
+          rawContract: {
+            value: '1000000000000000000',
+          },
+          // No gas data - internal transactions don't pay gas
+        };
+
+        const result = mapAlchemyTransaction(rawData);
+
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          expect(result.value.gasUsed).toBeUndefined();
+          expect(result.value.gasPrice).toBeUndefined();
+          expect(result.value.feeAmount).toBeUndefined();
+          expect(result.value.feeCurrency).toBeUndefined();
+        }
+      });
+
+      it('should handle transactions with partial gas data (missing effectiveGasPrice)', () => {
+        const rawData: AlchemyAssetTransfer = {
+          blockNum: '0x123456',
+          category: 'external',
+          from: '0xsender',
+          to: '0xrecipient',
+          hash: '0xhash',
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
+          asset: 'ETH',
+          rawContract: {
+            value: '1000000000000000000',
+          },
+          _gasUsed: '21000',
+          // _effectiveGasPrice is missing (pre-EIP-1559 or partial receipt)
+          _nativeCurrency: 'ETH',
+        };
+
+        const result = mapAlchemyTransaction(rawData);
+
+        // Should succeed but without gas fees
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          expect(result.value.gasUsed).toBeUndefined();
+          expect(result.value.gasPrice).toBeUndefined();
+          expect(result.value.feeAmount).toBeUndefined();
+          expect(result.value.feeCurrency).toBeUndefined();
+        }
+      });
+
+      it('should fail when gas data is present but native currency is missing', () => {
+        const rawData: AlchemyAssetTransfer = {
+          blockNum: '0x123456',
+          category: 'external',
+          from: '0xsender',
+          to: '0xrecipient',
+          hash: '0xhash',
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
+          asset: 'ETH',
+          rawContract: {
+            value: '1000000000000000000',
+          },
+          _gasUsed: '21000',
+          _effectiveGasPrice: '50000000000',
+          // _nativeCurrency is missing - this should fail
+        };
+
+        const result = mapAlchemyTransaction(rawData);
+
+        expect(result.isErr()).toBe(true);
+        if (result.isErr()) {
+          expect(result.error.type).toBe('error');
+          if (result.error.type === 'error') {
+            expect(result.error.message).toContain('Missing native currency');
+          }
+        }
+      });
     });
   });
 });

@@ -109,7 +109,10 @@ describe('EvmImporter', () => {
           recommended: { maxRequestsPerSecond: 1 },
           testResults: [],
         }),
-        capabilities: { supportedOperations: [] },
+        capabilities: {
+          supportedOperations: ['getAddressTransactions'],
+          supportedTransactionTypes: ['normal', 'internal', 'token'],
+        },
         execute: vi.fn(),
         isHealthy: vi.fn().mockResolvedValue(true),
         rateLimit: { requestsPerSecond: 1 },
@@ -302,7 +305,7 @@ describe('EvmImporter', () => {
       const providers = mockProviderManager.getProviders('ethereum');
       if (providers.length > 0) {
         providers[0]!.capabilities.supportedOperations = ['getAddressTransactions'];
-        providers[0]!.capabilities.supportedTransactionTypes = ['beacon_withdrawal'];
+        providers[0]!.capabilities.supportedTransactionTypes = ['normal', 'internal', 'token', 'beacon_withdrawal'];
       }
 
       // Setup mocks: normal, internal, token succeed; beacon withdrawals fail

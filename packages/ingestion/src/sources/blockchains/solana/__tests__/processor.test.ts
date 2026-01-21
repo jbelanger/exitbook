@@ -505,7 +505,7 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
       ],
       instructions: [
         {
-          programId: 'Stake11111111111111111111111111111111111112', // Stake Program
+          programId: 'Stake11111111111111111111111111111111111111', // Stake Program
         },
       ],
       feePayer: USER_ADDRESS,
@@ -543,7 +543,7 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
       ],
       instructions: [
         {
-          programId: 'Stake11111111111111111111111111111111111112',
+          programId: 'Stake11111111111111111111111111111111111111',
         },
       ],
       feePayer: USER_ADDRESS,
@@ -583,7 +583,7 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
       feeAmount: '0', // No fee for rewards
       instructions: [
         {
-          programId: 'Stake11111111111111111111111111111111111112',
+          programId: 'Stake11111111111111111111111111111111111111',
         },
       ],
       feePayer: CONTRACT_ADDRESS, // System paid the fee

@@ -1,6 +1,6 @@
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-import { type Result } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 
 import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { validateOutput } from '../../../../core/index.js';
@@ -42,27 +42,39 @@ export function isTokenTransfer(category: string): boolean {
  * Routes to either token transfer or native transfer logic.
  *
  * @param rawData - Alchemy asset transfer data
- * @returns Amount, currency, and token type
+ * @returns Result containing amount, currency, and token type
  */
-export function extractAmountAndCurrency(rawData: AlchemyAssetTransfer): AmountResult {
-  return isTokenTransfer(rawData.category) ? extractTokenTransferData(rawData) : extractNativeTransferData(rawData);
+export function extractAmountAndCurrency(rawData: AlchemyAssetTransfer): Result<AmountResult, NormalizationError> {
+  if (isTokenTransfer(rawData.category)) {
+    return extractTokenTransferData(rawData);
+  }
+  return extractNativeTransferData(rawData);
 }
 
 /**
  * Extracts amount and currency for token transfers (ERC-20, ERC-721, ERC-1155).
  *
  * @param rawData - Alchemy asset transfer data
- * @returns Amount, currency (contract address), and token type
+ * @returns Result containing amount, currency (contract address), and token type
+ * @returns Error result if contract address is missing (data quality issue)
  */
-export function extractTokenTransferData(rawData: AlchemyAssetTransfer): AmountResult {
+export function extractTokenTransferData(rawData: AlchemyAssetTransfer): Result<AmountResult, NormalizationError> {
   const rawValue = rawData.rawContract?.value || rawData.value;
   const baseAmount = parseDecimal(String(rawValue || 0));
 
   const amount = adjustNftAmount(rawData, baseAmount);
-  const currency = rawData.rawContract?.address || 'UNKNOWN';
+
+  if (!rawData.rawContract?.address) {
+    return err({
+      type: 'error' as const,
+      message: `Missing contract address for token transfer. Hash: ${rawData.hash}`,
+    });
+  }
+
+  const currency = rawData.rawContract.address;
   const tokenType = rawData.category as EvmTransaction['tokenType'];
 
-  return { amount, currency, tokenType };
+  return ok({ amount, currency, tokenType });
 }
 
 /**
@@ -101,15 +113,21 @@ export function extractErc1155Amount(rawData: AlchemyAssetTransfer): Decimal {
  *
  * @param rawData - Alchemy asset transfer data
  * @returns Amount in wei, currency symbol, and 'native' token type
+ * @returns Error result if asset field is missing (data quality issue)
  */
-export function extractNativeTransferData(rawData: AlchemyAssetTransfer): AmountResult {
+export function extractNativeTransferData(rawData: AlchemyAssetTransfer): Result<AmountResult, NormalizationError> {
   const amount = rawData.rawContract?.value
     ? parseDecimal(String(rawData.rawContract.value))
     : convertToSmallestUnit(rawData);
 
-  const currency = rawData.asset ?? (rawData.rawContract?.address || 'UNKNOWN');
+  if (!rawData.asset) {
+    return err({
+      type: 'error' as const,
+      message: `Missing asset field for native transfer. Hash: ${rawData.hash}`,
+    });
+  }
 
-  return { amount, currency, tokenType: 'native' };
+  return ok({ amount, currency: rawData.asset, tokenType: 'native' });
 }
 
 /**
@@ -169,16 +187,33 @@ function enrichWithTokenFields(transaction: EvmTransaction, rawData: AlchemyAsse
 }
 
 /**
- * Enriches transaction with gas fee information
+ * Enriches transaction with gas fee information from receipt data.
+ * Gas fees are added by the API client after fetching eth_getTransactionReceipt.
+ *
+ * Note: Internal transactions don't have their own gas fees (they're part of parent tx),
+ * so missing gas data for internal transactions is expected and not an error.
+ *
+ * @returns Error result if gas data is incomplete (has some but not all required fields)
  */
-function enrichWithGasFees(transaction: EvmTransaction, rawData: AlchemyAssetTransfer): void {
-  // Extract gas data from receipt (added by API client)
+function enrichWithGasFees(
+  transaction: EvmTransaction,
+  rawData: AlchemyAssetTransfer
+): Result<void, NormalizationError> {
   const gasUsed = rawData._gasUsed;
   const effectiveGasPrice = rawData._effectiveGasPrice;
   const nativeCurrency = rawData._nativeCurrency;
 
+  // If no gas data present, this is likely an internal transaction or gas fetch failed
   if (!gasUsed || !effectiveGasPrice) {
-    return;
+    return ok(undefined);
+  }
+
+  // If we have gas data, we must have native currency
+  if (!nativeCurrency) {
+    return err({
+      type: 'error' as const,
+      message: `Missing native currency for gas fee calculation. Hash: ${rawData.hash}`,
+    });
   }
 
   const feeWei = calculateGasFee(gasUsed, effectiveGasPrice);
@@ -186,21 +221,38 @@ function enrichWithGasFees(transaction: EvmTransaction, rawData: AlchemyAssetTra
   transaction.gasUsed = gasUsed;
   transaction.gasPrice = effectiveGasPrice;
   transaction.feeAmount = feeWei.toString();
+  transaction.feeCurrency = nativeCurrency;
 
-  // Gas fees are always paid in the native currency (ETH, MATIC, AVAX, etc.)
-  // Use the chain-specific native currency from chain registry
-  transaction.feeCurrency = nativeCurrency || 'ETH'; // Fallback to ETH if not provided
+  return ok(undefined);
 }
 
 /**
  * Maps Alchemy asset transfer to normalized EvmTransaction
  * Input data is pre-validated by HTTP client schema validation
+ * Fails loudly on missing required fields - no silent defaults
  */
 export function mapAlchemyTransaction(rawData: AlchemyAssetTransfer): Result<EvmTransaction, NormalizationError> {
-  const { amount, currency, tokenType } = extractAmountAndCurrency(rawData);
+  // Validate required fields first - fail fast with clear errors
+  if (!rawData.metadata?.blockTimestamp) {
+    return err({
+      type: 'error' as const,
+      message: `Missing blockTimestamp for transaction ${rawData.hash}`,
+    });
+  }
+
+  // Extract amount and currency (may fail for missing asset field)
+  const amountResult = extractAmountAndCurrency(rawData);
+  if (amountResult.isErr()) {
+    return err(amountResult.error);
+  }
+  const { amount, currency, tokenType } = amountResult.value;
+
   const timestamp = rawData.metadata.blockTimestamp.getTime();
   const transactionType = determineTransactionType(rawData.category);
-  const from = normalizeEvmAddress(rawData.from) ?? '';
+
+  // Handle null from address (minting operations) with zero address sentinel
+  const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+  const from = rawData.from ? (normalizeEvmAddress(rawData.from) ?? '') : ZERO_ADDRESS;
   const to = normalizeEvmAddress(rawData.to);
   const tokenAddress = rawData.rawContract?.address ? normalizeEvmAddress(rawData.rawContract.address) : undefined;
 
@@ -229,7 +281,12 @@ export function mapAlchemyTransaction(rawData: AlchemyAssetTransfer): Result<Evm
   };
 
   enrichWithTokenFields(transaction, rawData, currency);
-  enrichWithGasFees(transaction, rawData);
+
+  // Enrich with gas fees (may fail if gas data incomplete)
+  const gasResult = enrichWithGasFees(transaction, rawData);
+  if (gasResult.isErr()) {
+    return err(gasResult.error);
+  }
 
   return validateOutput(transaction, EvmTransactionSchema, 'AlchemyTransaction');
 }
