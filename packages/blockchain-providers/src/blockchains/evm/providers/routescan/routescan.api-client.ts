@@ -517,6 +517,17 @@ export class RoutescanApiClient extends BaseApiClient {
     });
   }
 
+  /**
+   * Streams token transfer transactions using Routescan's tokentx endpoint.
+   *
+   * Note: This endpoint may miss individual token transfers within multi-transfer transactions
+   * (e.g., DEX swaps, batch transfers) because the API doesn't provide logIndex values.
+   * When multiple token transfers occur in a single blockchain transaction, only the first
+   * transfer is stored due to the unique constraint on blockchain_transaction_hash.
+   *
+   * Balance calculations remain accurate despite this limitation. For 100% transaction history
+   * completeness, a getLogs-based approach would be needed (see issue #244).
+   */
   private streamAddressTokenTransactions(
     address: string,
     contractAddress?: string,
