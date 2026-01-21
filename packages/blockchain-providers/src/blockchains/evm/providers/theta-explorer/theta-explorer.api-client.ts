@@ -40,6 +40,7 @@ import type { ThetaTransaction, ThetaAccountTxResponse } from './theta-explorer.
   displayName: 'Theta Explorer',
   name: 'theta-explorer',
   requiresApiKey: false,
+  supportedChains: ['theta'],
 })
 export class ThetaExplorerApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {

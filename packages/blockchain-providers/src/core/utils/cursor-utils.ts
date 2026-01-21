@@ -37,6 +37,10 @@ export interface CursorStateConfig<T> {
    * Page token from API response (if available)
    */
   pageToken?: string | undefined;
+  /**
+   * Page token used to fetch the current page (for terminal pages with no next token)
+   */
+  currentPageToken?: string | undefined;
 
   /**
    * Optional provider-specific metadata to merge into CursorState.metadata
@@ -58,7 +62,9 @@ export interface CursorStateConfig<T> {
  * @returns Complete cursor state for this batch
  */
 export function buildCursorState<T extends NormalizedTransactionBase>(config: CursorStateConfig<T>): CursorState {
-  const { transactions, extractCursors, totalFetched, providerName, pageToken, customMetadata } = config;
+  const { transactions, extractCursors, totalFetched, providerName, pageToken, currentPageToken, customMetadata } =
+    config;
+  const effectivePageToken = pageToken ?? currentPageToken;
 
   // Extract cursors from last transaction
   const lastTx = transactions[transactions.length - 1]!; // Safe: caller ensures transactions.length > 0
@@ -67,8 +73,8 @@ export function buildCursorState<T extends NormalizedTransactionBase>(config: Cu
 
   // Build cursor state
   return {
-    primary: pageToken
-      ? { type: 'pageToken', value: pageToken, providerName }
+    primary: effectivePageToken
+      ? { type: 'pageToken', value: effectivePageToken, providerName }
       : cursors.find((c) => c.type === 'blockNumber') || { type: 'blockNumber', value: 0 },
     alternatives: cursors,
     lastTransactionId,

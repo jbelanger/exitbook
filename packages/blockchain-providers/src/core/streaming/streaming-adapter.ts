@@ -167,6 +167,7 @@ export function createStreamingIterator<Raw, Tx extends NormalizedTransactionBas
 
       // If everything was deduped but this is the terminal page, still emit a completion cursor
       if (deduped.length === 0) {
+        const currentPageToken = pageToken;
         pageToken = page.nextPageToken || undefined;
         if (page.isComplete) {
           const cursorState = buildCursorState({
@@ -175,6 +176,7 @@ export function createStreamingIterator<Raw, Tx extends NormalizedTransactionBas
             totalFetched,
             providerName,
             pageToken,
+            currentPageToken,
             customMetadata: page.customMetadata,
           });
 
@@ -196,6 +198,7 @@ export function createStreamingIterator<Raw, Tx extends NormalizedTransactionBas
         totalFetched,
         providerName,
         pageToken: page.nextPageToken || undefined,
+        currentPageToken: pageToken,
         customMetadata: page.customMetadata,
       });
       logger?.debug?.(

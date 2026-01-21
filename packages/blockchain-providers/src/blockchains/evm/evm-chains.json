@@ -305,7 +305,8 @@
     "chainName": "theta",
     "nativeCurrency": "TFUEL",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.thetatoken.org"]
+    "explorerUrls": ["https://explorer.thetatoken.org"],
+    "additionalNativeCurrencies": ["THETA"]
   },
   "fantom": {
     "chainId": 250,

@@ -92,6 +92,10 @@ export class EvmImporter implements IImporter {
         if (streamType === 'beacon_withdrawal') {
           yield* this.streamBeaconWithdrawals(address, resumeCursor);
         } else {
+          if (!this.hasProviderSupport(streamType)) {
+            this.logger.warn(`Skipping ${streamType} transactions (no provider support)`);
+            continue;
+          }
           // Standard transaction types (normal, internal, token)
           for await (const batchResult of this.streamTransactionType(address, streamType, resumeCursor)) {
             yield batchResult;
@@ -257,5 +261,21 @@ export class EvmImporter implements IImporter {
       isComplete: true,
       ...(opts?.warning && { warnings: [opts.warning] }),
     };
+  }
+
+  private hasProviderSupport(streamType: string): boolean {
+    const providers = this.providerManager.getProviders(this.chainConfig.chainName);
+    return providers.some((provider) => {
+      if (!provider.capabilities.supportedOperations.includes('getAddressTransactions')) {
+        return false;
+      }
+
+      const supportedTypes = provider.capabilities.supportedTransactionTypes;
+      if (!supportedTypes) {
+        return streamType === 'normal';
+      }
+
+      return supportedTypes.includes(streamType);
+    });
   }
 }

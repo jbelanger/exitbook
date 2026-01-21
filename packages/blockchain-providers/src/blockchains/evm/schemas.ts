@@ -92,15 +92,15 @@ export const EvmTransactionSchema = NormalizedTransactionBaseSchema.extend({
   validatorIndex: z.string().optional(),
 }).refine(
   (data) => {
-    // Validation: token_transfer transactions MUST have tokenAddress
-    if (data.type === 'token_transfer' && !data.tokenAddress) {
+    // Validation: token_transfer transactions MUST have tokenAddress UNLESS it's a native token
+    if (data.type === 'token_transfer' && !data.tokenAddress && data.tokenType !== 'native') {
       return false;
     }
     return true;
   },
   {
     message:
-      'Token transfers must have tokenAddress (contract address). ' +
+      'Token transfers must have tokenAddress (contract address) unless tokenType is native. ' +
       'Import should fail if this data is missing from provider.',
   }
 );

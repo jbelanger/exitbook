@@ -214,6 +214,74 @@ describe('convertKucoinDepositToTransaction', () => {
     expect(result.externalId).toContain('deposit');
     expect(result.externalId).toContain('USDC');
   });
+
+  test('populates blockchain field when hash is present and status is success', () => {
+    const row: CsvDepositWithdrawalRow = {
+      'Account Type': 'Main',
+      Amount: '1.5',
+      Coin: 'BTC',
+      Fee: '0',
+      Hash: 'abc123txhash',
+      Remarks: '',
+      Status: 'Success',
+      'Time(UTC)': '2024-01-10 08:00:00',
+      'Transfer Network': 'Bitcoin',
+      UID: 'user789',
+    };
+
+    const resultObj = convertKucoinDepositToTransaction(row);
+    expect(resultObj.isOk()).toBe(true);
+    const result = resultObj._unsafeUnwrap();
+
+    expect(result.blockchain).toBeDefined();
+    expect(result.blockchain?.name).toBe('unknown');
+    expect(result.blockchain?.transaction_hash).toBe('abc123txhash');
+    expect(result.blockchain?.is_confirmed).toBe(true);
+  });
+
+  test('sets blockchain is_confirmed to false when status is not success', () => {
+    const row: CsvDepositWithdrawalRow = {
+      'Account Type': 'Main',
+      Amount: '1.5',
+      Coin: 'BTC',
+      Fee: '0',
+      Hash: 'pending-hash',
+      Remarks: '',
+      Status: 'Processing',
+      'Time(UTC)': '2024-01-10 08:00:00',
+      'Transfer Network': 'Bitcoin',
+      UID: 'user789',
+    };
+
+    const resultObj = convertKucoinDepositToTransaction(row);
+    expect(resultObj.isOk()).toBe(true);
+    const result = resultObj._unsafeUnwrap();
+
+    expect(result.blockchain).toBeDefined();
+    expect(result.blockchain?.transaction_hash).toBe('pending-hash');
+    expect(result.blockchain?.is_confirmed).toBe(false);
+  });
+
+  test('does not populate blockchain field when hash is empty', () => {
+    const row: CsvDepositWithdrawalRow = {
+      'Account Type': 'Main',
+      Amount: '1.5',
+      Coin: 'BTC',
+      Fee: '0',
+      Hash: '',
+      Remarks: '',
+      Status: 'Success',
+      'Time(UTC)': '2024-01-10 08:00:00',
+      'Transfer Network': 'Bitcoin',
+      UID: 'user789',
+    };
+
+    const resultObj = convertKucoinDepositToTransaction(row);
+    expect(resultObj.isOk()).toBe(true);
+    const result = resultObj._unsafeUnwrap();
+
+    expect(result.blockchain).toBeUndefined();
+  });
 });
 
 describe('convertKucoinOrderSplittingToTransaction', () => {
@@ -596,6 +664,77 @@ describe('convertKucoinWithdrawalToTransaction', () => {
     const result = resultObj._unsafeUnwrap();
 
     expect(result.externalId).toBe('unique-withdrawal-hash');
+  });
+
+  test('populates blockchain field when hash is present and status is success', () => {
+    const row: CsvDepositWithdrawalRow = {
+      'Account Type': 'Main',
+      Amount: '-1.5',
+      Coin: 'BTC',
+      Fee: '0',
+      Hash: 'abc123txhash',
+      Remarks: '',
+      Status: 'Success',
+      'Time(UTC)': '2024-01-10 08:00:00',
+      'Transfer Network': 'Bitcoin',
+      UID: 'user789',
+      'Withdrawal Address/Account': 'bc1q...',
+    };
+
+    const resultObj = convertKucoinWithdrawalToTransaction(row);
+    expect(resultObj.isOk()).toBe(true);
+    const result = resultObj._unsafeUnwrap();
+
+    expect(result.blockchain).toBeDefined();
+    expect(result.blockchain?.name).toBe('unknown');
+    expect(result.blockchain?.transaction_hash).toBe('abc123txhash');
+    expect(result.blockchain?.is_confirmed).toBe(true);
+  });
+
+  test('sets blockchain is_confirmed to false when status is not success', () => {
+    const row: CsvDepositWithdrawalRow = {
+      'Account Type': 'Main',
+      Amount: '-1.5',
+      Coin: 'BTC',
+      Fee: '0',
+      Hash: 'pending-hash',
+      Remarks: '',
+      Status: 'Processing',
+      'Time(UTC)': '2024-01-10 08:00:00',
+      'Transfer Network': 'Bitcoin',
+      UID: 'user789',
+      'Withdrawal Address/Account': 'bc1q...',
+    };
+
+    const resultObj = convertKucoinWithdrawalToTransaction(row);
+    expect(resultObj.isOk()).toBe(true);
+    const result = resultObj._unsafeUnwrap();
+
+    expect(result.blockchain).toBeDefined();
+    expect(result.blockchain?.transaction_hash).toBe('pending-hash');
+    expect(result.blockchain?.is_confirmed).toBe(false);
+  });
+
+  test('does not populate blockchain field when hash is empty', () => {
+    const row: CsvDepositWithdrawalRow = {
+      'Account Type': 'Main',
+      Amount: '-1.5',
+      Coin: 'BTC',
+      Fee: '0',
+      Hash: '',
+      Remarks: '',
+      Status: 'Success',
+      'Time(UTC)': '2024-01-10 08:00:00',
+      'Transfer Network': 'Bitcoin',
+      UID: 'user789',
+      'Withdrawal Address/Account': 'bc1q...',
+    };
+
+    const resultObj = convertKucoinWithdrawalToTransaction(row);
+    expect(resultObj.isOk()).toBe(true);
+    const result = resultObj._unsafeUnwrap();
+
+    expect(result.blockchain).toBeUndefined();
   });
 });
 

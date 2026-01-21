@@ -335,6 +335,8 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                       feeCurrency = validatedData.fee?.currency;
                     }
 
+                    // Extract blockchain metadata from Coinbase API v2 network field
+                    // The network field contains hash, network_name, and status for on-chain transactions
                     const normalizedData: ExchangeLedgerEntry = {
                       id: validatedData.id,
                       correlationId,
@@ -345,6 +347,12 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                       fee: feeAmount,
                       feeCurrency,
                       status: mapCoinbaseStatus(validatedData.status),
+                      hash: typeof rawInfo.network?.hash === 'string' ? (rawInfo.network.hash) : undefined,
+                      address: typeof rawInfo.to?.address === 'string' ? (rawInfo.to.address) : undefined,
+                      network:
+                        typeof rawInfo.network?.network_name === 'string'
+                          ? (rawInfo.network.network_name)
+                          : undefined,
                     };
 
                     return {

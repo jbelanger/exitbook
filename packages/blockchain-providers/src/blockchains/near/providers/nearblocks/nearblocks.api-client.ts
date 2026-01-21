@@ -80,7 +80,7 @@ const NEARBLOCKS_DEDUP_WINDOW_SIZE = 200;
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
     supportedTransactionTypes: ['transactions', 'receipts', 'balance-changes', 'token-transfers'],
-    supportedCursorTypes: ['pageToken'],
+    supportedCursorTypes: ['pageToken', 'timestamp'],
     preferredCursorType: 'pageToken',
     replayWindow: { blocks: 3 },
   },
@@ -241,14 +241,18 @@ export class NearBlocksApiClient extends BaseApiClient {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<NearTransaction>, Error>> {
+    const resumeAfterDate = this.getResumeAfterDate(resumeCursor);
     const fetchPage = async (
       ctx: StreamingPageContext
     ): Promise<Result<StreamingPage<NearBlocksTransaction>, Error>> => {
       const cursor = ctx.pageToken;
 
+      const afterDate = !cursor ? resumeAfterDate : undefined;
       const url = cursor
         ? `/v1/account/${address}/txns-only?cursor=${cursor}&per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`
-        : `/v1/account/${address}/txns-only?per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`;
+        : `/v1/account/${address}/txns-only?per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc${
+            afterDate ? `&after_date=${afterDate}` : ''
+          }`;
 
       const result = await this.httpClient.get(url, {
         schema: NearBlocksTransactionsResponseSchema,
@@ -302,6 +306,24 @@ export class NearBlocksApiClient extends BaseApiClient {
     });
   }
 
+  private getResumeAfterDate(resumeCursor?: CursorState): string | undefined {
+    const timestampCursor =
+      resumeCursor?.primary.type === 'timestamp'
+        ? resumeCursor.primary
+        : resumeCursor?.alternatives?.find((cursor) => cursor.type === 'timestamp');
+
+    if (!timestampCursor || timestampCursor.type !== 'timestamp') {
+      return undefined;
+    }
+
+    const value = typeof timestampCursor.value === 'number' ? timestampCursor.value : Number(timestampCursor.value);
+    if (!Number.isFinite(value)) {
+      return undefined;
+    }
+
+    return new Date(value).toISOString().slice(0, 10);
+  }
+
   /**
    * Stream receipts from /receipts endpoint
    */
@@ -309,12 +331,16 @@ export class NearBlocksApiClient extends BaseApiClient {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<NearReceipt>, Error>> {
+    const resumeAfterDate = this.getResumeAfterDate(resumeCursor);
     const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<NearBlocksReceipt>, Error>> => {
       const cursor = ctx.pageToken;
 
+      const afterDate = !cursor ? resumeAfterDate : undefined;
       const url = cursor
         ? `/v1/account/${address}/receipts?cursor=${cursor}&per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`
-        : `/v1/account/${address}/receipts?per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`;
+        : `/v1/account/${address}/receipts?per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc${
+            afterDate ? `&after_date=${afterDate}` : ''
+          }`;
 
       const result = await this.httpClient.get(url, {
         schema: NearBlocksReceiptsResponseSchema,
@@ -376,12 +402,16 @@ export class NearBlocksApiClient extends BaseApiClient {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<NearBalanceChange>, Error>> {
+    const resumeAfterDate = this.getResumeAfterDate(resumeCursor);
     const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<NearBlocksActivity>, Error>> => {
       const cursor = ctx.pageToken;
 
+      const afterDate = !cursor ? resumeAfterDate : undefined;
       const url = cursor
         ? `/v1/account/${address}/activities?cursor=${cursor}&per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`
-        : `/v1/account/${address}/activities?per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`;
+        : `/v1/account/${address}/activities?per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc${
+            afterDate ? `&after_date=${afterDate}` : ''
+          }`;
 
       const result = await this.httpClient.get(url, {
         schema: NearBlocksActivitiesResponseSchema,
@@ -454,14 +484,18 @@ export class NearBlocksApiClient extends BaseApiClient {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<NearTokenTransfer>, Error>> {
+    const resumeAfterDate = this.getResumeAfterDate(resumeCursor);
     const fetchPage = async (
       ctx: StreamingPageContext
     ): Promise<Result<StreamingPage<NearBlocksFtTransaction>, Error>> => {
       const cursor = ctx.pageToken;
 
+      const afterDate = !cursor ? resumeAfterDate : undefined;
       const url = cursor
         ? `/v1/account/${address}/ft-txns?cursor=${cursor}&per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`
-        : `/v1/account/${address}/ft-txns?per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc`;
+        : `/v1/account/${address}/ft-txns?per_page=${NEARBLOCKS_PAGE_SIZE}&order=asc${
+            afterDate ? `&after_date=${afterDate}` : ''
+          }`;
 
       const result = await this.httpClient.get(url, {
         schema: NearBlocksFtTransactionsResponseSchema,

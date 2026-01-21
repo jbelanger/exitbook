@@ -185,6 +185,18 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
       category: 'transfer',
       type: 'deposit',
     },
+
+    // Blockchain metadata - add when hash is present
+    // Use "unknown" for blockchain name since we can't reliably determine it from exchange data
+    // The transaction_hash is what matters for linking
+    blockchain:
+      row.Hash && row.Hash.trim() !== ''
+        ? {
+            name: 'unknown',
+            transaction_hash: row.Hash.trim(),
+            is_confirmed: row.Status.toLowerCase() === 'success',
+          }
+        : undefined,
   });
 }
 
@@ -714,6 +726,18 @@ export function convertKucoinWithdrawalToTransaction(
       category: 'transfer',
       type: 'withdrawal',
     },
+
+    // Blockchain metadata - add when hash is present
+    // Use "unknown" for blockchain name since we can't reliably determine it from exchange data
+    // The transaction_hash is what matters for linking
+    blockchain:
+      row.Hash && row.Hash.trim() !== ''
+        ? {
+            name: 'unknown',
+            transaction_hash: row.Hash.trim(),
+            is_confirmed: row.Status.toLowerCase() === 'success',
+          }
+        : undefined,
   });
 }
 

@@ -443,3 +443,181 @@ describe('CoinbaseProcessor - Mixed Transaction Batch', () => {
     expect(withdrawal?.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
   });
 });
+
+describe('CoinbaseProcessor - Blockchain Hash Extraction', () => {
+  test('populates blockchain field when hash is present and status is success', async () => {
+    const processor = createProcessor();
+
+    const depositEntry = buildEntry({
+      normalized: {
+        id: 'deposit-with-hash',
+        correlationId: 'deposit-corr-1',
+        type: 'send',
+        assetSymbol: 'BTC',
+        amount: '0.01',
+        hash: '0xabc123def456',
+        network: 'bitcoin',
+        address: 'bc1q...',
+      },
+      raw: {
+        id: 'deposit-with-hash',
+        type: 'send',
+        direction: 'in',
+        currency: 'BTC',
+        amount: '0.01',
+      },
+    });
+
+    const result = await processor.process([depositEntry]);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.blockchain).toBeDefined();
+    expect(transaction.blockchain?.name).toBe('bitcoin');
+    expect(transaction.blockchain?.transaction_hash).toBe('0xabc123def456');
+    expect(transaction.blockchain?.is_confirmed).toBe(true);
+  });
+
+  test('sets blockchain is_confirmed to false when status is not success', async () => {
+    const processor = createProcessor();
+
+    const depositEntry = buildEntry({
+      normalized: {
+        id: 'pending-deposit',
+        correlationId: 'deposit-corr-2',
+        type: 'send',
+        assetSymbol: 'ETH',
+        amount: '1.5',
+        status: 'pending',
+        hash: '0xpending123',
+        network: 'ethereum',
+      },
+      raw: {
+        id: 'pending-deposit',
+        type: 'send',
+        direction: 'in',
+        currency: 'ETH',
+        amount: '1.5',
+        status: 'pending',
+      },
+    });
+
+    const result = await processor.process([depositEntry]);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.blockchain).toBeDefined();
+    expect(transaction.blockchain?.transaction_hash).toBe('0xpending123');
+    expect(transaction.blockchain?.is_confirmed).toBe(false);
+  });
+
+  test('uses unknown blockchain name when network is not provided', async () => {
+    const processor = createProcessor();
+
+    const depositEntry = buildEntry({
+      normalized: {
+        id: 'deposit-no-network',
+        correlationId: 'deposit-corr-3',
+        type: 'send',
+        assetSymbol: 'USDC',
+        amount: '100',
+        hash: '0xhash456',
+      },
+      raw: {
+        id: 'deposit-no-network',
+        type: 'send',
+        direction: 'in',
+        currency: 'USDC',
+        amount: '100',
+      },
+    });
+
+    const result = await processor.process([depositEntry]);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.blockchain).toBeDefined();
+    expect(transaction.blockchain?.name).toBe('unknown');
+    expect(transaction.blockchain?.transaction_hash).toBe('0xhash456');
+  });
+
+  test('does not populate blockchain field when hash is empty', async () => {
+    const processor = createProcessor();
+
+    const depositEntry = buildEntry({
+      normalized: {
+        id: 'deposit-no-hash',
+        correlationId: 'deposit-corr-4',
+        type: 'send',
+        assetSymbol: 'BTC',
+        amount: '0.01',
+        hash: '',
+      },
+      raw: {
+        id: 'deposit-no-hash',
+        type: 'send',
+        direction: 'in',
+        currency: 'BTC',
+        amount: '0.01',
+      },
+    });
+
+    const result = await processor.process([depositEntry]);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.blockchain).toBeUndefined();
+  });
+
+  test('does not populate blockchain field when hash is missing', async () => {
+    const processor = createProcessor();
+
+    const depositEntry = buildEntry({
+      normalized: {
+        id: 'fiat-deposit',
+        correlationId: 'deposit-corr-5',
+        type: 'fiat_deposit',
+        assetSymbol: 'USD',
+        amount: '100',
+      },
+      raw: {
+        id: 'fiat-deposit',
+        type: 'fiat_deposit',
+        direction: 'in',
+        currency: 'USD',
+        amount: '100',
+      },
+    });
+
+    const result = await processor.process([depositEntry]);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.blockchain).toBeUndefined();
+  });
+});

@@ -98,6 +98,33 @@ describe('Cursor Utils', () => {
       });
     });
 
+    it('should prefer currentPageToken when next page token is missing', () => {
+      const transactions: TransactionWithRawData<{
+        blockHeight: number;
+        eventId: string;
+        id: string;
+        timestamp: number;
+      }>[] = [
+        {
+          raw: {},
+          normalized: { id: 'tx-1', eventId: 'event-1', blockHeight: 15000000, timestamp: 1640000000000 },
+        },
+      ];
+
+      const config: CursorStateConfig<{ blockHeight: number; eventId: string; id: string; timestamp: number }> = {
+        transactions,
+        extractCursors: mockExtractCursors,
+        totalFetched: 100,
+        providerName: 'nearblocks',
+        pageToken: undefined,
+        currentPageToken: 'page-1',
+      };
+
+      const cursorState = buildCursorState(config);
+
+      expect(cursorState.primary).toEqual({ type: 'pageToken', value: 'page-1', providerName: 'nearblocks' });
+    });
+
     it('should use last transaction for cursor extraction', () => {
       const extractCursorsSpy = vi.fn(mockExtractCursors);
 

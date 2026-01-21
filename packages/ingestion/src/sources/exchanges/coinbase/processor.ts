@@ -1,5 +1,7 @@
 import type { CoinbaseLedgerEntry } from '@exitbook/exchanges-providers';
+import type { Result } from 'neverthrow';
 
+import type { ProcessedTransaction } from '../../../shared/types/processors.js';
 import {
   classifyExchangeOperationFromFundFlow,
   type OperationClassification,
@@ -62,5 +64,50 @@ export class CoinbaseProcessor extends CorrelatingExchangeProcessor<CoinbaseLedg
 
     // Use base classification for all other transaction types
     return classifyExchangeOperationFromFundFlow(fundFlow);
+  }
+
+  /**
+   * Override to add blockchain metadata when hash is present in Coinbase data.
+   */
+  protected override async processInternal(normalizedData: unknown[]): Promise<Result<ProcessedTransaction[], string>> {
+    // Call parent to get processed transactions
+    const result = await super.processInternal(normalizedData);
+
+    if (result.isErr()) {
+      return result;
+    }
+
+    const transactions = result.value;
+    const entries = normalizedData as RawTransactionWithMetadata<CoinbaseLedgerEntry>[];
+
+    // Enhance transactions with blockchain metadata from entries
+    const enhanced = transactions.map((tx) => {
+      // Find the entry group for this transaction by matching externalId
+      const matchingEntry = entries.find((entry) => entry.normalized.id === tx.externalId);
+
+      if (!matchingEntry?.normalized.hash) {
+        return tx;
+      }
+
+      // Extract blockchain metadata from normalized exchange data
+      const { hash, network } = matchingEntry.normalized;
+
+      // Add blockchain field when hash is present
+      // Use "unknown" for blockchain name since we can't reliably determine it from exchange data
+      // The transaction_hash is what matters for linking
+      return {
+        ...tx,
+        blockchain:
+          hash && hash.trim() !== ''
+            ? {
+                name: network || 'unknown',
+                transaction_hash: hash.trim(),
+                is_confirmed: tx.status === 'success',
+              }
+            : undefined,
+      };
+    });
+
+    return result.map(() => enhanced);
   }
 }

@@ -138,6 +138,79 @@ export function checkAddressMatch(
 }
 
 /**
+ * Normalize a blockchain transaction hash by removing log index suffix.
+ * Some providers (e.g., Moralis) append `-{logIndex}` to differentiate token transfers
+ * within the same transaction, while others (e.g., Routescan) don't provide log index.
+ *
+ * Examples:
+ * - 0xabc123-819 → 0xabc123
+ * - 0xabc123 → 0xabc123
+ *
+ * @param txHash - Transaction hash, potentially with log index suffix
+ * @returns Normalized transaction hash without suffix
+ */
+export function normalizeTransactionHash(txHash: string): string {
+  // Strip -<number> suffix if present (log index from Moralis, etc.)
+  return txHash.replace(/-\d+$/, '');
+}
+
+/**
+ * Check if blockchain transaction hashes match (if both available).
+ * Uses hash normalization to handle provider inconsistencies (e.g., log index suffixes).
+ *
+ * Safety: Only strips log index when one side has it and the other doesn't. If both
+ * sides have log indices, requires exact match to prevent batched transfers from
+ * collapsing into the same match.
+ *
+ * @param sourceTransaction - Source transaction
+ * @param targetTransaction - Target transaction
+ * @returns True if hashes match, undefined if either hash not available
+ */
+export function checkTransactionHashMatch(
+  sourceTransaction: TransactionCandidate,
+  targetTransaction: TransactionCandidate
+): boolean | undefined {
+  const sourceHash = sourceTransaction.blockchainTransactionHash;
+  const targetHash = targetTransaction.blockchainTransactionHash;
+
+  // Both must have hashes to compare
+  if (!sourceHash || !targetHash) {
+    return undefined;
+  }
+
+  // Check if each hash has a log index suffix
+  const sourceHasLogIndex = /-\d+$/.test(sourceHash);
+  const targetHasLogIndex = /-\d+$/.test(targetHash);
+
+  let normalizedSource: string;
+  let normalizedTarget: string;
+
+  if (sourceHasLogIndex && targetHasLogIndex) {
+    // Both have log indices - require exact match (don't strip)
+    // This prevents batched transfers from collapsing into the same match
+    normalizedSource = sourceHash;
+    normalizedTarget = targetHash;
+  } else if (sourceHasLogIndex || targetHasLogIndex) {
+    // Only one has log index - strip it for comparison
+    normalizedSource = normalizeTransactionHash(sourceHash);
+    normalizedTarget = normalizeTransactionHash(targetHash);
+  } else {
+    // Neither has log index - compare as-is
+    normalizedSource = sourceHash;
+    normalizedTarget = targetHash;
+  }
+
+  // Only lowercase hex hashes (0x prefix) - Solana/Cardano hashes are case-sensitive
+  const isHexHash = normalizedSource.startsWith('0x') || normalizedTarget.startsWith('0x');
+  if (isHexHash) {
+    return normalizedSource.toLowerCase() === normalizedTarget.toLowerCase();
+  }
+
+  // Case-sensitive comparison for non-hex hashes (Solana base58, etc.)
+  return normalizedSource === normalizedTarget;
+}
+
+/**
  * Calculate overall confidence score based on match criteria
  *
  * @param criteria - Match criteria
@@ -235,7 +308,63 @@ export function findPotentialMatches(
     if (source.assetSymbol !== target.assetSymbol) continue;
     if (source.direction !== 'out' || target.direction !== 'in') continue;
 
-    // Build criteria
+    // Check for transaction hash match (perfect match)
+    // Skip hash matching for blockchain→blockchain (internal linking handles those)
+    const hashMatch = checkTransactionHashMatch(source, target);
+    const bothAreBlockchain = source.sourceType === 'blockchain' && target.sourceType === 'blockchain';
+
+    if (hashMatch === true && !bothAreBlockchain) {
+      // Safety: Check if this normalized hash is unique on the target side for this asset+direction
+      // If multiple targets share the same normalized hash, don't auto-confirm (fall back to heuristic)
+      const sourceHash = source.blockchainTransactionHash;
+      if (sourceHash) {
+        const normalizedSourceHash = normalizeTransactionHash(sourceHash);
+        const isHexHash = normalizedSourceHash.startsWith('0x');
+
+        const targetCountWithSameHash = targets.filter((t) => {
+          if (t.assetSymbol !== source.assetSymbol) return false;
+          if (t.direction !== 'in') return false;
+          if (!t.blockchainTransactionHash) return false;
+
+          const normalizedTargetHash = normalizeTransactionHash(t.blockchainTransactionHash);
+
+          // Apply same case-folding logic as checkTransactionHashMatch
+          if (isHexHash) {
+            return normalizedTargetHash.toLowerCase() === normalizedSourceHash.toLowerCase();
+          }
+          // Case-sensitive for non-hex hashes (Solana, etc.)
+          return normalizedTargetHash === normalizedSourceHash;
+        }).length;
+
+        // If multiple targets share this hash, skip hash-based matching and fall through to heuristic
+        if (targetCountWithSameHash > 1) {
+          // Fall through to normal matching logic below
+        } else {
+          // Perfect match - same blockchain transaction hash and unique
+          // This is 100% confident (exchange withdrawal → blockchain deposit with same hash)
+          const linkType = determineLinkType(source.sourceType, target.sourceType);
+          const timingHours = calculateTimeDifferenceHours(source.timestamp, target.timestamp);
+          const timingValid = isTimingValid(source.timestamp, target.timestamp, config);
+
+          matches.push({
+            sourceTransaction: source,
+            targetTransaction: target,
+            confidenceScore: parseDecimal('1.0'),
+            matchCriteria: {
+              assetMatch: true,
+              amountSimilarity: parseDecimal('1.0'),
+              timingValid, // Use actual timing validation
+              timingHours,
+              addressMatch: undefined,
+            },
+            linkType,
+          });
+          continue; // Skip normal matching logic for hash matches
+        }
+      }
+    }
+
+    // Build criteria for normal (non-hash) matching
     const criteria = buildMatchCriteria(source, target, config);
 
     // Enforce timing validity as a hard threshold
@@ -395,6 +524,7 @@ export function convertToCandidates(transactions: UniversalTransactionData[]): T
         direction: 'in',
         fromAddress: tx.from,
         toAddress: tx.to,
+        blockchainTransactionHash: tx.blockchain?.transaction_hash,
       };
       candidates.push(candidate);
     }
@@ -412,6 +542,7 @@ export function convertToCandidates(transactions: UniversalTransactionData[]): T
         direction: 'out',
         fromAddress: tx.from,
         toAddress: tx.to,
+        blockchainTransactionHash: tx.blockchain?.transaction_hash,
       };
       candidates.push(candidate);
     }

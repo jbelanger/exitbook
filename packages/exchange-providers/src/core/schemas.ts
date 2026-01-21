@@ -40,6 +40,15 @@ export const ExchangeLedgerEntrySchema = z
 
     /** Entry status */
     status: TransactionStatusSchema,
+
+    /** Blockchain transaction hash (for deposits/withdrawals) */
+    hash: z.string().optional(),
+
+    /** Blockchain address (for deposits/withdrawals) */
+    address: z.string().optional(),
+
+    /** Network/blockchain name (for deposits/withdrawals) */
+    network: z.string().optional(),
   })
   .strict(); // Reject any additional fields not defined in schema
 

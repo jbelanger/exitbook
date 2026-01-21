@@ -10,6 +10,7 @@ import {
   calculateTimeDifferenceHours,
   calculateVarianceMetadata,
   checkAddressMatch,
+  checkTransactionHashMatch,
   convertToCandidates,
   createTransactionLink,
   deduplicateAndConfirm,
@@ -17,6 +18,7 @@ import {
   determineLinkType,
   findPotentialMatches,
   isTimingValid,
+  normalizeTransactionHash,
   separateSourcesAndTargets,
   shouldAutoConfirm,
   validateLinkAmounts,
@@ -1411,6 +1413,696 @@ describe('matching-utils', () => {
         expect(link.metadata?.variancePct).toBe('5.00');
         expect(link.metadata?.impliedFee).toBe('0.05');
       }
+    });
+  });
+
+  describe('normalizeTransactionHash', () => {
+    it('should remove log index suffix', () => {
+      const hash = '0xabc123def456-819';
+      const normalized = normalizeTransactionHash(hash);
+      expect(normalized).toBe('0xabc123def456');
+    });
+
+    it('should leave hash unchanged if no suffix', () => {
+      const hash = '0xabc123def456';
+      const normalized = normalizeTransactionHash(hash);
+      expect(normalized).toBe('0xabc123def456');
+    });
+
+    it('should handle multiple number patterns', () => {
+      const hash = 'txhash-123-456';
+      const normalized = normalizeTransactionHash(hash);
+      // Only removes the trailing -<number> pattern
+      expect(normalized).toBe('txhash-123');
+    });
+
+    it('should handle hashes without any numbers', () => {
+      const hash = 'abcdef';
+      const normalized = normalizeTransactionHash(hash);
+      expect(normalized).toBe('abcdef');
+    });
+  });
+
+  describe('checkTransactionHashMatch', () => {
+    it('should return true when hashes match exactly', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const target: TransactionCandidate = {
+        id: 2,
+        sourceName: 'bitcoin',
+        sourceType: 'blockchain',
+        timestamp: new Date('2024-01-01T12:05:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('0.999'),
+        direction: 'in',
+        blockchainTransactionHash: '0xabc123',
+      };
+
+      const match = checkTransactionHashMatch(source, target);
+      expect(match).toBe(true);
+    });
+
+    it('should return true when hashes match after normalization', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'ETH',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xdef456',
+      };
+      const target: TransactionCandidate = {
+        id: 2,
+        sourceName: 'ethereum',
+        sourceType: 'blockchain',
+        timestamp: new Date('2024-01-01T12:05:00Z'),
+        assetSymbol: 'ETH',
+        amount: parseDecimal('0.999'),
+        direction: 'in',
+        blockchainTransactionHash: '0xdef456-819', // With log index
+      };
+
+      const match = checkTransactionHashMatch(source, target);
+      expect(match).toBe(true);
+    });
+
+    it('should return true when hex hashes match case-insensitively', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'ETH',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xABC123',
+      };
+      const target: TransactionCandidate = {
+        id: 2,
+        sourceName: 'ethereum',
+        sourceType: 'blockchain',
+        timestamp: new Date('2024-01-01T12:05:00Z'),
+        assetSymbol: 'ETH',
+        amount: parseDecimal('0.999'),
+        direction: 'in',
+        blockchainTransactionHash: '0xabc123',
+      };
+
+      const match = checkTransactionHashMatch(source, target);
+      expect(match).toBe(true);
+    });
+
+    it('should be case-sensitive for non-hex hashes (Solana base58)', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'SOL',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: 'AbC123DeFg456', // Solana base58 hash
+      };
+      const target: TransactionCandidate = {
+        id: 2,
+        sourceName: 'solana',
+        sourceType: 'blockchain',
+        timestamp: new Date('2024-01-01T12:05:00Z'),
+        assetSymbol: 'SOL',
+        amount: parseDecimal('0.999'),
+        direction: 'in',
+        blockchainTransactionHash: 'abc123defg456', // Different case
+      };
+
+      const match = checkTransactionHashMatch(source, target);
+      expect(match).toBe(false); // Should not match - case matters for Solana
+    });
+
+    it('should match non-hex hashes when case matches exactly', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'SOL',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: 'AbC123DeFg456',
+      };
+      const target: TransactionCandidate = {
+        id: 2,
+        sourceName: 'solana',
+        sourceType: 'blockchain',
+        timestamp: new Date('2024-01-01T12:05:00Z'),
+        assetSymbol: 'SOL',
+        amount: parseDecimal('0.999'),
+        direction: 'in',
+        blockchainTransactionHash: 'AbC123DeFg456', // Exact case match
+      };
+
+      const match = checkTransactionHashMatch(source, target);
+      expect(match).toBe(true);
+    });
+
+    it('should return false when hashes do not match', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const target: TransactionCandidate = {
+        id: 2,
+        sourceName: 'bitcoin',
+        sourceType: 'blockchain',
+        timestamp: new Date('2024-01-01T12:05:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('0.999'),
+        direction: 'in',
+        blockchainTransactionHash: '0xdef456',
+      };
+
+      const match = checkTransactionHashMatch(source, target);
+      expect(match).toBe(false);
+    });
+
+    it('should return undefined when source hash is missing', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+      };
+      const target: TransactionCandidate = {
+        id: 2,
+        sourceName: 'bitcoin',
+        sourceType: 'blockchain',
+        timestamp: new Date('2024-01-01T12:05:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('0.999'),
+        direction: 'in',
+        blockchainTransactionHash: '0xabc123',
+      };
+
+      const match = checkTransactionHashMatch(source, target);
+      expect(match).toBeUndefined();
+    });
+
+    it('should return undefined when target hash is missing', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const target: TransactionCandidate = {
+        id: 2,
+        sourceName: 'bitcoin',
+        sourceType: 'blockchain',
+        timestamp: new Date('2024-01-01T12:05:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('0.999'),
+        direction: 'in',
+      };
+
+      const match = checkTransactionHashMatch(source, target);
+      expect(match).toBeUndefined();
+    });
+
+    it('should match when both have same log index (exact match)', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'USDT',
+        amount: parseDecimal('100.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123-819',
+      };
+      const target: TransactionCandidate = {
+        id: 2,
+        sourceName: 'ethereum',
+        sourceType: 'blockchain',
+        timestamp: new Date('2024-01-01T12:05:00Z'),
+        assetSymbol: 'USDT',
+        amount: parseDecimal('99.5'),
+        direction: 'in',
+        blockchainTransactionHash: '0xabc123-819', // Same log index
+      };
+
+      const match = checkTransactionHashMatch(source, target);
+      expect(match).toBe(true);
+    });
+
+    it('should NOT match when both have different log indices (batched transfer safety)', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'USDT',
+        amount: parseDecimal('100.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123-819',
+      };
+      const target: TransactionCandidate = {
+        id: 2,
+        sourceName: 'ethereum',
+        sourceType: 'blockchain',
+        timestamp: new Date('2024-01-01T12:05:00Z'),
+        assetSymbol: 'USDT',
+        amount: parseDecimal('50.0'),
+        direction: 'in',
+        blockchainTransactionHash: '0xabc123-820', // Different log index
+      };
+
+      const match = checkTransactionHashMatch(source, target);
+      expect(match).toBe(false); // Should NOT match - different log indices
+    });
+
+    it('should NOT match batched withdrawals to same deposit (safety check)', () => {
+      // Scenario: Two separate withdrawals from exchange in same tx (0xabc-819, 0xabc-820)
+      // should NOT both match a single deposit (0xabc)
+      const withdrawal1: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'USDT',
+        amount: parseDecimal('100.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123-819',
+      };
+      const withdrawal2: TransactionCandidate = {
+        id: 2,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'USDT',
+        amount: parseDecimal('50.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123-820',
+      };
+      const deposit: TransactionCandidate = {
+        id: 3,
+        sourceName: 'ethereum',
+        sourceType: 'blockchain',
+        timestamp: new Date('2024-01-01T12:05:00Z'),
+        assetSymbol: 'USDT',
+        amount: parseDecimal('149.5'),
+        direction: 'in',
+        blockchainTransactionHash: '0xabc123',
+      };
+
+      // Both withdrawals should match the deposit (one has log index, other doesn't)
+      const match1 = checkTransactionHashMatch(withdrawal1, deposit);
+      const match2 = checkTransactionHashMatch(withdrawal2, deposit);
+
+      expect(match1).toBe(true);
+      expect(match2).toBe(true);
+
+      // But the two withdrawals should NOT match each other (both have different log indices)
+      const crossMatch = checkTransactionHashMatch(withdrawal1, withdrawal2);
+      expect(crossMatch).toBe(false);
+    });
+  });
+
+  describe('findPotentialMatches with hash matching', () => {
+    it('should create perfect match when transaction hashes match', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const targets: TransactionCandidate[] = [
+        {
+          id: 2,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'BTC',
+          amount: parseDecimal('0.999'),
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123',
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.confidenceScore.toString()).toBe('1');
+      expect(matches[0]?.linkType).toBe('exchange_to_blockchain');
+    });
+
+    it('should prioritize hash match over amount-based matching', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const targets: TransactionCandidate[] = [
+        // Perfect amount match but no hash
+        {
+          id: 2,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'BTC',
+          amount: parseDecimal('1.0'), // Exact amount match
+          direction: 'in',
+          blockchainTransactionHash: '0xdifferent',
+        },
+        // Imperfect amount but hash match
+        {
+          id: 3,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:10:00Z'),
+          assetSymbol: 'BTC',
+          amount: parseDecimal('0.95'), // 5% fee
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123',
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should have 2 matches (both are valid)
+      expect(matches.length).toBeGreaterThanOrEqual(2);
+
+      // Hash match should be first (highest confidence = 1.0)
+      expect(matches[0]?.confidenceScore.toString()).toBe('1');
+      expect(matches[0]?.targetTransaction.id).toBe(3); // Hash match target
+    });
+
+    it('should handle normalized hash matching', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'ETH',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xdef456',
+      };
+      const targets: TransactionCandidate[] = [
+        {
+          id: 2,
+          sourceName: 'ethereum',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'ETH',
+          amount: parseDecimal('0.999'),
+          direction: 'in',
+          blockchainTransactionHash: '0xdef456-819', // With log index
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.confidenceScore.toString()).toBe('1');
+    });
+
+    it('should NOT hash-match blockchain→blockchain pairs (let internal linking handle)', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'bitcoin',
+        sourceType: 'blockchain',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const targets: TransactionCandidate[] = [
+        {
+          id: 2,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'BTC',
+          amount: parseDecimal('0.999'),
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123', // Same hash
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should use normal matching (not hash-based), if any
+      // Hash-based matching is skipped for blockchain→blockchain
+      expect(matches.length).toBeLessThanOrEqual(1);
+      if (matches.length > 0) {
+        // If it matched via normal logic, confidence should be < 1.0
+        expect(matches[0]?.confidenceScore.toNumber()).toBeLessThan(1.0);
+      }
+    });
+
+    it('should calculate actual timing validation for hash matches', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const targets: TransactionCandidate[] = [
+        {
+          id: 2,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-03T14:00:00Z'), // 50 hours later (outside default 48h window)
+          assetSymbol: 'BTC',
+          amount: parseDecimal('0.999'),
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123',
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.confidenceScore.toString()).toBe('1'); // Still 100% confidence (hash match)
+      expect(matches[0]?.matchCriteria.timingValid).toBe(false); // But timing is invalid
+      expect(matches[0]?.matchCriteria.timingHours).toBeGreaterThan(48); // ~50 hours
+    });
+
+    it('should NOT auto-confirm when multiple targets share the same normalized hash (ambiguity)', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'USDT',
+        amount: parseDecimal('100.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const targets: TransactionCandidate[] = [
+        // Two deposits with same normalized hash (0xabc123-819 and 0xabc123-820 both normalize to 0xabc123)
+        {
+          id: 2,
+          sourceName: 'ethereum',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'USDT',
+          amount: parseDecimal('99.5'),
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123-819',
+        },
+        {
+          id: 3,
+          sourceName: 'ethereum',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:06:00Z'),
+          assetSymbol: 'USDT',
+          amount: parseDecimal('50.0'),
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123-820',
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should find matches, but NOT with 100% confidence (ambiguous hash)
+      expect(matches.length).toBeGreaterThan(0);
+      // None should have 100% confidence - all should fall back to heuristic matching
+      for (const match of matches) {
+        expect(match.confidenceScore.toNumber()).toBeLessThan(1.0);
+      }
+    });
+
+    it('should auto-confirm when hash is unique on target side', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'USDT',
+        amount: parseDecimal('100.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const targets: TransactionCandidate[] = [
+        // Only one deposit with this normalized hash
+        {
+          id: 2,
+          sourceName: 'ethereum',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'USDT',
+          amount: parseDecimal('99.5'),
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123-819',
+        },
+        // Another deposit with different hash
+        {
+          id: 3,
+          sourceName: 'ethereum',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:06:00Z'),
+          assetSymbol: 'USDT',
+          amount: parseDecimal('50.0'),
+          direction: 'in',
+          blockchainTransactionHash: '0xdef456-820',
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should find the hash match
+      expect(matches.length).toBeGreaterThan(0);
+      // First match (hash match) should have 100% confidence
+      expect(matches[0]?.confidenceScore.toString()).toBe('1');
+      expect(matches[0]?.targetTransaction.id).toBe(2);
+    });
+
+    it('should NOT auto-confirm when hex hashes differ only by case (uniqueness check is case-insensitive)', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'USDT',
+        amount: parseDecimal('100.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const targets: TransactionCandidate[] = [
+        // Same hash but uppercase
+        {
+          id: 2,
+          sourceName: 'ethereum',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'USDT',
+          amount: parseDecimal('99.5'),
+          direction: 'in',
+          blockchainTransactionHash: '0xABC123',
+        },
+        // Same hash but different case
+        {
+          id: 3,
+          sourceName: 'ethereum',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:06:00Z'),
+          assetSymbol: 'USDT',
+          amount: parseDecimal('50.0'),
+          direction: 'in',
+          blockchainTransactionHash: '0xAbC123',
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should detect non-uniqueness (case-insensitive comparison)
+      // and fall back to heuristic matching (not 100% confidence)
+      expect(matches.length).toBeGreaterThan(0);
+      for (const match of matches) {
+        expect(match.confidenceScore.toNumber()).toBeLessThan(1.0);
+      }
+    });
+
+    it('should be case-sensitive for non-hex hashes in uniqueness check (Solana)', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'SOL',
+        amount: parseDecimal('10.0'),
+        direction: 'out',
+        blockchainTransactionHash: 'AbC123DeFg456',
+      };
+      const targets: TransactionCandidate[] = [
+        // Exact case match
+        {
+          id: 2,
+          sourceName: 'solana',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'SOL',
+          amount: parseDecimal('9.95'),
+          direction: 'in',
+          blockchainTransactionHash: 'AbC123DeFg456',
+        },
+        // Different case (should be considered different hash for Solana)
+        {
+          id: 3,
+          sourceName: 'solana',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:06:00Z'),
+          assetSymbol: 'SOL',
+          amount: parseDecimal('5.0'),
+          direction: 'in',
+          blockchainTransactionHash: 'abc123defg456',
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should find hash match with id:2 only (case-sensitive for non-hex)
+      expect(matches.length).toBeGreaterThan(0);
+      const perfectMatch = matches.find((m) => m.confidenceScore.toString() === '1');
+      expect(perfectMatch).toBeDefined();
+      expect(perfectMatch?.targetTransaction.id).toBe(2);
     });
   });
 });

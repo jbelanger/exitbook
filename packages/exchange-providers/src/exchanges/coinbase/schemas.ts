@@ -91,12 +91,38 @@ export const RawCoinbaseTransactionDetailsSchema = z
   .passthrough(); // Allow other fields we haven't explicitly defined
 
 /**
+ * Schema for blockchain network information from Coinbase API v2
+ * Present for on-chain deposits/withdrawals
+ */
+export const CoinbaseNetworkInfoSchema = z.object({
+  hash: z.string(),
+  network_name: z.string(),
+  status: z.string(), // "confirmed", "pending", etc.
+  transaction_fee: z
+    .object({
+      amount: z.string(),
+      currency: z.string(),
+    })
+    .optional(),
+});
+
+/**
+ * Schema for recipient/destination address from Coinbase API v2
+ */
+export const CoinbaseAddressInfoSchema = z.object({
+  address: z.string(),
+  resource: z.string(),
+});
+
+/**
  * Schema for raw transaction from Coinbase Consumer API v2
  * Used to validate the structure in CCXT's info property for correlation ID extraction
  *
  * Structure: CCXT returns Coinbase v2 API transactions which have:
  * - Top-level fields: id, type, amount, created_at, status
  * - Type-specific nested object: advanced_trade_fill, buy, sell, send, trade, etc.
+ * - Network field: blockchain transaction details (hash, network_name, status)
+ * - To field: destination address for withdrawals
  */
 export const RawCoinbaseLedgerEntrySchema = z
   .object({
@@ -122,6 +148,12 @@ export const RawCoinbaseLedgerEntrySchema = z
     sell: RawCoinbaseTransactionDetailsSchema.optional(),
     send: RawCoinbaseTransactionDetailsSchema.optional(),
     trade: RawCoinbaseTransactionDetailsSchema.optional(),
+
+    // Blockchain network information (for on-chain transactions)
+    network: CoinbaseNetworkInfoSchema.optional(),
+
+    // Destination address (for withdrawals)
+    to: CoinbaseAddressInfoSchema.optional(),
 
     // Allow other transaction type fields we haven't explicitly defined
   })

@@ -67,6 +67,7 @@ export const TransactionCandidateSchema = z.object({
   direction: z.enum(['in', 'out', 'neutral']),
   fromAddress: z.string().optional(),
   toAddress: z.string().optional(),
+  blockchainTransactionHash: z.string().optional(),
 });
 
 /**

@@ -377,12 +377,17 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
   /**
    * Build assetId for an EVM movement
-   * - Native asset (no tokenAddress): blockchain:<chain>:native
+   * - Primary native asset (no tokenAddress): blockchain:<chain>:native
+   * - Additional native asset (no tokenAddress): blockchain:<chain>:<symbol> (e.g., THETA)
    * - Token with tokenAddress: blockchain:<chain>:<tokenAddress>
    * - Token without tokenAddress (edge case): fail-fast with an error
    *
    * Per Asset Identity Specification, tokenAddress should usually be available for ERC-20 transfers.
    * If missing for a non-native asset, we fail-fast to prevent silent data corruption.
+   *
+   * Special handling for blockchains with multiple native currencies (e.g., Theta with THETA + TFUEL):
+   * - Primary native currency gets blockchain:<chain>:native
+   * - Additional native currencies get blockchain:<chain>:<symbol> for unique identification
    */
   private buildEvmAssetId(
     movement: {
@@ -395,10 +400,24 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     if (!movement.tokenAddress) {
       const assetSymbol = movement.asset;
       const nativeSymbol = this.chainConfig.nativeCurrency;
+      const additionalNativeSymbols = this.chainConfig.additionalNativeCurrencies || [];
+
+      // Check if this asset matches the primary native currency
       const isNativeSymbol = assetSymbol.trim().toLowerCase() === nativeSymbol.trim().toLowerCase();
 
+      // Check if this asset matches any additional native currencies (e.g., THETA on Theta blockchain)
+      const isAdditionalNative = additionalNativeSymbols.some(
+        (symbol) => assetSymbol.trim().toLowerCase() === symbol.trim().toLowerCase()
+      );
+
       if (isNativeSymbol) {
+        // Primary native currency: blockchain:theta:native
         return buildBlockchainNativeAssetId(this.chainConfig.chainName);
+      }
+
+      if (isAdditionalNative) {
+        // Additional native currency: blockchain:theta:theta (use symbol as reference for uniqueness)
+        return buildBlockchainTokenAssetId(this.chainConfig.chainName, assetSymbol.toLowerCase());
       }
 
       if (looksLikeContractAddress(assetSymbol, 40)) {
