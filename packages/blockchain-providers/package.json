@@ -42,7 +42,7 @@
     "@polkadot/util-crypto": "^13.5.7",
     "@scure/bip32": "^2.0.0",
     "bech32": "^2.0.0",
-    "bitcoinjs-lib": "^7.0.0",
+    "bitcoinjs-lib": "^7.0.1",
     "decimal.js": "^10.6.0",
     "jose": "^6.0.13",
     "neverthrow": "^8.2.0",
