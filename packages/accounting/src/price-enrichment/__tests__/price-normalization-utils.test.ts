@@ -27,6 +27,7 @@ describe('extractMovementsNeedingNormalization', () => {
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',
+      sourceType: 'exchange' as const,
       status: 'success',
       movements: {
         inflows: [
@@ -70,6 +71,7 @@ describe('extractMovementsNeedingNormalization', () => {
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',
+      sourceType: 'exchange' as const,
       status: 'success',
       movements: {
         inflows: [
@@ -113,6 +115,7 @@ describe('extractMovementsNeedingNormalization', () => {
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',
+      sourceType: 'exchange' as const,
       status: 'success',
       movements: {
         inflows: [
@@ -156,6 +159,7 @@ describe('extractMovementsNeedingNormalization', () => {
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',
+      sourceType: 'exchange' as const,
       status: 'success',
       movements: {
         inflows: [
@@ -202,6 +206,7 @@ describe('extractMovementsNeedingNormalization', () => {
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',
+      sourceType: 'exchange' as const,
       status: 'success',
       movements: {
         inflows: [

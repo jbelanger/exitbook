@@ -40,6 +40,7 @@ function createMockTransaction(
     id: id,
     accountId: 1,
     source: sourceName,
+    sourceType: sourceType,
     externalId: `tx-${id}`,
     status: 'success',
     datetime: datetime,

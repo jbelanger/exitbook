@@ -23,6 +23,7 @@ describe('cost-basis-validation-utils', () => {
         datetime: '2024-01-15T10:00:00Z',
         timestamp: 1705316400000,
         source: 'test',
+        sourceType: 'blockchain',
         status: 'success',
         operation: {
           category: 'trade',
@@ -106,6 +107,7 @@ describe('cost-basis-validation-utils', () => {
         datetime: '2024-01-15T10:00:00Z',
         timestamp: 1705316400000,
         source: 'test',
+        sourceType: 'blockchain',
         status: 'success',
         operation: {
           category: 'trade',
@@ -143,6 +145,7 @@ describe('cost-basis-validation-utils', () => {
         datetime: '2024-01-15T10:00:00Z',
         timestamp: 1705316400000,
         source: 'test',
+        sourceType: 'blockchain',
         status: 'success',
         operation: {
           category: 'trade',
@@ -196,6 +199,7 @@ describe('cost-basis-validation-utils', () => {
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
           source: 'test',
+          sourceType: 'blockchain',
           status: 'success',
           operation: {
             category: 'trade',
@@ -234,6 +238,7 @@ describe('cost-basis-validation-utils', () => {
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
           source: 'test',
+          sourceType: 'blockchain',
           status: 'success',
           operation: {
             category: 'trade',
@@ -274,6 +279,7 @@ describe('cost-basis-validation-utils', () => {
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
           source: 'test',
+          sourceType: 'blockchain',
           status: 'success',
           operation: {
             category: 'trade',
@@ -316,6 +322,7 @@ describe('cost-basis-validation-utils', () => {
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
           source: 'test',
+          sourceType: 'blockchain',
           status: 'success',
           operation: {
             category: 'trade',
@@ -354,6 +361,7 @@ describe('cost-basis-validation-utils', () => {
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
           source: 'test',
+          sourceType: 'blockchain',
           status: 'success',
           operation: {
             category: 'trade',
@@ -394,6 +402,7 @@ describe('cost-basis-validation-utils', () => {
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
           source: 'test',
+          sourceType: 'blockchain',
           status: 'success',
           operation: {
             category: 'trade',
@@ -439,6 +448,7 @@ describe('cost-basis-validation-utils', () => {
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
           source: 'test',
+          sourceType: 'blockchain',
           status: 'success',
           operation: {
             category: 'trade',
@@ -480,6 +490,7 @@ describe('cost-basis-validation-utils', () => {
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
           source: 'test',
+          sourceType: 'blockchain',
           status: 'success',
           operation: {
             category: 'trade',
@@ -619,6 +630,7 @@ describe('cost-basis-validation-utils', () => {
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
           source: 'test',
+          sourceType: 'blockchain',
           status: 'success',
           operation: {
             category: 'trade',
@@ -670,6 +682,7 @@ describe('cost-basis-validation-utils', () => {
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
           source: 'test',
+          sourceType: 'blockchain',
           status: 'success',
           operation: {
             category: 'trade',
@@ -708,6 +721,7 @@ describe('cost-basis-validation-utils', () => {
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
           source: 'test',
+          sourceType: 'blockchain',
           status: 'success',
           operation: {
             category: 'trade',
@@ -750,6 +764,7 @@ describe('cost-basis-validation-utils', () => {
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
           source: 'test',
+          sourceType: 'blockchain',
           status: 'success',
           operation: {
             category: 'trade',
@@ -795,6 +810,7 @@ describe('cost-basis-validation-utils', () => {
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
           source: 'test',
+          sourceType: 'blockchain',
           status: 'success',
           operation: {
             category: 'trade',

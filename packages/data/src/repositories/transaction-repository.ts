@@ -462,7 +462,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       is_spam: transaction.isSpam ?? false,
       excluded_from_accounting: transaction.excludedFromAccounting ?? transaction.isSpam ?? false,
       source_name: transaction.source,
-      source_type: transaction.blockchain ? 'blockchain' : 'exchange',
+      source_type: transaction.sourceType,
       to_address: transaction.to ?? null,
       transaction_datetime: transaction.datetime
         ? new Date(transaction.datetime).toISOString()
@@ -523,6 +523,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       datetime,
       timestamp,
       source: row.source_name,
+      sourceType: row.source_type,
       status,
       from: row.from_address ?? undefined,
       to: row.to_address ?? undefined,

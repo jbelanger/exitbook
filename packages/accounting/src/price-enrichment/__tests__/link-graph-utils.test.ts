@@ -16,6 +16,7 @@ import { buildLinkGraph } from '../link-graph-utils.js';
 function createTx(
   id: number,
   source: string,
+  sourceType: 'exchange' | 'blockchain',
   options: { blockchain?: string; datetime?: string } = {}
 ): UniversalTransactionData {
   const base: UniversalTransactionData = {
@@ -23,6 +24,7 @@ function createTx(
     accountId: 1,
     externalId: `ext-${id}`,
     source,
+    sourceType,
     datetime: options.datetime ?? '2023-01-01T00:00:00Z',
     timestamp: Date.parse(options.datetime ?? '2023-01-01T00:00:00Z'),
     status: 'success',
@@ -82,7 +84,7 @@ describe('buildLinkGraph', () => {
     });
 
     it('creates single group for single transaction', () => {
-      const tx = createTx(1, 'kraken');
+      const tx = createTx(1, 'kraken', 'exchange');
       const groups = buildLinkGraph([tx], []);
 
       expect(groups).toHaveLength(1);
@@ -95,9 +97,9 @@ describe('buildLinkGraph', () => {
 
   describe('exchange transaction grouping (Phase 1 backward compatibility)', () => {
     it('groups all transactions from same exchange together', () => {
-      const tx1 = createTx(1, 'kraken', { datetime: '2023-01-01T10:00:00Z' });
-      const tx2 = createTx(2, 'kraken', { datetime: '2023-01-01T11:00:00Z' });
-      const tx3 = createTx(3, 'kraken', { datetime: '2023-01-01T12:00:00Z' });
+      const tx1 = createTx(1, 'kraken', 'exchange', { datetime: '2023-01-01T10:00:00Z' });
+      const tx2 = createTx(2, 'kraken', 'exchange', { datetime: '2023-01-01T11:00:00Z' });
+      const tx3 = createTx(3, 'kraken', 'exchange', { datetime: '2023-01-01T12:00:00Z' });
 
       const groups = buildLinkGraph([tx1, tx2, tx3], []);
 
@@ -112,9 +114,9 @@ describe('buildLinkGraph', () => {
     });
 
     it('does NOT group transactions from different exchanges', () => {
-      const tx1 = createTx(1, 'kraken');
-      const tx2 = createTx(2, 'coinbase');
-      const tx3 = createTx(3, 'kucoin');
+      const tx1 = createTx(1, 'kraken', 'exchange');
+      const tx2 = createTx(2, 'coinbase', 'exchange');
+      const tx3 = createTx(3, 'kucoin', 'exchange');
 
       const groups = buildLinkGraph([tx1, tx2, tx3], []);
 
@@ -131,9 +133,9 @@ describe('buildLinkGraph', () => {
 
   describe('blockchain transaction isolation (prevents price leakage)', () => {
     it('does NOT auto-group blockchain transactions from same chain', () => {
-      const tx1 = createTx(1, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
-      const tx2 = createTx(2, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
-      const tx3 = createTx(3, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
+      const tx1 = createTx(1, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
+      const tx2 = createTx(2, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
+      const tx3 = createTx(3, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
 
       const groups = buildLinkGraph([tx1, tx2, tx3], []);
 
@@ -147,9 +149,9 @@ describe('buildLinkGraph', () => {
     });
 
     it('keeps blockchain and exchange transactions separate without links', () => {
-      const exchangeTx1 = createTx(1, 'kraken');
-      const exchangeTx2 = createTx(2, 'kraken');
-      const blockchainTx = createTx(3, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
+      const exchangeTx1 = createTx(1, 'kraken', 'exchange');
+      const exchangeTx2 = createTx(2, 'kraken', 'exchange');
+      const blockchainTx = createTx(3, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
 
       const groups = buildLinkGraph([exchangeTx1, exchangeTx2, blockchainTx], []);
 
@@ -166,8 +168,8 @@ describe('buildLinkGraph', () => {
 
   describe('cross-platform linking (Phase 2 functionality)', () => {
     it('groups transactions connected by confirmed links', () => {
-      const tx1 = createTx(1, 'kraken');
-      const tx2 = createTx(2, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
+      const tx1 = createTx(1, 'kraken', 'exchange');
+      const tx2 = createTx(2, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
       const link = createLink(1, 2, 'confirmed');
 
       const groups = buildLinkGraph([tx1, tx2], [link]);
@@ -182,8 +184,8 @@ describe('buildLinkGraph', () => {
     });
 
     it('does NOT group transactions with suggested links', () => {
-      const tx1 = createTx(1, 'kraken');
-      const tx2 = createTx(2, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
+      const tx1 = createTx(1, 'kraken', 'exchange');
+      const tx2 = createTx(2, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
       const link = createLink(1, 2, 'suggested');
 
       const groups = buildLinkGraph([tx1, tx2], [link]);
@@ -193,8 +195,8 @@ describe('buildLinkGraph', () => {
     });
 
     it('does NOT group transactions with rejected links', () => {
-      const tx1 = createTx(1, 'kraken');
-      const tx2 = createTx(2, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
+      const tx1 = createTx(1, 'kraken', 'exchange');
+      const tx2 = createTx(2, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
       const link = createLink(1, 2, 'rejected');
 
       const groups = buildLinkGraph([tx1, tx2], [link]);
@@ -206,9 +208,9 @@ describe('buildLinkGraph', () => {
 
   describe('transitive linking', () => {
     it('groups transitively linked transactions (A→B, B→C → all in one group)', () => {
-      const tx1 = createTx(1, 'kraken');
-      const tx2 = createTx(2, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
-      const tx3 = createTx(3, 'ethereum-alchemy', { blockchain: 'ethereum' });
+      const tx1 = createTx(1, 'kraken', 'exchange');
+      const tx2 = createTx(2, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
+      const tx3 = createTx(3, 'ethereum-alchemy', 'blockchain', { blockchain: 'ethereum' });
 
       const link1 = createLink(1, 2, 'confirmed'); // kraken → bitcoin
       const link2 = createLink(2, 3, 'confirmed'); // bitcoin → ethereum
@@ -228,10 +230,10 @@ describe('buildLinkGraph', () => {
       // Blockchain txs: bitcoin (tx3), ethereum (tx4), separate initially
       // Links: kraken tx1 → bitcoin tx3, bitcoin tx3 → ethereum tx4
       // Result: All 4 should be in one group
-      const tx1 = createTx(1, 'kraken');
-      const tx2 = createTx(2, 'kraken');
-      const tx3 = createTx(3, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
-      const tx4 = createTx(4, 'ethereum-alchemy', { blockchain: 'ethereum' });
+      const tx1 = createTx(1, 'kraken', 'exchange');
+      const tx2 = createTx(2, 'kraken', 'exchange');
+      const tx3 = createTx(3, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
+      const tx4 = createTx(4, 'ethereum-alchemy', 'blockchain', { blockchain: 'ethereum' });
 
       const link1 = createLink(1, 3, 'confirmed'); // kraken tx1 → bitcoin
       const link2 = createLink(3, 4, 'confirmed'); // bitcoin → ethereum
@@ -248,16 +250,16 @@ describe('buildLinkGraph', () => {
   describe('multiple disjoint groups', () => {
     it('creates separate groups for unconnected transaction clusters', () => {
       // Cluster 1: kraken transactions (auto-grouped)
-      const tx1 = createTx(1, 'kraken');
-      const tx2 = createTx(2, 'kraken');
+      const tx1 = createTx(1, 'kraken', 'exchange');
+      const tx2 = createTx(2, 'kraken', 'exchange');
 
       // Cluster 2: coinbase + linked bitcoin
-      const tx3 = createTx(3, 'coinbase');
-      const tx4 = createTx(4, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
+      const tx3 = createTx(3, 'coinbase', 'exchange');
+      const tx4 = createTx(4, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
       const link1 = createLink(3, 4, 'confirmed');
 
       // Cluster 3: isolated ethereum transaction
-      const tx5 = createTx(5, 'ethereum-alchemy', { blockchain: 'ethereum' });
+      const tx5 = createTx(5, 'ethereum-alchemy', 'blockchain', { blockchain: 'ethereum' });
 
       const groups = buildLinkGraph([tx1, tx2, tx3, tx4, tx5], [link1]);
 
@@ -277,8 +279,8 @@ describe('buildLinkGraph', () => {
 
   describe('edge cases', () => {
     it('ignores links to non-existent transactions', () => {
-      const tx1 = createTx(1, 'kraken');
-      const tx2 = createTx(2, 'coinbase');
+      const tx1 = createTx(1, 'kraken', 'exchange');
+      const tx2 = createTx(2, 'coinbase', 'exchange');
       const validLink = createLink(1, 2, 'confirmed');
       const invalidLink = createLink(1, 999, 'confirmed'); // tx 999 doesn't exist
 
@@ -291,7 +293,7 @@ describe('buildLinkGraph', () => {
     });
 
     it('handles self-links gracefully', () => {
-      const tx1 = createTx(1, 'kraken');
+      const tx1 = createTx(1, 'kraken', 'exchange');
       const selfLink = createLink(1, 1, 'confirmed');
 
       const groups = buildLinkGraph([tx1], [selfLink]);
@@ -302,8 +304,8 @@ describe('buildLinkGraph', () => {
     });
 
     it('handles duplicate links gracefully', () => {
-      const tx1 = createTx(1, 'kraken');
-      const tx2 = createTx(2, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
+      const tx1 = createTx(1, 'kraken', 'exchange');
+      const tx2 = createTx(2, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
       const link1 = createLink(1, 2, 'confirmed');
       const link2 = createLink(1, 2, 'confirmed'); // duplicate
 
@@ -317,8 +319,8 @@ describe('buildLinkGraph', () => {
 
   describe('group metadata', () => {
     it('assigns unique groupId to each group', () => {
-      const tx1 = createTx(1, 'kraken');
-      const tx2 = createTx(2, 'coinbase');
+      const tx1 = createTx(1, 'kraken', 'exchange');
+      const tx2 = createTx(2, 'coinbase', 'exchange');
 
       const groups = buildLinkGraph([tx1, tx2], []);
 
@@ -329,9 +331,9 @@ describe('buildLinkGraph', () => {
     });
 
     it('includes all sources in group metadata', () => {
-      const tx1 = createTx(1, 'kraken');
-      const tx2 = createTx(2, 'kraken');
-      const tx3 = createTx(3, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
+      const tx1 = createTx(1, 'kraken', 'exchange');
+      const tx2 = createTx(2, 'kraken', 'exchange');
+      const tx3 = createTx(3, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
       const link = createLink(1, 3, 'confirmed');
 
       const groups = buildLinkGraph([tx1, tx2, tx3], [link]);
@@ -344,12 +346,12 @@ describe('buildLinkGraph', () => {
 
     it('includes only confirmed links within the group in linkChain', () => {
       // Group 1: kraken tx1, tx2 (auto-grouped by exchange)
-      const tx1 = createTx(1, 'kraken');
-      const tx2 = createTx(2, 'kraken');
+      const tx1 = createTx(1, 'kraken', 'exchange');
+      const tx2 = createTx(2, 'kraken', 'exchange');
 
       // Group 2: bitcoin tx3, tx4 (separate group, linked together)
-      const tx3 = createTx(3, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
-      const tx4 = createTx(4, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
+      const tx3 = createTx(3, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
+      const tx4 = createTx(4, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
 
       const group2Link = createLink(3, 4, 'confirmed'); // links tx3 and tx4
       const suggestedLink = createLink(1, 2, 'suggested'); // not included (suggested)
@@ -374,21 +376,21 @@ describe('buildLinkGraph', () => {
   describe('realistic scenarios', () => {
     it('handles typical user workflow: exchange → blockchain withdrawal → exchange deposit', () => {
       // User sells BTC on Kraken
-      const krakenSell = createTx(1, 'kraken', { datetime: '2023-01-01T10:00:00Z' });
+      const krakenSell = createTx(1, 'kraken', 'exchange', { datetime: '2023-01-01T10:00:00Z' });
 
       // Withdraws to their Bitcoin wallet
-      const krakenWithdrawal = createTx(2, 'kraken', { datetime: '2023-01-01T10:05:00Z' });
-      const bitcoinDeposit = createTx(3, 'bitcoin-blockstream', {
+      const krakenWithdrawal = createTx(2, 'kraken', 'exchange', { datetime: '2023-01-01T10:05:00Z' });
+      const bitcoinDeposit = createTx(3, 'bitcoin-blockstream', 'blockchain', {
         blockchain: 'bitcoin',
         datetime: '2023-01-01T10:10:00Z',
       });
 
       // Later, transfers to Coinbase
-      const bitcoinWithdrawal = createTx(4, 'bitcoin-blockstream', {
+      const bitcoinWithdrawal = createTx(4, 'bitcoin-blockstream', 'blockchain', {
         blockchain: 'bitcoin',
         datetime: '2023-01-02T14:00:00Z',
       });
-      const coinbaseDeposit = createTx(5, 'coinbase', { datetime: '2023-01-02T14:15:00Z' });
+      const coinbaseDeposit = createTx(5, 'coinbase', 'exchange', { datetime: '2023-01-02T14:15:00Z' });
 
       const links = [
         createLink(2, 3, 'confirmed'), // kraken withdrawal → bitcoin deposit
@@ -412,11 +414,11 @@ describe('buildLinkGraph', () => {
 
     it('maintains separation between different users wallets on same blockchain', () => {
       // User A's transactions
-      const userABitcoin1 = createTx(1, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
-      const userABitcoin2 = createTx(2, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
+      const userABitcoin1 = createTx(1, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
+      const userABitcoin2 = createTx(2, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
 
       // User B's transactions (should NOT be grouped with User A)
-      const userBBitcoin1 = createTx(3, 'bitcoin-blockstream', { blockchain: 'bitcoin' });
+      const userBBitcoin1 = createTx(3, 'bitcoin-blockstream', 'blockchain', { blockchain: 'bitcoin' });
 
       const groups = buildLinkGraph([userABitcoin1, userABitcoin2, userBBitcoin1], []);
 

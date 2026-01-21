@@ -138,6 +138,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: 'cardano',
+          sourceType: 'blockchain',
           status: normalizedTx.status,
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,

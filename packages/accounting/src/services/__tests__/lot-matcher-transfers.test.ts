@@ -30,6 +30,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     datetime,
     timestamp: Date.parse(datetime),
     source,
+    sourceType: 'exchange',
     status: 'success',
     movements: { inflows, outflows },
     fees,

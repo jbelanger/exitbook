@@ -139,6 +139,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: this.chainConfig.chainName,
+          sourceType: 'blockchain',
           status: normalizedTx.status,
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,

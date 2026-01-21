@@ -103,6 +103,7 @@ export function createTransaction(
     datetime,
     timestamp: new Date(datetime).getTime(),
     source: options?.source ?? 'test',
+    sourceType: 'blockchain' as const,
     status: 'success',
     movements: {
       inflows: inflows.map((i) => createMovement(i.assetSymbol, i.amount, i.price)),

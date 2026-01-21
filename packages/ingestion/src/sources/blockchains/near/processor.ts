@@ -529,6 +529,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
       datetime: new Date(timestamp).toISOString(),
       timestamp,
       source: 'near',
+      sourceType: 'blockchain',
       status: correlated.transaction.status ? 'success' : 'failed',
       from,
       to,

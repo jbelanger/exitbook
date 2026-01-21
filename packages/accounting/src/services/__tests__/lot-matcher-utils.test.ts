@@ -37,6 +37,7 @@ function createMockTransaction(
     accountId: 1,
     externalId: `ext-${id}`,
     source: 'test',
+    sourceType: 'exchange',
     datetime,
     timestamp: new Date(datetime).getTime(),
     status: 'success',

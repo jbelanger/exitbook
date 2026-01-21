@@ -26,6 +26,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'test-exchange',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [
@@ -95,6 +96,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'ethereum',
+          sourceType: 'blockchain',
           status: 'success',
           movements: {
             inflows: [
@@ -159,6 +161,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'test-exchange',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [
@@ -236,6 +239,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'test-exchange',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [
@@ -268,6 +272,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-02-01T00:00:00Z',
           timestamp: Date.parse('2024-02-01T00:00:00Z'),
           source: 'test-exchange',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [
@@ -337,6 +342,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'test-exchange',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [
@@ -369,6 +375,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-02-01T00:00:00Z',
           timestamp: Date.parse('2024-02-01T00:00:00Z'),
           source: 'ethereum',
+          sourceType: 'blockchain',
           status: 'success',
           movements: {
             inflows: [
@@ -440,6 +447,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'test-exchange',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [
@@ -525,6 +533,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'test-exchange',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [
@@ -612,6 +621,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'test-exchange',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [
@@ -646,6 +656,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-02-01T00:00:00Z',
           timestamp: Date.parse('2024-02-01T00:00:00Z'),
           source: 'test-exchange',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [
@@ -731,6 +742,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'ethereum',
+          sourceType: 'blockchain',
           status: 'success',
           movements: {
             inflows: [
@@ -781,6 +793,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'test-exchange',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [
@@ -836,6 +849,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'test-exchange',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [
@@ -890,6 +904,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'ethereum',
+          sourceType: 'blockchain',
           status: 'success',
           movements: {
             inflows: [
@@ -949,6 +964,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'ethereum',
+          sourceType: 'blockchain',
           status: 'success',
           movements: {
             inflows: [
@@ -1022,6 +1038,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'test-exchange',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [
@@ -1091,6 +1108,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'bank',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [
@@ -1170,6 +1188,7 @@ describe('LotMatcher - Fee Handling', () => {
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'test-exchange',
+          sourceType: 'exchange',
           status: 'success',
           movements: {
             inflows: [

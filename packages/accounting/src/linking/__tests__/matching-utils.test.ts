@@ -886,6 +886,7 @@ describe('matching-utils', () => {
           id: 1,
           externalId: 'tx-1',
           source: 'kraken',
+          sourceType: 'exchange',
           blockchain: undefined,
           datetime: '2024-01-01T12:00:00Z',
           from: undefined,
@@ -925,6 +926,7 @@ describe('matching-utils', () => {
           accountId: 1,
           externalId: 'tx-2',
           source: 'bitcoin',
+          sourceType: 'blockchain',
           blockchain: {
             name: 'bitcoin',
             transaction_hash: 'tx-2',

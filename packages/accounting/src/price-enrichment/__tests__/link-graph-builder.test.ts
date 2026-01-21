@@ -18,6 +18,7 @@ function createTransaction(params: {
     id: params.id,
     accountId: 1,
     source: params.source,
+    sourceType: 'blockchain' as const,
     externalId: `${params.source}-${params.id}`,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),

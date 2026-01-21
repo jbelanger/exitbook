@@ -180,6 +180,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
         datetime: new Date(primaryTx.timestamp).toISOString(),
         timestamp: primaryTx.timestamp,
         source: this.chainConfig.chainName,
+        sourceType: 'blockchain',
         status: primaryTx.status,
         from: fundFlow.fromAddress || primaryTx.from,
         to: fundFlow.toAddress || primaryTx.to,

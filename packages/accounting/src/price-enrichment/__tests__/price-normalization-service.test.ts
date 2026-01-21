@@ -68,6 +68,7 @@ describe('PriceNormalizationService', () => {
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
         source: 'test-exchange',
+        sourceType: 'exchange',
         status: 'success',
         movements: {
           inflows: [
@@ -130,6 +131,7 @@ describe('PriceNormalizationService', () => {
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
         source: 'test-exchange',
+        sourceType: 'exchange',
         status: 'success',
         movements: {
           inflows: [
@@ -180,6 +182,7 @@ describe('PriceNormalizationService', () => {
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
         source: 'test-exchange',
+        sourceType: 'exchange',
         status: 'success',
         movements: {
           inflows: [
@@ -227,6 +230,7 @@ describe('PriceNormalizationService', () => {
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
         source: 'test-exchange',
+        sourceType: 'exchange',
         status: 'success',
         movements: {
           inflows: [
@@ -277,6 +281,7 @@ describe('PriceNormalizationService', () => {
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
         source: 'test-exchange',
+        sourceType: 'exchange',
         status: 'success',
         movements: {
           inflows: [
@@ -358,6 +363,7 @@ describe('PriceNormalizationService', () => {
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
         source: 'test-exchange',
+        sourceType: 'exchange',
         status: 'success',
         movements: {
           inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
@@ -404,6 +410,7 @@ describe('PriceNormalizationService', () => {
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
         source: 'test-exchange',
+        sourceType: 'exchange',
         status: 'success',
         movements: {
           inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
@@ -450,6 +457,7 @@ describe('PriceNormalizationService', () => {
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
         source: 'blockchain',
+        sourceType: 'blockchain' as const,
         status: 'success',
         movements: {
           inflows: [
@@ -506,6 +514,7 @@ describe('PriceNormalizationService', () => {
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
         source: 'test-exchange',
+        sourceType: 'exchange',
         status: 'success',
         movements: {
           inflows: [
@@ -561,6 +570,7 @@ describe('PriceNormalizationService', () => {
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
         source: 'test-exchange',
+        sourceType: 'exchange',
         status: 'success',
         movements: {
           inflows: [
@@ -589,6 +599,7 @@ describe('PriceNormalizationService', () => {
         datetime: '2023-01-16T10:00:00Z',
         timestamp: Date.parse('2023-01-16T10:00:00Z'),
         source: 'test-exchange',
+        sourceType: 'exchange',
         status: 'success',
         movements: {
           inflows: [

@@ -11,6 +11,7 @@ describe('generateDeterministicTransactionHash', () => {
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
       source: 'kucoin',
+      sourceType: 'exchange',
       status: 'closed',
       movements: {
         inflows: [
@@ -50,6 +51,7 @@ describe('generateDeterministicTransactionHash', () => {
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
       source: 'kucoin',
+      sourceType: 'exchange',
       status: 'closed',
       movements: {
         inflows: [
@@ -85,6 +87,7 @@ describe('generateDeterministicTransactionHash', () => {
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
       source: 'kucoin',
+      sourceType: 'exchange',
       status: 'closed',
       movements: {
         inflows: [
@@ -118,6 +121,7 @@ describe('generateDeterministicTransactionHash', () => {
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
       source: 'kucoin',
+      sourceType: 'exchange',
       status: 'closed',
       movements: {
         inflows: [
@@ -153,6 +157,7 @@ describe('generateDeterministicTransactionHash', () => {
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
       source: 'kucoin',
+      sourceType: 'exchange',
       status: 'closed',
       movements: {
         inflows: [
@@ -189,6 +194,7 @@ describe('generateDeterministicTransactionHash', () => {
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
       source: 'bitcoin',
+      sourceType: 'blockchain',
       status: 'success',
       from: 'bc1qaddress1',
       to: 'bc1qaddress2',
@@ -219,6 +225,7 @@ describe('generateDeterministicTransactionHash', () => {
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
       source: 'kucoin',
+      sourceType: 'exchange',
       status: 'closed',
       movements: {
         inflows: [],
@@ -239,6 +246,7 @@ describe('generateDeterministicTransactionHash', () => {
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
       source: 'kucoin',
+      sourceType: 'exchange',
       status: 'closed',
       movements: {
         inflows: [
@@ -267,6 +275,7 @@ describe('generateDeterministicTransactionHash', () => {
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
       source: 'bitcoin',
+      sourceType: 'blockchain',
       status: 'success',
       movements: {
         inflows: [],

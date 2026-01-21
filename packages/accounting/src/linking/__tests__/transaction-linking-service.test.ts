@@ -29,6 +29,7 @@ function createTransaction(params: {
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
     source: params.source,
+    sourceType: 'blockchain' as const,
     status: 'success',
     from: params.from,
     to: params.to,

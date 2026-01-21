@@ -10,6 +10,7 @@ function createTestTransaction(overrides: Partial<UniversalTransactionData>): Un
     id: 1,
     accountId: 1,
     source: 'test',
+    sourceType: 'exchange',
     externalId: 'test-tx',
     status: 'success',
     datetime: '2024-01-01T00:00:00Z',

@@ -436,6 +436,7 @@ describe('TransactionRepository - isSpam field', () => {
         type: 'deposit' as const,
       },
       source: 'ethereum',
+      sourceType: 'blockchain' as const,
       status: 'success' as const,
       timestamp: Date.now(),
     };
@@ -476,6 +477,7 @@ describe('TransactionRepository - isSpam field', () => {
         type: 'deposit' as const,
       },
       source: 'ethereum',
+      sourceType: 'blockchain' as const,
       status: 'success' as const,
       timestamp: Date.now(),
     };
@@ -515,6 +517,7 @@ describe('TransactionRepository - isSpam field', () => {
         type: 'deposit' as const,
       },
       source: 'ethereum',
+      sourceType: 'blockchain' as const,
       status: 'success' as const,
       timestamp: Date.now(),
     };
@@ -548,6 +551,7 @@ describe('TransactionRepository - isSpam field', () => {
         type: 'deposit' as const,
       },
       source: 'ethereum',
+      sourceType: 'blockchain' as const,
       status: 'success' as const,
       timestamp: Date.now(),
     };
@@ -581,6 +585,7 @@ describe('TransactionRepository - isSpam field', () => {
         type: 'deposit' as const,
       },
       source: 'ethereum',
+      sourceType: 'blockchain' as const,
       status: 'success' as const,
       timestamp: Date.now(),
     };
@@ -689,6 +694,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       datetime: new Date().toISOString(),
       timestamp: Date.now(),
       source: 'kraken',
+      sourceType: 'exchange' as const,
       status: 'success',
       operation: { category: 'trade', type: 'swap' },
       movements: {
@@ -775,6 +781,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       datetime: new Date().toISOString(),
       timestamp: Date.now(),
       source: 'kraken',
+      sourceType: 'exchange' as const,
       status: 'success',
       operation: { category: 'trade', type: 'swap' },
       movements: {

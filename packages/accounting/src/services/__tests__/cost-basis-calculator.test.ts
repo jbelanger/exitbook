@@ -148,6 +148,7 @@ describe('CostBasisCalculator', () => {
         datetime: '2023-01-01T00:00:00Z',
         timestamp: new Date('2023-01-01').getTime(),
         source: 'test',
+        sourceType: 'blockchain' as const,
         status: 'success',
         movements: {
           inflows: [
@@ -190,6 +191,7 @@ describe('CostBasisCalculator', () => {
         datetime: '2023-01-01T00:00:00Z',
         timestamp: new Date('2023-01-01').getTime(),
         source: 'test',
+        sourceType: 'blockchain' as const,
         status: 'success',
         movements: {
           inflows: [
@@ -572,6 +574,7 @@ describe('CostBasisCalculator', () => {
           datetime: '2023-06-01T00:00:00Z',
           timestamp: new Date('2023-06-01').getTime(),
           source: 'test',
+          sourceType: 'blockchain' as const,
           status: 'success',
           movements: {
             inflows: [],
@@ -622,6 +625,7 @@ describe('CostBasisCalculator', () => {
         datetime: '2023-01-01T00:00:00Z',
         timestamp: new Date('2023-01-01').getTime(),
         source: 'test',
+        sourceType: 'blockchain' as const,
         status: 'success',
         movements: {
           inflows: [
@@ -683,6 +687,7 @@ describe('CostBasisCalculator', () => {
           datetime: '2023-01-01T00:00:00Z',
           timestamp: new Date('2023-01-01').getTime(),
           source: 'test',
+          sourceType: 'blockchain' as const,
           status: 'success',
           movements: {
             inflows: [
@@ -710,6 +715,7 @@ describe('CostBasisCalculator', () => {
           datetime: '2023-06-01T00:00:00Z',
           timestamp: new Date('2023-06-01').getTime(),
           source: 'test',
+          sourceType: 'blockchain' as const,
           status: 'success',
           movements: {
             inflows: [],
@@ -759,6 +765,7 @@ describe('CostBasisCalculator', () => {
           datetime: '2023-01-01T00:00:00Z',
           timestamp: new Date('2023-01-01').getTime(),
           source: 'test',
+          sourceType: 'blockchain' as const,
           status: 'success',
           movements: {
             inflows: [

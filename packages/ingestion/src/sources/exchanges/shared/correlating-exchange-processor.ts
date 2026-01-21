@@ -82,6 +82,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         datetime: new Date(fundFlow.timestamp).toISOString(),
         timestamp: fundFlow.timestamp,
         source: this.sourceName,
+        sourceType: 'exchange',
         status: primaryEntry.normalized.status,
 
         movements: {

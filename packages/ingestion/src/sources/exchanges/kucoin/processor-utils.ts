@@ -80,6 +80,7 @@ export function convertKucoinAccountHistoryConvertToTransaction(
     datetime,
     timestamp: timestampMs,
     source: 'kucoin',
+    sourceType: 'exchange',
     status: mapKucoinStatus('success', 'deposit_withdrawal'),
 
     // Structured movements - convert market is a swap (sold X, bought Y)
@@ -152,6 +153,7 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
     datetime,
     timestamp,
     source: 'kucoin',
+    sourceType: 'exchange',
     status: mapKucoinStatus(row.Status, 'deposit_withdrawal'),
 
     // Structured movements - deposit means we gained assets
@@ -310,6 +312,7 @@ export function convertKucoinOrderSplittingToTransaction(
     datetime,
     timestamp,
     source: 'kucoin',
+    sourceType: 'exchange',
     status: 'closed', // Order-splitting data only shows completed fills
 
     // Structured movements - trade has both outflow and inflow
@@ -467,6 +470,7 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Res
     datetime,
     timestamp,
     source: 'kucoin',
+    sourceType: 'exchange',
     status: 'closed', // Trading bot data only shows completed fills
 
     // Structured movements - trade has both outflow and inflow
@@ -621,6 +625,7 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Resul
     datetime,
     timestamp,
     source: 'kucoin',
+    sourceType: 'exchange',
     status: mapKucoinStatus(row.Status, 'spot'),
 
     // Structured movements - trade has both outflow and inflow
@@ -693,6 +698,7 @@ export function convertKucoinWithdrawalToTransaction(
     datetime,
     timestamp,
     source: 'kucoin',
+    sourceType: 'exchange',
     status: mapKucoinStatus(row.Status, 'deposit_withdrawal'),
 
     // Structured movements - withdrawal means we lost assets
