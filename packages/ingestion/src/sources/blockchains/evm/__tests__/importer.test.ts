@@ -17,6 +17,7 @@ const ETHEREUM_CONFIG: EvmChainConfig = {
   chainName: 'ethereum',
   nativeCurrency: 'ETH',
   nativeDecimals: 18,
+  transactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],
 };
 
 const AVALANCHE_CONFIG: EvmChainConfig = {
@@ -24,6 +25,7 @@ const AVALANCHE_CONFIG: EvmChainConfig = {
   chainName: 'avalanche',
   nativeCurrency: 'AVAX',
   nativeDecimals: 18,
+  transactionTypes: ['normal', 'token'],
 };
 
 const mockNormalTx = { hash: '0x123', from: '0xabc', to: '0xdef', value: '1000000000000000000' };
@@ -44,10 +46,15 @@ describe('EvmImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   /**
-   * Helper to setup mocks for all three transaction types (normal, internal, token)
+   * Helper to setup mocks for all transaction types (normal, internal, token, optional beacon_withdrawal)
    */
-  const setupDefaultMocks = (normalData: unknown[] = [], internalData: unknown[] = [], tokenData: unknown[] = []) => {
-    mockProviderManager.executeWithFailover
+  const setupDefaultMocks = (
+    normalData: unknown[] = [],
+    internalData: unknown[] = [],
+    tokenData: unknown[] = [],
+    beaconData?: unknown[]
+  ) => {
+    const mock = mockProviderManager.executeWithFailover
       .mockImplementationOnce(async function* () {
         yield okAsync({
           data: normalData,
@@ -90,6 +97,24 @@ describe('EvmImporter', () => {
           stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
+
+    // Only mock beacon withdrawals if explicitly provided
+    if (beaconData !== undefined) {
+      mock.mockImplementationOnce(async function* () {
+        yield okAsync({
+          data: beaconData,
+          providerName: 'alchemy',
+          cursor: {
+            primary: { type: 'blockNumber' as const, value: 0 },
+            lastTransactionId: '',
+            totalFetched: beaconData.length,
+            metadata: { providerName: 'alchemy', updatedAt: Date.now(), isComplete: true },
+          },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
+        });
+      });
+    }
   };
 
   beforeEach(() => {
@@ -111,7 +136,7 @@ describe('EvmImporter', () => {
         }),
         capabilities: {
           supportedOperations: ['getAddressTransactions'],
-          supportedTransactionTypes: ['normal', 'internal', 'token'],
+          supportedTransactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],
         },
         execute: vi.fn(),
         isHealthy: vi.fn().mockResolvedValue(true),
@@ -168,7 +193,7 @@ describe('EvmImporter', () => {
   });
 
   describe('Import - Success Cases', () => {
-    test('should successfully fetch all three transaction types', async () => {
+    test('should successfully fetch all transaction types', async () => {
       const importer = createImporter();
       const address = '0x1234567890123456789012345678901234567890';
 
@@ -190,7 +215,8 @@ describe('EvmImporter', () => {
             raw: mockTokenTx,
             normalized: { id: mockTokenTx.hash, eventId: '2'.repeat(64), type: 'token_transfer' as const },
           },
-        ]
+        ],
+        [] // Beacon withdrawals (empty for Ethereum)
       );
 
       const result = await consumeImportStream(importer, {
@@ -234,8 +260,8 @@ describe('EvmImporter', () => {
         expect(result.value.rawTransactions[2]?.eventId).toMatch(/^[a-f0-9]{64}$/);
       }
 
-      // Verify all three API calls were made (one for each transaction type)
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(3);
+      // Verify all four API calls were made (one for each Ethereum transaction type)
+      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(4);
 
       const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
@@ -257,6 +283,12 @@ describe('EvmImporter', () => {
       expect(tokenOperation.address).toBe(address);
       expect(tokenOperation.streamType).toBe('token');
       expect(tokenOperation.getCacheKey).toBeDefined();
+
+      const [, beaconOperation] = executeCalls[3]!;
+      assertOperationType(beaconOperation, 'getAddressTransactions');
+      expect(beaconOperation.address).toBe(address);
+      expect(beaconOperation.streamType).toBe('beacon_withdrawal');
+      expect(beaconOperation.getCacheKey).toBeDefined();
     });
   });
 
@@ -389,24 +421,20 @@ describe('EvmImporter', () => {
       expect(result.isOk()).toBe(true);
 
       // Verify calls were made with 'avalanche' blockchain name
+      // Avalanche only supports normal and token transactions (no internal)
       const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 
+      expect(executeCalls.length).toBe(2);
       expect(executeCalls[0]?.[0]).toBe('avalanche');
       expect(executeCalls[1]?.[0]).toBe('avalanche');
-      expect(executeCalls[2]?.[0]).toBe('avalanche');
 
       const [, normalOperation] = executeCalls[0]!;
       assertOperationType(normalOperation, 'getAddressTransactions');
       expect(normalOperation.address).toBe(address);
       expect(normalOperation.streamType).toBe('normal');
 
-      const [, internalOperation] = executeCalls[1]!;
-      assertOperationType(internalOperation, 'getAddressTransactions');
-      expect(internalOperation.address).toBe(address);
-      expect(internalOperation.streamType).toBe('internal');
-
-      const [, tokenOperation] = executeCalls[2]!;
+      const [, tokenOperation] = executeCalls[1]!;
       assertOperationType(tokenOperation, 'getAddressTransactions');
       expect(tokenOperation.address).toBe(address);
       expect(tokenOperation.streamType).toBe('token');
@@ -427,7 +455,7 @@ describe('EvmImporter', () => {
         },
       ];
 
-      setupDefaultMocks(multipleNormalTxs, [], []);
+      setupDefaultMocks(multipleNormalTxs, [], [], []);
 
       const result = await consumeImportStream(importer, {
         sourceName: 'evm',
@@ -449,7 +477,7 @@ describe('EvmImporter', () => {
       const importer = createImporter();
       const address = '0x1234567890123456789012345678901234567890';
 
-      setupDefaultMocks([], [], []);
+      setupDefaultMocks([], [], [], []);
 
       await consumeImportStream(importer, { sourceName: 'evm', sourceType: 'blockchain' as const, address });
 
@@ -467,6 +495,10 @@ describe('EvmImporter', () => {
       const tokenCall = calls[2]![1];
       const tokenCacheKey = tokenCall.getCacheKey!(tokenCall);
       expect(tokenCacheKey).toBe('ethereum:token:0x1234567890123456789012345678901234567890:all');
+
+      const beaconCall = calls[3]![1];
+      const beaconCacheKey = beaconCall.getCacheKey!(beaconCall);
+      expect(beaconCacheKey).toBe('ethereum:beacon_withdrawal:0x1234567890123456789012345678901234567890:all');
     });
   });
 });

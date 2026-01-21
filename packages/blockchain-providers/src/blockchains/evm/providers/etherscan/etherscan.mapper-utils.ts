@@ -12,6 +12,12 @@ import {
   BEACON_CHAIN_ADDRESS,
   EtherscanBeaconWithdrawalResponseSchema,
   type EtherscanBeaconWithdrawal,
+  type EtherscanNormalTransaction,
+  type EtherscanInternalTransaction,
+  type EtherscanTokenTransaction,
+  EtherscanNormalTransactionResponseSchema,
+  EtherscanInternalTransactionResponseSchema,
+  EtherscanTokenTransactionResponseSchema,
 } from './etherscan.schemas.js';
 
 /**
@@ -147,6 +153,356 @@ export function parseEtherscanWithdrawalResponse(response: unknown): Result<Ethe
   // Validate result is array
   if (!Array.isArray(data.result)) {
     return err(new Error('Expected array of withdrawals in result'));
+  }
+
+  return ok(data.result);
+}
+
+/**
+ * Maps Etherscan normal transaction to normalized EvmTransaction.
+ *
+ * Key transformations:
+ * - Converts gas fields from Wei to appropriate units
+ * - Handles contract deployments (null 'to' address)
+ * - Maps transaction status from isError and txreceipt_status
+ *
+ * @param rawData - Raw Etherscan normal transaction data (pre-validated)
+ * @param nativeCurrency - Chain native currency symbol (e.g., 'ETH')
+ * @returns Normalized EvmTransaction or error
+ */
+export function mapEtherscanNormalTransactionToEvmTransaction(
+  rawData: EtherscanNormalTransaction,
+  nativeCurrency = 'ETH'
+): Result<EvmTransaction, NormalizationError> {
+  try {
+    // Parse timestamp
+    const timestamp = parseInt(rawData.timeStamp) * 1000; // Convert seconds to milliseconds
+
+    // Normalize addresses
+    const from = normalizeEvmAddress(rawData.from);
+    if (!from) {
+      return err({
+        type: 'error',
+        message: `Invalid from address: ${rawData.from}`,
+      });
+    }
+
+    // 'to' can be null for contract deployments
+    const to = rawData.to ? normalizeEvmAddress(rawData.to) : undefined;
+
+    // Determine transaction status
+    // isError: '0' = success, '1' = error
+    // txreceipt_status: '1' = success, '0' = failed, '' or null = pre-Byzantium
+    let status: 'success' | 'failed' | 'pending' = 'success';
+    if (rawData.isError === '1') {
+      status = 'failed';
+    } else if (rawData.txreceipt_status === '0') {
+      status = 'failed';
+    }
+
+    // Calculate fee amount
+    const gasUsed = new Decimal(rawData.gasUsed);
+    const gasPrice = new Decimal(rawData.gasPrice);
+    const feeAmount = gasUsed.mul(gasPrice).toFixed(0);
+
+    const transaction: EvmTransaction = {
+      amount: rawData.value,
+      blockHeight: parseInt(rawData.blockNumber),
+      blockId: rawData.blockHash,
+      currency: nativeCurrency,
+      eventId: `${rawData.hash}-0`, // Main transaction uses index 0
+      feeAmount,
+      feeCurrency: nativeCurrency,
+      from,
+      gasPrice: rawData.gasPrice,
+      gasUsed: rawData.gasUsed,
+      id: rawData.hash,
+      providerName: 'etherscan',
+      status,
+      timestamp,
+      to,
+      tokenType: 'native',
+      type: 'transfer',
+    };
+
+    return validateOutput(transaction, EvmTransactionSchema, 'EtherscanNormalTransaction');
+  } catch (error) {
+    return err({
+      type: 'error',
+      message: `Failed to map normal transaction: ${getErrorMessage(error)}`,
+    });
+  }
+}
+
+/**
+ * Maps Etherscan internal transaction to normalized EvmTransaction.
+ *
+ * Key transformations:
+ * - Internal transactions don't pay their own gas (parent transaction does)
+ * - Uses traceId for ordering within parent transaction
+ * - Handles contract creation (CREATE/CREATE2)
+ *
+ * @param rawData - Raw Etherscan internal transaction data (pre-validated)
+ * @param nativeCurrency - Chain native currency symbol (e.g., 'ETH')
+ * @returns Normalized EvmTransaction or error
+ */
+export function mapEtherscanInternalTransactionToEvmTransaction(
+  rawData: EtherscanInternalTransaction,
+  nativeCurrency = 'ETH'
+): Result<EvmTransaction, NormalizationError> {
+  try {
+    // Parse timestamp
+    const timestamp = parseInt(rawData.timeStamp) * 1000; // Convert seconds to milliseconds
+
+    // Normalize addresses
+    const from = normalizeEvmAddress(rawData.from);
+    if (!from) {
+      return err({
+        type: 'error',
+        message: `Invalid from address: ${rawData.from}`,
+      });
+    }
+
+    // 'to' can be null for contract creation
+    const to = rawData.to ? normalizeEvmAddress(rawData.to) : undefined;
+
+    // Determine transaction status
+    const status: 'success' | 'failed' = rawData.isError === '1' ? 'failed' : 'success';
+
+    // Internal transactions don't pay gas themselves
+    // The parent transaction pays the gas
+    const feeAmount = '0';
+
+    // Use traceId for eventId to maintain ordering within parent transaction
+    // If traceId is missing, create a unique discriminator using from-to-value-type
+    // to prevent collisions when multiple internal transactions exist in one parent transaction
+    const eventIdSuffix = rawData.traceId ?? `${from}-${to ?? 'null'}-${rawData.value}-${rawData.type}`;
+    const eventId = `${rawData.hash}-internal-${eventIdSuffix}`;
+
+    const transaction: EvmTransaction = {
+      amount: rawData.value,
+      blockHeight: parseInt(rawData.blockNumber),
+      blockId: undefined, // Internal transactions don't have block hash in Etherscan API
+      currency: nativeCurrency,
+      eventId,
+      feeAmount,
+      feeCurrency: nativeCurrency,
+      from,
+      gasPrice: '0',
+      gasUsed: rawData.gasUsed,
+      id: rawData.hash,
+      providerName: 'etherscan',
+      status,
+      timestamp,
+      to,
+      tokenType: 'native',
+      type: 'internal',
+    };
+
+    return validateOutput(transaction, EvmTransactionSchema, 'EtherscanInternalTransaction');
+  } catch (error) {
+    return err({
+      type: 'error',
+      message: `Failed to map internal transaction: ${getErrorMessage(error)}`,
+    });
+  }
+}
+
+/**
+ * Maps Etherscan token transaction to normalized EvmTransaction.
+ *
+ * Key transformations:
+ * - Token transfers don't pay gas themselves (parent transaction does)
+ * - Uses contract address and token metadata
+ * - Value is in smallest token unit (respects tokenDecimal)
+ *
+ * @param rawData - Raw Etherscan token transaction data (pre-validated)
+ * @param nativeCurrency - Chain native currency symbol (e.g., 'ETH')
+ * @returns Normalized EvmTransaction or error
+ */
+export function mapEtherscanTokenTransactionToEvmTransaction(
+  rawData: EtherscanTokenTransaction,
+  nativeCurrency = 'ETH'
+): Result<EvmTransaction, NormalizationError> {
+  try {
+    // Parse timestamp
+    const timestamp = parseInt(rawData.timeStamp) * 1000; // Convert seconds to milliseconds
+
+    // Normalize addresses
+    const from = normalizeEvmAddress(rawData.from);
+    if (!from) {
+      return err({
+        type: 'error',
+        message: `Invalid from address: ${rawData.from}`,
+      });
+    }
+
+    const to = normalizeEvmAddress(rawData.to);
+    if (!to) {
+      return err({
+        type: 'error',
+        message: `Invalid to address: ${rawData.to}`,
+      });
+    }
+
+    const contractAddress = normalizeEvmAddress(rawData.contractAddress);
+    if (!contractAddress) {
+      return err({
+        type: 'error',
+        message: `Invalid contract address: ${rawData.contractAddress}`,
+      });
+    }
+
+    // Token symbol - use tokenSymbol if available, otherwise use contract address
+    const currency = rawData.tokenSymbol || contractAddress;
+
+    // Token transfers don't pay gas themselves
+    const feeAmount = '0';
+
+    // Create unique event ID using contract address and transactionIndex to prevent collisions
+    // when multiple transfers of the same token occur in one transaction
+    // V2 API: logIndex no longer available, using transactionIndex instead
+    const eventId = `${rawData.hash}-token-${contractAddress}-${rawData.transactionIndex}`;
+
+    const transaction: EvmTransaction = {
+      amount: rawData.value,
+      blockHeight: parseInt(rawData.blockNumber),
+      blockId: rawData.blockHash,
+      currency,
+      eventId,
+      feeAmount,
+      feeCurrency: nativeCurrency,
+      from,
+      gasPrice: '0',
+      gasUsed: '0',
+      id: rawData.hash,
+      providerName: 'etherscan',
+      status: 'success', // Token transfers that appear in the API were successful
+      timestamp,
+      to,
+      tokenType: 'erc20', // Default to erc20, can be refined based on contract
+      type: 'token_transfer',
+      tokenAddress: contractAddress,
+      tokenSymbol: rawData.tokenSymbol ?? undefined,
+      tokenDecimals: rawData.tokenDecimal ? parseInt(rawData.tokenDecimal) : undefined,
+    };
+
+    return validateOutput(transaction, EvmTransactionSchema, 'EtherscanTokenTransaction');
+  } catch (error) {
+    return err({
+      type: 'error',
+      message: `Failed to map token transaction: ${getErrorMessage(error)}`,
+    });
+  }
+}
+
+/**
+ * Parses and validates Etherscan normal transaction API response.
+ *
+ * @param response - Raw API response
+ * @returns Array of validated transactions or error
+ */
+export function parseEtherscanNormalTransactionResponse(
+  response: unknown
+): Result<EtherscanNormalTransaction[], Error> {
+  const parseResult = EtherscanNormalTransactionResponseSchema.safeParse(response);
+
+  if (!parseResult.success) {
+    return err(new Error(`Invalid Etherscan response structure: ${parseResult.error.message}`));
+  }
+
+  const data = parseResult.data;
+
+  // Handle API errors
+  if (data.status === '0') {
+    // "No transactions found" is not an error, just return empty array
+    if (
+      (typeof data.message === 'string' && data.message.toLowerCase().includes('no transactions found')) ||
+      (typeof data.result === 'string' && data.result.toLowerCase().includes('no transactions found'))
+    ) {
+      return ok([]);
+    }
+    const resultStr = typeof data.result === 'string' ? data.result : JSON.stringify(data.result);
+    return err(new Error(`Etherscan API error: ${data.message} - Result: ${resultStr}`));
+  }
+
+  // Validate result is array
+  if (!Array.isArray(data.result)) {
+    return err(new Error('Expected array of transactions in result'));
+  }
+
+  return ok(data.result);
+}
+
+/**
+ * Parses and validates Etherscan internal transaction API response.
+ *
+ * @param response - Raw API response
+ * @returns Array of validated transactions or error
+ */
+export function parseEtherscanInternalTransactionResponse(
+  response: unknown
+): Result<EtherscanInternalTransaction[], Error> {
+  const parseResult = EtherscanInternalTransactionResponseSchema.safeParse(response);
+
+  if (!parseResult.success) {
+    return err(new Error(`Invalid Etherscan response structure: ${parseResult.error.message}`));
+  }
+
+  const data = parseResult.data;
+
+  // Handle API errors
+  if (data.status === '0') {
+    // "No transactions found" is not an error, just return empty array
+    if (
+      (typeof data.message === 'string' && data.message.toLowerCase().includes('no transactions found')) ||
+      (typeof data.result === 'string' && data.result.toLowerCase().includes('no transactions found'))
+    ) {
+      return ok([]);
+    }
+    const resultStr = typeof data.result === 'string' ? data.result : JSON.stringify(data.result);
+    return err(new Error(`Etherscan API error: ${data.message} - Result: ${resultStr}`));
+  }
+
+  // Validate result is array
+  if (!Array.isArray(data.result)) {
+    return err(new Error('Expected array of transactions in result'));
+  }
+
+  return ok(data.result);
+}
+
+/**
+ * Parses and validates Etherscan token transaction API response.
+ *
+ * @param response - Raw API response
+ * @returns Array of validated transactions or error
+ */
+export function parseEtherscanTokenTransactionResponse(response: unknown): Result<EtherscanTokenTransaction[], Error> {
+  const parseResult = EtherscanTokenTransactionResponseSchema.safeParse(response);
+
+  if (!parseResult.success) {
+    return err(new Error(`Invalid Etherscan response structure: ${parseResult.error.message}`));
+  }
+
+  const data = parseResult.data;
+
+  // Handle API errors
+  if (data.status === '0') {
+    // "No transactions found" is not an error, just return empty array
+    if (
+      (typeof data.message === 'string' && data.message.toLowerCase().includes('no transactions found')) ||
+      (typeof data.result === 'string' && data.result.toLowerCase().includes('no transactions found'))
+    ) {
+      return ok([]);
+    }
+    const resultStr = typeof data.result === 'string' ? data.result : JSON.stringify(data.result);
+    return err(new Error(`Etherscan API error: ${data.message} - Result: ${resultStr}`));
+  }
+
+  // Validate result is array
+  if (!Array.isArray(data.result)) {
+    return err(new Error('Expected array of transactions in result'));
   }
 
   return ok(data.result);

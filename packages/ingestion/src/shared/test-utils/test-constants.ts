@@ -57,6 +57,7 @@ export const EVM_CHAIN_CONFIGS = {
     chainName: 'ethereum',
     nativeCurrency: 'ETH',
     nativeDecimals: 18,
+    transactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],
   } satisfies EvmChainConfig,
 
   avalanche: {
@@ -64,6 +65,7 @@ export const EVM_CHAIN_CONFIGS = {
     chainName: 'avalanche',
     nativeCurrency: 'AVAX',
     nativeDecimals: 18,
+    transactionTypes: ['normal', 'token'],
   } satisfies EvmChainConfig,
 
   polygon: {
@@ -71,6 +73,7 @@ export const EVM_CHAIN_CONFIGS = {
     chainName: 'polygon',
     nativeCurrency: 'MATIC',
     nativeDecimals: 18,
+    transactionTypes: ['normal', 'internal', 'token'],
   } satisfies EvmChainConfig,
 
   base: {
@@ -78,6 +81,7 @@ export const EVM_CHAIN_CONFIGS = {
     chainName: 'base',
     nativeCurrency: 'ETH',
     nativeDecimals: 18,
+    transactionTypes: ['normal', 'token'],
   } satisfies EvmChainConfig,
 } as const;
 

@@ -32,7 +32,7 @@ export class EvmImporter implements IImporter {
 
   /**
    * Transaction types to fetch, in deterministic order for resumability
-   * Ethereum includes beacon_withdrawal, other EVM chains only have normal/internal/token
+   * Read from chain config (evm-chains.json) which defines supported types per chain
    */
   private readonly transactionTypes: string[];
 
@@ -52,11 +52,8 @@ export class EvmImporter implements IImporter {
 
     this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);
 
-    // Define transaction types in deterministic order
-    this.transactionTypes =
-      chainConfig.chainName === 'ethereum'
-        ? ['normal', 'internal', 'token', 'beacon_withdrawal']
-        : ['normal', 'internal', 'token'];
+    // Get transaction types from chain config (required field in evm-chains.json)
+    this.transactionTypes = chainConfig.transactionTypes;
 
     this.logger.info(
       `Initialized ${chainConfig.chainName} transaction importer - ProvidersCount: ${this.providerManager.getProviders(chainConfig.chainName).length}`

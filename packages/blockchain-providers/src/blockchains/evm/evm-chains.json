@@ -4,301 +4,344 @@
     "chainName": "ethereum",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://etherscan.io"]
+    "explorerUrls": ["https://etherscan.io"],
+    "transactionTypes": ["normal", "internal", "token", "beacon_withdrawal"]
   },
   "polygon": {
     "chainId": 137,
     "chainName": "polygon",
     "nativeCurrency": "MATIC",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://polygonscan.com"]
+    "explorerUrls": ["https://polygonscan.com"],
+    "transactionTypes": ["normal", "internal", "token"]
   },
   "optimism": {
     "chainId": 10,
     "chainName": "optimism",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://optimistic.etherscan.io"]
+    "explorerUrls": ["https://optimistic.etherscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "arbitrum": {
     "chainId": 42161,
     "chainName": "arbitrum",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://arbiscan.io"]
+    "explorerUrls": ["https://arbiscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "base": {
     "chainId": 8453,
     "chainName": "base",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://basescan.org"]
+    "explorerUrls": ["https://basescan.org"],
+    "transactionTypes": ["normal", "token"]
   },
   "avalanche": {
     "chainId": 43114,
     "chainName": "avalanche",
     "nativeCurrency": "AVAX",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://snowtrace.io"]
+    "explorerUrls": ["https://snowtrace.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "beam": {
     "chainId": 4337,
     "chainName": "beam",
     "nativeCurrency": "BEAM",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://4337.routescan.io/"]
+    "explorerUrls": ["https://4337.routescan.io/"],
+    "transactionTypes": ["normal", "token"]
   },
   "bsc": {
     "chainId": 56,
     "chainName": "bsc",
     "nativeCurrency": "BNB",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://bscscan.com"]
+    "explorerUrls": ["https://bscscan.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "zksync": {
     "chainId": 324,
     "chainName": "zksync",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.zksync.io"]
+    "explorerUrls": ["https://explorer.zksync.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "polygon-zkevm": {
     "chainId": 1101,
     "chainName": "polygon-zkevm",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://zkevm.polygonscan.com"]
+    "explorerUrls": ["https://zkevm.polygonscan.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "linea": {
     "chainId": 59144,
     "chainName": "linea",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://lineascan.build"]
+    "explorerUrls": ["https://lineascan.build"],
+    "transactionTypes": ["normal", "token"]
   },
   "scroll": {
     "chainId": 534352,
     "chainName": "scroll",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://scrollscan.com"]
+    "explorerUrls": ["https://scrollscan.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "mantle": {
     "chainId": 5000,
     "chainName": "mantle",
     "nativeCurrency": "MNT",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.mantle.xyz"]
+    "explorerUrls": ["https://explorer.mantle.xyz"],
+    "transactionTypes": ["normal", "token"]
   },
   "blast": {
     "chainId": 81457,
     "chainName": "blast",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://blastscan.io"]
+    "explorerUrls": ["https://blastscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "botanix": {
     "chainId": 3637,
     "chainName": "botanix",
     "nativeCurrency": "BTC",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://botanixscan.io"]
+    "explorerUrls": ["https://botanixscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "sonic": {
     "chainId": 146,
     "chainName": "sonic",
     "nativeCurrency": "S",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://sonicscan.org"]
+    "explorerUrls": ["https://sonicscan.org"],
+    "transactionTypes": ["normal", "token"]
   },
   "zetachain": {
     "chainId": 7000,
     "chainName": "zetachain",
     "nativeCurrency": "ZETA",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.zetachain.com"]
+    "explorerUrls": ["https://explorer.zetachain.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "arbitrum-nova": {
     "chainId": 42170,
     "chainName": "arbitrum-nova",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://nova.arbiscan.io"]
+    "explorerUrls": ["https://nova.arbiscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "celo": {
     "chainId": 42220,
     "chainName": "celo",
     "nativeCurrency": "CELO",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://celoscan.io"]
+    "explorerUrls": ["https://celoscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "gnosis": {
     "chainId": 100,
     "chainName": "gnosis",
     "nativeCurrency": "xDAI",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://gnosisscan.io"]
+    "explorerUrls": ["https://gnosisscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "opbnb": {
     "chainId": 204,
     "chainName": "opbnb",
     "nativeCurrency": "BNB",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://opbnbscan.com"]
+    "explorerUrls": ["https://opbnbscan.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "metis": {
     "chainId": 1088,
     "chainName": "metis",
     "nativeCurrency": "METIS",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://andromeda-explorer.metis.io"]
+    "explorerUrls": ["https://andromeda-explorer.metis.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "astar": {
     "chainId": 592,
     "chainName": "astar",
     "nativeCurrency": "ASTR",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://astar.blockscout.com"]
+    "explorerUrls": ["https://astar.blockscout.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "sei": {
     "chainId": 1329,
     "chainName": "sei",
     "nativeCurrency": "SEI",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://seitrace.com"]
+    "explorerUrls": ["https://seitrace.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "berachain": {
     "chainId": 80084,
     "chainName": "berachain",
     "nativeCurrency": "BERA",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://bartio.beratrail.io"]
+    "explorerUrls": ["https://bartio.beratrail.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "monad": {
     "chainId": 41454,
     "chainName": "monad",
     "nativeCurrency": "MON",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "world-chain": {
     "chainId": 480,
     "chainName": "world-chain",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://worldchain-mainnet.explorer.alchemy.com"]
+    "explorerUrls": ["https://worldchain-mainnet.explorer.alchemy.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "rootstock": {
     "chainId": 30,
     "chainName": "rootstock",
     "nativeCurrency": "RBTC",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.rsk.co"]
+    "explorerUrls": ["https://explorer.rsk.co"],
+    "transactionTypes": ["normal", "token"]
   },
   "shape": {
     "chainId": 360,
     "chainName": "shape",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "unichain": {
     "chainId": 1301,
     "chainName": "unichain",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "apechain": {
     "chainId": 33139,
     "chainName": "apechain",
     "nativeCurrency": "APE",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://apescan.io"]
+    "explorerUrls": ["https://apescan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "soneium": {
     "chainId": 1946,
     "chainName": "soneium",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "crossfi": {
     "chainId": 4158,
     "chainName": "crossfi",
     "nativeCurrency": "XFI",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "degen": {
     "chainId": 666666666,
     "chainName": "degen",
     "nativeCurrency": "DEGEN",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.degen.tips"]
+    "explorerUrls": ["https://explorer.degen.tips"],
+    "transactionTypes": ["normal", "token"]
   },
   "geist": {
     "chainId": 63157,
     "chainName": "geist",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "lens": {
     "chainId": 37111,
     "chainName": "lens",
     "nativeCurrency": "GRASS",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "abstract": {
     "chainId": 2741,
     "chainName": "abstract",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "lumia": {
     "chainId": 994873017,
     "chainName": "lumia",
     "nativeCurrency": "LUMIA",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "ink": {
     "chainId": 57073,
     "chainName": "ink",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "superseed": {
     "chainId": 5330,
     "chainName": "superseed",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "story": {
     "chainId": 1513,
     "chainName": "story",
     "nativeCurrency": "IP",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "anime": {
     "chainId": 8654,
     "chainName": "anime",
     "nativeCurrency": "ANIME",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "hyperevm": {
     "chainId": 998,
     "chainName": "hyperevm",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "theta": {
     "chainId": 361,
@@ -306,510 +349,583 @@
     "nativeCurrency": "TFUEL",
     "nativeDecimals": 18,
     "explorerUrls": ["https://explorer.thetatoken.org"],
-    "additionalNativeCurrencies": ["THETA"]
+    "additionalNativeCurrencies": ["THETA"],
+    "transactionTypes": ["normal"]
   },
   "fantom": {
     "chainId": 250,
     "chainName": "fantom",
     "nativeCurrency": "FTM",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://ftmscan.com"]
+    "explorerUrls": ["https://ftmscan.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "flow": {
     "chainId": 747,
     "chainName": "flow",
     "nativeCurrency": "FLOW",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://evm.flowscan.io"]
+    "explorerUrls": ["https://evm.flowscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "cronos": {
     "chainId": 25,
     "chainName": "cronos",
     "nativeCurrency": "CRO",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://cronoscan.com"]
+    "explorerUrls": ["https://cronoscan.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "aurora": {
     "chainId": 1313161554,
     "chainName": "aurora",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://aurorascan.dev"]
+    "explorerUrls": ["https://aurorascan.dev"],
+    "transactionTypes": ["normal", "token"]
   },
   "kava": {
     "chainId": 2222,
     "chainName": "kava",
     "nativeCurrency": "KAVA",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://kavascan.com"]
+    "explorerUrls": ["https://kavascan.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "conflux": {
     "chainId": 1030,
     "chainName": "conflux",
     "nativeCurrency": "CFX",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://evm.confluxscan.io"]
+    "explorerUrls": ["https://evm.confluxscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "klaytn": {
     "chainId": 8217,
     "chainName": "klaytn",
     "nativeCurrency": "KLAY",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://scope.klaytn.com"]
+    "explorerUrls": ["https://scope.klaytn.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "manta": {
     "chainId": 169,
     "chainName": "manta",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://pacific-explorer.manta.network"]
+    "explorerUrls": ["https://pacific-explorer.manta.network"],
+    "transactionTypes": ["normal", "token"]
   },
   "taiko": {
     "chainId": 167000,
     "chainName": "taiko",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://taikoscan.io"]
+    "explorerUrls": ["https://taikoscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "mode": {
     "chainId": 34443,
     "chainName": "mode",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.mode.network"]
+    "explorerUrls": ["https://explorer.mode.network"],
+    "transactionTypes": ["normal", "token"]
   },
   "fraxtal": {
     "chainId": 252,
     "chainName": "fraxtal",
     "nativeCurrency": "frxETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://fraxscan.com"]
+    "explorerUrls": ["https://fraxscan.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "zora": {
     "chainId": 7777777,
     "chainName": "zora",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.zora.energy"]
+    "explorerUrls": ["https://explorer.zora.energy"],
+    "transactionTypes": ["normal", "token"]
   },
   "redstone": {
     "chainId": 690,
     "chainName": "redstone",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.redstone.xyz"]
+    "explorerUrls": ["https://explorer.redstone.xyz"],
+    "transactionTypes": ["normal", "token"]
   },
   "ronin": {
     "chainId": 2020,
     "chainName": "ronin",
     "nativeCurrency": "RON",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://app.roninchain.com/explorer"]
+    "explorerUrls": ["https://app.roninchain.com/explorer"],
+    "transactionTypes": ["normal", "token"]
   },
   "bob": {
     "chainId": 60808,
     "chainName": "bob",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.gobob.xyz"]
+    "explorerUrls": ["https://explorer.gobob.xyz"],
+    "transactionTypes": ["normal", "token"]
   },
   "kroma": {
     "chainId": 255,
     "chainName": "kroma",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://kromascan.com"]
+    "explorerUrls": ["https://kromascan.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "pgn": {
     "chainId": 424,
     "chainName": "pgn",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.publicgoods.network"]
+    "explorerUrls": ["https://explorer.publicgoods.network"],
+    "transactionTypes": ["normal", "token"]
   },
   "plasma": {
     "chainId": 9745,
     "chainName": "plasma",
     "nativeCurrency": "XPL",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://plasmascan.to"]
+    "explorerUrls": ["https://plasmascan.to"],
+    "transactionTypes": ["normal", "token"]
   },
   "polynomial": {
     "chainId": 8008,
     "chainName": "polynomial",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://polynomialscan.io"]
+    "explorerUrls": ["https://polynomialscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "core": {
     "chainId": 1116,
     "chainName": "core",
     "nativeCurrency": "CORE",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://scan.coredao.org"]
+    "explorerUrls": ["https://scan.coredao.org"],
+    "transactionTypes": ["normal", "token"]
   },
   "fuse": {
     "chainId": 122,
     "chainName": "fuse",
     "nativeCurrency": "FUSE",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.fuse.io"]
+    "explorerUrls": ["https://explorer.fuse.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "viction": {
     "chainId": 88,
     "chainName": "viction",
     "nativeCurrency": "VIC",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://www.vicscan.xyz"]
+    "explorerUrls": ["https://www.vicscan.xyz"],
+    "transactionTypes": ["normal", "token"]
   },
   "oasys": {
     "chainId": 248,
     "chainName": "oasys",
     "nativeCurrency": "OAS",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.oasys.games"]
+    "explorerUrls": ["https://explorer.oasys.games"],
+    "transactionTypes": ["normal", "token"]
   },
   "moonbeam-evm": {
     "chainId": 1284,
     "chainName": "moonbeam-evm",
     "nativeCurrency": "GLMR",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://moonbeam.moonscan.io"]
+    "explorerUrls": ["https://moonbeam.moonscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "moonriver-evm": {
     "chainId": 1285,
     "chainName": "moonriver-evm",
     "nativeCurrency": "MOVR",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://moonriver.moonscan.io"]
+    "explorerUrls": ["https://moonriver.moonscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "neon": {
     "chainId": 245022934,
     "chainName": "neon",
     "nativeCurrency": "NEON",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://neonscan.org"]
+    "explorerUrls": ["https://neonscan.org"],
+    "transactionTypes": ["normal", "token"]
   },
   "telos": {
     "chainId": 40,
     "chainName": "telos",
     "nativeCurrency": "TLOS",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://teloscan.io"]
+    "explorerUrls": ["https://teloscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "harmony": {
     "chainId": 1666600000,
     "chainName": "harmony",
     "nativeCurrency": "ONE",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.harmony.one"]
+    "explorerUrls": ["https://explorer.harmony.one"],
+    "transactionTypes": ["normal", "token"]
   },
   "humanity": {
     "chainId": 6985385,
     "chainName": "humanity",
     "nativeCurrency": "H",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://humanity-mainnet.explorer.alchemy.com"]
+    "explorerUrls": ["https://humanity-mainnet.explorer.alchemy.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "hyperliquid": {
     "chainId": 999,
     "chainName": "hyperliquid",
     "nativeCurrency": "HYPE",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://hyperevmscan.io"]
+    "explorerUrls": ["https://hyperevmscan.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "evmos-evm": {
     "chainId": 9001,
     "chainName": "evmos-evm",
     "nativeCurrency": "EVMOS",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://escan.live"]
+    "explorerUrls": ["https://escan.live"],
+    "transactionTypes": ["normal", "token"]
   },
   "boba": {
     "chainId": 288,
     "chainName": "boba",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://bobascan.com"]
+    "explorerUrls": ["https://bobascan.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "syscoin": {
     "chainId": 57,
     "chainName": "syscoin",
     "nativeCurrency": "SYS",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.syscoin.org"]
+    "explorerUrls": ["https://explorer.syscoin.org"],
+    "transactionTypes": ["normal", "token"]
   },
   "canto": {
     "chainId": 7700,
     "chainName": "canto",
     "nativeCurrency": "CANTO",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://tuber.build"]
+    "explorerUrls": ["https://tuber.build"],
+    "transactionTypes": ["normal", "token"]
   },
   "dogechain": {
     "chainId": 2000,
     "chainName": "dogechain",
     "nativeCurrency": "DOGE",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.dogechain.dog"]
+    "explorerUrls": ["https://explorer.dogechain.dog"],
+    "transactionTypes": ["normal", "token"]
   },
   "settlus": {
     "chainId": 5371,
     "chainName": "settlus",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://mainnet.settlus.network"]
+    "explorerUrls": ["https://mainnet.settlus.network"],
+    "transactionTypes": ["normal", "token"]
   },
   "shimmer": {
     "chainId": 148,
     "chainName": "shimmer",
     "nativeCurrency": "SMR",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.evm.shimmer.network"]
+    "explorerUrls": ["https://explorer.evm.shimmer.network"],
+    "transactionTypes": ["normal", "token"]
   },
   "lukso": {
     "chainId": 42,
     "chainName": "lukso",
     "nativeCurrency": "LYX",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.lukso.network"]
+    "explorerUrls": ["https://explorer.lukso.network"],
+    "transactionTypes": ["normal", "token"]
   },
   "flare": {
     "chainId": 14,
     "chainName": "flare",
     "nativeCurrency": "FLR",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://flare-explorer.flare.network"]
+    "explorerUrls": ["https://flare-explorer.flare.network"],
+    "transactionTypes": ["normal", "token"]
   },
   "songbird": {
     "chainId": 19,
     "chainName": "songbird",
     "nativeCurrency": "SGB",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://songbird-explorer.flare.network"]
+    "explorerUrls": ["https://songbird-explorer.flare.network"],
+    "transactionTypes": ["normal", "token"]
   },
   "wemix": {
     "chainId": 1111,
     "chainName": "wemix",
     "nativeCurrency": "WEMIX",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.wemix.com"]
+    "explorerUrls": ["https://explorer.wemix.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "kcc": {
     "chainId": 321,
     "chainName": "kcc",
     "nativeCurrency": "KCS",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.kcc.io"]
+    "explorerUrls": ["https://explorer.kcc.io"],
+    "transactionTypes": ["normal", "token"]
   },
   "pulsechain": {
     "chainId": 369,
     "chainName": "pulsechain",
     "nativeCurrency": "PLS",
     "nativeDecimals": 18,
-    "explorerUrls": ["https://scan.pulsechain.com"]
+    "explorerUrls": ["https://scan.pulsechain.com"],
+    "transactionTypes": ["normal", "token"]
   },
   "numine": {
     "chainId": 8021,
     "chainName": "numine",
     "nativeCurrency": "NUMINE",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "space": {
     "chainId": 8227,
     "chainName": "space",
     "nativeCurrency": "SPACE",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "animalia": {
     "chainId": 8787,
     "chainName": "animalia",
     "nativeCurrency": "ANIM",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "innovo": {
     "chainId": 10036,
     "chainName": "innovo",
     "nativeCurrency": "INNOVO",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "numbers": {
     "chainId": 10507,
     "chainName": "numbers",
     "nativeCurrency": "NUM",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "lamina1": {
     "chainId": 10849,
     "chainName": "lamina1",
     "nativeCurrency": "L1",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "lamina1-identity": {
     "chainId": 10850,
     "chainName": "lamina1-identity",
     "nativeCurrency": "L1ID",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "qchain": {
     "chainId": 12150,
     "chainName": "qchain",
     "nativeCurrency": "QDT",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "fifa-blockchain": {
     "chainId": 13322,
     "chainName": "fifa-blockchain",
     "nativeCurrency": "FIFA",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "plyr": {
     "chainId": 16180,
     "chainName": "plyr",
     "nativeCurrency": "PLYR",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "tradex": {
     "chainId": 21024,
     "chainName": "tradex",
     "nativeCurrency": "TDX",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "zeroone": {
     "chainId": 27827,
     "chainName": "zeroone",
     "nativeCurrency": "ZERO",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "blockticity": {
     "chainId": 28530,
     "chainName": "blockticity",
     "nativeCurrency": "BLKT",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "feature": {
     "chainId": 33311,
     "chainName": "feature",
     "nativeCurrency": "FEAT",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "corgnet": {
     "chainId": 42069,
     "chainName": "corgnet",
     "nativeCurrency": "CORG",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "gunz": {
     "chainId": 43419,
     "chainName": "gunz",
     "nativeCurrency": "GUNZ",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "dfk": {
     "chainId": 53935,
     "chainName": "dfk",
     "nativeCurrency": "JEWEL",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "boba-bnb": {
     "chainId": 56288,
     "chainName": "boba-bnb",
     "nativeCurrency": "BOBA",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "growth": {
     "chainId": 61587,
     "chainName": "growth",
     "nativeCurrency": "GROW",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "lucid": {
     "chainId": 62521,
     "chainName": "lucid",
     "nativeCurrency": "LUC",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "henesys": {
     "chainId": 68414,
     "chainName": "henesys",
     "nativeCurrency": "HEN",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "berachain-mainnet": {
     "chainId": 80094,
     "chainName": "berachain-mainnet",
     "nativeCurrency": "BERA",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "titan": {
     "chainId": 84358,
     "chainName": "titan",
     "nativeCurrency": "TIT",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "chiliz": {
     "chainId": 88888,
     "chainName": "chiliz",
     "nativeCurrency": "CHZ",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "delaunch": {
     "chainId": 96786,
     "chainName": "delaunch",
     "nativeCurrency": "DEL",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "mitosis": {
     "chainId": 124816,
     "chainName": "mitosis",
     "nativeCurrency": "MITO",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "dexalot": {
     "chainId": 432204,
     "chainName": "dexalot",
     "nativeCurrency": "ALOT",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "tiltyard": {
     "chainId": 710420,
     "chainName": "tiltyard",
     "nativeCurrency": "TILT",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   },
   "corn": {
     "chainId": 21000000,
     "chainName": "corn",
     "nativeCurrency": "CORN",
     "nativeDecimals": 18,
-    "explorerUrls": []
+    "explorerUrls": [],
+    "transactionTypes": ["normal", "token"]
   }
 }

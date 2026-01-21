@@ -11,6 +11,7 @@ const ETHEREUM_CONFIG: EvmChainConfig = {
   chainName: 'ethereum',
   nativeCurrency: 'ETH',
   nativeDecimals: 18,
+  transactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],
 };
 
 const AVALANCHE_CONFIG: EvmChainConfig = {
@@ -18,6 +19,7 @@ const AVALANCHE_CONFIG: EvmChainConfig = {
   chainName: 'avalanche',
   nativeCurrency: 'AVAX',
   nativeDecimals: 18,
+  transactionTypes: ['normal', 'token'],
 };
 
 const USER_ADDRESS = '0xuser00000000000000000000000000000000000000';

@@ -161,6 +161,7 @@ describe('analyzeEvmFundFlow', () => {
       chainName: 'ethereum',
       nativeCurrency: 'ETH',
       nativeDecimals: 18,
+      transactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],
     };
     const context: ProcessingContext = {
       primaryAddress: '0xaaa',

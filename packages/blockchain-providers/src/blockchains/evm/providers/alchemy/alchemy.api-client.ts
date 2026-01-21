@@ -8,10 +8,11 @@
  * - Fails loudly on data quality issues - no silent defaults
  */
 
-import type { CursorState, PaginationCursor } from '@exitbook/core';
+import type { CursorState, PaginationCursor, TokenMetadata } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { HttpClient } from '@exitbook/http';
 import { err, ok, type Result } from 'neverthrow';
+import { z } from 'zod';
 
 import type { NormalizedTransactionBase, ProviderConfig } from '../../../../core/index.js';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
@@ -41,6 +42,7 @@ import type { AlchemyAssetTransfer, AlchemyAssetTransferParams, AlchemyTransacti
 import {
   AlchemyAssetTransfersJsonRpcResponseSchema,
   AlchemyPortfolioBalanceResponseSchema,
+  AlchemyTokenMetadataSchema,
   AlchemyTransactionReceiptResponseSchema,
 } from './alchemy.schemas.js';
 
@@ -49,7 +51,13 @@ import {
   baseUrl: 'https://eth-mainnet.g.alchemy.com/v2', // Default for Ethereum
   blockchain: 'ethereum',
   capabilities: {
-    supportedOperations: ['getAddressInfo', 'getAddressBalances', 'getAddressTokenBalances', 'getAddressTransactions'],
+    supportedOperations: [
+      'getAddressInfo',
+      'getAddressBalances',
+      'getAddressTokenBalances',
+      'getAddressTransactions',
+      'getTokenMetadata',
+    ],
     supportedTransactionTypes: ['normal', 'internal', 'token'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
@@ -160,6 +168,28 @@ export class AlchemyApiClient extends BaseApiClient {
     });
   }
 
+  /**
+   * Override capabilities to filter transaction types based on chain config.
+   * Alchemy declares support for ['normal', 'internal', 'token'] globally, but actual
+   * support varies by chain. The chain config (evm-chains.json) defines which transaction
+   * types are actually available for each chain.
+   */
+  get capabilities() {
+    const baseCapabilities = super.capabilities;
+    const chainSupportedTypes = this.chainConfig.transactionTypes;
+
+    // Filter supportedTransactionTypes to only include what the chain actually supports
+    const filteredTransactionTypes = baseCapabilities.supportedTransactionTypes
+      ? baseCapabilities.supportedTransactionTypes.filter((type) => chainSupportedTypes.includes(type))
+      : undefined;
+
+    // With exactOptionalPropertyTypes, we must omit undefined properties rather than set them
+    return {
+      ...baseCapabilities,
+      ...(filteredTransactionTypes !== undefined && { supportedTransactionTypes: filteredTransactionTypes }),
+    };
+  }
+
   extractCursors(transaction: EvmTransaction): PaginationCursor[] {
     const cursors: PaginationCursor[] = [];
 
@@ -205,6 +235,11 @@ export class AlchemyApiClient extends BaseApiClient {
         const { address, contractAddresses } = operation;
         this.logger.debug(`Fetching token balances - Address: ${maskAddress(address)}`);
         return (await this.getAddressTokenBalances(address, contractAddresses)) as Result<T, Error>;
+      }
+      case 'getTokenMetadata': {
+        const { contractAddresses } = operation;
+        this.logger.debug(`Fetching token metadata for ${contractAddresses.length} contracts`);
+        return (await this.getTokenMetadata(contractAddresses)) as Result<T, Error>;
       }
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
@@ -346,19 +381,19 @@ export class AlchemyApiClient extends BaseApiClient {
    * Enriches asset transfers with gas fee data from transaction receipts.
    * Fetches receipts in parallel and adds _gasUsed, _effectiveGasPrice, and _nativeCurrency to each transfer.
    *
-   * Note: This mutates the input array for performance. Logs warnings for individual receipt failures
-   * but never fails the entire batch - we prefer partial gas fee data over no transaction data.
+   * Note: This mutates the input array for performance. If any receipt is missing,
+   * we fail the batch to trigger provider failover rather than silently dropping fees.
    */
-  private async enrichTransfersWithGasFees(transfers: AlchemyAssetTransfer[]): Promise<void> {
+  private async enrichTransfersWithGasFees(transfers: AlchemyAssetTransfer[]): Promise<Result<void, Error>> {
     if (transfers.length === 0) {
-      return;
+      return ok(undefined);
     }
 
     // Extract unique transaction hashes
     const uniqueHashes = deduplicateTransactionHashes(transfers.map((t) => t.hash));
 
     if (uniqueHashes.length === 0) {
-      return;
+      return ok(undefined);
     }
 
     this.logger.debug(`Fetching ${uniqueHashes.length} transaction receipts for gas fee enrichment`);
@@ -413,12 +448,12 @@ export class AlchemyApiClient extends BaseApiClient {
     }
 
     if (failures.length > 0) {
-      this.logger.warn(
-        `Failed to fetch ${failures.length}/${uniqueHashes.length} receipts. Transactions without receipts will not have gas fees. Errors: ${failures.join('; ')}`
-      );
-    } else {
-      this.logger.debug(`Successfully fetched all ${receiptMap.size} receipts`);
+      const message = `Missing ${failures.length}/${uniqueHashes.length} receipts. Errors: ${failures.join('; ')}`;
+      this.logger.warn(message);
+      return err(new Error(message));
     }
+
+    this.logger.debug(`Successfully fetched all ${receiptMap.size} receipts`);
 
     // Enrich transfers with gas fee data
     for (const transfer of transfers) {
@@ -427,8 +462,12 @@ export class AlchemyApiClient extends BaseApiClient {
         transfer._gasUsed = receipt.gasUsed;
         transfer._effectiveGasPrice = receipt.effectiveGasPrice ?? undefined;
         transfer._nativeCurrency = this.chainConfig.nativeCurrency;
+      } else {
+        return err(new Error(`Receipt missing for transaction ${transfer.hash}`));
       }
     }
+
+    return ok(undefined);
   }
 
   private async getAddressBalances(address: string): Promise<Result<RawBalanceData, Error>> {
@@ -541,6 +580,79 @@ export class AlchemyApiClient extends BaseApiClient {
     return ok(balances);
   }
 
+  /**
+   * Fetch token metadata for multiple contracts using Alchemy's alchemy_getTokenMetadata JSON-RPC method.
+   */
+  private async getTokenMetadata(contractAddresses: string[]): Promise<Result<TokenMetadata[], Error>> {
+    if (contractAddresses.length === 0) {
+      return ok([]);
+    }
+
+    this.logger.debug(`Fetching metadata for ${contractAddresses.length} tokens via alchemy_getTokenMetadata`);
+
+    // Fetch metadata for each contract in parallel
+    const metadataPromises = contractAddresses.map((contractAddress) => this.fetchSingleTokenMetadata(contractAddress));
+
+    const results = await Promise.all(metadataPromises);
+
+    // Filter out errors and collect successful results
+    const metadata: TokenMetadata[] = [];
+    let failureCount = 0;
+
+    for (const result of results) {
+      if (result.isOk() && result.value) {
+        metadata.push(result.value);
+      } else {
+        failureCount++;
+      }
+    }
+
+    if (failureCount > 0) {
+      this.logger.warn(`Failed to fetch metadata for ${failureCount}/${contractAddresses.length} tokens`);
+    }
+
+    this.logger.debug(`Successfully fetched metadata for ${metadata.length}/${contractAddresses.length} tokens`);
+    return ok(metadata);
+  }
+
+  /**
+   * Fetch metadata for a single token contract using alchemy_getTokenMetadata.
+   */
+  private async fetchSingleTokenMetadata(contractAddress: string): Promise<Result<TokenMetadata | undefined, Error>> {
+    const result = await this.httpClient.post(
+      `/${this.apiKey}`,
+      {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'alchemy_getTokenMetadata',
+        params: [contractAddress],
+      },
+      { schema: z.object({ result: AlchemyTokenMetadataSchema.nullish(), error: z.any().nullish() }) }
+    );
+
+    if (result.isErr()) {
+      return err(result.error);
+    }
+
+    const response = result.value;
+    if (response.error) {
+      return err(new Error(`JSON-RPC error: ${JSON.stringify(response.error)}`));
+    }
+
+    if (!response.result) {
+      return ok(undefined);
+    }
+
+    const tokenData = response.result;
+
+    return ok({
+      contractAddress,
+      symbol: tokenData.symbol ?? undefined,
+      name: tokenData.name ?? undefined,
+      decimals: tokenData.decimals,
+    });
+  }
+
   private streamAddressTransactions(
     address: string,
     resumeCursor?: CursorState
@@ -634,7 +746,10 @@ export class AlchemyApiClient extends BaseApiClient {
       const allTransfers = this.deduplicateRawTransfers(mergedTransfers);
 
       // Enrich with gas fees from receipts
-      await this.enrichTransfersWithGasFees(allTransfers);
+      const enrichResult = await this.enrichTransfersWithGasFees(allTransfers);
+      if (enrichResult.isErr()) {
+        return err(enrichResult.error);
+      }
 
       const nextFromKey = fromResult.value.result?.pageKey ?? undefined;
       const nextToKey = toResult.value.result?.pageKey ?? undefined;
