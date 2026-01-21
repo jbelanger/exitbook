@@ -16,8 +16,9 @@ const logger = getLogger('solana-processor-utils');
  * Program IDs for staking-related operations on Solana
  */
 const STAKING_PROGRAMS: string[] = [
-  '11111111111111111111111111111112', // System Program (stake account creation)
-  'Stake11111111111111111111111111111111111112', // Stake Program
+  // Note: System Program (11111111111111111111111111111111) is NOT included
+  // because it's used for many non-staking operations (transfers, account creation, etc.)
+  'Stake11111111111111111111111111111111111111', // Stake Program (native Solana staking)
   'MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD', // Marinade Finance
   'CREAMfFfjMFogWFdFhLpAiRX8qC3BkyPUz7gW9DDfnMv', // Marinade MNDE staking
   'CgBg8TebSu4JbGQHRw6W7XvMc2UbNm8PXqEf9YUq4d7w', // Lido (Solido)
@@ -292,7 +293,7 @@ export function classifySolanaOperationFromFundFlow(
     });
   }
 
-  // Pattern 6: Simple deposit (only inflows)
+  // Pattern 5: Simple deposit (only inflows)
   if (outflows.length === 0 && inflows.length >= 1) {
     return addInferenceFailureNote({
       operation: {
@@ -302,7 +303,7 @@ export function classifySolanaOperationFromFundFlow(
     });
   }
 
-  // Pattern 7: Simple withdrawal (only outflows)
+  // Pattern 6: Simple withdrawal (only outflows)
   if (outflows.length >= 1 && inflows.length === 0) {
     return addInferenceFailureNote({
       operation: {
@@ -312,7 +313,7 @@ export function classifySolanaOperationFromFundFlow(
     });
   }
 
-  // Pattern 8: Self-transfer (same asset in and out)
+  // Pattern 7: Self-transfer (same asset in and out)
   if (outflows.length === 1 && inflows.length === 1) {
     const outAsset = outflows[0]?.asset;
     const inAsset = inflows[0]?.asset;
@@ -327,7 +328,7 @@ export function classifySolanaOperationFromFundFlow(
     }
   }
 
-  // Pattern 9: Complex multi-asset transaction (UNCERTAIN - add note)
+  // Pattern 8: Complex multi-asset transaction (UNCERTAIN - add note)
   if (fundFlow.classificationUncertainty) {
     return addInferenceFailureNote({
       notes: [
@@ -348,7 +349,7 @@ export function classifySolanaOperationFromFundFlow(
     });
   }
 
-  // Pattern 10: Batch operations (multiple instructions)
+  // Pattern 9: Batch operations (multiple instructions)
   if (fundFlow.hasMultipleInstructions && fundFlow.instructionCount > 3) {
     return addInferenceFailureNote({
       notes: [

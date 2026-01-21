@@ -23,11 +23,21 @@ export const HeliusTransactionMetaSchema = z.object({
 });
 
 /**
+ * Schema for Helius compiled instruction structure
+ */
+export const HeliusCompiledInstructionSchema = z.object({
+  programIdIndex: z.number().int().nonnegative(),
+  accounts: z.array(z.number().int().nonnegative()),
+  data: z.string(),
+  stackHeight: z.number().int().nonnegative().nullish(),
+});
+
+/**
  * Schema for Helius transaction message structure
  */
 export const HeliusTransactionMessageSchema = z.object({
   accountKeys: z.array(SolanaAddressSchema), // Solana addresses - case-sensitive
-  instructions: z.array(z.unknown()),
+  instructions: z.array(HeliusCompiledInstructionSchema),
   recentBlockhash: z.string().min(1, 'Recent blockhash must not be empty'),
 });
 
@@ -133,6 +143,7 @@ export const HeliusTokenAccountsJsonRpcResponseSchema = z.object({
 });
 
 // Type exports inferred from schemas
+export type HeliusCompiledInstruction = z.infer<typeof HeliusCompiledInstructionSchema>;
 export type HeliusTransactionMeta = z.infer<typeof HeliusTransactionMetaSchema>;
 export type HeliusTransactionMessage = z.infer<typeof HeliusTransactionMessageSchema>;
 export type HeliusTransaction = z.infer<typeof HeliusTransactionSchema>;

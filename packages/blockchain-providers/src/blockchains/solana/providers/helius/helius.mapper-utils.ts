@@ -53,11 +53,19 @@ export function mapHeliusTransaction(rawData: HeliusTransaction): Result<SolanaT
       feeCurrency: 'SOL',
       feePayer: accountKeys?.[0], // First account is always the fee payer in Solana
       id: signature,
-      instructions: (rawData.transaction.message.instructions || []).map((instruction) => ({
-        accounts: [],
-        data: JSON.stringify(instruction),
-        programId: undefined,
-      })),
+      instructions: (rawData.transaction.message.instructions || []).map((instruction) => {
+        // Extract programId from accountKeys using programIdIndex
+        const programId = accountKeys?.[instruction.programIdIndex];
+        // Map account indices to actual account addresses
+        const accounts = (instruction.accounts || [])
+          .map((accountIndex) => accountKeys?.[accountIndex])
+          .filter((account): account is string => !!account);
+        return {
+          accounts,
+          data: instruction.data,
+          programId,
+        };
+      }),
       logMessages: rawData.meta.logMessages || [],
       providerName: 'helius',
       signature,
