@@ -26,3 +26,4 @@ export * from './blockchains/evm/index.js';
 export * from './blockchains/near/index.js';
 export * from './blockchains/solana/index.js';
 export * from './blockchains/substrate/index.js';
+export * from './blockchains/xrp/index.js';

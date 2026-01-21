@@ -5,6 +5,7 @@ import { registerEvmChains } from './evm/register.js';
 import { registerNearChain } from './near/register.js';
 import { registerSolanaChain } from './solana/register.js';
 import { registerSubstrateChains } from './substrate/register.js';
+import { registerXrpChains } from './xrp/register.js';
 
 export function registerAllBlockchains(): void {
   registerEvmChains();
@@ -14,4 +15,5 @@ export function registerAllBlockchains(): void {
   registerSolanaChain();
   registerNearChain();
   registerCardanoChain();
+  registerXrpChains();
 }

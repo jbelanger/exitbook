@@ -163,6 +163,16 @@ export const BlockfrostAddressSchema = z
   })
   .strict();
 
+/**
+ * Schema for Blockfrost health check response from /health
+ * Returns API health status
+ */
+export const BlockfrostHealthSchema = z
+  .object({
+    is_healthy: z.boolean(),
+  })
+  .strict();
+
 // Type exports inferred from schemas
 export type BlockfrostTransactionHash = z.infer<typeof BlockfrostTransactionHashSchema>;
 export type BlockfrostAssetAmount = z.infer<typeof BlockfrostAssetAmountSchema>;

@@ -347,12 +347,10 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                       fee: feeAmount,
                       feeCurrency,
                       status: mapCoinbaseStatus(validatedData.status),
-                      hash: typeof rawInfo.network?.hash === 'string' ? (rawInfo.network.hash) : undefined,
-                      address: typeof rawInfo.to?.address === 'string' ? (rawInfo.to.address) : undefined,
+                      hash: typeof rawInfo.network?.hash === 'string' ? rawInfo.network.hash : undefined,
+                      address: typeof rawInfo.to?.address === 'string' ? rawInfo.to.address : undefined,
                       network:
-                        typeof rawInfo.network?.network_name === 'string'
-                          ? (rawInfo.network.network_name)
-                          : undefined,
+                        typeof rawInfo.network?.network_name === 'string' ? rawInfo.network.network_name : undefined,
                     };
 
                     return {

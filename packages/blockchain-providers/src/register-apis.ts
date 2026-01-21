@@ -7,3 +7,4 @@ import './blockchains/evm/register-apis.js';
 import './blockchains/near/register-apis.js';
 import './blockchains/solana/register-apis.js';
 import './blockchains/substrate/register-apis.js';
+import './blockchains/xrp/register-apis.js';

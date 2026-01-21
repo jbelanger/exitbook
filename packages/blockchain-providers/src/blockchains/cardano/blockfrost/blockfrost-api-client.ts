@@ -26,6 +26,7 @@ import { lovelaceToAda, mapBlockfrostTransaction } from './blockfrost.mapper-uti
 import type { BlockfrostTransactionHash, BlockfrostTransactionWithMetadata } from './blockfrost.schemas.js';
 import {
   BlockfrostAddressSchema,
+  BlockfrostHealthSchema,
   BlockfrostTransactionDetailsSchema,
   BlockfrostTransactionHashSchema,
   BlockfrostTransactionUtxosSchema,
@@ -148,8 +149,10 @@ export class BlockfrostApiClient extends BaseApiClient {
   getHealthCheckConfig() {
     return {
       endpoint: '/health',
+      schema: BlockfrostHealthSchema,
       validate: (response: unknown) => {
-        return typeof response === 'object' && response !== null && 'is_healthy' in response;
+        const parsed = BlockfrostHealthSchema.safeParse(response);
+        return parsed.success && parsed.data.is_healthy;
       },
     };
   }
@@ -284,6 +287,7 @@ export class BlockfrostApiClient extends BaseApiClient {
 
       const result = await this.httpClient.get<BlockfrostTransactionHash[]>(endpoint, {
         headers: { project_id: this.apiKey },
+        schema: z.array(BlockfrostTransactionHashSchema),
       });
 
       if (result.isErr()) {
