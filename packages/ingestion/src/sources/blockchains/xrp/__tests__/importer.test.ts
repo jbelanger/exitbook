@@ -3,7 +3,11 @@
  * Tests transaction fetching with provider failover
  */
 
-import { type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
+import {
+  type BlockchainProviderManager,
+  type IBlockchainProvider,
+  ProviderError,
+} from '@exitbook/blockchain-providers';
 import { getXrpChainConfig } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
 import { errAsync, okAsync } from 'neverthrow';
@@ -53,7 +57,8 @@ describe('XrpTransactionImporter', () => {
     } as unknown as ProviderManagerMock;
 
     mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
-    mockProviderManager.getProviders.mockReturnValue([{ name: 'xrpl-rpc' }] as unknown);
+
+    mockProviderManager.getProviders.mockReturnValue([{ name: 'xrpl-rpc', blockchain: 'xrp' } as IBlockchainProvider]);
 
     const chainConfig = getXrpChainConfig('xrp');
     if (!chainConfig) {

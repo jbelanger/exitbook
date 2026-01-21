@@ -13,6 +13,28 @@ import type { AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResu
 const logger = getLogger('BitcoinUtils');
 
 /**
+ * Version bytes for BIP32 extended keys (SLIP-132)
+ * Used for parsing xpub/ypub/zpub keys with @scure/bip32
+ */
+const BIP32_VERSIONS = {
+  /** BIP44 (Legacy P2PKH) */
+  xpub: {
+    private: 0x0488ade4,
+    public: 0x0488b21e,
+  },
+  /** BIP49 (Nested SegWit P2WPKH-in-P2SH) */
+  ypub: {
+    private: 0x049d7878,
+    public: 0x049d7cb2,
+  },
+  /** BIP84 (Native SegWit P2WPKH) */
+  zpub: {
+    private: 0x04b2430c,
+    public: 0x04b24746,
+  },
+} as const;
+
+/**
  * Deterministic event identity for Bitcoin-like chains.
  *
  * Important: raw storage dedup is keyed by `(account_id, event_id)` and the raw layer
@@ -114,7 +136,8 @@ export class BitcoinUtils {
     }
 
     try {
-      const node = HDKey.fromExtendedKey(xpub);
+      const versions = BIP32_VERSIONS[xpubType];
+      const node = HDKey.fromExtendedKey(xpub, versions);
       const network = bitcoin.networks.bitcoin; // Default to mainnet
       const addressType = xpubType === 'xpub' ? 'legacy' : xpubType === 'ypub' ? 'segwit' : 'bech32';
 
@@ -389,7 +412,7 @@ export class BitcoinUtils {
         addressFunction: this.getAddressGenerator('bech32', network),
         addressType: 'bech32',
         bipStandard: 'bip84',
-        hdNode: HDKey.fromExtendedKey(xpub),
+        hdNode: HDKey.fromExtendedKey(xpub, BIP32_VERSIONS.zpub),
       };
     }
 
@@ -399,7 +422,7 @@ export class BitcoinUtils {
         addressFunction: this.getAddressGenerator('segwit', network),
         addressType: 'segwit',
         bipStandard: 'bip49',
-        hdNode: HDKey.fromExtendedKey(xpub),
+        hdNode: HDKey.fromExtendedKey(xpub, BIP32_VERSIONS.ypub),
       };
     }
 
@@ -408,7 +431,7 @@ export class BitcoinUtils {
       logger.info('Detected xpub. Attempting to determine account type...');
 
       // Test BIP44 (Legacy)
-      const legacyHdNode = HDKey.fromExtendedKey(xpub);
+      const legacyHdNode = HDKey.fromExtendedKey(xpub, BIP32_VERSIONS.xpub);
       const legacyAddressGen = this.getAddressGenerator('legacy', network);
       const firstLegacyChild = legacyHdNode.deriveChild(0).deriveChild(0);
 
@@ -444,7 +467,7 @@ export class BitcoinUtils {
       // Test BIP84 (Ledger-style Native SegWit)
       logger.info('No activity found on Legacy path. Checking for Native SegWit (Ledger-style)...');
 
-      const segwitHdNode = HDKey.fromExtendedKey(xpub);
+      const segwitHdNode = HDKey.fromExtendedKey(xpub, BIP32_VERSIONS.xpub);
       const segwitAddressGen = this.getAddressGenerator('bech32', network);
       const firstSegwitChild = segwitHdNode.deriveChild(0).deriveChild(0);
 
