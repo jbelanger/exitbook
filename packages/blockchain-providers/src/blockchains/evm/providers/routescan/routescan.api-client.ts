@@ -36,10 +36,15 @@ import {
 
 /**
  * Maps blockchain names to Routescan chain IDs for free chains
+ *
+ * Note: The following chains are not fully indexed by Routescan and have been removed:
+ * - arbitrum (Arbitrum One) - not fully indexed
+ * - animalia - not fully indexed
+ * - delaunch - not fully indexed
+ * - henesys - not fully indexed
+ * - pulsechain (Pulse Chain) - not fully indexed
  */
 const CHAIN_ID_MAP: Record<string, number> = {
-  animalia: 8787,
-  arbitrum: 42161,
   avalanche: 43114,
   beam: 4337,
   'berachain-mainnet': 80094,
@@ -51,7 +56,6 @@ const CHAIN_ID_MAP: Record<string, number> = {
   chiliz: 88888,
   corgnet: 42069,
   corn: 21000000,
-  delaunch: 96786,
   dexalot: 432204,
   dfk: 53935,
   ethereum: 1,
@@ -60,7 +64,6 @@ const CHAIN_ID_MAP: Record<string, number> = {
   flare: 14,
   growth: 61587,
   gunz: 43419,
-  henesys: 68414,
   innovo: 10036,
   'lamina1-identity': 10850,
   lamina1: 10849,
@@ -73,7 +76,6 @@ const CHAIN_ID_MAP: Record<string, number> = {
   plasma: 9745,
   plyr: 16180,
   polynomial: 8008,
-  pulsechain: 369,
   qchain: 12150,
   songbird: 19,
   space: 8227,
