@@ -68,5 +68,3 @@ export const MoneySchema = z.object({
   amount: DecimalSchema,
   currency: CurrencySchema,
 });
-
-export type Money = z.infer<typeof MoneySchema>;

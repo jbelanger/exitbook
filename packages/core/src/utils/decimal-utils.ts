@@ -1,8 +1,5 @@
 import { Decimal } from 'decimal.js';
 
-import type { Money } from '../schemas/money.js';
-import { Currency } from '../types/currency.js';
-
 // Configure Decimal.js for cryptocurrency precision
 // Most cryptocurrencies use up to 18 decimal places, so we set precision high
 Decimal.set({
@@ -24,7 +21,7 @@ export function tryParseDecimal(
   out?: { value: Decimal }
 ): boolean {
   if (value === undefined || value === null || value === '') {
-    if (out) out.value = parseDecimal('0');
+    if (out) out.value = new Decimal('0');
     return true;
   }
 
@@ -42,162 +39,7 @@ export function tryParseDecimal(
  * Handles scientific notation from JavaScript numbers (e.g., 1e-8 -> 0.00000001)
  */
 export function parseDecimal(value: string | number | Decimal | undefined | null): Decimal {
-  const result = { value: parseDecimal('0') };
+  const result = { value: new Decimal('0') };
   tryParseDecimal(value, result);
   return result.value;
-}
-
-/**
- * Create a Money object with proper decimal parsing
- * Handles scientific notation from JavaScript numbers (e.g., 1e-8 -> 0.00000001)
- */
-export function createMoney(amount: string | number | Decimal | undefined | null, currency: string): Money {
-  return {
-    amount: parseDecimal(amount),
-    currency: Currency.create(currency || 'unknown'),
-  };
-}
-
-/**
- * Check if a Decimal value can be safely converted to number without precision loss
- */
-export function canSafelyConvertToNumber(decimal: Decimal): boolean {
-  // Check if value exceeds JavaScript's safe integer range
-  if (decimal.abs().greaterThan(Number.MAX_SAFE_INTEGER)) {
-    return false;
-  }
-
-  // Check if conversion would lose precision by comparing string representations
-  const asNumber = decimal.toNumber();
-  const backToDecimal = new Decimal(asNumber);
-  return decimal.equals(backToDecimal);
-}
-
-/**
- * Safely convert Decimal to number with precision validation
- */
-export function safeDecimalToNumber(
-  decimal: Decimal,
-  options?: {
-    allowPrecisionLoss?: boolean | undefined;
-    warningCallback?: (message: string) => void | undefined;
-  }
-): number {
-  const { allowPrecisionLoss = false, warningCallback } = options || {};
-
-  if (!canSafelyConvertToNumber(decimal)) {
-    const message = `Precision loss detected converting Decimal to number: ${decimal.toString()} -> ${decimal.toNumber()}`;
-
-    if (warningCallback) {
-      warningCallback(message);
-    }
-
-    if (!allowPrecisionLoss) {
-      throw new Error(message);
-    }
-  }
-
-  return decimal.toNumber();
-}
-
-/**
- * Convert Money to a number for legacy compatibility (use with caution)
- */
-export function moneyToNumber(money: Money | number | undefined): number {
-  if (typeof money === 'number') {
-    return money;
-  }
-
-  if (!money) {
-    return 0;
-  }
-
-  return money.amount.toNumber();
-}
-
-/**
- * Convert Decimal to string with appropriate precision for display
- */
-export function formatDecimal(decimal: Decimal, maxDecimalPlaces = 8): string {
-  return decimal.toFixed(maxDecimalPlaces).replace(/\.?0+$/, '');
-}
-
-/**
- * Safe addition of Money objects (same currency)
- */
-export function addMoney(a: Money, b: Money): Money {
-  if (!a.currency.equals(b.currency)) {
-    throw new Error(`Cannot add different currencies: ${a.currency.toString()} and ${b.currency.toString()}`);
-  }
-
-  return {
-    amount: a.amount.plus(b.amount),
-    currency: a.currency,
-  };
-}
-
-/**
- * Safe subtraction of Money objects (same currency)
- */
-export function subtractMoney(a: Money, b: Money): Money {
-  if (!a.currency.equals(b.currency)) {
-    throw new Error(`Cannot subtract different currencies: ${a.currency.toString()} and ${b.currency.toString()}`);
-  }
-
-  return {
-    amount: a.amount.minus(b.amount),
-    currency: a.currency,
-  };
-}
-
-/**
- * Compare Money objects for equality
- */
-export function moneyEquals(a: Money | undefined, b: Money | undefined): boolean {
-  if (!a && !b) return true;
-  if (!a || !b) return false;
-
-  return a.currency.equals(b.currency) && a.amount.equals(b.amount);
-}
-
-/**
- * Check if Money amount is zero
- */
-export function isZeroMoney(money: Money | undefined): boolean {
-  return !money || money.amount.isZero();
-}
-
-/**
- * Convert Decimal to string for database storage (preserves full precision)
- */
-export function decimalToString(decimal: Decimal | undefined): string | undefined {
-  if (!decimal) return undefined;
-  return decimal.toFixed();
-}
-
-/**
- * Convert string from database back to Decimal
- */
-export function stringToDecimal(value: string | undefined): Decimal {
-  if (!value) return parseDecimal('0');
-  return parseDecimal(value);
-}
-
-/**
- * Convert Money object to database-compatible object with string amounts
- */
-export function moneyToDbString(money: Money | undefined): string | undefined {
-  if (!money) return undefined;
-  return money.amount.toFixed();
-}
-
-/**
- * Convert database string back to Money object
- */
-export function dbStringToMoney(amount: string | null, currency: string | null): Money | undefined {
-  if (!amount || !currency) return undefined;
-  return {
-    amount: stringToDecimal(amount),
-    currency: Currency.create(currency),
-  };
 }
