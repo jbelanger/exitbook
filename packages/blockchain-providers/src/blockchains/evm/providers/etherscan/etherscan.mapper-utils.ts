@@ -384,7 +384,7 @@ export function mapEtherscanTokenTransactionToEvmTransaction(
       type: 'token_transfer',
       tokenAddress: contractAddress,
       tokenSymbol: rawData.tokenSymbol ?? undefined,
-      tokenDecimals: rawData.tokenDecimal ? parseInt(rawData.tokenDecimal) : undefined,
+      tokenDecimals: rawData.tokenDecimal !== undefined ? parseInt(rawData.tokenDecimal) : undefined,
     };
 
     return validateOutput(transaction, EvmTransactionSchema, 'EtherscanTokenTransaction');

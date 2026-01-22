@@ -20,8 +20,10 @@ function createTransaction(params: {
   inflows?: { amount: string; assetSymbol: string }[];
   outflows?: { amount: string; assetSymbol: string }[];
   source: string;
+  sourceType?: 'blockchain' | 'exchange';
   to?: string;
 }): UniversalTransactionData {
+  const sourceType = params.sourceType ?? (params.blockchain ? 'blockchain' : 'exchange');
   return {
     id: params.id,
     accountId: 1,
@@ -29,7 +31,7 @@ function createTransaction(params: {
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
     source: params.source,
-    sourceType: 'blockchain' as const,
+    sourceType,
     status: 'success',
     from: params.from,
     to: params.to,

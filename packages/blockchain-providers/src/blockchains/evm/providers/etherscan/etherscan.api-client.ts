@@ -20,7 +20,6 @@ import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
 import type { EvmTransaction } from '../../types.js';
 
-import etherscanChains from './etherscan-chains.json' with { type: 'json' };
 import {
   mapEtherscanWithdrawalToEvmTransaction,
   parseEtherscanWithdrawalResponse,
@@ -37,6 +36,82 @@ import type {
   EtherscanInternalTransaction,
   EtherscanTokenTransaction,
 } from './etherscan.schemas.js';
+
+/**
+ * Chains supported by Etherscan V2 API.
+ * All chains use the unified V2 endpoint: https://api.etherscan.io/v2/api
+ * with chainid parameter to specify the target chain.
+ */
+const ETHERSCAN_SUPPORTED_CHAINS = [
+  'abstract',
+  'abstract-sepolia',
+  'apechain',
+  'apechain-curtis',
+  'arbitrum',
+  'arbitrum-nova',
+  'arbitrum-sepolia',
+  'avalanche',
+  'avalanche-fuji',
+  'base',
+  'base-sepolia',
+  'berachain',
+  'berachain-bepolia',
+  'bittorrent',
+  'bittorrent-testnet',
+  'blast',
+  'blast-sepolia',
+  'bsc',
+  'bsc-testnet',
+  'celo',
+  'celo-sepolia',
+  'ethereum',
+  'fraxtal',
+  'fraxtal-hoodi',
+  'gnosis',
+  'holesky',
+  'hoodi',
+  'hyperevm',
+  'katana',
+  'katana-bokuto',
+  'linea',
+  'linea-sepolia',
+  'mantle',
+  'mantle-sepolia',
+  'memecore',
+  'memecore-testnet',
+  'monad',
+  'monad-testnet',
+  'moonbase',
+  'moonbeam',
+  'moonriver',
+  'opbnb',
+  'opbnb-testnet',
+  'optimism',
+  'optimism-sepolia',
+  'plasma',
+  'plasma-testnet',
+  'polygon',
+  'polygon-amoy',
+  'scroll',
+  'scroll-sepolia',
+  'sei',
+  'sei-testnet',
+  'sepolia',
+  'sonic',
+  'sonic-testnet',
+  'stable',
+  'stable-testnet',
+  'swellchain',
+  'swellchain-testnet',
+  'taiko',
+  'taiko-hoodi',
+  'unichain',
+  'unichain-sepolia',
+  'world-chain',
+  'world-chain-sepolia',
+  'xdc',
+  'xdc-apothem',
+];
 
 /**
  * Etherscan API client for EVM blockchain data.
@@ -72,9 +147,7 @@ import type {
   displayName: 'Etherscan',
   name: 'etherscan',
   requiresApiKey: true,
-  supportedChains: Object.fromEntries(
-    Object.entries(etherscanChains).map(([chainName, config]) => [chainName, { baseUrl: config.baseUrl }])
-  ),
+  supportedChains: ETHERSCAN_SUPPORTED_CHAINS,
 })
 export class EtherscanApiClient extends BaseApiClient {
   // Etherscan V2 API constraint: PageNo × Offset ≤ 10,000
