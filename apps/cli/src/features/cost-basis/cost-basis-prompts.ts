@@ -10,33 +10,7 @@ import type { CostBasisHandlerParams } from './cost-basis-utils.js';
  * Prompt user for cost basis parameters in interactive mode.
  */
 export async function promptForCostBasisParams(): Promise<CostBasisHandlerParams> {
-  // Prompt for calculation method
-  const method = await p.select({
-    message: 'Select cost basis calculation method:',
-    options: [
-      { label: 'FIFO (First In, First Out)', value: 'fifo' as const },
-      { label: 'LIFO (Last In, First Out)', value: 'lifo' as const },
-      {
-        label: 'Specific Lot Identification (coming soon)',
-        value: 'specific-id' as const,
-        hint: 'Not yet implemented',
-      },
-      { label: 'Average Cost (coming soon)', value: 'average-cost' as const, hint: 'Not yet implemented' },
-    ],
-    initialValue: 'fifo' as const,
-  });
-
-  if (isCancelled(method)) {
-    handleCancellation();
-  }
-
-  // Validate method is implemented
-  if (method === 'specific-id' || method === 'average-cost') {
-    p.cancel('Selected method is not yet implemented. Please choose FIFO or LIFO.');
-    process.exit(0);
-  }
-
-  // Prompt for jurisdiction
+  // Prompt for jurisdiction FIRST (needed for method options)
   const jurisdiction = await p.select({
     message: 'Select tax jurisdiction:',
     options: [
@@ -58,12 +32,75 @@ export async function promptForCostBasisParams(): Promise<CostBasisHandlerParams
     process.exit(0);
   }
 
+  // Type narrowing: jurisdiction is now 'CA' | 'US'
+  const validJurisdiction = jurisdiction;
+
+  // Build method options based on jurisdiction (let TypeScript infer discriminated union type)
+  const methodOptions = [];
+
+  // Add FIFO option with CA-specific hint
+  methodOptions.push({
+    label: 'FIFO (First In, First Out)',
+    value: 'fifo' as const,
+    ...(validJurisdiction === 'CA' ? { hint: 'Not CRA-compliant for identical properties' } : {}),
+  });
+
+  // Add LIFO option with CA-specific hint
+  methodOptions.push({
+    label: 'LIFO (Last In, First Out)',
+    value: 'lifo' as const,
+    ...(validJurisdiction === 'CA' ? { hint: 'Not CRA-compliant for identical properties' } : {}),
+  });
+
+  // Add Average Cost only for Canada
+  if (validJurisdiction === 'CA') {
+    methodOptions.push({
+      label: 'Average Cost (ACB)',
+      value: 'average-cost' as const,
+      hint: 'Canadian Adjusted Cost Base - ACB adjustment for denied losses not automated',
+    });
+  }
+
+  // Add Specific ID option (not yet implemented)
+  methodOptions.push({
+    label: 'Specific Lot Identification (coming soon)',
+    value: 'specific-id' as const,
+    hint: 'Not yet implemented',
+  });
+
+  // Prompt for calculation method
+  const method = await p.select({
+    message: 'Select cost basis calculation method:',
+    options: methodOptions,
+    initialValue: 'fifo' as const,
+  });
+
+  if (isCancelled(method)) {
+    handleCancellation();
+  }
+
+  // Validate method is implemented
+  if (method === 'specific-id') {
+    p.cancel('Selected method is not yet implemented. Please choose FIFO, LIFO, or Average Cost (CA only).');
+    process.exit(0);
+  }
+
+  // Warn about CRA compliance for Canadian users selecting non-ACB methods
+  if (validJurisdiction === 'CA' && (method === 'fifo' || method === 'lifo')) {
+    p.note(
+      `⚠️  CRA generally requires Average Cost (ACB) for identical properties like cryptocurrencies.\n` +
+        `Using ${method.toUpperCase()} may not be compliant with Canadian tax regulations.\n` +
+        `Consult a tax professional to determine the appropriate method for your situation.`,
+      'Tax Compliance Warning'
+    );
+  }
+
   // Prompt for tax year
   const currentYear = new Date().getUTCFullYear();
   const taxYearInput = await p.text({
     message: 'Enter tax year:',
     placeholder: String(currentYear - 1),
-    validate: (value: string) => {
+    validate: (value: string | undefined) => {
       if (!value) return 'Tax year is required';
       const year = parseInt(value, 10);
       if (isNaN(year)) return 'Must be a valid year (e.g., 2024)';
@@ -78,7 +115,7 @@ export async function promptForCostBasisParams(): Promise<CostBasisHandlerParams
   const taxYear = parseInt(taxYearInput, 10);
 
   // Prompt for fiat currency with jurisdiction-appropriate default
-  const defaultCurrency = jurisdiction === 'CA' ? 'CAD' : jurisdiction === 'US' ? 'USD' : 'EUR';
+  const defaultCurrency = validJurisdiction === 'CA' ? 'CAD' : 'USD';
 
   const currency = await p.select({
     message: 'Select fiat currency for cost basis:',
@@ -113,7 +150,7 @@ export async function promptForCostBasisParams(): Promise<CostBasisHandlerParams
     const startDateInput = await p.text({
       message: 'Enter start date (YYYY-MM-DD):',
       placeholder: `${taxYear}-01-01`,
-      validate: (value: string) => {
+      validate: (value: string | undefined) => {
         if (!value) return 'Start date is required';
         const date = new Date(value);
         if (isNaN(date.getTime())) return 'Invalid date format. Use YYYY-MM-DD';
@@ -128,7 +165,7 @@ export async function promptForCostBasisParams(): Promise<CostBasisHandlerParams
     const endDateInput = await p.text({
       message: 'Enter end date (YYYY-MM-DD):',
       placeholder: `${taxYear}-12-31`,
-      validate: (value: string) => {
+      validate: (value: string | undefined) => {
         if (!value) return 'End date is required';
         const date = new Date(value);
         if (isNaN(date.getTime())) return 'Invalid date format. Use YYYY-MM-DD';
@@ -145,7 +182,7 @@ export async function promptForCostBasisParams(): Promise<CostBasisHandlerParams
     endDate = new Date(endDateInput);
   } else {
     // Use default date range for jurisdiction (same as flag path)
-    const defaultRange = getDefaultDateRange(taxYear, jurisdiction);
+    const defaultRange = getDefaultDateRange(taxYear, validJurisdiction);
     startDate = defaultRange.startDate;
     endDate = defaultRange.endDate;
   }
@@ -153,7 +190,7 @@ export async function promptForCostBasisParams(): Promise<CostBasisHandlerParams
   // Build config object
   const config: CostBasisConfig = {
     method: method as CostBasisConfig['method'],
-    jurisdiction: jurisdiction as CostBasisConfig['jurisdiction'],
+    jurisdiction: validJurisdiction,
     taxYear,
     currency: currency as CostBasisConfig['currency'],
     startDate,

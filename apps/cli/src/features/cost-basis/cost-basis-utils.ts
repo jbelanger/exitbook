@@ -193,21 +193,24 @@ export function buildCostBasisParamsFromFlags(options: CostBasisCommandOptions):
 export function validateCostBasisParams(params: CostBasisHandlerParams): Result<void, Error> {
   const { config } = params;
 
-  // Validate method is supported
-  if (config.method === 'specific-id' || config.method === 'average-cost') {
+  // Validate method-jurisdiction compatibility
+  if (config.method === 'average-cost' && config.jurisdiction !== 'CA') {
     return err(
-      new Error(
-        `Method '${config.method}' is not yet implemented. Currently supported: fifo, lifo. Coming soon: specific-id, average-cost`
-      )
+      new Error('Average Cost (ACB) is only supported for Canada (CA). ' + 'For other jurisdictions, use FIFO or LIFO.')
+    );
+  }
+
+  // Validate specific-id not yet implemented
+  if (config.method === 'specific-id') {
+    return err(
+      new Error(`Method 'specific-id' is not yet implemented. Currently supported: fifo, lifo, average-cost (CA only)`)
     );
   }
 
   // Validate jurisdiction has implementation
   if (config.jurisdiction === 'UK' || config.jurisdiction === 'EU') {
     return err(
-      new Error(
-        `Jurisdiction '${config.jurisdiction}' tax rules not yet implemented. Currently supported: CA, US. Coming soon: UK, EU`
-      )
+      new Error(`Jurisdiction '${config.jurisdiction}' tax rules not yet implemented. Currently supported: CA, US`)
     );
   }
 

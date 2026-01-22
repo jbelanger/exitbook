@@ -233,17 +233,21 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    expect(result).toHaveLength(1);
-    expect(result[0]!.lotId).toBe('lot1');
-    expect(result[0]!.disposalTransactionId).toBe(100);
-    expect(result[0]!.quantityDisposed.toString()).toBe('1');
-    expect(result[0]!.proceedsPerUnit.toString()).toBe('50000');
-    expect(result[0]!.totalProceeds.toString()).toBe('50000');
-    expect(result[0]!.costBasisPerUnit.toString()).toBe('30000');
-    expect(result[0]!.totalCostBasis.toString()).toBe('30000');
-    expect(result[0]!.gainLoss.toString()).toBe('20000');
-    expect(result[0]!.holdingPeriodDays).toBe(31);
-    expect(result[0]!.taxTreatmentCategory).toBeUndefined();
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      expect(disposals).toHaveLength(1);
+      expect(disposals[0]!.lotId).toBe('lot1');
+      expect(disposals[0]!.disposalTransactionId).toBe(100);
+      expect(disposals[0]!.quantityDisposed.toString()).toBe('1');
+      expect(disposals[0]!.proceedsPerUnit.toString()).toBe('50000');
+      expect(disposals[0]!.totalProceeds.toString()).toBe('50000');
+      expect(disposals[0]!.costBasisPerUnit.toString()).toBe('30000');
+      expect(disposals[0]!.totalCostBasis.toString()).toBe('30000');
+      expect(disposals[0]!.gainLoss.toString()).toBe('20000');
+      expect(disposals[0]!.holdingPeriodDays).toBe(31);
+      expect(disposals[0]!.taxTreatmentCategory).toBeUndefined();
+    }
   });
 
   it('should match partial disposal to single lot', () => {
@@ -252,11 +256,15 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    expect(result).toHaveLength(1);
-    expect(result[0]!.quantityDisposed.toString()).toBe('0.5');
-    expect(result[0]!.totalProceeds.toString()).toBe('25000'); // 0.5 * 50000
-    expect(result[0]!.totalCostBasis.toString()).toBe('15000'); // 0.5 * 30000
-    expect(result[0]!.gainLoss.toString()).toBe('10000');
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      expect(disposals).toHaveLength(1);
+      expect(disposals[0]!.quantityDisposed.toString()).toBe('0.5');
+      expect(disposals[0]!.totalProceeds.toString()).toBe('25000'); // 0.5 * 50000
+      expect(disposals[0]!.totalCostBasis.toString()).toBe('15000'); // 0.5 * 30000
+      expect(disposals[0]!.gainLoss.toString()).toBe('10000');
+    }
   });
 
   it('should match disposal across multiple lots', () => {
@@ -265,17 +273,21 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    expect(result).toHaveLength(2);
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      expect(disposals).toHaveLength(2);
 
-    // First lot: 1 BTC
-    expect(result[0]!.lotId).toBe('lot1');
-    expect(result[0]!.quantityDisposed.toString()).toBe('1');
-    expect(result[0]!.totalProceeds.toString()).toBe('50000');
+      // First lot: 1 BTC
+      expect(disposals[0]!.lotId).toBe('lot1');
+      expect(disposals[0]!.quantityDisposed.toString()).toBe('1');
+      expect(disposals[0]!.totalProceeds.toString()).toBe('50000');
 
-    // Second lot: 0.5 BTC
-    expect(result[1]!.lotId).toBe('lot2');
-    expect(result[1]!.quantityDisposed.toString()).toBe('0.5');
-    expect(result[1]!.totalProceeds.toString()).toBe('25000');
+      // Second lot: 0.5 BTC
+      expect(disposals[1]!.lotId).toBe('lot2');
+      expect(disposals[1]!.quantityDisposed.toString()).toBe('0.5');
+      expect(disposals[1]!.totalProceeds.toString()).toBe('25000');
+    }
   });
 
   it('should skip fully disposed lots', () => {
@@ -287,8 +299,12 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    expect(result).toHaveLength(1);
-    expect(result[0]!.lotId).toBe('lot2'); // Skipped lot1
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      expect(disposals).toHaveLength(1);
+      expect(disposals[0]!.lotId).toBe('lot2'); // Skipped lot1
+    }
   });
 
   it('should match disposal to partially remaining lots', () => {
@@ -297,26 +313,38 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    expect(result).toHaveLength(1);
-    expect(result[0]!.quantityDisposed.toString()).toBe('0.3');
-    expect(result[0]!.totalProceeds.toString()).toBe('15000');
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      expect(disposals).toHaveLength(1);
+      expect(disposals[0]!.quantityDisposed.toString()).toBe('0.3');
+      expect(disposals[0]!.totalProceeds.toString()).toBe('15000');
+    }
   });
 
   it('should throw error if insufficient lots', () => {
     const disposal = createDisposal('2');
     const lots = [createLot('lot1', '2024-01-01', '1', '1')];
 
-    expect(() => matchDisposalToSortedLots(disposal, lots)).toThrow(/Insufficient acquisition lots/);
-    expect(() => matchDisposalToSortedLots(disposal, lots)).toThrow(/Asset: BTC/);
-    expect(() => matchDisposalToSortedLots(disposal, lots)).toThrow(/Disposal quantity: 2/);
-    expect(() => matchDisposalToSortedLots(disposal, lots)).toThrow(/Unmatched quantity: 1/);
+    const result = matchDisposalToSortedLots(disposal, lots);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toMatch(/Insufficient acquisition lots/);
+      expect(result.error.message).toMatch(/Asset: BTC/);
+      expect(result.error.message).toMatch(/Disposal quantity: 2/);
+      expect(result.error.message).toMatch(/Unmatched quantity: 1/);
+    }
   });
 
   it('should throw error if all lots are fully disposed', () => {
     const disposal = createDisposal('0.5');
     const lots = [createLot('lot1', '2024-01-01', '1', '0'), createLot('lot2', '2024-01-15', '1', '0')];
 
-    expect(() => matchDisposalToSortedLots(disposal, lots)).toThrow(/Insufficient acquisition lots/);
+    const result = matchDisposalToSortedLots(disposal, lots);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toMatch(/Insufficient acquisition lots/);
+    }
   });
 
   it('should handle very small quantities', () => {
@@ -325,8 +353,12 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    expect(result).toHaveLength(1);
-    expect(result[0]!.quantityDisposed.toFixed()).toBe('0.00000001');
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      expect(disposals).toHaveLength(1);
+      expect(disposals[0]!.quantityDisposed.toFixed()).toBe('0.00000001');
+    }
   });
 
   it('should handle very large quantities', () => {
@@ -335,8 +367,12 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    expect(result).toHaveLength(1);
-    expect(result[0]!.quantityDisposed.toString()).toBe('1000000');
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      expect(disposals).toHaveLength(1);
+      expect(disposals[0]!.quantityDisposed.toString()).toBe('1000000');
+    }
   });
 
   it('should calculate correct holding periods for multiple lots', () => {
@@ -348,8 +384,12 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    expect(result[0]!.holdingPeriodDays).toBe(60); // Jan 1 to Mar 1
-    expect(result[1]!.holdingPeriodDays).toBe(15); // Feb 15 to Mar 1
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      expect(disposals[0]!.holdingPeriodDays).toBe(60); // Jan 1 to Mar 1
+      expect(disposals[1]!.holdingPeriodDays).toBe(15); // Feb 15 to Mar 1
+    }
   });
 
   it('should match exact remaining quantity', () => {
@@ -358,8 +398,12 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    expect(result).toHaveLength(1);
-    expect(result[0]!.quantityDisposed.toString()).toBe('0.75');
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      expect(disposals).toHaveLength(1);
+      expect(disposals[0]!.quantityDisposed.toString()).toBe('0.75');
+    }
   });
 
   it('should use minimum of remaining quantity and disposal quantity', () => {
@@ -368,8 +412,12 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    expect(result).toHaveLength(1);
-    expect(result[0]!.quantityDisposed.toString()).toBe('0.3'); // Used disposal quantity, not lot's full remaining
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      expect(disposals).toHaveLength(1);
+      expect(disposals[0]!.quantityDisposed.toString()).toBe('0.3'); // Used disposal quantity, not lot's full remaining
+    }
   });
 
   it('should handle complex multi-lot scenario', () => {
@@ -383,13 +431,17 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    expect(result).toHaveLength(3);
-    expect(result[0]!.lotId).toBe('lot1');
-    expect(result[0]!.quantityDisposed.toString()).toBe('1');
-    expect(result[1]!.lotId).toBe('lot3');
-    expect(result[1]!.quantityDisposed.toString()).toBe('0.5');
-    expect(result[2]!.lotId).toBe('lot4');
-    expect(result[2]!.quantityDisposed.toString()).toBe('1.2');
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      expect(disposals).toHaveLength(3);
+      expect(disposals[0]!.lotId).toBe('lot1');
+      expect(disposals[0]!.quantityDisposed.toString()).toBe('1');
+      expect(disposals[1]!.lotId).toBe('lot3');
+      expect(disposals[1]!.quantityDisposed.toString()).toBe('0.5');
+      expect(disposals[2]!.lotId).toBe('lot4');
+      expect(disposals[2]!.quantityDisposed.toString()).toBe('1.2');
+    }
   });
 
   it('should include all required fields in lot disposal', () => {
@@ -398,21 +450,25 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    const lotDisposal = result[0]!;
-    expect(lotDisposal.id).toBeTruthy(); // UUID
-    expect(lotDisposal.lotId).toBe('lot1');
-    expect(lotDisposal.disposalTransactionId).toBe(100);
-    expect(lotDisposal.quantityDisposed).toBeInstanceOf(Decimal);
-    expect(lotDisposal.proceedsPerUnit).toBeInstanceOf(Decimal);
-    expect(lotDisposal.totalProceeds).toBeInstanceOf(Decimal);
-    expect(lotDisposal.costBasisPerUnit).toBeInstanceOf(Decimal);
-    expect(lotDisposal.totalCostBasis).toBeInstanceOf(Decimal);
-    expect(lotDisposal.gainLoss).toBeInstanceOf(Decimal);
-    expect(lotDisposal.disposalDate).toBeInstanceOf(Date);
-    expect(typeof lotDisposal.holdingPeriodDays).toBe('number');
-    expect(lotDisposal.taxTreatmentCategory).toBeUndefined();
-    expect(lotDisposal.createdAt).toBeInstanceOf(Date);
-    expect(lotDisposal.metadata).toBeUndefined();
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      const lotDisposal = disposals[0]!;
+      expect(lotDisposal.id).toBeTruthy(); // UUID
+      expect(lotDisposal.lotId).toBe('lot1');
+      expect(lotDisposal.disposalTransactionId).toBe(100);
+      expect(lotDisposal.quantityDisposed).toBeInstanceOf(Decimal);
+      expect(lotDisposal.proceedsPerUnit).toBeInstanceOf(Decimal);
+      expect(lotDisposal.totalProceeds).toBeInstanceOf(Decimal);
+      expect(lotDisposal.costBasisPerUnit).toBeInstanceOf(Decimal);
+      expect(lotDisposal.totalCostBasis).toBeInstanceOf(Decimal);
+      expect(lotDisposal.gainLoss).toBeInstanceOf(Decimal);
+      expect(lotDisposal.disposalDate).toBeInstanceOf(Date);
+      expect(typeof lotDisposal.holdingPeriodDays).toBe('number');
+      expect(lotDisposal.taxTreatmentCategory).toBeUndefined();
+      expect(lotDisposal.createdAt).toBeInstanceOf(Date);
+      expect(lotDisposal.metadata).toBeUndefined();
+    }
   });
 
   it('should calculate negative gain/loss when disposal at a loss', () => {
@@ -427,7 +483,11 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    expect(result[0]!.gainLoss.toString()).toBe('-10000'); // 20000 - 30000
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      expect(disposals[0]!.gainLoss.toString()).toBe('-10000'); // 20000 - 30000
+    }
   });
 
   it('should handle zero proceeds', () => {
@@ -442,7 +502,11 @@ describe('matchDisposalToSortedLots', () => {
 
     const result = matchDisposalToSortedLots(disposal, lots);
 
-    expect(result[0]!.totalProceeds.toString()).toBe('0');
-    expect(result[0]!.gainLoss.toString()).toBe('-30000'); // 0 - 30000
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const disposals = result.value;
+      expect(disposals[0]!.totalProceeds.toString()).toBe('0');
+      expect(disposals[0]!.gainLoss.toString()).toBe('-30000'); // 0 - 30000
+    }
   });
 });

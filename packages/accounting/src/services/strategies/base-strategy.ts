@@ -1,4 +1,5 @@
 import type { Decimal } from 'decimal.js';
+import type { Result } from 'neverthrow';
 
 import type { AcquisitionLot, LotDisposal } from '../../domain/schemas.js';
 
@@ -35,7 +36,7 @@ export interface ICostBasisStrategy {
    *
    * @param disposal - The disposal to match
    * @param openLots - Available open lots for this asset (sorted appropriately by caller)
-   * @returns Array of lot disposals showing how the disposal was matched to lots
+   * @returns Result containing array of lot disposals showing how the disposal was matched to lots, or Error on failure
    */
-  matchDisposal(disposal: DisposalRequest, openLots: AcquisitionLot[]): LotDisposal[];
+  matchDisposal(disposal: DisposalRequest, openLots: AcquisitionLot[]): Result<LotDisposal[], Error>;
 }

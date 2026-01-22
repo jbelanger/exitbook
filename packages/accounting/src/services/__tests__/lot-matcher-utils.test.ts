@@ -964,7 +964,7 @@ describe('lot-matcher-utils', () => {
 
       const result = calculateTransferDisposalAmount(outflow, cryptoFee, 'add-to-basis');
 
-      expect(result.amountToMatch.toFixed()).toBe('1');
+      expect(result.transferDisposalQuantity.toFixed()).toBe('1');
     });
 
     it('should return net amount for disposal policy', () => {
@@ -977,7 +977,7 @@ describe('lot-matcher-utils', () => {
 
       const result = calculateTransferDisposalAmount(outflow, cryptoFee, 'disposal');
 
-      expect(result.amountToMatch.toFixed()).toBe('0.999');
+      expect(result.transferDisposalQuantity.toFixed()).toBe('0.999');
     });
 
     it('should handle zero fee', () => {
@@ -986,7 +986,7 @@ describe('lot-matcher-utils', () => {
 
       const result = calculateTransferDisposalAmount(outflow, cryptoFee, 'disposal');
 
-      expect(result.amountToMatch.toFixed()).toBe('1');
+      expect(result.transferDisposalQuantity.toFixed()).toBe('1');
     });
   });
 

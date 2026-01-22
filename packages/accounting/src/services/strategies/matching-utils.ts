@@ -1,4 +1,5 @@
 import { Decimal } from 'decimal.js';
+import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { AcquisitionLot, LotDisposal } from '../../domain/schemas.js';
@@ -22,9 +23,12 @@ export function calculateHoldingPeriodDays(acquisitionDate: Date, disposalDate: 
  *
  * @param disposal - The disposal to match
  * @param sortedLots - Acquisition lots sorted according to strategy
- * @returns Array of lot disposals showing how the disposal was matched
+ * @returns Result containing array of lot disposals showing how the disposal was matched, or Error on failure
  */
-export function matchDisposalToSortedLots(disposal: DisposalRequest, sortedLots: AcquisitionLot[]): LotDisposal[] {
+export function matchDisposalToSortedLots(
+  disposal: DisposalRequest,
+  sortedLots: AcquisitionLot[]
+): Result<LotDisposal[], Error> {
   const disposals: LotDisposal[] = [];
   let remainingQuantity = disposal.quantity;
 
@@ -73,16 +77,17 @@ export function matchDisposalToSortedLots(disposal: DisposalRequest, sortedLots:
   }
 
   // If there's still remaining quantity, we have insufficient lots
-  // This is an error condition that should be handled by the caller
   if (remainingQuantity.gt(0)) {
-    throw new Error(
-      `Insufficient acquisition lots for disposal. Asset: ${disposal.assetSymbol}, ` +
-        `Disposal quantity: ${disposal.quantity.toString()}, ` +
-        `Unmatched quantity: ${remainingQuantity.toString()}`
+    return err(
+      new Error(
+        `Insufficient acquisition lots for disposal. Asset: ${disposal.assetSymbol}, ` +
+          `Disposal quantity: ${disposal.quantity.toString()}, ` +
+          `Unmatched quantity: ${remainingQuantity.toString()}`
+      )
     );
   }
 
-  return disposals;
+  return ok(disposals);
 }
 
 /**

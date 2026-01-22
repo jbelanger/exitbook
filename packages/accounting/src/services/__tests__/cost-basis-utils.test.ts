@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { getStrategyForMethod } from '../cost-basis-utils.js';
+import { AverageCostStrategy } from '../strategies/average-cost-strategy.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
 import { LifoStrategy } from '../strategies/lifo-strategy.js';
 
@@ -24,15 +25,17 @@ describe('getStrategyForMethod', () => {
 
       expect(strategy).toBeInstanceOf(LifoStrategy);
     });
+
+    it('returns AverageCostStrategy for "average-cost" method', () => {
+      const strategy = getStrategyForMethod('average-cost');
+
+      expect(strategy).toBeInstanceOf(AverageCostStrategy);
+    });
   });
 
   describe('unimplemented strategies', () => {
     it('throws error for "specific-id" method', () => {
       expect(() => getStrategyForMethod('specific-id')).toThrow('specific-id method not yet implemented');
-    });
-
-    it('throws error for "average-cost" method', () => {
-      expect(() => getStrategyForMethod('average-cost')).toThrow('average-cost method not yet implemented');
     });
   });
 

@@ -1,3 +1,5 @@
+import type { Result } from 'neverthrow';
+
 import type { AcquisitionLot, LotDisposal } from '../../domain/schemas.js';
 
 import type { DisposalRequest, ICostBasisStrategy } from './base-strategy.js';
@@ -20,7 +22,7 @@ export class LifoStrategy implements ICostBasisStrategy {
     return 'lifo';
   }
 
-  matchDisposal(disposal: DisposalRequest, openLots: AcquisitionLot[]): LotDisposal[] {
+  matchDisposal(disposal: DisposalRequest, openLots: AcquisitionLot[]): Result<LotDisposal[], Error> {
     // Sort lots newest first
     const sortedLots = sortLotsLifo(openLots);
 

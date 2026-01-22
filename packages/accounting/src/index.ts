@@ -32,6 +32,12 @@ export {
 export { CostBasisCalculator } from './services/cost-basis-calculator.js';
 export type { CostBasisSummary } from './services/cost-basis-calculator.js';
 
+// Strategies
+export { FifoStrategy } from './services/strategies/fifo-strategy.js';
+export { LifoStrategy } from './services/strategies/lifo-strategy.js';
+export { AverageCostStrategy } from './services/strategies/average-cost-strategy.js';
+export type { ICostBasisStrategy, DisposalRequest } from './services/strategies/base-strategy.js';
+
 // Repositories
 // export { LotRepository } from './repositories/lot-repository.js';
 // export { CalculationRepository } from './repositories/calculation-repository.js';

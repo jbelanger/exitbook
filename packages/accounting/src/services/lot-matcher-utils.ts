@@ -1,6 +1,6 @@
 import type { UniversalTransactionData } from '@exitbook/core';
-import { Currency, type AssetMovement, type FeeMovement, type PriceAtTxTime } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { Currency, parseDecimal, type AssetMovement, type FeeMovement, type PriceAtTxTime } from '@exitbook/core';
+import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -74,8 +74,8 @@ export function getVarianceTolerance(
   const finalTolerance = configOverride ?? baseTolerance;
 
   return {
-    warn: new Decimal(finalTolerance.warn),
-    error: new Decimal(finalTolerance.error),
+    warn: parseDecimal(finalTolerance.warn),
+    error: parseDecimal(finalTolerance.error),
   };
 }
 
@@ -84,7 +84,7 @@ export function extractCryptoFee(
   assetSymbol: string
 ): Result<{ amount: Decimal; feeType: string; priceAtTxTime?: PriceAtTxTime | undefined }, Error> {
   try {
-    let totalAmount = new Decimal(0);
+    let totalAmount = parseDecimal('0');
     let hasNetwork = false;
     let hasPlatform = false;
     let priceAtTxTime: PriceAtTxTime | undefined = undefined;
@@ -134,7 +134,7 @@ export function extractCryptoFee(
  * @returns Total on-chain fee amount for the asset
  */
 export function extractOnChainFees(tx: UniversalTransactionData, assetSymbol: string): Decimal {
-  let totalOnChainFees = new Decimal(0);
+  let totalOnChainFees = parseDecimal('0');
 
   for (const fee of tx.fees) {
     if (fee.assetSymbol === assetSymbol && fee.settlement === 'on-chain') {
@@ -180,7 +180,7 @@ export function validateOutflowFees(
 
   // Calculate variance between actual and expected netAmount
   const variance = expectedNet.minus(netAmount).abs();
-  const variancePct = expectedNet.isZero() ? new Decimal(0) : variance.dividedBy(expectedNet).times(100);
+  const variancePct = expectedNet.isZero() ? parseDecimal('0') : variance.dividedBy(expectedNet).times(100);
 
   const tolerance = getVarianceTolerance(source, configOverride);
 
@@ -294,7 +294,7 @@ function calculateTotalFeeValueInFiat(
   targetMovement: AssetMovement,
   transactionId: number
 ): Result<Decimal, Error> {
-  let totalFeeValue = new Decimal(0);
+  let totalFeeValue = parseDecimal('0');
 
   for (const fee of fees) {
     if (fee.priceAtTxTime) {
@@ -365,17 +365,17 @@ function calculateMovementValues(
   // Calculate target movement amount (grossAmount for acquisitions, netAmount for disposals)
   const targetAmount = isInflow ? targetMovement.grossAmount : (targetMovement.netAmount ?? targetMovement.grossAmount);
   const targetMovementValue = targetMovement.priceAtTxTime
-    ? new Decimal(targetAmount).times(targetMovement.priceAtTxTime.price.amount)
-    : new Decimal(0);
+    ? parseDecimal(targetAmount).times(targetMovement.priceAtTxTime.price.amount)
+    : parseDecimal('0');
 
   // Calculate total value of all non-fiat movements
-  let totalMovementValue = new Decimal(0);
+  let totalMovementValue = parseDecimal('0');
   for (const movement of nonFiatMovements) {
     if (movement.priceAtTxTime) {
       const movementAmount = inflows.includes(movement)
         ? movement.grossAmount
         : (movement.netAmount ?? movement.grossAmount);
-      const movementValue = new Decimal(movementAmount).times(movement.priceAtTxTime.price.amount);
+      const movementValue = parseDecimal(movementAmount).times(movement.priceAtTxTime.price.amount);
       totalMovementValue = totalMovementValue.plus(movementValue);
     }
   }
@@ -423,7 +423,7 @@ function allocateFeesProportionally(
   // Edge case: all movements have zero value
   // Return 0 if no non-fiat movements to allocate to
   if (values.nonFiatMovements.length === 0) {
-    return new Decimal(0);
+    return parseDecimal('0');
   }
 
   // Check if target movement is in the non-fiat list
@@ -431,12 +431,12 @@ function allocateFeesProportionally(
   const isTargetInNonFiat = values.nonFiatMovements.some((m) => {
     const mAmount = inflows.includes(m) ? m.grossAmount : (m.netAmount ?? m.grossAmount);
     return (
-      m.assetSymbol === targetMovement.assetSymbol && new Decimal(mAmount).equals(new Decimal(values.targetAmount))
+      m.assetSymbol === targetMovement.assetSymbol && parseDecimal(mAmount).equals(parseDecimal(values.targetAmount))
     );
   });
 
   if (!isTargetInNonFiat) {
-    return new Decimal(0);
+    return parseDecimal('0');
   }
 
   // Split fees equally among all non-fiat movements
@@ -471,7 +471,7 @@ export function calculateFeesInFiat(
     : transaction.fees.filter((fee) => fee.settlement === 'on-chain'); // Disposals: only on-chain fees reduce proceeds
 
   if (relevantFees.length === 0) {
-    return ok(new Decimal(0));
+    return ok(parseDecimal('0'));
   }
 
   // If target movement IS one of the fees, don't allocate fees to it
@@ -479,7 +479,7 @@ export function calculateFeesInFiat(
     (fee) => fee.assetSymbol === targetMovement.assetSymbol && fee.amount.equals(targetMovement.grossAmount)
   );
   if (isFeeMovement) {
-    return ok(new Decimal(0));
+    return ok(parseDecimal('0'));
   }
 
   // Calculate total fee value in fiat
@@ -626,7 +626,7 @@ export function validateTransferVariance(
   configOverride?: { error: number; warn: number }
 ): Result<{ tolerance: { error: Decimal; warn: Decimal }; variancePct: Decimal }, Error> {
   const variance = actualAmount.minus(expectedAmount).abs();
-  const variancePct = actualAmount.isZero() ? new Decimal(0) : variance.dividedBy(actualAmount).times(100);
+  const variancePct = actualAmount.isZero() ? parseDecimal('0') : variance.dividedBy(actualAmount).times(100);
 
   const tolerance = getVarianceTolerance(source, configOverride);
 
@@ -653,11 +653,11 @@ export function calculateTransferDisposalAmount(
   outflow: AssetMovement,
   cryptoFee: { amount: Decimal; feeType: string; priceAtTxTime?: PriceAtTxTime | undefined },
   feePolicy: 'disposal' | 'add-to-basis'
-): { amountToMatch: Decimal } {
+): { transferDisposalQuantity: Decimal } {
   const netTransferAmount = outflow.grossAmount.minus(cryptoFee.amount);
-  const amountToMatch = feePolicy === 'add-to-basis' ? outflow.grossAmount : netTransferAmount;
+  const transferDisposalQuantity = feePolicy === 'add-to-basis' ? outflow.grossAmount : netTransferAmount;
 
-  return { amountToMatch };
+  return { transferDisposalQuantity };
 }
 
 /**
@@ -693,9 +693,9 @@ export function calculateInheritedCostBasis(transfers: LotTransfer[]): {
   totalCostBasis: Decimal;
   transferredQuantity: Decimal;
 } {
-  let totalCostBasis = new Decimal(0);
-  let transferredQuantity = new Decimal(0);
-  let cryptoFeeUsdAdded = new Decimal(0);
+  let totalCostBasis = parseDecimal('0');
+  let transferredQuantity = parseDecimal('0');
+  let cryptoFeeUsdAdded = parseDecimal('0');
 
   for (const transfer of transfers) {
     const basisForTransfer = transfer.costBasisPerUnit.times(transfer.quantityTransferred);
@@ -703,7 +703,7 @@ export function calculateInheritedCostBasis(transfers: LotTransfer[]): {
     transferredQuantity = transferredQuantity.plus(transfer.quantityTransferred);
 
     if (transfer.metadata?.cryptoFeeUsdValue) {
-      const feeUsd = new Decimal(transfer.metadata.cryptoFeeUsdValue);
+      const feeUsd = parseDecimal(transfer.metadata.cryptoFeeUsdValue);
       totalCostBasis = totalCostBasis.plus(feeUsd);
       cryptoFeeUsdAdded = cryptoFeeUsdAdded.plus(feeUsd);
     }
@@ -771,12 +771,11 @@ export function matchOutflowDisposal(
     };
 
     // Use strategy to match disposal to lots
-    let lotDisposals: LotDisposal[];
-    try {
-      lotDisposals = strategy.matchDisposal(disposal, openLots);
-    } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+    const disposalResult = strategy.matchDisposal(disposal, openLots);
+    if (disposalResult.isErr()) {
+      return err(disposalResult.error);
     }
+    const lotDisposals = disposalResult.value;
 
     // Create updated lots array (no mutation)
     const updatedLots = allLots.map((lot) => {
@@ -901,17 +900,21 @@ export function processTransferSource(
   const openLots = lots.filter((lot) => lot.assetSymbol === outflow.assetSymbol && lot.remainingQuantity.gt(0));
 
   const feePolicy = jurisdiction.sameAssetTransferFeePolicy;
-  const { amountToMatch } = calculateTransferDisposalAmount(outflow, cryptoFee, feePolicy);
+  const { transferDisposalQuantity } = calculateTransferDisposalAmount(outflow, cryptoFee, feePolicy);
 
   const disposal = {
     transactionId: tx.id,
     assetSymbol: outflow.assetSymbol,
-    quantity: amountToMatch,
+    quantity: transferDisposalQuantity,
     date: new Date(tx.datetime),
-    proceedsPerUnit: new Decimal(0),
+    proceedsPerUnit: parseDecimal('0'),
   };
 
-  const lotDisposals = strategy.matchDisposal(disposal, openLots);
+  const lotDisposalsResult = strategy.matchDisposal(disposal, openLots);
+  if (lotDisposalsResult.isErr()) {
+    return err(lotDisposalsResult.error);
+  }
+  const lotDisposals = lotDisposalsResult.value;
 
   let cryptoFeeUsdValue: Decimal | undefined = undefined;
   if (cryptoFee.amount.gt(0) && feePolicy === 'add-to-basis') {
@@ -943,7 +946,7 @@ export function processTransferSource(
           { ...cryptoFee, priceAtTxTime: cryptoFee.priceAtTxTime },
           feePolicy,
           lotDisposal.quantityDisposed,
-          amountToMatch
+          transferDisposalQuantity
         )
       : undefined;
 
@@ -957,7 +960,7 @@ export function processTransferSource(
       calculationId,
       sourceLotId: lotDisposal.lotId,
       linkId: link.id,
-      quantityTransferred: lotDisposal.quantityDisposed.times(quantityToTransfer.dividedBy(amountToMatch)),
+      quantityTransferred: lotDisposal.quantityDisposed.times(quantityToTransfer.dividedBy(transferDisposalQuantity)),
       costBasisPerUnit: lot.costBasisPerUnit,
       sourceTransactionId: tx.id,
       targetTransactionId: link.targetTransactionId,
@@ -966,7 +969,7 @@ export function processTransferSource(
     });
 
     // Track quantity to subtract for this lot
-    const existing = lotUpdates.get(lotDisposal.lotId) || { quantityToSubtract: new Decimal(0) };
+    const existing = lotUpdates.get(lotDisposal.lotId) || { quantityToSubtract: parseDecimal('0') };
     lotUpdates.set(lotDisposal.lotId, {
       quantityToSubtract: existing.quantityToSubtract.plus(lotDisposal.quantityDisposed),
     });
@@ -980,10 +983,14 @@ export function processTransferSource(
       assetSymbol: outflow.assetSymbol,
       quantity: cryptoFee.amount,
       date: new Date(tx.datetime),
-      proceedsPerUnit: cryptoFee.priceAtTxTime?.price.amount ?? new Decimal(0),
+      proceedsPerUnit: cryptoFee.priceAtTxTime?.price.amount ?? parseDecimal('0'),
     };
 
-    const feeDisposals = strategy.matchDisposal(feeDisposal, openLots);
+    const feeDisposalsResult = strategy.matchDisposal(feeDisposal, openLots);
+    if (feeDisposalsResult.isErr()) {
+      return err(feeDisposalsResult.error);
+    }
+    const feeDisposals = feeDisposalsResult.value;
 
     for (const lotDisposal of feeDisposals) {
       const lot = lots.find((l) => l.id === lotDisposal.lotId);
@@ -992,7 +999,7 @@ export function processTransferSource(
       }
 
       // Track quantity to subtract for this lot
-      const existing = lotUpdates.get(lotDisposal.lotId) || { quantityToSubtract: new Decimal(0) };
+      const existing = lotUpdates.get(lotDisposal.lotId) || { quantityToSubtract: parseDecimal('0') };
       lotUpdates.set(lotDisposal.lotId, {
         quantityToSubtract: existing.quantityToSubtract.plus(lotDisposal.quantityDisposed),
       });

@@ -1,5 +1,6 @@
 import type { CostBasisConfig } from '../config/cost-basis-config.js';
 
+import { AverageCostStrategy } from './strategies/average-cost-strategy.js';
 import type { ICostBasisStrategy } from './strategies/base-strategy.js';
 import { FifoStrategy } from './strategies/fifo-strategy.js';
 import { LifoStrategy } from './strategies/lifo-strategy.js';
@@ -20,9 +21,11 @@ export function getStrategyForMethod(method: CostBasisConfig['method']): ICostBa
     case 'lifo': {
       return new LifoStrategy();
     }
-    case 'specific-id':
     case 'average-cost': {
-      throw new Error(`${method} method not yet implemented`);
+      return new AverageCostStrategy();
+    }
+    case 'specific-id': {
+      throw new Error(`specific-id method not yet implemented`);
     }
   }
 }

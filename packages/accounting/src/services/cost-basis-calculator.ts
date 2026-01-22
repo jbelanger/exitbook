@@ -72,6 +72,19 @@ export class CostBasisCalculator {
     config: CostBasisConfig,
     rules: IJurisdictionRules
   ): Promise<Result<CostBasisSummary, Error>> {
+    // Validate method-jurisdiction compatibility (defense in depth)
+    if (config.method === 'average-cost' && config.jurisdiction !== 'CA') {
+      return err(new Error('Average Cost method is only supported for Canada (CA)'));
+    }
+
+    // Warn about CRA compliance for Canadian users using non-ACB methods
+    if (config.jurisdiction === 'CA' && config.method !== 'average-cost') {
+      this.logger.warn(
+        { jurisdiction: config.jurisdiction, method: config.method },
+        'CRA generally requires Average Cost (ACB) for identical properties. Using FIFO/LIFO may not be compliant with Canadian tax regulations.'
+      );
+    }
+
     // PHASE 5: Validate price data quality before calculating
     const validationResult = validateTransactionPrices(transactions);
     if (validationResult.isErr()) {

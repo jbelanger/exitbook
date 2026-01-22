@@ -12,6 +12,11 @@ import type { IJurisdictionRules } from './base-rules.js';
  * - No distinction between short-term and long-term gains
  * - Superficial loss rules: Loss disallowed if same asset repurchased within 30 days before OR after
  * - Transfer fees can be added to adjusted cost base (ACB), deferring taxation
+ *
+ * CRA Compliance:
+ * - CRA generally requires Average Cost (ACB) method for "identical properties" like cryptocurrencies
+ * - While FIFO/LIFO are technically available, they may not be compliant with CRA regulations
+ * - Users selecting non-ACB methods receive compliance warnings
  */
 export class CanadaRules implements IJurisdictionRules {
   /**

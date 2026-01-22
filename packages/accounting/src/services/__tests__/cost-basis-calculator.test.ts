@@ -254,7 +254,7 @@ describe('CostBasisCalculator', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('not yet implemented');
+        expect(result.error.message).toContain('only supported for Canada');
       }
     });
 
