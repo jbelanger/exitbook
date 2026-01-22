@@ -6,7 +6,6 @@ import type {
   UniversalTransactionData,
 } from '@exitbook/core';
 import { Currency, parseDecimal } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
 import { ok } from 'neverthrow';
 import { vi } from 'vitest';
 
@@ -155,9 +154,9 @@ export function createLot(
     status?: 'open' | 'partially_disposed' | 'fully_disposed';
   }
 ): AcquisitionLot {
-  const qty = new Decimal(quantity);
-  const costBasis = new Decimal(costBasisPerUnit);
-  const remaining = options?.remainingQuantity ? new Decimal(options.remainingQuantity) : qty;
+  const qty = parseDecimal(quantity);
+  const costBasis = parseDecimal(costBasisPerUnit);
+  const remaining = options?.remainingQuantity ? parseDecimal(options.remainingQuantity) : qty;
 
   return {
     id,

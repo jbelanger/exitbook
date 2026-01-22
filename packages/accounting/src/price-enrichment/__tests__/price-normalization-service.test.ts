@@ -9,7 +9,6 @@
 import { Currency, parseDecimal } from '@exitbook/core';
 import type { FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -28,7 +27,7 @@ function createFeeMovement(
     settlement,
     assetId: `test:${assetSymbol.toLowerCase()}`,
     assetSymbol: assetSymbol,
-    amount: new Decimal(amount),
+    amount: parseDecimal(amount),
   };
 
   if (priceAtTxTime !== undefined) {

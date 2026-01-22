@@ -6,9 +6,8 @@
  */
 
 import type { Currency } from '@exitbook/core';
-import { Currency as CurrencyClass } from '@exitbook/core';
+import { Currency as CurrencyClass, parseDecimal } from '@exitbook/core';
 import type { PriceProviderManager } from '@exitbook/price-providers';
-import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -68,7 +67,7 @@ export class StandardFxRateProvider implements IFxRateProvider {
       return err(new Error(`Cannot invert zero FX rate for ${targetCurrency.toString()} → USD`));
     }
 
-    const rateFromUsd = new Decimal(1).div(rateToUsd);
+    const rateFromUsd = parseDecimal(1).div(rateToUsd);
 
     return ok({
       rate: rateFromUsd,
