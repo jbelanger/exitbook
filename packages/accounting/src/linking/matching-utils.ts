@@ -513,7 +513,7 @@ export function calculateVarianceMetadata(
   variancePct: string;
 } {
   const variance = sourceAmount.minus(targetAmount);
-  const variancePct = sourceAmount.isZero() ? new Decimal(0) : variance.div(sourceAmount).times(100);
+  const variancePct = sourceAmount.isZero() ? parseDecimal('0') : variance.div(sourceAmount).times(100);
 
   return {
     variance: variance.toFixed(),

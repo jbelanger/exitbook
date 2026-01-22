@@ -1,7 +1,7 @@
-import type { UniversalTransactionData } from '@exitbook/core';
+import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -102,10 +102,10 @@ export class CostBasisCalculator {
         config,
         startDate: config.startDate,
         endDate: config.endDate,
-        totalProceeds: new Decimal(0),
-        totalCostBasis: new Decimal(0),
-        totalGainLoss: new Decimal(0),
-        totalTaxableGainLoss: new Decimal(0),
+        totalProceeds: parseDecimal('0'),
+        totalCostBasis: parseDecimal('0'),
+        totalGainLoss: parseDecimal('0'),
+        totalTaxableGainLoss: parseDecimal('0'),
         assetsProcessed: [],
         transactionsProcessed: transactions.length,
         lotsCreated: 0,

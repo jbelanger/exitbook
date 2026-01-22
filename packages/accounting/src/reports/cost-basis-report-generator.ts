@@ -5,7 +5,7 @@
  * Uses historical FX rates at transaction time (not current rates) for accuracy.
  */
 
-import { Currency } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -244,9 +244,9 @@ export class CostBasisReportGenerator {
    * Calculate summary totals from converted disposals
    */
   private calculateSummary(disposals: ConvertedLotDisposal[]): CostBasisReport['summary'] {
-    let totalProceeds = new Decimal(0);
-    let totalCostBasis = new Decimal(0);
-    let totalGainLoss = new Decimal(0);
+    let totalProceeds = parseDecimal('0');
+    let totalCostBasis = parseDecimal('0');
+    let totalGainLoss = parseDecimal('0');
 
     for (const disposal of disposals) {
       totalProceeds = totalProceeds.plus(disposal.displayTotalProceeds);

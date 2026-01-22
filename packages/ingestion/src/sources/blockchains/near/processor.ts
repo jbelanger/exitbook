@@ -10,7 +10,12 @@
  */
 
 import type { NearBalanceChange, NearStreamEvent } from '@exitbook/blockchain-providers';
-import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, type TokenMetadataRecord } from '@exitbook/core';
+import {
+  buildBlockchainNativeAssetId,
+  buildBlockchainTokenAssetId,
+  parseDecimal,
+  type TokenMetadataRecord,
+} from '@exitbook/core';
 import type { IRawDataRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { err, errAsync, ok, type Result } from 'neverthrow';
@@ -345,7 +350,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
     const allInflows: Movement[] = [];
     const allOutflows: Movement[] = [];
     const allFees: Movement[] = [];
-    let receiptFeeBurntTotal = new Decimal(0);
+    let receiptFeeBurntTotal = parseDecimal('0');
 
     // Extract flows from all receipts
     for (const receipt of correlated.receipts) {
@@ -405,7 +410,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
                 `Clamping outflow to 0 to avoid negative balance impact.`
             );
           }
-          nearOutflow.amount = new Decimal(0);
+          nearOutflow.amount = parseDecimal('0');
         }
       }
 
@@ -488,8 +493,8 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
     }));
 
     if (isFeeOnlyFromOutflows(consolidatedInflows, consolidatedOutflows, hasTokenTransfers, hasActionDeposits)) {
-      const outflowTotal = consolidatedOutflows.reduce((sum, movement) => sum.plus(movement.amount), new Decimal(0));
-      const feeTotal = consolidatedFees.reduce((sum, movement) => sum.plus(movement.amount), new Decimal(0));
+      const outflowTotal = consolidatedOutflows.reduce((sum, movement) => sum.plus(movement.amount), parseDecimal('0'));
+      const feeTotal = consolidatedFees.reduce((sum, movement) => sum.plus(movement.amount), parseDecimal('0'));
       const totalFee = outflowTotal.plus(feeTotal);
       feeMovements = totalFee.isZero()
         ? []

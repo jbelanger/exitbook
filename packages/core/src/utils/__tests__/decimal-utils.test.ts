@@ -20,7 +20,7 @@ import {
 describe('Decimal Utilities', () => {
   describe('tryParseDecimal', () => {
     it('should parse valid string to Decimal', () => {
-      const out = { value: new Decimal(0) };
+      const out = { value: parseDecimal('0') };
       const result = tryParseDecimal('123.456', out);
 
       expect(result).toBe(true);
@@ -29,7 +29,7 @@ describe('Decimal Utilities', () => {
 
     it('should parse Decimal instance', () => {
       const input = new Decimal('789.012');
-      const out = { value: new Decimal(0) };
+      const out = { value: parseDecimal('0') };
       const result = tryParseDecimal(input, out);
 
       expect(result).toBe(true);
@@ -37,7 +37,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should handle undefined as zero', () => {
-      const out = { value: new Decimal(0) };
+      const out = { value: parseDecimal('0') };
       const result = tryParseDecimal(undefined, out);
 
       expect(result).toBe(true);
@@ -45,7 +45,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should handle null as zero', () => {
-      const out = { value: new Decimal(0) };
+      const out = { value: parseDecimal('0') };
       const result = tryParseDecimal(null, out);
 
       expect(result).toBe(true);
@@ -53,7 +53,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should handle empty string as zero', () => {
-      const out = { value: new Decimal(0) };
+      const out = { value: parseDecimal('0') };
       const result = tryParseDecimal('', out);
 
       expect(result).toBe(true);
@@ -61,7 +61,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should return false for invalid strings', () => {
-      const out = { value: new Decimal(0) };
+      const out = { value: parseDecimal('0') };
       expect(tryParseDecimal('invalid', out)).toBe(false);
       expect(tryParseDecimal('12.34.56', out)).toBe(false);
       expect(tryParseDecimal('abc123', out)).toBe(false);
@@ -74,7 +74,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should handle negative numbers', () => {
-      const out = { value: new Decimal(0) };
+      const out = { value: parseDecimal('0') };
       const result = tryParseDecimal('-456.789', out);
 
       expect(result).toBe(true);
@@ -82,7 +82,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should handle scientific notation', () => {
-      const out = { value: new Decimal(0) };
+      const out = { value: parseDecimal('0') };
       const result = tryParseDecimal('1.23e5', out);
 
       expect(result).toBe(true);
@@ -90,7 +90,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should handle very small numbers', () => {
-      const out = { value: new Decimal(0) };
+      const out = { value: parseDecimal('0') };
       const result = tryParseDecimal('0.00000001', out);
 
       expect(result).toBe(true);
@@ -98,7 +98,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should handle very large numbers', () => {
-      const out = { value: new Decimal(0) };
+      const out = { value: parseDecimal('0') };
       const result = tryParseDecimal('999999999999999999', out);
 
       expect(result).toBe(true);

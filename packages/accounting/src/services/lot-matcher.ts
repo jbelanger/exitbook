@@ -1,7 +1,6 @@
-import { Currency, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
+import { Currency, parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
-import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../domain/schemas.js';
@@ -230,7 +229,7 @@ export class LotMatcher {
             // Use netAmount for consistency with link.targetAmount (net received amount)
             const totalAmount = assetInflows.reduce(
               (sum, inflow) => sum.plus(inflow.netAmount ?? inflow.grossAmount),
-              new Decimal(0)
+              parseDecimal('0')
             );
 
             // Use first inflow as template with aggregated amount

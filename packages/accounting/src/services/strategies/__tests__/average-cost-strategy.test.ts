@@ -1,3 +1,4 @@
+import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -52,7 +53,7 @@ describe('AverageCostStrategy', () => {
         expect(disposals[1]!.totalCostBasis.toFixed()).toBe('17500');
 
         // Verify total disposed = disposal quantity
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), new Decimal(0));
+        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
         expect(totalDisposed.toFixed()).toBe(disposal.quantity.toFixed());
       }
     });
@@ -103,7 +104,7 @@ describe('AverageCostStrategy', () => {
         expect(disposals).toHaveLength(2);
 
         // Verify total disposed = total available
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), new Decimal(0));
+        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
         expect(totalDisposed.toFixed()).toBe('2');
       }
     });
@@ -139,7 +140,7 @@ describe('AverageCostStrategy', () => {
         });
 
         // Verify total disposed matches exactly
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), new Decimal(0));
+        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
         expect(totalDisposed.toFixed()).toBe(disposal.quantity.toFixed());
 
         // Verify pro-rata distribution (approximate, last lot absorbs rounding)
@@ -255,7 +256,7 @@ describe('AverageCostStrategy', () => {
         expect(disposals).toHaveLength(2);
 
         // Verify total disposed = disposal quantity (precision test)
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), new Decimal(0));
+        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
         expect(totalDisposed.toFixed(18)).toBe(disposal.quantity.toFixed(18));
       }
     });
@@ -284,7 +285,7 @@ describe('AverageCostStrategy', () => {
         expect(disposals).toHaveLength(100);
 
         // Verify exact total (critical precision test)
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), new Decimal(0));
+        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
         expect(totalDisposed.toFixed()).toBe('10');
       }
     });
@@ -334,7 +335,7 @@ describe('AverageCostStrategy', () => {
       if (result.isOk()) {
         const disposals = result.value;
         // Pooled ACB = 35000, proceeds = 50000, gain = 15000
-        const totalGainLoss = disposals.reduce((sum, d) => sum.plus(d.gainLoss), new Decimal(0));
+        const totalGainLoss = disposals.reduce((sum, d) => sum.plus(d.gainLoss), parseDecimal('0'));
         expect(totalGainLoss.toFixed()).toBe('15000');
 
         // Each disposal contributes half the gain
@@ -449,7 +450,7 @@ describe('AverageCostStrategy', () => {
       if (result.isOk()) {
         const disposals = result.value;
         // Critical: sum must equal disposal quantity exactly (no precision drift)
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), new Decimal(0));
+        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
         expect(totalDisposed.toFixed()).toBe(disposal.quantity.toFixed());
         expect(totalDisposed.equals(disposal.quantity)).toBe(true);
       }
@@ -476,7 +477,7 @@ describe('AverageCostStrategy', () => {
       if (result.isOk()) {
         const disposals = result.value;
         // Verify exact accounting despite complex division
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), new Decimal(0));
+        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
         expect(totalDisposed.equals(disposal.quantity)).toBe(true);
 
         // Verify all disposals use pooled cost
@@ -538,7 +539,7 @@ describe('AverageCostStrategy', () => {
         });
 
         // Total should still equal disposal quantity
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), new Decimal(0));
+        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
         expect(totalDisposed.equals(disposal.quantity)).toBe(true);
       }
     });

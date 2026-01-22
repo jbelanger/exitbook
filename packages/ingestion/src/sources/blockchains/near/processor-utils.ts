@@ -17,6 +17,7 @@ import type {
   NearBalanceChangeCause,
   NearActionType,
 } from '@exitbook/blockchain-providers';
+import { parseDecimal } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -572,7 +573,7 @@ export function extractReceiptFees(receipt: NearReceipt, primaryAddress: string)
     );
 
     if (feeActivities.length > 0) {
-      let totalFee = new Decimal(0);
+      let totalFee = parseDecimal('0');
       for (const activity of feeActivities) {
         if (activity.deltaAmountYocto) {
           const delta = new Decimal(activity.deltaAmountYocto);

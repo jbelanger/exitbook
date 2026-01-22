@@ -1,8 +1,8 @@
 // Utilities and types for gaps view command
 
 import type { TransactionLink } from '@exitbook/accounting';
-import type { UniversalTransactionData } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import type { Decimal } from 'decimal.js';
 
 import type { CommonViewFilters } from '../shared/view-utils.js';
 
@@ -297,8 +297,8 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
   const getOrCreateAssetTotals = (assetKey: string) => {
     if (!assetTotals.has(assetKey)) {
       assetTotals.set(assetKey, {
-        inflow: { missingAmount: new Decimal(0), occurrences: 0 },
-        outflow: { missingAmount: new Decimal(0), occurrences: 0 },
+        inflow: { missingAmount: parseDecimal('0'), occurrences: 0 },
+        outflow: { missingAmount: parseDecimal('0'), occurrences: 0 },
       });
     }
     return assetTotals.get(assetKey)!;
@@ -322,7 +322,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
         }
 
         const assetKey = inflow.assetSymbol.toUpperCase();
-        const current = inflowTotals.get(assetKey) ?? new Decimal(0);
+        const current = inflowTotals.get(assetKey) ?? parseDecimal('0');
         inflowTotals.set(assetKey, current.plus(amount));
       }
 
@@ -331,7 +331,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
           (link) => link.assetSymbol.toUpperCase() === assetKey
         );
 
-        const confirmedAmount = confirmedForTx.reduce((sum, link) => sum.plus(link.targetAmount), new Decimal(0));
+        const confirmedAmount = confirmedForTx.reduce((sum, link) => sum.plus(link.targetAmount), parseDecimal('0'));
 
         if (confirmedAmount.greaterThanOrEqualTo(totalAmount)) {
           continue;
@@ -359,7 +359,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
         }
 
         const coveragePercent = totalAmount.isZero()
-          ? new Decimal(0)
+          ? parseDecimal('0')
           : confirmedAmount.dividedBy(totalAmount).times(100);
 
         issues.push({
@@ -399,7 +399,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
         }
 
         const assetKey = outflow.assetSymbol.toUpperCase();
-        const current = outflowTotals.get(assetKey) ?? new Decimal(0);
+        const current = outflowTotals.get(assetKey) ?? parseDecimal('0');
         outflowTotals.set(assetKey, current.plus(amount));
       }
 
@@ -408,7 +408,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
           (link) => link.assetSymbol.toUpperCase() === assetKey
         );
 
-        const confirmedAmount = confirmedForTx.reduce((sum, link) => sum.plus(link.sourceAmount), new Decimal(0));
+        const confirmedAmount = confirmedForTx.reduce((sum, link) => sum.plus(link.sourceAmount), parseDecimal('0'));
 
         if (confirmedAmount.greaterThanOrEqualTo(totalAmount)) {
           continue;
@@ -436,7 +436,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
         }
 
         const coveragePercent = totalAmount.isZero()
-          ? new Decimal(0)
+          ? parseDecimal('0')
           : confirmedAmount.dividedBy(totalAmount).times(100);
 
         issues.push({

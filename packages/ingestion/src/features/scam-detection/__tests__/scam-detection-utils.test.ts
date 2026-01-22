@@ -1,4 +1,4 @@
-import { type TokenMetadataRecord } from '@exitbook/core';
+import { parseDecimal, type TokenMetadataRecord } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -409,7 +409,7 @@ describe('scam-detection-utils', () => {
         };
 
         const result = detectScamToken(contractAddress, metadata, {
-          amount: new Decimal(0),
+          amount: parseDecimal('0'),
           isAirdrop: true,
         });
 

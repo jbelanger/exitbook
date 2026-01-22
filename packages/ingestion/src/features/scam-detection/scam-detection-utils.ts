@@ -1,4 +1,4 @@
-import { type TokenMetadataRecord, type TransactionNote, tryParseDecimal } from '@exitbook/core';
+import { parseDecimal, type TokenMetadataRecord, type TransactionNote, tryParseDecimal } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 
@@ -292,7 +292,7 @@ function hasRidiculousTotalSupply(totalSupply: string, decimals?: number): boole
     const cleaned = totalSupply.replace(/[,\s]/g, '');
 
     // Parse using Decimal.js to avoid precision loss on large numbers
-    const parsed = { value: new Decimal(0) };
+    const parsed = { value: parseDecimal('0') };
     if (!tryParseDecimal(cleaned, parsed)) {
       logger.warn({ totalSupply, cleaned }, 'Invalid total supply value - failed to parse');
       return false;

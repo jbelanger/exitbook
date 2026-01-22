@@ -1,4 +1,5 @@
-import { Decimal } from 'decimal.js';
+import { parseDecimal } from '@exitbook/core';
+import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { AcquisitionLot, LotDisposal } from '../domain/schemas.js';
@@ -154,10 +155,10 @@ export function aggregateAssetGainLoss(
   if (disposals.length === 0) {
     return ok({
       assetSymbol,
-      totalProceeds: new Decimal(0),
-      totalCostBasis: new Decimal(0),
-      totalCapitalGainLoss: new Decimal(0),
-      totalTaxableGainLoss: new Decimal(0),
+      totalProceeds: parseDecimal('0'),
+      totalCostBasis: parseDecimal('0'),
+      totalCapitalGainLoss: parseDecimal('0'),
+      totalTaxableGainLoss: parseDecimal('0'),
       disposalCount: 0,
       byCategory: new Map(),
       disposals: [],
@@ -227,10 +228,10 @@ export function aggregateOverallGainLoss(
   if (assetSummaries.size === 0) {
     return ok({
       byAsset: new Map(),
-      totalProceeds: new Decimal(0),
-      totalCostBasis: new Decimal(0),
-      totalCapitalGainLoss: new Decimal(0),
-      totalTaxableGainLoss: new Decimal(0),
+      totalProceeds: parseDecimal('0'),
+      totalCostBasis: parseDecimal('0'),
+      totalCapitalGainLoss: parseDecimal('0'),
+      totalTaxableGainLoss: parseDecimal('0'),
       totalDisposalsProcessed: 0,
       disallowedLossCount: 0,
     });

@@ -24,7 +24,7 @@ export function tryParseDecimal(
   out?: { value: Decimal }
 ): boolean {
   if (value === undefined || value === null || value === '') {
-    if (out) out.value = new Decimal(0);
+    if (out) out.value = parseDecimal('0');
     return true;
   }
 
@@ -42,7 +42,7 @@ export function tryParseDecimal(
  * Handles scientific notation from JavaScript numbers (e.g., 1e-8 -> 0.00000001)
  */
 export function parseDecimal(value: string | number | Decimal | undefined | null): Decimal {
-  const result = { value: new Decimal(0) };
+  const result = { value: parseDecimal('0') };
   tryParseDecimal(value, result);
   return result.value;
 }
@@ -179,7 +179,7 @@ export function decimalToString(decimal: Decimal | undefined): string | undefine
  * Convert string from database back to Decimal
  */
 export function stringToDecimal(value: string | undefined): Decimal {
-  if (!value) return new Decimal(0);
+  if (!value) return parseDecimal('0');
   return parseDecimal(value);
 }
 
