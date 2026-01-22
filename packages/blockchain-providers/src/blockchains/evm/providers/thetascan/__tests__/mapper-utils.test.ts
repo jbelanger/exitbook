@@ -1,3 +1,4 @@
+import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -38,25 +39,25 @@ describe('thetascan/mapper-utils', () => {
 
   describe('selectThetaCurrency', () => {
     it('should select THETA when amount is greater than zero', () => {
-      const result = selectThetaCurrency(new Decimal('100'), new Decimal('50'));
+      const result = selectThetaCurrency(parseDecimal('100'), new Decimal('50'));
       expect(result.currency).toBe('THETA');
       expect(result.amount.toFixed()).toBe('100');
     });
 
     it('should select TFUEL when THETA is zero and TFUEL is positive', () => {
-      const result = selectThetaCurrency(new Decimal('0'), new Decimal('50'));
+      const result = selectThetaCurrency(parseDecimal('0'), new Decimal('50'));
       expect(result.currency).toBe('TFUEL');
       expect(result.amount.toFixed()).toBe('50');
     });
 
     it('should default to TFUEL with zero amount when both are zero', () => {
-      const result = selectThetaCurrency(new Decimal('0'), new Decimal('0'));
+      const result = selectThetaCurrency(parseDecimal('0'), new Decimal('0'));
       expect(result.currency).toBe('TFUEL');
       expect(result.amount.toFixed()).toBe('0');
     });
 
     it('should prioritize THETA over TFUEL when both are positive', () => {
-      const result = selectThetaCurrency(new Decimal('100'), new Decimal('200'));
+      const result = selectThetaCurrency(parseDecimal('100'), new Decimal('200'));
       expect(result.currency).toBe('THETA');
       expect(result.amount.toFixed()).toBe('100');
     });

@@ -1,5 +1,11 @@
 import type { FeeMovement } from '@exitbook/core';
-import { Currency, type AssetMovement, type PriceAtTxTime, type UniversalTransactionData } from '@exitbook/core';
+import {
+  Currency,
+  parseDecimal,
+  type AssetMovement,
+  type PriceAtTxTime,
+  type UniversalTransactionData,
+} from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -137,7 +143,7 @@ function createTransactionLink(
     confidenceScore: new Decimal(confidenceScore),
     matchCriteria: {
       assetMatch: true,
-      amountSimilarity: new Decimal('1.0'),
+      amountSimilarity: parseDecimal('1.0'),
       timingValid: true,
       timingHours: 1,
     },
@@ -798,7 +804,7 @@ describe('lot-matcher-utils', () => {
 
   describe('validateTransferVariance', () => {
     it('should pass validation within tolerance', () => {
-      const result = validateTransferVariance(new Decimal('1'), new Decimal('1.005'), 'kraken', 1, 'BTC');
+      const result = validateTransferVariance(parseDecimal('1'), new Decimal('1.005'), 'kraken', 1, 'BTC');
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -807,7 +813,7 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should error when exceeding error threshold', () => {
-      const result = validateTransferVariance(new Decimal('1'), new Decimal('1.05'), 'kraken', 1, 'BTC');
+      const result = validateTransferVariance(parseDecimal('1'), new Decimal('1.05'), 'kraken', 1, 'BTC');
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -817,7 +823,7 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should handle zero actual amount', () => {
-      const result = validateTransferVariance(new Decimal('0'), new Decimal('1'), 'kraken', 1, 'BTC');
+      const result = validateTransferVariance(parseDecimal('0'), new Decimal('1'), 'kraken', 1, 'BTC');
 
       // When actual is zero, variance is 0%
       expect(result.isOk()).toBe(true);
@@ -828,8 +834,8 @@ describe('lot-matcher-utils', () => {
 
     it('should respect config override', () => {
       const result = validateTransferVariance(
-        new Decimal('1'),
-        new Decimal('1.15'),
+        parseDecimal('1'),
+        parseDecimal('1.15'),
         'kraken',
         1,
         'BTC',
@@ -845,8 +851,8 @@ describe('lot-matcher-utils', () => {
       const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC',
-        grossAmount: new Decimal('1.0'),
-        netAmount: new Decimal('0.9995'),
+        grossAmount: parseDecimal('1.0'),
+        netAmount: parseDecimal('0.9995'),
       };
       const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '50000'),
@@ -861,7 +867,7 @@ describe('lot-matcher-utils', () => {
       const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC',
-        grossAmount: new Decimal('1.0'),
+        grossAmount: parseDecimal('1.0'),
       };
       const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {});
 
@@ -874,8 +880,8 @@ describe('lot-matcher-utils', () => {
       const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC',
-        grossAmount: new Decimal('1.0'),
-        netAmount: new Decimal('1.0'),
+        grossAmount: parseDecimal('1.0'),
+        netAmount: parseDecimal('1.0'),
       };
       const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('platform', 'balance', 'BTC', '0.0004', '50000'),
@@ -890,8 +896,8 @@ describe('lot-matcher-utils', () => {
       const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC',
-        grossAmount: new Decimal('1.0'),
-        netAmount: new Decimal('0.94'),
+        grossAmount: parseDecimal('1.0'),
+        netAmount: parseDecimal('0.94'),
       };
       const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '50000'),
@@ -911,8 +917,8 @@ describe('lot-matcher-utils', () => {
       const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC',
-        grossAmount: new Decimal('1.0'),
-        netAmount: new Decimal('0.98'),
+        grossAmount: parseDecimal('1.0'),
+        netAmount: parseDecimal('0.98'),
       };
       const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, []);
 
@@ -925,8 +931,8 @@ describe('lot-matcher-utils', () => {
       const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC',
-        grossAmount: new Decimal('1.0'),
-        netAmount: new Decimal('0.9988'),
+        grossAmount: parseDecimal('1.0'),
+        netAmount: parseDecimal('0.9988'),
       };
       const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('network', 'on-chain', 'BTC', '0.0007', '50000'),
@@ -942,8 +948,8 @@ describe('lot-matcher-utils', () => {
       const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC',
-        grossAmount: new Decimal('1.0'),
-        netAmount: new Decimal('0.92'),
+        grossAmount: parseDecimal('1.0'),
+        netAmount: parseDecimal('0.92'),
       };
       const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, []);
 
@@ -957,7 +963,7 @@ describe('lot-matcher-utils', () => {
     it('should return full amount for add-to-basis policy', () => {
       const outflow = createMovement('BTC', '1', '50000');
       const cryptoFee = {
-        amount: new Decimal('0.001'),
+        amount: parseDecimal('0.001'),
         feeType: 'network',
         priceAtTxTime: createPriceAtTxTime('50000'),
       };
@@ -970,7 +976,7 @@ describe('lot-matcher-utils', () => {
     it('should return net amount for disposal policy', () => {
       const outflow = createMovement('BTC', '1', '50000');
       const cryptoFee = {
-        amount: new Decimal('0.001'),
+        amount: parseDecimal('0.001'),
         feeType: 'network',
         priceAtTxTime: createPriceAtTxTime('50000'),
       };
@@ -982,7 +988,7 @@ describe('lot-matcher-utils', () => {
 
     it('should handle zero fee', () => {
       const outflow = createMovement('BTC', '1', '50000');
-      const cryptoFee = { amount: new Decimal('0'), feeType: 'none', priceAtTxTime: undefined };
+      const cryptoFee = { amount: parseDecimal('0'), feeType: 'none', priceAtTxTime: undefined };
 
       const result = calculateTransferDisposalAmount(outflow, cryptoFee, 'disposal');
 
@@ -992,9 +998,9 @@ describe('lot-matcher-utils', () => {
 
   describe('buildTransferMetadata', () => {
     it('should build metadata with crypto fee for add-to-basis policy', () => {
-      const cryptoFee = { amount: new Decimal('0.001'), priceAtTxTime: createPriceAtTxTime('50000') };
+      const cryptoFee = { amount: parseDecimal('0.001'), priceAtTxTime: createPriceAtTxTime('50000') };
 
-      const metadata = buildTransferMetadata(cryptoFee, 'add-to-basis', new Decimal('0.5'), new Decimal('1'));
+      const metadata = buildTransferMetadata(cryptoFee, 'add-to-basis', parseDecimal('0.5'), new Decimal('1'));
 
       expect(metadata).toBeDefined();
       expect(metadata?.cryptoFeeUsdValue).toBeDefined();
@@ -1003,25 +1009,25 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should return undefined for disposal policy', () => {
-      const cryptoFee = { amount: new Decimal('0.001'), priceAtTxTime: createPriceAtTxTime('50000') };
+      const cryptoFee = { amount: parseDecimal('0.001'), priceAtTxTime: createPriceAtTxTime('50000') };
 
-      const metadata = buildTransferMetadata(cryptoFee, 'disposal', new Decimal('0.5'), new Decimal('1'));
+      const metadata = buildTransferMetadata(cryptoFee, 'disposal', parseDecimal('0.5'), new Decimal('1'));
 
       expect(metadata).toBeUndefined();
     });
 
     it('should return undefined for zero fee', () => {
-      const cryptoFee = { amount: new Decimal('0'), priceAtTxTime: undefined };
+      const cryptoFee = { amount: parseDecimal('0'), priceAtTxTime: undefined };
 
-      const metadata = buildTransferMetadata(cryptoFee, 'add-to-basis', new Decimal('0.5'), new Decimal('1'));
+      const metadata = buildTransferMetadata(cryptoFee, 'add-to-basis', parseDecimal('0.5'), new Decimal('1'));
 
       expect(metadata).toBeUndefined();
     });
 
     it('should return undefined when fee has no price', () => {
-      const cryptoFee = { amount: new Decimal('0.001'), priceAtTxTime: undefined };
+      const cryptoFee = { amount: parseDecimal('0.001'), priceAtTxTime: undefined };
 
-      const metadata = buildTransferMetadata(cryptoFee, 'add-to-basis', new Decimal('0.5'), new Decimal('1'));
+      const metadata = buildTransferMetadata(cryptoFee, 'add-to-basis', parseDecimal('0.5'), new Decimal('1'));
 
       expect(metadata).toBeUndefined();
     });
@@ -1035,8 +1041,8 @@ describe('lot-matcher-utils', () => {
           calculationId: 'calc-1',
           sourceLotId: 'lot-1',
           linkId: 'link-1',
-          quantityTransferred: new Decimal('0.5'),
-          costBasisPerUnit: new Decimal('50000'),
+          quantityTransferred: parseDecimal('0.5'),
+          costBasisPerUnit: parseDecimal('50000'),
           sourceTransactionId: 1,
           targetTransactionId: 2,
           createdAt: new Date(),
@@ -1046,8 +1052,8 @@ describe('lot-matcher-utils', () => {
           calculationId: 'calc-1',
           sourceLotId: 'lot-2',
           linkId: 'link-1',
-          quantityTransferred: new Decimal('0.3'),
-          costBasisPerUnit: new Decimal('51000'),
+          quantityTransferred: parseDecimal('0.3'),
+          costBasisPerUnit: parseDecimal('51000'),
           sourceTransactionId: 1,
           targetTransactionId: 2,
           createdAt: new Date(),
@@ -1069,11 +1075,11 @@ describe('lot-matcher-utils', () => {
           calculationId: 'calc-1',
           sourceLotId: 'lot-1',
           linkId: 'link-1',
-          quantityTransferred: new Decimal('0.5'),
-          costBasisPerUnit: new Decimal('50000'),
+          quantityTransferred: parseDecimal('0.5'),
+          costBasisPerUnit: parseDecimal('50000'),
           sourceTransactionId: 1,
           targetTransactionId: 2,
-          metadata: { cryptoFeeUsdValue: new Decimal('25') },
+          metadata: { cryptoFeeUsdValue: parseDecimal('25') },
           createdAt: new Date(),
         },
       ];
@@ -1097,11 +1103,11 @@ describe('lot-matcher-utils', () => {
   describe('calculateTargetCostBasis', () => {
     it('should add fiat fees to inherited cost basis', () => {
       const fiatFees = [
-        { amount: new Decimal('10'), priceAtTxTime: createPriceAtTxTime('1') },
-        { amount: new Decimal('5'), priceAtTxTime: createPriceAtTxTime('1') },
+        { amount: parseDecimal('10'), priceAtTxTime: createPriceAtTxTime('1') },
+        { amount: parseDecimal('5'), priceAtTxTime: createPriceAtTxTime('1') },
       ];
 
-      const result = calculateTargetCostBasis(new Decimal('50000'), fiatFees, new Decimal('1'));
+      const result = calculateTargetCostBasis(parseDecimal('50000'), fiatFees, new Decimal('1'));
 
       // (50000 + 10 + 5) / 1 = 50015
       expect(result.toFixed()).toBe('50015');
@@ -1109,27 +1115,27 @@ describe('lot-matcher-utils', () => {
 
     it('should ignore fiat fees without prices', () => {
       const fiatFees = [
-        { amount: new Decimal('10'), priceAtTxTime: createPriceAtTxTime('1') },
-        { amount: new Decimal('5'), priceAtTxTime: undefined },
+        { amount: parseDecimal('10'), priceAtTxTime: createPriceAtTxTime('1') },
+        { amount: parseDecimal('5'), priceAtTxTime: undefined },
       ];
 
-      const result = calculateTargetCostBasis(new Decimal('50000'), fiatFees, new Decimal('1'));
+      const result = calculateTargetCostBasis(parseDecimal('50000'), fiatFees, new Decimal('1'));
 
       // (50000 + 10) / 1 = 50010
       expect(result.toFixed()).toBe('50010');
     });
 
     it('should handle zero fiat fees', () => {
-      const result = calculateTargetCostBasis(new Decimal('50000'), [], new Decimal('2'));
+      const result = calculateTargetCostBasis(parseDecimal('50000'), [], new Decimal('2'));
 
       // 50000 / 2 = 25000
       expect(result.toFixed()).toBe('25000');
     });
 
     it('should divide by received quantity', () => {
-      const fiatFees = [{ amount: new Decimal('100'), priceAtTxTime: createPriceAtTxTime('1') }];
+      const fiatFees = [{ amount: parseDecimal('100'), priceAtTxTime: createPriceAtTxTime('1') }];
 
-      const result = calculateTargetCostBasis(new Decimal('50000'), fiatFees, new Decimal('0.5'));
+      const result = calculateTargetCostBasis(parseDecimal('50000'), fiatFees, new Decimal('0.5'));
 
       // (50000 + 100) / 0.5 = 100200
       expect(result.toFixed()).toBe('100200');

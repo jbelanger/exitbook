@@ -7,7 +7,6 @@
 
 import { Currency, parseDecimal } from '@exitbook/core';
 import type { AssetMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -234,14 +233,14 @@ describe('extractMovementsNeedingNormalization', () => {
 describe('validateFxRate', () => {
   it('accepts valid FX rates', () => {
     const validRates = [
-      new Decimal('1.08'), // EUR→USD
-      new Decimal('0.74'), // CAD→USD
-      new Decimal('1.25'), // GBP→USD
-      new Decimal('0.01'), // Low but reasonable
-      new Decimal('100'), // High but reasonable
-      new Decimal('0.00004'), // VND→USD (Vietnamese Dong)
-      new Decimal('0.000064'), // IDR→USD (Indonesian Rupiah)
-      new Decimal('0.00014'), // PYG→USD (Paraguayan Guaraní)
+      parseDecimal('1.08'), // EUR→USD
+      parseDecimal('0.74'), // CAD→USD
+      parseDecimal('1.25'), // GBP→USD
+      parseDecimal('0.01'), // Low but reasonable
+      parseDecimal('100'), // High but reasonable
+      parseDecimal('0.00004'), // VND→USD (Vietnamese Dong)
+      parseDecimal('0.000064'), // IDR→USD (Indonesian Rupiah)
+      parseDecimal('0.00014'), // PYG→USD (Paraguayan Guaraní)
     ];
 
     for (const rate of validRates) {
@@ -251,25 +250,25 @@ describe('validateFxRate', () => {
   });
 
   it('rejects negative FX rates', () => {
-    const result = validateFxRate(new Decimal('-1.08'));
+    const result = validateFxRate(parseDecimal('-1.08'));
     expect(result.isErr()).toBe(true);
     expect(result.isErr() && result.error.message).toContain('must be positive');
   });
 
   it('rejects zero FX rate', () => {
-    const result = validateFxRate(new Decimal('0'));
+    const result = validateFxRate(parseDecimal('0'));
     expect(result.isErr()).toBe(true);
     expect(result.isErr() && result.error.message).toContain('must be positive');
   });
 
   it('rejects suspiciously low FX rates', () => {
-    const result = validateFxRate(new Decimal('0.00000001'));
+    const result = validateFxRate(parseDecimal('0.00000001'));
     expect(result.isErr()).toBe(true);
     expect(result.isErr() && result.error.message).toContain('too low');
   });
 
   it('rejects suspiciously high FX rates', () => {
-    const result = validateFxRate(new Decimal('10000'));
+    const result = validateFxRate(parseDecimal('10000'));
     expect(result.isErr()).toBe(true);
     expect(result.isErr() && result.error.message).toContain('too high');
   });
@@ -284,7 +283,7 @@ describe('createNormalizedPrice', () => {
       granularity: 'exact',
     };
 
-    const fxRate = new Decimal('1.08');
+    const fxRate = parseDecimal('1.08');
     const fxSource = 'ecb';
     const fxTimestamp = new Date('2023-01-15T10:00:00Z');
 
@@ -312,7 +311,7 @@ describe('createNormalizedPrice', () => {
       granularity: 'exact',
     };
 
-    const fxRate = new Decimal('0.74');
+    const fxRate = parseDecimal('0.74');
     const fxSource = 'bank-of-canada';
     const fxTimestamp = new Date('2023-01-15T10:00:00Z');
 
@@ -330,7 +329,7 @@ describe('createNormalizedPrice', () => {
       granularity: 'exact',
     };
 
-    const fxRate = new Decimal('1.08');
+    const fxRate = parseDecimal('1.08');
     const fxSource = 'ecb';
     const fxTimestamp = new Date('2023-01-15T10:00:00Z');
 
@@ -350,7 +349,7 @@ describe('createNormalizedPrice', () => {
       granularity: 'exact',
     };
 
-    const fxRate = new Decimal('1.08');
+    const fxRate = parseDecimal('1.08');
     const fxSource = 'ecb';
     const fxTimestamp = new Date('2023-01-15T10:00:00Z');
 
@@ -369,7 +368,7 @@ describe('createNormalizedPrice', () => {
       granularity: 'exact',
     };
 
-    const fxRate = new Decimal('0.00004'); // VND → USD
+    const fxRate = parseDecimal('0.00004'); // VND → USD
     const fxSource = 'provider';
     const fxTimestamp = new Date('2023-01-15T10:00:00Z');
 

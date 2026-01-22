@@ -1,5 +1,4 @@
-import type { TokenMetadataRecord } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { parseDecimal, type TokenMetadataRecord } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { MovementWithContext } from '../scam-detection-service.interface.js';
@@ -17,7 +16,7 @@ describe('ScamDetectionService', () => {
   const createMovement = (overrides?: Partial<MovementWithContext>): MovementWithContext => ({
     contractAddress: '0xabc',
     asset: 'TOKEN',
-    amount: new Decimal('1'),
+    amount: parseDecimal('1'),
     isAirdrop: false,
     transactionIndex: 0,
     ...overrides,
@@ -72,7 +71,7 @@ describe('ScamDetectionService', () => {
     const movements = [
       createMovement({
         contractAddress: '0xairdrop',
-        amount: new Decimal('10'),
+        amount: parseDecimal('10'),
         isAirdrop: true,
       }),
     ];

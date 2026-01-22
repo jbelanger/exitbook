@@ -380,8 +380,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         const transferLot = btcResult!.lots[1];
         expect(transferLot?.acquisitionTransactionId).toBe(3);
         expect(transferLot?.quantity.toFixed()).toBe('0.9995');
-        const expectedBasis = new Decimal('49975').plus(new Decimal('30'));
-        const expectedPerUnit = expectedBasis.dividedBy(new Decimal('0.9995'));
+        const expectedBasis = parseDecimal('49975').plus(new Decimal('30'));
+        const expectedPerUnit = expectedBasis.dividedBy(parseDecimal('0.9995'));
         expect(transferLot?.costBasisPerUnit.toFixed()).toBe(expectedPerUnit.toFixed());
 
         expect(btcResult!.lotTransfers).toHaveLength(1);
@@ -466,8 +466,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
         const transferLot = btcResult!.lots[1];
         expect(transferLot?.acquisitionTransactionId).toBe(3);
-        const expectedBasis = new Decimal('49975').plus(new Decimal('1.5'));
-        const expectedPerUnit = expectedBasis.dividedBy(new Decimal('0.9995'));
+        const expectedBasis = parseDecimal('49975').plus(new Decimal('1.5'));
+        const expectedPerUnit = expectedBasis.dividedBy(parseDecimal('0.9995'));
         expect(transferLot?.costBasisPerUnit.toFixed()).toBe(expectedPerUnit.toFixed());
       }
     });
@@ -1275,8 +1275,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         const transfer = btcResult!.lotTransfers[0];
         expect(transfer?.metadata?.cryptoFeeUsdValue).toBeUndefined();
 
-        const expectedBasis = new Decimal('49975');
-        const expectedPerUnit = expectedBasis.dividedBy(new Decimal('0.9995'));
+        const expectedBasis = parseDecimal('49975');
+        const expectedPerUnit = expectedBasis.dividedBy(parseDecimal('0.9995'));
         expect(transferLot?.costBasisPerUnit.toFixed()).toBe(expectedPerUnit.toFixed());
       }
     });

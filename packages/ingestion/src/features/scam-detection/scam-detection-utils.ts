@@ -315,7 +315,7 @@ function hasRidiculousTotalSupply(totalSupply: string, decimals?: number): boole
     // Flag if human-readable supply > 100 trillion
     // This is an extremely conservative threshold to catch only the most absurd scam tokens
     // (e.g., tokens with quadrillions or quintillions in circulation)
-    const RIDICULOUS_THRESHOLD = new Decimal('1e14'); // 100 trillion
+    const RIDICULOUS_THRESHOLD = parseDecimal('1e14'); // 100 trillion
     return humanReadableSupply.greaterThan(RIDICULOUS_THRESHOLD);
   } catch (error) {
     logger.warn({ error, totalSupply }, 'Failed to parse total supply value');

@@ -59,7 +59,7 @@ export class ManualPriceService {
    * const result = await service.savePrice({
    *   assetSymbol: 'BTC',
    *   date: new Date('2024-01-15T10:30:00Z'),
-   *   price: new Decimal(45000),
+   *   price: parseDecimal('45000'),
    *   currency: 'USD',
    *   source: 'manual-cli'
    * });
@@ -111,7 +111,7 @@ export class ManualPriceService {
    *   from: 'EUR',
    *   to: 'USD',
    *   date: new Date('2024-01-15'),
-   *   rate: new Decimal(1.08),
+   *   rate: parseDecimal('1.08'),
    *   source: 'user-provided'
    * });
    * ```

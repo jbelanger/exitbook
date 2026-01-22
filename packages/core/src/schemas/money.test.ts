@@ -1,6 +1,8 @@
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
+import { parseDecimal } from '../utils/decimal-utils.ts';
+
 import { DecimalSchema, DecimalStringSchema } from './money.js';
 
 describe('DecimalSchema', () => {
@@ -17,7 +19,7 @@ describe('DecimalSchema', () => {
   });
 
   it('should accept Decimal instances', () => {
-    const decimal = new Decimal('123.456');
+    const decimal = parseDecimal('123.456');
     const result = DecimalSchema.parse(decimal);
     expect(result).toBeInstanceOf(Decimal);
     expect(result.toString()).toBe('123.456');
@@ -43,7 +45,7 @@ describe('DecimalStringSchema', () => {
     });
 
     it('should accept Decimal instances and return fixed-point string', () => {
-      const decimal = new Decimal('123.456');
+      const decimal = parseDecimal('123.456');
       const result = DecimalStringSchema.parse(decimal);
       expect(result).toBe('123.456');
     });

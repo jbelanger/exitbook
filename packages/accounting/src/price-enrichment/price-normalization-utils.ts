@@ -10,8 +10,8 @@
  */
 
 import type { AssetMovement, FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
-import { Currency } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { Currency, parseDecimal } from '@exitbook/core';
+import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -91,8 +91,8 @@ export function validateFxRate(rate: Decimal): Result<void, Error> {
   // Sanity check: FX rates should be reasonable
   // Lower bound set to 1e-7 to accommodate low-value currencies like VND (~0.00004)
   // while still catching truly erroneous data
-  const MIN_REASONABLE_RATE = new Decimal('0.0000001');
-  const MAX_REASONABLE_RATE = new Decimal('1000');
+  const MIN_REASONABLE_RATE = parseDecimal('0.0000001');
+  const MAX_REASONABLE_RATE = parseDecimal('1000');
 
   if (rate.lessThan(MIN_REASONABLE_RATE)) {
     return err(new Error(`Suspicious FX rate: ${rate.toString()} (too low, possible data error)`));

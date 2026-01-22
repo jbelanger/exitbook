@@ -93,7 +93,7 @@ describe('PriceNormalizationService', () => {
       vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([transaction]));
       vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
         ok({
-          rate: new Decimal('1.08'),
+          rate: parseDecimal('1.08'),
           source: 'ecb',
           fetchedAt: new Date('2023-01-15T10:00:00Z'),
         })
@@ -318,14 +318,14 @@ describe('PriceNormalizationService', () => {
       vi.mocked(mockFxProvider.getRateToUSD)
         .mockResolvedValueOnce(
           ok({
-            rate: new Decimal('1.08'),
+            rate: parseDecimal('1.08'),
             source: 'ecb',
             fetchedAt: new Date('2023-01-15T10:00:00Z'),
           })
         )
         .mockResolvedValueOnce(
           ok({
-            rate: new Decimal('0.74'),
+            rate: parseDecimal('0.74'),
             source: 'bank-of-canada',
             fetchedAt: new Date('2023-01-15T10:00:00Z'),
           })
@@ -383,7 +383,7 @@ describe('PriceNormalizationService', () => {
       vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([transaction]));
       vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
         ok({
-          rate: new Decimal('1.08'),
+          rate: parseDecimal('1.08'),
           source: 'ecb',
           fetchedAt: new Date('2023-01-15T10:00:00Z'),
         })
@@ -430,7 +430,7 @@ describe('PriceNormalizationService', () => {
       vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([transaction]));
       vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
         ok({
-          rate: new Decimal('1.27'),
+          rate: parseDecimal('1.27'),
           source: 'ecb',
           fetchedAt: new Date('2023-01-15T10:00:00Z'),
         })
@@ -539,7 +539,7 @@ describe('PriceNormalizationService', () => {
       vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([transaction]));
       vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
         ok({
-          rate: new Decimal('1.08'),
+          rate: parseDecimal('1.08'),
           source: 'ecb',
           fetchedAt: new Date('2023-01-15T10:00:00Z'),
         })
@@ -624,7 +624,7 @@ describe('PriceNormalizationService', () => {
       vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]));
       vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
         ok({
-          rate: new Decimal('1.08'),
+          rate: parseDecimal('1.08'),
           source: 'ecb',
           fetchedAt: new Date('2023-01-15T10:00:00Z'),
         })

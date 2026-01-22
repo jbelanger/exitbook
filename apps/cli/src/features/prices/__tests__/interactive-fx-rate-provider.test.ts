@@ -7,8 +7,7 @@
  */
 
 import type { FxRateData, IFxRateProvider } from '@exitbook/accounting';
-import { Currency } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -35,7 +34,7 @@ describe('InteractiveFxRateProvider', () => {
     describe('when underlying provider succeeds', () => {
       it('returns rate from underlying provider without prompting', async () => {
         const mockRate: FxRateData = {
-          rate: new Decimal('1.08'),
+          rate: parseDecimal('1.08'),
           source: 'ecb',
           fetchedAt: new Date('2023-01-15T10:00:00Z'),
         };
@@ -78,7 +77,7 @@ describe('InteractiveFxRateProvider', () => {
         vi.spyOn(mockUnderlyingProvider, 'getRateToUSD').mockResolvedValue(err(mockError));
 
         const manualRate = {
-          rate: new Decimal('1.10'),
+          rate: parseDecimal('1.10'),
           source: 'user-provided',
         };
         promptManualFxRateSpy.mockResolvedValue(manualRate);
@@ -121,7 +120,7 @@ describe('InteractiveFxRateProvider', () => {
     describe('when underlying provider succeeds', () => {
       it('returns inverted rate from underlying provider without prompting', async () => {
         const mockRate: FxRateData = {
-          rate: new Decimal('1.35'), // USD → CAD
+          rate: parseDecimal('1.35'), // USD → CAD
           source: 'bank-of-canada',
           fetchedAt: new Date('2023-06-20T00:00:00Z'),
         };
@@ -164,7 +163,7 @@ describe('InteractiveFxRateProvider', () => {
         vi.spyOn(mockUnderlyingProvider, 'getRateFromUSD').mockResolvedValue(err(mockError));
 
         const manualRate = {
-          rate: new Decimal('1.37'), // User-provided USD → CAD rate
+          rate: parseDecimal('1.37'), // User-provided USD → CAD rate
           source: 'user-provided',
         };
         promptManualFxRateSpy.mockResolvedValue(manualRate);
@@ -206,13 +205,13 @@ describe('InteractiveFxRateProvider', () => {
   describe('integration scenarios', () => {
     it('uses same underlying provider for both directions', async () => {
       const toUsdRate: FxRateData = {
-        rate: new Decimal('0.74'),
+        rate: parseDecimal('0.74'),
         source: 'bank-of-canada',
         fetchedAt: new Date('2023-06-20T00:00:00Z'),
       };
 
       const fromUsdRate: FxRateData = {
-        rate: new Decimal('1.35'),
+        rate: parseDecimal('1.35'),
         source: 'bank-of-canada',
         fetchedAt: new Date('2023-06-20T00:00:00Z'),
       };
@@ -237,7 +236,7 @@ describe('InteractiveFxRateProvider', () => {
 
     it('can mix provider success and manual entry in same session', async () => {
       const toUsdRate: FxRateData = {
-        rate: new Decimal('0.74'),
+        rate: parseDecimal('0.74'),
         source: 'bank-of-canada',
         fetchedAt: new Date('2023-06-20T00:00:00Z'),
       };
@@ -248,7 +247,7 @@ describe('InteractiveFxRateProvider', () => {
       // Second call fails, user provides manual rate
       vi.spyOn(mockUnderlyingProvider, 'getRateFromUSD').mockResolvedValue(err(new Error('Provider down')));
       promptManualFxRateSpy.mockResolvedValue({
-        rate: new Decimal('1.37'),
+        rate: parseDecimal('1.37'),
         source: 'user-provided',
       });
 

@@ -1,6 +1,5 @@
 import type { UniversalTransactionData } from '@exitbook/core';
-import { Currency } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { buildViewMeta, getAllMovements, parseDate } from '../view-utils.ts';
@@ -219,7 +218,8 @@ describe('getAllMovements', () => {
       inflows: [
         {
           assetSymbol: 'BTC',
-          grossAmount: new Decimal('1'),
+          grossAmount: parseDecimal('1'),
+          assetId: '',
         },
       ],
       outflows: [],
@@ -238,7 +238,8 @@ describe('getAllMovements', () => {
       outflows: [
         {
           assetSymbol: 'BTC',
-          grossAmount: new Decimal('1'),
+          grossAmount: parseDecimal('1'),
+          assetId: '',
         },
       ],
     };
@@ -255,13 +256,15 @@ describe('getAllMovements', () => {
       inflows: [
         {
           assetSymbol: 'BTC',
-          grossAmount: new Decimal('1'),
+          grossAmount: parseDecimal('1'),
+          assetId: '',
         },
       ],
       outflows: [
         {
           assetSymbol: 'BTC',
-          grossAmount: new Decimal('0.5'),
+          grossAmount: parseDecimal('0.5'),
+          assetId: '',
         },
       ],
     };
@@ -280,21 +283,25 @@ describe('getAllMovements', () => {
       inflows: [
         {
           assetSymbol: 'BTC',
-          grossAmount: new Decimal('1'),
+          grossAmount: parseDecimal('1'),
+          assetId: '',
         },
         {
           assetSymbol: 'ETH',
-          grossAmount: new Decimal('10'),
+          grossAmount: parseDecimal('10'),
+          assetId: '',
         },
       ],
       outflows: [
         {
           assetSymbol: 'USD',
-          grossAmount: new Decimal('80000'),
+          grossAmount: parseDecimal('80000'),
+          assetId: '',
         },
         {
           assetSymbol: 'BTC',
-          grossAmount: new Decimal('0.1'),
+          grossAmount: parseDecimal('0.1'),
+          assetId: '',
         },
       ],
     };
@@ -314,7 +321,8 @@ describe('getAllMovements', () => {
       outflows: [
         {
           assetSymbol: 'BTC',
-          grossAmount: new Decimal('1'),
+          grossAmount: parseDecimal('1'),
+          assetId: '',
         },
       ],
     };
@@ -330,7 +338,8 @@ describe('getAllMovements', () => {
       inflows: [
         {
           assetSymbol: 'BTC',
-          grossAmount: new Decimal('1'),
+          grossAmount: parseDecimal('1'),
+          assetId: '',
         },
       ],
       outflows: undefined,
@@ -358,16 +367,17 @@ describe('getAllMovements', () => {
       inflows: [
         {
           assetSymbol: 'BTC',
-          grossAmount: new Decimal('1.23456789'),
-          netAmount: new Decimal('1.23356789'),
+          grossAmount: parseDecimal('1.23456789'),
+          netAmount: parseDecimal('1.23356789'),
           priceAtTxTime: {
             price: {
-              amount: new Decimal('40500.5'),
+              amount: parseDecimal('40500.5'),
               currency: Currency.create('USD'),
             },
             source: 'test-provider',
             fetchedAt: new Date('2024-01-01'),
           },
+          assetId: '',
         },
       ],
       outflows: [],
@@ -385,7 +395,8 @@ describe('getAllMovements', () => {
     const inflows = [
       {
         assetSymbol: 'BTC',
-        grossAmount: new Decimal('1'),
+        grossAmount: parseDecimal('1'),
+        assetId: '',
       },
     ];
     const movements: UniversalTransactionData['movements'] = {

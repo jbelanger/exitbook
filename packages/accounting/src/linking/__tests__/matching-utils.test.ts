@@ -1,6 +1,5 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -684,8 +683,8 @@ describe('matching-utils', () => {
 
   describe('validateLinkAmounts', () => {
     it('should accept valid amounts with small variance', () => {
-      const sourceAmount = new Decimal('1.0');
-      const targetAmount = new Decimal('0.9995'); // 0.05% variance
+      const sourceAmount = parseDecimal('1.0');
+      const targetAmount = parseDecimal('0.9995'); // 0.05% variance
 
       const result = validateLinkAmounts(sourceAmount, targetAmount);
 
@@ -693,8 +692,8 @@ describe('matching-utils', () => {
     });
 
     it('should accept amounts with 5% variance', () => {
-      const sourceAmount = new Decimal('1.0');
-      const targetAmount = new Decimal('0.95'); // 5% variance
+      const sourceAmount = parseDecimal('1.0');
+      const targetAmount = parseDecimal('0.95'); // 5% variance
 
       const result = validateLinkAmounts(sourceAmount, targetAmount);
 
@@ -702,8 +701,8 @@ describe('matching-utils', () => {
     });
 
     it('should accept amounts with exactly 10% variance', () => {
-      const sourceAmount = new Decimal('1.0');
-      const targetAmount = new Decimal('0.9'); // 10% variance
+      const sourceAmount = parseDecimal('1.0');
+      const targetAmount = parseDecimal('0.9'); // 10% variance
 
       const result = validateLinkAmounts(sourceAmount, targetAmount);
 
@@ -711,8 +710,8 @@ describe('matching-utils', () => {
     });
 
     it('should reject target amount greater than source (airdrop scenario)', () => {
-      const sourceAmount = new Decimal('1.0');
-      const targetAmount = new Decimal('1.1'); // Target > source
+      const sourceAmount = parseDecimal('1.0');
+      const targetAmount = parseDecimal('1.1'); // Target > source
 
       const result = validateLinkAmounts(sourceAmount, targetAmount);
 
@@ -725,8 +724,8 @@ describe('matching-utils', () => {
     });
 
     it('should reject excessive variance (>10%)', () => {
-      const sourceAmount = new Decimal('1.0');
-      const targetAmount = new Decimal('0.85'); // 15% variance
+      const sourceAmount = parseDecimal('1.0');
+      const targetAmount = parseDecimal('0.85'); // 15% variance
 
       const result = validateLinkAmounts(sourceAmount, targetAmount);
 
@@ -739,8 +738,8 @@ describe('matching-utils', () => {
     });
 
     it('should handle very small amounts', () => {
-      const sourceAmount = new Decimal('0.00001');
-      const targetAmount = new Decimal('0.000009'); // 10% variance
+      const sourceAmount = parseDecimal('0.00001');
+      const targetAmount = parseDecimal('0.000009'); // 10% variance
 
       const result = validateLinkAmounts(sourceAmount, targetAmount);
 
@@ -748,8 +747,8 @@ describe('matching-utils', () => {
     });
 
     it('should handle large amounts', () => {
-      const sourceAmount = new Decimal('1000000.0');
-      const targetAmount = new Decimal('999500.0'); // 0.05% variance
+      const sourceAmount = parseDecimal('1000000.0');
+      const targetAmount = parseDecimal('999500.0'); // 0.05% variance
 
       const result = validateLinkAmounts(sourceAmount, targetAmount);
 
@@ -757,8 +756,8 @@ describe('matching-utils', () => {
     });
 
     it('should reject when variance is just over 10%', () => {
-      const sourceAmount = new Decimal('1.0');
-      const targetAmount = new Decimal('0.899'); // 10.1% variance
+      const sourceAmount = parseDecimal('1.0');
+      const targetAmount = parseDecimal('0.899'); // 10.1% variance
 
       const result = validateLinkAmounts(sourceAmount, targetAmount);
 
@@ -766,8 +765,8 @@ describe('matching-utils', () => {
     });
 
     it('should accept equal amounts (0% variance)', () => {
-      const sourceAmount = new Decimal('1.0');
-      const targetAmount = new Decimal('1.0');
+      const sourceAmount = parseDecimal('1.0');
+      const targetAmount = parseDecimal('1.0');
 
       const result = validateLinkAmounts(sourceAmount, targetAmount);
 
@@ -775,8 +774,8 @@ describe('matching-utils', () => {
     });
 
     it('should reject zero source amount', () => {
-      const sourceAmount = new Decimal('0');
-      const targetAmount = new Decimal('0');
+      const sourceAmount = parseDecimal('0');
+      const targetAmount = parseDecimal('0');
 
       const result = validateLinkAmounts(sourceAmount, targetAmount);
 
@@ -788,8 +787,8 @@ describe('matching-utils', () => {
     });
 
     it('should reject negative source amount', () => {
-      const sourceAmount = new Decimal('-1.0');
-      const targetAmount = new Decimal('0.5');
+      const sourceAmount = parseDecimal('-1.0');
+      const targetAmount = parseDecimal('0.5');
 
       const result = validateLinkAmounts(sourceAmount, targetAmount);
 
@@ -800,8 +799,8 @@ describe('matching-utils', () => {
     });
 
     it('should reject negative target amount', () => {
-      const sourceAmount = new Decimal('1.0');
-      const targetAmount = new Decimal('-0.5');
+      const sourceAmount = parseDecimal('1.0');
+      const targetAmount = parseDecimal('-0.5');
 
       const result = validateLinkAmounts(sourceAmount, targetAmount);
 
@@ -813,8 +812,8 @@ describe('matching-utils', () => {
     });
 
     it('should reject zero target amount', () => {
-      const sourceAmount = new Decimal('1.0');
-      const targetAmount = new Decimal('0');
+      const sourceAmount = parseDecimal('1.0');
+      const targetAmount = parseDecimal('0');
 
       const result = validateLinkAmounts(sourceAmount, targetAmount);
 
@@ -828,8 +827,8 @@ describe('matching-utils', () => {
 
   describe('calculateVarianceMetadata', () => {
     it('should calculate variance metadata correctly', () => {
-      const sourceAmount = new Decimal('1.0');
-      const targetAmount = new Decimal('0.9995');
+      const sourceAmount = parseDecimal('1.0');
+      const targetAmount = parseDecimal('0.9995');
 
       const metadata = calculateVarianceMetadata(sourceAmount, targetAmount);
 
@@ -839,8 +838,8 @@ describe('matching-utils', () => {
     });
 
     it('should handle zero variance', () => {
-      const sourceAmount = new Decimal('1.0');
-      const targetAmount = new Decimal('1.0');
+      const sourceAmount = parseDecimal('1.0');
+      const targetAmount = parseDecimal('1.0');
 
       const metadata = calculateVarianceMetadata(sourceAmount, targetAmount);
 
@@ -850,8 +849,8 @@ describe('matching-utils', () => {
     });
 
     it('should handle large variance', () => {
-      const sourceAmount = new Decimal('1.0');
-      const targetAmount = new Decimal('0.9');
+      const sourceAmount = parseDecimal('1.0');
+      const targetAmount = parseDecimal('0.9');
 
       const metadata = calculateVarianceMetadata(sourceAmount, targetAmount);
 
@@ -861,8 +860,8 @@ describe('matching-utils', () => {
     });
 
     it('should handle zero source amount', () => {
-      const sourceAmount = new Decimal('0');
-      const targetAmount = new Decimal('0');
+      const sourceAmount = parseDecimal('0');
+      const targetAmount = parseDecimal('0');
 
       const metadata = calculateVarianceMetadata(sourceAmount, targetAmount);
 
@@ -872,8 +871,8 @@ describe('matching-utils', () => {
     });
 
     it('should format variance percentage to 2 decimal places', () => {
-      const sourceAmount = new Decimal('1.0');
-      const targetAmount = new Decimal('0.99567'); // 0.433% variance
+      const sourceAmount = parseDecimal('1.0');
+      const targetAmount = parseDecimal('0.99567'); // 0.433% variance
 
       const metadata = calculateVarianceMetadata(sourceAmount, targetAmount);
 

@@ -1,4 +1,4 @@
-import { wrapError } from '@exitbook/core';
+import { parseDecimal, wrapError } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
@@ -33,7 +33,7 @@ export function normalizeTokenAmount(amount: string | undefined, decimals?: numb
   }
 
   try {
-    const result = new Decimal(amount).dividedBy(new Decimal('10').pow(decimals));
+    const result = new Decimal(amount).dividedBy(parseDecimal('10').pow(decimals));
     // Use toFixed() to prevent scientific notation, then remove trailing zeros
     return ok(result.toFixed(decimals).replace(/\.?0+$/, ''));
   } catch (error) {
@@ -63,7 +63,7 @@ export function normalizeNativeAmount(amount: string | undefined, decimals: numb
   }
 
   try {
-    const result = new Decimal(amount).dividedBy(new Decimal('10').pow(decimals));
+    const result = new Decimal(amount).dividedBy(parseDecimal('10').pow(decimals));
     // Use toFixed() to prevent scientific notation, then remove trailing zeros
     return ok(result.toFixed(decimals).replace(/\.?0+$/, ''));
   } catch (error) {

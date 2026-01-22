@@ -1,6 +1,6 @@
-import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
+import { parseDecimal } from '../../utils/decimal-utils.ts';
 import { AssetMovementSchema, FeeMovementSchema } from '../universal-transaction.js';
 
 describe('AssetMovementSchema', () => {
@@ -9,7 +9,7 @@ describe('AssetMovementSchema', () => {
       const movement = {
         assetId: 'blockchain:ethereum:native',
         assetSymbol: 'ETH',
-        grossAmount: new Decimal('1.5'),
+        grossAmount: parseDecimal('1.5'),
       };
       const result = AssetMovementSchema.safeParse(movement);
       expect(result.success).toBe(true);
@@ -19,7 +19,7 @@ describe('AssetMovementSchema', () => {
       const movement = {
         assetId: 'blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
         assetSymbol: 'USDC',
-        grossAmount: new Decimal('100'),
+        grossAmount: parseDecimal('100'),
       };
       const result = AssetMovementSchema.safeParse(movement);
       expect(result.success).toBe(true);
@@ -29,7 +29,7 @@ describe('AssetMovementSchema', () => {
       const movement = {
         assetId: 'exchange:kraken:btc',
         assetSymbol: 'BTC',
-        grossAmount: new Decimal('0.5'),
+        grossAmount: parseDecimal('0.5'),
       };
       const result = AssetMovementSchema.safeParse(movement);
       expect(result.success).toBe(true);
@@ -39,7 +39,7 @@ describe('AssetMovementSchema', () => {
       const movement = {
         assetId: 'fiat:usd',
         assetSymbol: 'USD',
-        grossAmount: new Decimal('1000'),
+        grossAmount: parseDecimal('1000'),
       };
       const result = AssetMovementSchema.safeParse(movement);
       expect(result.success).toBe(true);
@@ -49,7 +49,7 @@ describe('AssetMovementSchema', () => {
       const movement = {
         assetId: 'blockchain:ethereum:unknown:usdc',
         assetSymbol: 'USDC',
-        grossAmount: new Decimal('100'),
+        grossAmount: parseDecimal('100'),
       };
       const result = AssetMovementSchema.safeParse(movement);
       expect(result.success).toBe(false);
@@ -62,7 +62,7 @@ describe('AssetMovementSchema', () => {
       const movement = {
         assetId: 'blockchain:ethereum:',
         assetSymbol: 'ETH',
-        grossAmount: new Decimal('1'),
+        grossAmount: parseDecimal('1'),
       };
       const result = AssetMovementSchema.safeParse(movement);
       expect(result.success).toBe(false);
@@ -75,7 +75,7 @@ describe('AssetMovementSchema', () => {
       const movement = {
         assetId: 'blockchain:ethereum',
         assetSymbol: 'ETH',
-        grossAmount: new Decimal('1'),
+        grossAmount: parseDecimal('1'),
       };
       const result = AssetMovementSchema.safeParse(movement);
       expect(result.success).toBe(false);
@@ -87,8 +87,8 @@ describe('AssetMovementSchema', () => {
       const movement = {
         assetId: 'blockchain:bitcoin:native',
         assetSymbol: 'BTC',
-        grossAmount: new Decimal('1.0'),
-        netAmount: new Decimal('0.999'),
+        grossAmount: parseDecimal('1.0'),
+        netAmount: parseDecimal('0.999'),
       };
       const result = AssetMovementSchema.safeParse(movement);
       expect(result.success).toBe(true);
@@ -98,8 +98,8 @@ describe('AssetMovementSchema', () => {
       const movement = {
         assetId: 'blockchain:bitcoin:native',
         assetSymbol: 'BTC',
-        grossAmount: new Decimal('1.0'),
-        netAmount: new Decimal('1.1'),
+        grossAmount: parseDecimal('1.0'),
+        netAmount: parseDecimal('1.1'),
       };
       const result = AssetMovementSchema.safeParse(movement);
       expect(result.success).toBe(false);
@@ -116,7 +116,7 @@ describe('FeeMovementSchema', () => {
       const fee = {
         assetId: 'blockchain:ethereum:native',
         assetSymbol: 'ETH',
-        amount: new Decimal('0.002'),
+        amount: parseDecimal('0.002'),
         scope: 'network' as const,
         settlement: 'balance' as const,
       };
@@ -128,7 +128,7 @@ describe('FeeMovementSchema', () => {
       const fee = {
         assetId: 'blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
         assetSymbol: 'USDC',
-        amount: new Decimal('5'),
+        amount: parseDecimal('5'),
         scope: 'platform' as const,
         settlement: 'balance' as const,
       };
@@ -140,7 +140,7 @@ describe('FeeMovementSchema', () => {
       const fee = {
         assetId: 'blockchain:solana:unknown:usdc',
         assetSymbol: 'USDC',
-        amount: new Decimal('1'),
+        amount: parseDecimal('1'),
         scope: 'platform' as const,
         settlement: 'balance' as const,
       };
@@ -155,7 +155,7 @@ describe('FeeMovementSchema', () => {
       const fee = {
         assetId: 'blockchain:solana:',
         assetSymbol: 'SOL',
-        amount: new Decimal('0.001'),
+        amount: parseDecimal('0.001'),
         scope: 'network' as const,
         settlement: 'balance' as const,
       };

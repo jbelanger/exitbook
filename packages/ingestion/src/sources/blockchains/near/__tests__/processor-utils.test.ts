@@ -17,7 +17,7 @@ import type {
   NearTransaction,
   NearReceiptAction,
 } from '@exitbook/blockchain-providers';
-import { Decimal } from 'decimal.js';
+import { parseDecimal } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import {
@@ -916,13 +916,13 @@ describe('NEAR Processor Utils - consolidateByAsset', () => {
     const movements: Movement[] = [
       {
         asset: 'NEAR',
-        amount: new Decimal('1.5'),
+        amount: parseDecimal('1.5'),
         direction: 'in',
         flowType: 'native',
       },
       {
         asset: 'NEAR',
-        amount: new Decimal('2.5'),
+        amount: parseDecimal('2.5'),
         direction: 'in',
         flowType: 'native',
       },
@@ -940,13 +940,13 @@ describe('NEAR Processor Utils - consolidateByAsset', () => {
     const movements: Movement[] = [
       {
         asset: 'NEAR',
-        amount: new Decimal('1'),
+        amount: parseDecimal('1'),
         direction: 'in',
         flowType: 'native',
       },
       {
         asset: 'USDC',
-        amount: new Decimal('100'),
+        amount: parseDecimal('100'),
         direction: 'out',
         flowType: 'token_transfer',
         contractAddress: 'usdc.token.near',
@@ -964,14 +964,14 @@ describe('NEAR Processor Utils - consolidateByAsset', () => {
     const movements: Movement[] = [
       {
         asset: 'USDC',
-        amount: new Decimal('50'),
+        amount: parseDecimal('50'),
         contractAddress: 'usdc.token.near',
         direction: 'in',
         flowType: 'token_transfer',
       },
       {
         asset: 'USDC',
-        amount: new Decimal('50'),
+        amount: parseDecimal('50'),
         contractAddress: 'usdc.token.near',
         direction: 'in',
         flowType: 'token_transfer',
@@ -990,14 +990,14 @@ describe('NEAR Processor Utils - consolidateByAsset', () => {
     const movements: Movement[] = [
       {
         asset: 'USDC',
-        amount: new Decimal('50'),
+        amount: parseDecimal('50'),
         contractAddress: 'usdc.token.near',
         direction: 'in',
         flowType: 'token_transfer',
       },
       {
         asset: 'USDC',
-        amount: new Decimal('50'),
+        amount: parseDecimal('50'),
         contractAddress: 'usdc.other.near',
         direction: 'in',
         flowType: 'token_transfer',
@@ -1020,7 +1020,7 @@ describe('NEAR Processor Utils - consolidateByAsset', () => {
     const movements: Movement[] = [
       {
         asset: 'USDC',
-        amount: new Decimal('50'),
+        amount: parseDecimal('50'),
         contractAddress: 'usdc.token.near',
         direction: 'out',
         flowType: 'token_transfer',
@@ -1051,7 +1051,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
     const inflows: Movement[] = [
       {
         asset: 'NEAR',
-        amount: new Decimal('5'),
+        amount: parseDecimal('5'),
         direction: 'in',
         flowType: 'native',
       },
@@ -1067,7 +1067,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
     const inflows: Movement[] = [
       {
         asset: 'USDC',
-        amount: new Decimal('100'),
+        amount: parseDecimal('100'),
         contractAddress: 'usdc.token.near',
         direction: 'in',
         flowType: 'token_transfer',
@@ -1084,7 +1084,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
     const outflows: Movement[] = [
       {
         asset: 'NEAR',
-        amount: new Decimal('3'),
+        amount: parseDecimal('3'),
         direction: 'out',
         flowType: 'native',
       },
@@ -1100,7 +1100,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
     const outflows: Movement[] = [
       {
         asset: 'USDC',
-        amount: new Decimal('50'),
+        amount: parseDecimal('50'),
         contractAddress: 'usdc.token.near',
         direction: 'out',
         flowType: 'token_transfer',
@@ -1117,7 +1117,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
     const inflows: Movement[] = [
       {
         asset: 'USDT',
-        amount: new Decimal('100'),
+        amount: parseDecimal('100'),
         contractAddress: 'usdt.token.near',
         direction: 'in',
         flowType: 'token_transfer',
@@ -1126,7 +1126,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
     const outflows: Movement[] = [
       {
         asset: 'USDC',
-        amount: new Decimal('100'),
+        amount: parseDecimal('100'),
         contractAddress: 'usdc.token.near',
         direction: 'out',
         flowType: 'token_transfer',
@@ -1143,7 +1143,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
     const inflows: Movement[] = [
       {
         asset: 'NEAR',
-        amount: new Decimal('1'),
+        amount: parseDecimal('1'),
         direction: 'in',
         flowType: 'native',
       },
@@ -1151,7 +1151,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
     const outflows: Movement[] = [
       {
         asset: 'NEAR',
-        amount: new Decimal('2'),
+        amount: parseDecimal('2'),
         direction: 'out',
         flowType: 'native',
       },
@@ -1192,7 +1192,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
     const outflows: Movement[] = [
       {
         asset: 'NEAR',
-        amount: new Decimal('100'),
+        amount: parseDecimal('100'),
         direction: 'out',
         flowType: 'native',
       },
@@ -1221,7 +1221,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
     const inflows: Movement[] = [
       {
         asset: 'NEAR',
-        amount: new Decimal('0.5'),
+        amount: parseDecimal('0.5'),
         direction: 'in',
         flowType: 'native',
       },
@@ -1250,7 +1250,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
     const inflows: Movement[] = [
       {
         asset: 'NEAR',
-        amount: new Decimal('0.25'),
+        amount: parseDecimal('0.25'),
         direction: 'in',
         flowType: 'native',
       },
@@ -1295,7 +1295,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
     const outflows: Movement[] = [
       {
         asset: 'NEAR',
-        amount: new Decimal('100'),
+        amount: parseDecimal('100'),
         direction: 'out',
         flowType: 'native',
       },
@@ -1324,7 +1324,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
     const inflows: Movement[] = [
       {
         asset: 'NEAR',
-        amount: new Decimal('1'),
+        amount: parseDecimal('1'),
         direction: 'in',
         flowType: 'native',
       },

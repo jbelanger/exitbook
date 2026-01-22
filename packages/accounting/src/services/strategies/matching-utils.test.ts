@@ -1,3 +1,4 @@
+import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -62,12 +63,12 @@ describe('sortLotsFifo', () => {
     calculationId: 'calc1',
     acquisitionTransactionId: 1,
     assetSymbol: 'BTC',
-    quantity: new Decimal('1'),
-    costBasisPerUnit: new Decimal('30000'),
-    totalCostBasis: new Decimal('30000'),
+    quantity: parseDecimal('1'),
+    costBasisPerUnit: parseDecimal('30000'),
+    totalCostBasis: parseDecimal('30000'),
     acquisitionDate: new Date(date),
     method: 'fifo',
-    remainingQuantity: new Decimal('1'),
+    remainingQuantity: parseDecimal('1'),
     status: 'open',
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -135,12 +136,12 @@ describe('sortLotsLifo', () => {
     calculationId: 'calc1',
     acquisitionTransactionId: 1,
     assetSymbol: 'BTC',
-    quantity: new Decimal('1'),
-    costBasisPerUnit: new Decimal('30000'),
-    totalCostBasis: new Decimal('30000'),
+    quantity: parseDecimal('1'),
+    costBasisPerUnit: parseDecimal('30000'),
+    totalCostBasis: parseDecimal('30000'),
     acquisitionDate: new Date(date),
     method: 'lifo',
-    remainingQuantity: new Decimal('1'),
+    remainingQuantity: parseDecimal('1'),
     status: 'open',
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -209,8 +210,8 @@ describe('matchDisposalToSortedLots', () => {
     acquisitionTransactionId: 1,
     assetSymbol: 'BTC',
     quantity: new Decimal(quantity),
-    costBasisPerUnit: new Decimal('30000'),
-    totalCostBasis: new Decimal('30000'),
+    costBasisPerUnit: parseDecimal('30000'),
+    totalCostBasis: parseDecimal('30000'),
     acquisitionDate: new Date(date),
     method: 'fifo',
     remainingQuantity: new Decimal(remainingQuantity),
@@ -224,7 +225,7 @@ describe('matchDisposalToSortedLots', () => {
     assetSymbol: 'BTC',
     quantity: new Decimal(quantity),
     date: new Date(date),
-    proceedsPerUnit: new Decimal('50000'),
+    proceedsPerUnit: parseDecimal('50000'),
   });
 
   it('should match full disposal to single lot', () => {
@@ -475,9 +476,9 @@ describe('matchDisposalToSortedLots', () => {
     const disposal: DisposalRequest = {
       transactionId: 100,
       assetSymbol: 'BTC',
-      quantity: new Decimal('1'),
+      quantity: parseDecimal('1'),
       date: new Date('2024-02-01'),
-      proceedsPerUnit: new Decimal('20000'), // Less than cost basis
+      proceedsPerUnit: parseDecimal('20000'), // Less than cost basis
     };
     const lots = [createLot('lot1', '2024-01-01', '1', '1')];
 
@@ -494,9 +495,9 @@ describe('matchDisposalToSortedLots', () => {
     const disposal: DisposalRequest = {
       transactionId: 100,
       assetSymbol: 'BTC',
-      quantity: new Decimal('1'),
+      quantity: parseDecimal('1'),
       date: new Date('2024-02-01'),
-      proceedsPerUnit: new Decimal('0'),
+      proceedsPerUnit: parseDecimal('0'),
     };
     const lots = [createLot('lot1', '2024-01-01', '1', '1')];
 

@@ -1,6 +1,5 @@
 import type { UniversalTransactionData } from '@exitbook/core';
-import { Currency } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { PriceValidationResult } from '../cost-basis-validation-utils.js';
@@ -34,10 +33,10 @@ describe('cost-basis-validation-utils', () => {
             {
               assetId: 'test:btc',
               assetSymbol: 'BTC',
-              grossAmount: new Decimal('1.0'),
-              netAmount: new Decimal('1.0'),
+              grossAmount: parseDecimal('1.0'),
+              netAmount: parseDecimal('1.0'),
               priceAtTxTime: {
-                price: { amount: new Decimal('50000'), currency: Currency.create('USD') },
+                price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
                 source: 'test-provider',
                 fetchedAt: new Date('2024-01-15T10:00:00Z'),
               },
@@ -47,10 +46,10 @@ describe('cost-basis-validation-utils', () => {
             {
               assetId: 'test:usd',
               assetSymbol: 'USD',
-              grossAmount: new Decimal('50000'),
-              netAmount: new Decimal('50000'),
+              grossAmount: parseDecimal('50000'),
+              netAmount: parseDecimal('50000'),
               priceAtTxTime: {
-                price: { amount: new Decimal('1'), currency: Currency.create('USD') },
+                price: { amount: parseDecimal('1'), currency: Currency.create('USD') },
                 source: 'test-provider',
                 fetchedAt: new Date('2024-01-15T10:00:00Z'),
               },
@@ -61,11 +60,11 @@ describe('cost-basis-validation-utils', () => {
           {
             assetId: 'test:usd',
             assetSymbol: 'USD',
-            amount: new Decimal('10'),
+            amount: parseDecimal('10'),
             scope: 'platform',
             settlement: 'balance',
             priceAtTxTime: {
-              price: { amount: new Decimal('1'), currency: Currency.create('USD') },
+              price: { amount: parseDecimal('1'), currency: Currency.create('USD') },
               source: 'test-provider',
               fetchedAt: new Date('2024-01-15T10:00:00Z'),
             },
@@ -118,8 +117,8 @@ describe('cost-basis-validation-utils', () => {
             {
               assetId: 'test:btc',
               assetSymbol: 'BTC',
-              grossAmount: new Decimal('1.0'),
-              netAmount: new Decimal('1.0'),
+              grossAmount: parseDecimal('1.0'),
+              netAmount: parseDecimal('1.0'),
               // No priceAtTxTime
             },
           ],
@@ -156,13 +155,13 @@ describe('cost-basis-validation-utils', () => {
             {
               assetId: 'test:btc',
               assetSymbol: 'BTC',
-              grossAmount: new Decimal('1.0'),
-              netAmount: new Decimal('1.0'),
+              grossAmount: parseDecimal('1.0'),
+              netAmount: parseDecimal('1.0'),
               priceAtTxTime: {
-                price: { amount: new Decimal('50000'), currency: Currency.create('USD') },
+                price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
                 source: 'test-provider',
                 fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                fxRateToUSD: new Decimal('1.35'),
+                fxRateToUSD: parseDecimal('1.35'),
                 fxSource: 'ECB',
                 fxTimestamp: new Date('2024-01-15T10:00:00Z'),
               },
@@ -210,8 +209,8 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:btc',
                 assetSymbol: 'BTC',
-                grossAmount: new Decimal('1.0'),
-                netAmount: new Decimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('1.0'),
                 // No price
               },
             ],
@@ -249,10 +248,10 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:btc',
                 assetSymbol: 'BTC',
-                grossAmount: new Decimal('1.0'),
-                netAmount: new Decimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: new Decimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -290,10 +289,10 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:btc',
                 assetSymbol: 'BTC',
-                grossAmount: new Decimal('1.0'),
-                netAmount: new Decimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: new Decimal('45000'), currency: Currency.create('EUR') },
+                  price: { amount: parseDecimal('45000'), currency: Currency.create('EUR') },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -333,10 +332,10 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:btc',
                 assetSymbol: 'BTC',
-                grossAmount: new Decimal('1.0'),
-                netAmount: new Decimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: new Decimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -372,10 +371,10 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:btc',
                 assetSymbol: 'BTC',
-                grossAmount: new Decimal('1.0'),
-                netAmount: new Decimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: new Decimal('50000'), currency: Currency.create('usd') },
+                  price: { amount: parseDecimal('50000'), currency: Currency.create('usd') },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -413,13 +412,13 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:btc',
                 assetSymbol: 'BTC',
-                grossAmount: new Decimal('1.0'),
-                netAmount: new Decimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: new Decimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                  fxRateToUSD: new Decimal('1.35'),
+                  fxRateToUSD: parseDecimal('1.35'),
                   fxSource: 'ECB',
                   // Missing fxTimestamp
                 },
@@ -459,13 +458,13 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:btc',
                 assetSymbol: 'BTC',
-                grossAmount: new Decimal('1.0'),
-                netAmount: new Decimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: new Decimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                  fxRateToUSD: new Decimal('1.35'),
+                  fxRateToUSD: parseDecimal('1.35'),
                   fxSource: 'ECB',
                   fxTimestamp: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -501,10 +500,10 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:btc',
                 assetSymbol: 'BTC',
-                grossAmount: new Decimal('1.0'),
-                netAmount: new Decimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: new Decimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                   // No fx fields at all - this is fine for native USD prices
@@ -641,10 +640,10 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:btc',
                 assetSymbol: 'BTC',
-                grossAmount: new Decimal('1.0'),
-                netAmount: new Decimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: new Decimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -654,10 +653,10 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:usd',
                 assetSymbol: 'USD',
-                grossAmount: new Decimal('50000'),
-                netAmount: new Decimal('50000'),
+                grossAmount: parseDecimal('50000'),
+                netAmount: parseDecimal('50000'),
                 priceAtTxTime: {
-                  price: { amount: new Decimal('1'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('1'), currency: Currency.create('USD') },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -693,8 +692,8 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:btc',
                 assetSymbol: 'BTC',
-                grossAmount: new Decimal('1.0'),
-                netAmount: new Decimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('1.0'),
                 // No price
               },
             ],
@@ -732,10 +731,10 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:btc',
                 assetSymbol: 'BTC',
-                grossAmount: new Decimal('1.0'),
-                netAmount: new Decimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: new Decimal('45000'), currency: Currency.create('EUR') },
+                  price: { amount: parseDecimal('45000'), currency: Currency.create('EUR') },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -775,13 +774,13 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:btc',
                 assetSymbol: 'BTC',
-                grossAmount: new Decimal('1.0'),
-                netAmount: new Decimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: new Decimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                  fxRateToUSD: new Decimal('1.35'),
+                  fxRateToUSD: parseDecimal('1.35'),
                   fxSource: 'ECB',
                   // Missing fxTimestamp
                 },
@@ -821,8 +820,8 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:btc',
                 assetSymbol: 'BTC',
-                grossAmount: new Decimal('1.0'),
-                netAmount: new Decimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('1.0'),
                 // Missing price
               },
             ],
@@ -830,10 +829,10 @@ describe('cost-basis-validation-utils', () => {
               {
                 assetId: 'test:eth',
                 assetSymbol: 'ETH',
-                grossAmount: new Decimal('10.0'),
-                netAmount: new Decimal('10.0'),
+                grossAmount: parseDecimal('10.0'),
+                netAmount: parseDecimal('10.0'),
                 priceAtTxTime: {
-                  price: { amount: new Decimal('3000'), currency: Currency.create('EUR') },
+                  price: { amount: parseDecimal('3000'), currency: Currency.create('EUR') },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -844,14 +843,14 @@ describe('cost-basis-validation-utils', () => {
             {
               assetId: 'test:usd',
               assetSymbol: 'USD',
-              amount: new Decimal('10'),
+              amount: parseDecimal('10'),
               scope: 'platform',
               settlement: 'balance',
               priceAtTxTime: {
-                price: { amount: new Decimal('1'), currency: Currency.create('USD') },
+                price: { amount: parseDecimal('1'), currency: Currency.create('USD') },
                 source: 'test-provider',
                 fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                fxRateToUSD: new Decimal('1.35'),
+                fxRateToUSD: parseDecimal('1.35'),
                 fxSource: 'ECB',
                 // Incomplete FX metadata
               },

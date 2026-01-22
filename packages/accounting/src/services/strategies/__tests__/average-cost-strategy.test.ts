@@ -20,9 +20,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('1.0'),
+        quantity: parseDecimal('1.0'),
         date: new Date('2024-03-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       const lots: AcquisitionLot[] = [
@@ -33,7 +33,7 @@ describe('AverageCostStrategy', () => {
       const result = strategy.matchDisposal(disposal, lots);
 
       // Pooled ACB = (1.0 * 30000 + 1.0 * 40000) / 2.0 = 35000
-      const expectedPooledCost = new Decimal('35000');
+      const expectedPooledCost = parseDecimal('35000');
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -62,9 +62,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('0.5'),
+        quantity: parseDecimal('0.5'),
         date: new Date('2024-02-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       const lots: AcquisitionLot[] = [createLot('lot1', '1.0', '30000', new Date('2024-01-01'))];
@@ -86,9 +86,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('2.0'),
+        quantity: parseDecimal('2.0'),
         date: new Date('2024-03-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       const lots: AcquisitionLot[] = [
@@ -113,9 +113,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('1.5'),
+        quantity: parseDecimal('1.5'),
         date: new Date('2024-04-01'),
-        proceedsPerUnit: new Decimal('60000'),
+        proceedsPerUnit: parseDecimal('60000'),
       };
 
       const lots: AcquisitionLot[] = [
@@ -127,7 +127,7 @@ describe('AverageCostStrategy', () => {
       const result = strategy.matchDisposal(disposal, lots);
 
       // Pooled ACB = (2.0*30000 + 1.0*40000 + 0.5*50000) / 3.5 = 125000 / 3.5 = 35714.285714...
-      const expectedPooledCost = new Decimal('125000').dividedBy(new Decimal('3.5'));
+      const expectedPooledCost = parseDecimal('125000').dividedBy(new Decimal('3.5'));
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -161,9 +161,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('1.0'),
+        quantity: parseDecimal('1.0'),
         date: new Date('2024-03-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       const lots: AcquisitionLot[] = [
@@ -186,9 +186,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('3.0'),
+        quantity: parseDecimal('3.0'),
         date: new Date('2024-03-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       const lots: AcquisitionLot[] = [
@@ -208,15 +208,15 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('0.5'),
+        quantity: parseDecimal('0.5'),
         date: new Date('2024-03-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       const lots: AcquisitionLot[] = [
         {
           ...createLot('lot1', '1.0', '30000', new Date('2024-01-01')),
-          remainingQuantity: new Decimal('0'),
+          remainingQuantity: parseDecimal('0'),
           status: 'fully_disposed',
         },
         createLot('lot2', '1.0', '40000', new Date('2024-02-01')),
@@ -238,9 +238,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('0.00000001'),
+        quantity: parseDecimal('0.00000001'),
         date: new Date('2024-03-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       const lots: AcquisitionLot[] = [
@@ -266,9 +266,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('10.0'),
+        quantity: parseDecimal('10.0'),
         date: new Date('2024-03-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       // Create 100 lots with varying quantities
@@ -294,15 +294,15 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('1.0'),
+        quantity: parseDecimal('1.0'),
         date: new Date('2024-03-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       const lots: AcquisitionLot[] = [
         {
           ...createLot('lot1', '1.0', '30000', new Date('2024-01-01')),
-          remainingQuantity: new Decimal('0'),
+          remainingQuantity: parseDecimal('0'),
           status: 'fully_disposed',
         },
       ];
@@ -319,9 +319,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('1.0'),
+        quantity: parseDecimal('1.0'),
         date: new Date('2024-03-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       const lots: AcquisitionLot[] = [
@@ -348,9 +348,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('1.5'),
+        quantity: parseDecimal('1.5'),
         date: new Date('2024-04-01'),
-        proceedsPerUnit: new Decimal('60000'),
+        proceedsPerUnit: parseDecimal('60000'),
       };
 
       // Create lots with different acquisition dates
@@ -402,9 +402,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('1.0'),
+        quantity: parseDecimal('1.0'),
         date: new Date('2024-02-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       // Same acquisition date, different IDs
@@ -432,9 +432,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('1.0'),
+        quantity: parseDecimal('1.0'),
         date: new Date('2024-04-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       // Three equal lots - pro-rata will create 0.333... repeating
@@ -461,9 +461,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('2.7183'), // e (Euler's number)
+        quantity: parseDecimal('2.7183'), // e (Euler's number)
         date: new Date('2024-04-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       const lots: AcquisitionLot[] = [];
@@ -493,9 +493,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('0'),
+        quantity: parseDecimal('0'),
         date: new Date('2024-03-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       const lots: AcquisitionLot[] = [
@@ -518,9 +518,9 @@ describe('AverageCostStrategy', () => {
       const disposal = {
         transactionId: 100,
         assetSymbol: 'BTC',
-        quantity: new Decimal('0.00000001'), // 1 satoshi
+        quantity: parseDecimal('0.00000001'), // 1 satoshi
         date: new Date('2024-03-01'),
-        proceedsPerUnit: new Decimal('50000'),
+        proceedsPerUnit: parseDecimal('50000'),
       };
 
       const lots: AcquisitionLot[] = [

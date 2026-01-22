@@ -1,4 +1,3 @@
-import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -28,7 +27,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should parse Decimal instance', () => {
-      const input = new Decimal('789.012');
+      const input = parseDecimal('789.012');
       const out = { value: parseDecimal('0') };
       const result = tryParseDecimal(input, out);
 
@@ -113,7 +112,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should parse Decimal instance', () => {
-      const input = new Decimal('789.012');
+      const input = parseDecimal('789.012');
       const result = parseDecimal(input);
       expect(result.toString()).toBe('789.012');
     });
@@ -159,7 +158,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should create Money object with Decimal amount', () => {
-      const amount = new Decimal('50.25');
+      const amount = parseDecimal('50.25');
       const money = createMoney(amount, 'EUR');
 
       expect(money.amount.toString()).toBe('50.25');
@@ -255,63 +254,63 @@ describe('Decimal Utilities', () => {
 
   describe('formatDecimal', () => {
     it('should format decimal with default precision', () => {
-      const decimal = new Decimal('123.456789012');
+      const decimal = parseDecimal('123.456789012');
       const result = formatDecimal(decimal);
 
       expect(result).toBe('123.45678901');
     });
 
     it('should format decimal with custom precision', () => {
-      const decimal = new Decimal('123.456789');
+      const decimal = parseDecimal('123.456789');
       const result = formatDecimal(decimal, 4);
 
       expect(result).toBe('123.4568');
     });
 
     it('should remove trailing zeros', () => {
-      const decimal = new Decimal('123.45000000');
+      const decimal = parseDecimal('123.45000000');
       const result = formatDecimal(decimal);
 
       expect(result).toBe('123.45');
     });
 
     it('should remove trailing decimal point', () => {
-      const decimal = new Decimal('123');
+      const decimal = parseDecimal('123');
       const result = formatDecimal(decimal);
 
       expect(result).toBe('123');
     });
 
     it('should handle zero', () => {
-      const decimal = new Decimal('0');
+      const decimal = parseDecimal('0');
       const result = formatDecimal(decimal);
 
       expect(result).toBe('0');
     });
 
     it('should handle very small numbers', () => {
-      const decimal = new Decimal('0.00000001');
+      const decimal = parseDecimal('0.00000001');
       const result = formatDecimal(decimal);
 
       expect(result).toBe('0.00000001');
     });
 
     it('should handle negative numbers', () => {
-      const decimal = new Decimal('-123.456');
+      const decimal = parseDecimal('-123.456');
       const result = formatDecimal(decimal);
 
       expect(result).toBe('-123.456');
     });
 
     it('should truncate excess precision', () => {
-      const decimal = new Decimal('123.123456789012345');
+      const decimal = parseDecimal('123.123456789012345');
       const result = formatDecimal(decimal, 2);
 
       expect(result).toBe('123.12');
     });
 
     it('should handle zero decimal places', () => {
-      const decimal = new Decimal('123.456');
+      const decimal = parseDecimal('123.456');
       const result = formatDecimal(decimal, 0);
 
       expect(result).toBe('123');
@@ -518,7 +517,7 @@ describe('Decimal Utilities', () => {
 
   describe('decimalToString', () => {
     it('should convert Decimal to string', () => {
-      const decimal = new Decimal('123.456');
+      const decimal = parseDecimal('123.456');
       const result = decimalToString(decimal);
 
       expect(result).toBe('123.456');
@@ -531,28 +530,28 @@ describe('Decimal Utilities', () => {
     });
 
     it('should preserve full precision', () => {
-      const decimal = new Decimal('0.123456789012345678901234567890');
+      const decimal = parseDecimal('0.123456789012345678901234567890');
       const result = decimalToString(decimal);
 
       expect(result).toContain('0.12345678901234567890123456789');
     });
 
     it('should handle zero', () => {
-      const decimal = new Decimal('0');
+      const decimal = parseDecimal('0');
       const result = decimalToString(decimal);
 
       expect(result).toBe('0');
     });
 
     it('should handle negative numbers', () => {
-      const decimal = new Decimal('-123.456');
+      const decimal = parseDecimal('-123.456');
       const result = decimalToString(decimal);
 
       expect(result).toBe('-123.456');
     });
 
     it('should handle very large numbers without scientific notation', () => {
-      const decimal = new Decimal('999999999999999999');
+      const decimal = parseDecimal('999999999999999999');
       const result = decimalToString(decimal);
 
       expect(result).toBe('999999999999999999');
@@ -560,7 +559,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should handle very small numbers without scientific notation', () => {
-      const decimal = new Decimal('0.00000001');
+      const decimal = parseDecimal('0.00000001');
       const result = decimalToString(decimal);
 
       expect(result).toBe('0.00000001');

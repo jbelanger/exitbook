@@ -8,8 +8,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import { Currency } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../persistence/database.js';
@@ -66,7 +65,7 @@ describe('ManualPriceService', () => {
       const result = await service.savePrice({
         assetSymbol: 'BTC',
         date: new Date('2024-01-15T10:30:00Z'),
-        price: new Decimal(45000),
+        price: parseDecimal('45000'),
       });
 
       expect(result.isOk()).toBe(true);
@@ -95,7 +94,7 @@ describe('ManualPriceService', () => {
       const result = await service.savePrice({
         assetSymbol: 'BTC',
         date: new Date('2024-01-15T10:30:00Z'),
-        price: new Decimal(42000),
+        price: parseDecimal('42000'),
         currency: 'EUR',
       });
 
@@ -121,7 +120,7 @@ describe('ManualPriceService', () => {
       const result = await service.savePrice({
         assetSymbol: 'ETH',
         date: new Date('2024-01-15T10:30:00Z'),
-        price: new Decimal(2500),
+        price: parseDecimal('2500'),
         source: 'manual-cli',
       });
 
@@ -146,7 +145,7 @@ describe('ManualPriceService', () => {
       const result = await service.savePrice({
         assetSymbol: 'BTC',
         date: new Date('2024-01-15T10:30:00Z'),
-        price: new Decimal(45000),
+        price: parseDecimal('45000'),
       });
 
       expect(result.isErr()).toBe(true);
@@ -165,7 +164,7 @@ describe('ManualPriceService', () => {
         from: 'EUR',
         to: 'USD',
         date: new Date('2024-01-15T00:00:00Z'),
-        rate: new Decimal(1.08),
+        rate: parseDecimal('1.08'),
       });
 
       expect(result.isOk()).toBe(true);
@@ -195,7 +194,7 @@ describe('ManualPriceService', () => {
         from: 'CAD',
         to: 'USD',
         date: new Date('2024-06-20T00:00:00Z'),
-        rate: new Decimal(0.73),
+        rate: parseDecimal('0.73'),
         source: 'bank-statement',
       });
 
@@ -221,7 +220,7 @@ describe('ManualPriceService', () => {
         from: 'USD',
         to: 'USD',
         date: new Date('2024-01-15T00:00:00Z'),
-        rate: new Decimal(1.0),
+        rate: parseDecimal('1.0'),
       });
 
       expect(result.isErr()).toBe(true);
@@ -237,7 +236,7 @@ describe('ManualPriceService', () => {
         from: 'EUR',
         to: 'USD',
         date: new Date('2024-01-15T00:00:00Z'),
-        rate: new Decimal(1.08),
+        rate: parseDecimal('1.08'),
       });
 
       expect(result.isErr()).toBe(true);
@@ -256,7 +255,7 @@ describe('ManualPriceService', () => {
       const result1 = await service.savePrice({
         assetSymbol: 'BTC',
         date: new Date('2024-01-15T10:30:00Z'),
-        price: new Decimal(45000),
+        price: parseDecimal('45000'),
       });
 
       expect(result1.isOk()).toBe(true);
@@ -265,7 +264,7 @@ describe('ManualPriceService', () => {
       const result2 = await service.savePrice({
         assetSymbol: 'ETH',
         date: new Date('2024-01-15T10:30:00Z'),
-        price: new Decimal(2500),
+        price: parseDecimal('2500'),
       });
 
       expect(result2.isOk()).toBe(true);
@@ -347,7 +346,7 @@ describe('Helper functions', () => {
       const result = await saveManualPrice(
         'BTC',
         new Date('2024-01-15T10:30:00Z'),
-        new Decimal(45000),
+        parseDecimal('45000'),
         'USD',
         'manual',
         testDbPath
@@ -389,7 +388,7 @@ describe('Helper functions', () => {
         'EUR',
         'USD',
         new Date('2024-01-15T00:00:00Z'),
-        new Decimal(1.08),
+        parseDecimal('1.08'),
         'user-provided',
         testDbPath
       );

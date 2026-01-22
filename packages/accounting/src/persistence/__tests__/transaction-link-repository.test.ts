@@ -1,7 +1,6 @@
 /* eslint-disable unicorn/no-null -- null needed by db */
 import { parseDecimal } from '@exitbook/core';
 import { closeDatabase, createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { v4 as uuidv4 } from 'uuid';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -88,8 +87,8 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
-        sourceAmount: new Decimal('1.0'),
-        targetAmount: new Decimal('0.9995'),
+        sourceAmount: parseDecimal('1.0'),
+        targetAmount: parseDecimal('0.9995'),
         linkType: 'exchange_to_blockchain',
         confidenceScore: parseDecimal('0.98'),
         matchCriteria: {
@@ -128,8 +127,8 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'ETH',
-        sourceAmount: new Decimal('10.0'),
-        targetAmount: new Decimal('9.95'),
+        sourceAmount: parseDecimal('10.0'),
+        targetAmount: parseDecimal('9.95'),
         linkType: 'blockchain_to_blockchain',
         confidenceScore: parseDecimal('0.95'),
         matchCriteria: {
@@ -168,8 +167,8 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         sourceTransactionId: 3,
         targetTransactionId: 4,
         assetSymbol: 'BTC',
-        sourceAmount: new Decimal('0.00001'),
-        targetAmount: new Decimal('0.000009'),
+        sourceAmount: parseDecimal('0.00001'),
+        targetAmount: parseDecimal('0.000009'),
         linkType: 'exchange_to_blockchain',
         confidenceScore: parseDecimal('0.97'),
         matchCriteria: {
@@ -200,8 +199,8 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         sourceTransactionId: 5,
         targetTransactionId: 6,
         assetSymbol: 'BTC',
-        sourceAmount: new Decimal('1000000.123456789'),
-        targetAmount: new Decimal('999999.123456789'),
+        sourceAmount: parseDecimal('1000000.123456789'),
+        targetAmount: parseDecimal('999999.123456789'),
         linkType: 'exchange_to_exchange',
         confidenceScore: parseDecimal('0.99'),
         matchCriteria: {
@@ -235,8 +234,8 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
-          sourceAmount: new Decimal('1.0'),
-          targetAmount: new Decimal('0.9995'),
+          sourceAmount: parseDecimal('1.0'),
+          targetAmount: parseDecimal('0.9995'),
           linkType: 'exchange_to_blockchain',
           confidenceScore: parseDecimal('0.98'),
           matchCriteria: {
@@ -254,8 +253,8 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
           sourceTransactionId: 3,
           targetTransactionId: 4,
           assetSymbol: 'ETH',
-          sourceAmount: new Decimal('10.0'),
-          targetAmount: new Decimal('9.98'),
+          sourceAmount: parseDecimal('10.0'),
+          targetAmount: parseDecimal('9.98'),
           linkType: 'blockchain_to_blockchain',
           confidenceScore: parseDecimal('0.96'),
           matchCriteria: {
@@ -296,8 +295,8 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         sourceTransactionId: 7,
         targetTransactionId: 8,
         assetSymbol: 'BTC',
-        sourceAmount: new Decimal('1.0'),
-        targetAmount: new Decimal('0.9995'),
+        sourceAmount: parseDecimal('1.0'),
+        targetAmount: parseDecimal('0.9995'),
         linkType: 'exchange_to_blockchain',
         confidenceScore: parseDecimal('0.98'),
         matchCriteria: {
@@ -316,8 +315,8 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         sourceTransactionId: 7,
         targetTransactionId: 9,
         assetSymbol: 'ETH',
-        sourceAmount: new Decimal('5.0'),
-        targetAmount: new Decimal('4.99'),
+        sourceAmount: parseDecimal('5.0'),
+        targetAmount: parseDecimal('4.99'),
         linkType: 'exchange_to_blockchain',
         confidenceScore: parseDecimal('0.97'),
         matchCriteria: {
@@ -352,8 +351,8 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
-        sourceAmount: new Decimal('1.0'),
-        targetAmount: new Decimal('0.9995'),
+        sourceAmount: parseDecimal('1.0'),
+        targetAmount: parseDecimal('0.9995'),
         linkType: 'exchange_to_blockchain',
         confidenceScore: parseDecimal('0.98'),
         matchCriteria: {

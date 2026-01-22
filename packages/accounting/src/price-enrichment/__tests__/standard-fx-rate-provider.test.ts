@@ -29,7 +29,7 @@ describe('StandardFxRateProvider', () => {
 
   describe('getRateToUSD', () => {
     it('fetches EUR → USD rate from price manager', async () => {
-      const mockRate = new Decimal('1.08');
+      const mockRate = parseDecimal('1.08');
       const mockFetchedAt = new Date('2023-01-15T10:00:00Z');
       const timestamp = new Date('2023-01-15T10:00:00Z');
 
@@ -65,7 +65,7 @@ describe('StandardFxRateProvider', () => {
     });
 
     it('fetches CAD → USD rate from price manager', async () => {
-      const mockRate = new Decimal('0.74');
+      const mockRate = parseDecimal('0.74');
       const mockFetchedAt = new Date('2023-06-20T00:00:00Z');
       const timestamp = new Date('2023-06-20T00:00:00Z');
 
@@ -110,7 +110,7 @@ describe('StandardFxRateProvider', () => {
   describe('getRateFromUSD', () => {
     it('inverts rate for USD → CAD conversion', async () => {
       // CAD → USD = 0.74, so USD → CAD should be 1/0.74 ≈ 1.3514
-      const mockRate = new Decimal('0.74');
+      const mockRate = parseDecimal('0.74');
       const mockFetchedAt = new Date('2023-06-20T00:00:00Z');
       const timestamp = new Date('2023-06-20T00:00:00Z');
 
@@ -134,7 +134,7 @@ describe('StandardFxRateProvider', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         // 1 / 0.74 = 1.351351351...
-        const expected = new Decimal(1).div(new Decimal('0.74'));
+        const expected = new Decimal(1).div(parseDecimal('0.74'));
         expect(result.value.rate.toFixed()).toBe(expected.toFixed());
         expect(result.value.source).toBe('bank-of-canada');
         expect(result.value.fetchedAt).toEqual(mockFetchedAt);
@@ -150,7 +150,7 @@ describe('StandardFxRateProvider', () => {
 
     it('inverts rate for USD → EUR conversion', async () => {
       // EUR → USD = 1.08, so USD → EUR should be 1/1.08 ≈ 0.9259
-      const mockRate = new Decimal('1.08');
+      const mockRate = parseDecimal('1.08');
       const mockFetchedAt = new Date('2023-01-15T10:00:00Z');
       const timestamp = new Date('2023-01-15T10:00:00Z');
 
@@ -174,7 +174,7 @@ describe('StandardFxRateProvider', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         // 1 / 1.08 = 0.925925925...
-        const expected = new Decimal(1).div(new Decimal('1.08'));
+        const expected = new Decimal(1).div(parseDecimal('1.08'));
         expect(result.value.rate.toFixed()).toBe(expected.toFixed());
         expect(result.value.source).toBe('ecb');
       }
@@ -193,7 +193,7 @@ describe('StandardFxRateProvider', () => {
     });
 
     it('returns error when rate is zero (cannot invert)', async () => {
-      const mockRate = new Decimal('0');
+      const mockRate = parseDecimal('0');
       const mockFetchedAt = new Date('2023-06-20T00:00:00Z');
       const timestamp = new Date('2023-06-20T00:00:00Z');
 
@@ -258,7 +258,7 @@ describe('StandardFxRateProvider', () => {
 
   describe('integration scenarios', () => {
     it('supports converting both to and from USD for the same currency', async () => {
-      const cadToUsdRate = new Decimal('0.74');
+      const cadToUsdRate = parseDecimal('0.74');
       const mockFetchedAt = new Date('2023-06-20T00:00:00Z');
       const timestamp = new Date('2023-06-20T00:00:00Z');
       const cad = Currency.create('CAD');

@@ -5,6 +5,7 @@
  * according to the "Functional Core, Imperative Shell" pattern
  */
 
+import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -262,13 +263,13 @@ describe('aggregateAssetGainLoss', () => {
       disposalDate: new Date('2023-06-15'),
       acquisitionDate: new Date('2023-03-07'),
       holdingPeriodDays: 100,
-      capitalGainLoss: new Decimal('10000'),
-      taxableGainLoss: new Decimal('5000'),
+      capitalGainLoss: parseDecimal('10000'),
+      taxableGainLoss: parseDecimal('5000'),
       taxTreatmentCategory: 'short-term',
       lossDisallowed: false,
-      quantityDisposed: new Decimal('1.0'),
-      proceedsPerUnit: new Decimal('50000'),
-      costBasisPerUnit: new Decimal('40000'),
+      quantityDisposed: parseDecimal('1.0'),
+      proceedsPerUnit: parseDecimal('50000'),
+      costBasisPerUnit: parseDecimal('40000'),
     };
 
     const result = aggregateAssetGainLoss('BTC', [disposal]);
@@ -285,8 +286,8 @@ describe('aggregateAssetGainLoss', () => {
     expect(summary.disposalCount).toBe(1);
     expect(summary.byCategory.get('short-term')).toEqual({
       count: 1,
-      gainLoss: new Decimal('10000'),
-      taxableGainLoss: new Decimal('5000'),
+      gainLoss: parseDecimal('10000'),
+      taxableGainLoss: parseDecimal('5000'),
     });
   });
 
@@ -297,13 +298,13 @@ describe('aggregateAssetGainLoss', () => {
       disposalDate: new Date('2023-06-15'),
       acquisitionDate: new Date('2023-03-07'),
       holdingPeriodDays: 100,
-      capitalGainLoss: new Decimal('10000'),
-      taxableGainLoss: new Decimal('5000'),
+      capitalGainLoss: parseDecimal('10000'),
+      taxableGainLoss: parseDecimal('5000'),
       taxTreatmentCategory: 'short-term',
       lossDisallowed: false,
-      quantityDisposed: new Decimal('1.0'),
-      proceedsPerUnit: new Decimal('50000'),
-      costBasisPerUnit: new Decimal('40000'),
+      quantityDisposed: parseDecimal('1.0'),
+      proceedsPerUnit: parseDecimal('50000'),
+      costBasisPerUnit: parseDecimal('40000'),
     };
 
     const disposal2 = {
@@ -312,13 +313,13 @@ describe('aggregateAssetGainLoss', () => {
       disposalDate: new Date('2024-01-15'),
       acquisitionDate: new Date('2023-03-07'),
       holdingPeriodDays: 365,
-      capitalGainLoss: new Decimal('15000'),
-      taxableGainLoss: new Decimal('7500'),
+      capitalGainLoss: parseDecimal('15000'),
+      taxableGainLoss: parseDecimal('7500'),
       taxTreatmentCategory: 'long-term',
       lossDisallowed: false,
-      quantityDisposed: new Decimal('1.5'),
-      proceedsPerUnit: new Decimal('60000'),
-      costBasisPerUnit: new Decimal('50000'),
+      quantityDisposed: parseDecimal('1.5'),
+      proceedsPerUnit: parseDecimal('60000'),
+      costBasisPerUnit: parseDecimal('50000'),
     };
 
     const result = aggregateAssetGainLoss('BTC', [disposal1, disposal2]);
@@ -335,14 +336,14 @@ describe('aggregateAssetGainLoss', () => {
 
     expect(summary.byCategory.get('short-term')).toEqual({
       count: 1,
-      gainLoss: new Decimal('10000'),
-      taxableGainLoss: new Decimal('5000'),
+      gainLoss: parseDecimal('10000'),
+      taxableGainLoss: parseDecimal('5000'),
     });
 
     expect(summary.byCategory.get('long-term')).toEqual({
       count: 1,
-      gainLoss: new Decimal('15000'),
-      taxableGainLoss: new Decimal('7500'),
+      gainLoss: parseDecimal('15000'),
+      taxableGainLoss: parseDecimal('7500'),
     });
   });
 
@@ -369,13 +370,13 @@ describe('aggregateAssetGainLoss', () => {
       disposalDate: new Date('2023-06-15'),
       acquisitionDate: new Date('2023-05-01'),
       holdingPeriodDays: 45,
-      capitalGainLoss: new Decimal('500'),
-      taxableGainLoss: new Decimal('250'),
+      capitalGainLoss: parseDecimal('500'),
+      taxableGainLoss: parseDecimal('250'),
       taxTreatmentCategory: 'short-term',
       lossDisallowed: false,
-      quantityDisposed: new Decimal('1.0'),
-      proceedsPerUnit: new Decimal('2000'),
-      costBasisPerUnit: new Decimal('1500'),
+      quantityDisposed: parseDecimal('1.0'),
+      proceedsPerUnit: parseDecimal('2000'),
+      costBasisPerUnit: parseDecimal('1500'),
     };
 
     const disposal2 = {
@@ -384,13 +385,13 @@ describe('aggregateAssetGainLoss', () => {
       disposalDate: new Date('2023-07-01'),
       acquisitionDate: new Date('2023-05-15'),
       holdingPeriodDays: 47,
-      capitalGainLoss: new Decimal('300'),
-      taxableGainLoss: new Decimal('150'),
+      capitalGainLoss: parseDecimal('300'),
+      taxableGainLoss: parseDecimal('150'),
       taxTreatmentCategory: 'short-term',
       lossDisallowed: false,
-      quantityDisposed: new Decimal('1.0'),
-      proceedsPerUnit: new Decimal('2100'),
-      costBasisPerUnit: new Decimal('1800'),
+      quantityDisposed: parseDecimal('1.0'),
+      proceedsPerUnit: parseDecimal('2100'),
+      costBasisPerUnit: parseDecimal('1800'),
     };
 
     const result = aggregateAssetGainLoss('ETH', [disposal1, disposal2]);
@@ -401,8 +402,8 @@ describe('aggregateAssetGainLoss', () => {
     const summary = result.value;
     expect(summary.byCategory.get('short-term')).toEqual({
       count: 2,
-      gainLoss: new Decimal('800'),
-      taxableGainLoss: new Decimal('400'),
+      gainLoss: parseDecimal('800'),
+      taxableGainLoss: parseDecimal('400'),
     });
   });
 
@@ -413,13 +414,13 @@ describe('aggregateAssetGainLoss', () => {
       disposalDate: new Date('2023-06-15'),
       acquisitionDate: new Date('2023-03-07'),
       holdingPeriodDays: 100,
-      capitalGainLoss: new Decimal('10000'),
-      taxableGainLoss: new Decimal('5000'),
+      capitalGainLoss: parseDecimal('10000'),
+      taxableGainLoss: parseDecimal('5000'),
       taxTreatmentCategory: undefined,
       lossDisallowed: false,
-      quantityDisposed: new Decimal('1.0'),
-      proceedsPerUnit: new Decimal('50000'),
-      costBasisPerUnit: new Decimal('40000'),
+      quantityDisposed: parseDecimal('1.0'),
+      proceedsPerUnit: parseDecimal('50000'),
+      costBasisPerUnit: parseDecimal('40000'),
     };
 
     const result = aggregateAssetGainLoss('BTC', [disposal]);
@@ -430,8 +431,8 @@ describe('aggregateAssetGainLoss', () => {
     const summary = result.value;
     expect(summary.byCategory.get('uncategorized')).toEqual({
       count: 1,
-      gainLoss: new Decimal('10000'),
-      taxableGainLoss: new Decimal('5000'),
+      gainLoss: parseDecimal('10000'),
+      taxableGainLoss: parseDecimal('5000'),
     });
   });
 });
@@ -440,10 +441,10 @@ describe('aggregateOverallGainLoss', () => {
   it('aggregates single asset correctly', () => {
     const btcSummary = {
       assetSymbol: 'BTC',
-      totalProceeds: new Decimal('100000'),
-      totalCostBasis: new Decimal('80000'),
-      totalCapitalGainLoss: new Decimal('20000'),
-      totalTaxableGainLoss: new Decimal('10000'),
+      totalProceeds: parseDecimal('100000'),
+      totalCostBasis: parseDecimal('80000'),
+      totalCapitalGainLoss: parseDecimal('20000'),
+      totalTaxableGainLoss: parseDecimal('10000'),
       disposalCount: 2,
       byCategory: new Map(),
       disposals: [],
@@ -469,10 +470,10 @@ describe('aggregateOverallGainLoss', () => {
   it('aggregates multiple assets correctly', () => {
     const btcSummary = {
       assetSymbol: 'BTC',
-      totalProceeds: new Decimal('100000'),
-      totalCostBasis: new Decimal('80000'),
-      totalCapitalGainLoss: new Decimal('20000'),
-      totalTaxableGainLoss: new Decimal('10000'),
+      totalProceeds: parseDecimal('100000'),
+      totalCostBasis: parseDecimal('80000'),
+      totalCapitalGainLoss: parseDecimal('20000'),
+      totalTaxableGainLoss: parseDecimal('10000'),
       disposalCount: 2,
       byCategory: new Map(),
       disposals: [],
@@ -480,10 +481,10 @@ describe('aggregateOverallGainLoss', () => {
 
     const ethSummary = {
       assetSymbol: 'ETH',
-      totalProceeds: new Decimal('50000'),
-      totalCostBasis: new Decimal('45000'),
-      totalCapitalGainLoss: new Decimal('5000'),
-      totalTaxableGainLoss: new Decimal('2500'),
+      totalProceeds: parseDecimal('50000'),
+      totalCostBasis: parseDecimal('45000'),
+      totalCapitalGainLoss: parseDecimal('5000'),
+      totalTaxableGainLoss: parseDecimal('2500'),
       disposalCount: 3,
       byCategory: new Map(),
       disposals: [],
@@ -527,10 +528,10 @@ describe('aggregateOverallGainLoss', () => {
   it('includes disallowed loss count', () => {
     const btcSummary = {
       assetSymbol: 'BTC',
-      totalProceeds: new Decimal('100000'),
-      totalCostBasis: new Decimal('120000'),
-      totalCapitalGainLoss: new Decimal('-20000'),
-      totalTaxableGainLoss: new Decimal('0'), // losses disallowed
+      totalProceeds: parseDecimal('100000'),
+      totalCostBasis: parseDecimal('120000'),
+      totalCapitalGainLoss: parseDecimal('-20000'),
+      totalTaxableGainLoss: parseDecimal('0'), // losses disallowed
       disposalCount: 2,
       byCategory: new Map(),
       disposals: [],
