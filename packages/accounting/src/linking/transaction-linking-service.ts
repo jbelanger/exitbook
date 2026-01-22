@@ -18,6 +18,8 @@ import {
 } from './matching-utils.js';
 import type { LinkingResult, MatchingConfig, PotentialMatch, TransactionLink } from './types.js';
 
+const UTXO_CHAIN_NAMES = new Set(['bitcoin', 'dogecoin', 'litecoin', 'bitcoin-cash', 'cardano']);
+
 /**
  * Service for linking related transactions (e.g., exchange withdrawals → blockchain deposits)
  */
@@ -214,8 +216,11 @@ export class TransactionLinkingService {
       const txHashGroups = new Map<string, UniversalTransactionData[]>();
 
       for (const tx of transactions) {
-        // Only consider blockchain transactions with a hash
-        if (!tx.blockchain?.transaction_hash) continue;
+        // Only consider UTXO blockchain transactions with a hash
+        const blockchainName = tx.blockchain?.name;
+        if (!blockchainName || !tx.blockchain?.transaction_hash) continue;
+        if (tx.sourceType !== 'blockchain') continue;
+        if (!UTXO_CHAIN_NAMES.has(blockchainName)) continue;
 
         // Skip transactions with no movements (e.g., contract interactions with zero value)
         // These don't represent actual value transfers and shouldn't be linked
