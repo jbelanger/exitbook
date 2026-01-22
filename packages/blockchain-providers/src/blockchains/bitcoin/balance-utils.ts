@@ -1,3 +1,5 @@
+import { parseDecimal } from '@exitbook/core';
+
 import type { RawBalanceData } from '../../core/types/index.js';
 
 import type { BlockstreamAddressInfo } from './providers/blockstream/blockstream.schemas.js';
@@ -12,7 +14,7 @@ import type { MempoolAddressInfo } from './providers/mempool-space/mempool-space
  * Convert satoshis to BTC
  */
 export function satoshisToBtc(satoshis: number): string {
-  return (satoshis / 100000000).toString();
+  return parseDecimal(satoshis.toString()).div(100000000).toFixed();
 }
 
 /**

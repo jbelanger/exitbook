@@ -1,7 +1,7 @@
 import type { CostBasisReport } from '@exitbook/accounting';
 import { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
-import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
+import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { Decimal } from 'decimal.js';
 import type { z } from 'zod';
@@ -15,8 +15,6 @@ import type { CostBasisResult } from './cost-basis-handler.js';
 import { CostBasisHandler } from './cost-basis-handler.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.js';
 import { buildCostBasisParamsFromFlags } from './cost-basis-utils.js';
-
-const logger = getLogger('CostBasisCommand');
 
 /**
  * Command options (validated at CLI boundary).
@@ -210,24 +208,24 @@ function displayCostBasisResults(
 ): void {
   const { calculation, lotsCreated, disposalsProcessed, assetsProcessed } = summary;
 
-  logger.info('\nCost Basis Calculation Results');
-  logger.info('================================');
-  logger.info(`Calculation ID: ${calculation.id}`);
-  logger.info(`Method: ${calculation.config.method.toUpperCase()}`);
-  logger.info(`Jurisdiction: ${calculation.config.jurisdiction}`);
-  logger.info(`Tax Year: ${calculation.config.taxYear}`);
-  logger.info(`Currency: ${calculation.config.currency}`);
-  logger.info(
+  console.log('\nCost Basis Calculation Results');
+  console.log('================================');
+  console.log(`Calculation ID: ${calculation.id}`);
+  console.log(`Method: ${calculation.config.method.toUpperCase()}`);
+  console.log(`Jurisdiction: ${calculation.config.jurisdiction}`);
+  console.log(`Tax Year: ${calculation.config.taxYear}`);
+  console.log(`Currency: ${calculation.config.currency}`);
+  console.log(
     `Date Range: ${calculation.startDate?.toISOString().split('T')[0] || 'N/A'} to ${calculation.endDate?.toISOString().split('T')[0] || 'N/A'}`
   );
   console.log(''); // Add spacing
 
-  logger.info('Processing Summary');
-  logger.info('------------------');
-  logger.info(`✓ Transactions processed: ${calculation.transactionsProcessed}`);
-  logger.info(`✓ Assets processed: ${assetsProcessed.length} (${assetsProcessed.join(', ')})`);
-  logger.info(`✓ Acquisition lots created: ${lotsCreated}`);
-  logger.info(`✓ Disposals processed: ${disposalsProcessed}`);
+  console.log('Processing Summary');
+  console.log('------------------');
+  console.log(`✓ Transactions processed: ${calculation.transactionsProcessed}`);
+  console.log(`✓ Assets processed: ${assetsProcessed.length} (${assetsProcessed.join(', ')})`);
+  console.log(`✓ Acquisition lots created: ${lotsCreated}`);
+  console.log(`✓ Disposals processed: ${disposalsProcessed}`);
   console.log(''); // Add spacing
 
   // Use converted amounts if report exists, otherwise use original USD amounts
@@ -241,20 +239,20 @@ function displayCostBasisResults(
         totalTaxableGainLoss: calculation.totalTaxableGainLoss,
       };
 
-  logger.info('Financial Summary');
-  logger.info('------------------');
-  logger.info(`Total Proceeds: ${formatCurrency(totals.totalProceeds, displayCurrency)}`);
-  logger.info(`Total Cost Basis: ${formatCurrency(totals.totalCostBasis, displayCurrency)}`);
-  logger.info(`Capital Gain/Loss: ${formatCurrency(totals.totalGainLoss, displayCurrency)}`);
-  logger.info(`Taxable Gain/Loss: ${formatCurrency(totals.totalTaxableGainLoss, displayCurrency)}`);
+  console.log('Financial Summary');
+  console.log('------------------');
+  console.log(`Total Proceeds: ${formatCurrency(totals.totalProceeds, displayCurrency)}`);
+  console.log(`Total Cost Basis: ${formatCurrency(totals.totalCostBasis, displayCurrency)}`);
+  console.log(`Capital Gain/Loss: ${formatCurrency(totals.totalGainLoss, displayCurrency)}`);
+  console.log(`Taxable Gain/Loss: ${formatCurrency(totals.totalTaxableGainLoss, displayCurrency)}`);
 
   // Show FX conversion note if applicable
   if (report && report.displayCurrency !== 'USD') {
     console.log(''); // Add spacing
-    logger.info(
+    console.log(
       `Note: Amounts converted from USD to ${report.displayCurrency} using historical rates at disposal time`
     );
-    logger.info(
+    console.log(
       `      Original USD totals: Proceeds=${formatCurrency(report.originalSummary.totalProceeds, 'USD')}, ` +
         `Gain/Loss=${formatCurrency(report.originalSummary.totalGainLoss, 'USD')}`
     );
@@ -263,22 +261,22 @@ function displayCostBasisResults(
   // Show jurisdiction-specific note
   if (calculation.config.jurisdiction === 'CA') {
     console.log(''); // Add spacing
-    logger.info('Tax Rules: Canadian tax rules applied (50% capital gains inclusion rate)');
+    console.log('Tax Rules: Canadian tax rules applied (50% capital gains inclusion rate)');
   } else if (calculation.config.jurisdiction === 'US') {
     console.log(''); // Add spacing
-    logger.info('Tax Rules: US tax rules applied (short-term vs long-term classification)');
-    logger.info('           Review lot disposals for holding period classifications');
+    console.log('Tax Rules: US tax rules applied (short-term vs long-term classification)');
+    console.log('           Review lot disposals for holding period classifications');
   }
 
   // Show warning if any transactions were excluded
   if (missingPricesWarning) {
     console.log(''); // Add spacing
-    logger.warn(`⚠ ${missingPricesWarning}`);
+    console.log(`⚠ ${missingPricesWarning}`);
   }
 
   console.log(''); // Add spacing
-  logger.info(`Results saved to database with calculation ID: ${calculation.id}`);
-  logger.info('Use this ID to query detailed lot and disposal records.');
+  console.log(`Results saved to database with calculation ID: ${calculation.id}`);
+  console.log('Use this ID to query detailed lot and disposal records.');
 }
 
 /**

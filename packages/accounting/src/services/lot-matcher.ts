@@ -115,7 +115,9 @@ export class LotMatcher {
         if (linksResult.isErr()) {
           return err(linksResult.error);
         }
-        confirmedLinks = linksResult.value.filter((link) => link.confidenceScore.gte(0.95));
+        confirmedLinks = linksResult.value.filter(
+          (link) => link.confidenceScore.gte(0.95) && link.linkType !== 'blockchain_internal'
+        );
         this.logger.debug({ linkCount: confirmedLinks.length }, 'Loaded confirmed transaction links for lot matching');
       }
 
@@ -190,8 +192,8 @@ export class LotMatcher {
         for (const outflow of outflows) {
           if (outflow.assetSymbol === assetSymbol) {
             // Check if this outflow is part of a confirmed transfer
-            // Use netAmount for link matching (link index stores net values from convertToCandidates)
-            const link = linkIndex.findBySource(tx.id, outflow.assetSymbol, outflow.netAmount ?? outflow.grossAmount);
+            // Use grossAmount for link matching (link index stores gross amounts from extractPrimaryAmount)
+            const link = linkIndex.findBySource(tx.id, outflow.assetSymbol, outflow.grossAmount);
 
             if (link) {
               // Handle transfer source

@@ -11,6 +11,9 @@ import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { CostBasisCalculation, LotDisposal } from '../domain/schemas.js';
+import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
+import { CanadaRules } from '../jurisdictions/canada-rules.js';
+import { USRules } from '../jurisdictions/us-rules.js';
 import type { CostBasisRepository } from '../persistence/cost-basis-repository.js';
 import type { IFxRateProvider } from '../price-enrichment/fx-rate-provider.interface.js';
 
@@ -90,8 +93,11 @@ export class CostBasisReportGenerator {
 
       const convertedDisposals = convertedDisposalsResult.value;
 
+      // Get jurisdiction rules for calculating taxable amounts
+      const jurisdictionRules = this.getJurisdictionRules(calculation.config.jurisdiction);
+
       // Calculate summary totals in display currency
-      const summary = this.calculateSummary(convertedDisposals);
+      const summary = this.calculateSummary(convertedDisposals, jurisdictionRules);
 
       const report: CostBasisReport = {
         calculationId,
@@ -121,6 +127,22 @@ export class CostBasisReportGenerator {
     } catch (error) {
       this.logger.error({ error, calculationId }, 'Failed to generate report');
       return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  /**
+   * Get jurisdiction rules based on jurisdiction code
+   */
+  private getJurisdictionRules(jurisdiction: string): IJurisdictionRules {
+    switch (jurisdiction) {
+      case 'CA':
+        return new CanadaRules();
+      case 'US':
+        return new USRules();
+      // Add other jurisdictions as they're implemented
+      default:
+        this.logger.warn({ jurisdiction }, 'Unknown jurisdiction, defaulting to US rules');
+        return new USRules();
     }
   }
 
@@ -243,20 +265,24 @@ export class CostBasisReportGenerator {
   /**
    * Calculate summary totals from converted disposals
    */
-  private calculateSummary(disposals: ConvertedLotDisposal[]): CostBasisReport['summary'] {
+  private calculateSummary(
+    disposals: ConvertedLotDisposal[],
+    jurisdictionRules: IJurisdictionRules
+  ): CostBasisReport['summary'] {
     let totalProceeds = parseDecimal('0');
     let totalCostBasis = parseDecimal('0');
     let totalGainLoss = parseDecimal('0');
+    let totalTaxableGainLoss = parseDecimal('0');
 
     for (const disposal of disposals) {
       totalProceeds = totalProceeds.plus(disposal.displayTotalProceeds);
       totalCostBasis = totalCostBasis.plus(disposal.displayTotalCostBasis);
       totalGainLoss = totalGainLoss.plus(disposal.displayGainLoss);
-    }
 
-    // For now, totalTaxableGainLoss = totalGainLoss (jurisdiction rules applied during calculation)
-    // In the future, we might need to recalculate tax treatment after conversion
-    const totalTaxableGainLoss = totalGainLoss;
+      // Apply jurisdiction rules to calculate taxable gain/loss from converted capital gain/loss
+      const taxableGain = jurisdictionRules.calculateTaxableGain(disposal.displayGainLoss, disposal.holdingPeriodDays);
+      totalTaxableGainLoss = totalTaxableGainLoss.plus(taxableGain);
+    }
 
     return {
       totalProceeds,

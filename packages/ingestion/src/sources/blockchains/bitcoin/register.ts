@@ -1,7 +1,8 @@
 import {
   BITCOIN_CHAINS,
-  BitcoinUtils,
   getBitcoinChainConfig,
+  initializeBitcoinXpubWallet,
+  isBitcoinXpub,
   normalizeBitcoinAddress,
   type BitcoinWalletAddress,
 } from '@exitbook/blockchain-providers';
@@ -33,7 +34,7 @@ export function registerBitcoinChains(): void {
         _accountId?
       ) => ok(new BitcoinTransactionProcessor(config, scamDetectionService)),
 
-      isExtendedPublicKey: (address: string) => BitcoinUtils.isXpub(address),
+      isExtendedPublicKey: (address: string) => isBitcoinXpub(address),
 
       deriveAddressesFromXpub: async (
         xpub: string,
@@ -47,12 +48,7 @@ export function registerBitcoinChains(): void {
           type: 'xpub',
         };
 
-        const initResult = await BitcoinUtils.initializeXpubWallet(
-          walletAddress,
-          blockchain,
-          providerManager,
-          gap ?? 20
-        );
+        const initResult = await initializeBitcoinXpubWallet(walletAddress, blockchain, providerManager, gap ?? 20);
 
         if (initResult.isErr()) {
           throw initResult.error;

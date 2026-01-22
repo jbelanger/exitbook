@@ -7,9 +7,9 @@ import {
   calculateTatumBalance,
   createRawBalanceData,
   satoshisToBtc,
-} from './balance-utils.js';
-import type { BlockstreamAddressInfo } from './providers/blockstream/blockstream.schemas.js';
-import type { MempoolAddressInfo } from './providers/mempool-space/mempool-space.schemas.js';
+} from '../balance-utils.ts';
+import type { BlockstreamAddressInfo } from '../providers/blockstream/blockstream.schemas.ts';
+import type { MempoolAddressInfo } from '../providers/mempool-space/mempool-space.schemas.ts';
 
 describe('balance-utils', () => {
   describe('satoshisToBtc', () => {
@@ -17,7 +17,7 @@ describe('balance-utils', () => {
       expect(satoshisToBtc(100000000)).toBe('1');
       expect(satoshisToBtc(50000000)).toBe('0.5');
       expect(satoshisToBtc(1000)).toBe('0.00001');
-      expect(satoshisToBtc(1)).toBe('1e-8');
+      expect(satoshisToBtc(1)).toBe('0.00000001');
     });
 
     it('should handle zero satoshis', () => {
@@ -383,7 +383,7 @@ describe('balance-utils', () => {
     it('should handle one satoshi', () => {
       const result = calculateSimpleBalance(1);
 
-      expect(result.balanceBTC).toBe('1e-8');
+      expect(result.balanceBTC).toBe('0.00000001');
       expect(result.balanceSats).toBe(1);
     });
   });

@@ -19,9 +19,9 @@ import {
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
 import { calculateMempoolSpaceBalance, createRawBalanceData } from '../../balance-utils.js';
-import { BITCOIN_STREAMING_DEDUP_WINDOW } from '../../bitcoin-streaming.constants.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';
+import { BITCOIN_STREAMING_DEDUP_WINDOW } from '../../constants.ts';
 import type { BitcoinTransaction } from '../../schemas.js';
 
 import { mapMempoolSpaceTransaction } from './mapper-utils.js';

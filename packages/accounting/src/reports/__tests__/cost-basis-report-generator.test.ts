@@ -213,6 +213,15 @@ describe('CostBasisReportGenerator', () => {
           .plus(new Decimal(20000).times(1.37));
         expect(report.summary.totalGainLoss.toFixed()).toBe(expectedTotalGainLoss.toFixed());
 
+        // Verify taxable gain/loss is correctly calculated with CA jurisdiction (50% inclusion rate)
+        // Each disposal's gain is converted to CAD, then 50% is applied for Canadian tax
+        const expectedTotalTaxableGainLoss = new Decimal(5000)
+          .times(1.35)
+          .times(0.5) // 50% inclusion rate for CA
+          .plus(new Decimal(10000).times(1.35).times(0.5))
+          .plus(new Decimal(20000).times(1.37).times(0.5));
+        expect(report.summary.totalTaxableGainLoss.toFixed()).toBe(expectedTotalTaxableGainLoss.toFixed());
+
         // Verify original summary is preserved
         expect(report.originalSummary.totalProceeds.toFixed()).toBe(mockCalculation.totalProceeds.toFixed());
         expect(report.originalSummary.totalGainLoss.toFixed()).toBe(mockCalculation.totalGainLoss.toFixed());
