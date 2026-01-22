@@ -18,7 +18,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import { calculateMempoolSpaceBalance, createRawBalanceData } from '../../balance-utils.js';
+import { createRawBalanceData } from '../../balance-utils.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';
 import { BITCOIN_STREAMING_DEDUP_WINDOW } from '../../constants.ts';
@@ -31,6 +31,7 @@ import {
   type MempoolAddressInfo,
   type MempoolTransaction,
 } from './mempool-space.schemas.js';
+import { calculateMempoolSpaceBalance } from './utils.js';
 
 @RegisterApiClient({
   baseUrl: 'https://mempool.space/api',

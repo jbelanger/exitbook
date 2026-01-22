@@ -33,7 +33,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import { calculateSimpleBalance, createRawBalanceData } from '../../balance-utils.js';
+import { createRawBalanceData } from '../../balance-utils.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';
 import { BITCOIN_STREAMING_DEDUP_WINDOW } from '../../constants.ts';
@@ -48,6 +48,7 @@ import {
   type BlockCypherAddress,
 } from './blockcypher.schemas.js';
 import { mapBlockCypherTransaction } from './mapper-utils.js';
+import { calculateSimpleBalance } from './utils.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'BLOCKCYPHER_API_KEY',

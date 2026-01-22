@@ -1,35 +1,33 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  calculateBlockstreamBalance,
-  calculateMempoolSpaceBalance,
-  calculateSimpleBalance,
-  calculateTatumBalance,
-  createRawBalanceData,
-  satoshisToBtc,
-} from '../balance-utils.ts';
+import { createRawBalanceData } from '../balance-utils.ts';
+import { calculateSimpleBalance } from '../providers/blockcypher/utils.ts';
 import type { BlockstreamAddressInfo } from '../providers/blockstream/blockstream.schemas.ts';
+import { calculateBlockstreamBalance } from '../providers/blockstream/utils.ts';
 import type { MempoolAddressInfo } from '../providers/mempool-space/mempool-space.schemas.ts';
+import { calculateMempoolSpaceBalance } from '../providers/mempool-space/utils.ts';
+import { calculateTatumBalance } from '../providers/tatum/utils.ts';
+import { satoshisToBtcString } from '../utils.ts';
 
 describe('balance-utils', () => {
-  describe('satoshisToBtc', () => {
+  describe('satoshisToBtcString', () => {
     it('should convert satoshis to BTC correctly', () => {
-      expect(satoshisToBtc(100000000)).toBe('1');
-      expect(satoshisToBtc(50000000)).toBe('0.5');
-      expect(satoshisToBtc(1000)).toBe('0.00001');
-      expect(satoshisToBtc(1)).toBe('0.00000001');
+      expect(satoshisToBtcString(100000000)).toBe('1');
+      expect(satoshisToBtcString(50000000)).toBe('0.5');
+      expect(satoshisToBtcString(1000)).toBe('0.00001');
+      expect(satoshisToBtcString(1)).toBe('0.00000001');
     });
 
     it('should handle zero satoshis', () => {
-      expect(satoshisToBtc(0)).toBe('0');
+      expect(satoshisToBtcString(0)).toBe('0');
     });
 
     it('should handle large amounts', () => {
-      expect(satoshisToBtc(2100000000000000)).toBe('21000000');
+      expect(satoshisToBtcString(2100000000000000)).toBe('21000000');
     });
 
     it('should handle fractional satoshis in conversion', () => {
-      expect(satoshisToBtc(123456789)).toBe('1.23456789');
+      expect(satoshisToBtcString(123456789)).toBe('1.23456789');
     });
   });
 

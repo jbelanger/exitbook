@@ -135,7 +135,15 @@ export function deriveBitcoinAddressesFromXpub(
     const versions = BIP32_VERSIONS[xpubType];
     const node = HDKey.fromExtendedKey(xpub, versions);
     const network = bitcoin.networks.bitcoin; // Default to mainnet
-    const addressType = xpubType === 'xpub' ? 'legacy' : xpubType === 'ypub' ? 'segwit' : 'bech32';
+
+    let addressType: AddressType;
+    if (xpubType === 'xpub') {
+      addressType = 'legacy';
+    } else if (xpubType === 'ypub') {
+      addressType = 'segwit';
+    } else {
+      addressType = 'bech32';
+    }
 
     const addressGenerator = getAddressGenerator(addressType, network);
 
@@ -374,7 +382,8 @@ export async function performBitcoinAddressGapScanning(
 
   // Include ALL addresses up to highestUsedIndex + gapLimit
   // This ensures fresh change addresses are tracked for accurate fund flow analysis
-  const lastIndex = Math.min(highestUsedIndex >= 0 ? highestUsedIndex + gapLimit : gapLimit - 1, allDerived.length - 1);
+  const targetIndex = highestUsedIndex >= 0 ? highestUsedIndex + gapLimit : gapLimit - 1;
+  const lastIndex = Math.min(targetIndex, allDerived.length - 1);
   walletAddress.derivedAddresses = allDerived.slice(0, lastIndex + 1);
 
   const addressesWithActivity = highestUsedIndex + 1;
