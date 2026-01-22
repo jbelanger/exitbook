@@ -139,10 +139,14 @@ export function parseEtherscanWithdrawalResponse(response: unknown): Result<Ethe
 
   // Handle API errors
   if (data.status === '0') {
-    // "No transactions found" is not an error, just return empty array
+    // "No transactions found" / "No token transfers found" is not an error, just return empty array
+    const message = typeof data.message === 'string' ? data.message.toLowerCase() : '';
+    const result = typeof data.result === 'string' ? data.result.toLowerCase() : '';
     if (
-      (typeof data.message === 'string' && data.message.toLowerCase().includes('no transactions found')) ||
-      (typeof data.result === 'string' && data.result.toLowerCase().includes('no transactions found'))
+      message.includes('no transactions found') ||
+      message.includes('no token transfers found') ||
+      result.includes('no transactions found') ||
+      result.includes('no token transfers found')
     ) {
       return ok([]);
     }
@@ -415,10 +419,14 @@ export function parseEtherscanNormalTransactionResponse(
 
   // Handle API errors
   if (data.status === '0') {
-    // "No transactions found" is not an error, just return empty array
+    // "No transactions found" / "No token transfers found" is not an error, just return empty array
+    const message = typeof data.message === 'string' ? data.message.toLowerCase() : '';
+    const result = typeof data.result === 'string' ? data.result.toLowerCase() : '';
     if (
-      (typeof data.message === 'string' && data.message.toLowerCase().includes('no transactions found')) ||
-      (typeof data.result === 'string' && data.result.toLowerCase().includes('no transactions found'))
+      message.includes('no transactions found') ||
+      message.includes('no token transfers found') ||
+      result.includes('no transactions found') ||
+      result.includes('no token transfers found')
     ) {
       return ok([]);
     }
@@ -453,10 +461,14 @@ export function parseEtherscanInternalTransactionResponse(
 
   // Handle API errors
   if (data.status === '0') {
-    // "No transactions found" is not an error, just return empty array
+    // "No transactions found" / "No token transfers found" is not an error, just return empty array
+    const message = typeof data.message === 'string' ? data.message.toLowerCase() : '';
+    const result = typeof data.result === 'string' ? data.result.toLowerCase() : '';
     if (
-      (typeof data.message === 'string' && data.message.toLowerCase().includes('no transactions found')) ||
-      (typeof data.result === 'string' && data.result.toLowerCase().includes('no transactions found'))
+      message.includes('no transactions found') ||
+      message.includes('no token transfers found') ||
+      result.includes('no transactions found') ||
+      result.includes('no token transfers found')
     ) {
       return ok([]);
     }
@@ -489,10 +501,14 @@ export function parseEtherscanTokenTransactionResponse(response: unknown): Resul
 
   // Handle API errors
   if (data.status === '0') {
-    // "No transactions found" is not an error, just return empty array
+    // "No transactions found" / "No token transfers found" is not an error, just return empty array
+    const message = typeof data.message === 'string' ? data.message.toLowerCase() : '';
+    const result = typeof data.result === 'string' ? data.result.toLowerCase() : '';
     if (
-      (typeof data.message === 'string' && data.message.toLowerCase().includes('no transactions found')) ||
-      (typeof data.result === 'string' && data.result.toLowerCase().includes('no transactions found'))
+      message.includes('no transactions found') ||
+      message.includes('no token transfers found') ||
+      result.includes('no transactions found') ||
+      result.includes('no token transfers found')
     ) {
       return ok([]);
     }

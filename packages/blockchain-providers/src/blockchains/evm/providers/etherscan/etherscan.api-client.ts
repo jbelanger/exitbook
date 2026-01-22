@@ -38,6 +38,17 @@ import type {
 } from './etherscan.schemas.js';
 
 /**
+ * Custom API URLs for chains that use Etherscan-compatible APIs
+ * but are hosted on different infrastructure (e.g., Blockscout).
+ *
+ * These chains bypass the Etherscan V2 unified endpoint and use
+ * their own API base URL instead.
+ */
+const CUSTOM_API_URLS: Record<string, string> = {
+  lukso: 'https://explorer.execution.mainnet.lukso.network/api',
+};
+
+/**
  * Chains supported by Etherscan V2 API.
  * All chains use the unified V2 endpoint: https://api.etherscan.io/v2/api
  * with chainid parameter to specify the target chain.
@@ -75,6 +86,7 @@ const ETHERSCAN_SUPPORTED_CHAINS = [
   'katana-bokuto',
   'linea',
   'linea-sepolia',
+  'lukso',
   'mantle',
   'mantle-sepolia',
   'memecore',
@@ -154,6 +166,7 @@ export class EtherscanApiClient extends BaseApiClient {
   // Using 1000 allows up to 10 pages (10 × 1000 = 10,000)
   private static readonly PAGE_SIZE = 1000;
   private readonly chainConfig: EvmChainConfig;
+  private readonly usesCustomUrl: boolean;
 
   constructor(config: ProviderConfig) {
     super(config);
@@ -165,7 +178,20 @@ export class EtherscanApiClient extends BaseApiClient {
     }
     this.chainConfig = evmChainConfig;
 
-    this.logger.debug(`Initialized EtherscanApiClient for ${config.blockchain} - BaseUrl: ${this.baseUrl}`);
+    // Override base URL for chains with custom API endpoints (e.g., Blockscout-based chains)
+    const customUrl = CUSTOM_API_URLS[config.blockchain];
+    this.usesCustomUrl = !!customUrl;
+
+    if (customUrl) {
+      this.reinitializeHttpClient({
+        baseUrl: customUrl,
+      });
+      this.logger.debug(
+        `Initialized EtherscanApiClient for ${config.blockchain} with custom URL - BaseUrl: ${this.baseUrl}`
+      );
+    } else {
+      this.logger.debug(`Initialized EtherscanApiClient for ${config.blockchain} - BaseUrl: ${this.baseUrl}`);
+    }
   }
 
   /**
@@ -260,8 +286,9 @@ export class EtherscanApiClient extends BaseApiClient {
   }
 
   getHealthCheckConfig() {
+    const chainidParam = this.usesCustomUrl ? '' : `&chainid=${this.chainConfig.chainId}`;
     return {
-      endpoint: `?module=block&action=eth_block_number&chainid=${this.chainConfig.chainId}`,
+      endpoint: `?module=block&action=eth_block_number${chainidParam}`,
       validate: (response: unknown) => {
         const data = response as { result: string; status: string };
         return data && data.status === '1' && typeof data.result === 'string';
@@ -294,7 +321,7 @@ export class EtherscanApiClient extends BaseApiClient {
         action: 'txsBeaconWithdrawal',
         address,
         apikey: this.apiKey,
-        chainid: String(this.chainConfig.chainId),
+        ...(this.usesCustomUrl ? {} : { chainid: String(this.chainConfig.chainId) }),
         sort: 'asc',
         offset: String(EtherscanApiClient.PAGE_SIZE),
       });
@@ -424,7 +451,7 @@ export class EtherscanApiClient extends BaseApiClient {
         action: 'txlist',
         address,
         apikey: this.apiKey,
-        chainid: String(this.chainConfig.chainId),
+        ...(this.usesCustomUrl ? {} : { chainid: String(this.chainConfig.chainId) }),
         sort: 'asc',
         offset: String(EtherscanApiClient.PAGE_SIZE),
       });
@@ -549,7 +576,7 @@ export class EtherscanApiClient extends BaseApiClient {
         action: 'txlistinternal',
         address,
         apikey: this.apiKey,
-        chainid: String(this.chainConfig.chainId),
+        ...(this.usesCustomUrl ? {} : { chainid: String(this.chainConfig.chainId) }),
         sort: 'asc',
         offset: String(EtherscanApiClient.PAGE_SIZE),
       });
@@ -674,7 +701,7 @@ export class EtherscanApiClient extends BaseApiClient {
         action: 'tokentx',
         address,
         apikey: this.apiKey,
-        chainid: String(this.chainConfig.chainId),
+        ...(this.usesCustomUrl ? {} : { chainid: String(this.chainConfig.chainId) }),
         sort: 'asc',
         offset: String(EtherscanApiClient.PAGE_SIZE),
       });

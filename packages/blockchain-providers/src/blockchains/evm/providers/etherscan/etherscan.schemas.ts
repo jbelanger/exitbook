@@ -63,7 +63,7 @@ export const EtherscanNormalTransactionSchema = z.object({
   gasUsed: z.string().regex(/^\d+$/, 'Gas used must be numeric string'),
   confirmations: z.string().regex(/^\d+$/, 'Confirmations must be numeric string'),
   methodId: z.string(), // First 4 bytes of input (function selector)
-  functionName: z.string(), // Decoded function name if available
+  functionName: z.string().nullish(), // Decoded function name if available (optional in Blockscout)
 });
 
 /**
@@ -114,7 +114,7 @@ export const EtherscanTokenTransactionSchema = z.object({
   cumulativeGasUsed: z.string().regex(/^\d+$/, 'Cumulative gas used must be numeric string'),
   input: z.string(), // Deprecated field in V2
   methodId: z.string(), // V2 API: function signature hash
-  functionName: z.string(), // V2 API: decoded function name
+  functionName: z.string().nullish(), // V2 API: decoded function name (optional in Blockscout)
   confirmations: z.string().regex(/^\d+$/, 'Confirmations must be numeric string'),
 });
 
