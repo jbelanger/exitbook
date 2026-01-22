@@ -368,6 +368,8 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                       },
                       eventId: validatedData.id,
                       timestamp,
+                      // Preserve full CCXT payload for post-mortem analysis (includes raw v2 info)
+                      providerData: item,
                       normalizedData,
                     };
                   },

@@ -314,34 +314,35 @@ export function findPotentialMatches(
     const bothAreBlockchain = source.sourceType === 'blockchain' && target.sourceType === 'blockchain';
 
     if (hashMatch === true && !bothAreBlockchain) {
-      // Safety: Check if this normalized hash is unique on the target side for this asset+direction
-      // If multiple targets share the same normalized hash, don't auto-confirm (fall back to heuristic)
-      const sourceHash = source.blockchainTransactionHash;
-      if (sourceHash) {
-        const normalizedSourceHash = normalizeTransactionHash(sourceHash);
-        const isHexHash = normalizedSourceHash.startsWith('0x');
+      // Perfect match - same blockchain transaction hash
+      // For multi-output scenarios (one source → multiple targets with same hash):
+      // Validate that sum of all target amounts doesn't exceed source amount
 
-        const targetCountWithSameHash = targets.filter((t) => {
-          if (t.assetSymbol !== source.assetSymbol) return false;
-          if (t.direction !== 'in') return false;
-          if (!t.blockchainTransactionHash) return false;
+      // Find all eligible targets with same hash and asset
+      // Use checkTransactionHashMatch to ensure consistent log-index handling
+      const targetsWithSameHash = targets.filter((t) => {
+        if (t.id === source.id) return false; // Exclude self
+        if (t.assetSymbol !== source.assetSymbol) return false;
+        if (t.direction !== 'in') return false;
 
-          const normalizedTargetHash = normalizeTransactionHash(t.blockchainTransactionHash);
+        // Exclude blockchain→blockchain (same as bothAreBlockchain check)
+        const targetIsBlockchain = t.sourceType === 'blockchain';
+        if (source.sourceType === 'blockchain' && targetIsBlockchain) return false;
 
-          // Apply same case-folding logic as checkTransactionHashMatch
-          if (isHexHash) {
-            return normalizedTargetHash.toLowerCase() === normalizedSourceHash.toLowerCase();
-          }
-          // Case-sensitive for non-hex hashes (Solana, etc.)
-          return normalizedTargetHash === normalizedSourceHash;
-        }).length;
+        // Use checkTransactionHashMatch to ensure same log-index rules are applied
+        // (e.g., when both have log indices, requires exact match)
+        return checkTransactionHashMatch(source, t) === true;
+      });
 
-        // If multiple targets share this hash, skip hash-based matching and fall through to heuristic
-        if (targetCountWithSameHash > 1) {
-          // Fall through to normal matching logic below
+      // If multiple targets, validate total doesn't exceed source
+      if (targetsWithSameHash.length > 1) {
+        const totalTargetAmount = targetsWithSameHash.reduce((sum, t) => sum.plus(t.amount), parseDecimal('0'));
+
+        // If sum of targets exceeds source, this can't be valid - fall back to heuristic
+        if (totalTargetAmount.greaterThan(source.amount)) {
+          // Fall through to normal matching logic
         } else {
-          // Perfect match - same blockchain transaction hash and unique
-          // This is 100% confident (exchange withdrawal → blockchain deposit with same hash)
+          // Valid multi-output: source amount >= sum of targets
           const linkType = determineLinkType(source.sourceType, target.sourceType);
           const timingHours = calculateTimeDifferenceHours(source.timestamp, target.timestamp);
           const timingValid = isTimingValid(source.timestamp, target.timestamp, config);
@@ -353,14 +354,36 @@ export function findPotentialMatches(
             matchCriteria: {
               assetMatch: true,
               amountSimilarity: parseDecimal('1.0'),
-              timingValid, // Use actual timing validation
+              timingValid,
               timingHours,
               addressMatch: undefined,
+              hashMatch: true,
             },
             linkType,
           });
-          continue; // Skip normal matching logic for hash matches
+          continue;
         }
+      } else {
+        // Single target with hash match - always valid
+        const linkType = determineLinkType(source.sourceType, target.sourceType);
+        const timingHours = calculateTimeDifferenceHours(source.timestamp, target.timestamp);
+        const timingValid = isTimingValid(source.timestamp, target.timestamp, config);
+
+        matches.push({
+          sourceTransaction: source,
+          targetTransaction: target,
+          confidenceScore: parseDecimal('1.0'),
+          matchCriteria: {
+            assetMatch: true,
+            amountSimilarity: parseDecimal('1.0'),
+            timingValid,
+            timingHours,
+            addressMatch: undefined,
+            hashMatch: true,
+          },
+          linkType,
+        });
+        continue;
       }
     }
 
@@ -500,14 +523,144 @@ export function calculateVarianceMetadata(
 }
 
 /**
+ * Aggregate inflow and outflow amounts by transaction and asset for a group.
+ *
+ * @param group - Transactions connected by blockchain_internal links
+ * @returns Aggregated amounts and asset symbols
+ */
+export function aggregateMovementsByTransaction(group: UniversalTransactionData[]): {
+  assetSymbols: Set<string>;
+  inflowAmountsByTx: Map<number, Map<string, Decimal>>;
+  outflowAmountsByTx: Map<number, Map<string, Decimal>>;
+} {
+  const inflowAmountsByTx = new Map<number, Map<string, Decimal>>();
+  const outflowAmountsByTx = new Map<number, Map<string, Decimal>>();
+  const assetSymbols = new Set<string>();
+
+  for (const tx of group) {
+    const inflowMap = new Map<string, Decimal>();
+    const outflowMap = new Map<string, Decimal>();
+
+    for (const inflow of tx.movements.inflows ?? []) {
+      const amount = parseDecimal(inflow.netAmount ?? inflow.grossAmount);
+      const current = inflowMap.get(inflow.assetSymbol) ?? parseDecimal('0');
+      inflowMap.set(inflow.assetSymbol, current.plus(amount));
+      assetSymbols.add(inflow.assetSymbol);
+    }
+
+    for (const outflow of tx.movements.outflows ?? []) {
+      const amount = parseDecimal(outflow.netAmount ?? outflow.grossAmount);
+      const current = outflowMap.get(outflow.assetSymbol) ?? parseDecimal('0');
+      outflowMap.set(outflow.assetSymbol, current.plus(amount));
+      assetSymbols.add(outflow.assetSymbol);
+    }
+
+    if (inflowMap.size > 0) inflowAmountsByTx.set(tx.id, inflowMap);
+    if (outflowMap.size > 0) outflowAmountsByTx.set(tx.id, outflowMap);
+  }
+
+  return { inflowAmountsByTx, outflowAmountsByTx, assetSymbols };
+}
+
+/**
+ * Calculate adjusted outflow amount for an asset by subtracting internal inflows.
+ *
+ * When a blockchain_internal cluster contains multiple wallet addresses involved in
+ * related transactions, outflows may include internal transfers to other owned addresses.
+ * This function identifies and subtracts those internal inflows to get the actual
+ * external transfer amount for matching purposes.
+ *
+ * NOTE: This only works when the processor creates separate transaction rows for each
+ * address (per-address model). If a processor records change within the same row,
+ * this adjustment won't apply.
+ *
+ * When multiple outflows exist for the same asset, selects the largest outflow
+ * deterministically (most likely to be the external transfer). Caller should log
+ * a warning when multipleOutflows is true.
+ *
+ * @param assetSymbol - Asset to calculate adjustment for
+ * @param group - Transactions connected by blockchain_internal links
+ * @param inflowAmountsByTx - Aggregated inflow amounts
+ * @param outflowAmountsByTx - Aggregated outflow amounts
+ * @returns Transaction ID, adjusted amount, and ambiguity flag; or skip reason
+ */
+export function calculateOutflowAdjustment(
+  assetSymbol: string,
+  group: UniversalTransactionData[],
+  inflowAmountsByTx: Map<number, Map<string, Decimal>>,
+  outflowAmountsByTx: Map<number, Map<string, Decimal>>
+): { adjustedAmount: Decimal; multipleOutflows: boolean; txId: number } | { skip: 'non-positive' | 'no-adjustment' } {
+  const outflowTxs = group.filter((tx) => {
+    const outflowMap = outflowAmountsByTx.get(tx.id);
+    if (!outflowMap) return false;
+    const amount = outflowMap.get(assetSymbol);
+    return amount ? amount.gt(0) : false;
+  });
+
+  const inflowTxs = group.filter((tx) => {
+    const inflowMap = inflowAmountsByTx.get(tx.id);
+    if (!inflowMap) return false;
+    const amount = inflowMap.get(assetSymbol);
+    return amount ? amount.gt(0) : false;
+  });
+
+  if (inflowTxs.length === 0) return { skip: 'no-adjustment' };
+  if (outflowTxs.length === 0) return { skip: 'no-adjustment' };
+
+  const multipleOutflows = outflowTxs.length > 1;
+
+  // When multiple outflows exist, select the largest one (most likely external transfer)
+  // Caller should log a warning since we can't be certain which is the external transfer
+  let outflowTx = outflowTxs[0];
+  let maxOutflowAmount = outflowAmountsByTx.get(outflowTx!.id)?.get(assetSymbol) ?? parseDecimal('0');
+
+  if (multipleOutflows) {
+    for (const tx of outflowTxs) {
+      const amount = outflowAmountsByTx.get(tx.id)?.get(assetSymbol);
+      if (amount && amount.gt(maxOutflowAmount)) {
+        outflowTx = tx;
+        maxOutflowAmount = amount;
+      }
+    }
+  }
+
+  if (!outflowTx) return { skip: 'no-adjustment' };
+
+  const outflowMap = outflowAmountsByTx.get(outflowTx.id);
+  const outflowAmount = outflowMap?.get(assetSymbol);
+  if (!outflowAmount) return { skip: 'no-adjustment' };
+
+  let totalInternalInflows = parseDecimal('0');
+  for (const inflowTx of inflowTxs) {
+    if (inflowTx.id === outflowTx.id) continue;
+    const inflowMap = inflowAmountsByTx.get(inflowTx.id);
+    const inflowAmount = inflowMap?.get(assetSymbol);
+    if (inflowAmount) {
+      totalInternalInflows = totalInternalInflows.plus(inflowAmount);
+    }
+  }
+
+  if (totalInternalInflows.lte(0)) return { skip: 'no-adjustment' };
+
+  const adjustedAmount = outflowAmount.minus(totalInternalInflows);
+  if (adjustedAmount.lte(0)) return { skip: 'non-positive' };
+
+  return { txId: outflowTx.id, adjustedAmount, multipleOutflows };
+}
+
+/**
  * Convert stored transactions to transaction candidates for matching.
  * Creates one candidate per asset movement (not just primary).
  * Uses netAmount for transfer matching (what actually went on-chain).
  *
  * @param transactions - Universal transactions to convert
+ * @param amountOverrides - Optional map of adjusted amounts for UTXO internal change
  * @returns Array of transaction candidates
  */
-export function convertToCandidates(transactions: UniversalTransactionData[]): TransactionCandidate[] {
+export function convertToCandidates(
+  transactions: UniversalTransactionData[],
+  amountOverrides?: Map<number, Map<string, Decimal>>
+): TransactionCandidate[] {
   const candidates: TransactionCandidate[] = [];
 
   for (const tx of transactions) {
@@ -538,7 +691,7 @@ export function convertToCandidates(transactions: UniversalTransactionData[]): T
         sourceType: tx.sourceType,
         timestamp: new Date(tx.datetime),
         assetSymbol: outflow.assetSymbol,
-        amount: outflow.netAmount ?? outflow.grossAmount,
+        amount: amountOverrides?.get(tx.id)?.get(outflow.assetSymbol) ?? outflow.netAmount ?? outflow.grossAmount,
         direction: 'out',
         fromAddress: tx.from,
         toAddress: tx.to,
@@ -592,27 +745,54 @@ export function deduplicateAndConfirm(
   confirmed: PotentialMatch[];
   suggested: PotentialMatch[];
 } {
-  // Sort all matches by confidence (highest first)
-  const sortedMatches = [...matches].sort((a, b) => b.confidenceScore.comparedTo(a.confidenceScore));
+  // Sort all matches by confidence (highest first), with hash matches prioritized as tiebreaker
+  // This ensures hash matches are processed before non-hash matches at equal confidence
+  const sortedMatches = [...matches].sort((a, b) => {
+    const confidenceComparison = b.confidenceScore.comparedTo(a.confidenceScore);
+    if (confidenceComparison !== 0) return confidenceComparison;
+
+    // Tiebreaker: hash matches before non-hash matches
+    const aIsHash = a.matchCriteria.hashMatch === true;
+    const bIsHash = b.matchCriteria.hashMatch === true;
+    if (aIsHash && !bIsHash) return -1;
+    if (!aIsHash && bIsHash) return 1;
+    return 0;
+  });
 
   const usedSources = new Set<number>();
+  const usedSourcesNonHash = new Set<number>();
   const usedTargets = new Set<number>();
   const deduplicatedMatches: PotentialMatch[] = [];
 
   // Greedily select matches, ensuring each source and target is used at most once
+  // EXCEPT: Allow multiple hash matches per source (same tx hash, multiple outputs)
   for (const match of sortedMatches) {
-    const sourceName = match.sourceTransaction.id;
+    const sourceId = match.sourceTransaction.id;
     const targetId = match.targetTransaction.id;
+    const isHashMatch = match.matchCriteria.hashMatch === true;
 
-    // Skip if either source or target is already used
-    if (usedSources.has(sourceName) || usedTargets.has(targetId)) {
+    // Skip if target is already used (one target can only match one source)
+    if (usedTargets.has(targetId)) {
+      continue;
+    }
+
+    // For non-hash matches: enforce 1:1 source matching
+    // For hash matches: allow multiple per source (e.g., one blockchain tx → multiple exchange deposits)
+    // But don't mix hash matches with non-hash matches for the same source
+    if (!isHashMatch && usedSources.has(sourceId)) {
+      continue;
+    }
+    if (isHashMatch && usedSourcesNonHash.has(sourceId)) {
       continue;
     }
 
     // Accept this match
     deduplicatedMatches.push(match);
-    usedSources.add(sourceName);
     usedTargets.add(targetId);
+    usedSources.add(sourceId);
+    if (!isHashMatch) {
+      usedSourcesNonHash.add(sourceId);
+    }
   }
 
   const suggested: PotentialMatch[] = [];

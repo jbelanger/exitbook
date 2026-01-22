@@ -392,6 +392,28 @@ describe('processItems', () => {
     }
   });
 
+  it('should allow providerData override from metadata mapper', () => {
+    const items: TestRawItem[] = [{ id: 'tx-1', time: 1704067200000, amount: '100' }];
+
+    const result = processItems(
+      items,
+      extractor,
+      validator,
+      (parsed, item) => ({
+        ...metadataMapper(parsed, item),
+        providerData: { raw: item },
+      }),
+      'kraken'
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.transactions[0]!.providerData).toEqual({
+        raw: { id: 'tx-1', time: 1704067200000, amount: '100' },
+      });
+    }
+  });
+
   it('should include normalizedData in transaction', () => {
     const items: TestRawItem[] = [{ id: 'tx-1', time: 1704067200000, amount: '100' }];
 

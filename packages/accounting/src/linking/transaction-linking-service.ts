@@ -6,6 +6,8 @@ import { ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
 import {
+  aggregateMovementsByTransaction,
+  calculateOutflowAdjustment,
   convertToCandidates,
   createTransactionLink,
   deduplicateAndConfirm,
@@ -46,8 +48,17 @@ export class TransactionLinkingService {
         this.logger.info({ internalLinkCount: internalLinks.length }, 'Detected internal blockchain transfers');
       }
 
+      // Build internal change adjustments based on blockchain_internal link clusters
+      const internalOutflowAdjustments = this.buildInternalOutflowAdjustments(transactions, internalLinks);
+      if (internalOutflowAdjustments.size > 0) {
+        this.logger.info(
+          { adjustmentCount: internalOutflowAdjustments.size },
+          'Computed internal change adjustments for blockchain outflows'
+        );
+      }
+
       // Convert to candidates
-      const candidates = convertToCandidates(transactions);
+      const candidates = convertToCandidates(transactions, internalOutflowAdjustments);
       this.logger.debug({ candidateCount: candidates.length }, 'Converted transactions to candidates');
 
       // Separate into sources (withdrawals) and targets (deposits)
@@ -309,6 +320,139 @@ export class TransactionLinkingService {
     } catch (error) {
       return wrapError(error, 'Failed to detect internal blockchain transfers');
     }
+  }
+
+  /**
+   * Build adjusted outflow amounts using blockchain_internal link clusters.
+   *
+   * When a cluster contains both outflows and inflows for the same asset, subtract
+   * the internal inflow amounts from the outflow to approximate the external transfer
+   * amount for matching.
+   *
+   * Important: Only adjusts assets that have blockchain_internal links in the cluster.
+   * This prevents incorrectly adjusting unrelated assets (e.g., fees) in multi-asset
+   * transactions.
+   *
+   * @param transactions - All transactions to analyze
+   * @param internalLinks - blockchain_internal links for grouping
+   * @returns Map of transaction ID -> asset symbol -> adjusted amount
+   */
+  private buildInternalOutflowAdjustments(
+    transactions: UniversalTransactionData[],
+    internalLinks: TransactionLink[]
+  ): Map<number, Map<string, Decimal>> {
+    const adjustments = new Map<number, Map<string, Decimal>>();
+    let nonPositiveCount = 0;
+    let adjustmentCount = 0;
+
+    if (internalLinks.length === 0) {
+      return adjustments;
+    }
+
+    const transactionsById = new Map<number, UniversalTransactionData>();
+    for (const tx of transactions) {
+      transactionsById.set(tx.id, tx);
+    }
+
+    // Build adjacency graph AND track which assets are linked per transaction
+    const adjacency = new Map<number, Set<number>>();
+    const linkedAssetsPerTx = new Map<number, Set<string>>();
+
+    for (const link of internalLinks) {
+      if (link.linkType !== 'blockchain_internal') continue;
+      const sourceId = link.sourceTransactionId;
+      const targetId = link.targetTransactionId;
+      const asset = link.assetSymbol;
+
+      // Build adjacency for clustering
+      if (!adjacency.has(sourceId)) adjacency.set(sourceId, new Set());
+      if (!adjacency.has(targetId)) adjacency.set(targetId, new Set());
+      adjacency.get(sourceId)?.add(targetId);
+      adjacency.get(targetId)?.add(sourceId);
+
+      // Track which assets are linked for each transaction
+      if (!linkedAssetsPerTx.has(sourceId)) linkedAssetsPerTx.set(sourceId, new Set());
+      if (!linkedAssetsPerTx.has(targetId)) linkedAssetsPerTx.set(targetId, new Set());
+      linkedAssetsPerTx.get(sourceId)?.add(asset);
+      linkedAssetsPerTx.get(targetId)?.add(asset);
+    }
+
+    // Find connected components (clusters) and merge linked assets
+    const visited = new Set<number>();
+    const clusters: { linkedAssets: Set<string>; txs: UniversalTransactionData[] }[] = [];
+
+    for (const txId of adjacency.keys()) {
+      if (visited.has(txId)) continue;
+      const stack = [txId];
+      const cluster: UniversalTransactionData[] = [];
+      const linkedAssets = new Set<string>();
+      visited.add(txId);
+
+      while (stack.length > 0) {
+        const current = stack.pop();
+        if (current === undefined) continue;
+        const tx = transactionsById.get(current);
+        if (tx) cluster.push(tx);
+
+        // Merge linked assets for this transaction into cluster
+        const assetsForTx = linkedAssetsPerTx.get(current);
+        if (assetsForTx) {
+          for (const asset of assetsForTx) {
+            linkedAssets.add(asset);
+          }
+        }
+
+        const neighbors = adjacency.get(current);
+        if (!neighbors) continue;
+        for (const neighbor of neighbors) {
+          if (visited.has(neighbor)) continue;
+          visited.add(neighbor);
+          stack.push(neighbor);
+        }
+      }
+
+      if (cluster.length > 1) {
+        clusters.push({ txs: cluster, linkedAssets });
+      }
+    }
+
+    // Calculate adjustments only for assets that have blockchain_internal links
+    for (const { txs: group, linkedAssets } of clusters) {
+      const { inflowAmountsByTx, outflowAmountsByTx } = aggregateMovementsByTransaction(group);
+
+      // Only process assets that are actually linked in this cluster
+      // This prevents adjusting unrelated assets (e.g., fees in multi-asset transactions)
+      for (const assetSymbol of linkedAssets) {
+        const result = calculateOutflowAdjustment(assetSymbol, group, inflowAmountsByTx, outflowAmountsByTx);
+
+        if ('skip' in result) {
+          if (result.skip === 'non-positive') {
+            nonPositiveCount++;
+            this.logger.debug({ assetSymbol }, 'Skipping internal outflow adjustment: adjusted amount is non-positive');
+          }
+          continue;
+        }
+
+        // Warn when multiple outflows exist - we can't be certain which is external
+        if (result.multipleOutflows) {
+          this.logger.warn(
+            { assetSymbol, selectedTxId: result.txId, adjustedAmount: result.adjustedAmount.toFixed() },
+            'Multiple outflows detected in cluster - selected largest outflow for adjustment (may be incorrect if largest is internal change)'
+          );
+        }
+
+        const byAsset = adjustments.get(result.txId) ?? new Map<string, Decimal>();
+        byAsset.set(assetSymbol, result.adjustedAmount);
+        adjustments.set(result.txId, byAsset);
+        adjustmentCount++;
+      }
+    }
+
+    if (nonPositiveCount > 0) {
+      this.logger.info({ adjustmentCount, nonPositiveCount }, 'Internal outflow adjustment summary');
+    }
+
+    return adjustments;
   }
 
   /**

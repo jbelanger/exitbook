@@ -4,9 +4,11 @@ import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import {
+  aggregateMovementsByTransaction,
   buildMatchCriteria,
   calculateAmountSimilarity,
   calculateConfidenceScore,
+  calculateOutflowAdjustment,
   calculateTimeDifferenceHours,
   calculateVarianceMetadata,
   checkAddressMatch,
@@ -2105,6 +2107,559 @@ describe('matching-utils', () => {
       const perfectMatch = matches.find((m) => m.confidenceScore.toString() === '1');
       expect(perfectMatch).toBeDefined();
       expect(perfectMatch?.targetTransaction.id).toBe(2);
+    });
+  });
+
+  describe('hash multi-output sum validation', () => {
+    it('should create hash matches when sum of targets does not exceed source', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('1.0'), // Source has 1.0
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const targets: TransactionCandidate[] = [
+        {
+          id: 2,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'BTC',
+          amount: parseDecimal('0.6'), // Target 1: 0.6
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123',
+        },
+        {
+          id: 3,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:06:00Z'),
+          assetSymbol: 'BTC',
+          amount: parseDecimal('0.39'), // Target 2: 0.39, total = 0.99 (valid)
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123',
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should create hash matches for both targets (sum 0.99 < 1.0)
+      const hashMatches = matches.filter((m) => m.matchCriteria.hashMatch === true);
+      expect(hashMatches).toHaveLength(2);
+      expect(hashMatches.every((m) => m.confidenceScore.toString() === '1')).toBe(true);
+    });
+
+    it('should fall back to heuristic when sum of targets exceeds source', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('1.0'), // Source has 1.0
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const targets: TransactionCandidate[] = [
+        {
+          id: 2,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'BTC',
+          amount: parseDecimal('0.7'), // Target 1: 0.7
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123',
+        },
+        {
+          id: 3,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:06:00Z'),
+          assetSymbol: 'BTC',
+          amount: parseDecimal('0.5'), // Target 2: 0.5, total = 1.2 > 1.0 (invalid!)
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123',
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should NOT create hash matches (sum exceeds source)
+      // Should fall back to heuristic matching if any
+      const hashMatches = matches.filter((m) => m.matchCriteria.hashMatch === true);
+      expect(hashMatches).toHaveLength(0);
+
+      // May still have heuristic matches with lower confidence
+      for (const match of matches) {
+        expect(match.confidenceScore.toNumber()).toBeLessThan(1.0);
+      }
+    });
+
+    it('should exclude self-targets from sum validation', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const targets: TransactionCandidate[] = [
+        // Self-target (same transaction id as source)
+        {
+          id: 1,
+          sourceName: 'kucoin',
+          sourceType: 'exchange',
+          timestamp: new Date('2024-01-01T12:00:00Z'),
+          assetSymbol: 'BTC',
+          amount: parseDecimal('10.0'), // Large amount but same tx
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123',
+        },
+        // Valid target
+        {
+          id: 2,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'BTC',
+          amount: parseDecimal('0.99'),
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123',
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should create hash match for id:2 only (self-target excluded from sum)
+      const hashMatches = matches.filter((m) => m.matchCriteria.hashMatch === true);
+      expect(hashMatches).toHaveLength(1);
+      expect(hashMatches[0]?.targetTransaction.id).toBe(2);
+      expect(hashMatches[0]?.confidenceScore.toString()).toBe('1');
+    });
+
+    it('should exclude blockchain targets when source is blockchain', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'bitcoin',
+        sourceType: 'blockchain',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const targets: TransactionCandidate[] = [
+        // Blockchain target (should be excluded from hash path)
+        {
+          id: 2,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'BTC',
+          amount: parseDecimal('10.0'), // Large amount
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123',
+        },
+        // Exchange target (would be included, but no exchange targets here)
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should NOT create hash matches (blockchain→blockchain skipped)
+      const hashMatches = matches.filter((m) => m.matchCriteria.hashMatch === true);
+      expect(hashMatches).toHaveLength(0);
+    });
+
+    it('should handle single target with hash match (no sum validation needed)', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'BTC',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123',
+      };
+      const targets: TransactionCandidate[] = [
+        {
+          id: 2,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'BTC',
+          amount: parseDecimal('0.99'),
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123',
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should create hash match (single target always valid)
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.confidenceScore.toString()).toBe('1');
+      expect(matches[0]?.matchCriteria.hashMatch).toBe(true);
+    });
+
+    it('should use checkTransactionHashMatch for consistent log-index handling', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetSymbol: 'USDT',
+        amount: parseDecimal('100.0'),
+        direction: 'out',
+        blockchainTransactionHash: '0xabc123-100',
+      };
+      const targets: TransactionCandidate[] = [
+        // Same hash with same log index (should match via checkTransactionHashMatch)
+        {
+          id: 2,
+          sourceName: 'ethereum',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:05:00Z'),
+          assetSymbol: 'USDT',
+          amount: parseDecimal('50.0'),
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123-100',
+        },
+        // Same base hash but different log index (should NOT match)
+        {
+          id: 3,
+          sourceName: 'ethereum',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:06:00Z'),
+          assetSymbol: 'USDT',
+          amount: parseDecimal('49.0'),
+          direction: 'in',
+          blockchainTransactionHash: '0xabc123-101',
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should only match id:2 (same log index)
+      const hashMatches = matches.filter((m) => m.matchCriteria.hashMatch === true);
+      expect(hashMatches).toHaveLength(1);
+      expect(hashMatches[0]?.targetTransaction.id).toBe(2);
+    });
+  });
+
+  describe('calculateOutflowAdjustment', () => {
+    it('should adjust outflow when single outflow and internal inflows exist', () => {
+      const group: UniversalTransactionData[] = [
+        {
+          id: 1,
+          externalId: 'tx-1',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.0'), netAmount: parseDecimal('1.0') }],
+            inflows: [],
+          },
+        } as unknown as UniversalTransactionData,
+        {
+          id: 2,
+          externalId: 'tx-2',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.3'), netAmount: parseDecimal('0.3') }],
+          },
+        } as unknown as UniversalTransactionData,
+      ];
+
+      const { inflowAmountsByTx, outflowAmountsByTx } = aggregateMovementsByTransaction(group);
+      const result = calculateOutflowAdjustment('BTC', group, inflowAmountsByTx, outflowAmountsByTx);
+
+      expect(result).toHaveProperty('adjustedAmount');
+      if ('adjustedAmount' in result) {
+        expect(result.adjustedAmount.toFixed()).toBe('0.7'); // 1.0 - 0.3 = 0.7
+        expect(result.txId).toBe(1);
+        expect(result.multipleOutflows).toBe(false);
+      }
+    });
+
+    it('should select largest outflow when multiple exist and set multipleOutflows flag', () => {
+      const group: UniversalTransactionData[] = [
+        {
+          id: 1,
+          externalId: 'tx-1',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.5'), netAmount: parseDecimal('0.5') }],
+            inflows: [],
+          },
+        } as unknown as UniversalTransactionData,
+        {
+          id: 2,
+          externalId: 'tx-2',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.0'), netAmount: parseDecimal('1.0') }],
+            inflows: [],
+          },
+        } as unknown as UniversalTransactionData,
+        {
+          id: 3,
+          externalId: 'tx-3',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.3'), netAmount: parseDecimal('0.3') }],
+          },
+        } as unknown as UniversalTransactionData,
+      ];
+
+      const { inflowAmountsByTx, outflowAmountsByTx } = aggregateMovementsByTransaction(group);
+      const result = calculateOutflowAdjustment('BTC', group, inflowAmountsByTx, outflowAmountsByTx);
+
+      expect(result).toHaveProperty('adjustedAmount');
+      if ('adjustedAmount' in result) {
+        expect(result.txId).toBe(2); // Selected largest outflow
+        expect(result.adjustedAmount.toFixed()).toBe('0.7'); // 1.0 - 0.3 = 0.7
+        expect(result.multipleOutflows).toBe(true); // Flag set
+      }
+    });
+
+    it('should skip adjustment when no inflows exist', () => {
+      const group: UniversalTransactionData[] = [
+        {
+          id: 1,
+          externalId: 'tx-1',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.0'), netAmount: parseDecimal('1.0') }],
+            inflows: [],
+          },
+        } as unknown as UniversalTransactionData,
+      ];
+
+      const { inflowAmountsByTx, outflowAmountsByTx } = aggregateMovementsByTransaction(group);
+      const result = calculateOutflowAdjustment('BTC', group, inflowAmountsByTx, outflowAmountsByTx);
+
+      expect(result).toHaveProperty('skip');
+      if ('skip' in result) {
+        expect(result.skip).toBe('no-adjustment');
+      }
+    });
+
+    it('should skip adjustment when adjusted amount would be non-positive', () => {
+      const group: UniversalTransactionData[] = [
+        {
+          id: 1,
+          externalId: 'tx-1',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.5'), netAmount: parseDecimal('0.5') }],
+            inflows: [],
+          },
+        } as unknown as UniversalTransactionData,
+        {
+          id: 2,
+          externalId: 'tx-2',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.0'), netAmount: parseDecimal('1.0') }],
+          },
+        } as unknown as UniversalTransactionData,
+      ];
+
+      const { inflowAmountsByTx, outflowAmountsByTx } = aggregateMovementsByTransaction(group);
+      const result = calculateOutflowAdjustment('BTC', group, inflowAmountsByTx, outflowAmountsByTx);
+
+      expect(result).toHaveProperty('skip');
+      if ('skip' in result) {
+        expect(result.skip).toBe('non-positive'); // 0.5 - 1.0 = -0.5 (invalid)
+      }
+    });
+
+    it('should exclude same-transaction inflows from adjustment', () => {
+      const group: UniversalTransactionData[] = [
+        {
+          id: 1,
+          externalId: 'tx-1',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.0'), netAmount: parseDecimal('1.0') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.7'), netAmount: parseDecimal('0.7') }],
+          },
+        } as unknown as UniversalTransactionData,
+        {
+          id: 2,
+          externalId: 'tx-2',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.2'), netAmount: parseDecimal('0.2') }],
+          },
+        } as unknown as UniversalTransactionData,
+      ];
+
+      const { inflowAmountsByTx, outflowAmountsByTx } = aggregateMovementsByTransaction(group);
+      const result = calculateOutflowAdjustment('BTC', group, inflowAmountsByTx, outflowAmountsByTx);
+
+      expect(result).toHaveProperty('adjustedAmount');
+      if ('adjustedAmount' in result) {
+        // Should only subtract 0.2 from tx-2 (not the 0.7 from same tx)
+        expect(result.adjustedAmount.toFixed()).toBe('0.8'); // 1.0 - 0.2 = 0.8
+        expect(result.txId).toBe(1);
+      }
+    });
+  });
+
+  describe('aggregateMovementsByTransaction', () => {
+    it('should aggregate multiple movements of same asset', () => {
+      const group: UniversalTransactionData[] = [
+        {
+          id: 1,
+          externalId: 'tx-1',
+          source: 'ethereum',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [
+              { assetSymbol: 'ETH', grossAmount: parseDecimal('0.5'), netAmount: parseDecimal('0.5') },
+              { assetSymbol: 'ETH', grossAmount: parseDecimal('0.3'), netAmount: parseDecimal('0.3') },
+            ],
+            inflows: [{ assetSymbol: 'ETH', grossAmount: parseDecimal('0.1'), netAmount: parseDecimal('0.1') }],
+          },
+        } as unknown as UniversalTransactionData,
+      ];
+
+      const { inflowAmountsByTx, outflowAmountsByTx, assetSymbols } = aggregateMovementsByTransaction(group);
+
+      expect(assetSymbols.has('ETH')).toBe(true);
+      expect(assetSymbols.size).toBe(1);
+
+      const inflows = inflowAmountsByTx.get(1);
+      expect(inflows?.get('ETH')?.toFixed()).toBe('0.1');
+
+      const outflows = outflowAmountsByTx.get(1);
+      expect(outflows?.get('ETH')?.toFixed()).toBe('0.8'); // 0.5 + 0.3
+    });
+
+    it('should handle multiple assets', () => {
+      const group: UniversalTransactionData[] = [
+        {
+          id: 1,
+          externalId: 'tx-1',
+          source: 'ethereum',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [{ assetSymbol: 'ETH', grossAmount: parseDecimal('1.0'), netAmount: parseDecimal('1.0') }],
+            inflows: [{ assetSymbol: 'USDT', grossAmount: parseDecimal('3000'), netAmount: parseDecimal('3000') }],
+          },
+        } as unknown as UniversalTransactionData,
+      ];
+
+      const { assetSymbols, inflowAmountsByTx, outflowAmountsByTx } = aggregateMovementsByTransaction(group);
+
+      expect(assetSymbols.has('ETH')).toBe(true);
+      expect(assetSymbols.has('USDT')).toBe(true);
+      expect(assetSymbols.size).toBe(2);
+
+      expect(outflowAmountsByTx.get(1)?.get('ETH')?.toFixed()).toBe('1');
+      expect(inflowAmountsByTx.get(1)?.get('USDT')?.toFixed()).toBe('3000');
+    });
+
+    it('should prefer netAmount over grossAmount', () => {
+      const group: UniversalTransactionData[] = [
+        {
+          id: 1,
+          externalId: 'tx-1',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [
+              {
+                assetSymbol: 'BTC',
+                grossAmount: parseDecimal('1.0'),
+                netAmount: parseDecimal('0.9995'), // After fees
+              },
+            ],
+            inflows: [],
+          },
+        } as unknown as UniversalTransactionData,
+      ];
+
+      const { outflowAmountsByTx } = aggregateMovementsByTransaction(group);
+
+      // Should use netAmount
+      expect(outflowAmountsByTx.get(1)?.get('BTC')?.toFixed()).toBe('0.9995');
+    });
+
+    it('should use grossAmount when netAmount is undefined', () => {
+      const group: UniversalTransactionData[] = [
+        {
+          id: 1,
+          externalId: 'tx-1',
+          source: 'exchange',
+          sourceType: 'exchange',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [
+              {
+                assetSymbol: 'BTC',
+                grossAmount: parseDecimal('1.0'),
+                // netAmount undefined
+              },
+            ],
+            inflows: [],
+          },
+        } as unknown as UniversalTransactionData,
+      ];
+
+      const { outflowAmountsByTx } = aggregateMovementsByTransaction(group);
+
+      // Should use grossAmount
+      expect(outflowAmountsByTx.get(1)?.get('BTC')?.toFixed()).toBe('1');
     });
   });
 });

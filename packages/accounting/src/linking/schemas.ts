@@ -25,6 +25,7 @@ export const MatchCriteriaSchema = z.object({
   timingValid: z.boolean(),
   timingHours: z.number(),
   addressMatch: z.boolean().optional(),
+  hashMatch: z.boolean().optional(),
 });
 
 /**
