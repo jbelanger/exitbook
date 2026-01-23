@@ -135,7 +135,7 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
     });
 
     // Cleanup
-    handler.destroy();
+    handler.destroy?.();
     await closeDatabase(database);
     resetLoggerContext();
 

@@ -56,7 +56,7 @@ async function executeLinksRejectCommand(linkId: string, rawOptions: unknown): P
     const output = new OutputManager('text');
     output.error(
       'links-reject',
-      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
       ExitCodes.INVALID_ARGS
     );
     return;
@@ -92,7 +92,6 @@ async function executeLinksRejectCommand(linkId: string, rawOptions: unknown): P
 
     const result = await handler.execute({ linkId });
 
-    handler.destroy();
     await closeDatabase(database);
 
     resetLoggerContext();

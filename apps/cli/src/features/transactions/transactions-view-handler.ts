@@ -59,8 +59,4 @@ export class ViewTransactionsHandler {
 
     return ok(result);
   }
-
-  destroy(): void {
-    // No cleanup needed
-  }
 }

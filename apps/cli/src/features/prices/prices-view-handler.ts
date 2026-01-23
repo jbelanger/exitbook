@@ -53,10 +53,6 @@ export class ViewPricesHandler {
     return ok(result);
   }
 
-  destroy(): void {
-    // No cleanup needed
-  }
-
   /**
    * Extract price status for each asset in a transaction.
    * Returns a map of asset -> hasPrice, where hasPrice is true if ANY movement of that asset has price data.

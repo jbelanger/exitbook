@@ -113,10 +113,4 @@ describe('ViewAccountsHandler', () => {
       }
     });
   });
-
-  describe('destroy', () => {
-    it('should not throw error when called', () => {
-      expect(() => handler.destroy()).not.toThrow();
-    });
-  });
 });

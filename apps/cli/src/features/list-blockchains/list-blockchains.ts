@@ -60,7 +60,7 @@ async function executeListBlockchainsCommand(rawOptions: unknown): Promise<void>
     const output = new OutputManager(isJsonMode ? 'json' : 'text');
     output.error(
       'list-blockchains',
-      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
       ExitCodes.INVALID_ARGS
     );
     return;
@@ -85,7 +85,6 @@ async function executeListBlockchainsCommand(rawOptions: unknown): Promise<void>
     const result = await handler.execute(options);
 
     if (result.isErr()) {
-      handler.destroy();
       resetLoggerContext();
       output.error('list-blockchains', result.error, ExitCodes.INVALID_ARGS);
       return;
@@ -107,7 +106,6 @@ async function executeListBlockchainsCommand(rawOptions: unknown): Promise<void>
     // Output success
     output.json('list-blockchains', resultData);
 
-    handler.destroy();
     resetLoggerContext();
     process.exit(0);
   } catch (error) {

@@ -20,7 +20,7 @@ import {
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 
-import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
+import { resolveInteractiveParams, unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { promptConfirm } from '../shared/prompts.js';
@@ -120,7 +120,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
   output.intro('ExitBook | Import raw transactions');
 
   try {
-    const params = await resolveCommandParams({
+    const params = await resolveInteractiveParams({
       buildFromFlags: () => unwrapResult(buildImportParams(options)),
       cancelMessage: 'Import cancelled',
       commandName: 'import',
@@ -212,7 +212,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 
       if (importResult.isErr()) {
         spinner?.stop('Import failed');
-        handler.destroy();
+        handler.destroy?.();
         await closeDatabase(database);
         resetLoggerContext();
         output.error('import', importResult.error, ExitCodes.GENERAL_ERROR);
@@ -233,7 +233,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       const instrumentationSummary = instrumentation.getSummary();
 
       // Cleanup
-      handler.destroy();
+      handler.destroy?.();
       await closeDatabase(database);
       resetLoggerContext();
 
@@ -257,7 +257,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
         output.outro(summary);
       }
     } catch (error) {
-      handler.destroy();
+      handler.destroy?.();
       await closeDatabase(database);
       resetLoggerContext();
       spinner?.stop('Import failed');

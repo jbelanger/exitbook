@@ -164,11 +164,4 @@ export class LinksRunHandler {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
-
-  /**
-   * Cleanup resources (none needed for LinksRunHandler, but included for consistency).
-   */
-  destroy(): void {
-    // No resources to cleanup
-  }
 }

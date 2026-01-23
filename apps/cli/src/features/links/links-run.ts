@@ -4,7 +4,7 @@ import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
+import { resolveInteractiveParams, unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
@@ -62,7 +62,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
     const output = new OutputManager(isJsonMode ? 'json' : 'text');
     output.error(
       'links-run',
-      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
       ExitCodes.INVALID_ARGS
     );
     return;
@@ -72,7 +72,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    const params = await resolveCommandParams({
+    const params = await resolveInteractiveParams({
       buildFromFlags: () => unwrapResult(buildLinksRunParamsFromFlags(options)),
       cancelMessage: 'Transaction linking cancelled',
       commandName: 'links-run',
@@ -102,7 +102,6 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
     try {
       const result = await handler.execute(params);
 
-      handler.destroy();
       await closeDatabase(database);
       spinner?.stop();
       resetLoggerContext();
@@ -114,7 +113,6 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
 
       handleLinksRunSuccess(output, result.value);
     } catch (error) {
-      handler.destroy();
       await closeDatabase(database);
       spinner?.stop('Linking failed');
       resetLoggerContext();

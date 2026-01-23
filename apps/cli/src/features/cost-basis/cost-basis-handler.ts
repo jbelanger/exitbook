@@ -51,13 +51,6 @@ export class CostBasisHandler {
   ) {}
 
   /**
-   * Cleanup resources (none needed for CostBasisHandler, but included for consistency).
-   */
-  destroy(): void {
-    // No resources to cleanup
-  }
-
-  /**
    * Execute the cost basis calculation.
    */
   async execute(params: CostBasisHandlerParams): Promise<Result<CostBasisResult, Error>> {

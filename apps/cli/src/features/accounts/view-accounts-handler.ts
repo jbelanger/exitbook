@@ -29,8 +29,4 @@ export class ViewAccountsHandler {
     // Map service result to handler result (types are compatible)
     return result as Result<ViewAccountsResult, Error>;
   }
-
-  destroy(): void {
-    // No cleanup needed
-  }
 }

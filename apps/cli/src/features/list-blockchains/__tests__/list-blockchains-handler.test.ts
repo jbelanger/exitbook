@@ -1,9 +1,9 @@
 import type { ProviderInfo } from '@exitbook/blockchain-providers';
 import { ProviderRegistry } from '@exitbook/blockchain-providers';
 import { getAllBlockchains } from '@exitbook/ingestion';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ListBlockchainsHandler } from './list-blockchains-handler.js';
+import { ListBlockchainsHandler } from '../list-blockchains-handler.ts';
 
 // Mock dependencies
 vi.mock('@exitbook/ingestion');
@@ -33,10 +33,6 @@ describe('ListBlockchainsHandler', () => {
 
     // Create handler
     handler = new ListBlockchainsHandler();
-  });
-
-  afterEach(() => {
-    handler.destroy();
   });
 
   describe('execute', () => {
@@ -333,17 +329,6 @@ describe('ListBlockchainsHandler', () => {
         expect(summary.byCategory.utxo).toBe(1);
         expect(summary.byCategory.evm).toBe(2);
       }
-    });
-  });
-
-  describe('destroy', () => {
-    it('should cleanup resources without error', () => {
-      expect(() => handler.destroy()).not.toThrow();
-    });
-
-    it('should be safe to call multiple times', () => {
-      handler.destroy();
-      expect(() => handler.destroy()).not.toThrow();
     });
   });
 });

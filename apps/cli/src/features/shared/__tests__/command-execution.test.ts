@@ -1,7 +1,7 @@
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { resolveCommandParams, unwrapResult } from '../command-execution.js';
+import { resolveInteractiveParams, unwrapResult } from '../command-execution.js';
 import type { OutputManager } from '../output.js';
 
 // Mock dependencies
@@ -36,7 +36,7 @@ describe('command-execution', () => {
     });
   });
 
-  describe('resolveCommandParams', () => {
+  describe('resolveInteractiveParams', () => {
     let mockOutput: Pick<OutputManager, 'intro'>;
     let promptConfirm: Mock;
     let handleCancellation: Mock;
@@ -60,7 +60,7 @@ describe('command-execution', () => {
         const mockPromptFn = vi.fn().mockResolvedValue({ param: 'value' });
         promptConfirm.mockResolvedValue(true);
 
-        const result = await resolveCommandParams<{ param: string }>({
+        const result = await resolveInteractiveParams<{ param: string }>({
           buildFromFlags: vi.fn(),
           cancelMessage: 'Test cancelled',
           commandName: 'test',
@@ -80,7 +80,7 @@ describe('command-execution', () => {
         const mockPromptFn = vi.fn().mockResolvedValue({ param: 'value' });
         promptConfirm.mockResolvedValue(false);
 
-        await resolveCommandParams({
+        await resolveInteractiveParams({
           buildFromFlags: vi.fn(),
           cancelMessage: 'Operation cancelled',
           commandName: 'test',
@@ -102,7 +102,7 @@ describe('command-execution', () => {
         const mockPromptFn = vi.fn().mockResolvedValue(complexParams);
         promptConfirm.mockResolvedValue(true);
 
-        const result = await resolveCommandParams<{ param: string }>({
+        const result = await resolveInteractiveParams<{ param: string }>({
           buildFromFlags: vi.fn(),
           cancelMessage: 'Cancelled',
           commandName: 'test',
@@ -121,7 +121,7 @@ describe('command-execution', () => {
         const mockBuildFromFlags = vi.fn().mockReturnValue({ flag: 'value' });
         const mockPromptFn = vi.fn();
 
-        const result = await resolveCommandParams<{ param: string }>({
+        const result = await resolveInteractiveParams<{ param: string }>({
           buildFromFlags: mockBuildFromFlags,
           cancelMessage: 'Cancelled',
           commandName: 'test',
@@ -145,7 +145,7 @@ describe('command-execution', () => {
         });
 
         await expect(
-          resolveCommandParams({
+          resolveInteractiveParams({
             buildFromFlags: mockBuildFromFlags,
             cancelMessage: 'Cancelled',
             commandName: 'test',
@@ -160,7 +160,7 @@ describe('command-execution', () => {
       it('should work with various command names', async () => {
         const mockBuildFromFlags = vi.fn().mockReturnValue({ data: 'test' });
 
-        await resolveCommandParams({
+        await resolveInteractiveParams({
           buildFromFlags: mockBuildFromFlags,
           cancelMessage: 'Cancelled',
           commandName: 'import',
@@ -170,7 +170,7 @@ describe('command-execution', () => {
           promptFn: vi.fn(),
         });
 
-        await resolveCommandParams({
+        await resolveInteractiveParams({
           buildFromFlags: mockBuildFromFlags,
           cancelMessage: 'Cancelled',
           commandName: 'export',

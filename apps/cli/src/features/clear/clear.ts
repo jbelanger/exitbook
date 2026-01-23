@@ -1,4 +1,14 @@
-import type { ClearResult, DeletionPreview } from '@exitbook/ingestion';
+import { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
+import {
+  AccountRepository,
+  closeDatabase,
+  ImportSessionRepository,
+  initializeDatabase,
+  RawDataRepository,
+  TransactionRepository,
+  UserRepository,
+} from '@exitbook/data';
+import { ClearService, type ClearResult, type DeletionPreview } from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
@@ -43,6 +53,15 @@ export function registerClearCommand(program: Command): void {
 
 /**
  * Execute the clear command.
+ *
+ * Note: Does not use resolveInteractiveParams because it requires preview-then-confirm flow:
+ * 1. Build params from flags
+ * 2. Execute preview to show what will be deleted
+ * 3. Show detailed preview to user
+ * 4. Confirm deletion
+ * 5. Execute deletion
+ *
+ * This differs from the standard prompt-then-confirm flow in resolveInteractiveParams.
  */
 async function executeClearCommand(rawOptions: unknown): Promise<void> {
   // Validate options at CLI boundary with Zod
@@ -60,165 +79,129 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
   try {
     const params = unwrapResult(buildClearParamsFromFlags(options));
 
-    // Create service and handler to preview deletion
-    const {
-      initializeDatabase,
-      closeDatabase,
-      UserRepository: UserRepo,
-      TransactionRepository: TxRepo,
-      AccountRepository: AcctRepo,
-      RawDataRepository: RDRepo,
-      ImportSessionRepository: DSRepo,
-    } = await import('@exitbook/data');
-    const {
-      TransactionLinkRepository: TLRepo,
-      CostBasisRepository: CBRepo,
-      LotTransferRepository: LTRepo,
-    } = await import('@exitbook/accounting');
-    const { ClearService } = await import('@exitbook/ingestion');
-
+    // Initialize database and repositories once
     const database = await initializeDatabase();
-    const previewUserRepo = new UserRepo(database);
-    const acctRepo = new AcctRepo(database);
-    const txRepo = new TxRepo(database);
-    const tlRepo = new TLRepo(database);
-    const cbRepo = new CBRepo(database);
-    const ltRepo = new LTRepo(database);
-    const rdRepo = new RDRepo(database);
-    const dsRepo = new DSRepo(database);
+    const userRepository = new UserRepository(database);
+    const accountRepository = new AccountRepository(database);
+    const transactionRepository = new TransactionRepository(database);
+    const transactionLinkRepository = new TransactionLinkRepository(database);
+    const costBasisRepository = new CostBasisRepository(database);
+    const lotTransferRepository = new LotTransferRepository(database);
+    const rawDataRepository = new RawDataRepository(database);
+    const importSessionRepository = new ImportSessionRepository(database);
 
-    const clearService = new ClearService(previewUserRepo, acctRepo, txRepo, tlRepo, cbRepo, ltRepo, rdRepo, dsRepo);
+    const clearService = new ClearService(
+      userRepository,
+      accountRepository,
+      transactionRepository,
+      transactionLinkRepository,
+      costBasisRepository,
+      lotTransferRepository,
+      rawDataRepository,
+      importSessionRepository
+    );
     const handler = new ClearHandler(clearService);
 
-    const previewResult = await handler.previewDeletion(params);
-    handler.destroy();
-    await closeDatabase(database);
+    try {
+      // Preview deletion
+      const previewResult = await handler.previewDeletion(params);
 
-    if (previewResult.isErr()) {
-      output.error('clear', previewResult.error, ExitCodes.GENERAL_ERROR);
-      return;
-    }
-
-    const preview = previewResult.value;
-
-    // Check if there's anything to delete
-    const totalToDelete =
-      preview.accounts +
-      preview.transactions +
-      preview.links +
-      preview.lots +
-      preview.disposals +
-      preview.transfers +
-      preview.calculations;
-    if (totalToDelete === 0 && (!params.includeRaw || (preview.sessions === 0 && preview.rawData === 0))) {
-      if (output.isTextMode()) {
-        console.error('No data to clear.');
-      } else {
-        output.json('clear', { deleted: preview });
+      if (previewResult.isErr()) {
+        await closeDatabase(database);
+        output.error('clear', previewResult.error, ExitCodes.GENERAL_ERROR);
+        return;
       }
-      return;
-    }
 
-    // Show preview and confirm (skip in JSON mode with no data, or if --confirm flag is set)
-    const shouldConfirm = !options.confirm && !options.json;
-    if (shouldConfirm) {
-      if (output.isTextMode()) {
-        console.error('\nThis will clear:');
-        if (preview.accounts > 0) console.error(`  • ${preview.accounts} accounts`);
-        if (preview.transactions > 0) console.error(`  • ${preview.transactions} transactions`);
-        if (preview.links > 0) console.error(`  • ${preview.links} transaction links`);
-        if (preview.lots > 0) console.error(`  • ${preview.lots} acquisition lots`);
-        if (preview.disposals > 0) console.error(`  • ${preview.disposals} lot disposals`);
-        if (preview.transfers > 0) console.error(`  • ${preview.transfers} lot transfers`);
-        if (preview.calculations > 0) console.error(`  • ${preview.calculations} cost basis calculations`);
+      const preview = previewResult.value;
 
-        if (params.includeRaw) {
-          console.error('\n⚠️  WARNING: Raw data will also be deleted:');
-          if (preview.sessions > 0) console.error(`  • ${preview.sessions} import sessions`);
-          if (preview.rawData > 0) console.error(`  • ${preview.rawData} raw data items`);
-          console.error('\n⚠️  You will need to re-import from exchanges/blockchains (slow, rate-limited).');
+      // Check if there's anything to delete
+      const totalToDelete =
+        preview.accounts +
+        preview.transactions +
+        preview.links +
+        preview.lots +
+        preview.disposals +
+        preview.transfers +
+        preview.calculations;
+      if (totalToDelete === 0 && (!params.includeRaw || (preview.sessions === 0 && preview.rawData === 0))) {
+        await closeDatabase(database);
+        if (output.isTextMode()) {
+          console.error('No data to clear.');
         } else {
-          console.error('\nRaw imported data will be preserved:');
-          if (preview.sessions > 0) console.error(`  • ${preview.sessions} sessions`);
-          if (preview.rawData > 0) console.error(`  • ${preview.rawData} raw data items`);
-          console.error(
-            '\nYou can reprocess with: exitbook process' + (params.source ? ` --source ${params.source}` : '')
-          );
+          output.json('clear', { deleted: preview });
         }
-        console.error('');
+        return;
       }
 
-      const confirmMessage = params.includeRaw ? 'Delete ALL data including raw imports?' : 'Clear processed data?';
-      const shouldProceed = await promptConfirm(confirmMessage, false);
-      if (!shouldProceed) {
-        handleCancellation('Clear cancelled');
+      // Show preview and confirm (skip in JSON mode with no data, or if --confirm flag is set)
+      const shouldConfirm = !options.confirm && !options.json;
+      if (shouldConfirm) {
+        if (output.isTextMode()) {
+          console.error('\nThis will clear:');
+          if (preview.accounts > 0) console.error(`  • ${preview.accounts} accounts`);
+          if (preview.transactions > 0) console.error(`  • ${preview.transactions} transactions`);
+          if (preview.links > 0) console.error(`  • ${preview.links} transaction links`);
+          if (preview.lots > 0) console.error(`  • ${preview.lots} acquisition lots`);
+          if (preview.disposals > 0) console.error(`  • ${preview.disposals} lot disposals`);
+          if (preview.transfers > 0) console.error(`  • ${preview.transfers} lot transfers`);
+          if (preview.calculations > 0) console.error(`  • ${preview.calculations} cost basis calculations`);
+
+          if (params.includeRaw) {
+            console.error('\n⚠️  WARNING: Raw data will also be deleted:');
+            if (preview.sessions > 0) console.error(`  • ${preview.sessions} import sessions`);
+            if (preview.rawData > 0) console.error(`  • ${preview.rawData} raw data items`);
+            console.error('\n⚠️  You will need to re-import from exchanges/blockchains (slow, rate-limited).');
+          } else {
+            console.error('\nRaw imported data will be preserved:');
+            if (preview.sessions > 0) console.error(`  • ${preview.sessions} sessions`);
+            if (preview.rawData > 0) console.error(`  • ${preview.rawData} raw data items`);
+            console.error(
+              '\nYou can reprocess with: exitbook process' + (params.source ? ` --source ${params.source}` : '')
+            );
+          }
+          console.error('');
+        }
+
+        const confirmMessage = params.includeRaw ? 'Delete ALL data including raw imports?' : 'Clear processed data?';
+        const shouldProceed = await promptConfirm(confirmMessage, false);
+        if (!shouldProceed) {
+          await closeDatabase(database);
+          handleCancellation('Clear cancelled');
+        }
       }
+
+      const spinner = output.spinner();
+      spinner?.start('Clearing data...');
+
+      configureLogger({
+        mode: options.json ? 'json' : 'text',
+        spinner: spinner || undefined,
+        verbose: false,
+        sinks: options.json
+          ? { ui: false, structured: 'file' }
+          : spinner
+            ? { ui: true, structured: 'off' }
+            : { ui: false, structured: 'stdout' },
+      });
+
+      // Execute deletion
+      const result = await handler.execute(params);
+
+      await closeDatabase(database);
+      resetLoggerContext();
+
+      if (result.isErr()) {
+        spinner?.stop('Clear failed');
+        output.error('clear', result.error, ExitCodes.GENERAL_ERROR);
+        return;
+      }
+
+      handleClearSuccess(output, result.value, spinner);
+    } catch (error) {
+      await closeDatabase(database);
+      resetLoggerContext();
+      throw error;
     }
-
-    const spinner = output.spinner();
-    spinner?.start('Clearing data...');
-
-    configureLogger({
-      mode: options.json ? 'json' : 'text',
-      spinner: spinner || undefined,
-      verbose: false,
-      sinks: options.json
-        ? { ui: false, structured: 'file' }
-        : spinner
-          ? { ui: true, structured: 'off' }
-          : { ui: false, structured: 'stdout' },
-    });
-
-    // Initialize database, repositories, and service
-    const {
-      initializeDatabase: initDb,
-      closeDatabase: closeDb,
-      UserRepository,
-      TransactionRepository,
-      AccountRepository,
-      RawDataRepository,
-      ImportSessionRepository,
-    } = await import('@exitbook/data');
-    const { TransactionLinkRepository, CostBasisRepository, LotTransferRepository } = await import(
-      '@exitbook/accounting'
-    );
-    const { ClearService: ClearSvc } = await import('@exitbook/ingestion');
-
-    const db = await initDb();
-    const userRepo = new UserRepository(db);
-    const accountRepo = new AccountRepository(db);
-    const transactionRepo = new TransactionRepository(db);
-    const transactionLinkRepo = new TransactionLinkRepository(db);
-    const costBasisRepo = new CostBasisRepository(db);
-    const lotTransferRepo = new LotTransferRepository(db);
-    const rawDataRepo = new RawDataRepository(db);
-    const sessionRepo = new ImportSessionRepository(db);
-
-    const clearSvc = new ClearSvc(
-      userRepo,
-      accountRepo,
-      transactionRepo,
-      transactionLinkRepo,
-      costBasisRepo,
-      lotTransferRepo,
-      rawDataRepo,
-      sessionRepo
-    );
-    const clearHandler = new ClearHandler(clearSvc);
-
-    const result = await clearHandler.execute(params);
-    clearHandler.destroy();
-    await closeDb(db);
-
-    resetLoggerContext();
-
-    if (result.isErr()) {
-      spinner?.stop('Clear failed');
-      output.error('clear', result.error, ExitCodes.GENERAL_ERROR);
-      return;
-    }
-
-    handleClearSuccess(output, result.value, spinner);
   } catch (error) {
     resetLoggerContext();
     output.error('clear', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);

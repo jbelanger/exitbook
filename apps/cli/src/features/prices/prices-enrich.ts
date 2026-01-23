@@ -110,7 +110,7 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
     const output = new OutputManager('text');
     output.error(
       'prices-enrich',
-      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
       ExitCodes.INVALID_ARGS
     );
     return;
@@ -154,7 +154,6 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
     try {
       const result = await handler.execute(params);
 
-      handler.destroy();
       await closeDatabase(database);
       resetLoggerContext();
 
@@ -166,7 +165,6 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
 
       handlePricesEnrichSuccess(output, result.value, spinner);
     } catch (error) {
-      handler.destroy();
       await closeDatabase(database);
       resetLoggerContext();
       spinner?.stop('Price enrichment failed');

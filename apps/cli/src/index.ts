@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import 'reflect-metadata';
 import { initializeProviders } from '@exitbook/blockchain-providers';
-import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import { registerAllBlockchains, registerAllExchanges } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { Command } from 'commander';
@@ -72,67 +71,14 @@ async function main() {
   // Benchmark rate limit command - refactored with @clack/prompts (Phase 3)
   registerBenchmarkRateLimitCommand(program);
 
-  // Status command
-  program
-    .command('status')
-    .description('Show system status and recent verification results')
-    .action(async () => {
-      try {
-        logger.info('Database implementation: Kysely');
-
-        const kyselyDb = await initializeDatabase();
-
-        // For now, use a simplified stats approach with Kysely
-        // TODO: Implement proper Kysely stats queries
-        const stats = {
-          totalSources: 0,
-          totalRawTransactions: 0,
-          totalImportSessions: 0,
-          totalTransactions: 0,
-          transactionsBySource: [],
-        };
-        logger.info('Kysely stats queries not yet implemented - showing placeholder values');
-
-        logger.info('\nSystem Status');
-        logger.info('================');
-        logger.info(`Total transactions: ${stats.totalTransactions}`);
-        logger.info(`Total sources: ${stats.totalSources}`);
-        logger.info(`Total import sessions: ${stats.totalImportSessions}`);
-
-        if (stats.transactionsBySource.length > 0) {
-          logger.info('\n📈 Transactions by Source:');
-          for (const { count, source } of stats.transactionsBySource) {
-            logger.info(`  ${String(source)}: ${String(count)}`);
-          }
-        }
-
-        // Close database connections
-        await closeDatabase(kyselyDb);
-
-        process.exit(0);
-      } catch (error) {
-        logger.error(`Status check failed: ${String(error)}`);
-        process.exit(1);
-      }
-    });
-
   await program.parseAsync();
 }
 
-// Handle unhandled rejections
-process.on('unhandledRejection', (reason) => {
-  logger.error(`Unhandled Rejection: ${String(reason)}`);
-  process.exit(1);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  logger.error(`Uncaught Exception: ${error.message}`);
-  logger.error(`Stack: ${error.stack}`);
-  process.exit(1);
-});
-
+// Only catch initialization errors (before commands run).
+// All command errors MUST go through OutputManager.error() to ensure consistent
+// JSON/text formatting and respect for --json flag. Global handlers would bypass
+// OutputManager and violate financial correctness by producing inconsistent output.
 main().catch((error) => {
-  logger.error(`CLI failed: ${String(error)}`);
+  logger.error(`CLI initialization failed: ${String(error)}`);
   process.exit(1);
 });

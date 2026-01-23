@@ -8,7 +8,7 @@ import { handleCancellation, promptConfirm } from './prompts.js';
  */
 export interface CommandHandler<TParams, TResult> {
   execute(params: TParams): Promise<Result<TResult, Error>>;
-  destroy(): void;
+  destroy?(): void;
 }
 
 /**
@@ -22,9 +22,11 @@ export function unwrapResult<T>(result: Result<T, Error>): T {
 }
 
 /**
- * Resolve command parameters (interactive mode vs flag mode).
+ * Resolve interactive command parameters.
+ * Handles the standard flow: intro → prompt → confirm → proceed.
+ * For commands with custom preview requirements before confirmation, implement inline.
  */
-export async function resolveCommandParams<TParams>(config: {
+export async function resolveInteractiveParams<TParams>(config: {
   buildFromFlags: () => TParams;
   cancelMessage: string;
   commandName: string;

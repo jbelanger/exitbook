@@ -73,7 +73,7 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
     const output = new OutputManager('text');
     output.error(
       'transactions-view',
-      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
       ExitCodes.INVALID_ARGS
     );
     return;
@@ -118,7 +118,6 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
 
     const result = await handler.execute(params);
 
-    handler.destroy();
     await closeDatabase(database);
 
     resetLoggerContext();

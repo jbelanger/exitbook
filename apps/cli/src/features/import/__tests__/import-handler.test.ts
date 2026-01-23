@@ -37,6 +37,7 @@ vi.mock('@exitbook/data', async (importOriginal) => {
 describe('ImportHandler', () => {
   let mockImportOrchestrator: Partial<ImportOrchestrator>;
   let mockProcessService: Partial<TransactionProcessService>;
+  let mockProviderManager: { destroy: Mock };
   let handler: ImportHandler;
 
   beforeEach(() => {
@@ -53,9 +54,14 @@ describe('ImportHandler', () => {
       processAccountTransactions: vi.fn(),
     };
 
+    mockProviderManager = {
+      destroy: vi.fn(),
+    };
+
     handler = new ImportHandler(
       mockImportOrchestrator as ImportOrchestrator,
-      mockProcessService as TransactionProcessService
+      mockProcessService as TransactionProcessService,
+      mockProviderManager as unknown
     );
   });
 
@@ -339,20 +345,10 @@ describe('ImportHandler', () => {
   });
 
   describe('destroy', () => {
-    it('should call providerManager.destroy', async () => {
-      const { BlockchainProviderManager } = await import('@exitbook/blockchain-providers');
-      const mockDestroy = vi.fn();
-      (BlockchainProviderManager as unknown as Mock).mockImplementation(() => ({
-        destroy: mockDestroy,
-      }));
+    it('should call providerManager.destroy', () => {
+      handler.destroy();
 
-      const newHandler = new ImportHandler(
-        mockImportOrchestrator as ImportOrchestrator,
-        mockProcessService as TransactionProcessService
-      );
-      newHandler.destroy();
-
-      expect(mockDestroy).toHaveBeenCalled();
+      expect(mockProviderManager.destroy).toHaveBeenCalled();
     });
   });
 });

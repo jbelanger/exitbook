@@ -13,7 +13,7 @@ import type { TransactionRepository } from '@exitbook/data';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CostBasisHandler } from '../cost-basis-handler.js';
 
@@ -68,10 +68,6 @@ describe('CostBasisHandler', () => {
     mockLotTransferRepo = {} as unknown as LotTransferRepository;
 
     handler = new CostBasisHandler(mockTransactionRepo, mockLinkRepo, mockCostBasisRepo, mockLotTransferRepo);
-  });
-
-  afterEach(() => {
-    handler.destroy();
   });
 
   describe('execute', () => {

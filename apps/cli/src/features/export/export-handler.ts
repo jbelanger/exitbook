@@ -43,7 +43,7 @@ export interface ExportOutput {
 export class ExportHandler {
   constructor(
     private transactionRepository: TransactionRepository,
-    private transactionLinkRepository?: TransactionLinkRepository
+    private transactionLinkRepository: TransactionLinkRepository
   ) {}
 
   /**
@@ -73,10 +73,6 @@ export class ExportHandler {
       if (params.format === 'csv') {
         const csvFormat = params.csvFormat ?? 'normalized';
         if (csvFormat === 'normalized') {
-          if (!this.transactionLinkRepository) {
-            return err(new Error('TransactionLinkRepository is required for normalized CSV export'));
-          }
-
           const transactionIds = transactions.map((tx) => tx.id);
           const linksResult = await this.transactionLinkRepository.findByTransactionIds(transactionIds);
           if (linksResult.isErr()) {
@@ -114,13 +110,6 @@ export class ExportHandler {
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
-  }
-
-  /**
-   * Cleanup resources (none needed for ExportHandler, but included for consistency).
-   */
-  destroy(): void {
-    // No resources to cleanup
   }
 }
 

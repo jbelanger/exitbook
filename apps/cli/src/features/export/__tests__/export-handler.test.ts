@@ -286,10 +286,4 @@ describe('ExportHandler', () => {
       expect(result._unsafeUnwrapErr().message).toBe('String error');
     });
   });
-
-  describe('destroy', () => {
-    it('should not throw when called', () => {
-      expect(() => handler.destroy()).not.toThrow();
-    });
-  });
 });

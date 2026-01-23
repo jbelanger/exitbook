@@ -1,8 +1,5 @@
-import {
-  BlockchainProviderManager,
-  initializeProviders,
-  type BlockchainExplorersConfig,
-} from '@exitbook/blockchain-providers';
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { initializeProviders } from '@exitbook/blockchain-providers';
 import type { ImportSession } from '@exitbook/core';
 import type { ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
 import { getBlockchainAdapter } from '@exitbook/ingestion';
@@ -43,11 +40,9 @@ export class ImportHandler {
   constructor(
     private importOrchestrator: ImportOrchestrator,
     private transactionProcessService: TransactionProcessService,
-    providerManager?: BlockchainProviderManager,
-    explorerConfig?: BlockchainExplorersConfig
+    providerManager: BlockchainProviderManager
   ) {
-    // Use provided provider manager or create new one
-    this.providerManager = providerManager ?? new BlockchainProviderManager(explorerConfig);
+    this.providerManager = providerManager;
   }
 
   /**

@@ -24,7 +24,7 @@ import {
   PriceEnrichmentService,
   PriceNormalizationService,
   StandardFxRateProvider,
-  type TransactionLinkRepository as ITransactionLinkRepository,
+  type TransactionLinkRepository,
 } from '@exitbook/accounting';
 import type { IFxRateProvider, NormalizeResult } from '@exitbook/accounting';
 import type { TransactionRepository } from '@exitbook/data';
@@ -38,8 +38,6 @@ import { InteractiveFxRateProvider } from './interactive-fx-rate-provider.js';
 import { PricesFetchHandler } from './prices-handler.js';
 import { createDefaultPriceProviderManager, determineEnrichmentStages } from './prices-utils.js';
 import type { PricesFetchResult } from './prices-utils.js';
-
-const logger = getLogger('PricesEnrichHandler');
 
 /**
  * Options for prices enrich command
@@ -85,12 +83,13 @@ export interface PricesEnrichResult {
  * Handler for prices enrich command
  */
 export class PricesEnrichHandler {
+  private readonly logger = getLogger('PricesEnrichHandler');
   private priceManager: PriceProviderManager | undefined;
   private readonly instrumentation = new InstrumentationCollector();
 
   constructor(
     private readonly transactionRepo: TransactionRepository,
-    private readonly linkRepo: ITransactionLinkRepository
+    private readonly linkRepo: TransactionLinkRepository
   ) {}
 
   /**
@@ -101,7 +100,7 @@ export class PricesEnrichHandler {
       // Determine which stages to run
       const stages = determineEnrichmentStages(options);
 
-      logger.info(
+      this.logger.info(
         {
           normalize: stages.normalize,
           derive: stages.derive,
@@ -125,19 +124,19 @@ export class PricesEnrichHandler {
 
       // Stage 1: Derive (extract from trades: USD + non-USD fiat, propagate via links)
       if (stages.derive) {
-        logger.info('Stage 1: Deriving prices from trades (USD + fiat)');
+        this.logger.info('Stage 1: Deriving prices from trades (USD + fiat)');
 
         const enrichmentService = new PriceEnrichmentService(this.transactionRepo, this.linkRepo);
         const deriveResult = await enrichmentService.enrichPrices();
 
         if (deriveResult.isErr()) {
-          logger.error({ error: deriveResult.error }, 'Stage 1 (derive) failed');
+          this.logger.error({ error: deriveResult.error }, 'Stage 1 (derive) failed');
           return err(deriveResult.error);
         }
 
         result.derive = deriveResult.value;
 
-        logger.info(
+        this.logger.info(
           {
             transactionsUpdated: result.derive.transactionsUpdated,
           },
@@ -147,7 +146,7 @@ export class PricesEnrichHandler {
 
       // Stage 2: Normalize (FX conversion: CAD/EUR → USD, upgrade fiat-execution-tentative → derived-ratio)
       if (stages.normalize) {
-        logger.info('Stage 2: Normalizing non-USD fiat prices to USD');
+        this.logger.info('Stage 2: Normalizing non-USD fiat prices to USD');
 
         if (!this.priceManager) {
           return err(new Error('Price manager not initialized'));
@@ -162,13 +161,13 @@ export class PricesEnrichHandler {
         const normalizeResult = await normalizeService.normalize();
 
         if (normalizeResult.isErr()) {
-          logger.error({ error: normalizeResult.error }, 'Stage 2 (normalize) failed');
+          this.logger.error({ error: normalizeResult.error }, 'Stage 2 (normalize) failed');
           return err(normalizeResult.error);
         }
 
         result.normalize = normalizeResult.value;
 
-        logger.info(
+        this.logger.info(
           {
             normalized: result.normalize.movementsNormalized,
             skipped: result.normalize.movementsSkipped,
@@ -208,7 +207,7 @@ export class PricesEnrichHandler {
 
       // Stage 3: Fetch (external providers for remaining crypto prices)
       if (stages.fetch) {
-        logger.info('Stage 3: Fetching missing prices from external providers');
+        this.logger.info('Stage 3: Fetching missing prices from external providers');
 
         if (!this.priceManager) {
           return err(new Error('Price manager not initialized'));
@@ -224,13 +223,13 @@ export class PricesEnrichHandler {
         );
 
         if (fetchResult.isErr()) {
-          logger.error({ error: fetchResult.error }, 'Stage 3 (fetch) failed');
+          this.logger.error({ error: fetchResult.error }, 'Stage 3 (fetch) failed');
           return err(fetchResult.error);
         }
 
         result.fetch = fetchResult.value;
 
-        logger.info(
+        this.logger.info(
           {
             pricesFetched: result.fetch.stats.pricesFetched,
             movementsUpdated: result.fetch.stats.movementsUpdated,
@@ -243,19 +242,19 @@ export class PricesEnrichHandler {
       // Stage 4: Derive (second pass) - use newly fetched/normalized prices
       // Run derive again if we ran fetch or normalize (which added new prices)
       if (stages.derive && (stages.fetch || stages.normalize)) {
-        logger.info('Stage 4: Re-deriving prices using fetched/normalized data (Pass 1 + Pass N+2)');
+        this.logger.info('Stage 4: Re-deriving prices using fetched/normalized data (Pass 1 + Pass N+2)');
 
         const enrichmentService = new PriceEnrichmentService(this.transactionRepo, this.linkRepo);
         const secondDeriveResult = await enrichmentService.enrichPrices();
 
         if (secondDeriveResult.isErr()) {
-          logger.error({ error: secondDeriveResult.error }, 'Stage 4 (2nd derive) failed');
+          this.logger.error({ error: secondDeriveResult.error }, 'Stage 4 (2nd derive) failed');
           return err(secondDeriveResult.error);
         }
 
         result.derive2 = secondDeriveResult.value;
 
-        logger.info(
+        this.logger.info(
           {
             transactionsUpdated: result.derive2.transactionsUpdated,
           },
@@ -263,18 +262,11 @@ export class PricesEnrichHandler {
         );
       }
 
-      logger.info('Unified price enrichment pipeline completed');
+      this.logger.info('Unified price enrichment pipeline completed');
       result.runStats = this.instrumentation.getSummary();
       return ok(result);
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
-  }
-
-  /**
-   * Cleanup resources
-   */
-  destroy(): void {
-    // Price manager cleanup if needed
   }
 }

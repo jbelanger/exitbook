@@ -221,10 +221,4 @@ describe('ClearHandler', () => {
       expect(clearResult.deleted.transactions).toBe(0);
     });
   });
-
-  describe('destroy', () => {
-    it('should cleanup without errors', () => {
-      expect(() => handler.destroy()).not.toThrow();
-    });
-  });
 });

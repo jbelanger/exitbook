@@ -48,7 +48,7 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
     const output = new OutputManager(isJsonMode ? 'json' : 'text');
     output.error(
       'prices-set',
-      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
       ExitCodes.INVALID_ARGS
     );
     return;
@@ -75,7 +75,6 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
       currency: options.currency,
       source: options.source,
     });
-    handler.destroy();
 
     resetLoggerContext();
 

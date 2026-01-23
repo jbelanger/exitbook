@@ -53,10 +53,6 @@ export class GapsViewHandler {
     }
   }
 
-  destroy(): void {
-    // No cleanup needed
-  }
-
   /**
    * Analyze fee-related gaps.
    */

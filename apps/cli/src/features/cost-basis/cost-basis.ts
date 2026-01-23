@@ -5,7 +5,7 @@ import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
+import { resolveInteractiveParams, unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { CostBasisCommandOptionsSchema } from '../shared/schemas.js';
@@ -79,7 +79,7 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
     const output = new OutputManager(isJsonMode ? 'json' : 'text');
     output.error(
       'cost-basis',
-      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
       ExitCodes.INVALID_ARGS
     );
     return;
@@ -89,7 +89,7 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    const params = await resolveCommandParams({
+    const params = await resolveInteractiveParams({
       buildFromFlags: () => unwrapResult(buildCostBasisParamsFromFlags(options)),
       cancelMessage: 'Cost basis calculation cancelled',
       commandName: 'cost-basis',
@@ -121,7 +121,6 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
     try {
       const result = await handler.execute(params);
 
-      handler.destroy();
       await closeDatabase(database);
       spinner?.stop();
       resetLoggerContext();
@@ -133,7 +132,6 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
 
       handleCostBasisSuccess(output, result.value);
     } catch (error) {
-      handler.destroy();
       await closeDatabase(database);
       spinner?.stop('Cost basis calculation failed');
       resetLoggerContext();

@@ -4,7 +4,7 @@ import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
+import { resolveInteractiveParams, unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { ExportCommandOptionsSchema } from '../shared/schemas.js';
@@ -70,7 +70,7 @@ async function executeExportCommand(rawOptions: unknown): Promise<void> {
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    const params = await resolveCommandParams({
+    const params = await resolveInteractiveParams({
       isInteractive: !options.exchange && !options.blockchain && !options.format && !options.json,
       output,
       commandName: 'export',
@@ -102,7 +102,6 @@ async function executeExportCommand(rawOptions: unknown): Promise<void> {
     try {
       const result = await handler.execute(params);
 
-      handler.destroy();
       await closeDatabase(database);
       spinner?.stop();
       resetLoggerContext();
@@ -114,7 +113,6 @@ async function executeExportCommand(rawOptions: unknown): Promise<void> {
 
       await handleExportSuccess(output, result.value);
     } catch (error) {
-      handler.destroy();
       await closeDatabase(database);
       spinner?.stop('Export failed');
       resetLoggerContext();

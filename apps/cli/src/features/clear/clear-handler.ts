@@ -31,11 +31,4 @@ export class ClearHandler {
       includeRaw: params.includeRaw,
     });
   }
-
-  /**
-   * Cleanup resources.
-   */
-  destroy(): void {
-    // No resources to cleanup
-  }
 }

@@ -173,7 +173,7 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
     resetLoggerContext();
     output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   } finally {
-    handler.destroy();
+    handler.destroy?.();
     await closeDatabase(database);
     resetLoggerContext();
   }

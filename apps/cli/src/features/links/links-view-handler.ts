@@ -19,7 +19,7 @@ import {
 export class LinksViewHandler {
   constructor(
     private readonly linkRepo: TransactionLinkRepository,
-    private readonly txRepo?: TransactionRepository
+    private readonly txRepo: TransactionRepository
   ) {}
 
   /**
@@ -48,21 +48,19 @@ export class LinksViewHandler {
     // Format links with transaction details
     const linkInfos: LinkInfo[] = [];
     for (const link of links) {
-      // Always fetch transactions if txRepo is available (for timestamps and amounts)
+      // Always fetch transactions for timestamps and amounts
       // In verbose mode, full transaction details will be displayed
       let sourceTx;
       let targetTx;
 
-      if (this.txRepo) {
-        const sourceTxResult = await this.txRepo.findById(link.sourceTransactionId);
-        if (sourceTxResult.isOk() && sourceTxResult.value) {
-          sourceTx = sourceTxResult.value;
-        }
+      const sourceTxResult = await this.txRepo.findById(link.sourceTransactionId);
+      if (sourceTxResult.isOk() && sourceTxResult.value) {
+        sourceTx = sourceTxResult.value;
+      }
 
-        const targetTxResult = await this.txRepo.findById(link.targetTransactionId);
-        if (targetTxResult.isOk() && targetTxResult.value) {
-          targetTx = targetTxResult.value;
-        }
+      const targetTxResult = await this.txRepo.findById(link.targetTransactionId);
+      if (targetTxResult.isOk() && targetTxResult.value) {
+        targetTx = targetTxResult.value;
       }
 
       // Format link info (functional core)
@@ -85,9 +83,5 @@ export class LinksViewHandler {
     };
 
     return ok(result);
-  }
-
-  destroy(): void {
-    // No cleanup needed
   }
 }

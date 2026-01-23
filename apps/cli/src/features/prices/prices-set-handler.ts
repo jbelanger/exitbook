@@ -89,13 +89,6 @@ export class PricesSetHandler {
   }
 
   /**
-   * Cleanup resources (no-op for service-based approach)
-   */
-  destroy(): void {
-    // Service handles its own lifecycle
-  }
-
-  /**
    * Validate and parse command options
    */
   private validateInputs(options: PricesSetOptions): Result<

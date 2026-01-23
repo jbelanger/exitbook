@@ -225,10 +225,4 @@ describe('LinksRejectHandler', () => {
       expect(result._unsafeUnwrapErr().message).toBe('Unexpected error');
     });
   });
-
-  describe('destroy', () => {
-    it('should cleanup resources without errors', () => {
-      expect(() => handler.destroy()).not.toThrow();
-    });
-  });
 });

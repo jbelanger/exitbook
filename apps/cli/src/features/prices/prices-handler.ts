@@ -31,7 +31,7 @@ export class PricesFetchHandler {
 
   constructor(
     private transactionRepo: TransactionRepository,
-    private readonly instrumentation?: InstrumentationCollector
+    private readonly instrumentation: InstrumentationCollector
   ) {}
 
   /**
@@ -305,13 +305,6 @@ export class PricesFetchHandler {
     const runStats = this.instrumentation?.getSummary();
 
     return ok({ stats, errors: this.errors, runStats });
-  }
-
-  /**
-   * Cleanup resources
-   */
-  destroy(): void {
-    // Price manager cleanup if needed
   }
 
   /**

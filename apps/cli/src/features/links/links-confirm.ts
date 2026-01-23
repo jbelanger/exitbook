@@ -56,7 +56,7 @@ async function executeLinksConfirmCommand(linkId: string, rawOptions: unknown): 
     const output = new OutputManager('text');
     output.error(
       'links-confirm',
-      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
       ExitCodes.INVALID_ARGS
     );
     return;
@@ -92,7 +92,6 @@ async function executeLinksConfirmCommand(linkId: string, rawOptions: unknown): 
 
     const result = await handler.execute({ linkId });
 
-    handler.destroy();
     await closeDatabase(database);
 
     resetLoggerContext();

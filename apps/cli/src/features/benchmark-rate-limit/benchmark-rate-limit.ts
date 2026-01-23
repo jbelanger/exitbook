@@ -76,7 +76,7 @@ async function executeBenchmarkRateLimitCommand(rawOptions: unknown): Promise<vo
     const output = new OutputManager(isJsonMode ? 'json' : 'text');
     output.error(
       'benchmark-rate-limit',
-      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
       ExitCodes.INVALID_ARGS
     );
     return;
@@ -101,7 +101,6 @@ async function executeBenchmarkRateLimitCommand(rawOptions: unknown): Promise<vo
     const result = await handler.execute(options, BlockchainProviderManager);
 
     if (result.isErr()) {
-      handler.destroy();
       resetLoggerContext();
       output.error('benchmark-rate-limit', result.error, ExitCodes.INVALID_ARGS);
       return;
@@ -129,7 +128,7 @@ async function executeBenchmarkRateLimitCommand(rawOptions: unknown): Promise<vo
     // Output success
     output.json('benchmark-rate-limit', resultData);
 
-    handler.destroy();
+    handler.destroy?.();
     resetLoggerContext();
     process.exit(0);
   } catch (error) {

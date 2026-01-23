@@ -82,11 +82,4 @@ export class ListBlockchainsHandler {
       summary,
     });
   }
-
-  /**
-   * Cleanup resources (if any).
-   */
-  destroy(): void {
-    // No resources to clean up for this handler
-  }
 }

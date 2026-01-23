@@ -214,9 +214,6 @@ pnpm run dev reprocess
 # List available blockchains and providers
 pnpm run dev list-blockchains
 
-# Check system status
-pnpm run dev status
-
 # Clear processed data (keeps raw data)
 pnpm run dev clear
 ```
