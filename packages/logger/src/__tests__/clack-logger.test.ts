@@ -1,5 +1,5 @@
 import type { Mock, MockInstance } from 'vitest';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Logger } from '../clack-logger.js';
 import { configureLogger, getLogger, getLoggerContext, resetLoggerContext, type Spinner } from '../clack-logger.js';
@@ -20,6 +20,8 @@ describe('logger-factory', () => {
   let stderrWriteSpy: MockInstance<(str: string | Uint8Array, ...args: unknown[]) => boolean>;
 
   beforeEach(() => {
+    vi.restoreAllMocks();
+
     // Reset logger context before each test
     resetLoggerContext();
 
@@ -49,6 +51,10 @@ describe('logger-factory', () => {
       start: vi.fn(),
       stop: vi.fn(),
     };
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('configureLogger', () => {

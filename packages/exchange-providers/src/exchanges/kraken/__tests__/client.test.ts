@@ -70,9 +70,11 @@ describe('createKrakenClient - fetchTransactionDataStreaming', () => {
   beforeEach(() => {
     mockFetchLedger = vi.fn();
 
-    (ccxt.kraken as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
-      fetchLedger: mockFetchLedger,
-    }));
+    (ccxt.kraken as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return {
+        fetchLedger: mockFetchLedger,
+      };
+    });
 
     const result = createKrakenClient({
       apiKey: 'test-api-key',
@@ -733,9 +735,11 @@ describe('createKrakenClient - fetchBalance', () => {
   beforeEach(() => {
     mockFetchBalance = vi.fn();
 
-    (ccxt.kraken as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
-      fetchBalance: mockFetchBalance,
-    }));
+    (ccxt.kraken as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return {
+        fetchBalance: mockFetchBalance,
+      };
+    });
 
     const result = createKrakenClient({
       apiKey: 'test-api-key',

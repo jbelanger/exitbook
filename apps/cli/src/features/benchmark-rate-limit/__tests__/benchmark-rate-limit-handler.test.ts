@@ -44,7 +44,9 @@ describe('BenchmarkRateLimitHandler', () => {
     };
 
     // Mock provider manager constructor
-    MockProviderManagerConstructor = vi.fn().mockReturnValue(mockProviderManager);
+    MockProviderManagerConstructor = vi.fn().mockImplementation(function () {
+      return mockProviderManager;
+    });
 
     // Create handler
     handler = new BenchmarkRateLimitHandler();

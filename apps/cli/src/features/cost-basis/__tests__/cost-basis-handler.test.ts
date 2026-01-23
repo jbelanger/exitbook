@@ -158,13 +158,12 @@ describe('CostBasisHandler', () => {
           assetsProcessed: ['BTC'],
         } as CostBasisSummary)
       );
-      vi.mocked(CostBasisCalculator).mockImplementation(
-        () =>
-          ({
-            calculate: mockCalculate,
-            calculateCostBasis: vi.fn(),
-          }) as unknown as CostBasisCalculator
-      );
+      vi.mocked(CostBasisCalculator).mockImplementation(function () {
+        return {
+          calculate: mockCalculate,
+          calculateCostBasis: vi.fn(),
+        } as unknown as CostBasisCalculator;
+      });
 
       const result = await handler.execute(validParams);
 
@@ -205,13 +204,12 @@ describe('CostBasisHandler', () => {
           assetsProcessed: ['BTC'],
         } as CostBasisSummary)
       );
-      vi.mocked(CostBasisCalculator).mockImplementation(
-        () =>
-          ({
-            calculate: mockCalculate,
-            calculateCostBasis: vi.fn(),
-          }) as unknown as CostBasisCalculator
-      );
+      vi.mocked(CostBasisCalculator).mockImplementation(function () {
+        return {
+          calculate: mockCalculate,
+          calculateCostBasis: vi.fn(),
+        } as unknown as CostBasisCalculator;
+      });
 
       // Mock Price Provider
       vi.mocked(createPriceProviderManager).mockResolvedValue(
@@ -241,12 +239,11 @@ describe('CostBasisHandler', () => {
           disposals: [],
         } as CostBasisReport)
       );
-      vi.mocked(CostBasisReportGenerator).mockImplementation(
-        () =>
-          ({
-            generateReport: mockGenerateReport,
-          }) as unknown as CostBasisReportGenerator
-      );
+      vi.mocked(CostBasisReportGenerator).mockImplementation(function () {
+        return {
+          generateReport: mockGenerateReport,
+        } as unknown as CostBasisReportGenerator;
+      });
 
       const result = await handler.execute(cadParams);
 
@@ -286,13 +283,12 @@ describe('CostBasisHandler', () => {
           assetsProcessed: ['BTC'],
         } as CostBasisSummary)
       );
-      vi.mocked(CostBasisCalculator).mockImplementation(
-        () =>
-          ({
-            calculate: mockCalculate,
-            calculateCostBasis: vi.fn(),
-          }) as unknown as CostBasisCalculator
-      );
+      vi.mocked(CostBasisCalculator).mockImplementation(function () {
+        return {
+          calculate: mockCalculate,
+          calculateCostBasis: vi.fn(),
+        } as unknown as CostBasisCalculator;
+      });
 
       const result = await handler.execute(validParams);
 
