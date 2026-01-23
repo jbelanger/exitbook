@@ -1,12 +1,12 @@
-import type { Account } from '@exitbook/core';
+import type { Account, AccountType } from '@exitbook/core';
 
 /**
  * Parameters for account query service
  */
 export interface AccountQueryParams {
-  accountId?: number;
-  accountType?: 'blockchain' | 'exchange-api' | 'exchange-csv';
-  source?: string;
+  accountId?: number | undefined;
+  accountType?: AccountType | undefined;
+  source?: string | undefined;
 }
 
 /**
@@ -24,7 +24,7 @@ export interface SessionSummary {
  */
 export interface FormattedAccount {
   id: number;
-  accountType: string;
+  accountType: AccountType;
   sourceName: string;
   identifier: string;
   parentAccountId?: number | undefined;

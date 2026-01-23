@@ -171,7 +171,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '1', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -256,7 +256,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '1', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -356,7 +356,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '1', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -446,7 +446,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '1', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -556,8 +556,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawal1Tx, deposit1Tx, withdrawal2Tx, deposit2Tx];
 
-      const link1 = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
-      const link2 = createLink('link2', 4, 5, 'BTC', '0.9992', '0.9992');
+      const link1 = createLink('link1', 2, 3, 'BTC', '1', '0.9995');
+      const link2 = createLink('link2', 4, 5, 'BTC', '0.9995', '0.9992');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link1, link2]);
@@ -771,8 +771,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, batchedWithdrawalTx, deposit1Tx, deposit2Tx];
 
-      const link1 = createLink('link1', 2, 3, 'BTC', '0.99975', '0.99975');
-      const link2 = createLink('link2', 2, 4, 'BTC', '0.99975', '0.99975');
+      const link1 = createLink('link1', 2, 3, 'BTC', '1', '0.99975');
+      const link2 = createLink('link2', 2, 4, 'BTC', '1', '0.99975');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link1, link2]);
@@ -864,7 +864,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '1', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -946,7 +946,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '1', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -1026,7 +1026,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '0.9875', '0.9875');
+      const link = createLink('link1', 2, 3, 'BTC', '1', '0.9875');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -1102,7 +1102,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '0.94', '0.94');
+      const link = createLink('link1', 2, 3, 'BTC', '1', '0.94');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -1178,7 +1178,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '0.98', '0.98');
+      const link = createLink('link1', 2, 3, 'BTC', '1', '0.98');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -1251,7 +1251,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '1', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);

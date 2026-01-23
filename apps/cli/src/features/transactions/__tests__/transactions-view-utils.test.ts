@@ -1,11 +1,12 @@
 import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import {
   applyTransactionFilters,
   formatTransactionForDisplay,
   type ViewTransactionsParams,
-} from './transactions-view-utils.js';
+} from '../transactions-view-utils.js';
 
 // Test data helper
 function createTestTransaction(overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData {
@@ -36,6 +37,13 @@ function createTestTransaction(overrides: Partial<UniversalTransactionData> = {}
   };
 }
 
+function unwrapOk<T>(result: Result<T, Error>): T {
+  if (result.isErr()) {
+    throw result.error;
+  }
+  return result.value;
+}
+
 describe('applyTransactionFilters', () => {
   describe('date filtering', () => {
     it('should filter transactions by until date', () => {
@@ -49,7 +57,7 @@ describe('applyTransactionFilters', () => {
         until: '2024-01-15T23:59:59Z',
       };
 
-      const result = applyTransactionFilters(transactions, params);
+      const result = unwrapOk(applyTransactionFilters(transactions, params));
 
       expect(result).toHaveLength(2);
       expect(result.map((tx) => tx.id)).toEqual([1, 2]);
@@ -63,7 +71,7 @@ describe('applyTransactionFilters', () => {
 
       const params: ViewTransactionsParams = {};
 
-      const result = applyTransactionFilters(transactions, params);
+      const result = unwrapOk(applyTransactionFilters(transactions, params));
 
       expect(result).toHaveLength(2);
     });
@@ -117,7 +125,7 @@ describe('applyTransactionFilters', () => {
         assetSymbol: 'BTC',
       };
 
-      const result = applyTransactionFilters(transactions, params);
+      const result = unwrapOk(applyTransactionFilters(transactions, params));
 
       expect(result).toHaveLength(2);
       expect(result.map((tx) => tx.id)).toEqual([1, 3]);
@@ -157,7 +165,7 @@ describe('applyTransactionFilters', () => {
         assetSymbol: 'USD',
       };
 
-      const result = applyTransactionFilters(transactions, params);
+      const result = unwrapOk(applyTransactionFilters(transactions, params));
 
       expect(result).toHaveLength(1);
       expect(result[0]?.id).toBe(1);
@@ -209,7 +217,7 @@ describe('applyTransactionFilters', () => {
         assetSymbol: 'BTC',
       };
 
-      const result = applyTransactionFilters(transactions, params);
+      const result = unwrapOk(applyTransactionFilters(transactions, params));
 
       expect(result).toHaveLength(2);
       expect(result.map((tx) => tx.id)).toEqual([1, 2]);
@@ -223,7 +231,7 @@ describe('applyTransactionFilters', () => {
 
       const params: ViewTransactionsParams = {};
 
-      const result = applyTransactionFilters(transactions, params);
+      const result = unwrapOk(applyTransactionFilters(transactions, params));
 
       expect(result).toHaveLength(2);
     });
@@ -241,7 +249,7 @@ describe('applyTransactionFilters', () => {
         operationType: 'buy',
       };
 
-      const result = applyTransactionFilters(transactions, params);
+      const result = unwrapOk(applyTransactionFilters(transactions, params));
 
       expect(result).toHaveLength(2);
       expect(result.map((tx) => tx.id)).toEqual([1, 3]);
@@ -255,7 +263,7 @@ describe('applyTransactionFilters', () => {
 
       const params: ViewTransactionsParams = {};
 
-      const result = applyTransactionFilters(transactions, params);
+      const result = unwrapOk(applyTransactionFilters(transactions, params));
 
       expect(result).toHaveLength(2);
     });
@@ -302,7 +310,7 @@ describe('applyTransactionFilters', () => {
         noPrice: true,
       };
 
-      const result = applyTransactionFilters(transactions, params);
+      const result = unwrapOk(applyTransactionFilters(transactions, params));
 
       expect(result).toHaveLength(1);
       expect(result[0]?.id).toBe(1);
@@ -348,7 +356,7 @@ describe('applyTransactionFilters', () => {
         noPrice: true,
       };
 
-      const result = applyTransactionFilters(transactions, params);
+      const result = unwrapOk(applyTransactionFilters(transactions, params));
 
       expect(result).toHaveLength(1);
       expect(result[0]?.id).toBe(1);
@@ -386,7 +394,7 @@ describe('applyTransactionFilters', () => {
 
       const params: ViewTransactionsParams = {};
 
-      const result = applyTransactionFilters(transactions, params);
+      const result = unwrapOk(applyTransactionFilters(transactions, params));
 
       expect(result).toHaveLength(2);
     });
@@ -487,7 +495,7 @@ describe('applyTransactionFilters', () => {
         operationType: 'buy',
       };
 
-      const result = applyTransactionFilters(transactions, params);
+      const result = unwrapOk(applyTransactionFilters(transactions, params));
 
       expect(result).toHaveLength(2);
       expect(result.map((tx) => tx.id)).toEqual([1, 3]);

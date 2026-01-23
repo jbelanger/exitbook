@@ -480,7 +480,11 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx)).toBe(true);
+      const result = transactionHasAllPrices(tx);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(true);
+      }
     });
 
     it('should return false when crypto inflow is missing price', () => {
@@ -491,7 +495,11 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx)).toBe(false);
+      const result = transactionHasAllPrices(tx);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(false);
+      }
     });
 
     it('should return false when crypto outflow is missing price', () => {
@@ -502,7 +510,11 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx)).toBe(false);
+      const result = transactionHasAllPrices(tx);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(false);
+      }
     });
 
     it('should return true when only fiat movements (no price needed)', () => {
@@ -513,7 +525,11 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx)).toBe(true);
+      const result = transactionHasAllPrices(tx);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(true);
+      }
     });
 
     it('should return true when fiat and crypto both present, crypto has price', () => {
@@ -527,7 +543,11 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx)).toBe(true);
+      const result = transactionHasAllPrices(tx);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(true);
+      }
     });
 
     it('should return false when fiat and crypto both present, crypto missing price', () => {
@@ -541,7 +561,11 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx)).toBe(false);
+      const result = transactionHasAllPrices(tx);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(false);
+      }
     });
 
     it('should handle empty inflows and outflows', () => {
@@ -552,9 +576,14 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx)).toBe(true);
+      const result = transactionHasAllPrices(tx);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(true);
+      }
     });
-    it('should handle invalid currency symbols by treating them as crypto (needs price)', () => {
+
+    it('should treat unknown currency symbols as crypto requiring price', () => {
       const tx = {
         movements: {
           inflows: [],
@@ -562,8 +591,14 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx)).toBe(false);
+      const result = transactionHasAllPrices(tx);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(false);
+      }
+    });
 
+    it('should treat unknown currency symbols as valid when price is present', () => {
       const txWithPrice = {
         movements: {
           inflows: [],
@@ -571,7 +606,27 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(txWithPrice)).toBe(true);
+      const result = transactionHasAllPrices(txWithPrice);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(true);
+      }
+    });
+
+    it('should return error for empty currency symbols', () => {
+      const tx = {
+        movements: {
+          inflows: [],
+          outflows: [{ assetSymbol: '', amount: '1', priceAtTxTime: undefined }],
+        },
+      } as unknown as UniversalTransactionData;
+
+      const result = transactionHasAllPrices(tx);
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Unknown currency symbol');
+        expect(result.error.message).toContain("''");
+      }
     });
   });
 

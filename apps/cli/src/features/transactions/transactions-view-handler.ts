@@ -3,7 +3,7 @@
 import { wrapError } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 
 import { parseDate } from '../shared/view-utils.js';
 
@@ -25,7 +25,14 @@ export class ViewTransactionsHandler {
    */
   async execute(params: ViewTransactionsParams): Promise<Result<ViewTransactionsResult, Error>> {
     // Convert since to unix timestamp if provided
-    const since = params.since ? Math.floor(parseDate(params.since).getTime() / 1000) : undefined;
+    let since: number | undefined;
+    if (params.since) {
+      const sinceResult = parseDate(params.since);
+      if (sinceResult.isErr()) {
+        return err(sinceResult.error);
+      }
+      since = Math.floor(sinceResult.value.getTime() / 1000);
+    }
 
     // Build filter object conditionally to avoid passing undefined values
     const filters = {
@@ -44,7 +51,11 @@ export class ViewTransactionsHandler {
     let transactions = txResult.value;
 
     // Apply additional filters
-    transactions = applyTransactionFilters(transactions, params);
+    const filterResult = applyTransactionFilters(transactions, params);
+    if (filterResult.isErr()) {
+      return err(filterResult.error);
+    }
+    transactions = filterResult.value;
 
     // Apply limit
     if (params.limit) {

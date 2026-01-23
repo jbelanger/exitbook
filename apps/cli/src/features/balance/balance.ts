@@ -1,5 +1,5 @@
 import { BlockchainProviderManager, loadExplorerConfig } from '@exitbook/blockchain-providers';
-import type { ExchangeCredentials } from '@exitbook/core';
+import type { AccountType, BalanceCommandStatus, ExchangeCredentials, SourceType } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import {
   AccountRepository,
@@ -22,12 +22,86 @@ import { isJsonMode } from '../shared/utils.js';
 import { buildBalanceAssetDebug, type BalanceAssetDebugResult } from './balance-debug.js';
 import { buildBalanceMismatchExplanation } from './balance-explain.js';
 import { BalanceHandler } from './balance-handler.js';
-import type { BalanceCommandResult } from './balance-types.js';
 
 /**
  * Balance command options validated by Zod at CLI boundary
  */
 export type BalanceCommandOptions = z.infer<typeof BalanceCommandOptionsSchema>;
+
+/**
+ * Balance command result data for JSON output.
+ */
+interface BalanceCommandResult {
+  status: BalanceCommandStatus;
+  balances: {
+    assetId: string;
+    calculatedBalance: string;
+    currency: string;
+    difference: string;
+    liveBalance: string;
+    percentageDiff: number;
+    status: 'match' | 'warning' | 'mismatch';
+  }[];
+  debug?:
+    | {
+        assetId: string;
+        assetSymbol: string;
+        topFees: {
+          amount: string;
+          datetime: string;
+          transactionHash?: string | undefined;
+        }[];
+        topInflows: {
+          amount: string;
+          datetime: string;
+          from?: string | undefined;
+          to?: string | undefined;
+          transactionHash?: string | undefined;
+        }[];
+        topOutflows: {
+          amount: string;
+          datetime: string;
+          from?: string | undefined;
+          to?: string | undefined;
+          transactionHash?: string | undefined;
+        }[];
+        totals: {
+          fees: string;
+          inflows: string;
+          net: string;
+          outflows: string;
+          txCount: number;
+        };
+      }
+    | undefined;
+  summary: {
+    matches: number;
+    mismatches: number;
+    totalCurrencies: number;
+    warnings: number;
+  };
+  source: {
+    address?: string | undefined;
+    name: string;
+    type: SourceType;
+  };
+  account?:
+    | {
+        id: number;
+        identifier: string;
+        providerName: string | undefined;
+        sourceName: string;
+        type: AccountType;
+      }
+    | undefined;
+  meta: {
+    beaconWithdrawalsSkippedReason?: 'no-provider-support' | 'api-error' | 'unsupported-chain' | undefined;
+    includesBeaconWithdrawals?: boolean | undefined;
+    timestamp: string;
+  };
+  suggestion?: string | undefined;
+  warnings?: string[] | undefined;
+}
 
 /**
  * Register the balance command.

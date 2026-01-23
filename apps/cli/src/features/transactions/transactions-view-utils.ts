@@ -2,6 +2,7 @@
 
 import type { SourceType, UniversalTransactionData } from '@exitbook/core';
 import { computePrimaryMovement } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
 import { formatDateTime, parseDate } from '../shared/view-utils.js';
 import type { CommonViewFilters } from '../shared/view-utils.js';
@@ -77,12 +78,16 @@ export function formatOperationLabel(category: string | null | undefined, type: 
 export function applyTransactionFilters(
   transactions: UniversalTransactionData[],
   params: ViewTransactionsParams
-): UniversalTransactionData[] {
+): Result<UniversalTransactionData[], Error> {
   let filtered = transactions;
 
   // Filter by until date
   if (params.until) {
-    const untilDate = parseDate(params.until);
+    const untilDateResult = parseDate(params.until);
+    if (untilDateResult.isErr()) {
+      return err(untilDateResult.error);
+    }
+    const untilDate = untilDateResult.value;
     filtered = filtered.filter((tx) => new Date(tx.datetime) <= untilDate);
   }
 
@@ -105,7 +110,7 @@ export function applyTransactionFilters(
     filtered = filtered.filter((tx) => !(tx.movements.inflows?.length === 0 || tx.movements.outflows?.length === 0));
   }
 
-  return filtered;
+  return ok(filtered);
 }
 
 /**

@@ -51,6 +51,7 @@ describe('GapsViewHandler', () => {
     datetime: '2024-01-01T12:00:00Z',
     timestamp: 1704110400000,
     source: 'kraken',
+    sourceType: 'exchange',
     status: 'success',
     movements: {
       inflows: [],
@@ -80,7 +81,8 @@ describe('GapsViewHandler', () => {
               amount: parseDecimal('0.0001'),
               scope: 'network',
               settlement: 'on-chain',
-              priceAtTxTime: undefined, // Missing price
+              priceAtTxTime: undefined,
+              assetId: '',
             },
           ],
         }),
@@ -97,6 +99,7 @@ describe('GapsViewHandler', () => {
               {
                 assetSymbol: 'ETH',
                 grossAmount: parseDecimal('0.01'),
+                assetId: '',
               },
             ],
           },
@@ -135,6 +138,7 @@ describe('GapsViewHandler', () => {
                 source: 'exchange-execution',
                 fetchedAt: new Date('2024-01-01T12:00:00Z'),
               },
+              assetId: '',
             },
           ],
         }),
@@ -208,6 +212,7 @@ describe('GapsViewHandler', () => {
                 assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.5'),
                 netAmount: parseDecimal('0.5'),
+                assetId: '',
               },
             ],
             outflows: [],
@@ -322,12 +327,6 @@ describe('GapsViewHandler', () => {
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().message).toBe('String error');
-    });
-  });
-
-  describe('destroy', () => {
-    it('should cleanup resources without errors', () => {
-      expect(() => handler.destroy()).not.toThrow();
     });
   });
 });

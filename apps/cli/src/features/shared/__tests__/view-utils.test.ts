@@ -7,85 +7,104 @@ import { buildViewMeta, getAllMovements, parseDate } from '../view-utils.ts';
 describe('parseDate', () => {
   it('should parse valid ISO date string', () => {
     const result = parseDate('2024-01-01');
-    expect(result).toBeInstanceOf(Date);
-    expect(result.getUTCFullYear()).toBe(2024);
-    expect(result.getUTCMonth()).toBe(0); // January
-    expect(result.getUTCDate()).toBe(1);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(Date);
+    expect(result._unsafeUnwrap().getUTCFullYear()).toBe(2024);
+    expect(result._unsafeUnwrap().getUTCMonth()).toBe(0); // January
+    expect(result._unsafeUnwrap().getUTCDate()).toBe(1);
   });
 
   it('should parse ISO date with time', () => {
     const result = parseDate('2024-01-01T12:30:45Z');
-    expect(result).toBeInstanceOf(Date);
-    expect(result.getUTCHours()).toBe(12);
-    expect(result.getUTCMinutes()).toBe(30);
-    expect(result.getUTCSeconds()).toBe(45);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(Date);
+    expect(result._unsafeUnwrap().getUTCHours()).toBe(12);
+    expect(result._unsafeUnwrap().getUTCMinutes()).toBe(30);
+    expect(result._unsafeUnwrap().getUTCSeconds()).toBe(45);
   });
 
   it('should parse date with timezone offset', () => {
     const result = parseDate('2024-01-01T12:00:00-05:00');
-    expect(result).toBeInstanceOf(Date);
-    expect(result.toISOString()).toBe('2024-01-01T17:00:00.000Z');
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(Date);
+    expect(result._unsafeUnwrap().toISOString()).toBe('2024-01-01T17:00:00.000Z');
   });
 
   it('should parse date with milliseconds', () => {
     const result = parseDate('2024-01-01T12:00:00.123Z');
-    expect(result).toBeInstanceOf(Date);
-    expect(result.getMilliseconds()).toBe(123);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(Date);
+    expect(result._unsafeUnwrap().getMilliseconds()).toBe(123);
   });
 
   it('should throw error for invalid date string', () => {
-    expect(() => parseDate('invalid-date')).toThrow('Invalid date format: invalid-date');
+    const result = parseDate('invalid-date');
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toBe('Invalid date format: invalid-date');
   });
 
   it('should throw error for empty string', () => {
-    expect(() => parseDate('')).toThrow('Invalid date format: ');
+    const result = parseDate('');
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toBe('Invalid date format: ');
   });
 
   it('should throw error for invalid month', () => {
-    expect(() => parseDate('2024-13-01')).toThrow('Invalid date format: 2024-13-01');
+    const result = parseDate('2024-13-01');
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toBe('Invalid date format: 2024-13-01');
   });
 
   it('should throw error for invalid day', () => {
-    expect(() => parseDate('2024-01-32')).toThrow('Invalid date format: 2024-01-32');
+    const result = parseDate('2024-01-32');
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toBe('Invalid date format: 2024-01-32');
   });
 
   it('should throw error for malformed string', () => {
-    expect(() => parseDate('not a date')).toThrow('Invalid date format: not a date');
+    const result = parseDate('not a date');
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toBe('Invalid date format: not a date');
   });
 
   it('should parse leap year date', () => {
     const result = parseDate('2024-02-29');
-    expect(result).toBeInstanceOf(Date);
-    expect(result.getUTCMonth()).toBe(1); // February
-    expect(result.getUTCDate()).toBe(29);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(Date);
+    expect(result._unsafeUnwrap().getUTCMonth()).toBe(1); // February
+    expect(result._unsafeUnwrap().getUTCDate()).toBe(29);
   });
 
   it('should auto-correct invalid dates like non-leap year Feb 29', () => {
     // JavaScript Date constructor auto-corrects invalid dates
     // 2023-02-29 becomes 2023-03-01
     const result = parseDate('2023-02-29');
-    expect(result.getUTCMonth()).toBe(2); // March
-    expect(result.getUTCDate()).toBe(1);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().getUTCMonth()).toBe(2); // March
+    expect(result._unsafeUnwrap().getUTCDate()).toBe(1);
   });
 
   it('should parse dates far in the past', () => {
     const result = parseDate('1900-01-01');
-    expect(result).toBeInstanceOf(Date);
-    expect(result.getUTCFullYear()).toBe(1900);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(Date);
+    expect(result._unsafeUnwrap().getUTCFullYear()).toBe(1900);
   });
 
   it('should parse dates far in the future', () => {
     const result = parseDate('2100-12-31');
-    expect(result).toBeInstanceOf(Date);
-    expect(result.getUTCFullYear()).toBe(2100);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(Date);
+    expect(result._unsafeUnwrap().getUTCFullYear()).toBe(2100);
   });
 
   it('should handle short date format', () => {
     const result = parseDate('2024-1-1');
-    expect(result).toBeInstanceOf(Date);
-    expect(result.getUTCFullYear()).toBe(2024);
-    expect(result.getUTCMonth()).toBe(0);
-    expect(result.getUTCDate()).toBe(1);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(Date);
+    expect(result._unsafeUnwrap().getUTCFullYear()).toBe(2024);
+    expect(result._unsafeUnwrap().getUTCMonth()).toBe(0);
+    expect(result._unsafeUnwrap().getUTCDate()).toBe(1);
   });
 });
 

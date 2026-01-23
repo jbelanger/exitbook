@@ -1,6 +1,7 @@
 // Shared types and utilities for view commands
 
 import type { AssetMovement, UniversalTransactionData } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
 /**
  * Common filter options across view subcommands.
@@ -30,12 +31,12 @@ export interface ViewCommandResult<T> {
 /**
  * Parse ISO date string to Date object.
  */
-export function parseDate(dateStr: string): Date {
+export function parseDate(dateStr: string): Result<Date, Error> {
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) {
-    throw new Error(`Invalid date format: ${dateStr}`);
+    return err(new Error(`Invalid date format: ${dateStr}`));
   }
-  return date;
+  return ok(date);
 }
 
 /**

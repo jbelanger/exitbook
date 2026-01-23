@@ -11,24 +11,26 @@
  * These unit tests focus on configuration and orchestration logic.
  */
 
-import type { KyselyDB } from '@exitbook/data';
+import type { TransactionLinkRepository } from '@exitbook/accounting';
+import type { TransactionRepository } from '@exitbook/data';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { PricesEnrichHandler } from '../prices-enrich-handler.js';
 import type { PricesEnrichOptions } from '../prices-enrich-handler.js';
 
 describe('PricesEnrichHandler', () => {
-  let mockDb: KyselyDB;
+  let mockTransactionRepo: TransactionRepository;
+  let mockLinkRepo: TransactionLinkRepository;
 
   beforeEach(() => {
-    mockDb = {} as KyselyDB;
+    mockTransactionRepo = {} as TransactionRepository;
+    mockLinkRepo = {} as TransactionLinkRepository;
   });
 
   describe('Configuration', () => {
     it('should create handler instance with database', () => {
-      const handler = new PricesEnrichHandler(mockDb);
+      const handler = new PricesEnrichHandler(mockTransactionRepo, mockLinkRepo);
       expect(handler).toBeDefined();
-      handler.destroy();
     });
   });
 

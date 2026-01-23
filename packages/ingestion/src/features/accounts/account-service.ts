@@ -12,7 +12,7 @@ const logger = getLogger('AccountService');
  * Parameters for viewing accounts with optional session details
  */
 export interface ViewAccountsParams extends AccountQueryParams {
-  showSessions?: boolean;
+  showSessions?: boolean | undefined;
 }
 
 /**

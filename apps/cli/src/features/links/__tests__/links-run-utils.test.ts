@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildLinksRunParamsFromFlags, type LinksRunCommandOptions } from './links-run-utils.js';
+import { buildLinksRunParamsFromFlags, type LinksRunCommandOptions } from '../links-run-utils.js';
 
 describe('buildLinksRunParamsFromFlags', () => {
   it('should build params with default values when no options provided', () => {

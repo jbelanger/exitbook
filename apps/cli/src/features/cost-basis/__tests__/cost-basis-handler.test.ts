@@ -214,7 +214,11 @@ describe('CostBasisHandler', () => {
       );
 
       // Mock Price Provider
-      vi.mocked(createPriceProviderManager).mockResolvedValue(ok({} as PriceProviderManager));
+      vi.mocked(createPriceProviderManager).mockResolvedValue(
+        ok({
+          destroy: vi.fn(),
+        } as unknown as PriceProviderManager)
+      );
 
       // Mock Report Generator
       const mockGenerateReport = vi.fn().mockResolvedValue(

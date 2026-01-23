@@ -1,8 +1,11 @@
 import type { CostBasisConfig, FiatCurrency, IJurisdictionRules } from '@exitbook/accounting';
 import { CanadaRules, getDefaultDateRange, USRules } from '@exitbook/accounting';
 import { Currency, type AssetMovement, type FeeMovement, type UniversalTransactionData } from '@exitbook/core';
+import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
+
+const logger = getLogger('CostBasisUtils');
 
 /**
  * CLI options for cost-basis command
@@ -250,43 +253,50 @@ export function filterTransactionsByDateRange(
  * Only non-fiat crypto movements need prices. Fiat movements don't need prices
  * since we don't track cost basis for fiat currencies.
  */
-export function transactionHasAllPrices(tx: UniversalTransactionData): boolean {
+export function transactionHasAllPrices(tx: UniversalTransactionData): Result<boolean, Error> {
   // Check all non-fiat inflows
   const inflows = tx.movements.inflows ?? [];
   for (const inflow of inflows) {
-    if (!movementHasPrice(inflow)) {
-      return false;
+    const hasPriceResult = movementHasPrice(inflow);
+    if (hasPriceResult.isErr()) {
+      return err(hasPriceResult.error);
+    }
+    if (!hasPriceResult.value) {
+      return ok(false);
     }
   }
 
   // Check all non-fiat outflows
   const outflows = tx.movements.outflows ?? [];
   for (const outflow of outflows) {
-    if (!movementHasPrice(outflow)) {
-      return false;
+    const hasPriceResult = movementHasPrice(outflow);
+    if (hasPriceResult.isErr()) {
+      return err(hasPriceResult.error);
+    }
+    if (!hasPriceResult.value) {
+      return ok(false);
     }
   }
 
-  return true;
+  return ok(true);
 }
 
 /**
  * Check if a movement has a price (or doesn't need one).
  * Fiat currencies don't need prices. Non-fiat currencies and unknown symbols need prices.
  */
-function movementHasPrice(movement: AssetMovement | FeeMovement): boolean {
+function movementHasPrice(movement: AssetMovement | FeeMovement): Result<boolean, Error> {
   try {
     const currency = Currency.create(movement.assetSymbol);
     // Fiat currencies don't need prices
     if (currency.isFiat()) {
-      return true;
+      return ok(true);
     }
     // Non-fiat currencies (crypto) need prices
-    return !!movement.priceAtTxTime;
-  } catch {
-    // Currency.create() throws for invalid/unknown symbols.
-    // Treat unknown symbols as crypto that requires a price.
-    return !!movement.priceAtTxTime;
+    return ok(!!movement.priceAtTxTime);
+  } catch (error) {
+    logger.warn({ error, assetSymbol: movement.assetSymbol }, 'Unknown currency symbol, treating as crypto');
+    return ok(!!movement.priceAtTxTime);
   }
 }
 
@@ -302,9 +312,13 @@ export function validateTransactionPrices(
 
   for (const tx of transactions) {
     // Check if any movements are missing prices
-    const hasAllPrices = transactionHasAllPrices(tx);
+    const hasAllPricesResult = transactionHasAllPrices(tx);
 
-    if (hasAllPrices) {
+    if (hasAllPricesResult.isErr()) {
+      return err(hasAllPricesResult.error);
+    }
+
+    if (hasAllPricesResult.value) {
       validTransactions.push(tx);
     } else {
       missingPricesCount++;
