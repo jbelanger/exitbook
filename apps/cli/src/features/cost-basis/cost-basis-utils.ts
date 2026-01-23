@@ -286,8 +286,14 @@ export function transactionHasAllPrices(tx: UniversalTransactionData): Result<bo
  * Fiat currencies don't need prices. Non-fiat currencies and unknown symbols need prices.
  */
 function movementHasPrice(movement: AssetMovement | FeeMovement): Result<boolean, Error> {
+  const rawSymbol = movement.assetSymbol;
+  const trimmedSymbol = rawSymbol?.trim();
+  if (!trimmedSymbol) {
+    logger.warn({ assetSymbol: rawSymbol }, 'Unknown currency symbol');
+    return err(new Error("Unknown currency symbol ''"));
+  }
   try {
-    const currency = Currency.create(movement.assetSymbol);
+    const currency = Currency.create(trimmedSymbol);
     // Fiat currencies don't need prices
     if (currency.isFiat()) {
       return ok(true);
@@ -295,7 +301,7 @@ function movementHasPrice(movement: AssetMovement | FeeMovement): Result<boolean
     // Non-fiat currencies (crypto) need prices
     return ok(!!movement.priceAtTxTime);
   } catch (error) {
-    logger.warn({ error, assetSymbol: movement.assetSymbol }, 'Unknown currency symbol, treating as crypto');
+    logger.warn({ error, assetSymbol: trimmedSymbol }, 'Unknown currency symbol, treating as crypto');
     return ok(!!movement.priceAtTxTime);
   }
 }
