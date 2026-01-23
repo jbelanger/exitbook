@@ -19,7 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "ccxt": "^4.5.10",
+    "ccxt": "^4.5.34",
     "neverthrow": "^8.2.0",
     "zod": "^4.3.6"
   },
