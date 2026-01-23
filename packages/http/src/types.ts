@@ -1,4 +1,4 @@
-import type { ZodSchema } from 'zod';
+import type { ZodType } from 'zod';
 
 import type { InstrumentationCollector } from './instrumentation.js';
 
@@ -17,7 +17,7 @@ export interface HttpRequestOptions {
   body?: string | Buffer | Uint8Array | object | undefined;
   headers?: Record<string, string> | undefined;
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | undefined;
-  schema?: ZodSchema<unknown> | undefined;
+  schema?: ZodType<unknown> | undefined;
   timeout?: number | undefined;
 }
 

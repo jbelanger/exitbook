@@ -1,6 +1,6 @@
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
-import type { ZodSchema } from 'zod';
+import type { ZodType } from 'zod';
 
 import * as HttpUtils from './core/http-utils.js';
 import * as RateLimitCore from './core/rate-limit.js';
@@ -59,7 +59,7 @@ export class HttpClient {
    */
   async get<T>(
     endpoint: string,
-    options: Omit<HttpRequestOptions, 'method'> & { schema: ZodSchema<T> }
+    options: Omit<HttpRequestOptions, 'method'> & { schema: ZodType<T> }
   ): Promise<Result<T, Error>>;
   /**
    * Convenience method for GET requests without validation
@@ -86,7 +86,7 @@ export class HttpClient {
   async post<T>(
     endpoint: string,
     body: unknown,
-    options: Omit<HttpRequestOptions, 'method' | 'body'> & { schema: ZodSchema<T> }
+    options: Omit<HttpRequestOptions, 'method' | 'body'> & { schema: ZodType<T> }
   ): Promise<Result<T, Error>>;
   /**
    * Convenience method for POST requests without validation
@@ -211,7 +211,7 @@ export class HttpClient {
 
         // Validate response with schema if provided
         if (options.schema) {
-          const schema = options.schema as ZodSchema<T>;
+          const schema = options.schema as ZodType<T>;
           const parseResult = schema.safeParse(data);
           if (!parseResult.success) {
             // Collect all validation issues

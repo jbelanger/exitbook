@@ -1,7 +1,7 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
-import { z, type ZodSchema } from 'zod';
+import { z, type ZodType } from 'zod';
 
 import type {
   NormalizedTransactionBase,
@@ -300,7 +300,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
   private async makeRequest<T>(
     endpoint: string,
     params?: Record<string, unknown>,
-    schema?: ZodSchema<T>
+    schema?: ZodType<T>
   ): Promise<Result<T, Error>> {
     this.validateApiKey();
 

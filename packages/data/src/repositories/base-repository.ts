@@ -87,7 +87,7 @@ export abstract class BaseRepository {
    * Parse JSON with Zod schema validation
    * Returns Result with parsed value or error
    */
-  protected parseWithSchema<T>(value: unknown, schema: z.ZodSchema<T>): Result<T | undefined, Error> {
+  protected parseWithSchema<T>(value: unknown, schema: z.ZodType<T>): Result<T | undefined, Error> {
     if (!value) {
       return ok(undefined);
     }
