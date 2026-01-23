@@ -18,7 +18,7 @@
     "decimal.js": "^10.6.0",
     "neverthrow": "^8.2.0",
     "uuid": "^13.0.0",
-    "zod": "^4.1.12"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^24.7.2",
