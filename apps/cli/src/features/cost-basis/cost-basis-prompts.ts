@@ -1,10 +1,9 @@
 import * as p from '@clack/prompts';
-import type { CostBasisConfig } from '@exitbook/accounting';
 import { getDefaultDateRange } from '@exitbook/accounting';
 
 import { handleCancellation, isCancelled } from '../shared/prompts.js';
 
-import type { CostBasisHandlerParams } from './cost-basis-utils.js';
+import type { CostBasisConfigWithDates, CostBasisHandlerParams } from './cost-basis-utils.js';
 
 /**
  * Prompt user for cost basis parameters in interactive mode.
@@ -187,12 +186,12 @@ export async function promptForCostBasisParams(): Promise<CostBasisHandlerParams
     endDate = defaultRange.endDate;
   }
 
-  // Build config object
-  const config: CostBasisConfig = {
-    method: method as CostBasisConfig['method'],
+  // Build config object with required dates
+  const config: CostBasisConfigWithDates = {
+    method: method as CostBasisConfigWithDates['method'],
     jurisdiction: validJurisdiction,
     taxYear,
-    currency: currency as CostBasisConfig['currency'],
+    currency: currency as CostBasisConfigWithDates['currency'],
     startDate,
     endDate,
   };

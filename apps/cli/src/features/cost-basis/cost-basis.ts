@@ -3,7 +3,6 @@ import { CostBasisRepository, LotTransferRepository, TransactionLinkRepository }
 import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
-import type { Decimal } from 'decimal.js';
 import type { z } from 'zod';
 
 import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
@@ -14,7 +13,7 @@ import { CostBasisCommandOptionsSchema } from '../shared/schemas.js';
 import type { CostBasisResult } from './cost-basis-handler.js';
 import { CostBasisHandler } from './cost-basis-handler.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.js';
-import { buildCostBasisParamsFromFlags } from './cost-basis-utils.js';
+import { buildCostBasisParamsFromFlags, formatCurrency } from './cost-basis-utils.js';
 
 /**
  * Command options (validated at CLI boundary).
@@ -157,19 +156,17 @@ function handleCostBasisSuccess(output: OutputManager, costBasisResult: CostBasi
     output.outro('✨ Cost basis calculation complete!');
     console.log(''); // Add spacing before results
     displayCostBasisResults(summary, report, missingPricesWarning);
+    return;
   }
 
-  // Prepare result data for JSON mode
-  // Use converted amounts if report exists, otherwise use original USD amounts
+  // JSON output
   const currency = summary.calculation.config.currency;
-  const totals = report
-    ? report.summary
-    : {
-        totalProceeds: summary.calculation.totalProceeds,
-        totalCostBasis: summary.calculation.totalCostBasis,
-        totalGainLoss: summary.calculation.totalGainLoss,
-        totalTaxableGainLoss: summary.calculation.totalTaxableGainLoss,
-      };
+  const totals = report?.summary ?? {
+    totalProceeds: summary.calculation.totalProceeds,
+    totalCostBasis: summary.calculation.totalCostBasis,
+    totalGainLoss: summary.calculation.totalGainLoss,
+    totalTaxableGainLoss: summary.calculation.totalTaxableGainLoss,
+  };
 
   const resultData: CostBasisCommandResult = {
     calculationId: summary.calculation.id,
@@ -178,8 +175,8 @@ function handleCostBasisSuccess(output: OutputManager, costBasisResult: CostBasi
     taxYear: summary.calculation.config.taxYear,
     currency,
     dateRange: {
-      startDate: summary.calculation.startDate ? (summary.calculation.startDate.toISOString().split('T')[0] ?? '') : '',
-      endDate: summary.calculation.endDate ? (summary.calculation.endDate.toISOString().split('T')[0] ?? '') : '',
+      startDate: summary.calculation.startDate?.toISOString().split('T')[0] ?? '',
+      endDate: summary.calculation.endDate?.toISOString().split('T')[0] ?? '',
     },
     results: {
       lotsCreated: summary.lotsCreated,
@@ -207,18 +204,19 @@ function displayCostBasisResults(
   missingPricesWarning?: string
 ): void {
   const { calculation, lotsCreated, disposalsProcessed, assetsProcessed } = summary;
+  const config = calculation.config;
 
   console.log('\nCost Basis Calculation Results');
   console.log('================================');
   console.log(`Calculation ID: ${calculation.id}`);
-  console.log(`Method: ${calculation.config.method.toUpperCase()}`);
-  console.log(`Jurisdiction: ${calculation.config.jurisdiction}`);
-  console.log(`Tax Year: ${calculation.config.taxYear}`);
-  console.log(`Currency: ${calculation.config.currency}`);
+  console.log(`Method: ${config.method.toUpperCase()}`);
+  console.log(`Jurisdiction: ${config.jurisdiction}`);
+  console.log(`Tax Year: ${config.taxYear}`);
+  console.log(`Currency: ${config.currency}`);
   console.log(
     `Date Range: ${calculation.startDate?.toISOString().split('T')[0] || 'N/A'} to ${calculation.endDate?.toISOString().split('T')[0] || 'N/A'}`
   );
-  console.log(''); // Add spacing
+  console.log('');
 
   console.log('Processing Summary');
   console.log('------------------');
@@ -226,18 +224,16 @@ function displayCostBasisResults(
   console.log(`✓ Assets processed: ${assetsProcessed.length} (${assetsProcessed.join(', ')})`);
   console.log(`✓ Acquisition lots created: ${lotsCreated}`);
   console.log(`✓ Disposals processed: ${disposalsProcessed}`);
-  console.log(''); // Add spacing
+  console.log('');
 
   // Use converted amounts if report exists, otherwise use original USD amounts
-  const displayCurrency = calculation.config.currency;
-  const totals = report
-    ? report.summary
-    : {
-        totalProceeds: calculation.totalProceeds,
-        totalCostBasis: calculation.totalCostBasis,
-        totalGainLoss: calculation.totalGainLoss,
-        totalTaxableGainLoss: calculation.totalTaxableGainLoss,
-      };
+  const displayCurrency = config.currency;
+  const totals = report?.summary ?? {
+    totalProceeds: calculation.totalProceeds,
+    totalCostBasis: calculation.totalCostBasis,
+    totalGainLoss: calculation.totalGainLoss,
+    totalTaxableGainLoss: calculation.totalTaxableGainLoss,
+  };
 
   console.log('Financial Summary');
   console.log('------------------');
@@ -248,7 +244,7 @@ function displayCostBasisResults(
 
   // Show FX conversion note if applicable
   if (report && report.displayCurrency !== 'USD') {
-    console.log(''); // Add spacing
+    console.log('');
     console.log(
       `Note: Amounts converted from USD to ${report.displayCurrency} using historical rates at disposal time`
     );
@@ -259,39 +255,18 @@ function displayCostBasisResults(
   }
 
   // Show jurisdiction-specific note
-  if (calculation.config.jurisdiction === 'CA') {
-    console.log(''); // Add spacing
-    console.log('Tax Rules: Canadian tax rules applied (50% capital gains inclusion rate)');
-  } else if (calculation.config.jurisdiction === 'US') {
-    console.log(''); // Add spacing
-    console.log('Tax Rules: US tax rules applied (short-term vs long-term classification)');
+  if (config.jurisdiction === 'CA') {
+    console.log('\nTax Rules: Canadian tax rules applied (50% capital gains inclusion rate)');
+  } else if (config.jurisdiction === 'US') {
+    console.log('\nTax Rules: US tax rules applied (short-term vs long-term classification)');
     console.log('           Review lot disposals for holding period classifications');
   }
 
   // Show warning if any transactions were excluded
   if (missingPricesWarning) {
-    console.log(''); // Add spacing
-    console.log(`⚠ ${missingPricesWarning}`);
+    console.log(`\n⚠ ${missingPricesWarning}`);
   }
 
-  console.log(''); // Add spacing
-  console.log(`Results saved to database with calculation ID: ${calculation.id}`);
+  console.log(`\nResults saved to database with calculation ID: ${calculation.id}`);
   console.log('Use this ID to query detailed lot and disposal records.');
-}
-
-/**
- * Format currency value for display
- */
-function formatCurrency(amount: Decimal, currency: string): string {
-  const isNegative = amount.isNegative();
-  const absFormatted = amount.abs().toFixed(2);
-
-  // Add thousands separators
-  const parts = absFormatted.split('.');
-  if (parts[0]) {
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  }
-  const withSeparators = parts.join('.');
-
-  return `${isNegative ? '-' : ''}${currency} ${withSeparators}`;
 }

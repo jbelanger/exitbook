@@ -1,12 +1,15 @@
 import type { UniversalTransactionData } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import {
   buildCostBasisParamsFromFlags,
   type CostBasisCommandOptions,
   filterTransactionsByDateRange,
+  formatCurrency,
   getJurisdictionRules,
   transactionHasAllPrices,
+  validateCostBasisParams,
   validateTransactionPrices,
 } from '../cost-basis-utils.js';
 
@@ -201,7 +204,7 @@ describe('Cost Basis Utils', () => {
           expect(result.value.config.startDate).toBeInstanceOf(Date);
           expect(result.value.config.endDate).toBeInstanceOf(Date);
           // Verify end date is after start date
-          expect(result.value.config.endDate!.getTime()).toBeGreaterThan(result.value.config.startDate!.getTime());
+          expect(result.value.config.endDate.getTime()).toBeGreaterThan(result.value.config.startDate.getTime());
         }
       });
 
@@ -477,7 +480,7 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx, 'USD')).toBe(true);
+      expect(transactionHasAllPrices(tx)).toBe(true);
     });
 
     it('should return false when crypto inflow is missing price', () => {
@@ -488,7 +491,7 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx, 'USD')).toBe(false);
+      expect(transactionHasAllPrices(tx)).toBe(false);
     });
 
     it('should return false when crypto outflow is missing price', () => {
@@ -499,7 +502,7 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx, 'USD')).toBe(false);
+      expect(transactionHasAllPrices(tx)).toBe(false);
     });
 
     it('should return true when only fiat movements (no price needed)', () => {
@@ -510,7 +513,7 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx, 'USD')).toBe(true);
+      expect(transactionHasAllPrices(tx)).toBe(true);
     });
 
     it('should return true when fiat and crypto both present, crypto has price', () => {
@@ -524,7 +527,7 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx, 'USD')).toBe(true);
+      expect(transactionHasAllPrices(tx)).toBe(true);
     });
 
     it('should return false when fiat and crypto both present, crypto missing price', () => {
@@ -538,7 +541,7 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx, 'USD')).toBe(false);
+      expect(transactionHasAllPrices(tx)).toBe(false);
     });
 
     it('should handle empty inflows and outflows', () => {
@@ -549,7 +552,26 @@ describe('Cost Basis Utils', () => {
         },
       } as unknown as UniversalTransactionData;
 
-      expect(transactionHasAllPrices(tx, 'USD')).toBe(true);
+      expect(transactionHasAllPrices(tx)).toBe(true);
+    });
+    it('should handle invalid currency symbols by treating them as crypto (needs price)', () => {
+      const tx = {
+        movements: {
+          inflows: [],
+          outflows: [{ assetSymbol: 'INVALID-SYM', amount: '1', priceAtTxTime: undefined }],
+        },
+      } as unknown as UniversalTransactionData;
+
+      expect(transactionHasAllPrices(tx)).toBe(false);
+
+      const txWithPrice = {
+        movements: {
+          inflows: [],
+          outflows: [{ assetSymbol: 'INVALID-SYM', amount: '1', priceAtTxTime: '100' }],
+        },
+      } as unknown as UniversalTransactionData;
+
+      expect(transactionHasAllPrices(txWithPrice)).toBe(true);
     });
   });
 
@@ -680,6 +702,114 @@ describe('Cost Basis Utils', () => {
 
     it('should throw error for EU jurisdiction (not implemented)', () => {
       expect(() => getJurisdictionRules('EU')).toThrow('EU jurisdiction rules not yet implemented');
+    });
+  });
+
+  describe('validateCostBasisParams', () => {
+    it('should accept valid parameters with US jurisdiction', () => {
+      const result = validateCostBasisParams({
+        config: {
+          method: 'fifo',
+          jurisdiction: 'US',
+          taxYear: 2024,
+          currency: 'USD',
+          startDate: new Date('2024-01-01'),
+          endDate: new Date('2024-12-31'),
+        },
+      });
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should accept average-cost for CA jurisdiction', () => {
+      const result = validateCostBasisParams({
+        config: {
+          method: 'average-cost',
+          jurisdiction: 'CA',
+          taxYear: 2024,
+          currency: 'CAD',
+          startDate: new Date('2024-01-01'),
+          endDate: new Date('2024-12-31'),
+        },
+      });
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should error when average-cost used with non-CA jurisdiction', () => {
+      const result = validateCostBasisParams({
+        config: {
+          method: 'average-cost',
+          jurisdiction: 'US',
+          taxYear: 2024,
+          currency: 'USD',
+          startDate: new Date('2024-01-01'),
+          endDate: new Date('2024-12-31'),
+        },
+      });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Average Cost (ACB) is only supported for Canada');
+      }
+    });
+
+    it('should error when specific-id method used (not implemented)', () => {
+      const result = validateCostBasisParams({
+        config: {
+          method: 'specific-id',
+          jurisdiction: 'US',
+          taxYear: 2024,
+          currency: 'USD',
+          startDate: new Date('2024-01-01'),
+          endDate: new Date('2024-12-31'),
+        },
+      });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('not yet implemented');
+      }
+    });
+
+    it('should error for UK jurisdiction (not implemented)', () => {
+      const result = validateCostBasisParams({
+        config: {
+          method: 'fifo',
+          jurisdiction: 'UK',
+          taxYear: 2024,
+          currency: 'GBP',
+          startDate: new Date('2024-01-01'),
+          endDate: new Date('2024-12-31'),
+        },
+      });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('tax rules not yet implemented');
+      }
+    });
+  });
+
+  describe('formatCurrency', () => {
+    it('should format positive amounts correctly', () => {
+      expect(formatCurrency(new Decimal('1234.56'), 'USD')).toBe('USD 1,234.56');
+    });
+
+    it('should format negative amounts correctly', () => {
+      expect(formatCurrency(new Decimal('-1234.56'), 'USD')).toBe('-USD 1,234.56');
+    });
+
+    it('should format zero correctly', () => {
+      expect(formatCurrency(new Decimal('0'), 'USD')).toBe('USD 0.00');
+    });
+
+    it('should round to 2 decimal places', () => {
+      expect(formatCurrency(new Decimal('10.5678'), 'USD')).toBe('USD 10.57');
+    });
+
+    it('should handle large numbers', () => {
+      expect(formatCurrency(new Decimal('1000000.00'), 'USD')).toBe('USD 1,000,000.00');
     });
   });
 });

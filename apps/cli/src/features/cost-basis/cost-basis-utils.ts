@@ -1,6 +1,7 @@
 import type { CostBasisConfig, FiatCurrency, IJurisdictionRules } from '@exitbook/accounting';
 import { CanadaRules, getDefaultDateRange, USRules } from '@exitbook/accounting';
-import { Currency, type UniversalTransactionData } from '@exitbook/core';
+import { Currency, type AssetMovement, type FeeMovement, type UniversalTransactionData } from '@exitbook/core';
+import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 /**
@@ -18,8 +19,13 @@ export interface CostBasisCommandOptions {
 /**
  * Handler parameters for cost-basis calculation
  */
+export type CostBasisConfigWithDates = CostBasisConfig & {
+  endDate: Date;
+  startDate: Date;
+};
+
 export interface CostBasisHandlerParams {
-  config: CostBasisConfig;
+  config: CostBasisConfigWithDates;
 }
 
 /**
@@ -175,7 +181,7 @@ export function buildCostBasisParamsFromFlags(options: CostBasisCommandOptions):
     endDate = defaultRange.endDate;
   }
 
-  const config: CostBasisConfig = {
+  const config: CostBasisConfigWithDates = {
     method,
     jurisdiction,
     taxYear,
@@ -188,7 +194,7 @@ export function buildCostBasisParamsFromFlags(options: CostBasisCommandOptions):
 }
 
 /**
- * Validate cost basis parameters
+ * Validate cost basis parameters (business rules + defensive checks for non-CLI callers)
  */
 export function validateCostBasisParams(params: CostBasisHandlerParams): Result<void, Error> {
   const { config } = params;
@@ -214,8 +220,10 @@ export function validateCostBasisParams(params: CostBasisHandlerParams): Result<
     );
   }
 
-  // Validate date range
-  if (config.startDate && config.endDate && config.startDate >= config.endDate) {
+  // Defensive check: Validate date range ordering
+  // Note: CLI already validates this in buildCostBasisParamsFromFlags, but this
+  // protects against invalid params from non-CLI callers
+  if (config.startDate >= config.endDate) {
     return err(new Error('Start date must be before end date'));
   }
 
@@ -242,40 +250,44 @@ export function filterTransactionsByDateRange(
  * Only non-fiat crypto movements need prices. Fiat movements don't need prices
  * since we don't track cost basis for fiat currencies.
  */
-export function transactionHasAllPrices(tx: UniversalTransactionData, _requiredCurrency: string): boolean {
+export function transactionHasAllPrices(tx: UniversalTransactionData): boolean {
   // Check all non-fiat inflows
   const inflows = tx.movements.inflows || [];
   for (const inflow of inflows) {
-    try {
-      const currency = Currency.create(inflow.assetSymbol);
-      if (!currency.isFiat() && !inflow.priceAtTxTime) {
-        return false;
-      }
-    } catch {
-      // If we can't create a Currency, assume it's crypto and needs a price
-      if (!inflow.priceAtTxTime) {
-        return false;
-      }
+    if (!movementHasPrice(inflow)) {
+      return false;
     }
   }
 
   // Check all non-fiat outflows
   const outflows = tx.movements.outflows || [];
   for (const outflow of outflows) {
-    try {
-      const currency = Currency.create(outflow.assetSymbol);
-      if (!currency.isFiat() && !outflow.priceAtTxTime) {
-        return false;
-      }
-    } catch {
-      // If we can't create a Currency, assume it's crypto and needs a price
-      if (!outflow.priceAtTxTime) {
-        return false;
-      }
+    if (!movementHasPrice(outflow)) {
+      return false;
     }
   }
 
   return true;
+}
+
+/**
+ * Check if a movement has a price (or doesn't need one).
+ * Fiat currencies don't need prices. Non-fiat currencies and unknown symbols need prices.
+ */
+function movementHasPrice(movement: AssetMovement | FeeMovement): boolean {
+  try {
+    const currency = Currency.create(movement.assetSymbol);
+    // Fiat currencies don't need prices
+    if (currency.isFiat()) {
+      return true;
+    }
+    // Non-fiat currencies (crypto) need prices
+    return !!movement.priceAtTxTime;
+  } catch {
+    // Currency.create() throws for invalid/unknown symbols.
+    // Treat unknown symbols as crypto that requires a price.
+    return !!movement.priceAtTxTime;
+  }
 }
 
 /**
@@ -290,7 +302,7 @@ export function validateTransactionPrices(
 
   for (const tx of transactions) {
     // Check if any movements are missing prices
-    const hasAllPrices = transactionHasAllPrices(tx, requiredCurrency);
+    const hasAllPrices = transactionHasAllPrices(tx);
 
     if (hasAllPrices) {
       validTransactions.push(tx);
@@ -324,4 +336,21 @@ export function getJurisdictionRules(jurisdiction: 'CA' | 'US' | 'UK' | 'EU'): I
     case 'EU':
       throw new Error(`${jurisdiction} jurisdiction rules not yet implemented`);
   }
+}
+
+/**
+ * Format currency value for display
+ */
+export function formatCurrency(amount: Decimal, currency: string): string {
+  const isNegative = amount.isNegative();
+  const absFormatted = amount.abs().toFixed(2);
+
+  // Add thousands separators
+  const parts = absFormatted.split('.');
+  if (parts[0]) {
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  const withSeparators = parts.join('.');
+
+  return `${isNegative ? '-' : ''}${currency} ${withSeparators}`;
 }
