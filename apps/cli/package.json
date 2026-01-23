@@ -42,7 +42,7 @@
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
-    "@types/node": "^24.10.9",
+    "@types/node": "^25.0.10",
     "tsconfig": "workspace:*",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",

@@ -90,25 +90,7 @@ export default [
         {
           type: 'alphabetical',
           order: 'asc',
-          newlinesBetween: 'always',
-          groups: [
-            ['type', 'builtin', 'builtin-type'],
-            ['external', 'external-type'],
-            'internal',
-            ['parent', 'parent-type'],
-            ['sibling', 'sibling-type'],
-            ['index', 'index-type'],
-            'object',
-            'unknown',
-          ],
-          customGroups: {
-            value: {
-              internal: ['^@app/', '^@domain/', '^@infrastructure/'],
-            },
-            type: {
-              internal: ['^@app/', '^@domain/', '^@infrastructure/'],
-            },
-          },
+          groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
         },
       ],
       'perfectionist/sort-array-includes': ['error', { type: 'alphabetical', order: 'asc' }],
