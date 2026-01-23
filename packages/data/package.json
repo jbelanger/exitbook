@@ -19,9 +19,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "better-sqlite3": "^12.4.1",
+    "better-sqlite3": "^12.6.2",
     "decimal.js": "^10.6.0",
-    "kysely": "^0.28.8",
+    "kysely": "^0.28.10",
     "neverthrow": "^8.2.0"
   },
   "devDependencies": {
