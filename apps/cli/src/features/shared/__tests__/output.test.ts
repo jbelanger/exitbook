@@ -1,4 +1,5 @@
 import * as p from '@clack/prompts';
+import type { MockInstance } from 'vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ExitCodes } from '../exit-codes.js';
@@ -33,9 +34,9 @@ vi.mock('@exitbook/logger', () => ({
 }));
 
 describe('OutputManager', () => {
-  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
-  let processExitSpy: ReturnType<typeof vi.spyOn>;
+  let consoleLogSpy: MockInstance<(message?: unknown, ...optionalParams: unknown[]) => void>;
+  let consoleErrorSpy: MockInstance<(message?: unknown, ...optionalParams: unknown[]) => void>;
+  let processExitSpy: MockInstance<(code?: number | string | null) => never>;
 
   beforeEach(() => {
     vi.useFakeTimers();

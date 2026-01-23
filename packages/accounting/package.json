@@ -22,8 +22,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.7.2",
-    "typescript": "^5.9.3",
-    "vitest": "^3.0.5"
+    "typescript": "^5.9.3"
   },
   "peerDependencies": {
     "@exitbook/core": "workspace:*",
