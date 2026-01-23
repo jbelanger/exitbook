@@ -41,19 +41,26 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     // Get metadata from registry
     const metadata = ProviderRegistry.getMetadata(config.blockchain, config.name);
     if (!metadata) {
-      const available = ProviderRegistry.getAvailable(config.blockchain)
-        .map((p) => p.name)
-        .join(', ');
-      const suggestions = [
-        `💡 Available providers for ${config.blockchain}: ${available}`,
-        `💡 Run 'pnpm run providers:list --blockchain ${config.blockchain}' to see all options`,
-        `💡 Check for typos in provider name: '${config.name}'`,
-        `💡 Use 'pnpm run providers:sync --fix' to sync configuration`,
-      ];
+      const availableProviders = ProviderRegistry.getAvailable(config.blockchain).map((p) => p.name);
+      const availableProvidersList = availableProviders.length > 0 ? availableProviders.join(', ') : 'none';
+      const registryLogger = getLogger('provider-registry');
 
-      throw new Error(
-        `Provider '${config.name}' not found in registry for blockchain '${config.blockchain}'.\n${suggestions.join('\n')}`
+      registryLogger.warn(
+        {
+          availableProviders,
+          blockchain: config.blockchain,
+          providerName: config.name,
+        },
+        `Provider not found in registry for blockchain '${config.blockchain}' and provider '${config.name}'. Available providers: ${availableProvidersList}.`
       );
+
+      registryLogger.info(
+        `HINT: Run 'pnpm run providers:list --blockchain ${config.blockchain}' to see all options. ` +
+          `HINT: Check for typos in provider name '${config.name}'. ` +
+          `HINT: Use 'pnpm run providers:sync --fix' to sync configuration.`
+      );
+
+      throw new Error(`Provider '${config.name}' not found in registry for blockchain '${config.blockchain}'.`);
     }
     this.metadata = metadata;
 

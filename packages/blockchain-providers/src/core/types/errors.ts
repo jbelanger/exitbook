@@ -2,15 +2,18 @@
  * Error type for normalization failures.
  * Discriminated union to distinguish between safe skips and actual errors.
  */
-export type NormalizationError =
-  | {
-      reason: string;
-      type: 'skip';
-    }
-  | {
-      message: string;
-      type: 'error';
-    };
+export interface NormalizationSkip {
+  reason: string;
+  type: 'skip';
+}
+
+export interface NormalizationErrorFault {
+  message: string;
+  type: 'error';
+}
+
+// skip = recoverable mismatch; error = data corruption
+export type NormalizationError = NormalizationSkip | NormalizationErrorFault;
 
 /**
  * Errors that can occur during provider operations
