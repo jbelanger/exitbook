@@ -252,7 +252,7 @@ export function filterTransactionsByDateRange(
  */
 export function transactionHasAllPrices(tx: UniversalTransactionData): boolean {
   // Check all non-fiat inflows
-  const inflows = tx.movements.inflows || [];
+  const inflows = tx.movements.inflows ?? [];
   for (const inflow of inflows) {
     if (!movementHasPrice(inflow)) {
       return false;
@@ -260,7 +260,7 @@ export function transactionHasAllPrices(tx: UniversalTransactionData): boolean {
   }
 
   // Check all non-fiat outflows
-  const outflows = tx.movements.outflows || [];
+  const outflows = tx.movements.outflows ?? [];
   for (const outflow of outflows) {
     if (!movementHasPrice(outflow)) {
       return false;

@@ -156,5 +156,4 @@ function handleGapsViewSuccess(
   };
 
   output.json('gaps-view', resultData);
-  process.exit(0);
 }

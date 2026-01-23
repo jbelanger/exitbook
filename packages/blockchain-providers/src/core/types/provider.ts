@@ -137,4 +137,10 @@ export interface IBlockchainProvider {
    * // Returns: block 14999995
    */
   applyReplayWindow(cursor: PaginationCursor): PaginationCursor;
+
+  /**
+   * Cleanup resources (HTTP connections, timers, etc.)
+   * Called by ProviderManager during shutdown
+   */
+  destroy(): void;
 }

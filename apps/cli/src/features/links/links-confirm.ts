@@ -137,5 +137,4 @@ function handleLinksConfirmSuccess(
   };
 
   output.json('links-confirm', resultData);
-  process.exit(0);
 }

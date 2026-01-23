@@ -84,7 +84,6 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
     }
 
     output.json('prices-set', result.value);
-    process.exit(0);
   } catch (error) {
     resetLoggerContext();
     output.error('prices-set', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);

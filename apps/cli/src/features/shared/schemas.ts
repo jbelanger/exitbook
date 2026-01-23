@@ -1,20 +1,9 @@
 import { z } from 'zod';
 
-/**
- * Shared Zod schemas for CLI command validation.
- * These schemas validate at the CLI boundary - once validated, types are trusted internally.
- */
-
-/**
- * Common CLI flag: --json
- */
 export const JsonFlagSchema = z.object({
   json: z.boolean().optional(),
 });
 
-/**
- * Source selection: --exchange OR --blockchain (mutually exclusive)
- */
 export const SourceSelectionSchema = z
   .object({
     exchange: z.string().optional(),
@@ -27,9 +16,6 @@ export const SourceSelectionSchema = z
     message: 'Cannot specify both --exchange and --blockchain',
   });
 
-/**
- * Optional source selection (for commands that can work without specifying a source)
- */
 export const OptionalSourceSelectionSchema = z
   .object({
     exchange: z.string().optional(),
@@ -39,18 +25,12 @@ export const OptionalSourceSelectionSchema = z
     message: 'Cannot specify both --exchange and --blockchain',
   });
 
-/**
- * Blockchain-specific fields
- */
 export const BlockchainFieldsSchema = z.object({
   address: z.string().optional(),
   provider: z.string().optional(),
   xpubGap: z.number().int().positive().optional(),
 });
 
-/**
- * CSV import field
- */
 export const CsvImportSchema = z.object({
   csvDir: z.string().optional(),
 });

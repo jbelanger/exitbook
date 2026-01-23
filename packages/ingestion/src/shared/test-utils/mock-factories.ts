@@ -110,6 +110,7 @@ export function createMockProviderManager(
       }),
       extractCursors: vi.fn((_transaction: unknown): PaginationCursor[] => []),
       applyReplayWindow: vi.fn((cursor: PaginationCursor): PaginationCursor => cursor),
+      destroy: vi.fn(),
     },
   ]);
 

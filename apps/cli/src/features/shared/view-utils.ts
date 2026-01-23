@@ -39,6 +39,20 @@ export function parseDate(dateStr: string): Date {
 }
 
 /**
+ * Format a Date object to YYYY-MM-DD string.
+ */
+export function formatDate(date: Date): string {
+  return date.toISOString().split('T')[0] ?? 'N/A';
+}
+
+/**
+ * Format a Date object to YYYY-MM-DD HH:MM:SS string.
+ */
+export function formatDateTime(date: Date): string {
+  return date.toISOString().replace('T', ' ').split('.')[0] ?? 'N/A';
+}
+
+/**
  * Build metadata object for view command results.
  */
 export function buildViewMeta(

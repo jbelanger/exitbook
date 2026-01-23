@@ -14,6 +14,5 @@ import { registerAccountsViewCommand } from './view-accounts.js';
 export function registerAccountsCommand(program: Command): void {
   const accounts = program.command('accounts').description('Manage accounts (view account information)');
 
-  // Register subcommands
   registerAccountsViewCommand(accounts);
 }

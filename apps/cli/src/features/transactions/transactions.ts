@@ -16,6 +16,5 @@ export function registerTransactionsCommand(program: Command): void {
     .command('transactions')
     .description('Manage processed transactions (view transaction history)');
 
-  // Register subcommands
   registerTransactionsViewCommand(transactions);
 }

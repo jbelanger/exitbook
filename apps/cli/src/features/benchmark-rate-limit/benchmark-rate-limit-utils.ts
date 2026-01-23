@@ -32,7 +32,7 @@ export interface BenchmarkParams {
  * Parse and validate max rate parameter.
  */
 export function parseMaxRate(maxRate?: string): Result<number, Error> {
-  const value = maxRate || '5';
+  const value = maxRate ?? '5';
   const parsed = parseFloat(value);
 
   if (isNaN(parsed) || parsed <= 0) {
@@ -46,7 +46,7 @@ export function parseMaxRate(maxRate?: string): Result<number, Error> {
  * Parse and validate num requests parameter.
  */
 export function parseNumRequests(numRequests?: string): Result<number, Error> {
-  const value = numRequests || '10';
+  const value = numRequests ?? '10';
   const parsed = parseInt(value, 10);
 
   if (isNaN(parsed) || parsed <= 0) {
@@ -110,7 +110,7 @@ export function buildBenchmarkParams(options: BenchmarkRateLimitCommandOptions):
     provider: options.provider.trim(),
     maxRate: maxRateResult.value,
     numRequests: numRequestsResult.value,
-    skipBurst: options.skipBurst || false,
+    skipBurst: options.skipBurst ?? false,
     customRates: customRatesResult.value,
   });
 }

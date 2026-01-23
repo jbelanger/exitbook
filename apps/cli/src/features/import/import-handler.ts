@@ -18,9 +18,6 @@ export interface ImportResult {
   sessions: ImportSession[];
 }
 
-/**
- * Result of the processing operation.
- */
 export interface ProcessResult {
   /** Number of items processed */
   processed: number;

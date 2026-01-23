@@ -137,5 +137,4 @@ function handleLinksRejectSuccess(
   };
 
   output.json('links-reject', resultData);
-  process.exit(0);
 }

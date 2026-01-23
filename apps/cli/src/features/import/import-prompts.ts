@@ -34,9 +34,6 @@ export async function promptForImportParams(): Promise<ImportParams> {
   }
 }
 
-/**
- * Exchange-specific prompt flow.
- */
 async function promptExchangeParams(): Promise<ImportParams> {
   // Select exchange
   const sourceName = await promptExchange();

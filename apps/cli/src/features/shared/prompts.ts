@@ -223,7 +223,7 @@ function getExchangeHint(name: string): string {
     kucoin: 'CSV or API',
     coinbase: 'API only',
   };
-  return hints[name] || '';
+  return hints[name] ?? '';
 }
 
 /**
@@ -248,7 +248,7 @@ export function formatBlockchainName(name: string): string {
     injective: 'Injective',
   };
   return (
-    names[name] ||
+    names[name] ??
     name
       .split('-')
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -355,7 +355,7 @@ export function getAddressPlaceholder(blockchain: string): string {
  * Format provider capabilities.
  */
 function formatProviderCapabilities(provider: ProviderInfo): string {
-  const ops = provider.capabilities.supportedOperations || [];
+  const ops = provider.capabilities.supportedOperations ?? [];
   const caps: string[] = [];
   if (ops.includes('getAddressTransactions')) caps.push('txs');
   if (ops.includes('getAddressBalances')) caps.push('balance');

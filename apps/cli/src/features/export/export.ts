@@ -8,6 +8,7 @@ import { resolveInteractiveParams, unwrapResult } from '../shared/command-execut
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { ExportCommandOptionsSchema } from '../shared/schemas.js';
+import { isJsonMode } from '../shared/utils.js';
 
 import type { ExportResult } from './export-handler.js';
 import { ExportHandler } from './export-handler.js';
@@ -19,9 +20,6 @@ import { buildExportParamsFromFlags } from './export-utils.js';
  */
 export type ExportCommandOptions = z.infer<typeof ExportCommandOptionsSchema>;
 
-/**
- * Export command result data.
- */
 interface ExportCommandResult {
   format: string;
   outputPaths: string[];
@@ -30,9 +28,6 @@ interface ExportCommandResult {
   transactionCount: number;
 }
 
-/**
- * Register the export command.
- */
 export function registerExportCommand(program: Command): void {
   program
     .command('export')
@@ -44,25 +39,19 @@ export function registerExportCommand(program: Command): void {
     .option('--since <date>', 'Export transactions since date (YYYY-MM-DD, timestamp, or 0 for all history)')
     .option('--output <file>', 'Output file path')
     .option('--json', 'Output results in JSON format')
-    .action(async (rawOptions: unknown) => {
-      await executeExportCommand(rawOptions);
-    });
+    .action(executeExportCommand);
 }
 
-/**
- * Execute the export command.
- */
 async function executeExportCommand(rawOptions: unknown): Promise<void> {
   // Check for --json flag early (even before validation) to determine output format
-  const isJsonMode =
-    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+  const isJson = isJsonMode(rawOptions);
 
   // Validate options at CLI boundary with Zod
   const validationResult = ExportCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
-    const output = new OutputManager(isJsonMode ? 'json' : 'text');
+    const output = new OutputManager(isJson ? 'json' : 'text');
     const firstError = validationResult.error.issues[0];
-    output.error('export', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
+    output.error('export', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.INVALID_ARGS);
     return;
   }
 
@@ -99,25 +88,18 @@ async function executeExportCommand(rawOptions: unknown): Promise<void> {
     const transactionLinkRepository = new TransactionLinkRepository(database);
     const handler = new ExportHandler(transactionRepository, transactionLinkRepository);
 
-    try {
-      const result = await handler.execute(params);
+    const result = await handler.execute(params);
 
-      await closeDatabase(database);
-      spinner?.stop();
-      resetLoggerContext();
+    await closeDatabase(database);
+    spinner?.stop();
+    resetLoggerContext();
 
-      if (result.isErr()) {
-        output.error('export', result.error, ExitCodes.GENERAL_ERROR);
-        return; // TypeScript needs this even though output.error never returns
-      }
-
-      await handleExportSuccess(output, result.value);
-    } catch (error) {
-      await closeDatabase(database);
-      spinner?.stop('Export failed');
-      resetLoggerContext();
-      throw error;
+    if (result.isErr()) {
+      output.error('export', result.error, ExitCodes.GENERAL_ERROR);
+      return; // TypeScript needs this even though output.error never returns
     }
+
+    await handleExportSuccess(output, result.value);
   } catch (error) {
     resetLoggerContext();
     output.error('export', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
@@ -171,5 +153,4 @@ async function handleExportSuccess(output: OutputManager, exportResult: ExportRe
   }
 
   output.json('export', resultData);
-  process.exit(0);
 }

@@ -302,6 +302,16 @@ export class HttpClient {
   }
 
   /**
+   * Cleanup resources.
+   * Note: globalThis.fetch doesn't support manual connection cleanup, so this is a no-op.
+   * However, it provides a lifecycle hook for future implementations and documents intent.
+   */
+  destroy(): void {
+    // No-op: fetch API doesn't expose HTTP connection pool management
+    this.logger.debug('HTTP client destroyed');
+  }
+
+  /**
    * Record request metric if instrumentation is enabled
    */
   private recordMetric(endpoint: string, method: string, status: number, startTime: number, error?: string): void {

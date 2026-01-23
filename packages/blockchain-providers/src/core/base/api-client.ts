@@ -466,6 +466,14 @@ export abstract class BaseApiClient implements IBlockchainProvider {
   }
 
   /**
+   * Cleanup resources.
+   * Delegates to httpClient.destroy() to cleanup HTTP connections.
+   */
+  destroy(): void {
+    this.httpClient.destroy();
+  }
+
+  /**
    * Convenience wrapper around the shared streaming adapter. Providers can call
    * this to reuse the standardized pagination/dedup/replay/cursor handling while
    * only supplying fetch + map logic. Keeps inheritance consumers ergonomic while

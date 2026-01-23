@@ -36,7 +36,7 @@ export async function promptForLinksRunParams(): Promise<LinksRunHandlerParams> 
     handleCancellation();
   }
 
-  const minConfidenceScore = parseDecimal(minConfidenceInput || '0.7');
+  const minConfidenceScore = parseDecimal(minConfidenceInput ?? '0.7');
 
   // Ask for auto-confirm threshold
   const autoConfirmInput = await p.text({
@@ -48,7 +48,7 @@ export async function promptForLinksRunParams(): Promise<LinksRunHandlerParams> 
       if (Number.isNaN(num) || num < 0 || num > 1) {
         return 'Must be a number between 0 and 1';
       }
-      const minConfidence = Number(minConfidenceInput || '0.7');
+      const minConfidence = Number(minConfidenceInput ?? '0.7');
       if (num < minConfidence) {
         return `Must be >= minimum confidence score (${minConfidence})`;
       }
@@ -59,7 +59,7 @@ export async function promptForLinksRunParams(): Promise<LinksRunHandlerParams> 
     handleCancellation();
   }
 
-  const autoConfirmThreshold = parseDecimal(autoConfirmInput || '0.95');
+  const autoConfirmThreshold = parseDecimal(autoConfirmInput ?? '0.95');
 
   return {
     dryRun,

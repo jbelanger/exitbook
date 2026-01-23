@@ -172,5 +172,4 @@ function handleViewTransactionsSuccess(
   };
 
   output.json('view-transactions', resultData);
-  process.exit(0);
 }

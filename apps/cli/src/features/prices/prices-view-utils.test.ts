@@ -321,7 +321,7 @@ describe('formatPriceCoverageListForDisplay', () => {
     const output = formatPriceCoverageListForDisplay(result);
 
     expect(output).toContain('=============================');
-    const separatorCount = (output.match(/=============================/g) || []).length;
+    const separatorCount = (output.match(/=============================/g) ?? []).length;
     expect(separatorCount).toBeGreaterThanOrEqual(2);
   });
 

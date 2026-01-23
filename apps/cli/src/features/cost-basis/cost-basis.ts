@@ -9,6 +9,8 @@ import { resolveInteractiveParams, unwrapResult } from '../shared/command-execut
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { CostBasisCommandOptionsSchema } from '../shared/schemas.js';
+import { isJsonMode } from '../shared/utils.js';
+import { formatDate } from '../shared/view-utils.js';
 
 import type { CostBasisResult } from './cost-basis-handler.js';
 import { CostBasisHandler } from './cost-basis-handler.js';
@@ -60,23 +62,17 @@ export function registerCostBasisCommand(program: Command): void {
     .option('--start-date <date>', 'Custom start date (YYYY-MM-DD, requires --end-date)')
     .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
     .option('--json', 'Output results in JSON format')
-    .action(async (rawOptions: unknown) => {
-      await executeCostBasisCommand(rawOptions);
-    });
+    .action(executeCostBasisCommand);
 }
 
-/**
- * Execute the cost-basis command.
- */
 async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
   // Check for --json flag early (even before validation) to determine output format
-  const isJsonMode =
-    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+  const isJson = isJsonMode(rawOptions);
 
   // Validate options at CLI boundary
   const parseResult = CostBasisCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager(isJsonMode ? 'json' : 'text');
+    const output = new OutputManager(isJson ? 'json' : 'text');
     output.error(
       'cost-basis',
       new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
@@ -190,7 +186,6 @@ function handleCostBasisSuccess(output: OutputManager, costBasisResult: CostBasi
   };
 
   output.json('cost-basis', resultData);
-  process.exit(0);
 }
 
 /**
@@ -211,9 +206,9 @@ function displayCostBasisResults(
   console.log(`Jurisdiction: ${config.jurisdiction}`);
   console.log(`Tax Year: ${config.taxYear}`);
   console.log(`Currency: ${config.currency}`);
-  console.log(
-    `Date Range: ${calculation.startDate?.toISOString().split('T')[0] || 'N/A'} to ${calculation.endDate?.toISOString().split('T')[0] || 'N/A'}`
-  );
+  const startDate = calculation.startDate ? formatDate(calculation.startDate) : 'N/A';
+  const endDate = calculation.endDate ? formatDate(calculation.endDate) : 'N/A';
+  console.log(`Date Range: ${startDate} to ${endDate}`);
   console.log('');
 
   console.log('Processing Summary');

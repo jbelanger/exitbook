@@ -3,7 +3,7 @@
 import type { SourceType, UniversalTransactionData } from '@exitbook/core';
 import { computePrimaryMovement } from '@exitbook/core';
 
-import { parseDate } from '../shared/view-utils.js';
+import { formatDateTime, parseDate } from '../shared/view-utils.js';
 import type { CommonViewFilters } from '../shared/view-utils.js';
 
 /**
@@ -138,15 +138,16 @@ export function formatTransactionForDisplay(tx: UniversalTransactionData): Forma
 export function renderTransactionInfo(tx: TransactionInfo): string {
   const lines: string[] = [];
   const operationLabel = formatOperationLabel(tx.operation_category, tx.operation_type);
+  const dateStr = formatDateTime(new Date(tx.transaction_datetime));
 
   lines.push(`Transaction #${tx.id}`);
   lines.push(`   Source: ${tx.source_name} (${tx.source_type})`);
-  lines.push(`   Date: ${tx.transaction_datetime}`);
+  lines.push(`   Date: ${dateStr}`);
   lines.push(`   Operation: ${operationLabel}`);
 
   if (tx.movements_primary_asset) {
     const directionIcon = getDirectionIcon(tx.movements_primary_direction);
-    const amount = tx.movements_primary_amount || '?';
+    const amount = tx.movements_primary_amount ?? '?';
     lines.push(`   Movement: ${directionIcon} ${amount} ${tx.movements_primary_asset}`);
   }
 

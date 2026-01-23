@@ -84,7 +84,6 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
     }
 
     output.json('prices-set-fx', result.value);
-    process.exit(0);
   } catch (error) {
     resetLoggerContext();
     output.error('prices-set-fx', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);

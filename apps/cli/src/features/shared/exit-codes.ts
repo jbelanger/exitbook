@@ -44,11 +44,3 @@ export const ExitCodes = {
 } as const;
 
 export type ExitCode = (typeof ExitCodes)[keyof typeof ExitCodes];
-
-/**
- * Exit the process with a specific exit code.
- * Use this instead of process.exit() for better tracking.
- */
-export function exitWithCode(code: ExitCode): never {
-  process.exit(code);
-}

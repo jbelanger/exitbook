@@ -160,5 +160,4 @@ function handleViewPricesSuccess(
   };
 
   output.json('view-prices', resultData);
-  process.exit(0);
 }

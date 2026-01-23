@@ -12,7 +12,6 @@ import {
 } from '../shared/prompts.js';
 
 import type { ExportHandlerParams } from './export-utils.js';
-import { CSV_FORMATS, EXPORT_FORMATS } from './export-utils.js';
 
 /**
  * Interactive prompt flow for export parameters.
@@ -52,10 +51,6 @@ export async function promptForExportParams(): Promise<ExportHandlerParams> {
     handleCancellation();
   }
 
-  if (!EXPORT_FORMATS.includes(format)) {
-    throw new Error(`Invalid format: ${format}`);
-  }
-
   // Step 5: CSV format (only for CSV)
   let csvFormat: ExportHandlerParams['csvFormat'];
   if (format === 'csv') {
@@ -70,10 +65,6 @@ export async function promptForExportParams(): Promise<ExportHandlerParams> {
 
     if (isCancelled(csvFormatSelection)) {
       handleCancellation();
-    }
-
-    if (!CSV_FORMATS.includes(csvFormatSelection)) {
-      throw new Error(`Invalid CSV format: ${csvFormatSelection}`);
     }
 
     csvFormat = csvFormatSelection;

@@ -86,6 +86,7 @@ export function createMockProviderManager(blockchain: string): ProviderManagerMo
       }),
       extractCursors: vi.fn((_transaction: unknown): PaginationCursor[] => []),
       applyReplayWindow: vi.fn((cursor: PaginationCursor): PaginationCursor => cursor),
+      destroy: vi.fn(),
     },
   ]);
 

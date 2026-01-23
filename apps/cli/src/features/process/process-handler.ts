@@ -3,9 +3,6 @@ import type { ClearService, TransactionProcessService } from '@exitbook/ingestio
 import { getLogger } from '@exitbook/logger';
 import { err, type Result } from 'neverthrow';
 
-/**
- * Result of the process operation.
- */
 export interface ProcessResult {
   /** Number of transactions processed */
   processed: number;
@@ -14,9 +11,6 @@ export interface ProcessResult {
   errors: string[];
 }
 
-/**
- * Reprocess handler parameters
- */
 export interface ProcessHandlerParams {
   /** Reprocess only a specific account ID */
   accountId?: number | undefined;
@@ -70,9 +64,6 @@ export class ProcessHandler {
     }
   }
 
-  /**
-   * Cleanup resources.
-   */
   destroy(): void {
     this.providerManager.destroy();
   }

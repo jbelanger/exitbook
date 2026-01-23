@@ -17,6 +17,7 @@ import type { z } from 'zod';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { BalanceCommandOptionsSchema } from '../shared/schemas.js';
+import { isJsonMode } from '../shared/utils.js';
 
 import { buildBalanceAssetDebug, type BalanceAssetDebugResult } from './balance-debug.js';
 import { buildBalanceMismatchExplanation } from './balance-explain.js';
@@ -58,25 +59,19 @@ Notes:
   - Use "exitbook accounts view" to list account IDs and types.
 `
     )
-    .action(async (rawOptions: unknown) => {
-      await executeBalanceCommand(rawOptions);
-    });
+    .action(executeBalanceCommand);
 }
 
-/**
- * Execute the balance command.
- */
 async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
   // Check for --json flag early (even before validation) to determine output format
-  const isJsonMode =
-    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+  const isJson = isJsonMode(rawOptions);
 
   // Validate options at CLI boundary with Zod
   const validationResult = BalanceCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
-    const output = new OutputManager(isJsonMode ? 'json' : 'text');
+    const output = new OutputManager(isJson ? 'json' : 'text');
     const firstError = validationResult.error.issues[0];
-    output.error('balance', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
+    output.error('balance', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.INVALID_ARGS);
     return;
   }
 
@@ -169,6 +164,10 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
       options.debugAssetId,
       options.debugTop
     );
+
+    // Exit required: BlockchainProviderManager uses fetch with keep-alive connections
+    // that cannot be manually closed, preventing natural process termination
+    process.exit(0);
   } catch (error) {
     resetLoggerContext();
     output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
@@ -292,7 +291,7 @@ async function handleBalanceSuccess(
         output.log(`  Note: Balance aggregated from all derived addresses`);
       }
     } else {
-      output.log(`  Identifier: ${account.identifier || 'N/A'}`);
+      output.log(`  Identifier: ${account.identifier ?? 'N/A'}`);
     }
     if (account.providerName) {
       output.log(`  Provider: ${account.providerName}`);

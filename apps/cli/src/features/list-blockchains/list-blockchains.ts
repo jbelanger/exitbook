@@ -107,7 +107,6 @@ async function executeListBlockchainsCommand(rawOptions: unknown): Promise<void>
     output.json('list-blockchains', resultData);
 
     resetLoggerContext();
-    process.exit(0);
   } catch (error) {
     resetLoggerContext();
     output.error(

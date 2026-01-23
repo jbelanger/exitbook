@@ -174,5 +174,4 @@ function handleLinksViewSuccess(
   };
 
   output.json('links-view', resultData);
-  process.exit(0);
 }

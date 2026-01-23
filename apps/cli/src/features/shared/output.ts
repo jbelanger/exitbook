@@ -18,16 +18,10 @@ export class OutputManager {
 
   constructor(private format: OutputFormat = 'text') {}
 
-  /**
-   * Check if output is in JSON mode.
-   */
   isJsonMode(): boolean {
     return this.format === 'json';
   }
 
-  /**
-   * Check if output is in text mode.
-   */
   isTextMode(): boolean {
     return this.format === 'text';
   }

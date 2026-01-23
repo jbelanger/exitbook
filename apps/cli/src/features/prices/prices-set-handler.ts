@@ -132,13 +132,13 @@ export class PricesSetHandler {
       }
 
       // Validate currency
-      const currency = (options.currency || 'USD').toUpperCase();
+      const currency = (options.currency ?? 'USD').toUpperCase();
       if (!/^[A-Z]{3,10}$/.test(currency)) {
         return err(new Error('Currency must be 3-10 uppercase letters (e.g., USD, EUR)'));
       }
 
       // Validate source
-      const source = options.source || 'manual-cli';
+      const source = options.source ?? 'manual-cli';
 
       return ok({
         asset,

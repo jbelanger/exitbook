@@ -79,7 +79,7 @@ export function executeCLI(args: string[]): CLIResponse<unknown> {
     return JSON.parse(trimmed) as CLIResponse<unknown>;
   } catch (error) {
     if (error instanceof Error && 'stdout' in error) {
-      const stdout = (error as { stdout: Buffer }).stdout?.toString() || '';
+      const stdout = (error as { stdout: Buffer }).stdout?.toString() ?? '';
       const trimmed = stdout.trim();
 
       if (trimmed) {

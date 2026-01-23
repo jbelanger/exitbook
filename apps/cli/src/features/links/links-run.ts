@@ -146,7 +146,6 @@ function handleLinksRunSuccess(output: OutputManager, linkResult: LinksRunResult
   };
 
   output.json('links-run', resultData);
-  process.exit(0);
 }
 
 /**

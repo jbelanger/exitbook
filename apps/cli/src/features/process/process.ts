@@ -18,6 +18,7 @@ import type { z } from 'zod';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { ProcessCommandOptionsSchema } from '../shared/schemas.js';
+import { isJsonMode } from '../shared/utils.js';
 
 import type { ProcessResult } from './process-handler.js';
 import { ProcessHandler } from './process-handler.js';
@@ -27,42 +28,30 @@ import { ProcessHandler } from './process-handler.js';
  */
 export type ProcessCommandOptions = z.infer<typeof ProcessCommandOptionsSchema>;
 
-/**
- * Process command result data.
- */
 interface ProcessCommandResult {
   errors: string[];
   processed: number;
 }
 
-/**
- * Register the reprocess command.
- */
 export function registerReprocessCommand(program: Command): void {
   program
     .command('reprocess')
     .description('Clear all derived data and reprocess from raw data')
     .option('--account-id <id>', 'Reprocess only a specific account ID')
     .option('--json', 'Output results in JSON format')
-    .action(async (rawOptions: unknown) => {
-      await executeReprocessCommand(rawOptions);
-    });
+    .action(executeReprocessCommand);
 }
 
-/**
- * Execute the reprocess command.
- */
 async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
   // Check for --json flag early (even before validation) to determine output format
-  const isJsonMode =
-    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+  const isJson = isJsonMode(rawOptions);
 
   // Validate options at CLI boundary with Zod
   const validationResult = ProcessCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
-    const output = new OutputManager(isJsonMode ? 'json' : 'text');
+    const output = new OutputManager(isJson ? 'json' : 'text');
     const firstError = validationResult.error.issues[0];
-    output.error('reprocess', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
+    output.error('reprocess', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.INVALID_ARGS);
     return;
   }
 
@@ -92,7 +81,6 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
 
     const database = await initializeDatabase();
 
-    // Initialize repositories
     const userRepository = new UserRepository(database);
     const accountRepository = new AccountRepository(database);
     const transactionRepository = new TransactionRepository(database);
@@ -147,6 +135,10 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
     }
 
     handleProcessSuccess(output, result.value);
+
+    // Exit required: BlockchainProviderManager uses fetch with keep-alive connections
+    // that cannot be manually closed, preventing natural process termination
+    process.exit(0);
   } catch (error) {
     resetLoggerContext();
     output.error('reprocess', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);

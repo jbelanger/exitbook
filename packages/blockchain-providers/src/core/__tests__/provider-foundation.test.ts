@@ -135,6 +135,10 @@ class MockProvider implements IBlockchainProvider {
     return cursor;
   }
 
+  destroy(): void {
+    // Mock provider has no resources to cleanup
+  }
+
   setFailureMode(shouldFail: boolean): void {
     this.shouldFail = shouldFail;
   }

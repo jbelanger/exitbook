@@ -149,7 +149,7 @@ export class PricesSetFxHandler {
       }
 
       // Validate source
-      const source = options.source || 'user-provided';
+      const source = options.source ?? 'user-provided';
 
       return ok({
         from,

@@ -18,6 +18,7 @@ import type { z } from 'zod';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { PricesEnrichCommandOptionsSchema } from '../shared/schemas.js';
+import { isJsonMode } from '../shared/utils.js';
 
 import { PricesEnrichHandler } from './prices-enrich-handler.js';
 import type { PricesEnrichOptions, PricesEnrichResult } from './prices-enrich-handler.js';
@@ -88,9 +89,7 @@ export function registerPricesEnrichCommand(pricesCommand: Command): void {
     .option('--interactive', 'Interactive mode for fetch stage')
     .option('--dry-run', 'Preview changes without applying them')
     .option('--json', 'Output results in JSON format')
-    .action(async (rawOptions: unknown) => {
-      await executePricesEnrichCommand(rawOptions);
-    });
+    .action(executePricesEnrichCommand);
 }
 
 /**
@@ -100,14 +99,14 @@ function collect(value: string, previous: string[]): string[] {
   return previous.concat([value]);
 }
 
-/**
- * Execute the prices enrich command
- */
 async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
+  // Check for --json flag early (even before validation) to determine output format
+  const isJson = isJsonMode(rawOptions);
+
   // Validate options at CLI boundary
   const parseResult = PricesEnrichCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager('text');
+    const output = new OutputManager(isJson ? 'json' : 'text');
     output.error(
       'prices-enrich',
       new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
@@ -130,14 +129,14 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
     };
 
     // Don't use spinner in prompt mode (conflicts with prompts)
-    const onMissing = options.onMissing || 'fail';
+    const onMissing = options.onMissing ?? 'fail';
     const spinner = onMissing === 'prompt' ? undefined : output.spinner();
     spinner?.start('Running price enrichment pipeline...');
 
     // Configure logger to route logs to spinner
     configureLogger({
       mode: options.json ? 'json' : 'text',
-      spinner: spinner || undefined,
+      spinner: spinner ?? undefined,
       verbose: false, // TODO: Add --verbose flag support
       sinks: options.json
         ? { ui: false, structured: 'file' }
@@ -276,7 +275,6 @@ function handlePricesEnrichSuccess(
 
   // Output success
   output.json('prices-enrich', resultData);
-  process.exit(0);
 }
 
 /**

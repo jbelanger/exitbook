@@ -25,16 +25,13 @@ import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { promptConfirm } from '../shared/prompts.js';
 import { ImportCommandOptionsSchema } from '../shared/schemas.js';
+import { isJsonMode } from '../shared/utils.js';
 
 import type { ImportResult } from './import-handler.js';
 import { ImportHandler } from './import-handler.js';
 import { promptForImportParams } from './import-prompts.js';
-import type { ImportCommandOptions } from './import-utils.js';
 import { buildImportParams } from './import-utils.js';
 
-/**
- * Import command result data.
- */
 interface ImportSessionSummary {
   id: number;
   files?: number | undefined;
@@ -70,9 +67,6 @@ interface ImportCommandResult {
   };
 }
 
-/**
- * Register the import command.
- */
 export function registerImportCommand(program: Command): void {
   program
     .command('import')
@@ -91,25 +85,19 @@ export function registerImportCommand(program: Command): void {
     .option('--api-secret <secret>', 'API secret for exchange API access')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange API access (if required)')
     .option('--json', 'Output results in JSON format')
-    .action(async (options: ImportCommandOptions) => {
-      await executeImportCommand(options);
-    });
+    .action(executeImportCommand);
 }
 
-/**
- * Execute the import command.
- */
 async function executeImportCommand(rawOptions: unknown): Promise<void> {
   // Check for --json flag early (even before validation) to determine output format
-  const isJsonMode =
-    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+  const isJson = isJsonMode(rawOptions);
 
   // Validate options at CLI boundary with Zod
   const validationResult = ImportCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
-    const output = new OutputManager(isJsonMode ? 'json' : 'text');
+    const output = new OutputManager(isJson ? 'json' : 'text');
     const firstError = validationResult.error.issues[0];
-    output.error('import', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
+    output.error('import', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.INVALID_ARGS);
     return;
   }
 
@@ -147,7 +135,6 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 
     const database = await initializeDatabase();
 
-    // Initialize repositories
     const userRepository = new UserRepository(database);
     const accountRepository = new AccountRepository(database);
     const transactionRepository = new TransactionRepository(database);
@@ -256,6 +243,10 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       if (output.isTextMode() && summary) {
         output.outro(summary);
       }
+
+      // Exit required: BlockchainProviderManager uses fetch with keep-alive connections
+      // that cannot be manually closed, preventing natural process termination
+      process.exit(0);
     } catch (error) {
       handler.destroy?.();
       await closeDatabase(database);
@@ -270,18 +261,12 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
   }
 }
 
-/**
- * Combined result with stats for display.
- */
 interface CombinedImportResult extends ImportResult {
   processed?: number | undefined;
   processingErrors?: string[] | undefined;
   runStats?: MetricsSummary | undefined;
 }
 
-/**
- * Handle successful import.
- */
 function handleImportSuccess(
   output: OutputManager,
   importResult: CombinedImportResult,
@@ -359,8 +344,6 @@ function handleImportSuccess(
 
   output.json('import', resultData);
 
-  // Don't call process.exit(0) - it triggers clack's cancellation handler
-  // The process will exit naturally
   return summary;
 }
 

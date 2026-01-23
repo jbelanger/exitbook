@@ -169,6 +169,13 @@ export class BlockchainProviderManager {
       this.cacheCleanupTimer = undefined;
     }
 
+    // Cleanup all provider instances (releases HTTP clients)
+    for (const providerList of this.providers.values()) {
+      for (const provider of providerList) {
+        provider.destroy();
+      }
+    }
+
     // Clear all caches and state
     this.providers.clear();
     this.healthStatus.clear();

@@ -49,9 +49,6 @@ export interface CLIResponse<T = unknown> {
     | undefined;
 }
 
-/**
- * Create a success response.
- */
 export function createSuccessResponse<T>(command: string, data: T, metadata?: Record<string, unknown>): CLIResponse<T> {
   const response: CLIResponse<T> = {
     success: true,
@@ -71,9 +68,6 @@ export function createSuccessResponse<T>(command: string, data: T, metadata?: Re
   return response;
 }
 
-/**
- * Create an error response.
- */
 export function createErrorResponse(
   command: string,
   error: Error,
@@ -119,5 +113,5 @@ export function exitCodeToErrorCode(exitCode: ExitCode): string {
     11: 'CONFIG_ERROR',
     13: 'PERMISSION_DENIED',
   };
-  return codes[exitCode] || 'UNKNOWN_ERROR';
+  return codes[exitCode] ?? 'UNKNOWN_ERROR';
 }

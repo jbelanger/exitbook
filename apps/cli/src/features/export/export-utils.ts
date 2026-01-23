@@ -128,12 +128,12 @@ export function convertToCSV(transactions: UniversalTransactionData[]): string {
     const platformFees = filterFeesByScope(tx.fees, 'platform');
 
     const values = [
-      tx.id || '',
-      tx.externalId || '',
-      tx.source || '',
-      tx.operation.category || '',
-      tx.operation.type || '',
-      tx.datetime || '',
+      tx.id ?? '',
+      tx.externalId ?? '',
+      tx.source ?? '',
+      tx.operation.category ?? '',
+      tx.operation.type ?? '',
+      tx.datetime ?? '',
       formatMovementAssets(inflows),
       formatMovementAmounts(inflows),
       formatMovementAssets(outflows),
@@ -142,7 +142,7 @@ export function convertToCSV(transactions: UniversalTransactionData[]): string {
       formatFeeAmounts(networkFees),
       formatFeeAssets(platformFees),
       formatFeeAmounts(platformFees),
-      tx.status || '',
+      tx.status ?? '',
     ];
 
     csvLines.push(formatCsvLine(values));

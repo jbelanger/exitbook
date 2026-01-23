@@ -111,7 +111,7 @@ export async function promptManualPrice(
   return {
     price: parseDecimal(priceValue),
     currency: currency.toUpperCase(),
-    source: source || 'manual',
+    source: source ?? 'manual',
   };
 }
 
@@ -233,6 +233,6 @@ export async function promptManualFxRate(
 
   return {
     rate: parseDecimal(rateValue),
-    source: source || 'user-provided',
+    source: source ?? 'user-provided',
   };
 }

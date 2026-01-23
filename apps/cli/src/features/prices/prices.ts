@@ -20,7 +20,6 @@ import { registerPricesViewCommand } from './prices-view.js';
 export function registerPricesCommand(program: Command): void {
   const prices = program.command('prices').description('Manage cryptocurrency prices (view, enrich, set, set-fx)');
 
-  // Register subcommands
   registerPricesViewCommand(prices);
   registerPricesEnrichCommand(prices);
   registerPricesSetCommand(prices);
