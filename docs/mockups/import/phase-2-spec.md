@@ -1,4 +1,4 @@
-# Phase 2: Processing Dashboard Specification
+# Phase 2/2: Processing Dashboard Specification
 
 ## Overview
 
@@ -68,8 +68,8 @@ export type TokenMetadataEvent = {
   type: 'metadata.batch.completed';
   blockchain: string;
   batchNumber: number;
-  cacheHits: number; // Found in cache (cumulative for run)
-  cacheMisses: number; // Had to fetch from API (cumulative for run)
+  cacheHits: number; // Found in cache (per-batch delta)
+  cacheMisses: number; // Had to fetch from API (per-batch delta)
   durationMs: number;
 };
 ```
@@ -80,6 +80,8 @@ export type TokenMetadataEvent = {
 
 - Shows cache hit rate (Data Insights section)
 - Shows metadata fetch progress in event log
+
+**Counting Semantics**: Events emit **per-batch deltas** (not cumulative totals). ProgressHandler accumulates these deltas to track overall cache stats for the run.
 
 **Note**: Metadata provider health (Moralis, Alchemy) comes from existing HTTP instrumentation + provider events, reusing Phase 1 infrastructure
 
@@ -141,7 +143,8 @@ export type ProcessEvent =
   | {
       type: 'process.group.processing';
       accountId: number;
-      txHash: string;      // Transaction group being processed
+      groupId: string;     // Transaction hash OR exchange trade ID
+      groupType: 'transaction' | 'trade';  // Source type
       itemCount: number;   // How many raw items in this group
     };
 ```
@@ -172,9 +175,11 @@ Same table structure as Phase 1 Import, but for metadata providers:
 
 - Provider names: Moralis, Alchemy, etc. (from active metadata providers)
 - Status: From `provider.rate_limited`, `provider.circuit_open` events
-- Latency: From InstrumentationCollector (filter by metadata provider requests)
+- Latency: From InstrumentationCollector (filter by `service: 'metadata'` requests)
 - Req/s: From InstrumentationCollector (metadata provider request velocity)
 - Throttles: Count of `provider.rate_limited` events per provider
+
+**Service Type Filtering**: Filter InstrumentationCollector metrics by `service: 'metadata'` to separate metadata provider requests from blockchain import requests. Requires extending `RequestMetric.service` to include `'metadata'` type.
 
 **Always visible** during Phase 2 (no conditional rendering):
 
@@ -183,6 +188,12 @@ Same table structure as Phase 1 Import, but for metadata providers:
 - Consistent layout throughout processing
 
 **Why valuable**: Shows failover opportunities (e.g., "Moralis rate limited but Alchemy idle - why no failover?")
+
+**Empty State Handling**:
+
+- If no metadata providers active (e.g., no tokens in transactions), show `"No metadata providers active"`
+- If metadata stats show `totalHits + totalMisses === 0`, Data Insights shows `"No metadata fetched"` instead of `"0% hit rate"`
+- If no scams found, show `"Scams Found: None"` instead of `"0"`
 
 ### Data Insights
 
@@ -195,7 +206,7 @@ Scams Found:  14 "Silly", "Cancy"                      ← scam.batch.summary.{s
 
 **Show:**
 
-- `process.group.processing` → "✔ Processed group 0xce7e... (1 items)"
+- `process.group.processing` → "✔ Processed group 0xce7e... (1 items)" (blockchain) or "✔ Processed trade group KRK-12345 (3 items)" (exchange)
 - `metadata.batch.completed` → "ℹ Batch #1701: 13 tokens cached, 2 fetched from API"
 - `scam.batch.summary` → "⚠ Batch #1701: 14 scams detected (Silly, Cancy, ...)"
 - `provider.rate_limited` (metadata provider) → "⚠ moralis: Rate limited, cooling down 54s"
@@ -222,19 +233,20 @@ export type IngestionEvent =
 
 ### Step 2: Inject Event Bus
 
-Add event bus parameter to service constructors:
+Add event bus parameter to service constructors (MANDATORY):
 
-- `TokenMetadataService(repository, providerManager, eventBus?)`
-- `ScamDetectionService(eventBus?)`
+- `TokenMetadataService(repository, providerManager, eventBus: EventBus<IngestionEvent>)`
+- `ScamDetectionService(eventBus: EventBus<IngestionEvent>)`
+
+**Breaking change**: All instantiation sites must be updated to pass event bus.
 
 ### Step 3: Emit Events from Services
 
 **TokenMetadataService** (`packages/ingestion/src/features/token-metadata/token-metadata-service.ts`):
 
-- Track cumulative cache stats: `{ totalHits: 0, totalMisses: 0 }`
-- Emit `metadata.batch.started` in `enrichBatch()` / `getOrFetchBatch()`
-- Emit `metadata.fetch.waiting` when rate limited (with countdown timer)
-- Emit `metadata.batch.completed` with cumulative cache stats
+- Track per-batch cache stats (internal counter reset per batch)
+- Emit `metadata.batch.completed` with **per-batch deltas** (not cumulative)
+- ProgressHandler accumulates these deltas to show overall stats
 
 **ScamDetectionService** (`packages/ingestion/src/features/scam-detection/scam-detection-service.ts`):
 
@@ -297,17 +309,17 @@ Add `renderProcessingDashboard()` method to ProgressHandler that displays:
 
 ## Design Decisions
 
-1. **Event bus setup**: TokenMetadataService and ScamDetectionService need event bus injected via constructor
+1. **Event bus setup**: TokenMetadataService and ScamDetectionService need event bus injected via constructor (MANDATORY parameter, breaking change)
 
 2. **Pending count tracking** (efficiency):
    - Query DB once at `process.started` to get initial count
    - Track in memory: `pendingCount = initialTotal - totalProcessed`
    - No per-batch DB queries (avoids overhead)
 
-3. **Cache stats**: Cumulative for entire run
-   - Shows overall cache efficiency (e.g., "92% hit rate")
-   - More meaningful than per-batch fluctuations
-   - Track running totals: `{ totalHits: 0, totalMisses: 0 }`
+3. **Cache stats**: Events emit per-batch deltas, ProgressHandler accumulates
+   - TokenMetadataService emits per-batch counts (e.g., "13 hits, 2 misses this batch")
+   - ProgressHandler does `totalHits += event.cacheHits` to track cumulative stats
+   - Shows overall cache efficiency (e.g., "92% hit rate" across entire run)
 
 4. **Scam summary frequency**: Emit after every batch (not just at end)
    - Keeps UI updated in real-time
@@ -317,7 +329,8 @@ Add `renderProcessingDashboard()` method to ProgressHandler that displays:
 
 ## Requirements
 
-- Event bus must be passed to TokenMetadataService and ScamDetectionService constructors
+- Event bus must be passed to TokenMetadataService and ScamDetectionService constructors (MANDATORY parameter)
 - Processing service tracks pending count in memory (one DB query at start)
 - ProgressHandler reuses Phase 1 provider matrix infrastructure for metadata providers
 - Metadata provider events come from existing HTTP instrumentation (no new provider-specific events needed)
+- **Add 'metadata' service type**: Extend `RequestMetric.service` in `packages/http/src/instrumentation.ts` to include `'metadata'` for token metadata requests

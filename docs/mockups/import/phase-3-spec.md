@@ -1,10 +1,10 @@
-# Phase 3: Completion Summary Specification
+# Completion Summary Specification
 
 ## Overview
 
-Static summary displayed when import + processing completes. Shows final stats and performance metrics. This is the simplest phase - just aggregate data from previous events and display once.
+Static summary displayed when import + processing completes. Shows final stats and performance metrics. This is not a "phase" but rather final output after Phase 1 & 2 complete. Just aggregate data from previous events and display once.
 
-## Phase 3 Mockup
+## Completion Summary Mockup
 
 ```
 EXITBOOK CLI  v2.1.0  |  Target: 0xd8da...9d7e  |  Session: #184
@@ -13,7 +13,6 @@ EXITBOOK CLI  v2.1.0  |  Target: 0xd8da...9d7e  |  Session: #184
 [ RUN SUMMARY ]
 Total Time:      14m 22s
 Total Requests:  110,230 (High usage on: etherscan)
-Cost Estimate:   ~150k credits
 
 [ DATA RESULTS ]
 Transactions:    152,640 imported
@@ -22,6 +21,12 @@ New Tokens:      45 discovered
 Scams Detected:  1,204 rejected
 
 Output saved to: ./data/transactions.db
+
+──────────────────────────────────────────────────────────────────────────────
+[ EVENTS ]
+16:05:45  ✔  Processed group 0xce7e... (1 items)
+16:12:34  ⚠  moralis: Rate limited, cooling down 54s
+16:14:02  ✔  Processing completed
 ```
 
 ---
@@ -63,9 +68,10 @@ const totalCredits = Object.entries(summary.byProvider).reduce((sum, [provider, 
 | Transactions imported | `import.completed.totalImported`             | From import phase                                       |
 | Processed count       | `process.completed.totalProcessed`           | From processing phase                                   |
 | Processed percentage  | `(processed / imported * 100)`               | Should always be 100% on success                        |
-| New Tokens            | Track from `metadata.batch.completed` events | Cumulative `cacheMisses` from Phase 2                   |
-| Scams Detected        | Track from `scam.batch.summary` events       | Cumulative `scamsFound` from Phase 2                    |
+| New Tokens            | Track from `metadata.batch.completed` events | Accumulate per-batch `cacheMisses` deltas from Phase 2  |
+| Scams Detected        | Track from `scam.batch.summary` events       | Accumulate per-batch `scamsFound` counts from Phase 2   |
 | Output path           | Static config                                | `EXITBOOK_DATA_DIR` or default `./data/transactions.db` |
+| Event log             | Event buffer from ProgressHandler            | Shows last 3 events (persisted from earlier phases)     |
 
 ---
 
@@ -112,12 +118,15 @@ case 'process.completed':
 
 ```typescript
 case 'metadata.batch.completed':
+  // Events contain per-batch deltas, accumulate them
+  this.metadataMetrics.totalHits += event.cacheHits;
   this.metadataMetrics.totalMisses += event.cacheMisses;
-  // Also update completionStats for Phase 3
+  // Also update completionStats for final summary
   this.completionStats.newTokens = this.metadataMetrics.totalMisses;
   break;
 
 case 'scam.batch.summary':
+  // Events contain per-batch counts, accumulate them
   this.scamMetrics.totalFound += event.scamsFound;
   this.completionStats.scamsDetected = this.scamMetrics.totalFound;
   break;
@@ -159,6 +168,21 @@ Output saved to: ${databasePath}
   // Stop log-update, write final static output
   logUpdate.done();
   console.log(output);
+
+  // Event log footer (persisted from earlier phases)
+  this.renderEventLog();
+}
+
+private renderEventLog(): void {
+  const separator = '─'.repeat(78);
+  console.log(separator);
+  console.log('[ EVENTS ]');
+
+  // Show last 3 events from buffer
+  const recentEvents = this.eventLog.slice(-3);
+  for (const event of recentEvents) {
+    console.log(event.formattedLine);
+  }
 }
 
 private formatDuration(ms: number): string {
@@ -221,8 +245,10 @@ Show where data was saved. User can verify output location. Get from config or e
 
 ## Requirements
 
-- Phase 3 only renders after `process.completed` event
+- Completion summary only renders after `process.completed` event
 - Requires access to InstrumentationCollector for request stats
 - Reuses state already tracked in Phase 1 & 2 (no new events needed)
 - Must call `logUpdate.done()` before final output to stop dynamic updates
 - Final output is static (no more updates after this)
+- **Event log persistence**: Event buffer (`eventLog`) must be preserved throughout Phase 1 & 2, then displayed in completion summary
+- Metadata/scam event counts are **accumulated from per-batch deltas**, not read as cumulative totals

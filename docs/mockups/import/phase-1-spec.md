@@ -1,4 +1,4 @@
-# Phase 1: Import Dashboard Specification
+# Phase 1/2: Import Dashboard Specification
 
 ## Overview
 
@@ -115,6 +115,11 @@ VELOCITY:   142 req/s  [||||||||||||||||||||] !
 - Query InstrumentationCollector for latency/velocity metrics
 - Rebuild table every 250ms from current state
 - **Show all active providers** (no limiting - EVM has <5 providers typically)
+
+**Empty State Handling:**
+
+- If no providers active (e.g., CSV import), show `"No providers active"` instead of empty table
+- If instrumentation disabled, velocity section shows `"N/A (instrumentation disabled)"`
 
 **Countdown Timers:**
 
@@ -239,3 +244,25 @@ class ProviderStateAggregator {
 - Per-provider req/s
 
 Non-instrumentation fallback can be added later if needed.
+
+**Update Interval**: Define constant `DASHBOARD_UPDATE_INTERVAL_MS = 250` for frame refresh rate.
+
+**Error Boundaries**: Wrap dashboard rendering in try-catch to prevent crashes:
+
+```typescript
+private renderDashboard(): void {
+  try {
+    // Build dashboard string
+    const output = this.buildDashboardOutput();
+    logUpdate(output);
+  } catch (error) {
+    // Fallback to basic spinner on render failure
+    this.logger.error({ error }, 'Dashboard render failed, falling back to spinner');
+    if (!this.spinner) {
+      this.spinner = ora('Processing...').start();
+    }
+  }
+}
+```
+
+**Event Log Persistence**: Event buffer must persist across phase transitions (import → processing → complete). Store in ProgressHandler instance state, not reset between phases.

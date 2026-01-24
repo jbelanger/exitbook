@@ -7,40 +7,30 @@ Visual mockups and specifications for the CLI telemetry dashboard.
 The dashboard uses a **3-section layout** that morphs between phases:
 
 - **Header** (static): App info, target, current phase
-- **Body** (dynamic): Changes based on import → processing → complete
-- **Footer** (persistent): Scrolling event log that persists across phases
+- **Body** (dynamic): Changes based on import → processing → completion summary
+- **Footer** (persistent): Scrolling event log that persists across all phases (including completion)
 
 ## Files
 
-### Visual Mockups
-
-- `phase-1-import.txt` - Import phase UI showing provider health and velocity
-- `phase-2-processing.txt` - Processing phase UI showing pipeline and bottlenecks
-- `phase-3-complete.txt` - Completion summary
-
-### Specifications
-
-- `phase-1-spec.md` - Phase 1 (Import) specification
+- `phase-1-spec.md` - Phase 1/2: Import specification (includes visual mockup)
   - Data sources validated against codebase
-  - Field-level specifications
-  - Implementation approach
+  - Field-level specifications and implementation approach
 
-- `phase-2-spec.md` - Phase 2 (Processing) specification
-  - **Problem**: Processing currently has no observability (CLI hangs)
-  - **Solution**: Add events for metadata fetching, scam detection, pipeline health
-  - Event types to add (TokenMetadataEvent, ScamDetectionEvent, enhanced ProcessEvent)
-  - Where to emit events from
+- `phase-2-spec.md` - Phase 2/2: Processing specification (includes visual mockup)
+  - New events: TokenMetadataEvent, ScamDetectionEvent, enhanced ProcessEvent
+  - Where to emit events from services
 
-- `phase-3-spec.md` - Phase 3 (Completion) specification
-  - Static summary after completion
+- `phase-3-spec.md` - Completion Summary specification (includes visual mockup)
+  - Static summary after phases complete
   - Aggregates stats from Phase 1 & 2 (no new events needed)
-  - Shows final counts, timing, discovered tokens, scams detected
 
 ## Implementation Status
 
-- [ ] Phase 1: Import Dashboard (ready - uses existing events + instrumentation)
-- [ ] Phase 2: Processing Dashboard (requires new events: metadata, scam, enhanced process)
-- [ ] Phase 3: Completion Summary (ready - reuses Phase 1 & 2 state)
+- [ ] Phase 1/2: Import Dashboard (ready - uses existing events + instrumentation)
+- [ ] Phase 2/2: Processing Dashboard (requires new events: metadata, scam, enhanced process)
+- [ ] Completion Summary (ready - reuses Phase 1 & 2 state)
+
+See `IMPLEMENTATION-CHECKLIST.md` for detailed implementation steps.
 
 ## Key Principles
 
@@ -50,5 +40,5 @@ The dashboard uses a **3-section layout** that morphs between phases:
 
 ## Formatting Notes
 
-- Table columns use fixed widths to keep box drawings aligned across mockups.
-- Status values include units (e.g., `334ms`) and request rates use `req/s` consistently.
+- Table columns use fixed widths to keep box drawings aligned across mockups
+- Status values include units (e.g., `334ms`) and request rates use `req/s` consistently
