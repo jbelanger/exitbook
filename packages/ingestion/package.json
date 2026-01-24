@@ -26,6 +26,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@exitbook/events": "workspace:*",
     "csv-parse": "^6.1.0",
     "decimal.js": "^10.6.0",
     "neverthrow": "^8.2.0",

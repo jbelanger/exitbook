@@ -3,11 +3,13 @@ import path from 'node:path';
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ExchangeCredentials, ImportSession } from '@exitbook/core';
 import type { AccountRepository, IImportSessionRepository, IRawDataRepository, UserRepository } from '@exitbook/data';
+import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import type { ImportEvent } from '../../events.js';
 import type { BlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
 import { getBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
 
@@ -33,7 +35,8 @@ export class ImportOrchestrator {
     private accountRepository: AccountRepository,
     rawDataRepository: IRawDataRepository,
     importSessionRepository: IImportSessionRepository,
-    providerManager: BlockchainProviderManager
+    providerManager: BlockchainProviderManager,
+    eventBus?: EventBus<ImportEvent>  
   ) {
     this.logger = getLogger('ImportOrchestrator');
     this.providerManager = providerManager;
@@ -41,7 +44,8 @@ export class ImportOrchestrator {
       rawDataRepository,
       importSessionRepository,
       accountRepository,
-      providerManager
+      providerManager,
+      eventBus
     );
   }
 

@@ -28,6 +28,7 @@
     "@exitbook/blockchain-providers": "workspace:*",
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
+    "@exitbook/events": "workspace:*",
     "@exitbook/exchanges-providers": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/ingestion": "workspace:*",
@@ -37,6 +38,7 @@
     "libsodium-sumo": "^0.8.1",
     "libsodium-wrappers-sumo": "^0.8.1",
     "neverthrow": "^8.2.0",
+    "ora": "^8.2.0",
     "picocolors": "^1.1.1",
     "protobufjs": "^8.0.0",
     "reflect-metadata": "^0.2.2"

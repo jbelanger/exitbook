@@ -1,11 +1,13 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ImportSession } from '@exitbook/core';
 import type { AccountRepository, IImportSessionRepository, IRawDataRepository } from '@exitbook/data';
+import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import type { ImportEvent } from '../../events.js';
 import { getBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
 import { getExchangeAdapter } from '../../shared/types/exchange-adapter.js';
 import type { IImporter, ImportParams } from '../../shared/types/importers.js';
@@ -22,7 +24,8 @@ export class ImportExecutor {
     private rawDataRepository: IRawDataRepository,
     private importSessionRepository: IImportSessionRepository,
     private accountRepository: AccountRepository,
-    private providerManager: BlockchainProviderManager
+    private providerManager: BlockchainProviderManager,
+    private eventBus?: EventBus<ImportEvent> | undefined
   ) {
     this.logger = getLogger('ImportExecutor');
   }
@@ -121,6 +124,7 @@ export class ImportExecutor {
     let importSessionId: number;
     let totalImported = 0;
     let totalSkipped = 0;
+    let totalFetchedRun = 0;
 
     if (incompleteImportSession) {
       // Resume existing import - cursor comes from account.lastCursor
@@ -131,6 +135,24 @@ export class ImportExecutor {
       this.logger.info(
         `Resuming import from import session #${importSessionId} (total so far: ${totalImported} imported, ${totalSkipped} skipped)`
       );
+
+      // Emit session resumed event
+      this.eventBus?.emit({
+        type: 'import.session.resumed',
+        sessionId: importSessionId,
+        accountId: account.id,
+        sourceName,
+        fromCursor: account.lastCursor?.cursor?.primary.value ?? 0,
+      });
+
+      // Emit import started event
+      this.eventBus?.emit({
+        type: 'import.started',
+        sourceName,
+        sourceType: account.accountType,
+        accountId: account.id,
+        resuming: true,
+      });
 
       // Update status back to 'started' (in case it was 'failed')
       const updateResult = await this.importSessionRepository.update(importSessionId, { status: 'started' });
@@ -147,6 +169,23 @@ export class ImportExecutor {
 
       importSessionId = importSessionCreateResult.value;
       this.logger.info(`Created new import session #${importSessionId}`);
+
+      // Emit session created event
+      this.eventBus?.emit({
+        type: 'import.session.created',
+        sessionId: importSessionId,
+        accountId: account.id,
+        sourceName,
+      });
+
+      // Emit import started event
+      this.eventBus?.emit({
+        type: 'import.started',
+        sourceName,
+        sourceType: account.accountType,
+        accountId: account.id,
+        resuming: false,
+      });
     }
 
     const startTime = Date.now();
@@ -173,6 +212,13 @@ export class ImportExecutor {
           allWarnings.push(...batch.warnings);
           for (const warning of batch.warnings) {
             this.logger.warn(`⚠️  Import warning: ${warning}`);
+            // Emit warning event
+            this.eventBus?.emit({
+              type: 'import.warning',
+              sourceName,
+              accountId: account.id,
+              warning,
+            });
           }
         }
 
@@ -191,6 +237,7 @@ export class ImportExecutor {
         const { inserted, skipped } = saveResult.value;
         totalImported += inserted;
         totalSkipped += skipped;
+        totalFetchedRun += batch.rawTransactions.length;
 
         if (skipped > 0) {
           this.logger.info(`Skipped ${skipped} duplicate transactions in batch`);
@@ -209,8 +256,25 @@ export class ImportExecutor {
         }
 
         this.logger.info(
-          `Batch saved: ${inserted} inserted, ${skipped} skipped of ${batch.rawTransactions.length} ${batch.streamType} (total: ${totalImported}, cursor progress: ${batch.cursor.totalFetched})`
+          `Batch saved: ${inserted} inserted, ${skipped} skipped of ${batch.rawTransactions.length} ${batch.streamType} (total: ${totalImported}, fetched this run: ${totalFetchedRun})`
         );
+
+        // Emit batch event
+        this.eventBus?.emit({
+          type: 'import.batch',
+          sourceName,
+          accountId: account.id,
+          fetched: batch.rawTransactions.length, // Count before DB dedup
+          deduplicated: batch.rawTransactions.length, // Already deduped by provider
+          batchInserted: inserted,
+          batchSkipped: skipped,
+          totalImported,
+          totalSkipped,
+          streamType: batch.streamType,
+          cursorProgress: batch.cursor.totalFetched,
+          totalFetchedRun,
+          isComplete: batch.isComplete,
+        });
 
         if (batch.isComplete) {
           this.logger.debug(`Import for ${batch.streamType} marked complete by provider`);
@@ -264,6 +328,16 @@ export class ImportExecutor {
         );
       }
 
+      // Emit completion event
+      this.eventBus?.emit({
+        type: 'import.completed',
+        sourceName,
+        accountId: account.id,
+        totalImported,
+        totalSkipped,
+        durationMs: Date.now() - startTime,
+      });
+
       // Fetch and return the complete ImportSession
       const sessionResult = await this.importSessionRepository.findById(importSessionId);
       if (sessionResult.isErr()) {
@@ -288,6 +362,15 @@ export class ImportExecutor {
       );
 
       this.logger.error(`Import failed for ${sourceName}: ${originalError.message}`);
+
+      // Emit failure event
+      this.eventBus?.emit({
+        type: 'import.failed',
+        sourceName,
+        accountId: account.id,
+        error: originalError.message,
+      });
+
       return err(originalError);
     }
   }

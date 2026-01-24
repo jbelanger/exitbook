@@ -1,4 +1,4 @@
-import { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { BlockchainProviderManager, type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
   closeDatabase,
   initializeDatabase,
@@ -9,6 +9,7 @@ import {
   ImportSessionRepository,
   RawDataRepository,
 } from '@exitbook/data';
+import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
 import type { MetricsSummary } from '@exitbook/http';
 import {
@@ -16,10 +17,14 @@ import {
   TransactionProcessService,
   TokenMetadataService,
   type ImportParams,
+  type ImportEvent,
+  type IngestionEvent,
 } from '@exitbook/ingestion';
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
+import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import pc from 'picocolors';
 
+import { ProgressHandler } from '../../ui/progress-handler.js';
 import { resolveInteractiveParams, unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
@@ -85,6 +90,7 @@ export function registerImportCommand(program: Command): void {
     .option('--api-secret <secret>', 'API secret for exchange API access')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange API access (if required)')
     .option('--json', 'Output results in JSON format')
+    .option('--verbose', 'Show verbose logging output')
     .action(executeImportCommand);
 }
 
@@ -103,9 +109,32 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 
   const options = validationResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
-  const spinner = output.spinner();
 
-  output.intro('ExitBook | Import raw transactions');
+  // Create event bus for progress tracking
+  type CliEvent = IngestionEvent | ProviderEvent;
+  const logger = getLogger('cli.import');
+  const eventBus = new EventBus<CliEvent>((err) => {
+    logger.warn({ err }, 'Event handler error');
+  });
+
+  // Create progress handler and subscribe to events
+  const progressHandler = new ProgressHandler();
+  const unsubscribe = eventBus.subscribe((event) => {
+    progressHandler.handleEvent(event);
+  });
+
+  // Configure logger:
+  // - Normal mode: logs to file only (clean console via ProgressHandler)
+  // - Verbose mode: logs to console AND file (see all debug output)
+  // - JSON mode: logs to file only (keep stdout clean for JSON)
+  configureLogger({
+    mode: options.json ? 'json' : 'text',
+    verbose: options.verbose ?? false,
+    sinks: {
+      ui: false, // No clack UI integration
+      structured: options.json ? 'off' : options.verbose ? 'stdout' : 'file',
+    },
+  });
 
   try {
     const params = await resolveInteractiveParams({
@@ -117,21 +146,6 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       output,
       promptFn: promptForImportParams,
     });
-
-    if (spinner) {
-      spinner.start(`Importing from ${params.sourceName}...`);
-    } else {
-      configureLogger({
-        mode: options.json ? 'json' : 'text',
-        verbose: false, // TODO: Add --verbose flag support
-        sinks: options.json
-          ? { ui: false, structured: 'file' }
-          : {
-              ui: false,
-              structured: 'stdout',
-            },
-      });
-    }
 
     const database = await initializeDatabase();
 
@@ -149,6 +163,9 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
     const instrumentation = new InstrumentationCollector();
     providerManager.setInstrumentation(instrumentation);
 
+    // Wire up event bus for provider events
+    providerManager.setEventBus(eventBus as EventBus<ProviderEvent>);
+
     // Initialize services
     const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, providerManager);
     const importOrchestrator = new ImportOrchestrator(
@@ -156,7 +173,8 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       accountRepository,
       rawDataRepository,
       importSessionRepository,
-      providerManager
+      providerManager,
+      eventBus as EventBus<ImportEvent> // Type assertion: orchestrator only emits ImportEvents
     );
     const transactionProcessService = new TransactionProcessService(
       rawDataRepository,
@@ -176,18 +194,16 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
         ...params,
         onSingleAddressWarning: !options.json
           ? async () => {
-              output.warn('⚠️  Single address import (incomplete wallet view)');
-              output.log('');
-              output.log('Single address tracking has limitations:');
-              output.log('  • Cannot distinguish internal transfers from external sends');
-              output.log('  • Change to other addresses will appear as withdrawals');
-              output.log('  • Multi-address transactions may show incorrect amounts');
-              output.log('');
-              output.log('For complete wallet tracking, use xpub instead:');
-              output.log(`  $ exitbook import --blockchain ${params.sourceName} --address xpub... [--xpub-gap 20]`);
-              output.log('');
-              output.log('Note: xpub imports reveal all wallet addresses (privacy trade-off)');
-              output.log('');
+              process.stderr.write('\n⚠️  Single address import (incomplete wallet view)\n\n');
+              process.stderr.write('Single address tracking has limitations:\n');
+              process.stderr.write('  • Cannot distinguish internal transfers from external sends\n');
+              process.stderr.write('  • Change to other addresses will appear as withdrawals\n');
+              process.stderr.write('  • Multi-address transactions may show incorrect amounts\n\n');
+              process.stderr.write('For complete wallet tracking, use xpub instead:\n');
+              process.stderr.write(
+                `  $ exitbook import --blockchain ${params.sourceName} --address xpub... [--xpub-gap 20]\n\n`
+              );
+              process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
 
               return await promptConfirm('Continue with single address import?', false);
             }
@@ -198,7 +214,6 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       const importResult = await handler.executeImport(paramsWithCallback);
 
       if (importResult.isErr()) {
-        spinner?.stop('Import failed');
         handler.destroy?.();
         await closeDatabase(database);
         resetLoggerContext();
@@ -206,26 +221,19 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
         return;
       }
 
-      spinner?.stop('Import complete');
-
       // Step 2: Process
-      if (spinner) {
-        const totalImported = importResult.value.sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
-        spinner.start(`Processing ${totalImported} transactions...`);
-      }
-
       const processResult = await handler.processImportedSessions(importResult.value.sessions);
 
       // Get instrumentation summary
       const instrumentationSummary = instrumentation.getSummary();
 
       // Cleanup
+      unsubscribe();
       handler.destroy?.();
       await closeDatabase(database);
       resetLoggerContext();
 
       if (processResult.isErr()) {
-        spinner?.stop('Processing failed');
         output.error('import', processResult.error, ExitCodes.GENERAL_ERROR);
         return;
       }
@@ -238,25 +246,21 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
         runStats: instrumentationSummary,
       };
 
-      const summary = handleImportSuccess(output, combinedResult, params);
-      spinner?.stop('Processing complete');
-      if (output.isTextMode() && summary) {
-        output.outro(summary);
-      }
+      handleImportSuccess(output, combinedResult, params);
 
       // Exit required: BlockchainProviderManager uses fetch with keep-alive connections
       // that cannot be manually closed, preventing natural process termination
       process.exit(0);
     } catch (error) {
+      unsubscribe();
       handler.destroy?.();
       await closeDatabase(database);
       resetLoggerContext();
-      spinner?.stop('Import failed');
       output.error('import', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
     }
   } catch (error) {
+    unsubscribe();
     resetLoggerContext();
-    spinner?.stop('Import failed');
     output.error('import', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }
@@ -267,11 +271,7 @@ interface CombinedImportResult extends ImportResult {
   runStats?: MetricsSummary | undefined;
 }
 
-function handleImportSuccess(
-  output: OutputManager,
-  importResult: CombinedImportResult,
-  params: ImportParams
-): string | undefined {
+function handleImportSuccess(output: OutputManager, importResult: CombinedImportResult, params: ImportParams): void {
   // Calculate totals from sessions
   const totalImported = importResult.sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
   const totalSkipped = importResult.sessions.reduce((sum, s) => sum + s.transactionsSkipped, 0);
@@ -313,49 +313,36 @@ function handleImportSuccess(
     },
   };
 
-  let summary: string | undefined;
-
   if (output.isTextMode()) {
-    const summaryParts: string[] = ['Done. '];
-
-    // Show imported count
-    summaryParts.push(`${totalImported} new transactions. `);
-
-    // Show skipped if any
-    if (totalSkipped > 0) {
-      summaryParts.push(`${totalSkipped} duplicates. `);
-    }
-
-    if (importResult.processed !== undefined && importResult.processed !== 0) {
-      summaryParts.push(`${importResult.processed} processed. `);
-    }
-
-    summary = summaryParts.join('');
-
+    // ProgressHandler already shows import summary - only show additional details here
     if (importResult.processingErrors && importResult.processingErrors.length > 0) {
-      output.note(importResult.processingErrors.slice(0, 5).join('\n'), 'First 5 errors');
+      process.stderr.write('\nFirst 5 processing errors:\n');
+      for (const error of importResult.processingErrors.slice(0, 5)) {
+        process.stderr.write(`  • ${error}\n`);
+      }
     }
 
     // Display API call summary table
     if (importResult.runStats && importResult.runStats.total > 0) {
-      displayApiCallSummary(importResult.runStats, output);
+      process.stderr.write('\n');
+      displayApiCallSummary(importResult.runStats);
     }
   }
 
   output.json('import', resultData);
-
-  return summary;
 }
 
 /**
  * Display API call summary table
  */
-function displayApiCallSummary(stats: MetricsSummary, output: OutputManager): void {
-  output.log('');
-  output.log('API Calls Summary:');
+function displayApiCallSummary(stats: MetricsSummary): void {
+  // Calculate summary stats
+  const totalCalls = stats.total;
+  const avgResponseTime =
+    Object.values(stats.byEndpoint).reduce((sum, m) => sum + m.avgDuration, 0) / Object.keys(stats.byEndpoint).length;
 
   // Build table rows from byEndpoint data
-  const rows: { avgDuration: string; calls: number; endpoint: string; provider: string }[] = [];
+  const rows: { avgDuration: number; calls: number; endpoint: string; provider: string }[] = [];
 
   for (const [key, metrics] of Object.entries(stats.byEndpoint)) {
     const [provider, endpoint] = key.split(':');
@@ -365,7 +352,7 @@ function displayApiCallSummary(stats: MetricsSummary, output: OutputManager): vo
       provider,
       endpoint,
       calls: metrics.calls,
-      avgDuration: `${Math.round(metrics.avgDuration)}ms`,
+      avgDuration: metrics.avgDuration,
     });
   }
 
@@ -377,32 +364,51 @@ function displayApiCallSummary(stats: MetricsSummary, output: OutputManager): vo
     return b.calls - a.calls;
   });
 
-  // Calculate column widths
-  const providerWidth = Math.max(8, ...rows.map((r) => r.provider.length));
-  const endpointWidth = Math.max(8, ...rows.map((r) => r.endpoint.length));
-  const callsWidth = Math.max(5, ...rows.map((r) => r.calls.toString().length));
-  const durationWidth = Math.max(12, ...rows.map((r) => r.avgDuration.length));
+  // Show summary header
+  const width = 60;
+  const line = '━'.repeat(width);
 
-  // Print header
-  const headerLine = `┌─${'─'.repeat(providerWidth)}─┬─${'─'.repeat(endpointWidth)}─┬─${'─'.repeat(callsWidth)}─┬─${'─'.repeat(durationWidth)}─┐`;
-  const separatorLine = `├─${'─'.repeat(providerWidth)}─┼─${'─'.repeat(endpointWidth)}─┼─${'─'.repeat(callsWidth)}─┼─${'─'.repeat(durationWidth)}─┤`;
-  const footerLine = `└─${'─'.repeat(providerWidth)}─┴─${'─'.repeat(endpointWidth)}─┴─${'─'.repeat(callsWidth)}─┴─${'─'.repeat(durationWidth)}─┘`;
+  process.stderr.write('\n');
+  process.stderr.write(pc.cyan(line) + '\n');
+  process.stderr.write(pc.bold(pc.cyan('API CALLS')) + '\n');
+  process.stderr.write(pc.cyan(line) + '\n');
+  process.stderr.write('\n');
 
-  output.log(headerLine);
-  output.log(
-    `│ ${'Provider'.padEnd(providerWidth)} │ ${'Endpoint'.padEnd(endpointWidth)} │ ${'Calls'.padEnd(callsWidth)} │ ${'Avg Response'.padEnd(durationWidth)} │`
+  // Summary stats
+  process.stderr.write(
+    pc.bold(`${totalCalls} ${totalCalls === 1 ? 'request' : 'requests'}`) +
+      pc.dim(` · avg ${Math.round(avgResponseTime)}ms`) +
+      '\n'
   );
-  output.log(separatorLine);
+  process.stderr.write('\n');
 
-  // Print rows
+  // Group by provider
+  const byProvider = new Map<string, typeof rows>();
   for (const row of rows) {
-    output.log(
-      `│ ${row.provider.padEnd(providerWidth)} │ ${row.endpoint.padEnd(endpointWidth)} │ ${row.calls.toString().padEnd(callsWidth)} │ ${row.avgDuration.padEnd(durationWidth)} │`
-    );
+    if (!byProvider.has(row.provider)) {
+      byProvider.set(row.provider, []);
+    }
+    byProvider.get(row.provider)!.push(row);
   }
 
-  output.log(footerLine);
-  output.log('');
-  output.log(`Total API calls: ${stats.total}`);
-  output.log('');
+  // Display each provider's endpoints
+  for (const [provider, providerRows] of byProvider) {
+    process.stderr.write(pc.bold(provider) + '\n');
+
+    for (const row of providerRows) {
+      const durationStr = `${Math.round(row.avgDuration)}ms`;
+      const callsStr = `${row.calls} ${row.calls === 1 ? 'call' : 'calls'}`;
+
+      // Color code based on response time
+      let durationColor = pc.green;
+      if (row.avgDuration > 1000) durationColor = pc.red;
+      else if (row.avgDuration > 500) durationColor = pc.yellow;
+
+      const warning = row.avgDuration > 1000 ? ' ' + pc.red('⚠ slow') : '';
+
+      process.stderr.write(`  ${pc.dim(row.endpoint)}\n`);
+      process.stderr.write(`  └─ ${callsStr} · ${durationColor(durationStr)}${warning}\n`);
+    }
+    process.stderr.write('\n');
+  }
 }

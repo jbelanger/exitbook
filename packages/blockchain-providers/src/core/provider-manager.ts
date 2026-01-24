@@ -1,4 +1,5 @@
 import { getErrorMessage, type CursorState } from '@exitbook/core';
+import type { EventBus } from '@exitbook/events';
 import {
   createInitialCircuitState,
   isCircuitHalfOpen,
@@ -12,6 +13,7 @@ import {
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
+import type { ProviderEvent } from '../events.js';
 import type { NormalizedTransactionBase } from '../index.ts';
 
 import {
@@ -66,6 +68,7 @@ export class BlockchainProviderManager {
   private healthCheckTimer?: NodeJS.Timeout | undefined;
   private healthStatus = new Map<string, ProviderHealth>();
   private instrumentation?: InstrumentationCollector | undefined;
+  private eventBus?: EventBus<ProviderEvent> | undefined;
   private providers = new Map<string, IBlockchainProvider[]>();
   private requestCache = new Map<string, CacheEntry>();
   private preferredProviders = new Map<string, string>(); // blockchain -> preferred provider name
@@ -361,6 +364,14 @@ export class BlockchainProviderManager {
   }
 
   /**
+   * Set event bus for emitting provider events
+   * Used for CLI progress display and observability
+   */
+  setEventBus(eventBus: EventBus<ProviderEvent>): void {
+    this.eventBus = eventBus;
+  }
+
+  /**
    * Auto-register all available providers from the registry (used when no config exists)
    */
   private autoRegisterFromRegistry(blockchain: string, preferredProvider?: string): IBlockchainProvider[] {
@@ -511,6 +522,7 @@ export class BlockchainProviderManager {
     const deduplicationWindow = createDeduplicationWindow(initialIds);
 
     let lastErrorMessage: string | undefined;
+    let lastFailedProvider: string | undefined;
 
     while (providerIndex < providers.length) {
       const provider = providers[providerIndex];
@@ -530,21 +542,102 @@ export class BlockchainProviderManager {
         continue;
       }
 
-      const isFailover = currentCursor ? currentCursor.metadata?.providerName !== provider.name : false;
+      const isDifferentProvider = currentCursor ? currentCursor.metadata?.providerName !== provider.name : false;
+      // Failover: previous provider failed, now trying next one (even if it matches cursor)
+      const isActualFailover = lastFailedProvider !== undefined && lastFailedProvider !== provider.name;
 
       // Use manager's cursor resolution for ALL cursor handling
       // This handles: same-provider resumption, cross-provider failover, replay windows
-      const adjustedCursor = resolveCursorStateForProvider(currentCursor, provider, isFailover, logger);
+      const adjustedCursor = resolveCursorStateForProvider(currentCursor, provider, isDifferentProvider, logger);
 
-      // Log at info level only when there's something notable (failover or resume)
-      if (isFailover) {
+      // Emit events and log appropriately
+      if (isActualFailover) {
+        // True failover: previous provider failed, now trying backup
+        const cursorInfo =
+          currentCursor && !isDifferentProvider
+            ? ` (resuming from ${currentCursor.primary.type} ${currentCursor.primary.value})`
+            : '';
         logger.info(
-          `Using provider ${provider.name} for ${operation.type} (failover from ${currentCursor!.metadata?.providerName}, replay window applied)`
+          `Using provider ${provider.name} for ${operation.type} (failover from ${lastFailedProvider}${cursorInfo})`
         );
+
+        if (this.eventBus) {
+          this.eventBus.emit({
+            type: 'provider.failover',
+            from: lastFailedProvider,
+            to: provider.name,
+            blockchain,
+            reason: lastErrorMessage || 'provider failed',
+          });
+
+          // If resuming with same provider as cursor, also emit resume event
+          if (currentCursor && !isDifferentProvider) {
+            this.eventBus.emit({
+              type: 'provider.resume',
+              provider: provider.name,
+              blockchain,
+              operation: operation.type,
+              cursor: currentCursor.primary.value,
+              cursorType: currentCursor.primary.type,
+            });
+          }
+
+          // Emit cursor adjustment event if cursor changed
+          if (currentCursor && adjustedCursor && currentCursor.primary.value !== adjustedCursor.primary.value) {
+            this.eventBus.emit({
+              type: 'provider.cursor.adjusted',
+              provider: provider.name,
+              blockchain,
+              originalCursor: currentCursor.primary.value,
+              adjustedCursor: adjustedCursor.primary.value,
+              cursorType: currentCursor.primary.type,
+              reason: 'replay_window',
+            });
+          }
+        }
+      } else if (isDifferentProvider) {
+        // Provider re-selection: cursor has different provider, but we selected higher-priority one
+        logger.info(
+          `Using provider ${provider.name} for ${operation.type} (re-selected from ${currentCursor!.metadata?.providerName} based on current priority)`
+        );
+
+        // Emit selection event (not failover)
+        if (this.eventBus) {
+          this.eventBus.emit({
+            type: 'provider.selection',
+            blockchain,
+            operation: operation.type,
+            providers: [{ name: provider.name, score: 0, reason: 'priority' }],
+            selected: provider.name,
+          });
+        }
       } else if (currentCursor) {
         logger.info(`Using provider ${provider.name} for ${operation.type} (resuming same provider)`);
+
+        // Emit resume event
+        if (this.eventBus) {
+          this.eventBus.emit({
+            type: 'provider.resume',
+            provider: provider.name,
+            blockchain,
+            operation: operation.type,
+            cursor: currentCursor.primary.value,
+            cursorType: currentCursor.primary.type,
+          });
+        }
       } else {
+        // Fresh start, emit selection
         logger.debug(`Using provider ${provider.name} for ${operation.type}`);
+
+        if (this.eventBus) {
+          this.eventBus.emit({
+            type: 'provider.selection',
+            blockchain,
+            operation: operation.type,
+            providers: [{ name: provider.name, score: 0, reason: 'initial' }],
+            selected: provider.name,
+          });
+        }
       }
 
       try {
@@ -555,6 +648,7 @@ export class BlockchainProviderManager {
           // ✅ Check Result wrapper from provider
           if (batchResult.isErr()) {
             lastErrorMessage = getErrorMessage(batchResult.error);
+            lastFailedProvider = provider.name;
             logger.error(`Provider ${provider.name} batch failed: ${lastErrorMessage}`);
 
             // Record failure and try next provider
@@ -620,6 +714,7 @@ export class BlockchainProviderManager {
         // ✅ Unexpected errors (outside Result chain) - wrap and yield
         const errorMessage = getErrorMessage(error);
         lastErrorMessage = errorMessage;
+        lastFailedProvider = provider.name;
         logger.error(`Provider ${provider.name} failed with unexpected error: ${errorMessage}`);
 
         // Record failure
@@ -890,6 +985,30 @@ export class BlockchainProviderManager {
       logger.debug(
         `Provider selection for ${operation.type} - Providers: ${buildProviderSelectionDebugInfo(scoredProviders)}`
       );
+    }
+
+    // Emit provider selection event
+    if (this.eventBus && scoredProviders.length > 0) {
+      this.eventBus.emit({
+        type: 'provider.selection',
+        blockchain,
+        operation: operation.type,
+        providers: scoredProviders.map((sp) => {
+          const circuitState = this.circuitStates.get(sp.provider.name);
+          let reason = `score: ${sp.score}`;
+          if (circuitState && isCircuitOpen(circuitState, now)) {
+            reason += ', circuit open';
+          } else if (sp.health.consecutiveFailures > 0) {
+            reason += `, failures: ${sp.health.consecutiveFailures}`;
+          }
+          return {
+            name: sp.provider.name,
+            score: sp.score,
+            reason,
+          };
+        }),
+        selected: scoredProviders[0]!.provider.name,
+      });
     }
 
     return scoredProviders.map((item) => item.provider);
