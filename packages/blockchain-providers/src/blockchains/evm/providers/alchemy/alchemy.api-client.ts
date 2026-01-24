@@ -55,7 +55,7 @@ import {
       'getAddressInfo',
       'getAddressBalances',
       'getAddressTokenBalances',
-      'getAddressTransactions',
+      //'getAddressTransactions', DISABLING, need to getReceipts for gas fees which is expensive
       'getTokenMetadata',
     ],
     supportedTransactionTypes: ['normal', 'internal', 'token'],

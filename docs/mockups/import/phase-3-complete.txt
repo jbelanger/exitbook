@@ -1,0 +1,14 @@
+EXITBOOK CLI  v2.1.0  |  Target: 0xd8da...9d7e  |  Session: #184
+[✔ COMPLETED] ────────────────────────────────────────────────────────────────
+
+[ RUN SUMMARY ]
+Total Time:      14m 22s
+Total Requests:  110,230 (High usage on: etherscan)
+
+[ DATA RESULTS ]
+Transactions:    152,640 imported
+Processed:       152,640 (100%)
+New Tokens:      45 discovered
+Scams Detected:  1,204 rejected
+
+Output saved to: ./data/transactions.db

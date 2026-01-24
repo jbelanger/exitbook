@@ -1,0 +1,23 @@
+EXITBOOK CLI  v2.1.0  |  Target: 0xd8da...9d7e  |  Session: #184
+[● PHASE 1/2: IMPORTING] ─────────────────────────────────────────────────────
+
+[ VELOCITY ]
+VELOCITY:   142 req/s  [||||||||||||||||||||] !
+
+[ PROVIDER STATUS ]
+┌──────────────┬────────────┬─────────┬─────────┬──────────┐
+│ PROVIDER     │ STATUS     │ LATENCY │ REQ/S   │ THROTTLES│
+├──────────────┼────────────┼─────────┼─────────┼──────────┤
+│ etherscan    │ ⚠ WAIT 334ms │ 334ms   │ 45 req/s │ 14       │
+│ routescan    │ 🟢 ACTIVE    │ 380ms   │ 97 req/s │ 0        │
+└──────────────┴────────────┴─────────┴─────────┴──────────┘
+
+[ IMPORT PROGRESS ]
+Transactions:  152,640
+Time Elapsed:  00:45
+
+──────────────────────────────────────────────────────────────────────────────
+[ EVENTS ]
+15:12:40  ℹ  Saved batch of 1000 transactions
+15:12:41  ⚠  etherscan: Rate limited, backing off 334ms
+15:12:42  ⇄  Switched to routescan

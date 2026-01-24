@@ -128,7 +128,8 @@ export const calculateWaitTime = (state: RateLimitState, currentTime: number): n
 
   // Check token bucket
   if (refilled.tokens < 1) {
-    const timeUntilNextToken = (1 / state.requestsPerSecond) * 1000;
+    const missingTokens = 1 - refilled.tokens;
+    const timeUntilNextToken = (missingTokens / state.requestsPerSecond) * 1000;
     maxWaitTime = Math.max(maxWaitTime, Math.ceil(timeUntilNextToken));
   }
 
