@@ -284,7 +284,11 @@ export default [
 
   // === CLI app: allow database lifecycle management only in entry points ===
   {
-    files: ['apps/cli/src/index.ts', 'apps/cli/src/features/shared/command-execution.ts'],
+    files: [
+      'apps/cli/src/index.ts',
+      'apps/cli/src/features/shared/command-execution.ts',
+      'apps/cli/src/features/*/import-service-factory.ts',
+    ],
     rules: {
       'no-restricted-imports': 'off', // Allow KyselyDB and initializeDatabase/closeDatabase in these files
     },

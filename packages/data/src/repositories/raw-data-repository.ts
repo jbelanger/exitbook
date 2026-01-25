@@ -76,6 +76,11 @@ export interface IRawDataRepository {
   countByAccount(accountIds: number[]): Promise<Result<number, Error>>;
 
   /**
+   * Count pending raw data for an account.
+   */
+  countPending(accountId: number): Promise<Result<number, Error>>;
+
+  /**
    * Delete all raw data for an account.
    */
   deleteByAccount(accountId: number): Promise<Result<number, Error>>;
@@ -436,6 +441,20 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       return ok(result?.count ?? 0);
     } catch (error) {
       return wrapError(error, 'Failed to count raw data by account');
+    }
+  }
+
+  async countPending(accountId: number): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('raw_transactions')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .where('account_id', '=', accountId)
+        .where('processing_status', '=', 'pending')
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      return wrapError(error, 'Failed to count pending raw data');
     }
   }
 

@@ -73,7 +73,7 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
     }
 
     // Get scam notes keyed by transaction index
-    const scamNotes = this.scamDetectionService.detectScams(movements, metadataMap);
+    const scamNotes = this.scamDetectionService.detectScams(movements, metadataMap, this.sourceName);
 
     // Apply notes to transactions
     for (const [txIndex, note] of scamNotes) {

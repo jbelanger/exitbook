@@ -1,13 +1,9 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import { initializeProviders } from '@exitbook/blockchain-providers';
 import type { ImportSession } from '@exitbook/core';
 import type { ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
 import { getBlockchainAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
-
-// Initialize all providers at startup
-initializeProviders();
 
 /**
  * Result of the import operation.
@@ -131,25 +127,17 @@ export class ImportHandler {
         });
       }
 
-      // Process only the accounts that were imported
+      // Process only the accounts that were imported (delegate to service which emits events)
       const uniqueAccountIds = [...new Set(sessions.map((s) => s.accountId))];
-      let totalProcessed = 0;
-      const allErrors: string[] = [];
+      const processResult = await this.transactionProcessService.processImportedSessions(uniqueAccountIds);
 
-      for (const accountId of uniqueAccountIds) {
-        const processResult = await this.transactionProcessService.processAccountTransactions(accountId);
-
-        if (processResult.isErr()) {
-          return err(processResult.error);
-        }
-
-        totalProcessed += processResult.value.processed;
-        allErrors.push(...processResult.value.errors);
+      if (processResult.isErr()) {
+        return err(processResult.error);
       }
 
       return ok({
-        processed: totalProcessed,
-        processingErrors: allErrors,
+        processed: processResult.value.processed,
+        processingErrors: processResult.value.errors,
       });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));

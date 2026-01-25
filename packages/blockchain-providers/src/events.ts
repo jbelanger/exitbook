@@ -35,7 +35,7 @@ export type ProviderEvent =
   | {
       blockchain: string;
       operation: string;
-      providers: { name: string; reason: string; score: number; }[];
+      providers: { name: string; reason: string; score: number }[];
       selected: string;
       type: 'provider.selection';
     }
@@ -45,6 +45,7 @@ export type ProviderEvent =
       cursorType: string; // e.g., 'blockNumber', 'timestamp', 'slot', etc.
       operation: string;
       provider: string;
+      streamType?: string | undefined; // For getAddressTransactions: 'normal', 'internal', 'token', 'beacon_withdrawal', etc.
       type: 'provider.resume';
     }
   | {

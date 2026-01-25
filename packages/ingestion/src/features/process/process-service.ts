@@ -6,11 +6,13 @@ import type {
   IRawDataRepository,
   ITransactionRepository,
 } from '@exitbook/data';
+import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { IngestionEvent } from '../../events.js';
 import { getBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
 import { getExchangeAdapter } from '../../shared/types/exchange-adapter.js';
 import type {
@@ -44,10 +46,90 @@ export class TransactionProcessService {
     private transactionRepository: ITransactionRepository,
     private providerManager: BlockchainProviderManager,
     private tokenMetadataService: ITokenMetadataService,
-    private importSessionRepository: IImportSessionRepository
+    private importSessionRepository: IImportSessionRepository,
+    private eventBus: EventBus<IngestionEvent>
   ) {
     this.logger = getLogger('TransactionProcessService');
-    this.scamDetectionService = new ScamDetectionService();
+    this.scamDetectionService = new ScamDetectionService(eventBus);
+  }
+
+  /**
+   * Process imported sessions from import operation.
+   * Emits process.started and process.completed events for dashboard coordination.
+   */
+  async processImportedSessions(accountIds: number[]): Promise<Result<ProcessResult, Error>> {
+    if (accountIds.length === 0) {
+      return ok({ errors: [], failed: 0, processed: 0 });
+    }
+
+    const startTime = Date.now();
+    const firstAccountId = accountIds[0]!;
+
+    try {
+      // Count total raw data to process
+      let totalRaw = 0;
+      for (const accountId of accountIds) {
+        const countResult = await this.rawDataRepository.countPending(accountId);
+        if (countResult.isOk()) {
+          totalRaw += countResult.value;
+        }
+      }
+
+      // Emit process.started event
+      this.eventBus.emit({
+        type: 'process.started',
+        accountId: firstAccountId,
+        totalRaw,
+      });
+
+      // Process each account
+      let totalProcessed = 0;
+      const allErrors: string[] = [];
+
+      for (const accountId of accountIds) {
+        const result = await this.processAccountTransactions(accountId);
+
+        if (result.isErr()) {
+          // Emit failure event and return error
+          this.eventBus.emit({
+            type: 'process.failed',
+            accountId,
+            error: result.error.message,
+          });
+          return err(result.error);
+        }
+
+        totalProcessed += result.value.processed;
+        allErrors.push(...result.value.errors);
+      }
+
+      // Emit process.completed event
+      this.eventBus.emit({
+        type: 'process.completed',
+        accountId: firstAccountId,
+        durationMs: Date.now() - startTime,
+        totalProcessed,
+        errors: allErrors,
+      });
+
+      return ok({
+        errors: allErrors,
+        failed: 0,
+        processed: totalProcessed,
+      });
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      this.logger.error(`Unexpected error processing imported sessions: ${errorMessage}`);
+
+      // Emit failure event
+      this.eventBus.emit({
+        type: 'process.failed',
+        accountId: firstAccountId,
+        error: errorMessage,
+      });
+
+      return err(new Error(`Unexpected error processing imported sessions: ${errorMessage}`));
+    }
   }
 
   /**
@@ -174,6 +256,18 @@ export class TransactionProcessService {
     let totalProcessed = 0;
     let batchNumber = 0;
 
+    // Query pending count once at start
+    const pendingCountResult = await this.rawDataRepository.countPending(accountId);
+    let pendingCount = 0;
+    if (pendingCountResult.isOk()) {
+      pendingCount = pendingCountResult.value;
+    } else {
+      this.logger.warn(
+        { error: pendingCountResult.error, accountId },
+        'Failed to query pending count, defaulting to 0'
+      );
+    }
+
     // Build processing context once (used for all batches)
     const processingContext = await this.getProcessingContext(account, accountId);
 
@@ -200,6 +294,17 @@ export class TransactionProcessService {
       if (rawDataItems.length === 0) {
         break;
       }
+
+      const batchStartTime = Date.now();
+
+      // Emit batch started event
+      this.eventBus.emit({
+        type: 'process.batch.started',
+        accountId,
+        batchNumber,
+        batchSize: rawDataItems.length,
+        pendingCount,
+      });
 
       this.logger.debug(
         `Processing batch ${batchNumber}: ${rawDataItems.length} items for account ${accountId} (${sourceName})`
@@ -257,6 +362,20 @@ export class TransactionProcessService {
       if (markResult.isErr()) {
         return err(markResult.error);
       }
+
+      // Update pending count (approximate - tracks what we've processed)
+      pendingCount = Math.max(0, pendingCount - rawDataItems.length);
+
+      // Emit batch completed event
+      const batchDurationMs = Date.now() - batchStartTime;
+      this.eventBus.emit({
+        type: 'process.batch.completed',
+        accountId,
+        batchNumber,
+        batchSize: rawDataItems.length,
+        durationMs: batchDurationMs,
+        pendingCount,
+      });
     }
 
     // No data was processed

@@ -45,9 +45,9 @@ export class TokenMetadataRepository extends BaseRepository {
         name: result.name ?? undefined,
         decimals: result.decimals ?? undefined,
         logoUrl: result.logo_url ?? undefined,
-        // Professional spam detection
-        possibleSpam: result.possible_spam !== null ? Boolean(result.possible_spam) : undefined,
-        verifiedContract: result.verified_contract !== null ? Boolean(result.verified_contract) : undefined,
+        // Professional spam detection (convert SQLite integer 0/1 to boolean)
+        possibleSpam: result.possible_spam !== null ? result.possible_spam === 1 : undefined,
+        verifiedContract: result.verified_contract !== null ? result.verified_contract === 1 : undefined,
         // Additional metadata for pattern-based detection
         description: result.description ?? undefined,
         externalUrl: result.external_url ?? undefined,
@@ -65,6 +65,68 @@ export class TokenMetadataRepository extends BaseRepository {
       return ok(metadata);
     } catch (error) {
       this.logger.error({ error }, 'Failed to get token metadata by contract');
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  /**
+   * Get token metadata for multiple contracts (batch lookup).
+   * More efficient than sequential getByContract calls.
+   * Returns a map of contract address to metadata (undefined if not found).
+   */
+  async getByContracts(
+    blockchain: string,
+    contractAddresses: string[]
+  ): Promise<Result<Map<string, TokenMetadataRecord | undefined>, Error>> {
+    try {
+      if (contractAddresses.length === 0) {
+        return ok(new Map());
+      }
+
+      const results = await this.db
+        .selectFrom('token_metadata')
+        .selectAll()
+        .where('blockchain', '=', blockchain)
+        .where('contract_address', 'in', contractAddresses)
+        .execute();
+
+      const metadataMap = new Map<string, TokenMetadataRecord | undefined>();
+
+      // Initialize all contracts as undefined (not found)
+      for (const address of contractAddresses) {
+        metadataMap.set(address, undefined);
+      }
+
+      // Fill in found metadata
+      for (const result of results) {
+        const metadata: TokenMetadataRecord = {
+          blockchain: result.blockchain,
+          contractAddress: result.contract_address,
+          symbol: result.symbol ?? undefined,
+          name: result.name ?? undefined,
+          decimals: result.decimals ?? undefined,
+          logoUrl: result.logo_url ?? undefined,
+          // Convert SQLite integer 0/1 to boolean
+          possibleSpam: result.possible_spam !== null ? result.possible_spam === 1 : undefined,
+          verifiedContract: result.verified_contract !== null ? result.verified_contract === 1 : undefined,
+          description: result.description ?? undefined,
+          externalUrl: result.external_url ?? undefined,
+          totalSupply: result.total_supply ?? undefined,
+          createdAt: result.created_at_provider ?? undefined,
+          blockNumber: result.block_number ?? undefined,
+          refreshedAt: new Date(result.refreshed_at),
+          source: result.source,
+        };
+        metadataMap.set(result.contract_address, metadata);
+      }
+
+      this.logger.debug(
+        `Batch token metadata lookup - Blockchain: ${blockchain}, Requested: ${contractAddresses.length}, Found: ${results.length}`
+      );
+
+      return ok(metadataMap);
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to get token metadata by contracts (batch)');
       return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
@@ -125,27 +187,22 @@ export class TokenMetadataRepository extends BaseRepository {
       const mergedName = metadata.name !== undefined ? metadata.name : (existing?.name ?? null);
       const mergedDecimals = metadata.decimals !== undefined ? metadata.decimals : (existing?.decimals ?? null);
       const mergedLogoUrl = metadata.logoUrl !== undefined ? metadata.logoUrl : (existing?.logoUrl ?? null);
+
       // Professional spam detection (convert boolean to SQLite integer: 0/1)
-      const mergedPossibleSpam =
-        metadata.possibleSpam !== undefined
-          ? metadata.possibleSpam
-            ? 1
-            : 0
-          : existing?.possibleSpam !== undefined
-            ? existing.possibleSpam
-              ? 1
-              : 0
-            : null;
-      const mergedVerifiedContract =
-        metadata.verifiedContract !== undefined
-          ? metadata.verifiedContract
-            ? 1
-            : 0
-          : existing?.verifiedContract !== undefined
-            ? existing.verifiedContract
-              ? 1
-              : 0
-            : null;
+      let mergedPossibleSpam: number | null = null;
+      if (metadata.possibleSpam !== undefined) {
+        mergedPossibleSpam = metadata.possibleSpam ? 1 : 0;
+      } else if (existing?.possibleSpam !== undefined) {
+        mergedPossibleSpam = existing.possibleSpam ? 1 : 0;
+      }
+
+      let mergedVerifiedContract: number | null = null;
+      if (metadata.verifiedContract !== undefined) {
+        mergedVerifiedContract = metadata.verifiedContract ? 1 : 0;
+      } else if (existing?.verifiedContract !== undefined) {
+        mergedVerifiedContract = existing.verifiedContract ? 1 : 0;
+      }
+
       // Additional metadata
       const mergedDescription =
         metadata.description !== undefined ? metadata.description : (existing?.description ?? null);

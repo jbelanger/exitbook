@@ -1,5 +1,8 @@
 import type { TransactionNote, TokenMetadataRecord } from '@exitbook/core';
+import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
+
+import type { IngestionEvent } from '../../events.js';
 
 import type { IScamDetectionService, MovementWithContext } from './scam-detection-service.interface.js';
 import { detectScamFromSymbol, detectScamToken } from './scam-detection-utils.js';
@@ -11,19 +14,28 @@ const logger = getLogger('ScamDetectionService');
  * Pure logic service - does NOT fetch metadata, expects it to be provided.
  */
 export class ScamDetectionService implements IScamDetectionService {
+  private batchCounter = 0;
+
+  constructor(private readonly eventBus: EventBus<IngestionEvent>) {}
+
   /**
    * Detect scams in movements using pre-fetched metadata.
    * Returns a map of transaction index to scam note (first scam found per transaction).
+   * Emits scam.batch.summary event after processing.
    *
    * @param movements - Movements with context (contract, amount, isAirdrop, txIndex)
    * @param metadataMap - Pre-fetched metadata keyed by contract address (may contain undefined for unfound contracts)
+   * @param blockchain - Blockchain identifier for event emission
    * @returns Map of transaction index to scam note
    */
   detectScams(
     movements: MovementWithContext[],
-    metadataMap: Map<string, TokenMetadataRecord | undefined>
+    metadataMap: Map<string, TokenMetadataRecord | undefined>,
+    blockchain?: string
   ): Map<number, TransactionNote> {
+    this.batchCounter += 1;
     const scamNotes = new Map<number, TransactionNote>();
+    const exampleSymbols: string[] = [];
 
     for (const movement of movements) {
       // Skip if we already found a scam for this transaction (early exit per transaction)
@@ -81,7 +93,24 @@ export class ScamDetectionService implements IScamDetectionService {
       // Store scam note for this transaction (if found)
       if (scamNote) {
         scamNotes.set(movement.transactionIndex, scamNote);
+
+        // Collect first 3 example symbols
+        if (exampleSymbols.length < 3) {
+          exampleSymbols.push(movement.asset);
+        }
       }
+    }
+
+    // Emit batch summary event (per-batch counts, not cumulative)
+    if (blockchain) {
+      this.eventBus.emit({
+        type: 'scam.batch.summary',
+        blockchain,
+        batchNumber: this.batchCounter,
+        totalScanned: movements.length,
+        scamsFound: scamNotes.size,
+        exampleSymbols,
+      });
     }
 
     return scamNotes;

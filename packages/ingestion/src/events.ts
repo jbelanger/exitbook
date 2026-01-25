@@ -6,6 +6,7 @@
 export type ImportEvent =
   | {
       accountId: number;
+      address?: string | undefined;
       resuming: boolean;
       sourceName: string;
       sourceType: 'blockchain' | 'exchange-api' | 'exchange-csv';
@@ -74,6 +75,28 @@ export type ProcessEvent =
     }
   | {
       accountId: number;
+      batchNumber: number;
+      batchSize: number;
+      pendingCount: number;
+      type: 'process.batch.started';
+    }
+  | {
+      accountId: number;
+      batchNumber: number;
+      batchSize: number;
+      durationMs: number;
+      pendingCount: number;
+      type: 'process.batch.completed';
+    }
+  | {
+      accountId: number;
+      groupId: string; // Transaction hash OR exchange trade ID
+      groupType: 'transaction' | 'trade'; // Source type
+      itemCount: number;
+      type: 'process.group.processing';
+    }
+  | {
+      accountId: number;
       durationMs: number;
       errors: string[];
       totalProcessed: number;
@@ -90,4 +113,22 @@ export type ProcessEvent =
       type: 'process.skipped';
     };
 
-export type IngestionEvent = ImportEvent | ProcessEvent;
+export interface TokenMetadataEvent {
+  blockchain: string;
+  batchNumber: number;
+  cacheHits: number; // Per-batch delta (ProgressHandler accumulates)
+  cacheMisses: number; // Per-batch delta (ProgressHandler accumulates)
+  durationMs: number;
+  type: 'metadata.batch.completed';
+}
+
+export interface ScamDetectionEvent {
+  blockchain: string;
+  batchNumber: number;
+  exampleSymbols: string[]; // First 3
+  scamsFound: number; // Per-batch count
+  totalScanned: number;
+  type: 'scam.batch.summary';
+}
+
+export type IngestionEvent = ImportEvent | ProcessEvent | TokenMetadataEvent | ScamDetectionEvent;

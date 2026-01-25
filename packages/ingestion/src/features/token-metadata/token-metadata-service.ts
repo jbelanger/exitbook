@@ -1,7 +1,11 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { TokenMetadataRecord } from '@exitbook/core';
 import type { TokenMetadataRepository } from '@exitbook/data';
+import type { EventBus } from '@exitbook/events';
+import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
+
+import type { IngestionEvent } from '../../events.js';
 
 import type { ITokenMetadataService } from './token-metadata-service.interface.js';
 import {
@@ -21,9 +25,13 @@ import {
  * - Processors depend on ITokenMetadataService interface, not concrete dependencies
  */
 export class TokenMetadataService implements ITokenMetadataService {
+  private readonly logger = getLogger('TokenMetadataService');
+  private batchCounter = 0;
+
   constructor(
     private readonly tokenMetadataRepository: TokenMetadataRepository,
-    private readonly providerManager: BlockchainProviderManager
+    private readonly providerManager: BlockchainProviderManager,
+    private readonly eventBus: EventBus<IngestionEvent>
   ) {}
 
   /**
@@ -37,7 +45,14 @@ export class TokenMetadataService implements ITokenMetadataService {
     metadataUpdater: (item: T, metadata: TokenMetadataRecord) => void,
     decimalsExtractor?: (item: T) => boolean
   ): Promise<Result<void, Error>> {
-    return enrichTokenMetadataBatch(
+    const startTime = Date.now();
+    this.batchCounter += 1;
+
+    // Track cache stats
+    const stats = await this.trackCacheStats(items, blockchain, contractExtractor);
+
+    // Call the pure enrichment function
+    const result = await enrichTokenMetadataBatch(
       items,
       blockchain,
       contractExtractor,
@@ -46,6 +61,21 @@ export class TokenMetadataService implements ITokenMetadataService {
       this.providerManager,
       decimalsExtractor
     );
+
+    // Emit event with per-batch stats only on success
+    if (result.isOk()) {
+      const durationMs = Date.now() - startTime;
+      this.eventBus.emit({
+        type: 'metadata.batch.completed',
+        blockchain,
+        batchNumber: this.batchCounter,
+        cacheHits: stats.hits,
+        cacheMisses: stats.misses,
+        durationMs,
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -74,5 +104,49 @@ export class TokenMetadataService implements ITokenMetadataService {
       this.tokenMetadataRepository,
       this.providerManager
     );
+  }
+
+  /**
+   * Track cache hit/miss stats for a batch before enrichment.
+   * Returns per-batch deltas (not cumulative).
+   * Uses batch lookup for better performance.
+   */
+  private async trackCacheStats<T>(
+    items: T[],
+    blockchain: string,
+    contractExtractor: (item: T) => string | undefined
+  ): Promise<{ hits: number; misses: number }> {
+    const contractAddresses = new Set<string>();
+    for (const item of items) {
+      const address = contractExtractor(item);
+      if (address) {
+        contractAddresses.add(address);
+      }
+    }
+
+    if (contractAddresses.size === 0) {
+      return { hits: 0, misses: 0 };
+    }
+
+    // Use batch lookup instead of N sequential queries
+    const cacheResult = await this.tokenMetadataRepository.getByContracts(blockchain, Array.from(contractAddresses));
+
+    if (cacheResult.isErr()) {
+      this.logger.warn({ error: cacheResult.error, blockchain }, 'Batch cache lookup failed, treating all as misses');
+      return { hits: 0, misses: contractAddresses.size };
+    }
+
+    let hits = 0;
+    let misses = 0;
+
+    for (const [, metadata] of cacheResult.value) {
+      if (metadata) {
+        hits += 1;
+      } else {
+        misses += 1;
+      }
+    }
+
+    return { hits, misses };
   }
 }

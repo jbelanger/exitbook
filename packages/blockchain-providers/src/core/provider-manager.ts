@@ -561,7 +561,7 @@ export class BlockchainProviderManager {
           `Using provider ${provider.name} for ${operation.type} (failover from ${lastFailedProvider}${cursorInfo})`
         );
 
-        if (this.eventBus) {
+        if (this.eventBus && lastFailedProvider) {
           this.eventBus.emit({
             type: 'provider.failover',
             from: lastFailedProvider,
@@ -579,6 +579,7 @@ export class BlockchainProviderManager {
               operation: operation.type,
               cursor: currentCursor.primary.value,
               cursorType: currentCursor.primary.type,
+              streamType: operation.type === 'getAddressTransactions' ? operation.streamType : undefined,
             });
           }
 
@@ -623,6 +624,7 @@ export class BlockchainProviderManager {
             operation: operation.type,
             cursor: currentCursor.primary.value,
             cursorType: currentCursor.primary.type,
+            streamType: operation.type === 'getAddressTransactions' ? operation.streamType : undefined,
           });
         }
       } else {

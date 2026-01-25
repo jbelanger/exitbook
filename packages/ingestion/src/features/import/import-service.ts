@@ -152,6 +152,7 @@ export class ImportExecutor {
         sourceType: account.accountType,
         accountId: account.id,
         resuming: true,
+        address: account.accountType === 'blockchain' ? account.identifier : undefined,
       });
 
       // Update status back to 'started' (in case it was 'failed')
@@ -185,6 +186,7 @@ export class ImportExecutor {
         sourceType: account.accountType,
         accountId: account.id,
         resuming: false,
+        address: account.accountType === 'blockchain' ? account.identifier : undefined,
       });
     }
 

@@ -1,5 +1,6 @@
 {
   "name": "exitbook-cli",
+  "version": "1.0.0",
   "private": true,
   "license": "AGPL-3.0",
   "type": "module",
@@ -35,16 +36,18 @@
     "@exitbook/logger": "workspace:*",
     "@exitbook/price-providers": "workspace:*",
     "commander": "^14.0.0",
+    "ink": "^6.6.0",
     "libsodium-sumo": "^0.8.1",
     "libsodium-wrappers-sumo": "^0.8.1",
     "neverthrow": "^8.2.0",
-    "ora": "^8.2.0",
     "picocolors": "^1.1.1",
     "protobufjs": "^8.0.0",
+    "react": "^19.2.3",
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
     "@types/node": "^25.0.10",
+    "@types/react": "^19.2.9",
     "tsconfig": "workspace:*",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
