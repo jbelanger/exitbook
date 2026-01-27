@@ -5,6 +5,10 @@
 
 export type ImportEvent =
   | {
+      /**
+       * Emitted when an import begins for an account (new or resumed).
+       * Used by CLI dashboard to set header/timer state.
+       */
       accountId: number;
       address?: string | undefined;
       resuming: boolean;
@@ -13,12 +17,20 @@ export type ImportEvent =
       type: 'import.started';
     }
   | {
+      /**
+       * Emitted when a new import session record is created.
+       * Currently not surfaced in UI (reserved for observability).
+       */
       accountId: number;
       sessionId: number;
       sourceName: string;
       type: 'import.session.created';
     }
   | {
+      /**
+       * Emitted when an import resumes an existing session and cursor.
+       * Used by CLI dashboard activity log.
+       */
       accountId: number;
       fromCursor: number | string;
       sessionId: number;
@@ -26,6 +38,10 @@ export type ImportEvent =
       type: 'import.session.resumed';
     }
   | {
+      /**
+       * Emitted for each saved batch (after dedup + cursor update).
+       * Used by CLI dashboard counters and "no new records" messages.
+       */
       accountId: number;
       batchInserted: number; // Successfully inserted
       batchSkipped: number; // Skipped (duplicates)
@@ -41,12 +57,20 @@ export type ImportEvent =
       type: 'import.batch';
     }
   | {
+      /**
+       * Emitted when importer reports a warning (partial data, skipped ops).
+       * Warnings currently force import to fail to prevent partial processing.
+       * Used by CLI dashboard activity log.
+       */
       accountId: number;
       sourceName: string;
       type: 'import.warning';
       warning: string;
     }
   | {
+      /**
+       * Emitted when import completes successfully (session finalized).
+       */
       accountId: number;
       durationMs: number;
       sourceName: string;
@@ -55,6 +79,10 @@ export type ImportEvent =
       type: 'import.completed';
     }
   | {
+      /**
+       * Emitted when import fails (error or warnings promoted to failure).
+       * Used by CLI dashboard activity log.
+       */
       accountId: number;
       error: string;
       sourceName: string;
@@ -63,17 +91,29 @@ export type ImportEvent =
 
 export type ProcessEvent =
   | {
-      accountId: number;
+      /**
+       * Emitted when processing begins for one or more accounts.
+       * Used by CLI dashboard to set timing state.
+       */
+      accountIds: number[];
       totalRaw: number;
       type: 'process.started';
     }
   | {
+      /**
+       * RESERVED: defined but not currently emitted.
+       * Intended for aggregate processed-count progress updates.
+       */
       accountId: number;
       batchProcessed: number;
       totalProcessed: number;
       type: 'process.batch';
     }
   | {
+      /**
+       * Emitted when a raw-data batch starts processing.
+       * Currently not surfaced in UI (reserved for observability).
+       */
       accountId: number;
       batchNumber: number;
       batchSize: number;
@@ -81,6 +121,10 @@ export type ProcessEvent =
       type: 'process.batch.started';
     }
   | {
+      /**
+       * Emitted when a raw-data batch finishes processing.
+       * Used by CLI dashboard activity log.
+       */
       accountId: number;
       batchNumber: number;
       batchSize: number;
@@ -89,6 +133,10 @@ export type ProcessEvent =
       type: 'process.batch.completed';
     }
   | {
+      /**
+       * RESERVED: defined but not currently emitted.
+       * Intended for per-group correlation progress (tx hash / trade ID).
+       */
       accountId: number;
       groupId: string; // Transaction hash OR exchange trade ID
       groupType: 'transaction' | 'trade'; // Source type
@@ -96,24 +144,39 @@ export type ProcessEvent =
       type: 'process.group.processing';
     }
   | {
-      accountId: number;
+      /**
+       * Emitted when processing completes for all requested accounts.
+       */
+      accountIds: number[];
       durationMs: number;
       errors: string[];
       totalProcessed: number;
       type: 'process.completed';
     }
   | {
-      accountId: number;
+      /**
+       * Emitted when processing fails for an account or on unexpected error.
+       * Used by CLI dashboard activity log and stop state.
+       */
+      accountIds: number[];
       error: string;
       type: 'process.failed';
     }
   | {
-      accountId: number;
+      /**
+       * RESERVED: defined but not currently emitted.
+       * Intended to signal intentional skip (no pending data, guard condition).
+       */
+      accountId?: number | undefined;
       reason: string;
       type: 'process.skipped';
     };
 
 export interface TokenMetadataEvent {
+  /**
+   * Emitted when a metadata enrichment batch completes successfully.
+   * Used by CLI dashboard cache hit-rate stats.
+   */
   blockchain: string;
   batchNumber: number;
   cacheHits: number; // Per-batch delta (ProgressHandler accumulates)
@@ -123,6 +186,10 @@ export interface TokenMetadataEvent {
 }
 
 export interface ScamDetectionEvent {
+  /**
+   * Emitted when scam detection completes for a batch.
+   * Used by CLI dashboard scam summary stats.
+   */
   blockchain: string;
   batchNumber: number;
   exampleSymbols: string[]; // First 3

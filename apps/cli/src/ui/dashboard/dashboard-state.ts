@@ -48,9 +48,18 @@ export interface DashboardState {
 
   // Provider throttle tracking (accumulated from provider.rate_limited events)
   providerThrottles: Map<string, number>;
+  // Provider event cooldowns (prevent spam in activity log)
+  // LRU-style: entries cleaned up when checking, max 50 unique event keys
+  providerEventCooldowns: Map<string, number>;
+
+  // Per-stream import tracking (for "no new records" detection)
+  streamImportCounts: Map<string, number>;
 
   // Completion flag
   isComplete: boolean;
+
+  // UI state
+  activityExpanded: boolean;
 }
 
 /**
@@ -76,7 +85,10 @@ export function createDashboardState(): DashboardState {
       examples: [],
     },
     providerThrottles: new Map(),
+    providerEventCooldowns: new Map(),
+    streamImportCounts: new Map(),
     isComplete: false,
+    activityExpanded: false,
   };
 }
 
@@ -91,14 +103,26 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
       state.accountId = event.accountId;
       state.sourceName = event.sourceName;
       state.address = event.address;
+      // Reset per-stream counts for new import
+      state.streamImportCounts.clear();
       break;
 
-    case 'import.batch':
+    case 'import.batch': {
       state.imported = event.totalImported;
-      if (event.batchInserted > 0) {
-        addToEventLog(state, 'ℹ', `Saved batch of ${event.batchInserted} transactions`);
+
+      // Track per-stream import counts
+      const currentStreamCount = state.streamImportCounts.get(event.streamType) ?? 0;
+      state.streamImportCounts.set(event.streamType, currentStreamCount + event.batchInserted);
+
+      if (event.isComplete) {
+        // Stream completed - check if any new records were imported for this stream
+        const streamTotal = state.streamImportCounts.get(event.streamType) ?? 0;
+        if (streamTotal === 0) {
+          addToEventLog(state, '✓', `${event.streamType}: No new records found`);
+        }
       }
       break;
+    }
 
     case 'import.warning':
       addToEventLog(state, '⚠', `Warning: ${event.warning}`);
@@ -114,6 +138,7 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
 
     case 'process.started':
       // Processing phase started
+      state.accountId = event.accountIds.length === 1 ? event.accountIds[0] : undefined;
       break;
 
     case 'process.batch':
@@ -140,7 +165,7 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
       addToEventLog(state, 'ℹ', `Batch #${event.batchNumber}: ${event.cacheHits} cached, ${event.cacheMisses} fetched`);
       break;
 
-    case 'scam.batch.summary':
+    case 'scam.batch.summary': {
       state.scamStats.totalFound += event.scamsFound;
       // Track recent examples (last 3 unique)
       if (event.exampleSymbols.length > 0) {
@@ -153,10 +178,16 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
           }
         }
       }
+      // Show event if scams were detected
+      if (event.scamsFound > 0) {
+        const examples = event.exampleSymbols.slice(0, 2).join(', ');
+        addToEventLog(state, '🚫', `Filtered ${event.scamsFound} scam${event.scamsFound > 1 ? 's' : ''} (${examples})`);
+      }
       break;
+    }
 
     case 'provider.resume':
-      addToEventLog(state, '↻', `Resumed ${event.streamType} with ${event.provider}`);
+      addToEventLog(state, '↻', formatProviderResumeMessage(event.streamType, event.provider));
       break;
 
     case 'provider.failover':
@@ -166,7 +197,9 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
     case 'provider.rate_limited': {
       const currentCount = state.providerThrottles.get(event.provider) ?? 0;
       state.providerThrottles.set(event.provider, currentCount + 1);
-      addToEventLog(state, '⚠', `${event.provider}: Rate limited`);
+      if (shouldLogProviderEvent(state, `rate_limited:${event.provider}`, 30000)) {
+        addToEventLog(state, '⚠', `${event.provider}: Rate limited`);
+      }
       break;
     }
 
@@ -174,13 +207,21 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
       addToEventLog(state, '🔴', `${event.provider}: Circuit breaker opened`);
       break;
 
+    case 'import.session.resumed':
+      addToEventLog(state, '↻', `Resumed from previous session`);
+      break;
+
+    case 'process.batch.completed':
+      // Intentionally quiet: batch-level progress is too noisy for activity log
+      break;
+    case 'provider.selection':
+      // Intentionally quiet: provider selection is shown in other dashboard sections
+      break;
+
     // Silently handled events (no state updates needed)
     case 'import.session.created':
-    case 'import.session.resumed':
     case 'process.batch.started':
-    case 'process.batch.completed':
     case 'process.group.processing':
-    case 'provider.selection':
     case 'provider.cursor.adjusted':
     case 'provider.backoff':
     case 'provider.request.started':
@@ -208,6 +249,51 @@ function addToEventLog(state: DashboardState, icon: string, message: string): vo
 
   // Keep only last 5 events
   if (state.events.length > 5) {
-    state.events = state.events.slice(-5);
+    state.events.splice(0, state.events.length - 5);
   }
+}
+
+function formatProviderResumeMessage(streamType: string | undefined, provider: string): string {
+  const normalized = normalizeStreamType(streamType);
+  return normalized ? `Resumed ${normalized} with ${provider}` : `Resumed with ${provider}`;
+}
+
+function normalizeStreamType(streamType: string | undefined): string | undefined {
+  if (!streamType) return undefined;
+  const trimmed = streamType.trim();
+  return trimmed || undefined;
+}
+
+const MAX_COOLDOWN_ENTRIES = 50;
+
+function shouldLogProviderEvent(state: DashboardState, key: string, cooldownMs: number): boolean {
+  const now = Date.now();
+  const lastAt = state.providerEventCooldowns.get(key);
+  if (lastAt !== undefined && now - lastAt < cooldownMs) {
+    return false;
+  }
+
+  // LRU-style cleanup: remove oldest entries when map grows too large
+  if (state.providerEventCooldowns.size >= MAX_COOLDOWN_ENTRIES) {
+    // Remove entries older than 5 minutes
+    const cutoffTime = now - 300000;
+    for (const [eventKey, timestamp] of state.providerEventCooldowns.entries()) {
+      if (timestamp < cutoffTime) {
+        state.providerEventCooldowns.delete(eventKey);
+      }
+    }
+
+    // If still too large, remove oldest entries
+    if (state.providerEventCooldowns.size >= MAX_COOLDOWN_ENTRIES) {
+      const entries = Array.from(state.providerEventCooldowns.entries());
+      entries.sort((a, b) => a[1] - b[1]);
+      const toRemove = entries.slice(0, Math.floor(MAX_COOLDOWN_ENTRIES / 2));
+      for (const [eventKey] of toRemove) {
+        state.providerEventCooldowns.delete(eventKey);
+      }
+    }
+  }
+
+  state.providerEventCooldowns.set(key, now);
+  return true;
 }

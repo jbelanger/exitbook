@@ -1,5 +1,5 @@
 import type { InstrumentationCollector } from '@exitbook/http';
-import { Box, Text } from 'ink';
+import { Box, Text, useInput } from 'ink';
 import pc from 'picocolors';
 import React from 'react';
 
@@ -17,25 +17,39 @@ interface DashboardProps {
   state: DashboardState;
   metrics: ProviderMetrics;
   instrumentation: InstrumentationCollector;
+  onToggleActivity: () => void;
 }
 
 /**
  * Main dashboard component.
  * Uses Ink for flexible, dynamic layouts without line counting.
  */
-export const Dashboard: React.FC<DashboardProps> = ({ state, metrics, instrumentation }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ state, metrics, instrumentation, onToggleActivity }) => {
+  // Handle keyboard input
+  useInput((input, key) => {
+    if (key.ctrl && input === 'o') {
+      onToggleActivity();
+    }
+  });
+
   return (
     <Box
       flexDirection="column"
       gap={1}
     >
+      <Text dimColor>{'─'.repeat(80)}</Text>
       <Header state={state} />
       <StatusLine
         state={state}
         instrumentation={instrumentation}
       />
       {metrics.providers.length > 0 && <ProviderTable metrics={metrics} />}
-      {state.events.length > 0 && <RecentActivity events={state.events} />}
+      {state.events.length > 0 && (
+        <RecentActivity
+          events={state.events}
+          expanded={state.activityExpanded}
+        />
+      )}
       {state.isComplete ? <FinalStats state={state} /> : <Controls />}
     </Box>
   );
@@ -98,7 +112,23 @@ const StatusLine: React.FC<{ instrumentation: InstrumentationCollector; state: D
 const ProviderTable: React.FC<{ metrics: ProviderMetrics }> = ({ metrics }) => {
   return (
     <Box flexDirection="column">
-      <Text>ACTIVE PROVIDERS LATENCY RATE THROTTLES REQUESTS</Text>
+      <Box>
+        <Box width={28}>
+          <Text>ACTIVE PROVIDERS</Text>
+        </Box>
+        <Box width={10}>
+          <Text>LATENCY</Text>
+        </Box>
+        <Box width={10}>
+          <Text>RATE</Text>
+        </Box>
+        <Box width={12}>
+          <Text>THROTTLES</Text>
+        </Box>
+        <Box>
+          <Text>REQUESTS</Text>
+        </Box>
+      </Box>
       {metrics.providers.map((provider) => (
         <ProviderRow
           key={provider.name}
@@ -113,37 +143,62 @@ const ProviderTable: React.FC<{ metrics: ProviderMetrics }> = ({ metrics }) => {
  * Single provider row.
  */
 const ProviderRow: React.FC<{ provider: ProviderMetrics['providers'][0] }> = ({ provider }) => {
-  const name = provider.name.padEnd(12);
-  const statusText = provider.status.padEnd(6);
-  const latency = provider.latencyMs !== null ? `${provider.latencyMs}ms` : '—';
+  // Determine status indicator based on circuit state
+  let statusIndicator: string;
+  if (provider.circuitState === 'open') {
+    statusIndicator = pc.red('●'); // Circuit breaker tripped
+  } else if (provider.circuitState === 'half-open') {
+    statusIndicator = pc.yellow('●'); // Testing recovery
+  } else if (provider.status === 'ACTIVE') {
+    statusIndicator = pc.green('●'); // Healthy and active
+  } else {
+    statusIndicator = pc.dim('●'); // Idle
+  }
+
+  const latency = provider.latencyMs !== undefined ? `${provider.latencyMs}ms` : '—';
   const rate = provider.requestsPerSecond > 0 ? `${provider.requestsPerSecond.toFixed(0)} req/s` : '0 req/s';
   const throttles = String(provider.throttles);
   const requests = formatRequestBreakdown(provider.requestsByStatus);
+  const isDimmed = provider.status === 'IDLE';
 
-  const visualWidth = 21;
-  const paddingNeeded = 52 - visualWidth;
-
-  const statusIndicator = provider.status === 'ACTIVE' ? pc.green('●') : pc.dim('●');
-  const providerCol = `${name} ${statusIndicator} ${statusText}${' '.repeat(paddingNeeded)}`;
-
-  const latencyCol = latency.padEnd(9);
-  const rateCol = rate.padEnd(9);
-  const throttleCol = throttles.padEnd(11);
-
-  const line = `  ${providerCol} ${latencyCol} ${rateCol} ${throttleCol} ${requests}`;
-
-  return <Text dimColor={provider.status === 'IDLE'}>{line}</Text>;
+  return (
+    <Box>
+      <Box width={28}>
+        <Text dimColor={isDimmed}>
+          {'  '}
+          {provider.name.padEnd(12)} {statusIndicator} {provider.status}
+        </Text>
+      </Box>
+      <Box width={10}>
+        <Text dimColor={isDimmed}>{latency}</Text>
+      </Box>
+      <Box width={10}>
+        <Text dimColor={isDimmed}>{rate}</Text>
+      </Box>
+      <Box width={12}>
+        <Text dimColor={isDimmed}>{throttles}</Text>
+      </Box>
+      <Box>
+        <Text dimColor={isDimmed}>{requests}</Text>
+      </Box>
+    </Box>
+  );
 };
 
 /**
  * Recent activity section.
  */
-const RecentActivity: React.FC<{ events: DashboardState['events'] }> = ({ events }) => {
+const RecentActivity: React.FC<{ events: DashboardState['events']; expanded: boolean }> = ({ events, expanded }) => {
   const MAX_EVENTS = 10;
-  const displayEvents = events.slice(-MAX_EVENTS);
-  const overflow = events.length - displayEvents.length;
+  const displayEvents = expanded ? events : events.slice(-MAX_EVENTS);
+  const overflow = expanded ? 0 : events.length - displayEvents.length;
 
-  const header = overflow > 0 ? `RECENT ACTIVITY (${overflow} earlier events)` : 'RECENT ACTIVITY';
+  let header = 'RECENT ACTIVITY';
+  if (expanded && events.length > MAX_EVENTS) {
+    header = `RECENT ACTIVITY (all ${events.length} events)`;
+  } else if (overflow > 0) {
+    header = `RECENT ACTIVITY (${overflow} earlier events)`;
+  }
 
   return (
     <Box flexDirection="column">
@@ -195,5 +250,5 @@ const FinalStats: React.FC<{ state: DashboardState }> = ({ state }) => {
  * Controls footer.
  */
 const Controls: React.FC = () => {
-  return <Text>[CTRL+C] Abort</Text>;
+  return <Text>[CTRL+O] Expand Activity • [CTRL+C] Abort</Text>;
 };

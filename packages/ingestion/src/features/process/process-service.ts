@@ -63,8 +63,6 @@ export class TransactionProcessService {
     }
 
     const startTime = Date.now();
-    const firstAccountId = accountIds[0]!;
-
     try {
       // Count total raw data to process
       let totalRaw = 0;
@@ -78,7 +76,7 @@ export class TransactionProcessService {
       // Emit process.started event
       this.eventBus.emit({
         type: 'process.started',
-        accountId: firstAccountId,
+        accountIds,
         totalRaw,
       });
 
@@ -93,7 +91,7 @@ export class TransactionProcessService {
           // Emit failure event and return error
           this.eventBus.emit({
             type: 'process.failed',
-            accountId,
+            accountIds: [accountId],
             error: result.error.message,
           });
           return err(result.error);
@@ -106,7 +104,7 @@ export class TransactionProcessService {
       // Emit process.completed event
       this.eventBus.emit({
         type: 'process.completed',
-        accountId: firstAccountId,
+        accountIds,
         durationMs: Date.now() - startTime,
         totalProcessed,
         errors: allErrors,
@@ -124,7 +122,7 @@ export class TransactionProcessService {
       // Emit failure event
       this.eventBus.emit({
         type: 'process.failed',
-        accountId: firstAccountId,
+        accountIds,
         error: errorMessage,
       });
 

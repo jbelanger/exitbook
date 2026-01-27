@@ -6,7 +6,7 @@
  */
 
 import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
-import type { CircuitState } from '@exitbook/http';
+import type { CircuitState, CircuitStatus } from '@exitbook/http';
 import { getCircuitStatus, isCircuitHalfOpen, isCircuitOpen } from '@exitbook/http';
 
 import type { NormalizedTransactionBase } from '../index.ts';
@@ -199,7 +199,7 @@ export function getProviderHealthWithCircuit(
   health: ProviderHealth,
   circuitState: CircuitState,
   now: number
-): ProviderHealth & { circuitState: string } {
+): ProviderHealth & { circuitState: CircuitStatus } {
   return {
     ...health,
     circuitState: getCircuitStatus(circuitState, now),

@@ -1,3 +1,4 @@
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import { render } from 'ink';
@@ -20,8 +21,12 @@ export class DashboardController {
   private readonly state: DashboardState;
   private interval: NodeJS.Timeout | undefined = undefined;
   private inkInstance: ReturnType<typeof render> | undefined = undefined;
+  private stopTimeouts: NodeJS.Timeout[] = [];
 
-  constructor(private readonly instrumentation: InstrumentationCollector) {
+  constructor(
+    private readonly instrumentation: InstrumentationCollector,
+    private readonly providerManager: BlockchainProviderManager
+  ) {
     this.state = createDashboardState();
   }
 
@@ -44,24 +49,65 @@ export class DashboardController {
   }
 
   /**
-   * Stop the dashboard update loop.
+   * Stop the dashboard update loop and return promise that resolves when done.
+   *
+   * Performs delayed final renders to capture late-arriving HTTP metrics and events.
+   * This approach is simpler than tracking pending requests and acceptable for CLI sessions.
+   *
+   * Render schedule:
+   * - Immediate: Capture synchronous events
+   * - +200ms: Catch fast HTTP requests
+   * - +500ms: Catch most HTTP requests (typical p95 latency)
+   * - +800ms: Final render for stragglers, then unmount
    */
-  stop(): void {
+  stop(): Promise<void> {
+    // Clear any pending stop timeouts from previous stop() calls
+    this.stopTimeouts.forEach((timeout) => clearTimeout(timeout));
+    this.stopTimeouts = [];
+
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = undefined;
     }
 
-    // Final render before unmounting
-    this.renderDashboard();
+    // Timing constants for final render schedule
+    const QUICK_RENDER_DELAY_MS = 200;
+    const TYPICAL_REQUEST_DELAY_MS = 500;
+    const FINAL_RENDER_DELAY_MS = 800;
+    const UNMOUNT_DELAY_MS = 200;
 
-    // Unmount Ink instance after a brief delay to show final state
-    setTimeout(() => {
-      if (this.inkInstance) {
-        this.inkInstance.unmount();
-        this.inkInstance = undefined;
-      }
-    }, 100);
+    return new Promise((resolve) => {
+      // Immediate render
+      this.renderDashboard();
+
+      // Quick render for fast completions
+      const timeout1 = setTimeout(() => {
+        this.renderDashboard();
+      }, QUICK_RENDER_DELAY_MS);
+      this.stopTimeouts.push(timeout1);
+
+      // Typical request latency
+      const timeout2 = setTimeout(() => {
+        this.renderDashboard();
+      }, TYPICAL_REQUEST_DELAY_MS);
+      this.stopTimeouts.push(timeout2);
+
+      // Final render and unmount
+      const timeout3 = setTimeout(() => {
+        this.renderDashboard();
+
+        const timeout4 = setTimeout(() => {
+          if (this.inkInstance) {
+            this.inkInstance.unmount();
+            this.inkInstance = undefined;
+          }
+          this.stopTimeouts = [];
+          resolve();
+        }, UNMOUNT_DELAY_MS);
+        this.stopTimeouts.push(timeout4);
+      }, FINAL_RENDER_DELAY_MS);
+      this.stopTimeouts.push(timeout3);
+    });
   }
 
   /**
@@ -74,7 +120,9 @@ export class DashboardController {
 
       // Stop dashboard on completion
       if (event.type === 'process.completed' || event.type === 'process.failed') {
-        this.stop();
+        this.stop().catch((error) => {
+          this.logger.error({ error }, 'Error stopping dashboard');
+        });
       }
     } catch (error) {
       this.logger.error({ error, event }, 'Error handling event');
@@ -82,18 +130,32 @@ export class DashboardController {
   }
 
   /**
+   * Toggle activity log expansion.
+   */
+  private toggleActivityExpansion = (): void => {
+    this.state.activityExpanded = !this.state.activityExpanded;
+  };
+
+  /**
    * Render the dashboard using Ink.
    */
   private renderDashboard(): void {
     try {
+      // Get provider health with circuit state
+      const providerHealth = this.providerManager.getProviderHealth();
+
+      // Get current metrics
+      const currentMetrics = this.instrumentation.getMetrics();
+
       // Calculate provider metrics
-      const metrics = calculateProviderMetrics(this.instrumentation.getMetrics(), this.state.providerThrottles);
+      const metrics = calculateProviderMetrics(currentMetrics, this.state.providerThrottles, providerHealth);
 
       // Create React element
       const element = React.createElement(Dashboard, {
         state: this.state,
         metrics,
         instrumentation: this.instrumentation,
+        onToggleActivity: this.toggleActivityExpansion,
       });
 
       // Render or rerender
@@ -106,7 +168,9 @@ export class DashboardController {
       }
     } catch (error) {
       this.logger.error({ error }, 'Dashboard render failed');
-      this.stop();
+      this.stop().catch((stopError) => {
+        this.logger.error({ error: stopError }, 'Error stopping dashboard after render failure');
+      });
     }
   }
 }

@@ -117,17 +117,7 @@ export class ImportHandler {
    */
   async processImportedSessions(sessions: ImportSession[]): Promise<Result<ProcessResult, Error>> {
     try {
-      const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
-
-      if (totalImported === 0) {
-        this.logger.debug('No transactions imported, skipping processing');
-        return ok({
-          processed: 0,
-          processingErrors: [],
-        });
-      }
-
-      // Process only the accounts that were imported (delegate to service which emits events)
+      // Always pass account IDs - the service will emit process.completed with totalProcessed: 0 if nothing to process
       const uniqueAccountIds = [...new Set(sessions.map((s) => s.accountId))];
       const processResult = await this.transactionProcessService.processImportedSessions(uniqueAccountIds);
 

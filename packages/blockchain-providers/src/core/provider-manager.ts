@@ -2,12 +2,14 @@ import { getErrorMessage, type CursorState } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import {
   createInitialCircuitState,
+  type HttpClientHooks,
   isCircuitHalfOpen,
   isCircuitOpen,
   recordFailure,
   recordSuccess,
   resetCircuit,
   type CircuitState,
+  type CircuitStatus,
   type InstrumentationCollector,
 } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
@@ -16,6 +18,7 @@ import { err, ok, type Result } from 'neverthrow';
 import type { ProviderEvent } from '../events.js';
 import type { NormalizedTransactionBase } from '../index.ts';
 
+import { emitProviderTransition } from './provider-manager-events.js';
 import {
   buildProviderNotFoundError,
   buildProviderSelectionDebugInfo,
@@ -305,8 +308,8 @@ export class BlockchainProviderManager {
   /**
    * Get provider health status for monitoring
    */
-  getProviderHealth(blockchain?: string): Map<string, ProviderHealth & { circuitState: string }> {
-    const result = new Map<string, ProviderHealth & { circuitState: string }>();
+  getProviderHealth(blockchain?: string): Map<string, ProviderHealth & { circuitState: CircuitStatus }> {
+    const result = new Map<string, ProviderHealth & { circuitState: CircuitStatus }>();
 
     const providersToCheck = blockchain
       ? this.providers.get(blockchain) || []
@@ -369,6 +372,80 @@ export class BlockchainProviderManager {
    */
   setEventBus(eventBus: EventBus<ProviderEvent>): void {
     this.eventBus = eventBus;
+  }
+
+  private buildHttpClientHooks(blockchain: string, providerName: string): HttpClientHooks {
+    return {
+      onRequestStart: (event) => {
+        this.eventBus?.emit({
+          type: 'provider.request.started',
+          blockchain,
+          provider: providerName,
+          endpoint: event.endpoint,
+          method: event.method,
+        });
+      },
+      onRequestSuccess: (event) => {
+        this.eventBus?.emit({
+          type: 'provider.request.succeeded',
+          blockchain,
+          provider: providerName,
+          endpoint: event.endpoint,
+          method: event.method,
+          status: event.status,
+          durationMs: event.durationMs,
+        });
+      },
+      onRequestFailure: (event) => {
+        this.eventBus?.emit({
+          type: 'provider.request.failed',
+          blockchain,
+          provider: providerName,
+          endpoint: event.endpoint,
+          method: event.method,
+          error: event.error,
+          ...(event.status !== undefined && { status: event.status }),
+          durationMs: event.durationMs,
+        });
+      },
+      onRateLimited: (event) => {
+        this.eventBus?.emit({
+          type: 'provider.rate_limited',
+          blockchain,
+          provider: providerName,
+          ...(event.retryAfterMs !== undefined && { retryAfterMs: event.retryAfterMs }),
+        });
+      },
+      onBackoff: (event) => {
+        this.eventBus?.emit({
+          type: 'provider.backoff',
+          blockchain,
+          provider: providerName,
+          attemptNumber: event.attemptNumber,
+          delayMs: event.delayMs,
+        });
+      },
+    };
+  }
+
+  private emitCircuitOpenIfTriggered(
+    blockchain: string,
+    providerName: string,
+    previousState: CircuitState,
+    nextState: CircuitState,
+    reason?: string
+  ): void {
+    const now = Date.now();
+    const wasOpen = isCircuitOpen(previousState, now);
+    const isOpenNow = isCircuitOpen(nextState, now);
+    if (!wasOpen && isOpenNow) {
+      this.eventBus?.emit({
+        type: 'provider.circuit_open',
+        blockchain,
+        provider: providerName,
+        reason: reason || 'failure_threshold_reached',
+      });
+    }
   }
 
   /**
@@ -436,6 +513,7 @@ export class BlockchainProviderManager {
             instrumentation: this.instrumentation,
             name: metadata.name,
             priority: priority++,
+            requestHooks: this.buildHttpClientHooks(blockchain, metadata.name),
             requiresApiKey: metadata.requiresApiKey,
           };
 
@@ -543,104 +621,40 @@ export class BlockchainProviderManager {
       }
 
       const isDifferentProvider = currentCursor ? currentCursor.metadata?.providerName !== provider.name : false;
-      // Failover: previous provider failed, now trying next one (even if it matches cursor)
-      const isActualFailover = lastFailedProvider !== undefined && lastFailedProvider !== provider.name;
+      const isFailover = lastFailedProvider !== undefined && lastFailedProvider !== provider.name;
 
       // Use manager's cursor resolution for ALL cursor handling
       // This handles: same-provider resumption, cross-provider failover, replay windows
       const adjustedCursor = resolveCursorStateForProvider(currentCursor, provider, isDifferentProvider, logger);
 
-      // Emit events and log appropriately
-      if (isActualFailover) {
-        // True failover: previous provider failed, now trying backup
-        const cursorInfo =
-          currentCursor && !isDifferentProvider
-            ? ` (resuming from ${currentCursor.primary.type} ${currentCursor.primary.value})`
-            : '';
+      // Log provider usage with context
+      if (isFailover) {
+        const cursorInfo = currentCursor
+          ? ` (resuming from ${currentCursor.primary.type} ${currentCursor.primary.value})`
+          : '';
         logger.info(
           `Using provider ${provider.name} for ${operation.type} (failover from ${lastFailedProvider}${cursorInfo})`
         );
-
-        if (this.eventBus && lastFailedProvider) {
-          this.eventBus.emit({
-            type: 'provider.failover',
-            from: lastFailedProvider,
-            to: provider.name,
-            blockchain,
-            reason: lastErrorMessage || 'provider failed',
-          });
-
-          // If resuming with same provider as cursor, also emit resume event
-          if (currentCursor && !isDifferentProvider) {
-            this.eventBus.emit({
-              type: 'provider.resume',
-              provider: provider.name,
-              blockchain,
-              operation: operation.type,
-              cursor: currentCursor.primary.value,
-              cursorType: currentCursor.primary.type,
-              streamType: operation.type === 'getAddressTransactions' ? operation.streamType : undefined,
-            });
-          }
-
-          // Emit cursor adjustment event if cursor changed
-          if (currentCursor && adjustedCursor && currentCursor.primary.value !== adjustedCursor.primary.value) {
-            this.eventBus.emit({
-              type: 'provider.cursor.adjusted',
-              provider: provider.name,
-              blockchain,
-              originalCursor: currentCursor.primary.value,
-              adjustedCursor: adjustedCursor.primary.value,
-              cursorType: currentCursor.primary.type,
-              reason: 'replay_window',
-            });
-          }
-        }
       } else if (isDifferentProvider) {
-        // Provider re-selection: cursor has different provider, but we selected higher-priority one
         logger.info(
           `Using provider ${provider.name} for ${operation.type} (re-selected from ${currentCursor!.metadata?.providerName} based on current priority)`
         );
-
-        // Emit selection event (not failover)
-        if (this.eventBus) {
-          this.eventBus.emit({
-            type: 'provider.selection',
-            blockchain,
-            operation: operation.type,
-            providers: [{ name: provider.name, score: 0, reason: 'priority' }],
-            selected: provider.name,
-          });
-        }
       } else if (currentCursor) {
         logger.info(`Using provider ${provider.name} for ${operation.type} (resuming same provider)`);
-
-        // Emit resume event
-        if (this.eventBus) {
-          this.eventBus.emit({
-            type: 'provider.resume',
-            provider: provider.name,
-            blockchain,
-            operation: operation.type,
-            cursor: currentCursor.primary.value,
-            cursorType: currentCursor.primary.type,
-            streamType: operation.type === 'getAddressTransactions' ? operation.streamType : undefined,
-          });
-        }
       } else {
-        // Fresh start, emit selection
         logger.debug(`Using provider ${provider.name} for ${operation.type}`);
-
-        if (this.eventBus) {
-          this.eventBus.emit({
-            type: 'provider.selection',
-            blockchain,
-            operation: operation.type,
-            providers: [{ name: provider.name, score: 0, reason: 'initial' }],
-            selected: provider.name,
-          });
-        }
       }
+
+      // Emit all relevant events for this provider transition
+      emitProviderTransition(this.eventBus, {
+        blockchain,
+        operation,
+        currentProvider: provider,
+        previousProvider: lastFailedProvider,
+        currentCursor,
+        adjustedCursor,
+        failureReason: lastErrorMessage,
+      });
 
       try {
         const iterator = provider.executeStreaming(operation, adjustedCursor);
@@ -655,7 +669,10 @@ export class BlockchainProviderManager {
 
             // Record failure and try next provider
             const circuitState = this.getOrCreateCircuitState(provider.name);
-            this.circuitStates.set(provider.name, recordFailure(circuitState, Date.now()));
+            const now = Date.now();
+            const newCircuitState = recordFailure(circuitState, now);
+            this.circuitStates.set(provider.name, newCircuitState);
+            this.emitCircuitOpenIfTriggered(blockchain, provider.name, circuitState, newCircuitState, lastErrorMessage);
             this.updateProviderHealth(provider.name, false, 0, getErrorMessage(batchResult.error));
 
             providerIndex++;
@@ -721,7 +738,10 @@ export class BlockchainProviderManager {
 
         // Record failure
         const circuitState = this.getOrCreateCircuitState(provider.name);
-        this.circuitStates.set(provider.name, recordFailure(circuitState, Date.now()));
+        const now = Date.now();
+        const newCircuitState = recordFailure(circuitState, now);
+        this.circuitStates.set(provider.name, newCircuitState);
+        this.emitCircuitOpenIfTriggered(blockchain, provider.name, circuitState, newCircuitState, errorMessage);
         this.updateProviderHealth(provider.name, false, 0, errorMessage);
 
         // Try next provider
@@ -897,8 +917,10 @@ export class BlockchainProviderManager {
         }
 
         // Record failure - update circuit state
-        const newCircuitState = recordFailure(circuitState, Date.now());
+        const now = Date.now();
+        const newCircuitState = recordFailure(circuitState, now);
         this.circuitStates.set(provider.name, newCircuitState);
+        this.emitCircuitOpenIfTriggered(blockchain, provider.name, circuitState, newCircuitState, lastError.message);
         this.updateProviderHealth(provider.name, false, responseTime, lastError.message);
 
         // Continue to next provider
@@ -987,30 +1009,6 @@ export class BlockchainProviderManager {
       logger.debug(
         `Provider selection for ${operation.type} - Providers: ${buildProviderSelectionDebugInfo(scoredProviders)}`
       );
-    }
-
-    // Emit provider selection event
-    if (this.eventBus && scoredProviders.length > 0) {
-      this.eventBus.emit({
-        type: 'provider.selection',
-        blockchain,
-        operation: operation.type,
-        providers: scoredProviders.map((sp) => {
-          const circuitState = this.circuitStates.get(sp.provider.name);
-          let reason = `score: ${sp.score}`;
-          if (circuitState && isCircuitOpen(circuitState, now)) {
-            reason += ', circuit open';
-          } else if (sp.health.consecutiveFailures > 0) {
-            reason += `, failures: ${sp.health.consecutiveFailures}`;
-          }
-          return {
-            name: sp.provider.name,
-            score: sp.score,
-            reason,
-          };
-        }),
-        selected: scoredProviders[0]!.provider.name,
-      });
     }
 
     return scoredProviders.map((item) => item.provider);
@@ -1131,6 +1129,7 @@ export class BlockchainProviderManager {
             requestsPerSecond:
               overrideRateLimit?.requestsPerSecond ?? metadata.defaultConfig.rateLimit.requestsPerSecond,
           },
+          requestHooks: this.buildHttpClientHooks(blockchain, metadata.name),
           requiresApiKey: metadata.requiresApiKey,
           retries: providerInfo.overrideConfig.retries ?? metadata.defaultConfig.retries,
           timeout: providerInfo.overrideConfig.timeout ?? metadata.defaultConfig.timeout,

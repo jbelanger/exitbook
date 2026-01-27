@@ -306,6 +306,13 @@ export class ImportExecutor {
 
         this.logger.warn(`⚠️  Import marked failed due to ${allWarnings.length} warning(s). Data may be incomplete.`);
 
+        this.eventBus?.emit({
+          type: 'import.failed',
+          sourceName,
+          accountId: account.id,
+          error: warningMessage,
+        });
+
         return err(new Error(warningMessage));
       }
 

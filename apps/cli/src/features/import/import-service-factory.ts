@@ -93,7 +93,7 @@ export async function createImportServices(): Promise<ImportServices> {
   const handler = new ImportHandler(importOrchestrator, transactionProcessService, providerManager);
 
   // Create dashboard controller and wire to event bus
-  const dashboard = new DashboardController(instrumentation);
+  const dashboard = new DashboardController(instrumentation, providerManager);
   dashboard.start();
 
   const unsubscribe = eventBus.subscribe((event) => {
@@ -103,7 +103,7 @@ export async function createImportServices(): Promise<ImportServices> {
   // Cleanup function
   const cleanup = async () => {
     unsubscribe();
-    dashboard.stop();
+    await dashboard.stop();
     handler.destroy();
     await closeDatabase(database);
   };

@@ -86,8 +86,9 @@ describe('ProviderStateAggregator', () => {
         type: 'provider.failover',
         from: 'etherscan',
         to: 'routescan',
+        blockchain: 'ethereum',
+        operation: 'getAddressTransactions',
         reason: 'rate_limit',
-        timestamp: now,
       };
 
       aggregator.trackEvent(event);

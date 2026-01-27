@@ -1,4 +1,5 @@
-import type { RequestMetric } from '@exitbook/http';
+import type { ProviderHealth } from '@exitbook/blockchain-providers';
+import type { CircuitStatus, RequestMetric } from '@exitbook/http';
 
 const VELOCITY_WINDOW_MS = 5000; // 5 seconds
 
@@ -8,6 +9,7 @@ const VELOCITY_WINDOW_MS = 5000; // 5 seconds
 export interface ProviderRow {
   name: string;
   status: 'ACTIVE' | 'IDLE';
+  circuitState?: CircuitStatus | undefined;
   latencyMs?: number | undefined;
   requestsPerSecond: number;
   throttles: number;
@@ -25,7 +27,11 @@ export interface ProviderMetrics {
 /**
  * Calculate provider metrics from instrumentation data (pure function).
  */
-export function calculateProviderMetrics(metrics: RequestMetric[], throttles: Map<string, number>): ProviderMetrics {
+export function calculateProviderMetrics(
+  metrics: RequestMetric[],
+  throttles: Map<string, number>,
+  providerHealth: Map<string, ProviderHealth & { circuitState: CircuitStatus }>
+): ProviderMetrics {
   const now = Date.now();
   const windowStart = now - VELOCITY_WINDOW_MS;
 
@@ -33,10 +39,16 @@ export function calculateProviderMetrics(metrics: RequestMetric[], throttles: Ma
   const recentRequests = metrics.filter((m) => m.timestamp >= windowStart);
   const overallVelocity = recentRequests.length / 5;
 
-  // Find all unique providers
+  // Find all unique providers from metrics and health/throttle state
   const providerNames = new Set<string>();
   for (const metric of metrics) {
     providerNames.add(metric.provider);
+  }
+  for (const provider of providerHealth.keys()) {
+    providerNames.add(provider);
+  }
+  for (const provider of throttles.keys()) {
+    providerNames.add(provider);
   }
 
   // Build provider rows
@@ -68,9 +80,14 @@ export function calculateProviderMetrics(metrics: RequestMetric[], throttles: Ma
     // Determine status
     const status = requestsPerSecond > 0 ? 'ACTIVE' : 'IDLE';
 
+    // Get circuit state from provider health
+    const health = providerHealth.get(provider);
+    const circuitState = health?.circuitState;
+
     providers.push({
       name: provider,
       status,
+      circuitState,
       latencyMs,
       requestsPerSecond,
       throttles: throttles.get(provider) ?? 0,

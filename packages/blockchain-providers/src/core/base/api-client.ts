@@ -76,6 +76,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     this.httpClient = new HttpClient({
       baseUrl: this.baseUrl,
       instrumentation: config.instrumentation,
+      hooks: config.requestHooks,
       providerName: this.metadata.name,
       rateLimit: config.rateLimit,
       retries: config.retries,
@@ -529,6 +530,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     const clientConfig = {
       baseUrl: config.baseUrl || this.baseUrl,
       instrumentation: this.config.instrumentation,
+      hooks: this.config.requestHooks,
       providerName: config.providerName || this.metadata.name,
       rateLimit: config.rateLimit || this.metadata.defaultConfig.rateLimit,
       retries: config.retries || this.metadata.defaultConfig.retries,
