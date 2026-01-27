@@ -19,6 +19,9 @@ export { initializeProviders } from './initialize.js';
 
 export * from './core/index.js';
 
+// Events
+export type { ProviderEvent } from './events.js';
+
 export * from './blockchains/bitcoin/index.js';
 export * from './blockchains/cardano/index.js';
 export * from './blockchains/cosmos/index.js';

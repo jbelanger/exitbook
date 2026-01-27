@@ -90,25 +90,7 @@ export default [
         {
           type: 'alphabetical',
           order: 'asc',
-          newlinesBetween: 'always',
-          groups: [
-            ['type', 'builtin', 'builtin-type'],
-            ['external', 'external-type'],
-            'internal',
-            ['parent', 'parent-type'],
-            ['sibling', 'sibling-type'],
-            ['index', 'index-type'],
-            'object',
-            'unknown',
-          ],
-          customGroups: {
-            value: {
-              internal: ['^@app/', '^@domain/', '^@infrastructure/'],
-            },
-            type: {
-              internal: ['^@app/', '^@domain/', '^@infrastructure/'],
-            },
-          },
+          groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
         },
       ],
       'perfectionist/sort-array-includes': ['error', { type: 'alphabetical', order: 'asc' }],
@@ -302,7 +284,11 @@ export default [
 
   // === CLI app: allow database lifecycle management only in entry points ===
   {
-    files: ['apps/cli/src/index.ts', 'apps/cli/src/features/shared/command-execution.ts'],
+    files: [
+      'apps/cli/src/index.ts',
+      'apps/cli/src/features/shared/command-execution.ts',
+      'apps/cli/src/features/*/import-service-factory.ts',
+    ],
     rules: {
       'no-restricted-imports': 'off', // Allow KyselyDB and initializeDatabase/closeDatabase in these files
     },

@@ -1,4 +1,4 @@
-import type { ZodSchema } from 'zod';
+import type { ZodType } from 'zod';
 
 import type { InstrumentationCollector } from './instrumentation.js';
 
@@ -6,6 +6,7 @@ export interface HttpClientConfig {
   baseUrl: string;
   defaultHeaders?: Record<string, string> | undefined;
   instrumentation?: InstrumentationCollector | undefined;
+  hooks?: HttpClientHooks | undefined;
   providerName: string;
   rateLimit: RateLimitConfig;
   retries?: number | undefined;
@@ -17,8 +18,22 @@ export interface HttpRequestOptions {
   body?: string | Buffer | Uint8Array | object | undefined;
   headers?: Record<string, string> | undefined;
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | undefined;
-  schema?: ZodSchema<unknown> | undefined;
+  schema?: ZodType<unknown> | undefined;
   timeout?: number | undefined;
+}
+
+export interface HttpClientHooks {
+  onRequestStart?: (event: { endpoint: string; method: string; timestamp: number }) => void;
+  onRequestSuccess?: (event: { durationMs: number; endpoint: string; method: string; status: number }) => void;
+  onRequestFailure?: (event: {
+    durationMs: number;
+    endpoint: string;
+    error: string;
+    method: string;
+    status?: number | undefined;
+  }) => void;
+  onRateLimited?: (event: { retryAfterMs?: number | undefined; status?: number | undefined }) => void;
+  onBackoff?: (event: { attemptNumber: number; delayMs: number; reason: 'rate_limit' | 'retry' }) => void;
 }
 
 // HTTP-related error classes

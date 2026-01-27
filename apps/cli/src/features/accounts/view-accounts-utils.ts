@@ -21,9 +21,9 @@ export interface AccountInfo {
   sourceName: string;
   identifier: string;
   parentAccountId?: number | undefined;
-  providerName: string | undefined;
-  lastBalanceCheckAt: string | undefined;
-  verificationStatus: 'match' | 'mismatch' | 'never-checked' | undefined;
+  providerName?: string | undefined;
+  lastBalanceCheckAt?: string | undefined;
+  verificationStatus?: 'match' | 'mismatch' | 'never-checked' | undefined;
   sessionCount: number | undefined;
   childAccounts?: AccountInfo[] | undefined;
   createdAt: string;
@@ -36,7 +36,7 @@ export interface SessionSummary {
   id: number;
   status: 'started' | 'completed' | 'failed' | 'cancelled';
   startedAt: string;
-  completedAt: string | undefined;
+  completedAt?: string | undefined;
 }
 
 /**
@@ -92,10 +92,10 @@ export function formatAccountForDisplay(
   allSessions?: Map<number, SessionSummary[]>
 ) {
   // Display xpub indicator for parent accounts with children
-  const accountLabel =
-    account.childAccounts && account.childAccounts.length > 0
-      ? `${account.sourceName} (xpub with ${account.childAccounts.length} derived addresses)`
-      : account.sourceName;
+  let accountLabel = account.sourceName;
+  if (account.childAccounts && account.childAccounts.length > 0) {
+    accountLabel = `${account.sourceName} (xpub with ${account.childAccounts.length} derived addresses)`;
+  }
 
   output.info(`Account ID ${account.id} - ${accountLabel} (${account.accountType})`);
   output.log(`Identifier: ${account.identifier}`);

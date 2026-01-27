@@ -24,10 +24,12 @@ export interface IScamDetectionService {
    *
    * @param movements - Movements with context (contract, amount, isAirdrop, txIndex)
    * @param metadataMap - Pre-fetched metadata keyed by contract address (may contain undefined for unfound contracts)
+   * @param blockchain - Optional blockchain identifier for event emission
    * @returns Map of transaction index to scam note (first scam found per transaction)
    */
   detectScams(
     movements: MovementWithContext[],
-    metadataMap: Map<string, TokenMetadataRecord | undefined>
+    metadataMap: Map<string, TokenMetadataRecord | undefined>,
+    blockchain?: string
   ): Map<number, TransactionNote>;
 }

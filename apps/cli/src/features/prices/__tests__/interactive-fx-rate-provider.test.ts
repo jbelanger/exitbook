@@ -9,7 +9,7 @@
 import type { FxRateData, IFxRateProvider } from '@exitbook/accounting';
 import { Currency, parseDecimal } from '@exitbook/core';
 import { err, ok } from 'neverthrow';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { InteractiveFxRateProvider } from '../interactive-fx-rate-provider.js';
 import * as pricesPrompts from '../prices-prompts.js';
@@ -20,6 +20,8 @@ describe('InteractiveFxRateProvider', () => {
   let promptManualFxRateSpy: any;
 
   beforeEach(() => {
+    vi.restoreAllMocks();
+
     // Create mock underlying provider
     mockUnderlyingProvider = {
       getRateToUSD: vi.fn(),
@@ -28,6 +30,10 @@ describe('InteractiveFxRateProvider', () => {
 
     // Spy on prompt function
     promptManualFxRateSpy = vi.spyOn(pricesPrompts, 'promptManualFxRate');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('getRateToUSD', () => {

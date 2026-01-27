@@ -1,4 +1,5 @@
 import * as p from '@clack/prompts';
+import type { MockInstance } from 'vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -18,7 +19,7 @@ vi.mock('@clack/prompts', () => ({
 }));
 
 describe('prompts utilities', () => {
-  let processExitSpy: ReturnType<typeof vi.spyOn>;
+  let processExitSpy: MockInstance<(code?: number | string | null) => never>;
 
   beforeEach(() => {
     processExitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: number | string | null) => {

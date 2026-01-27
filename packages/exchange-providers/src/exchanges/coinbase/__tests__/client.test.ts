@@ -109,9 +109,11 @@ describe('createCoinbaseClient - fetchBalance', () => {
   beforeEach(() => {
     mockFetchBalance = vi.fn();
 
-    (ccxt.coinbaseadvanced as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
-      fetchBalance: mockFetchBalance,
-    }));
+    (ccxt.coinbaseadvanced as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return {
+        fetchBalance: mockFetchBalance,
+      };
+    });
 
     const result = createCoinbaseClient({
       apiKey: 'organizations/test-org/apiKeys/test-key',
@@ -209,10 +211,12 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     mockFetchAccounts = vi.fn();
 
     // Reset the ccxt.coinbaseadvanced mock
-    (ccxt.coinbaseadvanced as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
-      fetchLedger: mockFetchLedger,
-      fetchAccounts: mockFetchAccounts,
-    }));
+    (ccxt.coinbaseadvanced as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return {
+        fetchLedger: mockFetchLedger,
+        fetchAccounts: mockFetchAccounts,
+      };
+    });
 
     const result = createCoinbaseClient({
       apiKey: 'organizations/test-org/apiKeys/test-key',

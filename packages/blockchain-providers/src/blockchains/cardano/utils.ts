@@ -172,7 +172,7 @@ export class CardanoUtils {
       const { Cardano } = await import('@cardano-sdk/core');
 
       // Parse the extended public key from hex
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- hard to import Bip32PublicKeyHex
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- hard to import Bip32PublicKeyHex
       const accountPublicKey = Bip32PublicKey.fromHex(xpub as any);
 
       const derivedAddresses: DerivedCardanoAddress[] = [];

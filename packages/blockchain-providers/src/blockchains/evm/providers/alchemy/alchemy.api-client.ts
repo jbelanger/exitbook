@@ -55,7 +55,7 @@ import {
       'getAddressInfo',
       'getAddressBalances',
       'getAddressTokenBalances',
-      'getAddressTransactions',
+      //'getAddressTransactions', DISABLING, need to getReceipts for gas fees which is expensive
       'getTokenMetadata',
     ],
     supportedTransactionTypes: ['normal', 'internal', 'token'],
@@ -161,9 +161,12 @@ export class AlchemyApiClient extends BaseApiClient {
     // Create separate HTTP client for Portfolio API
     this.portfolioClient = new HttpClient({
       baseUrl: `https://api.g.alchemy.com/data/v1/${this.apiKey}`,
+      instrumentation: config.instrumentation,
+      hooks: config.requestHooks,
       providerName: `${this.metadata.name}-portfolio`,
       rateLimit: config.rateLimit,
       retries: config.retries,
+      service: 'blockchain',
       timeout: config.timeout,
     });
   }

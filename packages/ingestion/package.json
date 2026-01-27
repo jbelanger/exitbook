@@ -26,15 +26,16 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@exitbook/events": "workspace:*",
     "csv-parse": "^6.1.0",
-    "decimal.js": "^10.4.3",
+    "decimal.js": "^10.6.0",
     "neverthrow": "^8.2.0",
-    "zod": "^4.1.12"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/node": "^24.7.2",
+    "@types/node": "^25.0.10",
     "tsconfig": "workspace:*",
-    "tsx": "^4.20.4",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {

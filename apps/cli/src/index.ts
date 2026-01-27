@@ -1,9 +1,19 @@
 #!/usr/bin/env node
 import 'reflect-metadata';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { initializeProviders } from '@exitbook/blockchain-providers';
 import { registerAllBlockchains, registerAllExchanges } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { Command } from 'commander';
+
+// Read version from package.json
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8')) as { version: string };
+export const CLI_VERSION = packageJson.version;
 
 import { registerAccountsCommand } from './features/accounts/accounts.js';
 import { registerBalanceCommand } from './features/balance/balance.js';
@@ -30,7 +40,7 @@ const logger = getLogger('CLI');
 const program = new Command();
 
 async function main() {
-  program.name('exitbook').description('Crypto transaction reconciliation and reports').version('1.0.0');
+  program.name('exitbook').description('Crypto transaction reconciliation and reports').version(CLI_VERSION);
 
   registerImportCommand(program);
   registerReprocessCommand(program);

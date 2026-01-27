@@ -1,4 +1,4 @@
-import type { InstrumentationCollector, RateLimitConfig } from '@exitbook/http';
+import type { HttpClientHooks, InstrumentationCollector, RateLimitConfig } from '@exitbook/http';
 
 import type { IBlockchainProvider, ProviderCapabilities } from './provider.js';
 
@@ -15,6 +15,7 @@ export interface ProviderConfig {
   name: string;
   priority?: number | undefined;
   rateLimit: RateLimitConfig;
+  requestHooks?: HttpClientHooks | undefined;
   requiresApiKey?: boolean | undefined;
   retries: number;
   timeout: number;

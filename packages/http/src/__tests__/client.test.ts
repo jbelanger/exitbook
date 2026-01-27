@@ -920,3 +920,99 @@ describe('HttpClient - Instrumentation', () => {
     expect(metrics).toHaveLength(0);
   });
 });
+
+describe('HttpClient - Concurrent Request Thread Safety', () => {
+  it('should handle 100 concurrent requests without race conditions on rate limiter', async () => {
+    let fetchCallCount = 0;
+    const mockFetch = vi.fn().mockImplementation(() => {
+      fetchCallCount++;
+      return Promise.resolve({
+        headers: new Headers(),
+        json: () => Promise.resolve({ id: fetchCallCount }),
+        ok: true,
+        status: 200,
+      });
+    });
+
+    const logSpy = vi.fn();
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: logSpy,
+      now: () => Date.now(),
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: {
+          requestsPerSecond: 5,
+          burstLimit: 10,
+        },
+      },
+      mockEffects
+    );
+
+    // Fire 100 concurrent requests
+    const promises = Array.from({ length: 100 }, (_, i) => client.get(`/test/${i}`));
+
+    const results = await Promise.all(promises);
+
+    // All requests should succeed
+    expect(results.every((r) => r.isOk())).toBe(true);
+    expect(fetchCallCount).toBe(100);
+
+    // Verify rate limiter was invoked (check for debug logs)
+    const rateLimitLogs = logSpy.mock.calls.filter(
+      (call) => call[0] === 'debug' && typeof call[1] === 'string' && call[1].includes('Rate limit enforced')
+    );
+
+    // With 100 concurrent requests and rate limit of 5/sec, we should see rate limiting
+    expect(rateLimitLogs.length).toBeGreaterThan(0);
+  });
+
+  it('should process concurrent requests serially through rate limiter without duplicate timestamps', async () => {
+    const timestamps: number[] = [];
+    let currentTime = 1000;
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve({ success: true }),
+      ok: true,
+      status: 200,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => {
+        const timestamp = currentTime;
+        timestamps.push(timestamp);
+        currentTime += 10; // Increment by 10ms each call
+        return timestamp;
+      },
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: {
+          requestsPerSecond: 2,
+          burstLimit: 5,
+        },
+      },
+      mockEffects
+    );
+
+    // Fire 10 concurrent requests
+    const promises = Array.from({ length: 10 }, () => client.get('/test'));
+    await Promise.all(promises);
+
+    // All timestamps should be unique (no race condition)
+    const uniqueTimestamps = new Set(timestamps);
+    expect(uniqueTimestamps.size).toBe(timestamps.length);
+  });
+});

@@ -4,7 +4,7 @@
 import { wrapError, type CursorState, type RawTransactionInput } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
-import { type ZodSchema } from 'zod';
+import { type ZodType } from 'zod';
 
 import { PartialImportError } from './errors.js';
 import { ExchangeLedgerEntrySchema, type ExchangeLedgerEntry } from './schemas.js';
@@ -12,11 +12,7 @@ import { ExchangeLedgerEntrySchema, type ExchangeLedgerEntry } from './schemas.j
 /**
  * Validate credentials against a Zod schema
  */
-export function validateCredentials<T>(
-  schema: ZodSchema<T>,
-  credentials: unknown,
-  exchangeId: string
-): Result<T, Error> {
+export function validateCredentials<T>(schema: ZodType<T>, credentials: unknown, exchangeId: string): Result<T, Error> {
   const validationResult = schema.safeParse(credentials);
   if (!validationResult.success) {
     return err(new Error(`Invalid ${exchangeId} credentials: ${validationResult.error.message}`));
@@ -27,7 +23,7 @@ export function validateCredentials<T>(
 /**
  * Validate raw data against a Zod schema
  */
-export function validateRawData<T>(schema: ZodSchema<T>, rawData: unknown, exchangeId: string): Result<T, Error> {
+export function validateRawData<T>(schema: ZodType<T>, rawData: unknown, exchangeId: string): Result<T, Error> {
   try {
     const parsed = schema.parse(rawData);
     return ok(parsed);

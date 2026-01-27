@@ -1,17 +1,17 @@
-import type { MockInstance } from 'vitest';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock, MockInstance } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Logger } from '../clack-logger.js';
 import { configureLogger, getLogger, getLoggerContext, resetLoggerContext, type Spinner } from '../clack-logger.js';
 import * as pinoLoggerModule from '../pino-logger.js';
 
 interface MockLogger {
-  info: ReturnType<typeof vi.fn>;
-  warn: ReturnType<typeof vi.fn>;
-  error: ReturnType<typeof vi.fn>;
-  debug: ReturnType<typeof vi.fn>;
-  child: ReturnType<typeof vi.fn>;
-  bindings: ReturnType<typeof vi.fn>;
+  info: Mock<(...args: unknown[]) => void>;
+  warn: Mock<(...args: unknown[]) => void>;
+  error: Mock<(...args: unknown[]) => void>;
+  debug: Mock<(...args: unknown[]) => void>;
+  child: Mock<(this: MockLogger, ...args: unknown[]) => MockLogger>;
+  bindings: Mock<() => { category: string }>;
 }
 
 describe('logger-factory', () => {
@@ -20,6 +20,8 @@ describe('logger-factory', () => {
   let stderrWriteSpy: MockInstance<(str: string | Uint8Array, ...args: unknown[]) => boolean>;
 
   beforeEach(() => {
+    vi.restoreAllMocks();
+
     // Reset logger context before each test
     resetLoggerContext();
 
@@ -49,6 +51,10 @@ describe('logger-factory', () => {
       start: vi.fn(),
       stop: vi.fn(),
     };
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('configureLogger', () => {

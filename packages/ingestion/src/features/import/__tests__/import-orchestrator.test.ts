@@ -38,9 +38,11 @@ const mockImportSession: ImportSession = {
 };
 
 vi.mock('../import-service.js', () => ({
-  ImportExecutor: vi.fn().mockImplementation(() => ({
-    importFromSource: vi.fn().mockResolvedValue(ok(mockImportSession)),
-  })),
+  ImportExecutor: vi.fn().mockImplementation(function () {
+    return {
+      importFromSource: vi.fn().mockResolvedValue(ok(mockImportSession)),
+    };
+  }),
 }));
 
 // Mock blockchain configs - shared state for the mock

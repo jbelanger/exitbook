@@ -40,6 +40,9 @@ export type { BalanceComparison, BalanceVerificationResult } from './features/ba
 // Types
 export type { ImportParams } from './shared/types/importers.js';
 
+// Events
+export type { ImportEvent, ProcessEvent, IngestionEvent } from './events.js';
+
 // Concrete implementations
 
 // Blockchain configuration

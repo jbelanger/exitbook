@@ -69,9 +69,12 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
     // Create separate HTTP client for REST API (Bank module queries)
     this.restClient = new HttpClient({
       baseUrl: this.chainConfig.restEndpoints?.[0] ?? '',
+      instrumentation: config.instrumentation,
+      hooks: config.requestHooks,
       providerName: `${this.metadata.name}-rest`,
       rateLimit: config.rateLimit,
       retries: config.retries,
+      service: 'blockchain',
       timeout: config.timeout,
     });
 

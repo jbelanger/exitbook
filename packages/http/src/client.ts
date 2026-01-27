@@ -1,6 +1,6 @@
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
-import type { ZodSchema } from 'zod';
+import type { ZodType } from 'zod';
 
 import * as HttpUtils from './core/http-utils.js';
 import * as RateLimitCore from './core/rate-limit.js';
@@ -17,6 +17,9 @@ export class HttpClient {
 
   // Mutable state (only place side effects live)
   private rateLimitState: RateLimitState;
+
+  // Async mutex for thread-safe rate limiter access
+  private rateLimiterLock: Promise<void> = Promise.resolve();
 
   constructor(config: HttpClientConfig, effects?: Partial<HttpEffects>) {
     this.config = {
@@ -59,7 +62,7 @@ export class HttpClient {
    */
   async get<T>(
     endpoint: string,
-    options: Omit<HttpRequestOptions, 'method'> & { schema: ZodSchema<T> }
+    options: Omit<HttpRequestOptions, 'method'> & { schema: ZodType<T> }
   ): Promise<Result<T, Error>>;
   /**
    * Convenience method for GET requests without validation
@@ -86,7 +89,7 @@ export class HttpClient {
   async post<T>(
     endpoint: string,
     body: unknown,
-    options: Omit<HttpRequestOptions, 'method' | 'body'> & { schema: ZodSchema<T> }
+    options: Omit<HttpRequestOptions, 'method' | 'body'> & { schema: ZodType<T> }
   ): Promise<Result<T, Error>>;
   /**
    * Convenience method for POST requests without validation
@@ -115,6 +118,8 @@ export class HttpClient {
     const url = HttpUtils.buildUrl(this.config.baseUrl, endpoint);
     const method = options.method || 'GET';
     const timeout = options.timeout || this.config.timeout!;
+    const hooks = this.config.hooks;
+    const sanitizedEndpoint = sanitizeEndpoint(endpoint);
     let lastError: Error | undefined;
 
     // Wait for rate limit permission before making request
@@ -125,9 +130,13 @@ export class HttpClient {
 
     for (let attempt = 1; attempt <= this.config.retries!; attempt++) {
       const startTime = this.effects.now();
+      hooks?.onRequestStart?.({ endpoint: sanitizedEndpoint, method, timestamp: startTime });
       let response: Response | undefined;
       const controller = new AbortController();
       let timeoutId: NodeJS.Timeout | undefined;
+      let outcome: 'success' | 'failure' | undefined;
+      let outcomeError: string | undefined;
+      let outcomeStatus: number | undefined;
 
       try {
         this.effects.log(
@@ -162,6 +171,9 @@ export class HttpClient {
 
         if (!response.ok) {
           const errorText = await response.text().catch(() => 'Unknown error');
+          outcome = 'failure';
+          outcomeStatus = response.status;
+          outcomeError = `HTTP ${response.status}: ${errorText}`;
 
           if (response.status === 429) {
             const now = this.effects.now();
@@ -172,6 +184,7 @@ export class HttpClient {
 
             // Apply exponential backoff for consecutive 429 responses
             const delay = HttpUtils.calculateExponentialBackoff(attempt, baseDelay, 60000);
+            hooks?.onRateLimited?.({ retryAfterMs: delay, status: response.status });
 
             const willRetry = attempt < this.config.retries!;
             this.effects.log(
@@ -180,6 +193,7 @@ export class HttpClient {
             );
 
             if (willRetry) {
+              hooks?.onBackoff?.({ attemptNumber: attempt, delayMs: delay, reason: 'rate_limit' });
               await this.effects.delay(delay);
               continue;
             } else {
@@ -204,6 +218,8 @@ export class HttpClient {
 
         // Handle 204 No Content and empty responses
         if (response.status === 204 || response.headers.get('content-length') === '0') {
+          outcome = 'success';
+          outcomeStatus = response.status;
           return ok(undefined as T);
         }
 
@@ -211,7 +227,7 @@ export class HttpClient {
 
         // Validate response with schema if provided
         if (options.schema) {
-          const schema = options.schema as ZodSchema<T>;
+          const schema = options.schema as ZodType<T>;
           const parseResult = schema.safeParse(data);
           if (!parseResult.success) {
             // Collect all validation issues
@@ -241,6 +257,9 @@ export class HttpClient {
               }
             );
 
+            outcome = 'failure';
+            outcomeStatus = response.status;
+            outcomeError = `Response validation failed: ${firstFiveErrors}`;
             return err(
               new ResponseValidationError(
                 `Response validation failed: ${firstFiveErrors}`,
@@ -251,12 +270,19 @@ export class HttpClient {
               )
             );
           }
+          outcome = 'success';
+          outcomeStatus = response.status;
           return ok(parseResult.data);
         }
 
+        outcome = 'success';
+        outcomeStatus = response.status;
         return ok(data);
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+        outcome = 'failure';
+        outcomeStatus = response?.status;
+        outcomeError = lastError.message;
 
         if (
           error instanceof RateLimitError ||
@@ -286,6 +312,7 @@ export class HttpClient {
         if (attempt < this.config.retries!) {
           const delay = HttpUtils.calculateExponentialBackoff(attempt, 1000, 10000);
           this.effects.log('debug', `Retrying after delay - Delay: ${delay}ms, NextAttempt: ${attempt + 1}`);
+          hooks?.onBackoff?.({ attemptNumber: attempt, delayMs: delay, reason: 'retry' });
           await this.effects.delay(delay);
         }
       } finally {
@@ -294,6 +321,22 @@ export class HttpClient {
         }
         const status = response?.status ?? 0;
         const errorLabel = response ? undefined : lastError?.name || lastError?.message;
+        if (outcome === 'success') {
+          hooks?.onRequestSuccess?.({
+            endpoint: sanitizedEndpoint,
+            method,
+            status: outcomeStatus ?? status,
+            durationMs: this.effects.now() - startTime,
+          });
+        } else if (outcome === 'failure' && outcomeError) {
+          hooks?.onRequestFailure?.({
+            endpoint: sanitizedEndpoint,
+            method,
+            status: outcomeStatus,
+            error: outcomeError,
+            durationMs: this.effects.now() - startTime,
+          });
+        }
         this.recordMetric(endpoint, method, status, startTime, errorLabel);
       }
     }
@@ -333,36 +376,55 @@ export class HttpClient {
 
   /**
    * Wait for rate limit permission (delegates to pure functions)
+   * Thread-safe via async mutex to prevent concurrent state modifications
    */
   private async waitForRateLimit(): Promise<Result<void, Error>> {
-    const now = this.effects.now();
+    // Acquire lock to ensure only one request at a time modifies rate limiter state
+    const previousLock = this.rateLimiterLock;
+    let releaseLock: () => void;
 
-    // Refill tokens and check if we can proceed
-    this.rateLimitState = RateLimitCore.refillTokens(this.rateLimitState, now);
-    this.rateLimitState = {
-      ...this.rateLimitState,
-      requestTimestamps: RateLimitCore.cleanOldTimestamps(this.rateLimitState.requestTimestamps, now),
-    };
+    this.rateLimiterLock = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
 
-    const canProceed = RateLimitCore.shouldAllowRequest(this.rateLimitState, now);
+    try {
+      // Wait for previous request to finish with rate limiter
+      await previousLock;
 
-    if (canProceed) {
-      // Consume token and record timestamp
-      this.rateLimitState = RateLimitCore.consumeToken(this.rateLimitState, now);
-      return ok();
+      // Now we have exclusive access to rate limiter state
+      const now = this.effects.now();
+
+      // Refill tokens and check if we can proceed
+      this.rateLimitState = RateLimitCore.refillTokens(this.rateLimitState, now);
+      this.rateLimitState = {
+        ...this.rateLimitState,
+        requestTimestamps: RateLimitCore.cleanOldTimestamps(this.rateLimitState.requestTimestamps, now),
+      };
+
+      const canProceed = RateLimitCore.shouldAllowRequest(this.rateLimitState, now);
+
+      if (canProceed) {
+        // Consume token and record timestamp
+        this.rateLimitState = RateLimitCore.consumeToken(this.rateLimitState, now);
+        return ok();
+      }
+
+      // Calculate wait time
+      const waitTimeMs = RateLimitCore.calculateWaitTime(this.rateLimitState, now);
+
+      this.effects.log(
+        'debug',
+        `Rate limit enforced, waiting before sending request - WaitTimeMs: ${waitTimeMs}, TokensAvailable: ${this.rateLimitState.tokens}, Status: ${JSON.stringify(RateLimitCore.getRateLimitStatus(this.rateLimitState, now))}`
+      );
+
+      // Wait WITHOUT holding the lock so other requests can queue up
+      await this.effects.delay(waitTimeMs);
+
+      // Recursively retry (will re-acquire lock)
+      return this.waitForRateLimit();
+    } finally {
+      // Release lock for next waiting request
+      releaseLock!();
     }
-
-    // Calculate wait time
-    const waitTimeMs = RateLimitCore.calculateWaitTime(this.rateLimitState, now);
-
-    this.effects.log(
-      'debug',
-      `Rate limit enforced, waiting before sending request - WaitTimeMs: ${waitTimeMs}, TokensAvailable: ${this.rateLimitState.tokens}, Status: ${JSON.stringify(RateLimitCore.getRateLimitStatus(this.rateLimitState, now))}`
-    );
-
-    await this.effects.delay(waitTimeMs);
-
-    // Retry after waiting
-    return this.waitForRateLimit();
   }
 }

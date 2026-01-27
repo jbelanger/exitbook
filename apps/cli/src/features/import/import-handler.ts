@@ -1,13 +1,9 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import { initializeProviders } from '@exitbook/blockchain-providers';
 import type { ImportSession } from '@exitbook/core';
 import type { ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
 import { getBlockchainAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
-
-// Initialize all providers at startup
-initializeProviders();
 
 /**
  * Result of the import operation.
@@ -121,35 +117,17 @@ export class ImportHandler {
    */
   async processImportedSessions(sessions: ImportSession[]): Promise<Result<ProcessResult, Error>> {
     try {
-      const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
-
-      if (totalImported === 0) {
-        this.logger.debug('No transactions imported, skipping processing');
-        return ok({
-          processed: 0,
-          processingErrors: [],
-        });
-      }
-
-      // Process only the accounts that were imported
+      // Always pass account IDs - the service will emit process.completed with totalProcessed: 0 if nothing to process
       const uniqueAccountIds = [...new Set(sessions.map((s) => s.accountId))];
-      let totalProcessed = 0;
-      const allErrors: string[] = [];
+      const processResult = await this.transactionProcessService.processImportedSessions(uniqueAccountIds);
 
-      for (const accountId of uniqueAccountIds) {
-        const processResult = await this.transactionProcessService.processAccountTransactions(accountId);
-
-        if (processResult.isErr()) {
-          return err(processResult.error);
-        }
-
-        totalProcessed += processResult.value.processed;
-        allErrors.push(...processResult.value.errors);
+      if (processResult.isErr()) {
+        return err(processResult.error);
       }
 
       return ok({
-        processed: totalProcessed,
-        processingErrors: allErrors,
+        processed: processResult.value.processed,
+        processingErrors: processResult.value.errors,
       });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));

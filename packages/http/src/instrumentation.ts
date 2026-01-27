@@ -1,6 +1,6 @@
 export interface RequestMetric {
   provider: string;
-  service: 'blockchain' | 'exchange' | 'price';
+  service: 'blockchain' | 'exchange' | 'price' | 'metadata';
   endpoint: string; // Path only, sanitized
   method: string;
   status: number;

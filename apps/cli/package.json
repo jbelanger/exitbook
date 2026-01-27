@@ -1,5 +1,6 @@
 {
   "name": "exitbook-cli",
+  "version": "1.0.0",
   "private": true,
   "license": "AGPL-3.0",
   "type": "module",
@@ -28,24 +29,28 @@
     "@exitbook/blockchain-providers": "workspace:*",
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
+    "@exitbook/events": "workspace:*",
     "@exitbook/exchanges-providers": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/ingestion": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/price-providers": "workspace:*",
     "commander": "^14.0.0",
-    "libsodium-sumo": "^0.7.16",
-    "libsodium-wrappers-sumo": "^0.7.16",
+    "ink": "^6.6.0",
+    "libsodium-sumo": "^0.8.1",
+    "libsodium-wrappers-sumo": "^0.8.1",
     "neverthrow": "^8.2.0",
     "picocolors": "^1.1.1",
     "protobufjs": "^8.0.0",
+    "react": "^19.2.3",
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
-    "@types/node": "^24.7.2",
+    "@types/node": "^25.0.10",
+    "@types/react": "^19.2.9",
     "tsconfig": "workspace:*",
-    "tsup": "^8.5.0",
-    "tsx": "^4.20.4",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }

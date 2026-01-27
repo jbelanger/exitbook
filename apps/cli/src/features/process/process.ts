@@ -10,8 +10,14 @@ import {
   ImportSessionRepository,
   UserRepository,
 } from '@exitbook/data';
-import { ClearService, TransactionProcessService, TokenMetadataService } from '@exitbook/ingestion';
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
+import { EventBus } from '@exitbook/events';
+import {
+  ClearService,
+  TransactionProcessService,
+  TokenMetadataService,
+  type IngestionEvent,
+} from '@exitbook/ingestion';
+import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -60,6 +66,12 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
 
   output.intro('ExitBook | Reprocess transactions');
 
+  // Create event bus for telemetry (even though reprocess doesn't show dashboard yet)
+  const logger = getLogger('cli.reprocess');
+  const eventBus = new EventBus<IngestionEvent>((err) => {
+    logger.warn({ err }, 'Event handler error');
+  });
+
   try {
     const spinner = output.spinner();
 
@@ -67,15 +79,14 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
       spinner.start('Processing raw provider data...');
     } else {
       // Configure logger for JSON mode
+      const sinks = options.json
+        ? { ui: false, structured: 'file' as const }
+        : { ui: false, structured: 'stdout' as const };
+
       configureLogger({
         mode: options.json ? 'json' : 'text',
         verbose: false,
-        sinks: options.json
-          ? { ui: false, structured: 'file' }
-          : {
-              ui: false,
-              structured: 'stdout',
-            },
+        sinks,
       });
     }
 
@@ -95,14 +106,15 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
     const providerManager = new BlockchainProviderManager(undefined);
 
     // Initialize services
-    const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, providerManager);
+    const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, providerManager, eventBus);
     const transactionProcessService = new TransactionProcessService(
       rawDataRepository,
       accountRepository,
       transactionRepository,
       providerManager,
       tokenMetadataService,
-      importSessionRepository
+      importSessionRepository,
+      eventBus
     );
     const clearService = new ClearService(
       userRepository,

@@ -1,5 +1,5 @@
 import { err, ok, type Result } from 'neverthrow';
-import type { ZodSchema } from 'zod';
+import type { ZodType } from 'zod';
 
 import type { NormalizationError } from '../types/errors.js';
 
@@ -32,8 +32,8 @@ import type { NormalizationError } from '../types/errors.js';
  * ```
  */
 export function withValidation<TInput, TOutput>(
-  inputSchema: ZodSchema<TInput>,
-  outputSchema: ZodSchema<TOutput>,
+  inputSchema: ZodType<TInput>,
+  outputSchema: ZodType<TOutput>,
   mapperName: string
 ) {
   return <TArgs extends unknown[]>(mapFn: (input: TInput, ...args: TArgs) => Result<TOutput, NormalizationError>) => {
@@ -95,7 +95,7 @@ export function withValidation<TInput, TOutput>(
  */
 export function validateOutput<TOutput>(
   output: TOutput,
-  outputSchema: ZodSchema<TOutput>,
+  outputSchema: ZodType<TOutput>,
   mapperName: string
 ): Result<TOutput, NormalizationError> {
   const outputResult = outputSchema.safeParse(output);

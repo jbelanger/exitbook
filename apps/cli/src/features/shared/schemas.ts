@@ -4,6 +4,10 @@ export const JsonFlagSchema = z.object({
   json: z.boolean().optional(),
 });
 
+export const VerboseFlagSchema = z.object({
+  verbose: z.boolean().optional(),
+});
+
 export const SourceSelectionSchema = z
   .object({
     exchange: z.string().optional(),
@@ -54,6 +58,7 @@ export const ImportCommandOptionsSchema = z
   )
   .extend(CsvImportSchema.shape)
   .extend(JsonFlagSchema.shape)
+  .extend(VerboseFlagSchema.shape)
   .superRefine((data, ctx) => {
     // Cannot specify both exchange and blockchain
     if (data.exchange && data.blockchain) {

@@ -1,7 +1,9 @@
 import type { SolanaTransaction } from '@exitbook/blockchain-providers';
+import { EventBus } from '@exitbook/events';
 import { ok } from 'neverthrow';
 import { describe, expect, test, vi } from 'vitest';
 
+import type { IngestionEvent } from '../../../../events.js';
 import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
 import { SolanaTransactionProcessor } from '../processor.js';
 
@@ -1302,7 +1304,9 @@ describe('SolanaTransactionProcessor - Scam Detection', () => {
 
     // Import and instantiate real scam detection service
     const { ScamDetectionService } = await import('../../../../features/scam-detection/scam-detection-service.js');
-    const scamDetectionService = new ScamDetectionService();
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- avoid unnecessary complexity in test
+    const mockEventBus = new EventBus<IngestionEvent>(() => {});
+    const scamDetectionService = new ScamDetectionService(mockEventBus);
 
     const processor = new SolanaTransactionProcessor(mockMetadataService, scamDetectionService);
 

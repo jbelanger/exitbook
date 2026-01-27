@@ -1,5 +1,5 @@
 import { type Result, err } from 'neverthrow';
-import type { ZodSchema } from 'zod';
+import type { ZodType } from 'zod';
 
 import type { NormalizationError } from '../types/errors.js';
 
@@ -12,13 +12,13 @@ export abstract class BaseRawDataMapper<TRawData, TNormalizedData> {
    * Schema used to validate raw data before transformation.
    * Must be implemented by concrete processor classes.
    */
-  protected abstract readonly inputSchema: ZodSchema;
+  protected abstract readonly inputSchema: ZodType;
 
   /**
    * Schema used to validate normalized data after transformation.
    * Must be implemented by concrete processor classes.
    */
-  protected abstract readonly outputSchema: ZodSchema;
+  protected abstract readonly outputSchema: ZodType;
 
   /**
    * Transform raw data after validation has passed.
