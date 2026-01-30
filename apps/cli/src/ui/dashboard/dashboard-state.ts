@@ -146,6 +146,7 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
       break;
 
     case 'process.completed':
+      state.processed = event.totalProcessed;
       state.completedAt = Date.now();
       state.isComplete = true;
       break;
