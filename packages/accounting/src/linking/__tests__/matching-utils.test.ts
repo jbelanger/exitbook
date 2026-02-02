@@ -1338,6 +1338,48 @@ describe('matching-utils', () => {
       }
     });
 
+    it('should allow small target excess for hash matches', () => {
+      const match: PotentialMatch = {
+        sourceTransaction: {
+          id: 1,
+          sourceName: 'cardano',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-07-25T20:32:02.000Z'),
+          assetSymbol: 'ADA',
+          amount: parseDecimal('2669.193991'),
+          direction: 'out',
+          blockchainTransactionHash: '0c62fbdfe97c5e94346f0976114b769b45080dc5d9e0c03ca33ad112dc8f25cf',
+        },
+        targetTransaction: {
+          id: 2,
+          sourceName: 'kucoin',
+          sourceType: 'exchange',
+          timestamp: new Date('2024-07-25T20:35:47.000Z'),
+          assetSymbol: 'ADA',
+          amount: parseDecimal('2679.718442'), // ~0.39% higher
+          direction: 'in',
+          blockchainTransactionHash: '0c62fbdfe97c5e94346f0976114b769b45080dc5d9e0c03ca33ad112dc8f25cf',
+        },
+        confidenceScore: parseDecimal('1.0'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.996'),
+          timingValid: true,
+          timingHours: 0.06,
+          hashMatch: true,
+        },
+        linkType: 'exchange_to_blockchain',
+      };
+
+      const result = createTransactionLink(match, 'confirmed', 'test-uuid', new Date());
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.metadata?.targetExcessAllowed).toBe(true);
+        expect(result.value.metadata?.targetExcessPct).toBeDefined();
+      }
+    });
+
     it('should reject excessive variance (>10%)', () => {
       const match: PotentialMatch = {
         sourceTransaction: {
@@ -2389,12 +2431,12 @@ describe('matching-utils', () => {
       expect(result).toHaveProperty('adjustedAmount');
       if ('adjustedAmount' in result) {
         expect(result.adjustedAmount.toFixed()).toBe('0.7'); // 1.0 - 0.3 = 0.7
-        expect(result.txId).toBe(1);
+        expect(result.representativeTxId).toBe(1);
         expect(result.multipleOutflows).toBe(false);
       }
     });
 
-    it('should select largest outflow when multiple exist and set multipleOutflows flag', () => {
+    it('should sum all outflows when multiple exist and set multipleOutflows flag', () => {
       const group: UniversalTransactionData[] = [
         {
           id: 1,
@@ -2439,8 +2481,8 @@ describe('matching-utils', () => {
 
       expect(result).toHaveProperty('adjustedAmount');
       if ('adjustedAmount' in result) {
-        expect(result.txId).toBe(2); // Selected largest outflow
-        expect(result.adjustedAmount.toFixed()).toBe('0.7'); // 1.0 - 0.3 = 0.7
+        expect(result.representativeTxId).toBe(1); // Smallest ID for consistency
+        expect(result.adjustedAmount.toFixed()).toBe('1.2'); // (0.5 + 1.0) - 0.3 = 1.2
         expect(result.multipleOutflows).toBe(true); // Flag set
       }
     });
@@ -2467,6 +2509,45 @@ describe('matching-utils', () => {
       expect(result).toHaveProperty('skip');
       if ('skip' in result) {
         expect(result.skip).toBe('no-adjustment');
+      }
+    });
+
+    it('should adjust when multiple outflows exist even without inflows', () => {
+      const group: UniversalTransactionData[] = [
+        {
+          id: 1,
+          externalId: 'tx-1',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.4'), netAmount: parseDecimal('0.4') }],
+            inflows: [],
+          },
+        } as unknown as UniversalTransactionData,
+        {
+          id: 2,
+          externalId: 'tx-2',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.6'), netAmount: parseDecimal('0.6') }],
+            inflows: [],
+          },
+        } as unknown as UniversalTransactionData,
+      ];
+
+      const { inflowAmountsByTx, outflowAmountsByTx } = aggregateMovementsByTransaction(group);
+      const result = calculateOutflowAdjustment('BTC', group, inflowAmountsByTx, outflowAmountsByTx);
+
+      expect(result).toHaveProperty('adjustedAmount');
+      if ('adjustedAmount' in result) {
+        expect(result.adjustedAmount.toFixed()).toBe('1'); // 0.4 + 0.6 = 1.0
+        expect(result.representativeTxId).toBe(1);
+        expect(result.multipleOutflows).toBe(true);
       }
     });
 
@@ -2507,7 +2588,7 @@ describe('matching-utils', () => {
       }
     });
 
-    it('should exclude same-transaction inflows from adjustment', () => {
+    it('should include same-transaction inflows in adjustment', () => {
       const group: UniversalTransactionData[] = [
         {
           id: 1,
@@ -2540,9 +2621,49 @@ describe('matching-utils', () => {
 
       expect(result).toHaveProperty('adjustedAmount');
       if ('adjustedAmount' in result) {
-        // Should only subtract 0.2 from tx-2 (not the 0.7 from same tx)
-        expect(result.adjustedAmount.toFixed()).toBe('0.8'); // 1.0 - 0.2 = 0.8
-        expect(result.txId).toBe(1);
+        // Should subtract both inflows (including same-tx change)
+        expect(result.adjustedAmount.toFixed()).toBe('0.1'); // 1.0 - 0.7 - 0.2 = 0.1
+        expect(result.representativeTxId).toBe(1);
+      }
+    });
+
+    it('should dedupe on-chain fee across grouped outflows', () => {
+      const group: UniversalTransactionData[] = [
+        {
+          id: 1,
+          externalId: 'tx-1',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.7'), netAmount: parseDecimal('0.69') }],
+            inflows: [],
+          },
+          fees: [{ assetSymbol: 'BTC', amount: parseDecimal('0.01'), scope: 'network', settlement: 'on-chain' }],
+        } as unknown as UniversalTransactionData,
+        {
+          id: 2,
+          externalId: 'tx-2',
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            outflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.5'), netAmount: parseDecimal('0.49') }],
+            inflows: [],
+          },
+          fees: [{ assetSymbol: 'BTC', amount: parseDecimal('0.01'), scope: 'network', settlement: 'on-chain' }],
+        } as unknown as UniversalTransactionData,
+      ];
+
+      const { inflowAmountsByTx, outflowAmountsByTx } = aggregateMovementsByTransaction(group);
+      const result = calculateOutflowAdjustment('BTC', group, inflowAmountsByTx, outflowAmountsByTx);
+
+      expect(result).toHaveProperty('adjustedAmount');
+      if ('adjustedAmount' in result) {
+        expect(result.adjustedAmount.toFixed()).toBe('1.19'); // (0.7 + 0.5) - 0.01 = 1.19
+        expect(result.representativeTxId).toBe(1);
       }
     });
   });

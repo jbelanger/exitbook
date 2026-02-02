@@ -35,6 +35,7 @@ export {
   findPotentialMatches,
   shouldAutoConfirm,
   validateLinkAmounts,
+  validateLinkAmountsForMatch,
   convertToCandidates,
   separateSourcesAndTargets,
   deduplicateAndConfirm,

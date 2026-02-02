@@ -7,6 +7,7 @@ import type {
   LinkType,
   MatchCriteria,
   MatchingConfig,
+  OutflowGrouping,
   PotentialMatch,
   TransactionCandidate,
   TransactionLink,
@@ -522,6 +523,59 @@ export function calculateVarianceMetadata(
   };
 }
 
+const MAX_HASH_MATCH_TARGET_EXCESS_PCT = parseDecimal('1'); // Allow up to 1% target excess for hash matches (UTXO partial inputs)
+
+interface LinkAmountValidationInfo {
+  allowTargetExcess?:
+    | {
+        excess: Decimal;
+        excessPct: Decimal;
+      }
+    | undefined;
+}
+
+/**
+ * Validate link amounts with match context for hash matches.
+ *
+ * Allows small target>source variance when hashMatch is true (UTXO per-address data gaps).
+ */
+export function validateLinkAmountsForMatch(match: PotentialMatch): Result<LinkAmountValidationInfo, Error> {
+  const sourceAmount = match.sourceTransaction.amount;
+  const targetAmount = match.targetTransaction.amount;
+
+  const baseValidation = validateLinkAmounts(sourceAmount, targetAmount);
+  if (baseValidation.isOk()) {
+    return ok({});
+  }
+
+  if (sourceAmount.lte(0) || targetAmount.lte(0)) {
+    return err(baseValidation.error);
+  }
+
+  // Only consider override when target exceeds source and hash match is true
+  if (!targetAmount.gt(sourceAmount)) {
+    return err(baseValidation.error);
+  }
+
+  if (match.matchCriteria.hashMatch !== true) {
+    return err(baseValidation.error);
+  }
+
+  const excess = targetAmount.minus(sourceAmount);
+  const excessPct = excess.div(sourceAmount).times(100);
+
+  if (excessPct.gt(MAX_HASH_MATCH_TARGET_EXCESS_PCT)) {
+    return err(baseValidation.error);
+  }
+
+  return ok({
+    allowTargetExcess: {
+      excess,
+      excessPct,
+    },
+  });
+}
+
 /**
  * Aggregate inflow and outflow amounts by transaction and asset for a group.
  *
@@ -563,7 +617,7 @@ export function aggregateMovementsByTransaction(group: UniversalTransactionData[
 }
 
 /**
- * Calculate adjusted outflow amount for an asset by subtracting internal inflows.
+ * Calculate adjusted outflow amount for an asset by subtracting internal inflows and deduped fees.
  *
  * When a blockchain_internal cluster contains multiple wallet addresses involved in
  * related transactions, outflows may include internal transfers to other owned addresses.
@@ -574,22 +628,23 @@ export function aggregateMovementsByTransaction(group: UniversalTransactionData[
  * address (per-address model). If a processor records change within the same row,
  * this adjustment won't apply.
  *
- * When multiple outflows exist for the same asset, selects the largest outflow
- * deterministically (most likely to be the external transfer). Caller should log
- * a warning when multipleOutflows is true.
+ * When multiple outflows exist for the same asset, sums all outflows to represent
+ * the full external transfer for matching.
  *
  * @param assetSymbol - Asset to calculate adjustment for
  * @param group - Transactions connected by blockchain_internal links
  * @param inflowAmountsByTx - Aggregated inflow amounts
  * @param outflowAmountsByTx - Aggregated outflow amounts
- * @returns Transaction ID, adjusted amount, and ambiguity flag; or skip reason
+ * @returns Transaction ID, adjusted amount, ambiguity flag, and all group member IDs; or skip reason
  */
 export function calculateOutflowAdjustment(
   assetSymbol: string,
   group: UniversalTransactionData[],
   inflowAmountsByTx: Map<number, Map<string, Decimal>>,
   outflowAmountsByTx: Map<number, Map<string, Decimal>>
-): { adjustedAmount: Decimal; multipleOutflows: boolean; txId: number } | { skip: 'non-positive' | 'no-adjustment' } {
+):
+  | { adjustedAmount: Decimal; groupMemberIds: number[]; multipleOutflows: boolean; representativeTxId: number; }
+  | { skip: 'non-positive' | 'no-adjustment' } {
   const outflowTxs = group.filter((tx) => {
     const outflowMap = outflowAmountsByTx.get(tx.id);
     if (!outflowMap) return false;
@@ -604,48 +659,66 @@ export function calculateOutflowAdjustment(
     return amount ? amount.gt(0) : false;
   });
 
-  if (inflowTxs.length === 0) return { skip: 'no-adjustment' };
   if (outflowTxs.length === 0) return { skip: 'no-adjustment' };
 
   const multipleOutflows = outflowTxs.length > 1;
+  if (inflowTxs.length === 0 && !multipleOutflows) return { skip: 'no-adjustment' };
 
-  // When multiple outflows exist, select the largest one (most likely external transfer)
-  // Caller should log a warning since we can't be certain which is the external transfer
-  let outflowTx = outflowTxs[0];
-  let maxOutflowAmount = outflowAmountsByTx.get(outflowTx!.id)?.get(assetSymbol) ?? parseDecimal('0');
+  const sumGrossMovements = (movements: { assetSymbol: string; grossAmount: Decimal }[] | undefined): Decimal => {
+    let total = parseDecimal('0');
+    for (const movement of movements ?? []) {
+      if (movement.assetSymbol !== assetSymbol) continue;
+      total = total.plus(parseDecimal(movement.grossAmount));
+    }
+    return total;
+  };
 
-  if (multipleOutflows) {
-    for (const tx of outflowTxs) {
-      const amount = outflowAmountsByTx.get(tx.id)?.get(assetSymbol);
-      if (amount && amount.gt(maxOutflowAmount)) {
-        outflowTx = tx;
-        maxOutflowAmount = amount;
+  // For UTXO chains with multiple inputs/outputs in the same transaction:
+  // Sum ALL outflows and subtract ALL inflows (change) to get the true external transfer amount
+  // Assign this total to the transaction with the smallest ID for consistency
+  let totalOutflows = parseDecimal('0');
+  let selectedTx = outflowTxs[0]; // Default to first tx
+
+  for (const tx of outflowTxs) {
+    const amount = sumGrossMovements(tx.movements.outflows);
+    if (amount.gt(0)) {
+      totalOutflows = totalOutflows.plus(amount);
+      // Use smallest transaction ID for consistency
+      if (!selectedTx || tx.id < selectedTx.id) {
+        selectedTx = tx;
       }
     }
   }
 
-  if (!outflowTx) return { skip: 'no-adjustment' };
+  if (!selectedTx) return { skip: 'no-adjustment' };
 
-  const outflowMap = outflowAmountsByTx.get(outflowTx.id);
-  const outflowAmount = outflowMap?.get(assetSymbol);
-  if (!outflowAmount) return { skip: 'no-adjustment' };
+  // Collect all outflow transaction IDs in this group
+  // All outflows for this asset are part of the same UTXO transaction group
+  const groupMemberIds: number[] = outflowTxs.map((tx) => tx.id);
 
+  // Sum all internal inflows (change addresses)
   let totalInternalInflows = parseDecimal('0');
   for (const inflowTx of inflowTxs) {
-    if (inflowTx.id === outflowTx.id) continue;
-    const inflowMap = inflowAmountsByTx.get(inflowTx.id);
-    const inflowAmount = inflowMap?.get(assetSymbol);
-    if (inflowAmount) {
-      totalInternalInflows = totalInternalInflows.plus(inflowAmount);
+    const amount = sumGrossMovements(inflowTx.movements.inflows);
+    if (amount.gt(0)) totalInternalInflows = totalInternalInflows.plus(amount);
+  }
+
+  // Deduplicate on-chain fees (per-address processors may record fee per address)
+  let feeAmount = parseDecimal('0');
+  for (const tx of group) {
+    for (const fee of tx.fees ?? []) {
+      if (fee.assetSymbol !== assetSymbol) continue;
+      if (fee.settlement !== 'on-chain') continue;
+      const amount = parseDecimal(fee.amount);
+      if (amount.gt(feeAmount)) feeAmount = amount;
     }
   }
 
-  if (totalInternalInflows.lte(0)) return { skip: 'no-adjustment' };
-
-  const adjustedAmount = outflowAmount.minus(totalInternalInflows);
+  // Total external transfer = sum of all outflows - sum of all inflows (change)
+  const adjustedAmount = totalOutflows.minus(totalInternalInflows).minus(feeAmount);
   if (adjustedAmount.lte(0)) return { skip: 'non-positive' };
 
-  return { txId: outflowTx.id, adjustedAmount, multipleOutflows };
+  return { representativeTxId: selectedTx.id, adjustedAmount, multipleOutflows, groupMemberIds };
 }
 
 /**
@@ -655,13 +728,27 @@ export function calculateOutflowAdjustment(
  *
  * @param transactions - Universal transactions to convert
  * @param amountOverrides - Optional map of adjusted amounts for UTXO internal change
+ * @param outflowGroupings - Optional groupings of UTXO outflows (only representative gets a candidate)
  * @returns Array of transaction candidates
  */
 export function convertToCandidates(
   transactions: UniversalTransactionData[],
-  amountOverrides?: Map<number, Map<string, Decimal>>
+  amountOverrides?: Map<number, Map<string, Decimal>>,
+  outflowGroupings?: OutflowGrouping[]
 ): TransactionCandidate[] {
   const candidates: TransactionCandidate[] = [];
+
+  // Helper to check if a transaction/asset is a non-representative group member
+  const isNonRepresentativeGroupMember = (txId: number, assetSymbol: string): boolean => {
+    if (!outflowGroupings) return false;
+    for (const grouping of outflowGroupings) {
+      if (grouping.assetSymbol === assetSymbol && grouping.groupMemberIds.has(txId)) {
+        // This TX is in a group - only allow the representative
+        return txId !== grouping.representativeTxId;
+      }
+    }
+    return false;
+  };
 
   for (const tx of transactions) {
     // Create candidates for all inflows
@@ -684,6 +771,12 @@ export function convertToCandidates(
 
     // Create candidates for all outflows
     for (const outflow of tx.movements.outflows ?? []) {
+      // Skip non-representative members of UTXO outflow groups
+      // (their amounts are already summed into the representative's adjusted amount)
+      if (isNonRepresentativeGroupMember(tx.id, outflow.assetSymbol)) {
+        continue;
+      }
+
       const candidate: TransactionCandidate = {
         id: tx.id,
         externalId: tx.externalId,
@@ -833,13 +926,24 @@ export function createTransactionLink(
   const targetAmount = match.targetTransaction.amount;
 
   // Validate amounts
-  const validationResult = validateLinkAmounts(sourceAmount, targetAmount);
+  const validationResult = validateLinkAmountsForMatch(match);
   if (validationResult.isErr()) {
     return err(validationResult.error);
   }
 
   // Calculate variance metadata for debugging
   const varianceMetadata = calculateVarianceMetadata(sourceAmount, targetAmount);
+  const validationInfo = validationResult.value;
+  const metadata = {
+    ...varianceMetadata,
+    ...(validationInfo.allowTargetExcess
+      ? {
+          targetExcessAllowed: true,
+          targetExcess: validationInfo.allowTargetExcess.excess.toFixed(),
+          targetExcessPct: validationInfo.allowTargetExcess.excessPct.toFixed(2),
+        }
+      : {}),
+  };
 
   // Create link with all required fields
   return ok({
@@ -857,6 +961,6 @@ export function createTransactionLink(
     reviewedAt: status === 'confirmed' ? now : undefined,
     createdAt: now,
     updatedAt: now,
-    metadata: varianceMetadata,
+    metadata,
   });
 }

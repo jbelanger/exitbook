@@ -14,9 +14,9 @@ import {
   DEFAULT_MATCHING_CONFIG,
   findPotentialMatches,
   separateSourcesAndTargets,
-  validateLinkAmounts,
+  validateLinkAmountsForMatch,
 } from './matching-utils.js';
-import type { LinkingResult, MatchingConfig, PotentialMatch, TransactionLink } from './types.js';
+import type { LinkingResult, MatchingConfig, OutflowGrouping, PotentialMatch, TransactionLink } from './types.js';
 
 const UTXO_CHAIN_NAMES = new Set(['bitcoin', 'dogecoin', 'litecoin', 'bitcoin-cash', 'cardano']);
 
@@ -51,7 +51,10 @@ export class TransactionLinkingService {
       }
 
       // Build internal change adjustments based on blockchain_internal link clusters
-      const internalOutflowAdjustments = this.buildInternalOutflowAdjustments(transactions, internalLinks);
+      const { adjustments: internalOutflowAdjustments, outflowGroupings } = this.buildInternalOutflowAdjustments(
+        transactions,
+        internalLinks
+      );
       if (internalOutflowAdjustments.size > 0) {
         this.logger.info(
           { adjustmentCount: internalOutflowAdjustments.size },
@@ -60,7 +63,15 @@ export class TransactionLinkingService {
       }
 
       // Convert to candidates
-      const candidates = convertToCandidates(transactions, internalOutflowAdjustments);
+      if (outflowGroupings.length > 0) {
+        this.logger.info(
+          `Creating candidates with ${outflowGroupings.length} outflow groupings: ` +
+            outflowGroupings
+              .map((g) => `${g.assetSymbol} [${Array.from(g.groupMemberIds).join(', ')}] rep=${g.representativeTxId}`)
+              .join('; ')
+        );
+      }
+      const candidates = convertToCandidates(transactions, internalOutflowAdjustments, outflowGroupings);
       this.logger.debug({ candidateCount: candidates.length }, 'Converted transactions to candidates');
 
       // Separate into sources (withdrawals) and targets (deposits)
@@ -88,11 +99,32 @@ export class TransactionLinkingService {
         const linkResult = createTransactionLink(match, 'confirmed', uuidv4(), now);
         if (linkResult.isErr()) {
           this.logger.warn(
-            { error: linkResult.error.message, match },
-            'Failed to create confirmed link due to validation error - skipping'
+            `Failed to create confirmed link due to validation error - skipping | ` +
+              `Error: ${linkResult.error.message} | ` +
+              `Source TX: ${match.sourceTransaction.id} | ` +
+              `Target TX: ${match.targetTransaction.id} | ` +
+              `Asset: ${match.sourceTransaction.assetSymbol} | ` +
+              `Source Amount: ${match.sourceTransaction.amount.toFixed()} | ` +
+              `Target Amount: ${match.targetTransaction.amount.toFixed()} | ` +
+              `Link Type: ${match.linkType} | ` +
+              `Confidence: ${match.confidenceScore.toFixed()}`
           );
           filteredConfirmedCount++;
           continue;
+        }
+        if (linkResult.value.metadata?.targetExcessAllowed === true) {
+          this.logger.warn(
+            {
+              sourceTxId: linkResult.value.sourceTransactionId,
+              targetTxId: linkResult.value.targetTransactionId,
+              assetSymbol: linkResult.value.assetSymbol,
+              sourceAmount: linkResult.value.sourceAmount.toFixed(),
+              targetAmount: linkResult.value.targetAmount.toFixed(),
+              targetExcess: linkResult.value.metadata?.targetExcess,
+              targetExcessPct: linkResult.value.metadata?.targetExcessPct,
+            },
+            'Allowed hash-match link where target exceeds source within tolerance (UTXO partial inputs)'
+          );
         }
         confirmedLinks.push(linkResult.value);
         successfulConfirmedMatches.push(match);
@@ -112,11 +144,25 @@ export class TransactionLinkingService {
       const validSuggested: PotentialMatch[] = [];
       let filteredSuggestedCount = 0;
       for (const match of suggested) {
-        const validationResult = validateLinkAmounts(match.sourceTransaction.amount, match.targetTransaction.amount);
+        const validationResult = validateLinkAmountsForMatch(match);
         if (validationResult.isErr()) {
           this.logger.debug({ error: validationResult.error.message, match }, 'Filtered out invalid suggested match');
           filteredSuggestedCount++;
           continue;
+        }
+        if (validationResult.value.allowTargetExcess) {
+          this.logger.warn(
+            {
+              sourceTxId: match.sourceTransaction.id,
+              targetTxId: match.targetTransaction.id,
+              assetSymbol: match.sourceTransaction.assetSymbol,
+              sourceAmount: match.sourceTransaction.amount.toFixed(),
+              targetAmount: match.targetTransaction.amount.toFixed(),
+              targetExcess: validationResult.value.allowTargetExcess.excess.toFixed(),
+              targetExcessPct: validationResult.value.allowTargetExcess.excessPct.toFixed(2),
+            },
+            'Allowed hash-match suggested link where target exceeds source within tolerance (UTXO partial inputs)'
+          );
         }
         validSuggested.push(match);
       }
@@ -340,18 +386,19 @@ export class TransactionLinkingService {
    *
    * @param transactions - All transactions to analyze
    * @param internalLinks - blockchain_internal links for grouping
-   * @returns Map of transaction ID -> asset symbol -> adjusted amount
+   * @returns Adjustments map and outflow groupings for UTXO transactions
    */
   private buildInternalOutflowAdjustments(
     transactions: UniversalTransactionData[],
     internalLinks: TransactionLink[]
-  ): Map<number, Map<string, Decimal>> {
+  ): { adjustments: Map<number, Map<string, Decimal>>; outflowGroupings: OutflowGrouping[] } {
     const adjustments = new Map<number, Map<string, Decimal>>();
+    const outflowGroupings: OutflowGrouping[] = [];
     let nonPositiveCount = 0;
     let adjustmentCount = 0;
 
     if (internalLinks.length === 0) {
-      return adjustments;
+      return { adjustments, outflowGroupings };
     }
 
     const transactionsById = new Map<number, UniversalTransactionData>();
@@ -438,17 +485,26 @@ export class TransactionLinkingService {
           continue;
         }
 
-        // Warn when multiple outflows exist - we can't be certain which is external
+        // Info when multiple outflows exist - UTXO transaction with multiple inputs
         if (result.multipleOutflows) {
-          this.logger.warn(
-            { assetSymbol, selectedTxId: result.txId, adjustedAmount: result.adjustedAmount.toFixed() },
-            'Multiple outflows detected in cluster - selected largest outflow for adjustment (may be incorrect if largest is internal change)'
+          this.logger.info(
+            `Multiple outflows detected for ${assetSymbol} - summed all outflows and subtracted change | ` +
+              `Representative TX: ${result.representativeTxId} | ` +
+              `Group Members: [${result.groupMemberIds.join(', ')}] | ` +
+              `Adjusted Amount: ${result.adjustedAmount.toFixed()}`
           );
+
+          // Track this grouping so we can filter out non-representative members during candidate creation
+          outflowGroupings.push({
+            representativeTxId: result.representativeTxId,
+            groupMemberIds: new Set(result.groupMemberIds),
+            assetSymbol,
+          });
         }
 
-        const byAsset = adjustments.get(result.txId) ?? new Map<string, Decimal>();
+        const byAsset = adjustments.get(result.representativeTxId) ?? new Map<string, Decimal>();
         byAsset.set(assetSymbol, result.adjustedAmount);
-        adjustments.set(result.txId, byAsset);
+        adjustments.set(result.representativeTxId, byAsset);
         adjustmentCount++;
       }
     }
@@ -457,7 +513,7 @@ export class TransactionLinkingService {
       this.logger.info({ adjustmentCount, nonPositiveCount }, 'Internal outflow adjustment summary');
     }
 
-    return adjustments;
+    return { adjustments, outflowGroupings };
   }
 
   /**

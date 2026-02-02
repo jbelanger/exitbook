@@ -70,3 +70,13 @@ export type MatchingConfig = z.infer<typeof MatchingConfigSchema>;
  * - matchedTransactionCount: Total unique transactions involved in links (sources + targets)
  */
 export type LinkingResult = z.infer<typeof LinkingResultSchema>;
+
+/**
+ * Represents a group of UTXO outflow transactions that should be treated as one
+ * (e.g., multiple inputs from the same wallet going to one destination)
+ */
+export interface OutflowGrouping {
+  representativeTxId: number; // The TX that represents this group for matching
+  groupMemberIds: Set<number>; // All TX IDs in this group (including representative)
+  assetSymbol: string;
+}
