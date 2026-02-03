@@ -148,8 +148,8 @@ const ETHERSCAN_SUPPORTED_CHAINS = [
   },
   defaultConfig: {
     rateLimit: {
-      requestsPerSecond: 3,
-      requestsPerMinute: 180,
+      requestsPerSecond: 2,
+      requestsPerMinute: 120,
       requestsPerHour: 4000,
     },
     retries: 3,
