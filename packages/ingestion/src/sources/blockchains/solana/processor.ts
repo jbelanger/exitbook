@@ -137,6 +137,32 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         }
         const feeAssetId = feeAssetIdResult.value;
 
+        const fees =
+          shouldRecordFeeEntry && !parseDecimal(normalizedTx.feeAmount || '0').isZero()
+            ? [
+                {
+                  assetId: feeAssetId,
+                  assetSymbol: normalizedTx.feeCurrency || 'SOL',
+                  amount: parseDecimal(normalizedTx.feeAmount || '0'),
+                  scope: 'network',
+                  settlement: 'balance',
+                },
+              ]
+            : [];
+
+        if (inflows.length === 0 && outflows.length === 0 && fees.length === 0) {
+          this.logger.warn(
+            {
+              txId: normalizedTx.id,
+              eventId: normalizedTx.eventId,
+              feePayer: normalizedTx.feePayer,
+              status: normalizedTx.status,
+            },
+            'Skipping Solana transaction with no movements and no fees'
+          );
+          continue;
+        }
+
         // Convert to ProcessedTransaction with structured fields
         const universalTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
@@ -154,18 +180,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
             outflows,
           },
 
-          fees:
-            shouldRecordFeeEntry && !parseDecimal(normalizedTx.feeAmount || '0').isZero()
-              ? [
-                  {
-                    assetId: feeAssetId,
-                    assetSymbol: normalizedTx.feeCurrency || 'SOL',
-                    amount: parseDecimal(normalizedTx.feeAmount || '0'),
-                    scope: 'network',
-                    settlement: 'balance',
-                  },
-                ]
-              : [],
+          fees,
 
           operation: classification.operation,
 
