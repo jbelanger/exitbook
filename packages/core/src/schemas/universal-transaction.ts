@@ -246,11 +246,20 @@ export const TransactionNoteSchema = z.object({
   metadata: z.record(z.string(), z.any()).optional(),
 });
 
-// Universal Transaction schema (new structure)
-export const UniversalTransactionSchema = z.object({
+const hasAccountingImpact = (data: {
+  fees?: unknown[] | undefined;
+  movements: { inflows?: unknown[] | undefined; outflows?: unknown[] | undefined };
+}): boolean => {
+  const hasInflows = (data.movements.inflows?.length ?? 0) > 0;
+  const hasOutflows = (data.movements.outflows?.length ?? 0) > 0;
+  const hasFees = (data.fees?.length ?? 0) > 0;
+  return hasInflows || hasOutflows || hasFees;
+};
+
+// Base transaction schema (without id and accountId)
+// Used for ProcessedTransaction type in processors before saving to database
+const BaseUniversalTransactionObjectSchema = z.object({
   // Core fields
-  id: z.number().int().positive(),
-  accountId: z.number().int().positive(),
   externalId: z.string().min(1, 'Transaction ID must not be empty'),
   datetime: z.string().min(1, 'Datetime string must not be empty'),
   timestamp: z.number().int().positive('Timestamp must be a positive integer'),
@@ -294,6 +303,27 @@ export const UniversalTransactionSchema = z.object({
   // Accounting exclusion
   excludedFromAccounting: z.boolean().optional(),
 });
+
+const accountingImpactValidation = {
+  message:
+    'Transaction must have at least one movement (inflow/outflow) or fee entry. ' +
+    'Transactions with no accounting impact should not be stored.',
+};
+
+const BaseUniversalTransactionSchema = BaseUniversalTransactionObjectSchema.refine(
+  (data) => hasAccountingImpact(data),
+  accountingImpactValidation
+);
+
+// Universal Transaction schema (full version with id and accountId)
+// Used for database storage and retrieval
+export const UniversalTransactionSchema = BaseUniversalTransactionObjectSchema.extend({
+  id: z.number().int().positive(),
+  accountId: z.number().int().positive(),
+}).refine((data) => hasAccountingImpact(data), accountingImpactValidation);
+
+// Export base schema for use in processors (ProcessedTransaction type)
+export { BaseUniversalTransactionSchema };
 
 // Universal Balance schema
 export const UniversalBalanceSchema = z

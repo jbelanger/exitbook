@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseDecimal } from '../../utils/decimal-utils.ts';
-import { AssetMovementSchema, FeeMovementSchema } from '../universal-transaction.js';
+import { AssetMovementSchema, FeeMovementSchema, UniversalTransactionSchema } from '../universal-transaction.js';
 
 describe('AssetMovementSchema', () => {
   describe('assetId validation', () => {
@@ -164,6 +164,133 @@ describe('FeeMovementSchema', () => {
       if (!result.success) {
         expect(result.error.issues[0]?.message).toContain('Token reference');
       }
+    });
+  });
+});
+
+describe('UniversalTransactionSchema', () => {
+  describe('empty transaction validation', () => {
+    it('rejects transaction with no movements and no fees', () => {
+      const transaction = {
+        id: 1,
+        accountId: 1,
+        externalId: 'test-tx-1',
+        datetime: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'solana',
+        sourceType: 'blockchain' as const,
+        status: 'success' as const,
+        movements: {
+          inflows: [],
+          outflows: [],
+        },
+        fees: [],
+        operation: {
+          category: 'fee' as const,
+          type: 'fee' as const,
+        },
+      };
+
+      const result = UniversalTransactionSchema.safeParse(transaction);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toContain('at least one movement');
+      }
+    });
+
+    it('accepts transaction with only inflows', () => {
+      const transaction = {
+        id: 1,
+        accountId: 1,
+        externalId: 'test-tx-2',
+        datetime: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'solana',
+        sourceType: 'blockchain' as const,
+        status: 'success' as const,
+        movements: {
+          inflows: [
+            {
+              assetId: 'blockchain:solana:native',
+              assetSymbol: 'SOL',
+              grossAmount: parseDecimal('1.0'),
+            },
+          ],
+          outflows: [],
+        },
+        fees: [],
+        operation: {
+          category: 'transfer' as const,
+          type: 'deposit' as const,
+        },
+      };
+
+      const result = UniversalTransactionSchema.safeParse(transaction);
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts transaction with only outflows', () => {
+      const transaction = {
+        id: 1,
+        accountId: 1,
+        externalId: 'test-tx-3',
+        datetime: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'solana',
+        sourceType: 'blockchain' as const,
+        status: 'success' as const,
+        movements: {
+          inflows: [],
+          outflows: [
+            {
+              assetId: 'blockchain:solana:native',
+              assetSymbol: 'SOL',
+              grossAmount: parseDecimal('0.5'),
+            },
+          ],
+        },
+        fees: [],
+        operation: {
+          category: 'transfer' as const,
+          type: 'withdrawal' as const,
+        },
+      };
+
+      const result = UniversalTransactionSchema.safeParse(transaction);
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts transaction with only fees (fee-only transaction)', () => {
+      const transaction = {
+        id: 1,
+        accountId: 1,
+        externalId: 'test-tx-4',
+        datetime: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'solana',
+        sourceType: 'blockchain' as const,
+        status: 'success' as const,
+        movements: {
+          inflows: [],
+          outflows: [],
+        },
+        fees: [
+          {
+            assetId: 'blockchain:solana:native',
+            assetSymbol: 'SOL',
+            amount: parseDecimal('0.000005'),
+            scope: 'network' as const,
+            settlement: 'balance' as const,
+          },
+        ],
+        operation: {
+          category: 'fee' as const,
+          type: 'fee' as const,
+        },
+      };
+
+      const result = UniversalTransactionSchema.safeParse(transaction);
+      expect(result.success).toBe(true);
     });
   });
 });

@@ -1,4 +1,4 @@
-import { UniversalTransactionSchema } from '@exitbook/core';
+import { BaseUniversalTransactionSchema } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import type z from 'zod';
 
@@ -22,10 +22,9 @@ export interface ProcessingContext {
   userAddresses: string[];
 }
 
-export const ProcessedTransactionSchema = UniversalTransactionSchema.omit({
-  id: true,
-  accountId: true,
-});
+// Use BaseUniversalTransactionSchema which excludes id and accountId
+// (processors emit transactions before they're saved to the database)
+export const ProcessedTransactionSchema = BaseUniversalTransactionSchema;
 export type ProcessedTransaction = z.infer<typeof ProcessedTransactionSchema>;
 
 /**
