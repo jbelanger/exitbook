@@ -31,8 +31,21 @@ export interface DashboardState {
   startedAt?: number | undefined;
   completedAt?: number | undefined;
 
-  // Event log (last 5 events)
+  // Event log (unlimited events for scrollback)
   events: EventLogEntry[];
+
+  // Current activity for contextual spinner
+  currentActivity?:
+    | {
+        operation: string; // e.g., "Fetching normal txs"
+        provider: string; // e.g., "etherscan" or "__processing__"
+        streamType?: string | undefined; // e.g., "normal", "token"
+      }
+    | undefined;
+
+  // Processing counters for progressive stats
+  duplicates: number;
+  skipped: number;
 
   // Metadata stats (accumulated from metadata.batch.completed events)
   metadataStats: {
@@ -57,9 +70,6 @@ export interface DashboardState {
 
   // Completion flag
   isComplete: boolean;
-
-  // UI state
-  activityExpanded: boolean;
 }
 
 /**
@@ -76,6 +86,9 @@ export function createDashboardState(): DashboardState {
     startedAt: undefined,
     completedAt: undefined,
     events: [],
+    currentActivity: undefined,
+    duplicates: 0,
+    skipped: 0,
     metadataStats: {
       cacheHits: 0,
       cacheMisses: 0,
@@ -88,7 +101,6 @@ export function createDashboardState(): DashboardState {
     providerEventCooldowns: new Map(),
     streamImportCounts: new Map(),
     isComplete: false,
-    activityExpanded: false,
   };
 }
 
@@ -114,11 +126,16 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
       const currentStreamCount = state.streamImportCounts.get(event.streamType) ?? 0;
       state.streamImportCounts.set(event.streamType, currentStreamCount + event.batchInserted);
 
+      // Log batch progress if items were inserted
+      if (event.batchInserted > 0) {
+        addToEventLog(state, '↓', `${event.streamType}: +${event.batchInserted} (${event.totalImported} total)`);
+      }
+
       if (event.isComplete) {
         // Stream completed - check if any new records were imported for this stream
         const streamTotal = state.streamImportCounts.get(event.streamType) ?? 0;
         if (streamTotal === 0) {
-          addToEventLog(state, '✓', `${event.streamType}: No new records found`);
+          addToEventLog(state, '✓', `${event.streamType}: No records found`);
         }
       }
       break;
@@ -130,6 +147,11 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
 
     case 'import.completed':
       // Import complete, processing will start next
+      state.currentActivity = {
+        operation: 'Processing transactions',
+        provider: '__processing__',
+      };
+      addToEventLog(state, '✓', 'Import Complete');
       break;
 
     case 'import.failed':
@@ -149,6 +171,7 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
       state.processed = event.totalProcessed;
       state.completedAt = Date.now();
       state.isComplete = true;
+      if (event.totalProcessed > 0) addToEventLog(state, '✓', 'Processing Complete');
       break;
 
     case 'process.failed':
@@ -182,12 +205,21 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
       // Show event if scams were detected
       if (event.scamsFound > 0) {
         const examples = event.exampleSymbols.slice(0, 2).join(', ');
-        addToEventLog(state, '🚫', `Filtered ${event.scamsFound} scam${event.scamsFound > 1 ? 's' : ''} (${examples})`);
+        addToEventLog(
+          state,
+          '🚫',
+          `Batch #${event.batchNumber}: Filtered ${event.scamsFound} scam${event.scamsFound > 1 ? 's' : ''} (${examples})`
+        );
       }
       break;
     }
 
     case 'provider.resume':
+      state.currentActivity = {
+        operation: event.streamType ? `Fetching ${event.streamType}` : 'Fetching',
+        provider: event.provider,
+        streamType: event.streamType,
+      };
       addToEventLog(state, '↻', formatProviderResumeMessage(event.streamType, event.provider));
       break;
 
@@ -213,10 +245,18 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
       break;
 
     case 'process.batch.completed':
-      // Intentionally quiet: batch-level progress is too noisy for activity log
+      addToEventLog(
+        state,
+        '✓',
+        `Batch #${event.batchNumber}: ${event.batchSize} items (${event.pendingCount} pending)`
+      );
       break;
+
     case 'provider.selection':
-      // Intentionally quiet: provider selection is shown in other dashboard sections
+      state.currentActivity = {
+        operation: 'Fetching',
+        provider: event.selected,
+      };
       break;
 
     // Silently handled events (no state updates needed)
@@ -239,7 +279,7 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
 }
 
 /**
- * Add event to the event log (keeps last 5 events).
+ * Add event to the event log (unlimited events for scrollback).
  */
 function addToEventLog(state: DashboardState, icon: string, message: string): void {
   state.events.push({
@@ -247,11 +287,6 @@ function addToEventLog(state: DashboardState, icon: string, message: string): vo
     icon,
     message,
   });
-
-  // Keep only last 5 events
-  if (state.events.length > 5) {
-    state.events.splice(0, state.events.length - 5);
-  }
 }
 
 function formatProviderResumeMessage(streamType: string | undefined, provider: string): string {

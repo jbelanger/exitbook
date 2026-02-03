@@ -378,7 +378,7 @@ describe('scam-detection-utils', () => {
         expect(result?.metadata?.indicators).toContain('Unsolicited airdrop');
       });
 
-      it('should add warning for airdrop alone without other indicators', () => {
+      it('should NOT flag airdrop alone without other indicators (unknown verification)', () => {
         const metadata: TokenMetadataRecord = {
           blockchain: 'ethereum',
           contractAddress,
@@ -386,6 +386,27 @@ describe('scam-detection-utils', () => {
           refreshedAt: new Date(),
           source: 'helius',
           symbol: 'LGT',
+          // verifiedContract is undefined (unknown)
+        };
+
+        const result = detectScamToken(contractAddress, metadata, {
+          amount: new Decimal(1000000),
+          isAirdrop: true,
+        });
+
+        // Should not be flagged - legitimate airdrops happen
+        expect(result).toBeUndefined();
+      });
+
+      it('should flag unverified contract with airdrop as error', () => {
+        const metadata: TokenMetadataRecord = {
+          blockchain: 'ethereum',
+          contractAddress,
+          name: 'Legitimate Token',
+          refreshedAt: new Date(),
+          source: 'helius',
+          symbol: 'LGT',
+          verifiedContract: false, // Explicitly unverified
         };
 
         const result = detectScamToken(contractAddress, metadata, {
@@ -394,8 +415,29 @@ describe('scam-detection-utils', () => {
         });
 
         expect(result).toBeDefined();
-        expect(result?.severity).toBe('warning');
-        expect(result?.metadata?.indicators).toContain('Unsolicited airdrop (verify legitimacy)');
+        expect(result?.severity).toBe('error');
+        expect(result?.metadata?.indicators).toContain('Unverified contract with unsolicited airdrop');
+        expect(result?.metadata?.detectionSource).toBe('heuristic');
+      });
+
+      it('should NOT flag verified contract with airdrop', () => {
+        const metadata: TokenMetadataRecord = {
+          blockchain: 'ethereum',
+          contractAddress,
+          name: 'Legitimate Token',
+          refreshedAt: new Date(),
+          source: 'helius',
+          symbol: 'LGT',
+          verifiedContract: true, // Verified contract
+        };
+
+        const result = detectScamToken(contractAddress, metadata, {
+          amount: new Decimal(1000000),
+          isAirdrop: true,
+        });
+
+        // Verified contracts with no other indicators should not be flagged
+        expect(result).toBeUndefined();
       });
 
       it('should not flag airdrop when amount is 0', () => {

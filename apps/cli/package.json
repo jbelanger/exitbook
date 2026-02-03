@@ -37,6 +37,7 @@
     "@exitbook/price-providers": "workspace:*",
     "commander": "^14.0.0",
     "ink": "^6.6.0",
+    "ink-spinner": "^5.0.0",
     "libsodium-sumo": "^0.8.1",
     "libsodium-wrappers-sumo": "^0.8.1",
     "neverthrow": "^8.2.0",

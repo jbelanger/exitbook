@@ -142,24 +142,6 @@ Scams Filtered:  14 rejected (Silly, Cancy)
 
 ## Implementation Notes
 
-### What Changes
-
-- Remove phase switching (no import/process/complete phases)
-- Merge into single `renderDashboard()` method
-- Remove box scaffolding (┌─ HEADER ─┐, ┌─ BODY ─┐)
-- Increase event log from 3 → 5 events
-- Add overflow indicator to activity section
-- Add REQUESTS column to provider table (status code breakdown)
-- Add account ID to header
-- Final stats appear below activity log (not separate summary)
-
-### What Stays
-
-- Event system (all events already exist)
-- Instrumentation collector (already tracking all requests)
-- Provider state aggregation (VelocityTracker, ProviderStateAggregator)
-- Event log persistence across run lifecycle
-
 ### Display Rules
 
 - **Provider ordering**: Alphabetical by provider name (static, never re-sort during run)

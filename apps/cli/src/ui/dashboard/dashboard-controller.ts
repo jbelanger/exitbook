@@ -130,13 +130,6 @@ export class DashboardController {
   }
 
   /**
-   * Toggle activity log expansion.
-   */
-  private toggleActivityExpansion = (): void => {
-    this.state.activityExpanded = !this.state.activityExpanded;
-  };
-
-  /**
    * Render the dashboard using Ink.
    */
   private renderDashboard(): void {
@@ -155,7 +148,6 @@ export class DashboardController {
         state: this.state,
         metrics,
         instrumentation: this.instrumentation,
-        onToggleActivity: this.toggleActivityExpansion,
       });
 
       // Render or rerender

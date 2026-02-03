@@ -1,6 +1,6 @@
 import type { InstrumentationCollector } from '@exitbook/http';
-import { Box, Text, useInput } from 'ink';
-import pc from 'picocolors';
+import { Box, Text } from 'ink';
+import Spinner from 'ink-spinner';
 import React from 'react';
 
 import { CLI_VERSION } from '../../index.js';
@@ -17,40 +17,54 @@ interface DashboardProps {
   state: DashboardState;
   metrics: ProviderMetrics;
   instrumentation: InstrumentationCollector;
-  onToggleActivity: () => void;
 }
 
 /**
  * Main dashboard component.
  * Uses Ink for flexible, dynamic layouts without line counting.
  */
-export const Dashboard: React.FC<DashboardProps> = ({ state, metrics, instrumentation, onToggleActivity }) => {
-  // Handle keyboard input
-  useInput((input, key) => {
-    if (key.ctrl && input === 'o') {
-      onToggleActivity();
-    }
-  });
-
+export const Dashboard: React.FC<DashboardProps> = ({ state, metrics, instrumentation }) => {
   return (
-    <Box
-      flexDirection="column"
-      gap={1}
-    >
+    <Box flexDirection="column">
       <Text dimColor>{'─'.repeat(80)}</Text>
       <Header state={state} />
-      <StatusLine
+
+      {/* Event log */}
+      {state.events.map((event, index) => (
+        <Text
+          key={index}
+          dimColor
+        >
+          {'  '}
+          {formatTimestamp(event.timestamp)} {event.icon} {event.message}
+        </Text>
+      ))}
+
+      {/* Contextual spinner (only during run) */}
+      {!state.isComplete && state.currentActivity && (
+        <SpinnerLine
+          activity={state.currentActivity}
+          instrumentation={instrumentation}
+          state={state}
+        />
+      )}
+
+      {/* Completion sections */}
+      {state.isComplete && (
+        <>
+          <Text> </Text>
+          {metrics.providers.length > 0 && <CompletionProviderTable metrics={metrics} />}
+          <Text> </Text>
+          <FinalStats state={state} />
+        </>
+      )}
+
+      {/* Separator and stats always at bottom */}
+      <Text dimColor>{'─'.repeat(80)}</Text>
+      <StatsLine
         state={state}
         instrumentation={instrumentation}
       />
-      {metrics.providers.length > 0 && <ProviderTable metrics={metrics} />}
-      {state.events.length > 0 && (
-        <RecentActivity
-          events={state.events}
-          expanded={state.activityExpanded}
-        />
-      )}
-      {state.isComplete ? <FinalStats state={state} /> : <Controls />}
     </Box>
   );
 };
@@ -78,49 +92,106 @@ const Header: React.FC<{ state: DashboardState }> = ({ state }) => {
 };
 
 /**
- * Status line with counters.
- * Example: 1,234 imported  •  1,234 processed  •  1,340 API calls  •  00:08 elapsed
+ * Contextual spinner line with live metrics.
  */
-const StatusLine: React.FC<{ instrumentation: InstrumentationCollector; state: DashboardState }> = ({
-  state,
-  instrumentation,
-}) => {
+const SpinnerLine: React.FC<{
+  activity: NonNullable<DashboardState['currentActivity']>;
+  instrumentation: InstrumentationCollector;
+  state: DashboardState;
+}> = ({ activity, instrumentation, state }) => {
+  let message: string;
+
+  // Processing phase (local, no API metrics)
+  if (activity.provider === '__processing__') {
+    message = `${activity.operation} (${formatNumber(state.processed)})`;
+  }
+  // Import phase (API providers with metrics)
+  else {
+    const { avgLatencyMs, reqPerSec } = getSpinnerMetrics(activity.provider, instrumentation);
+    const _streamType = activity.streamType || 'data';
+    message = `${activity.operation} from ${activity.provider} (avg ${avgLatencyMs}ms, ${reqPerSec.toFixed(0)} req/s)`;
+  }
+
+  return (
+    <Box>
+      <Text
+        bold
+        color="cyan"
+      >
+        <Spinner type="dots" /> {message}
+      </Text>
+    </Box>
+  );
+};
+
+function getSpinnerMetrics(
+  provider: string,
+  instrumentation: InstrumentationCollector
+): { avgLatencyMs: number; reqPerSec: number } {
+  const now = Date.now();
+  const windowStart = now - 5000; // 5-second window
+
+  const recentMetrics = instrumentation
+    .getMetrics()
+    .filter((m) => m.provider === provider && m.timestamp >= windowStart && m.status >= 200 && m.status < 300);
+
+  const avgLatencyMs =
+    recentMetrics.length > 0
+      ? Math.round(recentMetrics.reduce((sum, m) => sum + m.durationMs, 0) / recentMetrics.length)
+      : 0;
+
+  const reqPerSec = recentMetrics.length / 5;
+
+  return { avgLatencyMs, reqPerSec };
+}
+
+/**
+ * Progressive stats line (updates during run).
+ */
+const StatsLine: React.FC<{
+  instrumentation: InstrumentationCollector;
+  state: DashboardState;
+}> = ({ state, instrumentation }) => {
   const parts: string[] = [];
 
+  // Elapsed time
+  if (state.startedAt) {
+    const elapsed =
+      state.isComplete && state.completedAt ? state.completedAt - state.startedAt : Date.now() - state.startedAt;
+    parts.push(formatElapsedTime(elapsed));
+  }
+
+  // Core counters
   parts.push(`${formatNumber(state.imported)} imported`);
   parts.push(`${formatNumber(state.processed)} processed`);
 
   const apiCalls = instrumentation.getMetrics().length;
   parts.push(`${formatNumber(apiCalls)} API calls`);
 
-  if (state.startedAt) {
-    const elapsed =
-      state.isComplete && state.completedAt ? state.completedAt - state.startedAt : Date.now() - state.startedAt;
-    parts.push(`${formatElapsedTime(elapsed)} elapsed`);
+  // Progressive fields (only if > 0)
+  if (state.duplicates > 0) {
+    parts.push(`${formatNumber(state.duplicates)} duplicates`);
   }
-
-  if (state.isComplete) {
-    parts.push('✓');
+  if (state.skipped > 0) {
+    parts.push(`${formatNumber(state.skipped)} skipped`);
   }
 
   return <Text>{parts.join('  •  ')}</Text>;
 };
 
 /**
- * Provider table component.
+ * Completion provider table (only shown after completion).
  */
-const ProviderTable: React.FC<{ metrics: ProviderMetrics }> = ({ metrics }) => {
+const CompletionProviderTable: React.FC<{ metrics: ProviderMetrics }> = ({ metrics }) => {
   return (
     <Box flexDirection="column">
+      {/* Header */}
       <Box>
-        <Box width={28}>
-          <Text>ACTIVE PROVIDERS</Text>
+        <Box width={20}>
+          <Text>PROVIDERS</Text>
         </Box>
         <Box width={10}>
           <Text>LATENCY</Text>
-        </Box>
-        <Box width={10}>
-          <Text>RATE</Text>
         </Box>
         <Box width={12}>
           <Text>THROTTLES</Text>
@@ -129,85 +200,26 @@ const ProviderTable: React.FC<{ metrics: ProviderMetrics }> = ({ metrics }) => {
           <Text>REQUESTS</Text>
         </Box>
       </Box>
+
+      {/* Rows */}
       {metrics.providers.map((provider) => (
-        <ProviderRow
-          key={provider.name}
-          provider={provider}
-        />
-      ))}
-    </Box>
-  );
-};
-
-/**
- * Single provider row.
- */
-const ProviderRow: React.FC<{ provider: ProviderMetrics['providers'][0] }> = ({ provider }) => {
-  // Determine status indicator based on circuit state
-  let statusIndicator: string;
-  if (provider.circuitState === 'open') {
-    statusIndicator = pc.red('●'); // Circuit breaker tripped
-  } else if (provider.circuitState === 'half-open') {
-    statusIndicator = pc.yellow('●'); // Testing recovery
-  } else if (provider.status === 'ACTIVE') {
-    statusIndicator = pc.green('●'); // Healthy and active
-  } else {
-    statusIndicator = pc.dim('●'); // Idle
-  }
-
-  const latency = provider.latencyMs !== undefined ? `${provider.latencyMs}ms` : '—';
-  const rate = provider.requestsPerSecond > 0 ? `${provider.requestsPerSecond.toFixed(0)} req/s` : '0 req/s';
-  const throttles = String(provider.throttles);
-  const requests = formatRequestBreakdown(provider.requestsByStatus);
-  const isDimmed = provider.status === 'IDLE';
-
-  return (
-    <Box>
-      <Box width={28}>
-        <Text dimColor={isDimmed}>
-          {'  '}
-          {provider.name.padEnd(12)} {statusIndicator} {provider.status}
-        </Text>
-      </Box>
-      <Box width={10}>
-        <Text dimColor={isDimmed}>{latency}</Text>
-      </Box>
-      <Box width={10}>
-        <Text dimColor={isDimmed}>{rate}</Text>
-      </Box>
-      <Box width={12}>
-        <Text dimColor={isDimmed}>{throttles}</Text>
-      </Box>
-      <Box>
-        <Text dimColor={isDimmed}>{requests}</Text>
-      </Box>
-    </Box>
-  );
-};
-
-/**
- * Recent activity section.
- */
-const RecentActivity: React.FC<{ events: DashboardState['events']; expanded: boolean }> = ({ events, expanded }) => {
-  const MAX_EVENTS = 10;
-  const displayEvents = expanded ? events : events.slice(-MAX_EVENTS);
-  const overflow = expanded ? 0 : events.length - displayEvents.length;
-
-  let header = 'RECENT ACTIVITY';
-  if (expanded && events.length > MAX_EVENTS) {
-    header = `RECENT ACTIVITY (all ${events.length} events)`;
-  } else if (overflow > 0) {
-    header = `RECENT ACTIVITY (${overflow} earlier events)`;
-  }
-
-  return (
-    <Box flexDirection="column">
-      <Text>{header}</Text>
-      {displayEvents.map((event, idx) => (
-        <Text key={idx}>
-          {'  '}
-          {formatTimestamp(event.timestamp)} {event.icon} {event.message}
-        </Text>
+        <Box key={provider.name}>
+          <Box width={20}>
+            <Text>
+              {'  '}
+              {provider.name}
+            </Text>
+          </Box>
+          <Box width={10}>
+            <Text>{provider.latencyMs ? `${provider.latencyMs}ms` : '—'}</Text>
+          </Box>
+          <Box width={12}>
+            <Text>{provider.throttles}</Text>
+          </Box>
+          <Box>
+            <Text>{formatRequestBreakdown(provider.requestsByStatus)}</Text>
+          </Box>
+        </Box>
       ))}
     </Box>
   );
@@ -244,11 +256,4 @@ const FinalStats: React.FC<{ state: DashboardState }> = ({ state }) => {
       ))}
     </Box>
   );
-};
-
-/**
- * Controls footer.
- */
-const Controls: React.FC = () => {
-  return <Text>[CTRL+O] Expand Activity • [CTRL+C] Abort</Text>;
 };
