@@ -92,6 +92,20 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor {
         const hasOutflow = fundFlow.isOutgoing && !transferAmount.isZero();
         const hasInflow = fundFlow.isIncoming && !netAmount.isZero();
 
+        // Skip transactions with no accounting impact (no movements and no fees)
+        // These are either external transactions that don't affect the wallet,
+        // or failed transactions with no balance change
+        if (!hasOutflow && !hasInflow && !shouldRecordFeeEntry) {
+          this.logger.debug(
+            {
+              txId: normalizedTx.id,
+              status: normalizedTx.status,
+            },
+            'Skipping transaction with no accounting impact'
+          );
+          continue;
+        }
+
         const universalTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),

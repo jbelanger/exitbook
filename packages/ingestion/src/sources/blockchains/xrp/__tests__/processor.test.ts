@@ -147,14 +147,9 @@ describe('XrpTransactionProcessor', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const [transaction] = result.value;
-    expect(transaction).toBeDefined();
-    if (!transaction) return;
-
-    // No balance change for wallet, no fees recorded
-    expect(transaction.fees).toHaveLength(0);
-    expect(transaction.movements.outflows).toHaveLength(0);
-    expect(transaction.movements.inflows).toHaveLength(0);
+    // External transaction with no balance change for wallet should be filtered out
+    // (no accounting impact on the wallet)
+    expect(result.value).toHaveLength(0);
   });
 
   test('multiple transactions in batch', async () => {
@@ -240,10 +235,9 @@ describe('XrpTransactionProcessor', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const [transaction] = result.value;
-    expect(transaction).toBeDefined();
-    expect(transaction?.status).toBe('failed');
-    expect(transaction?.blockchain?.is_confirmed).toBe(false);
+    // Failed transaction with no balance change should be filtered out
+    // (no accounting impact - no fee was actually charged)
+    expect(result.value).toHaveLength(0);
   });
 
   test('constructs correct blockchain metadata', async () => {

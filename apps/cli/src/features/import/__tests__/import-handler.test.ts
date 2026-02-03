@@ -52,6 +52,7 @@ describe('ImportHandler', () => {
 
     mockProcessService = {
       processAccountTransactions: vi.fn(),
+      processImportedSessions: vi.fn(),
     };
 
     mockProviderManager = {
@@ -249,7 +250,7 @@ describe('ImportHandler', () => {
         },
       ];
 
-      (mockProcessService.processAccountTransactions as Mock).mockResolvedValue(
+      (mockProcessService.processImportedSessions as Mock).mockResolvedValue(
         ok({
           processed: 50,
           errors: [],
@@ -264,7 +265,7 @@ describe('ImportHandler', () => {
         processingErrors: [],
       });
 
-      expect(mockProcessService.processAccountTransactions).toHaveBeenCalledWith(1);
+      expect(mockProcessService.processImportedSessions).toHaveBeenCalledWith([1]);
     });
 
     it('should return processing errors when present', async () => {
@@ -281,7 +282,7 @@ describe('ImportHandler', () => {
       ];
 
       const processingErrors = ['Error 1', 'Error 2', 'Error 3'];
-      (mockProcessService.processAccountTransactions as Mock).mockResolvedValue(
+      (mockProcessService.processImportedSessions as Mock).mockResolvedValue(
         ok({
           processed: 47,
           errors: processingErrors,
@@ -311,7 +312,7 @@ describe('ImportHandler', () => {
       ];
 
       const processingError = new Error('Processing failed');
-      (mockProcessService.processAccountTransactions as Mock).mockResolvedValue(err(processingError));
+      (mockProcessService.processImportedSessions as Mock).mockResolvedValue(err(processingError));
 
       const result = await handler.processImportedSessions(sessions);
 
@@ -332,6 +333,13 @@ describe('ImportHandler', () => {
         },
       ];
 
+      (mockProcessService.processImportedSessions as Mock).mockResolvedValue(
+        ok({
+          processed: 0,
+          errors: [],
+        })
+      );
+
       const result = await handler.processImportedSessions(sessions);
 
       expect(result.isOk()).toBe(true);
@@ -340,7 +348,7 @@ describe('ImportHandler', () => {
         processingErrors: [],
       });
 
-      expect(mockProcessService.processAccountTransactions).not.toHaveBeenCalled();
+      expect(mockProcessService.processImportedSessions).toHaveBeenCalledWith([1]);
     });
   });
 
