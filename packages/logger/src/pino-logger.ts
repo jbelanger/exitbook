@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import os from 'node:os';
+import { Writable } from 'node:stream';
 
 import pino from 'pino';
 
@@ -66,8 +67,12 @@ function createRootLogger(): Logger {
   // Build transport targets array
   const transportTargets: TransportTarget[] = [];
 
+  // Skip all transports in test environment to avoid spawning worker threads
+  // Check both the validated env and process.env (in case vitest sets it after module load)
+  const isTestEnv = env.NODE_ENV === 'test' || process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+
   // In development, use pino-pretty for human-readable logs
-  if (transportMode.console) {
+  if (transportMode.console && !isTestEnv) {
     if (env.NODE_ENV === 'development') {
       transportTargets.push({
         level: 'trace',
@@ -91,7 +96,7 @@ function createRootLogger(): Logger {
   }
 
   // Optional file log for non-audit structured output (JSON)
-  if (transportMode.file) {
+  if (transportMode.file && !isTestEnv) {
     transportTargets.push({
       level: 'trace',
       options: {
@@ -103,7 +108,7 @@ function createRootLogger(): Logger {
   }
 
   // Add audit log transport if enabled (same for both environments)
-  if (env.LOGGER_AUDIT_LOG_ENABLED) {
+  if (env.LOGGER_AUDIT_LOG_ENABLED && !isTestEnv) {
     transportTargets.push({
       level: 'audit',
       options: {
@@ -131,9 +136,23 @@ function createRootLogger(): Logger {
     useOnlyCustomLevels: true,
   };
 
-  pinoConfig.transport = { targets: transportTargets };
+  let pinoLogger: pino.Logger<'audit'>;
 
-  const pinoLogger = pino.pino<'audit'>(pinoConfig);
+  // In test mode, use a noop stream to completely suppress all output
+  if (isTestEnv) {
+    const noopStream = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback();
+      },
+    });
+    pinoLogger = pino.pino<'audit'>(pinoConfig, noopStream);
+  } else {
+    // Only set transport if we have targets (avoids spawning workers in test mode)
+    if (transportTargets.length > 0) {
+      pinoConfig.transport = { targets: transportTargets };
+    }
+    pinoLogger = pino.pino<'audit'>(pinoConfig);
+  }
 
   return pinoLogger as Logger;
 }

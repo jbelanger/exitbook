@@ -15,7 +15,8 @@ export const loggerEnvSchema = z.object({
   LOGGER_AUDIT_LOG_DIRNAME: z.string().trim().min(1, { message: 'Invalid audit log directory name' }).default('logs'),
   LOGGER_AUDIT_LOG_ENABLED: z
     .string()
-    .default('true')
+    // Default to false in test environment to avoid spawning worker threads during tests
+    .default(process.env.NODE_ENV === 'test' ? 'false' : 'true')
     .transform((val: string) => val === 'true'),
   LOGGER_AUDIT_LOG_FILENAME: z.string().trim().min(1, { message: 'Invalid audit log file name' }).default('audit'),
   LOGGER_AUDIT_LOG_RETENTION_DAYS: z

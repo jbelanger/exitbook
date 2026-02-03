@@ -379,52 +379,54 @@ export class HttpClient {
    * Thread-safe via async mutex to prevent concurrent state modifications
    */
   private async waitForRateLimit(): Promise<Result<void, Error>> {
-    // Acquire lock to ensure only one request at a time modifies rate limiter state
-    const previousLock = this.rateLimiterLock;
-    let releaseLock: () => void;
+    // Loop to avoid recursion while ensuring we never wait while holding the lock.
+    while (true) {
+      // Acquire lock to ensure only one request at a time modifies rate limiter state
+      const previousLock = this.rateLimiterLock;
+      let releaseLock: () => void;
 
-    this.rateLimiterLock = new Promise<void>((resolve) => {
-      releaseLock = resolve;
-    });
+      this.rateLimiterLock = new Promise<void>((resolve) => {
+        releaseLock = resolve;
+      });
 
-    try {
-      // Wait for previous request to finish with rate limiter
-      await previousLock;
+      let waitTimeMs = 0;
 
-      // Now we have exclusive access to rate limiter state
-      const now = this.effects.now();
+      try {
+        // Wait for previous request to finish with rate limiter
+        await previousLock;
 
-      // Refill tokens and check if we can proceed
-      this.rateLimitState = RateLimitCore.refillTokens(this.rateLimitState, now);
-      this.rateLimitState = {
-        ...this.rateLimitState,
-        requestTimestamps: RateLimitCore.cleanOldTimestamps(this.rateLimitState.requestTimestamps, now),
-      };
+        // Now we have exclusive access to rate limiter state
+        const now = this.effects.now();
 
-      const canProceed = RateLimitCore.shouldAllowRequest(this.rateLimitState, now);
+        // Refill tokens and check if we can proceed
+        this.rateLimitState = RateLimitCore.refillTokens(this.rateLimitState, now);
+        this.rateLimitState = {
+          ...this.rateLimitState,
+          requestTimestamps: RateLimitCore.cleanOldTimestamps(this.rateLimitState.requestTimestamps, now),
+        };
 
-      if (canProceed) {
-        // Consume token and record timestamp
-        this.rateLimitState = RateLimitCore.consumeToken(this.rateLimitState, now);
-        return ok();
+        const canProceed = RateLimitCore.shouldAllowRequest(this.rateLimitState, now);
+
+        if (canProceed) {
+          // Consume token and record timestamp
+          this.rateLimitState = RateLimitCore.consumeToken(this.rateLimitState, now);
+          return ok();
+        }
+
+        // Calculate wait time
+        waitTimeMs = RateLimitCore.calculateWaitTime(this.rateLimitState, now);
+
+        this.effects.log(
+          'debug',
+          `Rate limit enforced, waiting before sending request - WaitTimeMs: ${waitTimeMs}, TokensAvailable: ${this.rateLimitState.tokens}, Status: ${JSON.stringify(RateLimitCore.getRateLimitStatus(this.rateLimitState, now))}`
+        );
+      } finally {
+        // Release lock for next waiting request
+        releaseLock!();
       }
-
-      // Calculate wait time
-      const waitTimeMs = RateLimitCore.calculateWaitTime(this.rateLimitState, now);
-
-      this.effects.log(
-        'debug',
-        `Rate limit enforced, waiting before sending request - WaitTimeMs: ${waitTimeMs}, TokensAvailable: ${this.rateLimitState.tokens}, Status: ${JSON.stringify(RateLimitCore.getRateLimitStatus(this.rateLimitState, now))}`
-      );
 
       // Wait WITHOUT holding the lock so other requests can queue up
       await this.effects.delay(waitTimeMs);
-
-      // Recursively retry (will re-acquire lock)
-      return this.waitForRateLimit();
-    } finally {
-      // Release lock for next waiting request
-      releaseLock!();
     }
   }
 }

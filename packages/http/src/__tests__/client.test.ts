@@ -924,6 +924,7 @@ describe('HttpClient - Instrumentation', () => {
 describe('HttpClient - Concurrent Request Thread Safety', () => {
   it('should handle 100 concurrent requests without race conditions on rate limiter', async () => {
     let fetchCallCount = 0;
+    let currentTime = 1000;
     const mockFetch = vi.fn().mockImplementation(() => {
       fetchCallCount++;
       return Promise.resolve({
@@ -936,10 +937,13 @@ describe('HttpClient - Concurrent Request Thread Safety', () => {
 
     const logSpy = vi.fn();
     const mockEffects: HttpEffects = {
-      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      delay: vi.fn().mockImplementation((ms: number) => {
+        currentTime += ms;
+        return Promise.resolve();
+      }),
       fetch: mockFetch,
       log: logSpy,
-      now: () => Date.now(),
+      now: () => currentTime,
     };
 
     const client = new HttpClient(
@@ -984,7 +988,10 @@ describe('HttpClient - Concurrent Request Thread Safety', () => {
     });
 
     const mockEffects: HttpEffects = {
-      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      delay: vi.fn().mockImplementation((ms: number) => {
+        currentTime += ms;
+        return Promise.resolve();
+      }),
       fetch: mockFetch,
       log: vi.fn(),
       now: () => {

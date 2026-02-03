@@ -816,6 +816,38 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
     expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0');
   });
 
+  test('skips instruction-only transactions with no user movements or fees', async () => {
+    const processor = createProcessor();
+
+    const normalizedData = createTransaction({
+      id: 'sigEdgeSkip1',
+      eventId: '0xeventSkip1',
+      accountChanges: [
+        {
+          account: EXTERNAL_ADDRESS,
+          preBalance: '204872962',
+          postBalance: '204867962',
+        },
+      ],
+      feePayer: EXTERNAL_ADDRESS,
+      instructions: [
+        {
+          accounts: [USER_ADDRESS],
+        },
+      ],
+    });
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value).toHaveLength(0);
+  });
+
   test('handles transactions with missing optional fields', async () => {
     const processor = createProcessor();
 
