@@ -37,6 +37,9 @@ jobs:
           run_install: |
             - args: [--frozen-lockfile]
 
+      - name: Build packages
+        run: pnpm build
+
       - name: Run unit tests with coverage
         run: pnpm test:coverage
 
@@ -67,6 +70,9 @@ jobs:
           version: 10
           run_install: |
             - args: [--frozen-lockfile]
+
+      - name: Build packages
+        run: pnpm build
 
       - name: Run E2E tests
         env:
