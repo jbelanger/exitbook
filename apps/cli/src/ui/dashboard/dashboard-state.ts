@@ -186,7 +186,7 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
     case 'metadata.batch.completed':
       state.metadataStats.cacheHits += event.cacheHits;
       state.metadataStats.cacheMisses += event.cacheMisses;
-      addToEventLog(state, 'ℹ', `Batch #${event.batchNumber}: ${event.cacheHits} cached, ${event.cacheMisses} fetched`);
+      addToEventLog(state, 'ℹ', `Token metadata: ${event.cacheHits} cached, ${event.cacheMisses} fetched`);
       break;
 
     case 'scam.batch.summary': {
@@ -208,7 +208,7 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
         addToEventLog(
           state,
           '🚫',
-          `Batch #${event.batchNumber}: Filtered ${event.scamsFound} scam${event.scamsFound > 1 ? 's' : ''} (${examples})`
+          `Scam filter: ${event.scamsFound} token${event.scamsFound > 1 ? 's' : ''} rejected (${examples})`
         );
       }
       break;
@@ -245,11 +245,7 @@ export function updateStateFromEvent(state: DashboardState, event: CliEvent): vo
       break;
 
     case 'process.batch.completed':
-      addToEventLog(
-        state,
-        '✓',
-        `Batch #${event.batchNumber}: ${event.batchSize} items (${event.pendingCount} pending)`
-      );
+      addToEventLog(state, '✓', `Processing: ${event.batchSize} items completed (${event.pendingCount} pending)`);
       break;
 
     case 'provider.selection':

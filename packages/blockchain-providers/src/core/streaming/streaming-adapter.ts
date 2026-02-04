@@ -4,7 +4,7 @@ import { err, ok, type Result } from 'neverthrow';
 import type { NormalizedTransactionBase } from '../index.js';
 import { createDeduplicationWindow, deduplicateTransactions } from '../provider-manager-utils.js';
 import type { StreamingBatchResult, StreamingOperation, TransactionWithRawData } from '../types/index.js';
-import { buildCursorState } from '../utils/cursor-utils.js';
+import { buildCursorState, createEmptyCompletionCursor } from '../utils/cursor-utils.js';
 
 /**
  * Generic shape for a provider page.
@@ -144,7 +144,15 @@ export function createStreamingIterator<Raw, Tx extends NormalizedTransactionBas
       if (rawItems.length === 0) {
         if (page.isComplete) {
           logger?.debug?.('Streaming adapter reached explicit completion with empty page', { providerName });
-          break;
+          // Yield empty completion batch so import service can emit completion event
+          const emptyBatch: TransactionWithRawData<Tx>[] = [];
+          const cursorState = createEmptyCompletionCursor({
+            providerName,
+            operationType: opts.operation.type,
+            identifier: opts.operation.type === 'getAddressTransactions' ? opts.operation.address : opts.operation.type,
+          });
+          yield ok({ data: emptyBatch, cursor: cursorState, isComplete: true });
+          return;
         }
         // Empty page but not complete - advance to next page/sequence
         pageToken = page.nextPageToken || undefined;
