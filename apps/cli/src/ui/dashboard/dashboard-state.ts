@@ -70,6 +70,9 @@ export interface DashboardState {
 
   // Completion flag
   isComplete: boolean;
+
+  // Fatal error (displayed prominently before exit)
+  fatalError?: { code: string; message: string } | undefined;
 }
 
 /**
@@ -101,6 +104,7 @@ export function createDashboardState(): DashboardState {
     providerEventCooldowns: new Map(),
     streamImportCounts: new Map(),
     isComplete: false,
+    fatalError: undefined,
   };
 }
 
@@ -286,46 +290,47 @@ function addToEventLog(state: DashboardState, icon: string, message: string): vo
 }
 
 function formatProviderResumeMessage(streamType: string | undefined, provider: string): string {
-  const normalized = normalizeStreamType(streamType);
-  return normalized ? `Resumed ${normalized} with ${provider}` : `Resumed with ${provider}`;
-}
-
-function normalizeStreamType(streamType: string | undefined): string | undefined {
-  if (!streamType) return undefined;
-  const trimmed = streamType.trim();
-  return trimmed || undefined;
+  if (streamType?.trim()) {
+    return `Resumed ${streamType.trim()} with ${provider}`;
+  }
+  return `Resumed with ${provider}`;
 }
 
 const MAX_COOLDOWN_ENTRIES = 50;
+const COOLDOWN_EXPIRY_MS = 300000; // 5 minutes
 
 function shouldLogProviderEvent(state: DashboardState, key: string, cooldownMs: number): boolean {
   const now = Date.now();
   const lastAt = state.providerEventCooldowns.get(key);
+
   if (lastAt !== undefined && now - lastAt < cooldownMs) {
     return false;
   }
 
-  // LRU-style cleanup: remove oldest entries when map grows too large
   if (state.providerEventCooldowns.size >= MAX_COOLDOWN_ENTRIES) {
-    // Remove entries older than 5 minutes
-    const cutoffTime = now - 300000;
-    for (const [eventKey, timestamp] of state.providerEventCooldowns.entries()) {
-      if (timestamp < cutoffTime) {
-        state.providerEventCooldowns.delete(eventKey);
-      }
-    }
-
-    // If still too large, remove oldest entries
-    if (state.providerEventCooldowns.size >= MAX_COOLDOWN_ENTRIES) {
-      const entries = Array.from(state.providerEventCooldowns.entries());
-      entries.sort((a, b) => a[1] - b[1]);
-      const toRemove = entries.slice(0, Math.floor(MAX_COOLDOWN_ENTRIES / 2));
-      for (const [eventKey] of toRemove) {
-        state.providerEventCooldowns.delete(eventKey);
-      }
-    }
+    cleanupExpiredCooldowns(state.providerEventCooldowns, now);
   }
 
   state.providerEventCooldowns.set(key, now);
   return true;
+}
+
+function cleanupExpiredCooldowns(cooldowns: Map<string, number>, now: number): void {
+  // Remove entries older than expiry time
+  const cutoffTime = now - COOLDOWN_EXPIRY_MS;
+  for (const [key, timestamp] of cooldowns.entries()) {
+    if (timestamp < cutoffTime) {
+      cooldowns.delete(key);
+    }
+  }
+
+  // If still too large after expiry cleanup, remove oldest half
+  if (cooldowns.size >= MAX_COOLDOWN_ENTRIES) {
+    const entries = Array.from(cooldowns.entries()).sort((a, b) => a[1] - b[1]);
+    const removeCount = Math.floor(MAX_COOLDOWN_ENTRIES / 2);
+
+    for (let i = 0; i < removeCount; i++) {
+      cooldowns.delete(entries[i]![0]);
+    }
+  }
 }

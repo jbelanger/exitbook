@@ -92,6 +92,10 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
   const options = validationResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
+  // JSON mode still uses OutputManager for structured output
+  // Text mode will use Ink dashboard for all display (including errors)
+  const useInk = !options.json;
+
   // Configure logger
   configureLogger({
     mode: options.json ? 'json' : 'text',
@@ -144,14 +148,28 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
     // Execute import
     const importResult = await services.handler.executeImport(paramsWithCallback);
     if (importResult.isErr()) {
-      output.error('import', importResult.error, ExitCodes.GENERAL_ERROR);
+      if (useInk) {
+        // Show error in dashboard, stop gracefully, then exit
+        services.dashboard.setFatalError(importResult.error.message, 'GENERAL_ERROR');
+        await services.dashboard.stop();
+        process.exit(ExitCodes.GENERAL_ERROR);
+      } else {
+        output.error('import', importResult.error, ExitCodes.GENERAL_ERROR);
+      }
       return;
     }
 
     // Execute processing
     const processResult = await services.handler.processImportedSessions(importResult.value.sessions);
     if (processResult.isErr()) {
-      output.error('import', processResult.error, ExitCodes.GENERAL_ERROR);
+      if (useInk) {
+        // Show error in dashboard, stop gracefully, then exit
+        services.dashboard.setFatalError(processResult.error.message, 'GENERAL_ERROR');
+        await services.dashboard.stop();
+        process.exit(ExitCodes.GENERAL_ERROR);
+      } else {
+        output.error('import', processResult.error, ExitCodes.GENERAL_ERROR);
+      }
       return;
     }
 
@@ -168,9 +186,19 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
     // Exit required: BlockchainProviderManager uses fetch with keep-alive connections
     process.exit(0);
   } catch (error) {
-    output.error('import', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (useInk) {
+      // Show error in dashboard, stop gracefully, then exit
+      services.dashboard.setFatalError(errorMessage, 'GENERAL_ERROR');
+      await services.dashboard.stop();
+      await services.cleanup();
+      resetLoggerContext();
+      process.exit(ExitCodes.GENERAL_ERROR);
+    } else {
+      output.error('import', error instanceof Error ? error : new Error(errorMessage), ExitCodes.GENERAL_ERROR);
+    }
   } finally {
-    // Centralized cleanup
+    // Cleanup (skipped if error path already handled it)
     await services.cleanup();
     resetLoggerContext();
   }

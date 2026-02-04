@@ -12,6 +12,12 @@ import { createDashboardState, updateStateFromEvent } from './dashboard-state.js
 
 const DASHBOARD_UPDATE_INTERVAL_MS = 250;
 
+// Timing constants for final render schedule after stop()
+const QUICK_RENDER_DELAY_MS = 200;
+const TYPICAL_REQUEST_DELAY_MS = 500;
+const FINAL_RENDER_DELAY_MS = 800;
+const UNMOUNT_DELAY_MS = 200;
+
 /**
  * Dashboard controller - orchestrates state updates and rendering.
  * Owns the update loop and delegates to state updaters and Ink renderer.
@@ -70,12 +76,6 @@ export class DashboardController {
       this.interval = undefined;
     }
 
-    // Timing constants for final render schedule
-    const QUICK_RENDER_DELAY_MS = 200;
-    const TYPICAL_REQUEST_DELAY_MS = 500;
-    const FINAL_RENDER_DELAY_MS = 800;
-    const UNMOUNT_DELAY_MS = 200;
-
     return new Promise((resolve) => {
       // Immediate render
       this.renderDashboard();
@@ -127,6 +127,16 @@ export class DashboardController {
     } catch (error) {
       this.logger.error({ error, event }, 'Error handling event');
     }
+  }
+
+  /**
+   * Set a fatal error to display before exit.
+   * Marks the operation as complete and triggers a final render.
+   */
+  setFatalError(message: string, code: string): void {
+    this.state.fatalError = { message, code };
+    this.state.isComplete = true;
+    this.renderDashboard();
   }
 
   /**

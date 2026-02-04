@@ -284,11 +284,7 @@ export class ImportExecutor {
       }
 
       if (allWarnings.length > 0) {
-        const warningSummary =
-          allWarnings.length === 1 ? allWarnings[0] : `${allWarnings[0]} (+${allWarnings.length - 1} more)`;
-        const warningMessage =
-          `Import completed with warnings and was marked as failed to prevent processing incomplete data. ` +
-          `First warning: ${warningSummary}`;
+        const warningMessage = `Import completed with ${allWarnings.length} warning(s) and was marked as failed to prevent processing incomplete data. `;
 
         const finalizeResult = await this.importSessionRepository.finalize(
           importSessionId,

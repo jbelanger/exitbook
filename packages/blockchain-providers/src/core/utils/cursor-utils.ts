@@ -67,7 +67,12 @@ export function buildCursorState<T extends NormalizedTransactionBase>(config: Cu
   const effectivePageToken = pageToken ?? currentPageToken;
 
   // Extract cursors from last transaction
-  const lastTx = transactions[transactions.length - 1]!; // Safe: caller ensures transactions.length > 0
+  const lastTx = transactions[transactions.length - 1];
+  if (!lastTx) {
+    throw new Error(
+      `buildCursorState called with empty transactions array. This indicates a bug in the streaming adapter or mapper.`
+    );
+  }
   const cursors = extractCursors(lastTx.normalized);
   const lastTransactionId = lastTx.normalized.eventId;
 

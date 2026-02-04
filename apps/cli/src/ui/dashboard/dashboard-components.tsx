@@ -49,8 +49,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, metrics, instrument
         />
       )}
 
+      {/* Fatal error display */}
+      {state.fatalError && (
+        <>
+          <Text> </Text>
+          <Box
+            flexDirection="column"
+            borderStyle="round"
+            borderColor="red"
+            paddingX={1}
+          >
+            <Text
+              bold
+              color="red"
+            >
+              {state.fatalError.message}
+            </Text>
+          </Box>
+        </>
+      )}
+
       {/* Completion sections */}
-      {state.isComplete && (
+      {state.isComplete && !state.fatalError && (
         <>
           <Text> </Text>
           {metrics.providers.length > 0 && <CompletionProviderTable metrics={metrics} />}
@@ -108,7 +128,6 @@ const SpinnerLine: React.FC<{
   // Import phase (API providers with metrics)
   else {
     const { avgLatencyMs, reqPerSec } = getSpinnerMetrics(activity.provider, instrumentation);
-    const _streamType = activity.streamType || 'data';
     message = `${activity.operation} from ${activity.provider} (avg ${avgLatencyMs}ms, ${reqPerSec.toFixed(0)} req/s)`;
   }
 
@@ -156,8 +175,8 @@ const StatsLine: React.FC<{
 
   // Elapsed time
   if (state.startedAt) {
-    const elapsed =
-      state.isComplete && state.completedAt ? state.completedAt - state.startedAt : Date.now() - state.startedAt;
+    const endTime = state.isComplete && state.completedAt ? state.completedAt : Date.now();
+    const elapsed = endTime - state.startedAt;
     parts.push(formatElapsedTime(elapsed));
   }
 
