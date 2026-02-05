@@ -1,5 +1,6 @@
 // Command registration for view transactions subcommand
 
+import { wrapError } from '@exitbook/core';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
@@ -8,11 +9,14 @@ import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { TransactionsViewCommandOptionsSchema } from '../shared/schemas.js';
 import type { ViewCommandResult } from '../shared/view-utils.js';
-import { buildViewMeta } from '../shared/view-utils.js';
+import { buildViewMeta, parseDate } from '../shared/view-utils.js';
 
-import { ViewTransactionsHandler } from './transactions-view-handler.js';
 import type { TransactionInfo, ViewTransactionsParams, ViewTransactionsResult } from './transactions-view-utils.js';
-import { formatTransactionsListForDisplay } from './transactions-view-utils.js';
+import {
+  applyTransactionFilters,
+  formatTransactionForDisplay,
+  formatTransactionsListForDisplay,
+} from './transactions-view-utils.js';
 
 /**
  * Command options (validated at CLI boundary).
@@ -114,21 +118,85 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
     const database = await initializeDatabase();
     const txRepo = new TransactionRepository(database);
 
-    const handler = new ViewTransactionsHandler(txRepo);
+    // Execute view transactions
+    let result: ViewTransactionsResult;
+    try {
+      // Convert since to unix timestamp if provided
+      let since: number | undefined;
+      if (params.since) {
+        const sinceResult = parseDate(params.since);
+        if (sinceResult.isErr()) {
+          await closeDatabase(database);
+          resetLoggerContext();
+          spinner?.stop('Failed to parse date');
+          output.error('view-transactions', sinceResult.error, ExitCodes.INVALID_ARGS);
+          return;
+        }
+        since = Math.floor(sinceResult.value.getTime() / 1000);
+      }
 
-    const result = await handler.execute(params);
+      // Build filter object conditionally to avoid passing undefined values
+      const filters = {
+        ...(params.source && { sourceName: params.source }),
+        ...(since && { since }),
+        includeExcluded: true, // Show all transactions including scam tokens in view
+      };
+
+      // Fetch transactions from repository
+      const txResult = await txRepo.getTransactions(filters);
+
+      if (txResult.isErr()) {
+        await closeDatabase(database);
+        resetLoggerContext();
+        spinner?.stop('Failed to fetch transactions');
+        output.error(
+          'view-transactions',
+          wrapError(txResult.error, 'Failed to fetch transactions'),
+          ExitCodes.GENERAL_ERROR
+        );
+        return;
+      }
+
+      let transactions = txResult.value;
+
+      // Apply additional filters
+      const filterResult = applyTransactionFilters(transactions, params);
+      if (filterResult.isErr()) {
+        await closeDatabase(database);
+        resetLoggerContext();
+        spinner?.stop('Failed to filter transactions');
+        output.error('view-transactions', filterResult.error, ExitCodes.GENERAL_ERROR);
+        return;
+      }
+      transactions = filterResult.value;
+
+      // Apply limit
+      if (params.limit) {
+        transactions = transactions.slice(0, params.limit);
+      }
+
+      // Build result
+      result = {
+        transactions: transactions.map((tx) => formatTransactionForDisplay(tx)),
+        count: transactions.length,
+      };
+    } catch (error) {
+      await closeDatabase(database);
+      resetLoggerContext();
+      spinner?.stop('Failed to fetch transactions');
+      output.error(
+        'view-transactions',
+        error instanceof Error ? error : new Error(String(error)),
+        ExitCodes.GENERAL_ERROR
+      );
+      return;
+    }
 
     await closeDatabase(database);
 
     resetLoggerContext();
 
-    if (result.isErr()) {
-      spinner?.stop('Failed to fetch transactions');
-      output.error('view-transactions', result.error, ExitCodes.GENERAL_ERROR);
-      return;
-    }
-
-    handleViewTransactionsSuccess(output, result.value, params, spinner);
+    handleViewTransactionsSuccess(output, result, params, spinner);
   } catch (error) {
     resetLoggerContext();
     output.error(

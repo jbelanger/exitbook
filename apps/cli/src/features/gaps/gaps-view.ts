@@ -9,9 +9,8 @@ import { OutputManager } from '../shared/output.js';
 import { GapsViewCommandOptionsSchema } from '../shared/schemas.js';
 import { buildViewMeta, type ViewCommandResult } from '../shared/view-utils.js';
 
-import { GapsViewHandler } from './gaps-view-handler.js';
 import type { FeeGapAnalysis, GapsViewParams, GapsViewResult, LinkGapAnalysis } from './gaps-view-utils.js';
-import { formatGapsViewResult } from './gaps-view-utils.js';
+import { analyzeFeeGaps, analyzeLinkGaps, formatGapsViewResult } from './gaps-view-utils.js';
 
 /**
  * Command options (validated at CLI boundary).
@@ -108,21 +107,88 @@ async function executeGapsViewCommand(rawOptions: unknown): Promise<void> {
     const txRepo = new TransactionRepository(database);
     const linkRepo = new TransactionLinkRepository(database);
 
-    const handler = new GapsViewHandler(txRepo, linkRepo);
+    // Execute gaps analysis
+    let result: GapsViewResult;
+    try {
+      // Default to fees category if not specified
+      const category: string = (params.category ?? 'fees') as string;
 
-    const result = await handler.execute(params);
+      // Fetch all transactions
+      const transactionsResult = await txRepo.getTransactions();
+
+      if (transactionsResult.isErr()) {
+        await closeDatabase(database);
+        resetLoggerContext();
+        spinner?.stop('Failed to fetch transactions');
+        output.error('gaps-view', transactionsResult.error, ExitCodes.GENERAL_ERROR);
+        return;
+      }
+
+      const transactions = transactionsResult.value;
+
+      // Analyze based on category
+      switch (category) {
+        case 'fees': {
+          const analysis = analyzeFeeGaps(transactions);
+          result = {
+            category: 'fees',
+            analysis,
+          };
+          break;
+        }
+        case 'prices': {
+          await closeDatabase(database);
+          resetLoggerContext();
+          spinner?.stop('Failed to analyze gaps');
+          output.error('gaps-view', new Error('Price gap analysis not yet implemented'), ExitCodes.GENERAL_ERROR);
+          return;
+        }
+        case 'links': {
+          const linksResult = await linkRepo.findAll();
+
+          if (linksResult.isErr()) {
+            await closeDatabase(database);
+            resetLoggerContext();
+            spinner?.stop('Failed to fetch links');
+            output.error('gaps-view', linksResult.error, ExitCodes.GENERAL_ERROR);
+            return;
+          }
+
+          const analysis = analyzeLinkGaps(transactions, linksResult.value);
+          result = {
+            category: 'links',
+            analysis,
+          };
+          break;
+        }
+        case 'validation': {
+          await closeDatabase(database);
+          resetLoggerContext();
+          spinner?.stop('Failed to analyze gaps');
+          output.error('gaps-view', new Error('Validation gap analysis not yet implemented'), ExitCodes.GENERAL_ERROR);
+          return;
+        }
+        default: {
+          await closeDatabase(database);
+          resetLoggerContext();
+          spinner?.stop('Failed to analyze gaps');
+          output.error('gaps-view', new Error(`Unknown gap category: ${category}`), ExitCodes.GENERAL_ERROR);
+          return;
+        }
+      }
+    } catch (error) {
+      await closeDatabase(database);
+      resetLoggerContext();
+      spinner?.stop('Failed to analyze gaps');
+      output.error('gaps-view', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+      return;
+    }
 
     await closeDatabase(database);
 
     resetLoggerContext();
 
-    if (result.isErr()) {
-      spinner?.stop('Failed to analyze gaps');
-      output.error('gaps-view', result.error, ExitCodes.GENERAL_ERROR);
-      return;
-    }
-
-    handleGapsViewSuccess(output, result.value, params, spinner);
+    handleGapsViewSuccess(output, result, params, spinner);
   } catch (error) {
     resetLoggerContext();
     output.error('gaps-view', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);

@@ -1,7 +1,7 @@
 import type { ProviderEvent } from '@exitbook/blockchain-providers';
 import type { RequestMetric } from '@exitbook/http';
 
-import { VelocityTracker } from './velocity-tracker.js';
+const VELOCITY_WINDOW_MS = 5000; // 5 seconds
 
 /**
  * State tracked for each provider
@@ -21,7 +21,6 @@ export interface ProviderState {
  * Builds provider table rows for dashboard display.
  */
 export class ProviderStateAggregator {
-  private velocityTracker = new VelocityTracker();
   private providerStates = new Map<string, ProviderStateData>();
 
   /**
@@ -78,7 +77,7 @@ export class ProviderStateAggregator {
     for (const provider of activeProviders) {
       const state = this.getOrCreateState(provider);
       const latency = this.calculateLatency(metrics, provider);
-      const reqPerSecond = this.velocityTracker.getProviderVelocityByService(metrics, provider, serviceFilter);
+      const reqPerSecond = this.calculateProviderVelocity(metrics, provider, serviceFilter);
 
       // Determine status
       const { status, statusDisplay } = this.determineStatus(state, reqPerSecond);
@@ -98,6 +97,25 @@ export class ProviderStateAggregator {
     rows.sort((a, b) => b.requestsPerSecond - a.requestsPerSecond);
 
     return rows;
+  }
+
+  /**
+   * Calculate provider velocity (req/s) for a specific service.
+   * Uses a rolling 5-second window.
+   */
+  private calculateProviderVelocity(
+    metrics: RequestMetric[],
+    provider: string,
+    service: 'blockchain' | 'metadata'
+  ): number {
+    const now = Date.now();
+    const windowStart = now - VELOCITY_WINDOW_MS;
+
+    const recentRequests = metrics.filter(
+      (m) => m.timestamp >= windowStart && m.provider === provider && m.service === service
+    );
+
+    return recentRequests.length / 5; // requests per 5 seconds / 5 = req/s
   }
 
   /**

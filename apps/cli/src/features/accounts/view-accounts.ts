@@ -12,7 +12,6 @@ import { AccountsViewCommandOptionsSchema } from '../shared/schemas.js';
 import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta } from '../shared/view-utils.js';
 
-import { ViewAccountsHandler } from './view-accounts-handler.js';
 import type { AccountInfo, SessionSummary, ViewAccountsParams, ViewAccountsResult } from './view-accounts-utils.js';
 import { formatAccountsListForDisplay } from './view-accounts-utils.js';
 
@@ -122,9 +121,13 @@ async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
     const userRepo = new UserRepository(database);
 
     const accountService = new AccountService(accountRepo, sessionRepo, userRepo);
-    const handler = new ViewAccountsHandler(accountService);
 
-    const result = await handler.execute(params);
+    const result = await accountService.viewAccounts({
+      accountId: params.accountId,
+      accountType: params.accountType,
+      source: params.source,
+      showSessions: params.showSessions,
+    });
 
     await closeDatabase(database);
 

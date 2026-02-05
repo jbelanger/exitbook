@@ -21,7 +21,6 @@ import { isJsonMode } from '../shared/utils.js';
 
 import { buildBalanceAssetDebug, type BalanceAssetDebugResult } from './balance-debug.js';
 import { buildBalanceMismatchExplanation } from './balance-explain.js';
-import { BalanceHandler } from './balance-handler.js';
 
 /**
  * Balance command options validated by Zod at CLI boundary
@@ -183,9 +182,6 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
     providerManager
   );
 
-  // Create handler with service
-  const handler = new BalanceHandler(balanceService);
-
   try {
     // Load the account by ID
     const accountResult = await accountRepository.findById(options.accountId);
@@ -219,7 +215,7 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
       return;
     }
 
-    const result = await handler.execute({ accountId: account.id, credentials: credentials });
+    const result = await balanceService.verifyBalance({ accountId: account.id, credentials: credentials });
 
     spinner?.stop();
 
@@ -246,7 +242,7 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
     resetLoggerContext();
     output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   } finally {
-    handler.destroy?.();
+    balanceService.destroy();
     await closeDatabase(database);
     resetLoggerContext();
   }

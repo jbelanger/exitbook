@@ -1,3 +1,6 @@
+import { ProviderRegistry } from '@exitbook/blockchain-providers';
+import type { ProviderInfo } from '@exitbook/blockchain-providers';
+import { getAllBlockchains } from '@exitbook/ingestion';
 import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
@@ -6,8 +9,15 @@ import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { ListBlockchainsCommandOptionsSchema } from '../shared/schemas.js';
 
-import { ListBlockchainsHandler } from './list-blockchains-handler.js';
-import type { BlockchainInfo, BlockchainListSummary } from './list-blockchains-utils.js';
+import type { BlockchainCategory, BlockchainInfo, BlockchainListSummary } from './list-blockchains-utils.js';
+import {
+  buildBlockchainInfo,
+  buildSummary,
+  filterByApiKeyRequirement,
+  filterByCategory,
+  sortBlockchains,
+  validateCategory,
+} from './list-blockchains-utils.js';
 
 const logger = getLogger('ListBlockchainsCommand');
 
@@ -41,15 +51,15 @@ export function registerListBlockchainsCommand(program: Command): void {
     .option('--detailed', 'Show detailed provider information including rate limits')
     .option('--requires-api-key', 'Show only blockchains that require API key')
     .option('--json', 'Output results in JSON format')
-    .action(async (rawOptions: unknown) => {
-      await executeListBlockchainsCommand(rawOptions);
+    .action((rawOptions: unknown) => {
+      executeListBlockchainsCommand(rawOptions);
     });
 }
 
 /**
  * Execute the list-blockchains command.
  */
-async function executeListBlockchainsCommand(rawOptions: unknown): Promise<void> {
+function executeListBlockchainsCommand(rawOptions: unknown): void {
   // Check for --json flag early (even before validation) to determine output format
   const isJsonMode =
     typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
@@ -79,18 +89,44 @@ async function executeListBlockchainsCommand(rawOptions: unknown): Promise<void>
       });
     }
 
-    // Create handler and execute
-    const handler = new ListBlockchainsHandler();
-
-    const result = await handler.execute(options);
-
-    if (result.isErr()) {
-      resetLoggerContext();
-      output.error('list-blockchains', result.error, ExitCodes.INVALID_ARGS);
-      return;
+    // Validate and store category filter if provided
+    let validatedCategory: BlockchainCategory | undefined = undefined;
+    if (options.category) {
+      const categoryResult = validateCategory(options.category);
+      if (categoryResult.isErr()) {
+        resetLoggerContext();
+        output.error('list-blockchains', categoryResult.error, ExitCodes.INVALID_ARGS);
+        return;
+      }
+      validatedCategory = categoryResult.value;
     }
 
-    const { blockchains, summary } = result.value;
+    // Get supported blockchains from blockchain config registry
+    const supportedBlockchains = getAllBlockchains();
+
+    // Get all providers from ProviderRegistry (for summary stats)
+    const allProviders: ProviderInfo[] = ProviderRegistry.getAllProviders();
+
+    // Build blockchain info for each supported blockchain
+    let blockchains: BlockchainInfo[] = supportedBlockchains.map((blockchain: string) => {
+      const providers = ProviderRegistry.getAvailable(blockchain);
+      return buildBlockchainInfo(blockchain, providers, options.detailed || false);
+    });
+
+    // Apply filters
+    if (validatedCategory) {
+      blockchains = filterByCategory(blockchains, validatedCategory);
+    }
+
+    if (options.requiresApiKey !== undefined) {
+      blockchains = filterByApiKeyRequirement(blockchains, options.requiresApiKey);
+    }
+
+    // Sort blockchains
+    blockchains = sortBlockchains(blockchains);
+
+    // Build summary
+    const summary = buildSummary(blockchains, allProviders);
 
     // Display in text mode
     if (output.isTextMode()) {

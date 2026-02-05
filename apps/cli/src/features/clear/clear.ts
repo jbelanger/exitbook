@@ -19,7 +19,6 @@ import { OutputManager } from '../shared/output.js';
 import { handleCancellation, promptConfirm } from '../shared/prompts.js';
 import { ClearCommandOptionsSchema } from '../shared/schemas.js';
 
-import { ClearHandler } from './clear-handler.js';
 import { buildClearParamsFromFlags } from './clear-utils.js';
 
 /**
@@ -100,11 +99,14 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
       rawDataRepository,
       importSessionRepository
     );
-    const handler = new ClearHandler(clearService);
 
     try {
       // Preview deletion
-      const previewResult = await handler.previewDeletion(params);
+      const previewResult = await clearService.previewDeletion({
+        accountId: params.accountId,
+        source: params.source,
+        includeRaw: params.includeRaw,
+      });
 
       if (previewResult.isErr()) {
         await closeDatabase(database);
@@ -185,7 +187,11 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
       });
 
       // Execute deletion
-      const result = await handler.execute(params);
+      const result = await clearService.execute({
+        accountId: params.accountId,
+        source: params.source,
+        includeRaw: params.includeRaw,
+      });
 
       await closeDatabase(database);
       resetLoggerContext();

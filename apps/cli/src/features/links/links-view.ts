@@ -9,9 +9,8 @@ import { OutputManager } from '../shared/output.js';
 import { LinksViewCommandOptionsSchema } from '../shared/schemas.js';
 import { buildViewMeta, type ViewCommandResult } from '../shared/view-utils.js';
 
-import { LinksViewHandler } from './links-view-handler.js';
 import type { LinkInfo, LinksViewParams, LinksViewResult } from './links-view-utils.js';
-import { formatLinksListForDisplay } from './links-view-utils.js';
+import { filterLinksByConfidence, formatLinkInfo, formatLinksListForDisplay } from './links-view-utils.js';
 
 /**
  * Command options validated by Zod at CLI boundary
@@ -123,21 +122,79 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
     // Always initialize txRepo to fetch timestamps and amounts
     const txRepo = new TransactionRepository(database);
 
-    const handler = new LinksViewHandler(linkRepo, txRepo);
+    // Execute links view
+    let result: LinksViewResult;
+    try {
+      // Fetch links from repository
+      const linksResult = await linkRepo.findAll(params.status);
 
-    const result = await handler.execute(params);
+      if (linksResult.isErr()) {
+        await closeDatabase(database);
+        resetLoggerContext();
+        spinner?.stop('Failed to fetch links');
+        output.error('links-view', linksResult.error, ExitCodes.GENERAL_ERROR);
+        return;
+      }
+
+      let links = linksResult.value;
+
+      // Apply confidence filters if provided
+      if (params.minConfidence !== undefined || params.maxConfidence !== undefined) {
+        links = filterLinksByConfidence(links, params.minConfidence, params.maxConfidence);
+      }
+
+      // Apply limit
+      if (params.limit !== undefined && params.limit > 0) {
+        links = links.slice(0, params.limit);
+      }
+
+      // Format links with transaction details
+      const linkInfos: LinkInfo[] = [];
+      for (const link of links) {
+        // Always fetch transactions for timestamps and amounts
+        let sourceTx;
+        let targetTx;
+
+        const sourceTxResult = await txRepo.findById(link.sourceTransactionId);
+        if (sourceTxResult.isOk() && sourceTxResult.value) {
+          sourceTx = sourceTxResult.value;
+        }
+
+        const targetTxResult = await txRepo.findById(link.targetTransactionId);
+        if (targetTxResult.isOk() && targetTxResult.value) {
+          targetTx = targetTxResult.value;
+        }
+
+        // Format link info
+        const linkInfo = formatLinkInfo(link, sourceTx, targetTx);
+
+        // Remove full transaction details if not in verbose mode
+        if (!params.verbose) {
+          linkInfo.source_transaction = undefined;
+          linkInfo.target_transaction = undefined;
+        }
+
+        linkInfos.push(linkInfo);
+      }
+
+      // Build result
+      result = {
+        links: linkInfos,
+        count: linkInfos.length,
+      };
+    } catch (error) {
+      await closeDatabase(database);
+      resetLoggerContext();
+      spinner?.stop('Failed to fetch links');
+      output.error('links-view', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+      return;
+    }
 
     await closeDatabase(database);
 
     resetLoggerContext();
 
-    if (result.isErr()) {
-      spinner?.stop('Failed to fetch links');
-      output.error('links-view', result.error, ExitCodes.GENERAL_ERROR);
-      return;
-    }
-
-    handleLinksViewSuccess(output, result.value, params, spinner);
+    handleLinksViewSuccess(output, result, params, spinner);
   } catch (error) {
     resetLoggerContext();
     output.error('links-view', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
