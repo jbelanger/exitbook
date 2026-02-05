@@ -10,10 +10,19 @@ import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { LinksRunHandlerParams } from './links-run-utils.js';
+/**
+ * Links run handler parameters.
+ */
+export interface LinksRunHandlerParams {
+  /** Whether to run in dry-run mode (no database writes) */
+  dryRun: boolean;
 
-// Re-export for convenience
-export type { LinksRunHandlerParams };
+  /** Minimum confidence score to suggest a match (0-1) */
+  minConfidenceScore: import('decimal.js').Decimal;
+
+  /** Auto-confirm matches above this confidence (0-1) */
+  autoConfirmThreshold: import('decimal.js').Decimal;
+}
 
 const logger = getLogger('LinksRunHandler');
 

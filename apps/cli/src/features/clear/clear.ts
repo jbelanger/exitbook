@@ -11,20 +11,11 @@ import {
 import { ClearService, type ClearResult, type DeletionPreview } from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
-import type { z } from 'zod';
 
-import { unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { handleCancellation, promptConfirm } from '../shared/prompts.js';
 import { ClearCommandOptionsSchema } from '../shared/schemas.js';
-
-import { buildClearParamsFromFlags } from './clear-utils.js';
-
-/**
- * Clear command options validated by Zod at CLI boundary
- */
-export type ClearCommandOptions = z.infer<typeof ClearCommandOptionsSchema>;
 
 /**
  * Clear command result data.
@@ -54,11 +45,10 @@ export function registerClearCommand(program: Command): void {
  * Execute the clear command.
  *
  * Note: Does not use resolveInteractiveParams because it requires preview-then-confirm flow:
- * 1. Build params from flags
- * 2. Execute preview to show what will be deleted
- * 3. Show detailed preview to user
- * 4. Confirm deletion
- * 5. Execute deletion
+ * 1. Execute preview to show what will be deleted
+ * 2. Show detailed preview to user
+ * 3. Confirm deletion
+ * 4. Execute deletion
  *
  * This differs from the standard prompt-then-confirm flow in resolveInteractiveParams.
  */
@@ -74,10 +64,9 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
 
   const options = validationResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
+  const includeRaw = options.includeRaw ?? false;
 
   try {
-    const params = unwrapResult(buildClearParamsFromFlags(options));
-
     // Initialize database and repositories once
     const database = await initializeDatabase();
     const userRepository = new UserRepository(database);
@@ -103,9 +92,9 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
     try {
       // Preview deletion
       const previewResult = await clearService.previewDeletion({
-        accountId: params.accountId,
-        source: params.source,
-        includeRaw: params.includeRaw,
+        accountId: options.accountId,
+        source: options.source,
+        includeRaw,
       });
 
       if (previewResult.isErr()) {
@@ -125,7 +114,7 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
         preview.disposals +
         preview.transfers +
         preview.calculations;
-      if (totalToDelete === 0 && (!params.includeRaw || (preview.sessions === 0 && preview.rawData === 0))) {
+      if (totalToDelete === 0 && (!includeRaw || (preview.sessions === 0 && preview.rawData === 0))) {
         await closeDatabase(database);
         if (output.isTextMode()) {
           console.error('No data to clear.');
@@ -148,7 +137,7 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
           if (preview.transfers > 0) console.error(`  • ${preview.transfers} lot transfers`);
           if (preview.calculations > 0) console.error(`  • ${preview.calculations} cost basis calculations`);
 
-          if (params.includeRaw) {
+          if (includeRaw) {
             console.error('\n⚠️  WARNING: Raw data will also be deleted:');
             if (preview.sessions > 0) console.error(`  • ${preview.sessions} import sessions`);
             if (preview.rawData > 0) console.error(`  • ${preview.rawData} raw data items`);
@@ -158,13 +147,13 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
             if (preview.sessions > 0) console.error(`  • ${preview.sessions} sessions`);
             if (preview.rawData > 0) console.error(`  • ${preview.rawData} raw data items`);
             console.error(
-              '\nYou can reprocess with: exitbook process' + (params.source ? ` --source ${params.source}` : '')
+              '\nYou can reprocess with: exitbook process' + (options.source ? ` --source ${options.source}` : '')
             );
           }
           console.error('');
         }
 
-        const confirmMessage = params.includeRaw ? 'Delete ALL data including raw imports?' : 'Clear processed data?';
+        const confirmMessage = includeRaw ? 'Delete ALL data including raw imports?' : 'Clear processed data?';
         const shouldProceed = await promptConfirm(confirmMessage, false);
         if (!shouldProceed) {
           await closeDatabase(database);
@@ -188,9 +177,9 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
 
       // Execute deletion
       const result = await clearService.execute({
-        accountId: params.accountId,
-        source: params.source,
-        includeRaw: params.includeRaw,
+        accountId: options.accountId,
+        source: options.source,
+        includeRaw,
       });
 
       await closeDatabase(database);

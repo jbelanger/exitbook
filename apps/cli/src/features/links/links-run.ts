@@ -1,23 +1,98 @@
+import * as p from '@clack/prompts';
 import { TransactionLinkRepository } from '@exitbook/accounting';
+import { parseDecimal } from '@exitbook/core';
 import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { resolveInteractiveParams, unwrapResult } from '../shared/command-execution.js';
+import { resolveInteractiveParams } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { handleCancellation, isCancelled } from '../shared/prompts.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 
-import type { LinksRunResult } from './links-run-handler.js';
+import type { LinksRunHandlerParams, LinksRunResult } from './links-run-handler.js';
 import { LinksRunHandler } from './links-run-handler.js';
-import { promptForLinksRunParams } from './links-run-prompts.js';
-import { buildLinksRunParamsFromFlags } from './links-run-utils.js';
 
 /**
  * Command options validated by Zod at CLI boundary
  */
-export type LinksRunCommandOptions = z.infer<typeof LinksRunCommandOptionsSchema>;
+type LinksRunCommandOptions = z.infer<typeof LinksRunCommandOptionsSchema>;
+
+/**
+ * Build links run parameters from validated CLI options.
+ */
+function buildLinksRunParamsFromFlags(options: LinksRunCommandOptions): LinksRunHandlerParams {
+  return {
+    dryRun: options.dryRun ?? false,
+    minConfidenceScore: parseDecimal(options.minConfidence?.toString() ?? '0.7'),
+    autoConfirmThreshold: parseDecimal(options.autoConfirmThreshold?.toString() ?? '0.95'),
+  };
+}
+
+/**
+ * Prompt user for links run parameters in interactive mode.
+ */
+async function promptForLinksRunParams(): Promise<LinksRunHandlerParams> {
+  // Ask if user wants to run in dry-run mode
+  const dryRun = await p.confirm({
+    message: 'Run in dry-run mode (preview matches without saving)?',
+    initialValue: false,
+  });
+
+  if (isCancelled(dryRun)) {
+    handleCancellation();
+  }
+
+  // Ask for minimum confidence threshold
+  const minConfidenceInput = await p.text({
+    message: 'Minimum confidence score (0-1, default: 0.7):',
+    placeholder: '0.7',
+    validate: (value) => {
+      if (!value) return; // Allow empty for default
+      const num = Number(value);
+      if (Number.isNaN(num) || num < 0 || num > 1) {
+        return 'Must be a number between 0 and 1';
+      }
+    },
+  });
+
+  if (isCancelled(minConfidenceInput)) {
+    handleCancellation();
+  }
+
+  const minConfidenceScore = parseDecimal(minConfidenceInput ?? '0.7');
+
+  // Ask for auto-confirm threshold
+  const autoConfirmInput = await p.text({
+    message: 'Auto-confirm threshold (0-1, default: 0.95):',
+    placeholder: '0.95',
+    validate: (value) => {
+      if (!value) return; // Allow empty for default
+      const num = Number(value);
+      if (Number.isNaN(num) || num < 0 || num > 1) {
+        return 'Must be a number between 0 and 1';
+      }
+      const minConfidence = Number(minConfidenceInput ?? '0.7');
+      if (num < minConfidence) {
+        return `Must be >= minimum confidence score (${minConfidence})`;
+      }
+    },
+  });
+
+  if (isCancelled(autoConfirmInput)) {
+    handleCancellation();
+  }
+
+  const autoConfirmThreshold = parseDecimal(autoConfirmInput ?? '0.95');
+
+  return {
+    dryRun,
+    minConfidenceScore,
+    autoConfirmThreshold,
+  };
+}
 
 /**
  * Link run command result data.
@@ -73,7 +148,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
 
   try {
     const params = await resolveInteractiveParams({
-      buildFromFlags: () => unwrapResult(buildLinksRunParamsFromFlags(options)),
+      buildFromFlags: () => buildLinksRunParamsFromFlags(options),
       cancelMessage: 'Transaction linking cancelled',
       commandName: 'links-run',
       confirmMessage: 'Start transaction linking?',
