@@ -1,336 +1,197 @@
-import type { ProviderEvent } from '@exitbook/blockchain-providers';
-import type { IngestionEvent } from '@exitbook/ingestion';
+/**
+ * Dashboard State - Operation tree model
+ */
 
-export type CliEvent = IngestionEvent | ProviderEvent;
+export type OperationStatus = 'active' | 'completed' | 'warning' | 'failed';
 
 /**
- * Event log entry for dashboard display.
+ * Transient provider status (rate limit backoff or failover notification).
+ * Shared by import stream sub-lines and processing metadata line.
  */
-export interface EventLogEntry {
-  timestamp: number;
-  icon: string;
+export type TransientMessage =
+  | { expiresAt: number; type: 'backoff' }
+  | { expiresAt: number; text: string; type: 'failover' };
+
+/**
+ * Account information
+ */
+export interface AccountInfo {
+  id: number;
+  isResuming: boolean;
+}
+
+/**
+ * Provider readiness status
+ */
+export interface ProviderReadiness {
+  count: number;
+  durationMs: number;
+}
+
+/**
+ * Stream state within import operation
+ */
+export interface StreamState {
+  name: string;
+  status: OperationStatus;
+  startedAt: number;
+  completedAt?: number | undefined;
+
+  // Current batch being fetched (for active streams)
+  currentBatch?: number | undefined;
+
+  // Cumulative count of items imported
+  imported: number;
+
+  // Active provider info (for active streams)
+  activeProvider?: string | undefined;
+  currentRate?: number | undefined; // req/s
+  maxRate?: number | undefined;
+
+  // Transient message (rate limit or failover)
+  transientMessage?: TransientMessage | undefined;
+
+  // Failure info (for warning/failed status)
+  errorMessage?: string | undefined;
+}
+
+/**
+ * Import operation state
+ */
+export interface ImportOperation {
+  status: OperationStatus;
+  startedAt: number;
+  completedAt?: number | undefined;
+  streams: Map<string, StreamState>;
+}
+
+/**
+ * Token metadata tracking during processing (provider/rate mirrors import stream pattern)
+ */
+export interface ProcessingMetadata {
+  cached: number;
+  fetched: number;
+  activeProvider?: string | undefined;
+  currentRate?: number | undefined;
+  maxRate?: number | undefined;
+  transientMessage?: TransientMessage | undefined;
+}
+
+/**
+ * Processing operation state
+ */
+export interface ProcessingOperation {
+  status: OperationStatus;
+  startedAt: number;
+  completedAt?: number | undefined;
+
+  // Total raw transactions to process (from process.started)
+  totalRaw: number;
+  // Accumulated processed count (from process.batch.completed batchSize)
+  processed: number;
+  // Final deduplicated transaction count (from process.completed)
+  totalProcessed?: number | undefined;
+
+  // Token metadata enrichment — undefined for CSV imports (no metadata events fire)
+  metadata?: ProcessingMetadata | undefined;
+  // Scam detection summary — undefined until first scam found
+  scams?: { exampleSymbols: string[]; total: number } | undefined;
+}
+
+/**
+ * API call statistics per provider
+ */
+export interface ProviderApiStats {
+  total: number;
+  retries: number;
+  rateLimited: number;
+  failed: number;
+
+  // Response breakdown (for final view)
+  responsesByStatus: Map<number, number>; // status code -> count
+}
+
+/**
+ * Overall API call tracking
+ */
+export interface ApiCallStats {
+  total: number;
+  byProvider: Map<string, ProviderApiStats>;
+}
+
+/**
+ * Warning message
+ */
+export interface Warning {
   message: string;
 }
 
 /**
- * Dashboard state - pure data, no logic.
- * All counters update in place (no phase switching).
+ * Complete Dashboard State
  */
 export interface DashboardState {
-  // Header info
-  accountId?: number | undefined;
-  address?: string | undefined;
-  sourceName?: string | undefined;
+  // Account info
+  account?: AccountInfo | undefined;
 
-  // Counters (update in place throughout import/process lifecycle)
-  imported: number;
-  processed: number;
-  apiCalls: number;
+  // Provider readiness
+  providerReadiness?: ProviderReadiness | undefined;
 
-  // Timing
-  startedAt?: number | undefined;
-  completedAt?: number | undefined;
+  // Blockchain being imported (set from provider events; undefined for exchange imports)
+  blockchain?: string | undefined;
 
-  // Event log (unlimited events for scrollback)
-  events: EventLogEntry[];
+  // Current active provider (global, applies to all streams)
+  currentProvider?: string | undefined;
 
-  // Current activity for contextual spinner
-  currentActivity?:
-    | {
-        operation: string; // e.g., "Fetching normal txs"
-        provider: string; // e.g., "etherscan" or "__processing__"
-        streamType?: string | undefined; // e.g., "normal", "token"
-      }
-    | undefined;
+  // Import operation
+  import?: ImportOperation | undefined;
 
-  // Processing counters for progressive stats
-  duplicates: number;
-  skipped: number;
+  // Processing operation
+  processing?: ProcessingOperation | undefined;
 
-  // Metadata stats (accumulated from metadata.batch.completed events)
-  metadataStats: {
-    cacheHits: number;
-    cacheMisses: number;
-  };
+  // API call statistics
+  apiCalls: ApiCallStats;
 
-  // Scam detection stats (accumulated from scam.batch.summary events)
-  scamStats: {
-    examples: string[]; // Last 3 unique examples
-    totalFound: number;
-  };
-
-  // Provider throttle tracking (accumulated from provider.rate_limited events)
-  providerThrottles: Map<string, number>;
-  // Provider event cooldowns (prevent spam in activity log)
-  // LRU-style: entries cleaned up when checking, max 50 unique event keys
-  providerEventCooldowns: Map<string, number>;
-
-  // Per-stream import tracking (for "no new records" detection)
-  streamImportCounts: Map<string, number>;
-
-  // Completion flag
+  // Completion status
   isComplete: boolean;
+  totalDurationMs?: number | undefined;
 
-  // Fatal error (displayed prominently before exit)
-  fatalError?: { code: string; message: string } | undefined;
+  // Warnings
+  warnings: Warning[];
 }
 
 /**
- * Create initial dashboard state.
+ * Create initial dashboard state
  */
 export function createDashboardState(): DashboardState {
   return {
-    accountId: undefined,
-    address: undefined,
-    sourceName: undefined,
-    imported: 0,
-    processed: 0,
-    apiCalls: 0,
-    startedAt: undefined,
-    completedAt: undefined,
-    events: [],
-    currentActivity: undefined,
-    duplicates: 0,
-    skipped: 0,
-    metadataStats: {
-      cacheHits: 0,
-      cacheMisses: 0,
+    account: undefined,
+    providerReadiness: undefined,
+    import: undefined,
+    processing: undefined,
+    apiCalls: {
+      total: 0,
+      byProvider: new Map(),
     },
-    scamStats: {
-      totalFound: 0,
-      examples: [],
-    },
-    providerThrottles: new Map(),
-    providerEventCooldowns: new Map(),
-    streamImportCounts: new Map(),
     isComplete: false,
-    fatalError: undefined,
+    totalDurationMs: undefined,
+    warnings: [],
   };
 }
 
 /**
- * Update dashboard state from event (pure function).
- * Mutates state in place for performance.
+ * Get or create provider stats entry
  */
-export function updateStateFromEvent(state: DashboardState, event: CliEvent): void {
-  switch (event.type) {
-    case 'import.started':
-      state.startedAt = Date.now();
-      state.accountId = event.accountId;
-      state.sourceName = event.sourceName;
-      state.address = event.address;
-      // Reset per-stream counts for new import
-      state.streamImportCounts.clear();
-      break;
-
-    case 'import.batch': {
-      state.imported = event.totalImported;
-
-      // Track per-stream import counts
-      const currentStreamCount = state.streamImportCounts.get(event.streamType) ?? 0;
-      state.streamImportCounts.set(event.streamType, currentStreamCount + event.batchInserted);
-
-      // Log batch progress if items were inserted
-      if (event.batchInserted > 0) {
-        addToEventLog(state, '↓', `${event.streamType}: +${event.batchInserted} (${event.totalImported} total)`);
-      }
-
-      if (event.isComplete) {
-        // Stream completed - check if any new records were imported for this stream
-        const streamTotal = state.streamImportCounts.get(event.streamType) ?? 0;
-        if (streamTotal === 0) {
-          addToEventLog(state, '✓', `${event.streamType}: No records found`);
-        }
-      }
-      break;
-    }
-
-    case 'import.warning':
-      addToEventLog(state, '⚠', `Warning: ${event.warning}`);
-      break;
-
-    case 'import.completed':
-      // Import complete, processing will start next
-      state.currentActivity = {
-        operation: 'Processing transactions',
-        provider: '__processing__',
-      };
-      addToEventLog(state, '✓', 'Import Complete');
-      break;
-
-    case 'import.failed':
-      addToEventLog(state, '✗', `Import failed: ${event.error}`);
-      break;
-
-    case 'process.started':
-      // Processing phase started
-      state.accountId = event.accountIds.length === 1 ? event.accountIds[0] : undefined;
-      break;
-
-    case 'process.batch':
-      state.processed = event.totalProcessed;
-      break;
-
-    case 'process.completed':
-      state.processed = event.totalProcessed;
-      state.completedAt = Date.now();
-      state.isComplete = true;
-      if (event.totalProcessed > 0) addToEventLog(state, '✓', 'Processing Complete');
-      break;
-
-    case 'process.failed':
-      addToEventLog(state, '✗', `Processing failed: ${event.error}`);
-      state.isComplete = true;
-      break;
-
-    case 'process.skipped':
-      addToEventLog(state, 'ℹ', `Skipped: ${event.reason}`);
-      break;
-
-    case 'metadata.batch.completed':
-      state.metadataStats.cacheHits += event.cacheHits;
-      state.metadataStats.cacheMisses += event.cacheMisses;
-      addToEventLog(state, 'ℹ', `Token metadata: ${event.cacheHits} cached, ${event.cacheMisses} fetched`);
-      break;
-
-    case 'scam.batch.summary': {
-      state.scamStats.totalFound += event.scamsFound;
-      // Track recent examples (last 3 unique)
-      if (event.exampleSymbols.length > 0) {
-        for (const symbol of event.exampleSymbols) {
-          if (!state.scamStats.examples.includes(symbol)) {
-            state.scamStats.examples.push(symbol);
-            if (state.scamStats.examples.length > 3) {
-              state.scamStats.examples.shift();
-            }
-          }
-        }
-      }
-      // Show event if scams were detected
-      if (event.scamsFound > 0) {
-        const examples = event.exampleSymbols.slice(0, 2).join(', ');
-        addToEventLog(
-          state,
-          '🚫',
-          `Scam filter: ${event.scamsFound} token${event.scamsFound > 1 ? 's' : ''} rejected (${examples})`
-        );
-      }
-      break;
-    }
-
-    case 'provider.resume':
-      state.currentActivity = {
-        operation: event.streamType ? `Fetching ${event.streamType}` : 'Fetching',
-        provider: event.provider,
-        streamType: event.streamType,
-      };
-      addToEventLog(state, '↻', formatProviderResumeMessage(event.streamType, event.provider));
-      break;
-
-    case 'provider.failover':
-      addToEventLog(state, '⇄', `Switched to ${event.to}`);
-      break;
-
-    case 'provider.rate_limited': {
-      const currentCount = state.providerThrottles.get(event.provider) ?? 0;
-      state.providerThrottles.set(event.provider, currentCount + 1);
-      if (shouldLogProviderEvent(state, `rate_limited:${event.provider}`, 30000)) {
-        addToEventLog(state, '⚠', `${event.provider}: Rate limited`);
-      }
-      break;
-    }
-
-    case 'provider.circuit_open':
-      addToEventLog(state, '🔴', `${event.provider}: Circuit breaker opened`);
-      break;
-
-    case 'import.session.resumed':
-      addToEventLog(state, '↻', `Resumed from previous session`);
-      break;
-
-    case 'process.batch.completed':
-      addToEventLog(state, '✓', `Processing: ${event.batchSize} items completed (${event.pendingCount} pending)`);
-      break;
-
-    case 'provider.selection':
-      state.currentActivity = {
-        operation: 'Fetching',
-        provider: event.selected,
-      };
-      break;
-
-    // Silently handled events (no state updates needed)
-    case 'import.session.created':
-    case 'process.batch.started':
-    case 'process.group.processing':
-    case 'provider.cursor.adjusted':
-    case 'provider.backoff':
-    case 'provider.request.started':
-    case 'provider.request.succeeded':
-    case 'provider.request.failed':
-      break;
-
-    default: {
-      // TypeScript exhaustiveness check
-      const _exhaustive: never = event;
-      return _exhaustive;
-    }
+export function getOrCreateProviderStats(state: DashboardState, provider: string): ProviderApiStats {
+  let stats = state.apiCalls.byProvider.get(provider);
+  if (!stats) {
+    stats = {
+      total: 0,
+      retries: 0,
+      rateLimited: 0,
+      failed: 0,
+      responsesByStatus: new Map(),
+    };
+    state.apiCalls.byProvider.set(provider, stats);
   }
-}
-
-/**
- * Add event to the event log (unlimited events for scrollback).
- */
-function addToEventLog(state: DashboardState, icon: string, message: string): void {
-  state.events.push({
-    timestamp: Date.now(),
-    icon,
-    message,
-  });
-}
-
-function formatProviderResumeMessage(streamType: string | undefined, provider: string): string {
-  if (streamType?.trim()) {
-    return `Resumed ${streamType.trim()} with ${provider}`;
-  }
-  return `Resumed with ${provider}`;
-}
-
-const MAX_COOLDOWN_ENTRIES = 50;
-const COOLDOWN_EXPIRY_MS = 300000; // 5 minutes
-
-function shouldLogProviderEvent(state: DashboardState, key: string, cooldownMs: number): boolean {
-  const now = Date.now();
-  const lastAt = state.providerEventCooldowns.get(key);
-
-  if (lastAt !== undefined && now - lastAt < cooldownMs) {
-    return false;
-  }
-
-  if (state.providerEventCooldowns.size >= MAX_COOLDOWN_ENTRIES) {
-    cleanupExpiredCooldowns(state.providerEventCooldowns, now);
-  }
-
-  state.providerEventCooldowns.set(key, now);
-  return true;
-}
-
-function cleanupExpiredCooldowns(cooldowns: Map<string, number>, now: number): void {
-  // Remove entries older than expiry time
-  const cutoffTime = now - COOLDOWN_EXPIRY_MS;
-  for (const [key, timestamp] of cooldowns.entries()) {
-    if (timestamp < cutoffTime) {
-      cooldowns.delete(key);
-    }
-  }
-
-  // If still too large after expiry cleanup, remove oldest half
-  if (cooldowns.size >= MAX_COOLDOWN_ENTRIES) {
-    const entries = Array.from(cooldowns.entries()).sort((a, b) => a[1] - b[1]);
-    const removeCount = Math.floor(MAX_COOLDOWN_ENTRIES / 2);
-
-    for (let i = 0; i < removeCount; i++) {
-      cooldowns.delete(entries[i]![0]);
-    }
-  }
+  return stats;
 }

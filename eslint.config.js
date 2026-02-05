@@ -238,6 +238,14 @@ export default [
     },
   },
 
+  // === React/TSX: allow null returns (React convention) ===
+  {
+    files: ['**/*.tsx'],
+    rules: {
+      'unicorn/no-null': 'off', // React components conventionally return null, not undefined
+    },
+  },
+
   // === CLI app (CJS): relax ESM-only unicorn rules ===
   {
     files: ['apps/cli/**/src/**/*.{ts,tsx}'],

@@ -1,178 +1,129 @@
+/**
+ * Dashboard Controller - Manages dashboard lifecycle and updates
+ */
+
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector } from '@exitbook/http';
-import { getLogger } from '@exitbook/logger';
+import type { IngestionEvent } from '@exitbook/ingestion';
 import { render } from 'ink';
 import React from 'react';
 
-import { calculateProviderMetrics } from '../provider-metrics.js';
-
 import { Dashboard } from './dashboard-components.js';
-import type { CliEvent, DashboardState } from './dashboard-state.js';
-import { createDashboardState, updateStateFromEvent } from './dashboard-state.js';
+import { createDashboardState, type DashboardState } from './dashboard-state.js';
+import { updateStateFromEvent } from './dashboard-updater.js';
 
-const DASHBOARD_UPDATE_INTERVAL_MS = 250;
+const REFRESH_INTERVAL_MS = 250;
 
 // Timing constants for final render schedule after stop()
 const QUICK_RENDER_DELAY_MS = 200;
-const TYPICAL_REQUEST_DELAY_MS = 500;
 const FINAL_RENDER_DELAY_MS = 800;
 const UNMOUNT_DELAY_MS = 200;
 
-/**
- * Dashboard controller - orchestrates state updates and rendering.
- * Owns the update loop and delegates to state updaters and Ink renderer.
- */
 export class DashboardController {
-  private readonly logger = getLogger('DashboardController');
-  private readonly state: DashboardState;
-  private interval: NodeJS.Timeout | undefined = undefined;
-  private inkInstance: ReturnType<typeof render> | undefined = undefined;
-  private stopTimeouts: NodeJS.Timeout[] = [];
+  private state: DashboardState;
+  private instrumentation: InstrumentationCollector;
+  private eventBus: EventBus<IngestionEvent>;
+  private renderInstance: ReturnType<typeof render> | undefined = undefined;
+  private refreshTimer: NodeJS.Timeout | undefined = undefined;
+  private unsubscribe: (() => void) | undefined = undefined;
+
+  private providerManager: BlockchainProviderManager;
 
   constructor(
-    private readonly instrumentation: InstrumentationCollector,
-    private readonly providerManager: BlockchainProviderManager
+    eventBus: EventBus<IngestionEvent>,
+    instrumentation: InstrumentationCollector,
+    providerManager: BlockchainProviderManager
   ) {
     this.state = createDashboardState();
+    this.instrumentation = instrumentation;
+    this.eventBus = eventBus;
+    this.providerManager = providerManager;
   }
 
   /**
-   * Start the dashboard update loop.
+   * Start the dashboard
    */
   start(): void {
-    if (this.interval) {
-      this.logger.warn('Dashboard already started');
-      return;
-    }
+    // Render initial state
+    this.renderInstance = render(
+      React.createElement(Dashboard, {
+        state: this.state,
+      })
+    );
 
-    // Initial render with Ink
-    this.renderDashboard();
+    // Subscribe to events
+    this.unsubscribe = this.eventBus.subscribe(this.handleEvent);
 
-    // Start update loop
-    this.interval = setInterval(() => {
-      this.renderDashboard();
-    }, DASHBOARD_UPDATE_INTERVAL_MS);
+    // Start refresh loop
+    this.startRefreshLoop();
   }
 
   /**
-   * Stop the dashboard update loop and return promise that resolves when done.
-   *
-   * Performs delayed final renders to capture late-arriving HTTP metrics and events.
-   * This approach is simpler than tracking pending requests and acceptable for CLI sessions.
-   *
-   * Render schedule:
-   * - Immediate: Capture synchronous events
-   * - +200ms: Catch fast HTTP requests
-   * - +500ms: Catch most HTTP requests (typical p95 latency)
-   * - +800ms: Final render for stragglers, then unmount
+   * Stop the dashboard with delayed final renders to capture late events
    */
-  stop(): Promise<void> {
-    // Clear any pending stop timeouts from previous stop() calls
-    this.stopTimeouts.forEach((timeout) => clearTimeout(timeout));
-    this.stopTimeouts = [];
-
-    if (this.interval) {
-      clearInterval(this.interval);
-      this.interval = undefined;
+  async stop(): Promise<void> {
+    // Stop refresh loop
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = undefined;
     }
 
-    return new Promise((resolve) => {
-      // Immediate render
-      this.renderDashboard();
+    // Unsubscribe from events (but keep rendering for late events)
+    if (this.unsubscribe) {
+      this.unsubscribe();
+      this.unsubscribe = undefined;
+    }
 
-      // Quick render for fast completions
-      const timeout1 = setTimeout(() => {
-        this.renderDashboard();
+    // Schedule final renders to capture late-arriving events
+    return new Promise<void>((resolve) => {
+      // Quick render to show immediate final state
+      setTimeout(() => {
+        this.rerender();
       }, QUICK_RENDER_DELAY_MS);
-      this.stopTimeouts.push(timeout1);
 
-      // Typical request latency
-      const timeout2 = setTimeout(() => {
-        this.renderDashboard();
-      }, TYPICAL_REQUEST_DELAY_MS);
-      this.stopTimeouts.push(timeout2);
-
-      // Final render and unmount
-      const timeout3 = setTimeout(() => {
-        this.renderDashboard();
-
-        const timeout4 = setTimeout(() => {
-          if (this.inkInstance) {
-            this.inkInstance.unmount();
-            this.inkInstance = undefined;
-          }
-          this.stopTimeouts = [];
-          resolve();
-        }, UNMOUNT_DELAY_MS);
-        this.stopTimeouts.push(timeout4);
+      // Final render to capture late HTTP metrics
+      setTimeout(() => {
+        this.rerender();
       }, FINAL_RENDER_DELAY_MS);
-      this.stopTimeouts.push(timeout3);
+
+      // Unmount after final renders
+      setTimeout(() => {
+        if (this.renderInstance) {
+          this.renderInstance.unmount();
+          this.renderInstance = undefined;
+        }
+        resolve();
+      }, FINAL_RENDER_DELAY_MS + UNMOUNT_DELAY_MS);
     });
   }
 
   /**
-   * Handle event from event bus.
+   * Handle incoming event
    */
-  handleEvent(event: CliEvent): void {
-    try {
-      // Update state
-      updateStateFromEvent(this.state, event);
+  private handleEvent = (event: IngestionEvent): void => {
+    updateStateFromEvent(this.state, event, this.instrumentation, this.providerManager);
+  };
 
-      // Stop dashboard on completion
-      if (event.type === 'process.completed' || event.type === 'process.failed') {
-        this.stop().catch((error) => {
-          this.logger.error({ error }, 'Error stopping dashboard');
-        });
-      }
-    } catch (error) {
-      this.logger.error({ error, event }, 'Error handling event');
-    }
+  /**
+   * Start the refresh loop (250ms updates)
+   */
+  private startRefreshLoop(): void {
+    this.refreshTimer = setInterval(() => {
+      this.rerender();
+    }, REFRESH_INTERVAL_MS);
   }
 
   /**
-   * Set a fatal error to display before exit.
-   * Marks the operation as complete and triggers a final render.
+   * Force a re-render
    */
-  setFatalError(message: string, code: string): void {
-    this.state.fatalError = { message, code };
-    this.state.isComplete = true;
-    this.renderDashboard();
-  }
-
-  /**
-   * Render the dashboard using Ink.
-   */
-  private renderDashboard(): void {
-    try {
-      // Get provider health with circuit state
-      const providerHealth = this.providerManager.getProviderHealth();
-
-      // Get current metrics
-      const currentMetrics = this.instrumentation.getMetrics();
-
-      // Calculate provider metrics
-      const metrics = calculateProviderMetrics(currentMetrics, this.state.providerThrottles, providerHealth);
-
-      // Create React element
-      const element = React.createElement(Dashboard, {
-        state: this.state,
-        metrics,
-        instrumentation: this.instrumentation,
-      });
-
-      // Render or rerender
-      if (!this.inkInstance) {
-        // Initial render
-        this.inkInstance = render(element, { stdout: process.stderr });
-      } else {
-        // Rerender with updated props
-        this.inkInstance.rerender(element);
-      }
-    } catch (error) {
-      this.logger.error({ error }, 'Dashboard render failed');
-      this.stop().catch((stopError) => {
-        this.logger.error({ error: stopError }, 'Error stopping dashboard after render failure');
-      });
+  private rerender(): void {
+    if (this.renderInstance) {
+      this.renderInstance.rerender(
+        React.createElement(Dashboard, {
+          state: this.state,
+        })
+      );
     }
   }
 }

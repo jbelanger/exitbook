@@ -20,10 +20,11 @@ import {
   TransactionProcessService,
 } from '@exitbook/ingestion';
 
-import type { CliEvent } from '../../ui/dashboard/index.js';
 import { DashboardController } from '../../ui/dashboard/index.js';
 
 import { ImportHandler } from './import-handler.js';
+
+type CliEvent = IngestionEvent | ProviderEvent;
 
 /**
  * Service container for import command.
@@ -41,29 +42,18 @@ export interface ImportServices {
  * Handles initialization, wiring, and cleanup.
  */
 export async function createImportServices(): Promise<ImportServices> {
-  // Initialize database
   const database = await initializeDatabase();
-
-  // Create repositories
   const repositories = createRepositories(database);
 
-  // Create provider manager
   const providerManager = new BlockchainProviderManager();
-
-  // Create instrumentation for API call tracking
   const instrumentation = new InstrumentationCollector();
   providerManager.setInstrumentation(instrumentation);
 
-  // Create event bus
   const eventBus = new EventBus<CliEvent>((err) => {
-    // Error handler for event bus
     console.error('Event handler error:', err);
   });
-
-  // Wire up provider events
   providerManager.setEventBus(eventBus as EventBus<ProviderEvent>);
 
-  // Create services
   const tokenMetadataService = new TokenMetadataService(
     repositories.tokenMetadata,
     providerManager,
@@ -89,20 +79,12 @@ export async function createImportServices(): Promise<ImportServices> {
     eventBus as EventBus<IngestionEvent>
   );
 
-  // Create handler
   const handler = new ImportHandler(importOrchestrator, transactionProcessService, providerManager);
 
-  // Create dashboard controller and wire to event bus
-  const dashboard = new DashboardController(instrumentation, providerManager);
+  const dashboard = new DashboardController(eventBus as EventBus<IngestionEvent>, instrumentation, providerManager);
   dashboard.start();
 
-  const unsubscribe = eventBus.subscribe((event) => {
-    dashboard.handleEvent(event);
-  });
-
-  // Cleanup function
   const cleanup = async () => {
-    unsubscribe();
     await dashboard.stop();
     handler.destroy();
     await closeDatabase(database);

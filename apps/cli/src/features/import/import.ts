@@ -4,6 +4,7 @@ import type { ImportParams } from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 
+import type { DashboardController } from '../../ui/dashboard/index.js';
 import { resolveInteractiveParams, unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
@@ -148,29 +149,19 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
     // Execute import
     const importResult = await services.handler.executeImport(paramsWithCallback);
     if (importResult.isErr()) {
-      if (useInk) {
-        // Show error in dashboard, stop gracefully, then exit
-        services.dashboard.setFatalError(importResult.error.message, 'GENERAL_ERROR');
-        await services.dashboard.stop();
-        process.exit(ExitCodes.GENERAL_ERROR);
-      } else {
-        output.error('import', importResult.error, ExitCodes.GENERAL_ERROR);
-      }
-      return;
+      await handleCommandError(importResult.error.message, useInk, services.dashboard, output);
+      await services.cleanup();
+      resetLoggerContext();
+      process.exit(ExitCodes.GENERAL_ERROR);
     }
 
     // Execute processing
     const processResult = await services.handler.processImportedSessions(importResult.value.sessions);
     if (processResult.isErr()) {
-      if (useInk) {
-        // Show error in dashboard, stop gracefully, then exit
-        services.dashboard.setFatalError(processResult.error.message, 'GENERAL_ERROR');
-        await services.dashboard.stop();
-        process.exit(ExitCodes.GENERAL_ERROR);
-      } else {
-        output.error('import', processResult.error, ExitCodes.GENERAL_ERROR);
-      }
-      return;
+      await handleCommandError(processResult.error.message, useInk, services.dashboard, output);
+      await services.cleanup();
+      resetLoggerContext();
+      process.exit(ExitCodes.GENERAL_ERROR);
     }
 
     // Combine results and output success
@@ -183,24 +174,42 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 
     handleImportSuccess(output, combinedResult, params);
 
+    // Flush final dashboard renders before exit (mirrors error-path pattern).
+    // process.exit() terminates before the next Ink tick; stop() schedules
+    // delayed re-renders so the completed state is painted.
+    await services.dashboard.stop();
+
     // Exit required: BlockchainProviderManager uses fetch with keep-alive connections
     process.exit(0);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    if (useInk) {
-      // Show error in dashboard, stop gracefully, then exit
-      services.dashboard.setFatalError(errorMessage, 'GENERAL_ERROR');
-      await services.dashboard.stop();
-      await services.cleanup();
-      resetLoggerContext();
-      process.exit(ExitCodes.GENERAL_ERROR);
-    } else {
-      output.error('import', error instanceof Error ? error : new Error(errorMessage), ExitCodes.GENERAL_ERROR);
-    }
-  } finally {
-    // Cleanup (skipped if error path already handled it)
+    await handleCommandError(errorMessage, useInk, services.dashboard, output);
     await services.cleanup();
     resetLoggerContext();
+    process.exit(ExitCodes.GENERAL_ERROR);
+  } finally {
+    // Cleanup runs in success path (error path handles it explicitly)
+    await services.cleanup();
+    resetLoggerContext();
+  }
+}
+
+/**
+ * Handle command error by showing in dashboard or outputting to console.
+ * Returns to allow cleanup before exit.
+ */
+async function handleCommandError(
+  errorMessage: string,
+  useInk: boolean,
+  dashboard: DashboardController,
+  output: OutputManager
+): Promise<void> {
+  if (useInk) {
+    // Stop dashboard and show error via stderr
+    await dashboard.stop();
+    process.stderr.write(`\n❌ Error: ${errorMessage}\n`);
+  } else {
+    output.error('import', new Error(errorMessage), ExitCodes.GENERAL_ERROR);
   }
 }
 
@@ -227,8 +236,18 @@ function handleImportSuccess(output: OutputManager, importResult: CombinedImport
     blockchain: sourceIsBlockchain ? params.sourceName : undefined,
   };
 
+  const status = importResult.processingErrors?.length ? 'warning' : 'success';
+  const sessionSummaries = includeSessions
+    ? importResult.sessions.map((s) => ({
+        id: s.id,
+        startedAt: s.startedAt ? new Date(s.startedAt).toISOString() : undefined,
+        completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : undefined,
+        status: s.status,
+      }))
+    : undefined;
+
   const resultData: ImportCommandResult = {
-    status: importResult.processingErrors?.length ? 'warning' : 'success',
+    status,
     import: {
       accountId: firstSession?.accountId,
       source: params.sourceName,
@@ -238,14 +257,7 @@ function handleImportSuccess(output: OutputManager, importResult: CombinedImport
         skipped: totalSkipped,
         processed: importResult.processed,
       },
-      importSessions: includeSessions
-        ? importResult.sessions.map((s) => ({
-            id: s.id,
-            startedAt: s.startedAt ? new Date(s.startedAt).toISOString() : undefined,
-            completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : undefined,
-            status: s.status,
-          }))
-        : undefined,
+      importSessions: sessionSummaries,
       processingErrors: importResult.processingErrors?.slice(0, 5),
       runStats: importResult.runStats,
     },

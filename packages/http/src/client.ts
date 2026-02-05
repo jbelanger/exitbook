@@ -7,7 +7,7 @@ import * as RateLimitCore from './core/rate-limit.js';
 import type { HttpEffects, RateLimitState } from './core/types.js';
 import { createInitialRateLimitState } from './core/types.js';
 import { sanitizeEndpoint } from './instrumentation.js';
-import type { HttpClientConfig, HttpRequestOptions } from './types.js';
+import type { HttpClientConfig, HttpClientHooks, HttpRequestOptions } from './types.js';
 import { RateLimitError, ResponseValidationError, ServiceError } from './types.js';
 
 export class HttpClient {
@@ -176,29 +176,11 @@ export class HttpClient {
           outcomeError = `HTTP ${response.status}: ${errorText}`;
 
           if (response.status === 429) {
-            const now = this.effects.now();
-            const headersObj = Object.fromEntries(response.headers.entries());
-            const retryDelayInfo = HttpUtils.parseRateLimitHeaders(headersObj, now);
-            const baseDelay = retryDelayInfo.delayMs || 2000;
-            const headerSource = retryDelayInfo.source;
-
-            // Apply exponential backoff for consecutive 429 responses
-            const delay = HttpUtils.calculateExponentialBackoff(attempt, baseDelay, 60000);
-            hooks?.onRateLimited?.({ retryAfterMs: delay, status: response.status });
-
-            const willRetry = attempt < this.config.retries!;
-            this.effects.log(
-              'warn',
-              `Rate limit 429 response received from API${willRetry ? ', waiting before retry' : ', no retries remaining'} - Source: ${headerSource}, BaseDelay: ${baseDelay}ms, ActualDelay: ${delay}ms, Attempt: ${attempt}/${this.config.retries}`
-            );
-
-            if (willRetry) {
-              hooks?.onBackoff?.({ attemptNumber: attempt, delayMs: delay, reason: 'rate_limit' });
-              await this.effects.delay(delay);
+            const retryResult = await this.handleRateLimitResponse(response, attempt, hooks);
+            if (retryResult === 'continue') {
               continue;
-            } else {
-              throw new RateLimitError(`${this.config.providerName} rate limit exceeded`, 'unknown', 'api_request');
             }
+            throw new RateLimitError(`${this.config.providerName} rate limit exceeded`, 'unknown', 'api_request');
           }
 
           if (response.status >= 500) {
@@ -207,10 +189,6 @@ export class HttpClient {
               'unknown',
               'api_request'
             );
-          }
-
-          if (response.status >= 400 && response.status < 500) {
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
           }
 
           throw new Error(`HTTP ${response.status}: ${errorText}`);
@@ -224,6 +202,22 @@ export class HttpClient {
         }
 
         const data = (await response.json()) as T;
+
+        // Check for application-level rate limits (e.g. Etherscan returns HTTP 200 with rate limit in body)
+        if (options.validateResponse) {
+          const rateLimitError = options.validateResponse(data);
+          if (rateLimitError) {
+            outcome = 'failure';
+            outcomeStatus = response.status;
+            outcomeError = rateLimitError.message;
+
+            const retryResult = await this.handleApplicationRateLimit(rateLimitError, response.status, attempt, hooks);
+            if (retryResult === 'continue') {
+              continue;
+            }
+            return err(rateLimitError);
+          }
+        }
 
         // Validate response with schema if provided
         if (options.schema) {
@@ -352,6 +346,68 @@ export class HttpClient {
   destroy(): void {
     // No-op: fetch API doesn't expose HTTP connection pool management
     this.logger.debug('HTTP client destroyed');
+  }
+
+  /**
+   * Handle HTTP 429 rate limit response.
+   * Returns 'continue' if should retry, 'throw' if should throw error.
+   */
+  private async handleRateLimitResponse(
+    response: Response,
+    attempt: number,
+    hooks: HttpClientHooks | undefined
+  ): Promise<'continue' | 'throw'> {
+    const now = this.effects.now();
+    const headersObj = Object.fromEntries(response.headers.entries());
+    const retryDelayInfo = HttpUtils.parseRateLimitHeaders(headersObj, now);
+    const baseDelay = retryDelayInfo.delayMs || 2000;
+    const headerSource = retryDelayInfo.source;
+
+    const delay = HttpUtils.calculateExponentialBackoff(attempt, baseDelay, 60000);
+    hooks?.onRateLimited?.({ retryAfterMs: delay, status: response.status });
+
+    const willRetry = attempt < this.config.retries!;
+    this.effects.log(
+      'warn',
+      `Rate limit 429 response received from API${willRetry ? ', waiting before retry' : ', no retries remaining'} - Source: ${headerSource}, BaseDelay: ${baseDelay}ms, ActualDelay: ${delay}ms, Attempt: ${attempt}/${this.config.retries}`
+    );
+
+    if (willRetry) {
+      hooks?.onBackoff?.({ attemptNumber: attempt, delayMs: delay, reason: 'rate_limit' });
+      await this.effects.delay(delay);
+      return 'continue';
+    }
+
+    return 'throw';
+  }
+
+  /**
+   * Handle application-level rate limit (e.g., Etherscan).
+   * Returns 'continue' if should retry, 'return' if should return error.
+   */
+  private async handleApplicationRateLimit(
+    rateLimitError: RateLimitError,
+    status: number,
+    attempt: number,
+    hooks: HttpClientHooks | undefined
+  ): Promise<'continue' | 'return'> {
+    const baseDelay = rateLimitError.retryAfter || 2000;
+    const delay = HttpUtils.calculateExponentialBackoff(attempt, baseDelay, 60000);
+    const willRetry = attempt < this.config.retries!;
+
+    hooks?.onRateLimited?.({ retryAfterMs: delay, status });
+    this.effects.log(
+      'warn',
+      `Application-level rate limit detected${willRetry ? ', waiting before retry' : ', no retries remaining'} - Reason: ${rateLimitError.message}, BaseDelay: ${baseDelay}ms, ActualDelay: ${delay}ms, Attempt: ${attempt}/${this.config.retries}`
+    );
+
+    if (willRetry) {
+      hooks?.onBackoff?.({ attemptNumber: attempt, delayMs: delay, reason: 'rate_limit' });
+      await this.effects.delay(delay);
+      return 'continue';
+    }
+
+    return 'return';
   }
 
   /**

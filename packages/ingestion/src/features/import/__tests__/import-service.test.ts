@@ -694,7 +694,7 @@ describe('ImportExecutor', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('warnings');
+        expect(result.error.message).toContain('warning(s)');
       }
 
       expect(mockImportSessionRepo.finalize).toHaveBeenCalledWith(
@@ -703,7 +703,7 @@ describe('ImportExecutor', () => {
         expect.any(Number),
         0,
         0,
-        expect.stringContaining('warnings'),
+        expect.stringContaining('warning(s)'),
         { warnings: ['Test warning: partial data'] }
       );
     });

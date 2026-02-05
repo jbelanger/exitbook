@@ -1,6 +1,8 @@
 import { getErrorMessage } from '@exitbook/core';
+import { RateLimitError } from '@exitbook/http';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
+import type { ZodType } from 'zod';
 
 import type { NormalizationError } from '../../../../core/index.js';
 import { validateOutput } from '../../../../core/index.js';
@@ -24,6 +26,42 @@ import {
  * Pure functions for Etherscan transaction mapping.
  * Following the Functional Core / Imperative Shell pattern.
  */
+
+/**
+ * Determine transaction status from Etherscan response fields.
+ */
+function determineTransactionStatus(
+  isError: string,
+  txreceiptStatus: string | null | undefined
+): 'success' | 'failed' | 'pending' {
+  if (isError === '1') {
+    return 'failed';
+  }
+  if (txreceiptStatus === '0') {
+    return 'failed';
+  }
+  return 'success';
+}
+
+/**
+ * Detects application-level rate limits in Etherscan responses.
+ * Etherscan returns HTTP 200 with { status: "0", result: "...rate limit..." }
+ * instead of HTTP 429, so this must be passed as validateResponse to the
+ * HttpClient so that retries fire inside the retry loop.
+ */
+export function detectEtherscanRateLimit(response: unknown): RateLimitError | void {
+  if (typeof response !== 'object' || response === null) return;
+  const data = response as { result?: unknown; status?: string };
+  if (data.status !== '0') return;
+  const result = typeof data.result === 'string' ? data.result.toLowerCase() : '';
+  if (result.includes('rate limit')) {
+    return new RateLimitError(
+      typeof data.result === 'string' ? data.result : 'Etherscan rate limit',
+      'etherscan',
+      'api_request'
+    );
+  }
+}
 
 /**
  * Converts Gwei (10^9 wei) to Wei (smallest ETH unit).
@@ -129,37 +167,7 @@ export function mapEtherscanWithdrawalToEvmTransaction(
  * @returns Array of validated withdrawals or error
  */
 export function parseEtherscanWithdrawalResponse(response: unknown): Result<EtherscanBeaconWithdrawal[], Error> {
-  const parseResult = EtherscanBeaconWithdrawalResponseSchema.safeParse(response);
-
-  if (!parseResult.success) {
-    return err(new Error(`Invalid Etherscan response structure: ${parseResult.error.message}`));
-  }
-
-  const data = parseResult.data;
-
-  // Handle API errors
-  if (data.status === '0') {
-    // "No transactions found" / "No token transfers found" is not an error, just return empty array
-    const message = typeof data.message === 'string' ? data.message.toLowerCase() : '';
-    const result = typeof data.result === 'string' ? data.result.toLowerCase() : '';
-    if (
-      message.includes('no transactions found') ||
-      message.includes('no token transfers found') ||
-      result.includes('no transactions found') ||
-      result.includes('no token transfers found')
-    ) {
-      return ok([]);
-    }
-    const resultStr = typeof data.result === 'string' ? data.result : JSON.stringify(data.result);
-    return err(new Error(`Etherscan API error: ${data.message} - Result: ${resultStr}`));
-  }
-
-  // Validate result is array
-  if (!Array.isArray(data.result)) {
-    return err(new Error('Expected array of withdrawals in result'));
-  }
-
-  return ok(data.result);
+  return parseEtherscanResponse(response, EtherscanBeaconWithdrawalResponseSchema, 'withdrawals');
 }
 
 /**
@@ -197,12 +205,7 @@ export function mapEtherscanNormalTransactionToEvmTransaction(
     // Determine transaction status
     // isError: '0' = success, '1' = error
     // txreceipt_status: '1' = success, '0' = failed, '' or null = pre-Byzantium
-    let status: 'success' | 'failed' | 'pending' = 'success';
-    if (rawData.isError === '1') {
-      status = 'failed';
-    } else if (rawData.txreceipt_status === '0') {
-      status = 'failed';
-    }
+    const status = determineTransactionStatus(rawData.isError, rawData.txreceipt_status);
 
     // Calculate fee amount
     const gasUsed = new Decimal(rawData.gasUsed);
@@ -409,37 +412,7 @@ export function mapEtherscanTokenTransactionToEvmTransaction(
 export function parseEtherscanNormalTransactionResponse(
   response: unknown
 ): Result<EtherscanNormalTransaction[], Error> {
-  const parseResult = EtherscanNormalTransactionResponseSchema.safeParse(response);
-
-  if (!parseResult.success) {
-    return err(new Error(`Invalid Etherscan response structure: ${parseResult.error.message}`));
-  }
-
-  const data = parseResult.data;
-
-  // Handle API errors
-  if (data.status === '0') {
-    // "No transactions found" / "No token transfers found" is not an error, just return empty array
-    const message = typeof data.message === 'string' ? data.message.toLowerCase() : '';
-    const result = typeof data.result === 'string' ? data.result.toLowerCase() : '';
-    if (
-      message.includes('no transactions found') ||
-      message.includes('no token transfers found') ||
-      result.includes('no transactions found') ||
-      result.includes('no token transfers found')
-    ) {
-      return ok([]);
-    }
-    const resultStr = typeof data.result === 'string' ? data.result : JSON.stringify(data.result);
-    return err(new Error(`Etherscan API error: ${data.message} - Result: ${resultStr}`));
-  }
-
-  // Validate result is array
-  if (!Array.isArray(data.result)) {
-    return err(new Error('Expected array of transactions in result'));
-  }
-
-  return ok(data.result);
+  return parseEtherscanResponse(response, EtherscanNormalTransactionResponseSchema, 'transactions');
 }
 
 /**
@@ -451,37 +424,7 @@ export function parseEtherscanNormalTransactionResponse(
 export function parseEtherscanInternalTransactionResponse(
   response: unknown
 ): Result<EtherscanInternalTransaction[], Error> {
-  const parseResult = EtherscanInternalTransactionResponseSchema.safeParse(response);
-
-  if (!parseResult.success) {
-    return err(new Error(`Invalid Etherscan response structure: ${parseResult.error.message}`));
-  }
-
-  const data = parseResult.data;
-
-  // Handle API errors
-  if (data.status === '0') {
-    // "No transactions found" / "No token transfers found" is not an error, just return empty array
-    const message = typeof data.message === 'string' ? data.message.toLowerCase() : '';
-    const result = typeof data.result === 'string' ? data.result.toLowerCase() : '';
-    if (
-      message.includes('no transactions found') ||
-      message.includes('no token transfers found') ||
-      result.includes('no transactions found') ||
-      result.includes('no token transfers found')
-    ) {
-      return ok([]);
-    }
-    const resultStr = typeof data.result === 'string' ? data.result : JSON.stringify(data.result);
-    return err(new Error(`Etherscan API error: ${data.message} - Result: ${resultStr}`));
-  }
-
-  // Validate result is array
-  if (!Array.isArray(data.result)) {
-    return err(new Error('Expected array of transactions in result'));
-  }
-
-  return ok(data.result);
+  return parseEtherscanResponse(response, EtherscanInternalTransactionResponseSchema, 'transactions');
 }
 
 /**
@@ -491,7 +434,19 @@ export function parseEtherscanInternalTransactionResponse(
  * @returns Array of validated transactions or error
  */
 export function parseEtherscanTokenTransactionResponse(response: unknown): Result<EtherscanTokenTransaction[], Error> {
-  const parseResult = EtherscanTokenTransactionResponseSchema.safeParse(response);
+  return parseEtherscanResponse(response, EtherscanTokenTransactionResponseSchema, 'transactions');
+}
+
+/**
+ * Generic parser for Etherscan API responses.
+ * Consolidates common parsing logic across all transaction types.
+ */
+function parseEtherscanResponse<T>(
+  response: unknown,
+  schema: ZodType<{ message: string; result: T[] | string; status: string }>,
+  dataType: string
+): Result<T[], Error> {
+  const parseResult = schema.safeParse(response);
 
   if (!parseResult.success) {
     return err(new Error(`Invalid Etherscan response structure: ${parseResult.error.message}`));
@@ -499,27 +454,29 @@ export function parseEtherscanTokenTransactionResponse(response: unknown): Resul
 
   const data = parseResult.data;
 
-  // Handle API errors
   if (data.status === '0') {
-    // "No transactions found" / "No token transfers found" is not an error, just return empty array
-    const message = typeof data.message === 'string' ? data.message.toLowerCase() : '';
-    const result = typeof data.result === 'string' ? data.result.toLowerCase() : '';
-    if (
-      message.includes('no transactions found') ||
-      message.includes('no token transfers found') ||
-      result.includes('no transactions found') ||
-      result.includes('no token transfers found')
-    ) {
+    if (isNoDataFoundMessage(data.message, data.result)) {
       return ok([]);
     }
     const resultStr = typeof data.result === 'string' ? data.result : JSON.stringify(data.result);
     return err(new Error(`Etherscan API error: ${data.message} - Result: ${resultStr}`));
   }
 
-  // Validate result is array
   if (!Array.isArray(data.result)) {
-    return err(new Error('Expected array of transactions in result'));
+    return err(new Error(`Expected array of ${dataType} in result`));
   }
 
   return ok(data.result);
+}
+
+function isNoDataFoundMessage(message: string, result: unknown): boolean {
+  const messageLower = typeof message === 'string' ? message.toLowerCase() : '';
+  const resultLower = typeof result === 'string' ? result.toLowerCase() : '';
+
+  return (
+    messageLower.includes('no transactions found') ||
+    messageLower.includes('no token transfers found') ||
+    resultLower.includes('no transactions found') ||
+    resultLower.includes('no token transfers found')
+  );
 }

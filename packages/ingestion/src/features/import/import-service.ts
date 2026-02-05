@@ -36,13 +36,10 @@ export class ImportExecutor {
    * All parameters are extracted from the account object.
    */
   async importFromSource(account: Account): Promise<Result<ImportSession, Error>> {
-    // Get importer and params based on source type
     const setupResult = this.setupImport(account);
     if (setupResult.isErr()) return err(setupResult.error);
 
     const { importer, params } = setupResult.value;
-
-    // Execute unified streaming import
     return this.executeStreamingImport(account, importer, params);
   }
 
@@ -56,19 +53,15 @@ export class ImportExecutor {
 
     this.logger.debug(`Setting up ${sourceType} import for ${sourceName}`);
 
-    // Extract params directly from account - no normalization needed
     const params: ImportParams = {
       sourceName,
       sourceType,
       cursor: account.lastCursor,
     };
 
-    // Add source-specific fields based on account type
     if (sourceType === 'blockchain') {
       params.address = account.identifier;
       params.providerName = account.providerName ?? undefined;
-
-      // Validate address is provided
       if (!params.address) {
         return err(new Error(`Address required for ${sourceName} import`));
       }
@@ -78,18 +71,16 @@ export class ImportExecutor {
       params.csvDirectory = account.identifier;
     }
 
-    // Create importer based on source type
+    const normalizedSourceName = sourceName.toLowerCase();
     let importer: IImporter;
 
     if (sourceType === 'blockchain') {
-      const normalizedSourceName = sourceName.toLowerCase();
       const adapter = getBlockchainAdapter(normalizedSourceName);
       if (!adapter) {
         return err(new Error(`Unknown blockchain: ${sourceName}`));
       }
       importer = adapter.createImporter(this.providerManager, params.providerName);
     } else {
-      const normalizedSourceName = sourceName.toLowerCase();
       const adapter = getExchangeAdapter(normalizedSourceName);
       if (!adapter) {
         return err(new Error(`Unknown exchange: ${sourceName}`));
@@ -113,7 +104,6 @@ export class ImportExecutor {
   ): Promise<Result<ImportSession, Error>> {
     const sourceName = account.sourceName;
 
-    // Check for existing incomplete import session to resume
     const incompleteImportSessionResult = await this.importSessionRepository.findLatestIncomplete(account.id);
 
     if (incompleteImportSessionResult.isErr()) {
@@ -126,17 +116,18 @@ export class ImportExecutor {
     let totalSkipped = 0;
     let totalFetchedRun = 0;
 
+    let resuming: boolean;
+
     if (incompleteImportSession) {
-      // Resume existing import - cursor comes from account.lastCursor
       importSessionId = incompleteImportSession.id;
       totalImported = incompleteImportSession.transactionsImported || 0;
       totalSkipped = incompleteImportSession.transactionsSkipped || 0;
+      resuming = true;
 
       this.logger.info(
         `Resuming import from import session #${importSessionId} (total so far: ${totalImported} imported, ${totalSkipped} skipped)`
       );
 
-      // Emit session resumed event
       this.eventBus?.emit({
         type: 'import.session.resumed',
         sessionId: importSessionId,
@@ -145,61 +136,47 @@ export class ImportExecutor {
         fromCursor: account.lastCursor?.cursor?.primary.value ?? 0,
       });
 
-      // Emit import started event
-      this.eventBus?.emit({
-        type: 'import.started',
-        sourceName,
-        sourceType: account.accountType,
-        accountId: account.id,
-        resuming: true,
-        address: account.accountType === 'blockchain' ? account.identifier : undefined,
-      });
-
-      // Update status back to 'started' (in case it was 'failed')
+      // Reset status to 'started' in case the previous attempt failed
       const updateResult = await this.importSessionRepository.update(importSessionId, { status: 'started' });
       if (updateResult.isErr()) {
         return err(updateResult.error);
       }
     } else {
-      // Create new import session for this account
       const importSessionCreateResult = await this.importSessionRepository.create(account.id);
-
       if (importSessionCreateResult.isErr()) {
         return err(importSessionCreateResult.error);
       }
 
       importSessionId = importSessionCreateResult.value;
+      resuming = false;
+
       this.logger.info(`Created new import session #${importSessionId}`);
 
-      // Emit session created event
       this.eventBus?.emit({
         type: 'import.session.created',
         sessionId: importSessionId,
         accountId: account.id,
         sourceName,
       });
-
-      // Emit import started event
-      this.eventBus?.emit({
-        type: 'import.started',
-        sourceName,
-        sourceType: account.accountType,
-        accountId: account.id,
-        resuming: false,
-        address: account.accountType === 'blockchain' ? account.identifier : undefined,
-      });
     }
+
+    this.eventBus?.emit({
+      type: 'import.started',
+      sourceName,
+      sourceType: account.accountType,
+      accountId: account.id,
+      resuming,
+      address: account.accountType === 'blockchain' ? account.identifier : undefined,
+    });
 
     const startTime = Date.now();
     const allWarnings: string[] = [];
 
     try {
-      // Stream batches from importer
       const batchIterator = importer.importStreaming(params);
 
       for await (const batchResult of batchIterator) {
         if (batchResult.isErr()) {
-          // Update import session with error
           await this.importSessionRepository.update(importSessionId, {
             status: 'failed',
             error_message: batchResult.error.message,
@@ -209,22 +186,20 @@ export class ImportExecutor {
 
         const batch = batchResult.value;
 
-        // Collect warnings from batch (e.g., partial data, skipped operations)
         if (batch.warnings && batch.warnings.length > 0) {
           allWarnings.push(...batch.warnings);
           for (const warning of batch.warnings) {
             this.logger.warn(`⚠️  Import warning: ${warning}`);
-            // Emit warning event
             this.eventBus?.emit({
               type: 'import.warning',
               sourceName,
               accountId: account.id,
+              streamType: batch.streamType,
               warning,
             });
           }
         }
 
-        // Save batch to database
         this.logger.debug(`Saving ${batch.rawTransactions.length} ${batch.streamType}...`);
         const saveResult = await this.rawDataRepository.saveBatch(account.id, batch.rawTransactions);
 
@@ -254,14 +229,12 @@ export class ImportExecutor {
 
         if (cursorUpdateResult.isErr()) {
           this.logger.warn(`Failed to update cursor for ${batch.streamType}: ${cursorUpdateResult.error.message}`);
-          // Don't fail the import, just log warning
         }
 
         this.logger.info(
           `Batch saved: ${inserted} inserted, ${skipped} skipped of ${batch.rawTransactions.length} ${batch.streamType} (total: ${totalImported}, fetched this run: ${totalFetchedRun})`
         );
 
-        // Emit batch event
         this.eventBus?.emit({
           type: 'import.batch',
           sourceName,
@@ -312,7 +285,6 @@ export class ImportExecutor {
         return err(new Error(warningMessage));
       }
 
-      // Mark complete
       const finalizeResult = await this.importSessionRepository.finalize(
         importSessionId,
         'completed',
@@ -333,7 +305,6 @@ export class ImportExecutor {
         );
       }
 
-      // Emit completion event
       this.eventBus?.emit({
         type: 'import.completed',
         sourceName,
@@ -343,7 +314,6 @@ export class ImportExecutor {
         durationMs: Date.now() - startTime,
       });
 
-      // Fetch and return the complete ImportSession
       const sessionResult = await this.importSessionRepository.findById(importSessionId);
       if (sessionResult.isErr()) {
         return err(sessionResult.error);
@@ -368,7 +338,6 @@ export class ImportExecutor {
 
       this.logger.error(`Import failed for ${sourceName}: ${originalError.message}`);
 
-      // Emit failure event
       this.eventBus?.emit({
         type: 'import.failed',
         sourceName,

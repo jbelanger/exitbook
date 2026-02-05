@@ -88,6 +88,7 @@ describe('ScamDetectionService', () => {
           name: 'Neutral Token',
           symbol: 'NEUTRAL',
           possibleSpam: false,
+          verifiedContract: false,
         }),
       ],
     ]);
@@ -97,8 +98,8 @@ describe('ScamDetectionService', () => {
     expect(result.size).toBe(1);
     const note = result.get(0);
     expect(note).toBeDefined();
-    expect(note?.severity).toBe('warning');
-    expect(note?.type).toBe('SUSPICIOUS_AIRDROP');
+    expect(note?.severity).toBe('error');
+    expect(note?.type).toBe('SCAM_TOKEN');
     expect(note?.metadata?.detectionSource).toBe('heuristic');
   });
 

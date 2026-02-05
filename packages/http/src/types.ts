@@ -20,6 +20,12 @@ export interface HttpRequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | undefined;
   schema?: ZodType<unknown> | undefined;
   timeout?: number | undefined;
+  /**
+   * Inspect the parsed response body before it is returned. Return a RateLimitError
+   * to trigger the same retry-with-backoff path as an HTTP 429.
+   * Useful for APIs (e.g. Etherscan) that signal rate limits inside a 200 body.
+   */
+  validateResponse?: ((data: unknown) => RateLimitError | void) | undefined;
 }
 
 export interface HttpClientHooks {

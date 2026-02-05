@@ -21,6 +21,7 @@ import { getEvmChainConfig } from '../../chain-registry.js';
 import type { EvmTransaction } from '../../types.js';
 
 import {
+  detectEtherscanRateLimit,
   mapEtherscanWithdrawalToEvmTransaction,
   parseEtherscanWithdrawalResponse,
   mapEtherscanNormalTransactionToEvmTransaction,
@@ -148,8 +149,8 @@ const ETHERSCAN_SUPPORTED_CHAINS = [
   },
   defaultConfig: {
     rateLimit: {
-      requestsPerSecond: 4,
-      requestsPerMinute: 240,
+      requestsPerSecond: 3,
+      requestsPerMinute: 180,
       requestsPerHour: 4000,
     },
     retries: 3,
@@ -352,7 +353,7 @@ export class EtherscanApiClient extends BaseApiClient {
       }
 
       const endpoint = `?${params.toString()}`;
-      const result = await this.httpClient.get(endpoint);
+      const result = await this.httpClient.get(endpoint, { validateResponse: detectEtherscanRateLimit });
 
       if (result.isErr()) {
         this.logger.error(
@@ -481,7 +482,7 @@ export class EtherscanApiClient extends BaseApiClient {
       }
 
       const endpoint = `?${params.toString()}`;
-      const result = await this.httpClient.get(endpoint);
+      const result = await this.httpClient.get(endpoint, { validateResponse: detectEtherscanRateLimit });
 
       if (result.isErr()) {
         this.logger.error(
@@ -606,7 +607,7 @@ export class EtherscanApiClient extends BaseApiClient {
       }
 
       const endpoint = `?${params.toString()}`;
-      const result = await this.httpClient.get(endpoint);
+      const result = await this.httpClient.get(endpoint, { validateResponse: detectEtherscanRateLimit });
 
       if (result.isErr()) {
         this.logger.error(
@@ -731,7 +732,7 @@ export class EtherscanApiClient extends BaseApiClient {
       }
 
       const endpoint = `?${params.toString()}`;
-      const result = await this.httpClient.get(endpoint);
+      const result = await this.httpClient.get(endpoint, { validateResponse: detectEtherscanRateLimit });
 
       if (result.isErr()) {
         this.logger.error(

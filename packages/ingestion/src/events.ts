@@ -64,6 +64,7 @@ export type ImportEvent =
        */
       accountId: number;
       sourceName: string;
+      streamType?: string | undefined;
       type: 'import.warning';
       warning: string;
     }
