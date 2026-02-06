@@ -43,8 +43,7 @@
     "neverthrow": "^8.2.0",
     "picocolors": "^1.1.1",
     "protobufjs": "^8.0.0",
-    "react": "^19.2.3",
-    "reflect-metadata": "^0.2.2"
+    "react": "^19.2.3"
   },
   "devDependencies": {
     "@types/node": "^25.0.10",
