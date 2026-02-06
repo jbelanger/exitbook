@@ -21,7 +21,7 @@
   "dependencies": {
     "better-sqlite3": "^12.6.2",
     "decimal.js": "^10.6.0",
-    "kysely": "^0.28.10",
+    "kysely": "^0.28.11",
     "neverthrow": "^8.2.0"
   },
   "devDependencies": {
