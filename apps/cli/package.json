@@ -35,15 +35,15 @@
     "@exitbook/ingestion": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/price-providers": "workspace:*",
-    "commander": "^14.0.0",
+    "commander": "^14.0.3",
     "ink": "^6.6.0",
     "ink-spinner": "^5.0.0",
-    "libsodium-sumo": "^0.8.1",
-    "libsodium-wrappers-sumo": "^0.8.1",
+    "libsodium-sumo": "^0.8.2",
+    "libsodium-wrappers-sumo": "^0.8.2",
     "neverthrow": "^8.2.0",
     "picocolors": "^1.1.1",
     "protobufjs": "^8.0.0",
-    "react": "^19.2.3"
+    "react": "^19.2.4"
   },
   "devDependencies": {
     "@types/react": "^19.2.13",
