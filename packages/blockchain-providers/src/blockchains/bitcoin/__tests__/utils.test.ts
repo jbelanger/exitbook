@@ -2,8 +2,8 @@ import { HDKey } from '@scure/bip32';
 import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { BlockchainProviderManager } from '../../../core/provider-manager.ts';
-import type { BitcoinWalletAddress } from '../types.ts';
+import type { BlockchainProviderManager } from '../../../core/provider-manager.js';
+import type { BitcoinWalletAddress } from '../types.js';
 import {
   deriveBitcoinAddressesFromXpub,
   getBitcoinAddressType,
@@ -11,7 +11,7 @@ import {
   normalizeBitcoinAddress,
   performBitcoinAddressGapScanning,
   satoshisToBtcString,
-} from '../utils.ts';
+} from '../utils.js';
 
 describe('Bitcoin Utils', () => {
   describe('normalizeBitcoinAddress', () => {

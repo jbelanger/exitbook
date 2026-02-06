@@ -7,7 +7,7 @@ import type { Selectable, Transaction } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { DatabaseSchema, RawTransactionTable } from '../schema/database-schema.ts';
+import type { DatabaseSchema, RawTransactionTable } from '../schema/database-schema.js';
 
 /**
  * Filter options for loading raw data from repository

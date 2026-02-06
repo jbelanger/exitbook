@@ -1,8 +1,8 @@
 import type { TokenMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/index.ts';
-import { ProviderRegistry } from '../../../../../core/index.ts';
+import type { RawBalanceData } from '../../../../../core/index.js';
+import { ProviderRegistry } from '../../../../../core/index.js';
 import { HeliusApiClient } from '../helius.api-client.js';
 
 describe('HeliusApiClient Integration', () => {

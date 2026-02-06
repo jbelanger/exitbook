@@ -2,7 +2,7 @@ import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 
-import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.ts';
+import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
 
 import type { TransactionWithRawData } from './common.js';
 import type { OneShotOperation, ProviderOperationType, StreamingOperation } from './operations.js';

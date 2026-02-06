@@ -11,17 +11,17 @@ import type {
   NormalizedTransactionBase,
   OneShotOperation,
   StreamingOperation,
-} from '../../../../core/index.ts';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
+} from '../../../../core/index.js';
+import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.ts';
-import type { SolanaSignature, SolanaAccountBalance, SolanaTransaction } from '../../schemas.ts';
-import type { SolanaTokenAccountsResponse } from '../../types.ts';
-import { isValidSolanaAddress } from '../../utils.ts';
+import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.js';
+import type { SolanaSignature, SolanaAccountBalance, SolanaTransaction } from '../../schemas.js';
+import type { SolanaTokenAccountsResponse } from '../../types.js';
+import { isValidSolanaAddress } from '../../utils.js';
 
 import { mapHeliusTransaction } from './helius.mapper-utils.js';
 import type { HeliusAssetResponse, HeliusTransaction } from './helius.schemas.js';

@@ -1,16 +1,16 @@
 import { isErrorWithMessage } from '@exitbook/core';
 import { type Result, err } from 'neverthrow';
 
-import { type NormalizationError } from '../../../../core/index.ts';
-import { validateOutput } from '../../../../core/index.ts';
-import type { SolanaTransaction } from '../../schemas.ts';
-import { SolanaTransactionSchema } from '../../schemas.ts';
+import { type NormalizationError } from '../../../../core/index.js';
+import { validateOutput } from '../../../../core/index.js';
+import type { SolanaTransaction } from '../../schemas.js';
+import { SolanaTransactionSchema } from '../../schemas.js';
 import {
   lamportsToSol,
   extractAccountChanges,
   extractTokenChanges,
   generateSolanaTransactionEventId,
-} from '../../utils.ts';
+} from '../../utils.js';
 
 import type { HeliusTransaction } from './helius.schemas.js';
 

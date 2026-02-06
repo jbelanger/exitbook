@@ -1,9 +1,9 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.ts';
-import type { NearBalanceChange, NearReceipt, NearTokenTransfer, NearTransaction } from '../../../schemas.ts';
-import { NearBlocksApiClient } from '../nearblocks.api-client.ts';
+import { ProviderRegistry } from '../../../../../core/index.js';
+import type { NearBalanceChange, NearReceipt, NearTokenTransfer, NearTransaction } from '../../../schemas.js';
+import { NearBlocksApiClient } from '../nearblocks.api-client.js';
 
 describe.sequential('NearBlocksApiClient Streaming E2E', () => {
   const config = ProviderRegistry.createDefaultConfig('near', 'nearblocks');

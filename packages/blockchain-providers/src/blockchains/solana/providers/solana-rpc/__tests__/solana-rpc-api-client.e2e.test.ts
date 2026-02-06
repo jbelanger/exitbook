@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/index.ts';
-import { ProviderRegistry } from '../../../../../core/index.ts';
+import type { RawBalanceData } from '../../../../../core/index.js';
+import { ProviderRegistry } from '../../../../../core/index.js';
 import { SolanaRPCApiClient } from '../solana-rpc.api-client.js';
 
 describe('SolanaRPCApiClient Integration', () => {

@@ -2,7 +2,7 @@
  * NEAR blockchain provider exports
  */
 
-export * from './utils.ts';
+export * from './utils.js';
 
 // Schemas and types (normalized streaming model)
 export {
@@ -15,7 +15,7 @@ export {
   NearBalanceChangeSchema,
   NearTokenTransferSchema,
   NearStreamEventSchema,
-} from './schemas.ts';
+} from './schemas.js';
 
 export type {
   NearStreamType,
@@ -27,13 +27,13 @@ export type {
   NearBalanceChange,
   NearTokenTransfer,
   NearStreamEvent,
-} from './schemas.ts';
+} from './schemas.js';
 
 // Provider schemas (NearBlocks API responses)
 export * from './providers/nearblocks/nearblocks.schemas.js';
 
 // Mapper utilities (used by processor)
-export * from './providers/nearblocks/mapper-utils.ts';
+export * from './providers/nearblocks/mapper-utils.js';
 
 // Additional utility functions (balance transformations)
 export { formatNearAccountId, isValidNearAccountId, nearToYoctoNear, yoctoNearToNear } from './utils.js';

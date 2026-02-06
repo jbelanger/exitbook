@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { tryParseDecimal, parseDecimal } from '../decimal-utils.ts';
+import { tryParseDecimal, parseDecimal } from '../decimal-utils.js';
 
 describe('Decimal Utilities', () => {
   describe('tryParseDecimal', () => {

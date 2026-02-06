@@ -12,7 +12,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vi
 import { initializeProviders } from '../../initialize.js';
 import { BlockchainProviderManager } from '../provider-manager.js';
 import { ProviderRegistry } from '../registry/provider-registry.js';
-import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.ts';
+import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
 import type { OneShotOperation, ProviderInfo, StreamingBatchResult, StreamingOperation } from '../types/index.js';
 import { ProviderError, type IBlockchainProvider, type ProviderCapabilities } from '../types/index.js';
 

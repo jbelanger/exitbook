@@ -10,35 +10,35 @@ import type {
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
-} from '../../../../core/index.ts';
-import { RegisterApiClient, BaseApiClient, maskAddress, validateOutput } from '../../../../core/index.ts';
+} from '../../../../core/index.js';
+import { RegisterApiClient, BaseApiClient, maskAddress, validateOutput } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
   type StreamingPageContext,
-} from '../../../../core/streaming/streaming-adapter.ts';
-import { transformNearBalance } from '../../balance-utils.ts';
+} from '../../../../core/streaming/streaming-adapter.js';
+import { transformNearBalance } from '../../balance-utils.js';
 import type {
   NearBalanceChange,
   NearReceipt,
   NearStreamEvent,
   NearTokenTransfer,
   NearTransaction,
-} from '../../schemas.ts';
+} from '../../schemas.js';
 import {
   NearBalanceChangeSchema,
   NearReceiptSchema,
   NearTokenTransferSchema,
   NearTransactionSchema,
-} from '../../schemas.ts';
-import { isValidNearAccountId } from '../../utils.ts';
+} from '../../schemas.js';
+import { isValidNearAccountId } from '../../utils.js';
 
 import {
   mapRawActivityToBalanceChange,
   mapRawFtToTokenTransfer,
   mapRawReceiptToNearReceipt,
   mapRawTransactionToNearTransaction,
-} from './mapper-utils.ts';
+} from './mapper-utils.js';
 import {
   NearBlocksAccountSchema,
   NearBlocksActivitiesResponseSchema,
@@ -49,7 +49,7 @@ import {
   type NearBlocksFtTransaction,
   type NearBlocksReceipt,
   type NearBlocksTransaction,
-} from './nearblocks.schemas.ts';
+} from './nearblocks.schemas.js';
 
 // NearBlocks API pagination: Optimal batch size balancing API limits, memory usage, and latency
 const NEARBLOCKS_PAGE_SIZE = 25;

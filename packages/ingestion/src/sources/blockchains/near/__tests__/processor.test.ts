@@ -20,9 +20,9 @@ import type {
 import { ok } from 'neverthrow';
 import { describe, expect, test, vi, type Mock } from 'vitest';
 
-import type { IScamDetectionService } from '../../../../features/scam-detection/scam-detection-service.interface.ts';
-import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.ts';
-import type { ProcessingContext } from '../../../../shared/types/processors.ts';
+import type { IScamDetectionService } from '../../../../features/scam-detection/scam-detection-service.interface.js';
+import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
+import type { ProcessingContext } from '../../../../shared/types/processors.js';
 import { NearTransactionProcessor } from '../processor.js';
 
 // Test data factories for normalized types

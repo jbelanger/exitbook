@@ -2,7 +2,7 @@ import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { buildViewMeta, getAllMovements, parseDate } from '../view-utils.ts';
+import { buildViewMeta, getAllMovements, parseDate } from '../view-utils.js';
 
 describe('parseDate', () => {
   it('should parse valid ISO date string', () => {

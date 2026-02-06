@@ -20,8 +20,8 @@ import type {
   NearTokenTransfer,
   NearBalanceChangeCause,
   NearActionType,
-} from '../../schemas.ts';
-import { NearActionTypeSchema } from '../../schemas.ts';
+} from '../../schemas.js';
+import { NearActionTypeSchema } from '../../schemas.js';
 
 import type {
   NearBlocksTransaction,
@@ -29,7 +29,7 @@ import type {
   NearBlocksAction,
   NearBlocksActivity,
   NearBlocksFtTransaction,
-} from './nearblocks.schemas.ts';
+} from './nearblocks.schemas.js';
 
 const logger = getLogger('nearblocks-mapper');
 

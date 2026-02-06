@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import { parseDecimal } from '../utils/decimal-utils.ts';
+import { parseDecimal } from '../utils/decimal-utils.js';
 
 import { DecimalSchema, DecimalStringSchema } from './money.js';
 

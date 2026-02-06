@@ -16,7 +16,7 @@ import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderEvent } from '../events.js';
-import type { NormalizedTransactionBase } from '../index.ts';
+import type { NormalizedTransactionBase } from '../index.js';
 
 import { emitProviderTransition } from './provider-manager-events.js';
 import {

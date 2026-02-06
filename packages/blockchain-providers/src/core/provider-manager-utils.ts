@@ -9,7 +9,7 @@ import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
 import type { CircuitState, CircuitStatus } from '@exitbook/http';
 import { getCircuitStatus, isCircuitHalfOpen, isCircuitOpen } from '@exitbook/http';
 
-import type { NormalizedTransactionBase } from '../index.ts';
+import type { NormalizedTransactionBase } from '../index.js';
 
 import type {
   IBlockchainProvider,

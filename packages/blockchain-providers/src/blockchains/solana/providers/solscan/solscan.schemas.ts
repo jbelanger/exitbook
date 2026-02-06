@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../core/index.ts';
-import { SolanaAddressSchema } from '../../schemas.ts';
+import { timestampToDate } from '../../../../core/index.js';
+import { SolanaAddressSchema } from '../../schemas.js';
 
 /**
  * Schema for Solscan input account structure

@@ -6,7 +6,7 @@ import {
   hexOrNumericToNumericRequired,
   parseApiBoolean,
   timestampToDate,
-} from '../zod-utils.ts';
+} from '../zod-utils.js';
 
 describe('zod-utils', () => {
   describe('hexOrNumericToNumericOptional', () => {

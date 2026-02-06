@@ -7,7 +7,7 @@ import { getLogger } from '@exitbook/logger';
 import { err, errAsync, ok, type Result } from 'neverthrow';
 
 import { ProviderRegistry } from '../registry/provider-registry.js';
-import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.ts';
+import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
 import { createStreamingIterator, type StreamingAdapterOptions } from '../streaming/streaming-adapter.js';
 import type {
   IBlockchainProvider,

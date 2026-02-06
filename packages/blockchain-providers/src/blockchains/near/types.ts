@@ -2,7 +2,7 @@
  * NEAR native types for correlation and aggregation
  */
 
-import type { NearBalanceChangeCause, NearActionType } from './schemas.ts';
+import type { NearBalanceChangeCause, NearActionType } from './schemas.js';
 
 /**
  * NEAR receipt action

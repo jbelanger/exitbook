@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { maskAddress } from '../address-utils.ts';
+import { maskAddress } from '../address-utils.js';
 
 describe('address-utils', () => {
   describe('maskAddress', () => {

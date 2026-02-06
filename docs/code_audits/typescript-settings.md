@@ -162,10 +162,11 @@ What exists:
 
      3a. Finding: experimentalDecorators enabled but codebase uses simple function patterns
 
-     What exists:
-     The shared base config at /Users/joel/Dev/exitbook/packages/tsconfig/tsconfig.json (line 18) enables experimentalDecorators: true. This is a project-wide setting. The only decorator usage is
-     @RegisterApiClient in packages/blockchain-providers/ (29 files). The decorator implementation at /Users/joel/Dev/exitbook/packages/blockchain-providers/src/core/registry/decorators.ts is a simpl
-      class decorator -- it does not use parameter decorators, method decorators, property decorators, or Reflect.metadata. It is a pure function that calls ProviderRegistry.register(factory).
+DONE
+What exists:
+The shared base config at /Users/joel/Dev/exitbook/packages/tsconfig/tsconfig.json (line 18) enables experimentalDecorators: true. This is a project-wide setting. The only decorator usage is
+@RegisterApiClient in packages/blockchain-providers/ (29 files). The decorator implementation at /Users/joel/Dev/exitbook/packages/blockchain-providers/src/core/registry/decorators.ts is a simpl
+class decorator -- it does not use parameter decorators, method decorators, property decorators, or Reflect.metadata. It is a pure function that calls ProviderRegistry.register(factory).
 
      Why it's a problem:
      TypeScript 5.0+ supports TC39 standard decorators (Stage 3, now shipping). The experimentalDecorators flag enables the legacy TypeScript decorator implementation, which has different semantics
@@ -197,11 +198,9 @@ What exists:
      ---
      3b. Finding: Mixed .ts and .js import extensions across the codebase
 
-     What exists:
-     Across packages and apps:
-     - ~1,095 imports use .js extensions (e.g., from './foo.js')
-     - ~125 imports use .ts extensions (e.g., from './foo.ts')
-     - 0 imports use extensionless paths
+DONE
+What exists:
+Across packages and apps: - ~1,095 imports use .js extensions (e.g., from './foo.js') - ~125 imports use .ts extensions (e.g., from './foo.ts') - 0 imports use extensionless paths
 
      All packages have allowImportingTsExtensions: true + noEmit: true. The CLI's tsconfig also has these flags. The base tsconfig sets module: "NodeNext" + moduleResolution: "NodeNext", which
      requires explicit file extensions.

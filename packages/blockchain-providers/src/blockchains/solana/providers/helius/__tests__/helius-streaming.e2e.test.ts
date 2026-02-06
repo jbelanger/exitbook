@@ -2,7 +2,7 @@ import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { SolanaTransaction } from '../../../schemas.ts';
+import type { SolanaTransaction } from '../../../schemas.js';
 import { HeliusApiClient } from '../helius.api-client.js';
 
 describe.sequential('HeliusApiClient Streaming E2E', () => {

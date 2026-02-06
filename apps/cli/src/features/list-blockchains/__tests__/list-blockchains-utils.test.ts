@@ -1,7 +1,7 @@
 import type { ProviderInfo, ProviderOperationType } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
-import type { BlockchainInfo } from '../list-blockchains-utils.ts';
+import type { BlockchainInfo } from '../list-blockchains-utils.js';
 import {
   buildBlockchainInfo,
   buildSummary,
@@ -12,7 +12,7 @@ import {
   providerToSummary,
   sortBlockchains,
   validateCategory,
-} from '../list-blockchains-utils.ts';
+} from '../list-blockchains-utils.js';
 
 describe('list-blockchains-utils', () => {
   describe('validateCategory', () => {

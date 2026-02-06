@@ -9,7 +9,7 @@ import { err, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { BlockchainProviderManager } from '../provider-manager.js';
-import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.ts';
+import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
 import type {
   FailoverStreamingExecutionResult,
   IBlockchainProvider,

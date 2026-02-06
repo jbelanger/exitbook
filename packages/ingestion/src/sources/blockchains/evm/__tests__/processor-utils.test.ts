@@ -1,7 +1,7 @@
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
-import type { ProcessingContext } from '../../../../shared/types/processors.ts';
+import type { ProcessingContext } from '../../../../shared/types/processors.js';
 import {
   analyzeEvmFundFlow,
   consolidateEvmMovementsByAsset,

@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../core/index.ts';
+import { timestampToDate } from '../../../../core/index.js';
 import {
   SolanaTokenBalanceSchema,
   SolanaAddressSchema,
   SolanaSignatureSchema,
   SolanaAccountBalanceSchema,
   SolanaTokenAccountSchema,
-} from '../../schemas.ts';
+} from '../../schemas.js';
 
 /**
  * Schema for Helius transaction meta structure

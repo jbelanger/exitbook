@@ -11,7 +11,7 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
-import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.ts';
+import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.js';
 
 /**
  * Stream type discriminator for the 4 normalized data types

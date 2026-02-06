@@ -4,17 +4,17 @@ import { createHash } from 'node:crypto';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.ts';
-import type { RawBalanceData, StreamingOperation } from '../../../../../core/index.ts';
-import type { NearBalanceChange, NearReceipt, NearTokenTransfer, NearTransaction } from '../../../schemas.ts';
-import { sortKeys } from '../mapper-utils.ts';
-import { NearBlocksApiClient } from '../nearblocks.api-client.ts';
+import { ProviderRegistry } from '../../../../../core/index.js';
+import type { RawBalanceData, StreamingOperation } from '../../../../../core/index.js';
+import type { NearBalanceChange, NearReceipt, NearTokenTransfer, NearTransaction } from '../../../schemas.js';
+import { sortKeys } from '../mapper-utils.js';
+import { NearBlocksApiClient } from '../nearblocks.api-client.js';
 import type {
   NearBlocksActivity,
   NearBlocksFtTransaction,
   NearBlocksReceipt,
   NearBlocksTransaction,
-} from '../nearblocks.schemas.ts';
+} from '../nearblocks.schemas.js';
 
 const mockHttpClient = {
   get: vi.fn(),

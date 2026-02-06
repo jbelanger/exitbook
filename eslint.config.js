@@ -70,7 +70,6 @@ export default [
           caughtErrorsIgnorePattern: '^_',
         },
       ],
-
       // Require explanations for disables
       'eslint-comments/require-description': ['error', { ignore: [] }],
 
@@ -174,6 +173,19 @@ export default [
             },
             {
               group: [
+                './*.ts',
+                './**/*.ts',
+                '../*.ts',
+                '../**/*.ts',
+                './*.tsx',
+                './**/*.tsx',
+                '../*.tsx',
+                '../**/*.tsx',
+              ],
+              message: 'Use .js extensions for relative imports (NodeNext convention).',
+            },
+            {
+              group: [
                 '../*/src/**',
                 '../../*/src/**',
                 '../../../*/src/**',
@@ -214,7 +226,17 @@ export default [
               message: 'Validate at the shell; use schema/VOs in core.',
             },
           ],
-          patterns: ['@nestjs/*'],
+          patterns: [
+            '@nestjs/*',
+            './*.ts',
+            './**/*.ts',
+            '../*.ts',
+            '../**/*.ts',
+            './*.tsx',
+            './**/*.tsx',
+            '../*.tsx',
+            '../**/*.tsx',
+          ],
         },
       ],
       'import/no-restricted-paths': [
@@ -292,6 +314,19 @@ export default [
               importNames: ['KyselyDB'],
               message:
                 'CLI should not use KyselyDB type directly. Accept services/repositories in constructors instead. Only command-execution.ts and index.ts may use initializeDatabase/closeDatabase.',
+            },
+            {
+              group: [
+                './*.ts',
+                './**/*.ts',
+                '../*.ts',
+                '../**/*.ts',
+                './*.tsx',
+                './**/*.tsx',
+                '../*.tsx',
+                '../**/*.tsx',
+              ],
+              message: 'Use .js extensions for relative imports (NodeNext convention).',
             },
           ],
         },

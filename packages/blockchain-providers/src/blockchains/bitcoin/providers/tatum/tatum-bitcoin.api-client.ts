@@ -21,7 +21,7 @@ import {
 import { createRawBalanceData } from '../../balance-utils.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';
-import { BITCOIN_STREAMING_DEDUP_WINDOW } from '../../constants.ts';
+import { BITCOIN_STREAMING_DEDUP_WINDOW } from '../../constants.js';
 import type { BitcoinTransaction } from '../../schemas.js';
 
 import { mapTatumTransaction } from './mapper-utils.js';

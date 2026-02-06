@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { CursorStateSchema } from './cursor.js';
-import { VerificationMetadataSchema } from './import-session.ts';
+import { VerificationMetadataSchema } from './import-session.js';
 
 /**
  * Account type schema - blockchain or exchange variants

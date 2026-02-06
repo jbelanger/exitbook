@@ -1,10 +1,10 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, JsonRpcResponse, RawBalanceData, OneShotOperation } from '../../../../core/index.ts';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
-import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.ts';
-import { isValidSolanaAddress } from '../../utils.ts';
+import type { ProviderConfig, JsonRpcResponse, RawBalanceData, OneShotOperation } from '../../../../core/index.js';
+import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
+import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.js';
+import { isValidSolanaAddress } from '../../utils.js';
 
 import type { SolanaTokenAccountsResponse } from './solana-rpc.schemas.js';
 import {

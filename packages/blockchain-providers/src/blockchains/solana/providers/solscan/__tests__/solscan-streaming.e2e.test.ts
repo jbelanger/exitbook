@@ -2,7 +2,7 @@ import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { SolanaTransaction } from '../../../schemas.ts';
+import type { SolanaTransaction } from '../../../schemas.js';
 import { SolscanApiClient } from '../solscan.api-client.js';
 
 describe.sequential('SolscanApiClient Streaming E2E', () => {

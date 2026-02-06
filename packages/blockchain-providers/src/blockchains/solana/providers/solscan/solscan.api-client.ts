@@ -10,16 +10,16 @@ import type {
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
-} from '../../../../core/index.ts';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
+} from '../../../../core/index.js';
+import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import { transformSolBalance } from '../../balance-utils.ts';
-import type { SolanaTransaction } from '../../schemas.ts';
-import { isValidSolanaAddress } from '../../utils.ts';
+import { transformSolBalance } from '../../balance-utils.js';
+import type { SolanaTransaction } from '../../schemas.js';
+import { isValidSolanaAddress } from '../../utils.js';
 
 import { mapSolscanTransaction } from './solscan.mapper-utils.js';
 import type { SolscanTransaction, SolscanResponse } from './solscan.schemas.js';

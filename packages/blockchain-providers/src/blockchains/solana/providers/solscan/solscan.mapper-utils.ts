@@ -1,11 +1,11 @@
 import { isErrorWithMessage } from '@exitbook/core';
 import { type Result, err } from 'neverthrow';
 
-import { type NormalizationError } from '../../../../core/index.ts';
-import { validateOutput } from '../../../../core/index.ts';
-import type { SolanaTransaction, SolanaTokenChange } from '../../schemas.ts';
-import { SolanaTransactionSchema } from '../../schemas.ts';
-import { lamportsToSol, extractAccountChangesFromSolscan, generateSolanaTransactionEventId } from '../../utils.ts';
+import { type NormalizationError } from '../../../../core/index.js';
+import { validateOutput } from '../../../../core/index.js';
+import type { SolanaTransaction, SolanaTokenChange } from '../../schemas.js';
+import { SolanaTransactionSchema } from '../../schemas.js';
+import { lamportsToSol, extractAccountChangesFromSolscan, generateSolanaTransactionEventId } from '../../utils.js';
 
 import type { SolscanTransaction } from './solscan.schemas.js';
 

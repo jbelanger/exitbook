@@ -1,6 +1,6 @@
 import type { AccountType } from '@exitbook/core';
 
-import type { OutputManager } from '../shared/output.ts';
+import type { OutputManager } from '../shared/output.js';
 import type { CommonViewFilters } from '../shared/view-utils.js';
 
 /**

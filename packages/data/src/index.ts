@@ -14,11 +14,8 @@ export {
   RawDataRepository,
   type IRawDataRepository,
   type LoadRawDataFilters,
-} from '../../data/src/repositories/raw-data-repository.ts';
-export {
-  ImportSessionRepository,
-  type IImportSessionRepository,
-} from '../../data/src/repositories/import-session-repository.ts';
+} from './repositories/raw-data-repository.js';
+export { ImportSessionRepository, type IImportSessionRepository } from './repositories/import-session-repository.js';
 export type {
   //StoredRawData,
   StoredImportSession,
