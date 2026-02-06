@@ -20,7 +20,7 @@ import {
 } from '@exitbook/ingestion';
 import type { Result } from 'neverthrow';
 
-import { DashboardController } from '../../ui/dashboard/index.js';
+import { IngestionMonitorController } from '../../ui/ingestion-monitor/index.js';
 
 import type { ProcessHandlerParams, ProcessResult } from './process-handler.js';
 import { executeReprocess } from './process-handler.js';
@@ -33,7 +33,7 @@ type CliEvent = IngestionEvent | ProviderEvent;
  */
 export interface ProcessServices {
   execute: (params: ProcessHandlerParams) => Promise<Result<ProcessResult, Error>>;
-  dashboard: DashboardController;
+  ingestionMonitor: IngestionMonitorController;
   instrumentation: InstrumentationCollector;
   cleanup: () => Promise<void>;
 }
@@ -92,8 +92,12 @@ export async function createProcessServices(): Promise<ProcessServices> {
     importSession
   );
 
-  const dashboard = new DashboardController(eventBus as EventBus<IngestionEvent>, instrumentation, providerManager);
-  dashboard.start();
+  const ingestionMonitor = new IngestionMonitorController(
+    eventBus as EventBus<IngestionEvent>,
+    instrumentation,
+    providerManager
+  );
+  ingestionMonitor.start();
 
   // Create execute function with dependencies bound
   const execute = (params: ProcessHandlerParams) =>
@@ -104,14 +108,14 @@ export async function createProcessServices(): Promise<ProcessServices> {
     });
 
   const cleanup = async () => {
-    await dashboard.stop();
+    await ingestionMonitor.stop();
     providerManager.destroy();
     await closeDatabase(database);
   };
 
   return {
     execute,
-    dashboard,
+    ingestionMonitor,
     instrumentation,
     cleanup,
   };

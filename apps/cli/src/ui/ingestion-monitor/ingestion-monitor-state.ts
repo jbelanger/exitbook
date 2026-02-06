@@ -178,7 +178,7 @@ export interface Warning {
 /**
  * Complete Dashboard State
  */
-export interface DashboardState {
+export interface IngestionMonitorState {
   // Account info
   account?: AccountInfo | undefined;
 
@@ -219,7 +219,7 @@ export interface DashboardState {
 /**
  * Create initial dashboard state
  */
-export function createDashboardState(): DashboardState {
+export function createIngestionMonitorState(): IngestionMonitorState {
   return {
     account: undefined,
     providerReadiness: undefined,
@@ -239,7 +239,7 @@ export function createDashboardState(): DashboardState {
 /**
  * Get or create provider stats entry
  */
-export function getOrCreateProviderStats(state: DashboardState, provider: string): ProviderApiStats {
+export function getOrCreateProviderStats(state: IngestionMonitorState, provider: string): ProviderApiStats {
   let stats = state.apiCalls.byProvider.get(provider);
   if (!stats) {
     stats = {

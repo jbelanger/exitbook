@@ -11,9 +11,9 @@ import type { IngestionEvent } from '@exitbook/ingestion';
 import { render } from 'ink';
 import React from 'react';
 
-import { Dashboard } from './dashboard-components.js';
-import { createDashboardState, type DashboardState } from './dashboard-state.js';
-import { updateStateFromEvent } from './dashboard-updater.js';
+import { IngestionMonitor } from './ingestion-monitor-components.js';
+import { createIngestionMonitorState, type IngestionMonitorState } from './ingestion-monitor-state.js';
+import { updateStateFromEvent } from './ingestion-monitor-updater.js';
 
 const REFRESH_INTERVAL_MS = 250;
 
@@ -22,8 +22,8 @@ const QUICK_RENDER_DELAY_MS = 200;
 const FINAL_RENDER_DELAY_MS = 800;
 const UNMOUNT_DELAY_MS = 200;
 
-export class DashboardController {
-  private state: DashboardState;
+export class IngestionMonitorController {
+  private state: IngestionMonitorState;
   private instrumentation: InstrumentationCollector;
   private eventBus: EventBus<IngestionEvent>;
   private renderInstance: ReturnType<typeof render> | undefined = undefined;
@@ -37,7 +37,7 @@ export class DashboardController {
     instrumentation: InstrumentationCollector,
     providerManager: BlockchainProviderManager
   ) {
-    this.state = createDashboardState();
+    this.state = createIngestionMonitorState();
     this.instrumentation = instrumentation;
     this.eventBus = eventBus;
     this.providerManager = providerManager;
@@ -49,7 +49,7 @@ export class DashboardController {
   start(): void {
     // Render initial state
     this.renderInstance = render(
-      React.createElement(Dashboard, {
+      React.createElement(IngestionMonitor, {
         state: this.state,
       })
     );
@@ -155,7 +155,7 @@ export class DashboardController {
   private rerender(): void {
     if (this.renderInstance) {
       this.renderInstance.rerender(
-        React.createElement(Dashboard, {
+        React.createElement(IngestionMonitor, {
           state: this.state,
         })
       );

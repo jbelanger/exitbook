@@ -8,8 +8,8 @@ import type { BlockchainProviderManager, ProviderEvent } from '@exitbook/blockch
 import type { InstrumentationCollector } from '@exitbook/http';
 import type { IngestionEvent } from '@exitbook/ingestion';
 
-import type { DashboardState, ImportOperation } from './dashboard-state.js';
-import { getOrCreateProviderStats } from './dashboard-state.js';
+import type { IngestionMonitorState, ImportOperation } from './ingestion-monitor-state.js';
+import { getOrCreateProviderStats } from './ingestion-monitor-state.js';
 
 type CliEvent = IngestionEvent | ProviderEvent;
 
@@ -21,7 +21,7 @@ const RATE_CALCULATION_WINDOW_MS = 5000;
  * Update dashboard state from event (mutates state in place for performance).
  */
 export function updateStateFromEvent(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: CliEvent,
   instrumentation: InstrumentationCollector,
   providerManager: BlockchainProviderManager
@@ -151,7 +151,7 @@ export function updateStateFromEvent(
  * Handle xpub.derivation.started event
  */
 function handleXpubDerivationStarted(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<IngestionEvent, { type: 'xpub.derivation.started' }>
 ): void {
   state.derivation = {
@@ -178,7 +178,7 @@ function handleXpubDerivationStarted(
  * Handle xpub.derivation.completed event
  */
 function handleXpubDerivationCompleted(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<IngestionEvent, { type: 'xpub.derivation.completed' }>
 ): void {
   if (!state.derivation) return;
@@ -198,7 +198,7 @@ function handleXpubDerivationCompleted(
  * Handle xpub.derivation.failed event
  */
 function handleXpubDerivationFailed(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<IngestionEvent, { type: 'xpub.derivation.failed' }>
 ): void {
   if (!state.derivation) return;
@@ -215,7 +215,7 @@ function handleXpubDerivationFailed(
  * Handle xpub.import.started event
  */
 function handleXpubImportStarted(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<IngestionEvent, { type: 'xpub.import.started' }>
 ): void {
   state.xpubImport = {
@@ -248,7 +248,7 @@ function handleXpubImportStarted(
  * Handle xpub.import.completed event
  */
 function handleXpubImportCompleted(
-  state: DashboardState,
+  state: IngestionMonitorState,
   _event: Extract<IngestionEvent, { type: 'xpub.import.completed' }>
 ): void {
   if (!state.import) return;
@@ -272,7 +272,7 @@ function handleXpubImportCompleted(
  * Handle xpub.import.failed event
  */
 function handleXpubImportFailed(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<IngestionEvent, { type: 'xpub.import.failed' }>
 ): void {
   if (!state.import) return;
@@ -288,7 +288,7 @@ function handleXpubImportFailed(
 /**
  * Handle xpub.empty event
  */
-function handleXpubEmpty(state: DashboardState, _event: Extract<IngestionEvent, { type: 'xpub.empty' }>): void {
+function handleXpubEmpty(state: IngestionMonitorState, _event: Extract<IngestionEvent, { type: 'xpub.empty' }>): void {
   state.isComplete = true;
   state.warnings.push({
     message: 'No active addresses found for xpub',
@@ -302,7 +302,10 @@ function handleXpubEmpty(state: DashboardState, _event: Extract<IngestionEvent, 
 /**
  * Handle import.started event
  */
-function handleImportStarted(state: DashboardState, event: Extract<IngestionEvent, { type: 'import.started' }>): void {
+function handleImportStarted(
+  state: IngestionMonitorState,
+  event: Extract<IngestionEvent, { type: 'import.started' }>
+): void {
   // If this is a child of an xpub import, don't overwrite state
   if (event.parentAccountId && state.xpubImport) {
     // This is a child import - state.import already exists from xpub.import.started
@@ -338,7 +341,10 @@ function resolveStreamStartTime(importOp: ImportOperation): number {
 /**
  * Handle import.batch event
  */
-function handleImportBatch(state: DashboardState, event: Extract<IngestionEvent, { type: 'import.batch' }>): void {
+function handleImportBatch(
+  state: IngestionMonitorState,
+  event: Extract<IngestionEvent, { type: 'import.batch' }>
+): void {
   if (!state.import) return;
 
   if (state.xpubImport) {
@@ -395,7 +401,7 @@ function handleImportBatch(state: DashboardState, event: Extract<IngestionEvent,
 /**
  * Handle import.completed event
  */
-function handleImportCompleted(state: DashboardState): void {
+function handleImportCompleted(state: IngestionMonitorState): void {
   if (!state.import) return;
 
   state.import.status = 'completed';
@@ -405,7 +411,10 @@ function handleImportCompleted(state: DashboardState): void {
 /**
  * Handle import.failed event
  */
-function handleImportFailed(state: DashboardState, event: Extract<IngestionEvent, { type: 'import.failed' }>): void {
+function handleImportFailed(
+  state: IngestionMonitorState,
+  event: Extract<IngestionEvent, { type: 'import.failed' }>
+): void {
   if (!state.import) return;
 
   state.import.status = 'failed';
@@ -422,7 +431,10 @@ function handleImportFailed(state: DashboardState, event: Extract<IngestionEvent
 /**
  * Handle import.warning event
  */
-function handleImportWarning(state: DashboardState, event: Extract<IngestionEvent, { type: 'import.warning' }>): void {
+function handleImportWarning(
+  state: IngestionMonitorState,
+  event: Extract<IngestionEvent, { type: 'import.warning' }>
+): void {
   state.warnings.push({
     message: event.warning,
   });
@@ -455,7 +467,7 @@ function handleImportWarning(state: DashboardState, event: Extract<IngestionEven
  * Handle provider.selection event
  */
 function handleProviderSelection(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.selection' }>,
   providerManager: BlockchainProviderManager
 ): void {
@@ -499,7 +511,7 @@ function handleProviderSelection(
  * Handle provider.resume event
  */
 function handleProviderResume(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.resume' }>,
   providerManager: BlockchainProviderManager
 ): void {
@@ -543,7 +555,7 @@ function handleProviderResume(
  * Handle provider.request.started event
  */
 function handleProviderRequestStarted(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.request.started' }>
 ): void {
   // Clear transient message on active import streams
@@ -565,7 +577,7 @@ function handleProviderRequestStarted(
  * Handle provider.request.succeeded event
  */
 function handleProviderRequestSucceeded(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.request.succeeded' }>,
   instrumentation: InstrumentationCollector,
   providerManager: BlockchainProviderManager
@@ -613,7 +625,7 @@ function handleProviderRequestSucceeded(
  * Handle provider.request.failed event
  */
 function handleProviderRequestFailed(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.request.failed' }>,
   instrumentation: InstrumentationCollector,
   providerManager: BlockchainProviderManager
@@ -665,7 +677,7 @@ function handleProviderRequestFailed(
  * Handle provider.rate_limited event
  */
 function handleProviderRateLimited(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.rate_limited' }>
 ): void {
   const stats = getOrCreateProviderStats(state, event.provider);
@@ -676,7 +688,7 @@ function handleProviderRateLimited(
  * Handle provider.backoff event
  */
 function handleProviderBackoff(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.backoff' }>
 ): void {
   if (state.import) {
@@ -702,7 +714,7 @@ function handleProviderBackoff(
  * Handle provider.failover event
  */
 function handleProviderFailover(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.failover' }>
 ): void {
   if (state.import) {
@@ -732,7 +744,7 @@ function handleProviderFailover(
  * Handle process.started event
  */
 function handleProcessStarted(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<IngestionEvent, { type: 'process.started' }>
 ): void {
   // For reprocessing (no prior import), show account info if available
@@ -760,7 +772,7 @@ function handleProcessStarted(
  * Handle process.completed event
  */
 function handleProcessCompleted(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<IngestionEvent, { type: 'process.completed' }>
 ): void {
   if (!state.processing) return;
@@ -779,7 +791,7 @@ function handleProcessCompleted(
  * Handle metadata.batch.completed event
  */
 function handleMetadataBatchCompleted(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<IngestionEvent, { type: 'metadata.batch.completed' }>,
   instrumentation: InstrumentationCollector,
   providerManager: BlockchainProviderManager
@@ -834,7 +846,7 @@ function calculateProviderRate(
  * Update stream rates from instrumentation data
  */
 function updateStreamRates(
-  state: DashboardState,
+  state: IngestionMonitorState,
   instrumentation: InstrumentationCollector,
   providerManager: BlockchainProviderManager
 ): void {
@@ -877,7 +889,7 @@ function updateStreamRates(
  * Handle process.batch.completed event — accumulate processed count
  */
 function handleProcessBatchCompleted(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<IngestionEvent, { type: 'process.batch.completed' }>
 ): void {
   if (!state.processing) return;
@@ -889,7 +901,7 @@ function handleProcessBatchCompleted(
  * Handle scam.batch.summary event — accumulate scam stats, collect first 3 unique symbols
  */
 function handleScamBatchSummary(
-  state: DashboardState,
+  state: IngestionMonitorState,
   event: Extract<IngestionEvent, { type: 'scam.batch.summary' }>
 ): void {
   if (!state.processing) return;
@@ -912,7 +924,7 @@ function handleScamBatchSummary(
  * Update processing metadata rates from instrumentation data
  */
 function updateProcessingRates(
-  state: DashboardState,
+  state: IngestionMonitorState,
   instrumentation: InstrumentationCollector,
   providerManager: BlockchainProviderManager
 ): void {

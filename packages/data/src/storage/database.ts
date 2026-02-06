@@ -6,49 +6,10 @@ import { getLogger } from '@exitbook/logger';
 import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect } from 'kysely';
 
-import { convertValueForSqlite } from '../plugins/sqlite-type-adapter-plugin.js';
+import { sqliteTypeAdapterPlugin } from '../plugins/sqlite-type-adapter-plugin.js';
 import type { DatabaseSchema } from '../schema/database-schema.js';
 
 const logger = getLogger('KyselyDatabase');
-
-/**
- * Wraps better-sqlite3 Database to automatically convert JS types to SQLite-compatible types
- */
-function wrapSqliteDatabase(db: Database.Database): Database.Database {
-  // Create a proxy that intercepts all method calls
-  return new Proxy(db, {
-    get(target, prop) {
-      const value = target[prop as keyof Database.Database];
-
-      // Intercept prepare() to wrap statements
-      if (prop === 'prepare' && typeof value === 'function') {
-        return function (sql: string): ReturnType<typeof target.prepare> {
-          const statement = (value as typeof target.prepare).call(target, sql);
-
-          // Wrap the statement to convert parameters
-          return new Proxy(statement, {
-            get(stmtTarget, stmtProp) {
-              const stmtValue = stmtTarget[stmtProp as keyof typeof statement];
-
-              // Intercept methods that accept parameters
-              if ((stmtProp === 'run' || stmtProp === 'get' || stmtProp === 'all') && typeof stmtValue === 'function') {
-                return function (...params: unknown[]) {
-                  // Convert parameters before passing to SQLite
-                  const convertedParams = params.map(convertValueForSqlite);
-                  return (stmtValue as (...args: unknown[]) => unknown).apply(stmtTarget, convertedParams);
-                };
-              }
-
-              return typeof stmtValue === 'function' ? stmtValue.bind(stmtTarget) : stmtValue;
-            },
-          });
-        };
-      }
-
-      return typeof value === 'function' ? value.bind(target) : value;
-    },
-  });
-}
 
 /**
  * Create and configure database instance
@@ -75,18 +36,15 @@ export function createDatabase(dbPath?: string): Kysely<DatabaseSchema> {
 
   logger.debug(`Connected to SQLite database: ${finalPath}`);
 
-  // Wrap better-sqlite3 database to auto-convert types
-  const wrappedDb = wrapSqliteDatabase(sqliteDb);
-
   // Create Kysely instance with SQLite dialect
   // Note: No CamelCasePlugin - we use snake_case to match database columns exactly
   const kysely = new Kysely<DatabaseSchema>({
     dialect: new SqliteDialect({
-      database: wrappedDb,
+      database: sqliteDb,
     }),
   });
 
-  return kysely;
+  return kysely.withPlugin(sqliteTypeAdapterPlugin);
 }
 
 /**

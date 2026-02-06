@@ -4,7 +4,7 @@ import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import type { DashboardController } from '../../ui/dashboard/index.js';
+import type { IngestionMonitorController } from '../../ui/ingestion-monitor/index.js';
 import { unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
@@ -126,8 +126,8 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       }
 
       // Mark as aborted and stop gracefully
-      services.dashboard.abort();
-      services.dashboard.stop().catch(() => {
+      services.ingestionMonitor.abort();
+      services.ingestionMonitor.stop().catch(() => {
         /* ignore cleanup errors on abort */
       });
       services.cleanup().catch(() => {
@@ -170,7 +170,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
     // Execute import
     const importResult = await services.handler.executeImport(paramsWithCallback);
     if (importResult.isErr()) {
-      await handleCommandError(importResult.error.message, useInk, services.dashboard, output);
+      await handleCommandError(importResult.error.message, useInk, services.ingestionMonitor, output);
       await services.cleanup();
       resetLoggerContext();
       process.exit(ExitCodes.GENERAL_ERROR);
@@ -179,7 +179,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
     // Execute processing
     const processResult = await services.handler.processImportedSessions(importResult.value.sessions);
     if (processResult.isErr()) {
-      await handleCommandError(processResult.error.message, useInk, services.dashboard, output);
+      await handleCommandError(processResult.error.message, useInk, services.ingestionMonitor, output);
       await services.cleanup();
       resetLoggerContext();
       process.exit(ExitCodes.GENERAL_ERROR);
@@ -198,13 +198,13 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
     // Flush final dashboard renders before exit (mirrors error-path pattern).
     // process.exit() terminates before the next Ink tick; stop() schedules
     // delayed re-renders so the completed state is painted.
-    await services.dashboard.stop();
+    await services.ingestionMonitor.stop();
 
     // Exit required: BlockchainProviderManager uses fetch with keep-alive connections
     process.exit(0);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    await handleCommandError(errorMessage, useInk, services.dashboard, output);
+    await handleCommandError(errorMessage, useInk, services.ingestionMonitor, output);
     await services.cleanup();
     resetLoggerContext();
     process.exit(ExitCodes.GENERAL_ERROR);
@@ -226,13 +226,13 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 async function handleCommandError(
   errorMessage: string,
   useInk: boolean,
-  dashboard: DashboardController,
+  ingestionMonitor: IngestionMonitorController,
   output: OutputManager
 ): Promise<void> {
   if (useInk) {
-    dashboard.fail(errorMessage);
-    // Stop dashboard (dashboard renders the error inline)
-    await dashboard.stop();
+    ingestionMonitor.fail(errorMessage);
+    // Stop monitor (monitor renders the error inline)
+    await ingestionMonitor.stop();
   } else {
     output.error('import', new Error(errorMessage), ExitCodes.GENERAL_ERROR);
   }

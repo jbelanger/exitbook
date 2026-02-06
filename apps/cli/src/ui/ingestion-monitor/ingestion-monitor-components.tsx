@@ -9,7 +9,7 @@ import Spinner from 'ink-spinner';
 import { Fragment, type FC, type ReactNode } from 'react';
 
 import type {
-  DashboardState,
+  IngestionMonitorState,
   DerivationOperation,
   ImportOperation,
   OperationStatus,
@@ -19,16 +19,16 @@ import type {
   StreamState,
   TransientMessage,
   XpubImportWrapper,
-} from './dashboard-state.js';
+} from './ingestion-monitor-state.js';
 
-interface DashboardProps {
-  state: DashboardState;
+interface IngestionMonitorProps {
+  state: IngestionMonitorState;
 }
 
 /**
- * Main Dashboard component
+ * Main ingestion monitor component
  */
-export const Dashboard: FC<DashboardProps> = ({ state }) => {
+export const IngestionMonitor: FC<IngestionMonitorProps> = ({ state }) => {
   return (
     <Box flexDirection="column">
       {/* Blank line before first operation */}
@@ -766,7 +766,7 @@ function truncateProvider(name: string, maxLen: number): string {
 /**
  * API calls footer
  */
-const ApiFooter: FC<{ state: DashboardState }> = ({ state }) => {
+const ApiFooter: FC<{ state: IngestionMonitorState }> = ({ state }) => {
   const { total, byProvider } = state.apiCalls;
 
   // Don't show if no API calls (CSV imports)
@@ -906,7 +906,7 @@ const ApiFooterFinal: FC<{
 /**
  * Completion section - shows final status (Done/Warnings/Aborted)
  */
-const CompletionSection: FC<{ state: DashboardState }> = ({ state }) => {
+const CompletionSection: FC<{ state: IngestionMonitorState }> = ({ state }) => {
   const duration = state.totalDurationMs ? formatDuration(state.totalDurationMs) : '';
   const hasWarnings = state.warnings.length > 0;
   const errorMessage = state.errorMessage;

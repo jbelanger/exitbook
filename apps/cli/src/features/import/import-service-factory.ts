@@ -20,7 +20,7 @@ import {
   TransactionProcessService,
 } from '@exitbook/ingestion';
 
-import { DashboardController } from '../../ui/dashboard/index.js';
+import { IngestionMonitorController } from '../../ui/ingestion-monitor/index.js';
 
 import { ImportHandler } from './import-handler.js';
 
@@ -32,7 +32,7 @@ type CliEvent = IngestionEvent | ProviderEvent;
  */
 export interface ImportServices {
   handler: ImportHandler;
-  dashboard: DashboardController;
+  ingestionMonitor: IngestionMonitorController;
   instrumentation: InstrumentationCollector;
   cleanup: () => Promise<void>;
 }
@@ -81,18 +81,22 @@ export async function createImportServices(): Promise<ImportServices> {
 
   const handler = new ImportHandler(importOrchestrator, transactionProcessService, providerManager);
 
-  const dashboard = new DashboardController(eventBus as EventBus<IngestionEvent>, instrumentation, providerManager);
-  dashboard.start();
+  const ingestionMonitor = new IngestionMonitorController(
+    eventBus as EventBus<IngestionEvent>,
+    instrumentation,
+    providerManager
+  );
+  ingestionMonitor.start();
 
   const cleanup = async () => {
-    await dashboard.stop();
+    await ingestionMonitor.stop();
     handler.destroy();
     await closeDatabase(database);
   };
 
   return {
     handler,
-    dashboard,
+    ingestionMonitor,
     instrumentation,
     cleanup,
   };
