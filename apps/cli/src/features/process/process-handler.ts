@@ -1,7 +1,7 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import type { IRawDataRepository } from '@exitbook/data';
 import type { ClearService, TransactionProcessService } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
-import { err, type Result } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 
 export interface ProcessResult {
   /** Number of transactions processed */
@@ -16,55 +16,67 @@ export interface ProcessHandlerParams {
   accountId?: number | undefined;
 }
 
+interface ProcessDependencies {
+  transactionProcessService: TransactionProcessService;
+  clearService: ClearService;
+  rawDataRepository: IRawDataRepository;
+}
+
+const logger = getLogger('ProcessHandler');
+
 /**
- * Process handler - encapsulates all process business logic.
- * Reusable by both CLI command and other contexts.
+ * Execute the reprocess operation.
+ * Always clears derived data and resets raw data to pending before reprocessing.
  */
-export class ProcessHandler {
-  private readonly logger = getLogger('ProcessHandler');
-  private providerManager: BlockchainProviderManager;
+export async function executeReprocess(
+  params: ProcessHandlerParams,
+  deps: ProcessDependencies
+): Promise<Result<ProcessResult, Error>> {
+  const { accountId } = params;
+  const { transactionProcessService, clearService, rawDataRepository } = deps;
 
-  constructor(
-    private transactionProcessService: TransactionProcessService,
-    providerManager: BlockchainProviderManager,
-    private clearService: ClearService
-  ) {
-    this.providerManager = providerManager;
+  // Always clear derived data and reset raw data to pending
+  const clearResult = await clearService.execute({
+    accountId,
+    includeRaw: false, // Keep raw data, just reset processing status
+  });
+
+  if (clearResult.isErr()) {
+    return err(clearResult.error);
   }
+  const deleted = clearResult.value.deleted;
 
-  /**
-   * Execute the reprocess operation.
-   * Always clears derived data and resets raw data to pending before reprocessing.
-   */
-  async execute(params: ProcessHandlerParams): Promise<Result<ProcessResult, Error>> {
-    const { accountId } = params;
+  logger.info(
+    `Cleared derived data (${deleted.links} links, ${deleted.lots} lots, ${deleted.disposals} disposals, ${deleted.calculations} calculations)`
+  );
 
-    // Always clear derived data and reset raw data to pending
-    const clearResult = await this.clearService.execute({
-      accountId,
-      includeRaw: false, // Keep raw data, just reset processing status
-    });
+  logger.info(`Reset ${deleted.transactions} transactions for reprocessing`);
 
-    if (clearResult.isErr()) {
-      return err(clearResult.error);
+  // Get account IDs to process
+  let accountIds: number[];
+  if (accountId) {
+    accountIds = [accountId];
+  } else {
+    const accountIdsResult = await rawDataRepository.getAccountsWithPendingData();
+    if (accountIdsResult.isErr()) {
+      return err(accountIdsResult.error);
     }
-    const deleted = clearResult.value.deleted;
+    accountIds = accountIdsResult.value;
 
-    this.logger.info(
-      `Cleared derived data (${deleted.links} links, ${deleted.lots} lots, ${deleted.disposals} disposals, ${deleted.calculations} calculations)`
-    );
-
-    this.logger.info(`Reset ${deleted.transactions} transactions for reprocessing`);
-
-    // Process transactions
-    if (accountId) {
-      return this.transactionProcessService.processAccountTransactions(accountId);
-    } else {
-      return this.transactionProcessService.processAllPending();
+    if (accountIds.length === 0) {
+      logger.info('No pending raw data found to process');
+      return ok({ errors: [], processed: 0 });
     }
   }
 
-  destroy(): void {
-    this.providerManager.destroy();
+  // Use processImportedSessions which emits dashboard events
+  const processResult = await transactionProcessService.processImportedSessions(accountIds);
+  if (processResult.isErr()) {
+    return err(processResult.error);
   }
+
+  return ok({
+    processed: processResult.value.processed,
+    errors: processResult.value.errors,
+  });
 }

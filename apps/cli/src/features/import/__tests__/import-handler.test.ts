@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
 import { ImportHandler } from '../import-handler.js';
 
-// Mock dependencies
 vi.mock('@exitbook/blockchain-providers', () => ({
   BlockchainProviderManager: vi.fn().mockImplementation(() => ({
     destroy: vi.fn(),
@@ -43,7 +43,6 @@ describe('ImportHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Mock import orchestrator and process service
     mockImportOrchestrator = {
       importBlockchain: vi.fn(),
       importExchangeApi: vi.fn(),
@@ -62,7 +61,7 @@ describe('ImportHandler', () => {
     handler = new ImportHandler(
       mockImportOrchestrator as ImportOrchestrator,
       mockProcessService as TransactionProcessService,
-      mockProviderManager as unknown
+      mockProviderManager as unknown as BlockchainProviderManager
     );
   });
 

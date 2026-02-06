@@ -1,8 +1,8 @@
-import { initializeProviders } from '@exitbook/blockchain-providers';
 import type { MetricsSummary } from '@exitbook/http';
 import type { ImportParams } from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import type { DashboardController } from '../../ui/dashboard/index.js';
 import { resolveInteractiveParams, unwrapResult } from '../shared/command-execution.js';
@@ -17,9 +17,14 @@ import { promptForImportParams } from './import-prompts.js';
 import { createImportServices } from './import-service-factory.js';
 import { buildImportParams } from './import-utils.js';
 
-// Initialize all providers at startup
-initializeProviders();
+/**
+ * Import command options validated by Zod at CLI boundary
+ */
+export type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
 
+/**
+ * Summary of a single import session
+ */
 interface ImportSessionSummary {
   id: number;
   files?: number | undefined;
@@ -28,6 +33,9 @@ interface ImportSessionSummary {
   status?: string | undefined;
 }
 
+/**
+ * Import command result structure for JSON output
+ */
 interface ImportCommandResult {
   status: 'success' | 'warning';
   import: {
@@ -50,7 +58,6 @@ interface ImportCommandResult {
     source?: string | undefined;
   };
   meta: {
-    durationMs?: number | undefined;
     timestamp: string;
   };
 }
@@ -213,13 +220,19 @@ async function handleCommandError(
   }
 }
 
-interface CombinedImportResult extends ImportResult {
+/**
+ * Import result enhanced with processing metrics
+ */
+interface ImportResultWithMetrics extends ImportResult {
   processed?: number | undefined;
   processingErrors?: string[] | undefined;
   runStats?: MetricsSummary | undefined;
 }
 
-function handleImportSuccess(output: OutputManager, importResult: CombinedImportResult, params: ImportParams): void {
+/**
+ * Handle successful import and processing.
+ */
+function handleImportSuccess(output: OutputManager, importResult: ImportResultWithMetrics, params: ImportParams): void {
   // Calculate totals from sessions
   const totalImported = importResult.sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
   const totalSkipped = importResult.sessions.reduce((sum, s) => sum + s.transactionsSkipped, 0);

@@ -1,42 +1,37 @@
-import { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
-import { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import {
-  closeDatabase,
-  initializeDatabase,
-  TransactionRepository,
-  TokenMetadataRepository,
-  AccountRepository,
-  RawDataRepository,
-  ImportSessionRepository,
-  UserRepository,
-} from '@exitbook/data';
-import { EventBus } from '@exitbook/events';
-import {
-  ClearService,
-  TransactionProcessService,
-  TokenMetadataService,
-  type IngestionEvent,
-} from '@exitbook/ingestion';
-import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
+import type { MetricsSummary } from '@exitbook/http';
+import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
+import type { DashboardController } from '../../ui/dashboard/index.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { ProcessCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
 import type { ProcessResult } from './process-handler.js';
-import { ProcessHandler } from './process-handler.js';
+import { createProcessServices } from './process-service-factory.js';
 
 /**
  * Process command options validated by Zod at CLI boundary
  */
 export type ProcessCommandOptions = z.infer<typeof ProcessCommandOptionsSchema>;
 
+/**
+ * Process command result structure for JSON output
+ */
 interface ProcessCommandResult {
-  errors: string[];
-  processed: number;
+  status: 'success' | 'warning';
+  reprocess: {
+    counts: {
+      processed: number;
+    };
+    processingErrors?: string[] | undefined;
+    runStats?: MetricsSummary | undefined;
+  };
+  meta: {
+    timestamp: string;
+  };
 }
 
 export function registerReprocessCommand(program: Command): void {
@@ -45,6 +40,7 @@ export function registerReprocessCommand(program: Command): void {
     .description('Clear all derived data and reprocess from raw data')
     .option('--account-id <id>', 'Reprocess only a specific account ID')
     .option('--json', 'Output results in JSON format')
+    .option('--verbose', 'Show verbose logging output')
     .action(executeReprocessCommand);
 }
 
@@ -64,119 +60,117 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
   const options = validationResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
-  output.intro('ExitBook | Reprocess transactions');
+  // JSON mode still uses OutputManager for structured output
+  // Text mode will use Ink dashboard for all display (including errors)
+  const useInk = !options.json;
 
-  // Create event bus for telemetry (even though reprocess doesn't show dashboard yet)
-  const logger = getLogger('cli.reprocess');
-  const eventBus = new EventBus<IngestionEvent>((err) => {
-    logger.warn({ err }, 'Event handler error');
+  // Configure logger
+  configureLogger({
+    mode: options.json ? 'json' : 'text',
+    verbose: options.verbose ?? false,
+    sinks: {
+      ui: false,
+      structured: options.json ? 'off' : options.verbose ? 'stdout' : 'file',
+    },
   });
 
+  // Create services using factory
+  const services = await createProcessServices();
+
   try {
-    const spinner = output.spinner();
-
-    if (spinner) {
-      spinner.start('Processing raw provider data...');
-    } else {
-      // Configure logger for JSON mode
-      const sinks = options.json
-        ? { ui: false, structured: 'file' as const }
-        : { ui: false, structured: 'stdout' as const };
-
-      configureLogger({
-        mode: options.json ? 'json' : 'text',
-        verbose: false,
-        sinks,
-      });
-    }
-
-    const database = await initializeDatabase();
-
-    const userRepository = new UserRepository(database);
-    const accountRepository = new AccountRepository(database);
-    const transactionRepository = new TransactionRepository(database);
-    const rawDataRepository = new RawDataRepository(database);
-    const tokenMetadataRepository = new TokenMetadataRepository(database);
-    const importSessionRepository = new ImportSessionRepository(database);
-    const transactionLinkRepository = new TransactionLinkRepository(database);
-    const costBasisRepository = new CostBasisRepository(database);
-    const lotTransferRepository = new LotTransferRepository(database);
-
-    // Initialize provider manager
-    const providerManager = new BlockchainProviderManager(undefined);
-
-    // Initialize services
-    const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, providerManager, eventBus);
-    const transactionProcessService = new TransactionProcessService(
-      rawDataRepository,
-      accountRepository,
-      transactionRepository,
-      providerManager,
-      tokenMetadataService,
-      importSessionRepository,
-      eventBus
-    );
-    const clearService = new ClearService(
-      userRepository,
-      accountRepository,
-      transactionRepository,
-      transactionLinkRepository,
-      costBasisRepository,
-      lotTransferRepository,
-      rawDataRepository,
-      importSessionRepository
-    );
-
-    // Create handler
-    const handler = new ProcessHandler(transactionProcessService, providerManager, clearService);
-
-    const result = await handler.execute({
+    // Execute reprocess
+    const processResult = await services.execute({
       accountId: options.accountId,
     });
 
-    // Cleanup
-    handler.destroy?.();
-    await closeDatabase(database);
-    resetLoggerContext();
-
-    spinner?.stop();
-
-    if (result.isErr()) {
-      output.error('reprocess', result.error, ExitCodes.GENERAL_ERROR);
-      return;
+    if (processResult.isErr()) {
+      await handleCommandError(processResult.error.message, useInk, services.dashboard, output);
+      await services.cleanup();
+      resetLoggerContext();
+      process.exit(ExitCodes.GENERAL_ERROR);
     }
 
-    handleProcessSuccess(output, result.value);
+    // Combine results and output success
+    const result = {
+      ...processResult.value,
+      runStats: services.instrumentation.getSummary(),
+    };
+
+    handleProcessSuccess(output, result);
+
+    // Flush final dashboard renders before exit
+    await services.dashboard.stop();
 
     // Exit required: BlockchainProviderManager uses fetch with keep-alive connections
-    // that cannot be manually closed, preventing natural process termination
     process.exit(0);
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await handleCommandError(errorMessage, useInk, services.dashboard, output);
+    await services.cleanup();
     resetLoggerContext();
-    output.error('reprocess', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    process.exit(ExitCodes.GENERAL_ERROR);
+  } finally {
+    await services.cleanup();
+    resetLoggerContext();
   }
+}
+
+/**
+ * Handle command error by showing in dashboard or outputting to console.
+ * Returns to allow cleanup before exit.
+ */
+async function handleCommandError(
+  errorMessage: string,
+  useInk: boolean,
+  dashboard: DashboardController,
+  output: OutputManager
+): Promise<void> {
+  if (useInk) {
+    // Stop dashboard and show error via stderr
+    await dashboard.stop();
+    process.stderr.write(`\n❌ Error: ${errorMessage}\n`);
+  } else {
+    output.error('reprocess', new Error(errorMessage), ExitCodes.GENERAL_ERROR);
+  }
+}
+
+/**
+ * Process result enhanced with processing metrics
+ */
+interface ProcessResultWithMetrics extends ProcessResult {
+  runStats?: MetricsSummary | undefined;
 }
 
 /**
  * Handle successful reprocessing.
  */
-function handleProcessSuccess(output: OutputManager, processResult: ProcessResult): void {
-  // Prepare result data
+function handleProcessSuccess(output: OutputManager, result: ProcessResultWithMetrics): void {
+  const status = result.errors.length > 0 ? 'warning' : 'success';
+
   const resultData: ProcessCommandResult = {
-    processed: processResult.processed,
-    errors: processResult.errors.slice(0, 5), // First 5 errors
+    status,
+    reprocess: {
+      counts: {
+        processed: result.processed,
+      },
+      processingErrors: result.errors.slice(0, 5),
+      runStats: result.runStats,
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+    },
   };
 
-  // Output success
   if (output.isTextMode()) {
-    // Display friendly outro and stats
-    output.outro(`Done. ${processResult.processed} transactions generated.`);
-
-    if (processResult.errors.length > 0) {
-      console.log(`\n⚠️  Processing errors: ${processResult.errors.length}`);
-      output.note(processResult.errors.slice(0, 5).join('\n'), 'First 5 errors');
+    // Dashboard already shows reprocess summary and API call stats in completion phase
+    // Only show additional processing errors if any
+    if (result.errors.length > 0) {
+      process.stderr.write('\nFirst 5 processing errors:\n');
+      for (const error of result.errors.slice(0, 5)) {
+        process.stderr.write(`  • ${error}\n`);
+      }
     }
-  } else {
-    output.json('reprocess', resultData);
   }
+
+  output.json('reprocess', resultData);
 }

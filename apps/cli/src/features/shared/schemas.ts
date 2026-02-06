@@ -192,7 +192,7 @@ export const ExportCommandOptionsSchema = OptionalSourceSelectionSchema.merge(
  */
 export const ProcessCommandOptionsSchema = JsonFlagSchema.extend({
   accountId: z.coerce.number().int().positive().optional(),
-});
+}).extend(VerboseFlagSchema.shape);
 
 /**
  * Clear command options

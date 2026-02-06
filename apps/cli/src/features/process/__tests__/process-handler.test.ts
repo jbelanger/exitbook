@@ -1,24 +1,20 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import type { IRawDataRepository } from '@exitbook/data';
 import type { ClearService, TransactionProcessService } from '@exitbook/ingestion';
 import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { ProcessHandler } from '../process-handler.js';
+import { executeReprocess } from '../process-handler.js';
 
-describe('ProcessHandler', () => {
+describe('executeReprocess', () => {
   let mockProcessService: TransactionProcessService;
   let mockClearService: ClearService;
-  let mockProviderManager: BlockchainProviderManager;
-  let processHandler: ProcessHandler;
+  let mockRawDataRepository: IRawDataRepository;
 
   beforeEach(() => {
-    // Mock the process service
     mockProcessService = {
-      processAllPending: vi.fn().mockResolvedValue(ok({ processed: 0, errors: [], failed: 0 })),
-      processAccountTransactions: vi.fn().mockResolvedValue(ok({ processed: 0, errors: [], failed: 0 })),
+      processImportedSessions: vi.fn().mockResolvedValue(ok({ processed: 0, errors: [], failed: 0 })),
     } as unknown as TransactionProcessService;
 
-    // Mock the clear service
     mockClearService = {
       execute: vi.fn().mockResolvedValue(
         ok({
@@ -37,38 +33,49 @@ describe('ProcessHandler', () => {
       ),
     } as unknown as ClearService;
 
-    // Mock the provider manager
-    mockProviderManager = {
-      destroy: vi.fn(),
-      executeWithFailover: vi.fn(),
-    } as unknown as BlockchainProviderManager;
-
-    // Create handler instance
-    processHandler = new ProcessHandler(mockProcessService, mockProviderManager, mockClearService);
+    mockRawDataRepository = {
+      getAccountsWithPendingData: vi.fn().mockResolvedValue(ok([])),
+    } as unknown as IRawDataRepository;
   });
 
-  describe('Resource Management', () => {
-    test('should accept providerManager during construction', () => {
-      // The handler should be created successfully with injected dependencies
-      expect(processHandler).toBeDefined();
-      expect(processHandler).toHaveProperty('destroy');
+  describe('Basic Execution', () => {
+    test('should execute reprocess with no pending data', async () => {
+      const result = await executeReprocess(
+        { accountId: undefined },
+        {
+          transactionProcessService: mockProcessService,
+          clearService: mockClearService,
+          rawDataRepository: mockRawDataRepository,
+        }
+      );
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.processed).toBe(0);
+        expect(result.value.errors).toEqual([]);
+      }
     });
 
-    test('should cleanup provider manager on destroy', () => {
-      // Call destroy on handler
-      processHandler.destroy();
+    test('should execute reprocess with specific account ID', async () => {
+      mockProcessService.processImportedSessions = vi
+        .fn()
+        .mockResolvedValue(ok({ processed: 5, errors: [], failed: 0 }));
 
-      // Verify providerManager.destroy() was called
+      const result = await executeReprocess(
+        { accountId: 123 },
+        {
+          transactionProcessService: mockProcessService,
+          clearService: mockClearService,
+          rawDataRepository: mockRawDataRepository,
+        }
+      );
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.processed).toBe(5);
+      }
       // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
-      expect(mockProviderManager.destroy).toHaveBeenCalledOnce();
-    });
-
-    test('should not throw when destroy is called multiple times', () => {
-      // First destroy
-      expect(() => processHandler.destroy()).not.toThrow();
-
-      // Second destroy should also not throw
-      expect(() => processHandler.destroy()).not.toThrow();
+      expect(mockProcessService.processImportedSessions).toHaveBeenCalledWith([123]);
     });
   });
 });
