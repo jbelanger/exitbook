@@ -5,10 +5,10 @@ import type { Command } from 'commander';
 import type { z } from 'zod';
 
 import type { DashboardController } from '../../ui/dashboard/index.js';
-import { resolveInteractiveParams, unwrapResult } from '../shared/command-execution.js';
+import { unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
-import { promptConfirm } from '../shared/prompts.js';
+import { handleCancellation, promptConfirm } from '../shared/prompts.js';
 import { ImportCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
@@ -119,15 +119,17 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 
   try {
     // Resolve import parameters
-    const params = await resolveInteractiveParams({
-      buildFromFlags: () => unwrapResult(buildImportParams(options)),
-      cancelMessage: 'Import cancelled',
-      commandName: 'import',
-      confirmMessage: 'Start import?',
-      isInteractive: !options.exchange && !options.blockchain && !options.json,
-      output,
-      promptFn: promptForImportParams,
-    });
+    let params: ImportParams;
+    if (!options.exchange && !options.blockchain && !options.json) {
+      output.intro('exitbook import');
+      params = await promptForImportParams();
+      const shouldProceed = await promptConfirm('Start import?', true);
+      if (!shouldProceed) {
+        handleCancellation('Import cancelled');
+      }
+    } else {
+      params = unwrapResult(buildImportParams(options));
+    }
 
     // Add warning callback for single address imports (only in interactive mode)
     let onSingleAddressWarning: (() => Promise<boolean>) | undefined;

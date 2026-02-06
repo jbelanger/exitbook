@@ -4,16 +4,17 @@ import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { resolveInteractiveParams, unwrapResult } from '../shared/command-execution.js';
+import { unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { handleCancellation, promptConfirm } from '../shared/prompts.js';
 import { ExportCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
 import type { ExportResult } from './export-handler.js';
 import { ExportHandler } from './export-handler.js';
 import { promptForExportParams } from './export-prompts.js';
-import { buildExportParamsFromFlags } from './export-utils.js';
+import { buildExportParamsFromFlags, type ExportHandlerParams } from './export-utils.js';
 
 /**
  * Export command options validated by Zod at CLI boundary
@@ -59,15 +60,17 @@ async function executeExportCommand(rawOptions: unknown): Promise<void> {
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    const params = await resolveInteractiveParams({
-      isInteractive: !options.exchange && !options.blockchain && !options.format && !options.json,
-      output,
-      commandName: 'export',
-      promptFn: promptForExportParams,
-      buildFromFlags: () => unwrapResult(buildExportParamsFromFlags(options)),
-      confirmMessage: 'Start export?',
-      cancelMessage: 'Export cancelled',
-    });
+    let params: ExportHandlerParams;
+    if (!options.exchange && !options.blockchain && !options.format && !options.json) {
+      output.intro('exitbook export');
+      params = await promptForExportParams();
+      const shouldProceed = await promptConfirm('Start export?', true);
+      if (!shouldProceed) {
+        handleCancellation('Export cancelled');
+      }
+    } else {
+      params = unwrapResult(buildExportParamsFromFlags(options));
+    }
 
     const spinner = output.spinner();
     spinner?.start('Exporting transactions...');

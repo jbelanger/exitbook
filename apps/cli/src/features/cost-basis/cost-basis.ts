@@ -5,9 +5,10 @@ import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { resolveInteractiveParams, unwrapResult } from '../shared/command-execution.js';
+import { unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { handleCancellation, promptConfirm } from '../shared/prompts.js';
 import { CostBasisCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 import { formatDate } from '../shared/view-utils.js';
@@ -15,7 +16,7 @@ import { formatDate } from '../shared/view-utils.js';
 import type { CostBasisResult } from './cost-basis-handler.js';
 import { CostBasisHandler } from './cost-basis-handler.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.js';
-import { buildCostBasisParamsFromFlags, formatCurrency } from './cost-basis-utils.js';
+import { buildCostBasisParamsFromFlags, formatCurrency, type CostBasisHandlerParams } from './cost-basis-utils.js';
 
 /**
  * Command options (validated at CLI boundary).
@@ -85,15 +86,17 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    const params = await resolveInteractiveParams({
-      buildFromFlags: () => unwrapResult(buildCostBasisParamsFromFlags(options)),
-      cancelMessage: 'Cost basis calculation cancelled',
-      commandName: 'cost-basis',
-      confirmMessage: 'Start cost basis calculation?',
-      isInteractive: !options.method && !options.jurisdiction && !options.taxYear && !options.json,
-      output,
-      promptFn: promptForCostBasisParams,
-    });
+    let params: CostBasisHandlerParams;
+    if (!options.method && !options.jurisdiction && !options.taxYear && !options.json) {
+      output.intro('exitbook cost-basis');
+      params = await promptForCostBasisParams();
+      const shouldProceed = await promptConfirm('Start cost basis calculation?', true);
+      if (!shouldProceed) {
+        handleCancellation('Cost basis calculation cancelled');
+      }
+    } else {
+      params = unwrapResult(buildCostBasisParamsFromFlags(options));
+    }
 
     const spinner = output.spinner();
     spinner?.start('Calculating cost basis...');

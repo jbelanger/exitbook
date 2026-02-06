@@ -43,14 +43,6 @@ export function registerClearCommand(program: Command): void {
 
 /**
  * Execute the clear command.
- *
- * Note: Does not use resolveInteractiveParams because it requires preview-then-confirm flow:
- * 1. Execute preview to show what will be deleted
- * 2. Show detailed preview to user
- * 3. Confirm deletion
- * 4. Execute deletion
- *
- * This differs from the standard prompt-then-confirm flow in resolveInteractiveParams.
  */
 async function executeClearCommand(rawOptions: unknown): Promise<void> {
   // Validate options at CLI boundary with Zod

@@ -6,10 +6,9 @@ import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { resolveInteractiveParams } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
-import { handleCancellation, isCancelled } from '../shared/prompts.js';
+import { handleCancellation, isCancelled, promptConfirm } from '../shared/prompts.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 
 import type { LinksRunHandlerParams, LinksRunResult } from './links-run-handler.js';
@@ -147,15 +146,17 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    const params = await resolveInteractiveParams({
-      buildFromFlags: () => buildLinksRunParamsFromFlags(options),
-      cancelMessage: 'Transaction linking cancelled',
-      commandName: 'links-run',
-      confirmMessage: 'Start transaction linking?',
-      isInteractive: !options.dryRun && !options.minConfidence && !options.autoConfirmThreshold && !options.json,
-      output,
-      promptFn: promptForLinksRunParams,
-    });
+    let params: LinksRunHandlerParams;
+    if (!options.dryRun && !options.minConfidence && !options.autoConfirmThreshold && !options.json) {
+      output.intro('exitbook links-run');
+      params = await promptForLinksRunParams();
+      const shouldProceed = await promptConfirm('Start transaction linking?', true);
+      if (!shouldProceed) {
+        handleCancellation('Transaction linking cancelled');
+      }
+    } else {
+      params = buildLinksRunParamsFromFlags(options);
+    }
 
     const spinner = output.spinner();
     spinner?.start('Linking transactions...');
