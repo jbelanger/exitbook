@@ -35,9 +35,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@cardano-sdk/core": "^0.46.11",
-    "@cardano-sdk/crypto": "^0.4.4",
-    "@cardano-sdk/key-management": "^0.29.11",
+    "@cardano-sdk/core": "^0.46.12",
+    "@cardano-sdk/crypto": "^0.4.5",
+    "@cardano-sdk/key-management": "^0.29.12",
     "@polkadot/util": "^14.0.1",
     "@polkadot/util-crypto": "^14.0.1",
     "@scure/bip32": "^2.0.0",

@@ -184,14 +184,14 @@ importers:
   packages/blockchain-providers:
     dependencies:
       '@cardano-sdk/core':
-        specifier: ^0.46.11
-        version: 0.46.11(rxjs@7.8.2)
+        specifier: ^0.46.12
+        version: 0.46.12(rxjs@7.8.2)
       '@cardano-sdk/crypto':
-        specifier: ^0.4.4
-        version: 0.4.4
+        specifier: ^0.4.5
+        version: 0.4.5
       '@cardano-sdk/key-management':
-        specifier: ^0.29.11
-        version: 0.29.11
+        specifier: ^0.29.12
+        version: 0.29.12
       '@exitbook/core':
         specifier: workspace:*
         version: link:../core
@@ -655,8 +655,8 @@ packages:
     resolution: {integrity: sha512-e7QVLF+dQMIv9p+p5CWQjMfBmkERYRa2wK2AjyehQZCJnecZ0gvTbRqewdX5VW4mVXf6KUfFyphsxWK46Pg6LA==}
     engines: {node: '>=14'}
 
-  '@cardano-sdk/core@0.46.11':
-    resolution: {integrity: sha512-N/f0Gna41Jsw/KFdulqgpTks4VoeNG1rhTYmGkgtUkMqBTYK+IdaOwMH4QrNxz08VpbOGv76Km3phqGuvTUinQ==}
+  '@cardano-sdk/core@0.46.12':
+    resolution: {integrity: sha512-yUA/xBUQMiMqIWiZPvIhM911pL3jNKg4PkZQ8qP9R7yU3NQ5x4RQkZ+zFDlVLxUt+gJiwIW2es0iPd8ObIKCxA==}
     engines: {node: '>=16.20.2'}
     peerDependencies:
       rxjs: ^7.4.0
@@ -664,8 +664,8 @@ packages:
       rxjs:
         optional: true
 
-  '@cardano-sdk/crypto@0.4.4':
-    resolution: {integrity: sha512-jvElFox4TPlTZRtjfw0HlkucRD90EeijfhMT0uD0N6ptkn8sRQXUFO+z+1Zcp9v9L2V324N7+2ThpjjBEoUdXQ==}
+  '@cardano-sdk/crypto@0.4.5':
+    resolution: {integrity: sha512-ymliqxdmen5dGVaiMVQ0VnhrwaYUjbPD3sHoMj8NI6MTuxrREp3pLJASREtWhwmv9k+QzDT6CoyuIXnlEQiWZQ==}
     engines: {node: '>=16.20.2'}
     peerDependencies:
       '@dcspark/cardano-multiplatform-lib-asmjs': ^3.1.1
@@ -679,12 +679,12 @@ packages:
       '@dcspark/cardano-multiplatform-lib-nodejs':
         optional: true
 
-  '@cardano-sdk/dapp-connector@0.13.25':
-    resolution: {integrity: sha512-pu+wTbdpfwO6NJ3NhOOyVPS0B08dHqYWlfuqzSpmz6nXHhnLI1w8yi20YZXKRpcajUoAjNdoyNOXJcFTLh6f/A==}
+  '@cardano-sdk/dapp-connector@0.13.26':
+    resolution: {integrity: sha512-4GptUVsGmgZhzKs+yp3360dA+HNdMi8IW1r2n1H63PYOJDPj2bjopBeyOGFn8Dmkzt+64rm2KyVyZM2SlcUq9Q==}
     engines: {node: '>=16.20.2'}
 
-  '@cardano-sdk/key-management@0.29.11':
-    resolution: {integrity: sha512-vDnFknleJFlJcsigTJOi85J5iY2rfsLVkSUzGK9VcCT6F+aGjSMix+zwbT2ws/1Wc3lEpflWAbmtEimCaT5ObQ==}
+  '@cardano-sdk/key-management@0.29.12':
+    resolution: {integrity: sha512-bctIVPg0DBCECnECIPCBfHwnF3En+AVJzpUdje+Q2a+/kryolw99i5Y7le+rpjq1LRypWUG0sUAGLY8D850epA==}
     engines: {node: '>=16.20.2'}
 
   '@cardano-sdk/util@0.17.1':
@@ -3168,8 +3168,8 @@ packages:
   libsodium-sumo@0.8.2:
     resolution: {integrity: sha512-uMgnjphJ717jLN+jFG1HUgNrK/gOVVfaO1DGZ1Ig/fKLKLVhvaH/sM1I1v784JFvmkJDaczDpi7xSYC4Jvdo1Q==}
 
-  libsodium-wrappers-sumo@0.7.16:
-    resolution: {integrity: sha512-gR0JEFPeN3831lB9+ogooQk0KH4K5LSMIO5Prd5Q5XYR2wHFtZfPg0eP7t1oJIWq+UIzlU4WVeBxZ97mt28tXw==}
+  libsodium-wrappers-sumo@0.7.10:
+    resolution: {integrity: sha512-1noz8Mcl/LUzO/iSO/FJzoJyIaPwxl+/+E4CoTIXtsPiEEXQx2sxalmrVWxteLpynqgX0ASo28ChB9NEVRh0Pg==}
 
   libsodium-wrappers-sumo@0.8.2:
     resolution: {integrity: sha512-wd1xAY++Kr6VMikSaa4EPRAHJmFvNlGWiiwU3Jh3GR1zRYF3/I3vy/wYsr4k3LVsNzwb9sqfEQ4LdVQ6zEebyQ==}
@@ -4656,12 +4656,12 @@ snapshots:
 
   '@cardano-ogmios/schema@6.9.0': {}
 
-  '@cardano-sdk/core@0.46.11(rxjs@7.8.2)':
+  '@cardano-sdk/core@0.46.12(rxjs@7.8.2)':
     dependencies:
       '@biglup/is-cid': 1.0.3
       '@cardano-ogmios/client': 6.9.0
       '@cardano-ogmios/schema': 6.9.0
-      '@cardano-sdk/crypto': 0.4.4
+      '@cardano-sdk/crypto': 0.4.5
       '@cardano-sdk/util': 0.17.1
       '@foxglove/crc': 0.0.3
       '@scure/base': 1.2.6
@@ -4682,12 +4682,12 @@ snapshots:
       - react-native-b4a
       - utf-8-validate
 
-  '@cardano-sdk/crypto@0.4.4':
+  '@cardano-sdk/crypto@0.4.5':
     dependencies:
       '@cardano-sdk/util': 0.17.1
       blake2b: 2.1.4
       i: 0.3.7
-      libsodium-wrappers-sumo: 0.7.16
+      libsodium-wrappers-sumo: 0.7.10
       lodash: 4.17.21
       pbkdf2: 3.1.5
       ts-custom-error: 3.3.1
@@ -4695,10 +4695,10 @@ snapshots:
     transitivePeerDependencies:
       - react-native-b4a
 
-  '@cardano-sdk/dapp-connector@0.13.25(rxjs@7.8.2)':
+  '@cardano-sdk/dapp-connector@0.13.26(rxjs@7.8.2)':
     dependencies:
-      '@cardano-sdk/core': 0.46.11(rxjs@7.8.2)
-      '@cardano-sdk/crypto': 0.4.4
+      '@cardano-sdk/core': 0.46.12(rxjs@7.8.2)
+      '@cardano-sdk/crypto': 0.4.5
       '@cardano-sdk/util': 0.17.1
       ts-custom-error: 3.3.1
       ts-log: 2.2.7
@@ -4713,11 +4713,11 @@ snapshots:
       - rxjs
       - utf-8-validate
 
-  '@cardano-sdk/key-management@0.29.11':
+  '@cardano-sdk/key-management@0.29.12':
     dependencies:
-      '@cardano-sdk/core': 0.46.11(rxjs@7.8.2)
-      '@cardano-sdk/crypto': 0.4.4
-      '@cardano-sdk/dapp-connector': 0.13.25(rxjs@7.8.2)
+      '@cardano-sdk/core': 0.46.12(rxjs@7.8.2)
+      '@cardano-sdk/crypto': 0.4.5
+      '@cardano-sdk/dapp-connector': 0.13.26(rxjs@7.8.2)
       '@cardano-sdk/util': 0.17.1
       '@emurgo/cardano-message-signing-nodejs': 1.1.0
       bip39: 3.1.0
@@ -7568,7 +7568,7 @@ snapshots:
 
   libsodium-sumo@0.8.2: {}
 
-  libsodium-wrappers-sumo@0.7.16:
+  libsodium-wrappers-sumo@0.7.10:
     dependencies:
       libsodium-sumo: 0.7.16
 
