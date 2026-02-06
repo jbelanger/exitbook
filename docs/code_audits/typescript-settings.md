@@ -237,8 +237,9 @@ Across packages and apps: - ~1,095 imports use .js extensions (e.g., from './foo
      ---
      3c. Finding: allowSyntheticDefaultImports is redundant with esModuleInterop
 
-     What exists:
-     The base tsconfig at /Users/joel/Dev/exitbook/packages/tsconfig/tsconfig.json (line 6) sets allowSyntheticDefaultImports: true and (line 15) sets esModuleInterop: true.
+DONE
+What exists:
+The base tsconfig at /Users/joel/Dev/exitbook/packages/tsconfig/tsconfig.json (line 6) sets allowSyntheticDefaultImports: true and (line 15) sets esModuleInterop: true.
 
      Why it's a problem:
      When esModuleInterop is true, TypeScript automatically implies allowSyntheticDefaultImports: true. Setting both is redundant and adds config noise. This is a minor point but contributes to "carg
@@ -254,8 +255,9 @@ Across packages and apps: - ~1,095 imports use .js extensions (e.g., from './foo
      ---
      3d. Finding: strictNullChecks is redundant with strict
 
-     What exists:
-     The base tsconfig at /Users/joel/Dev/exitbook/packages/tsconfig/tsconfig.json sets both strict: true (line 7) and strictNullChecks: true (line 19).
+DONE
+What exists:
+The base tsconfig at /Users/joel/Dev/exitbook/packages/tsconfig/tsconfig.json sets both strict: true (line 7) and strictNullChecks: true (line 19).
 
      Why it's a problem:
      strict: true enables all strict-family flags including strictNullChecks, strictFunctionTypes, strictBindCallApply, strictPropertyInitialization, noImplicitAny, noImplicitThis, alwaysStrict, and
@@ -273,9 +275,10 @@ Across packages and apps: - ~1,095 imports use .js extensions (e.g., from './foo
 
      4a. Finding: No TypeScript project references for incremental builds
 
-     What exists:
-     The monorepo has 13 packages each with their own tsconfig.json, all extending the shared base. None use composite: true or references. The build command is pnpm -r run build, which runs tsc
-     --noEmit sequentially in each package via pnpm's topological sort.
+DONE
+What exists:
+The monorepo has 13 packages each with their own tsconfig.json, all extending the shared base. None use composite: true or references. The build command is pnpm -r run build, which runs tsc
+--noEmit sequentially in each package via pnpm's topological sort.
 
      Why it's a problem:
      Without project references, tsc cannot do incremental cross-package type checking. Every pnpm build re-checks every package from scratch. For a 13-package monorepo with complex blockchain
@@ -309,7 +312,8 @@ Across packages and apps: - ~1,095 imports use .js extensions (e.g., from './foo
      ---
      5. Toolchain & Infrastructure (TS Configuration)
 
-     5a. Finding: target: "ES2022" and lib: ["ES2022"] are behind the runtime
+DONE
+5a. Finding: target: "ES2022" and lib: ["ES2022"] are behind the runtime
 
      What exists:
      The base tsconfig at /Users/joel/Dev/exitbook/packages/tsconfig/tsconfig.json (lines 3-5) sets target: "ES2022" and lib: ["ES2022"]. The project requires Node.js >= 23 (root package.json, line

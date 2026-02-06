@@ -8,7 +8,7 @@ ExitBook helps you track cryptocurrency activity across exchanges and blockchain
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Test Suite](https://github.com/jbelanger/exitbook/actions/workflows/test.yml/badge.svg)](https://github.com/jbelanger/exitbook/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/jbelanger/exitbook/branch/main/graph/badge.svg)](https://codecov.io/gh/jbelanger/exitbook)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D23-blue.svg)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D24-blue.svg)](https://nodejs.org)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D10.6.2-orange.svg)](https://pnpm.io)
 
 ## Current Focus
@@ -220,7 +220,7 @@ pnpm run dev clear
 
 ## Getting Started
 
-**Requirements:** Node.js ≥23, pnpm ≥10.6.2
+**Requirements:** Node.js ≥24, pnpm ≥10.6.2
 
 ```bash
 # Install dependencies

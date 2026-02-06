@@ -171,6 +171,6 @@ pnpm run dev import --exchange kraken --csv-dir ./test-data
 
 **Purpose:** Track cryptocurrency activity across exchanges/blockchains. Import from CSVs/APIs, normalize, verify balances.
 
-**Requirements:** Node.js ≥23, pnpm ≥10.6.2, SQLite
+**Requirements:** Node.js ≥24, pnpm ≥10.6.2, SQLite
 
 **Data:** `apps/cli/data/`
