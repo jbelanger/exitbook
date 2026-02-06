@@ -16,7 +16,7 @@ describe('config-utils', () => {
     // Create a temporary directory for test files
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'config-test-'));
     originalCwd = process.cwd();
-    originalEnv = process.env.BLOCKCHAIN_EXPLORERS_CONFIG;
+    originalEnv = process.env['BLOCKCHAIN_EXPLORERS_CONFIG'];
     process.chdir(tempDir);
   });
 
@@ -24,9 +24,9 @@ describe('config-utils', () => {
     // Cleanup
     process.chdir(originalCwd);
     if (originalEnv !== undefined) {
-      process.env.BLOCKCHAIN_EXPLORERS_CONFIG = originalEnv;
+      process.env['BLOCKCHAIN_EXPLORERS_CONFIG'] = originalEnv;
     } else {
-      delete process.env.BLOCKCHAIN_EXPLORERS_CONFIG;
+      delete process.env['BLOCKCHAIN_EXPLORERS_CONFIG'];
     }
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
@@ -139,7 +139,7 @@ describe('config-utils', () => {
       fs.writeFileSync(configPath, JSON.stringify(config));
 
       // Set environment variable to relative path
-      process.env.BLOCKCHAIN_EXPLORERS_CONFIG = 'env-config.json';
+      process.env['BLOCKCHAIN_EXPLORERS_CONFIG'] = 'env-config.json';
 
       const result = ConfigUtils.loadExplorerConfig();
       expect(result).toEqual(config);
@@ -155,7 +155,7 @@ describe('config-utils', () => {
       fs.writeFileSync(explicitPath, JSON.stringify(explicitConfig));
       fs.writeFileSync(envPath, JSON.stringify(envConfig));
 
-      process.env.BLOCKCHAIN_EXPLORERS_CONFIG = 'env.json';
+      process.env['BLOCKCHAIN_EXPLORERS_CONFIG'] = 'env.json';
 
       const result = ConfigUtils.loadExplorerConfig(explicitPath);
       expect(result).toEqual(explicitConfig);

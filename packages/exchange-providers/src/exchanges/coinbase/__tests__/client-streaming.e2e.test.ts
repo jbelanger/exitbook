@@ -1,8 +1,13 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
+import type { ExchangeLedgerEntry } from '../../../core/schemas.js';
 import type { FetchBatchResult } from '../../../core/types.js';
 import { createCoinbaseClient } from '../client.js';
+
+type CoinbaseCursorMetadata = CursorState['metadata'] & {
+  accountId?: string | undefined;
+};
 
 describe('Coinbase Client Streaming E2E', () => {
   // Requires COINBASE_API_KEY and COINBASE_SECRET in .env
@@ -78,16 +83,17 @@ describe('Coinbase Client Streaming E2E', () => {
         expect(typeof firstBatch.cursor.primary.value).toBe('number');
 
         // Verify account ID in metadata
-        expect(firstBatch.cursor.metadata?.accountId).toBeTruthy();
-        expect(typeof firstBatch.cursor.metadata?.accountId).toBe('string');
+        const metadata = firstBatch.cursor.metadata as CoinbaseCursorMetadata;
+        expect(metadata?.accountId).toBeTruthy();
+        expect(typeof metadata?.accountId).toBe('string');
 
         // Verify Coinbase-specific normalized data structure
-        const normalized = firstTx.normalizedData as Record<string, unknown>;
+        const normalized = firstTx.normalizedData as ExchangeLedgerEntry;
         expect(normalized.id).toBeDefined();
         expect(normalized.timestamp).toBeDefined();
         expect(typeof normalized.timestamp).toBe('number');
         expect(normalized.type).toBeDefined();
-        expect(normalized.asset).toBeDefined();
+        expect(normalized.assetSymbol).toBeDefined();
         expect(normalized.amount).toBeDefined();
         expect(normalized.fee).toBeDefined();
         expect(normalized.feeCurrency).toBeDefined();
@@ -169,7 +175,8 @@ describe('Coinbase Client Streaming E2E', () => {
           const batch = result.value;
           if (batch.transactions.length > 0) {
             firstBatchCursor = batch.cursor;
-            firstBatchAccountId = batch.cursor.metadata?.accountId as string;
+            const metadata = batch.cursor.metadata as CoinbaseCursorMetadata;
+            firstBatchAccountId = metadata?.accountId;
             firstBatchLastTx = batch.cursor.lastTransactionId;
             break;
           }
@@ -196,7 +203,8 @@ describe('Coinbase Client Streaming E2E', () => {
           if (result.isErr()) break;
 
           const batch = result.value;
-          if (batch.transactions.length > 0 && batch.cursor.metadata?.accountId === firstBatchAccountId) {
+          const metadata = batch.cursor.metadata as CoinbaseCursorMetadata;
+          if (batch.transactions.length > 0 && metadata?.accountId === firstBatchAccountId) {
             resumedBatchFirstTx = batch.transactions[0]!.eventId;
             break;
           }

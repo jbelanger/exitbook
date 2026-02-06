@@ -308,10 +308,10 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result.BTC).toBeInstanceOf(Decimal);
-    expect(result.BTC?.toString()).toBe('1.23456789');
-    expect(result.ETH?.toString()).toBe('10.5');
-    expect(result.USDT?.toString()).toBe('1000');
+    expect(result['BTC']).toBeInstanceOf(Decimal);
+    expect(result['BTC']?.toString()).toBe('1.23456789');
+    expect(result['ETH']?.toString()).toBe('10.5');
+    expect(result['USDT']?.toString()).toBe('1000');
   });
 
   it('should handle empty balances object', () => {
@@ -328,8 +328,8 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result.BTC?.toString()).toBe('0');
-    expect(result.ETH?.toString()).toBe('0');
+    expect(result['BTC']?.toString()).toBe('0');
+    expect(result['ETH']?.toString()).toBe('0');
   });
 
   it('should handle very small decimal values', () => {
@@ -339,7 +339,7 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result.BTC?.toString()).toBe('1e-8');
+    expect(result['BTC']?.toString()).toBe('1e-8');
   });
 
   it('should handle very large decimal values', () => {
@@ -350,8 +350,8 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result.SHIB?.toString()).toBe('1000000000000');
-    expect(result.WEI?.toString()).toBe('999999999999999999');
+    expect(result['SHIB']?.toString()).toBe('1000000000000');
+    expect(result['WEI']?.toString()).toBe('999999999999999999');
   });
 
   it('should default to zero for invalid decimal strings', () => {
@@ -363,9 +363,9 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result.VALID?.toString()).toBe('100');
-    expect(result.INVALID?.toString()).toBe('0');
-    expect(result.EMPTY?.toString()).toBe('0');
+    expect(result['VALID']?.toString()).toBe('100');
+    expect(result['INVALID']?.toString()).toBe('0');
+    expect(result['EMPTY']?.toString()).toBe('0');
   });
 
   it('should handle negative balances', () => {
@@ -376,8 +376,8 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result.BTC?.toString()).toBe('-0.5');
-    expect(result.ETH?.toString()).toBe('-10');
+    expect(result['BTC']?.toString()).toBe('-0.5');
+    expect(result['ETH']?.toString()).toBe('-10');
   });
 
   it('should handle scientific notation strings', () => {
@@ -388,8 +388,8 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result.MICRO?.toString()).toBe('0.000001');
-    expect(result.MEGA?.toString()).toBe('1000000');
+    expect(result['MICRO']?.toString()).toBe('0.000001');
+    expect(result['MEGA']?.toString()).toBe('1000000');
   });
 
   it('should preserve precision for many decimal places', () => {
@@ -399,6 +399,6 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result.PRECISE?.toString()).toBe('1.12345678901234567890123456789');
+    expect(result['PRECISE']?.toString()).toBe('1.12345678901234567890123456789');
   });
 });

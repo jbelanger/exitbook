@@ -112,7 +112,7 @@ export class TransactionLinkingService {
           filteredConfirmedCount++;
           continue;
         }
-        if (linkResult.value.metadata?.targetExcessAllowed === true) {
+        if (linkResult.value.metadata?.['targetExcessAllowed'] === true) {
           this.logger.warn(
             {
               sourceTxId: linkResult.value.sourceTransactionId,
@@ -120,8 +120,8 @@ export class TransactionLinkingService {
               assetSymbol: linkResult.value.assetSymbol,
               sourceAmount: linkResult.value.sourceAmount.toFixed(),
               targetAmount: linkResult.value.targetAmount.toFixed(),
-              targetExcess: linkResult.value.metadata?.targetExcess,
-              targetExcessPct: linkResult.value.metadata?.targetExcessPct,
+              targetExcess: linkResult.value.metadata?.['targetExcess'],
+              targetExcessPct: linkResult.value.metadata?.['targetExcessPct'],
             },
             'Allowed hash-match link where target exceeds source within tolerance (UTXO partial inputs)'
           );

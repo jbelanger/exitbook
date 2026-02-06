@@ -43,8 +43,8 @@ export class ConfigUtils {
   static loadExplorerConfig(configPath?: string): BlockchainExplorersConfig | undefined {
     const finalPath = configPath
       ? path.resolve(process.cwd(), configPath)
-      : process.env.BLOCKCHAIN_EXPLORERS_CONFIG
-        ? path.resolve(process.cwd(), process.env.BLOCKCHAIN_EXPLORERS_CONFIG)
+      : process.env['BLOCKCHAIN_EXPLORERS_CONFIG']
+        ? path.resolve(process.cwd(), process.env['BLOCKCHAIN_EXPLORERS_CONFIG'])
         : path.join(process.cwd(), 'config/blockchain-explorers.json');
 
     try {

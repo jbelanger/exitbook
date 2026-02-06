@@ -70,7 +70,7 @@ export function getVarianceTolerance(
   };
 
   const sourceLower = source.toLowerCase();
-  const baseTolerance = sourceTolerances[sourceLower] ?? sourceTolerances.default!;
+  const baseTolerance = sourceTolerances[sourceLower] ?? sourceTolerances['default']!;
   const finalTolerance = configOverride ?? baseTolerance;
 
   return {

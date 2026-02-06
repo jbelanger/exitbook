@@ -8,11 +8,11 @@ const EXTERNAL_ADDRESS = '1externalAddress1234567890abcdefghijklmnop';
 const VALIDATOR_ADDRESS = '1validatorAddress1234567890abcdefghijklmn';
 
 function createPolkadotProcessor() {
-  return new SubstrateProcessor(SUBSTRATE_CHAINS.polkadot!);
+  return new SubstrateProcessor(SUBSTRATE_CHAINS['polkadot']!);
 }
 
 function createBittensorProcessor() {
-  return new SubstrateProcessor(SUBSTRATE_CHAINS.bittensor!);
+  return new SubstrateProcessor(SUBSTRATE_CHAINS['bittensor']!);
 }
 
 describe('SubstrateProcessor - Fund Flow Direction', () => {

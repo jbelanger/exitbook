@@ -1,8 +1,13 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
+import type { ExchangeLedgerEntry } from '../../../core/schemas.js';
 import type { FetchBatchResult } from '../../../core/types.js';
 import { createKrakenClient } from '../client.js';
+
+type KrakenCursorMetadata = CursorState['metadata'] & {
+  offset?: number | undefined;
+};
 
 describe('Kraken Client Streaming E2E', () => {
   // Requires KRAKEN_API_KEY and KRAKEN_SECRET in .env
@@ -76,24 +81,25 @@ describe('Kraken Client Streaming E2E', () => {
         expect(typeof firstBatch.cursor.primary.value).toBe('number');
 
         // Verify offset metadata for resumption
-        expect(typeof firstBatch.cursor.metadata?.offset).toBe('number');
-        expect(firstBatch.cursor.metadata?.offset).toBe(firstBatch.cursor.totalFetched);
+        const metadata = firstBatch.cursor.metadata as KrakenCursorMetadata;
+        expect(typeof metadata?.offset).toBe('number');
+        expect(metadata?.offset).toBe(firstBatch.cursor.totalFetched);
 
         // Verify Kraken-specific normalized data structure
-        const normalized = firstTx.normalizedData as Record<string, unknown>;
+        const normalized = firstTx.normalizedData as ExchangeLedgerEntry;
         expect(normalized.id).toBeDefined();
         expect(normalized.correlationId).toBeDefined();
         expect(normalized.timestamp).toBeDefined();
         expect(typeof normalized.timestamp).toBe('number');
         expect(normalized.type).toBeDefined();
-        expect(normalized.asset).toBeDefined();
+        expect(normalized.assetSymbol).toBeDefined();
         expect(normalized.amount).toBeDefined();
         expect(normalized.fee).toBeDefined();
         expect(normalized.feeCurrency).toBeDefined();
         expect(normalized.status).toBe('success');
 
         // Verify asset normalization (should not have Kraken prefixes)
-        const asset = normalized.asset as string;
+        const asset = normalized.assetSymbol;
         expect(asset).toBeDefined();
         expect(typeof asset).toBe('string');
         expect(asset).not.toMatch(/^Z[A-Z]{3}$/); // e.g., ZUSD

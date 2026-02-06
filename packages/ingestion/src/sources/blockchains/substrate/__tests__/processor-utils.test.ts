@@ -98,10 +98,10 @@ describe('expandSourceContext', () => {
     if (!result.isOk()) return;
 
     const context = result.value;
-    expect(context.address).toBe(POLKADOT_ADDRESS);
-    expect(Array.isArray(context.derivedAddresses)).toBe(true);
-    expect((context.derivedAddresses as string[]).length).toBeGreaterThan(0);
-    expect((context.derivedAddresses as string[]).includes(POLKADOT_ADDRESS)).toBe(true);
+    expect(context['address']).toBe(POLKADOT_ADDRESS);
+    expect(Array.isArray(context['derivedAddresses'])).toBe(true);
+    expect((context['derivedAddresses'] as string[]).length).toBeGreaterThan(0);
+    expect((context['derivedAddresses'] as string[]).includes(POLKADOT_ADDRESS)).toBe(true);
   });
 
   test('enriches Kusama address with SS58 variants', () => {
@@ -111,9 +111,9 @@ describe('expandSourceContext', () => {
     if (!result.isOk()) return;
 
     const context = result.value;
-    expect(context.address).toBe(KUSAMA_ADDRESS);
-    expect(Array.isArray(context.derivedAddresses)).toBe(true);
-    expect((context.derivedAddresses as string[]).length).toBeGreaterThan(0);
+    expect(context['address']).toBe(KUSAMA_ADDRESS);
+    expect(Array.isArray(context['derivedAddresses'])).toBe(true);
+    expect((context['derivedAddresses'] as string[]).length).toBeGreaterThan(0);
   });
 
   test('enriches Bittensor address with SS58 variants', () => {
@@ -123,9 +123,9 @@ describe('expandSourceContext', () => {
     if (!result.isOk()) return;
 
     const context = result.value;
-    expect(context.address).toBe(BITTENSOR_ADDRESS);
-    expect(Array.isArray(context.derivedAddresses)).toBe(true);
-    expect((context.derivedAddresses as string[]).length).toBeGreaterThan(0);
+    expect(context['address']).toBe(BITTENSOR_ADDRESS);
+    expect(Array.isArray(context['derivedAddresses'])).toBe(true);
+    expect((context['derivedAddresses'] as string[]).length).toBeGreaterThan(0);
   });
 
   test('returns error for empty address', () => {
@@ -143,7 +143,7 @@ describe('expandSourceContext', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const derivedAddresses = result.value.derivedAddresses as string[];
+    const derivedAddresses = result.value['derivedAddresses'] as string[];
     const uniqueSet = new Set(derivedAddresses);
     expect(uniqueSet.size).toBe(derivedAddresses.length);
   });

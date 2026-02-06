@@ -253,8 +253,8 @@ describe('determineEvmOperationFromFundFlow', () => {
       expect(result.notes?.[0]?.type).toBe('consensus_withdrawal');
       expect(result.notes?.[0]?.severity).toBe('info');
       expect(result.notes?.[0]?.message).toContain('Partial withdrawal');
-      expect(result.notes?.[0]?.metadata?.needsReview).toBe(false);
-      expect(result.notes?.[0]?.metadata?.taxClassification).toContain('taxable');
+      expect(result.notes?.[0]?.metadata?.['needsReview']).toBe(false);
+      expect(result.notes?.[0]?.metadata?.['taxClassification']).toContain('taxable');
     });
 
     it('classifies large withdrawal (≥32 ETH) as principal return with warning', () => {
@@ -298,8 +298,8 @@ describe('determineEvmOperationFromFundFlow', () => {
       expect(result.notes?.[0]?.severity).toBe('warning');
       expect(result.notes?.[0]?.message).toContain('Full withdrawal');
       expect(result.notes?.[0]?.message).toContain('≥32 ETH');
-      expect(result.notes?.[0]?.metadata?.needsReview).toBe(true);
-      expect(result.notes?.[0]?.metadata?.taxClassification).toContain('non-taxable');
+      expect(result.notes?.[0]?.metadata?.['needsReview']).toBe(true);
+      expect(result.notes?.[0]?.metadata?.['taxClassification']).toContain('non-taxable');
     });
 
     it('classifies exactly 32 ETH as principal return', () => {
@@ -339,7 +339,7 @@ describe('determineEvmOperationFromFundFlow', () => {
 
       expect(result.operation).toEqual({ category: 'staking', type: 'deposit' });
       expect(result.notes?.[0]?.severity).toBe('warning');
-      expect(result.notes?.[0]?.metadata?.needsReview).toBe(true);
+      expect(result.notes?.[0]?.metadata?.['needsReview']).toBe(true);
     });
   });
 

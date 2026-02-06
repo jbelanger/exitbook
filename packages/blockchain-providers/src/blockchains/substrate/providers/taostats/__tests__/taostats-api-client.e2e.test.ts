@@ -12,7 +12,7 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
     const testAddress = '5HEo565WAy4Dbq3Sv271SAi7syBSofyfhhwRNjFNSM2gP9M2';
 
     beforeAll(() => {
-      if (!process.env.TAOSTATS_API_KEY) {
+      if (!process.env['TAOSTATS_API_KEY']) {
         console.warn('⚠️  TAOSTATS_API_KEY not set - tests may fail. Add to apps/cli/.env');
       }
     });

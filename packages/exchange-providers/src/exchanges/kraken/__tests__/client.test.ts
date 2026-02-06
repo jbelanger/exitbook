@@ -1,8 +1,13 @@
+import type { CursorState } from '@exitbook/core';
 import * as ccxt from 'ccxt';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import type { IExchangeClient } from '../../../core/types.js';
 import { createKrakenClient } from '../client.js';
+
+type KrakenCursorMetadata = CursorState['metadata'] & {
+  offset?: number | undefined;
+};
 
 // Mock ccxt
 vi.mock('ccxt', () => {
@@ -211,12 +216,12 @@ describe('createKrakenClient - fetchTransactionDataStreaming', () => {
     expect(batches[0]?.transactions).toHaveLength(50);
     expect(batches[0]?.isComplete).toBe(false);
     expect(batches[0]?.cursor.totalFetched).toBe(50);
-    expect(batches[0]?.cursor.metadata?.offset).toBe(50);
+    expect((batches[0]?.cursor.metadata as KrakenCursorMetadata)?.offset).toBe(50);
 
     expect(batches[1]?.transactions).toHaveLength(25);
     expect(batches[1]?.isComplete).toBe(true);
     expect(batches[1]?.cursor.totalFetched).toBe(75);
-    expect(batches[1]?.cursor.metadata?.offset).toBe(75);
+    expect((batches[1]?.cursor.metadata as KrakenCursorMetadata)?.offset).toBe(75);
 
     expect(mockFetchLedger).toHaveBeenCalledTimes(2);
     expect(mockFetchLedger).toHaveBeenNthCalledWith(1, undefined, undefined, 50, { ofs: 0 });
@@ -300,7 +305,7 @@ describe('createKrakenClient - fetchTransactionDataStreaming', () => {
     expect(batches).toHaveLength(1);
     expect(batches[0]?.transactions).toHaveLength(25);
     expect(batches[0]?.cursor.totalFetched).toBe(75);
-    expect(batches[0]?.cursor.metadata?.offset).toBe(75);
+    expect((batches[0]?.cursor.metadata as KrakenCursorMetadata)?.offset).toBe(75);
     expect(mockFetchLedger).toHaveBeenCalledWith(undefined, 1704067200000, 50, { ofs: 50 });
   });
 
@@ -372,7 +377,7 @@ describe('createKrakenClient - fetchTransactionDataStreaming', () => {
     expect(batches).toHaveLength(1);
     expect(batches[0]?.transactions).toHaveLength(50);
     expect(batches[0]?.cursor.totalFetched).toBe(50);
-    expect(batches[0]?.cursor.metadata?.offset).toBe(50);
+    expect((batches[0]?.cursor.metadata as KrakenCursorMetadata)?.offset).toBe(50);
 
     // Streaming yields the raw error without wrapping
     expect(errors).toHaveLength(1);
@@ -453,7 +458,7 @@ describe('createKrakenClient - fetchTransactionDataStreaming', () => {
     expect(batches[0]?.transactions).toHaveLength(1);
     expect(batches[0]?.transactions[0]?.eventId).toBe('LEDGER1');
     expect(batches[0]?.cursor.totalFetched).toBe(1);
-    expect(batches[0]?.cursor.metadata?.offset).toBe(1);
+    expect((batches[0]?.cursor.metadata as KrakenCursorMetadata)?.offset).toBe(1);
 
     // Then yield error
     expect(errors).toHaveLength(1);
@@ -563,13 +568,13 @@ describe('createKrakenClient - fetchTransactionDataStreaming', () => {
     // First batch: 50 entries from page 1
     expect(batches[0]?.transactions).toHaveLength(50);
     expect(batches[0]?.cursor.totalFetched).toBe(50);
-    expect(batches[0]?.cursor.metadata?.offset).toBe(50);
+    expect((batches[0]?.cursor.metadata as KrakenCursorMetadata)?.offset).toBe(50);
 
     // Second batch: 10 successful entries from page 2 before validation error
     expect(batches[1]?.transactions).toHaveLength(10);
     expect(batches[1]?.cursor.totalFetched).toBe(60); // Cumulative
     // Critical: offset should be ofs (50) + successfulItems.length (10) = 60, NOT 50 + 11 (page size)
-    expect(batches[1]?.cursor.metadata?.offset).toBe(60);
+    expect((batches[1]?.cursor.metadata as KrakenCursorMetadata)?.offset).toBe(60);
 
     // Then error
     expect(errors).toHaveLength(1);
@@ -771,10 +776,16 @@ describe('createKrakenClient - fetchBalance', () => {
     if (!result.isOk()) return;
 
     const { balances, timestamp } = result.value;
-    expect(balances.BTC).toBe('1.6');
-    expect(balances.USD).toBe('1000');
-    expect(balances.ETH).toBe('12');
-    expect(balances.info).toBeUndefined();
+    const balanceView = balances as {
+      BTC?: string | undefined;
+      ETH?: string | undefined;
+      info?: unknown;
+      USD?: string | undefined;
+    };
+    expect(balanceView.BTC).toBe('1.6');
+    expect(balanceView.USD).toBe('1000');
+    expect(balanceView.ETH).toBe('12');
+    expect(balanceView.info).toBeUndefined();
     expect(timestamp).toBeGreaterThan(0);
   });
 
@@ -793,9 +804,10 @@ describe('createKrakenClient - fetchBalance', () => {
     if (!result.isOk()) return;
 
     const { balances } = result.value;
-    expect(balances.BTC).toBe('1.5');
-    expect(balances.USD).toBeUndefined();
-    expect(balances.ETH).toBeUndefined();
+    const balanceView = balances as { BTC?: string | undefined; ETH?: string | undefined; USD?: string | undefined };
+    expect(balanceView.BTC).toBe('1.5');
+    expect(balanceView.USD).toBeUndefined();
+    expect(balanceView.ETH).toBeUndefined();
   });
 
   test('handles empty balance response', async () => {
@@ -842,12 +854,20 @@ describe('createKrakenClient - fetchBalance', () => {
     if (!result.isOk()) return;
 
     const { balances } = result.value;
-    expect(balances.BTC).toBe('1');
-    expect(balances.ETH).toBe('10');
-    expect(balances.USD).toBe('1000');
-    expect(balances.EUR).toBe('500');
-    expect(balances.XXBT).toBeUndefined();
-    expect(balances.ZUSD).toBeUndefined();
+    const balanceView = balances as {
+      BTC?: string | undefined;
+      ETH?: string | undefined;
+      EUR?: string | undefined;
+      USD?: string | undefined;
+      XXBT?: string | undefined;
+      ZUSD?: string | undefined;
+    };
+    expect(balanceView.BTC).toBe('1');
+    expect(balanceView.ETH).toBe('10');
+    expect(balanceView.USD).toBe('1000');
+    expect(balanceView.EUR).toBe('500');
+    expect(balanceView.XXBT).toBeUndefined();
+    expect(balanceView.ZUSD).toBeUndefined();
   });
 
   test('handles various Kraken asset formats', async () => {
@@ -871,14 +891,24 @@ describe('createKrakenClient - fetchBalance', () => {
     if (!result.isOk()) return;
 
     const { balances } = result.value;
+    const balanceView = balances as {
+      BTC?: string | undefined;
+      DOGE?: string | undefined;
+      ETH?: string | undefined;
+      EUR?: string | undefined;
+      GBP?: string | undefined;
+      USD?: string | undefined;
+      USDC?: string | undefined;
+      XRP?: string | undefined;
+    };
     // XXBT and XBT should both normalize to BTC and be combined
-    expect(balances.BTC).toBeDefined();
-    expect(balances.ETH).toBe('10');
-    expect(balances.XRP).toBe('100');
-    expect(balances.USD).toBe('1000');
-    expect(balances.EUR).toBe('500');
-    expect(balances.GBP).toBe('200');
-    expect(balances.DOGE).toBe('1000');
-    expect(balances.USDC).toBe('500');
+    expect(balanceView.BTC).toBeDefined();
+    expect(balanceView.ETH).toBe('10');
+    expect(balanceView.XRP).toBe('100');
+    expect(balanceView.USD).toBe('1000');
+    expect(balanceView.EUR).toBe('500');
+    expect(balanceView.GBP).toBe('200');
+    expect(balanceView.DOGE).toBe('1000');
+    expect(balanceView.USDC).toBe('500');
   });
 });

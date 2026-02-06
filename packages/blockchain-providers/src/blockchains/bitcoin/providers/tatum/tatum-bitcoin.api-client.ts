@@ -238,7 +238,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
 
       // Apply replay window if we have a block cursor
       if (ctx.replayedCursor?.type === 'blockNumber') {
-        queryParams.blockFrom = ctx.replayedCursor.value;
+        queryParams['blockFrom'] = ctx.replayedCursor.value;
       }
 
       const result = await this.makeRequest<TatumBitcoinTransaction[]>(

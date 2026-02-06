@@ -268,7 +268,7 @@ describe('processItems', () => {
       expect(result.value.transactions).toHaveLength(1);
       expect(result.value.transactions[0]!.eventId).toBe('tx-1');
       expect(result.value.transactions[0]!.providerName).toBe('kraken');
-      expect(result.value.cursorUpdates.ledger?.primary.value).toBe(1704067200000);
+      expect(result.value.cursorUpdates['ledger']?.primary.value).toBe(1704067200000);
     }
   });
 
@@ -287,7 +287,7 @@ describe('processItems', () => {
       expect(result.value.transactions[0]!.eventId).toBe('tx-1');
       expect(result.value.transactions[1]!.eventId).toBe('tx-2');
       expect(result.value.transactions[2]!.eventId).toBe('tx-3');
-      expect(result.value.cursorUpdates.ledger?.primary.value).toBe(1704240000000);
+      expect(result.value.cursorUpdates['ledger']?.primary.value).toBe(1704240000000);
     }
   });
 
@@ -335,7 +335,7 @@ describe('processItems', () => {
       expect(result.value.transactions).toHaveLength(2);
       expect(result.value.transactions[0]!.eventId).toBe('tx-1');
       expect(result.value.transactions[1]!.eventId).toBe('tx-2');
-      expect(result.value.cursorUpdates.ledger?.primary.value).toEqual(1704153600000);
+      expect(result.value.cursorUpdates['ledger']?.primary.value).toEqual(1704153600000);
     }
   });
 
@@ -349,7 +349,7 @@ describe('processItems', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error.lastSuccessfulCursorUpdates?.ledger?.primary.value).toEqual(1704067200000);
+      expect(result.error.lastSuccessfulCursorUpdates?.['ledger']?.primary.value).toEqual(1704067200000);
     }
   });
 
@@ -522,10 +522,10 @@ describe('processCCXTBalance', () => {
 
     const result = processCCXTBalance(ccxtBalance);
 
-    expect(result.BTC).toBe('1.23456789');
-    expect(result.ETH).toBe('10');
-    expect(typeof result.BTC).toBe('string');
-    expect(typeof result.ETH).toBe('string');
+    expect(result['BTC']).toBe('1.23456789');
+    expect(result['ETH']).toBe('10');
+    expect(typeof result['BTC']).toBe('string');
+    expect(typeof result['ETH']).toBe('string');
   });
 
   it('should handle negative balances', () => {
@@ -588,7 +588,7 @@ describe('processCCXTBalance', () => {
 
     const result = processCCXTBalance(ccxtBalance);
 
-    expect(result.SHIB).toBe('1000000000');
+    expect(result['SHIB']).toBe('1000000000');
   });
 
   it('should handle very small balance numbers', () => {
@@ -599,7 +599,7 @@ describe('processCCXTBalance', () => {
     const result = processCCXTBalance(ccxtBalance);
 
     // JavaScript toString() for very small numbers uses scientific notation
-    expect(result.BTC).toBe('1e-8');
+    expect(result['BTC']).toBe('1e-8');
   });
 
   it('should handle mixed case currency names', () => {
@@ -611,9 +611,9 @@ describe('processCCXTBalance', () => {
 
     const result = processCCXTBalance(ccxtBalance);
 
-    expect(result.btc).toBe('1');
-    expect(result.ETH).toBe('10');
-    expect(result.uSd).toBe('5000');
+    expect(result['btc']).toBe('1');
+    expect(result['ETH']).toBe('10');
+    expect(result['uSd']).toBe('5000');
   });
 
   it('should handle currencies with special characters', () => {

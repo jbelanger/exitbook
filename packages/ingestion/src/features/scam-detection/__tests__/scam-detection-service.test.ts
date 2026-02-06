@@ -48,7 +48,7 @@ describe('ScamDetectionService', () => {
     expect(note).toBeDefined();
     expect(note?.severity).toBe('error');
     expect(note?.type).toBe('SCAM_TOKEN');
-    expect(note?.metadata?.detectionSource).toBe('professional');
+    expect(note?.metadata?.['detectionSource']).toBe('professional');
   });
 
   it('falls back to symbol detection when metadata is missing', () => {
@@ -68,7 +68,7 @@ describe('ScamDetectionService', () => {
     expect(note).toBeDefined();
     expect(note?.severity).toBe('warning');
     expect(note?.type).toBe('SCAM_TOKEN');
-    expect(note?.metadata?.detectionSource).toBe('symbol');
+    expect(note?.metadata?.['detectionSource']).toBe('symbol');
   });
 
   it('uses airdrop context for heuristic detection when metadata is neutral', () => {
@@ -100,7 +100,7 @@ describe('ScamDetectionService', () => {
     expect(note).toBeDefined();
     expect(note?.severity).toBe('error');
     expect(note?.type).toBe('SCAM_TOKEN');
-    expect(note?.metadata?.detectionSource).toBe('heuristic');
+    expect(note?.metadata?.['detectionSource']).toBe('heuristic');
   });
 
   it('records only the first scam per transaction', () => {
@@ -133,6 +133,6 @@ describe('ScamDetectionService', () => {
     expect(result.size).toBe(1);
     const note = result.get(0);
     expect(note).toBeDefined();
-    expect(note?.metadata?.detectionSource).toBe('professional');
+    expect(note?.metadata?.['detectionSource']).toBe('professional');
   });
 });

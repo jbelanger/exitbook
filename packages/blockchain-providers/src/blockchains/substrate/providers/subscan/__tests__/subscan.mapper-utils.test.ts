@@ -6,7 +6,7 @@ import type { SubscanTransfer } from '../subscan.schemas.js';
 
 describe('subscan.mapper-utils', () => {
   describe('convertSubscanTransaction', () => {
-    const chainConfig = SUBSTRATE_CHAINS.polkadot!;
+    const chainConfig = SUBSTRATE_CHAINS['polkadot']!;
     const nativeCurrency = 'DOT';
     const nativeDecimals = 10;
 

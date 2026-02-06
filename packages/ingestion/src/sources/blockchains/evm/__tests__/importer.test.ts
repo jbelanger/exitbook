@@ -380,8 +380,8 @@ describe('EvmImporter', () => {
         expect(beaconCursor).toBeDefined();
         expect(beaconCursor?.primary.type).toBe('blockNumber');
         expect(beaconCursor?.lastTransactionId).toBe('FETCH_FAILED');
-        expect(beaconCursor?.metadata?.fetchStatus).toBe('failed');
-        expect(beaconCursor?.metadata?.errorMessage).toContain('Invalid API Key provided');
+        expect(beaconCursor?.metadata?.['fetchStatus']).toBe('failed');
+        expect(beaconCursor?.metadata?.['errorMessage']).toContain('Invalid API Key provided');
       }
 
       // Verify executeWithFailover was called 4 times (normal, internal, token, beacon_withdrawal)

@@ -1375,8 +1375,8 @@ describe('matching-utils', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.metadata?.targetExcessAllowed).toBe(true);
-        expect(result.value.metadata?.targetExcessPct).toBeDefined();
+        expect(result.value.metadata?.['targetExcessAllowed']).toBe(true);
+        expect(result.value.metadata?.['targetExcessPct']).toBeDefined();
       }
     });
 
@@ -1454,9 +1454,9 @@ describe('matching-utils', () => {
       if (result.isOk()) {
         const link = result.value;
         expect(link.metadata).toBeDefined();
-        expect(link.metadata?.variance).toBe('0.05');
-        expect(link.metadata?.variancePct).toBe('5.00');
-        expect(link.metadata?.impliedFee).toBe('0.05');
+        expect(link.metadata?.['variance']).toBe('0.05');
+        expect(link.metadata?.['variancePct']).toBe('5.00');
+        expect(link.metadata?.['impliedFee']).toBe('0.05');
       }
     });
   });

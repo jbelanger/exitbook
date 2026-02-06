@@ -253,10 +253,10 @@ describe('xpub import integration tests', () => {
       const child1Cursor = JSON.parse(child1!.last_cursor as string) as Record<string, CursorState>;
       const child2Cursor = JSON.parse(child2!.last_cursor as string) as Record<string, CursorState>;
 
-      expect(child1Cursor.normal?.totalFetched).toBe(5);
-      expect(child2Cursor.normal?.totalFetched).toBe(3);
-      expect(child1Cursor.normal?.lastTransactionId).toBe('tx-child1-4');
-      expect(child2Cursor.normal?.lastTransactionId).toBe('tx-child2-2');
+      expect(child1Cursor['normal']?.totalFetched).toBe(5);
+      expect(child2Cursor['normal']?.totalFetched).toBe(3);
+      expect(child1Cursor['normal']?.lastTransactionId).toBe('tx-child1-4');
+      expect(child2Cursor['normal']?.lastTransactionId).toBe('tx-child2-2');
     });
 
     it('should resume from cursor on second import and fetch 0 new transactions', async () => {
@@ -319,7 +319,7 @@ describe('xpub import integration tests', () => {
         .executeTakeFirstOrThrow();
       expect(childAccount.last_cursor).toBeDefined();
       const cursor = JSON.parse(childAccount.last_cursor as string) as Record<string, CursorState>;
-      expect(cursor.normal?.totalFetched).toBe(3);
+      expect(cursor['normal']?.totalFetched).toBe(3);
 
       // Second import - return 0 new transactions (resume from cursor)
       mockImportStreamingFn.mockImplementationOnce(async function* () {
@@ -352,7 +352,7 @@ describe('xpub import integration tests', () => {
         .where('identifier', '=', derivedAddress1)
         .executeTakeFirstOrThrow();
       const updatedCursor = JSON.parse(updatedChildAccount.last_cursor as string) as Record<string, CursorState>;
-      expect(updatedCursor.normal?.totalFetched).toBe(3);
+      expect(updatedCursor['normal']?.totalFetched).toBe(3);
 
       // Verify transaction count in database matches cursor (via account)
       const txCount = await db
@@ -627,7 +627,7 @@ describe('xpub import integration tests', () => {
         .executeTakeFirstOrThrow();
 
       const cursor = JSON.parse(childAccount.last_cursor as string) as Record<string, CursorState>;
-      expect(cursor.normal?.totalFetched).toBe(1);
+      expect(cursor['normal']?.totalFetched).toBe(1);
 
       // Verify transaction count via account
       const txCount = await db

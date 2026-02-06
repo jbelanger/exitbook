@@ -157,13 +157,13 @@ export function determineEvmOperationFromFundFlow(
     // Include withdrawal-specific metadata if available
     if (beaconTx) {
       if (beaconTx.withdrawalIndex !== undefined) {
-        withdrawalMetadata.withdrawalIndex = beaconTx.withdrawalIndex;
+        withdrawalMetadata['withdrawalIndex'] = beaconTx.withdrawalIndex;
       }
       if (beaconTx.validatorIndex !== undefined) {
-        withdrawalMetadata.validatorIndex = beaconTx.validatorIndex;
+        withdrawalMetadata['validatorIndex'] = beaconTx.validatorIndex;
       }
       if (beaconTx.blockHeight !== undefined) {
-        withdrawalMetadata.blockHeight = beaconTx.blockHeight;
+        withdrawalMetadata['blockHeight'] = beaconTx.blockHeight;
       }
     }
 

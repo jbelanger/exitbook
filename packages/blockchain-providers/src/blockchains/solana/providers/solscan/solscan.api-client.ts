@@ -76,7 +76,7 @@ export class SolscanApiClient extends BaseApiClient {
 
     if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
       // Solscan Pro expects the API key in the custom `token` header
-      defaultHeaders.token = this.apiKey;
+      defaultHeaders['token'] = this.apiKey;
     }
 
     this.reinitializeHttpClient({

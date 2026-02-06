@@ -511,11 +511,11 @@ export class HeliusApiClient extends BaseApiClient {
     const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<HeliusTransaction>, Error>> => {
       // Initialize: fetch token accounts list
       if (!isInitialized) {
-        const customMeta = ctx.resumeCursor?.metadata?.custom as Record<string, unknown> | undefined;
+        const customMeta = ctx.resumeCursor?.metadata?.['custom'] as Record<string, unknown> | undefined;
 
         // If resuming, restore token accounts list to ensure consistency
-        if (customMeta?.tokenAccounts) {
-          tokenAccounts = customMeta.tokenAccounts as string[];
+        if (customMeta?.['tokenAccounts']) {
+          tokenAccounts = customMeta['tokenAccounts'] as string[];
         } else {
           const tokenAccountsResult = await this.getTokenAccountsOwnedByAddress(address);
           if (tokenAccountsResult.isErr()) {
@@ -529,8 +529,8 @@ export class HeliusApiClient extends BaseApiClient {
         }
 
         // If resuming, restore the account index from metadata
-        if (customMeta?.tokenAccountIndex !== undefined) {
-          currentAccountIndex = customMeta.tokenAccountIndex as number;
+        if (customMeta?.['tokenAccountIndex'] !== undefined) {
+          currentAccountIndex = customMeta['tokenAccountIndex'] as number;
         }
 
         isInitialized = true;
@@ -624,7 +624,7 @@ export class HeliusApiClient extends BaseApiClient {
         // Move to next account
         currentAccountIndex++;
         nextPageToken = undefined; // Reset cursor for next account
-        metadata.tokenAccountIndex = currentAccountIndex;
+        metadata['tokenAccountIndex'] = currentAccountIndex;
       } else {
         nextPageToken = lastSignature;
       }

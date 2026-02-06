@@ -218,7 +218,7 @@ export class CosmosRestApiClient extends BaseApiClient {
     const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<CosmosTxResponse>, Error>> => {
       // Initialize: restore pagination tokens from resume cursor (FIRST CALL ONLY)
       if (!isInitialized) {
-        const customMeta = ctx.resumeCursor?.metadata?.custom as
+        const customMeta = ctx.resumeCursor?.metadata?.['custom'] as
           | {
               recipientComplete?: boolean;
               recipientPageToken?: string;

@@ -1,8 +1,13 @@
+import type { CursorState } from '@exitbook/core';
 import * as ccxt from 'ccxt';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import type { FetchBatchResult, IExchangeClient } from '../../../core/types.js';
 import { createCoinbaseClient } from '../client.js';
+
+type CoinbaseCursorMetadata = CursorState['metadata'] & {
+  accountId?: string | undefined;
+};
 
 // Mock ccxt
 vi.mock('ccxt', () => {
@@ -145,10 +150,16 @@ describe('createCoinbaseClient - fetchBalance', () => {
     if (!result.isOk()) return;
 
     const { balances, timestamp } = result.value;
-    expect(balances.BTC).toBe('0.6');
-    expect(balances.USD).toBe('5000');
-    expect(balances.ETH).toBe('6');
-    expect(balances.info).toBeUndefined();
+    const balanceView = balances as {
+      BTC?: string | undefined;
+      ETH?: string | undefined;
+      info?: unknown;
+      USD?: string | undefined;
+    };
+    expect(balanceView.BTC).toBe('0.6');
+    expect(balanceView.USD).toBe('5000');
+    expect(balanceView.ETH).toBe('6');
+    expect(balanceView.info).toBeUndefined();
     expect(timestamp).toBeGreaterThan(0);
   });
 
@@ -167,9 +178,10 @@ describe('createCoinbaseClient - fetchBalance', () => {
     if (!result.isOk()) return;
 
     const { balances } = result.value;
-    expect(balances.BTC).toBe('0.5');
-    expect(balances.USD).toBeUndefined();
-    expect(balances.ETH).toBeUndefined();
+    const balanceView = balances as { BTC?: string | undefined; ETH?: string | undefined; USD?: string | undefined };
+    expect(balanceView.BTC).toBe('0.5');
+    expect(balanceView.USD).toBeUndefined();
+    expect(balanceView.ETH).toBeUndefined();
   });
 
   test('handles empty balance response', async () => {
@@ -443,7 +455,8 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     expect(batches[0]?.transactions[0]?.eventId).toBe('BTC1');
     expect(batches[0]?.isComplete).toBe(true);
     expect(batches[0]?.cursor.metadata?.isComplete).toBe(true);
-    expect(batches[0]?.cursor.metadata?.accountId).toBe('account1');
+    const batch0Metadata = batches[0]?.cursor.metadata as CoinbaseCursorMetadata;
+    expect(batch0Metadata?.accountId).toBe('account1');
 
     // Second batch: account2 (USD)
     expect(batches[1]?.operationType).toBe('account2');
@@ -451,7 +464,8 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     expect(batches[1]?.transactions[0]?.eventId).toBe('USD1');
     expect(batches[1]?.isComplete).toBe(true);
     expect(batches[1]?.cursor.metadata?.isComplete).toBe(true);
-    expect(batches[1]?.cursor.metadata?.accountId).toBe('account2');
+    const batch1Metadata = batches[1]?.cursor.metadata as CoinbaseCursorMetadata;
+    expect(batch1Metadata?.accountId).toBe('account2');
   });
 
   test('handles empty account with completion batch', async () => {

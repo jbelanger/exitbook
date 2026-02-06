@@ -64,7 +64,7 @@ export class KucoinCsvImporter implements IImporter {
     if (params.cursor) {
       for (const [operationType, cursorState] of Object.entries(params.cursor)) {
         if (operationType.startsWith('csv:kucoin:') && cursorState.metadata?.isComplete) {
-          const filePath = cursorState.metadata.filePath as string | undefined;
+          const filePath = cursorState.metadata['filePath'] as string | undefined;
           if (filePath) {
             completedFiles.add(filePath);
           }

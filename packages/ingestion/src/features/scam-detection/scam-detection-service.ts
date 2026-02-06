@@ -58,8 +58,8 @@ export class ScamDetectionService implements IScamDetectionService {
             {
               contractAddress: movement.contractAddress,
               asset: movement.asset,
-              detectionSource: scamNote.metadata?.detectionSource,
-              indicators: scamNote.metadata?.indicators,
+              detectionSource: scamNote.metadata?.['detectionSource'],
+              indicators: scamNote.metadata?.['indicators'],
             },
             'Scam detected via metadata'
           );

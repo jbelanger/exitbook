@@ -43,7 +43,7 @@ describe('BlockfrostApiClient', () => {
     }));
 
     // Set API key for tests
-    process.env.BLOCKFROST_API_KEY = 'test-api-key-123';
+    process.env['BLOCKFROST_API_KEY'] = 'test-api-key-123';
 
     const config = ProviderRegistry.createDefaultConfig('cardano', 'blockfrost');
     client = new BlockfrostApiClient(config);

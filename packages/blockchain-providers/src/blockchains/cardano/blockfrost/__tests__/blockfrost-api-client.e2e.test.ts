@@ -12,8 +12,8 @@ describe('BlockfrostApiClient E2E', () => {
   beforeAll(() => {
     // Use environment variable if set, otherwise use the provided key
     // Note: The provided key may be invalid/expired - replace with your own valid key
-    if (!process.env.BLOCKFROST_API_KEY) {
-      process.env.BLOCKFROST_API_KEY = 'mainnetQwP2Nb7Y47Zn5Cl73a5V9okE2nvmyDoZ';
+    if (!process.env['BLOCKFROST_API_KEY']) {
+      process.env['BLOCKFROST_API_KEY'] = 'mainnetQwP2Nb7Y47Zn5Cl73a5V9okE2nvmyDoZ';
     }
     const config = ProviderRegistry.createDefaultConfig('cardano', 'blockfrost');
     client = new BlockfrostApiClient(config);

@@ -8,7 +8,7 @@ const EXTERNAL_ADDRESS = '1externalAddress1234567890abcdefghijklmnop';
 const VALIDATOR_ADDRESS = '1validatorAddress1234567890abcdefghijklmn';
 
 function createPolkadotProcessor() {
-  return new SubstrateProcessor(SUBSTRATE_CHAINS.polkadot!);
+  return new SubstrateProcessor(SUBSTRATE_CHAINS['polkadot']!);
 }
 
 // Helper function to create transaction objects with defaults
@@ -529,7 +529,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
     });
 
     test('multi-chain support: Bittensor (TAO) with different decimals', async () => {
-      const processor = new SubstrateProcessor(SUBSTRATE_CHAINS.bittensor!);
+      const processor = new SubstrateProcessor(SUBSTRATE_CHAINS['bittensor']!);
 
       const normalizedData: SubstrateTransaction[] = [
         createTransaction({

@@ -99,14 +99,14 @@ describe('NearBlocksApiClient', () => {
     });
 
     it('should configure bearer token if API key provided', () => {
-      const originalApiKey = process.env.NEARBLOCKS_API_KEY;
-      process.env.NEARBLOCKS_API_KEY = 'test-api-key';
+      const originalApiKey = process.env['NEARBLOCKS_API_KEY'];
+      process.env['NEARBLOCKS_API_KEY'] = 'test-api-key';
       try {
         const config = ProviderRegistry.createDefaultConfig('near', 'nearblocks');
         const newClient = new NearBlocksApiClient(config);
         expect(newClient).toBeDefined();
       } finally {
-        process.env.NEARBLOCKS_API_KEY = originalApiKey;
+        process.env['NEARBLOCKS_API_KEY'] = originalApiKey;
       }
     });
   });

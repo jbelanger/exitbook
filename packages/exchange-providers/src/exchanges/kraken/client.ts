@@ -82,7 +82,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
           // Extract timestamp and offset from ledger cursor (if exists)
           const ledgerCursor = params?.cursor?.['ledger'];
           const since = ledgerCursor?.primary.value as number | undefined;
-          let ofs = (ledgerCursor?.metadata?.offset as number) || 0;
+          let ofs = (ledgerCursor?.metadata?.['offset'] as number) || 0;
           const limit = 50; // Kraken's default/max per request
 
           // Track cumulative count starting from previous cursor's totalFetched

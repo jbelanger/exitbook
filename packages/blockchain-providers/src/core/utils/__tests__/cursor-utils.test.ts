@@ -257,7 +257,7 @@ describe('Cursor Utils', () => {
       const cursorState = buildCursorState(config);
 
       // Should not have 'custom' key when customMetadata is omitted
-      expect(cursorState.metadata?.custom).toBeUndefined();
+      expect(cursorState.metadata?.['custom']).toBeUndefined();
       expect(cursorState.metadata).toMatchObject({
         providerName: 'moralis',
       });

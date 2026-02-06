@@ -24,7 +24,7 @@ export function convertTaostatsTransaction(
   const toAddress = rawData.to.ss58;
 
   // Get Bittensor chain config for ss58Format
-  const chainConfig = SUBSTRATE_CHAINS.bittensor;
+  const chainConfig = SUBSTRATE_CHAINS['bittensor'];
   if (!chainConfig) {
     return err({ message: 'Bittensor chain configuration not found', type: 'error' });
   }

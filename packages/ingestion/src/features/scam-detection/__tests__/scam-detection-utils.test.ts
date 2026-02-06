@@ -26,7 +26,7 @@ describe('scam-detection-utils', () => {
         expect(result?.severity).toBe('error');
         expect(result?.type).toBe('SCAM_TOKEN');
         expect(result?.message).toContain('Scam token detected by moralis');
-        expect(result?.metadata?.detectionSource).toBe('professional');
+        expect(result?.metadata?.['detectionSource']).toBe('professional');
       });
 
       it('should not detect scam when possibleSpam is false', () => {
@@ -76,7 +76,7 @@ describe('scam-detection-utils', () => {
 
         expect(result).toBeDefined();
         expect(result?.severity).toBe('warning');
-        expect(result?.metadata?.indicators).toContain('Gift/drop emojis in token name');
+        expect(result?.metadata?.['indicators']).toContain('Gift/drop emojis in token name');
       });
 
       it('should detect scam with drop/airdrop emojis', () => {
@@ -92,7 +92,7 @@ describe('scam-detection-utils', () => {
         const result = detectScamToken(contractAddress, metadata);
 
         expect(result).toBeDefined();
-        expect(result?.metadata?.indicators).toContain('Gift/drop emojis in token name');
+        expect(result?.metadata?.['indicators']).toContain('Gift/drop emojis in token name');
       });
     });
 
@@ -111,7 +111,7 @@ describe('scam-detection-utils', () => {
 
         expect(result).toBeDefined();
         expect(result?.severity).toBe('error');
-        expect(result?.metadata?.indicators).toContain('Contains lookalike unicode characters (possible spoofing)');
+        expect(result?.metadata?.['indicators']).toContain('Contains lookalike unicode characters (possible spoofing)');
       });
 
       it('should detect Greek lookalike characters', () => {
@@ -127,7 +127,7 @@ describe('scam-detection-utils', () => {
         const result = detectScamToken(contractAddress, metadata);
 
         expect(result).toBeDefined();
-        expect(result?.metadata?.indicators).toContain('Contains lookalike unicode characters (possible spoofing)');
+        expect(result?.metadata?.['indicators']).toContain('Contains lookalike unicode characters (possible spoofing)');
       });
     });
 
@@ -146,7 +146,7 @@ describe('scam-detection-utils', () => {
 
         expect(result).toBeDefined();
         expect(result?.severity).toBe('error');
-        expect(result?.metadata?.indicators).toContain('Contains invisible unicode characters (obfuscation)');
+        expect(result?.metadata?.['indicators']).toContain('Contains invisible unicode characters (obfuscation)');
       });
 
       it('should detect zero-width non-joiner', () => {
@@ -162,7 +162,7 @@ describe('scam-detection-utils', () => {
         const result = detectScamToken(contractAddress, metadata);
 
         expect(result).toBeDefined();
-        expect(result?.metadata?.indicators).toContain('Contains invisible unicode characters (obfuscation)');
+        expect(result?.metadata?.['indicators']).toContain('Contains invisible unicode characters (obfuscation)');
       });
     });
 
@@ -181,7 +181,7 @@ describe('scam-detection-utils', () => {
 
         expect(result).toBeDefined();
         expect(result?.severity).toBe('error');
-        expect(result?.metadata?.indicators).toContain('Contains obfuscated URL characters');
+        expect(result?.metadata?.['indicators']).toContain('Contains obfuscated URL characters');
       });
 
       it('should detect unicode dot in external URL', () => {
@@ -198,7 +198,7 @@ describe('scam-detection-utils', () => {
         const result = detectScamToken(contractAddress, metadata);
 
         expect(result).toBeDefined();
-        expect(result?.metadata?.indicators).toContain('Contains obfuscated URL characters');
+        expect(result?.metadata?.['indicators']).toContain('Contains obfuscated URL characters');
       });
     });
 
@@ -217,7 +217,7 @@ describe('scam-detection-utils', () => {
 
         expect(result).toBeDefined();
         expect(result?.severity).toBe('error');
-        expect(result?.metadata?.indicators).toContain('Contains suspicious URL/website pattern');
+        expect(result?.metadata?.['indicators']).toContain('Contains suspicious URL/website pattern');
       });
 
       it('should detect time-based scam pattern (conservative)', () => {
@@ -233,7 +233,7 @@ describe('scam-detection-utils', () => {
         const result = detectScamToken(contractAddress, metadata);
 
         expect(result).toBeDefined();
-        expect(result?.metadata?.indicators).toContain('Suspicious year/drop pattern in name');
+        expect(result?.metadata?.['indicators']).toContain('Suspicious year/drop pattern in name');
       });
 
       it('should not flag tokens with individual words like "free" or "reward" alone', () => {
@@ -284,7 +284,7 @@ describe('scam-detection-utils', () => {
 
         expect(result).toBeDefined();
         expect(result?.severity).toBe('error');
-        expect(result?.metadata?.indicators).toContain('Suspicious external URL');
+        expect(result?.metadata?.['indicators']).toContain('Suspicious external URL');
       });
 
       it('should allow legitimate URLs', () => {
@@ -318,7 +318,7 @@ describe('scam-detection-utils', () => {
         const result = detectScamToken(contractAddress, metadata);
 
         expect(result).toBeDefined();
-        expect(result?.metadata?.indicators).toContain('Contains suspicious URL/website pattern');
+        expect(result?.metadata?.['indicators']).toContain('Contains suspicious URL/website pattern');
       });
 
       it('should detect http/https in name', () => {
@@ -334,7 +334,7 @@ describe('scam-detection-utils', () => {
         const result = detectScamToken(contractAddress, metadata);
 
         expect(result).toBeDefined();
-        expect(result?.metadata?.indicators).toContain('Contains suspicious URL/website pattern');
+        expect(result?.metadata?.['indicators']).toContain('Contains suspicious URL/website pattern');
       });
     });
 
@@ -353,7 +353,7 @@ describe('scam-detection-utils', () => {
         const result = detectScamToken(contractAddress, metadata);
 
         expect(result).toBeDefined();
-        expect(result?.metadata?.indicators).toContain('Scam phrases in description');
+        expect(result?.metadata?.['indicators']).toContain('Scam phrases in description');
       });
     });
 
@@ -374,8 +374,8 @@ describe('scam-detection-utils', () => {
         });
 
         expect(result).toBeDefined();
-        expect(result?.metadata?.indicators).toContain('Gift/drop emojis in token name');
-        expect(result?.metadata?.indicators).toContain('Unsolicited airdrop');
+        expect(result?.metadata?.['indicators']).toContain('Gift/drop emojis in token name');
+        expect(result?.metadata?.['indicators']).toContain('Unsolicited airdrop');
       });
 
       it('should NOT flag airdrop alone without other indicators (unknown verification)', () => {
@@ -416,8 +416,8 @@ describe('scam-detection-utils', () => {
 
         expect(result).toBeDefined();
         expect(result?.severity).toBe('error');
-        expect(result?.metadata?.indicators).toContain('Unverified contract with unsolicited airdrop');
-        expect(result?.metadata?.detectionSource).toBe('heuristic');
+        expect(result?.metadata?.['indicators']).toContain('Unverified contract with unsolicited airdrop');
+        expect(result?.metadata?.['detectionSource']).toBe('heuristic');
       });
 
       it('should NOT flag verified contract with airdrop', () => {
@@ -476,8 +476,8 @@ describe('scam-detection-utils', () => {
 
         expect(result).toBeDefined();
         expect(result?.severity).toBe('error');
-        expect(Array.isArray(result?.metadata?.indicators)).toBe(true);
-        expect((result?.metadata?.indicators as string[]).length).toBeGreaterThan(1);
+        expect(Array.isArray(result?.metadata?.['indicators'])).toBe(true);
+        expect((result?.metadata?.['indicators'] as string[]).length).toBeGreaterThan(1);
       });
     });
   });

@@ -271,13 +271,13 @@ export class CostBasisRepository extends BaseRepository {
       };
 
       if (updates.remainingQuantity !== undefined) {
-        updateValues.remaining_quantity = updates.remainingQuantity.toFixed();
+        updateValues['remaining_quantity'] = updates.remainingQuantity.toFixed();
       }
       if (updates.status !== undefined) {
-        updateValues.status = updates.status;
+        updateValues['status'] = updates.status;
       }
       if (updates.metadata !== undefined) {
-        updateValues.metadata_json = this.serializeToJson(updates.metadata) ?? null;
+        updateValues['metadata_json'] = this.serializeToJson(updates.metadata) ?? null;
       }
 
       const result = await this.db.updateTable('acquisition_lots').set(updateValues).where('id', '=', id).execute();
@@ -547,37 +547,37 @@ export class CostBasisRepository extends BaseRepository {
       const updateValues: Record<string, unknown> = {};
 
       if (updates.status !== undefined) {
-        updateValues.status = updates.status;
+        updateValues['status'] = updates.status;
       }
       if (updates.completedAt !== undefined) {
-        updateValues.completed_at = updates.completedAt.toISOString();
+        updateValues['completed_at'] = updates.completedAt.toISOString();
       }
       if (updates.errorMessage !== undefined) {
-        updateValues.error_message = updates.errorMessage;
+        updateValues['error_message'] = updates.errorMessage;
       }
       if (updates.totalProceeds !== undefined) {
-        updateValues.total_proceeds = updates.totalProceeds.toFixed();
+        updateValues['total_proceeds'] = updates.totalProceeds.toFixed();
       }
       if (updates.totalCostBasis !== undefined) {
-        updateValues.total_cost_basis = updates.totalCostBasis.toFixed();
+        updateValues['total_cost_basis'] = updates.totalCostBasis.toFixed();
       }
       if (updates.totalGainLoss !== undefined) {
-        updateValues.total_gain_loss = updates.totalGainLoss.toFixed();
+        updateValues['total_gain_loss'] = updates.totalGainLoss.toFixed();
       }
       if (updates.totalTaxableGainLoss !== undefined) {
-        updateValues.total_taxable_gain_loss = updates.totalTaxableGainLoss.toFixed();
+        updateValues['total_taxable_gain_loss'] = updates.totalTaxableGainLoss.toFixed();
       }
       if (updates.transactionsProcessed !== undefined) {
-        updateValues.transactions_processed = updates.transactionsProcessed;
+        updateValues['transactions_processed'] = updates.transactionsProcessed;
       }
       if (updates.lotsCreated !== undefined) {
-        updateValues.lots_created = updates.lotsCreated;
+        updateValues['lots_created'] = updates.lotsCreated;
       }
       if (updates.disposalsProcessed !== undefined) {
-        updateValues.disposals_processed = updates.disposalsProcessed;
+        updateValues['disposals_processed'] = updates.disposalsProcessed;
       }
       if (updates.assetsProcessed !== undefined) {
-        updateValues.assets_processed = this.serializeToJson(updates.assetsProcessed) ?? '[]';
+        updateValues['assets_processed'] = this.serializeToJson(updates.assetsProcessed) ?? '[]';
       }
 
       const result = await this.db

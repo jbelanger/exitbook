@@ -89,8 +89,8 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     expect(cursorState?.metadata).toBeDefined();
     expect(cursorState?.metadata?.providerName).toBe('kucoin');
     expect(cursorState?.metadata?.isComplete).toBe(true);
-    expect(cursorState?.metadata?.fileName).toBe('Spot Orders_Filled Orders.csv');
-    expect(cursorState?.metadata?.rowCount).toBe(1);
+    expect(cursorState?.metadata?.['fileName']).toBe('Spot Orders_Filled Orders.csv');
+    expect(cursorState?.metadata?.['rowCount']).toBe(1);
   });
 
   test('does not include legacy metadata in individual transactions', async () => {
@@ -306,7 +306,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     const value = assertOk(result);
     expect(value.rawTransactions).toHaveLength(1);
     const rawData = value.rawTransactions[0]?.providerData as Record<string, unknown> | undefined;
-    expect(rawData?._rowType).toBe('spot_order');
+    expect(rawData?.['_rowType']).toBe('spot_order');
   });
 
   test('adds _rowType to deposit data', async () => {
@@ -325,7 +325,7 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
 
     const value = assertOk(result);
     const rawData = value.rawTransactions[0]?.providerData as Record<string, unknown> | undefined;
-    expect(rawData?._rowType).toBe('deposit');
+    expect(rawData?.['_rowType']).toBe('deposit');
   });
 
   test('adds _rowType to withdrawal data', async () => {
@@ -344,7 +344,7 @@ user123,mainAccount,2024-01-02 10:00:00,BTC,0.5,0.0005,hash456,bc1q...,Bitcoin,s
 
     const value = assertOk(result);
     const rawData = value.rawTransactions[0]?.providerData as Record<string, unknown> | undefined;
-    expect(rawData?._rowType).toBe('withdrawal');
+    expect(rawData?.['_rowType']).toBe('withdrawal');
   });
 });
 
