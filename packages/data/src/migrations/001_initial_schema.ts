@@ -27,6 +27,17 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('metadata', 'text') // JSON: Account metadata (e.g., xpub derivation info)
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
+    .addCheckConstraint(
+      'accounts_account_type_valid',
+      sql`account_type IN ('blockchain', 'exchange-api', 'exchange-csv')`
+    )
+    .addCheckConstraint('accounts_credentials_json_valid', sql`credentials IS NULL OR json_valid(credentials)`)
+    .addCheckConstraint('accounts_last_cursor_json_valid', sql`last_cursor IS NULL OR json_valid(last_cursor)`)
+    .addCheckConstraint(
+      'accounts_verification_metadata_json_valid',
+      sql`verification_metadata IS NULL OR json_valid(verification_metadata)`
+    )
+    .addCheckConstraint('accounts_metadata_json_valid', sql`metadata IS NULL OR json_valid(metadata)`)
     .execute();
 
   // Create unique index on accounts to prevent duplicate accounts
@@ -54,6 +65,11 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('error_details', 'text')
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
+    .addCheckConstraint('import_sessions_status_valid', sql`status IN ('started', 'completed', 'failed', 'cancelled')`)
+    .addCheckConstraint(
+      'import_sessions_error_details_json_valid',
+      sql`error_details IS NULL OR json_valid(error_details)`
+    )
     .execute();
 
   // Create index on account_id for fast lookup
@@ -75,6 +91,9 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('processing_status', 'text', (col) => col.notNull().defaultTo('pending'))
     .addColumn('processed_at', 'text')
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .addCheckConstraint('raw_transactions_processing_status_valid', sql`processing_status IN ('pending', 'processed')`)
+    .addCheckConstraint('raw_transactions_provider_data_json_valid', sql`json_valid(provider_data)`)
+    .addCheckConstraint('raw_transactions_normalized_data_json_valid', sql`json_valid(normalized_data)`)
     .execute();
 
   // Create index on account_id for fast account-scoped queries
@@ -131,6 +150,29 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('blockchain_is_confirmed', 'boolean')
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
+    .addCheckConstraint('transactions_source_type_valid', sql`source_type IN ('blockchain', 'exchange')`)
+    .addCheckConstraint(
+      'transactions_status_valid',
+      sql`transaction_status IN ('pending', 'success', 'failed', 'open', 'closed', 'canceled')`
+    )
+    .addCheckConstraint(
+      'transactions_operation_category_valid',
+      sql`operation_category IS NULL OR operation_category IN ('trade', 'transfer', 'staking', 'defi', 'fee', 'governance')`
+    )
+    .addCheckConstraint(
+      'transactions_operation_type_valid',
+      sql`operation_type IS NULL OR operation_type IN ('buy', 'sell', 'deposit', 'withdrawal', 'stake', 'unstake', 'reward', 'swap', 'fee', 'batch', 'transfer', 'refund', 'vote', 'proposal', 'airdrop')`
+    )
+    .addCheckConstraint('transactions_notes_json_valid', sql`notes_json IS NULL OR json_valid(notes_json)`)
+    .addCheckConstraint(
+      'transactions_movements_inflows_json_valid',
+      sql`movements_inflows IS NULL OR json_valid(movements_inflows)`
+    )
+    .addCheckConstraint(
+      'transactions_movements_outflows_json_valid',
+      sql`movements_outflows IS NULL OR json_valid(movements_outflows)`
+    )
+    .addCheckConstraint('transactions_fees_json_valid', sql`fees IS NULL OR json_valid(fees)`)
     .execute();
 
   // Create index on account_id for fast account-scoped queries
@@ -224,6 +266,16 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('created_at', 'text', (col) => col.notNull())
     .addColumn('updated_at', 'text', (col) => col.notNull())
     .addColumn('metadata_json', 'text')
+    .addCheckConstraint(
+      'transaction_links_link_type_valid',
+      sql`link_type IN ('exchange_to_blockchain', 'blockchain_to_blockchain', 'exchange_to_exchange', 'blockchain_internal')`
+    )
+    .addCheckConstraint('transaction_links_status_valid', sql`status IN ('suggested', 'confirmed', 'rejected')`)
+    .addCheckConstraint('transaction_links_match_criteria_json_valid', sql`json_valid(match_criteria_json)`)
+    .addCheckConstraint(
+      'transaction_links_metadata_json_valid',
+      sql`metadata_json IS NULL OR json_valid(metadata_json)`
+    )
     .execute();
 
   // Create indexes for transaction_links
@@ -276,6 +328,13 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('created_at', 'text', (col) => col.notNull())
     .addColumn('completed_at', 'text')
     .addColumn('metadata_json', 'text')
+    .addCheckConstraint('cost_basis_calculations_status_valid', sql`status IN ('pending', 'completed', 'failed')`)
+    .addCheckConstraint('cost_basis_calculations_config_json_valid', sql`json_valid(config_json)`)
+    .addCheckConstraint('cost_basis_calculations_assets_processed_json_valid', sql`json_valid(assets_processed)`)
+    .addCheckConstraint(
+      'cost_basis_calculations_metadata_json_valid',
+      sql`metadata_json IS NULL OR json_valid(metadata_json)`
+    )
     .execute();
 
   // Create acquisition_lots table
@@ -295,6 +354,12 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('created_at', 'text', (col) => col.notNull())
     .addColumn('updated_at', 'text', (col) => col.notNull())
     .addColumn('metadata_json', 'text')
+    .addCheckConstraint('acquisition_lots_method_valid', sql`method IN ('fifo', 'lifo', 'specific-id', 'average-cost')`)
+    .addCheckConstraint(
+      'acquisition_lots_status_valid',
+      sql`status IN ('open', 'partially_disposed', 'fully_disposed')`
+    )
+    .addCheckConstraint('acquisition_lots_metadata_json_valid', sql`metadata_json IS NULL OR json_valid(metadata_json)`)
     .execute();
 
   // Create indexes for acquisition_lots
@@ -320,6 +385,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('metadata_json', 'text')
     .addColumn('created_at', 'text', (col) => col.notNull())
     .addCheckConstraint('lot_transfers_quantity_positive', sql`CAST(quantity_transferred AS REAL) > 0`)
+    .addCheckConstraint('lot_transfers_metadata_json_valid', sql`metadata_json IS NULL OR json_valid(metadata_json)`)
     .execute();
 
   // Create indexes for lot_transfers
@@ -346,6 +412,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('tax_treatment_category', 'text')
     .addColumn('created_at', 'text', (col) => col.notNull())
     .addColumn('metadata_json', 'text')
+    .addCheckConstraint('lot_disposals_metadata_json_valid', sql`metadata_json IS NULL OR json_valid(metadata_json)`)
     .execute();
 
   // Create indexes for lot_disposals
@@ -374,7 +441,6 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('raw_transactions').execute();
   await db.schema.dropTable('import_sessions').execute();
   // Drop accounts and users tables
-  await db.schema.dropIndex('idx_accounts_parent_account_id').execute();
   await db.schema.dropTable('accounts').execute();
   await db.schema.dropTable('users').execute();
 }

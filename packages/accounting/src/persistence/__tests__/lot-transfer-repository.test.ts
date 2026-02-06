@@ -771,7 +771,7 @@ describe('LotTransferRepository', () => {
   });
 
   describe('error handling', () => {
-    it('should handle corrupted JSON metadata gracefully during retrieval', async () => {
+    it('should reject corrupted JSON metadata writes at the database boundary', async () => {
       // Create a transfer with valid data
       const transfer: LotTransfer = {
         id: uuidv4(),
@@ -787,17 +787,10 @@ describe('LotTransferRepository', () => {
 
       await repo.create(transfer);
 
-      // Manually corrupt the metadata_json in the database with invalid JSON
-      await db
-        .updateTable('lot_transfers')
-        .set({ metadata_json: '{invalid json}' })
-        .where('id', '=', transfer.id)
-        .execute();
-
-      const result = await repo.getByLinkId('link-1');
-
-      // Should fail gracefully with error result
-      expect(result.isErr()).toBe(true);
+      // Invalid JSON must be blocked by CHECK(metadata_json IS NULL OR json_valid(metadata_json))
+      await expect(
+        db.updateTable('lot_transfers').set({ metadata_json: '{invalid json}' }).where('id', '=', transfer.id).execute()
+      ).rejects.toThrow('lot_transfers_metadata_json_valid');
     });
   });
 

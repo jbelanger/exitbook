@@ -92,12 +92,12 @@ export class CostBasisRepository extends BaseRepository {
           calculation_id: lot.calculationId,
           acquisition_transaction_id: lot.acquisitionTransactionId,
           asset: lot.assetSymbol,
-          quantity: lot.quantity.toString(),
-          cost_basis_per_unit: lot.costBasisPerUnit.toString(),
-          total_cost_basis: lot.totalCostBasis.toString(),
+          quantity: lot.quantity.toFixed(),
+          cost_basis_per_unit: lot.costBasisPerUnit.toFixed(),
+          total_cost_basis: lot.totalCostBasis.toFixed(),
           acquisition_date: lot.acquisitionDate.toISOString(),
           method: lot.method,
-          remaining_quantity: lot.remainingQuantity.toString(),
+          remaining_quantity: lot.remainingQuantity.toFixed(),
           status: lot.status,
           created_at: lot.createdAt.toISOString(),
           updated_at: lot.updatedAt.toISOString(),
@@ -127,12 +127,12 @@ export class CostBasisRepository extends BaseRepository {
         calculation_id: lot.calculationId,
         acquisition_transaction_id: lot.acquisitionTransactionId,
         asset: lot.assetSymbol,
-        quantity: lot.quantity.toString(),
-        cost_basis_per_unit: lot.costBasisPerUnit.toString(),
-        total_cost_basis: lot.totalCostBasis.toString(),
+        quantity: lot.quantity.toFixed(),
+        cost_basis_per_unit: lot.costBasisPerUnit.toFixed(),
+        total_cost_basis: lot.totalCostBasis.toFixed(),
         acquisition_date: lot.acquisitionDate.toISOString(),
         method: lot.method,
-        remaining_quantity: lot.remainingQuantity.toString(),
+        remaining_quantity: lot.remainingQuantity.toFixed(),
         status: lot.status,
         created_at: lot.createdAt.toISOString(),
         updated_at: lot.updatedAt.toISOString(),
@@ -271,7 +271,7 @@ export class CostBasisRepository extends BaseRepository {
       };
 
       if (updates.remainingQuantity !== undefined) {
-        updateValues.remaining_quantity = updates.remainingQuantity.toString();
+        updateValues.remaining_quantity = updates.remainingQuantity.toFixed();
       }
       if (updates.status !== undefined) {
         updateValues.status = updates.status;
@@ -304,12 +304,12 @@ export class CostBasisRepository extends BaseRepository {
           id: disposal.id,
           lot_id: disposal.lotId,
           disposal_transaction_id: disposal.disposalTransactionId,
-          quantity_disposed: disposal.quantityDisposed.toString(),
-          proceeds_per_unit: disposal.proceedsPerUnit.toString(),
-          total_proceeds: disposal.totalProceeds.toString(),
-          cost_basis_per_unit: disposal.costBasisPerUnit.toString(),
-          total_cost_basis: disposal.totalCostBasis.toString(),
-          gain_loss: disposal.gainLoss.toString(),
+          quantity_disposed: disposal.quantityDisposed.toFixed(),
+          proceeds_per_unit: disposal.proceedsPerUnit.toFixed(),
+          total_proceeds: disposal.totalProceeds.toFixed(),
+          cost_basis_per_unit: disposal.costBasisPerUnit.toFixed(),
+          total_cost_basis: disposal.totalCostBasis.toFixed(),
+          gain_loss: disposal.gainLoss.toFixed(),
           disposal_date: disposal.disposalDate.toISOString(),
           holding_period_days: disposal.holdingPeriodDays,
           tax_treatment_category: disposal.taxTreatmentCategory ?? null,
@@ -339,12 +339,12 @@ export class CostBasisRepository extends BaseRepository {
         id: disposal.id,
         lot_id: disposal.lotId,
         disposal_transaction_id: disposal.disposalTransactionId,
-        quantity_disposed: disposal.quantityDisposed.toString(),
-        proceeds_per_unit: disposal.proceedsPerUnit.toString(),
-        total_proceeds: disposal.totalProceeds.toString(),
-        cost_basis_per_unit: disposal.costBasisPerUnit.toString(),
-        total_cost_basis: disposal.totalCostBasis.toString(),
-        gain_loss: disposal.gainLoss.toString(),
+        quantity_disposed: disposal.quantityDisposed.toFixed(),
+        proceeds_per_unit: disposal.proceedsPerUnit.toFixed(),
+        total_proceeds: disposal.totalProceeds.toFixed(),
+        cost_basis_per_unit: disposal.costBasisPerUnit.toFixed(),
+        total_cost_basis: disposal.totalCostBasis.toFixed(),
+        gain_loss: disposal.gainLoss.toFixed(),
         disposal_date: disposal.disposalDate.toISOString(),
         holding_period_days: disposal.holdingPeriodDays,
         tax_treatment_category: disposal.taxTreatmentCategory ?? null,
@@ -461,10 +461,10 @@ export class CostBasisRepository extends BaseRepository {
           config_json: this.serializeToJson(calculation.config) ?? '{}',
           start_date: calculation.startDate ? calculation.startDate.toISOString() : null,
           end_date: calculation.endDate ? calculation.endDate.toISOString() : null,
-          total_proceeds: calculation.totalProceeds.toString(),
-          total_cost_basis: calculation.totalCostBasis.toString(),
-          total_gain_loss: calculation.totalGainLoss.toString(),
-          total_taxable_gain_loss: calculation.totalTaxableGainLoss.toString(),
+          total_proceeds: calculation.totalProceeds.toFixed(),
+          total_cost_basis: calculation.totalCostBasis.toFixed(),
+          total_gain_loss: calculation.totalGainLoss.toFixed(),
+          total_taxable_gain_loss: calculation.totalTaxableGainLoss.toFixed(),
           assets_processed: this.serializeToJson(calculation.assetsProcessed) ?? '[]',
           transactions_processed: calculation.transactionsProcessed,
           lots_created: calculation.lotsCreated,
@@ -556,16 +556,16 @@ export class CostBasisRepository extends BaseRepository {
         updateValues.error_message = updates.errorMessage;
       }
       if (updates.totalProceeds !== undefined) {
-        updateValues.total_proceeds = updates.totalProceeds.toString();
+        updateValues.total_proceeds = updates.totalProceeds.toFixed();
       }
       if (updates.totalCostBasis !== undefined) {
-        updateValues.total_cost_basis = updates.totalCostBasis.toString();
+        updateValues.total_cost_basis = updates.totalCostBasis.toFixed();
       }
       if (updates.totalGainLoss !== undefined) {
-        updateValues.total_gain_loss = updates.totalGainLoss.toString();
+        updateValues.total_gain_loss = updates.totalGainLoss.toFixed();
       }
       if (updates.totalTaxableGainLoss !== undefined) {
-        updateValues.total_taxable_gain_loss = updates.totalTaxableGainLoss.toString();
+        updateValues.total_taxable_gain_loss = updates.totalTaxableGainLoss.toFixed();
       }
       if (updates.transactionsProcessed !== undefined) {
         updateValues.transactions_processed = updates.transactionsProcessed;
