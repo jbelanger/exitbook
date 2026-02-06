@@ -14,7 +14,7 @@ export interface AccountQueryParams {
  */
 export interface SessionSummary {
   id: number;
-  status: string;
+  status: 'started' | 'completed' | 'failed' | 'cancelled';
   startedAt: string;
   completedAt?: string | undefined;
 }
@@ -31,7 +31,7 @@ export interface FormattedAccount {
   providerName?: string | undefined;
   lastBalanceCheckAt?: string | undefined;
   verificationStatus?: 'match' | 'mismatch' | 'never-checked' | undefined;
-  sessionCount?: number | undefined;
+  sessionCount: number | undefined;
   childAccounts?: FormattedAccount[] | undefined;
   createdAt: string;
 }
