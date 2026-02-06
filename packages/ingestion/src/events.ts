@@ -3,6 +3,8 @@
  * Used for CLI progress display and UI decoupling.
  */
 
+import type { ImportSession } from '@exitbook/core';
+
 export type ImportEvent =
   | {
       /**
@@ -16,6 +18,11 @@ export type ImportEvent =
        * False means the account has prior data and is using a cursor (incremental import).
        */
       isNewAccount: boolean;
+      /**
+       * Parent account ID if this is a child account of an xpub import.
+       * Present when importing derived addresses from an extended public key.
+       */
+      parentAccountId?: number | undefined;
       sourceName: string;
       sourceType: 'blockchain' | 'exchange-api' | 'exchange-csv';
       /**
@@ -75,6 +82,81 @@ export type ImportEvent =
       error: string;
       sourceName: string;
       type: 'import.failed';
+    }
+  | {
+      /**
+       * Emitted when xpub address derivation begins.
+       * Location: ImportOrchestrator.importFromXpub() - before calling deriveAddressesFromXpub()
+       */
+      blockchain: string;
+      gapLimit: number;
+      isRederivation: boolean;
+      parentAccountId: number;
+      parentIsNew: boolean;
+      previousGap?: number | undefined;
+      type: 'xpub.derivation.started';
+    }
+  | {
+      /**
+       * Emitted when xpub address derivation completes successfully.
+       * Location: ImportOrchestrator.importFromXpub() - after deriveAddressesFromXpub() returns
+       */
+      derivedCount: number;
+      durationMs: number;
+      newCount?: number | undefined;
+      parentAccountId: number;
+      type: 'xpub.derivation.completed';
+    }
+  | {
+      /**
+       * Emitted when xpub derivation fails.
+       * Location: ImportOrchestrator.importFromXpub() - if deriveAddressesFromXpub() returns error
+       */
+      durationMs: number;
+      error: string;
+      parentAccountId: number;
+      type: 'xpub.derivation.failed';
+    }
+  | {
+      /**
+       * Emitted when xpub import begins (wrapper for all child imports).
+       * Location: ImportOrchestrator.importFromXpub() - after creating child accounts, before importing them
+       */
+      blockchain: string;
+      childAccountCount: number;
+      parentAccountId: number;
+      parentIsNew: boolean;
+      type: 'xpub.import.started';
+    }
+  | {
+      /**
+       * Emitted when xpub import completes (all children imported).
+       * Location: ImportOrchestrator.importFromXpub() - after all child imports succeed
+       */
+      parentAccountId: number;
+      sessions: ImportSession[];
+      totalImported: number;
+      totalSkipped: number;
+      type: 'xpub.import.completed';
+    }
+  | {
+      /**
+       * Emitted when any child import fails (entire xpub import fails).
+       * Location: ImportOrchestrator.importFromXpub() - when a child import returns error
+       */
+      error: string;
+      failedChildAccountId: number;
+      parentAccountId: number;
+      type: 'xpub.import.failed';
+    }
+  | {
+      /**
+       * Emitted when xpub has no active addresses found.
+       * Location: ImportOrchestrator.importFromXpub() - when derivedAddresses.length === 0
+       */
+      blockchain: string;
+      parentAccountId: number;
+      type: 'xpub.empty';
     };
 
 export type ProcessEvent =

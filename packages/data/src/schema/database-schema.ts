@@ -34,6 +34,7 @@ export interface AccountsTable {
   last_cursor: JSONString | null; // JSON: Record<operationType, CursorState>
   last_balance_check_at: DateTime | null;
   verification_metadata: JSONString | null;
+  metadata: JSONString | null; // JSON: Account metadata (e.g., xpub derivation info)
   created_at: DateTime;
   updated_at: DateTime | null;
 }

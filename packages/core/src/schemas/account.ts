@@ -34,6 +34,17 @@ export const AccountSchema = z.object({
   lastCursor: z.record(z.string(), CursorStateSchema).optional(), // Record<operationType, CursorState>
   lastBalanceCheckAt: z.date().optional(),
   verificationMetadata: VerificationMetadataSchema.optional(),
+  metadata: z
+    .object({
+      xpub: z
+        .object({
+          gapLimit: z.number(),
+          lastDerivedAt: z.number(),
+          derivedCount: z.number(),
+        })
+        .optional(),
+    })
+    .optional(),
   createdAt: z.date(),
   updatedAt: z.date().optional(),
 });

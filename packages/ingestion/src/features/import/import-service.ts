@@ -157,6 +157,7 @@ export class ImportExecutor {
       sourceName,
       sourceType: account.accountType,
       accountId: account.id,
+      parentAccountId: account.parentAccountId,
       isNewAccount,
       address: account.accountType === 'blockchain' ? account.identifier : undefined,
       transactionCounts,

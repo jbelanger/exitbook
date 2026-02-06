@@ -20,7 +20,7 @@ import type { SubstrateFundFlow, SubstrateMovement } from './types.js';
  * @param address - The user's Substrate address (in any SS58 format)
  * @returns Session context with original address and all derived SS58 variants
  */
-export function enrichSourceContext(address: string): Result<Record<string, unknown>, string> {
+export function expandSourceContext(address: string): Result<Record<string, unknown>, string> {
   if (!address) {
     return err('Missing address for Substrate session context enrichment');
   }
@@ -306,10 +306,11 @@ export function determineOperationFromFundFlow(
   // Pattern 2: Governance operations (9/10 confident)
   if (fundFlow.hasGovernance) {
     if (outflows.length > 0) {
+      const governanceType = transaction.call?.includes('propose') ? 'proposal' : 'vote';
       return {
         operation: {
           category: 'governance',
-          type: transaction.call?.includes('propose') ? 'proposal' : 'vote',
+          type: governanceType,
         },
       };
     } else if (inflows.length > 0) {

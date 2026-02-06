@@ -10,6 +10,7 @@ import React from 'react';
 
 import type {
   DashboardState,
+  DerivationOperation,
   ImportOperation,
   OperationStatus,
   ProcessingMetadata,
@@ -17,6 +18,7 @@ import type {
   ProviderApiStats,
   StreamState,
   TransientMessage,
+  XpubImportWrapper,
 } from './dashboard-state.js';
 
 interface DashboardProps {
@@ -37,6 +39,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
         <AccountLine
           accountId={state.account.id}
           isNewAccount={state.account.isNewAccount}
+          isXpubParent={state.account.isXpubParent}
+          childAccountCount={state.account.childAccountCount}
           transactionCounts={state.account.transactionCounts}
         />
       )}
@@ -48,8 +52,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
         </Text>
       )}
 
+      {/* Derivation operation (xpub only) */}
+      {state.derivation && <DerivationSection derivation={state.derivation} />}
+
       {/* Import operation */}
-      {state.import && <ImportSection import={state.import} />}
+      {state.import && (
+        <ImportSection
+          import={state.import}
+          xpubImport={state.xpubImport}
+        />
+      )}
 
       {/* Processing operation */}
       {state.processing && <ProcessingSection processing={state.processing} />}
@@ -64,13 +76,101 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
 };
 
 /**
+ * Derivation operation section (xpub only)
+ */
+const DerivationSection: React.FC<{ derivation: DerivationOperation }> = ({ derivation }) => {
+  const elapsed = derivation.completedAt
+    ? derivation.completedAt - derivation.startedAt
+    : performance.now() - derivation.startedAt;
+  const duration = formatDuration(elapsed);
+
+  const actionText = derivation.isRederivation ? 'Re-deriving addresses' : 'Deriving addresses';
+  let gapText = '';
+  if (derivation.isRederivation) {
+    gapText = ` (gap increased: ${derivation.previousGap ?? '—'} → ${derivation.gapLimit})`;
+  }
+
+  if (derivation.status === 'active') {
+    return (
+      <Text>
+        {statusIcon('active')} <Text bold>{actionText}</Text>
+        {gapText} <Text dimColor>· {duration}</Text>
+      </Text>
+    );
+  }
+
+  if (derivation.status === 'completed') {
+    let countText = `${derivation.derivedCount} addresses`;
+    if (derivation.newCount !== undefined) {
+      countText = `${derivation.derivedCount} addresses (${derivation.newCount} new)`;
+    }
+
+    return (
+      <Text>
+        {statusIcon('completed')} Derived {countText} <Text dimColor>({duration})</Text>
+      </Text>
+    );
+  }
+
+  return null;
+};
+
+/**
  * Account line
  */
 const AccountLine: React.FC<{
   accountId: number;
+  childAccountCount?: number | undefined;
   isNewAccount: boolean;
+  isXpubParent?: boolean | undefined;
   transactionCounts?: Map<string, number> | undefined;
-}> = ({ accountId, isNewAccount, transactionCounts }) => {
+}> = ({ accountId, isNewAccount, isXpubParent, childAccountCount, transactionCounts }) => {
+  // Xpub parent account
+  if (isXpubParent) {
+    if (isNewAccount) {
+      return (
+        <Text>
+          <Text color="green">✓</Text> Created parent account #{accountId} <Text dimColor>(xpub)</Text>
+        </Text>
+      );
+    }
+
+    // Resuming xpub
+    const totalTransactions = transactionCounts
+      ? Array.from(transactionCounts.values()).reduce((sum, count) => sum + count, 0)
+      : 0;
+
+    return (
+      <Box flexDirection="column">
+        <Text>
+          <Text color="green">✓</Text> Account #{accountId} <Text dimColor>(xpub · resuming)</Text>
+        </Text>
+        {childAccountCount && (
+          <Text>
+            {'  '}
+            Reusing {childAccountCount} existing child accounts
+          </Text>
+        )}
+        {totalTransactions > 0 && (
+          <Text>
+            {'  '}
+            {totalTransactions.toLocaleString()} transactions
+          </Text>
+        )}
+        {transactionCounts && transactionCounts.size > 0 && (
+          <Text>
+            {'    '}
+            {Array.from(transactionCounts.entries())
+              .sort(([, a], [, b]) => b - a)
+              .map(([streamType, count]) => `${streamType}: ${count.toLocaleString()}`)
+              .join(' · ')}
+          </Text>
+        )}
+      </Box>
+    );
+  }
+
+  // Normal account (non-xpub)
   if (!isNewAccount) {
     // Calculate total transactions
     const totalTransactions = transactionCounts
@@ -115,6 +215,7 @@ const AccountLine: React.FC<{
       </Box>
     );
   }
+
   return (
     <Text>
       <Text color="green">✓</Text> Created account #{accountId}
@@ -139,19 +240,32 @@ function statusIcon(status: OperationStatus): React.ReactNode {
 /**
  * Import section
  */
-const ImportSection: React.FC<{ import: ImportOperation }> = ({ import: importOp }) => {
+const ImportSection: React.FC<{ import: ImportOperation; xpubImport?: XpubImportWrapper | undefined }> = ({
+  import: importOp,
+  xpubImport,
+}) => {
   const elapsed = importOp.completedAt
     ? importOp.completedAt - importOp.startedAt
     : performance.now() - importOp.startedAt;
   const duration = formatDuration(elapsed);
 
-  let durationText: string;
-  if (importOp.completedAt) {
-    durationText = `(${duration})`;
-  } else {
-    durationText = `· ${duration}`;
+  const durationText = importOp.completedAt ? `(${duration})` : `· ${duration}`;
+
+  // Xpub aggregated view
+  if (xpubImport) {
+    const label = `Importing ${xpubImport.childAccountCount} addresses`;
+
+    return (
+      <Box flexDirection="column">
+        <Text>
+          {statusIcon(importOp.status)} <Text bold>{label}</Text> <Text dimColor>{durationText}</Text>
+        </Text>
+        <StreamList streams={xpubImport.aggregatedStreams} />
+      </Box>
+    );
   }
 
+  // Normal import view
   return (
     <Box flexDirection="column">
       <Text>
@@ -196,7 +310,7 @@ function getStreamStatusText(stream: StreamState): React.ReactNode {
   }
 
   if (stream.status === 'completed') {
-    const endTime = stream.completedAt || performance.now();
+    const endTime = stream.completedAt ?? performance.now();
     const duration = formatDuration(endTime - stream.startedAt);
     return (
       <>
@@ -206,7 +320,7 @@ function getStreamStatusText(stream: StreamState): React.ReactNode {
   }
 
   if (stream.status === 'warning' || stream.status === 'failed') {
-    const endTime = stream.completedAt || performance.now();
+    const endTime = stream.completedAt ?? performance.now();
     const duration = formatDuration(endTime - stream.startedAt);
     return (
       <>
@@ -260,8 +374,11 @@ const StreamSubLine: React.FC<{ stream: StreamState }> = ({ stream }) => {
   }
 
   // Normal provider info
-  if (stream.activeProvider && stream.currentRate !== undefined && stream.maxRate !== undefined) {
-    const rate = `${stream.currentRate.toFixed(1)}/${stream.maxRate} req/s`;
+  const hasProviderInfo =
+    stream.activeProvider !== undefined && stream.currentRate !== undefined && stream.maxRate !== undefined;
+
+  if (hasProviderInfo) {
+    const rate = `${stream.currentRate!.toFixed(1)}/${stream.maxRate} req/s`;
     return (
       <Text>
         {'     '}
@@ -333,7 +450,7 @@ const ProcessingSection: React.FC<{ processing: ProcessingOperation }> = ({ proc
         <Text>
           {'  '}
           <Text dimColor>└─</Text> {processing.totalProcessed ?? processing.processed}{' '}
-          <Text dimColor>transactions enriched</Text>
+          <Text dimColor>transactions processed</Text>
         </Text>
       </Box>
     );
@@ -428,7 +545,8 @@ function calculateMetadataSuffix(metadata: ProcessingMetadata, isComplete: boole
   }
 
   if (!isComplete && metadata.fetched > 0) {
-    const hasTransientMessage = metadata.transientMessage && performance.now() < metadata.transientMessage.expiresAt;
+    const hasTransientMessage =
+      metadata.transientMessage !== undefined && performance.now() < metadata.transientMessage.expiresAt;
 
     if (hasTransientMessage) {
       if (metadata.transientMessage!.type === 'backoff') {
@@ -450,7 +568,7 @@ function calculateMetadataSuffix(metadata: ProcessingMetadata, isComplete: boole
     }
 
     const hasProviderInfo =
-      metadata.activeProvider && metadata.currentRate !== undefined && metadata.maxRate !== undefined;
+      metadata.activeProvider !== undefined && metadata.currentRate !== undefined && metadata.maxRate !== undefined;
 
     if (hasProviderInfo) {
       return (

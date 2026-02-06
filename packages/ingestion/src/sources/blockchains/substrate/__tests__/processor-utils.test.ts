@@ -5,7 +5,7 @@ import {
   analyzeFundFlowFromNormalized,
   determineOperationFromFundFlow,
   shouldRecordFeeEntry,
-  enrichSourceContext,
+  expandSourceContext,
 } from '../processor-utils.js';
 import type { SubstrateFundFlow } from '../types.js';
 
@@ -90,9 +90,9 @@ function getFundFlow(
   return analyzeFundFlowFromNormalized(transaction, sessionContext, config)._unsafeUnwrap();
 }
 
-describe('enrichSourceContext', () => {
+describe('expandSourceContext', () => {
   test('enriches Polkadot address with SS58 variants', () => {
-    const result = enrichSourceContext(POLKADOT_ADDRESS);
+    const result = expandSourceContext(POLKADOT_ADDRESS);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -105,7 +105,7 @@ describe('enrichSourceContext', () => {
   });
 
   test('enriches Kusama address with SS58 variants', () => {
-    const result = enrichSourceContext(KUSAMA_ADDRESS);
+    const result = expandSourceContext(KUSAMA_ADDRESS);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -117,7 +117,7 @@ describe('enrichSourceContext', () => {
   });
 
   test('enriches Bittensor address with SS58 variants', () => {
-    const result = enrichSourceContext(BITTENSOR_ADDRESS);
+    const result = expandSourceContext(BITTENSOR_ADDRESS);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -129,7 +129,7 @@ describe('enrichSourceContext', () => {
   });
 
   test('returns error for empty address', () => {
-    const result = enrichSourceContext('');
+    const result = expandSourceContext('');
 
     expect(result.isErr()).toBe(true);
     if (!result.isErr()) return;
@@ -138,7 +138,7 @@ describe('enrichSourceContext', () => {
   });
 
   test('generates unique derived addresses', () => {
-    const result = enrichSourceContext(POLKADOT_ADDRESS);
+    const result = expandSourceContext(POLKADOT_ADDRESS);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

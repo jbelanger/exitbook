@@ -119,6 +119,8 @@ describe('ImportOrchestrator', () => {
     mockAccountRepo = {
       findOrCreate: vi.fn(),
       findByUniqueConstraint: vi.fn().mockResolvedValue(ok(undefined)),
+      findByParent: vi.fn().mockResolvedValue(ok([])),
+      update: vi.fn().mockResolvedValue(ok(undefined)),
     } as unknown as AccountRepository;
 
     mockRawDataRepo = {} as IRawDataRepository;
@@ -327,7 +329,7 @@ describe('ImportOrchestrator', () => {
       const result = await orchestrator.importBlockchain('cardano', 'stake1u...');
 
       expect(result.isOk()).toBe(true);
-      expect(mockDeriveAddresses).toHaveBeenCalledWith('stake1u...', mockProviderManager, 'cardano', undefined);
+      expect(mockDeriveAddresses).toHaveBeenCalledWith('stake1u...', mockProviderManager, 'cardano', 20);
       expect(mockAccountRepo.findOrCreate).toHaveBeenCalledTimes(2); // 1 parent + 1 child
     });
 
@@ -463,7 +465,7 @@ describe('ImportOrchestrator', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('Xpub import failed');
+        expect(result.error.message).toContain('Failed to import child account');
       }
     });
 

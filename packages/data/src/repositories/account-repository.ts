@@ -40,6 +40,7 @@ export interface UpdateAccountParams {
   lastCursor?: Record<string, CursorState> | undefined;
   lastBalanceCheckAt?: Date | undefined;
   verificationMetadata?: VerificationMetadata | undefined;
+  metadata?: Account['metadata'] | undefined;
 }
 
 /**
@@ -190,7 +191,8 @@ export class AccountRepository extends BaseRepository {
         .where('identifier', '=', identifier);
 
       // Match COALESCE(user_id, 0)
-      if (userId === null || userId === undefined || userId === 0) {
+      const isNullOrZero = userId === null || userId === undefined || userId === 0;
+      if (isNullOrZero) {
         query = query.where((eb) => eb.or([eb('user_id', 'is', null), eb('user_id', '=', 0)]));
       } else {
         query = query.where('user_id', '=', userId);
@@ -390,6 +392,14 @@ export class AccountRepository extends BaseRepository {
         }
       }
 
+      if (updates.metadata !== undefined) {
+        if (updates.metadata === null) {
+          updateData.metadata = null;
+        } else {
+          updateData.metadata = this.serializeToJson(updates.metadata);
+        }
+      }
+
       // Only update if there are actual changes
       const hasChanges = Object.keys(updateData).length > 1;
       if (!hasChanges) {
@@ -505,6 +515,23 @@ export class AccountRepository extends BaseRepository {
       return err(verificationMetadataResult.error);
     }
 
+    // Parse metadata
+    const metadataSchema = z
+      .object({
+        xpub: z
+          .object({
+            gapLimit: z.number(),
+            lastDerivedAt: z.number(),
+            derivedCount: z.number(),
+          })
+          .optional(),
+      })
+      .optional();
+    const metadataResult = this.parseWithSchema(row.metadata, metadataSchema);
+    if (metadataResult.isErr()) {
+      return err(metadataResult.error);
+    }
+
     // Construct and validate account (convert null to undefined for optional fields)
     const parseResult = AccountSchema.safeParse({
       id: row.id,
@@ -518,6 +545,7 @@ export class AccountRepository extends BaseRepository {
       lastCursor: lastCursorResult.value,
       lastBalanceCheckAt: row.last_balance_check_at ? new Date(row.last_balance_check_at) : undefined,
       verificationMetadata: verificationMetadataResult.value,
+      metadata: metadataResult.value,
       createdAt: new Date(row.created_at),
       updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
     });

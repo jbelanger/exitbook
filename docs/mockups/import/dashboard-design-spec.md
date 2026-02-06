@@ -594,7 +594,7 @@ Three `—` marks make it clear "nothing happened."
 ✓ Importing from CSV (200ms)
   └─ Trades: 142 new
 ✓ Processing (400ms)
-  └─ 142 transactions enriched
+  └─ 142 transactions processed
 
 ✓ Done (600ms)
 ```
@@ -907,7 +907,7 @@ const STATUS_ICONS = {
 - **Progress:** `{processed} / {totalRaw} raw transactions` while active → `{totalRaw} raw → {totalTransactions} transactions` on completion. `totalRaw` from `process.started`. Processed accumulates from `process.batch.completed.batchSize`. Final transaction count from `process.completed.totalProcessed`.
 - **Token metadata:** Provider + rate shown while fetching (same transient message patterns as import). Omitted entirely when all cached. On completion, provider/rate replaced by `({hitRate}% cached)`.
 - **Scam tokens:** Only appears when scams found. Examples = first 3 unique symbols across batches.
-- **CSV imports:** Single line only — `{count} transactions enriched`. No metadata or scam lines.
+- **CSV imports:** Single line only — `{count} transactions processed`. No metadata or scam lines.
 
 #### Time Formatting
 
@@ -1204,7 +1204,7 @@ Importing
 ✓ Importing from CSV ({duration})
   └─ {streamName}: {count} new
 ✓ Processing ({duration})
-  └─ {count} transactions enriched
+  └─ {count} transactions processed
 
 ✓ Completed ({totalDuration} total)
 ```

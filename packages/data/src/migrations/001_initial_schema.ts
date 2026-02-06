@@ -24,6 +24,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('last_cursor', 'text')
     .addColumn('last_balance_check_at', 'text')
     .addColumn('verification_metadata', 'text')
+    .addColumn('metadata', 'text') // JSON: Account metadata (e.g., xpub derivation info)
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
     .execute();

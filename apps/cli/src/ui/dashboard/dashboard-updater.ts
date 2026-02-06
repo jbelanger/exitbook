@@ -27,6 +27,36 @@ export function updateStateFromEvent(
   providerManager: BlockchainProviderManager
 ): void {
   switch (event.type) {
+    // Xpub events
+    case 'xpub.derivation.started':
+      handleXpubDerivationStarted(state, event);
+      break;
+
+    case 'xpub.derivation.completed':
+      handleXpubDerivationCompleted(state, event);
+      break;
+
+    case 'xpub.derivation.failed':
+      handleXpubDerivationFailed(state, event);
+      break;
+
+    case 'xpub.import.started':
+      handleXpubImportStarted(state, event);
+      break;
+
+    case 'xpub.import.completed':
+      handleXpubImportCompleted(state, event);
+      break;
+
+    case 'xpub.import.failed':
+      handleXpubImportFailed(state, event);
+      break;
+
+    case 'xpub.empty':
+      handleXpubEmpty(state, event);
+      break;
+
+    // Regular import events
     case 'import.started':
       handleImportStarted(state, event);
       break;
@@ -118,9 +148,169 @@ export function updateStateFromEvent(
 }
 
 /**
+ * Handle xpub.derivation.started event
+ */
+function handleXpubDerivationStarted(
+  state: DashboardState,
+  event: Extract<IngestionEvent, { type: 'xpub.derivation.started' }>
+): void {
+  state.derivation = {
+    status: 'active',
+    startedAt: performance.now(),
+    isRederivation: event.isRederivation,
+    gapLimit: event.gapLimit,
+    previousGap: event.previousGap,
+  };
+
+  // Mark account as xpub parent
+  if (!state.account) {
+    state.account = {
+      id: event.parentAccountId,
+      isNewAccount: event.parentIsNew,
+      isXpubParent: true,
+    };
+  } else {
+    state.account.isXpubParent = true;
+  }
+}
+
+/**
+ * Handle xpub.derivation.completed event
+ */
+function handleXpubDerivationCompleted(
+  state: DashboardState,
+  event: Extract<IngestionEvent, { type: 'xpub.derivation.completed' }>
+): void {
+  if (!state.derivation) return;
+
+  state.derivation.status = 'completed';
+  state.derivation.completedAt = performance.now();
+  state.derivation.derivedCount = event.derivedCount;
+  state.derivation.newCount = event.newCount;
+
+  // Update account info
+  if (state.account) {
+    state.account.childAccountCount = event.derivedCount;
+  }
+}
+
+/**
+ * Handle xpub.derivation.failed event
+ */
+function handleXpubDerivationFailed(
+  state: DashboardState,
+  event: Extract<IngestionEvent, { type: 'xpub.derivation.failed' }>
+): void {
+  if (!state.derivation) return;
+
+  state.derivation.status = 'failed';
+  state.derivation.completedAt = performance.now();
+
+  state.isComplete = true;
+  state.errorMessage = `Failed to derive addresses: ${event.error}`;
+  state.totalDurationMs = performance.now() - state.derivation.startedAt;
+}
+
+/**
+ * Handle xpub.import.started event
+ */
+function handleXpubImportStarted(
+  state: DashboardState,
+  event: Extract<IngestionEvent, { type: 'xpub.import.started' }>
+): void {
+  state.xpubImport = {
+    parentAccountId: event.parentAccountId,
+    childAccountCount: event.childAccountCount,
+    blockchain: event.blockchain,
+    aggregatedStreams: new Map(),
+  };
+
+  // Create import operation (will be populated by child import events)
+  state.import = {
+    status: 'active',
+    startedAt: performance.now(),
+    streams: new Map(),
+  };
+
+  if (!state.account) {
+    state.account = {
+      id: event.parentAccountId,
+      isNewAccount: event.parentIsNew,
+      isXpubParent: true,
+      childAccountCount: event.childAccountCount,
+    };
+  } else if (state.account.isXpubParent) {
+    state.account.childAccountCount = event.childAccountCount;
+  }
+}
+
+/**
+ * Handle xpub.import.completed event
+ */
+function handleXpubImportCompleted(
+  state: DashboardState,
+  _event: Extract<IngestionEvent, { type: 'xpub.import.completed' }>
+): void {
+  if (!state.import) return;
+
+  state.import.status = 'completed';
+  state.import.completedAt = performance.now();
+
+  // Mark all aggregated streams as completed
+  if (state.xpubImport) {
+    for (const stream of state.xpubImport.aggregatedStreams.values()) {
+      if (stream.status === 'active') {
+        stream.status = 'completed';
+        stream.completedAt = performance.now();
+        stream.currentBatch = undefined;
+      }
+    }
+  }
+}
+
+/**
+ * Handle xpub.import.failed event
+ */
+function handleXpubImportFailed(
+  state: DashboardState,
+  event: Extract<IngestionEvent, { type: 'xpub.import.failed' }>
+): void {
+  if (!state.import) return;
+
+  state.import.status = 'failed';
+  state.import.completedAt = performance.now();
+
+  state.isComplete = true;
+  state.errorMessage = event.error;
+  state.totalDurationMs = performance.now() - state.import.startedAt;
+}
+
+/**
+ * Handle xpub.empty event
+ */
+function handleXpubEmpty(state: DashboardState, _event: Extract<IngestionEvent, { type: 'xpub.empty' }>): void {
+  state.isComplete = true;
+  state.warnings.push({
+    message: 'No active addresses found for xpub',
+  });
+
+  if (state.derivation) {
+    state.totalDurationMs = performance.now() - state.derivation.startedAt;
+  }
+}
+
+/**
  * Handle import.started event
  */
 function handleImportStarted(state: DashboardState, event: Extract<IngestionEvent, { type: 'import.started' }>): void {
+  // If this is a child of an xpub import, don't overwrite state
+  if (event.parentAccountId && state.xpubImport) {
+    // This is a child import - state.import already exists from xpub.import.started
+    // Just track child account info
+    return;
+  }
+
+  // Normal import (not xpub child)
   state.account = {
     id: event.accountId,
     isNewAccount: event.isNewAccount,
@@ -151,30 +341,54 @@ function resolveStreamStartTime(importOp: ImportOperation): number {
 function handleImportBatch(state: DashboardState, event: Extract<IngestionEvent, { type: 'import.batch' }>): void {
   if (!state.import) return;
 
-  let stream = state.import.streams.get(event.streamType);
+  if (state.xpubImport) {
+    // Aggregate into xpubImport.aggregatedStreams instead of per-account streams
+    let stream = state.xpubImport.aggregatedStreams.get(event.streamType);
 
-  if (!stream) {
-    stream = {
-      name: event.streamType,
-      status: 'active',
-      startedAt: resolveStreamStartTime(state.import),
-      imported: 0,
-      currentBatch: 0,
-      activeProvider: state.currentProvider,
-    };
-    state.import.streams.set(event.streamType, stream);
-  }
-
-  stream.currentBatch = (stream.currentBatch || 0) + 1;
-  stream.imported += event.batchInserted;
-
-  if (event.isComplete) {
-    // Preserve failed/warning status if already set (e.g., warning arrived before completion)
-    if (stream.status !== 'failed' && stream.status !== 'warning') {
-      stream.status = 'completed';
+    if (!stream) {
+      stream = {
+        name: event.streamType,
+        status: 'active',
+        startedAt: state.import.startedAt,
+        imported: 0,
+        currentBatch: 0,
+        activeProvider: state.currentProvider,
+      };
+      state.xpubImport.aggregatedStreams.set(event.streamType, stream);
     }
-    stream.completedAt = performance.now();
-    stream.currentBatch = undefined;
+
+    stream.currentBatch = (stream.currentBatch || 0) + 1;
+    stream.imported += event.batchInserted;
+
+    // Do not mark aggregated streams complete here.
+    // Completion is handled by xpub.import.completed after all children finish.
+  } else {
+    // Normal per-stream handling (unchanged from current implementation)
+    let stream = state.import.streams.get(event.streamType);
+
+    if (!stream) {
+      stream = {
+        name: event.streamType,
+        status: 'active',
+        startedAt: resolveStreamStartTime(state.import),
+        imported: 0,
+        currentBatch: 0,
+        activeProvider: state.currentProvider,
+      };
+      state.import.streams.set(event.streamType, stream);
+    }
+
+    stream.currentBatch = (stream.currentBatch || 0) + 1;
+    stream.imported += event.batchInserted;
+
+    if (event.isComplete) {
+      // Preserve failed/warning status if already set (e.g., warning arrived before completion)
+      if (stream.status !== 'failed' && stream.status !== 'warning') {
+        stream.status = 'completed';
+      }
+      stream.completedAt = performance.now();
+      stream.currentBatch = undefined;
+    }
   }
 }
 
@@ -248,17 +462,28 @@ function handleProviderSelection(
   state.currentProvider = event.selected;
   state.blockchain = event.blockchain;
 
-  // Set provider readiness on first selection
-  if (!state.providerReadiness && state.import) {
+  // Set provider readiness on first selection (check import or derivation)
+  if (!state.providerReadiness && (state.import || state.derivation)) {
     const availableProviders = providerManager.getProviders(event.blockchain);
+    const startTime = state.import?.startedAt || state.derivation?.startedAt || performance.now();
     state.providerReadiness = {
       count: availableProviders.length,
-      durationMs: performance.now() - state.import.startedAt,
+      durationMs: performance.now() - startTime,
     };
   }
 
+  // Update active provider for import streams
   if (state.import) {
     for (const stream of state.import.streams.values()) {
+      if (stream.status === 'active') {
+        stream.activeProvider = event.selected;
+      }
+    }
+  }
+
+  // Update active provider for aggregated streams
+  if (state.xpubImport) {
+    for (const stream of state.xpubImport.aggregatedStreams.values()) {
       if (stream.status === 'active') {
         stream.activeProvider = event.selected;
       }
@@ -281,18 +506,28 @@ function handleProviderResume(
   state.currentProvider = event.provider;
   state.blockchain = event.blockchain;
 
-  // Set provider readiness on first resume (same as selection)
-  if (!state.providerReadiness && state.import) {
+  // Set provider readiness on first resume (same as selection, check import or derivation)
+  if (!state.providerReadiness && (state.import || state.derivation)) {
     const availableProviders = providerManager.getProviders(event.blockchain);
+    const startTime = state.import?.startedAt || state.derivation?.startedAt || performance.now();
     state.providerReadiness = {
       count: availableProviders.length,
-      durationMs: performance.now() - state.import.startedAt,
+      durationMs: performance.now() - startTime,
     };
   }
 
   // Update all active streams to use the resumed provider
   if (state.import) {
     for (const stream of state.import.streams.values()) {
+      if (stream.status === 'active') {
+        stream.activeProvider = event.provider;
+      }
+    }
+  }
+
+  // Update active provider for aggregated streams
+  if (state.xpubImport) {
+    for (const stream of state.xpubImport.aggregatedStreams.values()) {
       if (stream.status === 'active') {
         stream.activeProvider = event.provider;
       }
@@ -605,6 +840,24 @@ function updateStreamRates(
 ): void {
   if (!state.import) return;
 
+  // Update aggregated streams for xpub imports
+  if (state.xpubImport) {
+    for (const stream of state.xpubImport.aggregatedStreams.values()) {
+      if (!stream.activeProvider || stream.status !== 'active') continue;
+
+      const { currentRate, maxRate } = calculateProviderRate(
+        stream.activeProvider,
+        instrumentation,
+        providerManager,
+        state.blockchain
+      );
+
+      stream.currentRate = currentRate;
+      stream.maxRate = maxRate;
+    }
+  }
+
+  // Update regular streams for normal imports
   for (const stream of state.import.streams.values()) {
     if (!stream.activeProvider || stream.status !== 'active') continue;
 

@@ -75,7 +75,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
     );
 
     // Create enriched data with derived deltas (immutable - no mutation)
-    let enrichedNormalizedData = normalizedData;
+    let normalizedWithDerivedDeltas = normalizedData;
 
     if (balanceChanges.length > 0) {
       const missingDeltas = balanceChanges.some((change) => !change.deltaAmountYocto);
@@ -92,7 +92,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
       const derivedResult = deriveBalanceChangeDeltasFromAbsolutes(balanceChanges, previousBalances);
 
       if (derivedResult.derivedDeltas.size > 0) {
-        enrichedNormalizedData = normalizedData.map((event) => {
+        normalizedWithDerivedDeltas = normalizedData.map((event) => {
           if ((event as NearStreamEvent).streamType === 'balance-changes') {
             const change = event as NearBalanceChange;
             if (!change.deltaAmountYocto) {
@@ -121,20 +121,20 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
     }
 
     // Enrich token metadata for all token transfers
-    const enrichResult = await this.enrichTokenMetadata(enrichedNormalizedData as NearStreamEvent[]);
+    const enrichResult = await this.enrichTokenMetadata(normalizedWithDerivedDeltas as NearStreamEvent[]);
     if (enrichResult.isErr()) {
       return err(`Token metadata enrichment failed: ${enrichResult.error.message}`);
     }
 
     // Group enriched normalized data by transaction hash
-    const groupingResult = groupNearEventsByTransaction(enrichedNormalizedData as NearStreamEvent[]);
+    const groupingResult = groupNearEventsByTransaction(normalizedWithDerivedDeltas as NearStreamEvent[]);
     if (groupingResult.isErr()) {
       return err(`Failed to group transaction data: ${groupingResult.error.message}`);
     }
     const transactionGroups = groupingResult.value;
 
     this.logger.debug(
-      `Grouped ${enrichedNormalizedData.length} raw events into ${transactionGroups.size} transaction groups`
+      `Grouped ${normalizedWithDerivedDeltas.length} raw events into ${transactionGroups.size} transaction groups`
     );
 
     const transactions: ProcessedTransaction[] = [];
@@ -337,16 +337,16 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
   ): Promise<Result<ProcessedTransaction, Error>> {
     const tokenTransferFlows = extractTokenTransferFlows(correlated.tokenTransfers, context.primaryAddress);
     const hasTokenTransfers = correlated.tokenTransfers.length > 0 || tokenTransferFlows.length > 0;
-    const hasActionDeposits = correlated.receipts.some((receipt) =>
-      (receipt.actions ?? []).some((action) => {
+    const hasActionDeposits = correlated.receipts.some((receipt) => {
+      return (receipt.actions ?? []).some((action) => {
         if (!action.deposit) return false;
         try {
           return new Decimal(action.deposit).greaterThan(0);
         } catch {
           return false;
         }
-      })
-    );
+      });
+    });
     const allInflows: Movement[] = [];
     const allOutflows: Movement[] = [];
     const allFees: Movement[] = [];

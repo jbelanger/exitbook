@@ -23,6 +23,14 @@ export interface AccountInfo {
    */
   isNewAccount: boolean;
   /**
+   * True if this is an xpub parent account
+   */
+  isXpubParent?: boolean | undefined;
+  /**
+   * Number of derived child addresses (for xpub parents)
+   */
+  childAccountCount?: number | undefined;
+  /**
    * Transaction counts by stream type (only present for existing accounts)
    */
   transactionCounts?: Map<string, number> | undefined;
@@ -34,6 +42,32 @@ export interface AccountInfo {
 export interface ProviderReadiness {
   count: number;
   durationMs: number;
+}
+
+/**
+ * Xpub derivation operation state
+ */
+export interface DerivationOperation {
+  status: OperationStatus;
+  startedAt: number;
+  completedAt?: number | undefined;
+  isRederivation: boolean;
+  gapLimit: number;
+  previousGap?: number | undefined;
+  derivedCount?: number | undefined;
+  newCount?: number | undefined; // For re-derivation only
+}
+
+/**
+ * Xpub import wrapper state (aggregates child imports)
+ */
+export interface XpubImportWrapper {
+  parentAccountId: number;
+  childAccountCount: number;
+  blockchain: string;
+
+  // Aggregated streams across all children
+  aggregatedStreams: Map<string, StreamState>;
 }
 
 /**
@@ -156,6 +190,12 @@ export interface DashboardState {
 
   // Current active provider (global, applies to all streams)
   currentProvider?: string | undefined;
+
+  // Derivation operation (xpub only)
+  derivation?: DerivationOperation | undefined;
+
+  // Xpub import wrapper (when importing xpub)
+  xpubImport?: XpubImportWrapper | undefined;
 
   // Import operation
   import?: ImportOperation | undefined;

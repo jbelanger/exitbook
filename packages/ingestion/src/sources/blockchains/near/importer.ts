@@ -12,7 +12,7 @@ import { err, ok, type Result } from 'neverthrow';
 import type { IImporter, ImportParams, ImportBatchResult } from '../../../shared/types/importers.js';
 
 /**
- * NEAR transaction importer - streams raw unenriched data from 4 discrete endpoints
+ * NEAR transaction importer - streams raw unprocessed data from 4 discrete endpoints
  *
  * This importer fetches raw data from NearBlocks API in 4 sequential phases:
  * 1. transactions - Base transaction metadata

@@ -17,7 +17,7 @@ import type {
 
 /**
  * NEAR receipt with correlated balance changes and token transfers
- * This is the enriched receipt used by the processor after correlation
+ * This is the correlated receipt used by the processor after correlation
  */
 export interface NearReceipt {
   receiptId: string;
@@ -78,7 +78,7 @@ export interface RawTransactionGroup {
 
 /**
  * Correlated transaction data after correlation phase
- * Contains transaction metadata and all enriched receipts
+ * Contains transaction metadata and all correlated receipts
  */
 export interface CorrelatedTransaction {
   /**
@@ -87,7 +87,7 @@ export interface CorrelatedTransaction {
   transaction: NearTransaction;
 
   /**
-   * Enriched receipts with balance changes attached
+   * correlated receipts with balance changes attached
    */
   receipts: NearReceipt[];
 
