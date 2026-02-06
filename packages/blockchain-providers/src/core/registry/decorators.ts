@@ -5,6 +5,8 @@ import { ProviderRegistry } from './provider-registry.js';
 /**
  * Decorator to register an API client class with the registry
  *
+ * Uses TC39 standard decorators (Stage 3).
+ *
  * For multi-chain providers (like EVM providers), use supportedChains:
  * @example
  * ```typescript
@@ -18,16 +20,18 @@ import { ProviderRegistry } from './provider-registry.js';
  */
 export function RegisterApiClient(
   metadata: ProviderMetadata
-): <T extends new (config: ProviderConfig) => IBlockchainProvider>(constructor: T) => T {
-  return function <T extends new (config: ProviderConfig) => IBlockchainProvider>(constructor: T): T {
+): (target: new (config: ProviderConfig) => IBlockchainProvider, context: ClassDecoratorContext) => void {
+  return (target, context) => {
+    if (context.kind !== 'class') {
+      throw new Error('RegisterApiClient can only be applied to classes');
+    }
+
     const factory: ProviderFactory = {
-      create: (config: ProviderConfig) => new constructor(config),
+      create: (config: ProviderConfig) => new target(config),
       metadata, // Store metadata as-is (preserves supportedChains)
     };
 
     // Register once with primary blockchain as key
     ProviderRegistry.register(factory);
-
-    return constructor;
   };
 }
