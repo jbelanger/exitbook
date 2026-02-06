@@ -46,11 +46,9 @@
     "react": "^19.2.3"
   },
   "devDependencies": {
-    "@types/node": "^25.0.10",
     "@types/react": "^19.2.9",
     "tsconfig": "workspace:*",
     "tsup": "^8.5.1",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "tsx": "^4.21.0"
   }
 }

@@ -29,9 +29,10 @@ describe('Decimal Utilities', () => {
       expect(out.value.isZero()).toBe(true);
     });
 
-    it('should handle null as zero', () => {
+    it('should handle null as zero for backward compatibility', () => {
       const out = { value: parseDecimal('0') };
-      const result = tryParseDecimal(null, out);
+      const legacyNullInput = JSON.parse('null') as unknown as null;
+      const result = tryParseDecimal(legacyNullInput, out);
 
       expect(result).toBe(true);
       expect(out.value.isZero()).toBe(true);
@@ -108,8 +109,9 @@ describe('Decimal Utilities', () => {
       expect(result.isZero()).toBe(true);
     });
 
-    it('should return zero for null', () => {
-      const result = parseDecimal(null);
+    it('should return zero for null for backward compatibility', () => {
+      const legacyNullInput = JSON.parse('null') as unknown as null;
+      const result = parseDecimal(legacyNullInput);
       expect(result.isZero()).toBe(true);
     });
 

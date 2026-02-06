@@ -5,9 +5,9 @@ import { parseDecimal } from '../decimal-utils.js';
 import { computePrimaryMovement } from '../movement-utils.js';
 
 describe('computePrimaryMovement', () => {
-  it('returns null when no movements exist', () => {
+  it('returns undefined when no movements exist', () => {
     const result = computePrimaryMovement([], []);
-    expect(result).toBeNull();
+    expect(result).toBeUndefined();
   });
 
   it('returns single inflow as primary with direction "in"', () => {

@@ -1,6 +1,3 @@
-// --- EFFECT-TS: STEP 1 ---
-// Import the Effect ESLint plugin.
-import effect from '@effect/eslint-plugin';
 import js from '@eslint/js';
 import eslintComments from 'eslint-plugin-eslint-comments';
 import importPlugin from 'eslint-plugin-import';
@@ -121,36 +118,6 @@ export default [
           ],
         },
       ],
-    },
-  },
-
-  // --- EFFECT-TS: STEP 2 ---
-  // This is the dedicated configuration for your Effect-TS codebase.
-  // It applies the Effect plugin and disables conflicting TypeScript rules
-  // ONLY for the files where you use Effect.
-  {
-    files: [
-      'packages/core/**/src/**/*.{ts,tsx}',
-      // Add any other paths that are Effect-heavy
-    ],
-    plugins: {
-      effect,
-    },
-    rules: {
-      // Apply the recommended ruleset from the Effect plugin
-      ...effect.configs.recommended,
-
-      // Disable built-in TS rules that conflict with the Effect pattern
-      '@typescript-eslint/no-floating-promises': 'off',
-      '@typescript-eslint/no-misused-promises': 'off',
-      '@typescript-eslint/no-redundant-type-constituents': 'off',
-
-      // Allow unsafe operations for database/external library integration
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
-      'unicorn/no-null': 'off',
     },
   },
 

@@ -88,7 +88,8 @@ describe('DecimalStringSchema', () => {
     });
 
     it('should reject null', () => {
-      expect(() => DecimalStringSchema.parse(null)).toThrow();
+      const invalidNullValue: unknown = JSON.parse('null');
+      expect(() => DecimalStringSchema.parse(invalidNullValue)).toThrow();
     });
 
     it('should reject undefined', () => {

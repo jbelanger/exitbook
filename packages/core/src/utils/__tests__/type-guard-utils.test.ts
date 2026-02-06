@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- tests intentionally validate null edge cases. */
 import { describe, expect, it } from 'vitest';
 
 import { isErrorWithMessage, getErrorMessage, wrapError, hasStringProperty } from '../type-guard-utils.js';

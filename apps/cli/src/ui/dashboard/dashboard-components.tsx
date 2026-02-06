@@ -6,7 +6,7 @@ import { performance } from 'node:perf_hooks';
 
 import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
-import React from 'react';
+import { Fragment, type FC, type ReactNode } from 'react';
 
 import type {
   DashboardState,
@@ -28,7 +28,7 @@ interface DashboardProps {
 /**
  * Main Dashboard component
  */
-export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
+export const Dashboard: FC<DashboardProps> = ({ state }) => {
   return (
     <Box flexDirection="column">
       {/* Blank line before first operation */}
@@ -78,7 +78,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
 /**
  * Derivation operation section (xpub only)
  */
-const DerivationSection: React.FC<{ derivation: DerivationOperation }> = ({ derivation }) => {
+const DerivationSection: FC<{ derivation: DerivationOperation }> = ({ derivation }) => {
   const elapsed = derivation.completedAt
     ? derivation.completedAt - derivation.startedAt
     : performance.now() - derivation.startedAt;
@@ -118,7 +118,7 @@ const DerivationSection: React.FC<{ derivation: DerivationOperation }> = ({ deri
 /**
  * Account line
  */
-const AccountLine: React.FC<{
+const AccountLine: FC<{
   accountId: number;
   childAccountCount?: number | undefined;
   isNewAccount: boolean;
@@ -179,7 +179,7 @@ const AccountLine: React.FC<{
 
     // Format transaction breakdown
     const hasBreakdown = transactionCounts && transactionCounts.size > 0;
-    const breakdownParts: React.ReactNode[] = [];
+    const breakdownParts: ReactNode[] = [];
 
     if (hasBreakdown) {
       // Sort by count descending for consistent display
@@ -223,7 +223,7 @@ const AccountLine: React.FC<{
   );
 };
 
-function statusIcon(status: OperationStatus): React.ReactNode {
+function statusIcon(status: OperationStatus): ReactNode {
   if (status === 'active') {
     return (
       <Text color="cyan">
@@ -240,7 +240,7 @@ function statusIcon(status: OperationStatus): React.ReactNode {
 /**
  * Import section
  */
-const ImportSection: React.FC<{ import: ImportOperation; xpubImport?: XpubImportWrapper | undefined }> = ({
+const ImportSection: FC<{ import: ImportOperation; xpubImport?: XpubImportWrapper | undefined }> = ({
   import: importOp,
   xpubImport,
 }) => {
@@ -280,7 +280,7 @@ const ImportSection: React.FC<{ import: ImportOperation; xpubImport?: XpubImport
 /**
  * Stream list with tree structure
  */
-const StreamList: React.FC<{ streams: Map<string, StreamState> }> = ({ streams }) => {
+const StreamList: FC<{ streams: Map<string, StreamState> }> = ({ streams }) => {
   const streamArray = Array.from(streams.values());
 
   return (
@@ -299,7 +299,7 @@ const StreamList: React.FC<{ streams: Map<string, StreamState> }> = ({ streams }
   );
 };
 
-function getStreamStatusText(stream: StreamState): React.ReactNode {
+function getStreamStatusText(stream: StreamState): ReactNode {
   if (stream.status === 'active' && stream.currentBatch !== undefined) {
     const duration = formatDuration(performance.now() - stream.startedAt);
     return (
@@ -335,7 +335,7 @@ function getStreamStatusText(stream: StreamState): React.ReactNode {
 /**
  * Individual stream line
  */
-const StreamLine: React.FC<{ isLast: boolean; stream: StreamState }> = ({ stream, isLast }) => {
+const StreamLine: FC<{ isLast: boolean; stream: StreamState }> = ({ stream, isLast }) => {
   const branch = isLast ? '└─' : '├─';
   const statusText = getStreamStatusText(stream);
 
@@ -361,7 +361,7 @@ const StreamLine: React.FC<{ isLast: boolean; stream: StreamState }> = ({ stream
 /**
  * Stream sub-line (provider info)
  */
-const StreamSubLine: React.FC<{ stream: StreamState }> = ({ stream }) => {
+const StreamSubLine: FC<{ stream: StreamState }> = ({ stream }) => {
   // Check for transient message
   if (stream.transientMessage && performance.now() < stream.transientMessage.expiresAt) {
     const msgText = getTransientMessageText(stream.transientMessage);
@@ -401,7 +401,7 @@ const StreamSubLine: React.FC<{ stream: StreamState }> = ({ stream }) => {
   return null;
 };
 
-function getTransientMessageText(transientMessage: TransientMessage): React.ReactNode {
+function getTransientMessageText(transientMessage: TransientMessage): ReactNode {
   if (transientMessage.type === 'backoff') {
     const waitTime = Math.max(0, transientMessage.expiresAt - performance.now());
     return (
@@ -418,7 +418,7 @@ function getTransientMessageText(transientMessage: TransientMessage): React.Reac
  * Processing section — progress, token metadata with live provider/rate, scam summary.
  * Three distinct views: empty (totalRaw=0), CSV (no metadata events), full blockchain.
  */
-const ProcessingSection: React.FC<{ processing: ProcessingOperation }> = ({ processing }) => {
+const ProcessingSection: FC<{ processing: ProcessingOperation }> = ({ processing }) => {
   const duration = processing.completedAt
     ? formatDuration(processing.completedAt - processing.startedAt)
     : formatDuration(performance.now() - processing.startedAt);
@@ -513,7 +513,7 @@ const ProcessingSection: React.FC<{ processing: ProcessingOperation }> = ({ proc
  * Mirrors the transient message pattern used by import stream sub-lines.
  * Provider/rate omitted entirely when fetched === 0 (all cached).
  */
-const ProcessingMetadataLine: React.FC<{
+const ProcessingMetadataLine: FC<{
   isComplete: boolean;
   isLast: boolean;
   metadata: ProcessingMetadata;
@@ -537,7 +537,7 @@ const ProcessingMetadataLine: React.FC<{
   );
 };
 
-function calculateMetadataSuffix(metadata: ProcessingMetadata, isComplete: boolean): React.ReactNode {
+function calculateMetadataSuffix(metadata: ProcessingMetadata, isComplete: boolean): ReactNode {
   if (isComplete && metadata.fetched > 0) {
     const total = metadata.cached + metadata.fetched;
     const hitRate = Math.round((metadata.cached / total) * 100);
@@ -628,8 +628,8 @@ function formatLiveStatusRate(stats: ProviderApiStats, isActive: boolean): strin
 /**
  * Render counts for live view with colors
  */
-function renderLiveCounts(stats: ProviderApiStats): React.ReactNode {
-  const parts: React.ReactNode[] = [];
+function renderLiveCounts(stats: ProviderApiStats): ReactNode {
+  const parts: ReactNode[] = [];
 
   if (stats.okCount > 0) {
     parts.push(
@@ -694,25 +694,25 @@ function formatAvgRate(stats: ProviderApiStats, overallDurationMs?: number): str
 /**
  * Render breakdown for final view with colors
  */
-function renderFinalBreakdown(stats: ProviderApiStats): React.ReactNode {
-  const parts: React.ReactNode[] = [];
+function renderFinalBreakdown(stats: ProviderApiStats): ReactNode {
+  const parts: ReactNode[] = [];
 
   if (stats.okCount > 0) {
     parts.push(
-      <React.Fragment key="ok">
+      <Fragment key="ok">
         <Text color="green">{stats.okCount} ok</Text>
         <Text dimColor> (200)</Text>
-      </React.Fragment>
+      </Fragment>
     );
   }
 
   if (stats.throttledCount > 0) {
     if (parts.length > 0) parts.push(<Text key="sep1"> · </Text>);
     parts.push(
-      <React.Fragment key="throttled">
+      <Fragment key="throttled">
         <Text color="yellow">{stats.throttledCount} throttled</Text>
         <Text dimColor> (429)</Text>
-      </React.Fragment>
+      </Fragment>
     );
   }
 
@@ -732,10 +732,10 @@ function renderFinalBreakdown(stats: ProviderApiStats): React.ReactNode {
     if (parts.length > 0) parts.push(<Text key="sep3"> · </Text>);
     const errorCode = getErrorStatusCode(stats);
     parts.push(
-      <React.Fragment key="err">
+      <Fragment key="err">
         <Text color="red">{stats.failed} err</Text>
         {errorCode && <Text dimColor> ({errorCode})</Text>}
-      </React.Fragment>
+      </Fragment>
     );
   }
 
@@ -766,7 +766,7 @@ function truncateProvider(name: string, maxLen: number): string {
 /**
  * API calls footer
  */
-const ApiFooter: React.FC<{ state: DashboardState }> = ({ state }) => {
+const ApiFooter: FC<{ state: DashboardState }> = ({ state }) => {
   const { total, byProvider } = state.apiCalls;
 
   // Don't show if no API calls (CSV imports)
@@ -805,10 +805,7 @@ const ApiFooter: React.FC<{ state: DashboardState }> = ({ state }) => {
 /**
  * Live API footer (during import) - Tabular format with active/idle status
  */
-const ApiFooterLive: React.FC<{ byProvider: Map<string, ProviderApiStats>; total: number }> = ({
-  total,
-  byProvider,
-}) => {
+const ApiFooterLive: FC<{ byProvider: Map<string, ProviderApiStats>; total: number }> = ({ total, byProvider }) => {
   const providers = Array.from(byProvider.entries()).sort(([a], [b]) => a.localeCompare(b));
   const singleProvider = providers.length === 1;
 
@@ -852,7 +849,7 @@ const ApiFooterLive: React.FC<{ byProvider: Map<string, ProviderApiStats>; total
 /**
  * Final API footer (after completion) - Tabular format with avg stats
  */
-const ApiFooterFinal: React.FC<{
+const ApiFooterFinal: FC<{
   byProvider: Map<string, ProviderApiStats>;
   overallDurationMs?: number | undefined;
   total: number;
@@ -909,7 +906,7 @@ const ApiFooterFinal: React.FC<{
 /**
  * Completion section - shows final status (Done/Warnings/Aborted)
  */
-const CompletionSection: React.FC<{ state: DashboardState }> = ({ state }) => {
+const CompletionSection: FC<{ state: DashboardState }> = ({ state }) => {
   const duration = state.totalDurationMs ? formatDuration(state.totalDurationMs) : '';
   const hasWarnings = state.warnings.length > 0;
   const errorMessage = state.errorMessage;

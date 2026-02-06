@@ -22,22 +22,22 @@ export interface PrimaryMovement {
  * 3. If multiple inflows but no outflows -> primary is largest inflow (direction: 'in')
  * 4. If multiple outflows but no inflows -> primary is largest outflow (direction: 'out')
  * 5. If both inflows and outflows exist -> primary is largest by value (direction based on which side)
- * 6. If empty -> null
+ * 6. If empty -> undefined
  *
  * @param inflows - Array of asset inflows
  * @param outflows - Array of asset outflows
- * @returns Primary movement or null if no movements exist
+ * @returns Primary movement or undefined if no movements exist
  */
 export function computePrimaryMovement(
   inflows: AssetMovement[] = [],
   outflows: AssetMovement[] = []
-): PrimaryMovement | null {
+): PrimaryMovement | undefined {
   const hasInflows = inflows.length > 0;
   const hasOutflows = outflows.length > 0;
 
   // Case 6: No movements at all
   if (!hasInflows && !hasOutflows) {
-    return null;
+    return undefined;
   }
 
   // Case 1: Single inflow, no outflows

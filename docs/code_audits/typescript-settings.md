@@ -386,8 +386,9 @@ rule, showing the team already uses type-only imports.
      ---
      5c. Finding: noPropertyAccessFromIndexSignature not enabled
 
-     What exists:
-     The base tsconfig enables several strict options (exactOptionalPropertyTypes, noUncheckedIndexedAccess) but does not enable noPropertyAccessFromIndexSignature.
+DONE
+What exists:
+The base tsconfig enables several strict options (exactOptionalPropertyTypes, noUncheckedIndexedAccess) but does not enable noPropertyAccessFromIndexSignature.
 
      Why it's a problem:
      With noUncheckedIndexedAccess enabled, bracket access (obj["key"]) correctly returns T | undefined. But dot access (obj.key) on index signatures still returns T without the | undefined, creating
@@ -413,8 +414,9 @@ rule, showing the team already uses type-only imports.
      ---
      5d. Finding: typescript as devDependency in every package
 
-     What exists:
-     Every package (12 packages + 1 app = 13 total) declares "typescript": "^5.9.3" in its devDependencies. The versions are currently aligned but maintained independently.
+DONE
+What exists:
+Every package (12 packages + 1 app = 13 total) declares "typescript": "^5.9.3" in its devDependencies. The versions are currently aligned but maintained independently.
 
      Why it's a problem:
      In a pnpm workspace, hoisted dependencies mean all packages share the same TypeScript installation anyway. Declaring it 13 times creates 13 places to update when bumping TS versions. If versions
@@ -442,8 +444,9 @@ rule, showing the team already uses type-only imports.
      ---
      5e. Finding: @types/node duplicated across all packages
 
-     What exists:
-     All 11 packages (excluding tsconfig and events) declare "@types/node": "^25.0.10" in devDependencies. Similar to TypeScript itself, this is maintained in 11 separate locations.
+DONE
+What exists:
+All 11 packages (excluding tsconfig and events) declare "@types/node": "^25.0.10" in devDependencies. Similar to TypeScript itself, this is maintained in 11 separate locations.
 
      Why it's a problem:
      Same as the TypeScript duplication: 11 places to update, risk of version drift. Modern Node.js (23+) ships with built-in type declarations when using --experimental-strip-types, but since the
@@ -461,11 +464,12 @@ rule, showing the team already uses type-only imports.
 
      6a. Finding: CLI tsconfig includes JSX config for React (Ink) but only 1 .tsx file exists
 
-     What exists:
-     /Users/joel/Dev/exitbook/apps/cli/tsconfig.json (lines 6-8) configures:
-     "jsx": "react",
-     "jsxFactory": "React.createElement",
-     "jsxFragmentFactory": "React.Fragment"
+DONE
+What exists:
+/Users/joel/Dev/exitbook/apps/cli/tsconfig.json (lines 6-8) configures:
+"jsx": "react",
+"jsxFactory": "React.createElement",
+"jsxFragmentFactory": "React.Fragment"
 
      There is exactly one .tsx file: /Users/joel/Dev/exitbook/apps/cli/src/ui/dashboard/dashboard-components.tsx (992 lines).
 
