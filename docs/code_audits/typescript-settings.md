@@ -350,9 +350,10 @@ DONE
      ---
      5b. Finding: verbatimModuleSyntax not enabled (modern replacement for isolatedModules)
 
-     What exists:
-     The base tsconfig enables isolatedModules: true (line 11). verbatimModuleSyntax is not set anywhere. The codebase has 1,271 import type statements alongside the consistent-type-imports ESLint
-     rule, showing the team already uses type-only imports.
+DONE
+What exists:
+The base tsconfig enables isolatedModules: true (line 11). verbatimModuleSyntax is not set anywhere. The codebase has 1,271 import type statements alongside the consistent-type-imports ESLint
+rule, showing the team already uses type-only imports.
 
      Why it's a problem:
      verbatimModuleSyntax (TS 5.4+) is the modern successor to isolatedModules. It provides stronger guarantees:

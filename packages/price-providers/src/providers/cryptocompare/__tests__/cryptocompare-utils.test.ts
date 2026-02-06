@@ -545,6 +545,6 @@ describe('buildHistoricalParams', () => {
 
     const params = buildHistoricalParams(asset, currency, timestamp);
 
-    expect(params.toTs).toBe('1234567890');
+    expect(params['toTs']).toBe('1234567890');
   });
 });

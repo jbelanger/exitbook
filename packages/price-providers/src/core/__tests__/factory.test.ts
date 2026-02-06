@@ -249,7 +249,7 @@ describe('createPriceProviders', () => {
   });
 
   it('should prefer config over env vars', async () => {
-    process.env.COINGECKO_API_KEY = 'env-key';
+    process.env['COINGECKO_API_KEY'] = 'env-key';
 
     const { createCoinGeckoProvider } = await import('../../providers/coingecko/provider.js');
     await createPriceProviders({

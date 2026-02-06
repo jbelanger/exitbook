@@ -69,7 +69,7 @@ function createRootLogger(): Logger {
 
   // Skip all transports in test environment to avoid spawning worker threads
   // Check both the validated env and process.env (in case vitest sets it after module load)
-  const isTestEnv = env.NODE_ENV === 'test' || process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+  const isTestEnv = env.NODE_ENV === 'test' || process.env['NODE_ENV'] === 'test' || process.env['VITEST'] === 'true';
 
   // In development, use pino-pretty for human-readable logs
   if (transportMode.console && !isTestEnv) {

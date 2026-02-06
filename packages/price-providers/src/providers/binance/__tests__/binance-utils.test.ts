@@ -354,7 +354,7 @@ describe('buildBinanceKlinesParams', () => {
     const timestamp = new Date(1704110400000); // 2024-01-01T12:00:00Z
     const params = buildBinanceKlinesParams('SOLUSDT', '1m', timestamp);
 
-    expect(params.startTime).toBe('1704110400000');
+    expect(params['startTime']).toBe('1704110400000');
   });
 });
 

@@ -221,7 +221,7 @@ export function buildPriceParams(assetSymbol: Currency, currency: Currency, apiK
   };
 
   if (apiKey) {
-    params.api_key = apiKey;
+    params['api_key'] = apiKey;
   }
 
   return params;
@@ -237,7 +237,7 @@ export function buildPriceMultiParams(assets: Currency[], currency: Currency, ap
   };
 
   if (apiKey) {
-    params.api_key = apiKey;
+    params['api_key'] = apiKey;
   }
 
   return params;
@@ -260,7 +260,7 @@ export function buildHistoricalParams(
   };
 
   if (apiKey) {
-    params.api_key = apiKey;
+    params['api_key'] = apiKey;
   }
 
   return params;

@@ -701,10 +701,10 @@ describe('AccountRepository', () => {
 
       const updated = await repository.findById(account.id);
       if (updated.isOk()) {
-        expect(updated.value.lastCursor?.normal).toBeDefined();
-        expect(updated.value.lastCursor?.internal).toBeDefined();
-        expect(updated.value.lastCursor?.normal?.totalFetched).toBe(500);
-        expect(updated.value.lastCursor?.internal?.totalFetched).toBe(150);
+        expect(updated.value.lastCursor?.['normal']).toBeDefined();
+        expect(updated.value.lastCursor?.['internal']).toBeDefined();
+        expect(updated.value.lastCursor?.['normal']?.totalFetched).toBe(500);
+        expect(updated.value.lastCursor?.['internal']?.totalFetched).toBe(150);
       }
     });
 
@@ -731,8 +731,8 @@ describe('AccountRepository', () => {
 
       const updated = await repository.findById(account.id);
       if (updated.isOk()) {
-        expect(updated.value.lastCursor?.normal?.totalFetched).toBe(1000);
-        expect(updated.value.lastCursor?.normal?.lastTransactionId).toBe('tx1000');
+        expect(updated.value.lastCursor?.['normal']?.totalFetched).toBe(1000);
+        expect(updated.value.lastCursor?.['normal']?.lastTransactionId).toBe('tx1000');
       }
     });
 
