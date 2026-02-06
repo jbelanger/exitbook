@@ -9,15 +9,7 @@ import tseslint from 'typescript-eslint';
 export default [
   // Global ignores
   {
-    ignores: [
-      '**/dist/**',
-      '**/node_modules/**',
-      '**/coverage/**',
-      '**/.turbo/**',
-      '**/specs/**',
-      '*.config.*',
-      '**/tsconfig*.json',
-    ],
+    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', '**/.turbo/**', '**/specs/**', '**/tsconfig*.json'],
   },
 
   // Base JS rules
@@ -315,5 +307,12 @@ export default [
     rules: {
       'no-restricted-imports': 'off', // Allow KyselyDB in test files for mocking
     },
+  },
+
+  // === Config files: basic linting without type-checking ===
+  // Config files at root are not included in any tsconfig, so disable type-aware rules
+  {
+    files: ['*.config.{js,ts,mjs,cjs}', '**/vitest.*.{js,ts}', 'eslint.config.js'],
+    ...tseslint.configs.disableTypeChecked,
   },
 ];
