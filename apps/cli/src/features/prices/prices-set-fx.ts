@@ -67,7 +67,9 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
       });
     }
 
-    const handler = new PricesSetFxHandler();
+    const { OverrideStore } = await import('@exitbook/data');
+    const overrideStore = new OverrideStore();
+    const handler = new PricesSetFxHandler(overrideStore);
     const result = await handler.execute({
       from: options.from,
       to: options.to,

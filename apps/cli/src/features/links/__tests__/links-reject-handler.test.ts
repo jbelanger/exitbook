@@ -1,6 +1,6 @@
 import { TransactionLinkRepository, type TransactionLink } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
-import { TransactionRepository } from '@exitbook/data';
+import { TransactionRepository, type OverrideStore } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -29,7 +29,12 @@ describe('LinksRejectHandler', () => {
     findById: Mock;
     updateStatus: Mock;
   };
-  let mockTransactionRepository: Record<string, never>;
+  let mockTransactionRepository: {
+    findById: Mock;
+  };
+  let mockOverrideStore: {
+    append: Mock;
+  };
   let handler: LinksRejectHandler;
 
   beforeEach(() => {
@@ -41,8 +46,15 @@ describe('LinksRejectHandler', () => {
       updateStatus: vi.fn(),
     };
 
-    // Mock transaction repository (not used in reject, but required by constructor)
-    mockTransactionRepository = {};
+    // Mock transaction repository with findById for fingerprint computation
+    mockTransactionRepository = {
+      findById: vi.fn(),
+    };
+
+    // Mock override store
+    mockOverrideStore = {
+      append: vi.fn().mockResolvedValue(ok({ id: 'test-event-id' })),
+    };
 
     // Setup mocks
     (TransactionRepository as unknown as Mock).mockImplementation(() => mockTransactionRepository);
@@ -51,7 +63,8 @@ describe('LinksRejectHandler', () => {
 
     handler = new LinksRejectHandler(
       mockLinkRepository as unknown as TransactionLinkRepository,
-      mockTransactionRepository as unknown as TransactionRepository
+      mockTransactionRepository as unknown as TransactionRepository,
+      mockOverrideStore as unknown as OverrideStore
     );
   });
 
@@ -84,6 +97,18 @@ describe('LinksRejectHandler', () => {
     metadata: undefined,
   });
 
+  const mockSourceTx = {
+    id: 1,
+    source: 'kraken',
+    externalId: 'WITHDRAWAL-123',
+  };
+
+  const mockTargetTx = {
+    id: 2,
+    source: 'blockchain:bitcoin',
+    externalId: 'abc123',
+  };
+
   describe('execute', () => {
     it('should successfully reject a suggested link', async () => {
       const params: LinksRejectParams = {
@@ -94,6 +119,11 @@ describe('LinksRejectHandler', () => {
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
+      mockTransactionRepository.findById.mockImplementation((id: number) => {
+        if (id === 1) return Promise.resolve(ok(mockSourceTx));
+        if (id === 2) return Promise.resolve(ok(mockTargetTx));
+        return Promise.resolve(ok(undefined));
+      });
 
       const result = await handler.execute(params);
 
@@ -106,6 +136,55 @@ describe('LinksRejectHandler', () => {
 
       expect(mockLinkRepository.findById).toHaveBeenCalledWith('link-123');
       expect(mockLinkRepository.updateStatus).toHaveBeenCalledWith('link-123', 'rejected', 'cli-user');
+    });
+
+    it('should write unlink_override event after successful reject', async () => {
+      const params: LinksRejectParams = {
+        linkId: 'link-123',
+      };
+
+      const suggestedLink = createMockLink('link-123', 'suggested');
+
+      mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
+      mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
+      mockTransactionRepository.findById.mockImplementation((id: number) => {
+        if (id === 1) return Promise.resolve(ok(mockSourceTx));
+        if (id === 2) return Promise.resolve(ok(mockTargetTx));
+        return Promise.resolve(ok(undefined));
+      });
+
+      await handler.execute(params);
+
+      // Sorted fingerprints: blockchain:bitcoin:abc123 < kraken:WITHDRAWAL-123
+      expect(mockOverrideStore.append).toHaveBeenCalledWith({
+        scope: 'unlink',
+        payload: {
+          type: 'unlink_override',
+          link_fingerprint: 'link:blockchain:bitcoin:abc123:kraken:WITHDRAWAL-123:BTC',
+        },
+      });
+    });
+
+    it('should not fail if override store write fails', async () => {
+      const params: LinksRejectParams = {
+        linkId: 'link-123',
+      };
+
+      const suggestedLink = createMockLink('link-123', 'suggested');
+
+      mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
+      mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
+      mockTransactionRepository.findById.mockImplementation((id: number) => {
+        if (id === 1) return Promise.resolve(ok(mockSourceTx));
+        if (id === 2) return Promise.resolve(ok(mockTargetTx));
+        return Promise.resolve(ok(undefined));
+      });
+      mockOverrideStore.append.mockResolvedValue(err(new Error('Write failed')));
+
+      const result = await handler.execute(params);
+
+      // Command should still succeed even if override write fails
+      expect(result.isOk()).toBe(true);
     });
 
     it('should handle already rejected link (idempotent)', async () => {
@@ -127,6 +206,8 @@ describe('LinksRejectHandler', () => {
 
       // Should not call updateStatus for already rejected links
       expect(mockLinkRepository.updateStatus).not.toHaveBeenCalled();
+      // Should not write override for idempotent no-op
+      expect(mockOverrideStore.append).not.toHaveBeenCalled();
     });
 
     it('should successfully reject a confirmed link (override auto-confirmation)', async () => {
@@ -138,6 +219,11 @@ describe('LinksRejectHandler', () => {
 
       mockLinkRepository.findById.mockResolvedValue(ok(confirmedLink));
       mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
+      mockTransactionRepository.findById.mockImplementation((id: number) => {
+        if (id === 1) return Promise.resolve(ok(mockSourceTx));
+        if (id === 2) return Promise.resolve(ok(mockTargetTx));
+        return Promise.resolve(ok(undefined));
+      });
 
       const result = await handler.execute(params);
 

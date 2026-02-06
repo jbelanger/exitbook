@@ -2,6 +2,7 @@
 // Uses ManualPriceService to save manual price entries
 
 import { parseDecimal } from '@exitbook/core';
+import type { OverrideStore } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { ManualPriceService } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
@@ -45,6 +46,8 @@ export interface PricesSetResult {
 export class PricesSetHandler {
   private service = new ManualPriceService();
 
+  constructor(private readonly overrideStore?: OverrideStore | undefined) {}
+
   /**
    * Execute prices set command
    */
@@ -74,6 +77,25 @@ export class PricesSetHandler {
       logger.info(
         `Saved manual price: ${asset} = ${priceValue.toFixed()} ${currency} at ${timestamp.toISOString()} (source: ${source})`
       );
+
+      // Write override event for durability across reprocessing
+      if (this.overrideStore) {
+        const appendResult = await this.overrideStore.append({
+          scope: 'price',
+          payload: {
+            type: 'price_override',
+            asset,
+            quote_asset: currency,
+            price: priceValue.toFixed(),
+            price_source: source,
+            timestamp: timestamp.toISOString(),
+          },
+        });
+
+        if (appendResult.isErr()) {
+          logger.warn({ error: appendResult.error }, 'Failed to write price override event');
+        }
+      }
 
       return ok({
         asset,
@@ -113,7 +135,7 @@ export class PricesSetHandler {
         return err(new Error('Date is required (ISO 8601 format)'));
       }
       const timestamp = new Date(options.date);
-      if (isNaN(timestamp.getTime())) {
+      if (Number.isNaN(timestamp.getTime())) {
         return err(new Error('Invalid date format. Use ISO 8601 (e.g., 2024-01-15T10:30:00Z)'));
       }
 

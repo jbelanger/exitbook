@@ -71,7 +71,7 @@ async function executeLinksRejectCommand(linkId: string, rawOptions: unknown): P
 
     configureLogger({
       mode: options.json ? 'json' : 'text',
-      spinner: spinner || undefined,
+      spinner: spinner ?? undefined,
       verbose: false,
       sinks: options.json
         ? { ui: false, structured: 'file' }
@@ -80,15 +80,16 @@ async function executeLinksRejectCommand(linkId: string, rawOptions: unknown): P
           : { ui: false, structured: 'stdout' },
     });
 
-    // Initialize repositories
-    const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
+    // Initialize repositories and override store
+    const { initializeDatabase, closeDatabase, TransactionRepository, OverrideStore } = await import('@exitbook/data');
     const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
     const database = await initializeDatabase();
     const linkRepo = new TransactionLinkRepository(database);
     const txRepo = new TransactionRepository(database);
+    const overrideStore = new OverrideStore();
 
-    const handler = new LinksRejectHandler(linkRepo, txRepo);
+    const handler = new LinksRejectHandler(linkRepo, txRepo, overrideStore);
 
     const result = await handler.execute({ linkId });
 
