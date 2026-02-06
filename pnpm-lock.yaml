@@ -326,8 +326,8 @@ importers:
         specifier: workspace:*
         version: link:../logger
       ccxt:
-        specifier: ^4.5.34
-        version: 4.5.34
+        specifier: ^4.5.36
+        version: 4.5.36
       neverthrow:
         specifier: ^8.2.0
         version: 8.2.0
@@ -1999,8 +1999,8 @@ packages:
   caniuse-lite@1.0.30001762:
     resolution: {integrity: sha512-PxZwGNvH7Ak8WX5iXzoK1KPZttBXNPuaOvI2ZYU7NrlM+d9Ov+TUvlLOBNGzVXAntMSMMlJPd+jY6ovrVjSmUw==}
 
-  ccxt@4.5.34:
-    resolution: {integrity: sha512-UCD4o+mvHi2PMC+qgLLb7bMWZvc0GiYLYdNlplfloSOb0XvGQpX41g/OOOW8HSn8SZsmBNprS4Oa2/NkAzSYmg==}
+  ccxt@4.5.36:
+    resolution: {integrity: sha512-uGsPQMUYrscsH4s7aSXeqVDsX/Pjtxl0Y7z4qiMBRem02D4byFKR6SF6QO1ZIf09mGteBqpyWFKAGVlMGPasrA==}
     engines: {node: '>=15.0.0'}
 
   chacha-native@2.0.3:
@@ -6123,7 +6123,7 @@ snapshots:
 
   caniuse-lite@1.0.30001762: {}
 
-  ccxt@4.5.34:
+  ccxt@4.5.36:
     dependencies:
       ws: 8.18.3
     transitivePeerDependencies:
