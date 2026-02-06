@@ -173,9 +173,18 @@ export default [
                 'Use barrel imports instead of direct src imports. Import from @exitbook/package-name instead of @exitbook/package-name/src/...',
             },
             {
-              group: ['../**/packages/**', '../../**/packages/**', '../../../**/packages/**'],
+              group: [
+                '../*/src/**',
+                '../../*/src/**',
+                '../../../*/src/**',
+                '../../../../*/src/**',
+                '../**/packages/*/src/**',
+                '../../**/packages/*/src/**',
+                '../../../**/packages/*/src/**',
+                '../../../../**/packages/*/src/**',
+              ],
               message:
-                'Do not use relative paths to import from other packages. Use workspace imports like @exitbook/package-name instead.',
+                'Do not import another package internals via relative src paths. Use workspace imports like @exitbook/package-name instead.',
             },
           ],
         },

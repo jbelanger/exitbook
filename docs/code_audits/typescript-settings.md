@@ -92,8 +92,9 @@ ProviderRegistry.register().
 
      2a. Finding: Cross-package include paths violate package boundaries
 
-     What exists:
-     Two tsconfig.json files include source files from other packages via relative paths:
+DONE
+What exists:
+Two tsconfig.json files include source files from other packages via relative paths:
 
      - /Users/joel/Dev/exitbook/packages/blockchain-providers/tsconfig.json (line 7):
      "include": ["src", "../../core/src/utils/type-guard-utils.ts"]
@@ -130,10 +131,11 @@ ProviderRegistry.register().
      ---
      2b. Finding: events package has contradictory tsconfig vs package.json
 
-     What exists:
-     /Users/joel/Dev/exitbook/packages/events/tsconfig.json sets outDir: "dist", declaration: true, declarationMap: true -- indicating it should emit compiled output. But
-     /Users/joel/Dev/exitbook/packages/events/package.json has "build": "tsc --noEmit" (line 13) and "main": "src/index.ts" (line 10), meaning it never actually emits and consumers resolve to the raw
-     .ts source.
+DONE
+What exists:
+/Users/joel/Dev/exitbook/packages/events/tsconfig.json sets outDir: "dist", declaration: true, declarationMap: true -- indicating it should emit compiled output. But
+/Users/joel/Dev/exitbook/packages/events/package.json has "build": "tsc --noEmit" (line 13) and "main": "src/index.ts" (line 10), meaning it never actually emits and consumers resolve to the raw
+.ts source.
 
      Why it's a problem:
      The tsconfig declares an intent to emit declarations that the build script explicitly suppresses. This is dead configuration that misleads anyone trying to understand the build pipeline. The

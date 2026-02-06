@@ -4,10 +4,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": [
-    "src",
-    "../data/src/repositories/__tests__/raw-data-repository.test.ts",
-    "../data/src/repositories/import-session-repository.ts",
-    "../data/src/repositories/raw-data-repository.ts"
-  ]
+  "include": ["src"]
 }
