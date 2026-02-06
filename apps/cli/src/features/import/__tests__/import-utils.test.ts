@@ -12,14 +12,16 @@ vi.mock('@exitbook/ingestion', () => ({
 }));
 
 describe('ImportCommandOptionsSchema', () => {
-  describe('interactive mode (no flags)', () => {
-    it('should accept empty options for interactive mode', () => {
-      const result = ImportCommandOptionsSchema.safeParse({});
-      expect(result.success).toBe(true);
-    });
-  });
-
   describe('source selection', () => {
+    it('should reject empty options without source selection', () => {
+      const result = ImportCommandOptionsSchema.safeParse({});
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const messages = result.error.issues.map((i) => i.message);
+        expect(messages).toContainEqual('Either --exchange or --blockchain is required');
+      }
+    });
+
     it('should reject both --exchange and --blockchain', () => {
       const result = ImportCommandOptionsSchema.safeParse({
         exchange: 'kraken',

@@ -1,6 +1,4 @@
 import * as p from '@clack/prompts';
-import type { ProviderInfo } from '@exitbook/blockchain-providers';
-import { ProviderRegistry } from '@exitbook/blockchain-providers';
 import type { SourceType } from '@exitbook/core';
 import { getAllBlockchains } from '@exitbook/ingestion';
 
@@ -89,101 +87,6 @@ export async function promptBlockchain(): Promise<string> {
   }
 
   return blockchain;
-}
-
-/**
- * Prompt for provider selection (for blockchain imports).
- */
-export async function promptProvider(blockchain: string): Promise<string | undefined> {
-  const allProviders = ProviderRegistry.getAllProviders();
-  const blockchainProviders = allProviders.filter((p) => p.blockchain === blockchain);
-
-  if (blockchainProviders.length === 0) {
-    return undefined;
-  }
-
-  if (blockchainProviders.length === 1) {
-    // Only one provider, use it automatically
-    return blockchainProviders[0]!.name;
-  }
-
-  const provider = await p.select({
-    message: `Select a provider for ${formatBlockchainName(blockchain)}`,
-    options: [
-      { value: 'auto', label: 'Auto (try all providers)', hint: 'Recommended' },
-      ...blockchainProviders.map((p) => ({
-        value: p.name,
-        label: p.name,
-        hint: formatProviderCapabilities(p),
-      })),
-    ],
-  });
-
-  if (isCancelled(provider)) {
-    handleCancellation();
-  }
-
-  return provider === 'auto' ? undefined : provider;
-}
-
-/**
- * Prompt for import method (CSV or API).
- */
-export async function promptImportMethod(): Promise<'csv' | 'api'> {
-  const method = await p.select({
-    message: 'Import method?',
-    options: [
-      { value: 'csv' as const, label: 'CSV files', hint: 'Import from exported CSV' },
-      { value: 'api' as const, label: 'API', hint: 'Requires API credentials' },
-    ],
-  });
-
-  if (isCancelled(method)) {
-    handleCancellation();
-  }
-
-  return method;
-}
-
-/**
- * Prompt for CSV directory path.
- */
-export async function promptCsvDirectory(): Promise<string> {
-  const csvDir = await p.text({
-    message: 'Path to CSV directory:',
-    placeholder: './data/exports',
-    validate: (value) => {
-      if (!value) return 'Please enter a path';
-      if (!value.startsWith('.') && !value.startsWith('/')) return 'Please enter a valid path';
-    },
-  });
-
-  if (isCancelled(csvDir)) {
-    handleCancellation();
-  }
-
-  return csvDir;
-}
-
-/**
- * Prompt for wallet address.
- */
-export async function promptWalletAddress(blockchain: string): Promise<string> {
-  const address = await p.text({
-    message: `${formatBlockchainName(blockchain)} wallet address:`,
-    placeholder: getAddressPlaceholder(blockchain),
-    validate: (value) => {
-      if (!value) return 'Please enter a wallet address';
-      // Basic validation - could be more sophisticated per blockchain
-      if (value.length < 10) return 'Invalid wallet address';
-    },
-  });
-
-  if (isCancelled(address)) {
-    handleCancellation();
-  }
-
-  return address;
 }
 
 /**
@@ -349,16 +252,4 @@ export function getAddressPlaceholder(blockchain: string): string {
   if (blockchain === 'solana') return 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK';
   if (blockchain === 'polkadot' || blockchain === 'kusama') return '1...';
   return 'wallet address';
-}
-
-/**
- * Format provider capabilities.
- */
-function formatProviderCapabilities(provider: ProviderInfo): string {
-  const ops = provider.capabilities.supportedOperations ?? [];
-  const caps: string[] = [];
-  if (ops.includes('getAddressTransactions')) caps.push('txs');
-  if (ops.includes('getAddressBalances')) caps.push('balance');
-  if (ops.includes('getAddressTokenBalances')) caps.push('tokens');
-  return caps.length > 0 ? caps.join(', ') : '';
 }

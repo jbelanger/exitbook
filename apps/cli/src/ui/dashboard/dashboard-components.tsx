@@ -347,9 +347,12 @@ const ApiFooter: React.FC<{ state: DashboardState }> = ({ state }) => {
     return null;
   }
 
+  const terminalWidth = process.stdout.columns || 120;
+
   return (
     <Box flexDirection="column">
-      <Text>{'━'.repeat(80)}</Text>
+      <Text> </Text>
+      <Text dimColor>{'─'.repeat(terminalWidth)}</Text>
 
       {/* Live view (during import) */}
       {!state.isComplete && (

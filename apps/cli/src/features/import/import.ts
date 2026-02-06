@@ -8,12 +8,11 @@ import type { DashboardController } from '../../ui/dashboard/index.js';
 import { unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
-import { handleCancellation, promptConfirm } from '../shared/prompts.js';
+import { promptConfirm } from '../shared/prompts.js';
 import { ImportCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
 import type { ImportResult } from './import-handler.js';
-import { promptForImportParams } from './import-prompts.js';
 import { createImportServices } from './import-service-factory.js';
 import { buildImportParams } from './import-utils.js';
 
@@ -119,19 +118,9 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 
   try {
     // Resolve import parameters
-    let params: ImportParams;
-    if (!options.exchange && !options.blockchain && !options.json) {
-      output.intro('exitbook import');
-      params = await promptForImportParams();
-      const shouldProceed = await promptConfirm('Start import?', true);
-      if (!shouldProceed) {
-        handleCancellation('Import cancelled');
-      }
-    } else {
-      params = unwrapResult(buildImportParams(options));
-    }
+    const params = unwrapResult(buildImportParams(options));
 
-    // Add warning callback for single address imports (only in interactive mode)
+    // Add warning callback for single address imports (only in non-JSON mode)
     let onSingleAddressWarning: (() => Promise<boolean>) | undefined;
     if (!options.json) {
       onSingleAddressWarning = async () => {

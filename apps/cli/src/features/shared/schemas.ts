@@ -41,14 +41,8 @@ export const CsvImportSchema = z.object({
 
 /**
  * Import command options (combines all import-related schemas)
- * Source selection is optional to support interactive mode (no flags = prompts)
  */
-export const ImportCommandOptionsSchema = z
-  .object({
-    exchange: z.string().optional(),
-    blockchain: z.string().optional(),
-  })
-  .extend(BlockchainFieldsSchema.shape)
+export const ImportCommandOptionsSchema = SourceSelectionSchema.extend(BlockchainFieldsSchema.shape)
   .extend(
     z.object({
       apiKey: z.string().min(1).optional(),
@@ -60,13 +54,6 @@ export const ImportCommandOptionsSchema = z
   .extend(JsonFlagSchema.shape)
   .extend(VerboseFlagSchema.shape)
   .superRefine((data, ctx) => {
-    // Cannot specify both exchange and blockchain
-    if (data.exchange && data.blockchain) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Cannot specify both --exchange and --blockchain',
-      });
-    }
     // For blockchain: address is required
     if (data.blockchain && !data.address) {
       ctx.addIssue({
