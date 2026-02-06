@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 import { loadExplorerConfig, ProviderRegistry } from '@exitbook/blockchain-providers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -18,7 +19,6 @@ vi.mock('@exitbook/blockchain-providers', async () => {
 describe('BenchmarkRateLimitHandler', () => {
   let handler: BenchmarkRateLimitHandler;
   let mockLoadExplorerConfig: ReturnType<typeof vi.fn>;
-  let mockGetAllProviders: ReturnType<typeof vi.fn>;
   let MockProviderManagerConstructor: ReturnType<typeof vi.fn>;
   let mockProviderManager: {
     autoRegisterFromConfig: ReturnType<typeof vi.fn>;
@@ -32,10 +32,6 @@ describe('BenchmarkRateLimitHandler', () => {
     // Mock loadExplorerConfig
     mockLoadExplorerConfig = vi.mocked(loadExplorerConfig);
     mockLoadExplorerConfig.mockReturnValue({} as ReturnType<typeof loadExplorerConfig>);
-
-    // Mock ProviderRegistry
-    mockGetAllProviders = vi.fn();
-    vi.mocked(ProviderRegistry).getAllProviders = mockGetAllProviders;
 
     // Mock provider manager instance
     mockProviderManager = {
@@ -170,10 +166,55 @@ describe('BenchmarkRateLimitHandler', () => {
       mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
 
       // Mock available providers for helpful error message
-      mockGetAllProviders.mockReturnValue([
-        { blockchain: 'bitcoin', name: 'blockstream.info' },
-        { blockchain: 'bitcoin', name: 'mempool.space' },
-        { blockchain: 'ethereum', name: 'etherscan' },
+      vi.mocked(ProviderRegistry.getAllProviders).mockReturnValue([
+        {
+          blockchain: 'bitcoin',
+          name: 'blockstream.info',
+          displayName: '',
+          requiresApiKey: false,
+          defaultConfig: {
+            rateLimit: {
+              requestsPerSecond: 0,
+            },
+            retries: 0,
+            timeout: 0,
+          },
+          capabilities: {
+            supportedOperations: [],
+          },
+        },
+        {
+          blockchain: 'bitcoin',
+          name: 'mempool.space',
+          displayName: '',
+          requiresApiKey: false,
+          capabilities: {
+            supportedOperations: [],
+          },
+          defaultConfig: {
+            rateLimit: {
+              requestsPerSecond: 0,
+            },
+            retries: 0,
+            timeout: 0,
+          },
+        },
+        {
+          blockchain: 'ethereum',
+          name: 'etherscan',
+          displayName: '',
+          requiresApiKey: false,
+          capabilities: {
+            supportedOperations: [],
+          },
+          defaultConfig: {
+            rateLimit: {
+              requestsPerSecond: 0,
+            },
+            retries: 0,
+            timeout: 0,
+          },
+        },
       ]);
 
       // Execute
@@ -200,10 +241,49 @@ describe('BenchmarkRateLimitHandler', () => {
       mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
 
       // Mock available blockchains for helpful error message
-      mockGetAllProviders.mockReturnValue([
-        { blockchain: 'bitcoin', name: 'blockstream.info' },
-        { blockchain: 'ethereum', name: 'etherscan' },
-        { blockchain: 'solana', name: 'helius' },
+      vi.mocked(ProviderRegistry.getAllProviders).mockReturnValue([
+        {
+          blockchain: 'bitcoin',
+          name: 'blockstream.info',
+          displayName: '',
+          requiresApiKey: false,
+          capabilities: {
+            supportedOperations: [],
+          },
+          defaultConfig: {
+            rateLimit: { requestsPerSecond: 0 },
+            retries: 0,
+            timeout: 0,
+          },
+        },
+        {
+          blockchain: 'ethereum',
+          name: 'etherscan',
+          displayName: '',
+          requiresApiKey: false,
+          capabilities: {
+            supportedOperations: [],
+          },
+          defaultConfig: {
+            rateLimit: { requestsPerSecond: 0 },
+            retries: 0,
+            timeout: 0,
+          },
+        },
+        {
+          blockchain: 'solana',
+          name: 'helius',
+          displayName: '',
+          requiresApiKey: false,
+          capabilities: {
+            supportedOperations: [],
+          },
+          defaultConfig: {
+            rateLimit: { requestsPerSecond: 0 },
+            retries: 0,
+            timeout: 0,
+          },
+        },
       ]);
 
       // Execute

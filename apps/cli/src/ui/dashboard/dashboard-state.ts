@@ -17,7 +17,15 @@ export type TransientMessage =
  */
 export interface AccountInfo {
   id: number;
-  isResuming: boolean;
+  /**
+   * True if this is the first import for this account (no prior cursor data).
+   * False means the account has prior data (incremental import).
+   */
+  isNewAccount: boolean;
+  /**
+   * Transaction counts by stream type (only present for existing accounts)
+   */
+  transactionCounts?: Map<string, number> | undefined;
 }
 
 /**
@@ -103,12 +111,19 @@ export interface ProcessingOperation {
  */
 export interface ProviderApiStats {
   total: number;
+  okCount: number; // Successful calls (2xx except 429)
   retries: number;
-  rateLimited: number;
+  throttledCount: number; // Rate limited (429)
   failed: number;
+  currentRate?: number | undefined; // req/s (recent window)
 
   // Response breakdown (for final view)
   responsesByStatus: Map<number, number>; // status code -> count
+
+  // Timing data for live/final calculations
+  latencies: number[]; // For avg latency calculation
+  startTime: number; // First call timestamp (0 if no calls)
+  lastCallTime: number; // Most recent call timestamp
 }
 
 /**
@@ -153,6 +168,8 @@ export interface DashboardState {
 
   // Completion status
   isComplete: boolean;
+  aborted?: boolean | undefined;
+  errorMessage?: string | undefined;
   totalDurationMs?: number | undefined;
 
   // Warnings
@@ -173,6 +190,7 @@ export function createDashboardState(): DashboardState {
       byProvider: new Map(),
     },
     isComplete: false,
+    errorMessage: undefined,
     totalDurationMs: undefined,
     warnings: [],
   };
@@ -186,10 +204,15 @@ export function getOrCreateProviderStats(state: DashboardState, provider: string
   if (!stats) {
     stats = {
       total: 0,
+      okCount: 0,
       retries: 0,
-      rateLimited: 0,
+      throttledCount: 0,
       failed: 0,
       responsesByStatus: new Map(),
+      latencies: [],
+      startTime: 0,
+      lastCallTime: 0,
+      currentRate: undefined,
     };
     state.apiCalls.byProvider.set(provider, stats);
   }

@@ -52,7 +52,7 @@ export function updateStateFromEvent(
       break;
 
     case 'provider.resume':
-      handleProviderResume(state, event);
+      handleProviderResume(state, event, providerManager);
       break;
 
     case 'provider.request.started':
@@ -100,8 +100,6 @@ export function updateStateFromEvent(
       break;
 
     // Events with no V3 dashboard representation
-    case 'import.session.created':
-    case 'import.session.resumed':
     case 'process.batch':
     case 'process.batch.started':
     case 'process.group.processing':
@@ -125,7 +123,8 @@ export function updateStateFromEvent(
 function handleImportStarted(state: DashboardState, event: Extract<IngestionEvent, { type: 'import.started' }>): void {
   state.account = {
     id: event.accountId,
-    isResuming: event.resuming,
+    isNewAccount: event.isNewAccount,
+    transactionCounts: event.transactionCounts,
   };
 
   state.import = {
@@ -274,9 +273,22 @@ function handleProviderSelection(
 /**
  * Handle provider.resume event
  */
-function handleProviderResume(state: DashboardState, event: Extract<ProviderEvent, { type: 'provider.resume' }>): void {
+function handleProviderResume(
+  state: DashboardState,
+  event: Extract<ProviderEvent, { type: 'provider.resume' }>,
+  providerManager: BlockchainProviderManager
+): void {
   state.currentProvider = event.provider;
   state.blockchain = event.blockchain;
+
+  // Set provider readiness on first resume (same as selection)
+  if (!state.providerReadiness && state.import) {
+    const availableProviders = providerManager.getProviders(event.blockchain);
+    state.providerReadiness = {
+      count: availableProviders.length,
+      durationMs: performance.now() - state.import.startedAt,
+    };
+  }
 
   // Update all active streams to use the resumed provider
   if (state.import) {
@@ -330,6 +342,34 @@ function handleProviderRequestSucceeded(
   const count = stats.responsesByStatus.get(event.status) || 0;
   stats.responsesByStatus.set(event.status, count + 1);
 
+  // Extract latency and timing from instrumentation
+  const metric = instrumentation
+    .getMetrics()
+    .reverse()
+    .find((m) => m.provider === event.provider && m.status === event.status);
+
+  if (metric) {
+    stats.latencies.push(metric.durationMs);
+    stats.lastCallTime = metric.timestamp;
+
+    if (stats.startTime === 0) {
+      stats.startTime = metric.timestamp;
+    }
+
+    // Track ok count (2xx status codes except 429)
+    if (event.status >= 200 && event.status < 300 && event.status !== 429) {
+      stats.okCount++;
+    }
+
+    // Track throttled count (429)
+    if (event.status === 429) {
+      stats.throttledCount++;
+    }
+  }
+
+  const { currentRate } = calculateProviderRate(event.provider, instrumentation, providerManager, state.blockchain);
+  stats.currentRate = currentRate;
+
   updateStreamRates(state, instrumentation, providerManager);
   updateProcessingRates(state, instrumentation, providerManager);
 }
@@ -345,13 +385,42 @@ function handleProviderRequestFailed(
 ): void {
   const stats = getOrCreateProviderStats(state, event.provider);
   stats.total++;
-  stats.failed++;
   state.apiCalls.total++;
+
+  // Only count as failed if it's not a 429
+  // 429 is a throttle/rate-limit, not an error
+  const is429 = event.status === 429;
+  if (!is429) {
+    stats.failed++;
+  }
 
   if (event.status) {
     const count = stats.responsesByStatus.get(event.status) || 0;
     stats.responsesByStatus.set(event.status, count + 1);
+
+    // Track throttled count for 429 responses
+    if (event.status === 429) {
+      stats.throttledCount++;
+    }
   }
+
+  // Extract latency and timing from instrumentation
+  const metric = instrumentation
+    .getMetrics()
+    .reverse()
+    .find((m) => m.provider === event.provider && (event.status ? m.status === event.status : true));
+
+  if (metric) {
+    stats.latencies.push(metric.durationMs);
+    stats.lastCallTime = metric.timestamp;
+
+    if (stats.startTime === 0) {
+      stats.startTime = metric.timestamp;
+    }
+  }
+
+  const { currentRate } = calculateProviderRate(event.provider, instrumentation, providerManager, state.blockchain);
+  stats.currentRate = currentRate;
 
   updateStreamRates(state, instrumentation, providerManager);
   updateProcessingRates(state, instrumentation, providerManager);
@@ -365,7 +434,7 @@ function handleProviderRateLimited(
   event: Extract<ProviderEvent, { type: 'provider.rate_limited' }>
 ): void {
   const stats = getOrCreateProviderStats(state, event.provider);
-  stats.rateLimited++;
+  stats.throttledCount++;
 }
 
 /**
@@ -431,6 +500,19 @@ function handleProcessStarted(
   state: DashboardState,
   event: Extract<IngestionEvent, { type: 'process.started' }>
 ): void {
+  // For reprocessing (no prior import), show account info if available
+  if (!state.account && event.accountIds.length === 1 && event.accountTransactionCounts) {
+    const accountId = event.accountIds[0]!; // Safe: length check guarantees element exists
+    const transactionCounts = event.accountTransactionCounts.get(accountId);
+    if (transactionCounts) {
+      state.account = {
+        id: accountId,
+        isNewAccount: false,
+        transactionCounts,
+      };
+    }
+  }
+
   state.processing = {
     status: 'active',
     startedAt: performance.now(),
@@ -493,7 +575,7 @@ function calculateProviderRate(
   providerManager: BlockchainProviderManager,
   blockchain: string | undefined
 ): { currentRate: number; maxRate: number | undefined } {
-  const now = performance.now();
+  const now = Date.now();
   const windowStart = now - RATE_CALCULATION_WINDOW_MS;
 
   const recentSuccessful = instrumentation

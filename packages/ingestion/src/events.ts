@@ -6,36 +6,23 @@
 export type ImportEvent =
   | {
       /**
-       * Emitted when an import begins for an account (new or resumed).
+       * Emitted when an import begins for an account.
        * Used by CLI dashboard to set header/timer state.
        */
       accountId: number;
       address?: string | undefined;
-      resuming: boolean;
+      /**
+       * True if this is the first import for this account (no prior cursor data).
+       * False means the account has prior data and is using a cursor (incremental import).
+       */
+      isNewAccount: boolean;
       sourceName: string;
       sourceType: 'blockchain' | 'exchange-api' | 'exchange-csv';
+      /**
+       * Transaction counts by stream type (only present for existing accounts)
+       */
+      transactionCounts?: Map<string, number> | undefined;
       type: 'import.started';
-    }
-  | {
-      /**
-       * Emitted when a new import session record is created.
-       * Currently not surfaced in UI (reserved for observability).
-       */
-      accountId: number;
-      sessionId: number;
-      sourceName: string;
-      type: 'import.session.created';
-    }
-  | {
-      /**
-       * Emitted when an import resumes an existing session and cursor.
-       * Used by CLI dashboard activity log.
-       */
-      accountId: number;
-      fromCursor: number | string;
-      sessionId: number;
-      sourceName: string;
-      type: 'import.session.resumed';
     }
   | {
       /**
@@ -97,6 +84,10 @@ export type ProcessEvent =
        * Used by CLI dashboard to set timing state.
        */
       accountIds: number[];
+      /**
+       * Transaction counts by stream type per account (for reprocessing display)
+       */
+      accountTransactionCounts?: Map<number, Map<string, number>> | undefined;
       totalRaw: number;
       type: 'process.started';
     }

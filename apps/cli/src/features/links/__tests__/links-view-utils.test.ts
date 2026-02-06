@@ -39,6 +39,7 @@ describe('links-view-utils', () => {
     accountId: 1,
     externalId: `tx-${id}`,
     source: 'test-source',
+    sourceType: 'exchange',
     datetime: '2024-01-01T12:00:00Z',
     timestamp: Date.parse('2024-01-01T12:00:00Z'),
     status: 'success',
@@ -47,6 +48,7 @@ describe('links-view-utils', () => {
     movements: {
       inflows: [
         {
+          assetId: 'test:btc',
           assetSymbol: 'BTC',
           grossAmount: parseDecimal('1.0'),
           netAmount: parseDecimal('0.999'),
@@ -130,6 +132,7 @@ describe('links-view-utils', () => {
         to_address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
         movements_inflows: [
           {
+            assetId: 'test:btc',
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('0.999'),
@@ -145,6 +148,7 @@ describe('links-view-utils', () => {
         accountId: 1,
         externalId: 'tx-456',
         source: 'test-source',
+        sourceType: 'exchange',
         datetime: '2024-01-01T12:00:00Z',
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
@@ -181,6 +185,7 @@ describe('links-view-utils', () => {
         accountId: 1,
         externalId: 'tx-789',
         source: 'test-source',
+        sourceType: 'exchange',
         datetime: '2024-01-01T12:00:00Z',
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',

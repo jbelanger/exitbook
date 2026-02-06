@@ -77,6 +77,30 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
   // Create services using factory
   const services = await createProcessServices();
 
+  // Handle Ctrl-C gracefully
+  let abortHandler: (() => void) | undefined;
+  if (useInk) {
+    abortHandler = () => {
+      // Remove handler to prevent multiple triggers
+      if (abortHandler) {
+        process.off('SIGINT', abortHandler);
+      }
+
+      // Mark as aborted and stop gracefully
+      // Fire cleanup promises and exit immediately (signal handler must be sync)
+      services.dashboard.abort();
+      void services.dashboard.stop().catch(() => {
+        /* ignore cleanup errors during exit */
+      });
+      void services.cleanup().catch(() => {
+        /* ignore cleanup errors during exit */
+      });
+      resetLoggerContext();
+      process.exit(130); // Standard exit code for SIGINT
+    };
+    process.on('SIGINT', abortHandler);
+  }
+
   try {
     // Execute reprocess
     const processResult = await services.execute({
@@ -110,6 +134,10 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
     resetLoggerContext();
     process.exit(ExitCodes.GENERAL_ERROR);
   } finally {
+    // Remove signal handler
+    if (abortHandler) {
+      process.off('SIGINT', abortHandler);
+    }
     await services.cleanup();
     resetLoggerContext();
   }
@@ -126,9 +154,9 @@ async function handleCommandError(
   output: OutputManager
 ): Promise<void> {
   if (useInk) {
-    // Stop dashboard and show error via stderr
+    dashboard.fail(errorMessage);
+    // Stop dashboard (dashboard renders the error inline)
     await dashboard.stop();
-    process.stderr.write(`\n❌ Error: ${errorMessage}\n`);
   } else {
     output.error('reprocess', new Error(errorMessage), ExitCodes.GENERAL_ERROR);
   }

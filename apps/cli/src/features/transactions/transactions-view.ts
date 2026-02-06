@@ -1,6 +1,5 @@
 // Command registration for view transactions subcommand
 
-import { wrapError } from '@exitbook/core';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
@@ -101,15 +100,22 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
     const spinner = output.spinner();
     spinner?.start('Fetching transactions...');
 
+    const loggerMode = options.json ? 'json' : 'text';
+    let sinks: { structured: 'stdout' | 'file' | 'off'; ui: boolean };
+
+    if (options.json) {
+      sinks = { ui: false, structured: 'file' };
+    } else if (spinner) {
+      sinks = { ui: true, structured: 'off' };
+    } else {
+      sinks = { ui: false, structured: 'stdout' };
+    }
+
     configureLogger({
-      mode: options.json ? 'json' : 'text',
+      mode: loggerMode,
       spinner: spinner || undefined,
       verbose: false,
-      sinks: options.json
-        ? { ui: false, structured: 'file' }
-        : spinner
-          ? { ui: true, structured: 'off' }
-          : { ui: false, structured: 'stdout' },
+      sinks,
     });
 
     // Initialize repository
@@ -149,11 +155,7 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
         await closeDatabase(database);
         resetLoggerContext();
         spinner?.stop('Failed to fetch transactions');
-        output.error(
-          'view-transactions',
-          wrapError(txResult.error, 'Failed to fetch transactions'),
-          ExitCodes.GENERAL_ERROR
-        );
+        output.error('view-transactions', txResult.error, ExitCodes.GENERAL_ERROR);
         return;
       }
 

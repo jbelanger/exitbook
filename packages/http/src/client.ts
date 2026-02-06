@@ -137,6 +137,7 @@ export class HttpClient {
       let outcome: 'success' | 'failure' | undefined;
       let outcomeError: string | undefined;
       let outcomeStatus: number | undefined;
+      let suppressFailureHook = false;
 
       try {
         this.effects.log(
@@ -213,6 +214,9 @@ export class HttpClient {
 
             const retryResult = await this.handleApplicationRateLimit(rateLimitError, response.status, attempt, hooks);
             if (retryResult === 'continue') {
+              suppressFailureHook = true;
+              outcome = undefined;
+              outcomeError = undefined;
               continue;
             }
             return err(rateLimitError);
@@ -322,7 +326,7 @@ export class HttpClient {
             status: outcomeStatus ?? status,
             durationMs: this.effects.now() - startTime,
           });
-        } else if (outcome === 'failure' && outcomeError) {
+        } else if (outcome === 'failure' && outcomeError && !suppressFailureHook) {
           hooks?.onRequestFailure?.({
             endpoint: sanitizedEndpoint,
             method,
@@ -340,11 +344,8 @@ export class HttpClient {
 
   /**
    * Cleanup resources.
-   * Note: globalThis.fetch doesn't support manual connection cleanup, so this is a no-op.
-   * However, it provides a lifecycle hook for future implementations and documents intent.
    */
   destroy(): void {
-    // No-op: fetch API doesn't expose HTTP connection pool management
     this.logger.debug('HTTP client destroyed');
   }
 

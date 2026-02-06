@@ -194,6 +194,7 @@ describe('ImportExecutor', () => {
     mockRawDataRepo = {
       saveBatch: vi.fn(),
       load: vi.fn(),
+      countByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
     } as unknown as IRawDataRepository;
 
     mockImportSessionRepo = {

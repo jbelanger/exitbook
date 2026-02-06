@@ -29,19 +29,23 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
   return (
     <Box flexDirection="column">
-      {/* Provider readiness */}
-      {state.providerReadiness && (
-        <Text>
-          ✓ {state.providerReadiness.count} providers ready ({formatDuration(state.providerReadiness.durationMs)})
-        </Text>
-      )}
+      {/* Blank line before first operation */}
+      <Text> </Text>
 
       {/* Account info */}
       {state.account && (
         <AccountLine
           accountId={state.account.id}
-          isResuming={state.account.isResuming}
+          isNewAccount={state.account.isNewAccount}
+          transactionCounts={state.account.transactionCounts}
         />
+      )}
+
+      {/* Provider readiness */}
+      {state.providerReadiness && (
+        <Text>
+          <Text color="green">✓</Text> {state.providerReadiness.count} providers ready
+        </Text>
       )}
 
       {/* Import operation */}
@@ -50,11 +54,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
       {/* Processing operation */}
       {state.processing && <ProcessingSection processing={state.processing} />}
 
+      {/* Completion status */}
+      {state.isComplete && <CompletionSection state={state} />}
+
       {/* API calls footer */}
       <ApiFooter state={state} />
-
-      {/* Warnings */}
-      {state.warnings.length > 0 && <WarningsSection state={state} />}
     </Box>
   );
 };
@@ -62,21 +66,74 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
 /**
  * Account line
  */
-const AccountLine: React.FC<{ accountId: number; isResuming: boolean }> = ({ accountId, isResuming }) => {
-  if (isResuming) {
-    return <Text>✓ Account #{accountId} (resuming from previous import)</Text>;
+const AccountLine: React.FC<{
+  accountId: number;
+  isNewAccount: boolean;
+  transactionCounts?: Map<string, number> | undefined;
+}> = ({ accountId, isNewAccount, transactionCounts }) => {
+  if (!isNewAccount) {
+    // Calculate total transactions
+    const totalTransactions = transactionCounts
+      ? Array.from(transactionCounts.values()).reduce((sum, count) => sum + count, 0)
+      : 0;
+
+    // Format transaction breakdown
+    const hasBreakdown = transactionCounts && transactionCounts.size > 0;
+    const breakdownParts: React.ReactNode[] = [];
+
+    if (hasBreakdown) {
+      // Sort by count descending for consistent display
+      const sortedCounts = Array.from(transactionCounts.entries()).sort(([, a], [, b]) => b - a);
+
+      for (const [streamType, count] of sortedCounts) {
+        if (breakdownParts.length > 0) {
+          breakdownParts.push(<Text key={`sep-${streamType}`}> · </Text>);
+        }
+        breakdownParts.push(
+          <Text key={streamType}>
+            {streamType}: {count.toLocaleString()}
+          </Text>
+        );
+      }
+    }
+
+    return (
+      <Box flexDirection="column">
+        <Text>
+          <Text color="green">✓</Text> Account #{accountId}{' '}
+          <Text dimColor>
+            (resuming
+            {totalTransactions > 0 && ` · ${totalTransactions.toLocaleString()} transactions`})
+          </Text>
+        </Text>
+        {hasBreakdown && (
+          <Text>
+            {'  '}
+            {breakdownParts}
+          </Text>
+        )}
+      </Box>
+    );
   }
-  return <Text>✓ Account #{accountId}</Text>;
+  return (
+    <Text>
+      <Text color="green">✓</Text> Created account #{accountId}
+    </Text>
+  );
 };
 
 function statusIcon(status: OperationStatus): React.ReactNode {
   if (status === 'active') {
-    return <Spinner type="dots" />;
+    return (
+      <Text color="cyan">
+        <Spinner type="dots" />
+      </Text>
+    );
   }
   if (status === 'failed' || status === 'warning') {
-    return '⚠';
+    return <Text color="yellow">⚠</Text>;
   }
-  return '✓';
+  return <Text color="green">✓</Text>;
 }
 
 /**
@@ -87,12 +144,18 @@ const ImportSection: React.FC<{ import: ImportOperation }> = ({ import: importOp
     ? importOp.completedAt - importOp.startedAt
     : performance.now() - importOp.startedAt;
   const duration = formatDuration(elapsed);
-  const durationText = importOp.completedAt ? `(${duration})` : `· ${duration}`;
+
+  let durationText: string;
+  if (importOp.completedAt) {
+    durationText = `(${duration})`;
+  } else {
+    durationText = `· ${duration}`;
+  }
 
   return (
     <Box flexDirection="column">
       <Text>
-        {statusIcon(importOp.status)} Import {durationText}
+        {statusIcon(importOp.status)} <Text bold>Importing</Text> <Text dimColor>{durationText}</Text>
       </Text>
       {/* Streams */}
       <StreamList streams={importOp.streams} />
@@ -122,20 +185,34 @@ const StreamList: React.FC<{ streams: Map<string, StreamState> }> = ({ streams }
   );
 };
 
-function getStreamStatusText(stream: StreamState): string {
+function getStreamStatusText(stream: StreamState): React.ReactNode {
   if (stream.status === 'active' && stream.currentBatch !== undefined) {
     const duration = formatDuration(performance.now() - stream.startedAt);
-    return `batch ${stream.currentBatch} · ${duration}`;
+    return (
+      <>
+        batch {stream.currentBatch} <Text dimColor>· {duration}</Text>
+      </>
+    );
   }
 
   if (stream.status === 'completed') {
-    const duration = formatDuration((stream.completedAt || performance.now()) - stream.startedAt);
-    return `${stream.imported} new (${duration})`;
+    const endTime = stream.completedAt || performance.now();
+    const duration = formatDuration(endTime - stream.startedAt);
+    return (
+      <>
+        <Text color="green">{stream.imported} new</Text> <Text dimColor>({duration})</Text>
+      </>
+    );
   }
 
   if (stream.status === 'warning' || stream.status === 'failed') {
-    const duration = formatDuration((stream.completedAt || performance.now()) - stream.startedAt);
-    return `⚠ Failed (${duration})`;
+    const endTime = stream.completedAt || performance.now();
+    const duration = formatDuration(endTime - stream.startedAt);
+    return (
+      <>
+        <Text color="yellow">⚠ Failed</Text> <Text dimColor>({duration})</Text>
+      </>
+    );
   }
 
   return '';
@@ -152,14 +229,15 @@ const StreamLine: React.FC<{ isLast: boolean; stream: StreamState }> = ({ stream
     <Box flexDirection="column">
       <Text>
         {'  '}
-        {branch} {stream.name}: {statusText}
+        <Text dimColor>{branch}</Text> {stream.name}: {statusText}
       </Text>
       {/* Sub-line for active streams */}
       {stream.status === 'active' && <StreamSubLine stream={stream} />}
       {/* Error message for failed streams */}
       {(stream.status === 'warning' || stream.status === 'failed') && stream.errorMessage && (
         <Text>
-          {'     '}└─ {stream.errorMessage}
+          {'     '}
+          <Text dimColor>└─</Text> {stream.errorMessage}
         </Text>
       )}
     </Box>
@@ -175,7 +253,8 @@ const StreamSubLine: React.FC<{ stream: StreamState }> = ({ stream }) => {
     const msgText = getTransientMessageText(stream.transientMessage);
     return (
       <Text>
-        {'     '}└─ {stream.imported} imported · {msgText}
+        {'     '}
+        <Text dimColor>└─</Text> <Text color="green">{stream.imported} imported</Text> · {msgText}
       </Text>
     );
   }
@@ -185,7 +264,9 @@ const StreamSubLine: React.FC<{ stream: StreamState }> = ({ stream }) => {
     const rate = `${stream.currentRate.toFixed(1)}/${stream.maxRate} req/s`;
     return (
       <Text>
-        {'     '}└─ {stream.imported} imported · {stream.activeProvider} {rate}
+        {'     '}
+        <Text dimColor>└─</Text> <Text color="green">{stream.imported} imported</Text> ·{' '}
+        <Text color="cyan">{stream.activeProvider}</Text> <Text color="cyan">{rate}</Text>
       </Text>
     );
   }
@@ -194,7 +275,8 @@ const StreamSubLine: React.FC<{ stream: StreamState }> = ({ stream }) => {
   if (stream.imported > 0) {
     return (
       <Text>
-        {'     '}└─ {stream.imported} imported
+        {'     '}
+        <Text dimColor>└─</Text> <Text color="green">{stream.imported} imported</Text>
       </Text>
     );
   }
@@ -202,12 +284,17 @@ const StreamSubLine: React.FC<{ stream: StreamState }> = ({ stream }) => {
   return null;
 };
 
-function getTransientMessageText(transientMessage: TransientMessage): string {
+function getTransientMessageText(transientMessage: TransientMessage): React.ReactNode {
   if (transientMessage.type === 'backoff') {
     const waitTime = Math.max(0, transientMessage.expiresAt - performance.now());
-    return `⏸ waiting ${formatWaitTime(waitTime)} (rate limit)`;
+    return (
+      <>
+        <Text color="cyan">⏸</Text> waiting {formatWaitTime(waitTime)} (rate limit)
+      </>
+    );
   }
-  return transientMessage.text;
+
+  return <Text color="cyan">{transientMessage.text}</Text>;
 }
 
 /**
@@ -226,9 +313,12 @@ const ProcessingSection: React.FC<{ processing: ProcessingOperation }> = ({ proc
     return (
       <Box flexDirection="column">
         <Text>
-          {statusIcon(processing.status)} Processing {durationText}
+          {statusIcon(processing.status)} <Text bold>Processing</Text> <Text dimColor>{durationText}</Text>
         </Text>
-        <Text>{'  '}└─ No transactions to process</Text>
+        <Text>
+          {'  '}
+          <Text dimColor>└─</Text> No transactions to process
+        </Text>
       </Box>
     );
   }
@@ -238,10 +328,12 @@ const ProcessingSection: React.FC<{ processing: ProcessingOperation }> = ({ proc
     return (
       <Box flexDirection="column">
         <Text>
-          {statusIcon(processing.status)} Processing {durationText}
+          {statusIcon(processing.status)} <Text bold>Processing</Text> <Text dimColor>{durationText}</Text>
         </Text>
         <Text>
-          {'  '}└─ {processing.totalProcessed ?? processing.processed} transactions enriched
+          {'  '}
+          <Text dimColor>└─</Text> {processing.totalProcessed ?? processing.processed}{' '}
+          <Text dimColor>transactions enriched</Text>
         </Text>
       </Box>
     );
@@ -256,16 +348,25 @@ const ProcessingSection: React.FC<{ processing: ProcessingOperation }> = ({ proc
   return (
     <Box flexDirection="column">
       <Text>
-        {statusIcon(processing.status)} Processing {durationText}
+        {statusIcon(processing.status)} <Text bold>Processing</Text> <Text dimColor>{durationText}</Text>
       </Text>
 
       {/* Progress line: live counter while active, raw→transactions on completion */}
       <Text>
         {'  '}
-        {progressIsLast ? '└─' : '├─'}{' '}
-        {isComplete
-          ? `${processing.totalRaw} raw → ${processing.totalProcessed ?? processing.processed} transactions`
-          : `${processing.processed} / ${processing.totalRaw} raw transactions`}
+        <Text dimColor>{progressIsLast ? '└─' : '├─'}</Text>{' '}
+        {isComplete ? (
+          <>
+            <Text color="green">{processing.totalRaw}</Text> <Text dimColor>raw →</Text>{' '}
+            <Text color="green">{processing.totalProcessed ?? processing.processed}</Text>{' '}
+            <Text dimColor>transactions</Text>
+          </>
+        ) : (
+          <>
+            <Text color="green">{processing.processed}</Text> / <Text color="green">{processing.totalRaw}</Text>{' '}
+            <Text dimColor>raw transactions</Text>
+          </>
+        )}
       </Text>
 
       {/* Token metadata: live provider/rate while fetching, hit rate on completion */}
@@ -280,7 +381,10 @@ const ProcessingSection: React.FC<{ processing: ProcessingOperation }> = ({ proc
       {/* Scam tokens summary */}
       {hasScams && (
         <Text>
-          {'  '}└─ ⚠ {processing.scams!.total} scam tokens ({processing.scams!.exampleSymbols.join(', ')})
+          {'  '}
+          <Text dimColor>└─</Text> <Text color="yellow">⚠</Text>{' '}
+          <Text color="yellow">{processing.scams!.total} scam tokens</Text>{' '}
+          <Text dimColor>({processing.scams!.exampleSymbols.join(', ')})</Text>
         </Text>
       )}
     </Box>
@@ -298,42 +402,247 @@ const ProcessingMetadataLine: React.FC<{
   metadata: ProcessingMetadata;
 }> = ({ metadata, isLast, isComplete }) => {
   const branch = isLast ? '└─' : '├─';
-  const countsText =
-    metadata.fetched > 0 ? `${metadata.cached} cached, ${metadata.fetched} fetched` : `${metadata.cached} cached`;
-
   const suffixText = calculateMetadataSuffix(metadata, isComplete);
 
   return (
     <Text>
       {'  '}
-      {branch} Token metadata: {countsText}
+      <Text dimColor>{branch}</Text> <Text dimColor>Token metadata:</Text>{' '}
+      <Text color="green">{metadata.cached} cached</Text>
+      {metadata.fetched > 0 && (
+        <>
+          <Text dimColor>, </Text>
+          <Text color="cyan">{metadata.fetched} fetched</Text>
+        </>
+      )}
       {suffixText}
     </Text>
   );
 };
 
-function calculateMetadataSuffix(metadata: ProcessingMetadata, isComplete: boolean): string {
+function calculateMetadataSuffix(metadata: ProcessingMetadata, isComplete: boolean): React.ReactNode {
   if (isComplete && metadata.fetched > 0) {
     const total = metadata.cached + metadata.fetched;
     const hitRate = Math.round((metadata.cached / total) * 100);
-    return ` (${hitRate}% cached)`;
+    return <Text dimColor> ({hitRate}% cached)</Text>;
   }
 
   if (!isComplete && metadata.fetched > 0) {
-    if (metadata.transientMessage && performance.now() < metadata.transientMessage.expiresAt) {
-      if (metadata.transientMessage.type === 'backoff') {
-        const waitTime = Math.max(0, metadata.transientMessage.expiresAt - performance.now());
-        return ` · ⏸ waiting ${formatWaitTime(waitTime)} (rate limit)`;
+    const hasTransientMessage = metadata.transientMessage && performance.now() < metadata.transientMessage.expiresAt;
+
+    if (hasTransientMessage) {
+      if (metadata.transientMessage!.type === 'backoff') {
+        const waitTime = Math.max(0, metadata.transientMessage!.expiresAt - performance.now());
+        return (
+          <>
+            {' · '}
+            <Text color="cyan">⏸</Text> waiting {formatWaitTime(waitTime)} (rate limit)
+          </>
+        );
       }
-      return ` · ${metadata.transientMessage.text}`;
+
+      return (
+        <>
+          {' · '}
+          <Text color="cyan">{metadata.transientMessage!.text}</Text>
+        </>
+      );
     }
 
-    if (metadata.activeProvider && metadata.currentRate !== undefined && metadata.maxRate !== undefined) {
-      return ` · ${metadata.activeProvider} ${metadata.currentRate.toFixed(1)}/${metadata.maxRate} req/s`;
+    const hasProviderInfo =
+      metadata.activeProvider && metadata.currentRate !== undefined && metadata.maxRate !== undefined;
+
+    if (hasProviderInfo) {
+      return (
+        <>
+          {' · '}
+          <Text color="cyan">{metadata.activeProvider}</Text>{' '}
+          <Text color="cyan">
+            {metadata.currentRate!.toFixed(1)}/{metadata.maxRate} req/s
+          </Text>
+        </>
+      );
     }
   }
 
-  return '';
+  return null;
+}
+
+/**
+ * Check if provider is active (called within last 2 seconds)
+ */
+function isProviderActive(stats: ProviderApiStats): boolean {
+  if (stats.lastCallTime === 0) return false;
+  return Date.now() - stats.lastCallTime < 2000;
+}
+
+/**
+ * Calculate average latency
+ */
+function avgLatency(stats: ProviderApiStats): number {
+  if (stats.latencies.length === 0) return 0;
+  return stats.latencies.reduce((sum, lat) => sum + lat, 0) / stats.latencies.length;
+}
+
+/**
+ * Format latency for display
+ */
+function formatLatency(stats: ProviderApiStats): string {
+  if (stats.latencies.length === 0) return '—';
+  return `${Math.round(avgLatency(stats))}ms`;
+}
+
+/**
+ * Format status and rate for live view
+ */
+function formatLiveStatusRate(stats: ProviderApiStats, isActive: boolean): string {
+  if (!isActive) {
+    return '○ idle';
+  }
+
+  if (stats.currentRate !== undefined) {
+    return `${stats.currentRate.toFixed(1)} req/s`;
+  }
+
+  return '— req/s';
+}
+
+/**
+ * Render counts for live view with colors
+ */
+function renderLiveCounts(stats: ProviderApiStats): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+
+  if (stats.okCount > 0) {
+    parts.push(
+      <Text
+        key="ok"
+        color="green"
+      >
+        {stats.okCount} ok
+      </Text>
+    );
+  }
+
+  if (stats.throttledCount > 0) {
+    if (parts.length > 0) parts.push(<Text key="sep1"> · </Text>);
+    parts.push(
+      <Text
+        key="throttled"
+        color="yellow"
+      >
+        {stats.throttledCount} throttled
+      </Text>
+    );
+  }
+
+  if (stats.failed > 0) {
+    if (parts.length > 0) parts.push(<Text key="sep2"> · </Text>);
+    parts.push(
+      <Text
+        key="err"
+        color="red"
+      >
+        {stats.failed} err
+      </Text>
+    );
+  }
+
+  return <>{parts}</>;
+}
+
+/**
+ * Format average rate for final view
+ */
+function formatAvgRate(stats: ProviderApiStats, overallDurationMs?: number): string {
+  if (stats.total === 0 || stats.startTime === 0) {
+    return '—';
+  }
+
+  let durationSeconds = (stats.lastCallTime - stats.startTime) / 1000;
+
+  if (durationSeconds === 0 && overallDurationMs && overallDurationMs > 0) {
+    durationSeconds = overallDurationMs / 1000;
+  }
+
+  if (durationSeconds === 0) {
+    return '—';
+  }
+
+  const avgRate = stats.total / durationSeconds;
+  return `${avgRate.toFixed(1)} req/s`;
+}
+
+/**
+ * Render breakdown for final view with colors
+ */
+function renderFinalBreakdown(stats: ProviderApiStats): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+
+  if (stats.okCount > 0) {
+    parts.push(
+      <React.Fragment key="ok">
+        <Text color="green">{stats.okCount} ok</Text>
+        <Text dimColor> (200)</Text>
+      </React.Fragment>
+    );
+  }
+
+  if (stats.throttledCount > 0) {
+    if (parts.length > 0) parts.push(<Text key="sep1"> · </Text>);
+    parts.push(
+      <React.Fragment key="throttled">
+        <Text color="yellow">{stats.throttledCount} throttled</Text>
+        <Text dimColor> (429)</Text>
+      </React.Fragment>
+    );
+  }
+
+  if (stats.retries > 0) {
+    if (parts.length > 0) parts.push(<Text key="sep2"> · </Text>);
+    parts.push(
+      <Text
+        key="retries"
+        color="yellow"
+      >
+        {stats.retries} retries
+      </Text>
+    );
+  }
+
+  if (stats.failed > 0) {
+    if (parts.length > 0) parts.push(<Text key="sep3"> · </Text>);
+    const errorCode = getErrorStatusCode(stats);
+    parts.push(
+      <React.Fragment key="err">
+        <Text color="red">{stats.failed} err</Text>
+        {errorCode && <Text dimColor> ({errorCode})</Text>}
+      </React.Fragment>
+    );
+  }
+
+  return parts.length > 0 ? <>{parts}</> : null;
+}
+
+/**
+ * Get representative error status code
+ */
+function getErrorStatusCode(stats: ProviderApiStats): number | null {
+  // Find first error status code (>= 400, not 429)
+  for (const [code, _count] of stats.responsesByStatus.entries()) {
+    if (code >= 400 && code !== 429) {
+      return code;
+    }
+  }
+  return null;
+}
+
+/**
+ * Truncate provider name to max length
+ */
+function truncateProvider(name: string, maxLen: number): string {
+  if (name.length <= maxLen) return name;
+  return name.slice(0, maxLen - 1) + '…';
 }
 
 /**
@@ -367,99 +676,110 @@ const ApiFooter: React.FC<{ state: DashboardState }> = ({ state }) => {
         <ApiFooterFinal
           total={total}
           byProvider={byProvider}
+          overallDurationMs={state.totalDurationMs}
         />
       )}
+      <Text> </Text>
     </Box>
   );
 };
 
 /**
- * Live API footer (during import)
+ * Live API footer (during import) - Tabular format with active/idle status
  */
 const ApiFooterLive: React.FC<{ byProvider: Map<string, ProviderApiStats>; total: number }> = ({
   total,
   byProvider,
 }) => {
-  const providers = Array.from(byProvider.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, stats]) => {
-      const details: string[] = [];
-      if (stats.retries > 0) details.push(`${stats.retries} retries`);
-      if (stats.rateLimited > 0) details.push(`${stats.rateLimited} rate-limited`);
-      if (stats.failed > 0) details.push(`${stats.failed} failed`);
-
-      return details.length > 0 ? `${name}: ${stats.total} (${details.join(', ')})` : `${name}: ${stats.total}`;
-    })
-    .join(', ');
+  const providers = Array.from(byProvider.entries()).sort(([a], [b]) => a.localeCompare(b));
+  const singleProvider = providers.length === 1;
 
   return (
-    <Text>
-      API Calls: {total} · {providers}
-    </Text>
+    <Box flexDirection="column">
+      {!singleProvider && (
+        <Text>
+          {total} API call{total !== 1 ? 's' : ''}
+        </Text>
+      )}
+      {providers.map(([name, stats]) => {
+        const isActive = isProviderActive(stats);
+        const statusRate = formatLiveStatusRate(stats, isActive);
+        const latency = formatLatency(stats);
+
+        return (
+          <Box key={name}>
+            {!singleProvider && <Text>{'  '}</Text>}
+            <Text>{truncateProvider(name, 12).padEnd(12)}</Text>
+            <Text>{'  '}</Text>
+            {isActive ? (
+              <>
+                <Text color="green">●</Text>
+                <Text> </Text>
+                <Text color="cyan">{statusRate.padEnd(17)}</Text>
+              </>
+            ) : (
+              <Text dimColor>{statusRate.padEnd(18)}</Text>
+            )}
+            <Text>{'  '}</Text>
+            <Text dimColor>{latency.padStart(6)}</Text>
+            <Text>{'   '}</Text>
+            {stats.total === 0 ? <Text dimColor>0</Text> : renderLiveCounts(stats)}
+          </Box>
+        );
+      })}
+    </Box>
   );
 };
 
 /**
- * Final API footer (after completion)
+ * Final API footer (after completion) - Tabular format with avg stats
  */
-const ApiFooterFinal: React.FC<{ byProvider: Map<string, ProviderApiStats>; total: number }> = ({
-  total,
-  byProvider,
-}) => {
-  const providerArray = Array.from(byProvider.entries()).sort(([a], [b]) => a.localeCompare(b));
+const ApiFooterFinal: React.FC<{
+  byProvider: Map<string, ProviderApiStats>;
+  overallDurationMs?: number | undefined;
+  total: number;
+}> = ({ total, byProvider, overallDurationMs }) => {
+  const providers = Array.from(byProvider.entries()).sort(([a], [b]) => a.localeCompare(b));
+  const singleProvider = providers.length === 1;
 
   return (
     <Box flexDirection="column">
-      <Text>API Calls: {total} total</Text>
-      {providerArray.map(([name, stats], index) => {
-        const isLast = index === providerArray.length - 1;
-        const branch = isLast ? '└─' : '├─';
-
-        // Get response breakdown
-        const responses = Array.from(stats.responsesByStatus.entries()).sort(([a], [b]) => {
-          // Sort by priority: 200, 429, 500+, others
-          const priority = (code: number) => {
-            if (code === 200) return 0;
-            if (code === 429) return 1;
-            if (code >= 500) return 2;
-            return 3;
-          };
-          return priority(a) - priority(b) || a - b;
-        });
-
-        const hasDetails = stats.retries > 0 || responses.length > 1;
+      {!singleProvider && (
+        <Text>
+          {total} API call{total !== 1 ? 's' : ''}
+        </Text>
+      )}
+      {providers.map(([name, stats]) => {
+        const avgRate = formatAvgRate(stats, overallDurationMs);
+        const latency = formatLatency(stats);
+        const callsText = stats.total > 0 ? `${stats.total} call${stats.total !== 1 ? 's' : ''}` : '0 calls';
+        const breakdown = renderFinalBreakdown(stats);
 
         return (
-          <Box
-            key={name}
-            flexDirection="column"
-          >
-            <Text>
-              {'  '}
-              {branch} {name}: {stats.total} calls
-            </Text>
-            {hasDetails && (
-              <Box flexDirection="column">
-                {/* Response breakdown */}
-                {responses.map(([status, count], idx) => {
-                  const isLastResponse = idx === responses.length - 1 && stats.retries === 0;
-                  const subBranch = isLastResponse ? '└─' : '├─';
-                  const label = statusLabel(status);
-
-                  return (
-                    <Text key={status}>
-                      {'  │  '}
-                      {subBranch} {label}: {count} ({status})
-                    </Text>
-                  );
-                })}
-                {/* Retries */}
-                {stats.retries > 0 && (
-                  <Text>
-                    {'  │  '}└─ Retries: {stats.retries}
-                  </Text>
+          <Box key={name}>
+            {!singleProvider && <Text>{'  '}</Text>}
+            <Text>{truncateProvider(name, 12).padEnd(12)}</Text>
+            <Text>{'  '}</Text>
+            {stats.total === 0 ? (
+              <Text dimColor>{'—'.padEnd(18)}</Text>
+            ) : (
+              <Text color="cyan">{avgRate.padEnd(18)}</Text>
+            )}
+            <Text>{'  '}</Text>
+            <Text dimColor>{latency.padStart(6)}</Text>
+            <Text>{'   '}</Text>
+            {stats.total === 0 ? (
+              <Text dimColor>{callsText}</Text>
+            ) : (
+              <>
+                <Text>{callsText}</Text>
+                {breakdown && (
+                  <>
+                    <Text>{'   '}</Text>
+                    {breakdown}
+                  </>
                 )}
-              </Box>
+              </>
             )}
           </Box>
         );
@@ -469,32 +789,66 @@ const ApiFooterFinal: React.FC<{ byProvider: Map<string, ProviderApiStats>; tota
 };
 
 /**
- * Warnings section
+ * Completion section - shows final status (Done/Warnings/Aborted)
  */
-const WarningsSection: React.FC<{ state: DashboardState }> = ({ state }) => {
-  if (state.warnings.length === 0) return null;
-
-  const count = state.warnings.length;
-  const plural = count === 1 ? 'warning' : 'warnings';
+const CompletionSection: React.FC<{ state: DashboardState }> = ({ state }) => {
   const duration = state.totalDurationMs ? formatDuration(state.totalDurationMs) : '';
+  const hasWarnings = state.warnings.length > 0;
+  const errorMessage = state.errorMessage;
 
+  if (errorMessage) {
+    return (
+      <Box flexDirection="column">
+        <Text> </Text>
+        <Text>
+          <Text color="yellow">⚠</Text> Failed {duration && <Text dimColor>({duration})</Text>}
+        </Text>
+        <Text dimColor>{errorMessage}</Text>
+      </Box>
+    );
+  }
+
+  // Aborted (Ctrl-C or error)
+  if (state.aborted) {
+    return (
+      <Box flexDirection="column">
+        <Text> </Text>
+        <Text>
+          <Text color="yellow">⚠</Text> Aborted {duration && <Text dimColor>({duration})</Text>}
+        </Text>
+      </Box>
+    );
+  }
+
+  // Completed with warnings
+  if (hasWarnings) {
+    const count = state.warnings.length;
+    const plural = count === 1 ? 'warning' : 'warnings';
+
+    return (
+      <Box flexDirection="column">
+        <Text> </Text>
+        <Text>
+          <Text color="yellow">⚠</Text> Completed with <Text color="yellow">{count}</Text> {plural}{' '}
+          {duration && <Text dimColor>({duration})</Text>}
+        </Text>
+        {state.warnings.map((warning, index) => (
+          <Text key={index}> {warning.message}</Text>
+        ))}
+      </Box>
+    );
+  }
+
+  // Success
   return (
     <Box flexDirection="column">
+      <Text> </Text>
       <Text>
-        ⚠ Completed with {count} {plural} {duration && `(${duration} total)`}
+        <Text color="green">✓</Text> Done {duration && <Text dimColor>({duration})</Text>}
       </Text>
-      {state.warnings.map((warning, index) => (
-        <Text key={index}> {warning.message}</Text>
-      ))}
     </Box>
   );
 };
-
-function statusLabel(code: number): string {
-  if (code === 200) return 'OK';
-  if (code === 429) return 'Rate Limited';
-  return 'Error';
-}
 
 function formatWaitTime(ms: number): string {
   if (ms < 1000) {
@@ -506,12 +860,14 @@ function formatWaitTime(ms: number): string {
 function formatDuration(ms: number): string {
   if (ms < 1000) {
     return `${ms.toFixed(0)}ms`;
-  } else if (ms < 60000) {
+  }
+
+  if (ms < 60000) {
     const seconds = ms / 1000;
     return `${seconds.toFixed(1)}s`;
-  } else {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}m ${seconds}s`;
   }
+
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  return `${minutes}m ${seconds}s`;
 }

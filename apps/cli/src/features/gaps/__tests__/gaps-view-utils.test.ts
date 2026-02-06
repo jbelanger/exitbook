@@ -20,6 +20,7 @@ describe('gaps-view-utils', () => {
     datetime: '2024-01-01T12:00:00Z',
     timestamp: 1704110400000,
     source: 'kraken',
+    sourceType: 'exchange',
     status: 'success',
     movements: {
       inflows: [],
@@ -41,6 +42,7 @@ describe('gaps-view-utils', () => {
           externalId: 'tx-1',
           fees: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               amount: parseDecimal('0.0001'),
               scope: 'network',
@@ -67,6 +69,7 @@ describe('gaps-view-utils', () => {
           externalId: 'tx-1',
           fees: [
             {
+              assetId: 'fiat:usd',
               assetSymbol: 'USD',
               amount: parseDecimal('2.50'),
               scope: 'platform',
@@ -97,6 +100,7 @@ describe('gaps-view-utils', () => {
             inflows: [],
             outflows: [
               {
+                assetId: 'test:eth',
                 assetSymbol: 'ETH',
                 grossAmount: parseDecimal('0.01'),
               },
@@ -121,12 +125,14 @@ describe('gaps-view-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1.0'),
               },
             ],
             outflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.001'),
               },
@@ -159,6 +165,7 @@ describe('gaps-view-utils', () => {
             inflows: [],
             outflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.0001'),
               },
@@ -166,6 +173,7 @@ describe('gaps-view-utils', () => {
           },
           fees: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               amount: parseDecimal('0.0001'),
               scope: 'network',
@@ -199,6 +207,7 @@ describe('gaps-view-utils', () => {
           externalId: 'tx-1',
           fees: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               amount: parseDecimal('0.0001'),
               scope: 'network',
@@ -227,6 +236,7 @@ describe('gaps-view-utils', () => {
           externalId: 'tx-1',
           fees: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               amount: parseDecimal('0.0001'),
               scope: 'network',
@@ -234,6 +244,7 @@ describe('gaps-view-utils', () => {
               priceAtTxTime: undefined,
             },
             {
+              assetId: 'fiat:usd',
               assetSymbol: 'USD',
               amount: parseDecimal('2.50'),
               scope: 'platform',
@@ -274,6 +285,7 @@ describe('gaps-view-utils', () => {
         movements: {
           inflows: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('0.8'),
               netAmount: parseDecimal('0.8'),
@@ -302,6 +314,7 @@ describe('gaps-view-utils', () => {
           inflows: [],
           outflows: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('0.5'),
               netAmount: parseDecimal('0.5'),
@@ -324,6 +337,7 @@ describe('gaps-view-utils', () => {
           inflows: [],
           outflows: [
             {
+              assetId: 'test:eth',
               assetSymbol: 'ETH',
               grossAmount: parseDecimal('5'),
               netAmount: parseDecimal('5'),
@@ -544,6 +558,7 @@ describe('gaps-view-utils', () => {
           externalId: 'tx-1',
           fees: [
             {
+              assetId: 'test:btc',
               assetSymbol: 'BTC',
               amount: parseDecimal('0.0001'),
               scope: 'network',
@@ -611,6 +626,7 @@ describe('gaps-view-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.3'),
                 netAmount: parseDecimal('0.3'),
@@ -678,6 +694,7 @@ describe('gaps-view-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:eth',
                 assetSymbol: 'ETH',
                 grossAmount: parseDecimal('2.1'),
                 netAmount: parseDecimal('2.1'),
@@ -716,6 +733,7 @@ describe('gaps-view-utils', () => {
             inflows: [],
             outflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1.25'),
                 netAmount: parseDecimal('1.25'),
@@ -750,6 +768,7 @@ describe('gaps-view-utils', () => {
           movements: {
             inflows: [
               {
+                assetId: 'test:btc',
                 assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.2'),
                 netAmount: parseDecimal('0.2'),

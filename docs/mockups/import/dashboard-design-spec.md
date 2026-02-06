@@ -13,6 +13,127 @@
 
 ---
 
+## Operation Tree Color Specification
+
+### Three-Tier Semantic System
+
+Colors follow a three-tier hierarchy optimized for scanning efficiency:
+
+1. **Signal** — Icons only (`✓` green, `⠋` cyan, `⚠` yellow) — glanceable from across the room
+2. **Content** — Names and numbers (white/bold labels, green counts, cyan rates) — what you read
+3. **Context** — Durations, parentheticals, tree chars, labels (dim) — there if you need it, invisible if you don't
+
+This hierarchy ensures that even at a fast scroll, green checkmarks + one cyan spinner tells the whole story. Stop and read, the numbers are there. Debugging? The dim details fill in the gaps.
+
+---
+
+### Completed State Colors
+
+Example:
+
+```
+✓ Account #42 (resuming)
+✓ 4 providers ready
+✓ Importing (3m 47s)
+  ├─ Normal: 0 new (300ms)
+  ├─ Internal: 0 new (200ms)
+  ├─ Token Transfers: 3,891 new (3m 44s)
+  └─ Beacon: ⚠ Failed (800ms)
+✓ Processing (1m 23s)
+  ├─ 3,891 raw → 3,245 transactions
+  ├─ Token metadata: 2,847 cached, 156 fetched (95% cached)
+  └─ ⚠ 12 scam tokens (SHIB, PEPE, RUG)
+```
+
+| Element                                                         | Color                                                                      | Why                                                   |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `✓`                                                             | **green**                                                                  | Universal "success" signal                            |
+| `⚠`                                                             | **yellow**                                                                 | Warning — not fatal, but notable                      |
+| Phase labels: `Importing`, `Processing`                         | **white/bold**                                                             | These are the structural headings — anchor points     |
+| `Created account #42`, `Account #42`, `4 providers ready`       | **white**                                                                  | Top-level status, important                           |
+| `(resuming)`                                                    | **dim**                                                                    | Context detail, not the main info                     |
+| Stream names: `Normal`, `Internal`, `Token Transfers`, `Beacon` | **white**                                                                  | The "what" — should be readable                       |
+| Counts: `0 new`, `3,891 new`                                    | **green**                                                                  | Data results — the "answer" you're looking for        |
+| `Failed`                                                        | **yellow**                                                                 | Matches the `⚠` — it's a warning, not red (non-fatal) |
+| Durations: `(91ms)`, `(3m 47s)`, `(300ms)`                      | **dim**                                                                    | Always secondary — useful but never the headline      |
+| Tree chars: `├─`, `└─`, `│`                                     | **dim**                                                                    | Structural scaffolding, should recede                 |
+| `3,891 raw → 3,245 transactions`                                | **green** `3,891` **dim** `raw →` **green** `3,245` **dim** `transactions` | Numbers pop, labels recede                            |
+| `2,847 cached, 156 fetched`                                     | **green** `2,847 cached` · **cyan** `156 fetched`                          | Cached = done/good, fetched = work that happened      |
+| `(95% cached)`                                                  | **dim**                                                                    | Summary stat, parenthetical                           |
+| `12 scam tokens`                                                | **yellow**                                                                 | Matches `⚠`                                           |
+| `(SHIB, PEPE, RUG)`                                             | **dim**                                                                    | Examples, detail                                      |
+
+---
+
+### Live State Colors
+
+Example:
+
+```
+✓ Account #42 (resuming)
+✓ 4 providers ready
+⠋ Importing · 2m 15s
+  ├─ Normal: 0 new (300ms)
+  └─ Token Transfers: batch 12 · 2m 14s
+     └─ 3,891 imported · etherscan 3.2/4 req/s
+```
+
+| Element                    | Color          | Notes                                                      |
+| -------------------------- | -------------- | ---------------------------------------------------------- |
+| `⠋`                        | **cyan**       | Spinner stands out as "active"                             |
+| `Importing`                | **white/bold** | Same as completed                                          |
+| `· 2m 15s` (live duration) | **dim**        | Ticking clock, secondary                                   |
+| `batch 12`                 | **white**      | Current progress marker                                    |
+| `3,891 imported`           | **green**      | Same as counts above                                       |
+| `etherscan`                | **cyan**       | Provider name — matches the rate color in the footer table |
+| `3.2/4 req/s`              | **cyan**       | Rate info, same color system as footer                     |
+
+---
+
+### Color Semantic Rules
+
+**Icons (Signal tier):**
+
+- `✓` (completed): **green**
+- `⠋` (spinner/active): **cyan**
+- `⚠` (warning): **yellow**
+- `↻` (switched): **cyan** (matches active/in-progress)
+- `⏸` (waiting): **cyan** (matches active/in-progress)
+
+**Content tier (what you read):**
+
+- Phase labels (`Importing`, `Processing`): **white/bold**
+- Stream names: **white**
+- Batch/progress markers: **white**
+- Counts/numbers (success): **green**
+- Provider names (active): **cyan**
+- Rates: **cyan**
+- `cached` counts: **green** (completed work)
+- `fetched` counts: **cyan** (work that happened)
+
+**Warning tier:**
+
+- `Failed`: **yellow**
+- Scam token counts: **yellow**
+- Warning counts: **yellow**
+
+**Context tier (recedes):**
+
+- All durations (parenthetical and live): **dim**
+- Tree characters (`├─`, `└─`, `│`): **dim**
+- Contextual text (`raw →`, `transactions`, `cached`): **dim**
+- Parenthetical details: **dim**
+- Status codes: **dim**
+
+**Consistency rules:**
+
+1. All numbers representing "answers" or results: **green**
+2. All metrics representing "activity" or rates: **cyan**
+3. All structural elements: **dim**
+4. All warnings/failures: **yellow** (not red — failures are non-fatal)
+
+---
+
 ## Complete Visual Examples
 
 ### Example 1: Fresh Import Start
@@ -20,14 +141,17 @@
 **Streams appear only when active (when they publish events):**
 
 ```
-✓ 4 providers ready (91ms)
-✓ Account #42
-⠋ Import · 200ms
+✓ Created account #42
+✓ 4 providers ready
+⠋ Importing · 200ms
   └─ Normal: batch 1 · 200ms
      └─ 0 imported · etherscan 3.1/4 req/s
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API Calls: 1 · etherscan: 1
+1 API call
+  etherscan     ● 3.1 req/s   120ms    1 ok
+  alchemy       ○ idle          —       0
+  moralis       ○ idle          —       0
 ```
 
 ---
@@ -35,16 +159,19 @@ API Calls: 1 · etherscan: 1
 ### Example 2: Multi-Stream In Progress
 
 ```
-✓ 4 providers ready (91ms)
-✓ Account #42 (resuming from previous import)
-⠋ Import · 2m 15s
+✓ Account #42 (resuming)
+✓ 4 providers ready
+⠋ Importing · 2m 15s
   ├─ Normal: 0 new (300ms)
   ├─ Internal: 0 new (200ms)
   └─ Token Transfers: batch 12 · 2m 14s
      └─ 3,891 imported · etherscan 3.2/4 req/s
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API Calls: 47 · etherscan: 45, alchemy: 2
+47 API calls
+  alchemy       ○ idle        140ms     2 ok
+  etherscan     ● 3.2 req/s   278ms    45 ok · 12 throttled · 2 err
+  moralis       ○ idle          —       0
 ```
 
 ---
@@ -54,7 +181,7 @@ API Calls: 47 · etherscan: 45, alchemy: 2
 **During wait (replaces req/s temporarily):**
 
 ```
-⠋ Import · 2m 15s
+⠋ Importing · 2m 15s
   └─ Token Transfers: batch 12 · 2m 14s
      └─ 3,891 imported · ⏸ waiting 187ms (rate limit)
 ```
@@ -62,7 +189,7 @@ API Calls: 47 · etherscan: 45, alchemy: 2
 **After wait completes (req/s returns):**
 
 ```
-⠋ Import · 2m 15s
+⠋ Importing · 2m 15s
   └─ Token Transfers: batch 12 · 2m 14s
      └─ 3,891 imported · etherscan 3.2/4 req/s
 ```
@@ -74,31 +201,37 @@ API Calls: 47 · etherscan: 45, alchemy: 2
 **For 3 seconds (replaces req/s):**
 
 ```
-✓ 4 providers ready (91ms)
-✓ Account #42 (resuming from previous import)
-⠋ Import · 2m 15s
+✓ Account #42 (resuming)
+✓ 4 providers ready
+⠋ Importing · 2m 15s
   ├─ Normal: 0 new (300ms)
   ├─ Internal: 0 new (200ms)
   └─ Token Transfers: batch 12 · 2m 14s
      └─ 3,891 imported · ↻ switched to alchemy (etherscan rate limited)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API Calls: 47 · etherscan: 45, alchemy: 2
+47 API calls
+  alchemy       ● 2.1 req/s   140ms     2 ok
+  etherscan     ○ idle        278ms    45 ok · 12 throttled
+  moralis       ○ idle          —       0
 ```
 
 **After 3 seconds (normal req/s display):**
 
 ```
-✓ 4 providers ready (91ms)
-✓ Account #42 (resuming from previous import)
-⠋ Import · 2m 15s
+✓ Account #42 (resuming)
+✓ 4 providers ready
+⠋ Importing · 2m 15s
   ├─ Normal: 0 new (300ms)
   ├─ Internal: 0 new (200ms)
   └─ Token Transfers: batch 12 · 2m 14s
      └─ 3,891 imported · alchemy 2.1/4 req/s
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API Calls: 47 · etherscan: 45, alchemy: 2
+47 API calls
+  alchemy       ● 2.1 req/s   140ms     2 ok
+  etherscan     ○ idle        278ms    45 ok · 12 throttled
+  moralis       ○ idle          —       0
 ```
 
 ---
@@ -108,9 +241,9 @@ API Calls: 47 · etherscan: 45, alchemy: 2
 **Expanded with details (Option A):**
 
 ```
-✓ 4 providers ready (91ms)
-✓ Account #42 (resuming from previous import)
-⠋ Import · 2m 15s
+✓ Account #42 (resuming)
+✓ 4 providers ready
+⠋ Importing · 2m 15s
   ├─ Normal: 0 new (300ms)
   ├─ Internal: 0 new (200ms)
   ├─ Token Transfers: batch 12 · 2m 14s
@@ -119,7 +252,10 @@ API Calls: 47 · etherscan: 45, alchemy: 2
      └─ Rate limit exceeded - try setting ETHERSCAN_API_KEY
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API Calls: 48 · etherscan: 48
+48 API calls
+  alchemy       ○ idle          —       0
+  etherscan     ● 3.2 req/s   278ms    47 ok · 1 err
+  moralis       ○ idle          —       0
 ```
 
 ---
@@ -127,9 +263,9 @@ API Calls: 48 · etherscan: 48
 ### Example 6: Import Complete → Processing
 
 ```
-✓ 4 providers ready (91ms)
-✓ Account #42 (resuming from previous import)
-✓ Import (3m 47s)
+✓ Account #42 (resuming)
+✓ 4 providers ready
+✓ Importing (3m 47s)
   ├─ Normal: 0 new (300ms)
   ├─ Internal: 0 new (200ms)
   ├─ Token Transfers: 3,891 new (3m 44s)
@@ -140,17 +276,20 @@ API Calls: 48 · etherscan: 48
   └─ ⚠ 2 scam tokens (SHIB, PEPE)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API Calls: 47 · etherscan: 45, alchemy: 2
+47 API calls
+  alchemy       ○ idle        140ms     2 ok
+  etherscan     ● 3.1 req/s   278ms    45 ok
+  moralis       ○ idle          —       0
 ```
 
 ---
 
-### Example 7: Final Completion
+### Example 7: Final Completion (with warnings)
 
 ```
-✓ 4 providers ready (91ms)
-✓ Account #42 (resuming from previous import)
-✓ Import (3m 47s)
+✓ Account #42 (resuming)
+✓ 4 providers ready
+✓ Importing (3m 47s)
   ├─ Normal: 0 new (300ms)
   ├─ Internal: 0 new (200ms)
   ├─ Token Transfers: 3,891 new (3m 44s)
@@ -160,19 +299,14 @@ API Calls: 47 · etherscan: 45, alchemy: 2
   ├─ Token metadata: 2,847 cached, 156 fetched (95% cached)
   └─ ⚠ 12 scam tokens (SHIB, PEPE, RUG)
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API Calls: 47 total
-  ├─ etherscan: 45 calls
-  │  ├─ OK: 31 (200)
-  │  ├─ Rate Limited: 12 (429)
-  │  ├─ Retries: 10
-  │  └─ Error: 2 (503)
-  ├─ alchemy: 2 calls
-  │  └─ OK: 2 (200)
-  └─ moralis: 0 calls
-
-⚠ Completed with 1 warning (5m 11s total)
+⚠ Completed with 1 warning (5m 11s)
    Beacon withdrawals unavailable - balance may be incomplete
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+47 API calls
+  alchemy       0.1 req/s   140ms     2 calls    2 ok (200)
+  etherscan     1.4 req/s   278ms    45 calls   31 ok (200) · 12 throttled (429) · 10 retries · 2 err (503)
+  moralis       —            —        0 calls
 ```
 
 **✓ Answered:**
@@ -183,48 +317,259 @@ API Calls: 47 total
 
 ---
 
-## API Call Monitoring Details
+## Provider Metrics Footer Specification
+
+### Core Principle
+
+**Separate operation status from infrastructure status:**
+
+- **Operation tree** = what's happening to your data (uses tree characters `├─ └─`)
+- **Provider metrics footer** = what's happening to your network (uses tabular rows)
+
+These must be visually distinct. Tree characters belong to operations only.
+
+---
 
 ### During Import (Live - 250ms refresh)
 
-**Show live stats with retries/throttles/failures:**
-
-```
-API Calls: 47 · etherscan: 45 (12 retries, 10 rate-limited, 2 failed), alchemy: 2
-```
-
-### After Completion (Detailed)
+**Compact table format - one row per provider:**
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API Calls: 47 total
-  ├─ etherscan: 45 calls
-  │  ├─ OK: 43 (200)
-  │  ├─ Rate Limited: 10 (429)
-  │  ├─ Retries: 12
-  │  └─ Error: 2 (503)
-  ├─ alchemy: 2 calls
-  │  └─ OK: 2 (200)
-  └─ moralis: 0 calls
+47 API calls
+  etherscan     ● 3.2 req/s   278ms    45 ok · 12 throttled · 2 err
+  alchemy       ○ idle        140ms     2 ok
+  moralis       ○ idle          —       0
 ```
 
-**✓ Answered:**
+**Column structure:**
 
-1. Show throttles/failures **live**
-2. Update every **250ms** for performance
-3. Show **both HTTP codes and counts**
-4. Show **retries separately** from failures
+1. **Provider name** (left-aligned, 12 char width)
+2. **Status + Rate** (18 char width)
+   - Active: `● X.X req/s` (green dot, cyan rate)
+   - Idle: `○ idle` (dimmed)
+3. **Latency** (6 char width, right-aligned, dimmed)
+   - Active/idle with calls: `278ms`
+   - Zero calls: `—`
+4. **Counts** (left-aligned, flexible width)
+   - Format: `N ok · N throttled · N err`
+   - Omit zero counts
+   - Zero calls: just `0`
+
+**Visual hierarchy:**
+
+- Green `●` dot pulls eye to active provider
+- Cyan rate shows how fast
+- Color-coded counts (green ok, yellow throttled, red err)
+- Idle rows fully dimmed
+- Static alphabetical order (no jumping)
+
+---
+
+### After Completion (Detailed Breakdown)
+
+**Same table structure, different semantics:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+47 API calls
+  etherscan     1.4 req/s   278ms    45 calls   31 ok (200) · 12 throttled (429) · 10 retries · 2 err (503)
+  alchemy       0.1 req/s   140ms     2 calls    2 ok (200)
+  moralis       —            —        0 calls
+```
+
+**Changes from live:**
+
+1. **No status dots** — everything is done, active/idle distinction gone
+2. **Rate = average** — `totalCalls / totalElapsedSeconds` (still cyan)
+3. **HTTP status codes** — appear in dimmed parens after each status type
+4. **Retry count** — separated out explicitly
+5. **Zero-call providers** — show `—` for both rate and latency
+
+**Column structure:**
+
+1. Provider name (same as live)
+2. **Avg rate** (18 char width)
+   - Calculation: `totalCalls / totalElapsedSeconds`
+   - Format: `1.4 req/s` (cyan)
+   - Zero calls: `—` (dimmed)
+3. Avg latency (same as live)
+4. **Total calls + breakdown** (flexible width)
+   - Format: `N calls   N ok (XXX) · N throttled (XXX) · N retries · N err (XXX)`
+   - HTTP status codes in parens
+   - Omit zero counts
+   - Zero calls: just `0 calls`
+
+---
+
+### Color Mappings
+
+#### Live View Colors
+
+| Element                 | Color            | Rationale                        |
+| ----------------------- | ---------------- | -------------------------------- |
+| `●` (active dot)        | **green**        | Instant "this is working" signal |
+| Provider name (active)  | **white/bright** | Full brightness for active rows  |
+| `3.2 req/s`             | **cyan**         | Stands out as a metric           |
+| `○ idle`                | **dim/gray**     | Entire phrase dims               |
+| Provider name (idle)    | **dim/gray**     | Whole row recedes                |
+| Latency (`278ms`)       | **dim**          | Useful but secondary             |
+| `—` (no data)           | **dim**          | Nothing to see                   |
+| `ok` count              | **green**        | Success                          |
+| `throttled` count       | **yellow**       | Caution, not error               |
+| `err` count             | **red**          | Immediate attention              |
+| `0` (zero calls)        | **dim**          | Not interesting                  |
+| Divider `━━━`           | **dim**          | Structural only                  |
+| `47 API calls` (header) | **white/bold**   | Section anchor                   |
+
+#### Completed View Colors
+
+| Element                              | Color            | Change from live                         |
+| ------------------------------------ | ---------------- | ---------------------------------------- |
+| Provider name                        | **normal white** | No more active/idle distinction          |
+| Avg rate (`1.4 req/s`)               | **cyan**         | Same as live, signals it's a rate metric |
+| `—` (no rate)                        | **dim**          | Zero-call providers                      |
+| Latency                              | **dim**          | Same as live                             |
+| `ok (200)`                           | **green**        | Same as live                             |
+| `throttled (429)`                    | **yellow**       | Same as live                             |
+| `retries`                            | **yellow**       | Groups with throttled (caution tier)     |
+| `err (503)`                          | **red**          | Same as live                             |
+| Status codes `(200)` `(429)` `(503)` | **dim**          | Detail layer, not headline               |
+| `calls` keyword                      | **normal white** | Just text                                |
+| `0 calls`                            | **dim**          | Same as live                             |
+
+**Design principle:** Color carries the semantic layer, text carries the detail layer.
+
+---
+
+### Live vs Completed Semantics
+
+| Aspect            | Live                            | Completed                    |
+| ----------------- | ------------------------------- | ---------------------------- |
+| **Purpose**       | Real-time monitoring            | Post-mortem summary          |
+| **Status dots**   | Yes (`●` active, `○` idle)      | No (everything is done)      |
+| **Rate**          | Instantaneous (recent activity) | Average over full run        |
+| **Counts**        | Running totals                  | Final totals with HTTP codes |
+| **Retries**       | Not shown (still in flux)       | Explicit count (finalized)   |
+| **Visual weight** | Active rows pop, idle rows dim  | All rows equal weight        |
+
+---
+
+### Edge Cases
+
+#### Single Provider
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+etherscan     ● 3.2 req/s   278ms    47 ok · 12 throttled
+```
+
+No header, no indent. Indent means "belongs to the line above" — no line above, no indent.
+
+#### No API Calls
+
+```
+(footer omitted entirely)
+```
+
+Nothing to show — common for CSV imports.
+
+#### All Providers Idle
+
+```
+0 API calls
+  etherscan     ○ idle          —       0
+  alchemy       ○ idle          —       0
+  moralis       ○ idle          —       0
+```
+
+All dimmed. Unusual but valid.
+
+#### Zero-Call Providers (Live)
+
+```
+  moralis       ○ idle          —       0
+```
+
+Shows they're registered but unused.
+
+#### Zero-Call Providers (Completed)
+
+```
+  moralis       —            —        0 calls
+```
+
+Three `—` marks make it clear "nothing happened."
+
+---
+
+### Implementation Notes
+
+**Column widths:**
+
+```
+  etherscan     ● 3.2 req/s   278ms    45 ok · 12 throttled · 2 err
+  ^12 chars^    ^18 chars ^   ^6ch^    ^flexible, left-aligned^
+```
+
+**Provider ordering:**
+
+- Static alphabetical order (never jump around)
+- Predictable position → faster visual scanning
+
+**Rate calculation (live):**
+
+- Instantaneous: recent calls / recent time window (e.g., last 5 seconds)
+
+**Rate calculation (completed):**
+
+- Average: `totalCalls / (completionTime - startTime)`
+
+**Active/idle determination:**
+
+- Provider is active if `now - lastCallTime < 2s`
+
+**Data tracking per provider:**
+
+- `totalCalls`, `okCount`, `throttledCount`, `errorCount`, `retryCount`
+- `statusCodes` (map of code → count for completion view)
+- `latencies` (array or running average)
+- `startTime`, `lastCallTime`
 
 ---
 
 ## Edge Cases
 
+### Example 8: Final Completion (success, no warnings)
+
+```
+✓ Account #42 (resuming)
+✓ 4 providers ready
+✓ Importing (3m 47s)
+  ├─ Normal: 127 new (300ms)
+  ├─ Internal: 45 new (200ms)
+  └─ Token Transfers: 3,891 new (3m 44s)
+✓ Processing (1m 23s)
+  ├─ 4,063 raw → 3,892 transactions
+  └─ Token metadata: 2,847 cached, 156 fetched (95% cached)
+
+✓ Done (5m 10s)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+47 API calls
+  alchemy       0.1 req/s   140ms     2 calls    2 ok (200)
+  etherscan     1.4 req/s   278ms    45 calls   31 ok (200) · 12 throttled (429) · 10 retries · 2 err (503)
+  moralis       —            —        0 calls
+```
+
+---
+
 ### Empty Import (No Transactions)
 
 ```
-✓ 4 providers ready (91ms)
-✓ Account #42 (resuming from previous import)
-✓ Import (800ms)
+✓ Account #42 (resuming)
+✓ 4 providers ready
+✓ Importing (800ms)
   ├─ Normal: 0 new (300ms)
   ├─ Internal: 0 new (200ms)
   ├─ Token Transfers: 0 new (200ms)
@@ -232,10 +577,13 @@ API Calls: 47 total
 ✓ Processing (100ms)
   └─ No transactions to process
 
-✓ Completed (900ms total)
+✓ Done (900ms)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API Calls: 4 · etherscan: 4
+4 API calls
+  alchemy       —            —        0 calls
+  etherscan     5.0 req/s   120ms     4 calls    4 ok (200)
+  moralis       —            —        0 calls
 ```
 
 ---
@@ -243,12 +591,12 @@ API Calls: 4 · etherscan: 4
 ### CSV Import (No API Calls)
 
 ```
-✓ Import from CSV (200ms)
+✓ Importing from CSV (200ms)
   └─ Trades: 142 new
 ✓ Processing (400ms)
   └─ 142 transactions enriched
 
-✓ Completed (600ms total)
+✓ Done (600ms)
 ```
 
 **✓ Answered:**
@@ -336,12 +684,15 @@ API Calls: 4 · etherscan: 4
 
 ## Answered Questions Summary
 
+**Note:** API footer format has been completely redesigned. See "Provider Metrics Footer Specification" section above for the new tabular design.
+
 ✓ **Final summary placement** - Bottom
-✓ **API stats expansion** - Yes, show OK/Rate-Limited/Error breakdown with HTTP codes
+✓ **API stats expansion** - Yes, tabular format with status dots, rates, latency, and color-coded counts
 ✓ **Token metadata** - Processing sub-line with provider/rate live, hit rate at completion
-✓ **Live API monitoring** - Yes, update every 250ms
-✓ **API breakdown format** - Both HTTP codes and counts
-✓ **Retry tracking** - Yes, separate from failures
+✓ **Live API monitoring** - Yes, update every 250ms with per-provider rows
+✓ **API breakdown format** - Tabular rows (not tree characters), HTTP codes in completion view
+✓ **Retry tracking** - Yes, shown in completion view
+✓ **Avg req/s in completion** - Yes, kept in same column as live rate
 ✓ **CSV imports** - No API section, simpler structure
 ✓ **Empty streams** - Say "No new transactions" when resuming
 ✓ **Resume tracking** - "x new" suffices for completed streams
@@ -349,6 +700,32 @@ API Calls: 4 · etherscan: 4
 ✓ **Page display** - Use **batches** instead (events already exist)
 ✓ **Items display** - Cumulative (increases "imported")
 ✓ **Information priority** - Confirmed correct
+
+### Reprocessing (Single Account)
+
+**Shows account info with transaction counts before processing:**
+
+```
+✓ Account #42 (resuming · 34,891 transactions)
+  normal: 32,717 · internal: 1,204 · token: 956 · beacon: 14
+⠋ Processing · 500ms
+  ├─ 847 / 34,891 raw transactions
+  ├─ Token metadata: 745 cached, 34 fetched · etherscan 3.1/4 req/s
+  └─ ⚠ 2 scam tokens (SHIB, PEPE)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+47 API calls
+  alchemy       ○ idle        140ms     2 ok
+  etherscan     ● 3.1 req/s   278ms    45 ok
+  moralis       ○ idle          —       0
+```
+
+**Notes:**
+
+- Same account display format as resuming import
+- Total transaction count from all stream types shown in parenthetical
+- Transaction breakdown by stream type on second line
+- Provides context about what's being reprocessed
 
 ## Final Decisions Summary
 
@@ -360,7 +737,8 @@ API Calls: 4 · etherscan: 4
 ✓ **Failover display** - Replace req/s temporarily, show 3 seconds
 ✓ **Failure display** - Expanded with details (Option A)
 ✓ **Processing phase** - Keep import streams visible; sub-lines: raw progress, token metadata (provider/rate live), scam tokens
-✓ **API calls** - Keep visible during processing
+✓ **API calls** - Keep visible during processing; tabular format (not tree characters)
+✓ **API footer design** - Tabular rows with status dots, rates, latency, color-coded counts; keeps avg req/s in completion view
 ✓ **Time precision** - Decimals (12.3s)
 ✓ **Account status** - Show account #, indicate if resuming
 ✓ **Resume cursor** - Don't show (future improvement)
@@ -372,7 +750,7 @@ API Calls: 4 · etherscan: 4
 ### Rate Limit (no flicker)
 
 ```
-⠋ Import · 2m 15s
+⠋ Importing · 2m 15s
   └─ Token Transfers: batch 12 · 2m 14s
      └─ 3,891 imported · ⏸ waiting 187ms (rate limit)
 ```
@@ -380,7 +758,7 @@ API Calls: 4 · etherscan: 4
 After wait completes:
 
 ```
-⠋ Import · 2m 15s
+⠋ Importing · 2m 15s
   └─ Token Transfers: batch 12 · 2m 14s
      └─ 3,891 imported · etherscan 3.2/4 req/s
 ```
@@ -388,7 +766,7 @@ After wait completes:
 ### Failover (no flicker)
 
 ```
-⠋ Import · 2m 15s
+⠋ Importing · 2m 15s
   └─ Token Transfers: batch 12 · 2m 14s
      └─ 3,891 imported · ↻ switched to alchemy (3s)
 ```
@@ -396,7 +774,7 @@ After wait completes:
 After 3 seconds:
 
 ```
-⠋ Import · 2m 15s
+⠋ Importing · 2m 15s
   └─ Token Transfers: batch 12 · 2m 14s
      └─ 3,891 imported · alchemy 2.1/4 req/s
 ```
@@ -406,22 +784,29 @@ After 3 seconds:
 **New account:**
 
 ```
-✓ 4 providers ready (91ms)
-✓ Account #42
-⠋ Import · 200ms
+✓ Created account #42
+✓ 4 providers ready
+⠋ Importing · 200ms
   └─ Normal: batch 1 · 200ms
 ```
 
 **Resuming account:**
 
 ```
-✓ 4 providers ready (91ms)
-✓ Account #42 (resuming from previous import)
-⠋ Import · 200ms
+✓ Account #42 (resuming · 34,891 transactions)
+  normal: 32,717 · internal: 1,204 · token: 956 · beacon: 14
+✓ 4 providers ready
+⠋ Importing · 200ms
   ├─ Normal: 0 new (300ms)
   └─ Token Transfers: batch 1 · 200ms
      └─ 127 imported · etherscan 3.2/4 req/s
 ```
+
+**Notes:**
+
+- Transaction counts shown on second line with inline `·` separators
+- Sorted by count descending for scannable hierarchy
+- Only shown when resuming (not for new accounts)
 
 ---
 
@@ -482,7 +867,7 @@ const STATUS_ICONS = {
 #### Import Phase Structure
 
 ```
-⠋ Import · {duration}
+⠋ Importing · {duration}
   ├─ {stream1}: {status}
   ├─ {stream2}: {status}
   └─ {streamN}: {status}
@@ -564,83 +949,186 @@ function formatRate(currentRate: number, maxRate: number): string {
 
 ### API Call Footer
 
+**See "Provider Metrics Footer Specification" section above for full details.**
+
 #### During Import (Live - Update every 250ms)
+
+**Tabular format - one row per provider:**
+
+Multiple providers:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API Calls: {total} · {provider1}: {count1} ({retries} retries, {rateLimited} rate-limited, {failed} failed), {provider2}: {count2}
+{totalCalls} API calls
+  {provider1}     {status} {rate}   {latency}    {counts}
+  {provider2}     {status} {rate}   {latency}    {counts}
+  {provider3}     {status} {rate}   {latency}    {counts}
+```
+
+Single provider (no header, no indent):
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{provider1}     {status} {rate}   {latency}    {counts}
+```
+
+**Column structure:**
+
+| Column        | Width    | Content                                   | Example                        |
+| ------------- | -------- | ----------------------------------------- | ------------------------------ |
+| Provider name | 12 chars | Left-aligned, truncate with `…` if needed | `etherscan  `                  |
+| Status + Rate | 18 chars | `● X.X req/s` (active) or `○ idle` (idle) | `● 3.2 req/s  `                |
+| Latency       | 6 chars  | Right-aligned, `Nms` or `—`               | ` 278ms`                       |
+| Counts        | Flexible | `N ok · N throttled · N err` (omit zeros) | `45 ok · 12 throttled · 2 err` |
+
+**Color mapping (picocolors):**
+
+```typescript
+// Active provider row
+`  ${providerName.padEnd(12)}  ${pc.green('●')} ${pc.cyan(rate.padEnd(10))}  ${pc.dim(latency.padStart(6))}   ${pc.green(`${ok} ok`)} · ${pc.yellow(`${throttled} throttled`)} · ${pc.red(`${err} err`)}`
+// Idle provider row (all dimmed)
+`  ${pc.dim(providerName.padEnd(12))}  ${pc.dim('○ idle'.padEnd(18))}  ${pc.dim(latency.padStart(6))}   ${pc.green(`${ok} ok`)}`
+// Zero-call provider (all dimmed except structure)
+`  ${pc.dim(providerName.padEnd(12))}  ${pc.dim('○ idle'.padEnd(18))}  ${pc.dim('—'.padStart(6))}   ${pc.dim('0')}`;
 ```
 
 **Rules:**
 
-1. Always show total first
-2. Show providers in alphabetical order
-3. Only show retries/rate-limited/failed if > 0
-4. If all zero, just show count: `provider: {count}`
-5. If count is 0, show: `provider: 0`
-6. If total is 0 (CSV imports), omit the footer entirely
+1. Static alphabetical order (never reorder)
+2. Active = `now - lastCallTime < 2s`
+3. Rate = instantaneous (recent calls / last 5 seconds)
+4. Omit footer entirely if `totalCalls === 0`
+5. Single provider: omit header and indent (flush left)
 
-**Examples:**
+**Data tracking per provider:**
 
-```
-API Calls: 47 · alchemy: 2, etherscan: 45 (10 retries, 12 rate-limited, 2 failed)
-API Calls: 12 · etherscan: 12
+```typescript
+interface ProviderMetrics {
+  totalCalls: number;
+  okCount: number;
+  throttledCount: number;
+  errorCount: number;
+  retryCount: number;
+  statusCodes: Map<number, number>; // For completion view
+  latencies: number[]; // For avg calculation
+  startTime: number;
+  lastCallTime: number;
+}
 ```
 
 #### After Completion (Detailed Breakdown)
 
+**Same structure, different semantics:**
+
+Multiple providers:
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API Calls: {total} total
-  ├─ {provider1}: {count} calls
-  │  ├─ OK: {okCount} ({statusCode})
-  │  ├─ Rate Limited: {rateLimitCount} ({statusCode})
-  │  ├─ Retries: {retryCount}
-  │  └─ Error: {errorCount} ({statusCode})
-  ├─ {provider2}: {count} calls
-  │  └─ OK: {okCount} ({statusCode})
-  └─ {providerN}: {count} calls
+{totalCalls} API calls
+  {provider1}     {avgRate}   {avgLatency}    {totalCalls} calls   {breakdown}
+  {provider2}     {avgRate}   {avgLatency}    {totalCalls} calls   {breakdown}
+  {provider3}     {avgRate}   {avgLatency}    {totalCalls} calls   {breakdown}
 ```
 
-**Rules:**
-
-1. Only show OK/Rate Limited/Retries/Error lines if > 0
-2. If provider has only OK responses, use single line: `└─ OK: {count} ({statusCode})`
-3. Show providers in alphabetical order
-4. Show providers with 0 calls: `{provider}: 0 calls`
-
-### Warning/Error Footer
-
-**Format:**
+Single provider (no header, no indent):
 
 ```
-⚠ Completed with {warningCount} warning(s) ({totalDuration} total)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{provider1}     {avgRate}   {avgLatency}    {totalCalls} calls   {breakdown}
+```
+
+**Changes from live:**
+
+1. **No status dots** (all done)
+2. **Avg rate** = `totalCalls / (endTime - startTime)` (still cyan)
+3. **HTTP status codes** in dimmed parens: `31 ok (200) · 12 throttled (429)`
+4. **Retries** shown explicitly: `10 retries`
+5. **Zero-call providers**: `—` for rate and latency, `0 calls` for counts
+
+**Breakdown format:**
+
+- Full: `N ok (XXX) · N throttled (XXX) · N retries · N err (XXX)`
+- Omit zero counts
+- Status codes in dimmed parens
+- Example: `31 ok (200) · 12 throttled (429) · 10 retries · 2 err (503)`
+
+**Color mapping (changes from live):**
+
+```typescript
+// Completed row with details
+`  ${providerName.padEnd(12)}  ${pc.cyan(avgRate.padEnd(10))}  ${pc.dim(avgLatency.padStart(6))}   ${totalCalls} calls   ${pc.green(`${ok} ok`)} ${pc.dim(`(${statusCode})}`)} · ${pc.yellow(`${throttled} throttled`)} ${pc.dim(`(429)`)} · ${pc.yellow(`${retries} retries`)} · ${pc.red(`${err} err`)} ${pc.dim(`(503)`)}`
+// Zero-call provider
+`  ${pc.dim(providerName.padEnd(12))}  ${pc.dim('—'.padEnd(18))}  ${pc.dim('—'.padStart(6))}   ${pc.dim('0 calls')}`;
+```
+
+**Color rules:**
+
+- All provider names: normal white (no dimming)
+- Avg rate: cyan (same as live)
+- Status codes `(200)` `(429)`: dimmed
+- `retries`: yellow (groups with throttled)
+- Everything else: same as live
+
+### Completion Status
+
+**Success (no warnings):**
+
+```
+✓ Done ({totalDuration})
+```
+
+**Aborted (Ctrl-C or error):**
+
+```
+⚠ Aborted ({totalDuration})
+```
+
+**With warnings:**
+
+```
+⚠ Completed with {warningCount} warning(s) ({totalDuration})
    {warningMessage1}
    {warningMessage2}
 ```
 
 **Rules:**
 
-1. Only show if warnings exist
-2. Show total duration in parens
-3. Each warning message on new line with 3-space indent
-4. Use singular "warning" if count is 1
+1. Always shown when `isComplete` is true
+2. Priority: `aborted` flag → warnings → success
+3. Show `⚠ Aborted` if aborted flag set (Ctrl-C or fatal error)
+4. Show `⚠ Completed with N warnings` if warnings exist
+5. Show `✓ Done` for clean success
+6. Duration without "total" suffix
+7. Each warning message on new line with 3-space indent
+8. Use singular "warning" if count is 1
+9. Appears BEFORE the API footer (completion status → API stats)
+
+**Implementation:**
+
+Ctrl-C (SIGINT) is handled gracefully:
+
+- Signal handler calls `dashboard.abort()` which sets `state.aborted = true`
+- Dashboard re-renders with abort state
+- Process exits after 500ms delay to allow final render
+- Same handler applies to both `import` and `reprocess` commands
 
 ### Account Status
 
 **New account (first import):**
 
 ```
-✓ Account #{accountId}
+✓ Created account #{accountId}
 ```
 
 **Resuming account:**
 
 ```
-✓ Account #{accountId} (resuming from previous import)
+✓ Account #{accountId} (resuming)
 ```
 
-**Rule:** Determine by checking if account has existing transactions in database.
+**Display order:** Account comes FIRST, before provider readiness (account answers "what am I operating on?", then providers answer "what tools do I have?")
+
+**Rule:** Determined by the `isNewAccount` flag from `import.started` event (false means has prior data).
 
 ### Transient Messages (Rate Limit & Failover)
 
@@ -694,7 +1182,7 @@ const TREE_CHARS = {
 **Usage:**
 
 ```
-Import
+Importing
 ├─ Stream 1         ← branch
 ├─ Stream 2         ← branch
 └─ Stream 3         ← last
@@ -713,7 +1201,7 @@ Import
 **No API calls - omit footer:**
 
 ```
-✓ Import from CSV ({duration})
+✓ Importing from CSV ({duration})
   └─ {streamName}: {count} new
 ✓ Processing ({duration})
   └─ {count} transactions enriched

@@ -2,6 +2,8 @@
  * Dashboard Controller - Manages dashboard lifecycle and updates
  */
 
+import { performance } from 'node:perf_hooks';
+
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector } from '@exitbook/http';
@@ -57,6 +59,39 @@ export class DashboardController {
 
     // Start refresh loop
     this.startRefreshLoop();
+  }
+
+  /**
+   * Mark the operation as aborted (for Ctrl-C or fatal errors)
+   */
+  abort(): void {
+    this.state.aborted = true;
+    this.state.isComplete = true;
+    this.state.errorMessage = undefined;
+    this.state.totalDurationMs = this.state.import?.startedAt
+      ? performance.now() - this.state.import.startedAt
+      : undefined;
+    this.rerender();
+  }
+
+  /**
+   * Mark the operation as failed (for errors)
+   */
+  fail(errorMessage: string): void {
+    this.state.errorMessage = errorMessage;
+    this.state.aborted = false;
+    this.state.isComplete = true;
+    this.state.totalDurationMs = this.state.import?.startedAt
+      ? performance.now() - this.state.import.startedAt
+      : undefined;
+
+    // Stop processing spinner if processing was active
+    if (this.state.processing && this.state.processing.status === 'active') {
+      this.state.processing.status = 'failed';
+      this.state.processing.completedAt = performance.now();
+    }
+
+    this.rerender();
   }
 
   /**

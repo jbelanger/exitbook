@@ -116,6 +116,29 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
   // Create services using factory
   const services = await createImportServices();
 
+  // Handle Ctrl-C gracefully
+  let abortHandler: (() => void) | undefined;
+  if (useInk) {
+    abortHandler = () => {
+      // Remove handler to prevent multiple triggers
+      if (abortHandler) {
+        process.off('SIGINT', abortHandler);
+      }
+
+      // Mark as aborted and stop gracefully
+      services.dashboard.abort();
+      services.dashboard.stop().catch(() => {
+        /* ignore cleanup errors on abort */
+      });
+      services.cleanup().catch(() => {
+        /* ignore cleanup errors on abort */
+      });
+      resetLoggerContext();
+      process.exit(130); // Standard exit code for SIGINT
+    };
+    process.on('SIGINT', abortHandler);
+  }
+
   try {
     // Resolve import parameters
     const params = unwrapResult(buildImportParams(options));
@@ -186,6 +209,10 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
     resetLoggerContext();
     process.exit(ExitCodes.GENERAL_ERROR);
   } finally {
+    // Remove signal handler
+    if (abortHandler) {
+      process.off('SIGINT', abortHandler);
+    }
     // Cleanup runs in success path (error path handles it explicitly)
     await services.cleanup();
     resetLoggerContext();
@@ -203,9 +230,9 @@ async function handleCommandError(
   output: OutputManager
 ): Promise<void> {
   if (useInk) {
-    // Stop dashboard and show error via stderr
+    dashboard.fail(errorMessage);
+    // Stop dashboard (dashboard renders the error inline)
     await dashboard.stop();
-    process.stderr.write(`\n❌ Error: ${errorMessage}\n`);
   } else {
     output.error('import', new Error(errorMessage), ExitCodes.GENERAL_ERROR);
   }
@@ -231,7 +258,6 @@ function handleImportSuccess(output: OutputManager, importResult: ImportResultWi
   const firstSession = importResult.sessions[0];
   const sourceIsBlockchain = params.sourceType === 'blockchain';
 
-  // Prepare result data (compact, account-centric)
   const inputData = {
     csvDir: params.csvDirectory,
     address: params.address,
@@ -240,15 +266,18 @@ function handleImportSuccess(output: OutputManager, importResult: ImportResultWi
     blockchain: sourceIsBlockchain ? params.sourceName : undefined,
   };
 
-  const status = importResult.processingErrors?.length ? 'warning' : 'success';
-  const sessionSummaries = includeSessions
-    ? importResult.sessions.map((s) => ({
-        id: s.id,
-        startedAt: s.startedAt ? new Date(s.startedAt).toISOString() : undefined,
-        completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : undefined,
-        status: s.status,
-      }))
-    : undefined;
+  const hasProcessingErrors = importResult.processingErrors && importResult.processingErrors.length > 0;
+  const status = hasProcessingErrors ? 'warning' : 'success';
+
+  let sessionSummaries: ImportSessionSummary[] | undefined;
+  if (includeSessions) {
+    sessionSummaries = importResult.sessions.map((s) => ({
+      id: s.id,
+      startedAt: s.startedAt ? new Date(s.startedAt).toISOString() : undefined,
+      completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : undefined,
+      status: s.status,
+    }));
+  }
 
   const resultData: ImportCommandResult = {
     status,

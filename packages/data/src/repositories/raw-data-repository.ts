@@ -81,6 +81,12 @@ export interface IRawDataRepository {
   countPending(accountId: number): Promise<Result<number, Error>>;
 
   /**
+   * Count transactions by stream type for an account.
+   * Returns a map of transaction_type_hint -> count.
+   */
+  countByStreamType(accountId: number): Promise<Result<Map<string, number>, Error>>;
+
+  /**
    * Delete all raw data for an account.
    */
   deleteByAccount(accountId: number): Promise<Result<number, Error>>;
@@ -458,6 +464,28 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
+  async countByStreamType(accountId: number): Promise<Result<Map<string, number>, Error>> {
+    try {
+      const results = await this.db
+        .selectFrom('raw_transactions')
+        .select(['transaction_type_hint', ({ fn }) => fn.count<number>('id').as('count')])
+        .where('account_id', '=', accountId)
+        .groupBy('transaction_type_hint')
+        .execute();
+
+      const countMap = new Map<string, number>();
+      for (const row of results) {
+        if (row.transaction_type_hint) {
+          countMap.set(row.transaction_type_hint, row.count);
+        }
+      }
+
+      return ok(countMap);
+    } catch (error) {
+      return wrapError(error, 'Failed to count raw data by stream type');
+    }
+  }
+
   async deleteByAccount(accountId: number): Promise<Result<number, Error>> {
     try {
       const result = await this.db
@@ -760,21 +788,25 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
   }
 
   private stableStringify(value: unknown): string {
-    const normalize = (input: unknown): unknown => {
+    function normalize(input: unknown): unknown {
       if (Array.isArray(input)) {
         return input.map(normalize);
       }
+
       if (input && typeof input === 'object') {
         const record = input as Record<string, unknown>;
         const sortedKeys = Object.keys(record).sort();
         const result: Record<string, unknown> = {};
+
         for (const key of sortedKeys) {
           result[key] = normalize(record[key]);
         }
+
         return result;
       }
+
       return input;
-    };
+    }
 
     return JSON.stringify(normalize(value));
   }

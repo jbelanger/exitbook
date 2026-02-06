@@ -116,25 +116,14 @@ export class ImportExecutor {
     let totalSkipped = 0;
     let totalFetchedRun = 0;
 
-    let resuming: boolean;
-
     if (incompleteImportSession) {
       importSessionId = incompleteImportSession.id;
       totalImported = incompleteImportSession.transactionsImported || 0;
       totalSkipped = incompleteImportSession.transactionsSkipped || 0;
-      resuming = true;
 
       this.logger.info(
         `Resuming import from import session #${importSessionId} (total so far: ${totalImported} imported, ${totalSkipped} skipped)`
       );
-
-      this.eventBus?.emit({
-        type: 'import.session.resumed',
-        sessionId: importSessionId,
-        accountId: account.id,
-        sourceName,
-        fromCursor: account.lastCursor?.cursor?.primary.value ?? 0,
-      });
 
       // Reset status to 'started' in case the previous attempt failed
       const updateResult = await this.importSessionRepository.update(importSessionId, { status: 'started' });
@@ -148,16 +137,19 @@ export class ImportExecutor {
       }
 
       importSessionId = importSessionCreateResult.value;
-      resuming = false;
 
       this.logger.info(`Created new import session #${importSessionId}`);
+    }
 
-      this.eventBus?.emit({
-        type: 'import.session.created',
-        sessionId: importSessionId,
-        accountId: account.id,
-        sourceName,
-      });
+    const isNewAccount = account.lastCursor === null;
+
+    // Fetch transaction counts by stream type for existing accounts
+    let transactionCounts: Map<string, number> | undefined;
+    if (!isNewAccount) {
+      const countsResult = await this.rawDataRepository.countByStreamType(account.id);
+      if (countsResult.isOk()) {
+        transactionCounts = countsResult.value;
+      }
     }
 
     this.eventBus?.emit({
@@ -165,8 +157,9 @@ export class ImportExecutor {
       sourceName,
       sourceType: account.accountType,
       accountId: account.id,
-      resuming,
+      isNewAccount,
       address: account.accountType === 'blockchain' ? account.identifier : undefined,
+      transactionCounts,
     });
 
     const startTime = Date.now();

@@ -49,6 +49,7 @@ describe('ExportHandler', () => {
     accountId: 1,
     externalId: `ext-${id}`,
     source: source,
+    sourceType: 'exchange',
     operation: { category: 'trade', type: 'buy' },
     datetime: '2024-01-01T12:00:00Z',
     timestamp: Date.parse('2024-01-01T12:00:00Z'),

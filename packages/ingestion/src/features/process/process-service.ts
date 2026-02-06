@@ -64,12 +64,20 @@ export class TransactionProcessService {
 
     const startTime = Date.now();
     try {
-      // Count total raw data to process
+      // Count total raw data to process and collect transaction counts by stream type
       let totalRaw = 0;
+      const accountTransactionCounts = new Map<number, Map<string, number>>();
+
       for (const accountId of accountIds) {
         const countResult = await this.rawDataRepository.countPending(accountId);
         if (countResult.isOk()) {
           totalRaw += countResult.value;
+        }
+
+        // Fetch transaction counts by stream type for dashboard display
+        const streamCountsResult = await this.rawDataRepository.countByStreamType(accountId);
+        if (streamCountsResult.isOk()) {
+          accountTransactionCounts.set(accountId, streamCountsResult.value);
         }
       }
 
@@ -78,6 +86,7 @@ export class TransactionProcessService {
         type: 'process.started',
         accountIds,
         totalRaw,
+        accountTransactionCounts: accountTransactionCounts.size > 0 ? accountTransactionCounts : undefined,
       });
 
       // Process each account
@@ -382,10 +391,9 @@ export class TransactionProcessService {
       return ok({ errors: [], failed: 0, processed: 0 });
     }
 
-    // Log completion message
     const accountLabel = `Account ${accountId} (${sourceName})`.padEnd(25);
+
     if (batchNumber === 1) {
-      // Single batch - simpler message
       const skippedCount = totalProcessed - totalSaved;
       if (skippedCount > 0) {
         this.logger.info(`• ${accountLabel}: Correlated ${totalProcessed} items into ${totalSaved} transactions.`);
@@ -393,7 +401,6 @@ export class TransactionProcessService {
         this.logger.info(`• ${accountLabel}: Processed ${totalProcessed} items.`);
       }
     } else {
-      // Multiple batches - show batch count
       this.logger.info(`• ${accountLabel}: Processed ${totalProcessed} items in ${batchNumber} batches.`);
     }
 
@@ -464,14 +471,17 @@ export class TransactionProcessService {
 
   private normalizeRawData(rawDataItems: RawTransaction[], sourceType: string): Result<unknown[], Error> {
     const normalizedRawDataItems: unknown[] = [];
+    const isExchange = sourceType === 'exchange-api' || sourceType === 'exchange-csv';
 
     for (const item of rawDataItems) {
-      if (sourceType === 'exchange-api' || sourceType === 'exchange-csv') {
+      if (isExchange) {
         let normalizedData: unknown = item.normalizedData;
 
-        if (!normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0) {
+        const isEmpty = !normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0;
+        if (isEmpty) {
           normalizedData = item.providerData;
         }
+
         const dataPackage = {
           raw: item.providerData,
           normalized: normalizedData,
@@ -480,7 +490,9 @@ export class TransactionProcessService {
         normalizedRawDataItems.push(dataPackage);
       } else {
         const normalizedData: unknown = item.normalizedData;
-        if (!normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0) {
+        const isEmpty = !normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0;
+
+        if (isEmpty) {
           return err(
             new Error(
               `Missing normalized_data for blockchain raw transaction ${item.id} (eventId: ${item.eventId}). ` +
@@ -488,6 +500,7 @@ export class TransactionProcessService {
             )
           );
         }
+
         const validationResult = NormalizedTransactionBaseSchema.safeParse(normalizedData);
         if (!validationResult.success) {
           return err(
@@ -497,6 +510,7 @@ export class TransactionProcessService {
             )
           );
         }
+
         normalizedRawDataItems.push(normalizedData);
       }
     }
