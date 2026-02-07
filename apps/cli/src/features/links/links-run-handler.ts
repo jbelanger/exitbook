@@ -251,8 +251,24 @@ export class LinksRunHandler {
 
   /**
    * Build a minimal TransactionLink from an orphaned override.
-   * Amounts and match criteria are unknown since the algorithm didn't find this pair,
-   * so we use zero/sentinel values and mark it as override-created.
+   *
+   * An orphaned override occurs when the user confirmed a link between two transactions,
+   * but the algorithm didn't rediscover that link during reprocessing (e.g., due to
+   * timing or amount differences). We still honor the user's decision by creating a
+   * confirmed link.
+   *
+   * Since the algorithm didn't match these transactions, we don't have computed amounts
+   * or similarity scores. We use sentinel values to indicate this is a user override:
+   *
+   * Sentinel values (and why they're acceptable):
+   * - sourceAmount/targetAmount: 0 (actual amounts unknown - link is user-created, not algorithm-matched)
+   * - amountSimilarity: 0 (similarity not computed for user overrides)
+   * - timingHours: 0 (timing not validated for user overrides)
+   * - confidenceScore: 1.0 (user confirmation = highest confidence)
+   * - assetMatch: true (asset is known from the override event)
+   * - timingValid: true (we trust the user's judgment)
+   *
+   * The metadata.overrideId field links this back to the original override event.
    */
   private buildLinkFromOrphanedOverride(entry: OrphanedLinkOverride): TransactionLink {
     const now = new Date();
@@ -263,15 +279,15 @@ export class LinksRunHandler {
       sourceTransactionId: entry.sourceTransactionId,
       targetTransactionId: entry.targetTransactionId,
       assetSymbol: entry.assetSymbol,
-      sourceAmount: zero,
-      targetAmount: zero,
+      sourceAmount: zero, // Sentinel: unknown (user override, not algorithm match)
+      targetAmount: zero, // Sentinel: unknown (user override, not algorithm match)
       linkType: entry.linkType as TransactionLink['linkType'],
-      confidenceScore: parseDecimal('1'),
+      confidenceScore: parseDecimal('1'), // User confirmation = highest confidence
       matchCriteria: {
-        assetMatch: true,
-        amountSimilarity: zero,
-        timingValid: true,
-        timingHours: 0,
+        assetMatch: true, // Known from override event
+        amountSimilarity: zero, // Sentinel: not computed for user overrides
+        timingValid: true, // Trust user's judgment
+        timingHours: 0, // Sentinel: not validated for user overrides
       },
       status: 'confirmed',
       reviewedBy: entry.override.actor,

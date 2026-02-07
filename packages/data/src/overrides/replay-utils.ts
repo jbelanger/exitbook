@@ -48,6 +48,26 @@ export function buildFingerprintMap(transactions: TransactionWithFingerprint[]):
 }
 
 /**
+ * Build both fingerprint and ID lookup maps in a single pass
+ * More efficient than calling buildFingerprintMap separately when both maps are needed
+ */
+function buildTransactionMaps(transactions: TransactionWithFingerprint[]): {
+  fingerprintMap: Map<string, number>;
+  txById: Map<number, TransactionWithFingerprint>;
+} {
+  const fingerprintMap = new Map<string, number>();
+  const txById = new Map<number, TransactionWithFingerprint>();
+
+  for (const tx of transactions) {
+    const fingerprint = `${tx.source}:${tx.externalId}`;
+    fingerprintMap.set(fingerprint, tx.id);
+    txById.set(tx.id, tx);
+  }
+
+  return { fingerprintMap, txById };
+}
+
+/**
  * Resolve transaction ID from fingerprint
  * Returns null if fingerprint not found
  */
@@ -153,15 +173,19 @@ function projectOverrideState(
           lastEvent: override,
         });
       } else {
-        // Unlink without prior link event - create minimal reject state
-        // Transaction details will be filled in later if we find the link
+        // Unlink without prior link event - create minimal reject state.
+        // This can occur when a user rejects an algorithm-generated link before
+        // any confirm event. The placeholder values (-1, '') indicate that we
+        // don't have full transaction details yet. If the final projected state
+        // is still 'reject', no link will be created. If a later link event
+        // arrives, it will update this state with real transaction details.
         overrideStates.set(linkFingerprint, {
           action: 'reject',
           lastEvent: override,
-          sourceTransactionId: -1, // Placeholder
-          targetTransactionId: -1, // Placeholder
-          assetSymbol: '', // Placeholder
-          linkType: '', // Placeholder
+          sourceTransactionId: -1, // Placeholder - will be replaced if link event arrives
+          targetTransactionId: -1, // Placeholder - will be replaced if link event arrives
+          assetSymbol: '', // Placeholder - will be replaced if link event arrives
+          linkType: '', // Placeholder - will be replaced if link event arrives
         });
       }
     }
@@ -191,17 +215,12 @@ export function applyLinkOverrides(
   transactions: TransactionWithFingerprint[]
 ): Result<{ links: LinkWithStatus[]; orphaned: OrphanedLinkOverride[]; unresolved: OverrideEvent[] }, Error> {
   try {
-    const fingerprintMap = buildFingerprintMap(transactions);
+    // Build both lookup maps in a single pass for efficiency
+    const { fingerprintMap, txById } = buildTransactionMaps(transactions);
     const orphaned: OrphanedLinkOverride[] = [];
 
     // Filter to link-related overrides
     const linkOverrides = overrides.filter((o) => o.scope === 'link' || o.scope === 'unlink');
-
-    // Build a map of transaction ID → transaction for O(1) lookup
-    const txById = new Map<number, TransactionWithFingerprint>();
-    for (const tx of transactions) {
-      txById.set(tx.id, tx);
-    }
 
     // Build a map of link fingerprints to link objects for fast lookup
     const linkMap = new Map<string, LinkWithStatus>();

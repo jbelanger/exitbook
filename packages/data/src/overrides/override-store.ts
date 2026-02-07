@@ -20,10 +20,20 @@ import type { CreateOverrideEventOptions } from './override.types.js';
  *
  * Format: JSONL (JSON Lines) - one JSON object per line
  * Location: ${EXITBOOK_DATA_DIR}/overrides.jsonl
+ *
+ * Example content:
+ * {"id":"abc-123","created_at":"2024-01-15T10:00:00Z","actor":"user","source":"cli","scope":"link","payload":{...}}
+ * {"id":"def-456","created_at":"2024-01-15T11:00:00Z","actor":"user","source":"cli","scope":"price","payload":{...}}
+ *
+ * Events are replayed in chronological order during reprocessing.
+ *
+ * Concurrency: Uses a write queue to serialize append operations and prevent
+ * interleaved writes that could corrupt the JSONL format.
  */
 export class OverrideStore {
   private readonly filePath: string;
   private readonly logger: Logger;
+  private writeQueue: Promise<unknown> = Promise.resolve();
 
   constructor(dataDir?: string) {
     const dir = dataDir ?? getDataDirectory();
@@ -34,46 +44,19 @@ export class OverrideStore {
   /**
    * Append a new override event to the store
    * Returns the created event with generated ID and timestamp
+   *
+   * Thread-safe: Uses a write queue to serialize appends and prevent
+   * concurrent writes from corrupting the JSONL file.
    */
   async append(options: CreateOverrideEventOptions): Promise<Result<OverrideEvent, Error>> {
-    try {
-      const event: OverrideEvent = {
-        id: randomUUID(),
-        created_at: new Date().toISOString(),
-        actor: 'user',
-        source: 'cli',
-        scope: options.scope,
-        payload: options.payload,
-        reason: options.reason,
-      };
+    // Queue this write to ensure serialization
+    this.writeQueue = this.writeQueue
+      .then(() => this.appendImpl(options))
+      .catch(() => {
+        /* empty */
+      }); // Prevent queue from stopping on error
 
-      // Validate event with schema
-      const validationResult = OverrideEventSchema.safeParse(event);
-      if (!validationResult.success) {
-        this.logger.error({ validationError: validationResult.error, event }, 'Invalid override event');
-        return err(new Error(`Invalid override event: ${validationResult.error.message}`));
-      }
-
-      // Ensure directory exists
-      const dir = path.dirname(this.filePath);
-      await mkdir(dir, { recursive: true });
-
-      // Append event as JSONL (one line)
-      const line = JSON.stringify(event) + '\n';
-      await appendFile(this.filePath, line, 'utf-8');
-
-      this.logger.info(
-        {
-          eventId: event.id,
-          scope: event.scope,
-        },
-        'Appended override event'
-      );
-
-      return ok(event);
-    } catch (error) {
-      return wrapError(error, 'Failed to append override event');
-    }
+    return this.writeQueue as Promise<Result<OverrideEvent, Error>>;
   }
 
   /**
@@ -155,5 +138,49 @@ export class OverrideStore {
    */
   exists(): boolean {
     return existsSync(this.filePath);
+  }
+
+  /**
+   * Internal implementation of append operation
+   */
+  private async appendImpl(options: CreateOverrideEventOptions): Promise<Result<OverrideEvent, Error>> {
+    try {
+      const event: OverrideEvent = {
+        id: randomUUID(),
+        created_at: new Date().toISOString(),
+        actor: 'user',
+        source: 'cli',
+        scope: options.scope,
+        payload: options.payload,
+        reason: options.reason,
+      };
+
+      // Validate event with schema
+      const validationResult = OverrideEventSchema.safeParse(event);
+      if (!validationResult.success) {
+        this.logger.error({ validationError: validationResult.error, event }, 'Invalid override event');
+        return err(new Error(`Invalid override event: ${validationResult.error.message}`));
+      }
+
+      // Ensure directory exists
+      const dir = path.dirname(this.filePath);
+      await mkdir(dir, { recursive: true });
+
+      // Append event as JSONL (one line)
+      const line = JSON.stringify(event) + '\n';
+      await appendFile(this.filePath, line, 'utf-8');
+
+      this.logger.info(
+        {
+          eventId: event.id,
+          scope: event.scope,
+        },
+        'Appended override event'
+      );
+
+      return ok(event);
+    } catch (error) {
+      return wrapError(error, 'Failed to append override event');
+    }
   }
 }
