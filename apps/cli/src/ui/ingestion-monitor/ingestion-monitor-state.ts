@@ -2,7 +2,9 @@
  * Dashboard State - Operation tree model
  */
 
-export type OperationStatus = 'active' | 'completed' | 'warning' | 'failed';
+import type { OperationStatus } from '../shared/index.js';
+
+export type { OperationStatus };
 
 /**
  * Transient provider status (rate limit backoff or failover notification).

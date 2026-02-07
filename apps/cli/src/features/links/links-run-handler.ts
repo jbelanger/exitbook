@@ -33,10 +33,16 @@ const logger = getLogger('LinksRunHandler');
  * Result of the links run operation.
  */
 export interface LinksRunResult {
-  /** Number of confirmed links (auto-confirmed) */
+  /** Number of existing links cleared before running (undefined if none or dry run) */
+  existingLinksCleared?: number | undefined;
+
+  /** Number of internal links (same tx hash) */
+  internalLinksCount: number;
+
+  /** Number of confirmed links (auto-confirmed, ≥95%) */
   confirmedLinksCount: number;
 
-  /** Number of suggested links (needs manual review) */
+  /** Number of suggested links (needs manual review, 70-95%) */
   suggestedLinksCount: number;
 
   /** Total source transactions analyzed */
@@ -50,6 +56,9 @@ export interface LinksRunResult {
 
   /** Number of unmatched target transactions */
   unmatchedTargetCount: number;
+
+  /** Total links saved to database (undefined if dry run) */
+  totalSaved?: number | undefined;
 
   /** Whether this was a dry run */
   dryRun: boolean;
@@ -84,6 +93,7 @@ export class LinksRunHandler {
       if (transactions.length === 0) {
         logger.warn('No transactions found to link');
         return ok({
+          internalLinksCount: 0,
           confirmedLinksCount: 0,
           suggestedLinksCount: 0,
           totalSourceTransactions: 0,
@@ -92,6 +102,24 @@ export class LinksRunHandler {
           unmatchedTargetCount: 0,
           dryRun: params.dryRun,
         });
+      }
+
+      // Count existing links before clearing (only if not dry run)
+      let existingLinksCleared: number | undefined = undefined;
+      if (!params.dryRun) {
+        const existingCountResult = await this.linkRepository.countAll();
+        if (existingCountResult.isOk()) {
+          const existingCount = existingCountResult.value;
+          if (existingCount > 0) {
+            // Clear existing links to avoid duplicates
+            const deleteResult = await this.linkRepository.deleteAll();
+            if (deleteResult.isErr()) {
+              return err(deleteResult.error);
+            }
+            existingLinksCleared = existingCount;
+            logger.info({ count: existingCount }, 'Cleared existing links');
+          }
+        }
       }
 
       // Create linking service with custom config
@@ -142,23 +170,31 @@ export class LinksRunHandler {
         }
       }
 
-      // Apply override events (confirm/reject) on top of algorithm results
-      const overrideAdjustedLinks = await this.applyOverrides(allLinks, transactions);
+      // Count internal links discovered by the matching algorithm (before override replay)
+      const internalLinks = allLinks.filter((l) => l.linkType === 'blockchain_internal');
 
-      // Count adjusted results
-      const adjustedConfirmed = overrideAdjustedLinks.filter((l) => l.status === 'confirmed');
-      const adjustedSuggested = overrideAdjustedLinks.filter((l) => l.status === 'suggested');
+      // Apply override events (confirm/reject) on top of algorithm results for all links
+      const finalLinks = await this.applyOverrides(allLinks, transactions);
+
+      // Count final results by status
+      const adjustedConfirmed = finalLinks.filter(
+        (l) => l.status === 'confirmed' && l.linkType !== 'blockchain_internal'
+      );
+      const adjustedSuggested = finalLinks.filter((l) => l.status === 'suggested');
+      const internalLinksCount = internalLinks.length;
       // Rejected links are excluded from saving
 
       // Save links to database (unless dry-run)
+      let totalSaved: number | undefined = undefined;
       if (!params.dryRun) {
-        const linksToSave = overrideAdjustedLinks.filter((l) => l.status !== 'rejected');
+        const linksToSave = finalLinks.filter((l) => l.status !== 'rejected');
 
         if (linksToSave.length > 0) {
           const saveResult = await this.linkRepository.createBulk(linksToSave);
           if (saveResult.isErr()) {
             return err(saveResult.error);
           }
+          totalSaved = saveResult.value;
           logger.info({ count: saveResult.value }, 'Saved links to database');
         }
       } else {
@@ -166,12 +202,15 @@ export class LinksRunHandler {
       }
 
       return ok({
+        existingLinksCleared,
+        internalLinksCount,
         confirmedLinksCount: adjustedConfirmed.length,
         suggestedLinksCount: adjustedSuggested.length,
         totalSourceTransactions,
         totalTargetTransactions,
         unmatchedSourceCount,
         unmatchedTargetCount,
+        totalSaved,
         dryRun: params.dryRun,
       });
     } catch (error) {

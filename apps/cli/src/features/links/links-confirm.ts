@@ -2,8 +2,12 @@
 
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import { render } from 'ink';
+import React from 'react';
 import type { z } from 'zod';
 
+import { LinkActionError, LinkActionResult } from '../../ui/links/index.js';
+import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { LinksConfirmCommandOptionsSchema } from '../shared/schemas.js';
@@ -45,21 +49,18 @@ export function registerLinksConfirmCommand(linksCommand: Command): void {
 async function executeLinksConfirmCommand(linkId: string, rawOptions: unknown): Promise<void> {
   // Validate linkId argument
   if (!linkId || linkId.trim() === '') {
-    const output = new OutputManager('text');
-    output.error('links-confirm', new Error('Link ID is required'), ExitCodes.INVALID_ARGS);
-    return;
+    displayCliError('links-confirm', new Error('Link ID is required'), ExitCodes.INVALID_ARGS, 'text');
   }
 
   // Validate options at CLI boundary
   const parseResult = LinksConfirmCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager('text');
-    output.error(
+    displayCliError(
       'links-confirm',
       new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS
+      ExitCodes.INVALID_ARGS,
+      'text'
     );
-    return;
   }
 
   const options = parseResult.data;
@@ -98,7 +99,19 @@ async function executeLinksConfirmCommand(linkId: string, rawOptions: unknown): 
     resetLoggerContext();
 
     if (result.isErr()) {
-      spinner?.stop('Failed to confirm link');
+      spinner?.stop();
+
+      if (output.isTextMode()) {
+        // Render error with Ink
+        const { unmount } = render(
+          React.createElement(LinkActionError, {
+            linkId,
+            message: result.error.message,
+          })
+        );
+        setTimeout(() => unmount(), 100);
+      }
+
       output.error('links-confirm', result.error, ExitCodes.GENERAL_ERROR);
       return;
     }
@@ -115,19 +128,50 @@ async function executeLinksConfirmCommand(linkId: string, rawOptions: unknown): 
  */
 function handleLinksConfirmSuccess(
   output: OutputManager,
-  result: { linkId: string; newStatus: 'confirmed'; reviewedAt: Date; reviewedBy: string },
+  result: {
+    asset?: string | undefined;
+    confidence?: string | undefined;
+    linkId: string;
+    newStatus: 'confirmed';
+    reviewedAt: Date;
+    reviewedBy: string;
+    sourceAmount?: string | undefined;
+    sourceName?: string | undefined;
+    targetAmount?: string | undefined;
+    targetName?: string | undefined;
+  },
   spinner: ReturnType<OutputManager['spinner']>
 ): void {
-  spinner?.stop('Link confirmed successfully');
+  spinner?.stop();
 
   if (output.isTextMode()) {
-    console.log('');
-    console.log('✓ Link confirmed successfully!');
-    console.log(`  Link ID: ${result.linkId}`);
-    console.log(`  Status: ${result.newStatus}`);
-    console.log(`  Reviewed at: ${result.reviewedAt.toISOString()}`);
-    console.log('');
-    console.log('This link will now be used for price enrichment and cost basis calculations.');
+    // Render Ink component for rich display
+    if (
+      result.asset &&
+      result.sourceAmount &&
+      result.targetAmount &&
+      result.sourceName &&
+      result.targetName &&
+      result.confidence
+    ) {
+      const { unmount } = render(
+        React.createElement(LinkActionResult, {
+          action: 'confirmed',
+          linkId: result.linkId,
+          asset: result.asset,
+          sourceAmount: result.sourceAmount,
+          targetAmount: result.targetAmount,
+          sourceName: result.sourceName,
+          targetName: result.targetName,
+          confidence: result.confidence,
+        })
+      );
+      // Unmount immediately after rendering (single-line output)
+      setTimeout(() => unmount(), 100);
+    } else {
+      // Fallback for missing data
+      console.log(`✓ Link ${result.linkId} confirmed successfully`);
+    }
   }
 
   const resultData: LinksConfirmCommandResult = {

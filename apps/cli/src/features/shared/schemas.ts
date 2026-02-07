@@ -254,7 +254,7 @@ export const LinksRejectCommandOptionsSchema = JsonFlagSchema;
  * Gaps view command options
  */
 export const GapsViewCommandOptionsSchema = z.object({
-  category: z.enum(['fees', 'prices', 'links', 'validation']).optional(),
+  category: z.enum(['links', 'prices', 'validation']).optional(),
   json: z.boolean().optional(),
 });
 

@@ -12,6 +12,9 @@ export type OutputFormat = 'json' | 'text';
 /**
  * OutputManager handles formatting and displaying CLI output.
  * Supports both human-readable text output and machine-readable JSON.
+ *
+ * @deprecated For Ink-based commands, use {@link displayCliError} from `cli-error.ts`
+ * for validation errors. OutputManager remains in use for non-Ink commands and JSON output.
  */
 export class OutputManager {
   private startTime: number = Date.now();
