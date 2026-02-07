@@ -98,10 +98,9 @@ Sorting makes A->B and B->A equivalent.
 2. Clear existing links (non-dry-run)
 3. Run linking algorithm
 4. Build link entities (confirmed + suggested)
-5. Split internal links vs regular links
-6. Apply link/unlink overrides to regular links
-7. Reattach internal links
-8. Save all non-rejected links (non-dry-run)
+5. Count internal links (for reporting)
+6. Apply link/unlink overrides to all links
+7. Save all non-rejected links (non-dry-run)
 
 Replay semantics:
 

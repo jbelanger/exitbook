@@ -170,15 +170,11 @@ export class LinksRunHandler {
         }
       }
 
-      // Separate internal links (same tx hash) from regular links
+      // Count internal links discovered by the matching algorithm (before override replay)
       const internalLinks = allLinks.filter((l) => l.linkType === 'blockchain_internal');
-      const regularLinks = allLinks.filter((l) => l.linkType !== 'blockchain_internal');
 
-      // Apply override events (confirm/reject) on top of algorithm results for regular links
-      const overrideAdjustedRegularLinks = await this.applyOverrides(regularLinks, transactions);
-
-      // Combine internal links (always included) with override-adjusted regular links
-      const finalLinks = [...internalLinks, ...overrideAdjustedRegularLinks];
+      // Apply override events (confirm/reject) on top of algorithm results for all links
+      const finalLinks = await this.applyOverrides(allLinks, transactions);
 
       // Count final results by status
       const adjustedConfirmed = finalLinks.filter(
