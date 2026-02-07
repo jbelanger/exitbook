@@ -183,7 +183,10 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
     configureLogger({
       mode: options.json ? 'json' : 'text',
       verbose: false,
-      sinks: options.json ? { ui: false, structured: 'file' } : { ui: false, structured: 'stdout' },
+      sinks: {
+        ui: false,
+        structured: options.json ? 'off' : 'file', // Logs to file in text mode, keeps console clean
+      },
     });
 
     const { OverrideStore } = await import('@exitbook/data');
