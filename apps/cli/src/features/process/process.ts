@@ -4,6 +4,7 @@ import type { Command } from 'commander';
 import type { z } from 'zod';
 
 import type { IngestionMonitorController } from '../../ui/ingestion-monitor/index.js';
+import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { ProcessCommandOptionsSchema } from '../shared/schemas.js';
@@ -51,10 +52,13 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
   // Validate options at CLI boundary with Zod
   const validationResult = ProcessCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
-    const output = new OutputManager(isJson ? 'json' : 'text');
     const firstError = validationResult.error.issues[0];
-    output.error('reprocess', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.INVALID_ARGS);
-    return;
+    displayCliError(
+      'reprocess',
+      new Error(firstError?.message ?? 'Invalid options'),
+      ExitCodes.INVALID_ARGS,
+      isJson ? 'json' : 'text'
+    );
   }
 
   const options = validationResult.data;

@@ -27,6 +27,13 @@ export interface LinksConfirmResult {
   newStatus: 'confirmed';
   reviewedBy: string;
   reviewedAt: Date;
+  // Additional fields for rich display
+  asset?: string | undefined;
+  sourceAmount?: string | undefined;
+  targetAmount?: string | undefined;
+  sourceName?: string | undefined;
+  targetName?: string | undefined;
+  confidence?: string | undefined;
 }
 
 /**
@@ -100,11 +107,24 @@ export class LinksConfirmHandler {
         );
       }
 
+      // Fetch transaction details for rich display
+      const sourceTxResult = await this.txRepo.findById(link.sourceTransactionId);
+      const targetTxResult = await this.txRepo.findById(link.targetTransactionId);
+
+      const sourceTx = sourceTxResult.isOk() ? sourceTxResult.value : undefined;
+      const targetTx = targetTxResult.isOk() ? targetTxResult.value : undefined;
+
       return ok({
         linkId: params.linkId,
         newStatus: 'confirmed',
         reviewedBy,
         reviewedAt: new Date(),
+        asset: link.assetSymbol,
+        sourceAmount: link.sourceAmount.toFixed(),
+        targetAmount: link.targetAmount.toFixed(),
+        sourceName: sourceTx?.source ?? 'unknown',
+        targetName: targetTx?.source ?? 'unknown',
+        confidence: `${(link.confidenceScore.toNumber() * 100).toFixed(1)}%`,
       });
     } catch (error) {
       logger.error({ error, linkId: params.linkId }, 'Failed to confirm link');

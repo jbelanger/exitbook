@@ -5,14 +5,14 @@
 import { performance } from 'node:perf_hooks';
 
 import { Box, Text } from 'ink';
-import Spinner from 'ink-spinner';
 import { Fragment, type FC, type ReactNode } from 'react';
+
+import { formatDuration, formatWaitTime, statusIcon } from '../shared/index.js';
 
 import type {
   IngestionMonitorState,
   DerivationOperation,
   ImportOperation,
-  OperationStatus,
   ProcessingMetadata,
   ProcessingOperation,
   ProviderApiStats,
@@ -222,20 +222,6 @@ const AccountLine: FC<{
     </Text>
   );
 };
-
-function statusIcon(status: OperationStatus): ReactNode {
-  if (status === 'active') {
-    return (
-      <Text color="cyan">
-        <Spinner type="dots" />
-      </Text>
-    );
-  }
-  if (status === 'failed' || status === 'warning') {
-    return <Text color="yellow">⚠</Text>;
-  }
-  return <Text color="green">✓</Text>;
-}
 
 /**
  * Import section
@@ -964,25 +950,3 @@ const CompletionSection: FC<{ state: IngestionMonitorState }> = ({ state }) => {
     </Box>
   );
 };
-
-function formatWaitTime(ms: number): string {
-  if (ms < 1000) {
-    return `${ms.toFixed(0)}ms`;
-  }
-  return `${(ms / 1000).toFixed(1)}s`;
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) {
-    return `${ms.toFixed(0)}ms`;
-  }
-
-  if (ms < 60000) {
-    const seconds = ms / 1000;
-    return `${seconds.toFixed(1)}s`;
-  }
-
-  const minutes = Math.floor(ms / 60000);
-  const seconds = Math.floor((ms % 60000) / 1000);
-  return `${minutes}m ${seconds}s`;
-}

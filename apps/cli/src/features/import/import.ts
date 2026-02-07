@@ -5,6 +5,7 @@ import type { Command } from 'commander';
 import type { z } from 'zod';
 
 import type { IngestionMonitorController } from '../../ui/ingestion-monitor/index.js';
+import { displayCliError } from '../shared/cli-error.js';
 import { unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
@@ -90,10 +91,13 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
   // Validate options at CLI boundary with Zod
   const validationResult = ImportCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
-    const output = new OutputManager(isJson ? 'json' : 'text');
     const firstError = validationResult.error.issues[0];
-    output.error('import', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.INVALID_ARGS);
-    return;
+    displayCliError(
+      'import',
+      new Error(firstError?.message ?? 'Invalid options'),
+      ExitCodes.INVALID_ARGS,
+      isJson ? 'json' : 'text'
+    );
   }
 
   const options = validationResult.data;

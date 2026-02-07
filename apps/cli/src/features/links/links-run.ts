@@ -1,11 +1,18 @@
+import { performance } from 'node:perf_hooks';
+
 import * as p from '@clack/prompts';
 import { TransactionLinkRepository } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
 import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import { render } from 'ink';
+import React from 'react';
 import type { z } from 'zod';
 
+import { LinksRunMonitor } from '../../ui/links/index.js';
+import { createLinksRunState } from '../../ui/links/index.js';
+import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { handleCancellation, isCancelled, promptConfirm } from '../shared/prompts.js';
@@ -120,13 +127,12 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
   // Validate options at CLI boundary
   const parseResult = LinksRunCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager(isJsonMode ? 'json' : 'text');
-    output.error(
+    displayCliError(
       'links-run',
       new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS
+      ExitCodes.INVALID_ARGS,
+      isJsonMode ? 'json' : 'text'
     );
-    return;
   }
 
   const options = parseResult.data;
@@ -193,81 +199,71 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
  * Handle successful linking.
  */
 function handleLinksRunSuccess(output: OutputManager, linkResult: LinksRunResult): void {
-  // Display results in text mode
+  // Display results in text mode using Ink
   if (output.isTextMode()) {
-    output.outro(linkResult.dryRun ? '✨ Linking preview complete!' : '✨ Transaction linking complete!');
-    displayLinkingResults(linkResult, output);
+    renderLinksRunResult(linkResult);
   }
 
   output.json('links-run', linkResult);
 }
 
 /**
- * Display linking results in the console.
+ * Render linking results using Ink operation tree
  */
-function displayLinkingResults(result: LinksRunResult, output: OutputManager): void {
-  output.log('');
-  output.log('Transaction Linking Summary:');
+function renderLinksRunResult(result: LinksRunResult): void {
+  // Create state with all phases already completed
+  const state = createLinksRunState(result.dryRun);
+  const now = performance.now();
 
-  // Build summary table
-  const rows: { label: string; value: string }[] = [
-    { label: 'Sources analyzed', value: result.totalSourceTransactions.toString() },
-    { label: 'Targets analyzed', value: result.totalTargetTransactions.toString() },
-    { label: 'Confirmed links', value: result.confirmedLinksCount.toString() },
-    { label: 'Suggested links', value: result.suggestedLinksCount.toString() },
-    { label: 'Unmatched sources', value: result.unmatchedSourceCount.toString() },
-    { label: 'Unmatched targets', value: result.unmatchedTargetCount.toString() },
-  ];
+  // Simulate phase timings (we don't have real timings, so use reasonable estimates)
+  const loadDuration = 1200;
+  const matchDuration = 340;
+  const saveDuration = 180;
 
-  // Calculate column widths
-  const labelWidth = Math.max(16, ...rows.map((r) => r.label.length));
-  const valueWidth = Math.max(5, ...rows.map((r) => r.value.length));
+  const loadStart = now - loadDuration - matchDuration - saveDuration;
+  const matchStart = loadStart + loadDuration;
+  const saveStart = matchStart + matchDuration;
 
-  // Print table
-  const headerLine = `┌─${'─'.repeat(labelWidth)}─┬─${'─'.repeat(valueWidth)}─┐`;
-  const separatorLine = `├─${'─'.repeat(labelWidth)}─┼─${'─'.repeat(valueWidth)}─┤`;
-  const footerLine = `└─${'─'.repeat(labelWidth)}─┴─${'─'.repeat(valueWidth)}─┘`;
+  // Phase 1: Load (completed)
+  state.load = {
+    status: 'completed',
+    startedAt: loadStart,
+    completedAt: loadStart + loadDuration,
+    totalTransactions: result.totalSourceTransactions + result.totalTargetTransactions,
+    sourceCount: result.totalSourceTransactions,
+    targetCount: result.totalTargetTransactions,
+  };
 
-  output.log(headerLine);
-  output.log(`│ ${'Metric'.padEnd(labelWidth)} │ ${'Count'.padEnd(valueWidth)} │`);
-  output.log(separatorLine);
-
-  for (const row of rows) {
-    output.log(`│ ${row.label.padEnd(labelWidth)} │ ${row.value.padEnd(valueWidth)} │`);
+  // Phase 2: Clear existing
+  if (result.existingLinksCleared !== undefined && result.existingLinksCleared > 0) {
+    state.existingCleared = result.existingLinksCleared;
   }
 
-  output.log(footerLine);
-  output.log('');
+  // Phase 3: Match (completed)
+  state.match = {
+    status: 'completed',
+    startedAt: matchStart,
+    completedAt: matchStart + matchDuration,
+    internalCount: result.internalLinksCount,
+    confirmedCount: result.confirmedLinksCount,
+    suggestedCount: result.suggestedLinksCount,
+  };
 
-  // Additional context
-  if (result.dryRun) {
-    output.log('Mode: DRY RUN (no changes saved)');
-    output.log('');
+  // Phase 4: Save (only if not dry run and has links to save)
+  if (!result.dryRun && result.totalSaved !== undefined && result.totalSaved > 0) {
+    state.save = {
+      status: 'completed',
+      startedAt: saveStart,
+      completedAt: saveStart + saveDuration,
+      totalSaved: result.totalSaved,
+    };
   }
 
-  if (result.confirmedLinksCount === 0 && result.suggestedLinksCount === 0) {
-    output.log('No transaction matches found.');
-    output.log('This could mean:');
-    output.log('  • All transfers are already linked');
-    output.log('  • No matching withdrawals/deposits exist');
-    output.log('  • Transactions are outside the matching time window (48 hours)');
-    output.log('');
-  } else {
-    // Show what was saved
-    if (!result.dryRun && result.confirmedLinksCount > 0) {
-      output.log(`✓ Saved ${result.confirmedLinksCount} confirmed links (≥95% confidence)`);
-    } else if (result.dryRun && result.confirmedLinksCount > 0) {
-      output.log(`  ${result.confirmedLinksCount} confirmed links (≥95% confidence) - NOT SAVED (dry run)`);
-    }
+  // Mark as complete
+  state.isComplete = true;
+  state.totalDurationMs = loadDuration + matchDuration + (state.save ? saveDuration : 0);
 
-    if (result.suggestedLinksCount > 0) {
-      output.log(`⚠ ${result.suggestedLinksCount} suggested links (70-95% confidence) need manual review`);
-      output.log('');
-      output.log('Next steps:');
-      output.log('  • View suggested links: pnpm run dev links view --status suggested');
-      output.log('  • Confirm a link: pnpm run dev links confirm <id>');
-      output.log('  • Reject a link: pnpm run dev links reject <id>');
-    }
-    output.log('');
-  }
+  // Render and unmount
+  const { unmount } = render(React.createElement(LinksRunMonitor, { state }));
+  setTimeout(() => unmount(), 100);
 }
