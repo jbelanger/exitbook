@@ -172,7 +172,7 @@ describe('handleKeyboardInput', () => {
   it('handles arrow up key', () => {
     let actionReceived = false;
     const dispatch = (action: unknown) => {
-      expect(action).toEqual({ type: 'NAVIGATE_UP', visibleRows: 11 });
+      expect(action).toEqual({ type: 'NAVIGATE_UP', visibleRows: 10 });
       actionReceived = true;
     };
     const onQuit = () => {
@@ -201,7 +201,7 @@ describe('handleKeyboardInput', () => {
   it('handles arrow down key', () => {
     let actionReceived = false;
     const dispatch = (action: unknown) => {
-      expect(action).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: 11 });
+      expect(action).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: 10 });
       actionReceived = true;
     };
     const onQuit = () => {
@@ -230,7 +230,7 @@ describe('handleKeyboardInput', () => {
   it('handles vim k key', () => {
     let actionReceived = false;
     const dispatch = (action: unknown) => {
-      expect(action).toEqual({ type: 'NAVIGATE_UP', visibleRows: 11 });
+      expect(action).toEqual({ type: 'NAVIGATE_UP', visibleRows: 10 });
       actionReceived = true;
     };
     const onQuit = () => {
@@ -259,7 +259,7 @@ describe('handleKeyboardInput', () => {
   it('handles vim j key', () => {
     let actionReceived = false;
     const dispatch = (action: unknown) => {
-      expect(action).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: 11 });
+      expect(action).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: 10 });
       actionReceived = true;
     };
     const onQuit = () => {
