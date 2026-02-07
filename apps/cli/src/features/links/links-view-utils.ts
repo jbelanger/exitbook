@@ -10,7 +10,7 @@ import type { CommonViewFilters } from '../shared/view-utils.js';
  * Parameters for links view command.
  */
 export interface LinksViewParams extends CommonViewFilters {
-  status?: LinkStatus | undefined;
+  status?: LinkStatus | 'gaps' | undefined;
   minConfidence?: number | undefined;
   maxConfidence?: number | undefined;
   verbose?: boolean | undefined;
@@ -90,14 +90,14 @@ export function filterLinksByConfidence(
  */
 export function mapTransactionToDetails(tx: UniversalTransactionData): TransactionDetails {
   return {
-    external_id: tx.externalId ?? undefined,
-    from_address: tx.from ?? undefined,
+    external_id: tx.externalId,
+    from_address: tx.from,
     id: tx.id ?? 0,
     movements_inflows: tx.movements?.inflows ?? [],
     movements_outflows: tx.movements?.outflows ?? [],
     source_name: tx.source,
     timestamp: tx.datetime,
-    to_address: tx.to ?? undefined,
+    to_address: tx.to,
   };
 }
 
