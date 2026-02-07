@@ -3,7 +3,12 @@ import type { AccountRepository, IImportSessionRepository, UserRepository } from
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { AccountQueryParams, AccountQueryResult, SessionSummary } from './account-service-utils.js';
+import type {
+  AccountQueryParams,
+  AccountQueryResult,
+  FormattedAccount,
+  SessionSummary,
+} from './account-service-utils.js';
 import { formatAccount } from './account-service-utils.js';
 
 const logger = getLogger('AccountService');
@@ -173,8 +178,8 @@ export class AccountService {
   private async formatAccountsWithHierarchy(
     accounts: Account[],
     sessionCounts: Map<number, number> | undefined
-  ): Promise<Result<import('./account-service-utils.js').FormattedAccount[], Error>> {
-    const formatted: import('./account-service-utils.js').FormattedAccount[] = [];
+  ): Promise<Result<FormattedAccount[], Error>> {
+    const formatted: FormattedAccount[] = [];
 
     for (const account of accounts) {
       // Special case: If user requested a specific child account by ID, include it directly
@@ -198,7 +203,7 @@ export class AccountService {
       const childAccounts = childAccountsResult.value;
 
       // Format child accounts
-      let formattedChildren: import('./account-service-utils.js').FormattedAccount[] | undefined;
+      let formattedChildren: FormattedAccount[] | undefined;
       let totalSessionCount = sessionCounts?.get(account.id) ?? 0;
 
       if (childAccounts.length > 0) {
@@ -222,7 +227,7 @@ export class AccountService {
    * Count total displayed accounts including nested children.
    * This ensures the count matches what users see in the output.
    */
-  private countDisplayedAccounts(accounts: import('./account-service-utils.js').FormattedAccount[]): number {
+  private countDisplayedAccounts(accounts: FormattedAccount[]): number {
     let count = 0;
     for (const account of accounts) {
       count++; // Count the parent

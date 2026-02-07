@@ -67,7 +67,9 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
       });
     }
 
-    const handler = new PricesSetHandler();
+    const { OverrideStore } = await import('@exitbook/data');
+    const overrideStore = new OverrideStore();
+    const handler = new PricesSetHandler(overrideStore);
     const result = await handler.execute({
       asset: options.asset,
       date: options.date,

@@ -1,11 +1,13 @@
 // Handler for links reject command
 
 import type { TransactionLinkRepository } from '@exitbook/accounting';
+import type { OverrideStore } from '@exitbook/data';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import { writeUnlinkOverrideEvent } from './link-override-utils.js';
 import { getDefaultReviewer, validateLinkStatusForReject } from './links-utils.js';
 
 const logger = getLogger('LinksRejectHandler');
@@ -33,7 +35,8 @@ export interface LinksRejectResult {
 export class LinksRejectHandler {
   constructor(
     private readonly linkRepo: TransactionLinkRepository,
-    private readonly txRepo: TransactionRepository
+    private readonly txRepo: TransactionRepository,
+    private readonly overrideStore?: OverrideStore | undefined
   ) {}
 
   /**
@@ -91,6 +94,17 @@ export class LinksRejectHandler {
       }
 
       logger.info({ linkId: params.linkId }, 'Link rejected successfully');
+
+      // Write override event for durability across reprocessing
+      if (this.overrideStore) {
+        await writeUnlinkOverrideEvent(
+          this.txRepo,
+          this.overrideStore,
+          link.sourceTransactionId,
+          link.targetTransactionId,
+          link.assetSymbol
+        );
+      }
 
       return ok({
         linkId: params.linkId,

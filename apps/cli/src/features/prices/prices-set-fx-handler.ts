@@ -2,8 +2,10 @@
 // Uses ManualPriceService to save manual FX rate entries
 
 import { parseDecimal } from '@exitbook/core';
+import type { OverrideStore } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { ManualPriceService } from '@exitbook/price-providers';
+import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 const logger = getLogger('PricesSetFxHandler');
@@ -45,6 +47,8 @@ export interface PricesSetFxResult {
 export class PricesSetFxHandler {
   private service = new ManualPriceService();
 
+  constructor(private readonly overrideStore?: OverrideStore | undefined) {}
+
   /**
    * Execute prices set-fx command
    */
@@ -75,6 +79,23 @@ export class PricesSetFxHandler {
         `Saved manual FX rate: ${from}→${to} = ${rateValue.toFixed()} at ${timestamp.toISOString()} (source: ${source})`
       );
 
+      // Write override event for durability across reprocessing
+      if (this.overrideStore) {
+        const appendResult = await this.overrideStore.append({
+          scope: 'fx',
+          payload: {
+            type: 'fx_override',
+            fx_pair: `${from}/${to}`,
+            rate: rateValue.toFixed(),
+            timestamp: timestamp.toISOString(),
+          },
+        });
+
+        if (appendResult.isErr()) {
+          logger.warn({ error: appendResult.error }, 'Failed to write FX override event');
+        }
+      }
+
       return ok({
         from,
         to,
@@ -94,7 +115,7 @@ export class PricesSetFxHandler {
   private validateInputs(options: PricesSetFxOptions): Result<
     {
       from: string;
-      rateValue: import('decimal.js').Decimal;
+      rateValue: Decimal;
       source: string;
       timestamp: Date;
       to: string;
@@ -130,7 +151,7 @@ export class PricesSetFxHandler {
         return err(new Error('Date is required (ISO 8601 format)'));
       }
       const timestamp = new Date(options.date);
-      if (isNaN(timestamp.getTime())) {
+      if (Number.isNaN(timestamp.getTime())) {
         return err(new Error('Invalid date format. Use ISO 8601 (e.g., 2024-01-15T10:30:00Z)'));
       }
 

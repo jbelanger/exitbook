@@ -1,11 +1,13 @@
 // Handler for links confirm command
 
 import type { TransactionLinkRepository } from '@exitbook/accounting';
+import type { OverrideStore } from '@exitbook/data';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import { writeLinkOverrideEvent } from './link-override-utils.js';
 import { getDefaultReviewer, validateLinkStatusForConfirm } from './links-utils.js';
 
 const logger = getLogger('LinksConfirmHandler');
@@ -33,7 +35,8 @@ export interface LinksConfirmResult {
 export class LinksConfirmHandler {
   constructor(
     private readonly linkRepo: TransactionLinkRepository,
-    private readonly txRepo: TransactionRepository
+    private readonly txRepo: TransactionRepository,
+    private readonly overrideStore?: OverrideStore | undefined
   ) {}
 
   /**
@@ -85,6 +88,17 @@ export class LinksConfirmHandler {
       }
 
       logger.info({ linkId: params.linkId }, 'Link confirmed successfully');
+
+      // Write override event for durability across reprocessing
+      if (this.overrideStore) {
+        await writeLinkOverrideEvent(
+          this.txRepo,
+          this.overrideStore,
+          link.sourceTransactionId,
+          link.targetTransactionId,
+          link.assetSymbol
+        );
+      }
 
       return ok({
         linkId: params.linkId,

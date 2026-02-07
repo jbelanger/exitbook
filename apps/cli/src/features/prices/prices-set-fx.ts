@@ -1,6 +1,7 @@
 // Prices set-fx command - manually set FX rate
 // Allows bulk preparation of manual FX rates without interrupting enrichment
 
+import { OverrideStore } from '@exitbook/data';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
@@ -67,7 +68,8 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
       });
     }
 
-    const handler = new PricesSetFxHandler();
+    const overrideStore = new OverrideStore();
+    const handler = new PricesSetFxHandler(overrideStore);
     const result = await handler.execute({
       from: options.from,
       to: options.to,

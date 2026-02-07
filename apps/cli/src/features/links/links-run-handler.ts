@@ -5,8 +5,11 @@ import {
   type TransactionLink,
   type TransactionLinkRepository,
 } from '@exitbook/accounting';
+import { parseDecimal } from '@exitbook/core';
+import { applyLinkOverrides, type OrphanedLinkOverride, type OverrideStore } from '@exitbook/data';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
+import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -18,10 +21,10 @@ export interface LinksRunHandlerParams {
   dryRun: boolean;
 
   /** Minimum confidence score to suggest a match (0-1) */
-  minConfidenceScore: import('decimal.js').Decimal;
+  minConfidenceScore: Decimal;
 
   /** Auto-confirm matches above this confidence (0-1) */
-  autoConfirmThreshold: import('decimal.js').Decimal;
+  autoConfirmThreshold: Decimal;
 }
 
 const logger = getLogger('LinksRunHandler');
@@ -59,7 +62,8 @@ export interface LinksRunResult {
 export class LinksRunHandler {
   constructor(
     private transactionRepository: TransactionRepository,
-    private linkRepository: TransactionLinkRepository
+    private linkRepository: TransactionLinkRepository,
+    private overrideStore?: OverrideStore | undefined
   ) {}
 
   /**
@@ -123,46 +127,47 @@ export class LinksRunHandler {
         'Transaction linking completed'
       );
 
+      // Build all link entities before applying overrides
+      const now = new Date();
+      const allLinks: TransactionLink[] = [...confirmedLinks];
+
+      if (suggestedLinks.length > 0) {
+        for (const match of suggestedLinks) {
+          const linkResult = createTransactionLink(match, 'suggested', uuidv4(), now);
+          if (linkResult.isErr()) {
+            logger.warn({ error: linkResult.error.message, match }, 'Failed to create suggested link - skipping');
+            continue;
+          }
+          allLinks.push(linkResult.value);
+        }
+      }
+
+      // Apply override events (confirm/reject) on top of algorithm results
+      const overrideAdjustedLinks = await this.applyOverrides(allLinks, transactions);
+
+      // Count adjusted results
+      const adjustedConfirmed = overrideAdjustedLinks.filter((l) => l.status === 'confirmed');
+      const adjustedSuggested = overrideAdjustedLinks.filter((l) => l.status === 'suggested');
+      // Rejected links are excluded from saving
+
       // Save links to database (unless dry-run)
       if (!params.dryRun) {
-        const now = new Date();
+        const linksToSave = overrideAdjustedLinks.filter((l) => l.status !== 'rejected');
 
-        // Save confirmed links
-        if (confirmedLinks.length > 0) {
-          const saveResult = await this.linkRepository.createBulk(confirmedLinks);
+        if (linksToSave.length > 0) {
+          const saveResult = await this.linkRepository.createBulk(linksToSave);
           if (saveResult.isErr()) {
             return err(saveResult.error);
           }
-          logger.info({ count: saveResult.value }, 'Saved confirmed links to database');
-        }
-
-        // Save suggested links
-        if (suggestedLinks.length > 0) {
-          const suggestedLinkEntities: TransactionLink[] = [];
-          for (const match of suggestedLinks) {
-            const linkResult = createTransactionLink(match, 'suggested', uuidv4(), now);
-            if (linkResult.isErr()) {
-              logger.warn({ error: linkResult.error.message, match }, 'Failed to create suggested link - skipping');
-              continue;
-            }
-            suggestedLinkEntities.push(linkResult.value);
-          }
-
-          if (suggestedLinkEntities.length > 0) {
-            const saveResult = await this.linkRepository.createBulk(suggestedLinkEntities);
-            if (saveResult.isErr()) {
-              return err(saveResult.error);
-            }
-            logger.info({ count: saveResult.value }, 'Saved suggested links to database');
-          }
+          logger.info({ count: saveResult.value }, 'Saved links to database');
         }
       } else {
         logger.info('Dry run mode - no links saved to database');
       }
 
       return ok({
-        confirmedLinksCount: confirmedLinks.length,
-        suggestedLinksCount: suggestedLinks.length,
+        confirmedLinksCount: adjustedConfirmed.length,
+        suggestedLinksCount: adjustedSuggested.length,
         totalSourceTransactions,
         totalTargetTransactions,
         unmatchedSourceCount,
@@ -172,5 +177,108 @@ export class LinksRunHandler {
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  /**
+   * Apply link/unlink override events on top of algorithm-generated links.
+   * If no override store is configured, returns the links unchanged.
+   *
+   * When a link_override references transactions that exist but the algorithm
+   * didn't produce a matching link, a new confirmed link is created so the
+   * user's decision survives reprocessing.
+   */
+  private async applyOverrides(
+    links: TransactionLink[],
+    transactions: { externalId: string; id: number; source: string }[]
+  ): Promise<TransactionLink[]> {
+    if (!this.overrideStore) return links;
+
+    try {
+      const overridesResult = await this.overrideStore.readAll();
+      if (overridesResult.isErr()) {
+        logger.warn({ error: overridesResult.error }, 'Failed to read override events, skipping replay');
+        return links;
+      }
+
+      const overrides = overridesResult.value;
+      const linkOverrides = overrides.filter((o) => o.scope === 'link' || o.scope === 'unlink');
+
+      if (linkOverrides.length === 0) return links;
+
+      logger.info({ count: linkOverrides.length }, 'Applying link override events');
+
+      const result = applyLinkOverrides(links, linkOverrides, transactions);
+      if (result.isErr()) {
+        logger.warn({ error: result.error }, 'Failed to apply link overrides, using algorithm results');
+        return links;
+      }
+
+      const { links: adjustedLinks, orphaned, unresolved } = result.value;
+
+      // adjustedLinks is LinkWithStatus[] but contains full TransactionLink objects
+      // Cast back to TransactionLink[] since we passed in TransactionLink[] and the
+      // function only modifies status-related fields
+      const typedLinks = adjustedLinks as TransactionLink[];
+
+      // Create new confirmed links for orphaned overrides (algorithm didn't rediscover the pair)
+      for (const entry of orphaned) {
+        const newLink = this.buildLinkFromOrphanedOverride(entry);
+        typedLinks.push(newLink);
+        logger.info(
+          {
+            overrideId: entry.override.id,
+            sourceTransactionId: entry.sourceTransactionId,
+            targetTransactionId: entry.targetTransactionId,
+            asset: entry.assetSymbol,
+          },
+          'Created link from override (algorithm did not rediscover this pair)'
+        );
+      }
+
+      if (unresolved.length > 0) {
+        logger.warn(
+          { unresolvedCount: unresolved.length },
+          'Some override events could not resolve transaction fingerprints'
+        );
+      }
+
+      return typedLinks;
+    } catch (error) {
+      logger.warn({ error }, 'Unexpected error applying overrides, using algorithm results');
+      return links;
+    }
+  }
+
+  /**
+   * Build a minimal TransactionLink from an orphaned override.
+   * Amounts and match criteria are unknown since the algorithm didn't find this pair,
+   * so we use zero/sentinel values and mark it as override-created.
+   */
+  private buildLinkFromOrphanedOverride(entry: OrphanedLinkOverride): TransactionLink {
+    const now = new Date();
+    const zero = parseDecimal('0');
+
+    return {
+      id: uuidv4(),
+      sourceTransactionId: entry.sourceTransactionId,
+      targetTransactionId: entry.targetTransactionId,
+      assetSymbol: entry.assetSymbol,
+      sourceAmount: zero,
+      targetAmount: zero,
+      linkType: entry.linkType as TransactionLink['linkType'],
+      confidenceScore: parseDecimal('1'),
+      matchCriteria: {
+        assetMatch: true,
+        amountSimilarity: zero,
+        timingValid: true,
+        timingHours: 0,
+      },
+      status: 'confirmed',
+      reviewedBy: entry.override.actor,
+      reviewedAt: new Date(entry.override.created_at),
+      createdAt: now,
+      updatedAt: now,
+      metadata: { overrideId: entry.override.id },
+    };
   }
 }

@@ -94,19 +94,6 @@ async function promptForLinksRunParams(): Promise<LinksRunHandlerParams> {
 }
 
 /**
- * Link run command result data.
- */
-interface LinksRunCommandResult {
-  confirmedLinksCount: number;
-  suggestedLinksCount: number;
-  totalSourceTransactions: number;
-  totalTargetTransactions: number;
-  unmatchedSourceCount: number;
-  unmatchedTargetCount: number;
-  dryRun: boolean;
-}
-
-/**
  * Register the links run subcommand.
  */
 export function registerLinksRunCommand(linksCommand: Command): void {
@@ -170,10 +157,12 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       });
     }
 
+    const { OverrideStore } = await import('@exitbook/data');
     const database = await initializeDatabase();
     const transactionRepository = new TransactionRepository(database);
     const linkRepository = new TransactionLinkRepository(database);
-    const handler = new LinksRunHandler(transactionRepository, linkRepository);
+    const overrideStore = new OverrideStore();
+    const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
 
     try {
       const result = await handler.execute(params);
@@ -210,18 +199,7 @@ function handleLinksRunSuccess(output: OutputManager, linkResult: LinksRunResult
     displayLinkingResults(linkResult, output);
   }
 
-  // Prepare result data for JSON mode
-  const resultData: LinksRunCommandResult = {
-    confirmedLinksCount: linkResult.confirmedLinksCount,
-    suggestedLinksCount: linkResult.suggestedLinksCount,
-    totalSourceTransactions: linkResult.totalSourceTransactions,
-    totalTargetTransactions: linkResult.totalTargetTransactions,
-    unmatchedSourceCount: linkResult.unmatchedSourceCount,
-    unmatchedTargetCount: linkResult.unmatchedTargetCount,
-    dryRun: linkResult.dryRun,
-  };
-
-  output.json('links-run', resultData);
+  output.json('links-run', linkResult);
 }
 
 /**
