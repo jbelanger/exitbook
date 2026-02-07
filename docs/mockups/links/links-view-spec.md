@@ -2,18 +2,71 @@
 
 ## Overview
 
-`exitbook links view` displays transaction links in an interactive Ink TUI. Users navigate a list with arrow keys, inspect link details, and confirm/reject suggested links inline. `--json` mode bypasses the TUI for scripting.
+`exitbook links view` is a two-mode TUI for inspecting transfer links and diagnosing coverage gaps.
+
+- **Links mode** (default): Browse links between transactions — confirm or reject suggestions inline.
+- **Gaps mode** (`--status gaps`): Browse movements that lack confirmed counterparties — uncovered inflows and unmatched outflows.
+
+Both modes share the same two-panel layout (list + detail), scrolling, and navigation. The columns, detail content, and available actions differ per mode.
+
+`--json` bypasses the TUI in either mode.
 
 ---
 
-## Layout
+## Shared Behavior
 
-Two-panel layout: **list** (top) and **detail** (bottom), separated by a divider.
+### Two-Panel Layout
 
-### Full View
+All modes use a list (top) and detail panel (bottom), separated by a full-width dim `─` divider.
+
+### Scrolling
+
+When the list exceeds the visible height:
+
+- Visible window scrolls to keep the selected row in view
+- `▲` / `▼` dim indicators appear when more items exist above/below
+- No explicit scroll bar
+
+### Navigation
+
+| Key               | Action           | When   |
+| ----------------- | ---------------- | ------ |
+| `↑` / `k`         | Move cursor up   | Always |
+| `↓` / `j`         | Move cursor down | Always |
+| `PgUp` / `Ctrl-U` | Page up          | Always |
+| `PgDn` / `Ctrl-D` | Page down        | Always |
+| `Home`            | Jump to first    | Always |
+| `End`             | Jump to last     | Always |
+| `q` / `Esc`       | Quit             | Always |
+
+`PgUp`/`PgDn` depend on terminal settings; `Ctrl-U`/`Ctrl-D` are the reliable paging shortcuts.
+
+### Controls Bar
+
+Bottom line, dim. Content adapts to mode and selection state.
+
+### Loading State
 
 ```
-Transaction Links                              3 confirmed · 4 suggested · 1 rejected
+⠋ Loading transaction links...
+```
+
+Brief spinner, then TUI appears.
+
+### Error State
+
+Transient error line appears below the detail panel, cleared on next navigation.
+
+---
+
+## Links Mode
+
+Default mode. Shows transfer links grouped by status.
+
+### Visual Example
+
+```
+Transaction Links  3 confirmed · 4 suggested · 1 rejected
 
   ✓  a1b2c3d4  ETH    1.5000 → 1.4985   kraken → ethereum           100.0%  confirmed
   ✓  e5f6g7h8  BTC    0.5000 → 0.4998   kraken → bitcoin             98.2%  confirmed
@@ -25,36 +78,51 @@ Transaction Links                              3 confirmed · 4 suggested · 1 r
   ✗  c9d0e1f2  ETH    3.0000 → 2.8500   kraken → ethereum            52.1%  rejected
 
 ────────────────────────────────────────────────────────────────────────────────────────────
-▸ m3n4o5p6  ETH  exchange_to_blockchain  82.4%  suggested
+▸ m3n4o5p6  ETH  exchange to blockchain  82.4%  suggested
+
   Source: #1234 coinbase   2024-03-15 14:23:41   OUT 2.0000 ETH
   Target: #5678 ethereum   2024-03-15 14:25:12   IN  1.9970 ETH
+
   Match: asset · amount 99.8% · timing 0.03h
 
-                                                    ↑↓ navigate  c confirm  r reject  q quit
+↑↓/j/k · ^U/^D page · Home/End · c confirm · r reject · q/esc quit
 ```
 
----
+### Header
 
-## List Panel
+```
+Transaction Links  {confirmed} confirmed · {suggested} suggested · {rejected} rejected
+```
 
-### Column Layout
+- Title: white/bold
+- Counts: green for confirmed, yellow for suggested, dim for rejected
+- Dot separators: dim
+- When `--limit` truncates: append `· showing {displayed} of {total}` (dim)
+
+When filtered by status:
+
+```
+Transaction Links (suggested)  4 suggested
+```
+
+### List Columns
 
 ```
 {cursor} {icon}  {id}  {asset}  {sourceAmt} → {targetAmt}   {source} → {target}   {confidence}  {status}
 ```
 
-| Column          | Width    | Alignment | Content                                |
-| --------------- | -------- | --------- | -------------------------------------- |
-| Cursor          | 1        | —         | `▸` for selected row, space otherwise  |
-| Icon            | 1        | —         | Status icon (see below)                |
-| ID              | 8        | left      | First 8 chars of link UUID             |
-| Asset           | 5        | left      | Asset symbol, truncated                |
-| Source Amount   | 10       | right     | `.toFixed()` with locale formatting    |
-| Arrow           | 1        | —         | `→`                                    |
-| Target Amount   | 10       | right     | Same format                            |
-| Source → Target | variable | left      | `{sourceName} → {targetName}`          |
-| Confidence      | 6        | right     | `XX.X%`                                |
-| Status          | 9        | left      | `confirmed` / `suggested` / `rejected` |
+| Column          | Width    | Alignment | Content                                          |
+| --------------- | -------- | --------- | ------------------------------------------------ |
+| Cursor          | 1        | —         | `▸` for selected row, space otherwise            |
+| Icon            | 1        | —         | Status icon                                      |
+| ID              | 8        | left      | First 8 chars of link UUID                       |
+| Asset           | 5        | left      | Asset symbol, truncated                          |
+| Source Amount   | 15       | right     | Locale-formatted (commas, max 4 decimal places)  |
+| Arrow           | 1        | —         | `→`                                              |
+| Target Amount   | 15       | right     | Same format                                      |
+| Source → Target | variable | left      | `{sourceName} → {targetName}`, padded to 30 wide |
+| Confidence      | 6        | right     | `XX.X%`                                          |
+| Status          | 9        | left      | `confirmed` / `suggested` / `rejected`           |
 
 ### Status Icons
 
@@ -73,50 +141,22 @@ Transaction Links                              3 confirmed · 4 suggested · 1 r
 | Suggested         | normal white, icon yellow |
 | Rejected          | dim for entire row        |
 
-### Header
-
-```
-Transaction Links                              {confirmed} confirmed · {suggested} suggested · {rejected} rejected
-```
-
-- Title: white/bold
-- Counts: green for confirmed, yellow for suggested, dim for rejected
-- Dot separators: dim
-
-### Sorting
-
-Default: by status group (confirmed → suggested → rejected), then by confidence descending within each group.
-
-### Scrolling
-
-When list exceeds terminal height minus detail panel height:
-
-- Show visible window with scroll indicators
-- Selected row always visible (scroll to keep in view)
-- No explicit scroll bar — just `▲` / `▼` indicators at top/bottom when more items exist
-
----
-
-## Detail Panel
-
-Shows expanded information for the currently selected link. Separated from list by a full-width dim `─` divider.
-
-### Layout
+### Detail Panel
 
 ```
 ▸ {id}  {asset}  {linkType}  {confidence}  {status}
+
   Source: #{txId} {sourceName}   {timestamp}   {direction} {amount} {asset}
   Target: #{txId} {targetName}   {timestamp}   {direction} {amount} {asset}
+
   Match: {criteria}
 ```
-
-### Detail Colors
 
 | Element                              | Color                                     |
 | ------------------------------------ | ----------------------------------------- |
 | Selected ID                          | white/bold                                |
 | Asset                                | white                                     |
-| Link type (`exchange_to_blockchain`) | dim                                       |
+| Link type (`exchange to blockchain`) | dim                                       |
 | Confidence                           | green (≥95%), yellow (70–95%), red (<70%) |
 | Status                               | green/yellow/dim matching icon colors     |
 | `Source:` / `Target:` labels         | dim                                       |
@@ -130,65 +170,192 @@ Shows expanded information for the currently selected link. Separated from list 
 
 ### Match Criteria
 
-Format: `{criterion} · {criterion} · ...`
-
 ```
 asset · amount 99.8% · timing 0.03h · address
 ```
 
-Only show criteria that are present/true. Each separated by `·`.
+Only show criteria that are present/true. Separated by `·`.
 
----
-
-## Verbose Mode (`--verbose`)
+### Verbose Mode (`--verbose`)
 
 Adds address information to the detail panel:
 
 ```
-▸ m3n4o5p6  ETH  exchange_to_blockchain  82.4%  suggested
+▸ m3n4o5p6  ETH  exchange to blockchain  82.4%  suggested
+
   Source: #1234 coinbase   2024-03-15 14:23:41   OUT 2.0000 ETH
   Target: #5678 ethereum   2024-03-15 14:25:12   IN  1.9970 ETH
           from: 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38
           to:   0x1234567890abcdef1234567890abcdef12345678
+
   Match: asset · amount 99.8% · timing 0.03h · address
 ```
 
----
+### Confirm/Reject
 
-## Keyboard Controls
+| Key | Action  | When                         |
+| --- | ------- | ---------------------------- |
+| `c` | Confirm | Selected link is `suggested` |
+| `r` | Reject  | Selected link is `suggested` |
 
-| Key            | Action                | When                         |
-| -------------- | --------------------- | ---------------------------- |
-| `↑` / `k`      | Move cursor up        | Always                       |
-| `↓` / `j`      | Move cursor down      | Always                       |
-| `c`            | Confirm selected link | Selected link is `suggested` |
-| `r`            | Reject selected link  | Selected link is `suggested` |
-| `q` / `Ctrl-C` | Quit                  | Always                       |
+Behavior:
 
-### Confirm/Reject Behavior
+1. Link status updates immediately in the list (optimistic)
+2. Database update happens asynchronously
+3. If DB update fails, status reverts and error appears below detail panel
+4. Header counts update to reflect new totals
 
-When the user presses `c` or `r` on a suggested link:
-
-1. The link status updates immediately in the list (icon changes, status text changes)
-2. The database update happens asynchronously
-3. If the DB update fails, the status reverts and an error message appears briefly below the detail panel
-4. Header counts update to reflect the new totals
-
-No confirmation dialog — the action is instant. This keeps the flow fast for triaging many suggested links.
+No confirmation dialog — instant action for fast triage.
 
 ### Controls Bar
 
-Bottom of screen, dim:
+When selected link is suggested:
 
 ```
-                                                    ↑↓ navigate  c confirm  r reject  q quit
+↑↓/j/k · ^U/^D page · Home/End · c confirm · r reject · q/esc quit
 ```
 
-Only show `c confirm  r reject` when selected link is `suggested`.
+Otherwise:
 
 ```
-                                                                        ↑↓ navigate  q quit
+↑↓/j/k · ^U/^D page · Home/End · q/esc quit
 ```
+
+### Sorting
+
+Default: by status group (confirmed → suggested → rejected), then by confidence descending within each group.
+
+---
+
+## Gaps Mode
+
+Activated by `--status gaps`. Shows movements that lack confirmed link coverage. Read-only (no mutations).
+
+### Visual Example
+
+```
+Transaction Links (gaps)  3 uncovered inflows · 2 unmatched outflows
+
+  Asset Breakdown
+    ETH     2 inflows missing 3.5000 ETH · 1 outflow unmatched for 1.2000 ETH
+    BTC     1 inflow missing 0.5000 BTC · 1 outflow unmatched for 0.2500 BTC
+
+▸ ⚠  #2041  ethereum   2024-03-18 09:12  ETH   IN   1.5000 of 1.5000   0% covered
+  ⚠  #2198  ethereum   2024-04-02 14:45  ETH   IN   2.0000 of 2.0000   0% covered
+  ⚠  #2312  bitcoin    2024-04-15 08:33  BTC   IN   0.5000 of 0.5000   0% covered
+  ⚠  #2456  kraken     2024-05-01 16:20  ETH   OUT  1.2000 of 1.2000   0% covered
+  ⚠  #2589  kraken     2024-05-12 11:08  BTC   OUT  0.2500 of 0.2500   0% covered
+
+────────────────────────────────────────────────────────────────────────────────────────
+▸ #2041  ethereum  transfer/deposit  2024-03-18 09:12:34
+  Missing: 1.5000 ETH of 1.5000 ETH inflow (0% confirmed coverage)
+  Suggested matches: 2 (best 82.4% confidence)
+  Action: Run `exitbook links run` then confirm matches to bridge this gap.
+
+↑↓/j/k · ^U/^D page · Home/End · q/esc quit
+```
+
+### Header
+
+```
+Transaction Links (gaps)  {inflows} uncovered inflows · {outflows} unmatched outflows
+```
+
+- Title: white/bold
+- Counts: yellow when > 0, green when 0
+- Dot separator: dim
+
+### Asset Breakdown
+
+Compact per-asset summary, shown between header and list:
+
+```
+  Asset Breakdown
+    ETH     {n} inflows missing {amount} ETH · {n} outflow unmatched for {amount} ETH
+    BTC     {n} inflow missing {amount} BTC
+```
+
+- Label `Asset Breakdown`: white/bold
+- Asset symbols: white
+- Amounts: green
+- Direction labels: white
+- Dot separator `·`: dim
+- Only show directions with occurrences > 0
+- Singular/plural: `1 inflow` vs `2 inflows`
+
+### List Columns
+
+```
+{cursor} {icon}  #{txId}  {source}  {timestamp}  {asset}  {dir}  {missing} of {total}  {coverage}
+```
+
+| Column    | Width    | Alignment | Content                           |
+| --------- | -------- | --------- | --------------------------------- |
+| Cursor    | 1        | —         | `▸` for selected, space otherwise |
+| Icon      | 1        | —         | `⚠` yellow (all rows are issues)  |
+| TX ID     | 6        | right     | `#{id}` prefixed                  |
+| Source    | 10       | left      | Blockchain name or exchange name  |
+| Timestamp | 16       | left      | `YYYY-MM-DD HH:MM`                |
+| Asset     | 5        | left      | Asset symbol                      |
+| Direction | 3        | left      | `IN` or `OUT`                     |
+| Missing   | variable | right     | `{missing} of {total}`            |
+| Coverage  | 10       | right     | `{pct}% covered`                  |
+
+### Row Colors
+
+| Element   | Color                                |
+| --------- | ------------------------------------ |
+| Icon `⚠`  | yellow                               |
+| TX ID     | white                                |
+| Source    | cyan                                 |
+| Timestamp | dim                                  |
+| Asset     | white                                |
+| `IN`      | green                                |
+| `OUT`     | yellow                               |
+| Amounts   | green                                |
+| `of`      | dim                                  |
+| Coverage  | green (≥50%), yellow (>0%), red (0%) |
+
+### Detail Panel
+
+```
+▸ #{txId}  {source}  {operationCategory}/{operationType}  {fullTimestamp}
+  Missing: {missing} {asset} of {total} {asset} {direction} ({coverage}% confirmed coverage)
+  Suggested matches: {count} (best {confidence}% confidence)
+  Action: {actionText}
+```
+
+| Element          | Color                      |
+| ---------------- | -------------------------- |
+| TX ID            | white/bold                 |
+| Source           | cyan                       |
+| Operation        | dim                        |
+| Timestamp        | dim                        |
+| Labels           | dim                        |
+| Missing amount   | green                      |
+| Total amount     | white                      |
+| Direction label  | white                      |
+| Coverage %       | colored by range           |
+| Suggestion count | green when > 0, dim when 0 |
+| Confidence       | colored by range           |
+| Action text      | white                      |
+
+- `Suggested matches` line: show `none` (dim) when 0 suggestions, omit confidence
+- Action text varies by direction:
+  - Inflow: `Run \`exitbook links run\` then confirm matches to bridge this gap.`
+  - Outflow: `Identify the destination wallet or confirm a link; otherwise this may be treated as a gift.`
+
+### Controls Bar
+
+```
+↑↓/j/k · ^U/^D page · Home/End · q/esc quit
+```
+
+No `c`/`r` — gaps mode is read-only.
+
+### Sorting
+
+Default: by asset symbol ascending, then direction (inflows first), then timestamp ascending.
 
 ---
 
@@ -197,21 +364,19 @@ Only show `c confirm  r reject` when selected link is `suggested`.
 ### Status Filter (`--status`)
 
 ```bash
-exitbook links view --status suggested    # Only suggested links
-exitbook links view --status confirmed    # Only confirmed links
-exitbook links view --status rejected     # Only rejected links
-```
-
-When filtered, header reflects the filter:
-
-```
-Transaction Links (suggested)                                              4 suggested
+exitbook links view                     # All links (default)
+exitbook links view --status suggested  # Only suggested links
+exitbook links view --status confirmed  # Only confirmed links
+exitbook links view --status rejected   # Only rejected links
+exitbook links view --status gaps       # Coverage gap analysis
 ```
 
 ### Confidence Filter
 
+Only applies in links mode. Ignored when `--status gaps`.
+
 ```bash
-exitbook links view --min-confidence 0.8                    # High confidence only
+exitbook links view --min-confidence 0.8                         # High confidence only
 exitbook links view --min-confidence 0.3 --max-confidence 0.7   # Medium range
 ```
 
@@ -221,38 +386,60 @@ exitbook links view --min-confidence 0.3 --max-confidence 0.7   # Medium range
 exitbook links view --limit 20
 ```
 
+Applies to both modes. In links mode, header shows `showing X of Y` when truncated.
+
+### Verbose
+
+Only applies in links mode. Adds address details to the detail panel.
+
+```bash
+exitbook links view --verbose
+```
+
 ---
 
 ## Empty States
 
-### No Links at All
+### No Links at All (links mode)
 
 ```
-Transaction Links                                                          0 links
+Transaction Links  0 links
 
   No transaction links found.
 
   Run the linking algorithm first:
-    exitbook links run
+  exitbook links run
 
-                                                                              q quit
+q quit
 ```
 
-### No Links Matching Filter
+### No Links Matching Filter (links mode)
 
 ```
-Transaction Links (suggested)                                     0 suggested
+Transaction Links (suggested)  0 suggested
 
   No suggested links found.
 
-                                                                              q quit
+q quit
+```
+
+### No Gaps Found (gaps mode)
+
+```
+Transaction Links (gaps)  0 gaps
+
+  All movements have confirmed counterparties.
+
+q quit
 ```
 
 ---
 
 ## JSON Mode (`--json`)
 
-Bypasses the TUI entirely. Same output as current implementation but with richer transaction details:
+Bypasses the TUI. Output shape depends on mode.
+
+### Links Mode
 
 ```json
 {
@@ -267,17 +454,20 @@ Bypasses the TUI entirely. Same output as current implementation but with richer
 }
 ```
 
----
+### Gaps Mode (`--status gaps --json`)
 
-## Loading State
-
-While fetching links and transactions from the database:
-
+```json
+{
+  "data": [...],
+  "meta": {
+    "total_issues": 5,
+    "uncovered_inflows": 3,
+    "unmatched_outflows": 2,
+    "affected_assets": 2,
+    "assets": [...]
+  }
+}
 ```
-⠋ Loading transaction links...
-```
-
-Brief spinner, then TUI appears. If loading takes >2s (unlikely for local SQLite), show count progress.
 
 ---
 
@@ -287,28 +477,133 @@ Brief spinner, then TUI appears. If loading takes >2s (unlikely for local SQLite
 
 Same conventions as ingestion dashboard and links-run.
 
-**Signal tier:**
+**Signal tier (icons + cursor):**
 
-- `✓` green, `⚠` yellow, `✗` dim
-- Cursor `▸` white/bold
+| Icon | Color  | Meaning               |
+| ---- | ------ | --------------------- |
+| `✓`  | green  | Confirmed link        |
+| `⚠`  | yellow | Suggested / gap issue |
+| `✗`  | dim    | Rejected link         |
+| `▸`  | —      | Cursor (bold)         |
 
-**Content tier:**
+**Content tier (what you read):**
 
-- Asset symbols: white
-- Amounts: green
-- Source names: cyan
-- Confidence: colored by range (green ≥95%, yellow 70–95%, red <70%)
-- Status text: matches icon color
-- Counts in header: matches status color
+| Element                 | Color                                     |
+| ----------------------- | ----------------------------------------- |
+| Asset symbols           | white                                     |
+| Amounts                 | green                                     |
+| Source/blockchain names | cyan                                      |
+| Confidence %            | green (≥95%), yellow (70–95%), red (<70%) |
+| Status text             | matches icon color                        |
+| Counts in header        | matches status color                      |
+| Direction `IN`          | green                                     |
+| Direction `OUT`         | yellow                                    |
+| Coverage %              | green (≥50%), yellow (>0%), red (0%)      |
 
-**Context tier:**
+**Context tier (recedes):**
 
-- Timestamps: dim
-- Link type: dim
-- Divider: dim
-- Arrow `→`: dim
-- Controls bar: dim
-- Tree chars in detail panel: dim
+| Element                            | Color |
+| ---------------------------------- | ----- |
+| Timestamps                         | dim   |
+| Divider `─`                        | dim   |
+| Link type                          | dim   |
+| Arrow `→`                          | dim   |
+| Dot separator `·`                  | dim   |
+| `of` in amount expressions         | dim   |
+| Labels (`Source:`, `Match:`, etc.) | dim   |
+| Operation type in detail           | dim   |
+| Controls bar                       | dim   |
+| Scroll indicators                  | dim   |
+| `showing X of Y`                   | dim   |
+
+---
+
+## State Model
+
+```typescript
+/** Links mode state */
+interface LinksViewLinksState {
+  mode: 'links';
+
+  links: LinkWithTransactions[];
+  counts: { confirmed: number; suggested: number; rejected: number };
+
+  selectedIndex: number;
+  scrollOffset: number;
+
+  statusFilter?: LinkStatus | undefined;
+  totalCount?: number | undefined;
+  verbose: boolean;
+
+  pendingAction?: { linkId: string; action: 'confirm' | 'reject' } | undefined;
+  error?: string | undefined;
+}
+
+/** Gaps mode state */
+interface LinksViewGapsState {
+  mode: 'gaps';
+
+  linkAnalysis: LinkGapAnalysis;
+  selectedIndex: number;
+  scrollOffset: number;
+}
+
+type LinksViewState = LinksViewLinksState | LinksViewGapsState;
+```
+
+### Actions
+
+```typescript
+type LinksViewAction =
+  // Navigation (both modes)
+  | { type: 'NAVIGATE_UP'; visibleRows: number }
+  | { type: 'NAVIGATE_DOWN'; visibleRows: number }
+  | { type: 'PAGE_UP'; visibleRows: number }
+  | { type: 'PAGE_DOWN'; visibleRows: number }
+  | { type: 'HOME' }
+  | { type: 'END'; visibleRows: number }
+
+  // Links mode only
+  | { type: 'CONFIRM_SELECTED' }
+  | { type: 'REJECT_SELECTED' }
+
+  // Error handling
+  | { type: 'CLEAR_ERROR' }
+  | { type: 'SET_ERROR'; error: string };
+```
+
+---
+
+## Component Structure
+
+```
+LinksViewApp
+├── Header (adapts to mode)
+├── AssetBreakdown (gaps mode only)
+├── LinkList (links mode) / GapList (gaps mode)
+│   └── LinkRow / GapRow
+├── Divider
+├── LinkDetailPanel (links mode) / GapDetailPanel (gaps mode)
+├── ErrorLine (transient, if present)
+└── ControlsBar (adapts: c/r only in links mode on suggested)
+```
+
+---
+
+## Command Options
+
+```
+exitbook links view [options]
+
+Options:
+  --status <status>          Filter by status (suggested, confirmed, rejected, gaps)
+  --min-confidence <score>   Minimum confidence score 0-1 (links mode only)
+  --max-confidence <score>   Maximum confidence score 0-1 (links mode only)
+  --limit <number>           Maximum items to display
+  --verbose                  Include address details (links mode only)
+  --json                     Output JSON, bypass TUI
+  -h, --help                 Display help
+```
 
 ---
 
@@ -316,47 +611,37 @@ Same conventions as ingestion dashboard and links-run.
 
 ### Data Flow
 
-1. Fetch all links from `TransactionLinkRepository.findAll(status?)`
-2. For each link, fetch source and target transactions from `TransactionRepository.findById()`
+**Links mode:**
+
+1. Fetch links from `TransactionLinkRepository.findAll(status?)`
+2. For each link, fetch source and target transactions
 3. Apply confidence filters client-side
-4. Render Ink TUI with full dataset in memory
+4. Apply limit
+5. Create `LinksConfirmHandler` and `LinksRejectHandler` for inline actions
+6. Render Ink TUI with dataset in memory
 
-### Component Structure
+**Gaps mode:**
 
-```
-LinksViewApp
-├── Header (title + counts)
-├── LinkList (scrollable list with cursor)
-│   └── LinkRow (one per link)
-├── Divider
-├── DetailPanel (selected link details)
-└── ControlsBar (keyboard hints)
-```
+1. Fetch all transactions from `TransactionRepository`
+2. Fetch all links from `TransactionLinkRepository.findAll()`
+3. Run `analyzeLinkGaps(transactions, links)` to produce `LinkGapAnalysis`
+4. Render Ink TUI with analysis in memory
 
-### State
-
-```typescript
-interface LinksViewState {
-  links: LinkWithTransactions[];
-  selectedIndex: number;
-  scrollOffset: number;
-  counts: { confirmed: number; suggested: number; rejected: number };
-  pendingAction?: { linkId: string; action: 'confirm' | 'reject' };
-  error?: string;
-}
-```
-
-### Confirm/Reject Integration
-
-The TUI calls `TransactionLinkRepository.updateStatus()` directly. This is the same code path as `links confirm` and `links reject` CLI commands — the TUI just provides a faster UX for bulk triage.
+Database is kept open in links mode (for confirm/reject writes). In gaps mode, database can be closed after loading (read-only).
 
 ### Terminal Size
 
-- List panel: fills available height minus detail panel (4 lines) minus header (2 lines) minus controls (1 line)
-- Minimum terminal width: 80 columns (truncate source→target names if narrower)
-- Detail panel: fixed 4 lines
+- List panel: fills available height minus fixed chrome (header ~3, divider 1, detail panel ~6, controls ~2, scroll indicators ~2 = ~14 lines)
+- Gaps mode: asset breakdown adds ~4 lines above the list, reducing visible rows further
+- Minimum terminal width: 80 columns
+- Detail panel: ~6 lines including blank lines between sections
 
 ### Accessibility
 
 - Vim keys (`j`/`k`) alongside arrows
-- No color-only information — status text always accompanies icons
+- No color-only information — status text and icons always accompany colors
+- Direction always shown as text (`IN`/`OUT`), not just color-coded
+
+### Migration from `gaps` Command
+
+The `analyzeLinkGaps` function moves from `features/gaps/gaps-view-utils.ts` into `features/links/`. The `gaps` command, `GapCategory` type, `FeeGapAnalysis`, `analyzeFeeGaps`, and all fee gap types are removed. The `GapsViewCommandOptionsSchema` in shared schemas is removed. `LinksViewCommandOptionsSchema` gains `'gaps'` as a status enum value.

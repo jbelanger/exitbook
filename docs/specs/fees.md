@@ -113,11 +113,10 @@ Examples:
 - Fee `priceAtTxTime` is required when the fee asset is crypto and participates in accounting; missing prices raise errors.
 - Non-USD fiat fee prices are normalized to USD alongside movement prices; crypto-denominated “prices” are rejected as unexpected.
 
-### Data Quality Checks (CLI `gaps`)
+### Data Quality Checks
 
-- `fee_without_price`: fee recorded without required price.
-- `missing_fee_fields`: fee classified transaction missing fee entries.
-- `fee_in_movements`: metadata suggests a fee but only a movement amount is present.
+- Missing fee prices are surfaced by the **Prices** gap category (covers all movements and fees missing `priceAtTxTime`).
+- Structural fee issues (missing fee fields, fees in movements instead of fee entries) belong in processor tests or the future **Validation** gap category.
 
 ## Data Model
 

@@ -9,8 +9,8 @@ import { OutputManager } from '../shared/output.js';
 import { GapsViewCommandOptionsSchema } from '../shared/schemas.js';
 import { buildViewMeta, type ViewCommandResult } from '../shared/view-utils.js';
 
-import type { FeeGapAnalysis, GapsViewParams, GapsViewResult, LinkGapAnalysis } from './gaps-view-utils.js';
-import { analyzeFeeGaps, analyzeLinkGaps, formatGapsViewResult } from './gaps-view-utils.js';
+import type { GapsViewParams, GapsViewResult, LinkGapAnalysis } from './gaps-view-utils.js';
+import { analyzeLinkGaps, formatGapsViewResult } from './gaps-view-utils.js';
 
 /**
  * Command options (validated at CLI boundary).
@@ -20,7 +20,7 @@ export type CommandOptions = z.infer<typeof GapsViewCommandOptionsSchema>;
 /**
  * Result data for gaps view command (JSON mode).
  */
-type GapsViewCommandResult = ViewCommandResult<FeeGapAnalysis | LinkGapAnalysis>;
+type GapsViewCommandResult = ViewCommandResult<LinkGapAnalysis>;
 
 /**
  * Register the gaps view subcommand.
@@ -33,27 +33,24 @@ export function registerGapsViewCommand(gapsCommand: Command): void {
       'after',
       `
 Examples:
-  $ exitbook gaps view                      # View all data quality issues (defaults to fees)
-  $ exitbook gaps view --category fees      # Audit fee field mappings
-  $ exitbook gaps view --category prices    # Find transactions without prices
+  $ exitbook gaps view                      # View all data quality issues (defaults to links)
   $ exitbook gaps view --category links     # Find blockchain/exchange movements missing confirmed counterparties
+  $ exitbook gaps view --category prices    # Find transactions without prices
   $ exitbook gaps view --category validation # Find validation errors
   $ exitbook gaps view --json               # Output in JSON format for MCP
 
 Common Usage:
-  - Audit fee mappings to ensure fees are in proper fields
-  - Identify transactions missing price data before cost basis calculation
   - Find transfer pairs that aren't linked, including unexplained withdrawals
+  - Identify transactions missing price data before cost basis calculation
   - Detect data quality issues from import/processing
 
 Gap Categories:
-  fees        - Fees in movements vs. fee fields, missing prices on fees
-  prices      - Transactions without price data (coming soon)
   links       - Blockchain/exchange inflows/outflows missing confirmed counterparties
+  prices      - Transactions without price data (coming soon)
   validation  - Schema validation errors (coming soon)
 `
     )
-    .option('--category <category>', 'Filter by gap category (fees, prices, links, validation)')
+    .option('--category <category>', 'Filter by gap category (links, prices, validation)')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeGapsViewCommand(rawOptions);
@@ -110,8 +107,8 @@ async function executeGapsViewCommand(rawOptions: unknown): Promise<void> {
     // Execute gaps analysis
     let result: GapsViewResult;
     try {
-      // Default to fees category if not specified
-      const category: string = (params.category ?? 'fees') as string;
+      // Default to links category if not specified
+      const category: string = (params.category ?? 'links') as string;
 
       // Fetch all transactions
       const transactionsResult = await txRepo.getTransactions();
@@ -128,14 +125,6 @@ async function executeGapsViewCommand(rawOptions: unknown): Promise<void> {
 
       // Analyze based on category
       switch (category) {
-        case 'fees': {
-          const analysis = analyzeFeeGaps(transactions);
-          result = {
-            category: 'fees',
-            analysis,
-          };
-          break;
-        }
         case 'prices': {
           await closeDatabase(database);
           resetLoggerContext();

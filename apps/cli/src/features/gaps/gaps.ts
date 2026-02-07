@@ -9,12 +9,10 @@ import { registerGapsViewCommand } from './gaps-view.js';
  * Register the unified gaps command with all subcommands.
  *
  * Structure:
- *   gaps view               - View data quality gaps by category (fees, prices, links, validation)
+ *   gaps view               - View data quality gaps by category (links, prices, validation)
  */
 export function registerGapsCommand(program: Command): void {
-  const gaps = program
-    .command('gaps')
-    .description('Inspect data quality gaps and issues (fees, prices, links, validation)');
+  const gaps = program.command('gaps').description('Inspect data quality gaps and issues (links, prices, validation)');
 
   // Register subcommands
   registerGapsViewCommand(gaps);
