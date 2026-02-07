@@ -1,6 +1,6 @@
 // Command registration for links view subcommand
 
-import type { TransactionLink } from '@exitbook/accounting';
+import type { LinkStatus, TransactionLink } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
@@ -193,9 +193,13 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
     const overrideStore = new OverrideStore();
 
     // Fetch and process links
-    const linksResult = await linkRepo.findAll(params.status as 'suggested' | 'confirmed' | 'rejected' | undefined);
+    const linksResult = await linkRepo.findAll(params.status as LinkStatus);
     if (linksResult.isErr()) {
-      throw linksResult.error;
+      console.error('\n⚠ Error:', linksResult.error.message);
+      if (database) {
+        await closeDatabase(database);
+      }
+      process.exit(ExitCodes.GENERAL_ERROR);
     }
 
     let links = linksResult.value;
@@ -223,12 +227,12 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
       if (action === 'confirm') {
         const result = await confirmHandler.execute({ linkId });
         if (result.isErr()) {
-          throw result.error;
+          console.error('\n⚠ Error:', result.error.message);
         }
       } else {
         const result = await rejectHandler.execute({ linkId });
         if (result.isErr()) {
-          throw result.error;
+          console.error('\n⚠ Error:', result.error.message);
         }
       }
     };
@@ -236,7 +240,7 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
     // Create initial state
     const initialState = createLinksViewState(
       linksWithTransactions,
-      params.status as 'suggested' | 'confirmed' | 'rejected' | undefined,
+      params.status as LinkStatus,
       params.verbose ?? false,
       totalCount
     );
@@ -288,24 +292,27 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
   const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
+  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
   let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
 
   try {
-    const database = await initializeDatabase();
+    database = await initializeDatabase();
     const txRepo = new TransactionRepository(database);
     const linkRepo = new TransactionLinkRepository(database);
 
     // Fetch all transactions and links
     const transactionsResult = await txRepo.getTransactions();
     if (transactionsResult.isErr()) {
+      console.error('\n⚠ Error:', transactionsResult.error.message);
       await closeDatabase(database);
-      throw transactionsResult.error;
+      process.exit(ExitCodes.GENERAL_ERROR);
     }
 
     const linksResult = await linkRepo.findAll();
     if (linksResult.isErr()) {
+      console.error('\n⚠ Error:', linksResult.error.message);
       await closeDatabase(database);
-      throw linksResult.error;
+      process.exit(ExitCodes.GENERAL_ERROR);
     }
 
     // Run gap analysis
@@ -313,6 +320,7 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
 
     // Close DB immediately (read-only mode)
     await closeDatabase(database);
+    database = undefined;
 
     // Apply limit to issues
     if (params.limit !== undefined && params.limit > 0 && analysis.issues.length > params.limit) {
@@ -347,6 +355,9 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
         /* ignore unmount errors */
       }
     }
+    if (database) {
+      await closeDatabase(database);
+    }
 
     process.exit(ExitCodes.GENERAL_ERROR);
   }
@@ -369,7 +380,7 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
     const txRepo = new TransactionRepository(database);
 
     // Fetch links
-    const linksResult = await linkRepo.findAll(params.status as 'suggested' | 'confirmed' | 'rejected' | undefined);
+    const linksResult = await linkRepo.findAll(params.status as LinkStatus);
     if (linksResult.isErr()) {
       await closeDatabase(database);
       output.error('links-view', linksResult.error, ExitCodes.GENERAL_ERROR);
