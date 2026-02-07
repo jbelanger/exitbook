@@ -1,4 +1,4 @@
-import type { ExchangeCredentials } from '@exitbook/core';
+import type { CursorState, ExchangeCredentials, RawTransactionInput } from '@exitbook/core';
 import { getErrorMessage, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
@@ -118,8 +118,8 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
               }
 
               // Process items inline - validate and transform each ledger entry
-              const transactions: import('@exitbook/core').RawTransactionInput[] = [];
-              let lastCursorState: import('@exitbook/core').CursorState | undefined;
+              const transactions: RawTransactionInput[] = [];
+              let lastCursorState: CursorState | undefined;
               let validationError: Error | undefined;
 
               for (let i = 0; i < ledgerEntries.length; i++) {

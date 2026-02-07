@@ -5,6 +5,7 @@ import { parseDecimal } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { ManualPriceService } from '@exitbook/price-providers';
+import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 const logger = getLogger('PricesSetFxHandler');
@@ -114,7 +115,7 @@ export class PricesSetFxHandler {
   private validateInputs(options: PricesSetFxOptions): Result<
     {
       from: string;
-      rateValue: import('decimal.js').Decimal;
+      rateValue: Decimal;
       source: string;
       timestamp: Date;
       to: string;

@@ -85,11 +85,12 @@ describe('applyLinkOverrides', () => {
     expect(result.isOk()).toBe(true);
 
     if (result.isOk()) {
-      const { links: modifiedLinks, unresolved } = result.value;
+      const { links: modifiedLinks, orphaned, unresolved } = result.value;
       expect(modifiedLinks).toHaveLength(1);
       expect(modifiedLinks[0]?.status).toBe('confirmed');
       expect(modifiedLinks[0]?.reviewedBy).toBe('user');
       expect(modifiedLinks[0]?.reviewedAt).toBeInstanceOf(Date);
+      expect(orphaned).toHaveLength(0);
       expect(unresolved).toHaveLength(0);
     }
   });
@@ -129,11 +130,66 @@ describe('applyLinkOverrides', () => {
     expect(result.isOk()).toBe(true);
 
     if (result.isOk()) {
-      const { links: modifiedLinks, unresolved } = result.value;
+      const { links: modifiedLinks, orphaned, unresolved } = result.value;
       expect(modifiedLinks).toHaveLength(1);
       expect(modifiedLinks[0]?.status).toBe('rejected');
       expect(modifiedLinks[0]?.reviewedBy).toBe('user');
+      expect(orphaned).toHaveLength(0);
       expect(unresolved).toHaveLength(0);
+    }
+  });
+
+  it('should return orphaned override when transactions exist but algorithm produced no link', () => {
+    const transactions = [
+      { id: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
+      { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+    ];
+
+    // Empty links — algorithm didn't produce a match for this pair
+    const links: {
+      assetSymbol: string;
+      id: string;
+      sourceTransactionId: number;
+      status: 'suggested';
+      targetTransactionId: number;
+    }[] = [];
+
+    const payload: LinkOverridePayload = {
+      type: 'link_override',
+      action: 'confirm',
+      link_type: 'transfer',
+      source_fingerprint: 'kraken:WITHDRAWAL-123',
+      target_fingerprint: 'blockchain:bitcoin:abc123',
+      asset: 'BTC',
+    };
+
+    const overrides: OverrideEvent[] = [
+      {
+        id: 'override-1',
+        created_at: '2024-01-15T10:00:00Z',
+        actor: 'user',
+        source: 'cli',
+        scope: 'link',
+        payload,
+      },
+    ];
+
+    const result = applyLinkOverrides(links, overrides, transactions);
+
+    expect(result.isOk()).toBe(true);
+
+    if (result.isOk()) {
+      const { links: modifiedLinks, orphaned, unresolved } = result.value;
+      expect(modifiedLinks).toHaveLength(0);
+      expect(unresolved).toHaveLength(0);
+
+      // Override should be orphaned — both txs exist but no link to promote
+      expect(orphaned).toHaveLength(1);
+      expect(orphaned[0]?.sourceTransactionId).toBe(1);
+      expect(orphaned[0]?.targetTransactionId).toBe(2);
+      expect(orphaned[0]?.assetSymbol).toBe('BTC');
+      expect(orphaned[0]?.linkType).toBe('transfer');
+      expect(orphaned[0]?.override.id).toBe('override-1');
     }
   });
 
@@ -175,9 +231,10 @@ describe('applyLinkOverrides', () => {
     expect(result.isOk()).toBe(true);
 
     if (result.isOk()) {
-      const { links: modifiedLinks, unresolved } = result.value;
+      const { links: modifiedLinks, orphaned, unresolved } = result.value;
       expect(modifiedLinks).toHaveLength(1);
       expect(modifiedLinks[0]?.status).toBe('suggested');
+      expect(orphaned).toHaveLength(0);
       expect(unresolved).toHaveLength(1);
       expect(unresolved[0]?.id).toBe('override-1');
     }
@@ -204,9 +261,10 @@ describe('applyLinkOverrides', () => {
     expect(result.isOk()).toBe(true);
 
     if (result.isOk()) {
-      const { links: modifiedLinks, unresolved } = result.value;
+      const { links: modifiedLinks, orphaned, unresolved } = result.value;
       expect(modifiedLinks).toHaveLength(1);
       expect(modifiedLinks[0]?.status).toBe('suggested');
+      expect(orphaned).toHaveLength(0);
       expect(unresolved).toHaveLength(0);
     }
   });

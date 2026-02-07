@@ -57,22 +57,40 @@ export function resolveTxId(fingerprint: string, fingerprintMap: Map<string, num
 }
 
 /**
+ * A link_override whose transactions exist but no algorithm-generated link matched.
+ * The caller should create a new link entity from this data.
+ */
+export interface OrphanedLinkOverride {
+  override: OverrideEvent;
+  sourceTransactionId: number;
+  targetTransactionId: number;
+  assetSymbol: string;
+  linkType: string;
+}
+
+/**
  * Apply link overrides to a set of links
- * Modifies link statuses based on confirm/reject overrides
+ * Modifies link statuses based on confirm/reject overrides.
+ *
+ * When a link_override resolves both transaction IDs but no matching link exists
+ * in the algorithm output, it is returned in `orphaned` so the caller can
+ * construct a new link — ensuring user decisions survive reprocessing even when
+ * the algorithm doesn't rediscover the pair.
  *
  * @param links - Array of links to modify
  * @param overrides - Override events with scope='link' or 'unlink'
  * @param transactions - All transactions for fingerprint resolution
- * @returns Result with modified links and unresolved overrides
+ * @returns Result with modified links, orphaned overrides (resolvable but no matching link), and unresolved overrides (transactions missing)
  */
 export function applyLinkOverrides(
   links: LinkWithStatus[],
   overrides: OverrideEvent[],
   transactions: TransactionWithFingerprint[]
-): Result<{ links: LinkWithStatus[]; unresolved: OverrideEvent[] }, Error> {
+): Result<{ links: LinkWithStatus[]; orphaned: OrphanedLinkOverride[]; unresolved: OverrideEvent[] }, Error> {
   try {
     const fingerprintMap = buildFingerprintMap(transactions);
     const unresolved: OverrideEvent[] = [];
+    const orphaned: OrphanedLinkOverride[] = [];
 
     // Filter to link-related overrides
     const linkOverrides = overrides.filter((o) => o.scope === 'link' || o.scope === 'unlink');
@@ -129,14 +147,22 @@ export function applyLinkOverrides(
         const link = linkMap.get(linkFingerprint);
 
         if (!link) {
-          logger.warn(
+          // Transactions exist but algorithm didn't produce this link.
+          // Return as orphaned so the caller can create a new link entity.
+          logger.info(
             {
               overrideId: override.id,
               linkFingerprint,
             },
-            'Could not find link matching override fingerprint'
+            'Override references a link not produced by the algorithm — returning as orphaned'
           );
-          unresolved.push(override);
+          orphaned.push({
+            override,
+            sourceTransactionId: sourceId,
+            targetTransactionId: targetId,
+            assetSymbol: payload.asset,
+            linkType: payload.link_type,
+          });
           continue;
         }
 
@@ -168,7 +194,7 @@ export function applyLinkOverrides(
       }
     }
 
-    return ok({ links, unresolved });
+    return ok({ links, orphaned, unresolved });
   } catch (error) {
     return wrapError(error, 'Failed to apply link overrides');
   }

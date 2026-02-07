@@ -1,12 +1,19 @@
 // Imperative shell for prices command
 // Manages resources (database, price providers) and orchestrates business logic
 
+import { enrichMovementsWithPrices } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import type { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
-import { CoinNotFoundError, PriceDataUnavailableError, type PriceProviderManager } from '@exitbook/price-providers';
+import {
+  CoinNotFoundError,
+  PriceDataUnavailableError,
+  type PriceProviderManager,
+  type PriceQuery,
+} from '@exitbook/price-providers';
+import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -135,7 +142,7 @@ export class PricesFetchHandler {
         asset: string;
         fetchedAt: Date;
         granularity?: 'exact' | 'minute' | 'hour' | 'day' | undefined;
-        price: { amount: import('decimal.js').Decimal; currency: import('@exitbook/core').Currency };
+        price: { amount: Decimal; currency: Currency };
         source: string;
       }[] = [];
 
@@ -229,7 +236,6 @@ export class PricesFetchHandler {
         );
 
         // Enrich all movements (inflows, outflows, and fees) with priority rules
-        const { enrichMovementsWithPrices } = await import('@exitbook/accounting');
         const enrichedInflows = enrichMovementsWithPrices(tx.movements.inflows ?? [], pricesMap);
         const enrichedOutflows = enrichMovementsWithPrices(tx.movements.outflows ?? [], pricesMap);
 
@@ -359,7 +365,7 @@ export class PricesFetchHandler {
     error: Error,
     asset: string,
     txId: number,
-    query: import('@exitbook/price-providers').PriceQuery,
+    query: PriceQuery,
     options: PricesFetchCommandOptions
   ): Promise<{
     errorMessage?: string;
@@ -367,7 +373,7 @@ export class PricesFetchHandler {
       asset: string;
       fetchedAt: Date;
       granularity?: 'exact' | 'minute' | 'hour' | 'day' | undefined;
-      price: { amount: import('decimal.js').Decimal; currency: Currency };
+      price: { amount: Decimal; currency: Currency };
       source: string;
     };
     success: boolean;

@@ -5,9 +5,11 @@ import {
   type TransactionLink,
   type TransactionLinkRepository,
 } from '@exitbook/accounting';
-import { applyLinkOverrides, type OverrideStore } from '@exitbook/data';
+import { parseDecimal } from '@exitbook/core';
+import { applyLinkOverrides, type OrphanedLinkOverride, type OverrideStore } from '@exitbook/data';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
+import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -19,10 +21,10 @@ export interface LinksRunHandlerParams {
   dryRun: boolean;
 
   /** Minimum confidence score to suggest a match (0-1) */
-  minConfidenceScore: import('decimal.js').Decimal;
+  minConfidenceScore: Decimal;
 
   /** Auto-confirm matches above this confidence (0-1) */
-  autoConfirmThreshold: import('decimal.js').Decimal;
+  autoConfirmThreshold: Decimal;
 }
 
 const logger = getLogger('LinksRunHandler');
@@ -180,6 +182,10 @@ export class LinksRunHandler {
   /**
    * Apply link/unlink override events on top of algorithm-generated links.
    * If no override store is configured, returns the links unchanged.
+   *
+   * When a link_override references transactions that exist but the algorithm
+   * didn't produce a matching link, a new confirmed link is created so the
+   * user's decision survives reprocessing.
    */
   private async applyOverrides(
     links: TransactionLink[],
@@ -207,19 +213,72 @@ export class LinksRunHandler {
         return links;
       }
 
-      const { links: adjustedLinks, unresolved } = result.value;
+      const { links: adjustedLinks, orphaned, unresolved } = result.value;
+
+      // adjustedLinks is LinkWithStatus[] but contains full TransactionLink objects
+      // Cast back to TransactionLink[] since we passed in TransactionLink[] and the
+      // function only modifies status-related fields
+      const typedLinks = adjustedLinks as TransactionLink[];
+
+      // Create new confirmed links for orphaned overrides (algorithm didn't rediscover the pair)
+      for (const entry of orphaned) {
+        const newLink = this.buildLinkFromOrphanedOverride(entry);
+        typedLinks.push(newLink);
+        logger.info(
+          {
+            overrideId: entry.override.id,
+            sourceTransactionId: entry.sourceTransactionId,
+            targetTransactionId: entry.targetTransactionId,
+            asset: entry.assetSymbol,
+          },
+          'Created link from override (algorithm did not rediscover this pair)'
+        );
+      }
 
       if (unresolved.length > 0) {
         logger.warn(
           { unresolvedCount: unresolved.length },
-          'Some override events could not be matched to current links'
+          'Some override events could not resolve transaction fingerprints'
         );
       }
 
-      return adjustedLinks;
+      return typedLinks;
     } catch (error) {
       logger.warn({ error }, 'Unexpected error applying overrides, using algorithm results');
       return links;
     }
+  }
+
+  /**
+   * Build a minimal TransactionLink from an orphaned override.
+   * Amounts and match criteria are unknown since the algorithm didn't find this pair,
+   * so we use zero/sentinel values and mark it as override-created.
+   */
+  private buildLinkFromOrphanedOverride(entry: OrphanedLinkOverride): TransactionLink {
+    const now = new Date();
+    const zero = parseDecimal('0');
+
+    return {
+      id: uuidv4(),
+      sourceTransactionId: entry.sourceTransactionId,
+      targetTransactionId: entry.targetTransactionId,
+      assetSymbol: entry.assetSymbol,
+      sourceAmount: zero,
+      targetAmount: zero,
+      linkType: entry.linkType as TransactionLink['linkType'],
+      confidenceScore: parseDecimal('1'),
+      matchCriteria: {
+        assetMatch: true,
+        amountSimilarity: zero,
+        timingValid: true,
+        timingHours: 0,
+      },
+      status: 'confirmed',
+      reviewedBy: entry.override.actor,
+      reviewedAt: new Date(entry.override.created_at),
+      createdAt: now,
+      updatedAt: now,
+      metadata: { overrideId: entry.override.id },
+    };
   }
 }
