@@ -108,11 +108,8 @@ V2 Architecture Audit: CLI Links Command
 
      1.3 @clack/prompts + Ink Dual UI Pattern
 
-     What exists:
-     - @clack/prompts for interactive prompts (lines 43-101 in links-run.ts)
-     - Ink for TUI rendering (all of links-view-components.tsx)
-     - Two separate UI paradigms coexisting awkwardly
-     - Mode detection to route between them (lines 123-139 in links-view.ts)
+DONE
+What exists: - @clack/prompts for interactive prompts (lines 43-101 in links-run.ts) - Ink for TUI rendering (all of links-view-components.tsx) - Two separate UI paradigms coexisting awkwardly - Mode detection to route between them (lines 123-139 in links-view.ts)
 
      Why it's a problem:
      - @clack/prompts has incomplete keyboard handling (no support for complex navigation)
