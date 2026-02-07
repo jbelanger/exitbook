@@ -1,6 +1,6 @@
+/* eslint-disable unicorn/no-null -- Used in React component code */
 import { performance } from 'node:perf_hooks';
 
-import * as p from '@clack/prompts';
 import { TransactionLinkRepository } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
 import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
@@ -12,10 +12,10 @@ import type { z } from 'zod';
 
 import { LinksRunMonitor } from '../../ui/links/index.js';
 import { createLinksRunState } from '../../ui/links/index.js';
+import { PromptFlow, type PromptStep } from '../../ui/shared/PromptFlow.js';
 import { displayCliError } from '../shared/cli-error.js';
+import { createSuccessResponse } from '../shared/cli-response.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
-import { handleCancellation, isCancelled, promptConfirm } from '../shared/prompts.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 
 import type { LinksRunHandlerParams, LinksRunResult } from './links-run-handler.js';
@@ -38,66 +38,94 @@ function buildLinksRunParamsFromFlags(options: LinksRunCommandOptions): LinksRun
 }
 
 /**
- * Prompt user for links run parameters in interactive mode.
+ * Prompt user for links run parameters in interactive mode using Ink.
  */
-async function promptForLinksRunParams(): Promise<LinksRunHandlerParams> {
-  // Ask if user wants to run in dry-run mode
-  const dryRun = await p.confirm({
-    message: 'Run in dry-run mode (preview matches without saving)?',
-    initialValue: false,
+async function promptForLinksRunParams(): Promise<LinksRunHandlerParams | null> {
+  return new Promise<LinksRunHandlerParams | null>((resolve) => {
+    const steps: PromptStep[] = [
+      {
+        type: 'confirm',
+        props: {
+          message: 'Run in dry-run mode (preview matches without saving)?',
+          initialValue: false,
+        },
+      },
+      {
+        type: 'text',
+        props: {
+          message: 'Minimum confidence score (0-1):',
+          placeholder: '0.7',
+          validate: (value) => {
+            if (!value) return; // Allow empty for default
+            const num = Number(value);
+            if (Number.isNaN(num) || num < 0 || num > 1) {
+              return 'Must be a number between 0 and 1';
+            }
+          },
+        },
+      },
+      {
+        type: 'text',
+        props: {
+          message: 'Auto-confirm threshold (0-1):',
+          placeholder: '0.95',
+          validate: (value) => {
+            if (!value) return; // Allow empty for default
+            const num = Number(value);
+            if (Number.isNaN(num) || num < 0 || num > 1) {
+              return 'Must be a number between 0 and 1';
+            }
+          },
+        },
+      },
+      {
+        type: 'confirm',
+        props: {
+          message: 'Start transaction linking?',
+          initialValue: true,
+        },
+      },
+    ];
+
+    const { unmount } = render(
+      React.createElement(PromptFlow, {
+        title: 'exitbook links-run',
+        steps,
+        onComplete: (answers) => {
+          unmount();
+
+          const dryRun = answers[0] as boolean;
+          const minConfidenceInput = answers[1] as string;
+          const autoConfirmInput = answers[2] as string;
+          const shouldProceed = answers[3] as boolean;
+
+          if (!shouldProceed) {
+            resolve(null);
+            return;
+          }
+
+          // Validate auto-confirm >= min confidence
+          const minConfidence = Number(minConfidenceInput);
+          const autoConfirm = Number(autoConfirmInput);
+          if (autoConfirm < minConfidence) {
+            console.error('\n⚠ Error: Auto-confirm threshold must be >= minimum confidence score');
+            resolve(null);
+            return;
+          }
+
+          resolve({
+            dryRun,
+            minConfidenceScore: parseDecimal(minConfidenceInput),
+            autoConfirmThreshold: parseDecimal(autoConfirmInput),
+          });
+        },
+        onCancel: () => {
+          unmount();
+          resolve(null);
+        },
+      })
+    );
   });
-
-  if (isCancelled(dryRun)) {
-    handleCancellation();
-  }
-
-  // Ask for minimum confidence threshold
-  const minConfidenceInput = await p.text({
-    message: 'Minimum confidence score (0-1, default: 0.7):',
-    placeholder: '0.7',
-    validate: (value) => {
-      if (!value) return; // Allow empty for default
-      const num = Number(value);
-      if (Number.isNaN(num) || num < 0 || num > 1) {
-        return 'Must be a number between 0 and 1';
-      }
-    },
-  });
-
-  if (isCancelled(minConfidenceInput)) {
-    handleCancellation();
-  }
-
-  const minConfidenceScore = parseDecimal(minConfidenceInput ?? '0.7');
-
-  // Ask for auto-confirm threshold
-  const autoConfirmInput = await p.text({
-    message: 'Auto-confirm threshold (0-1, default: 0.95):',
-    placeholder: '0.95',
-    validate: (value) => {
-      if (!value) return; // Allow empty for default
-      const num = Number(value);
-      if (Number.isNaN(num) || num < 0 || num > 1) {
-        return 'Must be a number between 0 and 1';
-      }
-      const minConfidence = Number(minConfidenceInput ?? '0.7');
-      if (num < minConfidence) {
-        return `Must be >= minimum confidence score (${minConfidence})`;
-      }
-    },
-  });
-
-  if (isCancelled(autoConfirmInput)) {
-    handleCancellation();
-  }
-
-  const autoConfirmThreshold = parseDecimal(autoConfirmInput ?? '0.95');
-
-  return {
-    dryRun,
-    minConfidenceScore,
-    autoConfirmThreshold,
-  };
 }
 
 /**
@@ -136,32 +164,30 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
   }
 
   const options = parseResult.data;
-  const output = new OutputManager(options.json ? 'json' : 'text');
+  const startTime = Date.now();
 
   try {
     let params: LinksRunHandlerParams;
     if (!options.dryRun && !options.minConfidence && !options.autoConfirmThreshold && !options.json) {
-      output.intro('exitbook links-run');
-      params = await promptForLinksRunParams();
-      const shouldProceed = await promptConfirm('Start transaction linking?', true);
-      if (!shouldProceed) {
-        handleCancellation('Transaction linking cancelled');
+      const result = await promptForLinksRunParams();
+      if (!result) {
+        console.log('\nTransaction linking cancelled');
+        process.exit(0);
       }
+      params = result;
     } else {
       params = buildLinksRunParamsFromFlags(options);
     }
 
-    const spinner = output.spinner();
-    spinner?.start('Linking transactions...');
-
-    // Configure logger if no spinner (JSON mode)
-    if (!spinner) {
-      configureLogger({
-        mode: options.json ? 'json' : 'text',
-        verbose: false,
-        sinks: options.json ? { ui: false, structured: 'file' } : { ui: false, structured: 'stdout' },
-      });
-    }
+    // Configure logger for JSON mode or text mode
+    configureLogger({
+      mode: options.json ? 'json' : 'text',
+      verbose: false,
+      sinks: {
+        ui: false,
+        structured: options.json ? 'off' : 'file', // Logs to file in text mode, keeps console clean
+      },
+    });
 
     const { OverrideStore } = await import('@exitbook/data');
     const database = await initializeDatabase();
@@ -174,37 +200,44 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       const result = await handler.execute(params);
 
       await closeDatabase(database);
-      spinner?.stop();
       resetLoggerContext();
 
       if (result.isErr()) {
-        output.error('links-run', result.error, ExitCodes.GENERAL_ERROR);
+        displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
         return;
       }
 
-      handleLinksRunSuccess(output, result.value);
+      handleLinksRunSuccess(result.value, options.json ?? false, startTime);
     } catch (error) {
       await closeDatabase(database);
-      spinner?.stop('Linking failed');
       resetLoggerContext();
       throw error;
     }
   } catch (error) {
     resetLoggerContext();
-    output.error('links-run', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'links-run',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      options.json ? 'json' : 'text'
+    );
   }
 }
 
 /**
  * Handle successful linking.
  */
-function handleLinksRunSuccess(output: OutputManager, linkResult: LinksRunResult): void {
+function handleLinksRunSuccess(linkResult: LinksRunResult, isJsonMode: boolean, startTime: number): void {
   // Display results in text mode using Ink
-  if (output.isTextMode()) {
+  if (!isJsonMode) {
     renderLinksRunResult(linkResult);
+    return;
   }
 
-  output.json('links-run', linkResult);
+  // JSON mode output
+  const duration_ms = Date.now() - startTime;
+  const response = createSuccessResponse('links-run', linkResult, { duration_ms });
+  console.log(JSON.stringify(response, undefined, 2));
 }
 
 /**

@@ -197,7 +197,7 @@ export const ClearCommandOptionsSchema = z.object({
  */
 export const LinksViewCommandOptionsSchema = z
   .object({
-    status: z.enum(['suggested', 'confirmed', 'rejected']).optional(),
+    status: z.enum(['suggested', 'confirmed', 'rejected', 'gaps']).optional(),
     minConfidence: z.number().min(0).max(1).optional(),
     maxConfidence: z.number().min(0).max(1).optional(),
     limit: z.number().int().positive().optional(),
@@ -249,14 +249,6 @@ export const LinksConfirmCommandOptionsSchema = JsonFlagSchema;
  * Links reject command options (linkId is an argument, not validated here)
  */
 export const LinksRejectCommandOptionsSchema = JsonFlagSchema;
-
-/**
- * Gaps view command options
- */
-export const GapsViewCommandOptionsSchema = z.object({
-  category: z.enum(['links', 'prices', 'validation']).optional(),
-  json: z.boolean().optional(),
-});
 
 /**
  * Transactions view command options

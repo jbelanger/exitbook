@@ -5,6 +5,8 @@
 import type { LinkStatus, TransactionLink } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 
+import type { LinkGapAnalysis } from '../../features/links/links-gap-utils.js';
+
 /**
  * Link with associated transaction data for display
  */
@@ -24,9 +26,11 @@ export interface LinkStatusCounts {
 }
 
 /**
- * Links view state
+ * Links mode state
  */
-export interface LinksViewState {
+export interface LinksViewLinksState {
+  mode: 'links';
+
   // Data
   links: LinkWithTransactions[];
   counts: LinkStatusCounts;
@@ -42,7 +46,7 @@ export interface LinksViewState {
   totalCount?: number | undefined;
 
   // Pending action (for optimistic updates)
-  pendingAction?: { action: 'confirm' | 'reject'; linkId: string; } | undefined;
+  pendingAction?: { action: 'confirm' | 'reject'; linkId: string } | undefined;
 
   // Error display
   error?: string | undefined;
@@ -52,6 +56,22 @@ export interface LinksViewState {
 }
 
 /**
+ * Gaps mode state
+ */
+export interface LinksViewGapsState {
+  mode: 'gaps';
+
+  linkAnalysis: LinkGapAnalysis;
+  selectedIndex: number;
+  scrollOffset: number;
+}
+
+/**
+ * Discriminated union of links/gaps state
+ */
+export type LinksViewState = LinksViewLinksState | LinksViewGapsState;
+
+/**
  * Create initial links view state
  */
 export function createLinksViewState(
@@ -59,7 +79,7 @@ export function createLinksViewState(
   statusFilter?: LinkStatus,
   verbose = false,
   totalCount?: number
-): LinksViewState {
+): LinksViewLinksState {
   // Calculate counts
   const counts = links.reduce(
     (acc, item) => {
@@ -73,6 +93,7 @@ export function createLinksViewState(
   );
 
   return {
+    mode: 'links',
     links,
     counts,
     selectedIndex: 0,
@@ -82,5 +103,17 @@ export function createLinksViewState(
     pendingAction: undefined,
     error: undefined,
     verbose,
+  };
+}
+
+/**
+ * Create initial gaps view state
+ */
+export function createGapsViewState(analysis: LinkGapAnalysis): LinksViewGapsState {
+  return {
+    mode: 'gaps',
+    linkAnalysis: analysis,
+    selectedIndex: 0,
+    scrollOffset: 0,
   };
 }

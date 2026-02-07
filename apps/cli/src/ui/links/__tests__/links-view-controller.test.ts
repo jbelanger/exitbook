@@ -5,8 +5,9 @@
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
+import type { LinkGapAnalysis } from '../../../features/links/links-gap-utils.js';
 import { handleKeyboardInput, linksViewReducer } from '../links-view-controller.js';
-import { createLinksViewState, type LinkWithTransactions } from '../links-view-state.js';
+import { createGapsViewState, createLinksViewState, type LinkWithTransactions } from '../links-view-state.js';
 
 describe('linksViewReducer', () => {
   it('navigates up and wraps to bottom', () => {
@@ -43,7 +44,10 @@ describe('linksViewReducer', () => {
     state.error = 'Something went wrong';
 
     const newState = linksViewReducer(state, { type: 'NAVIGATE_DOWN', visibleRows: 10 });
-    expect(newState.error).toBeUndefined();
+    expect(newState.mode).toBe('links');
+    if (newState.mode === 'links') {
+      expect(newState.error).toBeUndefined();
+    }
   });
 
   it('scrolls down when navigating below visible window', () => {
@@ -108,11 +112,14 @@ describe('linksViewReducer', () => {
     state.selectedIndex = 2; // suggested link
 
     const newState = linksViewReducer(state, { type: 'CONFIRM_SELECTED' });
-    expect(newState.pendingAction).toEqual({
-      linkId: 'link-003-suggested',
-      action: 'confirm',
-    });
-    expect(newState.error).toBeUndefined();
+    expect(newState.mode).toBe('links');
+    if (newState.mode === 'links') {
+      expect(newState.pendingAction).toEqual({
+        linkId: 'link-003-suggested',
+        action: 'confirm',
+      });
+      expect(newState.error).toBeUndefined();
+    }
   });
 
   it('rejects suggested link', () => {
@@ -121,11 +128,14 @@ describe('linksViewReducer', () => {
     state.selectedIndex = 2; // suggested link
 
     const newState = linksViewReducer(state, { type: 'REJECT_SELECTED' });
-    expect(newState.pendingAction).toEqual({
-      linkId: 'link-003-suggested',
-      action: 'reject',
-    });
-    expect(newState.error).toBeUndefined();
+    expect(newState.mode).toBe('links');
+    if (newState.mode === 'links') {
+      expect(newState.pendingAction).toEqual({
+        linkId: 'link-003-suggested',
+        action: 'reject',
+      });
+      expect(newState.error).toBeUndefined();
+    }
   });
 
   it('prevents confirming non-suggested link', () => {
@@ -134,8 +144,11 @@ describe('linksViewReducer', () => {
     state.selectedIndex = 0; // confirmed link
 
     const newState = linksViewReducer(state, { type: 'CONFIRM_SELECTED' });
-    expect(newState.pendingAction).toBeUndefined();
-    expect(newState.error).toBe('Can only confirm suggested links');
+    expect(newState.mode).toBe('links');
+    if (newState.mode === 'links') {
+      expect(newState.pendingAction).toBeUndefined();
+      expect(newState.error).toBe('Can only confirm suggested links');
+    }
   });
 
   it('prevents rejecting non-suggested link', () => {
@@ -144,8 +157,11 @@ describe('linksViewReducer', () => {
     state.selectedIndex = 0; // confirmed link
 
     const newState = linksViewReducer(state, { type: 'REJECT_SELECTED' });
-    expect(newState.pendingAction).toBeUndefined();
-    expect(newState.error).toBe('Can only reject suggested links');
+    expect(newState.mode).toBe('links');
+    if (newState.mode === 'links') {
+      expect(newState.pendingAction).toBeUndefined();
+      expect(newState.error).toBe('Can only reject suggested links');
+    }
   });
 
   it('sets error message', () => {
@@ -154,8 +170,11 @@ describe('linksViewReducer', () => {
     state.pendingAction = { linkId: 'link-003-suggested', action: 'confirm' };
 
     const newState = linksViewReducer(state, { type: 'SET_ERROR', error: 'Network error' });
-    expect(newState.error).toBe('Network error');
-    expect(newState.pendingAction).toBeUndefined();
+    expect(newState.mode).toBe('links');
+    if (newState.mode === 'links') {
+      expect(newState.error).toBe('Network error');
+      expect(newState.pendingAction).toBeUndefined();
+    }
   });
 
   it('clears error message', () => {
@@ -164,7 +183,71 @@ describe('linksViewReducer', () => {
     state.error = 'Something went wrong';
 
     const newState = linksViewReducer(state, { type: 'CLEAR_ERROR' });
-    expect(newState.error).toBeUndefined();
+    expect(newState.mode).toBe('links');
+    if (newState.mode === 'links') {
+      expect(newState.error).toBeUndefined();
+    }
+  });
+});
+
+describe('linksViewReducer - gaps mode', () => {
+  it('navigates up and down using issues array', () => {
+    const state = createGapsViewState(createMockGapAnalysis());
+    expect(state.selectedIndex).toBe(0);
+
+    const state1 = linksViewReducer(state, { type: 'NAVIGATE_DOWN', visibleRows: 10 });
+    expect(state1.selectedIndex).toBe(1);
+
+    const state2 = linksViewReducer(state1, { type: 'NAVIGATE_DOWN', visibleRows: 10 });
+    expect(state2.selectedIndex).toBe(2);
+
+    // Wrap to top
+    const state3 = linksViewReducer(state2, { type: 'NAVIGATE_DOWN', visibleRows: 10 });
+    expect(state3.selectedIndex).toBe(0);
+
+    // Navigate up from top wraps to bottom
+    const state4 = linksViewReducer(state3, { type: 'NAVIGATE_UP', visibleRows: 10 });
+    expect(state4.selectedIndex).toBe(2);
+  });
+
+  it('handles HOME and END navigation', () => {
+    const state = createGapsViewState(createMockGapAnalysis());
+    state.selectedIndex = 1;
+
+    const homeState = linksViewReducer(state, { type: 'HOME' });
+    expect(homeState.selectedIndex).toBe(0);
+    expect(homeState.scrollOffset).toBe(0);
+
+    const endState = linksViewReducer(state, { type: 'END', visibleRows: 2 });
+    expect(endState.selectedIndex).toBe(2);
+  });
+
+  it('CONFIRM_SELECTED is a no-op in gaps mode', () => {
+    const state = createGapsViewState(createMockGapAnalysis());
+
+    const newState = linksViewReducer(state, { type: 'CONFIRM_SELECTED' });
+    expect(newState).toBe(state); // Exact same reference
+  });
+
+  it('REJECT_SELECTED is a no-op in gaps mode', () => {
+    const state = createGapsViewState(createMockGapAnalysis());
+
+    const newState = linksViewReducer(state, { type: 'REJECT_SELECTED' });
+    expect(newState).toBe(state);
+  });
+
+  it('SET_ERROR is a no-op in gaps mode', () => {
+    const state = createGapsViewState(createMockGapAnalysis());
+
+    const newState = linksViewReducer(state, { type: 'SET_ERROR', error: 'test' });
+    expect(newState).toBe(state);
+  });
+
+  it('CLEAR_ERROR is a no-op in gaps mode', () => {
+    const state = createGapsViewState(createMockGapAnalysis());
+
+    const newState = linksViewReducer(state, { type: 'CLEAR_ERROR' });
+    expect(newState).toBe(state);
   });
 });
 
@@ -370,6 +453,104 @@ describe('handleKeyboardInput', () => {
     );
     expect(quitCalled).toBe(true);
   });
+
+  it('does not dispatch c/r in gaps mode', () => {
+    let dispatched = false;
+    const dispatch = () => {
+      dispatched = true;
+    };
+    const onQuit = () => {
+      /* empty */
+    };
+
+    handleKeyboardInput(
+      'c',
+      {
+        upArrow: false,
+        downArrow: false,
+        ctrl: false,
+        end: false,
+        escape: false,
+        home: false,
+        pageDown: false,
+        pageUp: false,
+      },
+      dispatch,
+      onQuit,
+      24,
+      'gaps'
+    );
+    expect(dispatched).toBe(false);
+
+    handleKeyboardInput(
+      'r',
+      {
+        upArrow: false,
+        downArrow: false,
+        ctrl: false,
+        end: false,
+        escape: false,
+        home: false,
+        pageDown: false,
+        pageUp: false,
+      },
+      dispatch,
+      onQuit,
+      24,
+      'gaps'
+    );
+    expect(dispatched).toBe(false);
+  });
+
+  it('uses different chrome lines for gaps mode visible rows', () => {
+    let receivedVisibleRows = 0;
+    const dispatch = (action: unknown) => {
+      receivedVisibleRows = (action as { visibleRows: number }).visibleRows;
+    };
+    const onQuit = () => {
+      /* empty */
+    };
+
+    // Links mode: terminalHeight(24) - 14 = 10
+    handleKeyboardInput(
+      'j',
+      {
+        upArrow: false,
+        downArrow: false,
+        ctrl: false,
+        end: false,
+        escape: false,
+        home: false,
+        pageDown: false,
+        pageUp: false,
+      },
+      dispatch,
+      onQuit,
+      24,
+      'links'
+    );
+    expect(receivedVisibleRows).toBe(10);
+
+    // Gaps mode: terminalHeight(24) - 18 = 6
+    handleKeyboardInput(
+      'j',
+      {
+        upArrow: false,
+        downArrow: false,
+        ctrl: false,
+        end: false,
+        escape: false,
+        home: false,
+        pageDown: false,
+        pageUp: false,
+      },
+      dispatch,
+      onQuit,
+      24,
+      'gaps'
+    );
+    expect(receivedVisibleRows).toBe(6);
+  });
 });
 
 /**
@@ -482,4 +663,75 @@ function createMockLinks(): LinkWithTransactions[] {
       targetTransaction: undefined,
     },
   ];
+}
+
+/**
+ * Create mock gap analysis for testing
+ */
+function createMockGapAnalysis(): LinkGapAnalysis {
+  return {
+    issues: [
+      {
+        transactionId: 2041,
+        externalId: 'eth-inflow-1',
+        source: 'ethereum',
+        blockchain: 'ethereum',
+        timestamp: '2024-03-18T09:12:34Z',
+        assetSymbol: 'ETH',
+        missingAmount: '1.5',
+        totalAmount: '1.5',
+        confirmedCoveragePercent: '0',
+        operationCategory: 'transfer',
+        operationType: 'deposit',
+        suggestedCount: 2,
+        highestSuggestedConfidencePercent: '82.4',
+        direction: 'inflow',
+      },
+      {
+        transactionId: 2198,
+        externalId: 'eth-inflow-2',
+        source: 'ethereum',
+        blockchain: 'ethereum',
+        timestamp: '2024-04-02T14:45:00Z',
+        assetSymbol: 'ETH',
+        missingAmount: '2.0',
+        totalAmount: '2.0',
+        confirmedCoveragePercent: '0',
+        operationCategory: 'transfer',
+        operationType: 'deposit',
+        suggestedCount: 0,
+        direction: 'inflow',
+      },
+      {
+        transactionId: 2456,
+        externalId: 'kraken-outflow-1',
+        source: 'kraken',
+        timestamp: '2024-05-01T16:20:00Z',
+        assetSymbol: 'ETH',
+        missingAmount: '1.2',
+        totalAmount: '1.2',
+        confirmedCoveragePercent: '0',
+        operationCategory: 'transfer',
+        operationType: 'withdrawal',
+        suggestedCount: 1,
+        highestSuggestedConfidencePercent: '74.8',
+        direction: 'outflow',
+      },
+    ],
+    summary: {
+      total_issues: 3,
+      uncovered_inflows: 2,
+      unmatched_outflows: 1,
+      affected_assets: 1,
+      assets: [
+        {
+          assetSymbol: 'ETH',
+          inflowOccurrences: 2,
+          inflowMissingAmount: '3.5',
+          outflowOccurrences: 1,
+          outflowMissingAmount: '1.2',
+        },
+      ],
+    },
+  };
 }

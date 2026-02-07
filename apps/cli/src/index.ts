@@ -20,7 +20,6 @@ import { registerBenchmarkRateLimitCommand } from './features/benchmark-rate-lim
 import { registerClearCommand } from './features/clear/clear.js';
 import { registerCostBasisCommand } from './features/cost-basis/cost-basis.js';
 import { registerExportCommand } from './features/export/export.js';
-import { registerGapsCommand } from './features/gaps/gaps.js';
 import { registerImportCommand } from './features/import/import.js';
 import { registerLinksCommand } from './features/links/links.js';
 import { registerListBlockchainsCommand } from './features/list-blockchains/list-blockchains.js';
@@ -44,7 +43,6 @@ async function main() {
   registerImportCommand(program);
   registerReprocessCommand(program);
   registerLinksCommand(program);
-  registerGapsCommand(program);
   registerAccountsCommand(program);
   registerTransactionsCommand(program);
   registerPricesCommand(program);

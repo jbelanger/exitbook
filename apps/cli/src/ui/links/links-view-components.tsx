@@ -6,8 +6,15 @@ import type { LinkStatus, MatchCriteria } from '@exitbook/accounting';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC } from 'react';
 
+import type { LinkGapAssetSummary, LinkGapIssue } from '../../features/links/links-gap-utils.js';
+
 import { handleKeyboardInput, linksViewReducer } from './links-view-controller.js';
-import type { LinkWithTransactions, LinksViewState } from './links-view-state.js';
+import type {
+  LinkWithTransactions,
+  LinksViewGapsState,
+  LinksViewLinksState,
+  LinksViewState,
+} from './links-view-state.js';
 
 /**
  * Main links view app component
@@ -27,57 +34,70 @@ export const LinksViewApp: FC<{
 
   // Handle keyboard input
   useInput((input, key) => {
-    handleKeyboardInput(input, key, dispatch, onQuit, terminalHeight);
+    handleKeyboardInput(input, key, dispatch, onQuit, terminalHeight, state.mode);
   });
 
-  // Handle pending actions with useEffect
+  // Handle pending actions with useEffect (links mode only)
   useEffect(() => {
-    if (state.pendingAction && onAction) {
+    if (state.mode === 'links' && state.pendingAction && onAction) {
       const { linkId, action } = state.pendingAction;
 
-      // Execute action and handle result
       void onAction(linkId, action)
         .then(() => {
-          // Clear pending action on success
           dispatch({ type: 'CLEAR_ERROR' });
         })
         .catch((error: unknown) => {
-          // Set error on failure
           dispatch({ type: 'SET_ERROR', error: error instanceof Error ? error.message : String(error) });
         });
     }
-  }, [state.pendingAction, onAction]);
+  }, [state.mode === 'links' ? state.pendingAction : undefined, onAction]);
 
-  // Empty state
-  if (state.links.length === 0) {
-    return <EmptyState state={state} />;
+  // Branch on mode
+  if (state.mode === 'gaps') {
+    return (
+      <GapsView
+        state={state}
+        terminalHeight={terminalHeight}
+        terminalWidth={terminalWidth}
+      />
+    );
   }
 
-  // Normal view
+  return (
+    <LinksView
+      state={state}
+      terminalHeight={terminalHeight}
+      terminalWidth={terminalWidth}
+    />
+  );
+};
+
+// ─── Links Mode Components ──────────────────────────────────────────────────
+
+/**
+ * Links mode view
+ */
+const LinksView: FC<{
+  state: LinksViewLinksState;
+  terminalHeight: number;
+  terminalWidth: number;
+}> = ({ state, terminalHeight, terminalWidth }) => {
+  // Empty state
+  if (state.links.length === 0) {
+    return <LinksEmptyState state={state} />;
+  }
+
   return (
     <Box flexDirection="column">
-      {/* Blank line before header */}
       <Text> </Text>
-
-      {/* Header */}
-      <Header state={state} />
-
-      {/* Blank line after header */}
+      <LinksHeader state={state} />
       <Text> </Text>
-
-      {/* Link list with scrolling */}
       <LinkList
         state={state}
         terminalHeight={terminalHeight}
       />
-
-      {/* Divider */}
       <Divider width={terminalWidth} />
-
-      {/* Detail panel */}
-      <DetailPanel state={state} />
-
-      {/* Error message if present */}
+      <LinkDetailPanel state={state} />
       {state.error && (
         <>
           <Text> </Text>
@@ -86,41 +106,33 @@ export const LinksViewApp: FC<{
           </Text>
         </>
       )}
-
-      {/* Blank line before controls */}
       <Text> </Text>
-
-      {/* Controls bar */}
-      <ControlsBar state={state} />
+      <LinksControlsBar state={state} />
     </Box>
   );
 };
 
 /**
- * Header component - title and counts
+ * Header component - title and counts (links mode)
  */
-const Header: FC<{ state: LinksViewState }> = ({ state }) => {
+const LinksHeader: FC<{ state: LinksViewLinksState }> = ({ state }) => {
   const { counts, statusFilter, totalCount } = state;
 
-  // Build title with optional filter indicator
   const title = statusFilter ? `Transaction Links (${statusFilter})` : 'Transaction Links';
 
-  // Build counts display
+  const shouldShowStatus = (status: LinkStatus): boolean => {
+    return (!statusFilter || statusFilter === status) && (counts[status] > 0 || statusFilter === status);
+  };
+
   const countParts: string[] = [];
-  if (statusFilter === 'confirmed' || !statusFilter) {
-    if (counts.confirmed > 0 || statusFilter === 'confirmed') {
-      countParts.push(`${counts.confirmed} confirmed`);
-    }
+  if (shouldShowStatus('confirmed')) {
+    countParts.push(`${counts.confirmed} confirmed`);
   }
-  if (statusFilter === 'suggested' || !statusFilter) {
-    if (counts.suggested > 0 || statusFilter === 'suggested') {
-      countParts.push(`${counts.suggested} suggested`);
-    }
+  if (shouldShowStatus('suggested')) {
+    countParts.push(`${counts.suggested} suggested`);
   }
-  if (statusFilter === 'rejected' || !statusFilter) {
-    if (counts.rejected > 0 || statusFilter === 'rejected') {
-      countParts.push(`${counts.rejected} rejected`);
-    }
+  if (shouldShowStatus('rejected')) {
+    countParts.push(`${counts.rejected} rejected`);
   }
 
   const displayedCount = counts.confirmed + counts.suggested + counts.rejected;
@@ -133,10 +145,8 @@ const Header: FC<{ state: LinksViewState }> = ({ state }) => {
         <>
           <Text> </Text>
           {statusFilter ? (
-            // Filtered view - just show the count
             <Text dimColor>{countParts[0]}</Text>
           ) : (
-            // Full view - show all counts with colored separators
             <Text>
               {counts.confirmed > 0 && <Text color="green">{counts.confirmed} confirmed</Text>}
               {counts.confirmed > 0 && (counts.suggested > 0 || counts.rejected > 0) && <Text dimColor> · </Text>}
@@ -162,32 +172,25 @@ const Header: FC<{ state: LinksViewState }> = ({ state }) => {
 /**
  * Link list component with scrolling support
  */
-const LinkList: FC<{ state: LinksViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
+const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { links, selectedIndex, scrollOffset } = state;
 
-  // Calculate visible height: terminal height minus fixed chrome
-  // Header area (3) + divider (1) + detail panel (6) + controls area (2) + scroll indicators (2) = 14
   const visibleRows = Math.max(1, terminalHeight - 14);
 
-  // Calculate visible window
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, links.length);
   const visibleLinks = links.slice(startIndex, endIndex);
 
-  // Check if we need scroll indicators
   const hasMoreAbove = startIndex > 0;
   const hasMoreBelow = endIndex < links.length;
 
   return (
     <Box flexDirection="column">
-      {/* Top scroll indicator */}
       {hasMoreAbove && (
         <Text dimColor>
           {'  '}▲ {startIndex} more above
         </Text>
       )}
-
-      {/* Visible links */}
       {visibleLinks.map((item, windowIndex) => {
         const actualIndex = startIndex + windowIndex;
         return (
@@ -198,8 +201,6 @@ const LinkList: FC<{ state: LinksViewState; terminalHeight: number }> = ({ state
           />
         );
       })}
-
-      {/* Bottom scroll indicator */}
       {hasMoreBelow && (
         <Text dimColor>
           {'  '}▼ {links.length - endIndex} more below
@@ -215,7 +216,6 @@ const LinkList: FC<{ state: LinksViewState; terminalHeight: number }> = ({ state
 const LinkRow: FC<{ isSelected: boolean; item: LinkWithTransactions }> = ({ item, isSelected }) => {
   const { link, sourceTransaction, targetTransaction } = item;
 
-  // Extract display data
   const shortId = link.id.substring(0, 8);
   const asset = link.assetSymbol.padEnd(5).substring(0, 5);
   const sourceAmount = formatAmount(link.sourceAmount.toFixed(), 15);
@@ -223,18 +223,14 @@ const LinkRow: FC<{ isSelected: boolean; item: LinkWithTransactions }> = ({ item
   const confidence = formatConfidenceScore(link.confidenceScore.toNumber());
   const status = link.status.padEnd(9);
 
-  // Get source and target names
   const sourceName = sourceTransaction?.source || 'unknown';
   const targetName = targetTransaction?.source || 'unknown';
   const sourceTarget = `${sourceName} → ${targetName}`.padEnd(30);
 
-  // Icon and color based on status
   const { icon, iconColor } = getStatusDisplay(link.status);
 
-  // Cursor indicator
   const cursor = isSelected ? '▸' : ' ';
 
-  // Apply selection styling to entire row
   if (isSelected) {
     return (
       <Text bold>
@@ -244,7 +240,6 @@ const LinkRow: FC<{ isSelected: boolean; item: LinkWithTransactions }> = ({ item
     );
   }
 
-  // Apply dimming to rejected links
   if (link.status === 'rejected') {
     return (
       <Text dimColor>
@@ -253,7 +248,6 @@ const LinkRow: FC<{ isSelected: boolean; item: LinkWithTransactions }> = ({ item
     );
   }
 
-  // Normal row (confirmed or suggested)
   return (
     <Text>
       {cursor} <Text color={iconColor}>{icon}</Text> {shortId} {asset} <Text color="green">{sourceAmount}</Text>{' '}
@@ -264,17 +258,9 @@ const LinkRow: FC<{ isSelected: boolean; item: LinkWithTransactions }> = ({ item
 };
 
 /**
- * Divider component - full-width separator
+ * Detail panel component - shows selected link details (links mode)
  */
-const Divider: FC<{ width: number }> = ({ width }) => {
-  const line = '─'.repeat(width);
-  return <Text dimColor>{line}</Text>;
-};
-
-/**
- * Detail panel component - shows selected link details
- */
-const DetailPanel: FC<{ state: LinksViewState }> = ({ state }) => {
+const LinkDetailPanel: FC<{ state: LinksViewLinksState }> = ({ state }) => {
   const { links, selectedIndex, verbose } = state;
   const selected = links[selectedIndex];
 
@@ -284,28 +270,22 @@ const DetailPanel: FC<{ state: LinksViewState }> = ({ state }) => {
 
   const { link, sourceTransaction, targetTransaction } = selected;
 
-  // First line: selected ID, asset, link type, confidence, status
   const shortId = link.id.substring(0, 8);
   const linkType = link.linkType.replace(/_/g, ' ');
   const confidence = formatConfidenceScore(link.confidenceScore.toNumber());
   const confidenceColor = getConfidenceColor(link.confidenceScore.toNumber());
-  const { icon: _statusIcon, iconColor: statusColor } = getStatusDisplay(link.status);
+  const { iconColor: statusColor } = getStatusDisplay(link.status);
 
   return (
     <Box
       flexDirection="column"
       paddingTop={0}
     >
-      {/* Header line */}
       <Text>
         <Text bold>▸ {shortId}</Text> {link.assetSymbol} <Text dimColor>{linkType}</Text>{' '}
         <Text color={confidenceColor}>{confidence}</Text> <Text color={statusColor}>{link.status}</Text>
       </Text>
-
-      {/* Blank line */}
       <Text> </Text>
-
-      {/* Source transaction */}
       <TransactionLine
         label="Source"
         transaction={sourceTransaction}
@@ -314,8 +294,6 @@ const DetailPanel: FC<{ state: LinksViewState }> = ({ state }) => {
         asset={link.assetSymbol}
         direction="OUT"
       />
-
-      {/* Target transaction */}
       <TransactionLine
         label="Target"
         transaction={targetTransaction}
@@ -324,8 +302,6 @@ const DetailPanel: FC<{ state: LinksViewState }> = ({ state }) => {
         asset={link.assetSymbol}
         direction="IN"
       />
-
-      {/* Address details (verbose mode) */}
       {verbose && (sourceTransaction?.from || targetTransaction?.to) && (
         <>
           {sourceTransaction?.from && (
@@ -344,11 +320,7 @@ const DetailPanel: FC<{ state: LinksViewState }> = ({ state }) => {
           )}
         </>
       )}
-
-      {/* Blank line */}
       <Text> </Text>
-
-      {/* Match criteria */}
       <Text>
         {'  '}
         <Text dimColor>Match: </Text>
@@ -383,9 +355,9 @@ const TransactionLine: FC<{
 };
 
 /**
- * Controls bar component - keyboard hints
+ * Controls bar component - keyboard hints (links mode)
  */
-const ControlsBar: FC<{ state: LinksViewState }> = ({ state }) => {
+const LinksControlsBar: FC<{ state: LinksViewLinksState }> = ({ state }) => {
   const selected = state.links[state.selectedIndex];
   const canAction = selected?.link.status === 'suggested';
 
@@ -393,26 +365,18 @@ const ControlsBar: FC<{ state: LinksViewState }> = ({ state }) => {
 };
 
 /**
- * Empty state component
+ * Empty state component (links mode)
  */
-const EmptyState: FC<{ state: LinksViewState }> = ({ state }) => {
+const LinksEmptyState: FC<{ state: LinksViewLinksState }> = ({ state }) => {
   const { statusFilter, counts } = state;
   const totalLinks = counts.confirmed + counts.suggested + counts.rejected;
 
   return (
     <Box flexDirection="column">
-      {/* Blank line before header */}
       <Text> </Text>
-
-      {/* Header */}
-      <Header state={state} />
-
-      {/* Blank line after header */}
+      <LinksHeader state={state} />
       <Text> </Text>
-
-      {/* Empty message */}
       {totalLinks === 0 && !statusFilter ? (
-        // No links at all (and no filter applied)
         <Box flexDirection="column">
           <Text>No transaction links found.</Text>
           <Text> </Text>
@@ -423,22 +387,318 @@ const EmptyState: FC<{ state: LinksViewState }> = ({ state }) => {
           </Text>
         </Box>
       ) : (
-        // No links matching filter (or filtered and empty)
         <Text>No {statusFilter || ''} links found.</Text>
       )}
-
-      {/* Blank line before controls */}
       <Text> </Text>
-
-      {/* Controls bar */}
       <Text dimColor>q quit</Text>
     </Box>
   );
 };
 
+// ─── Gaps Mode Components ───────────────────────────────────────────────────
+
 /**
- * Helper: Get status icon and color
+ * Gaps mode view
  */
+const GapsView: FC<{
+  state: LinksViewGapsState;
+  terminalHeight: number;
+  terminalWidth: number;
+}> = ({ state, terminalHeight, terminalWidth }) => {
+  const { linkAnalysis } = state;
+
+  // Empty state
+  if (linkAnalysis.issues.length === 0) {
+    return <GapsEmptyState state={state} />;
+  }
+
+  return (
+    <Box flexDirection="column">
+      <Text> </Text>
+      <GapsHeader state={state} />
+      <Text> </Text>
+      <AssetBreakdown assets={linkAnalysis.summary.assets} />
+      <Text> </Text>
+      <GapList
+        state={state}
+        terminalHeight={terminalHeight}
+      />
+      <Divider width={terminalWidth} />
+      <GapDetailPanel state={state} />
+      <Text> </Text>
+      <GapsControlsBar />
+    </Box>
+  );
+};
+
+/**
+ * Header component (gaps mode)
+ */
+const GapsHeader: FC<{ state: LinksViewGapsState }> = ({ state }) => {
+  const { summary } = state.linkAnalysis;
+
+  return (
+    <Box>
+      <Text bold>Transaction Links (gaps)</Text>
+      <Text> </Text>
+      <Text color={summary.uncovered_inflows > 0 ? 'yellow' : 'green'}>
+        {summary.uncovered_inflows} uncovered inflow{summary.uncovered_inflows !== 1 ? 's' : ''}
+      </Text>
+      <Text dimColor> · </Text>
+      <Text color={summary.unmatched_outflows > 0 ? 'yellow' : 'green'}>
+        {summary.unmatched_outflows} unmatched outflow{summary.unmatched_outflows !== 1 ? 's' : ''}
+      </Text>
+    </Box>
+  );
+};
+
+/**
+ * Asset breakdown component - per-asset summary
+ */
+const AssetBreakdown: FC<{ assets: LinkGapAssetSummary[] }> = ({ assets }) => {
+  if (assets.length === 0) {
+    return null;
+  }
+
+  return (
+    <Box flexDirection="column">
+      <Text bold>{'  '}Asset Breakdown</Text>
+      {assets.map((asset) => (
+        <AssetBreakdownRow
+          key={asset.assetSymbol}
+          asset={asset}
+        />
+      ))}
+    </Box>
+  );
+};
+
+/**
+ * Single asset breakdown row
+ */
+const AssetBreakdownRow: FC<{ asset: LinkGapAssetSummary }> = ({ asset }) => {
+  const parts: React.ReactNode[] = [];
+
+  if (asset.inflowOccurrences > 0) {
+    parts.push(
+      <Text key="inflow">
+        {asset.inflowOccurrences} inflow{asset.inflowOccurrences !== 1 ? 's' : ''} missing{' '}
+        <Text color="green">{asset.inflowMissingAmount}</Text> {asset.assetSymbol}
+      </Text>
+    );
+  }
+
+  if (asset.outflowOccurrences > 0) {
+    if (parts.length > 0) {
+      parts.push(
+        <Text
+          key="sep"
+          dimColor
+        >
+          {' '}
+          ·{' '}
+        </Text>
+      );
+    }
+    parts.push(
+      <Text key="outflow">
+        {asset.outflowOccurrences} outflow{asset.outflowOccurrences !== 1 ? 's' : ''} unmatched for{' '}
+        <Text color="green">{asset.outflowMissingAmount}</Text> {asset.assetSymbol}
+      </Text>
+    );
+  }
+
+  return (
+    <Text>
+      {'    '}
+      {asset.assetSymbol.padEnd(8)}
+      {parts}
+    </Text>
+  );
+};
+
+/**
+ * Gap list component with scrolling support
+ */
+const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ state, terminalHeight }) => {
+  const { linkAnalysis, selectedIndex, scrollOffset } = state;
+  const issues = linkAnalysis.issues;
+
+  // Account for extra lines from asset breakdown (~4 lines)
+  const visibleRows = Math.max(1, terminalHeight - 18);
+
+  const startIndex = scrollOffset;
+  const endIndex = Math.min(startIndex + visibleRows, issues.length);
+  const visibleIssues = issues.slice(startIndex, endIndex);
+
+  const hasMoreAbove = startIndex > 0;
+  const hasMoreBelow = endIndex < issues.length;
+
+  return (
+    <Box flexDirection="column">
+      {hasMoreAbove && (
+        <Text dimColor>
+          {'  '}▲ {startIndex} more above
+        </Text>
+      )}
+      {visibleIssues.map((issue, windowIndex) => {
+        const actualIndex = startIndex + windowIndex;
+        return (
+          <GapRow
+            key={`${issue.transactionId}-${issue.assetSymbol}-${issue.direction}`}
+            issue={issue}
+            isSelected={actualIndex === selectedIndex}
+          />
+        );
+      })}
+      {hasMoreBelow && (
+        <Text dimColor>
+          {'  '}▼ {issues.length - endIndex} more below
+        </Text>
+      )}
+    </Box>
+  );
+};
+
+/**
+ * Individual gap row component
+ */
+const GapRow: FC<{ isSelected: boolean; issue: LinkGapIssue }> = ({ issue, isSelected }) => {
+  const cursor = isSelected ? '▸' : ' ';
+  const txId = `#${issue.transactionId}`.padStart(6);
+  const source = (issue.blockchain ?? issue.source).padEnd(10).substring(0, 10);
+  const timestamp = issue.timestamp.substring(0, 16).replace('T', ' ');
+  const asset = issue.assetSymbol.padEnd(5).substring(0, 5);
+  const dir = issue.direction === 'inflow' ? 'IN ' : 'OUT';
+  const dirColor = issue.direction === 'inflow' ? 'green' : 'yellow';
+  const coverage = formatCoverage(issue.confirmedCoveragePercent);
+
+  if (isSelected) {
+    return (
+      <Text bold>
+        {cursor} <Text color="yellow">⚠</Text> {txId} {source} <Text dimColor>{timestamp}</Text> {asset}{' '}
+        <Text color={dirColor}>{dir}</Text> <Text color="green">{issue.missingAmount}</Text> <Text dimColor>of</Text>{' '}
+        <Text>{issue.totalAmount}</Text> {coverage}
+      </Text>
+    );
+  }
+
+  return (
+    <Text>
+      {cursor} <Text color="yellow">⚠</Text> {txId} <Text color="cyan">{source}</Text> <Text dimColor>{timestamp}</Text>{' '}
+      {asset} <Text color={dirColor}>{dir}</Text> <Text color="green">{issue.missingAmount}</Text>{' '}
+      <Text dimColor>of</Text> <Text>{issue.totalAmount}</Text> {coverage}
+    </Text>
+  );
+};
+
+/**
+ * Detail panel for selected gap issue
+ */
+const GapDetailPanel: FC<{ state: LinksViewGapsState }> = ({ state }) => {
+  const issue = state.linkAnalysis.issues[state.selectedIndex];
+
+  if (!issue) {
+    return null;
+  }
+
+  const txId = `#${issue.transactionId}`;
+  const source = issue.blockchain ?? issue.source;
+  const operation = `${issue.operationCategory}/${issue.operationType}`;
+  const directionLabel = issue.direction === 'inflow' ? 'inflow' : 'outflow';
+  const coverageNum = parseFloat(issue.confirmedCoveragePercent);
+  const coverageColor = getCoverageColor(coverageNum);
+
+  const actionText =
+    issue.direction === 'inflow'
+      ? 'Run `exitbook links run` then confirm matches to bridge this gap.'
+      : 'Identify the destination wallet or confirm a link; otherwise this may be treated as a gift.';
+
+  return (
+    <Box
+      flexDirection="column"
+      paddingTop={0}
+    >
+      <Text>
+        <Text bold>▸ {txId}</Text> <Text color="cyan">{source}</Text> <Text dimColor>{operation}</Text>{' '}
+        <Text dimColor>{issue.timestamp}</Text>
+      </Text>
+
+      <Text>
+        {'  '}
+        <Text dimColor>Missing: </Text>
+        <Text color="green">{issue.missingAmount}</Text> {issue.assetSymbol} <Text dimColor>of</Text>{' '}
+        {issue.totalAmount} {issue.assetSymbol} {directionLabel} <Text dimColor>(</Text>
+        <Text color={coverageColor}>{issue.confirmedCoveragePercent}%</Text>
+        <Text dimColor> confirmed coverage)</Text>
+      </Text>
+
+      <Text>
+        {'  '}
+        <Text dimColor>Suggested matches: </Text>
+        {issue.suggestedCount > 0 ? (
+          <Text>
+            <Text color="green">{issue.suggestedCount}</Text>
+            {issue.highestSuggestedConfidencePercent && (
+              <Text>
+                {' '}
+                (best{' '}
+                <Text color={getConfidenceColor(parseFloat(issue.highestSuggestedConfidencePercent) / 100)}>
+                  {issue.highestSuggestedConfidencePercent}%
+                </Text>{' '}
+                confidence)
+              </Text>
+            )}
+          </Text>
+        ) : (
+          <Text dimColor>none</Text>
+        )}
+      </Text>
+
+      <Text>
+        {'  '}
+        <Text dimColor>Action: </Text>
+        {actionText}
+      </Text>
+    </Box>
+  );
+};
+
+/**
+ * Controls bar (gaps mode - read-only, no c/r)
+ */
+const GapsControlsBar: FC = () => {
+  return <Text dimColor>↑↓/j/k · ^U/^D page · Home/End · q/esc quit</Text>;
+};
+
+/**
+ * Empty state component (gaps mode)
+ */
+const GapsEmptyState: FC<{ state: LinksViewGapsState }> = ({ state }) => {
+  return (
+    <Box flexDirection="column">
+      <Text> </Text>
+      <GapsHeader state={state} />
+      <Text> </Text>
+      <Text>{'  '}All movements have confirmed counterparties.</Text>
+      <Text> </Text>
+      <Text dimColor>q quit</Text>
+    </Box>
+  );
+};
+
+// ─── Shared Components ──────────────────────────────────────────────────────
+
+/**
+ * Divider component - full-width separator
+ */
+const Divider: FC<{ width: number }> = ({ width }) => {
+  const line = '─'.repeat(width);
+  return <Text dimColor>{line}</Text>;
+};
+
+// ─── Helper Functions ───────────────────────────────────────────────────────
+
 function getStatusDisplay(status: LinkStatus): { icon: string; iconColor: string } {
   switch (status) {
     case 'confirmed':
@@ -452,17 +712,12 @@ function getStatusDisplay(status: LinkStatus): { icon: string; iconColor: string
   }
 }
 
-/**
- * Helper: Format amount for display with right alignment
- */
 function formatAmount(amount: string, width: number): string {
-  // Parse and format with locale
   const num = parseFloat(amount);
   if (isNaN(num)) {
     return amount.padStart(width);
   }
 
-  // Format with commas if large enough
   const formatted = num.toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 4,
@@ -471,25 +726,16 @@ function formatAmount(amount: string, width: number): string {
   return formatted.padStart(width);
 }
 
-/**
- * Helper: Format confidence score as percentage
- */
 function formatConfidenceScore(score: number): string {
   return `${(score * 100).toFixed(1)}%`.padStart(6);
 }
 
-/**
- * Helper: Get confidence color based on score
- */
 function getConfidenceColor(score: number): string {
   if (score >= 0.95) return 'green';
   if (score >= 0.7) return 'yellow';
   return 'red';
 }
 
-/**
- * Helper: Format match criteria for display
- */
 function formatMatchCriteria(criteria: MatchCriteria): string {
   const parts: string[] = [];
 
@@ -514,4 +760,15 @@ function formatMatchCriteria(criteria: MatchCriteria): string {
   }
 
   return parts.join(' · ');
+}
+
+function formatCoverage(coveragePercent: string): string {
+  const num = parseFloat(coveragePercent);
+  return `${Math.round(num)}% covered`;
+}
+
+function getCoverageColor(percent: number): string {
+  if (percent >= 50) return 'green';
+  if (percent > 0) return 'yellow';
+  return 'red';
 }

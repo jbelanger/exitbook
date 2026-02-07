@@ -1,30 +1,8 @@
-// Utilities and types for gaps view command
+// Types and utilities for link gap analysis
 
 import type { TransactionLink } from '@exitbook/accounting';
 import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-
-import type { CommonViewFilters } from '../shared/view-utils.js';
-
-/**
- * Gap category types for filtering.
- */
-export type GapCategory = 'prices' | 'links' | 'validation';
-
-/**
- * Parameters for gaps view command.
- */
-export interface GapsViewParams extends CommonViewFilters {
-  category?: GapCategory | undefined;
-}
-
-/**
- * Result of gaps view command.
- */
-export interface GapsViewResult {
-  analysis: LinkGapAnalysis;
-  category: 'links';
-}
 
 /**
  * Link gap issue details.
@@ -74,6 +52,23 @@ export interface LinkGapAnalysis {
 }
 
 /**
+ * Find the highest confidence score from a list of links.
+ */
+function findHighestConfidence(links: TransactionLink[]): string | undefined {
+  if (links.length === 0) {
+    return undefined;
+  }
+
+  let highest = links[0]!.confidenceScore;
+  for (const link of links) {
+    if (link.confidenceScore.greaterThan(highest)) {
+      highest = link.confidenceScore;
+    }
+  }
+  return highest.times(100).toFixed();
+}
+
+/**
  * Analyze transactions for missing link coverage.
  *
  * Flags blockchain inflows with no confirmed provenance and transfer outflows
@@ -86,10 +81,12 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
   const suggestedLinksBySource = new Map<number, TransactionLink[]>();
 
   const pushToMap = (map: Map<number, TransactionLink[]>, key: number, link: TransactionLink) => {
-    if (!map.has(key)) {
-      map.set(key, []);
+    const existing = map.get(key);
+    if (existing) {
+      existing.push(link);
+    } else {
+      map.set(key, [link]);
     }
-    map.get(key)!.push(link);
   };
 
   for (const link of links) {
@@ -164,16 +161,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
           (link) => link.assetSymbol.toUpperCase() === assetKey
         );
 
-        let highestSuggestedConfidencePercent: string | undefined;
-        if (suggestedForTx.length > 0) {
-          let highestConfidence = suggestedForTx[0]!.confidenceScore;
-          for (const link of suggestedForTx) {
-            if (link.confidenceScore.greaterThan(highestConfidence)) {
-              highestConfidence = link.confidenceScore;
-            }
-          }
-          highestSuggestedConfidencePercent = highestConfidence.times(100).toFixed();
-        }
+        const highestSuggestedConfidencePercent = findHighestConfidence(suggestedForTx);
 
         const coveragePercent = totalAmount.isZero()
           ? parseDecimal('0')
@@ -241,16 +229,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
           (link) => link.assetSymbol.toUpperCase() === assetKey
         );
 
-        let highestSuggestedConfidencePercent: string | undefined;
-        if (suggestedForTx.length > 0) {
-          let highestConfidence = suggestedForTx[0]!.confidenceScore;
-          for (const link of suggestedForTx) {
-            if (link.confidenceScore.greaterThan(highestConfidence)) {
-              highestConfidence = link.confidenceScore;
-            }
-          }
-          highestSuggestedConfidencePercent = highestConfidence.times(100).toFixed();
-        }
+        const highestSuggestedConfidencePercent = findHighestConfidence(suggestedForTx);
 
         const coveragePercent = totalAmount.isZero()
           ? parseDecimal('0')
@@ -308,93 +287,4 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
       assets: assetSummaries,
     },
   };
-}
-
-/**
- * Format gaps view result for text display.
- */
-export function formatGapsViewResult(result: GapsViewResult): string {
-  switch (result.category) {
-    case 'links':
-      return formatLinkGapAnalysis(result.analysis);
-    default:
-      return `Category '${(result as { category: string }).category}' analysis not yet implemented.`;
-  }
-}
-
-/**
- * Format link gap analysis for text display.
- */
-export function formatLinkGapAnalysis(analysis: LinkGapAnalysis): string {
-  const lines: string[] = [];
-
-  lines.push('');
-  lines.push('Link Gap Analysis:');
-  lines.push('=============================');
-  lines.push('');
-  lines.push(`Uncovered Inflows: ${analysis.summary.uncovered_inflows}`);
-  lines.push(`Unmatched Outflows: ${analysis.summary.unmatched_outflows}`);
-  lines.push(`Assets Affected: ${analysis.summary.affected_assets}`);
-  lines.push('');
-
-  if (analysis.summary.assets.length > 0) {
-    lines.push('By Asset:');
-    for (const assetSummary of analysis.summary.assets) {
-      if (assetSummary.inflowOccurrences > 0) {
-        lines.push(
-          `  ${assetSummary.assetSymbol}: ${assetSummary.inflowOccurrences} inflow(s) missing ${assetSummary.inflowMissingAmount} ${assetSummary.assetSymbol}`
-        );
-      }
-      if (assetSummary.outflowOccurrences > 0) {
-        lines.push(
-          `  ${assetSummary.assetSymbol}: ${assetSummary.outflowOccurrences} outflow(s) unmatched for ${assetSummary.outflowMissingAmount} ${assetSummary.assetSymbol}`
-        );
-      }
-    }
-    lines.push('');
-  }
-
-  if (analysis.issues.length === 0) {
-    lines.push('All movements have confirmed counterparties. ✅');
-  } else {
-    lines.push('Uncovered Movements:');
-    lines.push('-----------------------------');
-    for (const issue of analysis.issues) {
-      lines.push('');
-      const directionLabel = issue.direction === 'inflow' ? 'IN' : 'OUT';
-      lines.push(
-        `[${issue.assetSymbol}][${directionLabel}] TX #${issue.transactionId} (${issue.blockchain ?? issue.source})`
-      );
-      lines.push(`  Time: ${issue.timestamp}`);
-      const movementLabel = issue.direction === 'inflow' ? 'inflow' : 'outflow';
-      lines.push(
-        `  Missing: ${issue.missingAmount} ${issue.assetSymbol} of ${issue.totalAmount} ${issue.assetSymbol} ${movementLabel}`
-      );
-      lines.push(`  Confirmed Coverage: ${issue.confirmedCoveragePercent}%`);
-      lines.push(`  Operation: ${issue.operationCategory}/${issue.operationType}`);
-      if (issue.suggestedCount > 0) {
-        lines.push(
-          `  Suggested Matches: ${issue.suggestedCount}${
-            issue.highestSuggestedConfidencePercent
-              ? ` (best ${issue.highestSuggestedConfidencePercent}% confidence)`
-              : ''
-          }`
-        );
-      } else {
-        lines.push('  Suggested Matches: none');
-      }
-      if (issue.direction === 'inflow') {
-        lines.push('  Action: Run `exitbook links run` then confirm matches to bridge this gap.');
-      } else {
-        lines.push(
-          '  Action: Identify the destination wallet or confirm a link; otherwise this may be treated as a gift.'
-        );
-      }
-    }
-  }
-
-  lines.push('');
-  lines.push('=============================');
-
-  return lines.join('\n');
 }

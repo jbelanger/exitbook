@@ -20,111 +20,111 @@ export type LinksViewAction =
   | { error: string; type: 'SET_ERROR' };
 
 /**
+ * Get the item count for the current mode
+ */
+function getItemCount(state: LinksViewState): number {
+  return state.mode === 'links' ? state.links.length : state.linkAnalysis.issues.length;
+}
+
+/**
+ * Apply navigation updates and clear error if in links mode
+ */
+function applyNavigationUpdate(
+  state: LinksViewState,
+  updates: { scrollOffset?: number; selectedIndex?: number }
+): LinksViewState {
+  if (state.mode === 'gaps') {
+    return { ...state, ...updates };
+  }
+  return { ...state, ...updates, error: undefined };
+}
+
+/**
  * Reducer function for state updates
  */
 export function linksViewReducer(state: LinksViewState, action: LinksViewAction): LinksViewState {
+  const itemCount = getItemCount(state);
+
   switch (action.type) {
     case 'NAVIGATE_UP': {
-      // Move selection up (wrap to bottom)
-      const newIndex = state.selectedIndex > 0 ? state.selectedIndex - 1 : state.links.length - 1;
+      const newIndex = state.selectedIndex > 0 ? state.selectedIndex - 1 : itemCount - 1;
 
-      // Update scroll offset to keep selected item visible
       let newScrollOffset = state.scrollOffset;
 
-      // If we wrapped to the bottom, scroll to show the last items
-      if (newIndex === state.links.length - 1) {
-        newScrollOffset = Math.max(0, state.links.length - action.visibleRows);
-      }
-      // If selected item is above the visible window, scroll up
-      else if (newIndex < state.scrollOffset) {
+      if (newIndex === itemCount - 1) {
+        newScrollOffset = Math.max(0, itemCount - action.visibleRows);
+      } else if (newIndex < state.scrollOffset) {
         newScrollOffset = newIndex;
       }
 
-      return {
-        ...state,
+      return applyNavigationUpdate(state, {
         selectedIndex: newIndex,
         scrollOffset: newScrollOffset,
-        error: undefined, // Clear error on navigation
-      };
+      });
     }
 
     case 'NAVIGATE_DOWN': {
-      // Move selection down (wrap to top)
-      const newIndex = state.selectedIndex < state.links.length - 1 ? state.selectedIndex + 1 : 0;
+      const newIndex = state.selectedIndex < itemCount - 1 ? state.selectedIndex + 1 : 0;
 
-      // Update scroll offset to keep selected item visible
       let newScrollOffset = state.scrollOffset;
 
-      // If we wrapped to the top, scroll to the beginning
       if (newIndex === 0) {
         newScrollOffset = 0;
-      }
-      // If selected item is below the visible window, scroll down
-      else if (newIndex >= state.scrollOffset + action.visibleRows) {
+      } else if (newIndex >= state.scrollOffset + action.visibleRows) {
         newScrollOffset = newIndex - action.visibleRows + 1;
       }
 
-      return {
-        ...state,
+      return applyNavigationUpdate(state, {
         selectedIndex: newIndex,
         scrollOffset: newScrollOffset,
-        error: undefined, // Clear error on navigation
-      };
+      });
     }
 
     case 'PAGE_UP': {
-      // Jump up by visible rows
       const newIndex = Math.max(0, state.selectedIndex - action.visibleRows);
       const newScrollOffset = Math.max(0, state.scrollOffset - action.visibleRows);
 
-      return {
-        ...state,
+      return applyNavigationUpdate(state, {
         selectedIndex: newIndex,
         scrollOffset: newScrollOffset,
-        error: undefined,
-      };
+      });
     }
 
     case 'PAGE_DOWN': {
-      // Jump down by visible rows
-      const newIndex = Math.min(state.links.length - 1, state.selectedIndex + action.visibleRows);
+      const newIndex = Math.min(itemCount - 1, state.selectedIndex + action.visibleRows);
       const newScrollOffset = Math.min(
-        Math.max(0, state.links.length - action.visibleRows),
+        Math.max(0, itemCount - action.visibleRows),
         state.scrollOffset + action.visibleRows
       );
 
-      return {
-        ...state,
+      return applyNavigationUpdate(state, {
         selectedIndex: newIndex,
         scrollOffset: newScrollOffset,
-        error: undefined,
-      };
+      });
     }
 
     case 'HOME': {
-      // Jump to first item
-      return {
-        ...state,
+      return applyNavigationUpdate(state, {
         selectedIndex: 0,
         scrollOffset: 0,
-        error: undefined,
-      };
+      });
     }
 
     case 'END': {
-      // Jump to last item
-      const lastIndex = state.links.length - 1;
-      const newScrollOffset = Math.max(0, state.links.length - action.visibleRows);
+      const lastIndex = itemCount - 1;
+      const newScrollOffset = Math.max(0, itemCount - action.visibleRows);
 
-      return {
-        ...state,
+      return applyNavigationUpdate(state, {
         selectedIndex: lastIndex,
         scrollOffset: newScrollOffset,
-        error: undefined,
-      };
+      });
     }
 
     case 'CONFIRM_SELECTED': {
+      if (state.mode === 'gaps') {
+        return state;
+      }
+
       const selected = state.links[state.selectedIndex];
       if (!selected || selected.link.status !== 'suggested') {
         return {
@@ -133,7 +133,6 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
         };
       }
 
-      // Set pending action (for optimistic UI update)
       return {
         ...state,
         pendingAction: {
@@ -145,6 +144,10 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
     }
 
     case 'REJECT_SELECTED': {
+      if (state.mode === 'gaps') {
+        return state;
+      }
+
       const selected = state.links[state.selectedIndex];
       if (!selected || selected.link.status !== 'suggested') {
         return {
@@ -153,7 +156,6 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
         };
       }
 
-      // Set pending action (for optimistic UI update)
       return {
         ...state,
         pendingAction: {
@@ -165,6 +167,10 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
     }
 
     case 'CLEAR_ERROR': {
+      if (state.mode === 'gaps') {
+        return state;
+      }
+
       return {
         ...state,
         error: undefined,
@@ -172,6 +178,10 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
     }
 
     case 'SET_ERROR': {
+      if (state.mode === 'gaps') {
+        return state;
+      }
+
       return {
         ...state,
         error: action.error,
@@ -201,10 +211,13 @@ export function handleKeyboardInput(
   },
   dispatch: (action: LinksViewAction) => void,
   onQuit: () => void,
-  terminalHeight: number
+  terminalHeight: number,
+  mode: 'links' | 'gaps' = 'links'
 ): void {
   // Calculate visible rows (same calculation as in LinkList)
-  const visibleRows = Math.max(1, terminalHeight - 14);
+  // Gaps mode has ~4 extra lines for asset breakdown
+  const chromeLines = mode === 'gaps' ? 18 : 14;
+  const visibleRows = Math.max(1, terminalHeight - chromeLines);
 
   // Quit
   if (input === 'q' || key.escape) {
@@ -224,7 +237,6 @@ export function handleKeyboardInput(
   }
 
   // Navigation - page up/down (Ctrl+PgUp/PgDn or Ctrl+U/Ctrl+D)
-  // Note: pageUp/pageDown only work with Ctrl in most terminals (terminal captures plain PgUp/PgDn for scrollback)
   if (key.pageUp || (key.ctrl && input === 'u')) {
     dispatch({ type: 'PAGE_UP', visibleRows });
     return;
@@ -257,14 +269,16 @@ export function handleKeyboardInput(
     return;
   }
 
-  // Actions
-  if (input === 'c') {
-    dispatch({ type: 'CONFIRM_SELECTED' });
-    return;
-  }
+  // Actions (links mode only)
+  if (mode === 'links') {
+    if (input === 'c') {
+      dispatch({ type: 'CONFIRM_SELECTED' });
+      return;
+    }
 
-  if (input === 'r') {
-    dispatch({ type: 'REJECT_SELECTED' });
-    return;
+    if (input === 'r') {
+      dispatch({ type: 'REJECT_SELECTED' });
+      return;
+    }
   }
 }
