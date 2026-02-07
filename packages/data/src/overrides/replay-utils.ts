@@ -69,13 +69,116 @@ export interface OrphanedLinkOverride {
 }
 
 /**
- * Apply link overrides to a set of links
- * Modifies link statuses based on confirm/reject overrides.
+ * Final override state for a specific link (identified by fingerprint).
+ * Projected from the event stream using "last event wins" semantics.
+ */
+interface OverrideState {
+  action: 'confirm' | 'reject';
+  lastEvent: OverrideEvent;
+  sourceTransactionId: number;
+  targetTransactionId: number;
+  assetSymbol: string;
+  linkType: string;
+}
+
+/**
+ * Project final override state from event stream.
+ * Returns a map of link fingerprint → final override state.
+ *
+ * Uses "last event wins" semantics: if events are link→unlink→link,
+ * the final state is 'confirm'. This correctly handles any sequence
+ * of override events for the same link.
+ *
+ * @param overrides - Override events with scope='link' or 'unlink'
+ * @param fingerprintMap - Map of transaction fingerprint → transaction ID
+ * @returns Object with final override states and unresolved events
+ */
+function projectOverrideState(
+  overrides: OverrideEvent[],
+  fingerprintMap: Map<string, number>
+): {
+  overrideStates: Map<string, OverrideState>;
+  unresolved: OverrideEvent[];
+} {
+  const overrideStates = new Map<string, OverrideState>();
+  const unresolved: OverrideEvent[] = [];
+
+  // Process events in chronological order (already sorted in JSONL)
+  for (const override of overrides) {
+    if (override.scope === 'link') {
+      const payload = override.payload as LinkOverridePayload;
+
+      // Resolve transaction IDs
+      const sourceId = resolveTxId(payload.source_fingerprint, fingerprintMap);
+      const targetId = resolveTxId(payload.target_fingerprint, fingerprintMap);
+
+      if (sourceId === null || targetId === null) {
+        logger.warn(
+          {
+            overrideId: override.id,
+            sourceFingerprint: payload.source_fingerprint,
+            targetFingerprint: payload.target_fingerprint,
+          },
+          'Could not resolve transaction fingerprints for link override'
+        );
+        unresolved.push(override);
+        continue;
+      }
+
+      // Build link fingerprint (sorted for deterministic ordering)
+      const [fp1, fp2] = [payload.source_fingerprint, payload.target_fingerprint].sort();
+      const linkFingerprint = `link:${fp1}:${fp2}:${payload.asset}`;
+
+      // Upsert state (last event wins)
+      overrideStates.set(linkFingerprint, {
+        action: 'confirm',
+        lastEvent: override,
+        sourceTransactionId: sourceId,
+        targetTransactionId: targetId,
+        assetSymbol: payload.asset,
+        linkType: payload.link_type,
+      });
+    } else if (override.scope === 'unlink') {
+      const payload = override.payload as UnlinkOverridePayload;
+      const linkFingerprint = payload.link_fingerprint;
+
+      // Get existing state to preserve transaction details
+      const existingState = overrideStates.get(linkFingerprint);
+
+      if (existingState) {
+        // Update existing state to reject, preserving transaction details
+        overrideStates.set(linkFingerprint, {
+          ...existingState,
+          action: 'reject',
+          lastEvent: override,
+        });
+      } else {
+        // Unlink without prior link event - create minimal reject state
+        // Transaction details will be filled in later if we find the link
+        overrideStates.set(linkFingerprint, {
+          action: 'reject',
+          lastEvent: override,
+          sourceTransactionId: -1, // Placeholder
+          targetTransactionId: -1, // Placeholder
+          assetSymbol: '', // Placeholder
+          linkType: '', // Placeholder
+        });
+      }
+    }
+  }
+
+  return { overrideStates, unresolved };
+}
+
+/**
+ * Apply link overrides to a set of links using event sourcing projection.
+ *
+ * Projects final override state from the event stream, then applies to links once.
+ * Uses "last event wins" semantics to handle any sequence of overrides correctly.
  *
  * When a link_override resolves both transaction IDs but no matching link exists
- * in the algorithm output, it is returned in `orphaned` so the caller can
- * construct a new link — ensuring user decisions survive reprocessing even when
- * the algorithm doesn't rediscover the pair.
+ * in the algorithm output, it is returned in `orphaned` ONLY if the final state
+ * is 'confirm'. If the final state is 'reject', the link is not created.
  *
  * @param links - Array of links to modify
  * @param overrides - Override events with scope='link' or 'unlink'
@@ -89,7 +192,6 @@ export function applyLinkOverrides(
 ): Result<{ links: LinkWithStatus[]; orphaned: OrphanedLinkOverride[]; unresolved: OverrideEvent[] }, Error> {
   try {
     const fingerprintMap = buildFingerprintMap(transactions);
-    const unresolved: OverrideEvent[] = [];
     const orphaned: OrphanedLinkOverride[] = [];
 
     // Filter to link-related overrides
@@ -119,78 +221,52 @@ export function applyLinkOverrides(
       }
     }
 
-    // Apply each override
-    for (const override of linkOverrides) {
-      if (override.scope === 'link') {
-        const payload = override.payload as LinkOverridePayload;
+    // Project final override state from event stream
+    const { overrideStates, unresolved } = projectOverrideState(linkOverrides, fingerprintMap);
 
-        // Resolve transaction IDs
-        const sourceId = resolveTxId(payload.source_fingerprint, fingerprintMap);
-        const targetId = resolveTxId(payload.target_fingerprint, fingerprintMap);
+    // Apply final state to links and collect orphaned overrides
+    for (const [linkFingerprint, state] of overrideStates) {
+      const link = linkMap.get(linkFingerprint);
 
-        if (sourceId === null || targetId === null) {
-          logger.warn(
-            {
-              overrideId: override.id,
-              sourceFingerprint: payload.source_fingerprint,
-              targetFingerprint: payload.target_fingerprint,
-            },
-            'Could not resolve transaction fingerprints for link override'
-          );
-          unresolved.push(override);
-          continue;
-        }
+      if (link) {
+        // Apply override to existing link
+        link.status = state.action === 'confirm' ? 'confirmed' : 'rejected';
+        link.reviewedBy = state.lastEvent.actor;
+        link.reviewedAt = new Date(state.lastEvent.created_at);
+      } else {
+        // Orphaned: algorithm didn't produce this link
+        if (state.action === 'confirm') {
+          // Only create orphaned if final state is confirm
+          // Validate we have proper transaction IDs (not placeholders from unlink-only)
+          if (state.sourceTransactionId === -1 || state.targetTransactionId === -1) {
+            logger.warn(
+              {
+                overrideId: state.lastEvent.id,
+                linkFingerprint,
+              },
+              'Cannot create orphaned link from unlink-only override (missing transaction details)'
+            );
+            unresolved.push(state.lastEvent);
+            continue;
+          }
 
-        // Find matching link
-        const [fp1, fp2] = [payload.source_fingerprint, payload.target_fingerprint].sort();
-        const linkFingerprint = `link:${fp1}:${fp2}:${payload.asset}`;
-        const link = linkMap.get(linkFingerprint);
-
-        if (!link) {
-          // Transactions exist but algorithm didn't produce this link.
-          // Return as orphaned so the caller can create a new link entity.
           logger.info(
             {
-              overrideId: override.id,
+              overrideId: state.lastEvent.id,
               linkFingerprint,
             },
             'Override references a link not produced by the algorithm — returning as orphaned'
           );
           orphaned.push({
-            override,
-            sourceTransactionId: sourceId,
-            targetTransactionId: targetId,
-            assetSymbol: payload.asset,
-            linkType: payload.link_type,
+            override: state.lastEvent,
+            sourceTransactionId: state.sourceTransactionId,
+            targetTransactionId: state.targetTransactionId,
+            assetSymbol: state.assetSymbol,
+            linkType: state.linkType,
           });
-          continue;
         }
-
-        if (payload.action === 'confirm') {
-          link.status = 'confirmed';
-          link.reviewedBy = override.actor;
-          link.reviewedAt = new Date(override.created_at);
-        }
-      } else if (override.scope === 'unlink') {
-        const payload = override.payload as UnlinkOverridePayload;
-
-        const link = linkMap.get(payload.link_fingerprint);
-
-        if (!link) {
-          logger.warn(
-            {
-              overrideId: override.id,
-              linkFingerprint: payload.link_fingerprint,
-            },
-            'Could not find link matching unlink override fingerprint'
-          );
-          unresolved.push(override);
-          continue;
-        }
-
-        link.status = 'rejected';
-        link.reviewedBy = override.actor;
-        link.reviewedAt = new Date(override.created_at);
+        // If final state is 'reject', don't create the link at all
+        // (this correctly handles the bug: orphaned link later rejected)
       }
     }
 

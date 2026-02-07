@@ -268,4 +268,185 @@ describe('applyLinkOverrides', () => {
       expect(unresolved).toHaveLength(0);
     }
   });
+
+  it('should not create orphaned link when later unlinked (THE BUG)', () => {
+    const transactions = [
+      { id: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
+      { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+    ];
+
+    const links: {
+      assetSymbol: string;
+      id: string;
+      sourceTransactionId: number;
+      status: 'suggested';
+      targetTransactionId: number;
+    }[] = []; // Algorithm didn't produce this link
+
+    const overrides: OverrideEvent[] = [
+      {
+        id: 'override-1',
+        created_at: '2024-01-15T10:00:00Z',
+        actor: 'user',
+        source: 'cli',
+        scope: 'link',
+        payload: {
+          type: 'link_override',
+          action: 'confirm',
+          link_type: 'transfer',
+          source_fingerprint: 'kraken:WITHDRAWAL-123',
+          target_fingerprint: 'blockchain:bitcoin:abc123',
+          asset: 'BTC',
+        },
+      },
+      {
+        id: 'override-2',
+        created_at: '2024-01-15T11:00:00Z', // Later
+        actor: 'user',
+        source: 'cli',
+        scope: 'unlink',
+        payload: {
+          type: 'unlink_override',
+          link_fingerprint: 'link:blockchain:bitcoin:abc123:kraken:WITHDRAWAL-123:BTC',
+        },
+      },
+    ];
+
+    const result = applyLinkOverrides(links, overrides, transactions);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const { links: modifiedLinks, orphaned, unresolved } = result.value;
+      expect(modifiedLinks).toHaveLength(0);
+      expect(orphaned).toHaveLength(0); // Should NOT create orphaned link
+      expect(unresolved).toHaveLength(0);
+    }
+  });
+
+  it('should handle multiple state changes with last event winning', () => {
+    const transactions = [
+      { id: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
+      { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+    ];
+
+    const links = [
+      {
+        id: 'link-1',
+        sourceTransactionId: 1,
+        targetTransactionId: 2,
+        assetSymbol: 'BTC',
+        status: 'suggested' as const,
+      },
+    ];
+
+    const overrides: OverrideEvent[] = [
+      {
+        id: 'override-1',
+        created_at: '2024-01-15T10:00:00Z',
+        actor: 'user',
+        source: 'cli',
+        scope: 'link',
+        payload: {
+          type: 'link_override',
+          action: 'confirm',
+          link_type: 'transfer',
+          source_fingerprint: 'kraken:WITHDRAWAL-123',
+          target_fingerprint: 'blockchain:bitcoin:abc123',
+          asset: 'BTC',
+        },
+      },
+      {
+        id: 'override-2',
+        created_at: '2024-01-15T11:00:00Z',
+        actor: 'user',
+        source: 'cli',
+        scope: 'unlink',
+        payload: {
+          type: 'unlink_override',
+          link_fingerprint: 'link:blockchain:bitcoin:abc123:kraken:WITHDRAWAL-123:BTC',
+        },
+      },
+      {
+        id: 'override-3',
+        created_at: '2024-01-15T12:00:00Z',
+        actor: 'user',
+        source: 'cli',
+        scope: 'link',
+        payload: {
+          type: 'link_override',
+          action: 'confirm',
+          link_type: 'transfer',
+          source_fingerprint: 'kraken:WITHDRAWAL-123',
+          target_fingerprint: 'blockchain:bitcoin:abc123',
+          asset: 'BTC',
+        },
+      },
+    ];
+
+    const result = applyLinkOverrides(links, overrides, transactions);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const { links: modifiedLinks, orphaned, unresolved } = result.value;
+      expect(modifiedLinks).toHaveLength(1);
+      expect(modifiedLinks[0]?.status).toBe('confirmed'); // Last event wins
+      expect(modifiedLinks[0]?.reviewedBy).toBe('user');
+      expect(orphaned).toHaveLength(0);
+      expect(unresolved).toHaveLength(0);
+    }
+  });
+
+  it('should apply final confirm state after reject', () => {
+    const transactions = [
+      { id: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
+      { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+    ];
+
+    const links = [
+      {
+        id: 'link-1',
+        sourceTransactionId: 1,
+        targetTransactionId: 2,
+        assetSymbol: 'BTC',
+        status: 'suggested' as const,
+      },
+    ];
+
+    const overrides: OverrideEvent[] = [
+      {
+        id: 'override-1',
+        created_at: '2024-01-15T10:00:00Z',
+        actor: 'user',
+        source: 'cli',
+        scope: 'unlink',
+        payload: {
+          type: 'unlink_override',
+          link_fingerprint: 'link:blockchain:bitcoin:abc123:kraken:WITHDRAWAL-123:BTC',
+        },
+      },
+      {
+        id: 'override-2',
+        created_at: '2024-01-15T11:00:00Z',
+        actor: 'user',
+        source: 'cli',
+        scope: 'link',
+        payload: {
+          type: 'link_override',
+          action: 'confirm',
+          link_type: 'transfer',
+          source_fingerprint: 'kraken:WITHDRAWAL-123',
+          target_fingerprint: 'blockchain:bitcoin:abc123',
+          asset: 'BTC',
+        },
+      },
+    ];
+
+    const result = applyLinkOverrides(links, overrides, transactions);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const { links: modifiedLinks } = result.value;
+      expect(modifiedLinks[0]?.status).toBe('confirmed');
+    }
+  });
 });
