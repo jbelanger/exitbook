@@ -1,6 +1,6 @@
 import { performance } from 'node:perf_hooks';
 
-import type { ApiCallStats, OperationStatus } from '../shared/index.js';
+import type { ApiCallStats, OperationStatus } from '../../../ui/shared/index.js';
 
 export type { ApiCallStats, OperationStatus };
 

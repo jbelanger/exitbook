@@ -13,8 +13,8 @@ import type { InstrumentationCollector } from '@exitbook/http';
 import { render } from 'ink';
 import React from 'react';
 
-import type { PriceEvent } from '../../features/prices/events.js';
-import { EventRelay } from '../shared/index.js';
+import { EventRelay } from '../../../ui/shared/index.js';
+import type { PriceEvent } from '../events.js';
 
 import { PricesEnrichMonitor } from './prices-enrich-components.js';
 import type { LifecycleBridge } from './prices-enrich-state.js';

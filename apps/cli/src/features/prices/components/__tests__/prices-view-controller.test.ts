@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { MissingPriceMovement } from '../../../features/prices/prices-view-utils.js';
+import type { MissingPriceMovement } from '../../prices-view-utils.js';
 import { handlePricesKeyboardInput, pricesViewReducer } from '../prices-view-controller.js';
 import { createCoverageViewState, createMissingViewState, missingRowKey } from '../prices-view-state.js';
 

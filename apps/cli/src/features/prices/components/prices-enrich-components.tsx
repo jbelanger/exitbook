@@ -4,8 +4,8 @@ import type { InstrumentationCollector } from '@exitbook/http';
 import { Box, Text } from 'ink';
 import { type FC, type ReactNode, useEffect, useLayoutEffect, useReducer } from 'react';
 
-import type { PriceEvent } from '../../features/prices/events.js';
-import { ApiFooter, type EventRelay, formatDuration, statusIcon, TreeChars } from '../shared/index.js';
+import { ApiFooter, type EventRelay, formatDuration, statusIcon, TreeChars } from '../../../ui/shared/index.js';
+import type { PriceEvent } from '../events.js';
 
 import { createPricesEnrichState, type LifecycleBridge, type PricesEnrichState } from './prices-enrich-state.js';
 import { computeApiCallStats, pricesEnrichReducer } from './prices-enrich-updater.js';

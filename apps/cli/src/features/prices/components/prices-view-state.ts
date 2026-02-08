@@ -7,7 +7,7 @@ import type {
   MissingPriceMovement,
   PriceCoverageDetail,
   ViewPricesResult,
-} from '../../features/prices/prices-view-utils.js';
+} from '../prices-view-utils.js';
 
 /**
  * Coverage mode state (read-only)

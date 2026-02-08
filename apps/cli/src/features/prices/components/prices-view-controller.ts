@@ -2,7 +2,7 @@
  * Prices view controller — reducer + keyboard handler
  */
 
-import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../shared/list-navigation.js';
+import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 
 import { getPricesViewVisibleRows } from './prices-view-layout.js';
 import { missingRowKey, type PricesViewState } from './prices-view-state.js';

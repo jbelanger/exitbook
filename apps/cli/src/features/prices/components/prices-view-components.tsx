@@ -5,13 +5,9 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, useRef, type FC } from 'react';
 
-import type {
-  AssetBreakdownEntry,
-  MissingPriceMovement,
-  PriceCoverageDetail,
-} from '../../features/prices/prices-view-utils.js';
-import { formatCoveragePercentage } from '../../features/prices/prices-view-utils.js';
-import { Divider } from '../shared/index.js';
+import { Divider } from '../../../ui/shared/index.js';
+import type { AssetBreakdownEntry, MissingPriceMovement, PriceCoverageDetail } from '../prices-view-utils.js';
+import { formatCoveragePercentage } from '../prices-view-utils.js';
 
 import { handlePricesKeyboardInput, pricesViewReducer } from './prices-view-controller.js';
 import { getPricesViewVisibleRows } from './prices-view-layout.js';

@@ -6,7 +6,6 @@ import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
-import { PricesViewApp, createCoverageViewState, createMissingViewState } from '../../ui/prices/index.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
@@ -14,6 +13,7 @@ import { PricesViewCommandOptionsSchema } from '../shared/schemas.js';
 import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta } from '../shared/view-utils.js';
 
+import { PricesViewApp, createCoverageViewState, createMissingViewState } from './components/index.js';
 import { PricesSetHandler } from './prices-set-handler.js';
 import { ViewPricesHandler } from './prices-view-handler.js';
 import type {

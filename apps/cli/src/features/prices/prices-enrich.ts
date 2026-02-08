@@ -16,12 +16,12 @@ import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { PricesEnrichController } from '../../ui/prices-enrich/prices-enrich-controller.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { PricesEnrichCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
+import { PricesEnrichController } from './components/prices-enrich-controller.js';
 import type { PriceEvent } from './events.js';
 import { PricesEnrichHandler } from './prices-enrich-handler.js';
 import type { PricesEnrichOptions } from './prices-enrich-handler.js';

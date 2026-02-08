@@ -5,7 +5,7 @@
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
-import type { MissingPriceMovement, PriceCoverageDetail } from '../../../features/prices/prices-view-utils.js';
+import type { MissingPriceMovement, PriceCoverageDetail } from '../../prices-view-utils.js';
 import { PricesViewApp } from '../prices-view-components.js';
 import { createCoverageViewState, createMissingViewState } from '../prices-view-state.js';
 
