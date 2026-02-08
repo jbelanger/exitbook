@@ -83,7 +83,7 @@ export function createErrorResponse(
     errorObj.details = details;
   }
 
-  if (process.env.NODE_ENV === 'development' && error.stack) {
+  if (process.env['NODE_ENV'] === 'development' && error.stack) {
     errorObj.stack = error.stack;
   }
 

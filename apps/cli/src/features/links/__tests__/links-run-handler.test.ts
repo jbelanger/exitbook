@@ -143,7 +143,7 @@ describe('LinksRunHandler', () => {
       assetSymbol: 'BTC',
       sourceAmount: parseDecimal('1'),
       targetAmount: parseDecimal('1'),
-      linkType: 'exchange_blockchain',
+      linkType: 'exchange_to_blockchain',
       confidenceScore: parseDecimal('0.98'),
       matchCriteria: {
         assetMatch: true,

@@ -2,17 +2,26 @@
 
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import { render } from 'ink';
+import React from 'react';
 import type { z } from 'zod';
 
+import { PricesViewApp, createCoverageViewState, createMissingViewState } from '../../ui/prices/index.js';
+import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { PricesViewCommandOptionsSchema } from '../shared/schemas.js';
 import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta } from '../shared/view-utils.js';
 
+import { PricesSetHandler } from './prices-set-handler.js';
 import { ViewPricesHandler } from './prices-view-handler.js';
-import type { PriceCoverageInfo, ViewPricesParams, ViewPricesResult } from './prices-view-utils.js';
-import { formatPriceCoverageListForDisplay } from './prices-view-utils.js';
+import type {
+  AssetBreakdownEntry,
+  PriceCoverageInfo,
+  ViewPricesParams,
+  ViewPricesResult,
+} from './prices-view-utils.js';
 
 /**
  * Command options (validated at CLI boundary).
@@ -65,52 +74,233 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
   // Validate options at CLI boundary
   const parseResult = PricesViewCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager('text');
-    output.error(
+    displayCliError(
       'prices-view',
       new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS
+      ExitCodes.INVALID_ARGS,
+      'text'
     );
-    return;
   }
 
   const options = parseResult.data;
-  const output = new OutputManager(options.json ? 'json' : 'text');
+  const isJsonMode = options.json ?? false;
+  const isMissingMode = options.missingOnly ?? false;
+
+  const params: ViewPricesParams = {
+    source: options.source,
+    asset: options.asset,
+    missingOnly: options.missingOnly,
+  };
+
+  // Configure logger
+  configureLogger({
+    mode: isJsonMode ? 'json' : 'text',
+    verbose: false,
+    sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
+  });
+
+  // JSON mode uses OutputManager
+  if (isJsonMode) {
+    if (isMissingMode) {
+      await executeMissingViewJSON(params);
+    } else {
+      await executeViewPricesJSON(params);
+    }
+    resetLoggerContext();
+    return;
+  }
+
+  // TUI mode
+  if (isMissingMode) {
+    await executeMissingViewTUI(params);
+  } else {
+    await executeCoverageViewTUI(params);
+  }
+  resetLoggerContext();
+}
+
+/**
+ * Execute coverage view in TUI mode (read-only)
+ */
+async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
+  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
+
+  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
+  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
+  let exitCode = 0;
 
   try {
-    // Build params from options
-    const params: ViewPricesParams = {
-      asset: options.asset,
-      missingOnly: options.missingOnly,
+    database = await initializeDatabase();
+    const txRepo = new TransactionRepository(database);
+    const handler = new ViewPricesHandler(txRepo);
+
+    // Fetch coverage detail for TUI
+    const detailResult = await handler.executeCoverageDetail(params);
+    if (detailResult.isErr()) {
+      console.error('\n⚠ Error:', detailResult.error.message);
+      exitCode = ExitCodes.GENERAL_ERROR;
+      return;
+    }
+
+    // Also get summary for the header
+    const summaryResult = await handler.execute(params);
+    if (summaryResult.isErr()) {
+      console.error('\n⚠ Error:', summaryResult.error.message);
+      exitCode = ExitCodes.GENERAL_ERROR;
+      return;
+    }
+
+    // Close DB (read-only mode)
+    await closeDatabase(database);
+    database = undefined;
+
+    const initialState = createCoverageViewState(
+      detailResult.value,
+      summaryResult.value.summary,
+      params.asset,
+      params.source
+    );
+
+    // Render TUI
+    await new Promise<void>((resolve, reject) => {
+      inkInstance = render(
+        React.createElement(PricesViewApp, {
+          initialState,
+          onQuit: () => {
+            if (inkInstance) {
+              inkInstance.unmount();
+            }
+          },
+        })
+      );
+
+      inkInstance.waitUntilExit().then(resolve).catch(reject);
+    });
+  } catch (error) {
+    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
+    exitCode = ExitCodes.GENERAL_ERROR;
+  } finally {
+    if (inkInstance) {
+      try {
+        inkInstance.unmount();
+      } catch {
+        /* ignore unmount errors */
+      }
+    }
+    if (database) {
+      await closeDatabase(database);
+    }
+
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
+  }
+}
+
+/**
+ * Execute missing view in TUI mode (keeps DB open for set-price writes)
+ */
+async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
+  const { initializeDatabase, closeDatabase, TransactionRepository, OverrideStore } = await import('@exitbook/data');
+
+  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
+  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
+  let exitCode = 0;
+
+  try {
+    database = await initializeDatabase();
+    const txRepo = new TransactionRepository(database);
+    const overrideStore = new OverrideStore();
+    const handler = new ViewPricesHandler(txRepo);
+
+    // Fetch missing movements
+    const missingResult = await handler.executeMissing(params);
+    if (missingResult.isErr()) {
+      console.error('\n⚠ Error:', missingResult.error.message);
+      exitCode = ExitCodes.GENERAL_ERROR;
+      return;
+    }
+
+    const { movements, assetBreakdown } = missingResult.value;
+
+    const initialState = createMissingViewState(movements, assetBreakdown, params.asset, params.source);
+
+    // Set price handler for inline editing
+    const pricesSetHandler = new PricesSetHandler(overrideStore);
+
+    const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
+      const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
+      if (result.isErr()) {
+        throw result.error;
+      }
     };
 
+    // Render TUI
+    await new Promise<void>((resolve, reject) => {
+      inkInstance = render(
+        React.createElement(PricesViewApp, {
+          initialState,
+          onSetPrice: handleSetPrice,
+          onQuit: () => {
+            if (inkInstance) {
+              inkInstance.unmount();
+            }
+          },
+        })
+      );
+
+      inkInstance.waitUntilExit().then(resolve).catch(reject);
+    });
+  } catch (error) {
+    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
+    exitCode = ExitCodes.GENERAL_ERROR;
+  } finally {
+    if (inkInstance) {
+      try {
+        inkInstance.unmount();
+      } catch {
+        /* ignore unmount errors */
+      }
+    }
+    if (database) {
+      await closeDatabase(database);
+    }
+
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
+  }
+}
+
+/**
+ * Execute view prices in JSON mode
+ */
+async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
+  const output = new OutputManager('json');
+
+  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
+
+  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
+
+  try {
     const spinner = output.spinner();
     spinner?.start('Analyzing price coverage...');
 
     configureLogger({
-      mode: options.json ? 'json' : 'text',
+      mode: 'json',
       spinner: spinner || undefined,
       verbose: false,
-      sinks: options.json
-        ? { ui: false, structured: 'file' }
-        : spinner
-          ? { ui: true, structured: 'off' }
-          : { ui: false, structured: 'stdout' },
+      sinks: { ui: false, structured: 'file' },
     });
 
-    // Initialize repository
-    const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
-
-    const database = await initializeDatabase();
+    database = await initializeDatabase();
     const txRepo = new TransactionRepository(database);
-
     const handler = new ViewPricesHandler(txRepo);
 
     const result = await handler.execute(params);
 
     await closeDatabase(database);
-
-    resetLoggerContext();
+    database = undefined;
 
     if (result.isErr()) {
       spinner?.stop('Failed to analyze price coverage');
@@ -118,46 +308,110 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
       return;
     }
 
-    // Only call handleViewPricesSuccess if result is Ok
-    if (result.isOk()) {
-      handleViewPricesSuccess(output, result.value, params, spinner);
-    }
+    const { coverage, summary } = result.value;
+
+    spinner?.stop(`Analyzed ${summary.total_transactions} transactions across ${coverage.length} assets`);
+
+    // Build JSON result
+    const filters: Record<string, unknown> = {};
+    if (params.asset) filters['asset'] = params.asset;
+    if (params.missingOnly) filters['missingOnly'] = params.missingOnly;
+    if (params.source) filters['source'] = params.source;
+
+    const resultData: ViewPricesCommandResult = {
+      data: { coverage, summary },
+      meta: buildViewMeta(coverage.length, 0, coverage.length, coverage.length, filters),
+    };
+
+    output.json('view-prices', resultData);
   } catch (error) {
-    resetLoggerContext();
+    if (database) {
+      await closeDatabase(database);
+    }
     output.error('view-prices', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }
 
 /**
- * Handle successful view prices.
+ * Result data for missing prices JSON mode.
  */
-function handleViewPricesSuccess(
-  output: OutputManager,
-  result: ViewPricesResult,
-  params: ViewPricesParams,
-  spinner: ReturnType<OutputManager['spinner']>
-): void {
-  const { coverage, summary } = result;
+type MissingPricesCommandResult = ViewCommandResult<{
+  assetBreakdown: AssetBreakdownEntry[];
+  movements: {
+    amount: string;
+    assetSymbol: string;
+    datetime: string;
+    direction: string;
+    source: string;
+    transactionId: number;
+  }[];
+}>;
 
-  spinner?.stop(`Analyzed ${summary.total_transactions} transactions across ${coverage.length} assets`);
+/**
+ * Execute missing prices in JSON mode
+ */
+async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
+  const output = new OutputManager('json');
 
-  // Display text output
-  if (output.isTextMode()) {
-    console.log(formatPriceCoverageListForDisplay(result, params.missingOnly));
+  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
+
+  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
+
+  try {
+    const spinner = output.spinner();
+    spinner?.start('Finding missing prices...');
+
+    configureLogger({
+      mode: 'json',
+      spinner: spinner || undefined,
+      verbose: false,
+      sinks: { ui: false, structured: 'file' },
+    });
+
+    database = await initializeDatabase();
+    const txRepo = new TransactionRepository(database);
+    const handler = new ViewPricesHandler(txRepo);
+
+    const result = await handler.executeMissing(params);
+
+    await closeDatabase(database);
+    database = undefined;
+
+    if (result.isErr()) {
+      spinner?.stop('Failed to find missing prices');
+      output.error('view-prices', result.error, ExitCodes.GENERAL_ERROR);
+      return;
+    }
+
+    const { movements, assetBreakdown } = result.value;
+
+    spinner?.stop(`Found ${movements.length} movements missing prices across ${assetBreakdown.length} assets`);
+
+    const filters: Record<string, unknown> = {};
+    if (params.asset) filters['asset'] = params.asset;
+    if (params.source) filters['source'] = params.source;
+    filters['missingOnly'] = true;
+
+    // Flatten movements for JSON (omit operation fields)
+    const jsonMovements = movements.map((m) => ({
+      transactionId: m.transactionId,
+      source: m.source,
+      datetime: m.datetime,
+      assetSymbol: m.assetSymbol,
+      direction: m.direction,
+      amount: m.amount,
+    }));
+
+    const resultData: MissingPricesCommandResult = {
+      data: { movements: jsonMovements, assetBreakdown },
+      meta: buildViewMeta(movements.length, 0, movements.length, movements.length, filters),
+    };
+
+    output.json('view-prices', resultData);
+  } catch (error) {
+    if (database) {
+      await closeDatabase(database);
+    }
+    output.error('view-prices', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
-
-  // Prepare result data for JSON mode
-  const filters: Record<string, unknown> = {};
-  if (params.asset) filters.asset = params.asset;
-  if (params.missingOnly) filters.missingOnly = params.missingOnly;
-
-  const resultData: ViewPricesCommandResult = {
-    data: {
-      coverage,
-      summary,
-    },
-    meta: buildViewMeta(coverage.length, 0, coverage.length, coverage.length, filters),
-  };
-
-  output.json('view-prices', resultData);
 }

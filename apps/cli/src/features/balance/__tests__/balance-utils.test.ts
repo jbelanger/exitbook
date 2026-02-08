@@ -14,8 +14,8 @@ describe('getExchangeCredentialsFromEnv', () => {
   });
 
   it('should return credentials from environment variables', () => {
-    process.env.KRAKEN_API_KEY = 'env-key';
-    process.env.KRAKEN_SECRET = 'env-secret';
+    process.env['KRAKEN_API_KEY'] = 'env-key';
+    process.env['KRAKEN_SECRET'] = 'env-secret';
 
     const result = getExchangeCredentialsFromEnv('kraken');
 
@@ -29,9 +29,9 @@ describe('getExchangeCredentialsFromEnv', () => {
   });
 
   it('should include passphrase if present', () => {
-    process.env.KUCOIN_API_KEY = 'env-key';
-    process.env.KUCOIN_SECRET = 'env-secret';
-    process.env.KUCOIN_PASSPHRASE = 'env-passphrase';
+    process.env['KUCOIN_API_KEY'] = 'env-key';
+    process.env['KUCOIN_SECRET'] = 'env-secret';
+    process.env['KUCOIN_PASSPHRASE'] = 'env-passphrase';
 
     const result = getExchangeCredentialsFromEnv('kucoin');
 
@@ -45,8 +45,8 @@ describe('getExchangeCredentialsFromEnv', () => {
     }
   });
 
-  it.skipIf(!!originalEnv.KRAKEN_API_KEY)('should return error when API key is missing', () => {
-    process.env.KRAKEN_SECRET = 'env-secret';
+  it.skipIf(!!originalEnv['KRAKEN_API_KEY'])('should return error when API key is missing', () => {
+    process.env['KRAKEN_SECRET'] = 'env-secret';
 
     const result = getExchangeCredentialsFromEnv('kraken');
 
@@ -56,8 +56,8 @@ describe('getExchangeCredentialsFromEnv', () => {
     }
   });
 
-  it.skipIf(!!originalEnv.KRAKEN_SECRET)('should return error when API secret is missing', () => {
-    process.env.KRAKEN_API_KEY = 'env-key';
+  it.skipIf(!!originalEnv['KRAKEN_SECRET'])('should return error when API secret is missing', () => {
+    process.env['KRAKEN_API_KEY'] = 'env-key';
 
     const result = getExchangeCredentialsFromEnv('kraken');
 
@@ -68,8 +68,8 @@ describe('getExchangeCredentialsFromEnv', () => {
   });
 
   it('should handle uppercase exchange names', () => {
-    process.env.BINANCE_API_KEY = 'env-key';
-    process.env.BINANCE_SECRET = 'env-secret';
+    process.env['BINANCE_API_KEY'] = 'env-key';
+    process.env['BINANCE_SECRET'] = 'env-secret';
 
     const result = getExchangeCredentialsFromEnv('binance');
 

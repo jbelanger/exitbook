@@ -8,7 +8,22 @@ import { ok } from 'neverthrow';
 
 import { getAllMovements } from '../shared/view-utils.js';
 
-import type { ViewPricesParams, ViewPricesResult, PriceCoverageInfo } from './prices-view-utils.js';
+import type {
+  AssetBreakdownEntry,
+  MissingPriceMovement,
+  PriceCoverageDetail,
+  PriceCoverageInfo,
+  ViewPricesParams,
+  ViewPricesResult,
+} from './prices-view-utils.js';
+
+/**
+ * Result of executeMissing.
+ */
+export interface MissingPricesResult {
+  movements: MissingPriceMovement[];
+  assetBreakdown: AssetBreakdownEntry[];
+}
 
 /**
  * Handler for viewing price coverage.
@@ -17,7 +32,7 @@ export class ViewPricesHandler {
   constructor(private readonly txRepo: TransactionRepository) {}
 
   /**
-   * Execute the view prices command.
+   * Execute the view prices command (coverage mode).
    */
   async execute(params: ViewPricesParams): Promise<Result<ViewPricesResult, Error>> {
     // Fetch transactions from repository
@@ -51,6 +66,170 @@ export class ViewPricesHandler {
     };
 
     return ok(result);
+  }
+
+  /**
+   * Execute coverage with enhanced detail (source breakdown + date range).
+   */
+  async executeCoverageDetail(params: ViewPricesParams): Promise<Result<PriceCoverageDetail[], Error>> {
+    const txResult = await this.txRepo.getTransactions(params.source ? { sourceName: params.source } : undefined);
+
+    if (txResult.isErr()) {
+      return wrapError(txResult.error, 'Failed to fetch transactions');
+    }
+
+    const transactions = txResult.value;
+    const detailMap = new Map<
+      string,
+      {
+        base: PriceCoverageInfo;
+        earliest: string;
+        latest: string;
+        missingSources: Map<string, number>;
+        sources: Map<string, number>;
+      }
+    >();
+
+    for (const tx of transactions) {
+      const assetPriceStatus = this.extractAssetPriceStatus(tx, params.asset);
+
+      for (const [asset, hasPrice] of assetPriceStatus.entries()) {
+        if (!detailMap.has(asset)) {
+          detailMap.set(asset, {
+            base: {
+              assetSymbol: asset,
+              total_transactions: 0,
+              with_price: 0,
+              missing_price: 0,
+              coverage_percentage: 0,
+            },
+            sources: new Map(),
+            missingSources: new Map(),
+            earliest: tx.datetime,
+            latest: tx.datetime,
+          });
+        }
+
+        const detail = detailMap.get(asset)!;
+        detail.base.total_transactions++;
+
+        if (hasPrice) {
+          detail.base.with_price++;
+        } else {
+          detail.base.missing_price++;
+          detail.missingSources.set(tx.source, (detail.missingSources.get(tx.source) ?? 0) + 1);
+        }
+
+        detail.sources.set(tx.source, (detail.sources.get(tx.source) ?? 0) + 1);
+
+        if (tx.datetime < detail.earliest) detail.earliest = tx.datetime;
+        if (tx.datetime > detail.latest) detail.latest = tx.datetime;
+      }
+    }
+
+    // Calculate percentages and build result
+    const result: PriceCoverageDetail[] = [];
+    for (const detail of detailMap.values()) {
+      if (detail.base.total_transactions > 0) {
+        detail.base.coverage_percentage = (detail.base.with_price / detail.base.total_transactions) * 100;
+      }
+
+      result.push({
+        ...detail.base,
+        sources: Array.from(detail.sources.entries())
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count),
+        missingSources: Array.from(detail.missingSources.entries())
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count),
+        dateRange: { earliest: detail.earliest, latest: detail.latest },
+      });
+    }
+
+    result.sort((a, b) => a.coverage_percentage - b.coverage_percentage || a.assetSymbol.localeCompare(b.assetSymbol));
+
+    // Apply missing-only filter
+    const filtered = params.missingOnly ? result.filter((c) => c.missing_price > 0) : result;
+
+    return ok(filtered);
+  }
+
+  /**
+   * Execute missing mode — returns flat movement rows + asset breakdown.
+   */
+  async executeMissing(params: ViewPricesParams): Promise<Result<MissingPricesResult, Error>> {
+    const txResult = await this.txRepo.getTransactions(params.source ? { sourceName: params.source } : undefined);
+
+    if (txResult.isErr()) {
+      return wrapError(txResult.error, 'Failed to fetch transactions');
+    }
+
+    const transactions = txResult.value;
+    const movements: MissingPriceMovement[] = [];
+    const assetMap = new Map<string, { count: number; sourceCounts: Map<string, number> }>();
+
+    for (const tx of transactions) {
+      const inflows = tx.movements.inflows ?? [];
+      const outflows = tx.movements.outflows ?? [];
+
+      for (const movement of inflows) {
+        if (params.asset && movement.assetSymbol !== params.asset) continue;
+        if (movement.priceAtTxTime !== undefined && movement.priceAtTxTime !== null) continue;
+
+        movements.push({
+          transactionId: tx.id,
+          source: tx.source,
+          datetime: tx.datetime,
+          assetSymbol: movement.assetSymbol,
+          amount: movement.grossAmount.toFixed(),
+          direction: 'inflow',
+          operationCategory: tx.operation.category,
+          operationType: tx.operation.type,
+        });
+
+        const entry = assetMap.get(movement.assetSymbol) ?? { count: 0, sourceCounts: new Map<string, number>() };
+        entry.count++;
+        entry.sourceCounts.set(tx.source, (entry.sourceCounts.get(tx.source) ?? 0) + 1);
+        assetMap.set(movement.assetSymbol, entry);
+      }
+
+      for (const movement of outflows) {
+        if (params.asset && movement.assetSymbol !== params.asset) continue;
+        if (movement.priceAtTxTime !== undefined && movement.priceAtTxTime !== null) continue;
+
+        movements.push({
+          transactionId: tx.id,
+          source: tx.source,
+          datetime: tx.datetime,
+          assetSymbol: movement.assetSymbol,
+          amount: movement.grossAmount.toFixed(),
+          direction: 'outflow',
+          operationCategory: tx.operation.category,
+          operationType: tx.operation.type,
+        });
+
+        const entry = assetMap.get(movement.assetSymbol) ?? { count: 0, sourceCounts: new Map<string, number>() };
+        entry.count++;
+        entry.sourceCounts.set(tx.source, (entry.sourceCounts.get(tx.source) ?? 0) + 1);
+        assetMap.set(movement.assetSymbol, entry);
+      }
+    }
+
+    // Sort movements by datetime
+    movements.sort((a, b) => a.datetime.localeCompare(b.datetime));
+
+    // Build asset breakdown with per-source counts
+    const assetBreakdown: AssetBreakdownEntry[] = Array.from(assetMap.entries())
+      .map(([assetSymbol, { count, sourceCounts }]) => ({
+        assetSymbol,
+        count,
+        sources: Array.from(sourceCounts.entries())
+          .map(([name, sourceCount]) => ({ name, count: sourceCount }))
+          .sort((a, b) => b.count - a.count),
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    return ok({ movements, assetBreakdown });
   }
 
   /**

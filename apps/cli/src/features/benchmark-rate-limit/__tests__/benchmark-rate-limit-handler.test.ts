@@ -48,8 +48,8 @@ describe('BenchmarkRateLimitHandler', () => {
     handler = new BenchmarkRateLimitHandler();
   });
 
-  afterEach(() => {
-    handler.destroy();
+  afterEach(async () => {
+    await handler.destroy();
   });
 
   describe('execute', () => {
@@ -464,7 +464,7 @@ describe('BenchmarkRateLimitHandler', () => {
       );
 
       // Destroy
-      handler.destroy();
+      await handler.destroy();
 
       // Verify provider manager was destroyed
       expect(mockProviderManager.destroy).toHaveBeenCalled();
@@ -474,9 +474,9 @@ describe('BenchmarkRateLimitHandler', () => {
       expect(() => handler.destroy()).not.toThrow();
     });
 
-    it('should be safe to call multiple times', () => {
-      handler.destroy();
-      expect(() => handler.destroy()).not.toThrow();
+    it('should be safe to call multiple times', async () => {
+      await handler.destroy();
+      await expect(handler.destroy()).resolves.not.toThrow();
     });
   });
 });

@@ -7,6 +7,7 @@ import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC } from 'react';
 
 import type { LinkGapAssetSummary, LinkGapIssue } from '../../features/links/links-gap-utils.js';
+import { Divider } from '../shared/index.js';
 
 import { handleKeyboardInput, linksViewReducer } from './links-view-controller.js';
 import { getLinksViewVisibleRows } from './links-view-layout.js';
@@ -685,16 +686,6 @@ const GapsEmptyState: FC<{ state: LinksViewGapsState }> = ({ state }) => {
       <Text dimColor>q quit</Text>
     </Box>
   );
-};
-
-// ─── Shared Components ──────────────────────────────────────────────────────
-
-/**
- * Divider component - full-width separator
- */
-const Divider: FC<{ width: number }> = ({ width }) => {
-  const line = '─'.repeat(width);
-  return <Text dimColor>{line}</Text>;
 };
 
 // ─── Helper Functions ───────────────────────────────────────────────────────

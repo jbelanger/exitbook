@@ -211,7 +211,7 @@ export class CostBasisHandler {
 
       return ok(report);
     } finally {
-      priceManager.destroy();
+      await priceManager.destroy();
     }
   }
 }

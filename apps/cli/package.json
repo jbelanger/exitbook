@@ -13,10 +13,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsc --noEmit && tsup",
     "clean": "rm -rf node_modules dist",
     "dev": "tsx --env-file-if-exists=../../.env ./src/index.ts",
-    "lint": "eslint \"src/**/*.ts\"",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write .",
     "setup": "mkdir -p data/logs && pnpm run build",

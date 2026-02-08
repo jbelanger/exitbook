@@ -179,7 +179,7 @@ export class OutputManager {
     }
 
     // Show stack trace in development
-    if (process.env.NODE_ENV === 'development' && error.stack) {
+    if (process.env['NODE_ENV'] === 'development' && error.stack) {
       logger.debug(`Stack trace:\n${error.stack}`);
     }
   }

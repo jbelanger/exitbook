@@ -3,6 +3,7 @@
  */
 
 export { ApiFooter } from './ApiFooter.js';
+export { Divider } from './Divider.js';
 export { EventRelay } from './event-relay.js';
 export {
   createProviderStats,

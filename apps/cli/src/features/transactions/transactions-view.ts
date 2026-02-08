@@ -229,12 +229,12 @@ function handleViewTransactionsSuccess(
 
   // Prepare result data for JSON mode
   const filters: Record<string, unknown> = {};
-  if (params.source) filters.source = params.source;
-  if (params.assetSymbol) filters.asset = params.assetSymbol;
-  if (params.since) filters.since = params.since;
-  if (params.until) filters.until = params.until;
-  if (params.operationType) filters.operationType = params.operationType;
-  if (params.noPrice) filters.noPrice = params.noPrice;
+  if (params.source) filters['source'] = params.source;
+  if (params.assetSymbol) filters['asset'] = params.assetSymbol;
+  if (params.since) filters['since'] = params.since;
+  if (params.until) filters['until'] = params.until;
+  if (params.operationType) filters['operationType'] = params.operationType;
+  if (params.noPrice) filters['noPrice'] = params.noPrice;
 
   const resultData: ViewTransactionsCommandResult = {
     data: transactions,

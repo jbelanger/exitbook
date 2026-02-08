@@ -128,7 +128,7 @@ async function executeBenchmarkRateLimitCommand(rawOptions: unknown): Promise<vo
     // Output success
     output.json('benchmark-rate-limit', resultData);
 
-    handler.destroy?.();
+    await handler.destroy?.();
     resetLoggerContext();
   } catch (error) {
     resetLoggerContext();

@@ -41,7 +41,7 @@ describe('OutputManager', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
-    process.env.NODE_ENV = 'test';
+    process.env['NODE_ENV'] = 'test';
 
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {
       // Mock implementation

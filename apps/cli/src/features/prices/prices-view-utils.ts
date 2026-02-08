@@ -22,6 +22,40 @@ export interface PriceCoverageInfo {
 }
 
 /**
+ * Enhanced coverage with source breakdown for TUI detail panel.
+ */
+export interface PriceCoverageDetail extends PriceCoverageInfo {
+  sources: { count: number; name: string }[];
+  missingSources: { count: number; name: string }[];
+  dateRange: { earliest: string; latest: string };
+}
+
+/**
+ * A single movement row missing price data (for missing mode).
+ */
+export interface MissingPriceMovement {
+  transactionId: number;
+  source: string;
+  datetime: string;
+  assetSymbol: string;
+  amount: string;
+  direction: 'inflow' | 'outflow';
+  operationCategory?: string | undefined;
+  operationType?: string | undefined;
+  /** Set after inline price entry */
+  resolvedPrice?: string | undefined;
+}
+
+/**
+ * Per-asset summary in missing mode.
+ */
+export interface AssetBreakdownEntry {
+  assetSymbol: string;
+  count: number;
+  sources: { count: number; name: string }[];
+}
+
+/**
  * Result of view prices command.
  */
 export interface ViewPricesResult {

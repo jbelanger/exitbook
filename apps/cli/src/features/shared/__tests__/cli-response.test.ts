@@ -7,7 +7,7 @@ describe('cli-response', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
-    process.env.NODE_ENV = 'test';
+    process.env['NODE_ENV'] = 'test';
   });
 
   describe('createSuccessResponse', () => {
@@ -93,8 +93,8 @@ describe('cli-response', () => {
     });
 
     it('should include stack trace in development mode', () => {
-      const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'development';
+      const originalEnv = process.env['NODE_ENV'];
+      process.env['NODE_ENV'] = 'development';
 
       const error = new Error('Test error');
       error.stack = 'Error: Test error\n    at test.js:1:1';
@@ -102,12 +102,12 @@ describe('cli-response', () => {
 
       expect(response.error?.stack).toBe('Error: Test error\n    at test.js:1:1');
 
-      process.env.NODE_ENV = originalEnv;
+      process.env['NODE_ENV'] = originalEnv;
     });
 
     it('should not include stack trace in production mode', () => {
-      const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'production';
+      const originalEnv = process.env['NODE_ENV'];
+      process.env['NODE_ENV'] = 'production';
 
       const error = new Error('Test error');
       error.stack = 'Error: Test error\n    at test.js:1:1';
@@ -115,7 +115,7 @@ describe('cli-response', () => {
 
       expect(response.error?.stack).toBeUndefined();
 
-      process.env.NODE_ENV = originalEnv;
+      process.env['NODE_ENV'] = originalEnv;
     });
   });
 

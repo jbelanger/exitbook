@@ -208,7 +208,6 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
 
         if (result.isErr()) {
           displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'json');
-          return;
         }
 
         const duration_ms = Date.now() - startTime;

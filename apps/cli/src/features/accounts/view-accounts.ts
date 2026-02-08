@@ -168,9 +168,9 @@ function handleViewAccountsSuccess(
 
   // Prepare result data for JSON mode
   const filters: Record<string, unknown> = {};
-  if (params.accountId) filters.accountId = params.accountId;
-  if (params.source) filters.source = params.source;
-  if (params.accountType) filters.accountType = params.accountType;
+  if (params.accountId) filters['accountId'] = params.accountId;
+  if (params.source) filters['source'] = params.source;
+  if (params.accountType) filters['accountType'] = params.accountType;
 
   // Convert sessions Map to Record for JSON serialization (if requested)
   const sessionsRecord: Record<string, SessionSummary[]> | undefined = sessions
