@@ -5,20 +5,65 @@
 import { performance } from 'node:perf_hooks';
 
 import { Box, Text } from 'ink';
-import type { FC } from 'react';
+import { type FC, useEffect, useLayoutEffect, useReducer } from 'react';
 
-import { formatDuration, statusIcon, TreeChars } from '../shared/index.js';
+import type { LinkingEvent } from '../../features/links/events.js';
+import { type EventRelay, formatDuration, statusIcon, TreeChars } from '../shared/index.js';
 
-import type { LinksRunState, LoadPhase, MatchPhase, SavePhase } from './links-run-state.js';
+import type { LifecycleBridge, LinksRunState, LoadPhase, MatchPhase, SavePhase } from './links-run-state.js';
+import { createLinksRunState } from './links-run-state.js';
+import { linksRunReducer } from './links-run-updater.js';
+
+const REFRESH_INTERVAL_MS = 250;
+
+// --- Hook ---
+
+function useLinksRunState(relay: EventRelay<LinkingEvent>, lifecycle: LifecycleBridge, dryRun: boolean): LinksRunState {
+  const [state, dispatch] = useReducer(linksRunReducer, dryRun, createLinksRunState);
+
+  // Connect to the event relay (replays any buffered events, then forwards new ones).
+  // Also register lifecycle callbacks for synchronous abort/fail/complete dispatch.
+  useLayoutEffect(() => {
+    lifecycle.onAbort = () => dispatch({ type: 'abort' });
+    lifecycle.onFail = (errorMessage: string) => dispatch({ type: 'fail', errorMessage });
+    lifecycle.onComplete = () => dispatch({ type: 'complete' });
+
+    const disconnect = relay.connect((event: LinkingEvent) => {
+      dispatch({ type: 'event', event });
+    });
+
+    return () => {
+      lifecycle.onAbort = undefined;
+      lifecycle.onFail = undefined;
+      lifecycle.onComplete = undefined;
+      disconnect();
+    };
+  }, [relay, lifecycle]);
+
+  // Periodic refresh for active phase timers
+  useEffect(() => {
+    const timer = setInterval(() => {
+      dispatch({ type: 'tick' });
+    }, REFRESH_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, []);
+
+  return state;
+}
+
+// --- Components ---
 
 interface LinksRunMonitorProps {
-  state: LinksRunState;
+  dryRun: boolean;
+  lifecycle: LifecycleBridge;
+  relay: EventRelay<LinkingEvent>;
 }
 
 /**
  * Main links run monitor component
  */
-export const LinksRunMonitor: FC<LinksRunMonitorProps> = ({ state }) => {
+export const LinksRunMonitor: FC<LinksRunMonitorProps> = ({ relay, lifecycle, dryRun }) => {
+  const state = useLinksRunState(relay, lifecycle, dryRun);
   return (
     <Box flexDirection="column">
       {/* Blank line before first operation */}

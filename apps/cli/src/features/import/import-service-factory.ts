@@ -24,7 +24,7 @@ import { IngestionMonitorController } from '../../ui/ingestion-monitor/index.js'
 
 import { ImportHandler } from './import-handler.js';
 
-type CliEvent = IngestionEvent | ProviderEvent;
+type IngestionMonitorEvent = IngestionEvent | ProviderEvent;
 
 /**
  * Service container for import command.
@@ -49,7 +49,7 @@ export async function createImportServices(): Promise<ImportServices> {
   const instrumentation = new InstrumentationCollector();
   providerManager.setInstrumentation(instrumentation);
 
-  const eventBus = new EventBus<CliEvent>({
+  const eventBus = new EventBus<IngestionMonitorEvent>({
     onError: (err) => {
       console.error('Event handler error:', err);
     },

@@ -60,8 +60,4 @@ export type PriceEvent =
       stage: 'marketPrices';
       total: number;
       type: 'stage.progress';
-    }
-  // Pipeline lifecycle events (emitted by controller for UI state transitions)
-  | { type: 'pipeline.completed' }
-  | { errorMessage: string; type: 'pipeline.failed' }
-  | { type: 'pipeline.aborted' };
+    };

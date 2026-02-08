@@ -66,30 +66,6 @@ function applyEvent(state: PricesEnrichState, event: PriceEvent): PricesEnrichSt
       return applyStageFailed(state, event);
     case 'stage.progress':
       return applyStageProgress(state, event);
-    case 'pipeline.completed':
-      if (state.isComplete) return state;
-      return {
-        ...state,
-        isComplete: true,
-        totalDurationMs: performance.now() - state.startedAt,
-      };
-    case 'pipeline.failed':
-      if (state.isComplete) return state;
-      return {
-        ...state,
-        isComplete: true,
-        errorMessage: event.errorMessage.split('\n')[0],
-        suggestedAction: 'exitbook prices view --missing-only',
-        totalDurationMs: performance.now() - state.startedAt,
-      };
-    case 'pipeline.aborted':
-      if (state.isComplete) return state;
-      return {
-        ...state,
-        isComplete: true,
-        aborted: true,
-        totalDurationMs: performance.now() - state.startedAt,
-      };
   }
 }
 

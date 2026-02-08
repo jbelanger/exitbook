@@ -8,10 +8,13 @@ import {
 import { parseDecimal } from '@exitbook/core';
 import { applyLinkOverrides, type OrphanedLinkOverride, type OverrideStore } from '@exitbook/data';
 import type { TransactionRepository } from '@exitbook/data';
+import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
+
+import type { LinkingEvent } from './events.js';
 
 /**
  * Links run handler parameters.
@@ -72,7 +75,8 @@ export class LinksRunHandler {
   constructor(
     private transactionRepository: TransactionRepository,
     private linkRepository: TransactionLinkRepository,
-    private overrideStore?: OverrideStore | undefined
+    private overrideStore?: OverrideStore | undefined,
+    private eventBus?: EventBus<LinkingEvent> | undefined
   ) {}
 
   /**
@@ -82,6 +86,8 @@ export class LinksRunHandler {
   async execute(params: LinksRunHandlerParams): Promise<Result<LinksRunResult, Error>> {
     try {
       // Fetch all transactions
+      this.eventBus?.emit({ type: 'load.started' });
+
       const transactionsResult = await this.transactionRepository.getTransactions();
       if (transactionsResult.isErr()) {
         return err(transactionsResult.error);
@@ -91,6 +97,14 @@ export class LinksRunHandler {
       logger.info({ transactionCount: transactions.length }, 'Fetched transactions for linking');
 
       if (transactions.length === 0) {
+        // Emit load completed with zero counts
+        this.eventBus?.emit({
+          type: 'load.completed',
+          totalTransactions: 0,
+          sourceCount: 0,
+          targetCount: 0,
+        });
+
         logger.warn('No transactions found to link');
         return ok({
           internalLinksCount: 0,
@@ -118,6 +132,7 @@ export class LinksRunHandler {
             }
             existingLinksCleared = existingCount;
             logger.info({ count: existingCount }, 'Cleared existing links');
+            this.eventBus?.emit({ type: 'existing.cleared', count: existingCount });
           }
         }
       }
@@ -131,6 +146,8 @@ export class LinksRunHandler {
       });
 
       // Run linking algorithm
+      this.eventBus?.emit({ type: 'match.started' });
+
       const linkingResult = linkingService.linkTransactions(transactions);
       if (linkingResult.isErr()) {
         return err(linkingResult.error);
@@ -144,6 +161,14 @@ export class LinksRunHandler {
         unmatchedSourceCount,
         unmatchedTargetCount,
       } = linkingResult.value;
+
+      // Emit load completed now that we have source/target counts from linking service
+      this.eventBus?.emit({
+        type: 'load.completed',
+        totalTransactions: transactions.length,
+        sourceCount: totalSourceTransactions,
+        targetCount: totalTargetTransactions,
+      });
 
       logger.info(
         {
@@ -182,6 +207,15 @@ export class LinksRunHandler {
       );
       const adjustedSuggested = finalLinks.filter((l) => l.status === 'suggested');
       const internalLinksCount = internalLinks.length;
+
+      // Emit match completed
+      this.eventBus?.emit({
+        type: 'match.completed',
+        internalCount: internalLinksCount,
+        confirmedCount: adjustedConfirmed.length,
+        suggestedCount: adjustedSuggested.length,
+      });
+
       // Rejected links are excluded from saving
 
       // Save links to database (unless dry-run)
@@ -190,12 +224,16 @@ export class LinksRunHandler {
         const linksToSave = finalLinks.filter((l) => l.status !== 'rejected');
 
         if (linksToSave.length > 0) {
+          this.eventBus?.emit({ type: 'save.started' });
+
           const saveResult = await this.linkRepository.createBulk(linksToSave);
           if (saveResult.isErr()) {
             return err(saveResult.error);
           }
           totalSaved = saveResult.value;
           logger.info({ count: saveResult.value }, 'Saved links to database');
+
+          this.eventBus?.emit({ type: 'save.completed', totalSaved: saveResult.value });
         }
       } else {
         logger.info('Dry run mode - no links saved to database');
