@@ -301,6 +301,18 @@ export class PricesFetchHandler {
   }
 
   /**
+   * Cleanup resources
+   *
+   * Idempotent: safe to call multiple times.
+   */
+  async destroy(): Promise<void> {
+    if (this.priceManager) {
+      await this.priceManager.destroy();
+      this.priceManager = undefined;
+    }
+  }
+
+  /**
    * Build abort report when missing price is encountered in fail mode
    */
   private buildAbortReport(

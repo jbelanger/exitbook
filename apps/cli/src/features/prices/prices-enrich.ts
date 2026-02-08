@@ -137,11 +137,16 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
     const instrumentation = new InstrumentationCollector();
     const controller = new PricesEnrichController(eventBus, instrumentation);
 
+    const handler = new PricesEnrichHandler(transactionRepo, linkRepo, eventBus, instrumentation);
+
     // Handle Ctrl-C gracefully
     const abortHandler = () => {
       process.off('SIGINT', abortHandler);
       controller.abort();
       controller.stop().catch(() => {
+        /* ignore cleanup errors on abort */
+      });
+      handler.destroy().catch(() => {
         /* ignore cleanup errors on abort */
       });
       closeDatabase(database).catch((_err) => {
@@ -154,31 +159,37 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
 
     controller.start();
 
-    const handler = new PricesEnrichHandler(transactionRepo, linkRepo, eventBus, instrumentation);
+    let exitCode = 0;
 
     try {
       const result = await handler.execute(params);
 
-      await closeDatabase(database);
-      resetLoggerContext();
-      process.off('SIGINT', abortHandler);
-
       if (result.isErr()) {
         controller.fail(result.error.message);
         await controller.stop();
-        process.exit(ExitCodes.GENERAL_ERROR);
+        exitCode = ExitCodes.GENERAL_ERROR;
       } else {
         controller.complete();
         await controller.stop();
         // Success path exits naturally after event loop drains.
       }
     } catch (error) {
-      await closeDatabase(database);
-      resetLoggerContext();
-      process.off('SIGINT', abortHandler);
       controller.fail(error instanceof Error ? error.message : String(error));
       await controller.stop();
-      process.exit(ExitCodes.GENERAL_ERROR);
+      exitCode = ExitCodes.GENERAL_ERROR;
+    } finally {
+      // Remove signal handler
+      process.off('SIGINT', abortHandler);
+
+      // Cleanup always runs exactly once (success, error, or early return)
+      await handler.destroy();
+      await closeDatabase(database);
+      resetLoggerContext();
+
+      // Only exit explicitly on error; undici cleanup allows natural exit on success
+      if (exitCode !== 0) {
+        process.exit(exitCode);
+      }
     }
   } catch (error) {
     output.error('prices-enrich', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);

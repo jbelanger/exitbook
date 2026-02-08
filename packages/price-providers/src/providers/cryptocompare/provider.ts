@@ -106,7 +106,6 @@ export function createCryptoCompareProvider(
  */
 export class CryptoCompareProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
-  private readonly httpClient: HttpClient;
   private readonly config: CryptoCompareProviderConfig;
 
   constructor(

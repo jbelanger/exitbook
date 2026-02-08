@@ -91,7 +91,6 @@ export function createFrankfurterProvider(
  */
 export class FrankfurterProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
-  private readonly httpClient: HttpClient;
 
   constructor(httpClient: HttpClient, priceRepo: PriceRepository) {
     super();

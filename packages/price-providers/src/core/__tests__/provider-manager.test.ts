@@ -38,7 +38,9 @@ describe('PriceProviderManager', () => {
   });
 
   afterEach(() => {
-    manager.destroy();
+    Promise.resolve(manager.destroy()).catch(() => {
+      /* ignore errors during destroy */
+    });
     vi.useRealTimers();
   });
 
@@ -79,6 +81,9 @@ describe('PriceProviderManager', () => {
         name,
         requiresApiKey: false,
       }),
+      destroy: async () => {
+        /* empty */
+      },
     };
   }
 
@@ -327,6 +332,9 @@ describe('PriceProviderManager', () => {
           name: 'test',
           requiresApiKey: false,
         }),
+        destroy: async () => {
+          /* empty */
+        },
       };
 
       manager.registerProviders([provider]);
@@ -419,6 +427,9 @@ describe('PriceProviderManager', () => {
           name: 'test',
           requiresApiKey: false,
         }),
+        destroy: async () => {
+          /* empty */
+        },
       };
 
       manager.registerProviders([provider]);

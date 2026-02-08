@@ -344,4 +344,16 @@ export class PricesEnrichHandler {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
+
+  /**
+   * Cleanup resources
+   *
+   * Idempotent: safe to call multiple times.
+   */
+  async destroy(): Promise<void> {
+    if (this.priceManager) {
+      await this.priceManager.destroy();
+      this.priceManager = undefined;
+    }
+  }
 }
