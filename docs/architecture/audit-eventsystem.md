@@ -314,67 +314,6 @@ V2 Architecture Audit: Event Handling & Price Enrich Command
 
      ────────────────────────────────────────
 
-     5. Dependency Audit: Custom EventRelay vs. Library Primitives
-
-     What exists:
-
-     /apps/cli/src/ui/shared/event-relay.ts (34 LOC) implements a buffer-and-replay pattern:
-
-     export class EventRelay<T> {
-       private buffer: T[] = [];
-       private handler: ((event: T) => void) | undefined;
-
-       push(event: T): void { /* ... */ }
-       connect(handler: (event: T) => void): () => void { /* ... */ }
-     }
-
-     This solves the timing gap where EventBus emits (via queueMicrotask) before React's useLayoutEffect registers the handler.
-
-     Why it's a problem:
-
-     1. Hand-rolled concurrency: This is a classic buffering problem that observable libraries solve with ReplaySubject (RxJS) or Queue +
-     Stream.buffer() (Effect)
-     2. Unbounded buffer: If events arrive faster than React can consume (unlikely but possible during rapid import), buffer grows without limit
-     3. No backpressure: No way to signal "slow down" to the emitter
-     4. Not reusable: Tightly coupled to EventBus + React - can't test independently or reuse in non-React contexts
-
-     What V2 should do:
-
-     If keeping custom EventBus: Add bounded buffer with drop strategy:
-     class EventRelay<T> {
-       constructor(private maxBufferSize = 1000, private onOverflow: 'drop-oldest' | 'drop-newest' = 'drop-oldest') {}
-       // ...
-     }
-
-     If adopting RxJS: Replace with ReplaySubject(bufferSize):
-     const relay = new ReplaySubject<PriceEvent>(1000);
-     eventBus.subscribe(event => relay.next(event));
-     relay.subscribe(handler); // Auto-replays buffered events
-
-     If adopting Effect: Use Queue.bounded() + Stream.fromQueue() with backpressure:
-     const queue = Queue.bounded<PriceEvent>(1000);
-     const stream = Stream.fromQueue(queue, { strategy: 'drop-oldest' });
-
-     Needs coverage:
-     ┌───────────────────────────────────────┬───────────────────────────┬─────────────────────────────────────────────────────────┐
-     │          Current capability           │ Covered by ReplaySubject? │                          Notes                          │
-     ├───────────────────────────────────────┼───────────────────────────┼─────────────────────────────────────────────────────────┤
-     │ Buffer events before handler connects │ Yes                       │ Built-in replay behavior                                │
-     ├───────────────────────────────────────┼───────────────────────────┼─────────────────────────────────────────────────────────┤
-     │ Replay all buffered events on connect │ Yes                       │ Configurable buffer size                                │
-     ├───────────────────────────────────────┼───────────────────────────┼─────────────────────────────────────────────────────────┤
-     │ Forward new events after connection   │ Yes                       │ Standard Subject behavior                               │
-     ├───────────────────────────────────────┼───────────────────────────┼─────────────────────────────────────────────────────────┤
-     │ Return unsubscribe function           │ Yes                       │ subscription.unsubscribe()                              │
-     ├───────────────────────────────────────┼───────────────────────────┼─────────────────────────────────────────────────────────┤
-     │ Bounded buffer                        │ Better                    │ ReplaySubject has configurable size; EventRelay doesn't │
-     └───────────────────────────────────────┴───────────────────────────┴─────────────────────────────────────────────────────────┘
-     Surface: 1 file (34 LOC), used in 2 controllers
-
-     Leverage: Medium - Not a huge surface area, but demonstrates broader pattern of "hand-rolling what libraries provide"
-
-     ────────────────────────────────────────
-
      6. File Organization: Event Type Definitions
 
      What exists:

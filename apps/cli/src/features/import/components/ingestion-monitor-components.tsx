@@ -9,14 +9,20 @@ import type { InstrumentationCollector } from '@exitbook/http';
 import { Box, Text } from 'ink';
 import { type FC, type ReactNode, useEffect, useLayoutEffect, useReducer } from 'react';
 
-import { ApiFooter, type EventRelay, formatDuration, formatWaitTime, statusIcon } from '../../../ui/shared/index.js';
+import {
+  ApiFooter,
+  type EventRelay,
+  formatDuration,
+  formatWaitTime,
+  type LifecycleBridge,
+  statusIcon,
+} from '../../../ui/shared/index.js';
 
 import {
   createIngestionMonitorState,
   type DerivationOperation,
   type ImportOperation,
   type IngestionMonitorState,
-  type LifecycleBridge,
   type ProcessingMetadata,
   type ProcessingOperation,
   type StreamState,

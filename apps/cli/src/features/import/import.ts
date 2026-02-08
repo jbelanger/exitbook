@@ -13,7 +13,6 @@ import { promptConfirm } from '../shared/prompts.js';
 import { ImportCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
-import type { IngestionMonitorController } from './components/index.js';
 import type { ImportResult } from './import-handler.js';
 import { createImportServices } from './import-service-factory.js';
 import { buildImportParams } from './import-utils.js';
@@ -231,7 +230,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 async function handleCommandError(
   errorMessage: string,
   useInk: boolean,
-  ingestionMonitor: IngestionMonitorController
+  ingestionMonitor: { fail(errorMessage: string): void; stop(): Promise<void> }
 ): Promise<void> {
   if (useInk) {
     ingestionMonitor.fail(errorMessage);

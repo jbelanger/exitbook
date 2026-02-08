@@ -20,7 +20,9 @@ import {
   TransactionProcessService,
 } from '@exitbook/ingestion';
 
-import { IngestionMonitorController } from './components/index.js';
+import { EventDrivenController } from '../../ui/shared/index.js';
+
+import { IngestionMonitor } from './components/ingestion-monitor-components.js';
 import { ImportHandler } from './import-handler.js';
 
 type IngestionMonitorEvent = IngestionEvent | ProviderEvent;
@@ -31,7 +33,7 @@ type IngestionMonitorEvent = IngestionEvent | ProviderEvent;
  */
 export interface ImportServices {
   handler: ImportHandler;
-  ingestionMonitor: IngestionMonitorController;
+  ingestionMonitor: EventDrivenController<IngestionMonitorEvent>;
   instrumentation: InstrumentationCollector;
   cleanup: () => Promise<void>;
 }
@@ -82,7 +84,7 @@ export async function createImportServices(): Promise<ImportServices> {
 
   const handler = new ImportHandler(importOrchestrator, transactionProcessService, providerManager);
 
-  const ingestionMonitor = new IngestionMonitorController(eventBus, instrumentation, providerManager);
+  const ingestionMonitor = new EventDrivenController(eventBus, IngestionMonitor, { instrumentation, providerManager });
   ingestionMonitor.start();
 
   const cleanup = async () => {

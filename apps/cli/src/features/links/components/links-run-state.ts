@@ -5,16 +5,6 @@
 import type { OperationStatus } from '../../../ui/shared/index.js';
 
 /**
- * Lifecycle callbacks from controller to component.
- * Allows controller to trigger synchronous state transitions before process.exit().
- */
-export interface LifecycleBridge {
-  onAbort?: (() => void) | undefined;
-  onComplete?: (() => void) | undefined;
-  onFail?: ((errorMessage: string) => void) | undefined;
-}
-
-/**
  * Phase 1: Load transactions
  */
 export interface LoadPhase {

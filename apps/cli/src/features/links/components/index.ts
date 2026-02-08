@@ -3,7 +3,7 @@
  */
 
 export { LinkActionError, LinkActionResult } from './link-action-result.js';
-export { LinksRunController } from './links-run-controller.js';
+export { LinksRunMonitor } from './links-run-components.js';
 export { LinksViewApp } from './links-view-components.js';
 export { handleKeyboardInput, linksViewReducer, type LinksViewAction } from './links-view-controller.js';
 export {

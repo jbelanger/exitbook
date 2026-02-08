@@ -9,13 +9,14 @@ import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
+import { EventDrivenController } from '../../ui/shared/index.js';
 import { PromptFlow, type PromptStep } from '../../ui/shared/PromptFlow.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { createSuccessResponse } from '../shared/cli-response.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 
-import { LinksRunController } from './components/index.js';
+import { LinksRunMonitor } from './components/links-run-components.js';
 import type { LinkingEvent } from './events.js';
 import type { LinksRunHandlerParams } from './links-run-handler.js';
 import { LinksRunHandler } from './links-run-handler.js';
@@ -227,7 +228,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
         logger.error({ err }, 'EventBus error');
       },
     });
-    const controller = new LinksRunController(eventBus, params.dryRun);
+    const controller = new EventDrivenController(eventBus, LinksRunMonitor, { dryRun: params.dryRun });
 
     // Handle Ctrl-C gracefully
     const abortHandler = () => {

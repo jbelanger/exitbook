@@ -1,7 +1,9 @@
 /**
- * Thin lifecycle shell for the links run Ink UI.
+ * Generic lifecycle controller for Ink TUI monitors.
  *
- * All state management lives inside the React component (useReducer).
+ * Encodes the EventRelay + LifecycleBridge + flushRender timing contract once.
+ * Each call site provides the EventBus, the React component, and any extra props.
+ *
  * The controller's only jobs are:
  *   1. Mount / unmount the Ink render tree
  *   2. Relay EventBus events to the component (with buffering for timing safety)
@@ -12,67 +14,67 @@ import type { EventBus } from '@exitbook/events';
 import { render } from 'ink';
 import React from 'react';
 
-import { EventRelay } from '../../../ui/shared/index.js';
-import type { LinkingEvent } from '../events.js';
-
-import { LinksRunMonitor } from './links-run-components.js';
-import type { LifecycleBridge } from './links-run-state.js';
+import { EventRelay } from './event-relay.js';
 
 const UNMOUNT_DELAY_MS = 1000;
 
-export class LinksRunController {
+/**
+ * Callback bridge for lifecycle signals from controller to React component.
+ *
+ * Allows controller to trigger synchronous state transitions before process.exit().
+ * When the user presses Ctrl-C (SIGINT), the controller calls lifecycle.onAbort?.()
+ * synchronously, then flushRender() forces Ink to paint the abort state before
+ * process.exit(130) terminates the process.
+ */
+export interface LifecycleBridge {
+  onAbort?: (() => void) | undefined;
+  onComplete?: (() => void) | undefined;
+  onFail?: ((errorMessage: string) => void) | undefined;
+}
+
+export class EventDrivenController<TEvent> {
   private renderInstance: ReturnType<typeof render> | undefined;
-  private readonly relay = new EventRelay<LinkingEvent>();
+  private readonly relay = new EventRelay<TEvent>();
   private readonly lifecycle: LifecycleBridge = {};
   private unsubscribe: (() => void) | undefined;
 
   constructor(
-    private readonly eventBus: EventBus<LinkingEvent>,
-    private readonly dryRun: boolean
+    private readonly eventBus: EventBus<TEvent>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- component props vary per call site
+    private readonly component: React.ComponentType<any>,
+    private readonly extraProps: Record<string, unknown> = {}
   ) {}
 
   start(): void {
     // Subscribe to EventBus BEFORE render to capture events that arrive
     // before React's useLayoutEffect runs (EventBus delivers via queueMicrotask)
-    this.unsubscribe = this.eventBus.subscribe((event: LinkingEvent) => {
+    this.unsubscribe = this.eventBus.subscribe((event: TEvent) => {
       this.relay.push(event);
     });
 
     this.renderInstance = render(
-      React.createElement(LinksRunMonitor, {
+      React.createElement(this.component, {
         relay: this.relay,
         lifecycle: this.lifecycle,
-        dryRun: this.dryRun,
+        ...this.extraProps,
       })
     );
   }
 
-  /**
-   * Mark operation as successfully complete
-   */
   complete(): void {
     this.lifecycle.onComplete?.();
   }
 
-  /**
-   * Mark operation as aborted (Ctrl-C)
-   */
   abort(): void {
     this.lifecycle.onAbort?.();
     this.flushRender();
   }
 
-  /**
-   * Mark operation as failed (handler error)
-   */
   fail(errorMessage: string): void {
     this.lifecycle.onFail?.(errorMessage);
     this.flushRender();
   }
 
-  /**
-   * Unmount the Ink tree after a delay to let late events render
-   */
   async stop(): Promise<void> {
     return new Promise<void>((resolve) => {
       setTimeout(() => {
@@ -94,10 +96,10 @@ export class LinksRunController {
   private flushRender(): void {
     if (this.renderInstance) {
       this.renderInstance.rerender(
-        React.createElement(LinksRunMonitor, {
+        React.createElement(this.component, {
           relay: this.relay,
           lifecycle: this.lifecycle,
-          dryRun: this.dryRun,
+          ...this.extraProps,
         })
       );
     }
