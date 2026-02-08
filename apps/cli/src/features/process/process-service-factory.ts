@@ -20,7 +20,8 @@ import {
 } from '@exitbook/ingestion';
 import type { Result } from 'neverthrow';
 
-import { IngestionMonitorController } from '../import/components/index.js';
+import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
+import { IngestionMonitor } from '../import/components/ingestion-monitor-components.js';
 
 import type { ProcessHandlerParams, ProcessResult } from './process-handler.js';
 import { executeReprocess } from './process-handler.js';
@@ -33,7 +34,7 @@ type CliEvent = IngestionEvent | ProviderEvent;
  */
 export interface ProcessServices {
   execute: (params: ProcessHandlerParams) => Promise<Result<ProcessResult, Error>>;
-  ingestionMonitor: IngestionMonitorController;
+  ingestionMonitor: EventDrivenController<CliEvent>;
   instrumentation: InstrumentationCollector;
   cleanup: () => Promise<void>;
 }
@@ -94,7 +95,10 @@ export async function createProcessServices(): Promise<ProcessServices> {
     importSession
   );
 
-  const ingestionMonitor = new IngestionMonitorController(eventBus, instrumentation, providerManager);
+  const ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {
+    instrumentation,
+    providerManager,
+  });
   ingestionMonitor.start();
 
   // Create execute function with dependencies bound

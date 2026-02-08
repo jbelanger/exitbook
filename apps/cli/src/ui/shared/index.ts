@@ -4,6 +4,7 @@
 
 export { ApiFooter } from './ApiFooter.js';
 export { Divider } from './Divider.js';
+export { createEventDrivenController, EventDrivenController, type LifecycleBridge } from './event-driven-controller.js';
 export { EventRelay } from './event-relay.js';
 export {
   createProviderStats,

@@ -3,7 +3,6 @@ import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import type { IngestionMonitorController } from '../import/components/index.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { createErrorResponse, exitCodeToErrorCode } from '../shared/cli-response.js';
 import { ExitCodes } from '../shared/exit-codes.js';
@@ -159,7 +158,7 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
 async function handleCommandError(
   errorMessage: string,
   useInk: boolean,
-  ingestionMonitor: IngestionMonitorController
+  ingestionMonitor: { fail(errorMessage: string): void; stop(): Promise<void> }
 ): Promise<void> {
   if (useInk) {
     ingestionMonitor.fail(errorMessage);

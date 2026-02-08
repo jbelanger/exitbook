@@ -7,10 +7,16 @@ import { performance } from 'node:perf_hooks';
 import { Box, Text } from 'ink';
 import { type FC, useEffect, useLayoutEffect, useReducer } from 'react';
 
-import { type EventRelay, formatDuration, statusIcon, TreeChars } from '../../../ui/shared/index.js';
+import {
+  type EventRelay,
+  formatDuration,
+  type LifecycleBridge,
+  statusIcon,
+  TreeChars,
+} from '../../../ui/shared/index.js';
 import type { LinkingEvent } from '../events.js';
 
-import type { LifecycleBridge, LinksRunState, LoadPhase, MatchPhase, SavePhase } from './links-run-state.js';
+import type { LinksRunState, LoadPhase, MatchPhase, SavePhase } from './links-run-state.js';
 import { createLinksRunState } from './links-run-state.js';
 import { linksRunReducer } from './links-run-updater.js';
 

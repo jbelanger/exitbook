@@ -2,19 +2,23 @@
 
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import { render } from 'ink';
+import React from 'react';
 import type { z } from 'zod';
 
+import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { TransactionsViewCommandOptionsSchema } from '../shared/schemas.js';
 import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta, parseDate } from '../shared/view-utils.js';
 
+import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from './components/index.js';
 import type { TransactionInfo, ViewTransactionsParams, ViewTransactionsResult } from './transactions-view-utils.js';
 import {
   applyTransactionFilters,
   formatTransactionForDisplay,
-  formatTransactionsListForDisplay,
+  toTransactionViewItem,
 } from './transactions-view-utils.js';
 
 /**
@@ -73,134 +77,230 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
   // Validate options at CLI boundary
   const parseResult = TransactionsViewCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager('text');
-    output.error(
+    displayCliError(
       'transactions-view',
       new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS
+      ExitCodes.INVALID_ARGS,
+      'text'
     );
-    return;
   }
 
   const options = parseResult.data;
-  const output = new OutputManager(options.json ? 'json' : 'text');
+  const isJsonMode = options.json ?? false;
+
+  // Build params from options
+  const params: ViewTransactionsParams = {
+    source: options.source,
+    assetSymbol: options.asset,
+    since: options.since,
+    until: options.until,
+    operationType: options.operationType,
+    noPrice: options.noPrice,
+    limit: options.limit || 50,
+  };
+
+  // Configure logger
+  configureLogger({
+    mode: isJsonMode ? 'json' : 'text',
+    verbose: false,
+    sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
+  });
+
+  if (isJsonMode) {
+    await executeTransactionsViewJSON(params);
+  } else {
+    await executeTransactionsViewTUI(params);
+  }
+  resetLoggerContext();
+}
+
+/**
+ * Execute transactions view in TUI mode
+ */
+async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promise<void> {
+  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
+
+  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
+  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
+  let exitCode = 0;
 
   try {
-    // Build params from options
-    const params: ViewTransactionsParams = {
-      source: options.source,
-      assetSymbol: options.asset,
-      since: options.since,
-      until: options.until,
-      operationType: options.operationType,
-      noPrice: options.noPrice,
-      limit: options.limit || 50, // Default limit
-    };
-
-    const spinner = output.spinner();
-    spinner?.start('Fetching transactions...');
-
-    const loggerMode = options.json ? 'json' : 'text';
-    let sinks: { structured: 'stdout' | 'file' | 'off'; ui: boolean };
-
-    if (options.json) {
-      sinks = { ui: false, structured: 'file' };
-    } else if (spinner) {
-      sinks = { ui: true, structured: 'off' };
-    } else {
-      sinks = { ui: false, structured: 'stdout' };
-    }
-
-    configureLogger({
-      mode: loggerMode,
-      spinner: spinner || undefined,
-      verbose: false,
-      sinks,
-    });
-
-    // Initialize repository
-    const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
-
-    const database = await initializeDatabase();
+    database = await initializeDatabase();
     const txRepo = new TransactionRepository(database);
 
-    // Execute view transactions
-    let result: ViewTransactionsResult;
-    try {
-      // Convert since to unix timestamp if provided
-      let since: number | undefined;
-      if (params.since) {
-        const sinceResult = parseDate(params.since);
-        if (sinceResult.isErr()) {
-          await closeDatabase(database);
-          resetLoggerContext();
-          spinner?.stop('Failed to parse date');
-          output.error('view-transactions', sinceResult.error, ExitCodes.INVALID_ARGS);
-          return;
-        }
-        since = Math.floor(sinceResult.value.getTime() / 1000);
-      }
-
-      // Build filter object conditionally to avoid passing undefined values
-      const filters = {
-        ...(params.source && { sourceName: params.source }),
-        ...(since && { since }),
-        includeExcluded: true, // Show all transactions including scam tokens in view
-      };
-
-      // Fetch transactions from repository
-      const txResult = await txRepo.getTransactions(filters);
-
-      if (txResult.isErr()) {
-        await closeDatabase(database);
-        resetLoggerContext();
-        spinner?.stop('Failed to fetch transactions');
-        output.error('view-transactions', txResult.error, ExitCodes.GENERAL_ERROR);
+    // Convert since to unix timestamp if provided
+    let since: number | undefined;
+    if (params.since) {
+      const sinceResult = parseDate(params.since);
+      if (sinceResult.isErr()) {
+        console.error('\n⚠ Error:', sinceResult.error.message);
+        exitCode = ExitCodes.INVALID_ARGS;
         return;
       }
+      since = Math.floor(sinceResult.value.getTime() / 1000);
+    }
 
-      let transactions = txResult.value;
+    // Build DB-level filters
+    const filters = {
+      ...(params.source && { sourceName: params.source }),
+      ...(since && { since }),
+      includeExcluded: true,
+    };
 
-      // Apply additional filters
-      const filterResult = applyTransactionFilters(transactions, params);
-      if (filterResult.isErr()) {
-        await closeDatabase(database);
-        resetLoggerContext();
-        spinner?.stop('Failed to filter transactions');
-        output.error('view-transactions', filterResult.error, ExitCodes.GENERAL_ERROR);
-        return;
-      }
-      transactions = filterResult.value;
-
-      // Apply limit
-      if (params.limit) {
-        transactions = transactions.slice(0, params.limit);
-      }
-
-      // Build result
-      result = {
-        transactions: transactions.map((tx) => formatTransactionForDisplay(tx)),
-        count: transactions.length,
-      };
-    } catch (error) {
-      await closeDatabase(database);
-      resetLoggerContext();
-      spinner?.stop('Failed to fetch transactions');
-      output.error(
-        'view-transactions',
-        error instanceof Error ? error : new Error(String(error)),
-        ExitCodes.GENERAL_ERROR
-      );
+    // Fetch transactions
+    const txResult = await txRepo.getTransactions(filters);
+    if (txResult.isErr()) {
+      console.error('\n⚠ Error:', txResult.error.message);
+      exitCode = ExitCodes.GENERAL_ERROR;
       return;
     }
 
+    let transactions = txResult.value;
+
+    // Apply client-side filters
+    const filterResult = applyTransactionFilters(transactions, params);
+    if (filterResult.isErr()) {
+      console.error('\n⚠ Error:', filterResult.error.message);
+      exitCode = ExitCodes.GENERAL_ERROR;
+      return;
+    }
+    transactions = filterResult.value;
+
+    // Capture total count before limiting
+    const totalCount = transactions.length;
+
+    // Transform to view items (before limiting, for accurate category counts)
+    const allViewItems = transactions.map(toTransactionViewItem);
+
+    // Compute category counts from full dataset
+    const categoryCounts = computeCategoryCounts(allViewItems);
+
+    // Apply limit
+    const viewItems = params.limit ? allViewItems.slice(0, params.limit) : allViewItems;
+
+    // Close DB (read-only, no connection needed during browsing)
+    await closeDatabase(database);
+    database = undefined;
+
+    // Create initial state
+    const initialState = createTransactionsViewState(
+      viewItems,
+      {
+        sourceFilter: params.source,
+        assetFilter: params.assetSymbol,
+        operationTypeFilter: params.operationType,
+        noPriceFilter: params.noPrice,
+      },
+      totalCount,
+      categoryCounts
+    );
+
+    // Render TUI
+    await new Promise<void>((resolve, reject) => {
+      inkInstance = render(
+        React.createElement(TransactionsViewApp, {
+          initialState,
+          onQuit: () => {
+            if (inkInstance) {
+              inkInstance.unmount();
+            }
+          },
+        })
+      );
+
+      inkInstance.waitUntilExit().then(resolve).catch(reject);
+    });
+  } catch (error) {
+    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
+    exitCode = ExitCodes.GENERAL_ERROR;
+  } finally {
+    if (inkInstance) {
+      try {
+        inkInstance.unmount();
+      } catch {
+        /* ignore unmount errors */
+      }
+    }
+    if (database) {
+      await closeDatabase(database);
+    }
+
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
+  }
+}
+
+/**
+ * Execute transactions view in JSON mode
+ */
+async function executeTransactionsViewJSON(params: ViewTransactionsParams): Promise<void> {
+  const output = new OutputManager('json');
+
+  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
+
+  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
+
+  try {
+    database = await initializeDatabase();
+    const txRepo = new TransactionRepository(database);
+
+    // Convert since to unix timestamp if provided
+    let since: number | undefined;
+    if (params.since) {
+      const sinceResult = parseDate(params.since);
+      if (sinceResult.isErr()) {
+        await closeDatabase(database);
+        output.error('view-transactions', sinceResult.error, ExitCodes.INVALID_ARGS);
+        return;
+      }
+      since = Math.floor(sinceResult.value.getTime() / 1000);
+    }
+
+    const filters = {
+      ...(params.source && { sourceName: params.source }),
+      ...(since && { since }),
+      includeExcluded: true,
+    };
+
+    const txResult = await txRepo.getTransactions(filters);
+    if (txResult.isErr()) {
+      await closeDatabase(database);
+      output.error('view-transactions', txResult.error, ExitCodes.GENERAL_ERROR);
+      return;
+    }
+
+    let transactions = txResult.value;
+
+    // Apply client-side filters
+    const filterResult = applyTransactionFilters(transactions, params);
+    if (filterResult.isErr()) {
+      await closeDatabase(database);
+      output.error('view-transactions', filterResult.error, ExitCodes.GENERAL_ERROR);
+      return;
+    }
+    transactions = filterResult.value;
+
+    const totalCount = transactions.length;
+
+    // Apply limit
+    if (params.limit) {
+      transactions = transactions.slice(0, params.limit);
+    }
+
+    // Build result
+    const result: ViewTransactionsResult = {
+      transactions: transactions.map((tx) => formatTransactionForDisplay(tx)),
+      count: transactions.length,
+    };
+
     await closeDatabase(database);
 
-    resetLoggerContext();
-
-    handleViewTransactionsSuccess(output, result, params, spinner);
+    handleViewTransactionsJSON(output, result, params, totalCount);
   } catch (error) {
-    resetLoggerContext();
+    if (database) {
+      await closeDatabase(database);
+    }
     output.error(
       'view-transactions',
       error instanceof Error ? error : new Error(String(error)),
@@ -210,22 +310,15 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
 }
 
 /**
- * Handle successful view transactions.
+ * Handle successful view transactions (JSON mode).
  */
-function handleViewTransactionsSuccess(
+function handleViewTransactionsJSON(
   output: OutputManager,
   result: ViewTransactionsResult,
   params: ViewTransactionsParams,
-  spinner: ReturnType<OutputManager['spinner']>
+  totalCount: number
 ): void {
   const { transactions, count } = result;
-
-  spinner?.stop(`Found ${count} transactions`);
-
-  // Display text output
-  if (output.isTextMode()) {
-    console.log(formatTransactionsListForDisplay(transactions, count));
-  }
 
   // Prepare result data for JSON mode
   const filters: Record<string, unknown> = {};
@@ -238,7 +331,7 @@ function handleViewTransactionsSuccess(
 
   const resultData: ViewTransactionsCommandResult = {
     data: transactions,
-    meta: buildViewMeta(count, 0, params.limit || 50, count, filters),
+    meta: buildViewMeta(count, 0, params.limit || 50, totalCount, filters),
   };
 
   output.json('view-transactions', resultData);
