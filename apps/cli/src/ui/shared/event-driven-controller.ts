@@ -32,18 +32,31 @@ export interface LifecycleBridge {
   onFail?: ((errorMessage: string) => void) | undefined;
 }
 
+/** Props injected by the controller — not supplied by callers. */
+interface InternalProps<TEvent> {
+  relay: EventRelay<TEvent>;
+  lifecycle: LifecycleBridge;
+}
+
 export class EventDrivenController<TEvent> {
   private renderInstance: ReturnType<typeof render> | undefined;
   private readonly relay = new EventRelay<TEvent>();
   private readonly lifecycle: LifecycleBridge = {};
   private unsubscribe: (() => void) | undefined;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- type safety enforced at construction via createEventDrivenController
+  private readonly component: React.ComponentType<any>;
+  private readonly extraProps: Record<string, unknown>;
+
+  /** @internal Use createEventDrivenController() for type-safe construction. */
   constructor(
     private readonly eventBus: EventBus<TEvent>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- component props vary per call site
-    private readonly component: React.ComponentType<any>,
-    private readonly extraProps: Record<string, unknown> = {}
-  ) {}
+    component: React.ComponentType<InternalProps<TEvent>>,
+    extraProps: Record<string, unknown>
+  ) {
+    this.component = component;
+    this.extraProps = extraProps;
+  }
 
   start(): void {
     // Subscribe to EventBus BEFORE render to capture events that arrive
@@ -54,9 +67,9 @@ export class EventDrivenController<TEvent> {
 
     this.renderInstance = render(
       React.createElement(this.component, {
+        ...this.extraProps,
         relay: this.relay,
         lifecycle: this.lifecycle,
-        ...this.extraProps,
       })
     );
   }
@@ -97,11 +110,32 @@ export class EventDrivenController<TEvent> {
     if (this.renderInstance) {
       this.renderInstance.rerender(
         React.createElement(this.component, {
+          ...this.extraProps,
           relay: this.relay,
           lifecycle: this.lifecycle,
-          ...this.extraProps,
         })
       );
     }
   }
+}
+
+/**
+ * Type-safe factory for EventDrivenController.
+ *
+ * Infers the component's props type and requires callers to supply all props
+ * except relay/lifecycle (which the controller injects). Compile-time error
+ * if required component props are missing or mistyped.
+ */
+export function createEventDrivenController<TEvent, TProps extends InternalProps<TEvent>>(
+  eventBus: EventBus<TEvent>,
+  component: React.ComponentType<TProps>,
+  ...[extraProps]: keyof Omit<TProps, keyof InternalProps<TEvent>> extends never
+    ? [extraProps?: Record<never, never>]
+    : [extraProps: Omit<TProps, keyof InternalProps<TEvent>>]
+): EventDrivenController<TEvent> {
+  return new EventDrivenController(
+    eventBus,
+    component as React.ComponentType<InternalProps<TEvent>>,
+    (extraProps ?? {}) as Record<string, unknown>
+  );
 }

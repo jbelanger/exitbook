@@ -16,7 +16,7 @@ import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { EventDrivenController } from '../../ui/shared/index.js';
+import { createEventDrivenController } from '../../ui/shared/index.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { PricesEnrichCommandOptionsSchema } from '../shared/schemas.js';
@@ -136,7 +136,7 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       },
     });
     const instrumentation = new InstrumentationCollector();
-    const controller = new EventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
+    const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
     const handler = new PricesEnrichHandler(transactionRepo, linkRepo, eventBus, instrumentation);
 

@@ -9,7 +9,7 @@ import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
-import { EventDrivenController } from '../../ui/shared/index.js';
+import { createEventDrivenController } from '../../ui/shared/index.js';
 import { PromptFlow, type PromptStep } from '../../ui/shared/PromptFlow.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { createSuccessResponse } from '../shared/cli-response.js';
@@ -228,7 +228,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
         logger.error({ err }, 'EventBus error');
       },
     });
-    const controller = new EventDrivenController(eventBus, LinksRunMonitor, { dryRun: params.dryRun });
+    const controller = createEventDrivenController(eventBus, LinksRunMonitor, { dryRun: params.dryRun });
 
     // Handle Ctrl-C gracefully
     const abortHandler = () => {
