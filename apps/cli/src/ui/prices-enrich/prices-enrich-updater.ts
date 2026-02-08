@@ -246,6 +246,9 @@ export function computeApiCallStats(metrics: RequestMetric[]): ApiCallStats {
   const now = Date.now();
   const windowStart = now - RATE_WINDOW_MS;
 
+  // Track recent counts per provider during the first pass
+  const recentCounts = new Map<string, number>();
+
   for (const m of metrics) {
     let stats = byProvider.get(m.provider);
     if (!stats) {
@@ -268,11 +271,16 @@ export function computeApiCallStats(metrics: RequestMetric[]): ApiCallStats {
     } else if (m.status >= 400) {
       stats.failed++;
     }
+
+    // Track recent calls for rate calculation
+    if (m.timestamp >= windowStart) {
+      recentCounts.set(m.provider, (recentCounts.get(m.provider) ?? 0) + 1);
+    }
   }
 
-  // Compute current rate per provider
+  // Compute current rate per provider from pre-computed counts
   for (const [provider, stats] of byProvider) {
-    const recentCount = metrics.filter((m) => m.provider === provider && m.timestamp >= windowStart).length;
+    const recentCount = recentCounts.get(provider) ?? 0;
     stats.currentRate = recentCount / (RATE_WINDOW_MS / 1000);
   }
 

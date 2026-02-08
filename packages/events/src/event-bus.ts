@@ -59,8 +59,8 @@ export class EventBus<TEvent> {
   emit(event: TEvent): void {
     this.queue.push(event);
 
-    while (this.queue.length > this.maxQueueSize) {
-      this.queue.shift();
+    if (this.queue.length > this.maxQueueSize) {
+      this.queue = this.queue.slice(-this.maxQueueSize);
     }
 
     this.scheduleFlush();

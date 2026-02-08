@@ -279,7 +279,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       'links-run',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      'text'
+      isJsonMode ? 'json' : 'text'
     );
   }
 }
