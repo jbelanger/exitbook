@@ -47,12 +47,12 @@ export function navigateUp(state: ListNavigationState, context: ListNavigationCo
   }
 
   const currentIndex = Math.min(Math.max(state.selectedIndex, 0), itemCount - 1);
-  const wrappedIndex = wrapAround ? itemCount - 1 : 0;
-  const newIndex = currentIndex > 0 ? currentIndex - 1 : wrappedIndex;
+  const newIndex = currentIndex > 0 ? currentIndex - 1 : wrapAround ? itemCount - 1 : 0;
 
   let newScrollOffset = Math.max(0, state.scrollOffset);
 
-  if (newIndex === itemCount - 1 && currentIndex === 0 && wrapAround) {
+  const isWrappingToEnd = newIndex === itemCount - 1 && currentIndex === 0 && wrapAround;
+  if (isWrappingToEnd) {
     newScrollOffset = Math.max(0, itemCount - visibleRows);
   } else if (newIndex < newScrollOffset) {
     newScrollOffset = newIndex;
@@ -74,12 +74,12 @@ export function navigateDown(state: ListNavigationState, context: ListNavigation
   }
 
   const currentIndex = Math.min(Math.max(state.selectedIndex, 0), itemCount - 1);
-  const wrappedIndex = wrapAround ? 0 : itemCount - 1;
-  const newIndex = currentIndex < itemCount - 1 ? currentIndex + 1 : wrappedIndex;
+  const newIndex = currentIndex < itemCount - 1 ? currentIndex + 1 : wrapAround ? 0 : itemCount - 1;
 
   let newScrollOffset = Math.max(0, state.scrollOffset);
 
-  if (newIndex === 0 && currentIndex === itemCount - 1 && wrapAround) {
+  const isWrappingToStart = newIndex === 0 && currentIndex === itemCount - 1 && wrapAround;
+  if (isWrappingToStart) {
     newScrollOffset = 0;
   } else if (newIndex >= newScrollOffset + visibleRows) {
     newScrollOffset = newIndex - visibleRows + 1;

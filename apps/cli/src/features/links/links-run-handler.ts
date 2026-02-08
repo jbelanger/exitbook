@@ -118,14 +118,12 @@ export class LinksRunHandler {
         });
       }
 
-      // Count existing links before clearing (only if not dry run)
-      let existingLinksCleared: number | undefined = undefined;
+      let existingLinksCleared: number | undefined;
       if (!params.dryRun) {
         const existingCountResult = await this.linkRepository.countAll();
         if (existingCountResult.isOk()) {
           const existingCount = existingCountResult.value;
           if (existingCount > 0) {
-            // Clear existing links to avoid duplicates
             const deleteResult = await this.linkRepository.deleteAll();
             if (deleteResult.isErr()) {
               return err(deleteResult.error);
@@ -218,8 +216,7 @@ export class LinksRunHandler {
 
       // Rejected links are excluded from saving
 
-      // Save links to database (unless dry-run)
-      let totalSaved: number | undefined = undefined;
+      let totalSaved: number | undefined;
       if (!params.dryRun) {
         const linksToSave = finalLinks.filter((l) => l.status !== 'rejected');
 

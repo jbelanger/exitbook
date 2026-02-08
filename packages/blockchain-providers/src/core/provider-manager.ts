@@ -97,7 +97,6 @@ export class BlockchainProviderManager {
   autoRegisterFromConfig(blockchain: string, preferredProvider?: string): IBlockchainProvider[] {
     const existingProviders = this.providers.get(blockchain);
 
-    // Fast path: if providers already registered, skip redundant work/log noise
     if (existingProviders && existingProviders.length > 0) {
       if (!preferredProvider) {
         logger.debug(`Providers already registered for ${blockchain}; skipping auto-registration`);
@@ -119,7 +118,6 @@ export class BlockchainProviderManager {
     }
 
     try {
-      // If no config file exists, use all registered providers
       if (!this.explorerConfig) {
         logger.info(`No configuration file found. Using all registered providers for ${blockchain}`);
         return this.autoRegisterFromRegistry(blockchain, preferredProvider);
@@ -127,13 +125,11 @@ export class BlockchainProviderManager {
 
       const blockchainConfig = this.explorerConfig[blockchain];
 
-      // If blockchain not in config, fall back to registry
       if (!blockchainConfig) {
         logger.info(`No configuration found for blockchain: ${blockchain}. Using all registered providers.`);
         return this.autoRegisterFromRegistry(blockchain, preferredProvider);
       }
 
-      // Use override-based config format
       if (
         typeof blockchainConfig === 'object' &&
         blockchainConfig !== null &&
@@ -149,12 +145,12 @@ export class BlockchainProviderManager {
             overrides?: Record<string, ProviderOverride> | undefined;
           }
         );
-      } else {
-        logger.error(
-          `Invalid blockchain config format for ${blockchain}. Expected an object with optional defaultEnabled (string[]) and overrides (Record<string, ProviderOverride>).`
-        );
-        return [];
       }
+
+      logger.error(
+        `Invalid blockchain config format for ${blockchain}. Expected an object with optional defaultEnabled (string[]) and overrides (Record<string, ProviderOverride>).`
+      );
+      return [];
     } catch (error) {
       logger.error(`Failed to auto-register providers for ${blockchain} - Error: ${getErrorMessage(error)}`);
       return [];
@@ -167,7 +163,6 @@ export class BlockchainProviderManager {
    * Idempotent: safe to call multiple times.
    */
   async destroy(): Promise<void> {
-    // 1. Clear timers synchronously first (no async needed)
     if (this.healthCheckTimer) {
       clearInterval(this.healthCheckTimer);
       this.healthCheckTimer = undefined;
@@ -178,7 +173,6 @@ export class BlockchainProviderManager {
       this.cacheCleanupTimer = undefined;
     }
 
-    // 2. Close all provider instances with aggregated error handling
     const closePromises: Promise<PromiseSettledResult<void>>[] = [];
 
     for (const providerList of this.providers.values()) {
@@ -193,8 +187,6 @@ export class BlockchainProviderManager {
     }
 
     const results = await Promise.all(closePromises);
-
-    // 3. Log all failures
     const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
 
     for (const failure of failures) {
@@ -202,13 +194,11 @@ export class BlockchainProviderManager {
       logger.error(`Provider cleanup failed: ${errorMessage}`);
     }
 
-    // 4. Clear all caches and state
     this.providers.clear();
     this.healthStatus.clear();
     this.circuitStates.clear();
     this.requestCache.clear();
 
-    // 5. Propagate failure if any provider failed
     if (failures.length > 0) {
       throw new Error(`Provider manager cleanup failed: ${failures.length} provider(s) failed to close`);
     }

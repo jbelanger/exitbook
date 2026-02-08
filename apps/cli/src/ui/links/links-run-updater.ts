@@ -27,54 +27,64 @@ export type LinksRunAction =
  * giving React a new top-level reference for change detection.
  */
 export function linksRunReducer(state: LinksRunState, action: LinksRunAction): LinksRunState {
-  switch (action.type) {
-    case 'event': {
-      const next = { ...state };
-      updateStateFromEvent(next, action.event);
-      return next;
-    }
-    case 'complete': {
-      if (state.isComplete) return state;
-      return {
-        ...state,
-        isComplete: true,
-        totalDurationMs: state.load?.startedAt ? performance.now() - state.load.startedAt : undefined,
-      };
-    }
-    case 'abort': {
-      if (state.isComplete) return state;
-      return {
-        ...state,
-        aborted: true,
-        isComplete: true,
-        errorMessage: undefined,
-        totalDurationMs: state.load?.startedAt ? performance.now() - state.load.startedAt : undefined,
-      };
-    }
-    case 'fail': {
-      if (state.isComplete) return state;
-      const next: LinksRunState = {
-        ...state,
-        errorMessage: action.errorMessage,
-        aborted: false,
-        isComplete: true,
-        totalDurationMs: state.load?.startedAt ? performance.now() - state.load.startedAt : undefined,
-      };
-      // Mark active phases as failed
-      if (state.load && state.load.status === 'active') {
-        next.load = { ...state.load, status: 'failed', completedAt: performance.now() };
-      }
-      if (state.match && state.match.status === 'active') {
-        next.match = { ...state.match, status: 'failed', completedAt: performance.now() };
-      }
-      if (state.save && state.save.status === 'active') {
-        next.save = { ...state.save, status: 'failed', completedAt: performance.now() };
-      }
-      return next;
-    }
-    case 'tick':
-      return { ...state };
+  if (action.type === 'event') {
+    const next = { ...state };
+    updateStateFromEvent(next, action.event);
+    return next;
   }
+
+  if (action.type === 'tick') {
+    return { ...state };
+  }
+
+  if (state.isComplete) {
+    return state;
+  }
+
+  const totalDurationMs = state.load?.startedAt ? performance.now() - state.load.startedAt : undefined;
+
+  if (action.type === 'complete') {
+    return {
+      ...state,
+      isComplete: true,
+      totalDurationMs,
+    };
+  }
+
+  if (action.type === 'abort') {
+    return {
+      ...state,
+      aborted: true,
+      isComplete: true,
+      errorMessage: undefined,
+      totalDurationMs,
+    };
+  }
+
+  if (action.type === 'fail') {
+    const now = performance.now();
+    const next: LinksRunState = {
+      ...state,
+      errorMessage: action.errorMessage,
+      aborted: false,
+      isComplete: true,
+      totalDurationMs,
+    };
+
+    if (state.load?.status === 'active') {
+      next.load = { ...state.load, status: 'failed', completedAt: now };
+    }
+    if (state.match?.status === 'active') {
+      next.match = { ...state.match, status: 'failed', completedAt: now };
+    }
+    if (state.save?.status === 'active') {
+      next.save = { ...state.save, status: 'failed', completedAt: now };
+    }
+
+    return next;
+  }
+
+  return state;
 }
 
 /**

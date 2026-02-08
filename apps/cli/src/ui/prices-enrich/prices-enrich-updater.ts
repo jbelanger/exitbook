@@ -25,27 +25,39 @@ export type PricesEnrichAction =
  * Returns a new state object on every meaningful action, enabling React's change detection.
  */
 export function pricesEnrichReducer(state: PricesEnrichState, action: PricesEnrichAction): PricesEnrichState {
-  switch (action.type) {
-    case 'event':
-      return applyEvent(state, action.event);
-    case 'refresh':
-      return { ...state, apiCalls: action.apiCalls };
-    case 'complete':
-      if (state.isComplete) return state;
-      return { ...state, isComplete: true, totalDurationMs: performance.now() - state.startedAt };
-    case 'abort':
-      if (state.isComplete) return state;
-      return { ...state, isComplete: true, aborted: true, totalDurationMs: performance.now() - state.startedAt };
-    case 'fail':
-      if (state.isComplete) return state;
-      return {
-        ...state,
-        isComplete: true,
-        errorMessage: action.errorMessage.split('\n')[0],
-        suggestedAction: 'exitbook prices view --missing-only',
-        totalDurationMs: performance.now() - state.startedAt,
-      };
+  if (action.type === 'event') {
+    return applyEvent(state, action.event);
   }
+
+  if (action.type === 'refresh') {
+    return { ...state, apiCalls: action.apiCalls };
+  }
+
+  if (state.isComplete) {
+    return state;
+  }
+
+  const totalDurationMs = performance.now() - state.startedAt;
+
+  if (action.type === 'complete') {
+    return { ...state, isComplete: true, totalDurationMs };
+  }
+
+  if (action.type === 'abort') {
+    return { ...state, isComplete: true, aborted: true, totalDurationMs };
+  }
+
+  if (action.type === 'fail') {
+    return {
+      ...state,
+      isComplete: true,
+      errorMessage: action.errorMessage.split('\n')[0],
+      suggestedAction: 'exitbook prices view --missing-only',
+      totalDurationMs,
+    };
+  }
+
+  return state;
 }
 
 function applyEvent(state: PricesEnrichState, event: PriceEvent): PricesEnrichState {
@@ -74,39 +86,47 @@ function applyStageStarted(
   stage: (PriceEvent & { type: 'stage.started' })['stage']
 ): PricesEnrichState {
   const now = performance.now();
-  switch (stage) {
-    case 'tradePrices':
-      return { ...state, tradePrices: { status: 'active', startedAt: now, transactionsUpdated: 0 } };
-    case 'fxRates':
-      return {
-        ...state,
-        fxRates: {
-          status: 'active',
-          startedAt: now,
-          movementsNormalized: 0,
-          movementsSkipped: 0,
-          failures: 0,
-          errors: [],
-        },
-      };
-    case 'marketPrices':
-      return {
-        ...state,
-        marketPrices: {
-          status: 'active',
-          startedAt: now,
-          processed: 0,
-          total: 0,
-          pricesFetched: 0,
-          movementsUpdated: 0,
-          skipped: 0,
-          failures: 0,
-          errors: [],
-        },
-      };
-    case 'propagation':
-      return { ...state, propagation: { status: 'active', startedAt: now, transactionsUpdated: 0 } };
+
+  if (stage === 'tradePrices') {
+    return { ...state, tradePrices: { status: 'active', startedAt: now, transactionsUpdated: 0 } };
   }
+
+  if (stage === 'fxRates') {
+    return {
+      ...state,
+      fxRates: {
+        status: 'active',
+        startedAt: now,
+        movementsNormalized: 0,
+        movementsSkipped: 0,
+        failures: 0,
+        errors: [],
+      },
+    };
+  }
+
+  if (stage === 'marketPrices') {
+    return {
+      ...state,
+      marketPrices: {
+        status: 'active',
+        startedAt: now,
+        processed: 0,
+        total: 0,
+        pricesFetched: 0,
+        movementsUpdated: 0,
+        skipped: 0,
+        failures: 0,
+        errors: [],
+      },
+    };
+  }
+
+  if (stage === 'propagation') {
+    return { ...state, propagation: { status: 'active', startedAt: now, transactionsUpdated: 0 } };
+  }
+
+  return state;
 }
 
 function applyStageCompleted(
@@ -114,59 +134,67 @@ function applyStageCompleted(
   result: (PriceEvent & { type: 'stage.completed' })['result']
 ): PricesEnrichState {
   const now = performance.now();
-  switch (result.stage) {
-    case 'tradePrices':
-      if (!state.tradePrices) return state;
-      return {
-        ...state,
-        tradePrices: {
-          ...state.tradePrices,
-          status: 'completed',
-          completedAt: now,
-          transactionsUpdated: result.transactionsUpdated,
-        },
-      };
-    case 'fxRates':
-      if (!state.fxRates) return state;
-      return {
-        ...state,
-        fxRates: {
-          ...state.fxRates,
-          status: result.failures > 0 ? 'warning' : 'completed',
-          completedAt: now,
-          movementsNormalized: result.movementsNormalized,
-          movementsSkipped: result.movementsSkipped,
-          failures: result.failures,
-          errors: result.errors,
-        },
-      };
-    case 'marketPrices':
-      if (!state.marketPrices) return state;
-      return {
-        ...state,
-        marketPrices: {
-          ...state.marketPrices,
-          status: result.failures > 0 ? 'warning' : 'completed',
-          completedAt: now,
-          pricesFetched: result.pricesFetched,
-          movementsUpdated: result.movementsUpdated,
-          skipped: result.skipped,
-          failures: result.failures,
-          errors: result.errors,
-        },
-      };
-    case 'propagation':
-      if (!state.propagation) return state;
-      return {
-        ...state,
-        propagation: {
-          ...state.propagation,
-          status: 'completed',
-          completedAt: now,
-          transactionsUpdated: result.transactionsUpdated,
-        },
-      };
+
+  if (result.stage === 'tradePrices') {
+    if (!state.tradePrices) return state;
+    return {
+      ...state,
+      tradePrices: {
+        ...state.tradePrices,
+        status: 'completed',
+        completedAt: now,
+        transactionsUpdated: result.transactionsUpdated,
+      },
+    };
   }
+
+  if (result.stage === 'fxRates') {
+    if (!state.fxRates) return state;
+    return {
+      ...state,
+      fxRates: {
+        ...state.fxRates,
+        status: result.failures > 0 ? 'warning' : 'completed',
+        completedAt: now,
+        movementsNormalized: result.movementsNormalized,
+        movementsSkipped: result.movementsSkipped,
+        failures: result.failures,
+        errors: result.errors,
+      },
+    };
+  }
+
+  if (result.stage === 'marketPrices') {
+    if (!state.marketPrices) return state;
+    return {
+      ...state,
+      marketPrices: {
+        ...state.marketPrices,
+        status: result.failures > 0 ? 'warning' : 'completed',
+        completedAt: now,
+        pricesFetched: result.pricesFetched,
+        movementsUpdated: result.movementsUpdated,
+        skipped: result.skipped,
+        failures: result.failures,
+        errors: result.errors,
+      },
+    };
+  }
+
+  if (result.stage === 'propagation') {
+    if (!state.propagation) return state;
+    return {
+      ...state,
+      propagation: {
+        ...state.propagation,
+        status: 'completed',
+        completedAt: now,
+        transactionsUpdated: result.transactionsUpdated,
+      },
+    };
+  }
+
+  return state;
 }
 
 function applyStageFailed(state: PricesEnrichState, event: PriceEvent & { type: 'stage.failed' }): PricesEnrichState {
@@ -179,22 +207,23 @@ function applyStageFailed(state: PricesEnrichState, event: PriceEvent & { type: 
     totalDurationMs: now - state.startedAt,
   };
 
-  switch (event.stage) {
-    case 'tradePrices':
-      if (!state.tradePrices) return base;
-      return { ...base, tradePrices: { ...state.tradePrices, status: 'failed', completedAt: now } };
-    case 'fxRates':
-      if (!state.fxRates) return base;
-      return { ...base, fxRates: { ...state.fxRates, status: 'failed', completedAt: now } };
-    case 'marketPrices':
-      if (!state.marketPrices) return base;
-      return { ...base, marketPrices: { ...state.marketPrices, status: 'failed', completedAt: now } };
-    case 'propagation':
-      if (!state.propagation) return base;
-      return { ...base, propagation: { ...state.propagation, status: 'failed', completedAt: now } };
-    default:
-      return base;
+  if (event.stage === 'tradePrices' && state.tradePrices) {
+    return { ...base, tradePrices: { ...state.tradePrices, status: 'failed', completedAt: now } };
   }
+
+  if (event.stage === 'fxRates' && state.fxRates) {
+    return { ...base, fxRates: { ...state.fxRates, status: 'failed', completedAt: now } };
+  }
+
+  if (event.stage === 'marketPrices' && state.marketPrices) {
+    return { ...base, marketPrices: { ...state.marketPrices, status: 'failed', completedAt: now } };
+  }
+
+  if (event.stage === 'propagation' && state.propagation) {
+    return { ...base, propagation: { ...state.propagation, status: 'failed', completedAt: now } };
+  }
+
+  return base;
 }
 
 function applyStageProgress(

@@ -40,14 +40,13 @@ export class EventBus<TEvent> {
     this.onError = options.onError;
   }
 
-  /**
-   * Subscribe to events. Returns an unsubscribe function.
-   */
   subscribe(handler: EventHandler<TEvent>): () => void {
     this.handlers.push(handler);
     return () => {
       const index = this.handlers.indexOf(handler);
-      if (index >= 0) this.handlers.splice(index, 1);
+      if (index >= 0) {
+        this.handlers.splice(index, 1);
+      }
     };
   }
 
@@ -60,7 +59,6 @@ export class EventBus<TEvent> {
   emit(event: TEvent): void {
     this.queue.push(event);
 
-    // Drop oldest events if queue exceeds limit
     while (this.queue.length > this.maxQueueSize) {
       this.queue.shift();
     }
