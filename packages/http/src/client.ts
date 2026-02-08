@@ -23,6 +23,10 @@ export class HttpClient {
   // Async mutex for thread-safe rate limiter access
   private rateLimiterLock: Promise<void> = Promise.resolve();
 
+  // Close state (for idempotent cleanup)
+  private closePromise?: Promise<void>;
+  private isClosed = false;
+
   constructor(config: HttpClientConfig, effects?: Partial<HttpEffects>) {
     this.config = {
       defaultHeaders: {
@@ -356,11 +360,33 @@ export class HttpClient {
    * Cleanup resources.
    * Closes the undici agent to terminate all keep-alive connections.
    * This allows the process to exit naturally without requiring process.exit().
+   *
+   * Idempotent: safe to call multiple times. Subsequent calls return the same promise.
    */
-  destroy(): void {
-    this.logger.debug('Closing HTTP agent connections');
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- will be refactored
-    void this.agent.close();
+  async close(): Promise<void> {
+    // Idempotency: return existing close operation if in progress
+    if (this.closePromise) {
+      return this.closePromise;
+    }
+
+    if (this.isClosed) {
+      return;
+    }
+
+    this.closePromise = (async () => {
+      this.logger.debug('Closing HTTP agent connections');
+      try {
+        await this.agent.close();
+        this.isClosed = true;
+        this.logger.debug('HTTP agent closed successfully');
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Failed to close HTTP agent: ${errorMessage}`);
+        throw new Error(`HTTP agent cleanup failed: ${errorMessage}`);
+      }
+    })();
+
+    return this.closePromise;
   }
 
   /**

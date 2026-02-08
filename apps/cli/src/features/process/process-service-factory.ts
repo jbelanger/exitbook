@@ -107,7 +107,7 @@ export async function createProcessServices(): Promise<ProcessServices> {
 
   const cleanup = async () => {
     await ingestionMonitor.stop();
-    providerManager.destroy();
+    await providerManager.destroy();
     await closeDatabase(database);
   };
 

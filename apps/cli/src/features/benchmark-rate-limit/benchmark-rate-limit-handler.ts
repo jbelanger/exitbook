@@ -107,10 +107,12 @@ export class BenchmarkRateLimitHandler {
 
   /**
    * Cleanup resources.
+   *
+   * Idempotent: safe to call multiple times.
    */
-  destroy(): void {
+  async destroy(): Promise<void> {
     if (this.providerManager) {
-      this.providerManager.destroy();
+      await this.providerManager.destroy();
       this.providerManager = undefined;
     }
   }

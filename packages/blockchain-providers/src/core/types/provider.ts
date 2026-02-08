@@ -141,6 +141,8 @@ export interface IBlockchainProvider {
   /**
    * Cleanup resources (HTTP connections, timers, etc.)
    * Called by ProviderManager during shutdown
+   *
+   * Idempotent: safe to call multiple times.
    */
-  destroy(): void;
+  destroy(): Promise<void>;
 }

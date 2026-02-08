@@ -163,8 +163,11 @@ export class BlockchainProviderManager {
 
   /**
    * Cleanup resources and stop background tasks
+   *
+   * Idempotent: safe to call multiple times.
    */
-  destroy(): void {
+  async destroy(): Promise<void> {
+    // 1. Clear timers synchronously first (no async needed)
     if (this.healthCheckTimer) {
       clearInterval(this.healthCheckTimer);
       this.healthCheckTimer = undefined;
@@ -175,18 +178,40 @@ export class BlockchainProviderManager {
       this.cacheCleanupTimer = undefined;
     }
 
-    // Cleanup all provider instances (releases HTTP clients)
+    // 2. Close all provider instances with aggregated error handling
+    const closePromises: Promise<PromiseSettledResult<void>>[] = [];
+
     for (const providerList of this.providers.values()) {
       for (const provider of providerList) {
-        provider.destroy();
+        closePromises.push(
+          Promise.resolve(provider.destroy()).then(
+            () => ({ status: 'fulfilled' as const, value: undefined }),
+            (error: unknown) => ({ status: 'rejected' as const, reason: error })
+          )
+        );
       }
     }
 
-    // Clear all caches and state
+    const results = await Promise.all(closePromises);
+
+    // 3. Log all failures
+    const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+
+    for (const failure of failures) {
+      const errorMessage = failure.reason instanceof Error ? failure.reason.message : String(failure.reason);
+      logger.error(`Provider cleanup failed: ${errorMessage}`);
+    }
+
+    // 4. Clear all caches and state
     this.providers.clear();
     this.healthStatus.clear();
     this.circuitStates.clear();
     this.requestCache.clear();
+
+    // 5. Propagate failure if any provider failed
+    if (failures.length > 0) {
+      throw new Error(`Provider manager cleanup failed: ${failures.length} provider(s) failed to close`);
+    }
   }
 
   // // Streaming overload

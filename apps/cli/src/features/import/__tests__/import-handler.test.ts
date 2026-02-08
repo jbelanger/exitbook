@@ -352,8 +352,8 @@ describe('ImportHandler', () => {
   });
 
   describe('destroy', () => {
-    it('should call providerManager.destroy', () => {
-      handler.destroy();
+    it('should call providerManager.destroy', async () => {
+      await handler.destroy();
 
       expect(mockProviderManager.destroy).toHaveBeenCalled();
     });

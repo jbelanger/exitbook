@@ -136,8 +136,10 @@ export class ImportHandler {
 
   /**
    * Cleanup resources.
+   *
+   * Idempotent: safe to call multiple times.
    */
-  destroy(): void {
-    this.providerManager.destroy();
+  async destroy(): Promise<void> {
+    await this.providerManager.destroy();
   }
 }

@@ -88,7 +88,7 @@ export async function createImportServices(): Promise<ImportServices> {
 
   const cleanup = async () => {
     await ingestionMonitor.stop();
-    handler.destroy();
+    await handler.destroy();
     await closeDatabase(database);
   };
 
