@@ -2,9 +2,10 @@
  * Dashboard State - Operation tree model
  */
 
-import type { OperationStatus } from '../shared/index.js';
+import type { OperationStatus, ProviderApiStats, ApiCallStats } from '../shared/index.js';
+import { createProviderStats } from '../shared/index.js';
 
-export type { OperationStatus };
+export type { OperationStatus, ProviderApiStats, ApiCallStats };
 
 /**
  * Transient provider status (rate limit backoff or failover notification).
@@ -143,34 +144,6 @@ export interface ProcessingOperation {
 }
 
 /**
- * API call statistics per provider
- */
-export interface ProviderApiStats {
-  total: number;
-  okCount: number; // Successful calls (2xx except 429)
-  retries: number;
-  throttledCount: number; // Rate limited (429)
-  failed: number;
-  currentRate?: number | undefined; // req/s (recent window)
-
-  // Response breakdown (for final view)
-  responsesByStatus: Map<number, number>; // status code -> count
-
-  // Timing data for live/final calculations
-  latencies: number[]; // For avg latency calculation
-  startTime: number; // First call timestamp (0 if no calls)
-  lastCallTime: number; // Most recent call timestamp
-}
-
-/**
- * Overall API call tracking
- */
-export interface ApiCallStats {
-  total: number;
-  byProvider: Map<string, ProviderApiStats>;
-}
-
-/**
  * Warning message
  */
 export interface Warning {
@@ -239,23 +212,21 @@ export function createIngestionMonitorState(): IngestionMonitorState {
 }
 
 /**
+ * Callback bridge for lifecycle signals from controller to React component.
+ * Controller calls these; component registers them via useLayoutEffect.
+ */
+export interface LifecycleBridge {
+  onAbort?: (() => void) | undefined;
+  onFail?: ((errorMessage: string) => void) | undefined;
+}
+
+/**
  * Get or create provider stats entry
  */
 export function getOrCreateProviderStats(state: IngestionMonitorState, provider: string): ProviderApiStats {
   let stats = state.apiCalls.byProvider.get(provider);
   if (!stats) {
-    stats = {
-      total: 0,
-      okCount: 0,
-      retries: 0,
-      throttledCount: 0,
-      failed: 0,
-      responsesByStatus: new Map(),
-      latencies: [],
-      startTime: 0,
-      lastCallTime: 0,
-      currentRate: undefined,
-    };
+    stats = createProviderStats();
     state.apiCalls.byProvider.set(provider, stats);
   }
   return stats;

@@ -2,10 +2,14 @@
 // All functions are pure and testable
 
 import { Currency, type UniversalTransactionData } from '@exitbook/core';
+import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/http';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
+import type { PriceProviderEvent } from '@exitbook/price-providers';
 import type { PriceQuery } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
+
+import type { PriceEvent } from './events.js';
 
 /**
  * Command options for prices fetch
@@ -14,7 +18,7 @@ export interface PricesFetchCommandOptions {
   /** Optional asset filter (e.g., 'BTC', 'ETH') */
   asset?: string | string[] | undefined;
   /** How to handle missing prices/FX rates */
-  onMissing?: 'prompt' | 'fail' | undefined;
+  onMissing?: 'fail' | undefined;
 }
 
 /**
@@ -214,7 +218,10 @@ export function determineEnrichmentStages(options: EnrichmentStageOptions): Enri
  * @returns Result with initialized price provider manager
  */
 export async function createDefaultPriceProviderManager(
-  instrumentation?: InstrumentationCollector
+  instrumentation?: InstrumentationCollector,
+  // PriceEvent is a superset of PriceProviderEvent; cast is safe because the
+  // price-providers package only ever calls bus.emit(PriceProviderEvent)
+  eventBus?: EventBus<PriceEvent>
 ): Promise<Result<PriceProviderManager, Error>> {
   return createPriceProviderManager({
     providers: {
@@ -222,12 +229,12 @@ export async function createDefaultPriceProviderManager(
       // Crypto price providers
       coingecko: {
         enabled: true,
-        apiKey: process.env.COINGECKO_API_KEY,
-        useProApi: process.env.COINGECKO_USE_PRO_API === 'true',
+        apiKey: process.env['COINGECKO_API_KEY'],
+        useProApi: process.env['COINGECKO_USE_PRO_API'] === 'true',
       },
       cryptocompare: {
         enabled: true,
-        apiKey: process.env.CRYPTOCOMPARE_API_KEY,
+        apiKey: process.env['CRYPTOCOMPARE_API_KEY'],
       },
       // FX rate providers
       ecb: {
@@ -246,5 +253,6 @@ export async function createDefaultPriceProviderManager(
       cacheTtlSeconds: 3600,
     },
     instrumentation,
+    eventBus: eventBus as EventBus<PriceProviderEvent> | undefined,
   });
 }

@@ -26,15 +26,16 @@ import {
   StandardFxRateProvider,
   type TransactionLinkRepository,
 } from '@exitbook/accounting';
-import type { IFxRateProvider, NormalizeResult } from '@exitbook/accounting';
+import type { NormalizeResult } from '@exitbook/accounting';
 import type { TransactionRepository } from '@exitbook/data';
+import type { EventBus } from '@exitbook/events';
 import { InstrumentationCollector, type MetricsSummary } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import type { PriceProviderManager } from '@exitbook/price-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { InteractiveFxRateProvider } from './interactive-fx-rate-provider.js';
+import type { PriceEvent } from './events.js';
 import { PricesFetchHandler } from './prices-handler.js';
 import { createDefaultPriceProviderManager, determineEnrichmentStages } from './prices-utils.js';
 import type { PricesFetchResult } from './prices-utils.js';
@@ -47,7 +48,7 @@ export interface PricesEnrichOptions {
   asset?: string[] | undefined;
 
   /** How to handle missing prices/FX rates */
-  onMissing?: 'prompt' | 'fail' | undefined;
+  onMissing?: 'fail' | undefined;
 
   /** Only run normalization stage (FX conversion) */
   normalizeOnly?: boolean | undefined;
@@ -73,7 +74,7 @@ export interface PricesEnrichResult {
   fetch?: PricesFetchResult | undefined;
 
   /** Stage 4 results (derivation - second pass) */
-  derive2?: { transactionsUpdated: number } | undefined;
+  propagation?: { transactionsUpdated: number } | undefined;
 
   /** Aggregated API call statistics across stages */
   runStats?: MetricsSummary | undefined;
@@ -85,12 +86,16 @@ export interface PricesEnrichResult {
 export class PricesEnrichHandler {
   private readonly logger = getLogger('PricesEnrichHandler');
   private priceManager: PriceProviderManager | undefined;
-  private readonly instrumentation = new InstrumentationCollector();
+  private readonly instrumentation: InstrumentationCollector;
 
   constructor(
     private readonly transactionRepo: TransactionRepository,
-    private readonly linkRepo: TransactionLinkRepository
-  ) {}
+    private readonly linkRepo: TransactionLinkRepository,
+    private readonly eventBus?: EventBus<PriceEvent>,
+    instrumentation?: InstrumentationCollector
+  ) {
+    this.instrumentation = instrumentation ?? new InstrumentationCollector();
+  }
 
   /**
    * Execute prices enrich command
@@ -111,26 +116,25 @@ export class PricesEnrichHandler {
 
       const result: PricesEnrichResult = {};
 
-      // Initialize price provider manager (needed for Stage 2 and Stage 3)
-      if (stages.normalize || stages.fetch) {
-        const managerResult = await createDefaultPriceProviderManager(this.instrumentation);
-
-        if (managerResult.isErr()) {
-          return err(managerResult.error);
-        }
-
-        this.priceManager = managerResult.value;
-      }
-
       // Stage 1: Derive (extract from trades: USD + non-USD fiat, propagate via links)
+      // Runs first because it doesn't need the price provider manager
       if (stages.derive) {
         this.logger.info('Stage 1: Deriving prices from trades (USD + fiat)');
+        this.eventBus?.emit({
+          type: 'stage.started',
+          stage: 'tradePrices',
+        });
 
         const enrichmentService = new PriceEnrichmentService(this.transactionRepo, this.linkRepo);
         const deriveResult = await enrichmentService.enrichPrices();
 
         if (deriveResult.isErr()) {
           this.logger.error({ error: deriveResult.error }, 'Stage 1 (derive) failed');
+          this.eventBus?.emit({
+            type: 'stage.failed',
+            stage: 'tradePrices',
+            error: deriveResult.error.message,
+          });
           return err(deriveResult.error);
         }
 
@@ -142,26 +146,51 @@ export class PricesEnrichHandler {
           },
           'Stage 1 (derive) completed'
         );
+
+        this.eventBus?.emit({
+          type: 'stage.completed',
+          result: {
+            stage: 'tradePrices',
+            transactionsUpdated: result.derive.transactionsUpdated,
+          },
+        });
+      }
+
+      // Initialize price provider manager (needed for Stage 2 and Stage 3)
+      if (stages.normalize || stages.fetch) {
+        const managerResult = await createDefaultPriceProviderManager(this.instrumentation, this.eventBus);
+
+        if (managerResult.isErr()) {
+          return err(managerResult.error);
+        }
+
+        this.priceManager = managerResult.value;
       }
 
       // Stage 2: Normalize (FX conversion: CAD/EUR → USD, upgrade fiat-execution-tentative → derived-ratio)
       if (stages.normalize) {
         this.logger.info('Stage 2: Normalizing non-USD fiat prices to USD');
+        this.eventBus?.emit({
+          type: 'stage.started',
+          stage: 'fxRates',
+        });
 
         if (!this.priceManager) {
           return err(new Error('Price manager not initialized'));
         }
 
-        // Create FX rate provider with appropriate behavior
-        const standardProvider = new StandardFxRateProvider(this.priceManager);
-        const fxRateProvider: IFxRateProvider =
-          options.onMissing === 'prompt' ? new InteractiveFxRateProvider(standardProvider, true) : standardProvider;
+        const fxRateProvider = new StandardFxRateProvider(this.priceManager);
 
         const normalizeService = new PriceNormalizationService(this.transactionRepo, fxRateProvider);
         const normalizeResult = await normalizeService.normalize();
 
         if (normalizeResult.isErr()) {
           this.logger.error({ error: normalizeResult.error }, 'Stage 2 (normalize) failed');
+          this.eventBus?.emit({
+            type: 'stage.failed',
+            stage: 'fxRates',
+            error: normalizeResult.error.message,
+          });
           return err(normalizeResult.error);
         }
 
@@ -176,6 +205,17 @@ export class PricesEnrichHandler {
           'Stage 2 (normalize) completed'
         );
 
+        this.eventBus?.emit({
+          type: 'stage.completed',
+          result: {
+            stage: 'fxRates',
+            movementsNormalized: result.normalize.movementsNormalized,
+            movementsSkipped: result.normalize.movementsSkipped,
+            failures: result.normalize.failures,
+            errors: result.normalize.errors,
+          },
+        });
+
         // In fail mode, abort if there were any FX rate failures
         if (options.onMissing === 'fail' && result.normalize.failures > 0) {
           const errorMessage = [
@@ -189,10 +229,7 @@ export class PricesEnrichHandler {
             '  1. Manually set missing FX rates:',
             '     pnpm run dev prices set-fx --from <currency> --to USD --date <datetime> --rate <value>',
             '',
-            '  2. Use interactive mode to enter FX rates as you go:',
-            '     pnpm run dev prices enrich --on-missing prompt',
-            '',
-            '  3. View transactions with missing prices:',
+            '  2. View transactions with missing prices:',
             '     pnpm run dev prices view --missing-only',
             '',
             'Progress Before Abort:',
@@ -208,12 +245,16 @@ export class PricesEnrichHandler {
       // Stage 3: Fetch (external providers for remaining crypto prices)
       if (stages.fetch) {
         this.logger.info('Stage 3: Fetching missing prices from external providers');
+        this.eventBus?.emit({
+          type: 'stage.started',
+          stage: 'marketPrices',
+        });
 
         if (!this.priceManager) {
           return err(new Error('Price manager not initialized'));
         }
 
-        const fetchHandler = new PricesFetchHandler(this.transactionRepo, this.instrumentation);
+        const fetchHandler = new PricesFetchHandler(this.transactionRepo, this.instrumentation, this.eventBus);
         const fetchResult = await fetchHandler.execute(
           {
             asset: options.asset,
@@ -224,6 +265,11 @@ export class PricesEnrichHandler {
 
         if (fetchResult.isErr()) {
           this.logger.error({ error: fetchResult.error }, 'Stage 3 (fetch) failed');
+          this.eventBus?.emit({
+            type: 'stage.failed',
+            stage: 'marketPrices',
+            error: fetchResult.error.message,
+          });
           return err(fetchResult.error);
         }
 
@@ -237,29 +283,58 @@ export class PricesEnrichHandler {
           },
           'Stage 3 (fetch) completed'
         );
+
+        this.eventBus?.emit({
+          type: 'stage.completed',
+          result: {
+            stage: 'marketPrices',
+            pricesFetched: result.fetch.stats.pricesFetched,
+            movementsUpdated: result.fetch.stats.movementsUpdated,
+            skipped: result.fetch.stats.skipped,
+            failures: result.fetch.stats.failures,
+            errors: result.fetch.errors,
+          },
+        });
       }
 
       // Stage 4: Derive (second pass) - use newly fetched/normalized prices
       // Run derive again if we ran fetch or normalize (which added new prices)
       if (stages.derive && (stages.fetch || stages.normalize)) {
         this.logger.info('Stage 4: Re-deriving prices using fetched/normalized data (Pass 1 + Pass N+2)');
+        this.eventBus?.emit({
+          type: 'stage.started',
+          stage: 'propagation',
+        });
 
         const enrichmentService = new PriceEnrichmentService(this.transactionRepo, this.linkRepo);
         const secondDeriveResult = await enrichmentService.enrichPrices();
 
         if (secondDeriveResult.isErr()) {
           this.logger.error({ error: secondDeriveResult.error }, 'Stage 4 (2nd derive) failed');
+          this.eventBus?.emit({
+            type: 'stage.failed',
+            stage: 'propagation',
+            error: secondDeriveResult.error.message,
+          });
           return err(secondDeriveResult.error);
         }
 
-        result.derive2 = secondDeriveResult.value;
+        result.propagation = secondDeriveResult.value;
 
         this.logger.info(
           {
-            transactionsUpdated: result.derive2.transactionsUpdated,
+            transactionsUpdated: result.propagation.transactionsUpdated,
           },
           'Stage 4 (2nd derive) completed'
         );
+
+        this.eventBus?.emit({
+          type: 'stage.completed',
+          result: {
+            stage: 'propagation',
+            transactionsUpdated: result.propagation.transactionsUpdated,
+          },
+        });
       }
 
       this.logger.info('Unified price enrichment pipeline completed');

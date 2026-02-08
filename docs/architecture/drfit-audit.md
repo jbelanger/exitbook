@@ -337,11 +337,8 @@ What exists: - @clack/prompts for interactive prompts (lines 43-101 in links-run
 
      3.2 Manual Scroll Offset Management
 
-     What exists:
-     - Lines 49-120 in links-view-controller.ts: manual scroll calculations for 6 navigation types
-     - Edge cases: wrap-around when navigating past boundaries (lines 50-57, 66-75)
-     - Visible rows calculation hardcoded in multiple places (line 178, 528)
-     - Same logic duplicated for links mode and gaps mode
+DONE
+What exists: - Lines 49-120 in links-view-controller.ts: manual scroll calculations for 6 navigation types - Edge cases: wrap-around when navigating past boundaries (lines 50-57, 66-75) - Visible rows calculation hardcoded in multiple places (line 178, 528) - Same logic duplicated for links mode and gaps mode
 
      Why it's a problem:
      - 70 lines of imperative scroll logic prone to off-by-one errors
@@ -529,27 +526,7 @@ What exists: - @clack/prompts for interactive prompts (lines 43-101 in links-run
 
      ────────────────────────────────────────
 
-     6.2 Discriminated Unions for Dual-Mode State
-
-     What exists:
-     - LinksViewState is discriminated union: LinksViewLinksState | LinksViewGapsState
-     - Mode determined by mode: 'links' | 'gaps' tag
-     - Type narrowing via checks: if (state.mode === 'links') { ... }
-     - 8 type narrowing checks across controller and components
-
-     Why it's a problem:
-     - This is NOT a problem. This is excellent TypeScript usage.
-
-     What V2 should do:
-     Keep discriminated unions. They provide compile-time safety and are idiomatic TypeScript.
-
-     ────────────────────────────────────────
-
      7. ERROR HANDLING & OBSERVABILITY
-
-     7.1 neverthrow vs. Native Exceptions (repeated from 3.1)
-
-     See section 3.1 for full analysis. Key point: Result type creates ceremony without proportional benefit for command-level error handling.
 
      ────────────────────────────────────────
 

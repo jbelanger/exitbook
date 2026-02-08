@@ -4,11 +4,13 @@
  * Auto-discovers providers via registry pattern
  */
 
+import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import type { PriceProviderEvent } from '../events.js';
 import type { PricesDB } from '../persistence/database.js';
 import { createPricesDatabase, initializePricesDatabase } from '../persistence/database.js';
 import { createBankOfCanadaProvider } from '../providers/bank-of-canada/provider.js';
@@ -117,7 +119,8 @@ export interface ProviderFactoryConfig {
  */
 export async function createPriceProviders(
   config: ProviderFactoryConfig = {},
-  instrumentation?: InstrumentationCollector
+  instrumentation?: InstrumentationCollector,
+  eventBus?: EventBus<PriceProviderEvent>
 ): Promise<Result<IPriceProvider[], Error>> {
   // Initialize database (internal detail - caller never touches it)
   const dbPath = config.databasePath || './data/prices.db';
@@ -139,6 +142,8 @@ export async function createPriceProviders(
 
   const providers: IPriceProvider[] = [];
   const instrumentationCollector = instrumentation ?? config.instrumentation;
+
+  eventBus?.emit({ type: 'providers.initializing' });
 
   // Auto-discover and create all providers from registry
   for (const [name, factory] of Object.entries(PROVIDER_FACTORIES)) {
@@ -178,6 +183,8 @@ export async function createPriceProviders(
     return err(new Error('No price providers were successfully created. Check logs for details.'));
   }
 
+  eventBus?.emit({ type: 'providers.ready', providerCount: providers.length });
+
   logger.info(
     `Successfully created ${providers.length} price provider(s): ${providers.map((p) => p.getMetadata().name).join(', ')}`
   );
@@ -202,6 +209,8 @@ export interface PriceProviderManagerFactoryConfig {
   manager?: Partial<ProviderManagerConfig> | undefined;
   /** Optional instrumentation collector for HTTP metrics */
   instrumentation?: InstrumentationCollector | undefined;
+  /** Optional event bus for provider lifecycle events */
+  eventBus?: EventBus<PriceProviderEvent> | undefined;
 }
 
 /**
@@ -240,7 +249,7 @@ export async function createPriceProviderManager(
   config: PriceProviderManagerFactoryConfig = {}
 ): Promise<Result<PriceProviderManager, Error>> {
   // Create providers
-  const providersResult = await createPriceProviders(config.providers ?? {}, config.instrumentation);
+  const providersResult = await createPriceProviders(config.providers ?? {}, config.instrumentation, config.eventBus);
 
   if (providersResult.isErr()) {
     return err(providersResult.error);

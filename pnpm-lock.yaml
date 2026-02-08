@@ -425,6 +425,9 @@ importers:
       '@exitbook/env':
         specifier: workspace:*
         version: link:../env
+      '@exitbook/events':
+        specifier: workspace:*
+        version: link:../events
       '@exitbook/http':
         specifier: workspace:*
         version: link:../http

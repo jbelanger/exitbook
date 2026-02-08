@@ -2,6 +2,9 @@
  * Links view controller - manages state updates and keyboard input
  */
 
+import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../shared/list-navigation.js';
+
+import { getLinksViewVisibleRows } from './links-view-layout.js';
 import type { LinksViewState } from './links-view-state.js';
 
 /**
@@ -44,79 +47,87 @@ function applyNavigationUpdate(
  */
 export function linksViewReducer(state: LinksViewState, action: LinksViewAction): LinksViewState {
   const itemCount = getItemCount(state);
+  const buildNavigationContext = (visibleRows: number) => ({
+    itemCount,
+    visibleRows,
+    wrapAround: true,
+  });
 
   switch (action.type) {
     case 'NAVIGATE_UP': {
-      const newIndex = state.selectedIndex > 0 ? state.selectedIndex - 1 : itemCount - 1;
-
-      let newScrollOffset = state.scrollOffset;
-
-      if (newIndex === itemCount - 1) {
-        newScrollOffset = Math.max(0, itemCount - action.visibleRows);
-      } else if (newIndex < state.scrollOffset) {
-        newScrollOffset = newIndex;
-      }
+      const next = navigateUp(
+        {
+          selectedIndex: state.selectedIndex,
+          scrollOffset: state.scrollOffset,
+        },
+        buildNavigationContext(action.visibleRows)
+      );
 
       return applyNavigationUpdate(state, {
-        selectedIndex: newIndex,
-        scrollOffset: newScrollOffset,
+        selectedIndex: next.selectedIndex,
+        scrollOffset: next.scrollOffset,
       });
     }
 
     case 'NAVIGATE_DOWN': {
-      const newIndex = state.selectedIndex < itemCount - 1 ? state.selectedIndex + 1 : 0;
-
-      let newScrollOffset = state.scrollOffset;
-
-      if (newIndex === 0) {
-        newScrollOffset = 0;
-      } else if (newIndex >= state.scrollOffset + action.visibleRows) {
-        newScrollOffset = newIndex - action.visibleRows + 1;
-      }
+      const next = navigateDown(
+        {
+          selectedIndex: state.selectedIndex,
+          scrollOffset: state.scrollOffset,
+        },
+        buildNavigationContext(action.visibleRows)
+      );
 
       return applyNavigationUpdate(state, {
-        selectedIndex: newIndex,
-        scrollOffset: newScrollOffset,
+        selectedIndex: next.selectedIndex,
+        scrollOffset: next.scrollOffset,
       });
     }
 
     case 'PAGE_UP': {
-      const newIndex = Math.max(0, state.selectedIndex - action.visibleRows);
-      const newScrollOffset = Math.max(0, state.scrollOffset - action.visibleRows);
+      const next = pageUp(
+        {
+          selectedIndex: state.selectedIndex,
+          scrollOffset: state.scrollOffset,
+        },
+        buildNavigationContext(action.visibleRows)
+      );
 
       return applyNavigationUpdate(state, {
-        selectedIndex: newIndex,
-        scrollOffset: newScrollOffset,
+        selectedIndex: next.selectedIndex,
+        scrollOffset: next.scrollOffset,
       });
     }
 
     case 'PAGE_DOWN': {
-      const newIndex = Math.min(itemCount - 1, state.selectedIndex + action.visibleRows);
-      const newScrollOffset = Math.min(
-        Math.max(0, itemCount - action.visibleRows),
-        state.scrollOffset + action.visibleRows
+      const next = pageDown(
+        {
+          selectedIndex: state.selectedIndex,
+          scrollOffset: state.scrollOffset,
+        },
+        buildNavigationContext(action.visibleRows)
       );
 
       return applyNavigationUpdate(state, {
-        selectedIndex: newIndex,
-        scrollOffset: newScrollOffset,
+        selectedIndex: next.selectedIndex,
+        scrollOffset: next.scrollOffset,
       });
     }
 
     case 'HOME': {
+      const next = home();
       return applyNavigationUpdate(state, {
-        selectedIndex: 0,
-        scrollOffset: 0,
+        selectedIndex: next.selectedIndex,
+        scrollOffset: next.scrollOffset,
       });
     }
 
     case 'END': {
-      const lastIndex = itemCount - 1;
-      const newScrollOffset = Math.max(0, itemCount - action.visibleRows);
+      const next = end(buildNavigationContext(action.visibleRows));
 
       return applyNavigationUpdate(state, {
-        selectedIndex: lastIndex,
-        scrollOffset: newScrollOffset,
+        selectedIndex: next.selectedIndex,
+        scrollOffset: next.scrollOffset,
       });
     }
 
@@ -214,10 +225,7 @@ export function handleKeyboardInput(
   terminalHeight: number,
   mode: 'links' | 'gaps' = 'links'
 ): void {
-  // Calculate visible rows (same calculation as in LinkList)
-  // Gaps mode has ~4 extra lines for asset breakdown
-  const chromeLines = mode === 'gaps' ? 18 : 14;
-  const visibleRows = Math.max(1, terminalHeight - chromeLines);
+  const visibleRows = getLinksViewVisibleRows(terminalHeight, mode);
 
   // Quit
   if (input === 'q' || key.escape) {

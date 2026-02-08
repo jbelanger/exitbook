@@ -5,19 +5,15 @@ import { enrichMovementsWithPrices } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
+import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
-import {
-  CoinNotFoundError,
-  PriceDataUnavailableError,
-  type PriceProviderManager,
-  type PriceQuery,
-} from '@exitbook/price-providers';
+import { type PriceProviderManager } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { promptManualPrice } from './prices-prompts.js';
+import type { PriceEvent } from './events.js';
 import type { PriceFetchStats, PricesFetchCommandOptions, PricesFetchResult } from './prices-utils.js';
 import {
   createDefaultPriceProviderManager,
@@ -38,7 +34,8 @@ export class PricesFetchHandler {
 
   constructor(
     private transactionRepo: TransactionRepository,
-    private readonly instrumentation: InstrumentationCollector
+    private readonly instrumentation: InstrumentationCollector,
+    private readonly eventBus?: EventBus<PriceEvent>
   ) {}
 
   /**
@@ -95,16 +92,6 @@ export class PricesFetchHandler {
     let processed = 0;
 
     for (const tx of transactions) {
-      // Progress reporting
-      if (processed > 0 && processed % progressInterval === 0) {
-        logger.info(
-          `Progress: ${processed}/${transactions.length} transactions processed ` +
-            `(${stats.movementsUpdated} movements updated, ${stats.failures} failures)`
-        );
-      }
-
-      processed++;
-
       // Stop early if all providers are consistently failing
       if (consecutiveFailures >= maxConsecutiveFailures) {
         logger.warn(
@@ -114,6 +101,14 @@ export class PricesFetchHandler {
         const remaining = transactions.length - processed;
         stats.failures += remaining;
         this.errors.push(`Stopped early: ${remaining} transactions not processed due to provider unavailability`);
+
+        // Emit final progress event before breaking (captures partial work)
+        this.eventBus?.emit({
+          type: 'stage.progress',
+          stage: 'marketPrices',
+          processed,
+          total: transactions.length,
+        });
         break;
       }
 
@@ -160,38 +155,13 @@ export class PricesFetchHandler {
         const priceResult = await this.priceManager.fetchPrice(queryResult.value);
 
         if (priceResult.isErr()) {
-          // Handle error with optional interactive prompt
-          const errorResult = await this.handlePriceFetchError(
-            priceResult.error,
-            asset,
-            tx.id,
-            queryResult.value,
-            options
-          );
+          logger.warn(`Failed to fetch price for ${asset} in transaction ${tx.id}: ${priceResult.error.message}`);
+          this.errors.push(`Transaction ${tx.id}, asset ${asset}: ${priceResult.error.message}`);
+          consecutiveFailures++;
+          txHadFailure = true;
 
-          if (errorResult.success && errorResult.fetchedPrice) {
-            // Manual price entered successfully - treat as SUCCESS
-            consecutiveFailures = 0;
-            stats.manualEntries++;
-
-            // Track granularity for manual entries (always 'exact')
-            if (errorResult.fetchedPrice.granularity) {
-              stats.granularity[errorResult.fetchedPrice.granularity]++;
-            }
-
-            fetchedPrices.push(errorResult.fetchedPrice);
-          } else {
-            // Error not resolved - treat as FAILURE
-            if (errorResult.errorMessage) {
-              this.errors.push(errorResult.errorMessage);
-            }
-            consecutiveFailures++;
-            txHadFailure = true;
-
-            // In fail mode, abort immediately with helpful report
-            if (options.onMissing === 'fail') {
-              return this.buildAbortReport(asset, tx, stats);
-            }
+          if (options.onMissing === 'fail') {
+            return this.buildAbortReport(asset, tx, stats);
           }
 
           continue;
@@ -306,6 +276,23 @@ export class PricesFetchHandler {
       if (txHadFailure) {
         stats.failures++;
       }
+
+      // Increment processed counter and report progress
+      processed++;
+
+      // Emit progress event periodically and at end
+      if (processed % progressInterval === 0 || processed === transactions.length) {
+        logger.info(
+          `Progress: ${processed}/${transactions.length} transactions processed ` +
+            `(${stats.movementsUpdated} movements updated, ${stats.failures} failures)`
+        );
+        this.eventBus?.emit({
+          type: 'stage.progress',
+          stage: 'marketPrices',
+          processed,
+          total: transactions.length,
+        });
+      }
     }
 
     const runStats = this.instrumentation?.getSummary();
@@ -334,13 +321,10 @@ export class PricesFetchHandler {
       `  1. Manually set price for this asset:`,
       `     pnpm run dev prices set --asset ${asset} --date "${tx.datetime}" --price <amount> --currency USD`,
       '',
-      `  2. Use interactive mode to enter prices as you go:`,
-      `     pnpm run dev prices enrich --on-missing prompt --asset ${asset}`,
-      '',
-      `  3. View all transactions needing prices for this asset:`,
+      `  2. View all transactions needing prices for this asset:`,
       `     pnpm run dev prices view --asset ${asset} --missing-only`,
       '',
-      `  4. View this specific transaction:`,
+      `  3. View this specific transaction:`,
       `     pnpm run dev transactions view --id ${tx.id}`,
       '',
       'Progress Before Abort:',
@@ -351,88 +335,5 @@ export class PricesFetchHandler {
     ].join('\n');
 
     return err(new Error(errorMessage));
-  }
-
-  /**
-   * Handle price fetch error with optional interactive prompt
-   *
-   * Pure-ish function - performs logging and I/O but doesn't mutate instance state.
-   * Caller is responsible for adding errorMessage to this.errors if present.
-   *
-   * @returns Result indicating success, optional fetched price, and optional error message
-   */
-  private async handlePriceFetchError(
-    error: Error,
-    asset: string,
-    txId: number,
-    query: PriceQuery,
-    options: PricesFetchCommandOptions
-  ): Promise<{
-    errorMessage?: string;
-    fetchedPrice?: {
-      asset: string;
-      fetchedAt: Date;
-      granularity?: 'exact' | 'minute' | 'hour' | 'day' | undefined;
-      price: { amount: Decimal; currency: Currency };
-      source: string;
-    };
-    success: boolean;
-  }> {
-    // Debug logging
-    logger.debug(
-      {
-        errorType: error.constructor.name,
-        isCoinNotFoundError: error instanceof CoinNotFoundError,
-        isPriceDataUnavailableError: error instanceof PriceDataUnavailableError,
-        onMissing: options.onMissing,
-        errorMessage: error.message,
-      },
-      'Price fetch error details'
-    );
-
-    // Check if this is a recoverable error and prompt mode is enabled
-    const isRecoverableError = error instanceof CoinNotFoundError || error instanceof PriceDataUnavailableError;
-
-    if (isRecoverableError && options.onMissing === 'prompt') {
-      const errorReason = error instanceof CoinNotFoundError ? 'Coin not found' : 'Price data unavailable';
-      logger.info(`${errorReason}: ${asset}. Prompting for manual price entry...`);
-
-      const manualPrice = await promptManualPrice(asset, query.timestamp, query.currency.toString());
-
-      if (manualPrice) {
-        // User provided manual price - treat as SUCCESS
-        logger.info(`Manual price recorded for ${asset}: ${manualPrice.price.toString()} ${manualPrice.currency}`);
-
-        return {
-          fetchedPrice: {
-            asset,
-            fetchedAt: new Date(),
-            granularity: 'exact', // Manual entries are exact prices
-            price: {
-              amount: manualPrice.price,
-              currency: Currency.create(manualPrice.currency),
-            },
-            source: manualPrice.source,
-          },
-          success: true,
-        };
-      } else {
-        // User skipped - treat as FAILURE
-        logger.info(`Manual price entry skipped for ${asset}`);
-
-        return {
-          success: false,
-          errorMessage: `Transaction ${txId}, asset ${asset}: ${error.message} (manual entry skipped)`,
-        };
-      }
-    }
-
-    // Regular error (not recoverable or not in interactive mode)
-    logger.warn(`Failed to fetch price for ${asset} in transaction ${txId}: ${error.message}`);
-
-    return {
-      success: false,
-      errorMessage: `Transaction ${txId}, asset ${asset}: ${error.message}`,
-    };
   }
 }

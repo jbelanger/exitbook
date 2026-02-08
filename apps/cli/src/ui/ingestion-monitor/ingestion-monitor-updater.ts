@@ -11,11 +11,69 @@ import type { IngestionEvent } from '@exitbook/ingestion';
 import type { IngestionMonitorState, ImportOperation } from './ingestion-monitor-state.js';
 import { getOrCreateProviderStats } from './ingestion-monitor-state.js';
 
-type CliEvent = IngestionEvent | ProviderEvent;
+export type CliEvent = IngestionEvent | ProviderEvent;
 
 // Timing constants
 const FAILOVER_MESSAGE_DURATION_MS = 3000;
 const RATE_CALCULATION_WINDOW_MS = 5000;
+
+/**
+ * Actions that drive state transitions in the ingestion monitor UI.
+ */
+export type IngestionMonitorAction =
+  | {
+      event: CliEvent;
+      instrumentation: InstrumentationCollector;
+      providerManager: BlockchainProviderManager;
+      type: 'event';
+    }
+  | { errorMessage: string; type: 'fail' }
+  | { type: 'abort' }
+  | { type: 'tick' };
+
+/**
+ * Reducer wrapper for ingestion monitor state.
+ * Shallow-copies state before delegating to the mutable updater,
+ * giving React a new top-level reference for change detection.
+ */
+export function ingestionMonitorReducer(
+  state: IngestionMonitorState,
+  action: IngestionMonitorAction
+): IngestionMonitorState {
+  switch (action.type) {
+    case 'event': {
+      const next = { ...state };
+      updateStateFromEvent(next, action.event, action.instrumentation, action.providerManager);
+      return next;
+    }
+    case 'abort': {
+      if (state.isComplete) return state;
+      return {
+        ...state,
+        aborted: true,
+        isComplete: true,
+        errorMessage: undefined,
+        totalDurationMs: state.import?.startedAt ? performance.now() - state.import.startedAt : undefined,
+      };
+    }
+    case 'fail': {
+      if (state.isComplete) return state;
+      const next: IngestionMonitorState = {
+        ...state,
+        errorMessage: action.errorMessage,
+        aborted: false,
+        isComplete: true,
+        totalDurationMs: state.import?.startedAt ? performance.now() - state.import.startedAt : undefined,
+      };
+      if (state.processing && state.processing.status === 'active') {
+        next.processing = { ...state.processing, status: 'failed', completedAt: performance.now() };
+      }
+      return next;
+    }
+    case 'tick':
+      return { ...state };
+  }
+}
 
 /**
  * Update dashboard state from event (mutates state in place for performance).

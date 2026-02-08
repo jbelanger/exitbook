@@ -279,12 +279,10 @@ export const PricesViewCommandOptionsSchema = z.object({
  */
 export const PricesEnrichCommandOptionsSchema = z.object({
   asset: z.array(z.string()).optional(),
-  onMissing: z.enum(['prompt', 'fail']).optional(),
+  onMissing: z.enum(['fail']).optional(),
   deriveOnly: z.boolean().optional(),
   normalizeOnly: z.boolean().optional(),
   fetchOnly: z.boolean().optional(),
-  interactive: z.boolean().optional(),
-  dryRun: z.boolean().optional(),
   json: z.boolean().optional(),
 });
 

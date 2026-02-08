@@ -81,11 +81,7 @@ export async function createImportServices(): Promise<ImportServices> {
 
   const handler = new ImportHandler(importOrchestrator, transactionProcessService, providerManager);
 
-  const ingestionMonitor = new IngestionMonitorController(
-    eventBus as EventBus<IngestionEvent>,
-    instrumentation,
-    providerManager
-  );
+  const ingestionMonitor = new IngestionMonitorController(eventBus, instrumentation, providerManager);
   ingestionMonitor.start();
 
   const cleanup = async () => {

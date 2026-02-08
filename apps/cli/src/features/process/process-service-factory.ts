@@ -92,11 +92,7 @@ export async function createProcessServices(): Promise<ProcessServices> {
     importSession
   );
 
-  const ingestionMonitor = new IngestionMonitorController(
-    eventBus as EventBus<IngestionEvent>,
-    instrumentation,
-    providerManager
-  );
+  const ingestionMonitor = new IngestionMonitorController(eventBus, instrumentation, providerManager);
   ingestionMonitor.start();
 
   // Create execute function with dependencies bound
