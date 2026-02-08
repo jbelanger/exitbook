@@ -6,6 +6,7 @@ import type { z } from 'zod';
 
 import type { IngestionMonitorController } from '../../ui/ingestion-monitor/index.js';
 import { displayCliError } from '../shared/cli-error.js';
+import { createErrorResponse, exitCodeToErrorCode } from '../shared/cli-response.js';
 import { unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
@@ -143,6 +144,8 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
     process.on('SIGINT', abortHandler);
   }
 
+  let exitCode = 0;
+
   try {
     // Resolve import parameters
     const params = unwrapResult(buildImportParams(options));
@@ -174,19 +177,17 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
     // Execute import
     const importResult = await services.handler.executeImport(paramsWithCallback);
     if (importResult.isErr()) {
-      await handleCommandError(importResult.error.message, useInk, services.ingestionMonitor, output);
-      await services.cleanup();
-      resetLoggerContext();
-      process.exit(ExitCodes.GENERAL_ERROR);
+      await handleCommandError(importResult.error.message, useInk, services.ingestionMonitor);
+      exitCode = ExitCodes.GENERAL_ERROR;
+      return;
     }
 
     // Execute processing
     const processResult = await services.handler.processImportedSessions(importResult.value.sessions);
     if (processResult.isErr()) {
-      await handleCommandError(processResult.error.message, useInk, services.ingestionMonitor, output);
-      await services.cleanup();
-      resetLoggerContext();
-      process.exit(ExitCodes.GENERAL_ERROR);
+      await handleCommandError(processResult.error.message, useInk, services.ingestionMonitor);
+      exitCode = ExitCodes.GENERAL_ERROR;
+      return;
     }
 
     // Combine results and output success
@@ -199,27 +200,27 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 
     handleImportSuccess(output, combinedResult, params);
 
-    // Flush final dashboard renders before exit (mirrors error-path pattern).
-    // process.exit() terminates before the next Ink tick; stop() schedules
-    // delayed re-renders so the completed state is painted.
+    // Flush final dashboard renders before natural exit.
+    // Undici agent cleanup in finally block allows process to terminate cleanly.
     await services.ingestionMonitor.stop();
-
-    // Exit required: BlockchainProviderManager uses fetch with keep-alive connections
-    process.exit(0);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    await handleCommandError(errorMessage, useInk, services.ingestionMonitor, output);
-    await services.cleanup();
-    resetLoggerContext();
-    process.exit(ExitCodes.GENERAL_ERROR);
+    await handleCommandError(errorMessage, useInk, services.ingestionMonitor);
+    exitCode = ExitCodes.GENERAL_ERROR;
   } finally {
     // Remove signal handler
     if (abortHandler) {
       process.off('SIGINT', abortHandler);
     }
-    // Cleanup runs in success path (error path handles it explicitly)
+
+    // Cleanup always runs exactly once (success, error, or early return)
     await services.cleanup();
     resetLoggerContext();
+
+    // Only exit explicitly on error; undici cleanup allows natural exit on success
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
   }
 }
 
@@ -230,15 +231,19 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 async function handleCommandError(
   errorMessage: string,
   useInk: boolean,
-  ingestionMonitor: IngestionMonitorController,
-  output: OutputManager
+  ingestionMonitor: IngestionMonitorController
 ): Promise<void> {
   if (useInk) {
     ingestionMonitor.fail(errorMessage);
     // Stop monitor (monitor renders the error inline)
     await ingestionMonitor.stop();
   } else {
-    output.error('import', new Error(errorMessage), ExitCodes.GENERAL_ERROR);
+    const errorResponse = createErrorResponse(
+      'import',
+      new Error(errorMessage),
+      exitCodeToErrorCode(ExitCodes.GENERAL_ERROR)
+    );
+    console.log(JSON.stringify(errorResponse, undefined, 2));
   }
 }
 

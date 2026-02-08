@@ -135,7 +135,7 @@ class MockProvider implements IBlockchainProvider {
     return cursor;
   }
 
-  destroy(): void {
+  async destroy(): Promise<void> {
     // Mock provider has no resources to cleanup
   }
 
@@ -157,8 +157,8 @@ describe('BlockchainProviderManager', () => {
     manager.registerProviders('ethereum', [primaryProvider, fallbackProvider]);
   });
 
-  afterEach(() => {
-    manager.destroy();
+  afterEach(async () => {
+    await manager.destroy();
   });
 
   test('should register providers successfully', () => {
@@ -593,11 +593,11 @@ describe('Provider System Integration', () => {
       expect(providerHealth?.isHealthy).toBe(true);
       expect(providerHealth?.circuitState).toBe('closed');
     } finally {
-      manager.destroy();
+      await manager.destroy();
     }
   });
 
-  test('should auto-register providers from configuration', () => {
+  test('should auto-register providers from configuration', async () => {
     const manager = new BlockchainProviderManager(mockExplorerConfig);
 
     try {
@@ -621,7 +621,7 @@ describe('Provider System Integration', () => {
       expect(registeredProviders.length).toBe(1);
       expect(registeredProviders[0]?.name).toBe('moralis');
     } finally {
-      manager.destroy();
+      await manager.destroy();
     }
   });
 });
@@ -648,8 +648,8 @@ describe('Preferred Provider Behavior', () => {
     ];
   });
 
-  afterEach(() => {
-    manager.destroy();
+  afterEach(async () => {
+    await manager.destroy();
   });
 
   test('should use ONLY preferred provider when it supports the operation', async () => {

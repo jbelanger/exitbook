@@ -22,6 +22,9 @@ export { PriceProviderManager } from './core/provider-manager.js';
 // Shared factory - recommended way to create providers
 export { createPriceProviders, getAvailableProviderNames, createPriceProviderManager } from './core/factory.js';
 export type { ProviderFactoryConfig, ProviderName, PriceProviderManagerFactoryConfig } from './core/factory.js';
+// Events
+export type { PriceProviderEvent } from './events.js';
+
 // Error types
 export { CoinNotFoundError, PriceDataUnavailableError } from './core/errors.js';
 

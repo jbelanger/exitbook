@@ -60,8 +60,10 @@ export async function createProcessServices(): Promise<ProcessServices> {
   const instrumentation = new InstrumentationCollector();
   providerManager.setInstrumentation(instrumentation);
 
-  const eventBus = new EventBus<CliEvent>((err) => {
-    console.error('Event handler error:', err);
+  const eventBus = new EventBus<CliEvent>({
+    onError: (err) => {
+      console.error('Event handler error:', err);
+    },
   });
   providerManager.setEventBus(eventBus as EventBus<ProviderEvent>);
 
@@ -92,11 +94,7 @@ export async function createProcessServices(): Promise<ProcessServices> {
     importSession
   );
 
-  const ingestionMonitor = new IngestionMonitorController(
-    eventBus as EventBus<IngestionEvent>,
-    instrumentation,
-    providerManager
-  );
+  const ingestionMonitor = new IngestionMonitorController(eventBus, instrumentation, providerManager);
   ingestionMonitor.start();
 
   // Create execute function with dependencies bound
@@ -109,7 +107,7 @@ export async function createProcessServices(): Promise<ProcessServices> {
 
   const cleanup = async () => {
     await ingestionMonitor.stop();
-    providerManager.destroy();
+    await providerManager.destroy();
     await closeDatabase(database);
   };
 

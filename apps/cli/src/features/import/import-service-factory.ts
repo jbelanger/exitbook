@@ -24,7 +24,7 @@ import { IngestionMonitorController } from '../../ui/ingestion-monitor/index.js'
 
 import { ImportHandler } from './import-handler.js';
 
-type CliEvent = IngestionEvent | ProviderEvent;
+type IngestionMonitorEvent = IngestionEvent | ProviderEvent;
 
 /**
  * Service container for import command.
@@ -49,8 +49,10 @@ export async function createImportServices(): Promise<ImportServices> {
   const instrumentation = new InstrumentationCollector();
   providerManager.setInstrumentation(instrumentation);
 
-  const eventBus = new EventBus<CliEvent>((err) => {
-    console.error('Event handler error:', err);
+  const eventBus = new EventBus<IngestionMonitorEvent>({
+    onError: (err) => {
+      console.error('Event handler error:', err);
+    },
   });
   providerManager.setEventBus(eventBus as EventBus<ProviderEvent>);
 
@@ -81,16 +83,12 @@ export async function createImportServices(): Promise<ImportServices> {
 
   const handler = new ImportHandler(importOrchestrator, transactionProcessService, providerManager);
 
-  const ingestionMonitor = new IngestionMonitorController(
-    eventBus as EventBus<IngestionEvent>,
-    instrumentation,
-    providerManager
-  );
+  const ingestionMonitor = new IngestionMonitorController(eventBus, instrumentation, providerManager);
   ingestionMonitor.start();
 
   const cleanup = async () => {
     await ingestionMonitor.stop();
-    handler.destroy();
+    await handler.destroy();
     await closeDatabase(database);
   };
 

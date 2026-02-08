@@ -148,11 +148,21 @@ export class PriceProviderManager {
   /**
    * Cleanup resources
    */
-  destroy(): void {
+  async destroy(): Promise<void> {
     if (this.cacheCleanupTimer) {
       clearInterval(this.cacheCleanupTimer);
       this.cacheCleanupTimer = undefined;
     }
+
+    // Close all provider HTTP clients
+    const closePromises = this.providers.map((provider) =>
+      provider.destroy().catch((error: unknown) => {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error({ error: errorMessage }, 'Failed to destroy provider');
+      })
+    );
+
+    await Promise.all(closePromises);
 
     this.providers = [];
     this.healthStatus.clear();

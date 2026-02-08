@@ -1,174 +1,105 @@
 /**
- * Links run controller - Manages lifecycle and rendering of operation tree
+ * Thin lifecycle shell for the links run Ink UI.
+ *
+ * All state management lives inside the React component (useReducer).
+ * The controller's only jobs are:
+ *   1. Mount / unmount the Ink render tree
+ *   2. Relay EventBus events to the component (with buffering for timing safety)
+ *   3. Signal abort/fail/complete via LifecycleBridge for synchronous dispatch
  */
 
-import { performance } from 'node:perf_hooks';
-
+import type { EventBus } from '@exitbook/events';
 import { render } from 'ink';
 import React from 'react';
 
+import type { LinkingEvent } from '../../features/links/events.js';
+import { EventRelay } from '../shared/index.js';
+
 import { LinksRunMonitor } from './links-run-components.js';
-import { createLinksRunState, type LinksRunState } from './links-run-state.js';
+import type { LifecycleBridge } from './links-run-state.js';
+
+const UNMOUNT_DELAY_MS = 1000;
 
 export class LinksRunController {
-  private state: LinksRunState;
-  private renderInstance: ReturnType<typeof render> | undefined = undefined;
-  private startTime = 0;
+  private renderInstance: ReturnType<typeof render> | undefined;
+  private readonly relay = new EventRelay<LinkingEvent>();
+  private readonly lifecycle: LifecycleBridge = {};
+  private unsubscribe: (() => void) | undefined;
 
-  constructor(dryRun: boolean) {
-    this.state = createLinksRunState(dryRun);
-  }
+  constructor(
+    private readonly eventBus: EventBus<LinkingEvent>,
+    private readonly dryRun: boolean
+  ) {}
 
-  /**
-   * Start the operation tree display
-   */
   start(): void {
-    this.startTime = performance.now();
-    this.renderInstance = render(React.createElement(LinksRunMonitor, { state: this.state }));
+    // Subscribe to EventBus BEFORE render to capture events that arrive
+    // before React's useLayoutEffect runs (EventBus delivers via queueMicrotask)
+    this.unsubscribe = this.eventBus.subscribe((event: LinkingEvent) => {
+      this.relay.push(event);
+    });
+
+    this.renderInstance = render(
+      React.createElement(LinksRunMonitor, {
+        relay: this.relay,
+        lifecycle: this.lifecycle,
+        dryRun: this.dryRun,
+      })
+    );
   }
 
   /**
-   * Update phase: Load transactions started
-   */
-  loadStarted(): void {
-    this.state.load = {
-      status: 'active',
-      startedAt: performance.now(),
-      totalTransactions: 0,
-      sourceCount: 0,
-      targetCount: 0,
-    };
-    this.rerender();
-  }
-
-  /**
-   * Update phase: Load transactions completed
-   */
-  loadCompleted(totalTransactions: number, sourceCount: number, targetCount: number): void {
-    if (this.state.load) {
-      this.state.load.status = 'completed';
-      this.state.load.completedAt = performance.now();
-      this.state.load.totalTransactions = totalTransactions;
-      this.state.load.sourceCount = sourceCount;
-      this.state.load.targetCount = targetCount;
-    }
-    this.rerender();
-  }
-
-  /**
-   * Update: Existing links cleared
-   */
-  existingCleared(count: number): void {
-    this.state.existingCleared = count;
-    this.rerender();
-  }
-
-  /**
-   * Update phase: Matching started
-   */
-  matchStarted(): void {
-    this.state.match = {
-      status: 'active',
-      startedAt: performance.now(),
-      internalCount: 0,
-      confirmedCount: 0,
-      suggestedCount: 0,
-    };
-    this.rerender();
-  }
-
-  /**
-   * Update phase: Matching completed
-   */
-  matchCompleted(internalCount: number, confirmedCount: number, suggestedCount: number): void {
-    if (this.state.match) {
-      this.state.match.status = 'completed';
-      this.state.match.completedAt = performance.now();
-      this.state.match.internalCount = internalCount;
-      this.state.match.confirmedCount = confirmedCount;
-      this.state.match.suggestedCount = suggestedCount;
-    }
-    this.rerender();
-  }
-
-  /**
-   * Update phase: Save started
-   */
-  saveStarted(): void {
-    this.state.save = {
-      status: 'active',
-      startedAt: performance.now(),
-      totalSaved: 0,
-    };
-    this.rerender();
-  }
-
-  /**
-   * Update phase: Save completed
-   */
-  saveCompleted(totalSaved: number): void {
-    if (this.state.save) {
-      this.state.save.status = 'completed';
-      this.state.save.completedAt = performance.now();
-      this.state.save.totalSaved = totalSaved;
-    }
-    this.rerender();
-  }
-
-  /**
-   * Mark operation as complete (success)
+   * Mark operation as successfully complete
    */
   complete(): void {
-    this.state.isComplete = true;
-    this.state.totalDurationMs = performance.now() - this.startTime;
-    this.rerender();
+    this.lifecycle.onComplete?.();
   }
 
   /**
-   * Mark operation as aborted
+   * Mark operation as aborted (Ctrl-C)
    */
   abort(): void {
-    this.state.aborted = true;
-    this.state.isComplete = true;
-    this.state.totalDurationMs = performance.now() - this.startTime;
-    this.rerender();
+    this.lifecycle.onAbort?.();
+    this.flushRender();
   }
 
   /**
-   * Mark operation as failed
+   * Mark operation as failed (handler error)
    */
   fail(errorMessage: string): void {
-    this.state.errorMessage = errorMessage;
-    this.state.isComplete = true;
-    this.state.totalDurationMs = performance.now() - this.startTime;
-    this.rerender();
+    this.lifecycle.onFail?.(errorMessage);
+    this.flushRender();
   }
 
   /**
-   * Stop and unmount the display
+   * Unmount the Ink tree after a delay to let late events render
    */
   async stop(): Promise<void> {
     return new Promise<void>((resolve) => {
-      // Final render
-      this.rerender();
-
-      // Unmount after brief delay
       setTimeout(() => {
-        if (this.renderInstance) {
-          this.renderInstance.unmount();
-          this.renderInstance = undefined;
+        if (this.unsubscribe) {
+          this.unsubscribe();
+          this.unsubscribe = undefined;
         }
+        this.renderInstance?.unmount();
+        this.renderInstance = undefined;
         resolve();
-      }, 100);
+      }, UNMOUNT_DELAY_MS);
     });
   }
 
   /**
-   * Force a re-render
+   * Force a synchronous Ink render to flush pending React state updates.
+   * Required for abort/fail paths where process.exit() follows immediately.
    */
-  private rerender(): void {
+  private flushRender(): void {
     if (this.renderInstance) {
-      this.renderInstance.rerender(React.createElement(LinksRunMonitor, { state: this.state }));
+      this.renderInstance.rerender(
+        React.createElement(LinksRunMonitor, {
+          relay: this.relay,
+          lifecycle: this.lifecycle,
+          dryRun: this.dryRun,
+        })
+      );
     }
   }
 }

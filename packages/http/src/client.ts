@@ -1,5 +1,6 @@
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
+import { Agent, fetch as undiciFetch } from 'undici';
 import type { ZodType } from 'zod';
 
 import * as HttpUtils from './core/http-utils.js';
@@ -14,12 +15,17 @@ export class HttpClient {
   private readonly config: HttpClientConfig;
   private readonly logger: ReturnType<typeof getLogger>;
   private readonly effects: HttpEffects;
+  private readonly agent: Agent;
 
   // Mutable state (only place side effects live)
   private rateLimitState: RateLimitState;
 
   // Async mutex for thread-safe rate limiter access
   private rateLimiterLock: Promise<void> = Promise.resolve();
+
+  // Close state (for idempotent cleanup)
+  private closePromise?: Promise<void>;
+  private isClosed = false;
 
   constructor(config: HttpClientConfig, effects?: Partial<HttpEffects>) {
     this.config = {
@@ -34,10 +40,18 @@ export class HttpClient {
 
     this.logger = getLogger(`HttpClient:${config.providerName}`);
 
+    // Initialize undici agent for connection pooling and proper cleanup
+    this.agent = new Agent({
+      keepAliveTimeout: 10000, // 10 seconds
+      keepAliveMaxTimeout: 60000, // 60 seconds
+      pipelining: 1,
+    });
+
     // Initialize effects with production defaults
     this.effects = {
       delay: (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)),
-      fetch: globalThis.fetch,
+      fetch: ((url: string | URL, init?: RequestInit) =>
+        undiciFetch(url, { ...init, dispatcher: this.agent })) as typeof fetch,
       log: (level, message, metadata) => {
         if (metadata) {
           this.logger[level](metadata, message);
@@ -344,9 +358,35 @@ export class HttpClient {
 
   /**
    * Cleanup resources.
+   * Closes the undici agent to terminate all keep-alive connections.
+   * This allows the process to exit naturally without requiring process.exit().
+   *
+   * Idempotent: safe to call multiple times. Subsequent calls return the same promise.
    */
-  destroy(): void {
-    this.logger.debug('HTTP client destroyed');
+  async close(): Promise<void> {
+    // Idempotency: return existing close operation if in progress
+    if (this.closePromise) {
+      return this.closePromise;
+    }
+
+    if (this.isClosed) {
+      return;
+    }
+
+    this.closePromise = (async () => {
+      this.logger.debug('Closing HTTP agent connections');
+      try {
+        await this.agent.close();
+        this.isClosed = true;
+        this.logger.debug('HTTP agent closed successfully');
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Failed to close HTTP agent: ${errorMessage}`);
+        throw new Error(`HTTP agent cleanup failed: ${errorMessage}`);
+      }
+    })();
+
+    return this.closePromise;
   }
 
   /**

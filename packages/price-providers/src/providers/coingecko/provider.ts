@@ -129,7 +129,6 @@ export function createCoinGeckoProvider(
  */
 export class CoinGeckoProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
-  private readonly httpClient: HttpClient;
   private readonly providerRepo: ProviderRepository;
   private readonly config: CoinGeckoProviderConfig;
 

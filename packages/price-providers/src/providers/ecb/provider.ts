@@ -76,7 +76,6 @@ export function createECBProvider(
  */
 export class ECBProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
-  private readonly httpClient: HttpClient;
 
   constructor(httpClient: HttpClient, priceRepo: PriceRepository) {
     super();

@@ -9,7 +9,7 @@ import { ScamDetectionService } from '../scam-detection-service.js';
 describe('ScamDetectionService', () => {
   // Create a mock event bus for testing
   // eslint-disable-next-line @typescript-eslint/no-empty-function -- acceptable for mock
-  const createMockEventBus = () => new EventBus<IngestionEvent>(() => {});
+  const createMockEventBus = () => new EventBus<IngestionEvent>({ onError: () => {} });
   const createMetadata = (overrides?: Partial<TokenMetadataRecord>): TokenMetadataRecord => ({
     blockchain: 'ethereum',
     contractAddress: '0xabc',

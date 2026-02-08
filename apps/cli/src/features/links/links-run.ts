@@ -1,25 +1,26 @@
 /* eslint-disable unicorn/no-null -- Used in React component code */
-import { performance } from 'node:perf_hooks';
-
 import { TransactionLinkRepository } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
 import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
+import { EventBus } from '@exitbook/events';
+import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
-import { LinksRunMonitor } from '../../ui/links/index.js';
-import { createLinksRunState } from '../../ui/links/index.js';
+import { LinksRunController } from '../../ui/links/index.js';
 import { PromptFlow, type PromptStep } from '../../ui/shared/PromptFlow.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { createSuccessResponse } from '../shared/cli-response.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 
-import type { LinksRunHandlerParams, LinksRunResult } from './links-run-handler.js';
+import type { LinkingEvent } from './events.js';
+import type { LinksRunHandlerParams } from './links-run-handler.js';
 import { LinksRunHandler } from './links-run-handler.js';
+
+const logger = getLogger('links-run');
 
 /**
  * Command options validated by Zod at CLI boundary
@@ -172,7 +173,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       const result = await promptForLinksRunParams();
       if (!result) {
         console.log('\nTransaction linking cancelled');
-        process.exit(0);
+        return;
       }
       params = result;
     } else {
@@ -194,24 +195,83 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
     const transactionRepository = new TransactionRepository(database);
     const linkRepository = new TransactionLinkRepository(database);
     const overrideStore = new OverrideStore();
-    const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
+
+    // JSON mode - run without UI
+    if (options.json) {
+      const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
+
+      try {
+        const result = await handler.execute(params);
+
+        await closeDatabase(database);
+        resetLoggerContext();
+
+        if (result.isErr()) {
+          displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'json');
+          return;
+        }
+
+        const duration_ms = Date.now() - startTime;
+        const response = createSuccessResponse('links-run', result.value, { duration_ms });
+        console.log(JSON.stringify(response, undefined, 2));
+      } catch (error) {
+        await closeDatabase(database);
+        resetLoggerContext();
+        throw error;
+      }
+      return;
+    }
+
+    // Ink TUI mode
+    const eventBus = new EventBus<LinkingEvent>({
+      onError: (err) => {
+        logger.error({ err }, 'EventBus error');
+      },
+    });
+    const controller = new LinksRunController(eventBus, params.dryRun);
+
+    // Handle Ctrl-C gracefully
+    const abortHandler = () => {
+      process.off('SIGINT', abortHandler);
+      controller.abort();
+      controller.stop().catch(() => {
+        /* ignore cleanup errors on abort */
+      });
+      closeDatabase(database).catch((_err) => {
+        /* ignore cleanup errors on abort */
+      });
+      resetLoggerContext();
+      process.exit(130);
+    };
+    process.on('SIGINT', abortHandler);
+
+    controller.start();
+
+    const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore, eventBus);
 
     try {
       const result = await handler.execute(params);
 
       await closeDatabase(database);
       resetLoggerContext();
+      process.off('SIGINT', abortHandler);
 
       if (result.isErr()) {
-        displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
-        return;
+        controller.fail(result.error.message);
+        await controller.stop();
+        process.exit(ExitCodes.GENERAL_ERROR);
+      } else {
+        controller.complete();
+        await controller.stop();
+        // Success path exits naturally after event loop drains.
       }
-
-      handleLinksRunSuccess(result.value, options.json ?? false, startTime);
     } catch (error) {
       await closeDatabase(database);
       resetLoggerContext();
-      throw error;
+      process.off('SIGINT', abortHandler);
+      controller.fail(error instanceof Error ? error.message : String(error));
+      await controller.stop();
+      process.exit(ExitCodes.GENERAL_ERROR);
     }
   } catch (error) {
     resetLoggerContext();
@@ -219,84 +279,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       'links-run',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      options.json ? 'json' : 'text'
+      isJsonMode ? 'json' : 'text'
     );
   }
-}
-
-/**
- * Handle successful linking.
- */
-function handleLinksRunSuccess(linkResult: LinksRunResult, isJsonMode: boolean, startTime: number): void {
-  // Display results in text mode using Ink
-  if (!isJsonMode) {
-    renderLinksRunResult(linkResult);
-    return;
-  }
-
-  // JSON mode output
-  const duration_ms = Date.now() - startTime;
-  const response = createSuccessResponse('links-run', linkResult, { duration_ms });
-  console.log(JSON.stringify(response, undefined, 2));
-}
-
-/**
- * Render linking results using Ink operation tree
- */
-function renderLinksRunResult(result: LinksRunResult): void {
-  // Create state with all phases already completed
-  const state = createLinksRunState(result.dryRun);
-  const now = performance.now();
-
-  // Simulate phase timings (we don't have real timings, so use reasonable estimates)
-  const loadDuration = 1200;
-  const matchDuration = 340;
-  const saveDuration = 180;
-
-  const loadStart = now - loadDuration - matchDuration - saveDuration;
-  const matchStart = loadStart + loadDuration;
-  const saveStart = matchStart + matchDuration;
-
-  // Phase 1: Load (completed)
-  state.load = {
-    status: 'completed',
-    startedAt: loadStart,
-    completedAt: loadStart + loadDuration,
-    totalTransactions: result.totalSourceTransactions + result.totalTargetTransactions,
-    sourceCount: result.totalSourceTransactions,
-    targetCount: result.totalTargetTransactions,
-  };
-
-  // Phase 2: Clear existing
-  if (result.existingLinksCleared !== undefined && result.existingLinksCleared > 0) {
-    state.existingCleared = result.existingLinksCleared;
-  }
-
-  // Phase 3: Match (completed)
-  state.match = {
-    status: 'completed',
-    startedAt: matchStart,
-    completedAt: matchStart + matchDuration,
-    internalCount: result.internalLinksCount,
-    confirmedCount: result.confirmedLinksCount,
-    suggestedCount: result.suggestedLinksCount,
-  };
-
-  // Phase 4: Save (only if not dry run and has links to save)
-  if (!result.dryRun && result.totalSaved !== undefined && result.totalSaved > 0) {
-    state.save = {
-      status: 'completed',
-      startedAt: saveStart,
-      completedAt: saveStart + saveDuration,
-      totalSaved: result.totalSaved,
-    };
-  }
-
-  // Mark as complete
-  state.isComplete = true;
-  state.totalDurationMs = loadDuration + matchDuration + (state.save ? saveDuration : 0);
-
-  // Render and unmount
-  const { unmount } = render(React.createElement(LinksRunMonitor, { state }));
-  setTimeout(() => unmount(), 100);
 }

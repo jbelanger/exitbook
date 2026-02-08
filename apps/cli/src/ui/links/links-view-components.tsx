@@ -9,6 +9,7 @@ import { useEffect, useReducer, type FC } from 'react';
 import type { LinkGapAssetSummary, LinkGapIssue } from '../../features/links/links-gap-utils.js';
 
 import { handleKeyboardInput, linksViewReducer } from './links-view-controller.js';
+import { getLinksViewVisibleRows } from './links-view-layout.js';
 import type {
   LinkWithTransactions,
   LinksViewGapsState,
@@ -175,7 +176,7 @@ const LinksHeader: FC<{ state: LinksViewLinksState }> = ({ state }) => {
 const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { links, selectedIndex, scrollOffset } = state;
 
-  const visibleRows = Math.max(1, terminalHeight - 14);
+  const visibleRows = getLinksViewVisibleRows(terminalHeight, 'links');
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, links.length);
@@ -524,8 +525,7 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
   const { linkAnalysis, selectedIndex, scrollOffset } = state;
   const issues = linkAnalysis.issues;
 
-  // Account for extra lines from asset breakdown (~4 lines)
-  const visibleRows = Math.max(1, terminalHeight - 18);
+  const visibleRows = getLinksViewVisibleRows(terminalHeight, 'gaps');
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, issues.length);

@@ -97,7 +97,6 @@ export function createBinanceProvider(
  */
 export class BinanceProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
-  private readonly httpClient: HttpClient;
   private readonly config: BinanceProviderConfig;
 
   constructor(

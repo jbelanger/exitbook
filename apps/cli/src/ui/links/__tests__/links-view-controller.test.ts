@@ -106,6 +106,51 @@ describe('linksViewReducer', () => {
     expect(newState.scrollOffset).toBe(0);
   });
 
+  it('handles PAGE_UP navigation', () => {
+    const links = createMockLinks();
+    const state = createLinksViewState(links);
+    state.selectedIndex = 3;
+    state.scrollOffset = 2;
+
+    const newState = linksViewReducer(state, { type: 'PAGE_UP', visibleRows: 2 });
+    expect(newState.selectedIndex).toBe(1);
+    expect(newState.scrollOffset).toBe(0);
+  });
+
+  it('handles PAGE_DOWN navigation', () => {
+    const links = createMockLinks();
+    const state = createLinksViewState(links);
+    state.selectedIndex = 0;
+    state.scrollOffset = 0;
+
+    const newState = linksViewReducer(state, { type: 'PAGE_DOWN', visibleRows: 2 });
+    expect(newState.selectedIndex).toBe(2);
+    expect(newState.scrollOffset).toBe(2);
+  });
+
+  it('sets both selected index and scroll offset for END', () => {
+    const links = createMockLinks();
+    const state = createLinksViewState(links);
+
+    const endState = linksViewReducer(state, { type: 'END', visibleRows: 2 });
+    expect(endState.selectedIndex).toBe(3);
+    expect(endState.scrollOffset).toBe(2);
+  });
+
+  it('keeps navigation state stable when list is empty', () => {
+    const state = createLinksViewState([]);
+    state.selectedIndex = 0;
+    state.scrollOffset = 0;
+
+    const upState = linksViewReducer(state, { type: 'NAVIGATE_UP', visibleRows: 10 });
+    expect(upState.selectedIndex).toBe(0);
+    expect(upState.scrollOffset).toBe(0);
+
+    const downState = linksViewReducer(state, { type: 'NAVIGATE_DOWN', visibleRows: 10 });
+    expect(downState.selectedIndex).toBe(0);
+    expect(downState.scrollOffset).toBe(0);
+  });
+
   it('confirms suggested link', () => {
     const links = createMockLinks();
     const state = createLinksViewState(links);

@@ -438,6 +438,9 @@ describe('selectProvidersForOperation', () => {
       name,
       requiresApiKey: false,
     }),
+    destroy: async () => {
+      /* empty */
+    },
   });
 
   it('should filter providers by operation support', () => {
@@ -790,6 +793,9 @@ describe('selectProvidersForOperation', () => {
         name,
         requiresApiKey: false,
       }),
+      destroy: async () => {
+        /* empty */
+      },
     });
 
     it('should filter out fiat providers when requesting crypto asset', () => {
@@ -1044,6 +1050,9 @@ describe('hasAvailableProviders', () => {
       name,
       requiresApiKey: false,
     }),
+    destroy: async () => {
+      /* empty */
+    },
   });
 
   it('should return true when at least one provider has closed circuit', () => {

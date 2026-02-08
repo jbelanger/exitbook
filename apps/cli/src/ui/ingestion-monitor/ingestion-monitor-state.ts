@@ -2,9 +2,10 @@
  * Dashboard State - Operation tree model
  */
 
-import type { OperationStatus } from '../shared/index.js';
+import type { OperationStatus, ProviderApiStats, ApiCallStats } from '../shared/index.js';
+import { createProviderStats } from '../shared/index.js';
 
-export type { OperationStatus };
+export type { OperationStatus, ProviderApiStats, ApiCallStats };
 
 /**
  * Transient provider status (rate limit backoff or failover notification).
@@ -143,34 +144,6 @@ export interface ProcessingOperation {
 }
 
 /**
- * API call statistics per provider
- */
-export interface ProviderApiStats {
-  total: number;
-  okCount: number; // Successful calls (2xx except 429)
-  retries: number;
-  throttledCount: number; // Rate limited (429)
-  failed: number;
-  currentRate?: number | undefined; // req/s (recent window)
-
-  // Response breakdown (for final view)
-  responsesByStatus: Map<number, number>; // status code -> count
-
-  // Timing data for live/final calculations
-  latencies: number[]; // For avg latency calculation
-  startTime: number; // First call timestamp (0 if no calls)
-  lastCallTime: number; // Most recent call timestamp
-}
-
-/**
- * Overall API call tracking
- */
-export interface ApiCallStats {
-  total: number;
-  byProvider: Map<string, ProviderApiStats>;
-}
-
-/**
  * Warning message
  */
 export interface Warning {
@@ -239,23 +212,59 @@ export function createIngestionMonitorState(): IngestionMonitorState {
 }
 
 /**
+ * Callback bridge for lifecycle signals from controller to React component.
+ *
+ * **Why this exists:**
+ * When the user presses Ctrl-C (SIGINT), the controller must:
+ * 1. Dispatch abort state to React
+ * 2. Force synchronous render (flushRender)
+ * 3. Call process.exit(130)
+ *
+ * Normal event emission via EventBus uses queueMicrotask, which won't flush
+ * before process.exit terminates the process. This would leave the UI showing
+ * stale state instead of the abort message.
+ *
+ * **How it works:**
+ * - Controller calls `lifecycle.onAbort?.()` synchronously
+ * - Component's useLayoutEffect sets `onAbort = () => dispatch({ type: 'abort' })`
+ * - Controller calls `flushRender()` to force synchronous React commit
+ * - UI paints abort state
+ * - process.exit(130) terminates cleanly
+ *
+ * **Pattern:**
+ * ```tsx
+ * // In component:
+ * useLayoutEffect(() => {
+ *   lifecycle.onAbort = () => dispatch({ type: 'abort' })
+ *   lifecycle.onFail = (msg) => dispatch({ type: 'fail', errorMessage: msg })
+ *   return () => {
+ *     lifecycle.onAbort = undefined
+ *     lifecycle.onFail = undefined
+ *   }
+ * }, [lifecycle])
+ *
+ * // In controller:
+ * abort(): void {
+ *   this.lifecycle.onAbort?.()
+ *   this.flushRender()  // Force synchronous render
+ *   // process.exit(130) happens next in signal handler
+ * }
+ * ```
+ *
+ * @see {@link https://react.dev/reference/react-dom/flushSync} - React's flushSync (Ink's flushRender is similar)
+ */
+export interface LifecycleBridge {
+  onAbort?: (() => void) | undefined;
+  onFail?: ((errorMessage: string) => void) | undefined;
+}
+
+/**
  * Get or create provider stats entry
  */
 export function getOrCreateProviderStats(state: IngestionMonitorState, provider: string): ProviderApiStats {
   let stats = state.apiCalls.byProvider.get(provider);
   if (!stats) {
-    stats = {
-      total: 0,
-      okCount: 0,
-      retries: 0,
-      throttledCount: 0,
-      failed: 0,
-      responsesByStatus: new Map(),
-      latencies: [],
-      startTime: 0,
-      lastCallTime: 0,
-      currentRate: undefined,
-    };
+    stats = createProviderStats();
     state.apiCalls.byProvider.set(provider, stats);
   }
   return stats;

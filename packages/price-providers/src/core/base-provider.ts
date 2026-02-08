@@ -4,6 +4,7 @@
  */
 
 import { Currency } from '@exitbook/core';
+import type { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -21,6 +22,7 @@ import { validatePriceData, validateQueryTimeRange } from './utils.js';
 export abstract class BasePriceProvider implements IPriceProvider {
   protected abstract metadata: ProviderMetadata;
   protected priceRepo!: PriceRepository; // Set by subclass constructor
+  protected httpClient!: HttpClient; // Set by subclass constructor
   protected readonly logger = getLogger('BasePriceProvider');
 
   /**
@@ -68,6 +70,13 @@ export abstract class BasePriceProvider implements IPriceProvider {
    */
   getMetadata(): ProviderMetadata {
     return this.metadata;
+  }
+
+  /**
+   * Cleanup resources - close HTTP client
+   */
+  async destroy(): Promise<void> {
+    await this.httpClient.close();
   }
 
   /**

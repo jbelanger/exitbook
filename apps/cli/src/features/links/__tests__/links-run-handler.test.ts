@@ -1,8 +1,11 @@
 import type { TransactionLink, TransactionLinkRepository } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
 import type { OverrideEvent, OverrideStore, TransactionRepository } from '@exitbook/data';
+import type { EventBus } from '@exitbook/events';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
+
+import type { LinkingEvent } from '../events.js';
 
 const mockLinkTransactions = vi.fn();
 
@@ -130,5 +133,145 @@ describe('LinksRunHandler', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().message).toContain('linking failed');
+  });
+
+  it('emits events during execution when eventBus is provided', async () => {
+    const confirmedLink: TransactionLink = {
+      id: 'link-1',
+      sourceTransactionId: 1,
+      targetTransactionId: 2,
+      assetSymbol: 'BTC',
+      sourceAmount: parseDecimal('1'),
+      targetAmount: parseDecimal('1'),
+      linkType: 'exchange_blockchain',
+      confidenceScore: parseDecimal('0.98'),
+      matchCriteria: {
+        assetMatch: true,
+        amountSimilarity: parseDecimal('1'),
+        timingValid: true,
+        timingHours: 0.5,
+      },
+      status: 'confirmed',
+      createdAt: new Date('2026-02-08T00:00:00Z'),
+      updatedAt: new Date('2026-02-08T00:00:00Z'),
+    };
+
+    mockLinkTransactions.mockReturnValue(
+      ok({
+        confirmedLinks: [confirmedLink],
+        suggestedLinks: [],
+        totalSourceTransactions: 2,
+        totalTargetTransactions: 3,
+        unmatchedSourceCount: 1,
+        unmatchedTargetCount: 2,
+      })
+    );
+
+    const transactions = [
+      { id: 1, source: 'kraken', externalId: 'tx-1' },
+      { id: 2, source: 'blockchain:bitcoin', externalId: 'tx-2' },
+      { id: 3, source: 'blockchain:bitcoin', externalId: 'tx-3' },
+      { id: 4, source: 'blockchain:bitcoin', externalId: 'tx-4' },
+      { id: 5, source: 'blockchain:bitcoin', externalId: 'tx-5' },
+    ];
+
+    const transactionRepository = {
+      getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+    } as unknown as TransactionRepository;
+
+    const linkRepository = {
+      countAll: vi.fn().mockResolvedValue(ok(0)),
+      deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
+      createBulk: vi.fn().mockResolvedValue(ok(1)),
+    } as unknown as TransactionLinkRepository;
+
+    const emittedEvents: LinkingEvent[] = [];
+    const mockEventBus = {
+      emit: vi.fn((event: LinkingEvent) => {
+        emittedEvents.push(event);
+      }),
+      subscribe: vi.fn(),
+    } as unknown as EventBus<LinkingEvent>;
+
+    const handler = new LinksRunHandler(transactionRepository, linkRepository, undefined, mockEventBus);
+
+    const result = await handler.execute({
+      dryRun: false,
+      minConfidenceScore: parseDecimal('0.7'),
+      autoConfirmThreshold: parseDecimal('0.95'),
+    });
+
+    expect(result.isOk()).toBe(true);
+
+    // Verify event sequence
+    // Note: load.completed comes after match.started because source/target counts
+    // are only known after the linking service analyzes transactions
+    expect(emittedEvents).toHaveLength(6);
+    expect(emittedEvents[0]).toEqual({ type: 'load.started' });
+    expect(emittedEvents[1]).toEqual({ type: 'match.started' });
+    expect(emittedEvents[2]).toEqual({
+      type: 'load.completed',
+      totalTransactions: 5,
+      sourceCount: 2,
+      targetCount: 3,
+    });
+    expect(emittedEvents[3]).toEqual({
+      type: 'match.completed',
+      internalCount: 0,
+      confirmedCount: 1,
+      suggestedCount: 0,
+    });
+    expect(emittedEvents[4]).toEqual({ type: 'save.started' });
+    expect(emittedEvents[5]).toEqual({ type: 'save.completed', totalSaved: 1 });
+  });
+
+  it('does not emit save events in dry run mode', async () => {
+    mockLinkTransactions.mockReturnValue(
+      ok({
+        confirmedLinks: [],
+        suggestedLinks: [],
+        totalSourceTransactions: 1,
+        totalTargetTransactions: 1,
+        unmatchedSourceCount: 1,
+        unmatchedTargetCount: 1,
+      })
+    );
+
+    const transactionRepository = {
+      getTransactions: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
+    } as unknown as TransactionRepository;
+
+    const linkRepository = {
+      countAll: vi.fn().mockResolvedValue(ok(0)),
+      deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
+      createBulk: vi.fn(),
+    } as unknown as TransactionLinkRepository;
+
+    const emittedEvents: LinkingEvent[] = [];
+    const mockEventBus = {
+      emit: vi.fn((event: LinkingEvent) => {
+        emittedEvents.push(event);
+      }),
+      subscribe: vi.fn(),
+    } as unknown as EventBus<LinkingEvent>;
+
+    const handler = new LinksRunHandler(transactionRepository, linkRepository, undefined, mockEventBus);
+
+    const result = await handler.execute({
+      dryRun: true,
+      minConfidenceScore: parseDecimal('0.7'),
+      autoConfirmThreshold: parseDecimal('0.95'),
+    });
+
+    expect(result.isOk()).toBe(true);
+
+    // Should emit load.started, match.started, load.completed, match.completed (no save in dry run)
+    expect(emittedEvents).toHaveLength(4);
+    expect(emittedEvents.some((e) => e.type === 'load.started')).toBe(true);
+    expect(emittedEvents.some((e) => e.type === 'match.started')).toBe(true);
+    expect(emittedEvents.some((e) => e.type === 'load.completed')).toBe(true);
+    expect(emittedEvents.some((e) => e.type === 'match.completed')).toBe(true);
+    expect(emittedEvents.some((e) => e.type === 'save.started')).toBe(false);
+    expect(emittedEvents.some((e) => e.type === 'save.completed')).toBe(false);
   });
 });

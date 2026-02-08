@@ -168,6 +168,11 @@ export interface IPriceProvider {
    * Used for setup tasks like syncing coin lists, warming caches, etc.
    */
   initialize?(): Promise<Result<void, Error>>;
+
+  /**
+   * Cleanup resources (HTTP clients, timers, etc.)
+   */
+  destroy(): Promise<void>;
 }
 
 /**

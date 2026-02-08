@@ -179,9 +179,11 @@ export class BalanceService {
 
   /**
    * Cleanup resources (stops provider manager timers/health checks).
+   *
+   * Idempotent: safe to call multiple times.
    */
-  destroy(): void {
-    this.providerManager.destroy();
+  async destroy(): Promise<void> {
+    await this.providerManager.destroy();
   }
 
   /**

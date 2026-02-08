@@ -2,74 +2,36 @@
  * Command registration for prices enrich subcommand
  *
  * Unified price enrichment pipeline with four sequential stages:
- * 1. Derive - Extract prices from trades (USD + fiat) and propagate via links
- * 2. Fetch - Fetch missing crypto prices from external providers
- * 3. Normalize - Convert non-USD fiat prices to USD using FX providers
- * 4. Derive (2nd pass) - Use newly fetched/normalized prices for ratio calculations
+ * 1. Trade prices - Extract prices from trades (USD + fiat) and propagate via links
+ * 2. FX rates - Convert non-USD fiat prices to USD using FX providers
+ * 3. Market prices - Fetch missing crypto prices from external providers
+ * 4. Price propagation - Use newly fetched/normalized prices for ratio calculations
  */
 
 import { TransactionLinkRepository } from '@exitbook/accounting';
 import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
-import type { MetricsSummary } from '@exitbook/http';
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
+import { EventBus } from '@exitbook/events';
+import { InstrumentationCollector } from '@exitbook/http';
+import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
+import { PricesEnrichController } from '../../ui/prices-enrich/prices-enrich-controller.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { PricesEnrichCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
+import type { PriceEvent } from './events.js';
 import { PricesEnrichHandler } from './prices-enrich-handler.js';
-import type { PricesEnrichOptions, PricesEnrichResult } from './prices-enrich-handler.js';
+import type { PricesEnrichOptions } from './prices-enrich-handler.js';
+
+const logger = getLogger('prices-enrich');
 
 /**
  * Command options (validated at CLI boundary).
  */
 export type CommandOptions = z.infer<typeof PricesEnrichCommandOptionsSchema>;
-
-/**
- * Result data for prices enrich command (JSON mode)
- */
-interface PricesEnrichCommandResult {
-  derive?:
-    | {
-        transactionsUpdated: number;
-      }
-    | undefined;
-  fetch?:
-    | {
-        errors: string[];
-        stats: {
-          failures: number;
-          granularity: {
-            day: number;
-            hour: number;
-            minute: number;
-          };
-          manualEntries: number;
-          movementsUpdated: number;
-          pricesFetched: number;
-          skipped: number;
-          transactionsFound: number;
-        };
-      }
-    | undefined;
-  normalize?:
-    | {
-        errors: string[];
-        failures: number;
-        movementsNormalized: number;
-        movementsSkipped: number;
-      }
-    | undefined;
-  derive2?:
-    | {
-        transactionsUpdated: number;
-      }
-    | undefined;
-  runStats?: MetricsSummary | undefined;
-}
 
 /**
  * Register the prices enrich subcommand
@@ -79,15 +41,10 @@ export function registerPricesEnrichCommand(pricesCommand: Command): void {
     .command('enrich')
     .description('Enrich prices via derive → fetch → normalize pipeline')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH). Can be specified multiple times.', collect, [])
-    .option(
-      '--on-missing <behavior>',
-      'How to handle missing prices: prompt (interactive manual entry), fail (abort immediately on first error), continue (collect errors and report at end, default)'
-    )
-    .option('--normalize-only', 'Only run normalization stage (FX conversion)')
-    .option('--derive-only', 'Only run derivation stage (extract from USD trades)')
-    .option('--fetch-only', 'Only run fetch stage (external providers)')
-    .option('--interactive', 'Interactive mode for fetch stage')
-    .option('--dry-run', 'Preview changes without applying them')
+    .option('--on-missing <behavior>', 'How to handle missing prices: fail (abort on first error)')
+    .option('--normalize-only', 'Only run FX rates stage')
+    .option('--derive-only', 'Only run trade prices stage')
+    .option('--fetch-only', 'Only run market prices stage')
     .option('--json', 'Output results in JSON format')
     .action(executePricesEnrichCommand);
 }
@@ -100,10 +57,8 @@ function collect(value: string, previous: string[]): string[] {
 }
 
 async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
-  // Check for --json flag early (even before validation) to determine output format
   const isJson = isJsonMode(rawOptions);
 
-  // Validate options at CLI boundary
   const parseResult = PricesEnrichCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
     const output = new OutputManager(isJson ? 'json' : 'text');
@@ -119,7 +74,6 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    // Build params from options
     const params: PricesEnrichOptions = {
       asset: options.asset,
       onMissing: options.onMissing,
@@ -128,228 +82,116 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       fetchOnly: options.fetchOnly,
     };
 
-    // Don't use spinner in prompt mode (conflicts with prompts)
-    const onMissing = options.onMissing ?? 'fail';
-    const spinner = onMissing === 'prompt' ? undefined : output.spinner();
-    spinner?.start('Running price enrichment pipeline...');
-
-    // Configure logger to route logs to spinner
     configureLogger({
       mode: options.json ? 'json' : 'text',
-      spinner: spinner ?? undefined,
-      verbose: false, // TODO: Add --verbose flag support
-      sinks: options.json
-        ? { ui: false, structured: 'file' }
-        : spinner
-          ? { ui: true, structured: 'off' }
-          : { ui: false, structured: 'stdout' },
+      verbose: false,
+      sinks: {
+        ui: false,
+        structured: options.json ? 'off' : 'file',
+      },
     });
 
     const database = await initializeDatabase();
     const transactionRepo = new TransactionRepository(database);
     const linkRepo = new TransactionLinkRepository(database);
-    const handler = new PricesEnrichHandler(transactionRepo, linkRepo);
+
+    if (options.json) {
+      // JSON mode: run handler directly without Ink UI
+      const handler = new PricesEnrichHandler(transactionRepo, linkRepo);
+
+      try {
+        const result = await handler.execute(params);
+        await closeDatabase(database);
+        resetLoggerContext();
+
+        if (result.isErr()) {
+          output.error('prices-enrich', result.error, ExitCodes.GENERAL_ERROR);
+          return;
+        }
+
+        output.json('prices-enrich', {
+          derive: result.value.derive,
+          fetch: result.value.fetch,
+          normalize: result.value.normalize,
+          propagation: result.value.propagation,
+          runStats: result.value.runStats,
+        });
+      } catch (error) {
+        await closeDatabase(database);
+        resetLoggerContext();
+        output.error(
+          'prices-enrich',
+          error instanceof Error ? error : new Error(String(error)),
+          ExitCodes.GENERAL_ERROR
+        );
+      }
+      return;
+    }
+
+    // Ink TUI mode
+    const eventBus = new EventBus<PriceEvent>({
+      onError: (err) => {
+        logger.error({ err }, 'EventBus error');
+      },
+    });
+    const instrumentation = new InstrumentationCollector();
+    const controller = new PricesEnrichController(eventBus, instrumentation);
+
+    const handler = new PricesEnrichHandler(transactionRepo, linkRepo, eventBus, instrumentation);
+
+    // Handle Ctrl-C gracefully
+    const abortHandler = () => {
+      process.off('SIGINT', abortHandler);
+      controller.abort();
+      controller.stop().catch(() => {
+        /* ignore cleanup errors on abort */
+      });
+      handler.destroy().catch(() => {
+        /* ignore cleanup errors on abort */
+      });
+      closeDatabase(database).catch((_err) => {
+        /* ignore cleanup errors on abort */
+      });
+      resetLoggerContext();
+      process.exit(130);
+    };
+    process.on('SIGINT', abortHandler);
+
+    controller.start();
+
+    let exitCode = 0;
 
     try {
       const result = await handler.execute(params);
 
-      await closeDatabase(database);
-      resetLoggerContext();
-
       if (result.isErr()) {
-        spinner?.stop('Price enrichment failed');
-        output.error('prices-enrich', result.error, ExitCodes.GENERAL_ERROR);
-        return;
+        controller.fail(result.error.message);
+        await controller.stop();
+        exitCode = ExitCodes.GENERAL_ERROR;
+      } else {
+        controller.complete();
+        await controller.stop();
+        // Success path exits naturally after event loop drains.
       }
-
-      handlePricesEnrichSuccess(output, result.value, spinner);
     } catch (error) {
+      controller.fail(error instanceof Error ? error.message : String(error));
+      await controller.stop();
+      exitCode = ExitCodes.GENERAL_ERROR;
+    } finally {
+      // Remove signal handler
+      process.off('SIGINT', abortHandler);
+
+      // Cleanup always runs exactly once (success, error, or early return)
+      await handler.destroy();
       await closeDatabase(database);
       resetLoggerContext();
-      spinner?.stop('Price enrichment failed');
-      output.error('prices-enrich', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+
+      // Only exit explicitly on error; undici cleanup allows natural exit on success
+      if (exitCode !== 0) {
+        process.exit(exitCode);
+      }
     }
   } catch (error) {
     output.error('prices-enrich', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
-}
-
-/**
- * Handle successful prices enrich
- */
-function handlePricesEnrichSuccess(
-  output: OutputManager,
-  result: PricesEnrichResult,
-  spinner: ReturnType<OutputManager['spinner']>
-) {
-  // Stop spinner with completion message
-  const completionMessage = buildCompletionMessage(result);
-  spinner?.stop(completionMessage);
-
-  // Display text output
-  if (output.isTextMode()) {
-    console.log('');
-    console.log('Price Enrichment Results:');
-    console.log('=============================');
-
-    // Stage 1: Derive
-    if (result.derive) {
-      console.log('');
-      console.log('Stage 1: Derive (Trades)');
-      console.log(`  Transactions updated: ${result.derive.transactionsUpdated}`);
-    }
-
-    // Stage 2: Normalize
-    if (result.normalize) {
-      console.log('');
-      console.log('Stage 2: Normalize (FX Conversion)');
-      console.log(`  Movements normalized: ${result.normalize.movementsNormalized}`);
-      console.log(`  Movements skipped: ${result.normalize.movementsSkipped}`);
-      console.log(`  Failures: ${result.normalize.failures}`);
-
-      if (result.normalize.errors.length > 0) {
-        console.log('');
-        console.warn(`  ⚠️  ${result.normalize.errors.length} errors occurred (showing first 5):`);
-        for (const error of result.normalize.errors.slice(0, 5)) {
-          console.warn(`    - ${error}`);
-        }
-      }
-    }
-
-    // Stage 3: Fetch
-    if (result.fetch) {
-      console.log('');
-      console.log('Stage 3: Fetch (External Providers)');
-      console.log(`  Transactions found: ${result.fetch.stats.transactionsFound}`);
-      console.log(`  Prices fetched: ${result.fetch.stats.pricesFetched}`);
-      console.log(`  Manual entries: ${result.fetch.stats.manualEntries}`);
-      console.log(`  Movements updated: ${result.fetch.stats.movementsUpdated}`);
-      console.log(`  Skipped: ${result.fetch.stats.skipped}`);
-      console.log(`  Failures: ${result.fetch.stats.failures}`);
-
-      // Show granularity breakdown if any prices were fetched
-      if (result.fetch.stats.pricesFetched > 0) {
-        console.log('');
-        console.log('  Price Granularity:');
-        if (result.fetch.stats.granularity.minute > 0) {
-          console.log(`    Minute-level: ${result.fetch.stats.granularity.minute}`);
-        }
-        if (result.fetch.stats.granularity.hour > 0) {
-          console.log(`    Hourly: ${result.fetch.stats.granularity.hour}`);
-        }
-        if (result.fetch.stats.granularity.day > 0) {
-          console.log(`    Daily: ${result.fetch.stats.granularity.day}`);
-        }
-      }
-
-      if (result.fetch.errors.length > 0) {
-        console.log('');
-        console.warn(`  ⚠️  ${result.fetch.errors.length} errors occurred (showing first 5):`);
-        for (const error of result.fetch.errors.slice(0, 5)) {
-          console.warn(`    - ${error}`);
-        }
-      }
-    }
-
-    // Stage 4: Derive (second pass)
-    if (result.derive2) {
-      console.log('');
-      console.log('Stage 4: Derive (Second Pass)');
-      console.log(`  Transactions updated: ${result.derive2.transactionsUpdated}`);
-    }
-
-    if (result.runStats && result.runStats.total > 0) {
-      console.log('');
-      displayApiCallSummary(result.runStats);
-    }
-  }
-
-  // Prepare result data for JSON mode
-  const resultData: PricesEnrichCommandResult = {
-    derive: result.derive,
-    fetch: result.fetch,
-    normalize: result.normalize,
-    derive2: result.derive2,
-    runStats: result.runStats,
-  };
-
-  // Output success
-  output.json('prices-enrich', resultData);
-}
-
-/**
- * Build completion message for spinner
- */
-function buildCompletionMessage(result: PricesEnrichResult): string {
-  const parts: string[] = [];
-
-  if (result.derive) {
-    parts.push(`${result.derive.transactionsUpdated} derived`);
-  }
-
-  if (result.fetch) {
-    parts.push(`${result.fetch.stats.movementsUpdated} fetched`);
-  }
-
-  if (result.normalize) {
-    parts.push(`${result.normalize.movementsNormalized} normalized`);
-  }
-
-  if (result.derive2) {
-    parts.push(`${result.derive2.transactionsUpdated} re-derived`);
-  }
-
-  return `Price enrichment complete - ${parts.join(', ')}`;
-}
-
-/**
- * Render API call summary table to stdout
- */
-function displayApiCallSummary(stats: MetricsSummary): void {
-  console.log('API Calls Summary:');
-
-  const rows: { avgDuration: string; calls: number; endpoint: string; provider: string }[] = [];
-
-  for (const [key, metrics] of Object.entries(stats.byEndpoint)) {
-    const [provider, endpoint] = key.split(':');
-    if (!provider || !endpoint) continue;
-
-    rows.push({
-      provider,
-      endpoint,
-      calls: metrics.calls,
-      avgDuration: `${Math.round(metrics.avgDuration)}ms`,
-    });
-  }
-
-  rows.sort((a, b) => {
-    if (a.provider !== b.provider) return a.provider.localeCompare(b.provider);
-    return b.calls - a.calls;
-  });
-
-  const providerWidth = Math.max(8, ...rows.map((r) => r.provider.length));
-  const endpointWidth = Math.max(8, ...rows.map((r) => r.endpoint.length));
-  const callsWidth = Math.max(5, ...rows.map((r) => r.calls.toString().length));
-  const durationWidth = Math.max(12, ...rows.map((r) => r.avgDuration.length));
-
-  const headerLine = `┌─${'─'.repeat(providerWidth)}─┬─${'─'.repeat(endpointWidth)}─┬─${'─'.repeat(callsWidth)}─┬─${'─'.repeat(durationWidth)}─┐`;
-  const separatorLine = `├─${'─'.repeat(providerWidth)}─┼─${'─'.repeat(endpointWidth)}─┼─${'─'.repeat(callsWidth)}─┼─${'─'.repeat(durationWidth)}─┤`;
-  const footerLine = `└─${'─'.repeat(providerWidth)}─┴─${'─'.repeat(endpointWidth)}─┴─${'─'.repeat(callsWidth)}─┴─${'─'.repeat(durationWidth)}─┘`;
-
-  console.log(headerLine);
-  console.log(
-    `│ ${'Provider'.padEnd(providerWidth)} │ ${'Endpoint'.padEnd(endpointWidth)} │ ${'Calls'.padEnd(callsWidth)} │ ${'Avg Response'.padEnd(durationWidth)} │`
-  );
-  console.log(separatorLine);
-
-  for (const row of rows) {
-    console.log(
-      `│ ${row.provider.padEnd(providerWidth)} │ ${row.endpoint.padEnd(endpointWidth)} │ ${row.calls.toString().padEnd(callsWidth)} │ ${row.avgDuration.padEnd(durationWidth)} │`
-    );
-  }
-
-  console.log(footerLine);
-  console.log('');
-  console.log(`Total API calls: ${stats.total}`);
-  console.log('');
 }

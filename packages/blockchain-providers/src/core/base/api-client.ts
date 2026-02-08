@@ -475,10 +475,12 @@ export abstract class BaseApiClient implements IBlockchainProvider {
 
   /**
    * Cleanup resources.
-   * Delegates to httpClient.destroy() to cleanup HTTP connections.
+   * Delegates to httpClient.close() to cleanup HTTP connections.
+   *
+   * Idempotent: safe to call multiple times.
    */
-  destroy(): void {
-    this.httpClient.destroy();
+  async destroy(): Promise<void> {
+    await this.httpClient.close();
   }
 
   /**
