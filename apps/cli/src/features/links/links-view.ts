@@ -9,18 +9,18 @@ import type { Result } from 'neverthrow';
 import React from 'react';
 import type { z } from 'zod';
 
-import {
-  LinksViewApp,
-  createGapsViewState,
-  createLinksViewState,
-  type LinkWithTransactions,
-} from '../../ui/links/index.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { LinksViewCommandOptionsSchema } from '../shared/schemas.js';
 import { buildViewMeta, type ViewCommandResult } from '../shared/view-utils.js';
 
+import {
+  LinksViewApp,
+  createGapsViewState,
+  createLinksViewState,
+  type LinkWithTransactions,
+} from './components/index.js';
 import { LinksConfirmHandler } from './links-confirm-handler.js';
 import type { LinkGapIssue } from './links-gap-utils.js';
 import { analyzeLinkGaps } from './links-gap-utils.js';

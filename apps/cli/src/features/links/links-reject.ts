@@ -6,12 +6,12 @@ import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
-import { LinkActionError, LinkActionResult } from '../../ui/links/index.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { LinksRejectCommandOptionsSchema } from '../shared/schemas.js';
 
+import { LinkActionError, LinkActionResult } from './components/index.js';
 import { LinksRejectHandler } from './links-reject-handler.js';
 
 /**

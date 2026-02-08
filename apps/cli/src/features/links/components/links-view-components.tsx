@@ -6,8 +6,8 @@ import type { LinkStatus, MatchCriteria } from '@exitbook/accounting';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC } from 'react';
 
-import type { LinkGapAssetSummary, LinkGapIssue } from '../../features/links/links-gap-utils.js';
-import { Divider } from '../shared/index.js';
+import { Divider } from '../../../ui/shared/index.js';
+import type { LinkGapAssetSummary, LinkGapIssue } from '../links-gap-utils.js';
 
 import { handleKeyboardInput, linksViewReducer } from './links-view-controller.js';
 import { getLinksViewVisibleRows } from './links-view-layout.js';

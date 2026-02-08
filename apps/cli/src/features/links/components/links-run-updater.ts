@@ -4,7 +4,7 @@
 
 import { performance } from 'node:perf_hooks';
 
-import type { LinkingEvent } from '../../features/links/events.js';
+import type { LinkingEvent } from '../events.js';
 
 import type { LinksRunState } from './links-run-state.js';
 

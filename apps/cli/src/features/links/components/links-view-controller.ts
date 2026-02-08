@@ -2,7 +2,7 @@
  * Links view controller - manages state updates and keyboard input
  */
 
-import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../shared/list-navigation.js';
+import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 
 import { getLinksViewVisibleRows } from './links-view-layout.js';
 import type { LinksViewState } from './links-view-state.js';

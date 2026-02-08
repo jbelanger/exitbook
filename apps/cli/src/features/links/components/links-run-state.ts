@@ -2,7 +2,7 @@
  * Links run operation tree state
  */
 
-import type { OperationStatus } from '../shared/index.js';
+import type { OperationStatus } from '../../../ui/shared/index.js';
 
 /**
  * Lifecycle callbacks from controller to component.

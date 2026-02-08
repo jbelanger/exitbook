@@ -5,7 +5,7 @@
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import type { LinkGapAnalysis } from '../../../features/links/links-gap-utils.js';
+import type { LinkGapAnalysis } from '../../links-gap-utils.js';
 import { handleKeyboardInput, linksViewReducer } from '../links-view-controller.js';
 import { createGapsViewState, createLinksViewState, type LinkWithTransactions } from '../links-view-state.js';
 

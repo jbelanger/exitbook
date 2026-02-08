@@ -5,7 +5,7 @@
 import type { LinkStatus, TransactionLink } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 
-import type { LinkGapAnalysis } from '../../features/links/links-gap-utils.js';
+import type { LinkGapAnalysis } from '../links-gap-utils.js';
 
 /**
  * Link with associated transaction data for display

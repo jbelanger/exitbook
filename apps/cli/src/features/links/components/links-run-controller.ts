@@ -12,8 +12,8 @@ import type { EventBus } from '@exitbook/events';
 import { render } from 'ink';
 import React from 'react';
 
-import type { LinkingEvent } from '../../features/links/events.js';
-import { EventRelay } from '../shared/index.js';
+import { EventRelay } from '../../../ui/shared/index.js';
+import type { LinkingEvent } from '../events.js';
 
 import { LinksRunMonitor } from './links-run-components.js';
 import type { LifecycleBridge } from './links-run-state.js';

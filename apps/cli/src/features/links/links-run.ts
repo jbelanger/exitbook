@@ -9,13 +9,13 @@ import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
-import { LinksRunController } from '../../ui/links/index.js';
 import { PromptFlow, type PromptStep } from '../../ui/shared/PromptFlow.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { createSuccessResponse } from '../shared/cli-response.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 
+import { LinksRunController } from './components/index.js';
 import type { LinkingEvent } from './events.js';
 import type { LinksRunHandlerParams } from './links-run-handler.js';
 import { LinksRunHandler } from './links-run-handler.js';

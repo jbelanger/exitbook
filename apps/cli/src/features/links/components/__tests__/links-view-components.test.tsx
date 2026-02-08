@@ -8,7 +8,7 @@ import { Decimal } from 'decimal.js';
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
-import type { LinkGapAnalysis } from '../../../features/links/links-gap-utils.js';
+import type { LinkGapAnalysis } from '../../links-gap-utils.js';
 import { LinksViewApp } from '../links-view-components.js';
 import { createGapsViewState, createLinksViewState, type LinkWithTransactions } from '../links-view-state.js';
 
