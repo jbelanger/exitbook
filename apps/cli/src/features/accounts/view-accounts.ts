@@ -1,19 +1,22 @@
 // Command registration for view accounts subcommand
 
 import type { AccountType } from '@exitbook/core';
-import type { Spinner } from '@exitbook/logger';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import { render } from 'ink';
+import React from 'react';
 import type { z } from 'zod';
 
+import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { AccountsViewCommandOptionsSchema } from '../shared/schemas.js';
 import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta } from '../shared/view-utils.js';
 
-import type { AccountInfo, SessionSummary, ViewAccountsParams, ViewAccountsResult } from './view-accounts-utils.js';
-import { formatAccountsListForDisplay } from './view-accounts-utils.js';
+import { AccountsViewApp, computeTypeCounts, createAccountsViewState } from './components/index.js';
+import type { AccountInfo, SessionSummary, ViewAccountsParams } from './view-accounts-utils.js';
+import { toAccountViewItem } from './view-accounts-utils.js';
 
 /**
  * Command options (validated at CLI boundary).
@@ -74,48 +77,147 @@ async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
   // Validate options at CLI boundary
   const parseResult = AccountsViewCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager('text');
-    output.error(
-      'view-accounts',
+    displayCliError(
+      'accounts-view',
       new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS
+      ExitCodes.INVALID_ARGS,
+      'text'
     );
-    return;
   }
 
   const options = parseResult.data;
-  const output = new OutputManager(options.json ? 'json' : 'text');
+  const isJsonMode = options.json ?? false;
+
+  // Build params from options
+  const params: ViewAccountsParams = {
+    accountId: options.accountId,
+    source: options.source,
+    accountType: options.type as AccountType | undefined,
+    showSessions: options.showSessions,
+  };
+
+  // Configure logger
+  configureLogger({
+    mode: isJsonMode ? 'json' : 'text',
+    verbose: false,
+    sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
+  });
+
+  if (isJsonMode) {
+    await executeAccountsViewJSON(params);
+  } else {
+    await executeAccountsViewTUI(params);
+  }
+  resetLoggerContext();
+}
+
+/**
+ * Execute accounts view in TUI mode
+ */
+async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void> {
+  const { initializeDatabase, closeDatabase, AccountRepository, UserRepository, ImportSessionRepository } =
+    await import('@exitbook/data');
+  const { AccountService } = await import('@exitbook/ingestion');
+
+  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
+  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
+  let exitCode = 0;
 
   try {
-    // Build params from options
-    const params: ViewAccountsParams = {
-      accountId: options.accountId,
-      source: options.source,
-      accountType: options.type as AccountType | undefined,
-      showSessions: options.showSessions,
-    };
+    database = await initializeDatabase();
+    const accountRepo = new AccountRepository(database);
+    const sessionRepo = new ImportSessionRepository(database);
+    const userRepo = new UserRepository(database);
 
-    const spinner = output.spinner();
-    output.intro('ExitBook | View accounts');
-    spinner?.start('Fetching accounts...');
+    const accountService = new AccountService(accountRepo, sessionRepo, userRepo);
 
-    configureLogger({
-      mode: options.json ? 'json' : 'text',
-      spinner: spinner || undefined,
-      verbose: false,
-      sinks: options.json
-        ? { ui: false, structured: 'file' }
-        : spinner
-          ? { ui: true, structured: 'off' }
-          : { ui: false, structured: 'stdout' },
+    const result = await accountService.viewAccounts({
+      accountId: params.accountId,
+      accountType: params.accountType,
+      source: params.source,
+      showSessions: params.showSessions,
     });
 
-    // Initialize repositories and service
-    const { initializeDatabase, closeDatabase, AccountRepository, UserRepository, ImportSessionRepository } =
-      await import('@exitbook/data');
-    const { AccountService } = await import('@exitbook/ingestion');
+    if (result.isErr()) {
+      console.error('\n⚠ Error:', result.error.message);
+      exitCode = ExitCodes.GENERAL_ERROR;
+      return;
+    }
 
-    const database = await initializeDatabase();
+    const { accounts, sessions } = result.value;
+
+    // Transform to view items
+    const viewItems = accounts.map((account) => toAccountViewItem(account, sessions));
+
+    // Compute type counts
+    const typeCounts = computeTypeCounts(viewItems);
+
+    // Close DB (read-only, no connection needed during browsing)
+    await closeDatabase(database);
+    database = undefined;
+
+    // Create initial state
+    const initialState = createAccountsViewState(
+      viewItems,
+      {
+        sourceFilter: params.source,
+        typeFilter: params.accountType,
+        showSessions: params.showSessions ?? false,
+      },
+      viewItems.length,
+      typeCounts
+    );
+
+    // Render TUI
+    await new Promise<void>((resolve, reject) => {
+      inkInstance = render(
+        React.createElement(AccountsViewApp, {
+          initialState,
+          onQuit: () => {
+            if (inkInstance) {
+              inkInstance.unmount();
+            }
+          },
+        })
+      );
+
+      inkInstance.waitUntilExit().then(resolve).catch(reject);
+    });
+  } catch (error) {
+    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
+    exitCode = ExitCodes.GENERAL_ERROR;
+  } finally {
+    if (inkInstance) {
+      try {
+        inkInstance.unmount();
+      } catch {
+        /* ignore unmount errors */
+      }
+    }
+    if (database) {
+      await closeDatabase(database);
+    }
+
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
+  }
+}
+
+/**
+ * Execute accounts view in JSON mode
+ */
+async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void> {
+  const output = new OutputManager('json');
+
+  const { initializeDatabase, closeDatabase, AccountRepository, UserRepository, ImportSessionRepository } =
+    await import('@exitbook/data');
+  const { AccountService } = await import('@exitbook/ingestion');
+
+  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
+
+  try {
+    database = await initializeDatabase();
     const accountRepo = new AccountRepository(database);
     const sessionRepo = new ImportSessionRepository(database);
     const userRepo = new UserRepository(database);
@@ -130,62 +232,41 @@ async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
     });
 
     await closeDatabase(database);
-
-    resetLoggerContext();
+    database = undefined;
 
     if (result.isErr()) {
-      spinner?.stop('Failed to fetch accounts');
       output.error('view-accounts', result.error, ExitCodes.GENERAL_ERROR);
       return;
     }
 
-    handleViewAccountsSuccess(output, result.value, params, spinner);
+    const { accounts, count, sessions } = result.value;
+
+    // Prepare result data for JSON mode
+    const filters: Record<string, unknown> = {};
+    if (params.accountId) filters['accountId'] = params.accountId;
+    if (params.source) filters['source'] = params.source;
+    if (params.accountType) filters['accountType'] = params.accountType;
+
+    // Convert sessions Map to Record for JSON serialization (if requested)
+    const sessionsRecord: Record<string, SessionSummary[]> | undefined = sessions
+      ? Object.fromEntries(Array.from(sessions.entries()).map(([key, value]) => [key.toString(), value]))
+      : undefined;
+
+    const data: ViewAccountsCommandResultData = {
+      accounts,
+      sessions: params.showSessions ? sessionsRecord : undefined,
+    };
+
+    const resultData: ViewAccountsCommandResult = {
+      data,
+      meta: buildViewMeta(count, 0, count, count, filters),
+    };
+
+    output.json('view-accounts', resultData);
   } catch (error) {
-    resetLoggerContext();
+    if (database) {
+      await closeDatabase(database);
+    }
     output.error('view-accounts', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
-}
-
-/**
- * Handle successful view accounts.
- */
-function handleViewAccountsSuccess(
-  output: OutputManager,
-  result: ViewAccountsResult,
-  params: ViewAccountsParams,
-  spinner: Spinner | undefined
-): void {
-  const { accounts, count, sessions } = result;
-
-  spinner?.stop();
-
-  // Display text output
-  if (output.isTextMode()) {
-    formatAccountsListForDisplay(output, accounts, sessions);
-    output.outro(`Found ${count} accounts.`);
-    return;
-  }
-
-  // Prepare result data for JSON mode
-  const filters: Record<string, unknown> = {};
-  if (params.accountId) filters['accountId'] = params.accountId;
-  if (params.source) filters['source'] = params.source;
-  if (params.accountType) filters['accountType'] = params.accountType;
-
-  // Convert sessions Map to Record for JSON serialization (if requested)
-  const sessionsRecord: Record<string, SessionSummary[]> | undefined = sessions
-    ? Object.fromEntries(Array.from(sessions.entries()).map(([key, value]) => [key.toString(), value]))
-    : undefined;
-
-  const data: ViewAccountsCommandResultData = {
-    accounts,
-    sessions: params.showSessions ? sessionsRecord : undefined,
-  };
-
-  const resultData: ViewAccountsCommandResult = {
-    data,
-    meta: buildViewMeta(count, 0, count, count, filters),
-  };
-
-  output.json('view-accounts', resultData);
 }
