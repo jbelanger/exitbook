@@ -184,6 +184,7 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
 
   let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
   let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
+  let exitCode = 0;
 
   try {
     // Initialize database and repositories
@@ -196,10 +197,8 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
     const linksResult = await linkRepo.findAll(params.status as LinkStatus);
     if (linksResult.isErr()) {
       console.error('\n⚠ Error:', linksResult.error.message);
-      if (database) {
-        await closeDatabase(database);
-      }
-      process.exit(ExitCodes.GENERAL_ERROR);
+      exitCode = ExitCodes.GENERAL_ERROR;
+      return;
     }
 
     let links = linksResult.value;
@@ -262,14 +261,10 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
       // Wait for TUI to exit
       inkInstance.waitUntilExit().then(resolve).catch(reject);
     });
-
-    // Clean up
-    if (database) {
-      await closeDatabase(database);
-    }
   } catch (error) {
     console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
-
+    exitCode = ExitCodes.GENERAL_ERROR;
+  } finally {
     if (inkInstance) {
       try {
         inkInstance.unmount();
@@ -281,7 +276,9 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
       await closeDatabase(database);
     }
 
-    process.exit(ExitCodes.GENERAL_ERROR);
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
   }
 }
 
@@ -294,6 +291,7 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
 
   let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
   let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
+  let exitCode = 0;
 
   try {
     database = await initializeDatabase();
@@ -304,15 +302,15 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
     const transactionsResult = await txRepo.getTransactions();
     if (transactionsResult.isErr()) {
       console.error('\n⚠ Error:', transactionsResult.error.message);
-      await closeDatabase(database);
-      process.exit(ExitCodes.GENERAL_ERROR);
+      exitCode = ExitCodes.GENERAL_ERROR;
+      return;
     }
 
     const linksResult = await linkRepo.findAll();
     if (linksResult.isErr()) {
       console.error('\n⚠ Error:', linksResult.error.message);
-      await closeDatabase(database);
-      process.exit(ExitCodes.GENERAL_ERROR);
+      exitCode = ExitCodes.GENERAL_ERROR;
+      return;
     }
 
     // Run gap analysis
@@ -347,7 +345,8 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
     });
   } catch (error) {
     console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
-
+    exitCode = ExitCodes.GENERAL_ERROR;
+  } finally {
     if (inkInstance) {
       try {
         inkInstance.unmount();
@@ -359,7 +358,9 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
       await closeDatabase(database);
     }
 
-    process.exit(ExitCodes.GENERAL_ERROR);
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
   }
 }
 

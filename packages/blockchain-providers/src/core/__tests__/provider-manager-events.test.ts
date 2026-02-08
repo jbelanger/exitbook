@@ -53,7 +53,7 @@ describe('emitProviderTransition', () => {
   describe('fresh start (no cursor)', () => {
     it('emits selection event with INITIAL reason', async () => {
       const events: ProviderEvent[] = [];
-      const eventBus = new EventBus<ProviderEvent>(() => {});
+      const eventBus = new EventBus<ProviderEvent>({ onError: () => {} });
       eventBus.subscribe((event) => events.push(event));
 
       const context: ProviderTransitionContext = {
@@ -90,7 +90,7 @@ describe('emitProviderTransition', () => {
   describe('resume with same provider', () => {
     it('emits resume event only', async () => {
       const events: ProviderEvent[] = [];
-      const eventBus = new EventBus<ProviderEvent>(() => {});
+      const eventBus = new EventBus<ProviderEvent>({ onError: () => {} });
       eventBus.subscribe((event) => events.push(event));
 
       const context: ProviderTransitionContext = {
@@ -119,7 +119,7 @@ describe('emitProviderTransition', () => {
   describe('resume with different provider', () => {
     it('emits selection event with PRIORITY reason', async () => {
       const events: ProviderEvent[] = [];
-      const eventBus = new EventBus<ProviderEvent>(() => {});
+      const eventBus = new EventBus<ProviderEvent>({ onError: () => {} });
       eventBus.subscribe((event) => events.push(event));
 
       const context: ProviderTransitionContext = {
@@ -145,7 +145,7 @@ describe('emitProviderTransition', () => {
   describe('failover', () => {
     it('emits failover event followed by selection', async () => {
       const events: ProviderEvent[] = [];
-      const eventBus = new EventBus<ProviderEvent>(() => {});
+      const eventBus = new EventBus<ProviderEvent>({ onError: () => {} });
       eventBus.subscribe((event) => events.push(event));
 
       const context: ProviderTransitionContext = {
@@ -174,7 +174,7 @@ describe('emitProviderTransition', () => {
 
     it('uses default reason if failureReason not provided', async () => {
       const events: ProviderEvent[] = [];
-      const eventBus = new EventBus<ProviderEvent>(() => {});
+      const eventBus = new EventBus<ProviderEvent>({ onError: () => {} });
       eventBus.subscribe((event) => events.push(event));
 
       const context: ProviderTransitionContext = {
@@ -198,7 +198,7 @@ describe('emitProviderTransition', () => {
   describe('cursor adjustment', () => {
     it('emits cursor adjustment event when cursor changes', async () => {
       const events: ProviderEvent[] = [];
-      const eventBus = new EventBus<ProviderEvent>(() => {});
+      const eventBus = new EventBus<ProviderEvent>({ onError: () => {} });
       eventBus.subscribe((event) => events.push(event));
 
       const context: ProviderTransitionContext = {
@@ -227,7 +227,7 @@ describe('emitProviderTransition', () => {
 
     it('uses FAILOVER reason when adjusting cursor during failover', async () => {
       const events: ProviderEvent[] = [];
-      const eventBus = new EventBus<ProviderEvent>(() => {});
+      const eventBus = new EventBus<ProviderEvent>({ onError: () => {} });
       eventBus.subscribe((event) => events.push(event));
 
       const context: ProviderTransitionContext = {
@@ -253,7 +253,7 @@ describe('emitProviderTransition', () => {
 
     it('does not emit cursor adjustment when cursor unchanged', async () => {
       const events: ProviderEvent[] = [];
-      const eventBus = new EventBus<ProviderEvent>(() => {});
+      const eventBus = new EventBus<ProviderEvent>({ onError: () => {} });
       eventBus.subscribe((event) => events.push(event));
 
       const sameCursor = createMockCursor(1000, 'alchemy');
@@ -277,7 +277,7 @@ describe('emitProviderTransition', () => {
   describe('complex scenarios', () => {
     it('emits failover, then cursor adjustment when both occur', async () => {
       const events: ProviderEvent[] = [];
-      const eventBus = new EventBus<ProviderEvent>(() => {});
+      const eventBus = new EventBus<ProviderEvent>({ onError: () => {} });
       eventBus.subscribe((event) => events.push(event));
 
       const context: ProviderTransitionContext = {
@@ -311,7 +311,7 @@ describe('emitProviderTransition', () => {
 
     it('handles one-shot operations without streamType', async () => {
       const events: ProviderEvent[] = [];
-      const eventBus = new EventBus<ProviderEvent>(() => {});
+      const eventBus = new EventBus<ProviderEvent>({ onError: () => {} });
       eventBus.subscribe((event) => events.push(event));
 
       const oneShotOperation: StreamingOperation = {

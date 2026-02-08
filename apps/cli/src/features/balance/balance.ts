@@ -235,9 +235,7 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
       options.debugTop
     );
 
-    // Exit required: BlockchainProviderManager uses fetch with keep-alive connections
-    // that cannot be manually closed, preventing natural process termination
-    process.exit(0);
+    // Allow finally block cleanup, then exit naturally on success.
   } catch (error) {
     resetLoggerContext();
     output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
@@ -273,9 +271,9 @@ async function handleBalanceSuccess(
   if (!isExchange) {
     if (account.sourceName.toLowerCase() === 'ethereum') {
       const cursor = account.lastCursor?.['beacon_withdrawal'];
-      if (cursor?.metadata?.fetchStatus === 'failed') {
+      if (cursor?.metadata?.['fetchStatus'] === 'failed') {
         beaconStatus = { includesBeaconWithdrawals: false, beaconWithdrawalsSkippedReason: 'api-error' };
-      } else if (!cursor || cursor?.metadata?.fetchStatus === 'skipped') {
+      } else if (!cursor || cursor?.metadata?.['fetchStatus'] === 'skipped') {
         beaconStatus = { includesBeaconWithdrawals: false, beaconWithdrawalsSkippedReason: 'no-provider-support' };
       } else if (cursor.totalFetched > 0) {
         beaconStatus = { includesBeaconWithdrawals: true };

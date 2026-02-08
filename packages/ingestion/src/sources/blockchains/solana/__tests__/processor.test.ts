@@ -1337,7 +1337,7 @@ describe('SolanaTransactionProcessor - Scam Detection', () => {
     // Import and instantiate real scam detection service
     const { ScamDetectionService } = await import('../../../../features/scam-detection/scam-detection-service.js');
     // eslint-disable-next-line @typescript-eslint/no-empty-function -- avoid unnecessary complexity in test
-    const mockEventBus = new EventBus<IngestionEvent>(() => {});
+    const mockEventBus = new EventBus<IngestionEvent>({ onError: () => {} });
     const scamDetectionService = new ScamDetectionService(mockEventBus);
 
     const processor = new SolanaTransactionProcessor(mockMetadataService, scamDetectionService);

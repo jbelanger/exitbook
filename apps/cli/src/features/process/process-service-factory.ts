@@ -60,8 +60,10 @@ export async function createProcessServices(): Promise<ProcessServices> {
   const instrumentation = new InstrumentationCollector();
   providerManager.setInstrumentation(instrumentation);
 
-  const eventBus = new EventBus<CliEvent>((err) => {
-    console.error('Event handler error:', err);
+  const eventBus = new EventBus<CliEvent>({
+    onError: (err) => {
+      console.error('Event handler error:', err);
+    },
   });
   providerManager.setEventBus(eventBus as EventBus<ProviderEvent>);
 

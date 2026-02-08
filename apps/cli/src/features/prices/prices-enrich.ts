@@ -129,8 +129,10 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
     }
 
     // Ink TUI mode
-    const eventBus = new EventBus<PriceEvent>((err) => {
-      logger.error({ err }, 'EventBus error');
+    const eventBus = new EventBus<PriceEvent>({
+      onError: (err) => {
+        logger.error({ err }, 'EventBus error');
+      },
     });
     const instrumentation = new InstrumentationCollector();
     const controller = new PricesEnrichController(eventBus, instrumentation);
@@ -168,8 +170,7 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       } else {
         controller.complete();
         await controller.stop();
-        // Exit required: price providers use fetch with keep-alive connections
-        process.exit(0);
+        // Success path exits naturally after event loop drains.
       }
     } catch (error) {
       await closeDatabase(database);

@@ -130,7 +130,6 @@ async function executeBenchmarkRateLimitCommand(rawOptions: unknown): Promise<vo
 
     handler.destroy?.();
     resetLoggerContext();
-    process.exit(0);
   } catch (error) {
     resetLoggerContext();
     output.error(

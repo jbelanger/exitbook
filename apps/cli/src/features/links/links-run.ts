@@ -172,7 +172,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       const result = await promptForLinksRunParams();
       if (!result) {
         console.log('\nTransaction linking cancelled');
-        process.exit(0);
+        return;
       }
       params = result;
     } else {
