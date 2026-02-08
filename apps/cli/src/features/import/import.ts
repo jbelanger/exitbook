@@ -4,7 +4,6 @@ import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import type { IngestionMonitorController } from '../../ui/ingestion-monitor/index.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { createErrorResponse, exitCodeToErrorCode } from '../shared/cli-response.js';
 import { unwrapResult } from '../shared/command-execution.js';
@@ -14,6 +13,7 @@ import { promptConfirm } from '../shared/prompts.js';
 import { ImportCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
+import type { IngestionMonitorController } from './components/index.js';
 import type { ImportResult } from './import-handler.js';
 import { createImportServices } from './import-service-factory.js';
 import { buildImportParams } from './import-utils.js';

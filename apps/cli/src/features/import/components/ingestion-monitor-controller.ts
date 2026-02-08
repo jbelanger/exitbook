@@ -14,7 +14,7 @@ import type { InstrumentationCollector } from '@exitbook/http';
 import { render } from 'ink';
 import React from 'react';
 
-import { EventRelay } from '../shared/index.js';
+import { EventRelay } from '../../../ui/shared/index.js';
 
 import { IngestionMonitor } from './ingestion-monitor-components.js';
 import type { LifecycleBridge } from './ingestion-monitor-state.js';

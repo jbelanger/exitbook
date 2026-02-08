@@ -20,7 +20,7 @@ import {
 } from '@exitbook/ingestion';
 import type { Result } from 'neverthrow';
 
-import { IngestionMonitorController } from '../../ui/ingestion-monitor/index.js';
+import { IngestionMonitorController } from '../import/components/index.js';
 
 import type { ProcessHandlerParams, ProcessResult } from './process-handler.js';
 import { executeReprocess } from './process-handler.js';

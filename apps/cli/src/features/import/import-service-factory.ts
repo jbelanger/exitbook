@@ -20,8 +20,7 @@ import {
   TransactionProcessService,
 } from '@exitbook/ingestion';
 
-import { IngestionMonitorController } from '../../ui/ingestion-monitor/index.js';
-
+import { IngestionMonitorController } from './components/index.js';
 import { ImportHandler } from './import-handler.js';
 
 type IngestionMonitorEvent = IngestionEvent | ProviderEvent;

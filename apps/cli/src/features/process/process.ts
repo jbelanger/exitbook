@@ -3,7 +3,7 @@ import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import type { IngestionMonitorController } from '../../ui/ingestion-monitor/index.js';
+import type { IngestionMonitorController } from '../import/components/index.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { createErrorResponse, exitCodeToErrorCode } from '../shared/cli-response.js';
 import { ExitCodes } from '../shared/exit-codes.js';

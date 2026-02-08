@@ -2,8 +2,8 @@
  * Dashboard State - Operation tree model
  */
 
-import type { OperationStatus, ProviderApiStats, ApiCallStats } from '../shared/index.js';
-import { createProviderStats } from '../shared/index.js';
+import type { OperationStatus, ProviderApiStats, ApiCallStats } from '../../../ui/shared/index.js';
+import { createProviderStats } from '../../../ui/shared/index.js';
 
 export type { OperationStatus, ProviderApiStats, ApiCallStats };
 
