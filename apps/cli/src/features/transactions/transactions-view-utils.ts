@@ -4,7 +4,6 @@ import type { AssetMovement, FeeMovement, SourceType, UniversalTransactionData }
 import { computePrimaryMovement, Currency } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ExportFormat } from '../export/export-utils.js';
 import { formatDateTime, parseDate } from '../shared/view-utils.js';
 import type { CommonViewFilters } from '../shared/view-utils.js';
 
@@ -14,6 +13,7 @@ import type {
   TransactionViewItem,
   TransactionsViewFilters,
 } from './components/transactions-view-state.js';
+import type { ExportFormat } from './transactions-export-utils.js';
 
 /**
  * Parameters for view transactions command.

@@ -195,7 +195,7 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
 
     // Create export handler (DB stays open for export re-queries)
     const { TransactionLinkRepository } = await import('@exitbook/accounting');
-    const { ExportHandler } = await import('../export/export-handler.js');
+    const { ExportHandler } = await import('./transactions-export-handler.js');
     const txLinkRepo = new TransactionLinkRepository(database);
     const exportHandler = new ExportHandler(txRepo, txLinkRepo);
 

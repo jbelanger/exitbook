@@ -3,7 +3,7 @@
  */
 
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
-import type { CsvFormat, ExportFormat } from '../../export/export-utils.js';
+import type { CsvFormat, ExportFormat } from '../transactions-export-utils.js';
 
 import { getTransactionsViewVisibleRows } from './transactions-view-layout.js';
 import type { TransactionsViewState } from './transactions-view-state.js';

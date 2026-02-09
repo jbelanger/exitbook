@@ -74,7 +74,7 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
 
   const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
-  const { ExportHandler } = await import('../export/export-handler.js');
+  const { ExportHandler } = await import('./transactions-export-handler.js');
 
   let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
 

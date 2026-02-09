@@ -5,7 +5,7 @@
 import type { OperationCategory } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
-import type { CsvFormat, ExportFormat } from '../../export/export-utils.js';
+import type { CsvFormat, ExportFormat } from '../transactions-export-utils.js';
 
 /**
  * Per-movement display item (inflow or outflow)

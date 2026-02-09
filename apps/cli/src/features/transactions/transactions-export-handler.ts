@@ -3,11 +3,10 @@ import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ViewTransactionsParams } from '../transactions/transactions-view-utils.js';
-import { applyTransactionFilters } from '../transactions/transactions-view-utils.js';
-
-import type { ExportHandlerParams, NormalizedCsvOutput } from './export-utils.js';
-import { convertToCSV, convertToJSON, convertToNormalizedCSV } from './export-utils.js';
+import type { ExportHandlerParams, NormalizedCsvOutput } from './transactions-export-utils.js';
+import { convertToCSV, convertToJSON, convertToNormalizedCSV } from './transactions-export-utils.js';
+import type { ViewTransactionsParams } from './transactions-view-utils.js';
+import { applyTransactionFilters } from './transactions-view-utils.js';
 
 // Re-export for convenience
 export type { ExportHandlerParams };
