@@ -139,6 +139,7 @@ describe('handleTransactionsKeyboardInput', () => {
     home: false,
     pageDown: false,
     pageUp: false,
+    return: false,
   };
 
   it('handles arrow up key', () => {
@@ -155,7 +156,9 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         /* no-op */
       },
-      24
+      24,
+      'browse',
+      undefined
     );
     expect(actionReceived).toBe(true);
   });
@@ -174,7 +177,9 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         /* no-op */
       },
-      24
+      24,
+      'browse',
+      undefined
     );
     expect(actionReceived).toBe(true);
   });
@@ -193,7 +198,9 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         /* no-op */
       },
-      24
+      24,
+      'browse',
+      undefined
     );
     expect(actionReceived).toBe(true);
   });
@@ -212,7 +219,9 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         /* no-op */
       },
-      24
+      24,
+      'browse',
+      undefined
     );
     expect(actionReceived).toBe(true);
   });
@@ -230,7 +239,9 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         quitCalled = true;
       },
-      24
+      24,
+      'browse',
+      undefined
     );
     expect(quitCalled).toBe(true);
   });
@@ -248,7 +259,9 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         quitCalled = true;
       },
-      24
+      24,
+      'browse',
+      undefined
     );
     expect(quitCalled).toBe(true);
   });
@@ -267,7 +280,9 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         /* no-op */
       },
-      24
+      24,
+      'browse',
+      undefined
     );
     expect(actionReceived).toBe(true);
   });
@@ -286,7 +301,9 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         /* no-op */
       },
-      24
+      24,
+      'browse',
+      undefined
     );
     expect(actionReceived).toBe(true);
   });
@@ -305,7 +322,9 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         /* no-op */
       },
-      24
+      24,
+      'browse',
+      undefined
     );
     expect(actionReceived).toBe(true);
   });
@@ -324,7 +343,9 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         /* no-op */
       },
-      24
+      24,
+      'browse',
+      undefined
     );
     expect(actionReceived).toBe(true);
   });
@@ -343,7 +364,9 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         /* no-op */
       },
-      24
+      24,
+      'browse',
+      undefined
     );
     expect(actionReceived).toBe(true);
   });
@@ -362,7 +385,9 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         /* no-op */
       },
-      24
+      24,
+      'browse',
+      undefined
     );
     expect(actionReceived).toBe(true);
   });
@@ -381,7 +406,9 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         /* no-op */
       },
-      24
+      24,
+      'browse',
+      undefined
     );
     expect(receivedVisibleRows).toBe(6);
 
@@ -393,9 +420,374 @@ describe('handleTransactionsKeyboardInput', () => {
       () => {
         /* no-op */
       },
-      40
+      40,
+      'browse',
+      undefined
     );
     expect(receivedVisibleRows).toBe(22);
+  });
+});
+
+// ─── Export Functionality Tests ─────────────────────────────────────────────
+
+describe('transactionsViewReducer - Export Actions', () => {
+  it('opens export panel from browse phase', () => {
+    const state = createMockState();
+    expect(state.phase).toBe('browse');
+    expect(state.exportPanel).toBeUndefined();
+
+    const newState = transactionsViewReducer(state, { type: 'OPEN_EXPORT' });
+    expect(newState.phase).toBe('export-format');
+    expect(newState.exportPanel).toEqual({ phase: 'export-format', selectedFormatIndex: 0 });
+  });
+
+  it('ignores OPEN_EXPORT when not in browse phase', () => {
+    const state = createMockState();
+    state.phase = 'exporting';
+
+    const newState = transactionsViewReducer(state, { type: 'OPEN_EXPORT' });
+    expect(newState.phase).toBe('exporting');
+  });
+
+  it('moves format cursor up with wrapping', () => {
+    const state = createMockState();
+    state.phase = 'export-format';
+    state.exportPanel = { phase: 'export-format', selectedFormatIndex: 1 };
+
+    const newState = transactionsViewReducer(state, { type: 'MOVE_FORMAT_CURSOR', direction: 'up' });
+    expect(newState.exportPanel).toEqual({ phase: 'export-format', selectedFormatIndex: 0 });
+
+    // Wrap to bottom
+    const wrappedState = transactionsViewReducer(newState, { type: 'MOVE_FORMAT_CURSOR', direction: 'up' });
+    expect(wrappedState.exportPanel).toEqual({ phase: 'export-format', selectedFormatIndex: 2 });
+  });
+
+  it('moves format cursor down with wrapping', () => {
+    const state = createMockState();
+    state.phase = 'export-format';
+    state.exportPanel = { phase: 'export-format', selectedFormatIndex: 1 };
+
+    const newState = transactionsViewReducer(state, { type: 'MOVE_FORMAT_CURSOR', direction: 'down' });
+    expect(newState.exportPanel).toEqual({ phase: 'export-format', selectedFormatIndex: 2 });
+
+    // Wrap to top
+    const wrappedState = transactionsViewReducer(newState, { type: 'MOVE_FORMAT_CURSOR', direction: 'down' });
+    expect(wrappedState.exportPanel).toEqual({ phase: 'export-format', selectedFormatIndex: 0 });
+  });
+
+  it('selects format and enters exporting phase', () => {
+    const state = createMockState();
+    state.phase = 'export-format';
+    state.exportPanel = { phase: 'export-format', selectedFormatIndex: 0 };
+
+    const newState = transactionsViewReducer(state, {
+      type: 'SELECT_FORMAT',
+      format: 'csv',
+      csvFormat: 'normalized',
+    });
+    expect(newState.phase).toBe('exporting');
+    expect(newState.exportPanel).toEqual({
+      phase: 'exporting',
+      format: 'csv',
+      transactionCount: 4,
+    });
+  });
+
+  it('completes export successfully', () => {
+    const state = createMockState();
+    state.phase = 'exporting';
+    state.exportPanel = { phase: 'exporting', format: 'csv', transactionCount: 4 };
+
+    const newState = transactionsViewReducer(state, {
+      type: 'EXPORT_COMPLETE',
+      outputPaths: ['data/transactions.csv'],
+      transactionCount: 4,
+    });
+    expect(newState.phase).toBe('export-complete');
+    expect(newState.exportPanel).toEqual({
+      phase: 'export-complete',
+      outputPaths: ['data/transactions.csv'],
+      transactionCount: 4,
+    });
+  });
+
+  it('handles export failure', () => {
+    const state = createMockState();
+    state.phase = 'exporting';
+    state.exportPanel = { phase: 'exporting', format: 'csv', transactionCount: 4 };
+
+    const newState = transactionsViewReducer(state, {
+      type: 'EXPORT_FAILED',
+      message: 'Disk full',
+    });
+    expect(newState.phase).toBe('export-error');
+    expect(newState.exportPanel).toEqual({
+      phase: 'export-error',
+      message: 'Disk full',
+    });
+  });
+
+  it('cancels export and returns to browse', () => {
+    const state = createMockState();
+    state.phase = 'export-format';
+    state.exportPanel = { phase: 'export-format', selectedFormatIndex: 1 };
+
+    const newState = transactionsViewReducer(state, { type: 'CANCEL_EXPORT' });
+    expect(newState.phase).toBe('browse');
+    expect(newState.exportPanel).toBeUndefined();
+  });
+
+  it('dismisses export result and returns to browse', () => {
+    const state = createMockState();
+    state.phase = 'export-complete';
+    state.exportPanel = { phase: 'export-complete', outputPaths: ['data/tx.csv'], transactionCount: 4 };
+
+    const newState = transactionsViewReducer(state, { type: 'DISMISS_EXPORT_RESULT' });
+    expect(newState.phase).toBe('browse');
+    expect(newState.exportPanel).toBeUndefined();
+  });
+});
+
+describe('handleTransactionsKeyboardInput - Export Mode', () => {
+  const defaultKey = {
+    upArrow: false,
+    downArrow: false,
+    leftArrow: false,
+    rightArrow: false,
+    escape: false,
+    ctrl: false,
+    shift: false,
+    tab: false,
+    backspace: false,
+    delete: false,
+    meta: false,
+    pageUp: false,
+    pageDown: false,
+    end: false,
+    home: false,
+    return: false,
+  };
+
+  it('opens export panel on "e" key in browse mode', () => {
+    let actionReceived = false;
+    const dispatch = (action: unknown) => {
+      expect(action).toEqual({ type: 'OPEN_EXPORT' });
+      actionReceived = true;
+    };
+
+    handleTransactionsKeyboardInput(
+      'e',
+      defaultKey,
+      dispatch,
+      () => {
+        /* empty */
+      },
+      24,
+      'browse',
+      undefined
+    );
+    expect(actionReceived).toBe(true);
+  });
+
+  it('ignores all input during exporting phase', () => {
+    let actionReceived = false;
+    const dispatch = () => {
+      actionReceived = true;
+    };
+
+    const result = handleTransactionsKeyboardInput(
+      'e',
+      defaultKey,
+      dispatch,
+      () => {
+        /* empty */
+      },
+      24,
+      'exporting',
+      {
+        phase: 'exporting',
+        format: 'csv',
+        transactionCount: 10,
+      }
+    );
+
+    expect(actionReceived).toBe(false);
+    expect(result).toBeUndefined();
+  });
+
+  it('dismisses export result on any key', () => {
+    let actionReceived = false;
+    const dispatch = (action: unknown) => {
+      expect(action).toEqual({ type: 'DISMISS_EXPORT_RESULT' });
+      actionReceived = true;
+    };
+
+    handleTransactionsKeyboardInput(
+      'x',
+      defaultKey,
+      dispatch,
+      () => {
+        /* empty */
+      },
+      24,
+      'export-complete',
+      {
+        phase: 'export-complete',
+        outputPaths: ['data/tx.csv'],
+        transactionCount: 10,
+      }
+    );
+
+    expect(actionReceived).toBe(true);
+  });
+
+  it('cancels export on escape in format selector', () => {
+    let actionReceived = false;
+    const dispatch = (action: unknown) => {
+      expect(action).toEqual({ type: 'CANCEL_EXPORT' });
+      actionReceived = true;
+    };
+
+    handleTransactionsKeyboardInput(
+      '',
+      { ...defaultKey, escape: true },
+      dispatch,
+      () => {
+        /* empty */
+      },
+      24,
+      'export-format',
+      {
+        phase: 'export-format',
+        selectedFormatIndex: 0,
+      }
+    );
+
+    expect(actionReceived).toBe(true);
+  });
+
+  it('selects format by number key (1/2/3)', () => {
+    const result = handleTransactionsKeyboardInput(
+      '2',
+      defaultKey,
+      () => {
+        /* empty */
+      },
+      () => {
+        /* empty */
+      },
+      24,
+      'export-format',
+      {
+        phase: 'export-format',
+        selectedFormatIndex: 0,
+      }
+    );
+
+    expect(result).toEqual({ format: 'csv', csvFormat: 'simple' });
+  });
+
+  it('navigates format selector with arrow keys', () => {
+    let lastAction: unknown;
+    const dispatch = (action: unknown) => {
+      lastAction = action;
+    };
+
+    // Arrow up
+    handleTransactionsKeyboardInput(
+      '',
+      { ...defaultKey, upArrow: true },
+      dispatch,
+      () => {
+        /* empty */
+      },
+      24,
+      'export-format',
+      {
+        phase: 'export-format',
+        selectedFormatIndex: 1,
+      }
+    );
+    expect(lastAction).toEqual({ type: 'MOVE_FORMAT_CURSOR', direction: 'up' });
+
+    // Arrow down
+    handleTransactionsKeyboardInput(
+      '',
+      { ...defaultKey, downArrow: true },
+      dispatch,
+      () => {
+        /* empty */
+      },
+      24,
+      'export-format',
+      {
+        phase: 'export-format',
+        selectedFormatIndex: 0,
+      }
+    );
+    expect(lastAction).toEqual({ type: 'MOVE_FORMAT_CURSOR', direction: 'down' });
+  });
+
+  it('navigates format selector with vim keys (j/k)', () => {
+    let lastAction: unknown;
+    const dispatch = (action: unknown) => {
+      lastAction = action;
+    };
+
+    // k (up)
+    handleTransactionsKeyboardInput(
+      'k',
+      defaultKey,
+      dispatch,
+      () => {
+        /* empty */
+      },
+      24,
+      'export-format',
+      {
+        phase: 'export-format',
+        selectedFormatIndex: 1,
+      }
+    );
+    expect(lastAction).toEqual({ type: 'MOVE_FORMAT_CURSOR', direction: 'up' });
+
+    // j (down)
+    handleTransactionsKeyboardInput(
+      'j',
+      defaultKey,
+      dispatch,
+      () => {
+        /* empty */
+      },
+      24,
+      'export-format',
+      {
+        phase: 'export-format',
+        selectedFormatIndex: 0,
+      }
+    );
+    expect(lastAction).toEqual({ type: 'MOVE_FORMAT_CURSOR', direction: 'down' });
+  });
+
+  it('confirms selection with enter key', () => {
+    const result = handleTransactionsKeyboardInput(
+      '',
+      { ...defaultKey, return: true },
+      () => {
+        /* empty */
+      },
+      () => {
+        /* empty */
+      },
+      24,
+      'export-format',
+      {
+        phase: 'export-format',
+        selectedFormatIndex: 2,
+      }
+    );
+
+    expect(result).toEqual({ format: 'json', csvFormat: undefined });
   });
 });
 

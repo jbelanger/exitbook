@@ -276,6 +276,25 @@ export const TransactionsViewCommandOptionsSchema = z.object({
 });
 
 /**
+ * Transactions export command options
+ */
+export const TransactionsExportCommandOptionsSchema = z
+  .object({
+    format: z.enum(['csv', 'json']).optional().default('csv'),
+    csvFormat: z.enum(['normalized', 'simple']).optional(),
+    output: z.string().optional(),
+    json: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.format !== 'csv' && data.csvFormat) {
+      ctx.addIssue({
+        code: 'custom',
+        message: '--csv-format is only supported when --format csv is selected',
+      });
+    }
+  });
+
+/**
  * Prices view command options
  */
 export const PricesViewCommandOptionsSchema = z.object({

@@ -3,6 +3,9 @@ import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
+import type { ViewTransactionsParams } from '../transactions/transactions-view-utils.js';
+import { applyTransactionFilters } from '../transactions/transactions-view-utils.js';
+
 import type { ExportHandlerParams, NormalizedCsvOutput } from './export-utils.js';
 import { convertToCSV, convertToJSON, convertToNormalizedCSV } from './export-utils.js';
 
@@ -65,8 +68,24 @@ export class ExportHandler {
         return err(new Error(`Failed to retrieve transactions: ${transactionsResult.error.message}`));
       }
 
-      const transactions = transactionsResult.value;
-      logger.info(`Retrieved ${transactions.length} transactions`);
+      let transactions = transactionsResult.value;
+      logger.info(`Retrieved ${transactions.length} transactions from database`);
+
+      // Apply in-memory filters (asset, operationType, noPrice, until)
+      const filterParams: Partial<ViewTransactionsParams> = {
+        until: params.until,
+        assetSymbol: params.assetSymbol,
+        operationType: params.operationType,
+        noPrice: params.noPrice,
+      };
+
+      const filteredResult = applyTransactionFilters(transactions, filterParams as ViewTransactionsParams);
+      if (filteredResult.isErr()) {
+        return err(filteredResult.error);
+      }
+
+      transactions = filteredResult.value;
+      logger.info(`Filtered to ${transactions.length} transactions`);
 
       // Convert to requested format
       let outputs: ExportOutput[];

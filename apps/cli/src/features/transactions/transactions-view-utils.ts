@@ -4,10 +4,16 @@ import type { AssetMovement, FeeMovement, SourceType, UniversalTransactionData }
 import { computePrimaryMovement, Currency } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
+import type { ExportFormat } from '../export/export-utils.js';
 import { formatDateTime, parseDate } from '../shared/view-utils.js';
 import type { CommonViewFilters } from '../shared/view-utils.js';
 
-import type { FeeDisplayItem, MovementDisplayItem, TransactionViewItem } from './components/transactions-view-state.js';
+import type {
+  FeeDisplayItem,
+  MovementDisplayItem,
+  TransactionViewItem,
+  TransactionsViewFilters,
+} from './components/transactions-view-state.js';
 
 /**
  * Parameters for view transactions command.
@@ -312,4 +318,16 @@ export function toTransactionViewItem(tx: UniversalTransactionData): Transaction
     excludedFromAccounting: tx.excludedFromAccounting ?? false,
     isSpam: tx.isSpam ?? false,
   };
+}
+
+/**
+ * Generate a default output path for inline export based on active filters and format.
+ */
+export function generateDefaultPath(filters: TransactionsViewFilters, format: ExportFormat): string {
+  const parts: string[] = [];
+  if (filters.sourceFilter) parts.push(filters.sourceFilter);
+  if (filters.assetFilter) parts.push(filters.assetFilter.toLowerCase());
+  parts.push('transactions');
+  const extension = format === 'json' ? '.json' : '.csv';
+  return `data/${parts.join('-')}${extension}`;
 }

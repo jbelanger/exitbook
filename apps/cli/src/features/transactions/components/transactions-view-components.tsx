@@ -4,17 +4,25 @@
 
 import { Currency } from '@exitbook/core';
 import { Box, Text, useInput, useStdout } from 'ink';
+import Spinner from 'ink-spinner';
 import { useReducer, type FC } from 'react';
 
 import { Divider } from '../../../ui/shared/index.js';
 
-import { handleTransactionsKeyboardInput, transactionsViewReducer } from './transactions-view-controller.js';
+import {
+  FORMAT_OPTIONS,
+  handleTransactionsKeyboardInput,
+  transactionsViewReducer,
+} from './transactions-view-controller.js';
 import { getTransactionsViewVisibleRows } from './transactions-view-layout.js';
 import type {
   CategoryCounts,
+  ExportPanelState,
   FeeDisplayItem,
   MovementDisplayItem,
+  OnExport,
   TransactionViewItem,
+  TransactionsViewPhase,
   TransactionsViewState,
 } from './transactions-view-state.js';
 
@@ -23,8 +31,9 @@ import type {
  */
 export const TransactionsViewApp: FC<{
   initialState: TransactionsViewState;
+  onExport?: OnExport | undefined;
   onQuit: () => void;
-}> = ({ initialState, onQuit }) => {
+}> = ({ initialState, onExport, onQuit }) => {
   const [state, dispatch] = useReducer(transactionsViewReducer, initialState);
 
   const { stdout } = useStdout();
@@ -32,12 +41,41 @@ export const TransactionsViewApp: FC<{
   const terminalWidth = stdout?.columns || 80;
 
   useInput((input, key) => {
-    handleTransactionsKeyboardInput(input, key, dispatch, onQuit, terminalHeight);
+    const formatSelection = handleTransactionsKeyboardInput(
+      input,
+      key,
+      dispatch,
+      onQuit,
+      terminalHeight,
+      state.phase,
+      state.exportPanel
+    );
+
+    if (formatSelection && onExport) {
+      dispatch({ type: 'SELECT_FORMAT', format: formatSelection.format, csvFormat: formatSelection.csvFormat });
+      onExport(formatSelection.format, formatSelection.csvFormat)
+        .then((result) => {
+          if (result.isOk()) {
+            dispatch({
+              type: 'EXPORT_COMPLETE',
+              outputPaths: result.value.outputPaths,
+              transactionCount: result.value.transactionCount,
+            });
+          } else {
+            dispatch({ type: 'EXPORT_FAILED', message: result.error.message });
+          }
+        })
+        .catch((error: unknown) => {
+          dispatch({ type: 'EXPORT_FAILED', message: error instanceof Error ? error.message : String(error) });
+        });
+    }
   });
 
   if (state.transactions.length === 0) {
     return <TransactionsEmptyState state={state} />;
   }
+
+  const showDetailPanel = state.phase === 'browse';
 
   return (
     <Box flexDirection="column">
@@ -49,9 +87,12 @@ export const TransactionsViewApp: FC<{
         terminalHeight={terminalHeight}
       />
       <Divider width={terminalWidth} />
-      <TransactionDetailPanel state={state} />
+      {showDetailPanel ? <TransactionDetailPanel state={state} /> : <ExportPanel exportPanel={state.exportPanel} />}
       <Text> </Text>
-      <ControlsBar />
+      <ControlsBar
+        phase={state.phase}
+        hasExport={onExport !== undefined}
+      />
     </Box>
   );
 };
@@ -373,10 +414,136 @@ const BlockchainSection: FC<{ item: TransactionViewItem }> = ({ item }) => {
   );
 };
 
+// ─── Export Panel ────────────────────────────────────────────────────────────
+
+const ExportPanel: FC<{ exportPanel: ExportPanelState | undefined }> = ({ exportPanel }) => {
+  if (!exportPanel) return null;
+
+  switch (exportPanel.phase) {
+    case 'export-format':
+      return <FormatSelector selectedIndex={exportPanel.selectedFormatIndex} />;
+    case 'exporting':
+      return (
+        <ExportingSpinner
+          format={exportPanel.format}
+          transactionCount={exportPanel.transactionCount}
+        />
+      );
+    case 'export-complete':
+      return (
+        <ExportComplete
+          outputPaths={exportPanel.outputPaths}
+          transactionCount={exportPanel.transactionCount}
+        />
+      );
+    case 'export-error':
+      return <ExportError message={exportPanel.message} />;
+  }
+};
+
+const FormatSelector: FC<{ selectedIndex: number }> = ({ selectedIndex }) => {
+  return (
+    <Box
+      flexDirection="column"
+      paddingTop={0}
+    >
+      <Text bold>Export format:</Text>
+      <Text> </Text>
+      {FORMAT_OPTIONS.map((option, i) => {
+        const isSelected = i === selectedIndex;
+        const cursor = isSelected ? '▸' : ' ';
+        const number = `${i + 1}`;
+        return (
+          <Text key={option.label}>
+            {isSelected ? (
+              <Text bold>
+                {cursor} {number}. {option.label}
+              </Text>
+            ) : (
+              <Text>
+                {cursor} <Text dimColor>{number}.</Text> {option.label}
+              </Text>
+            )}
+          </Text>
+        );
+      })}
+    </Box>
+  );
+};
+
+const ExportingSpinner: FC<{ format: string; transactionCount: number }> = ({ format, transactionCount }) => {
+  return (
+    <Box
+      flexDirection="column"
+      paddingTop={0}
+    >
+      <Text>
+        <Text color="green">
+          <Spinner type="dots" />
+        </Text>{' '}
+        Exporting {transactionCount} transactions as {format.toUpperCase()}...
+      </Text>
+    </Box>
+  );
+};
+
+const ExportComplete: FC<{ outputPaths: string[]; transactionCount: number }> = ({ outputPaths, transactionCount }) => {
+  return (
+    <Box
+      flexDirection="column"
+      paddingTop={0}
+    >
+      <Text
+        color="green"
+        bold
+      >
+        Export complete!
+      </Text>
+      <Text> </Text>
+      <Text>{transactionCount} transactions exported to:</Text>
+      {outputPaths.map((p) => (
+        <Text key={p}> {p}</Text>
+      ))}
+      <Text> </Text>
+      <Text dimColor>Press any key to continue</Text>
+    </Box>
+  );
+};
+
+const ExportError: FC<{ message: string }> = ({ message }) => {
+  return (
+    <Box
+      flexDirection="column"
+      paddingTop={0}
+    >
+      <Text
+        color="red"
+        bold
+      >
+        Export failed
+      </Text>
+      <Text> </Text>
+      <Text>{message}</Text>
+      <Text> </Text>
+      <Text dimColor>Press any key to continue</Text>
+    </Box>
+  );
+};
+
 // ─── Controls & Empty State ─────────────────────────────────────────────────
 
-const ControlsBar: FC = () => {
-  return <Text dimColor>↑↓/j/k · ^U/^D page · Home/End · q/esc quit</Text>;
+const ControlsBar: FC<{ hasExport: boolean; phase: TransactionsViewPhase }> = ({ phase, hasExport }) => {
+  if (phase === 'export-format') {
+    return <Text dimColor>↑↓/j/k select · 1/2/3 choose · enter confirm · esc cancel</Text>;
+  }
+  if (phase === 'exporting') {
+    return <Text dimColor>Exporting...</Text>;
+  }
+  if (phase === 'export-complete' || phase === 'export-error') {
+    return <Text dimColor>Press any key to continue</Text>;
+  }
+  const exportHint = hasExport ? ' · e export' : '';
+  return <Text dimColor>↑↓/j/k · ^U/^D page · Home/End{exportHint} · q/esc quit</Text>;
 };
 
 const TransactionsEmptyState: FC<{ state: TransactionsViewState }> = ({ state }) => {

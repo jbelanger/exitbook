@@ -3,6 +3,9 @@
  */
 
 import type { OperationCategory } from '@exitbook/core';
+import type { Result } from 'neverthrow';
+
+import type { CsvFormat, ExportFormat } from '../../export/export-utils.js';
 
 /**
  * Per-movement display item (inflow or outflow)
@@ -95,6 +98,36 @@ export interface TransactionsViewFilters {
 }
 
 /**
+ * TUI phase: controls which panel is shown and which keys are active.
+ */
+export type TransactionsViewPhase = 'browse' | 'export-format' | 'exporting' | 'export-complete' | 'export-error';
+
+/**
+ * Export callback result returned from the entry-point onExport callback.
+ */
+export interface ExportCallbackResult {
+  outputPaths: string[];
+  transactionCount: number;
+}
+
+/**
+ * Callback signature passed from the entry point into the component.
+ */
+export type OnExport = (
+  format: ExportFormat,
+  csvFormat: CsvFormat | undefined
+) => Promise<Result<ExportCallbackResult, Error>>;
+
+/**
+ * Export panel state (discriminated by phase).
+ */
+export type ExportPanelState =
+  | { phase: 'export-format'; selectedFormatIndex: number }
+  | { format: ExportFormat; phase: 'exporting'; transactionCount: number }
+  | { outputPaths: string[]; phase: 'export-complete'; transactionCount: number }
+  | { message: string; phase: 'export-error' };
+
+/**
  * Transactions view state
  */
 export interface TransactionsViewState {
@@ -112,6 +145,10 @@ export interface TransactionsViewState {
 
   // When limit truncates results
   displayedCount?: number | undefined;
+
+  // Export
+  phase: TransactionsViewPhase;
+  exportPanel?: ExportPanelState | undefined;
 }
 
 /**
@@ -158,5 +195,7 @@ export function createTransactionsViewState(
     scrollOffset: 0,
     filters,
     displayedCount: transactions.length < totalCount ? transactions.length : undefined,
+    phase: 'browse',
+    exportPanel: undefined,
   };
 }

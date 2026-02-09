@@ -33,6 +33,18 @@ export interface ExportHandlerParams {
 
   /** Since date (Unix timestamp in milliseconds) - optional */
   since?: number | undefined;
+
+  /** Filter by transactions until this date (ISO string or YYYY-MM-DD) */
+  until?: string | undefined;
+
+  /** Filter by asset symbol */
+  assetSymbol?: string | undefined;
+
+  /** Filter by operation type */
+  operationType?: string | undefined;
+
+  /** Filter to transactions missing price data */
+  noPrice?: boolean | undefined;
 }
 
 /**

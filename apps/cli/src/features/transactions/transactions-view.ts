@@ -3,21 +3,25 @@
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
+import { err, ok } from 'neverthrow';
 import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
+import { writeFilesAtomically } from '../shared/file-utils.js';
 import { OutputManager } from '../shared/output.js';
 import { TransactionsViewCommandOptionsSchema } from '../shared/schemas.js';
 import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta, parseDate } from '../shared/view-utils.js';
 
 import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from './components/index.js';
+import type { ExportCallbackResult, OnExport } from './components/index.js';
 import type { TransactionInfo, ViewTransactionsParams, ViewTransactionsResult } from './transactions-view-utils.js';
 import {
   applyTransactionFilters,
   formatTransactionForDisplay,
+  generateDefaultPath,
   toTransactionViewItem,
 } from './transactions-view-utils.js';
 
@@ -178,28 +182,64 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
     // Apply limit
     const viewItems = params.limit ? allViewItems.slice(0, params.limit) : allViewItems;
 
-    // Close DB (read-only, no connection needed during browsing)
-    await closeDatabase(database);
-    database = undefined;
+    // Build filters object for state and export
+    const viewFilters = {
+      sourceFilter: params.source,
+      assetFilter: params.assetSymbol,
+      operationTypeFilter: params.operationType,
+      noPriceFilter: params.noPrice,
+    };
 
     // Create initial state
-    const initialState = createTransactionsViewState(
-      viewItems,
-      {
-        sourceFilter: params.source,
-        assetFilter: params.assetSymbol,
-        operationTypeFilter: params.operationType,
-        noPriceFilter: params.noPrice,
-      },
-      totalCount,
-      categoryCounts
-    );
+    const initialState = createTransactionsViewState(viewItems, viewFilters, totalCount, categoryCounts);
+
+    // Create export handler (DB stays open for export re-queries)
+    const { TransactionLinkRepository } = await import('@exitbook/accounting');
+    const { ExportHandler } = await import('../export/export-handler.js');
+    const txLinkRepo = new TransactionLinkRepository(database);
+    const exportHandler = new ExportHandler(txRepo, txLinkRepo);
+
+    const onExport: OnExport = async (format, csvFormat) => {
+      try {
+        const outputPath = generateDefaultPath(viewFilters, format);
+
+        const result = await exportHandler.execute({
+          sourceName: params.source,
+          format,
+          csvFormat,
+          outputPath,
+          until: params.until,
+          assetSymbol: params.assetSymbol,
+          operationType: params.operationType,
+          noPrice: params.noPrice,
+        });
+
+        if (result.isErr()) {
+          return err(result.error);
+        }
+
+        // Write files atomically
+        const writeResult = await writeFilesAtomically(result.value.outputs);
+        if (writeResult.isErr()) {
+          return err(new Error(`Failed to write export files: ${writeResult.error.message}`));
+        }
+
+        const exportResult: ExportCallbackResult = {
+          outputPaths: writeResult.value,
+          transactionCount: result.value.transactionCount,
+        };
+        return ok(exportResult);
+      } catch (error) {
+        return err(error instanceof Error ? error : new Error(String(error)));
+      }
+    };
 
     // Render TUI
     await new Promise<void>((resolve, reject) => {
       inkInstance = render(
         React.createElement(TransactionsViewApp, {
           initialState,
+          onExport,
           onQuit: () => {
             if (inkInstance) {
               inkInstance.unmount();
