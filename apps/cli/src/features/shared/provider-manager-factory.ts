@@ -74,5 +74,5 @@ export async function createProviderManagerWithStats(
     }
   };
 
-  return { providerManager, providerStatsDb: providerStatsDb, cleanup };
+  return { providerManager, providerStatsDb, cleanup };
 }
