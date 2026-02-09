@@ -24,6 +24,7 @@ import { registerImportCommand } from './features/import/import.js';
 import { registerLinksCommand } from './features/links/links.js';
 import { registerPricesCommand } from './features/prices/prices.js';
 import { registerReprocessCommand } from './features/process/process.js';
+import { registerProvidersCommand } from './features/providers/providers.js';
 import { registerTransactionsCommand } from './features/transactions/transactions.js';
 
 // Initialize all providers at startup
@@ -49,6 +50,7 @@ async function main() {
   registerCostBasisCommand(program);
   registerBalanceCommand(program);
   registerBlockchainsCommand(program);
+  registerProvidersCommand(program);
   registerBenchmarkRateLimitCommand(program);
 
   await program.parseAsync();

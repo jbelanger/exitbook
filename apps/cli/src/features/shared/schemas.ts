@@ -376,6 +376,16 @@ export const BlockchainsViewCommandOptionsSchema = z.object({
 });
 
 /**
+ * Providers view command options
+ */
+export const ProvidersViewCommandOptionsSchema = z.object({
+  blockchain: z.string().optional(),
+  health: z.enum(['healthy', 'degraded', 'unhealthy']).optional(),
+  missingApiKey: z.boolean().optional(),
+  json: z.boolean().optional(),
+});
+
+/**
  * Benchmark-rate-limit command options
  */
 export const BenchmarkRateLimitCommandOptionsSchema = z.object({

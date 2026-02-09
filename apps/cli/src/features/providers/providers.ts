@@ -1,0 +1,17 @@
+// Unified providers command for viewing blockchain API provider configuration and health
+
+import type { Command } from 'commander';
+
+import { registerProvidersViewCommand } from './view-providers.js';
+
+/**
+ * Register the unified providers command with all subcommands.
+ *
+ * Structure:
+ *   providers view               - View providers with filters
+ */
+export function registerProvidersCommand(program: Command): void {
+  const providers = program.command('providers').description('View and manage blockchain API providers');
+
+  registerProvidersViewCommand(providers);
+}
