@@ -1,4 +1,3 @@
-import { BlockchainProviderManager, loadExplorerConfig } from '@exitbook/blockchain-providers';
 import type { Account, ExchangeCredentials } from '@exitbook/core';
 import {
   AccountRepository,
@@ -19,6 +18,7 @@ import { EventRelay } from '../../ui/shared/event-relay.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
 import { BalanceCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
@@ -159,8 +159,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
       });
     } else if (options.accountId) {
       // Single-account online JSON (preserves existing format)
-      const config = loadExplorerConfig();
-      const providerManager = new BlockchainProviderManager(config);
+      const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
       const balanceService = new BalanceService(
         accountRepo,
         transactionRepo,
@@ -220,11 +219,11 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
         });
       } finally {
         await balanceService.destroy();
+        await cleanupProviderManager();
       }
     } else {
       // All-accounts online JSON
-      const config = loadExplorerConfig();
-      const providerManager = new BlockchainProviderManager(config);
+      const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
       const balanceService = new BalanceService(
         accountRepo,
         transactionRepo,
@@ -318,6 +317,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
         });
       } finally {
         await balanceService.destroy();
+        await cleanupProviderManager();
       }
     }
   } catch (error) {
@@ -336,8 +336,7 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
   const sessionRepo = new ImportSessionRepository(database);
   const tokenMetadataRepo = new TokenMetadataRepository(database);
 
-  const config = loadExplorerConfig();
-  const providerManager = new BlockchainProviderManager(config);
+  const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
   const balanceService = new BalanceService(
     accountRepo,
     transactionRepo,
@@ -411,6 +410,7 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
       }
     }
     await balanceService.destroy();
+    await cleanupProviderManager();
     await closeDatabase(database);
   }
 }
@@ -525,8 +525,7 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
   const sessionRepo = new ImportSessionRepository(database);
   const tokenMetadataRepo = new TokenMetadataRepository(database);
 
-  const config = loadExplorerConfig();
-  const providerManager = new BlockchainProviderManager(config);
+  const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
   const balanceService = new BalanceService(
     accountRepo,
     transactionRepo,
@@ -633,6 +632,7 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
       }
     }
     await balanceService.destroy();
+    await cleanupProviderManager();
     await closeDatabase(database);
   }
 }

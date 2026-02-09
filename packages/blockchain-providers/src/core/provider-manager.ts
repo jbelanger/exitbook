@@ -17,6 +17,8 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderEvent } from '../events.js';
 import type { NormalizedTransactionBase } from '../index.js';
+import { hydrateProviderStats } from '../persistence/provider-stats-utils.js';
+import type { ProviderStatsRepository } from '../persistence/repositories/provider-stats-repository.js';
 
 import { emitProviderTransition } from './provider-manager-events.js';
 import {
@@ -63,18 +65,40 @@ const PROVIDER_CACHE_TIMEOUT_MS = 30000;
 // 1 minute provides reasonable responsiveness while minimizing background health check traffic
 const PROVIDER_HEALTH_CHECK_INTERVAL_MS = 60000;
 
+/**
+ * Create composite key for provider stats to prevent collisions when same provider
+ * name is used across multiple blockchains (e.g., tatum for bitcoin, litecoin, etc.)
+ */
+function getProviderKey(blockchain: string, providerName: string): string {
+  return `${blockchain}/${providerName}`;
+}
+
+/**
+ * Parse composite key back into blockchain and provider name
+ */
+function parseProviderKey(key: string): { blockchain: string; providerName: string } {
+  const [blockchain, providerName] = key.split('/');
+  if (!blockchain || !providerName) {
+    throw new Error(`Invalid provider key format: ${key}`);
+  }
+  return { blockchain, providerName };
+}
+
 export class BlockchainProviderManager {
   private cacheCleanupTimer?: NodeJS.Timeout | undefined;
   private readonly cacheTimeout = PROVIDER_CACHE_TIMEOUT_MS;
-  private circuitStates = new Map<string, CircuitState>();
+  private circuitStates = new Map<string, CircuitState>(); // blockchain/providerName -> circuit state
   private readonly healthCheckInterval = PROVIDER_HEALTH_CHECK_INTERVAL_MS;
   private healthCheckTimer?: NodeJS.Timeout | undefined;
-  private healthStatus = new Map<string, ProviderHealth>();
+  private healthStatus = new Map<string, ProviderHealth>(); // blockchain/providerName -> health
   private instrumentation?: InstrumentationCollector | undefined;
   private eventBus?: EventBus<ProviderEvent> | undefined;
   private providers = new Map<string, IBlockchainProvider[]>();
   private requestCache = new Map<string, CacheEntry>();
   private preferredProviders = new Map<string, string>(); // blockchain -> preferred provider name
+  private statsRepository?: ProviderStatsRepository | undefined;
+  private totalSuccesses = new Map<string, number>(); // blockchain/providerName -> lifetime successes
+  private totalFailures = new Map<string, number>(); // blockchain/providerName -> lifetime failures
 
   constructor(private readonly explorerConfig?: BlockchainExplorersConfig | undefined) {
     // Providers are auto-registered via the import in this file's header
@@ -173,6 +197,13 @@ export class BlockchainProviderManager {
       this.cacheCleanupTimer = undefined;
     }
 
+    // Persist stats before clearing maps (best-effort — must not block cleanup)
+    try {
+      await this.savePersistedStats();
+    } catch (error) {
+      logger.warn(`Failed to save provider stats on destroy: ${getErrorMessage(error)}`);
+    }
+
     const closePromises: Promise<PromiseSettledResult<void>>[] = [];
 
     for (const providerList of this.providers.values()) {
@@ -198,6 +229,8 @@ export class BlockchainProviderManager {
     this.healthStatus.clear();
     this.circuitStates.clear();
     this.requestCache.clear();
+    this.totalSuccesses.clear();
+    this.totalFailures.clear();
 
     if (failures.length > 0) {
       throw new Error(`Provider manager cleanup failed: ${failures.length} provider(s) failed to close`);
@@ -322,6 +355,9 @@ export class BlockchainProviderManager {
 
   /**
    * Get provider health status for monitoring
+   *
+   * When blockchain is specified: returns map keyed by provider name
+   * When blockchain is omitted: returns map keyed by "blockchain/providerName" to avoid collisions
    */
   getProviderHealth(blockchain?: string): Map<string, ProviderHealth & { circuitState: CircuitStatus }> {
     const result = new Map<string, ProviderHealth & { circuitState: CircuitStatus }>();
@@ -332,11 +368,14 @@ export class BlockchainProviderManager {
 
     const now = Date.now();
     for (const provider of providersToCheck) {
-      const health = this.healthStatus.get(provider.name);
-      const circuitState = this.circuitStates.get(provider.name);
+      const providerKey = getProviderKey(provider.blockchain, provider.name);
+      const health = this.healthStatus.get(providerKey);
+      const circuitState = this.circuitStates.get(providerKey);
 
       if (health && circuitState) {
-        result.set(provider.name, getProviderHealthWithCircuit(health, circuitState, now));
+        // Use composite key only when querying across blockchains to prevent collisions
+        const mapKey = blockchain ? provider.name : providerKey;
+        result.set(mapKey, getProviderHealthWithCircuit(health, circuitState, now));
       }
     }
 
@@ -351,25 +390,39 @@ export class BlockchainProviderManager {
   }
 
   /**
-   * Register providers for a specific blockchain
+   * Register providers for a specific blockchain.
+   * Guards with has() checks so persisted stats loaded via loadPersistedStats() aren't overwritten.
    */
   registerProviders(blockchain: string, providers: IBlockchainProvider[]): void {
     this.providers.set(blockchain, providers);
 
-    // Initialize health status and circuit breaker state for each provider
     for (const provider of providers) {
-      this.healthStatus.set(provider.name, createInitialHealth());
-      this.circuitStates.set(provider.name, createInitialCircuitState());
+      const providerKey = getProviderKey(blockchain, provider.name);
+
+      // Only initialize if not already loaded from persisted stats
+      if (!this.healthStatus.has(providerKey)) {
+        this.healthStatus.set(providerKey, createInitialHealth());
+      }
+      if (!this.circuitStates.has(providerKey)) {
+        this.circuitStates.set(providerKey, createInitialCircuitState());
+      }
+      if (!this.totalSuccesses.has(providerKey)) {
+        this.totalSuccesses.set(providerKey, 0);
+      }
+      if (!this.totalFailures.has(providerKey)) {
+        this.totalFailures.set(providerKey, 0);
+      }
     }
   }
 
   /**
    * Reset circuit breaker for a specific provider
    */
-  resetCircuitBreaker(providerName: string): void {
-    const circuitState = this.circuitStates.get(providerName);
+  resetCircuitBreaker(blockchain: string, providerName: string): void {
+    const providerKey = getProviderKey(blockchain, providerName);
+    const circuitState = this.circuitStates.get(providerKey);
     if (circuitState) {
-      this.circuitStates.set(providerName, resetCircuit(circuitState));
+      this.circuitStates.set(providerKey, resetCircuit(circuitState));
     }
   }
 
@@ -387,6 +440,79 @@ export class BlockchainProviderManager {
    */
   setEventBus(eventBus: EventBus<ProviderEvent>): void {
     this.eventBus = eventBus;
+  }
+
+  /**
+   * Set the stats repository for persisting provider health across runs
+   */
+  setStatsRepository(repository: ProviderStatsRepository): void {
+    this.statsRepository = repository;
+  }
+
+  /**
+   * Load persisted provider stats from the database.
+   * Must be called after setStatsRepository() and before providers are registered
+   * so that registerProviders() sees existing health/circuit data and skips re-initialization.
+   */
+  async loadPersistedStats(): Promise<void> {
+    if (!this.statsRepository) return;
+
+    const result = await this.statsRepository.getAll();
+    if (result.isErr()) {
+      logger.warn(`Failed to load persisted provider stats: ${result.error.message}`);
+      return;
+    }
+
+    const rows = result.value;
+    if (rows.length === 0) return;
+
+    const now = Date.now();
+
+    for (const row of rows) {
+      const hydrated = hydrateProviderStats(row, now);
+      const providerKey = getProviderKey(hydrated.blockchain, hydrated.providerName);
+      this.healthStatus.set(providerKey, hydrated.health);
+      this.circuitStates.set(providerKey, hydrated.circuitState);
+      this.totalSuccesses.set(providerKey, hydrated.totalSuccesses);
+      this.totalFailures.set(providerKey, hydrated.totalFailures);
+    }
+
+    logger.info(`Loaded persisted stats for ${rows.length} provider(s)`);
+  }
+
+  /**
+   * Save current provider stats to the database.
+   * Per-provider failures are logged as warnings; does not throw.
+   */
+  private async savePersistedStats(): Promise<void> {
+    if (!this.statsRepository) return;
+
+    for (const [providerKey, health] of this.healthStatus) {
+      const { blockchain, providerName } = parseProviderKey(providerKey);
+
+      const circuitState = this.circuitStates.get(providerKey);
+      if (!circuitState) continue;
+
+      const result = await this.statsRepository.upsert({
+        blockchain,
+        providerName,
+        avgResponseTime: health.averageResponseTime,
+        errorRate: health.errorRate,
+        consecutiveFailures: health.consecutiveFailures,
+        isHealthy: health.isHealthy,
+        lastError: health.lastError,
+        lastChecked: health.lastChecked,
+        failureCount: circuitState.failureCount,
+        lastFailureTime: circuitState.lastFailureTime,
+        lastSuccessTime: circuitState.lastSuccessTime,
+        totalSuccesses: this.totalSuccesses.get(providerKey) ?? 0,
+        totalFailures: this.totalFailures.get(providerKey) ?? 0,
+      });
+
+      if (result.isErr()) {
+        logger.warn(`Failed to save stats for ${blockchain}/${providerName}: ${result.error.message}`);
+      }
+    }
   }
 
   private buildHttpClientHooks(blockchain: string, providerName: string): HttpClientHooks {
@@ -683,12 +809,13 @@ export class BlockchainProviderManager {
             logger.error(`Provider ${provider.name} batch failed: ${lastErrorMessage}`);
 
             // Record failure and try next provider
-            const circuitState = this.getOrCreateCircuitState(provider.name);
+            const circuitState = this.getOrCreateCircuitState(blockchain, provider.name);
             const now = Date.now();
             const newCircuitState = recordFailure(circuitState, now);
-            this.circuitStates.set(provider.name, newCircuitState);
+            const providerKey = getProviderKey(blockchain, provider.name);
+            this.circuitStates.set(providerKey, newCircuitState);
             this.emitCircuitOpenIfTriggered(blockchain, provider.name, circuitState, newCircuitState, lastErrorMessage);
-            this.updateProviderHealth(provider.name, false, 0, getErrorMessage(batchResult.error));
+            this.updateProviderHealth(blockchain, provider.name, false, 0, getErrorMessage(batchResult.error));
 
             providerIndex++;
             providerFailed = true;
@@ -733,8 +860,9 @@ export class BlockchainProviderManager {
           currentCursor = batch.cursor;
 
           // Record success for circuit breaker
-          const circuitState = this.getOrCreateCircuitState(provider.name);
-          this.circuitStates.set(provider.name, recordSuccess(circuitState, Date.now()));
+          const circuitState = this.getOrCreateCircuitState(blockchain, provider.name);
+          const providerKey = getProviderKey(blockchain, provider.name);
+          this.circuitStates.set(providerKey, recordSuccess(circuitState, Date.now()));
         }
 
         // If provider failed during streaming, continue to next provider
@@ -752,12 +880,13 @@ export class BlockchainProviderManager {
         logger.error(`Provider ${provider.name} failed with unexpected error: ${errorMessage}`);
 
         // Record failure
-        const circuitState = this.getOrCreateCircuitState(provider.name);
+        const circuitState = this.getOrCreateCircuitState(blockchain, provider.name);
         const now = Date.now();
         const newCircuitState = recordFailure(circuitState, now);
-        this.circuitStates.set(provider.name, newCircuitState);
+        const providerKey = getProviderKey(blockchain, provider.name);
+        this.circuitStates.set(providerKey, newCircuitState);
         this.emitCircuitOpenIfTriggered(blockchain, provider.name, circuitState, newCircuitState, errorMessage);
-        this.updateProviderHealth(provider.name, false, 0, errorMessage);
+        this.updateProviderHealth(blockchain, provider.name, false, 0, errorMessage);
 
         // Try next provider
         providerIndex++;
@@ -857,7 +986,7 @@ export class BlockchainProviderManager {
 
     for (const provider of providers) {
       attemptNumber++;
-      const circuitState = this.getOrCreateCircuitState(provider.name);
+      const circuitState = this.getOrCreateCircuitState(blockchain, provider.name);
 
       // Log provider attempt with reason
       if (attemptNumber === 1) {
@@ -872,9 +1001,19 @@ export class BlockchainProviderManager {
       const circuitIsHalfOpen = isCircuitHalfOpen(circuitState, now);
 
       // Skip providers with open circuit breakers (unless all are open)
-      if (circuitIsOpen && hasAvailableProviders(providers, this.circuitStates, now)) {
-        logger.debug(`Skipping provider ${provider.name} - circuit breaker is open`);
-        continue;
+      // Recompute circuit map each iteration to reflect mutations from previous attempts
+      if (circuitIsOpen) {
+        const circuitMapForBlockchain = new Map<string, CircuitState>();
+        for (const p of providers) {
+          const providerKey = getProviderKey(blockchain, p.name);
+          const circuit = this.circuitStates.get(providerKey);
+          if (circuit) circuitMapForBlockchain.set(p.name, circuit);
+        }
+
+        if (hasAvailableProviders(providers, circuitMapForBlockchain, now)) {
+          logger.debug(`Skipping provider ${provider.name} - circuit breaker is open`);
+          continue;
+        }
       }
 
       // Log when using a provider with open circuit breaker (all providers are failing)
@@ -898,8 +1037,9 @@ export class BlockchainProviderManager {
 
         // Record success - update circuit state
         const newCircuitState = recordSuccess(circuitState, Date.now());
-        this.circuitStates.set(provider.name, newCircuitState);
-        this.updateProviderHealth(provider.name, true, responseTime);
+        const providerKey = getProviderKey(blockchain, provider.name);
+        this.circuitStates.set(providerKey, newCircuitState);
+        this.updateProviderHealth(blockchain, provider.name, true, responseTime);
 
         return ok({
           data: result.value,
@@ -934,9 +1074,10 @@ export class BlockchainProviderManager {
         // Record failure - update circuit state
         const now = Date.now();
         const newCircuitState = recordFailure(circuitState, now);
-        this.circuitStates.set(provider.name, newCircuitState);
+        const providerKey = getProviderKey(blockchain, provider.name);
+        this.circuitStates.set(providerKey, newCircuitState);
         this.emitCircuitOpenIfTriggered(blockchain, provider.name, circuitState, newCircuitState, lastError.message);
-        this.updateProviderHealth(provider.name, false, responseTime, lastError.message);
+        this.updateProviderHealth(blockchain, provider.name, false, responseTime, lastError.message);
 
         // Continue to next provider
         continue;
@@ -960,11 +1101,12 @@ export class BlockchainProviderManager {
   /**
    * Get or create circuit breaker state for provider
    */
-  private getOrCreateCircuitState(providerName: string): CircuitState {
-    let circuitState = this.circuitStates.get(providerName);
+  private getOrCreateCircuitState(blockchain: string, providerName: string): CircuitState {
+    const providerKey = getProviderKey(blockchain, providerName);
+    let circuitState = this.circuitStates.get(providerKey);
     if (!circuitState) {
       circuitState = createInitialCircuitState();
-      this.circuitStates.set(providerName, circuitState);
+      this.circuitStates.set(providerKey, circuitState);
     }
     return circuitState;
   }
@@ -973,15 +1115,24 @@ export class BlockchainProviderManager {
    * Update health metrics for a provider (DRY helper)
    */
   private updateProviderHealth(
+    blockchain: string,
     providerName: string,
     success: boolean,
     responseTime: number,
     errorMessage?: string
   ): void {
-    const currentHealth = this.healthStatus.get(providerName);
+    const providerKey = getProviderKey(blockchain, providerName);
+    const currentHealth = this.healthStatus.get(providerKey);
     if (currentHealth) {
       const updatedHealth = updateHealthMetrics(currentHealth, success, responseTime, Date.now(), errorMessage);
-      this.healthStatus.set(providerName, updatedHealth);
+      this.healthStatus.set(providerKey, updatedHealth);
+    }
+
+    // Increment lifetime counters
+    if (success) {
+      this.totalSuccesses.set(providerKey, (this.totalSuccesses.get(providerKey) ?? 0) + 1);
+    } else {
+      this.totalFailures.set(providerKey, (this.totalFailures.get(providerKey) ?? 0) + 1);
     }
   }
 
@@ -992,10 +1143,23 @@ export class BlockchainProviderManager {
     const candidates = this.providers.get(blockchain) || [];
     const now = Date.now();
 
+    // Create blockchain-specific maps for this operation
+    // Utilities expect provider.name keys, but manager uses composite keys
+    const healthMapForBlockchain = new Map<string, ProviderHealth>();
+    const circuitMapForBlockchain = new Map<string, CircuitState>();
+
+    for (const provider of candidates) {
+      const providerKey = getProviderKey(blockchain, provider.name);
+      const health = this.healthStatus.get(providerKey);
+      const circuit = this.circuitStates.get(providerKey);
+      if (health) healthMapForBlockchain.set(provider.name, health);
+      if (circuit) circuitMapForBlockchain.set(provider.name, circuit);
+    }
+
     const scoredProviders = selectProvidersForOperation(
       candidates,
-      this.healthStatus,
-      this.circuitStates,
+      healthMapForBlockchain,
+      circuitMapForBlockchain,
       operation,
       now
     );
@@ -1181,7 +1345,7 @@ export class BlockchainProviderManager {
    * Perform periodic health checks on all providers
    */
   private async performHealthChecks(): Promise<void> {
-    for (const [, providers] of this.providers.entries()) {
+    for (const [blockchain, providers] of this.providers.entries()) {
       for (const provider of providers) {
         try {
           const startTime = Date.now();
@@ -1189,12 +1353,12 @@ export class BlockchainProviderManager {
           const responseTime = Date.now() - startTime;
 
           if (result.isErr()) {
-            this.updateProviderHealth(provider.name, false, responseTime, result.error.message);
+            this.updateProviderHealth(blockchain, provider.name, false, responseTime, result.error.message);
           } else {
-            this.updateProviderHealth(provider.name, result.value, responseTime);
+            this.updateProviderHealth(blockchain, provider.name, result.value, responseTime);
           }
         } catch (error) {
-          this.updateProviderHealth(provider.name, false, 0, getErrorMessage(error, 'Health check failed'));
+          this.updateProviderHealth(blockchain, provider.name, false, 0, getErrorMessage(error, 'Health check failed'));
         }
       }
     }

@@ -1,4 +1,4 @@
-import { BlockchainProviderManager, type ProviderEvent } from '@exitbook/blockchain-providers';
+import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
   AccountRepository,
   closeDatabase,
@@ -21,6 +21,7 @@ import {
 } from '@exitbook/ingestion';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
+import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
 
 import { IngestionMonitor } from './components/ingestion-monitor-components.js';
 import { ImportHandler } from './import-handler.js';
@@ -46,7 +47,7 @@ export async function createImportServices(): Promise<ImportServices> {
   const database = await initializeDatabase();
   const repositories = createRepositories(database);
 
-  const providerManager = new BlockchainProviderManager();
+  const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
   const instrumentation = new InstrumentationCollector();
   providerManager.setInstrumentation(instrumentation);
 
@@ -82,7 +83,7 @@ export async function createImportServices(): Promise<ImportServices> {
     eventBus as EventBus<IngestionEvent>
   );
 
-  const handler = new ImportHandler(importOrchestrator, transactionProcessService, providerManager);
+  const handler = new ImportHandler(importOrchestrator, transactionProcessService);
 
   const ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {
     instrumentation,
@@ -92,7 +93,7 @@ export async function createImportServices(): Promise<ImportServices> {
 
   const cleanup = async () => {
     await ingestionMonitor.stop();
-    await handler.destroy();
+    await cleanupProviderManager();
     await closeDatabase(database);
   };
 

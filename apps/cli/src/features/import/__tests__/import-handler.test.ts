@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
@@ -37,7 +36,6 @@ vi.mock('@exitbook/data', async (importOriginal) => {
 describe('ImportHandler', () => {
   let mockImportOrchestrator: Partial<ImportOrchestrator>;
   let mockProcessService: Partial<TransactionProcessService>;
-  let mockProviderManager: { destroy: Mock };
   let handler: ImportHandler;
 
   beforeEach(() => {
@@ -54,14 +52,9 @@ describe('ImportHandler', () => {
       processImportedSessions: vi.fn(),
     };
 
-    mockProviderManager = {
-      destroy: vi.fn(),
-    };
-
     handler = new ImportHandler(
       mockImportOrchestrator as ImportOrchestrator,
-      mockProcessService as TransactionProcessService,
-      mockProviderManager as unknown as BlockchainProviderManager
+      mockProcessService as TransactionProcessService
     );
   });
 
@@ -348,14 +341,6 @@ describe('ImportHandler', () => {
       });
 
       expect(mockProcessService.processImportedSessions).toHaveBeenCalledWith([1]);
-    });
-  });
-
-  describe('destroy', () => {
-    it('should call providerManager.destroy', async () => {
-      await handler.destroy();
-
-      expect(mockProviderManager.destroy).toHaveBeenCalled();
     });
   });
 });

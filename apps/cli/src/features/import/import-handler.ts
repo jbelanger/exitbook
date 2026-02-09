@@ -1,4 +1,3 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { ImportSession } from '@exitbook/core';
 import type { ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
 import { getBlockchainAdapter } from '@exitbook/ingestion';
@@ -28,15 +27,11 @@ export interface ProcessResult {
  */
 export class ImportHandler {
   private readonly logger = getLogger('ImportHandler');
-  private providerManager: BlockchainProviderManager;
 
   constructor(
     private importOrchestrator: ImportOrchestrator,
-    private transactionProcessService: TransactionProcessService,
-    providerManager: BlockchainProviderManager
-  ) {
-    this.providerManager = providerManager;
-  }
+    private transactionProcessService: TransactionProcessService
+  ) {}
 
   /**
    * Execute the import operation (without processing).
@@ -132,14 +127,5 @@ export class ImportHandler {
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
-  }
-
-  /**
-   * Cleanup resources.
-   *
-   * Idempotent: safe to call multiple times.
-   */
-  async destroy(): Promise<void> {
-    await this.providerManager.destroy();
   }
 }

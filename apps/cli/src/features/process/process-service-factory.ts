@@ -1,5 +1,5 @@
 import { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
-import { BlockchainProviderManager, type ProviderEvent } from '@exitbook/blockchain-providers';
+import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
   AccountRepository,
   closeDatabase,
@@ -22,6 +22,7 @@ import type { Result } from 'neverthrow';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
 import { IngestionMonitor } from '../import/components/ingestion-monitor-components.js';
+import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
 
 import type { ProcessHandlerParams, ProcessResult } from './process-handler.js';
 import { executeReprocess } from './process-handler.js';
@@ -57,7 +58,7 @@ export async function createProcessServices(): Promise<ProcessServices> {
   const costBasis = new CostBasisRepository(database);
   const lotTransfer = new LotTransferRepository(database);
 
-  const providerManager = new BlockchainProviderManager();
+  const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
   const instrumentation = new InstrumentationCollector();
   providerManager.setInstrumentation(instrumentation);
 
@@ -111,7 +112,7 @@ export async function createProcessServices(): Promise<ProcessServices> {
 
   const cleanup = async () => {
     await ingestionMonitor.stop();
-    await providerManager.destroy();
+    await cleanupProviderManager();
     await closeDatabase(database);
   };
 
