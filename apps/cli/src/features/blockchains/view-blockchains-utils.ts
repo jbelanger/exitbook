@@ -1,5 +1,5 @@
-// Pure utility functions for list-blockchains command
-// All functions are pure - no side effects
+// Pure utility functions for blockchains view command
+// All functions are pure — no side effects
 
 import type { ProviderInfo } from '@exitbook/blockchain-providers';
 import { ProviderRegistry } from '@exitbook/blockchain-providers';
@@ -8,14 +8,7 @@ import { err, ok } from 'neverthrow';
 
 import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../shared/prompts.js';
 
-/**
- * CLI options structure for list-blockchains command.
- */
-export interface ListBlockchainsCommandOptions {
-  category?: string | undefined;
-  detailed?: boolean | undefined;
-  requiresApiKey?: boolean | undefined;
-}
+import type { BlockchainViewItem, ProviderViewItem } from './components/blockchains-view-state.js';
 
 /**
  * Blockchain categories for filtering.
@@ -24,7 +17,7 @@ export const BLOCKCHAIN_CATEGORIES = ['evm', 'substrate', 'cosmos', 'utxo', 'sol
 export type BlockchainCategory = (typeof BLOCKCHAIN_CATEGORIES)[number];
 
 /**
- * Blockchain information with providers.
+ * Blockchain information with providers (intermediate representation before TUI transform).
  */
 export interface BlockchainInfo {
   name: string;
@@ -33,8 +26,8 @@ export interface BlockchainInfo {
   layer?: string | undefined;
   providers: ProviderSummary[];
   providerCount: number;
-  requiresApiKey: boolean; // true if ANY provider requires API key
-  hasNoApiKeyProvider: boolean; // true if ANY provider doesn't require API key
+  requiresApiKey: boolean;
+  hasNoApiKeyProvider: boolean;
   exampleAddress: string;
 }
 
@@ -48,17 +41,6 @@ export interface ProviderSummary {
   apiKeyEnvVar?: string | undefined;
   capabilities: string[];
   rateLimit?: string | undefined;
-}
-
-/**
- * Summary statistics.
- */
-export interface BlockchainListSummary {
-  totalBlockchains: number;
-  totalProviders: number;
-  byCategory: Record<string, number>;
-  requireApiKey: number;
-  noApiKey: number;
 }
 
 /**
@@ -106,8 +88,9 @@ export function getBlockchainLayer(blockchain: string): string | undefined {
 
 /**
  * Convert provider info to summary.
+ * Always includes rate limit (TUI detail panel always shows full info).
  */
-export function providerToSummary(provider: ProviderInfo, detailed: boolean): ProviderSummary {
+export function providerToSummary(provider: ProviderInfo): ProviderSummary {
   // Shorten operation names for display
   const capabilities = Array.from(
     new Set(
@@ -128,13 +111,12 @@ export function providerToSummary(provider: ProviderInfo, detailed: boolean): Pr
     capabilities,
   };
 
-  if (detailed && provider.defaultConfig?.rateLimit) {
+  if (provider.defaultConfig?.rateLimit) {
     const rl = provider.defaultConfig.rateLimit;
     summary.rateLimit = `${rl.requestsPerSecond}/sec`;
   }
 
   if (provider.requiresApiKey) {
-    // Get API key env var from provider metadata
     const metadata = ProviderRegistry.getMetadata(provider.blockchain, provider.name);
     if (metadata?.apiKeyEnvVar) {
       summary.apiKeyEnvVar = metadata.apiKeyEnvVar;
@@ -147,8 +129,8 @@ export function providerToSummary(provider: ProviderInfo, detailed: boolean): Pr
 /**
  * Build blockchain info from name and providers.
  */
-export function buildBlockchainInfo(blockchain: string, providers: ProviderInfo[], detailed: boolean): BlockchainInfo {
-  const providerSummaries = providers.map((p) => providerToSummary(p, detailed));
+export function buildBlockchainInfo(blockchain: string, providers: ProviderInfo[]): BlockchainInfo {
+  const providerSummaries = providers.map((p) => providerToSummary(p));
 
   return {
     name: blockchain,
@@ -183,31 +165,10 @@ export function filterByApiKeyRequirement(blockchains: BlockchainInfo[], require
   }
 
   if (requiresApiKey) {
-    // Only show blockchains where ALL providers require API key
     return blockchains.filter((b) => b.requiresApiKey && !b.hasNoApiKeyProvider);
   } else {
-    // Only show blockchains with at least one provider that doesn't require API key
     return blockchains.filter((b) => b.hasNoApiKeyProvider);
   }
-}
-
-/**
- * Build summary statistics.
- */
-export function buildSummary(blockchains: BlockchainInfo[], allProviders: ProviderInfo[]): BlockchainListSummary {
-  const byCategory: Record<string, number> = {};
-
-  for (const blockchain of blockchains) {
-    byCategory[blockchain.category] = (byCategory[blockchain.category] || 0) + 1;
-  }
-
-  return {
-    totalBlockchains: blockchains.length,
-    totalProviders: allProviders.length,
-    byCategory,
-    requireApiKey: allProviders.filter((p) => p.requiresApiKey).length,
-    noApiKey: allProviders.filter((p) => !p.requiresApiKey).length,
-  };
 }
 
 /**
@@ -239,4 +200,48 @@ export function sortBlockchains(blockchains: BlockchainInfo[]): BlockchainInfo[]
     if (indexB === -1) return -1;
     return indexA - indexB;
   });
+}
+
+/**
+ * Transform a BlockchainInfo into a BlockchainViewItem for TUI display.
+ * Checks env vars to determine API key configuration status.
+ */
+export function toBlockchainViewItem(blockchain: BlockchainInfo): BlockchainViewItem {
+  const providers: ProviderViewItem[] = blockchain.providers.map((p) => {
+    const apiKeyConfigured = p.requiresApiKey && p.apiKeyEnvVar ? !!process.env[p.apiKeyEnvVar] : undefined;
+
+    return {
+      name: p.name,
+      displayName: p.displayName,
+      requiresApiKey: p.requiresApiKey,
+      apiKeyEnvVar: p.apiKeyEnvVar,
+      apiKeyConfigured,
+      capabilities: p.capabilities,
+      rateLimit: p.rateLimit,
+    };
+  });
+
+  // Compute key status
+  const providersRequiringKey = providers.filter((p) => p.requiresApiKey);
+  let keyStatus: BlockchainViewItem['keyStatus'];
+  let missingKeyCount = 0;
+
+  if (providersRequiringKey.length === 0) {
+    keyStatus = 'none-needed';
+  } else {
+    missingKeyCount = providersRequiringKey.filter((p) => p.apiKeyConfigured === false).length;
+    keyStatus = missingKeyCount === 0 ? 'all-configured' : 'some-missing';
+  }
+
+  return {
+    name: blockchain.name,
+    displayName: blockchain.displayName,
+    category: blockchain.category,
+    layer: blockchain.layer,
+    providers,
+    providerCount: blockchain.providerCount,
+    keyStatus,
+    missingKeyCount,
+    exampleAddress: blockchain.exampleAddress,
+  };
 }

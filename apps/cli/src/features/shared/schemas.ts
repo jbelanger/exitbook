@@ -348,11 +348,10 @@ export const AccountsViewCommandOptionsSchema = z.object({
 });
 
 /**
- * List-blockchains command options
+ * Blockchains view command options
  */
-export const ListBlockchainsCommandOptionsSchema = z.object({
+export const BlockchainsViewCommandOptionsSchema = z.object({
   category: z.string().optional(),
-  detailed: z.boolean().optional(),
   requiresApiKey: z.boolean().optional(),
   json: z.boolean().optional(),
 });

@@ -17,12 +17,12 @@ export const CLI_VERSION = packageJson.version;
 import { registerAccountsCommand } from './features/accounts/accounts.js';
 import { registerBalanceCommand } from './features/balance/balance.js';
 import { registerBenchmarkRateLimitCommand } from './features/benchmark-rate-limit/benchmark-rate-limit.js';
+import { registerBlockchainsCommand } from './features/blockchains/blockchains.js';
 import { registerClearCommand } from './features/clear/clear.js';
 import { registerCostBasisCommand } from './features/cost-basis/cost-basis.js';
 import { registerExportCommand } from './features/export/export.js';
 import { registerImportCommand } from './features/import/import.js';
 import { registerLinksCommand } from './features/links/links.js';
-import { registerListBlockchainsCommand } from './features/list-blockchains/list-blockchains.js';
 import { registerPricesCommand } from './features/prices/prices.js';
 import { registerReprocessCommand } from './features/process/process.js';
 import { registerTransactionsCommand } from './features/transactions/transactions.js';
@@ -50,7 +50,7 @@ async function main() {
   registerCostBasisCommand(program);
   registerBalanceCommand(program);
   registerExportCommand(program);
-  registerListBlockchainsCommand(program);
+  registerBlockchainsCommand(program);
   registerBenchmarkRateLimitCommand(program);
 
   await program.parseAsync();

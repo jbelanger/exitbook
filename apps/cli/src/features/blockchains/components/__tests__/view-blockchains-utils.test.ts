@@ -1,20 +1,20 @@
 import type { ProviderInfo, ProviderOperationType } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
-import type { BlockchainInfo } from '../list-blockchains-utils.js';
+import type { BlockchainInfo } from '../../view-blockchains-utils.js';
 import {
   buildBlockchainInfo,
-  buildSummary,
   filterByApiKeyRequirement,
   filterByCategory,
   getBlockchainCategory,
   getBlockchainLayer,
   providerToSummary,
   sortBlockchains,
+  toBlockchainViewItem,
   validateCategory,
-} from '../list-blockchains-utils.js';
+} from '../../view-blockchains-utils.js';
 
-describe('list-blockchains-utils', () => {
+describe('view-blockchains-utils', () => {
   describe('validateCategory', () => {
     it('should validate valid categories', () => {
       const result = validateCategory('evm');
@@ -100,7 +100,7 @@ describe('list-blockchains-utils', () => {
         'getAddressBalances',
       ]);
 
-      const summary = providerToSummary(provider, false);
+      const summary = providerToSummary(provider);
 
       expect(summary.name).toBe('test-provider');
       expect(summary.displayName).toBe('Test Provider');
@@ -109,7 +109,7 @@ describe('list-blockchains-utils', () => {
       expect(summary.capabilities).toContain('balance');
     });
 
-    it('should include rate limit when detailed is true', () => {
+    it('should always include rate limit', () => {
       const provider: ProviderInfo = {
         ...createMockProvider('test-provider', 'bitcoin'),
         defaultConfig: {
@@ -122,27 +122,9 @@ describe('list-blockchains-utils', () => {
         },
       };
 
-      const summary = providerToSummary(provider, true);
+      const summary = providerToSummary(provider);
 
       expect(summary.rateLimit).toBe('5/sec');
-    });
-
-    it('should not include rate limit when detailed is false', () => {
-      const provider: ProviderInfo = {
-        ...createMockProvider('test-provider', 'bitcoin'),
-        defaultConfig: {
-          rateLimit: {
-            requestsPerSecond: 5,
-            requestsPerMinute: 300,
-          },
-          retries: 3,
-          timeout: 30000,
-        },
-      };
-
-      const summary = providerToSummary(provider, false);
-
-      expect(summary.rateLimit).toBeUndefined();
     });
 
     it('should shorten operation names', () => {
@@ -151,18 +133,16 @@ describe('list-blockchains-utils', () => {
         'getAddressBalances',
       ]);
 
-      const summary = providerToSummary(provider, false);
+      const summary = providerToSummary(provider);
 
       expect(summary.capabilities).toContain('txs');
       expect(summary.capabilities).toContain('balance');
     });
 
     it('should handle getAddressTokenBalances as balance (Balance is checked before Token)', () => {
-      // Note: getAddressTokenBalances contains both "Token" and "Balance"
-      // The current implementation checks "Balance" first, so it returns "balance"
       const provider = createMockProvider('test-provider', 'ethereum', false, ['getAddressTokenBalances']);
 
-      const summary = providerToSummary(provider, false);
+      const summary = providerToSummary(provider);
 
       expect(summary.capabilities).toContain('balance');
     });
@@ -175,7 +155,7 @@ describe('list-blockchains-utils', () => {
         createMockProvider('provider2', 'bitcoin', false),
       ];
 
-      const info = buildBlockchainInfo('bitcoin', providers, false);
+      const info = buildBlockchainInfo('bitcoin', providers);
 
       expect(info.name).toBe('bitcoin');
       expect(info.displayName).toBe('Bitcoin');
@@ -183,13 +163,13 @@ describe('list-blockchains-utils', () => {
       expect(info.layer).toBe('1');
       expect(info.providers).toHaveLength(2);
       expect(info.providerCount).toBe(2);
-      expect(info.requiresApiKey).toBe(true); // At least one requires API key
-      expect(info.hasNoApiKeyProvider).toBe(true); // At least one doesn't require API key
+      expect(info.requiresApiKey).toBe(true);
+      expect(info.hasNoApiKeyProvider).toBe(true);
       expect(info.exampleAddress).toBe('bc1q...');
     });
 
     it('should build blockchain info without providers', () => {
-      const info = buildBlockchainInfo('ethereum', [], false);
+      const info = buildBlockchainInfo('ethereum', []);
 
       expect(info.name).toBe('ethereum');
       expect(info.displayName).toBe('Ethereum');
@@ -253,40 +233,6 @@ describe('list-blockchains-utils', () => {
     });
   });
 
-  describe('buildSummary', () => {
-    it('should build summary with correct counts', () => {
-      const blockchains: BlockchainInfo[] = [
-        createMockBlockchainInfo('bitcoin', 'utxo'),
-        createMockBlockchainInfo('ethereum', 'evm'),
-        createMockBlockchainInfo('polygon', 'evm'),
-      ];
-
-      const allProviders: ProviderInfo[] = [
-        createMockProvider('provider1', 'bitcoin', true),
-        createMockProvider('provider2', 'ethereum', false),
-        createMockProvider('provider3', 'polygon', true),
-      ];
-
-      const summary = buildSummary(blockchains, allProviders);
-
-      expect(summary.totalBlockchains).toBe(3);
-      expect(summary.totalProviders).toBe(3);
-      expect(summary.byCategory).toEqual({ utxo: 1, evm: 2 });
-      expect(summary.requireApiKey).toBe(2);
-      expect(summary.noApiKey).toBe(1);
-    });
-
-    it('should handle empty blockchains', () => {
-      const summary = buildSummary([], []);
-
-      expect(summary.totalBlockchains).toBe(0);
-      expect(summary.totalProviders).toBe(0);
-      expect(summary.byCategory).toEqual({});
-      expect(summary.requireApiKey).toBe(0);
-      expect(summary.noApiKey).toBe(0);
-    });
-  });
-
   describe('sortBlockchains', () => {
     it('should sort blockchains by popularity order', () => {
       const blockchains: BlockchainInfo[] = [
@@ -311,6 +257,64 @@ describe('list-blockchains-utils', () => {
       const sorted = sortBlockchains(blockchains);
 
       expect(sorted.map((b) => b.name)).toEqual(['bitcoin', 'alpha-chain', 'zebra-chain']);
+    });
+  });
+
+  describe('toBlockchainViewItem', () => {
+    it('should compute none-needed when no providers require API keys', () => {
+      const blockchain: BlockchainInfo = {
+        ...createMockBlockchainInfo('bitcoin', 'utxo'),
+        providers: [
+          { name: 'mempool', displayName: 'Mempool', requiresApiKey: false, capabilities: ['txs'], rateLimit: '5/sec' },
+        ],
+        providerCount: 1,
+      };
+
+      const item = toBlockchainViewItem(blockchain);
+
+      expect(item.keyStatus).toBe('none-needed');
+      expect(item.missingKeyCount).toBe(0);
+      expect(item.providers[0]!.apiKeyConfigured).toBeUndefined();
+    });
+
+    it('should compute some-missing when env var is not set', () => {
+      const blockchain: BlockchainInfo = {
+        ...createMockBlockchainInfo('ethereum', 'evm'),
+        providers: [
+          {
+            name: 'alchemy',
+            displayName: 'Alchemy',
+            requiresApiKey: true,
+            apiKeyEnvVar: 'TEST_NONEXISTENT_KEY_12345',
+            capabilities: ['txs', 'balance'],
+            rateLimit: '5/sec',
+          },
+        ],
+        providerCount: 1,
+        requiresApiKey: true,
+      };
+
+      const item = toBlockchainViewItem(blockchain);
+
+      expect(item.keyStatus).toBe('some-missing');
+      expect(item.missingKeyCount).toBe(1);
+      expect(item.providers[0]!.apiKeyConfigured).toBe(false);
+    });
+
+    it('should preserve blockchain metadata in view item', () => {
+      const blockchain: BlockchainInfo = {
+        ...createMockBlockchainInfo('polygon', 'evm'),
+        layer: '2',
+        exampleAddress: '0x742d35Cc...',
+      };
+
+      const item = toBlockchainViewItem(blockchain);
+
+      expect(item.name).toBe('polygon');
+      expect(item.displayName).toBe('Polygon');
+      expect(item.category).toBe('evm');
+      expect(item.layer).toBe('2');
+      expect(item.exampleAddress).toBe('0x742d35Cc...');
     });
   });
 });
