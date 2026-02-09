@@ -11,11 +11,15 @@ import {
 import { ClearService, type ClearResult, type DeletionPreview } from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import { render } from 'ink';
+import React from 'react';
 
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { handleCancellation, promptConfirm } from '../shared/prompts.js';
 import { ClearCommandOptionsSchema } from '../shared/schemas.js';
+
+import { ClearViewApp, createClearViewState } from './components/index.js';
 
 /**
  * Clear command result data.
@@ -55,6 +59,180 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
   }
 
   const options = validationResult.data;
+
+  // Check if we should use JSON mode or --confirm bypass
+  const useJsonMode = options.json ?? false;
+  const useConfirmBypass = options.confirm ?? false;
+
+  // Use TUI unless JSON mode or --confirm bypass
+  if (!useJsonMode && !useConfirmBypass) {
+    executeClearTUI(options);
+  } else {
+    await executeClearLegacy(options);
+  }
+}
+
+/**
+ * Execute clear command with TUI
+ */
+function executeClearTUI(options: {
+  accountId?: number | undefined;
+  confirm?: boolean | undefined;
+  includeRaw?: boolean | undefined;
+  json?: boolean | undefined;
+  source?: string | undefined;
+}): void {
+  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
+  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
+
+  // Configure logger for TUI mode (suppress logs)
+  configureLogger({
+    mode: 'text',
+    verbose: false,
+    sinks: { ui: false, structured: 'file' },
+  });
+
+  try {
+    (async () => {
+      try {
+        // Initialize database and repositories
+        database = await initializeDatabase();
+        const userRepository = new UserRepository(database);
+        const accountRepository = new AccountRepository(database);
+        const transactionRepository = new TransactionRepository(database);
+        const transactionLinkRepository = new TransactionLinkRepository(database);
+        const costBasisRepository = new CostBasisRepository(database);
+        const lotTransferRepository = new LotTransferRepository(database);
+        const rawDataRepository = new RawDataRepository(database);
+        const importSessionRepository = new ImportSessionRepository(database);
+
+        const clearService = new ClearService(
+          userRepository,
+          accountRepository,
+          transactionRepository,
+          transactionLinkRepository,
+          costBasisRepository,
+          lotTransferRepository,
+          rawDataRepository,
+          importSessionRepository
+        );
+
+        // Build service params
+        const params = {
+          accountId: options.accountId,
+          source: options.source,
+          includeRaw: options.includeRaw ?? false,
+        };
+
+        // Pre-fetch both preview scenarios in parallel
+        const [previewWithoutRawResult, previewWithRawResult] = await Promise.all([
+          clearService.previewDeletion({ ...params, includeRaw: false }),
+          clearService.previewDeletion({ ...params, includeRaw: true }),
+        ]);
+
+        if (previewWithoutRawResult.isErr()) {
+          await closeDatabase(database);
+          console.error(`\n⚠ Error: ${previewWithoutRawResult.error.message}`);
+          process.exit(ExitCodes.GENERAL_ERROR);
+        }
+
+        if (previewWithRawResult.isErr()) {
+          await closeDatabase(database);
+          console.error(`\n⚠ Error: ${previewWithRawResult.error.message}`);
+          process.exit(ExitCodes.GENERAL_ERROR);
+        }
+
+        const previewWithoutRaw = previewWithoutRawResult.value;
+        const previewWithRaw = previewWithRawResult.value;
+
+        // Build scope label
+        const scopeLabel = await buildScopeLabel(options.accountId, options.source, accountRepository);
+
+        // Create initial state
+        const initialState = createClearViewState(
+          { accountId: options.accountId, source: options.source, label: scopeLabel },
+          previewWithRaw,
+          previewWithoutRaw,
+          options.includeRaw ?? false
+        );
+
+        // Render TUI
+        inkInstance = render(
+          React.createElement(ClearViewApp, {
+            initialState,
+            clearService,
+            params,
+            onQuit: () => {
+              (async () => {
+                if (database) {
+                  await closeDatabase(database);
+                }
+                if (inkInstance) {
+                  inkInstance.unmount();
+                }
+                process.exit(0);
+              })().catch((error: unknown) => {
+                console.error('Error during cleanup:', error instanceof Error ? error.message : String(error));
+                process.exit(1);
+              });
+            },
+          })
+        );
+      } catch (error) {
+        if (database) {
+          await closeDatabase(database);
+        }
+        console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
+        if (inkInstance) {
+          try {
+            inkInstance.unmount();
+          } catch {
+            /* ignore unmount errors */
+          }
+        }
+        process.exit(ExitCodes.GENERAL_ERROR);
+      }
+    })().catch((error: unknown) => {
+      console.error('Unhandled error in clear command:', error instanceof Error ? error.message : String(error));
+      process.exit(ExitCodes.GENERAL_ERROR);
+    });
+  } catch (error) {
+    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
+    process.exit(ExitCodes.GENERAL_ERROR);
+  }
+}
+
+/**
+ * Build scope label from account ID or source
+ */
+async function buildScopeLabel(
+  accountId: number | undefined,
+  source: string | undefined,
+  accountRepo: AccountRepository
+): Promise<string> {
+  if (accountId) {
+    const accountResult = await accountRepo.findById(accountId);
+    if (accountResult.isOk() && accountResult.value) {
+      return `#${accountId} ${accountResult.value.sourceName}`;
+    }
+    return `#${accountId}`;
+  }
+  if (source) {
+    return `(${source})`;
+  }
+  return 'all accounts';
+}
+
+/**
+ * Execute clear command in legacy mode (JSON or --confirm bypass)
+ */
+async function executeClearLegacy(options: {
+  accountId?: number | undefined;
+  confirm?: boolean | undefined;
+  includeRaw?: boolean | undefined;
+  json?: boolean | undefined;
+  source?: string | undefined;
+}): Promise<void> {
   const output = new OutputManager(options.json ? 'json' : 'text');
   const includeRaw = options.includeRaw ?? false;
 
