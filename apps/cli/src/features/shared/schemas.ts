@@ -117,16 +117,14 @@ export const ImportCommandOptionsSchema = SourceSelectionSchema.extend(Blockchai
  */
 export const BalanceCommandOptionsSchema = z
   .object({
-    accountId: z.coerce.number().int().positive(),
+    accountId: z.coerce.number().int().positive().optional(),
+    offline: z.boolean().optional(),
   })
   .extend(
     z.object({
       apiKey: z.string().min(1).optional(),
       apiSecret: z.string().min(1).optional(),
       apiPassphrase: z.string().optional(),
-      debugAssetId: z.string().min(1).optional(),
-      debugTop: z.coerce.number().int().positive().optional(),
-      explain: z.boolean().optional(),
     }).shape
   )
   .extend(JsonFlagSchema.shape)
@@ -144,13 +142,26 @@ export const BalanceCommandOptionsSchema = z
   )
   .refine(
     (data) => {
-      if (data.debugTop !== undefined && !data.debugAssetId) {
+      // Credentials only valid with --account-id and without --offline
+      if ((data.apiKey || data.apiSecret) && !data.accountId) {
         return false;
       }
       return true;
     },
     {
-      message: '--debug-top requires --debug-asset-id',
+      message: '--api-key/--api-secret require --account-id',
+    }
+  )
+  .refine(
+    (data) => {
+      // Credentials not valid with --offline
+      if ((data.apiKey || data.apiSecret) && data.offline) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: '--api-key/--api-secret cannot be used with --offline',
     }
   );
 

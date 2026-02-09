@@ -1,6 +1,5 @@
 import { BlockchainProviderManager, loadExplorerConfig } from '@exitbook/blockchain-providers';
-import type { AccountType, BalanceCommandStatus, ExchangeCredentials, SourceType } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import type { Account, ExchangeCredentials } from '@exitbook/core';
 import {
   AccountRepository,
   closeDatabase,
@@ -9,18 +8,38 @@ import {
   TokenMetadataRepository,
   TransactionRepository,
 } from '@exitbook/data';
-import { BalanceService, type BalanceVerificationResult } from '@exitbook/ingestion';
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
+import { BalanceService, calculateBalances } from '@exitbook/ingestion';
+import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import { render } from 'ink';
+import React from 'react';
 import type { z } from 'zod';
 
+import { EventRelay } from '../../ui/shared/event-relay.js';
+import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { BalanceCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
-import { buildBalanceAssetDebug, type BalanceAssetDebugResult } from './balance-debug.js';
-import { buildBalanceMismatchExplanation } from './balance-explain.js';
+import { buildBalanceAssetDebug } from './balance-debug.js';
+import {
+  BalanceApp,
+  buildAccountOfflineItem,
+  buildAssetDiagnostics,
+  buildAssetOfflineItem,
+  createBalanceAssetState,
+  createBalanceOfflineState,
+  createBalanceVerificationState,
+  resolveAccountCredentials,
+  sortAccountsByVerificationPriority,
+  sortAssetsOffline,
+  sortAssetsByStatus,
+  type AccountVerificationItem,
+  type BalanceEvent,
+} from './components/index.js';
+
+const logger = getLogger('balance');
 
 /**
  * Balance command options validated by Zod at CLI boundary
@@ -28,107 +47,32 @@ import { buildBalanceMismatchExplanation } from './balance-explain.js';
 export type BalanceCommandOptions = z.infer<typeof BalanceCommandOptionsSchema>;
 
 /**
- * Balance command result data for JSON output.
- */
-interface BalanceCommandResult {
-  status: BalanceCommandStatus;
-  balances: {
-    assetId: string;
-    calculatedBalance: string;
-    currency: string;
-    difference: string;
-    liveBalance: string;
-    percentageDiff: number;
-    status: 'match' | 'warning' | 'mismatch';
-  }[];
-  debug?:
-    | {
-        assetId: string;
-        assetSymbol: string;
-        topFees: {
-          amount: string;
-          datetime: string;
-          transactionHash?: string | undefined;
-        }[];
-        topInflows: {
-          amount: string;
-          datetime: string;
-          from?: string | undefined;
-          to?: string | undefined;
-          transactionHash?: string | undefined;
-        }[];
-        topOutflows: {
-          amount: string;
-          datetime: string;
-          from?: string | undefined;
-          to?: string | undefined;
-          transactionHash?: string | undefined;
-        }[];
-        totals: {
-          fees: string;
-          inflows: string;
-          net: string;
-          outflows: string;
-          txCount: number;
-        };
-      }
-    | undefined;
-  summary: {
-    matches: number;
-    mismatches: number;
-    totalCurrencies: number;
-    warnings: number;
-  };
-  source: {
-    address?: string | undefined;
-    name: string;
-    type: SourceType;
-  };
-  account?:
-    | {
-        id: number;
-        identifier: string;
-        providerName: string | undefined;
-        sourceName: string;
-        type: AccountType;
-      }
-    | undefined;
-  meta: {
-    beaconWithdrawalsSkippedReason?: 'no-provider-support' | 'api-error' | 'unsupported-chain' | undefined;
-    includesBeaconWithdrawals?: boolean | undefined;
-    timestamp: string;
-  };
-  suggestion?: string | undefined;
-  warnings?: string[] | undefined;
-}
-
-/**
  * Register the balance command.
  */
 export function registerBalanceCommand(program: Command): void {
   program
     .command('balance')
-    .description('Verify balance for a specific account by ID')
-    .requiredOption('--account-id <id>', 'Account ID to verify')
+    .description('Verify balances against live data or view calculated balances')
+    .option('--account-id <id>', 'Verify specific account (default: all accounts)')
+    .option('--offline', 'Skip live balance fetching; show calculated balances only')
     .option('--api-key <key>', 'API key for exchange (overrides .env)')
     .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange (if required)')
-    .option('--explain', 'Print diagnostic breakdown for mismatches')
-    .option('--debug-asset-id <assetId>', 'Debug a single assetId (totals + top transactions)')
-    .option('--debug-top <n>', 'Limit debug samples per section (default: 5)')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
       `
 Examples:
-  $ exitbook balance --account-id 5                          # blockchain or exchange-csv account (no creds)
-  $ exitbook balance --account-id 7 --api-key KEY --api-secret SECRET   # exchange-api or exchange-csv with live API fetch
-  $ exitbook balance --account-id 5 --explain                # show mismatch diagnostics
-  $ exitbook balance --account-id 5 --debug-asset-id blockchain:ethereum:native
-                                                          # show totals + top txs for one assetId
+  $ exitbook balance                                # verify all accounts
+  $ exitbook balance --account-id 5                 # verify single account
+  $ exitbook balance --offline                      # view calculated balances (no API calls)
+  $ exitbook balance --offline --account-id 5       # single account offline
+  $ exitbook balance --account-id 7 --api-key KEY --api-secret SECRET
+                                                    # exchange account with credentials
+  $ exitbook balance --json                         # JSON output
 
 Notes:
-  - API credentials are accepted for exchange-api and exchange-csv accounts to fetch live balances from the exchange.
+  - Diagnostics are always available inline — no separate flags needed.
   - Use "exitbook accounts view" to list account IDs and types.
 `
     )
@@ -136,65 +80,449 @@ Notes:
 }
 
 async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
-  // Check for --json flag early (even before validation) to determine output format
   const isJson = isJsonMode(rawOptions);
 
-  // Validate options at CLI boundary with Zod
   const validationResult = BalanceCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
-    const output = new OutputManager(isJson ? 'json' : 'text');
     const firstError = validationResult.error.issues[0];
-    output.error('balance', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.INVALID_ARGS);
-    return;
+    displayCliError(
+      'balance',
+      new Error(firstError?.message ?? 'Invalid options'),
+      ExitCodes.INVALID_ARGS,
+      isJson ? 'json' : 'text'
+    );
   }
 
   const options = validationResult.data;
-  const output = new OutputManager(options.json ? 'json' : 'text');
 
-  // Configure logger for JSON mode
+  // Configure logger
+  configureLogger({
+    mode: options.json ? 'json' : 'text',
+    verbose: false,
+    sinks: options.json ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
+  });
+
   if (options.json) {
-    configureLogger({
-      mode: 'json',
-      verbose: false,
-      sinks: { ui: false, structured: 'file' },
-    });
+    await executeBalanceJSON(options);
+  } else if (options.offline) {
+    await executeBalanceOfflineTUI(options);
+  } else if (options.accountId) {
+    await executeBalanceSingleTUI(options);
+  } else {
+    await executeBalanceAllTUI(options);
   }
 
-  // Initialize database
+  resetLoggerContext();
+}
+
+// ─── JSON Mode ───────────────────────────────────────────────────────────────
+
+async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void> {
+  const output = new OutputManager('json');
+
   const database = await initializeDatabase();
+  const accountRepo = new AccountRepository(database);
+  const transactionRepo = new TransactionRepository(database);
+  const sessionRepo = new ImportSessionRepository(database);
+  const tokenMetadataRepo = new TokenMetadataRepository(database);
 
-  // Initialize repositories
-  const transactionRepository = new TransactionRepository(database);
-  const sessionRepository = new ImportSessionRepository(database);
-  const accountRepository = new AccountRepository(database);
-  const tokenMetadataRepository = new TokenMetadataRepository(database);
+  try {
+    if (options.offline) {
+      // Offline JSON
+      const accounts = options.accountId
+        ? await loadSingleAccount(accountRepo, options.accountId)
+        : await loadAllAccounts(accountRepo);
 
-  // Initialize provider manager
+      const accountsData = [];
+      for (const account of accounts) {
+        const { assets } = await buildOfflineAssets(account, accountRepo, transactionRepo);
+        accountsData.push({
+          accountId: account.id,
+          sourceName: account.sourceName,
+          accountType: account.accountType,
+          assets: assets.map((a) => ({
+            assetId: a.assetId,
+            assetSymbol: a.assetSymbol,
+            calculatedBalance: a.calculatedBalance,
+            diagnostics: a.diagnostics,
+          })),
+        });
+      }
+
+      output.json('balance', {
+        data: { accounts: accountsData },
+        meta: {
+          totalAccounts: accounts.length,
+          mode: 'offline',
+          filters: options.accountId ? { accountId: options.accountId } : {},
+        },
+      });
+    } else if (options.accountId) {
+      // Single-account online JSON (preserves existing format)
+      const config = loadExplorerConfig();
+      const providerManager = new BlockchainProviderManager(config);
+      const balanceService = new BalanceService(
+        accountRepo,
+        transactionRepo,
+        sessionRepo,
+        tokenMetadataRepo,
+        providerManager
+      );
+
+      try {
+        let credentials: ExchangeCredentials | undefined;
+        if (options.apiKey && options.apiSecret) {
+          credentials = {
+            apiKey: options.apiKey,
+            apiSecret: options.apiSecret,
+            ...(options.apiPassphrase && { apiPassphrase: options.apiPassphrase }),
+          };
+        }
+
+        const result = await balanceService.verifyBalance({ accountId: options.accountId, credentials });
+        if (result.isErr()) {
+          output.error('balance', result.error, ExitCodes.GENERAL_ERROR);
+          return;
+        }
+
+        const vr = result.value;
+        output.json('balance', {
+          status: vr.status,
+          balances: vr.comparisons.map((c) => ({
+            assetId: c.assetId,
+            currency: c.currency,
+            calculatedBalance: c.calculatedBalance,
+            liveBalance: c.liveBalance,
+            difference: c.difference,
+            percentageDiff: c.percentageDiff,
+            status: c.status,
+          })),
+          summary: vr.summary,
+          source: {
+            type: (vr.account.accountType === 'blockchain' ? 'blockchain' : 'exchange') as string,
+            name: vr.account.sourceName,
+            address: vr.account.accountType === 'blockchain' ? vr.account.identifier : undefined,
+          },
+          account: {
+            id: vr.account.id,
+            type: vr.account.accountType,
+            sourceName: vr.account.sourceName,
+            identifier: vr.account.identifier,
+            providerName: vr.account.providerName,
+          },
+          meta: { timestamp: new Date(vr.timestamp).toISOString() },
+          suggestion: vr.suggestion,
+          warnings: vr.warnings,
+        });
+      } finally {
+        await balanceService.destroy();
+      }
+    } else {
+      // All-accounts online JSON
+      const config = loadExplorerConfig();
+      const providerManager = new BlockchainProviderManager(config);
+      const balanceService = new BalanceService(
+        accountRepo,
+        transactionRepo,
+        sessionRepo,
+        tokenMetadataRepo,
+        providerManager
+      );
+
+      try {
+        const accounts = await loadAllAccounts(accountRepo);
+        const sorted = sortAccountsByVerificationPriority(
+          accounts.map((a) => ({ accountId: a.id, sourceName: a.sourceName, accountType: a.accountType, account: a }))
+        );
+
+        const accountResults = [];
+        let verified = 0;
+        let skipped = 0;
+        let matchTotal = 0;
+        let mismatchTotal = 0;
+
+        for (const item of sorted) {
+          const account = item.account;
+          const { credentials, skipReason } = resolveAccountCredentials(account);
+
+          if (skipReason) {
+            skipped++;
+            accountResults.push({
+              accountId: account.id,
+              sourceName: account.sourceName,
+              accountType: account.accountType,
+              status: 'skipped' as const,
+              reason: skipReason,
+            });
+            continue;
+          }
+
+          const result = await balanceService.verifyBalance({ accountId: account.id, credentials });
+          if (result.isErr()) {
+            accountResults.push({
+              accountId: account.id,
+              sourceName: account.sourceName,
+              accountType: account.accountType,
+              status: 'error' as const,
+              error: result.error.message,
+            });
+            continue;
+          }
+
+          const vr = result.value;
+          verified++;
+          matchTotal += vr.summary.matches;
+          mismatchTotal += vr.summary.mismatches + vr.summary.warnings;
+
+          accountResults.push({
+            accountId: account.id,
+            sourceName: account.sourceName,
+            accountType: account.accountType,
+            status: 'success' as const,
+            summary: vr.summary,
+            comparisons: vr.comparisons.map((c) => ({
+              assetId: c.assetId,
+              assetSymbol: c.assetSymbol,
+              calculatedBalance: c.calculatedBalance,
+              liveBalance: c.liveBalance,
+              difference: c.difference,
+              percentageDiff: c.percentageDiff,
+              status: c.status,
+            })),
+          });
+        }
+
+        output.json('balance', {
+          data: { accounts: accountResults },
+          meta: {
+            totalAccounts: accounts.length,
+            verified,
+            skipped,
+            matches: matchTotal,
+            mismatches: mismatchTotal,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      } finally {
+        await balanceService.destroy();
+      }
+    }
+  } catch (error) {
+    output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+  } finally {
+    await closeDatabase(database);
+  }
+}
+
+// ─── TUI: All-Accounts Online ───────────────────────────────────────────────
+
+async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<void> {
+  const database = await initializeDatabase();
+  const accountRepo = new AccountRepository(database);
+  const transactionRepo = new TransactionRepository(database);
+  const sessionRepo = new ImportSessionRepository(database);
+  const tokenMetadataRepo = new TokenMetadataRepository(database);
+
   const config = loadExplorerConfig();
   const providerManager = new BlockchainProviderManager(config);
-
-  // Create service with repositories
   const balanceService = new BalanceService(
-    accountRepository,
-    transactionRepository,
-    sessionRepository,
-    tokenMetadataRepository,
+    accountRepo,
+    transactionRepo,
+    sessionRepo,
+    tokenMetadataRepo,
     providerManager
   );
 
+  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
+
   try {
-    // Load the account by ID
-    const accountResult = await accountRepository.findById(options.accountId);
-    if (accountResult.isErr()) {
-      output.error('balance', accountResult.error, ExitCodes.GENERAL_ERROR);
-      return;
+    const accounts = await loadAllAccounts(accountRepo);
+
+    // Sort by verification priority
+    const sorted = sortAccountsByVerificationPriority(
+      accounts.map((a) => ({ accountId: a.id, sourceName: a.sourceName, accountType: a.accountType, account: a }))
+    );
+
+    // Build initial items: determine which can be verified and which should be skipped
+    const initialItems: AccountVerificationItem[] = sorted.map((item) => {
+      const { skipReason } = resolveAccountCredentials(item.account);
+      return {
+        accountId: item.accountId,
+        sourceName: item.sourceName,
+        accountType: item.accountType,
+        status: skipReason ? ('skipped' as const) : ('pending' as const),
+        assetCount: 0,
+        matchCount: 0,
+        mismatchCount: 0,
+        warningCount: 0,
+        skipReason,
+      };
+    });
+
+    const initialState = createBalanceVerificationState(initialItems);
+    const relay = new EventRelay<BalanceEvent>();
+
+    // Render TUI
+    await new Promise<void>((resolve, reject) => {
+      inkInstance = render(
+        React.createElement(BalanceApp, {
+          initialState,
+          relay,
+          onQuit: () => {
+            if (inkInstance) inkInstance.unmount();
+          },
+        })
+      );
+
+      // Run verification loop in background
+      runVerificationLoop(
+        sorted.map((s) => s.account),
+        balanceService,
+        accountRepo,
+        transactionRepo,
+        relay
+      ).catch((error) => {
+        logger.error({ error }, 'Verification loop error');
+      });
+
+      inkInstance.waitUntilExit().then(resolve).catch(reject);
+    });
+  } catch (error) {
+    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
+  } finally {
+    if (inkInstance) {
+      try {
+        inkInstance.unmount();
+      } catch {
+        /* ignore */
+      }
     }
-    const account = accountResult.value;
+    await balanceService.destroy();
+    await closeDatabase(database);
+  }
+}
 
-    const spinner = output.spinner();
-    spinner?.start(`Fetching and verifying balance for ${account.sourceName} (account ${account.id})...`);
+async function runVerificationLoop(
+  accounts: Account[],
+  balanceService: BalanceService,
+  accountRepo: AccountRepository,
+  transactionRepo: TransactionRepository,
+  relay: EventRelay<BalanceEvent>
+): Promise<void> {
+  for (const account of accounts) {
+    const { credentials, skipReason } = resolveAccountCredentials(account);
+    if (skipReason) {
+      // Already marked as skipped in initial state
+      continue;
+    }
 
-    // Build credentials if provided
+    relay.push({ type: 'VERIFICATION_STARTED', accountId: account.id });
+
+    try {
+      const result = await balanceService.verifyBalance({ accountId: account.id, credentials });
+
+      if (result.isErr()) {
+        relay.push({ type: 'VERIFICATION_ERROR', accountId: account.id, error: result.error.message });
+        continue;
+      }
+
+      const vr = result.value;
+
+      // Build diagnostics for each asset
+      const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);
+      const comparisons = vr.comparisons.map((c) => {
+        const debugResult = buildBalanceAssetDebug({
+          assetId: c.assetId,
+          assetSymbol: c.assetSymbol,
+          transactions,
+        });
+        const diagnostics = debugResult.isOk()
+          ? buildAssetDiagnostics(debugResult.value, {
+              liveBalance: c.liveBalance,
+              calculatedBalance: c.calculatedBalance,
+            })
+          : {
+              txCount: 0,
+              totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
+              topOutflows: [],
+              topInflows: [],
+              topFees: [],
+            };
+
+        return {
+          assetId: c.assetId,
+          assetSymbol: c.assetSymbol,
+          calculatedBalance: c.calculatedBalance,
+          liveBalance: c.liveBalance,
+          difference: c.difference,
+          percentageDiff: c.percentageDiff,
+          status: c.status,
+          diagnostics,
+        };
+      });
+
+      // Determine account-level status
+      const hasError = false;
+      const hasMismatch = comparisons.some((c) => c.status === 'mismatch');
+      const hasWarning = comparisons.some((c) => c.status === 'warning');
+      let accountStatus: AccountVerificationItem['status'];
+      if (hasError) accountStatus = 'error';
+      else if (hasMismatch) accountStatus = 'failed';
+      else if (hasWarning) accountStatus = 'warning';
+      else accountStatus = 'success';
+
+      const item: AccountVerificationItem = {
+        accountId: account.id,
+        sourceName: account.sourceName,
+        accountType: account.accountType,
+        status: accountStatus,
+        assetCount: comparisons.length,
+        matchCount: comparisons.filter((c) => c.status === 'match').length,
+        mismatchCount: comparisons.filter((c) => c.status === 'mismatch').length,
+        warningCount: comparisons.filter((c) => c.status === 'warning').length,
+        comparisons: sortAssetsByStatus(comparisons),
+      };
+
+      relay.push({ type: 'VERIFICATION_COMPLETED', accountId: account.id, result: item });
+    } catch (error) {
+      relay.push({
+        type: 'VERIFICATION_ERROR',
+        accountId: account.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  relay.push({ type: 'ALL_VERIFICATIONS_COMPLETE' });
+}
+
+// ─── TUI: Single-Account Online ─────────────────────────────────────────────
+
+async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<void> {
+  if (!options.accountId) return;
+
+  const database = await initializeDatabase();
+  const accountRepo = new AccountRepository(database);
+  const transactionRepo = new TransactionRepository(database);
+  const sessionRepo = new ImportSessionRepository(database);
+  const tokenMetadataRepo = new TokenMetadataRepository(database);
+
+  const config = loadExplorerConfig();
+  const providerManager = new BlockchainProviderManager(config);
+  const balanceService = new BalanceService(
+    accountRepo,
+    transactionRepo,
+    sessionRepo,
+    tokenMetadataRepo,
+    providerManager
+  );
+
+  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
+
+  try {
+    const account = await loadSingleAccountOrFail(accountRepo, options.accountId);
+
+    // Build credentials
     let credentials: ExchangeCredentials | undefined;
     if (options.apiKey && options.apiSecret) {
       credentials = {
@@ -204,336 +532,255 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
       };
     }
 
-    // Guard: credentials only make sense for exchange-backed accounts (api or csv with API fetch for live balance)
-    const allowsCredentials = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
-    if (!allowsCredentials && credentials) {
-      output.error(
-        'balance',
-        new Error('Credentials can only be provided for exchange API accounts'),
-        ExitCodes.GENERAL_ERROR
-      );
-      return;
-    }
+    // Spinner in text mode while verifying
+    const spinner = createSpinner();
+    spinner?.start(`Verifying balance for ${account.sourceName} (account #${account.id})...`);
 
-    const result = await balanceService.verifyBalance({ accountId: account.id, credentials: credentials });
-
+    const result = await balanceService.verifyBalance({ accountId: account.id, credentials });
     spinner?.stop();
 
     if (result.isErr()) {
-      output.error('balance', result.error, ExitCodes.GENERAL_ERROR);
+      console.error(`\n⚠ Error: ${result.error.message}`);
       return;
     }
 
-    // Display results
-    await handleBalanceSuccess(
-      output,
-      result.value,
-      accountRepository,
-      transactionRepository,
-      options.explain,
-      options.debugAssetId,
-      options.debugTop
+    const vr = result.value;
+
+    // Build asset comparisons with diagnostics
+    const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);
+    const comparisons = vr.comparisons.map((c) => {
+      const debugResult = buildBalanceAssetDebug({
+        assetId: c.assetId,
+        assetSymbol: c.assetSymbol,
+        transactions,
+      });
+      const diagnostics = debugResult.isOk()
+        ? buildAssetDiagnostics(debugResult.value, {
+            liveBalance: c.liveBalance,
+            calculatedBalance: c.calculatedBalance,
+          })
+        : {
+            txCount: 0,
+            totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
+            topOutflows: [],
+            topInflows: [],
+            topFees: [],
+          };
+
+      return {
+        assetId: c.assetId,
+        assetSymbol: c.assetSymbol,
+        calculatedBalance: c.calculatedBalance,
+        liveBalance: c.liveBalance,
+        difference: c.difference,
+        percentageDiff: c.percentageDiff,
+        status: c.status,
+        diagnostics,
+      };
+    });
+
+    const sortedAssets = sortAssetsByStatus(comparisons);
+    const initialState = createBalanceAssetState(
+      { accountId: account.id, sourceName: account.sourceName, accountType: account.accountType },
+      sortedAssets,
+      { offline: false }
     );
 
-    // Allow finally block cleanup, then exit naturally on success.
+    // Render TUI
+    await new Promise<void>((resolve, reject) => {
+      inkInstance = render(
+        React.createElement(BalanceApp, {
+          initialState,
+          onQuit: () => {
+            if (inkInstance) inkInstance.unmount();
+          },
+        })
+      );
+
+      inkInstance.waitUntilExit().then(resolve).catch(reject);
+    });
   } catch (error) {
-    resetLoggerContext();
-    output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
   } finally {
+    if (inkInstance) {
+      try {
+        inkInstance.unmount();
+      } catch {
+        /* ignore */
+      }
+    }
     await balanceService.destroy();
     await closeDatabase(database);
-    resetLoggerContext();
   }
 }
 
-/**
- * Handle successful balance verification.
- */
-async function handleBalanceSuccess(
-  output: OutputManager,
-  verificationResult: BalanceVerificationResult,
-  accountRepository: AccountRepository,
-  transactionRepository: TransactionRepository,
-  explain?: boolean,
-  debugAssetId?: string,
-  debugTop?: number
-) {
-  const account = verificationResult.account;
+// ─── TUI: Offline ────────────────────────────────────────────────────────────
 
-  // Check beacon withdrawal status using cursor state (no DB query needed)
-  // Flagged early during import via cursor metadata
-  let beaconStatus: {
-    beaconWithdrawalsSkippedReason?: 'no-provider-support' | 'api-error' | 'unsupported-chain';
-    includesBeaconWithdrawals?: boolean;
-  } = {};
+async function executeBalanceOfflineTUI(options: BalanceCommandOptions): Promise<void> {
+  const database = await initializeDatabase();
+  const accountRepo = new AccountRepository(database);
+  const transactionRepo = new TransactionRepository(database);
 
-  const isExchange = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
-  if (!isExchange) {
-    if (account.sourceName.toLowerCase() === 'ethereum') {
-      const cursor = account.lastCursor?.['beacon_withdrawal'];
-      if (cursor?.metadata?.['fetchStatus'] === 'failed') {
-        beaconStatus = { includesBeaconWithdrawals: false, beaconWithdrawalsSkippedReason: 'api-error' };
-      } else if (!cursor || cursor?.metadata?.['fetchStatus'] === 'skipped') {
-        beaconStatus = { includesBeaconWithdrawals: false, beaconWithdrawalsSkippedReason: 'no-provider-support' };
-      } else if (cursor.totalFetched > 0) {
-        beaconStatus = { includesBeaconWithdrawals: true };
-      }
-    } else {
-      beaconStatus = { beaconWithdrawalsSkippedReason: 'unsupported-chain' };
-    }
-  }
+  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
 
-  const wantsExplain = Boolean(explain && verificationResult.summary.mismatches > 0);
-  const wantsDebug = Boolean(debugAssetId);
-  let explainLines: string[] | undefined;
-  let debugData: BalanceAssetDebugResult | undefined;
+  try {
+    if (options.accountId) {
+      // Single account offline → asset view
+      const account = await loadSingleAccountOrFail(accountRepo, options.accountId);
+      const { assets } = await buildOfflineAssets(account, accountRepo, transactionRepo);
+      const sortedAssets = sortAssetsOffline(assets);
 
-  if (wantsExplain || wantsDebug) {
-    const childAccountsResult = await accountRepository.findByParent(account.id);
-    if (childAccountsResult.isErr()) {
-      output.warn(`Diagnostics: failed to load child accounts: ${childAccountsResult.error.message}`);
-    } else {
-      const accountIds = [account.id, ...childAccountsResult.value.map((child) => child.id)];
-      const txResult = await transactionRepository.getTransactions({ accountIds });
-      if (txResult.isErr()) {
-        output.warn(`Diagnostics: failed to load transactions: ${txResult.error.message}`);
-      } else {
-        const transactions = txResult.value;
+      const initialState = createBalanceAssetState(
+        { accountId: account.id, sourceName: account.sourceName, accountType: account.accountType },
+        sortedAssets,
+        { offline: true }
+      );
 
-        if (wantsExplain) {
-          const mismatches = verificationResult.comparisons.filter((c) => c.status === 'mismatch');
-          const explainData = buildBalanceMismatchExplanation({
-            accountIdentifier: account.identifier,
-            transactions,
-            mismatches: mismatches.map((m) => ({
-              assetId: m.assetId,
-              assetSymbol: m.assetSymbol,
-              currency: m.currency, // Deprecated but kept for backwards compatibility
-              live: parseDecimal(m.liveBalance),
-              calculated: parseDecimal(m.calculatedBalance),
-            })),
-          });
-
-          if (explainData.isErr()) {
-            output.warn(`Explain: ${explainData.error.message}`);
-          } else {
-            explainLines = explainData.value.lines;
-          }
-        }
-
-        if (wantsDebug && debugAssetId) {
-          const comparison = verificationResult.comparisons.find((c) => c.assetId === debugAssetId);
-          const debugResult = buildBalanceAssetDebug({
-            assetId: debugAssetId,
-            assetSymbol: comparison?.assetSymbol,
-            topN: debugTop,
-            transactions,
-          });
-
-          if (debugResult.isErr()) {
-            output.warn(`Debug: ${debugResult.error.message}`);
-          } else {
-            debugData = debugResult.value;
-          }
-        }
-      }
-    }
-  }
-
-  // Display results in text mode
-  if (output.isTextMode()) {
-    //output.info(`Balance verification completed for account ${account.id} (${account.sourceName})`);
-
-    // Display account info using clack-styled logs for consistent formatting
-    output.info('Account Information:');
-    output.log(`  Account ID: ${account.id}`);
-    output.log(`  Source: ${account.sourceName}`);
-    output.log(`  Type: ${account.accountType}`);
-    if (account.accountType === 'blockchain') {
-      output.log(`  Address: ${account.identifier}`);
-
-      // Check if this account has children (xpub wallet)
-      const childAccountsResult = await accountRepository.findByParent(account.id);
-      if (childAccountsResult.isOk() && childAccountsResult.value.length > 0) {
-        output.log(`  Extended Public Key: Yes (${childAccountsResult.value.length} derived addresses)`);
-        output.log(`  Note: Balance aggregated from all derived addresses`);
-      }
-    } else {
-      output.log(`  Identifier: ${account.identifier ?? 'N/A'}`);
-    }
-    if (account.providerName) {
-      output.log(`  Provider: ${account.providerName}`);
-    }
-
-    // Beacon withdrawal status for Ethereum accounts
-    if (beaconStatus.includesBeaconWithdrawals !== undefined) {
-      output.log(`  Beacon Withdrawals: ${beaconStatus.includesBeaconWithdrawals ? 'Included' : 'Not Found'}`);
-      if (!beaconStatus.includesBeaconWithdrawals && beaconStatus.beaconWithdrawalsSkippedReason) {
-        const reason =
-          beaconStatus.beaconWithdrawalsSkippedReason === 'no-provider-support'
-            ? 'Provider does not support beacon withdrawals'
-            : beaconStatus.beaconWithdrawalsSkippedReason === 'api-error'
-              ? 'Beacon withdrawal fetch failed (check API key/provider)'
-              : 'Chain does not support beacon withdrawals';
-        output.log(`    Note: ${reason}`);
-      }
-    }
-
-    if (verificationResult.warnings && verificationResult.warnings.length > 0) {
-      output.warn('Warnings:');
-      for (const warning of verificationResult.warnings) {
-        output.log(`  - ${warning}`);
-      }
-    }
-
-    // Summary
-    output.info('Summary:');
-    output.log(`  Total currencies: ${verificationResult.summary.totalCurrencies}`);
-    output.log(`  Matches: ${verificationResult.summary.matches}`);
-    output.log(`  Warnings: ${verificationResult.summary.warnings}`);
-    output.log(`  Mismatches: ${verificationResult.summary.mismatches}`);
-
-    // Show details for each currency
-    if (verificationResult.comparisons.length > 0) {
-      output.info('Balance Details:');
-      for (const comparison of verificationResult.comparisons) {
-        const statusIcon = comparison.status === 'match' ? '✓' : comparison.status === 'warning' ? '⚠' : '✗';
-        output.log(`  ${statusIcon} ${comparison.currency}:`);
-        output.log(`    Live:       ${comparison.liveBalance}`);
-        output.log(`    Calculated: ${comparison.calculatedBalance}`);
-        if (comparison.status !== 'match') {
-          output.log(`    Difference: ${comparison.difference} (${comparison.percentageDiff.toFixed(2)}%)`);
-        }
-      }
-    }
-
-    // Show suggestion if available
-    if (verificationResult.suggestion) {
-      output.warn(`Suggestion: ${verificationResult.suggestion}`);
-    }
-
-    if (wantsExplain && explainLines && explainLines.length > 0) {
-      output.info('Explain:');
-      for (const line of explainLines) {
-        output.log(`  ${line}`);
-      }
-    }
-
-    if (wantsDebug && debugAssetId) {
-      if (!debugData) {
-        output.warn(`Debug: no diagnostics available for assetId ${debugAssetId}`);
-      } else {
-        output.info(`Debug Asset: ${debugData.assetSymbol}`);
-        output.log(`  Asset ID: ${debugData.assetId}`);
-        output.log(`  Transactions: ${debugData.totals.txCount}`);
-        output.log(
-          `  Totals: inflows=${debugData.totals.inflows.toFixed()} outflows=${debugData.totals.outflows.toFixed()} fees=${debugData.totals.fees.toFixed()} net=${debugData.totals.net.toFixed()}`
+      await new Promise<void>((resolve, reject) => {
+        inkInstance = render(
+          React.createElement(BalanceApp, {
+            initialState,
+            onQuit: () => {
+              if (inkInstance) inkInstance.unmount();
+            },
+          })
         );
+        inkInstance.waitUntilExit().then(resolve).catch(reject);
+      });
+    } else {
+      // All accounts offline → accounts view
+      const accounts = await loadAllAccounts(accountRepo);
+      const offlineItems = [];
 
-        if (debugData.totals.txCount === 0) {
-          output.warn('Debug: no movements found for this assetId in imported transactions');
-        }
+      for (const account of accounts) {
+        const { assets } = await buildOfflineAssets(account, accountRepo, transactionRepo);
+        offlineItems.push(buildAccountOfflineItem(account, sortAssetsOffline(assets)));
+      }
 
-        if (debugData.topOutflows.length > 0) {
-          output.log('  Top outflows:');
-          for (const sample of debugData.topOutflows) {
-            output.log(
-              `    - ${sample.amount.toFixed()} on ${sample.datetime} to ${sample.to ?? 'unknown'} (tx ${sample.transactionHash ?? 'unknown'})`
-            );
-          }
-        }
+      const initialState = createBalanceOfflineState(offlineItems);
 
-        if (debugData.topInflows.length > 0) {
-          output.log('  Top inflows:');
-          for (const sample of debugData.topInflows) {
-            output.log(
-              `    - ${sample.amount.toFixed()} on ${sample.datetime} from ${sample.from ?? 'unknown'} (tx ${sample.transactionHash ?? 'unknown'})`
-            );
-          }
-        }
-
-        if (debugData.topFees.length > 0) {
-          output.log('  Top fees:');
-          for (const sample of debugData.topFees) {
-            output.log(
-              `    - ${sample.amount.toFixed()} on ${sample.datetime} (tx ${sample.transactionHash ?? 'unknown'})`
-            );
-          }
-        }
+      await new Promise<void>((resolve, reject) => {
+        inkInstance = render(
+          React.createElement(BalanceApp, {
+            initialState,
+            onQuit: () => {
+              if (inkInstance) inkInstance.unmount();
+            },
+          })
+        );
+        inkInstance.waitUntilExit().then(resolve).catch(reject);
+      });
+    }
+  } catch (error) {
+    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
+  } finally {
+    if (inkInstance) {
+      try {
+        inkInstance.unmount();
+      } catch {
+        /* ignore */
       }
     }
+    await closeDatabase(database);
+  }
+}
 
-    // Outro after all details
-    output.outro(`Balance verification completed`);
-    return;
+// ─── Shared Helpers ──────────────────────────────────────────────────────────
+
+async function loadAllAccounts(accountRepo: AccountRepository): Promise<Account[]> {
+  const result = await accountRepo.findAll();
+  if (result.isErr()) throw result.error;
+  // Filter to top-level accounts only (no child/derived accounts)
+  return result.value.filter((a) => !a.parentAccountId);
+}
+
+async function loadSingleAccount(accountRepo: AccountRepository, accountId: number): Promise<Account[]> {
+  const result = await accountRepo.findById(accountId);
+  if (result.isErr()) throw result.error;
+  if (!result.value) throw new Error(`Account #${accountId} not found`);
+  return [result.value];
+}
+
+async function loadSingleAccountOrFail(accountRepo: AccountRepository, accountId: number): Promise<Account> {
+  const result = await accountRepo.findById(accountId);
+  if (result.isErr()) throw result.error;
+  if (!result.value) throw new Error(`Account #${accountId} not found`);
+  return result.value;
+}
+
+async function loadAccountTransactions(
+  account: Account,
+  accountRepo: AccountRepository,
+  transactionRepo: TransactionRepository
+): Promise<import('@exitbook/core').UniversalTransactionData[]> {
+  const childResult = await accountRepo.findByParent(account.id);
+  const accountIds = [account.id];
+  if (childResult.isOk()) {
+    accountIds.push(...childResult.value.map((c) => c.id));
   }
 
-  // Prepare result data for JSON mode
+  const txResult = await transactionRepo.getTransactions({ accountIds });
+  if (txResult.isErr()) {
+    logger.warn(`Failed to load transactions for account #${account.id}: ${txResult.error.message}`);
+    return [];
+  }
+  return txResult.value;
+}
 
-  const resultData: BalanceCommandResult = {
-    status: verificationResult.status,
-    balances: verificationResult.comparisons.map((c) => ({
-      assetId: c.assetId,
-      currency: c.currency,
-      liveBalance: c.liveBalance,
-      calculatedBalance: c.calculatedBalance,
-      difference: c.difference,
-      percentageDiff: c.percentageDiff,
-      status: c.status,
-    })),
-    debug: debugData
-      ? {
-          assetId: debugData.assetId,
-          assetSymbol: debugData.assetSymbol,
-          totals: {
-            inflows: debugData.totals.inflows.toFixed(),
-            outflows: debugData.totals.outflows.toFixed(),
-            fees: debugData.totals.fees.toFixed(),
-            net: debugData.totals.net.toFixed(),
-            txCount: debugData.totals.txCount,
-          },
-          topInflows: debugData.topInflows.map((sample) => ({
-            amount: sample.amount.toFixed(),
-            datetime: sample.datetime,
-            from: sample.from,
-            to: sample.to,
-            transactionHash: sample.transactionHash,
-          })),
-          topOutflows: debugData.topOutflows.map((sample) => ({
-            amount: sample.amount.toFixed(),
-            datetime: sample.datetime,
-            from: sample.from,
-            to: sample.to,
-            transactionHash: sample.transactionHash,
-          })),
-          topFees: debugData.topFees.map((sample) => ({
-            amount: sample.amount.toFixed(),
-            datetime: sample.datetime,
-            transactionHash: sample.transactionHash,
-          })),
+async function buildOfflineAssets(
+  account: Account,
+  accountRepo: AccountRepository,
+  transactionRepo: TransactionRepository
+): Promise<{ assets: import('./components/index.js').AssetOfflineItem[] }> {
+  const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);
+
+  if (transactions.length === 0) {
+    return { assets: [] };
+  }
+
+  const { balances, assetMetadata } = calculateBalances(transactions);
+
+  const assets = Object.entries(balances).map(([assetId, balance]) => {
+    const assetSymbol = assetMetadata[assetId] ?? assetId;
+    const debugResult = buildBalanceAssetDebug({ assetId, assetSymbol, transactions });
+    const diagnostics = debugResult.isOk()
+      ? buildAssetDiagnostics(debugResult.value)
+      : {
+          txCount: 0,
+          totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
+          topOutflows: [],
+          topInflows: [],
+          topFees: [],
+        };
+
+    return buildAssetOfflineItem(assetId, assetSymbol, balance, diagnostics);
+  });
+
+  return { assets };
+}
+
+function createSpinner(): { start: (msg: string) => void; stop: () => void } | undefined {
+  // Simple spinner for text mode
+  try {
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    let frameIndex = 0;
+
+    return {
+      start(msg: string) {
+        interval = setInterval(() => {
+          process.stderr.write(`\r${frames[frameIndex % frames.length]} ${msg}`);
+          frameIndex++;
+        }, 80);
+      },
+      stop() {
+        if (interval) {
+          clearInterval(interval);
+          process.stderr.write('\r\x1b[K'); // Clear line
         }
-      : undefined,
-    summary: verificationResult.summary,
-    source: {
-      type: isExchange ? 'exchange' : 'blockchain',
-      name: account.sourceName,
-      address: isExchange ? undefined : account.identifier,
-    },
-    account: {
-      id: account.id,
-      type: account.accountType,
-      sourceName: account.sourceName,
-      identifier: account.identifier,
-      providerName: account.providerName,
-    },
-    meta: {
-      timestamp: new Date(verificationResult.timestamp).toISOString(),
-      includesBeaconWithdrawals: beaconStatus.includesBeaconWithdrawals,
-      beaconWithdrawalsSkippedReason: beaconStatus.beaconWithdrawalsSkippedReason,
-    },
-    suggestion: verificationResult.suggestion,
-    warnings: verificationResult.warnings,
-  };
-
-  output.json('balance', resultData);
+      },
+    };
+  } catch {
+    return undefined;
+  }
 }
