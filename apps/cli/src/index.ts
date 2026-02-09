@@ -1,4 +1,11 @@
 #!/usr/bin/env node
+
+// Configure logger defaults for CLI before any imports
+// File logging is enabled by default for CLI; users can disable via LOGGER_FILE_LOG_ENABLED=false
+// Configure logger defaults for CLI before any imports
+// File logging is enabled by default for CLI; users can disable via LOGGER_FILE_LOG_ENABLED=false
+process.env['LOGGER_FILE_LOG_ENABLED'] ??= 'true';
+
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

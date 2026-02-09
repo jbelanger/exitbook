@@ -195,9 +195,6 @@ importers:
       '@exitbook/data':
         specifier: workspace:*
         version: link:../data
-      '@exitbook/env':
-        specifier: workspace:*
-        version: link:../env
       '@exitbook/events':
         specifier: workspace:*
         version: link:../events
@@ -275,9 +272,6 @@ importers:
       '@exitbook/core':
         specifier: workspace:*
         version: link:../core
-      '@exitbook/env':
-        specifier: workspace:*
-        version: link:../env
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
@@ -303,19 +297,6 @@ importers:
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
-
-  packages/env:
-    dependencies:
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
-    devDependencies:
-      prettier:
-        specifier: ^3.8.1
-        version: 3.8.1
-      tsconfig:
-        specifier: workspace:*
-        version: link:../tsconfig
 
   packages/events:
     devDependencies:
@@ -437,9 +418,6 @@ importers:
       '@exitbook/core':
         specifier: workspace:*
         version: link:../core
-      '@exitbook/env':
-        specifier: workspace:*
-        version: link:../env
       '@exitbook/events':
         specifier: workspace:*
         version: link:../events

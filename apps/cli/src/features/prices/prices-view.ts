@@ -1,5 +1,6 @@
-// Command registration for view prices subcommand
+import path from 'node:path';
 
+// Command registration for view prices subcommand
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
@@ -7,6 +8,7 @@ import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { PricesViewCommandOptionsSchema } from '../shared/schemas.js';
@@ -130,7 +132,9 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
   let exitCode = 0;
 
   try {
-    database = await initializeDatabase();
+    const dataDir = getDataDir();
+
+    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const txRepo = new TransactionRepository(database);
     const handler = new ViewPricesHandler(txRepo);
 
@@ -208,9 +212,11 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
   let exitCode = 0;
 
   try {
-    database = await initializeDatabase();
+    const dataDir = getDataDir();
+
+    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const txRepo = new TransactionRepository(database);
-    const overrideStore = new OverrideStore();
+    const overrideStore = new OverrideStore(dataDir);
     const handler = new ViewPricesHandler(txRepo);
 
     // Fetch missing movements
@@ -226,7 +232,7 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
     const initialState = createMissingViewState(movements, assetBreakdown, params.asset, params.source);
 
     // Set price handler for inline editing
-    const pricesSetHandler = new PricesSetHandler(overrideStore);
+    const pricesSetHandler = new PricesSetHandler(path.join(dataDir, 'prices.db'), overrideStore);
 
     const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
       const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
@@ -293,7 +299,9 @@ async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
       sinks: { ui: false, structured: 'file' },
     });
 
-    database = await initializeDatabase();
+    const dataDir = getDataDir();
+
+    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const txRepo = new TransactionRepository(database);
     const handler = new ViewPricesHandler(txRepo);
 
@@ -368,7 +376,9 @@ async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
       sinks: { ui: false, structured: 'file' },
     });
 
-    database = await initializeDatabase();
+    const dataDir = getDataDir();
+
+    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const txRepo = new TransactionRepository(database);
     const handler = new ViewPricesHandler(txRepo);
 

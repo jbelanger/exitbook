@@ -1,5 +1,6 @@
-// Command registration for links view subcommand
+import path from 'node:path';
 
+// Command registration for links view subcommand
 import type { LinkStatus, TransactionLink } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
@@ -10,6 +11,7 @@ import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { LinksViewCommandOptionsSchema } from '../shared/schemas.js';
@@ -188,10 +190,12 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
 
   try {
     // Initialize database and repositories
-    database = await initializeDatabase();
+    const dataDir = getDataDir();
+
+    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const linkRepo = new TransactionLinkRepository(database);
     const txRepo = new TransactionRepository(database);
-    const overrideStore = new OverrideStore();
+    const overrideStore = new OverrideStore(dataDir);
 
     // Fetch and process links
     const linksResult = await linkRepo.findAll(params.status as LinkStatus);
@@ -294,7 +298,9 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
   let exitCode = 0;
 
   try {
-    database = await initializeDatabase();
+    const dataDir = getDataDir();
+
+    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const txRepo = new TransactionRepository(database);
     const linkRepo = new TransactionLinkRepository(database);
 
@@ -376,7 +382,9 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
   let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
 
   try {
-    database = await initializeDatabase();
+    const dataDir = getDataDir();
+
+    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const linkRepo = new TransactionLinkRepository(database);
     const txRepo = new TransactionRepository(database);
 
@@ -443,7 +451,9 @@ async function executeGapsViewJSON(params: LinksViewParams): Promise<void> {
   let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
 
   try {
-    database = await initializeDatabase();
+    const dataDir = getDataDir();
+
+    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const txRepo = new TransactionRepository(database);
     const linkRepo = new TransactionLinkRepository(database);
 

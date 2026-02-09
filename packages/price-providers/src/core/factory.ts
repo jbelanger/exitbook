@@ -58,8 +58,8 @@ export type ProviderName = keyof typeof PROVIDER_FACTORIES;
  * Configuration for individual providers
  */
 export interface ProviderFactoryConfig {
-  /** Path to prices database file (defaults to ./data/prices.db) */
-  databasePath?: string | undefined;
+  /** Path to prices database file */
+  databasePath: string;
   /** Optional instrumentation collector to record HTTP metrics */
   instrumentation?: InstrumentationCollector | undefined;
   'bank-of-canada'?: {
@@ -95,7 +95,9 @@ export interface ProviderFactoryConfig {
  * Example usage:
  * ```typescript
  * // Use environment variables (auto-detected by individual factories)
- * const result = await createPriceProviders();
+ * const result = await createPriceProviders({
+ *   databasePath: './data/prices.db'
+ * });
  *
  * // Override with config
  * const result = await createPriceProviders({
@@ -106,6 +108,7 @@ export interface ProviderFactoryConfig {
  *
  * // Disable specific provider
  * const result = await createPriceProviders({
+ *   databasePath: './data/prices.db',
  *   coingecko: { enabled: false }
  * });
  *
@@ -118,13 +121,12 @@ export interface ProviderFactoryConfig {
  * ```
  */
 export async function createPriceProviders(
-  config: ProviderFactoryConfig = {},
+  config: ProviderFactoryConfig,
   instrumentation?: InstrumentationCollector,
   eventBus?: EventBus<PriceProviderEvent>
 ): Promise<Result<IPriceProvider[], Error>> {
   // Initialize database (internal detail - caller never touches it)
-  const dbPath = config.databasePath || './data/prices.db';
-  const dbResult = createPricesDatabase(dbPath);
+  const dbResult = createPricesDatabase(config.databasePath);
 
   if (dbResult.isErr()) {
     return err(new Error(`Failed to create prices database: ${dbResult.error.message}`));
@@ -138,7 +140,7 @@ export async function createPriceProviders(
     return err(new Error(`Failed to initialize database: ${migrationResult.error.message}`));
   }
 
-  logger.debug({ databasePath: dbPath }, 'Prices database initialized');
+  logger.debug({ databasePath: config.databasePath }, 'Prices database initialized');
 
   const providers: IPriceProvider[] = [];
   const instrumentationCollector = instrumentation ?? config.instrumentation;
@@ -204,7 +206,7 @@ export function getAvailableProviderNames(): ProviderName[] {
  */
 export interface PriceProviderManagerFactoryConfig {
   /** Provider-specific configuration */
-  providers?: ProviderFactoryConfig | undefined;
+  providers: ProviderFactoryConfig;
   /** Manager-specific configuration */
   manager?: Partial<ProviderManagerConfig> | undefined;
   /** Optional instrumentation collector for HTTP metrics */
@@ -222,7 +224,9 @@ export interface PriceProviderManagerFactoryConfig {
  * Example usage:
  * ```typescript
  * // Use environment variables
- * const manager = await createPriceProviderManager();
+ * const manager = await createPriceProviderManager({
+ *   providers: { databasePath: './data/prices.db' }
+ * });
  *
  * // Override with config
  * const manager = await createPriceProviderManager({
@@ -246,10 +250,10 @@ export interface PriceProviderManagerFactoryConfig {
  * ```
  */
 export async function createPriceProviderManager(
-  config: PriceProviderManagerFactoryConfig = {}
+  config: PriceProviderManagerFactoryConfig
 ): Promise<Result<PriceProviderManager, Error>> {
   // Create providers
-  const providersResult = await createPriceProviders(config.providers ?? {}, config.instrumentation, config.eventBus);
+  const providersResult = await createPriceProviders(config.providers, config.instrumentation, config.eventBus);
 
   if (providersResult.isErr()) {
     return err(providersResult.error);

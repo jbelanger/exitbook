@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 /* eslint-disable unicorn/no-null -- Used in React component code */
 import { TransactionLinkRepository } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
@@ -13,6 +15,7 @@ import { createEventDrivenController } from '../../ui/shared/index.js';
 import { PromptFlow, type PromptStep } from '../../ui/shared/PromptFlow.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { createSuccessResponse } from '../shared/cli-response.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 
@@ -192,10 +195,11 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
     });
 
     const { OverrideStore } = await import('@exitbook/data');
-    const database = await initializeDatabase();
+    const dataDir = getDataDir();
+    const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const transactionRepository = new TransactionRepository(database);
     const linkRepository = new TransactionLinkRepository(database);
-    const overrideStore = new OverrideStore();
+    const overrideStore = new OverrideStore(dataDir);
 
     // JSON mode - run without UI
     if (options.json) {

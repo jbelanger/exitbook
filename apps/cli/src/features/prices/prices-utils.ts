@@ -1,6 +1,8 @@
 // Pure business logic for prices command
 // All functions are pure and testable
 
+import path from 'node:path';
+
 import { Currency, type UniversalTransactionData } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/http';
@@ -8,6 +10,8 @@ import { createPriceProviderManager, type PriceProviderManager } from '@exitbook
 import type { PriceProviderEvent } from '@exitbook/price-providers';
 import type { PriceQuery } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
+
+import { getDataDir } from '../shared/data-dir.js';
 
 import type { PriceEvent } from './events.js';
 
@@ -223,9 +227,10 @@ export async function createDefaultPriceProviderManager(
   // price-providers package only ever calls bus.emit(PriceProviderEvent)
   eventBus?: EventBus<PriceEvent>
 ): Promise<Result<PriceProviderManager, Error>> {
+  const dataDir = getDataDir();
   return createPriceProviderManager({
     providers: {
-      databasePath: './data/prices.db',
+      databasePath: path.join(dataDir, 'prices.db'),
       // Crypto price providers
       coingecko: {
         enabled: true,

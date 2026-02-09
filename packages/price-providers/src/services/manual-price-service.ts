@@ -45,7 +45,7 @@ export class ManualPriceService {
   private repository: PriceRepository | undefined;
   private initialized = false;
 
-  constructor(private readonly databasePath?: string) {}
+  constructor(private readonly databasePath: string) {}
 
   /**
    * Save a manual price entry to the cache
@@ -55,7 +55,7 @@ export class ManualPriceService {
    *
    * @example
    * ```typescript
-   * const service = new ManualPriceService();
+   * const service = new ManualPriceService('./data/prices.db');
    * const result = await service.savePrice({
    *   assetSymbol: 'BTC',
    *   date: new Date('2024-01-15T10:30:00Z'),
@@ -106,7 +106,7 @@ export class ManualPriceService {
    *
    * @example
    * ```typescript
-   * const service = new ManualPriceService();
+   * const service = new ManualPriceService('./data/prices.db');
    * const result = await service.saveFxRate({
    *   from: 'EUR',
    *   to: 'USD',
@@ -196,7 +196,7 @@ export class ManualPriceService {
  * @param price - Price value as Decimal or string
  * @param currency - Currency code (default: 'USD')
  * @param source - Source attribution (default: 'manual')
- * @param databasePath - Optional path to the database file
+ * @param databasePath - Path to the database file
  * @returns Result indicating success or failure
  */
 export async function saveManualPrice(
@@ -205,7 +205,7 @@ export async function saveManualPrice(
   price: Decimal | string,
   currency = 'USD',
   source = 'manual',
-  databasePath?: string
+  databasePath: string
 ): Promise<Result<void, Error>> {
   const service = new ManualPriceService(databasePath);
   return service.savePrice({
@@ -227,7 +227,7 @@ export async function saveManualPrice(
  * @param date - Date/time for the rate
  * @param rate - FX rate value as Decimal or string
  * @param source - Source attribution (default: 'user-provided')
- * @param databasePath - Optional path to the database file
+ * @param databasePath - Path to the database file
  * @returns Result indicating success or failure
  */
 export async function saveManualFxRate(
@@ -236,7 +236,7 @@ export async function saveManualFxRate(
   date: Date,
   rate: Decimal | string,
   source = 'user-provided',
-  databasePath?: string
+  databasePath: string
 ): Promise<Result<void, Error>> {
   const service = new ManualPriceService(databasePath);
   return service.saveFxRate({

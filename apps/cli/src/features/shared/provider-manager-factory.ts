@@ -5,6 +5,8 @@
  * each CLI entry point doesn't duplicate this logic.
  */
 
+import path from 'node:path';
+
 import {
   BlockchainProviderManager,
   closeProviderStatsDatabase,
@@ -16,6 +18,8 @@ import {
   type ProviderStatsDB,
 } from '@exitbook/blockchain-providers';
 import { getLogger } from '@exitbook/logger';
+
+import { getDataDir } from './data-dir.js';
 
 const logger = getLogger('provider-manager-factory');
 
@@ -40,7 +44,8 @@ export async function createProviderManagerWithStats(
   let providerStatsDb: ProviderStatsDB | undefined;
 
   // Try to set up persistence — graceful degradation on failure
-  const dbResult = createProviderStatsDatabase();
+  const dataDir = getDataDir();
+  const dbResult = createProviderStatsDatabase(path.join(dataDir, 'providers.db'));
   if (dbResult.isOk()) {
     providerStatsDb = dbResult.value;
     const migrationResult = await initializeProviderStatsDatabase(providerStatsDb);

@@ -1,7 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { getDataDirectory } from '@exitbook/env';
 import { getLogger } from '@exitbook/logger';
 import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect } from 'kysely';
@@ -14,9 +13,8 @@ const logger = getLogger('KyselyDatabase');
 /**
  * Create and configure database instance
  */
-export function createDatabase(dbPath?: string): Kysely<DatabaseSchema> {
-  const defaultPath = path.join(getDataDirectory(), 'transactions.db');
-  const finalPath = dbPath || defaultPath;
+export function createDatabase(dbPath: string): Kysely<DatabaseSchema> {
+  const finalPath = dbPath;
 
   // Ensure data directory exists
   const dataDir = path.dirname(finalPath);

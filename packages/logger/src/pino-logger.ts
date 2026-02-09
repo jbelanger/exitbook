@@ -6,7 +6,7 @@ import pino from 'pino';
 
 import { logLevelsSchema, validateLoggerEnv } from './env.schema.js';
 
-// Validate environment variables
+// Validate environment variables (reads NODE_ENV directly from process.env)
 const env = validateLoggerEnv(process.env);
 
 /**

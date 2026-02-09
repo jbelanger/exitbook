@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
@@ -22,6 +24,7 @@ import type { Result } from 'neverthrow';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
 import { IngestionMonitor } from '../import/components/ingestion-monitor-components.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
 
 import type { ProcessHandlerParams, ProcessResult } from './process-handler.js';
@@ -45,7 +48,8 @@ export interface ProcessServices {
  * Handles initialization, wiring, and cleanup.
  */
 export async function createProcessServices(): Promise<ProcessServices> {
-  const database = await initializeDatabase();
+  const dataDir = getDataDir();
+  const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
 
   // Create repositories
   const user = new UserRepository(database);

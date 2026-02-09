@@ -1,11 +1,14 @@
 // Prices set-fx command - manually set FX rate
 // Allows bulk preparation of manual FX rates without interrupting enrichment
 
+import path from 'node:path';
+
 import { OverrideStore } from '@exitbook/data';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { PricesSetFxCommandOptionsSchema } from '../shared/schemas.js';
@@ -68,8 +71,9 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
       });
     }
 
-    const overrideStore = new OverrideStore();
-    const handler = new PricesSetFxHandler(overrideStore);
+    const dataDir = getDataDir();
+    const overrideStore = new OverrideStore(dataDir);
+    const handler = new PricesSetFxHandler(path.join(dataDir, 'prices.db'), overrideStore);
     const result = await handler.execute({
       from: options.from,
       to: options.to,

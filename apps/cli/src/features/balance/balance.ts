@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type { Account, ExchangeCredentials } from '@exitbook/core';
 import {
   AccountRepository,
@@ -16,6 +18,7 @@ import type { z } from 'zod';
 
 import { EventRelay } from '../../ui/shared/event-relay.js';
 import { displayCliError } from '../shared/cli-error.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
@@ -120,7 +123,8 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
 async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void> {
   const output = new OutputManager('json');
 
-  const database = await initializeDatabase();
+  const dataDir = getDataDir();
+  const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
   const accountRepo = new AccountRepository(database);
   const transactionRepo = new TransactionRepository(database);
   const sessionRepo = new ImportSessionRepository(database);
@@ -330,7 +334,8 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
 // ─── TUI: All-Accounts Online ───────────────────────────────────────────────
 
 async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<void> {
-  const database = await initializeDatabase();
+  const dataDir = getDataDir();
+  const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
   const accountRepo = new AccountRepository(database);
   const transactionRepo = new TransactionRepository(database);
   const sessionRepo = new ImportSessionRepository(database);
@@ -519,7 +524,8 @@ async function runVerificationLoop(
 async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<void> {
   if (!options.accountId) return;
 
-  const database = await initializeDatabase();
+  const dataDir = getDataDir();
+  const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
   const accountRepo = new AccountRepository(database);
   const transactionRepo = new TransactionRepository(database);
   const sessionRepo = new ImportSessionRepository(database);
@@ -640,7 +646,8 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
 // ─── TUI: Offline ────────────────────────────────────────────────────────────
 
 async function executeBalanceOfflineTUI(options: BalanceCommandOptions): Promise<void> {
-  const database = await initializeDatabase();
+  const dataDir = getDataDir();
+  const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
   const accountRepo = new AccountRepository(database);
   const transactionRepo = new TransactionRepository(database);
 

@@ -5,7 +5,6 @@ import path from 'node:path';
 import { createInterface } from 'node:readline';
 
 import { wrapError } from '@exitbook/core';
-import { getDataDirectory } from '@exitbook/env';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -19,7 +18,7 @@ import type { CreateOverrideEventOptions } from './override.types.js';
  * derived data so they survive database wipes and reprocessing.
  *
  * Format: JSONL (JSON Lines) - one JSON object per line
- * Location: ${EXITBOOK_DATA_DIR}/overrides.jsonl
+ * Location: ${dataDir}/overrides.jsonl
  *
  * Example content:
  * {"id":"abc-123","created_at":"2024-01-15T10:00:00Z","actor":"user","source":"cli","scope":"link","payload":{...}}
@@ -35,9 +34,8 @@ export class OverrideStore {
   private readonly logger: Logger;
   private writeQueue: Promise<unknown> = Promise.resolve();
 
-  constructor(dataDir?: string) {
-    const dir = dataDir ?? getDataDirectory();
-    this.filePath = path.join(dir, 'overrides.jsonl');
+  constructor(dataDir: string) {
+    this.filePath = path.join(dataDir, 'overrides.jsonl');
     this.logger = getLogger('OverrideStore');
   }
 

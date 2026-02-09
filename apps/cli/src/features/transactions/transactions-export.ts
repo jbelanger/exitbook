@@ -1,9 +1,11 @@
-// Command registration for transactions export subcommand
+import path from 'node:path';
 
+// Command registration for transactions export subcommand
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 
 import { displayCliError } from '../shared/cli-error.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { writeFilesAtomically } from '../shared/file-utils.js';
 import { OutputManager } from '../shared/output.js';
@@ -79,7 +81,8 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
   let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
 
   try {
-    database = await initializeDatabase();
+    const dataDir = getDataDir();
+    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const txRepo = new TransactionRepository(database);
     const txLinkRepo = new TransactionLinkRepository(database);
     const exportHandler = new ExportHandler(txRepo, txLinkRepo);

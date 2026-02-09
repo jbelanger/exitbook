@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type { CostBasisReport } from '@exitbook/accounting';
 import {
   CostBasisReportGenerator,
@@ -16,6 +18,7 @@ import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
 import { unwrapResult } from '../shared/command-execution.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { CostBasisCommandOptionsSchema } from '../shared/schemas.js';
@@ -133,7 +136,8 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
   try {
     const params = unwrapResult(buildCostBasisParamsFromFlags(options));
 
-    const database = await initializeDatabase();
+    const dataDir = getDataDir();
+    const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const transactionRepo = new TransactionRepository(database);
     const linkRepo = new TransactionLinkRepository(database);
     const costBasisRepo = new CostBasisRepository(database);
@@ -163,7 +167,8 @@ async function executeCostBasisViewJSON(options: CommandOptions): Promise<void> 
   const output = new OutputManager('json');
   const calculationId = options.calculationId!;
 
-  const database = await initializeDatabase();
+  const dataDir = getDataDir();
+  const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
   const costBasisRepo = new CostBasisRepository(database);
 
   try {
@@ -295,7 +300,8 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
     // Show spinner during calculation
     spinner?.start('Calculating cost basis...');
 
-    const database = await initializeDatabase();
+    const dataDir = getDataDir();
+    const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const transactionRepo = new TransactionRepository(database);
     const linkRepo = new TransactionLinkRepository(database);
     const costBasisRepo = new CostBasisRepository(database);
@@ -406,7 +412,8 @@ async function executeCostBasisViewTUI(options: CommandOptions): Promise<void> {
   const spinner = createSpinner();
   spinner?.start('Loading cost basis results...');
 
-  const database = await initializeDatabase();
+  const dataDir = getDataDir();
+  const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
   const costBasisRepo = new CostBasisRepository(database);
 
   try {
@@ -543,7 +550,10 @@ async function generateReport(
   calculationId: string,
   displayCurrency: string
 ): Promise<CostBasisReport | undefined> {
-  const priceManagerResult = await createPriceProviderManager();
+  const dataDir = getDataDir();
+  const priceManagerResult = await createPriceProviderManager({
+    providers: { databasePath: path.join(dataDir, 'prices.db') },
+  });
   if (priceManagerResult.isErr()) {
     logger.warn({ error: priceManagerResult.error }, 'Failed to create price provider manager for FX conversion');
     return undefined;

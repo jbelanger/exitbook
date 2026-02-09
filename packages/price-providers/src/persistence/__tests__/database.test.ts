@@ -2,13 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-vi.mock('@exitbook/env', () => ({
-  getDataDirectory: vi.fn(),
-}));
-
-import { getDataDirectory } from '@exitbook/env';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   clearPricesDatabase,
@@ -27,9 +21,6 @@ describe('Database', () => {
     // Create temporary directory for test databases
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'price-db-test-'));
     dbPath = path.join(tempDir, 'test-prices.db');
-
-    // Mock getDataDirectory to return our temp directory by default
-    vi.mocked(getDataDirectory).mockReturnValue(tempDir);
   });
 
   afterEach(async () => {
@@ -83,17 +74,15 @@ describe('Database', () => {
       }
     });
 
-    it('should use default path when not specified', () => {
-      // Mock getDataDirectory to return our temp directory
-      vi.mocked(getDataDirectory).mockReturnValue(tempDir);
-
-      const result = createPricesDatabase();
+    it('should create database at specified path', () => {
+      const testPath = path.join(tempDir, 'prices.db');
+      const result = createPricesDatabase(testPath);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         db = result.value;
         expect(db).toBeDefined();
-        expect(fs.existsSync(path.join(tempDir, 'prices.db'))).toBe(true);
+        expect(fs.existsSync(testPath)).toBe(true);
       }
     });
   });

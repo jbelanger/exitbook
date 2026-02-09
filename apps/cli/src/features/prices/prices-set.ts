@@ -1,10 +1,13 @@
 // Prices set command - manually set price for an asset
 // Allows bulk preparation of manual prices without interrupting enrichment
 
+import path from 'node:path';
+
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { PricesSetCommandOptionsSchema } from '../shared/schemas.js';
@@ -68,8 +71,9 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
     }
 
     const { OverrideStore } = await import('@exitbook/data');
-    const overrideStore = new OverrideStore();
-    const handler = new PricesSetHandler(overrideStore);
+    const dataDir = getDataDir();
+    const overrideStore = new OverrideStore(dataDir);
+    const handler = new PricesSetHandler(path.join(dataDir, 'prices.db'), overrideStore);
     const result = await handler.execute({
       asset: options.asset,
       date: options.date,

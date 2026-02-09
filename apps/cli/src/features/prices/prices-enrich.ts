@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 /**
  * Command registration for prices enrich subcommand
  *
@@ -7,7 +9,6 @@
  * 3. Market prices - Fetch missing crypto prices from external providers
  * 4. Price propagation - Use newly fetched/normalized prices for ratio calculations
  */
-
 import { TransactionLinkRepository } from '@exitbook/accounting';
 import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
@@ -17,6 +18,7 @@ import type { Command } from 'commander';
 import type { z } from 'zod';
 
 import { createEventDrivenController } from '../../ui/shared/index.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { PricesEnrichCommandOptionsSchema } from '../shared/schemas.js';
@@ -92,7 +94,8 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       },
     });
 
-    const database = await initializeDatabase();
+    const dataDir = getDataDir();
+    const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const transactionRepo = new TransactionRepository(database);
     const linkRepo = new TransactionLinkRepository(database);
 

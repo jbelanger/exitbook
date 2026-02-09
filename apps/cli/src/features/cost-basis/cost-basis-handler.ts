@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type { CostBasisReport, CostBasisSummary } from '@exitbook/accounting';
 import {
   CostBasisCalculator,
@@ -12,6 +14,8 @@ import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
+
+import { getDataDir } from '../shared/data-dir.js';
 
 import type { CostBasisHandlerParams } from './cost-basis-utils.js';
 import {
@@ -181,7 +185,10 @@ export class CostBasisHandler {
   ): Promise<Result<CostBasisReport, Error>> {
     logger.info({ displayCurrency }, 'Generating report with currency conversion');
 
-    const priceManagerResult = await createPriceProviderManager();
+    const dataDir = getDataDir();
+    const priceManagerResult = await createPriceProviderManager({
+      providers: { databasePath: path.join(dataDir, 'prices.db') },
+    });
     if (priceManagerResult.isErr()) {
       return err(new Error(`Failed to create price provider manager: ${priceManagerResult.error.message}`));
     }

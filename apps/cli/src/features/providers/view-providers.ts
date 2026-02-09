@@ -1,5 +1,7 @@
 // Command registration for view providers subcommand
 
+import path from 'node:path';
+
 import {
   closeProviderStatsDatabase,
   createProviderStatsDatabase,
@@ -17,6 +19,7 @@ import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { ProvidersViewCommandOptionsSchema } from '../shared/schemas.js';
@@ -131,7 +134,8 @@ async function loadProviderData(
 
   // Load stats from providers.db (graceful degradation)
   let allStatsRows: ProviderStatsRow[] = [];
-  const dbResult = createProviderStatsDatabase();
+  const dataDir = getDataDir();
+  const dbResult = createProviderStatsDatabase(path.join(dataDir, 'providers.db'));
 
   if (dbResult.isOk()) {
     const db = dbResult.value;

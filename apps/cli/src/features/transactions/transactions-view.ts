@@ -1,5 +1,6 @@
-// Command registration for view transactions subcommand
+import path from 'node:path';
 
+// Command registration for view transactions subcommand
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
@@ -8,6 +9,7 @@ import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { writeFilesAtomically } from '../shared/file-utils.js';
 import { OutputManager } from '../shared/output.js';
@@ -129,7 +131,9 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
   let exitCode = 0;
 
   try {
-    database = await initializeDatabase();
+    const dataDir = getDataDir();
+
+    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const txRepo = new TransactionRepository(database);
 
     // Convert since to unix timestamp if provided
@@ -282,7 +286,9 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
   let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
 
   try {
-    database = await initializeDatabase();
+    const dataDir = getDataDir();
+
+    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const txRepo = new TransactionRepository(database);
 
     // Convert since to unix timestamp if provided

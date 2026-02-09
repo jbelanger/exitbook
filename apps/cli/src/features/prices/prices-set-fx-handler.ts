@@ -45,9 +45,14 @@ export interface PricesSetFxResult {
  * Handler for prices set-fx command
  */
 export class PricesSetFxHandler {
-  private service = new ManualPriceService();
+  private service: ManualPriceService;
 
-  constructor(private readonly overrideStore?: OverrideStore | undefined) {}
+  constructor(
+    databasePath: string,
+    private readonly overrideStore?: OverrideStore | undefined
+  ) {
+    this.service = new ManualPriceService(databasePath);
+  }
 
   /**
    * Execute prices set-fx command

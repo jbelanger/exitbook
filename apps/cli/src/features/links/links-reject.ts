@@ -1,5 +1,6 @@
-// Command registration for links reject subcommand
+import path from 'node:path';
 
+// Command registration for links reject subcommand
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
@@ -7,6 +8,7 @@ import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { LinksRejectCommandOptionsSchema } from '../shared/schemas.js';
@@ -85,10 +87,11 @@ async function executeLinksRejectCommand(linkId: string, rawOptions: unknown): P
     const { initializeDatabase, closeDatabase, TransactionRepository, OverrideStore } = await import('@exitbook/data');
     const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
-    const database = await initializeDatabase();
+    const dataDir = getDataDir();
+    const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const linkRepo = new TransactionLinkRepository(database);
     const txRepo = new TransactionRepository(database);
-    const overrideStore = new OverrideStore();
+    const overrideStore = new OverrideStore(dataDir);
 
     const handler = new LinksRejectHandler(linkRepo, txRepo, overrideStore);
 

@@ -8,10 +8,10 @@ const logger = getLogger('DatabaseInitialization');
 /**
  * Initialize database with migrations
  */
-export async function initializeDatabase(): Promise<KyselyDB> {
+export async function initializeDatabase(dbPath: string): Promise<KyselyDB> {
   logger.debug('Initializing database...');
 
-  const database = createDatabase();
+  const database = createDatabase(dbPath);
 
   // Run migrations to ensure schema is up to date
   await runMigrations(database);

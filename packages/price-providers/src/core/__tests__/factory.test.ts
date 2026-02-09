@@ -202,7 +202,7 @@ describe('createPriceProviders', () => {
   });
 
   it('should create all providers by default', async () => {
-    const result = await createPriceProviders();
+    const result = await createPriceProviders({ databasePath: ':memory:' });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -219,7 +219,7 @@ describe('createPriceProviders', () => {
   });
 
   it('should expose rate limits in provider metadata', async () => {
-    const result = await createPriceProviders();
+    const result = await createPriceProviders({ databasePath: ':memory:' });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -238,7 +238,7 @@ describe('createPriceProviders', () => {
 
   it('should pass empty config when no config provided', async () => {
     const { createCoinGeckoProvider } = await import('../../providers/coingecko/provider.js');
-    await createPriceProviders();
+    await createPriceProviders({ databasePath: ':memory:' });
 
     // Factory passes empty config, individual providers read from process.env
     expect(createCoinGeckoProvider).toHaveBeenCalledWith(
@@ -253,6 +253,7 @@ describe('createPriceProviders', () => {
 
     const { createCoinGeckoProvider } = await import('../../providers/coingecko/provider.js');
     await createPriceProviders({
+      databasePath: ':memory:',
       coingecko: { apiKey: 'config-key' },
     });
 
@@ -267,6 +268,7 @@ describe('createPriceProviders', () => {
 
   it('should respect enabled: false', async () => {
     const result = await createPriceProviders({
+      databasePath: ':memory:',
       'bank-of-canada': { enabled: false },
       binance: { enabled: false },
       coingecko: { enabled: false },
@@ -283,7 +285,7 @@ describe('createPriceProviders', () => {
   });
 
   it('should call initialize() hook if provider implements it', async () => {
-    const result = await createPriceProviders();
+    const result = await createPriceProviders({ databasePath: ':memory:' });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -346,7 +348,7 @@ describe('createPriceProviders', () => {
       } as unknown as import('../../providers/coingecko/provider.js').CoinGeckoProvider)
     );
 
-    const result = await createPriceProviders();
+    const result = await createPriceProviders({ databasePath: ':memory:' });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -382,7 +384,7 @@ describe('createPriceProviderManager', () => {
   });
 
   it('should create manager with providers registered', async () => {
-    const result = await createPriceProviderManager();
+    const result = await createPriceProviderManager({ providers: { databasePath: ':memory:' } });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -397,6 +399,7 @@ describe('createPriceProviderManager', () => {
   it('should use default manager config when not provided', async () => {
     const result = await createPriceProviderManager({
       providers: {
+        databasePath: ':memory:',
         coingecko: { apiKey: 'test-key' },
       },
     });
@@ -407,6 +410,7 @@ describe('createPriceProviderManager', () => {
 
   it('should override manager config when provided', async () => {
     const result = await createPriceProviderManager({
+      providers: { databasePath: ':memory:' },
       manager: {
         defaultCurrency: 'EUR',
         cacheTtlSeconds: 600,
@@ -421,6 +425,7 @@ describe('createPriceProviderManager', () => {
 
     await createPriceProviderManager({
       providers: {
+        databasePath: ':memory:',
         coingecko: { apiKey: 'manager-key', useProApi: true },
       },
     });
@@ -438,6 +443,7 @@ describe('createPriceProviderManager', () => {
   it('should return error if provider creation fails', async () => {
     const result = await createPriceProviderManager({
       providers: {
+        databasePath: ':memory:',
         'bank-of-canada': { enabled: false },
         binance: { enabled: false },
         coingecko: { enabled: false },

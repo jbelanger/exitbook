@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
   AccountRepository,
@@ -21,6 +23,7 @@ import {
 } from '@exitbook/ingestion';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
 
 import { IngestionMonitor } from './components/ingestion-monitor-components.js';
@@ -44,7 +47,8 @@ export interface ImportServices {
  * Handles initialization, wiring, and cleanup.
  */
 export async function createImportServices(): Promise<ImportServices> {
-  const database = await initializeDatabase();
+  const dataDir = getDataDir();
+  const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
   const repositories = createRepositories(database);
 
   const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();

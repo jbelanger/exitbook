@@ -35,7 +35,6 @@
   },
   "peerDependencies": {
     "@exitbook/core": "workspace:*",
-    "@exitbook/env": "workspace:*",
     "@exitbook/events": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/logger": "workspace:*"

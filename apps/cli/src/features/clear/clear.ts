@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import {
   AccountRepository,
@@ -14,6 +16,7 @@ import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
 
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { handleCancellation, promptConfirm } from '../shared/prompts.js';
@@ -96,7 +99,9 @@ function executeClearTUI(options: {
     (async () => {
       try {
         // Initialize database and repositories
-        database = await initializeDatabase();
+        const dataDir = getDataDir();
+
+        database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
         const userRepository = new UserRepository(database);
         const accountRepository = new AccountRepository(database);
         const transactionRepository = new TransactionRepository(database);
@@ -238,7 +243,8 @@ async function executeClearLegacy(options: {
 
   try {
     // Initialize database and repositories once
-    const database = await initializeDatabase();
+    const dataDir = getDataDir();
+    const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const userRepository = new UserRepository(database);
     const accountRepository = new AccountRepository(database);
     const transactionRepository = new TransactionRepository(database);

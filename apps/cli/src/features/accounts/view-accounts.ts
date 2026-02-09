@@ -1,5 +1,6 @@
-// Command registration for view accounts subcommand
+import path from 'node:path';
 
+// Command registration for view accounts subcommand
 import type { AccountType } from '@exitbook/core';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
@@ -8,6 +9,7 @@ import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { AccountsViewCommandOptionsSchema } from '../shared/schemas.js';
@@ -124,7 +126,9 @@ async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void>
   let exitCode = 0;
 
   try {
-    database = await initializeDatabase();
+    const dataDir = getDataDir();
+
+    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const accountRepo = new AccountRepository(database);
     const sessionRepo = new ImportSessionRepository(database);
     const userRepo = new UserRepository(database);
@@ -217,7 +221,9 @@ async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void
   let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
 
   try {
-    database = await initializeDatabase();
+    const dataDir = getDataDir();
+
+    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const accountRepo = new AccountRepository(database);
     const sessionRepo = new ImportSessionRepository(database);
     const userRepo = new UserRepository(database);
