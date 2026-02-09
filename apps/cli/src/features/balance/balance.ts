@@ -186,6 +186,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
         }
 
         const vr = result.value;
+        const streamMetadata = extractStreamMetadata(vr.account);
         output.json('balance', {
           status: vr.status,
           balances: vr.comparisons.map((c) => ({
@@ -210,7 +211,10 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
             identifier: vr.account.identifier,
             providerName: vr.account.providerName,
           },
-          meta: { timestamp: new Date(vr.timestamp).toISOString() },
+          meta: {
+            timestamp: new Date(vr.timestamp).toISOString(),
+            ...(streamMetadata && { streams: streamMetadata }),
+          },
           suggestion: vr.suggestion,
           warnings: vr.warnings,
         });
@@ -274,11 +278,20 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
           matchTotal += vr.summary.matches;
           mismatchTotal += vr.summary.mismatches + vr.summary.warnings;
 
+          // Derive account status from asset comparisons (not hardcoded 'success')
+          const hasMismatch = vr.comparisons.some((c) => c.status === 'mismatch');
+          const hasWarning = vr.comparisons.some((c) => c.status === 'warning');
+          const accountStatus = hasMismatch
+            ? ('failed' as const)
+            : hasWarning
+              ? ('warning' as const)
+              : ('success' as const);
+
           accountResults.push({
             accountId: account.id,
             sourceName: account.sourceName,
             accountType: account.accountType,
-            status: 'success' as const,
+            status: accountStatus,
             summary: vr.summary,
             comparisons: vr.comparisons.map((c) => ({
               assetId: c.assetId,
@@ -441,13 +454,18 @@ async function runVerificationLoop(
               liveBalance: c.liveBalance,
               calculatedBalance: c.calculatedBalance,
             })
-          : {
-              txCount: 0,
-              totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
-              topOutflows: [],
-              topInflows: [],
-              topFees: [],
-            };
+          : (() => {
+              logger.warn(
+                `Failed to build diagnostics for ${c.assetSymbol} (account #${account.id}): ${debugResult.error.message}`
+              );
+              return {
+                txCount: 0,
+                totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
+                topOutflows: [],
+                topInflows: [],
+                topFees: [],
+              };
+            })();
 
         return {
           assetId: c.assetId,
@@ -559,13 +577,18 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
             liveBalance: c.liveBalance,
             calculatedBalance: c.calculatedBalance,
           })
-        : {
-            txCount: 0,
-            totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
-            topOutflows: [],
-            topInflows: [],
-            topFees: [],
-          };
+        : (() => {
+            logger.warn(
+              `Failed to build diagnostics for ${c.assetSymbol} (account #${account.id}): ${debugResult.error.message}`
+            );
+            return {
+              txCount: 0,
+              totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
+              topOutflows: [],
+              topInflows: [],
+              topFees: [],
+            };
+          })();
 
       return {
         assetId: c.assetId,
@@ -717,6 +740,8 @@ async function loadAccountTransactions(
   const accountIds = [account.id];
   if (childResult.isOk()) {
     accountIds.push(...childResult.value.map((c) => c.id));
+  } else {
+    logger.warn(`Failed to load child accounts for account #${account.id}: ${childResult.error.message}`);
   }
 
   const txResult = await transactionRepo.getTransactions({ accountIds });
@@ -725,6 +750,27 @@ async function loadAccountTransactions(
     return [];
   }
   return txResult.value;
+}
+
+/**
+ * Extract stream/cursor metadata from account for inclusion in JSON output.
+ * Returns generic metadata about what transaction streams were imported and their status.
+ */
+function extractStreamMetadata(account: Account): Record<string, unknown> | undefined {
+  if (!account.lastCursor || Object.keys(account.lastCursor).length === 0) {
+    return undefined;
+  }
+
+  const streamMetadata: Record<string, { metadata?: unknown; totalFetched: number }> = {};
+
+  for (const [streamType, cursor] of Object.entries(account.lastCursor)) {
+    streamMetadata[streamType] = {
+      totalFetched: cursor.totalFetched,
+      ...(cursor.metadata && { metadata: cursor.metadata }),
+    };
+  }
+
+  return streamMetadata;
 }
 
 async function buildOfflineAssets(
@@ -745,13 +791,18 @@ async function buildOfflineAssets(
     const debugResult = buildBalanceAssetDebug({ assetId, assetSymbol, transactions });
     const diagnostics = debugResult.isOk()
       ? buildAssetDiagnostics(debugResult.value)
-      : {
-          txCount: 0,
-          totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
-          topOutflows: [],
-          topInflows: [],
-          topFees: [],
-        };
+      : (() => {
+          logger.warn(
+            `Failed to build diagnostics for ${assetSymbol} (account #${account.id}): ${debugResult.error.message}`
+          );
+          return {
+            txCount: 0,
+            totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
+            topOutflows: [],
+            topInflows: [],
+            topFees: [],
+          };
+        })();
 
     return buildAssetOfflineItem(assetId, assetSymbol, balance, diagnostics);
   });

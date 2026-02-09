@@ -6,12 +6,14 @@ import { Box, Text } from 'ink';
 import React, { useState, type FC } from 'react';
 
 import { ConfirmPrompt, type ConfirmPromptProps } from './ConfirmPrompt.js';
+import { SelectPrompt, type SelectPromptProps } from './SelectPrompt.js';
 import { TextPrompt, type TextPromptProps } from './TextPrompt.js';
 
 /** Prompt step types */
 export type PromptStep =
-  | { props: Omit<ConfirmPromptProps, 'onSubmit' | 'onCancel'>; type: 'confirm'; }
-  | { props: Omit<TextPromptProps, 'onSubmit' | 'onCancel'>; type: 'text'; };
+  | { props: Omit<ConfirmPromptProps, 'onSubmit' | 'onCancel'>; type: 'confirm' }
+  | { props: Omit<SelectPromptProps, 'onSubmit' | 'onCancel'>; type: 'select' }
+  | { props: Omit<TextPromptProps, 'onSubmit' | 'onCancel'>; type: 'text' };
 
 export interface PromptFlowProps {
   /** Title shown at the top */
@@ -62,6 +64,13 @@ export const PromptFlow: FC<PromptFlowProps> = ({ title, steps, onComplete, onCa
       )}
       {currentStep.type === 'confirm' && (
         <ConfirmPrompt
+          {...currentStep.props}
+          onSubmit={handleSubmit}
+          onCancel={onCancel}
+        />
+      )}
+      {currentStep.type === 'select' && (
+        <SelectPrompt
           {...currentStep.props}
           onSubmit={handleSubmit}
           onCancel={onCancel}
