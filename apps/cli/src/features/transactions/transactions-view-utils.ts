@@ -107,9 +107,12 @@ export function applyTransactionFilters(
     filtered = filtered.filter((tx) => tx.operation.type === params.operationType);
   }
 
-  // Filter by no price
+  // Filter by missing price data
   if (params.noPrice) {
-    filtered = filtered.filter((tx) => !(tx.movements.inflows?.length === 0 || tx.movements.outflows?.length === 0));
+    filtered = filtered.filter((tx) => {
+      const status = computePriceStatus(tx);
+      return status === 'none' || status === 'partial';
+    });
   }
 
   return ok(filtered);

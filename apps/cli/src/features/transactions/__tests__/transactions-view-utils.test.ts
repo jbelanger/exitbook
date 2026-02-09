@@ -1,4 +1,4 @@
-import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
@@ -270,7 +270,7 @@ describe('applyTransactionFilters', () => {
   });
 
   describe('no price filtering', () => {
-    it('should filter out transactions with no inflows when noPrice is true', () => {
+    it('should keep transactions with missing prices when noPrice is true', () => {
       const transactions: UniversalTransactionData[] = [
         createTestTransaction({
           id: 1,
@@ -282,26 +282,25 @@ describe('applyTransactionFilters', () => {
                 assetId: '',
               },
             ],
-            outflows: [
-              {
-                assetSymbol: 'USD',
-                grossAmount: parseDecimal('50000.0'),
-                assetId: '',
-              },
-            ],
+            outflows: [],
           },
         }),
         createTestTransaction({
           id: 2,
           movements: {
-            inflows: [],
-            outflows: [
+            inflows: [
               {
-                assetSymbol: 'USD',
-                grossAmount: parseDecimal('100.0'),
+                assetSymbol: 'BTC',
+                grossAmount: parseDecimal('0.5'),
                 assetId: '',
+                priceAtTxTime: {
+                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+                  source: 'kraken',
+                  fetchedAt: new Date(),
+                },
               },
             ],
+            outflows: [],
           },
         }),
       ];
@@ -312,29 +311,24 @@ describe('applyTransactionFilters', () => {
 
       const result = unwrapOk(applyTransactionFilters(transactions, params));
 
+      // Only tx 1 has missing prices (BTC with no priceAtTxTime)
       expect(result).toHaveLength(1);
       expect(result[0]?.id).toBe(1);
     });
 
-    it('should filter out transactions with no outflows when noPrice is true', () => {
+    it('should exclude fiat-only transactions (price not needed)', () => {
       const transactions: UniversalTransactionData[] = [
         createTestTransaction({
           id: 1,
           movements: {
             inflows: [
               {
-                assetSymbol: 'BTC',
-                grossAmount: parseDecimal('1.0'),
-                assetId: '',
-              },
-            ],
-            outflows: [
-              {
                 assetSymbol: 'USD',
-                grossAmount: parseDecimal('50000.0'),
+                grossAmount: parseDecimal('100.0'),
                 assetId: '',
               },
             ],
+            outflows: [],
           },
         }),
         createTestTransaction({
@@ -343,7 +337,7 @@ describe('applyTransactionFilters', () => {
             inflows: [
               {
                 assetSymbol: 'BTC',
-                grossAmount: parseDecimal('0.5'),
+                grossAmount: parseDecimal('1.0'),
                 assetId: '',
               },
             ],
@@ -358,8 +352,9 @@ describe('applyTransactionFilters', () => {
 
       const result = unwrapOk(applyTransactionFilters(transactions, params));
 
+      // Only tx 2 — tx 1 is fiat-only (not-needed), not "missing"
       expect(result).toHaveLength(1);
-      expect(result[0]?.id).toBe(1);
+      expect(result[0]?.id).toBe(2);
     });
 
     it('should not filter when noPrice is false or undefined', () => {
@@ -367,14 +362,14 @@ describe('applyTransactionFilters', () => {
         createTestTransaction({
           id: 1,
           movements: {
-            inflows: [],
-            outflows: [
+            inflows: [
               {
-                assetSymbol: 'USD',
-                grossAmount: parseDecimal('100.0'),
+                assetSymbol: 'BTC',
+                grossAmount: parseDecimal('1.0'),
                 assetId: '',
               },
             ],
+            outflows: [],
           },
         }),
         createTestTransaction({
@@ -382,8 +377,8 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'BTC',
-                grossAmount: parseDecimal('1.0'),
+                assetSymbol: 'ETH',
+                grossAmount: parseDecimal('5.0'),
                 assetId: '',
               },
             ],
