@@ -5,7 +5,7 @@ import { TransactionLinkRepository } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
 import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
-import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
+import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
@@ -14,9 +14,10 @@ import type { z } from 'zod';
 import { createEventDrivenController } from '../../ui/shared/index.js';
 import { PromptFlow, type PromptStep } from '../../ui/shared/PromptFlow.js';
 import { displayCliError } from '../shared/cli-error.js';
-import { createSuccessResponse } from '../shared/cli-response.js';
 import { getDataDir } from '../shared/data-dir.js';
+import { withDatabase } from '../shared/database-utils.js';
 import { ExitCodes } from '../shared/exit-codes.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 
 import { LinksRunMonitor } from './components/links-run-components.js';
@@ -113,7 +114,7 @@ async function promptForLinksRunParams(): Promise<LinksRunHandlerParams | null> 
           const minConfidence = Number(minConfidenceInput);
           const autoConfirm = Number(autoConfirmInput);
           if (autoConfirm < minConfidence) {
-            console.error('\n⚠ Error: Auto-confirm threshold must be >= minimum confidence score');
+            console.error('⚠ Error: Auto-confirm threshold must be >= minimum confidence score');
             resolve(null);
             return;
           }
@@ -176,7 +177,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
     if (!options.dryRun && !options.minConfidence && !options.autoConfirmThreshold && !options.json) {
       const result = await promptForLinksRunParams();
       if (!result) {
-        console.log('\nTransaction linking cancelled');
+        console.log('Transaction linking cancelled.');
         return;
       }
       params = result;
@@ -184,47 +185,34 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       params = buildLinksRunParamsFromFlags(options);
     }
 
-    // Configure logger for JSON mode or text mode
-    configureLogger({
-      mode: options.json ? 'json' : 'text',
-      verbose: false,
-      sinks: {
-        ui: false,
-        structured: options.json ? 'off' : 'file', // Logs to file in text mode, keeps console clean
-      },
-    });
-
     const { OverrideStore } = await import('@exitbook/data');
     const dataDir = getDataDir();
-    const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const transactionRepository = new TransactionRepository(database);
-    const linkRepository = new TransactionLinkRepository(database);
-    const overrideStore = new OverrideStore(dataDir);
 
     // JSON mode - run without UI
     if (options.json) {
-      const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
+      await withDatabase(async (database) => {
+        const transactionRepository = new TransactionRepository(database);
+        const linkRepository = new TransactionLinkRepository(database);
+        const overrideStore = new OverrideStore(dataDir);
+        const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
 
-      try {
         const result = await handler.execute(params);
-
-        await closeDatabase(database);
-        resetLoggerContext();
 
         if (result.isErr()) {
           displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'json');
         }
 
         const duration_ms = Date.now() - startTime;
-        const response = createSuccessResponse('links-run', result.value, { duration_ms });
-        console.log(JSON.stringify(response, undefined, 2));
-      } catch (error) {
-        await closeDatabase(database);
-        resetLoggerContext();
-        throw error;
-      }
+        outputSuccess('links-run', result.value, { duration_ms });
+      });
       return;
     }
+
+    // TUI mode - keep original pattern with manual DB management
+    const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
+    const transactionRepository = new TransactionRepository(database);
+    const linkRepository = new TransactionLinkRepository(database);
+    const overrideStore = new OverrideStore(dataDir);
 
     // Ink TUI mode
     const eventBus = new EventBus<LinkingEvent>({
@@ -238,13 +226,13 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
     const abortHandler = () => {
       process.off('SIGINT', abortHandler);
       controller.abort();
-      controller.stop().catch(() => {
-        /* ignore cleanup errors on abort */
+      controller.stop().catch((cleanupErr) => {
+        logger.warn({ cleanupErr }, 'Failed to stop controller on abort');
       });
-      closeDatabase(database).catch((_err) => {
-        /* ignore cleanup errors on abort */
+      closeDatabase(database).catch((cleanupErr) => {
+        logger.warn({ cleanupErr }, 'Failed to close database on abort');
       });
-      resetLoggerContext();
+
       process.exit(130);
     };
     process.on('SIGINT', abortHandler);
@@ -257,7 +245,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       const result = await handler.execute(params);
 
       await closeDatabase(database);
-      resetLoggerContext();
+
       process.off('SIGINT', abortHandler);
 
       if (result.isErr()) {
@@ -271,14 +259,13 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       }
     } catch (error) {
       await closeDatabase(database);
-      resetLoggerContext();
+
       process.off('SIGINT', abortHandler);
       controller.fail(error instanceof Error ? error.message : String(error));
       await controller.stop();
       process.exit(ExitCodes.GENERAL_ERROR);
     }
   } catch (error) {
-    resetLoggerContext();
     displayCliError(
       'links-run',
       error instanceof Error ? error : new Error(String(error)),

@@ -1,5 +1,4 @@
 import { Currency } from '@exitbook/core';
-import { configureLogger } from '@exitbook/logger';
 import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -21,17 +20,6 @@ describe('CoinGecko Provider E2E', () => {
   let provider: CoinGeckoProvider;
 
   beforeAll(async () => {
-    // Enable logging in tests by configuring a fake spinner
-    configureLogger({
-      spinner: {
-        start: () => void {},
-        stop: () => void {},
-        message: () => void {},
-      },
-      mode: 'text',
-      verbose: true, // Show debug logs
-    });
-
     // Create in-memory database for testing
     sqliteDb = new Database(':memory:');
 

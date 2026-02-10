@@ -1,11 +1,8 @@
-import path from 'node:path';
-
 // Command registration for transactions export subcommand
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 
 import { displayCliError } from '../shared/cli-error.js';
-import { getDataDir } from '../shared/data-dir.js';
+import { withDatabase } from '../shared/database-utils.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { writeFilesAtomically } from '../shared/file-utils.js';
 import { outputError, outputSuccess } from '../shared/json-output.js';
@@ -66,92 +63,82 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
   const options = parseResult.data;
   const isJsonMode = options.json ?? false;
 
-  configureLogger({
-    mode: isJsonMode ? 'json' : 'text',
-    verbose: false,
-    sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
-  });
-
-  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
+  const { TransactionRepository } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
   const { ExportHandler } = await import('./transactions-export-handler.js');
 
-  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
-
   try {
-    const dataDir = getDataDir();
-    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const txRepo = new TransactionRepository(database);
-    const txLinkRepo = new TransactionLinkRepository(database);
-    const exportHandler = new ExportHandler(txRepo, txLinkRepo);
+    await withDatabase(async (database) => {
+      const txRepo = new TransactionRepository(database);
+      const txLinkRepo = new TransactionLinkRepository(database);
+      const exportHandler = new ExportHandler(txRepo, txLinkRepo);
 
-    const format = options.format ?? 'csv';
-    const csvFormat = options.csvFormat ?? (format === 'csv' ? 'normalized' : undefined);
-    const outputPath = options.output ?? `data/transactions.${format === 'json' ? 'json' : 'csv'}`;
+      const format = options.format ?? 'csv';
+      const csvFormat = options.csvFormat ?? (format === 'csv' ? 'normalized' : undefined);
+      const outputPath = options.output ?? `data/transactions.${format === 'json' ? 'json' : 'csv'}`;
 
-    const result = await exportHandler.execute({
-      format,
-      csvFormat,
-      outputPath,
-    });
+      const result = await exportHandler.execute({
+        format,
+        csvFormat,
+        outputPath,
+      });
 
-    await closeDatabase(database);
-    database = undefined;
+      if (result.isErr()) {
+        outputError('transactions-export', result.error, ExitCodes.GENERAL_ERROR);
+      }
 
-    if (result.isErr()) {
-      outputError('transactions-export', result.error, ExitCodes.GENERAL_ERROR);
-    }
+      if (result.value.transactionCount === 0) {
+        if (!isJsonMode) {
+          console.log('No transactions found to export.');
+        } else {
+          const jsonResult: TransactionsExportCommandResult = {
+            data: {
+              transactionCount: 0,
+              format,
+              csvFormat,
+              outputPaths: [],
+            },
+          };
+          outputSuccess('transactions-export', jsonResult);
+        }
+        return;
+      }
 
-    if (result.value.transactionCount === 0) {
-      if (!isJsonMode) {
-        console.log('\nNo transactions found to export.');
-      } else {
+      // Write files atomically
+      const writeResult = await writeFilesAtomically(result.value.outputs);
+      if (writeResult.isErr()) {
+        outputError('transactions-export', writeResult.error, ExitCodes.GENERAL_ERROR);
+      }
+
+      const outputPaths = writeResult.value;
+
+      if (isJsonMode) {
         const jsonResult: TransactionsExportCommandResult = {
           data: {
-            transactionCount: 0,
-            format,
-            csvFormat,
-            outputPaths: [],
+            transactionCount: result.value.transactionCount,
+            format: result.value.format,
+            csvFormat: result.value.csvFormat,
+            outputPaths,
           },
         };
         outputSuccess('transactions-export', jsonResult);
+      } else {
+        if (outputPaths.length === 1) {
+          console.log(`Exported ${result.value.transactionCount} transactions to: ${outputPaths[0]}`);
+        } else {
+          console.log(`Exported ${result.value.transactionCount} transactions to:`);
+          for (const exportPath of outputPaths) {
+            console.log(`  - ${exportPath}`);
+          }
+        }
       }
-      return;
-    }
-
-    // Write files atomically
-    const writeResult = await writeFilesAtomically(result.value.outputs);
-    if (writeResult.isErr()) {
-      outputError('transactions-export', writeResult.error, ExitCodes.GENERAL_ERROR);
-    }
-
-    const outputPaths = writeResult.value;
-
-    if (isJsonMode) {
-      const jsonResult: TransactionsExportCommandResult = {
-        data: {
-          transactionCount: result.value.transactionCount,
-          format: result.value.format,
-          csvFormat: result.value.csvFormat,
-          outputPaths,
-        },
-      };
-      outputSuccess('transactions-export', jsonResult);
-    } else {
-      const pathList = outputPaths.length === 1 ? outputPaths[0] : outputPaths.map((p) => `\n   - ${p}`).join('');
-      console.log(`\nExported ${result.value.transactionCount} transactions to: ${pathList}`);
-    }
+    });
   } catch (error) {
-    if (database) {
-      await closeDatabase(database);
-    }
     displayCliError(
       'transactions-export',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
       isJsonMode ? 'json' : 'text'
     );
-  } finally {
-    resetLoggerContext();
   }
 }

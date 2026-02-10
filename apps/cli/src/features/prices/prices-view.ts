@@ -1,7 +1,6 @@
 import path from 'node:path';
 
 // Command registration for view prices subcommand
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
@@ -9,6 +8,7 @@ import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
+import { withDatabase } from '../shared/database-utils.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { PricesViewCommandOptionsSchema } from '../shared/schemas.js';
@@ -94,13 +94,6 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
     missingOnly: options.missingOnly,
   };
 
-  // Configure logger
-  configureLogger({
-    mode: isJsonMode ? 'json' : 'text',
-    verbose: false,
-    sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
-  });
-
   // JSON mode uses structured output functions
   if (isJsonMode) {
     if (isMissingMode) {
@@ -108,7 +101,7 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
     } else {
       await executeViewPricesJSON(params);
     }
-    resetLoggerContext();
+
     return;
   }
 
@@ -118,7 +111,6 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
   } else {
     await executeCoverageViewTUI(params);
   }
-  resetLoggerContext();
 }
 
 /**
@@ -282,51 +274,36 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
  * Execute view prices in JSON mode
  */
 async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
-  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
-
-  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
+  const { TransactionRepository } = await import('@exitbook/data');
 
   try {
-    configureLogger({
-      mode: 'json',
-      verbose: false,
-      sinks: { ui: false, structured: 'file' },
+    await withDatabase(async (database) => {
+      const txRepo = new TransactionRepository(database);
+      const handler = new ViewPricesHandler(txRepo);
+
+      const result = await handler.execute(params);
+
+      if (result.isErr()) {
+        displayCliError('view-prices', result.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
+
+      const { coverage, summary } = result.value;
+
+      // Build JSON result
+      const filters: Record<string, unknown> = {};
+      if (params.asset) filters['asset'] = params.asset;
+      if (params.missingOnly) filters['missingOnly'] = params.missingOnly;
+      if (params.source) filters['source'] = params.source;
+
+      const resultData: ViewPricesCommandResult = {
+        data: { coverage, summary },
+        meta: buildViewMeta(coverage.length, 0, coverage.length, coverage.length, filters),
+      };
+
+      outputSuccess('view-prices', resultData);
     });
-
-    const dataDir = getDataDir();
-
-    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const txRepo = new TransactionRepository(database);
-    const handler = new ViewPricesHandler(txRepo);
-
-    const result = await handler.execute(params);
-
-    await closeDatabase(database);
-    database = undefined;
-
-    if (result.isErr()) {
-      displayCliError('view-prices', result.error, ExitCodes.GENERAL_ERROR, 'json');
-      return;
-    }
-
-    const { coverage, summary } = result.value;
-
-    // Build JSON result
-    const filters: Record<string, unknown> = {};
-    if (params.asset) filters['asset'] = params.asset;
-    if (params.missingOnly) filters['missingOnly'] = params.missingOnly;
-    if (params.source) filters['source'] = params.source;
-
-    const resultData: ViewPricesCommandResult = {
-      data: { coverage, summary },
-      meta: buildViewMeta(coverage.length, 0, coverage.length, coverage.length, filters),
-    };
-
-    outputSuccess('view-prices', resultData);
   } catch (error) {
-    if (database) {
-      await closeDatabase(database);
-    }
     displayCliError(
       'view-prices',
       error instanceof Error ? error : new Error(String(error)),
@@ -355,60 +332,45 @@ type MissingPricesCommandResult = ViewCommandResult<{
  * Execute missing prices in JSON mode
  */
 async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
-  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
-
-  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
+  const { TransactionRepository } = await import('@exitbook/data');
 
   try {
-    configureLogger({
-      mode: 'json',
-      verbose: false,
-      sinks: { ui: false, structured: 'file' },
+    await withDatabase(async (database) => {
+      const txRepo = new TransactionRepository(database);
+      const handler = new ViewPricesHandler(txRepo);
+
+      const result = await handler.executeMissing(params);
+
+      if (result.isErr()) {
+        displayCliError('view-prices', result.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
+
+      const { movements, assetBreakdown } = result.value;
+
+      const filters: Record<string, unknown> = {};
+      if (params.asset) filters['asset'] = params.asset;
+      if (params.source) filters['source'] = params.source;
+      filters['missingOnly'] = true;
+
+      // Flatten movements for JSON (omit operation fields)
+      const jsonMovements = movements.map((m) => ({
+        transactionId: m.transactionId,
+        source: m.source,
+        datetime: m.datetime,
+        assetSymbol: m.assetSymbol,
+        direction: m.direction,
+        amount: m.amount,
+      }));
+
+      const resultData: MissingPricesCommandResult = {
+        data: { movements: jsonMovements, assetBreakdown },
+        meta: buildViewMeta(movements.length, 0, movements.length, movements.length, filters),
+      };
+
+      outputSuccess('view-prices', resultData);
     });
-
-    const dataDir = getDataDir();
-
-    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const txRepo = new TransactionRepository(database);
-    const handler = new ViewPricesHandler(txRepo);
-
-    const result = await handler.executeMissing(params);
-
-    await closeDatabase(database);
-    database = undefined;
-
-    if (result.isErr()) {
-      displayCliError('view-prices', result.error, ExitCodes.GENERAL_ERROR, 'json');
-      return;
-    }
-
-    const { movements, assetBreakdown } = result.value;
-
-    const filters: Record<string, unknown> = {};
-    if (params.asset) filters['asset'] = params.asset;
-    if (params.source) filters['source'] = params.source;
-    filters['missingOnly'] = true;
-
-    // Flatten movements for JSON (omit operation fields)
-    const jsonMovements = movements.map((m) => ({
-      transactionId: m.transactionId,
-      source: m.source,
-      datetime: m.datetime,
-      assetSymbol: m.assetSymbol,
-      direction: m.direction,
-      amount: m.amount,
-    }));
-
-    const resultData: MissingPricesCommandResult = {
-      data: { movements: jsonMovements, assetBreakdown },
-      meta: buildViewMeta(movements.length, 0, movements.length, movements.length, filters),
-    };
-
-    outputSuccess('view-prices', resultData);
   } catch (error) {
-    if (database) {
-      await closeDatabase(database);
-    }
     displayCliError(
       'view-prices',
       error instanceof Error ? error : new Error(String(error)),

@@ -3,7 +3,6 @@
 
 import path from 'node:path';
 
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -60,15 +59,6 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
   const options = parseResult.data;
 
   try {
-    // Configure logger for JSON mode
-    if (options.json) {
-      configureLogger({
-        mode: 'json',
-        verbose: false,
-        sinks: { ui: false, structured: 'file' },
-      });
-    }
-
     const { OverrideStore } = await import('@exitbook/data');
     const dataDir = getDataDir();
     const overrideStore = new OverrideStore(dataDir);
@@ -80,8 +70,6 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
       currency: options.currency,
       source: options.source,
     });
-
-    resetLoggerContext();
 
     if (result.isErr()) {
       displayCliError('prices-set', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
@@ -97,7 +85,6 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
       console.log(`   Source: ${result.value.source}`);
     }
   } catch (error) {
-    resetLoggerContext();
     displayCliError(
       'prices-set',
       error instanceof Error ? error : new Error(String(error)),

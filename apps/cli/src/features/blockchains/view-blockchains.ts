@@ -3,7 +3,6 @@
 import { ProviderRegistry } from '@exitbook/blockchain-providers';
 import type { ProviderInfo } from '@exitbook/blockchain-providers';
 import { getAllBlockchains } from '@exitbook/ingestion';
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
@@ -81,19 +80,11 @@ function executeBlockchainsViewCommand(rawOptions: unknown): void {
   const options = parseResult.data;
   const isJsonMode = options.json ?? false;
 
-  // Configure logger
-  configureLogger({
-    mode: isJsonMode ? 'json' : 'text',
-    verbose: false,
-    sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
-  });
-
   if (isJsonMode) {
     executeBlockchainsViewJSON(options);
   } else {
     executeBlockchainsViewTUI(options);
   }
-  resetLoggerContext();
 }
 
 /**
@@ -197,60 +188,51 @@ function executeBlockchainsViewTUI(options: CommandOptions): void {
  * Execute blockchains view in JSON mode
  */
 function executeBlockchainsViewJSON(options: CommandOptions): void {
-  try {
-    const data = loadBlockchainData(options);
-    if (!data) return;
+  const data = loadBlockchainData(options);
+  if (!data) return;
 
-    const { blockchains, allProviders, validatedCategory } = data;
+  const { blockchains, allProviders, validatedCategory } = data;
 
-    // Build category counts from filtered set
-    const categoryCounts: Record<string, number> = {};
-    for (const b of blockchains) {
-      categoryCounts[b.category] = (categoryCounts[b.category] || 0) + 1;
-    }
-
-    // Build filters record
-    const filters: Record<string, unknown> = {
-      ...(validatedCategory && { category: validatedCategory }),
-      ...(options.requiresApiKey && { requiresApiKey: true }),
-    };
-
-    // Build JSON-friendly blockchain data
-    const jsonBlockchains = blockchains.map((b) => ({
-      name: b.name,
-      displayName: b.displayName,
-      category: b.category,
-      layer: b.layer,
-      providers: b.providers.map((p) => ({
-        name: p.name,
-        displayName: p.displayName,
-        requiresApiKey: p.requiresApiKey,
-        capabilities: p.capabilities,
-        rateLimit: p.rateLimit,
-      })),
-      providerCount: b.providerCount,
-      exampleAddress: b.exampleAddress,
-    }));
-
-    const resultData = {
-      data: {
-        blockchains: jsonBlockchains,
-      },
-      meta: {
-        total: blockchains.length,
-        byCategory: categoryCounts,
-        totalProviders: allProviders.length,
-        filters,
-      },
-    };
-
-    outputSuccess('blockchains-view', resultData);
-  } catch (error) {
-    displayCliError(
-      'blockchains-view',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
+  // Build category counts from filtered set
+  const categoryCounts: Record<string, number> = {};
+  for (const b of blockchains) {
+    categoryCounts[b.category] = (categoryCounts[b.category] || 0) + 1;
   }
+
+  // Build filters record
+  const filters: Record<string, unknown> = {
+    ...(validatedCategory && { category: validatedCategory }),
+    ...(options.requiresApiKey && { requiresApiKey: true }),
+  };
+
+  // Build JSON-friendly blockchain data
+  const jsonBlockchains = blockchains.map((b) => ({
+    name: b.name,
+    displayName: b.displayName,
+    category: b.category,
+    layer: b.layer,
+    providers: b.providers.map((p) => ({
+      name: p.name,
+      displayName: p.displayName,
+      requiresApiKey: p.requiresApiKey,
+      capabilities: p.capabilities,
+      rateLimit: p.rateLimit,
+    })),
+    providerCount: b.providerCount,
+    exampleAddress: b.exampleAddress,
+  }));
+
+  const resultData = {
+    data: {
+      blockchains: jsonBlockchains,
+    },
+    meta: {
+      total: blockchains.length,
+      byCategory: categoryCounts,
+      totalProviders: allProviders.length,
+      filters,
+    },
+  };
+
+  outputSuccess('blockchains-view', resultData);
 }

@@ -10,7 +10,7 @@ import {
   TransactionRepository,
 } from '@exitbook/data';
 import { BalanceService, calculateBalances } from '@exitbook/ingestion';
-import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
+import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
@@ -19,6 +19,7 @@ import type { z } from 'zod';
 import { EventRelay } from '../../ui/shared/event-relay.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
+import { withDatabase } from '../shared/database-utils.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputError, outputSuccess } from '../shared/json-output.js';
 import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
@@ -98,13 +99,6 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
 
   const options = validationResult.data;
 
-  // Configure logger
-  configureLogger({
-    mode: options.json ? 'json' : 'text',
-    verbose: false,
-    sinks: options.json ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
-  });
-
   if (options.json) {
     await executeBalanceJSON(options);
   } else if (options.offline) {
@@ -114,223 +108,219 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
   } else {
     await executeBalanceAllTUI(options);
   }
-
-  resetLoggerContext();
 }
 
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
 
 async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void> {
-  const dataDir = getDataDir();
-  const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-  const accountRepo = new AccountRepository(database);
-  const transactionRepo = new TransactionRepository(database);
-  const sessionRepo = new ImportSessionRepository(database);
-  const tokenMetadataRepo = new TokenMetadataRepository(database);
-
   try {
-    if (options.offline) {
-      // Offline JSON
-      const accounts = options.accountId
-        ? await loadSingleAccount(accountRepo, options.accountId)
-        : await loadAllAccounts(accountRepo);
+    await withDatabase(async (database) => {
+      const accountRepo = new AccountRepository(database);
+      const transactionRepo = new TransactionRepository(database);
+      const sessionRepo = new ImportSessionRepository(database);
+      const tokenMetadataRepo = new TokenMetadataRepository(database);
 
-      const accountsData = [];
-      for (const account of accounts) {
-        const { assets } = await buildOfflineAssets(account, accountRepo, transactionRepo);
-        accountsData.push({
-          accountId: account.id,
-          sourceName: account.sourceName,
-          accountType: account.accountType,
-          assets: assets.map((a) => ({
-            assetId: a.assetId,
-            assetSymbol: a.assetSymbol,
-            calculatedBalance: a.calculatedBalance,
-            diagnostics: a.diagnostics,
-          })),
-        });
-      }
+      if (options.offline) {
+        // Offline JSON
+        const accounts = options.accountId
+          ? await loadSingleAccount(accountRepo, options.accountId)
+          : await loadAllAccounts(accountRepo);
 
-      outputSuccess(
-        'balance',
-        { accounts: accountsData },
-        {
-          totalAccounts: accounts.length,
-          mode: 'offline',
-          filters: options.accountId ? { accountId: options.accountId } : {},
-        }
-      );
-    } else if (options.accountId) {
-      // Single-account online JSON (preserves existing format)
-      const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-      const balanceService = new BalanceService(
-        accountRepo,
-        transactionRepo,
-        sessionRepo,
-        tokenMetadataRepo,
-        providerManager
-      );
-
-      try {
-        let credentials: ExchangeCredentials | undefined;
-        if (options.apiKey && options.apiSecret) {
-          credentials = {
-            apiKey: options.apiKey,
-            apiSecret: options.apiSecret,
-            ...(options.apiPassphrase && { apiPassphrase: options.apiPassphrase }),
-          };
-        }
-
-        const result = await balanceService.verifyBalance({ accountId: options.accountId, credentials });
-        if (result.isErr()) {
-          outputError('balance', result.error, ExitCodes.GENERAL_ERROR);
-        }
-
-        const vr = result.value;
-        const streamMetadata = extractStreamMetadata(vr.account);
-        outputSuccess('balance', {
-          status: vr.status,
-          balances: vr.comparisons.map((c) => ({
-            assetId: c.assetId,
-            currency: c.currency,
-            calculatedBalance: c.calculatedBalance,
-            liveBalance: c.liveBalance,
-            difference: c.difference,
-            percentageDiff: c.percentageDiff,
-            status: c.status,
-          })),
-          summary: vr.summary,
-          source: {
-            type: (vr.account.accountType === 'blockchain' ? 'blockchain' : 'exchange') as string,
-            name: vr.account.sourceName,
-            address: vr.account.accountType === 'blockchain' ? vr.account.identifier : undefined,
-          },
-          account: {
-            id: vr.account.id,
-            type: vr.account.accountType,
-            sourceName: vr.account.sourceName,
-            identifier: vr.account.identifier,
-            providerName: vr.account.providerName,
-          },
-          meta: {
-            timestamp: new Date(vr.timestamp).toISOString(),
-            ...(streamMetadata && { streams: streamMetadata }),
-          },
-          suggestion: vr.suggestion,
-          warnings: vr.warnings,
-        });
-      } finally {
-        await balanceService.destroy();
-        await cleanupProviderManager();
-      }
-    } else {
-      // All-accounts online JSON
-      const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-      const balanceService = new BalanceService(
-        accountRepo,
-        transactionRepo,
-        sessionRepo,
-        tokenMetadataRepo,
-        providerManager
-      );
-
-      try {
-        const accounts = await loadAllAccounts(accountRepo);
-        const sorted = sortAccountsByVerificationPriority(
-          accounts.map((a) => ({ accountId: a.id, sourceName: a.sourceName, accountType: a.accountType, account: a }))
-        );
-
-        const accountResults = [];
-        let verified = 0;
-        let skipped = 0;
-        let matchTotal = 0;
-        let mismatchTotal = 0;
-
-        for (const item of sorted) {
-          const account = item.account;
-          const { credentials, skipReason } = resolveAccountCredentials(account);
-
-          if (skipReason) {
-            skipped++;
-            accountResults.push({
-              accountId: account.id,
-              sourceName: account.sourceName,
-              accountType: account.accountType,
-              status: 'skipped' as const,
-              reason: skipReason,
-            });
-            continue;
-          }
-
-          const result = await balanceService.verifyBalance({ accountId: account.id, credentials });
-          if (result.isErr()) {
-            accountResults.push({
-              accountId: account.id,
-              sourceName: account.sourceName,
-              accountType: account.accountType,
-              status: 'error' as const,
-              error: result.error.message,
-            });
-            continue;
-          }
-
-          const vr = result.value;
-          verified++;
-          matchTotal += vr.summary.matches;
-          mismatchTotal += vr.summary.mismatches + vr.summary.warnings;
-
-          // Derive account status from asset comparisons (not hardcoded 'success')
-          const hasMismatch = vr.comparisons.some((c) => c.status === 'mismatch');
-          const hasWarning = vr.comparisons.some((c) => c.status === 'warning');
-
-          let accountStatus: 'failed' | 'warning' | 'success';
-          if (hasMismatch) {
-            accountStatus = 'failed';
-          } else if (hasWarning) {
-            accountStatus = 'warning';
-          } else {
-            accountStatus = 'success';
-          }
-
-          accountResults.push({
+        const accountsData = [];
+        for (const account of accounts) {
+          const { assets } = await buildOfflineAssets(account, accountRepo, transactionRepo);
+          accountsData.push({
             accountId: account.id,
             sourceName: account.sourceName,
             accountType: account.accountType,
-            status: accountStatus,
-            summary: vr.summary,
-            comparisons: vr.comparisons.map((c) => ({
-              assetId: c.assetId,
-              assetSymbol: c.assetSymbol,
-              calculatedBalance: c.calculatedBalance,
-              liveBalance: c.liveBalance,
-              difference: c.difference,
-              percentageDiff: c.percentageDiff,
-              status: c.status,
+            assets: assets.map((a) => ({
+              assetId: a.assetId,
+              assetSymbol: a.assetSymbol,
+              calculatedBalance: a.calculatedBalance,
+              diagnostics: a.diagnostics,
             })),
           });
         }
 
         outputSuccess(
           'balance',
-          { accounts: accountResults },
+          { accounts: accountsData },
           {
             totalAccounts: accounts.length,
-            verified,
-            skipped,
-            matches: matchTotal,
-            mismatches: mismatchTotal,
-            timestamp: new Date().toISOString(),
+            mode: 'offline',
+            filters: options.accountId ? { accountId: options.accountId } : {},
           }
         );
-      } finally {
-        await balanceService.destroy();
-        await cleanupProviderManager();
+      } else if (options.accountId) {
+        // Single-account online JSON (preserves existing format)
+        const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
+        const balanceService = new BalanceService(
+          accountRepo,
+          transactionRepo,
+          sessionRepo,
+          tokenMetadataRepo,
+          providerManager
+        );
+
+        try {
+          let credentials: ExchangeCredentials | undefined;
+          if (options.apiKey && options.apiSecret) {
+            credentials = {
+              apiKey: options.apiKey,
+              apiSecret: options.apiSecret,
+              ...(options.apiPassphrase && { apiPassphrase: options.apiPassphrase }),
+            };
+          }
+
+          const result = await balanceService.verifyBalance({ accountId: options.accountId, credentials });
+          if (result.isErr()) {
+            outputError('balance', result.error, ExitCodes.GENERAL_ERROR);
+          }
+
+          const vr = result.value;
+          const streamMetadata = extractStreamMetadata(vr.account);
+          outputSuccess('balance', {
+            status: vr.status,
+            balances: vr.comparisons.map((c) => ({
+              assetId: c.assetId,
+              currency: c.currency,
+              calculatedBalance: c.calculatedBalance,
+              liveBalance: c.liveBalance,
+              difference: c.difference,
+              percentageDiff: c.percentageDiff,
+              status: c.status,
+            })),
+            summary: vr.summary,
+            source: {
+              type: (vr.account.accountType === 'blockchain' ? 'blockchain' : 'exchange') as string,
+              name: vr.account.sourceName,
+              address: vr.account.accountType === 'blockchain' ? vr.account.identifier : undefined,
+            },
+            account: {
+              id: vr.account.id,
+              type: vr.account.accountType,
+              sourceName: vr.account.sourceName,
+              identifier: vr.account.identifier,
+              providerName: vr.account.providerName,
+            },
+            meta: {
+              timestamp: new Date(vr.timestamp).toISOString(),
+              ...(streamMetadata && { streams: streamMetadata }),
+            },
+            suggestion: vr.suggestion,
+            warnings: vr.warnings,
+          });
+        } finally {
+          await balanceService.destroy();
+          await cleanupProviderManager();
+        }
+      } else {
+        // All-accounts online JSON
+        const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
+        const balanceService = new BalanceService(
+          accountRepo,
+          transactionRepo,
+          sessionRepo,
+          tokenMetadataRepo,
+          providerManager
+        );
+
+        try {
+          const accounts = await loadAllAccounts(accountRepo);
+          const sorted = sortAccountsByVerificationPriority(
+            accounts.map((a) => ({ accountId: a.id, sourceName: a.sourceName, accountType: a.accountType, account: a }))
+          );
+
+          const accountResults = [];
+          let verified = 0;
+          let skipped = 0;
+          let matchTotal = 0;
+          let mismatchTotal = 0;
+
+          for (const item of sorted) {
+            const account = item.account;
+            const { credentials, skipReason } = resolveAccountCredentials(account);
+
+            if (skipReason) {
+              skipped++;
+              accountResults.push({
+                accountId: account.id,
+                sourceName: account.sourceName,
+                accountType: account.accountType,
+                status: 'skipped' as const,
+                reason: skipReason,
+              });
+              continue;
+            }
+
+            const result = await balanceService.verifyBalance({ accountId: account.id, credentials });
+            if (result.isErr()) {
+              accountResults.push({
+                accountId: account.id,
+                sourceName: account.sourceName,
+                accountType: account.accountType,
+                status: 'error' as const,
+                error: result.error.message,
+              });
+              continue;
+            }
+
+            const vr = result.value;
+            verified++;
+            matchTotal += vr.summary.matches;
+            mismatchTotal += vr.summary.mismatches + vr.summary.warnings;
+
+            // Derive account status from asset comparisons (not hardcoded 'success')
+            const hasMismatch = vr.comparisons.some((c) => c.status === 'mismatch');
+            const hasWarning = vr.comparisons.some((c) => c.status === 'warning');
+
+            let accountStatus: 'failed' | 'warning' | 'success';
+            if (hasMismatch) {
+              accountStatus = 'failed';
+            } else if (hasWarning) {
+              accountStatus = 'warning';
+            } else {
+              accountStatus = 'success';
+            }
+
+            accountResults.push({
+              accountId: account.id,
+              sourceName: account.sourceName,
+              accountType: account.accountType,
+              status: accountStatus,
+              summary: vr.summary,
+              comparisons: vr.comparisons.map((c) => ({
+                assetId: c.assetId,
+                assetSymbol: c.assetSymbol,
+                calculatedBalance: c.calculatedBalance,
+                liveBalance: c.liveBalance,
+                difference: c.difference,
+                percentageDiff: c.percentageDiff,
+                status: c.status,
+              })),
+            });
+          }
+
+          outputSuccess(
+            'balance',
+            { accounts: accountResults },
+            {
+              totalAccounts: accounts.length,
+              verified,
+              skipped,
+              matches: matchTotal,
+              mismatches: mismatchTotal,
+              timestamp: new Date().toISOString(),
+            }
+          );
+        } finally {
+          await balanceService.destroy();
+          await cleanupProviderManager();
+        }
       }
-    }
+    });
   } catch (error) {
     outputError('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
-  } finally {
-    await closeDatabase(database);
   }
 }
 

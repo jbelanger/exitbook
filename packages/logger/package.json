@@ -17,11 +17,9 @@
   "dependencies": {
     "pino": "^10.3.0",
     "pino-pretty": "^13.1.2",
-    "pino-roll": "^4.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "jest": "^30.0.5",
     "prettier": "^3.8.1",
     "tsconfig": "workspace:*"
   }

@@ -2,7 +2,6 @@ import path from 'node:path';
 
 // Command registration for view accounts subcommand
 import type { AccountType } from '@exitbook/core';
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
@@ -10,6 +9,7 @@ import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
+import { withDatabase } from '../shared/database-utils.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { AccountsViewCommandOptionsSchema } from '../shared/schemas.js';
@@ -98,19 +98,11 @@ async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
     showSessions: options.showSessions,
   };
 
-  // Configure logger
-  configureLogger({
-    mode: isJsonMode ? 'json' : 'text',
-    verbose: false,
-    sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
-  });
-
   if (isJsonMode) {
     await executeAccountsViewJSON(params);
   } else {
     await executeAccountsViewTUI(params);
   }
-  resetLoggerContext();
 }
 
 /**
@@ -212,66 +204,56 @@ async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void>
  * Execute accounts view in JSON mode
  */
 async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void> {
-  const { initializeDatabase, closeDatabase, AccountRepository, UserRepository, ImportSessionRepository } =
-    await import('@exitbook/data');
+  const { AccountRepository, UserRepository, ImportSessionRepository } = await import('@exitbook/data');
   const { AccountService } = await import('@exitbook/ingestion');
 
-  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
-
   try {
-    const dataDir = getDataDir();
+    await withDatabase(async (database) => {
+      const accountRepo = new AccountRepository(database);
+      const sessionRepo = new ImportSessionRepository(database);
+      const userRepo = new UserRepository(database);
 
-    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const accountRepo = new AccountRepository(database);
-    const sessionRepo = new ImportSessionRepository(database);
-    const userRepo = new UserRepository(database);
+      const accountService = new AccountService(accountRepo, sessionRepo, userRepo);
 
-    const accountService = new AccountService(accountRepo, sessionRepo, userRepo);
+      const result = await accountService.viewAccounts({
+        accountId: params.accountId,
+        accountType: params.accountType,
+        source: params.source,
+        showSessions: params.showSessions,
+      });
 
-    const result = await accountService.viewAccounts({
-      accountId: params.accountId,
-      accountType: params.accountType,
-      source: params.source,
-      showSessions: params.showSessions,
+      if (result.isErr()) {
+        displayCliError('view-accounts', result.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
+
+      const { accounts, count, sessions } = result.value;
+
+      // Prepare result data for JSON mode
+      const filters: Record<string, unknown> = {
+        ...(params.accountId && { accountId: params.accountId }),
+        ...(params.source && { source: params.source }),
+        ...(params.accountType && { accountType: params.accountType }),
+      };
+
+      // Convert sessions Map to Record for JSON serialization (if requested)
+      const sessionsRecord: Record<string, SessionSummary[]> | undefined = sessions
+        ? Object.fromEntries(Array.from(sessions.entries()).map(([key, value]) => [key.toString(), value]))
+        : undefined;
+
+      const data: ViewAccountsCommandResultData = {
+        accounts,
+        sessions: params.showSessions ? sessionsRecord : undefined,
+      };
+
+      const resultData: ViewAccountsCommandResult = {
+        data,
+        meta: buildViewMeta(count, 0, count, count, filters),
+      };
+
+      outputSuccess('view-accounts', resultData);
     });
-
-    await closeDatabase(database);
-    database = undefined;
-
-    if (result.isErr()) {
-      displayCliError('view-accounts', result.error, ExitCodes.GENERAL_ERROR, 'json');
-      return;
-    }
-
-    const { accounts, count, sessions } = result.value;
-
-    // Prepare result data for JSON mode
-    const filters: Record<string, unknown> = {
-      ...(params.accountId && { accountId: params.accountId }),
-      ...(params.source && { source: params.source }),
-      ...(params.accountType && { accountType: params.accountType }),
-    };
-
-    // Convert sessions Map to Record for JSON serialization (if requested)
-    const sessionsRecord: Record<string, SessionSummary[]> | undefined = sessions
-      ? Object.fromEntries(Array.from(sessions.entries()).map(([key, value]) => [key.toString(), value]))
-      : undefined;
-
-    const data: ViewAccountsCommandResultData = {
-      accounts,
-      sessions: params.showSessions ? sessionsRecord : undefined,
-    };
-
-    const resultData: ViewAccountsCommandResult = {
-      data,
-      meta: buildViewMeta(count, 0, count, count, filters),
-    };
-
-    outputSuccess('view-accounts', resultData);
   } catch (error) {
-    if (database) {
-      await closeDatabase(database);
-    }
     displayCliError(
       'view-accounts',
       error instanceof Error ? error : new Error(String(error)),

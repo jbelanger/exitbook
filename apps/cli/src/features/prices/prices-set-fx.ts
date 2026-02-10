@@ -4,7 +4,6 @@
 import path from 'node:path';
 
 import { OverrideStore } from '@exitbook/data';
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -61,15 +60,6 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
   const options = parseResult.data;
 
   try {
-    // Configure logger for JSON mode
-    if (options.json) {
-      configureLogger({
-        mode: 'json',
-        verbose: false,
-        sinks: { ui: false, structured: 'file' },
-      });
-    }
-
     const dataDir = getDataDir();
     const overrideStore = new OverrideStore(dataDir);
     const handler = new PricesSetFxHandler(path.join(dataDir, 'prices.db'), overrideStore);
@@ -80,8 +70,6 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
       rate: options.rate,
       source: options.source,
     });
-
-    resetLoggerContext();
 
     if (result.isErr()) {
       displayCliError('prices-set-fx', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
@@ -98,7 +86,6 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
       console.log(`   Source: ${result.value.source}`);
     }
   } catch (error) {
-    resetLoggerContext();
     displayCliError(
       'prices-set-fx',
       error instanceof Error ? error : new Error(String(error)),

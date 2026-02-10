@@ -20,6 +20,7 @@ import {
   TokenMetadataService,
   TransactionProcessService,
 } from '@exitbook/ingestion';
+import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
@@ -29,6 +30,8 @@ import { createProviderManagerWithStats } from '../shared/provider-manager-facto
 
 import type { ProcessHandlerParams, ProcessResult } from './process-handler.js';
 import { executeReprocess } from './process-handler.js';
+
+const logger = getLogger('process-service-factory');
 
 type CliEvent = IngestionEvent | ProviderEvent;
 
@@ -68,7 +71,7 @@ export async function createProcessServices(): Promise<ProcessServices> {
 
   const eventBus = new EventBus<CliEvent>({
     onError: (err) => {
-      console.error('Event handler error:', err);
+      logger.error({ err }, 'EventBus error');
     },
   });
   providerManager.setEventBus(eventBus as EventBus<ProviderEvent>);

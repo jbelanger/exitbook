@@ -13,7 +13,7 @@ import { TransactionLinkRepository } from '@exitbook/accounting';
 import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
-import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
+import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -84,15 +84,6 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       fetchOnly: options.fetchOnly,
     };
 
-    configureLogger({
-      mode: options.json ? 'json' : 'text',
-      verbose: false,
-      sinks: {
-        ui: false,
-        structured: options.json ? 'off' : 'file',
-      },
-    });
-
     const dataDir = getDataDir();
     const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
     const transactionRepo = new TransactionRepository(database);
@@ -105,7 +96,6 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       try {
         const result = await handler.execute(params);
         await closeDatabase(database);
-        resetLoggerContext();
 
         if (result.isErr()) {
           outputError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR);
@@ -120,7 +110,7 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
         });
       } catch (error) {
         await closeDatabase(database);
-        resetLoggerContext();
+
         outputError(
           'prices-enrich',
           error instanceof Error ? error : new Error(String(error)),
@@ -145,16 +135,16 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
     const abortHandler = () => {
       process.off('SIGINT', abortHandler);
       controller.abort();
-      controller.stop().catch(() => {
-        /* ignore cleanup errors on abort */
+      controller.stop().catch((cleanupErr) => {
+        logger.warn({ cleanupErr }, 'Failed to stop controller on abort');
       });
-      handler.destroy().catch(() => {
-        /* ignore cleanup errors on abort */
+      handler.destroy().catch((cleanupErr) => {
+        logger.warn({ cleanupErr }, 'Failed to destroy handler on abort');
       });
-      closeDatabase(database).catch((_err) => {
-        /* ignore cleanup errors on abort */
+      closeDatabase(database).catch((cleanupErr) => {
+        logger.warn({ cleanupErr }, 'Failed to close database on abort');
       });
-      resetLoggerContext();
+
       process.exit(130);
     };
     process.on('SIGINT', abortHandler);
@@ -186,7 +176,6 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       // Cleanup always runs exactly once (success, error, or early return)
       await handler.destroy();
       await closeDatabase(database);
-      resetLoggerContext();
 
       // Only exit explicitly on error; undici cleanup allows natural exit on success
       if (exitCode !== 0) {

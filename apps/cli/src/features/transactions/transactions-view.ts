@@ -1,7 +1,6 @@
 import path from 'node:path';
 
 // Command registration for view transactions subcommand
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import { err, ok } from 'neverthrow';
@@ -10,6 +9,7 @@ import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
+import { withDatabase } from '../shared/database-utils.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { writeFilesAtomically } from '../shared/file-utils.js';
 import { outputSuccess } from '../shared/json-output.js';
@@ -105,19 +105,11 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
     limit: options.limit || 50,
   };
 
-  // Configure logger
-  configureLogger({
-    mode: isJsonMode ? 'json' : 'text',
-    verbose: false,
-    sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
-  });
-
   if (isJsonMode) {
     await executeTransactionsViewJSON(params);
   } else {
     await executeTransactionsViewTUI(params);
   }
-  resetLoggerContext();
 }
 
 /**
@@ -279,72 +271,61 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
  * Execute transactions view in JSON mode
  */
 async function executeTransactionsViewJSON(params: ViewTransactionsParams): Promise<void> {
-  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
-
-  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
+  const { TransactionRepository } = await import('@exitbook/data');
 
   try {
-    const dataDir = getDataDir();
+    await withDatabase(async (database) => {
+      const txRepo = new TransactionRepository(database);
 
-    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const txRepo = new TransactionRepository(database);
+      // Convert since to unix timestamp if provided
+      let since: number | undefined;
+      if (params.since) {
+        const sinceResult = parseDate(params.since);
+        if (sinceResult.isErr()) {
+          displayCliError('view-transactions', sinceResult.error, ExitCodes.INVALID_ARGS, 'json');
+          return;
+        }
+        since = Math.floor(sinceResult.value.getTime() / 1000);
+      }
 
-    // Convert since to unix timestamp if provided
-    let since: number | undefined;
-    if (params.since) {
-      const sinceResult = parseDate(params.since);
-      if (sinceResult.isErr()) {
-        await closeDatabase(database);
-        displayCliError('view-transactions', sinceResult.error, ExitCodes.INVALID_ARGS, 'json');
+      const filters = {
+        ...(params.source && { sourceName: params.source }),
+        ...(since && { since }),
+        includeExcluded: true,
+      };
+
+      const txResult = await txRepo.getTransactions(filters);
+      if (txResult.isErr()) {
+        displayCliError('view-transactions', txResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
       }
-      since = Math.floor(sinceResult.value.getTime() / 1000);
-    }
 
-    const filters = {
-      ...(params.source && { sourceName: params.source }),
-      ...(since && { since }),
-      includeExcluded: true,
-    };
+      let transactions = txResult.value;
 
-    const txResult = await txRepo.getTransactions(filters);
-    if (txResult.isErr()) {
-      await closeDatabase(database);
-      displayCliError('view-transactions', txResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      return;
-    }
+      // Apply client-side filters
+      const filterResult = applyTransactionFilters(transactions, params);
+      if (filterResult.isErr()) {
+        displayCliError('view-transactions', filterResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
+      transactions = filterResult.value;
 
-    let transactions = txResult.value;
+      const totalCount = transactions.length;
 
-    // Apply client-side filters
-    const filterResult = applyTransactionFilters(transactions, params);
-    if (filterResult.isErr()) {
-      await closeDatabase(database);
-      displayCliError('view-transactions', filterResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      return;
-    }
-    transactions = filterResult.value;
+      // Apply limit
+      if (params.limit) {
+        transactions = transactions.slice(0, params.limit);
+      }
 
-    const totalCount = transactions.length;
+      // Build result
+      const result: ViewTransactionsResult = {
+        transactions: transactions.map((tx) => formatTransactionForDisplay(tx)),
+        count: transactions.length,
+      };
 
-    // Apply limit
-    if (params.limit) {
-      transactions = transactions.slice(0, params.limit);
-    }
-
-    // Build result
-    const result: ViewTransactionsResult = {
-      transactions: transactions.map((tx) => formatTransactionForDisplay(tx)),
-      count: transactions.length,
-    };
-
-    await closeDatabase(database);
-
-    handleViewTransactionsJSON(result, params, totalCount);
+      handleViewTransactionsJSON(result, params, totalCount);
+    });
   } catch (error) {
-    if (database) {
-      await closeDatabase(database);
-    }
     displayCliError(
       'view-transactions',
       error instanceof Error ? error : new Error(String(error)),

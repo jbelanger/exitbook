@@ -11,13 +11,13 @@ import {
   UserRepository,
 } from '@exitbook/data';
 import { ClearService, type ClearResult, type DeletionPreview } from '@exitbook/ingestion';
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
 
 import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
+import { withDatabase } from '../shared/database-utils.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { handleCancellation, promptConfirm } from '../shared/prompts.js';
@@ -71,7 +71,7 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
   if (!useJsonMode && !useConfirmBypass) {
     executeClearTUI(options);
   } else {
-    await executeClearLegacy(options);
+    await executeClearNonTui(options);
   }
 }
 
@@ -87,13 +87,6 @@ function executeClearTUI(options: {
 }): void {
   let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
   let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
-
-  // Configure logger for TUI mode (suppress logs)
-  configureLogger({
-    mode: 'text',
-    verbose: false,
-    sinks: { ui: false, structured: 'file' },
-  });
 
   try {
     (async () => {
@@ -231,7 +224,7 @@ async function buildScopeLabel(
 /**
  * Execute clear command in legacy mode (JSON or --confirm bypass)
  */
-async function executeClearLegacy(options: {
+async function executeClearNonTui(options: {
   accountId?: number | undefined;
   confirm?: boolean | undefined;
   includeRaw?: boolean | undefined;
@@ -241,30 +234,27 @@ async function executeClearLegacy(options: {
   const includeRaw = options.includeRaw ?? false;
 
   try {
-    // Initialize database and repositories once
-    const dataDir = getDataDir();
-    const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const userRepository = new UserRepository(database);
-    const accountRepository = new AccountRepository(database);
-    const transactionRepository = new TransactionRepository(database);
-    const transactionLinkRepository = new TransactionLinkRepository(database);
-    const costBasisRepository = new CostBasisRepository(database);
-    const lotTransferRepository = new LotTransferRepository(database);
-    const rawDataRepository = new RawDataRepository(database);
-    const importSessionRepository = new ImportSessionRepository(database);
+    await withDatabase(async (database) => {
+      const userRepository = new UserRepository(database);
+      const accountRepository = new AccountRepository(database);
+      const transactionRepository = new TransactionRepository(database);
+      const transactionLinkRepository = new TransactionLinkRepository(database);
+      const costBasisRepository = new CostBasisRepository(database);
+      const lotTransferRepository = new LotTransferRepository(database);
+      const rawDataRepository = new RawDataRepository(database);
+      const importSessionRepository = new ImportSessionRepository(database);
 
-    const clearService = new ClearService(
-      userRepository,
-      accountRepository,
-      transactionRepository,
-      transactionLinkRepository,
-      costBasisRepository,
-      lotTransferRepository,
-      rawDataRepository,
-      importSessionRepository
-    );
+      const clearService = new ClearService(
+        userRepository,
+        accountRepository,
+        transactionRepository,
+        transactionLinkRepository,
+        costBasisRepository,
+        lotTransferRepository,
+        rawDataRepository,
+        importSessionRepository
+      );
 
-    try {
       // Preview deletion
       const previewResult = await clearService.previewDeletion({
         accountId: options.accountId,
@@ -273,7 +263,6 @@ async function executeClearLegacy(options: {
       });
 
       if (previewResult.isErr()) {
-        await closeDatabase(database);
         displayCliError('clear', previewResult.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
       }
 
@@ -289,7 +278,6 @@ async function executeClearLegacy(options: {
         preview.transfers +
         preview.calculations;
       if (totalToDelete === 0 && (!includeRaw || (preview.sessions === 0 && preview.rawData === 0))) {
-        await closeDatabase(database);
         if (!options.json) {
           console.error('No data to clear.');
         } else {
@@ -330,7 +318,6 @@ async function executeClearLegacy(options: {
         const confirmMessage = includeRaw ? 'Delete ALL data including raw imports?' : 'Clear processed data?';
         const shouldProceed = await promptConfirm(confirmMessage, false);
         if (!shouldProceed) {
-          await closeDatabase(database);
           handleCancellation('Clear cancelled');
         }
       }
@@ -344,22 +331,14 @@ async function executeClearLegacy(options: {
         includeRaw,
       });
 
-      await closeDatabase(database);
-      resetLoggerContext();
-
       if (result.isErr()) {
         stopSpinner(spinner);
         displayCliError('clear', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
       }
 
       handleClearSuccess(result.value, spinner, options.json ?? false);
-    } catch (error) {
-      await closeDatabase(database);
-      resetLoggerContext();
-      throw error;
-    }
+    });
   } catch (error) {
-    resetLoggerContext();
     displayCliError(
       'clear',
       error instanceof Error ? error : new Error(String(error)),

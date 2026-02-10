@@ -6,7 +6,6 @@
  */
 
 import { Currency } from '@exitbook/core';
-import { configureLogger } from '@exitbook/logger';
 import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -22,23 +21,6 @@ describe('Frankfurter Provider E2E', () => {
   let provider: FrankfurterProvider;
 
   beforeAll(async () => {
-    // Enable logging in tests
-    configureLogger({
-      spinner: {
-        start: () => {
-          // intentionally empty for test logger
-        },
-        stop: () => {
-          // intentionally empty for test logger
-        },
-        message: () => {
-          // intentionally empty for test logger
-        },
-      },
-      mode: 'text',
-      verbose: true,
-    });
-
     // Create in-memory database for testing
     sqliteDb = new Database(':memory:');
 

@@ -3,7 +3,6 @@ import path from 'node:path';
 // Command registration for links view subcommand
 import type { LinkStatus, TransactionLink } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import type { Result } from 'neverthrow';
@@ -12,6 +11,7 @@ import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
+import { withDatabase } from '../shared/database-utils.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { LinksViewCommandOptionsSchema } from '../shared/schemas.js';
@@ -150,13 +150,6 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
     verbose: options.verbose,
   };
 
-  // Configure logger
-  configureLogger({
-    mode: isJsonMode ? 'json' : 'text',
-    verbose: options.verbose ?? false,
-    sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
-  });
-
   // JSON mode uses structured output functions
   if (isJsonMode) {
     if (isGapsMode) {
@@ -164,7 +157,7 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
     } else {
       await executeLinksViewJSON(params);
     }
-    resetLoggerContext();
+
     return;
   }
 
@@ -174,7 +167,6 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
   } else {
     await executeLinksViewTUI(params);
   }
-  resetLoggerContext();
 }
 
 /**
@@ -374,65 +366,56 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
  * Execute links view in JSON mode
  */
 async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
-  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
+  const { TransactionRepository } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
-  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
-
   try {
-    const dataDir = getDataDir();
+    await withDatabase(async (database) => {
+      const linkRepo = new TransactionLinkRepository(database);
+      const txRepo = new TransactionRepository(database);
 
-    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const linkRepo = new TransactionLinkRepository(database);
-    const txRepo = new TransactionRepository(database);
-
-    // Fetch links
-    const linksResult = await linkRepo.findAll(params.status as LinkStatus);
-    if (linksResult.isErr()) {
-      await closeDatabase(database);
-      displayCliError('links-view', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      return;
-    }
-
-    let links = linksResult.value;
-
-    // Apply filters
-    if (params.minConfidence !== undefined || params.maxConfidence !== undefined) {
-      links = filterLinksByConfidence(links, params.minConfidence, params.maxConfidence);
-    }
-
-    if (params.limit !== undefined && params.limit > 0) {
-      links = links.slice(0, params.limit);
-    }
-
-    // Format links with transaction details
-    const linksWithTransactions = await fetchTransactionsForLinks(links, txRepo);
-    const linkInfos: LinkInfo[] = linksWithTransactions.map((item) => {
-      const linkInfo = formatLinkInfo(item.link, item.sourceTransaction, item.targetTransaction);
-
-      // Remove full transaction details if not in verbose mode
-      if (!params.verbose) {
-        linkInfo.source_transaction = undefined;
-        linkInfo.target_transaction = undefined;
+      // Fetch links
+      const linksResult = await linkRepo.findAll(params.status as LinkStatus);
+      if (linksResult.isErr()) {
+        displayCliError('links-view', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
       }
 
-      return linkInfo;
+      let links = linksResult.value;
+
+      // Apply filters
+      if (params.minConfidence !== undefined || params.maxConfidence !== undefined) {
+        links = filterLinksByConfidence(links, params.minConfidence, params.maxConfidence);
+      }
+
+      if (params.limit !== undefined && params.limit > 0) {
+        links = links.slice(0, params.limit);
+      }
+
+      // Format links with transaction details
+      const linksWithTransactions = await fetchTransactionsForLinks(links, txRepo);
+      const linkInfos: LinkInfo[] = linksWithTransactions.map((item) => {
+        const linkInfo = formatLinkInfo(item.link, item.sourceTransaction, item.targetTransaction);
+
+        // Remove full transaction details if not in verbose mode
+        if (!params.verbose) {
+          linkInfo.source_transaction = undefined;
+          linkInfo.target_transaction = undefined;
+        }
+
+        return linkInfo;
+      });
+
+      // Build result
+      const result: LinksViewResult = {
+        links: linkInfos,
+        count: linkInfos.length,
+      };
+
+      // Output JSON
+      handleLinksViewJSON(result, params);
     });
-
-    // Build result
-    const result: LinksViewResult = {
-      links: linkInfos,
-      count: linkInfos.length,
-    };
-
-    await closeDatabase(database);
-
-    // Output JSON
-    handleLinksViewJSON(result, params);
   } catch (error) {
-    if (database) {
-      await closeDatabase(database);
-    }
     displayCliError(
       'links-view',
       error instanceof Error ? error : new Error(String(error)),
@@ -446,68 +429,58 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
  * Execute gaps view in JSON mode
  */
 async function executeGapsViewJSON(params: LinksViewParams): Promise<void> {
-  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
+  const { TransactionRepository } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
-  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
-
   try {
-    const dataDir = getDataDir();
+    await withDatabase(async (database) => {
+      const txRepo = new TransactionRepository(database);
+      const linkRepo = new TransactionLinkRepository(database);
 
-    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const txRepo = new TransactionRepository(database);
-    const linkRepo = new TransactionLinkRepository(database);
+      // Fetch all transactions
+      const transactionsResult = await txRepo.getTransactions();
+      if (transactionsResult.isErr()) {
+        displayCliError('links-view', transactionsResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
 
-    // Fetch all transactions
-    const transactionsResult = await txRepo.getTransactions();
-    if (transactionsResult.isErr()) {
-      await closeDatabase(database);
-      displayCliError('links-view', transactionsResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      return;
-    }
+      // Fetch all links
+      const linksResult = await linkRepo.findAll();
+      if (linksResult.isErr()) {
+        displayCliError('links-view', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
 
-    // Fetch all links
-    const linksResult = await linkRepo.findAll();
-    if (linksResult.isErr()) {
-      await closeDatabase(database);
-      displayCliError('links-view', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      return;
-    }
+      // Run gap analysis
+      const analysis = analyzeLinkGaps(transactionsResult.value, linksResult.value);
 
-    // Run gap analysis
-    const analysis = analyzeLinkGaps(transactionsResult.value, linksResult.value);
+      // Apply limit to issues
+      let issues = analysis.issues;
+      if (params.limit !== undefined && params.limit > 0) {
+        issues = issues.slice(0, params.limit);
+      }
 
-    await closeDatabase(database);
-
-    // Apply limit to issues
-    let issues = analysis.issues;
-    if (params.limit !== undefined && params.limit > 0) {
-      issues = issues.slice(0, params.limit);
-    }
-
-    // Output JSON per spec shape
-    const resultData: GapsViewCommandResult = {
-      data: issues,
-      meta: {
-        count: issues.length,
-        offset: 0,
-        limit: params.limit ?? 50,
-        hasMore: issues.length < analysis.summary.total_issues,
-        filters: {
-          total_issues: analysis.summary.total_issues,
-          uncovered_inflows: analysis.summary.uncovered_inflows,
-          unmatched_outflows: analysis.summary.unmatched_outflows,
-          affected_assets: analysis.summary.affected_assets,
-          assets: analysis.summary.assets,
+      // Output JSON per spec shape
+      const resultData: GapsViewCommandResult = {
+        data: issues,
+        meta: {
+          count: issues.length,
+          offset: 0,
+          limit: params.limit ?? 50,
+          hasMore: issues.length < analysis.summary.total_issues,
+          filters: {
+            total_issues: analysis.summary.total_issues,
+            uncovered_inflows: analysis.summary.uncovered_inflows,
+            unmatched_outflows: analysis.summary.unmatched_outflows,
+            affected_assets: analysis.summary.affected_assets,
+            assets: analysis.summary.assets,
+          },
         },
-      },
-    };
+      };
 
-    outputSuccess('links-view', resultData);
+      outputSuccess('links-view', resultData);
+    });
   } catch (error) {
-    if (database) {
-      await closeDatabase(database);
-    }
     displayCliError(
       'links-view',
       error instanceof Error ? error : new Error(String(error)),

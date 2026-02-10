@@ -1,5 +1,5 @@
 import type { MetricsSummary } from '@exitbook/http';
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
+import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -12,6 +12,8 @@ import { isJsonMode } from '../shared/utils.js';
 
 import type { ProcessResult } from './process-handler.js';
 import { createProcessServices } from './process-service-factory.js';
+
+const logger = getLogger('process');
 
 /**
  * Process command options validated by Zod at CLI boundary
@@ -67,16 +69,6 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
   // JSON mode uses structured output functions
   const useInk = !options.json;
 
-  // Configure logger
-  configureLogger({
-    mode: options.json ? 'json' : 'text',
-    verbose: options.verbose ?? false,
-    sinks: {
-      ui: false,
-      structured: options.json ? 'off' : options.verbose ? 'stdout' : 'file',
-    },
-  });
-
   // Create services using factory
   const services = await createProcessServices();
 
@@ -92,13 +84,13 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
       // Mark as aborted and stop gracefully
       // Fire cleanup promises and exit immediately (signal handler must be sync)
       services.ingestionMonitor.abort();
-      void services.ingestionMonitor.stop().catch(() => {
-        /* ignore cleanup errors during exit */
+      void services.ingestionMonitor.stop().catch((cleanupErr) => {
+        logger.warn({ cleanupErr }, 'Failed to stop ingestion monitor on abort');
       });
-      void services.cleanup().catch(() => {
-        /* ignore cleanup errors during exit */
+      void services.cleanup().catch((cleanupErr) => {
+        logger.warn({ cleanupErr }, 'Failed to cleanup services on abort');
       });
-      resetLoggerContext();
+
       process.exit(130); // Standard exit code for SIGINT
     };
     process.on('SIGINT', abortHandler);
@@ -141,7 +133,6 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
 
     // Cleanup always runs exactly once (success, error, or early return)
     await services.cleanup();
-    resetLoggerContext();
 
     // Only exit explicitly on error; undici cleanup allows natural exit on success
     if (exitCode !== 0) {

@@ -1,7 +1,7 @@
 // Command registration for benchmark providers subcommand
 
 import { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
+import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
@@ -78,19 +78,11 @@ async function executeProvidersBenchmarkCommand(rawOptions: unknown): Promise<vo
   const options = parseResult.data;
   const isJsonMode = options.json ?? false;
 
-  // Configure logger
-  configureLogger({
-    mode: isJsonMode ? 'json' : 'text',
-    verbose: false,
-    sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
-  });
-
   if (isJsonMode) {
     await executeProvidersBenchmarkJSON(options);
   } else {
     await executeProvidersBenchmarkTUI(options);
   }
-  resetLoggerContext();
 }
 
 /**
@@ -103,7 +95,6 @@ async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<v
     const result = await handler.execute(options, BlockchainProviderManager);
 
     if (result.isErr()) {
-      resetLoggerContext();
       displayCliError('providers-benchmark', result.error, ExitCodes.INVALID_ARGS, 'json');
       return;
     }
@@ -125,7 +116,6 @@ async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<v
 
     await handler.destroy();
   } catch (error) {
-    resetLoggerContext();
     displayCliError(
       'providers-benchmark',
       error instanceof Error ? error : new Error(String(error)),

@@ -1,66 +1,24 @@
-import { configureLogger, resetLoggerContext, type Spinner } from '@exitbook/logger';
 import ora, { type Ora } from 'ora';
 
 /**
- * Spinner wrapper that makes Ora compatible with the logger's Spinner interface.
+ * Spinner wrapper that provides a consistent interface around Ora.
  */
-interface SpinnerWrapper extends Spinner {
+interface SpinnerWrapper {
   readonly ora: Ora;
 }
 
 /**
  * Create a spinner for text mode output.
  * Returns undefined in JSON mode.
- *
- * The spinner integrates with the logger so that log messages
- * display properly during spinner animation.
  */
 export function createSpinner(text: string, isJsonMode: boolean): SpinnerWrapper | undefined {
   if (isJsonMode) {
-    // Configure logger for JSON mode to prevent console pollution
-    configureLogger({
-      mode: 'json',
-      sinks: {
-        structured: 'file',
-      },
-    });
     return undefined;
   }
 
   const oraSpinner = ora(text).start();
 
-  // Wrap Ora to match the logger's Spinner interface
-  const wrapper: SpinnerWrapper = {
-    ora: oraSpinner,
-    message: (msg: string) => {
-      oraSpinner.text = msg;
-    },
-    start: (msg?: string) => {
-      if (msg) {
-        oraSpinner.text = msg;
-      }
-      oraSpinner.start();
-    },
-    stop: (msg?: string) => {
-      if (msg) {
-        oraSpinner.text = msg;
-      }
-      oraSpinner.stop();
-    },
-  };
-
-  // Configure logger to work with spinner
-  configureLogger({
-    mode: 'text',
-    spinner: wrapper,
-    verbose: false,
-    sinks: {
-      ui: true,
-      structured: 'off', // Avoid duplicate console output while spinner is active
-    },
-  });
-
-  return wrapper;
+  return { ora: oraSpinner };
 }
 
 /**
@@ -81,12 +39,10 @@ function completeSpinner(
   } else {
     spinner.ora.stop();
   }
-
-  resetLoggerContext();
 }
 
 /**
- * Stop a spinner and reset logger context.
+ * Stop a spinner and mark as succeeded.
  * Safe to call with undefined spinner (no-op).
  */
 export function stopSpinner(spinner: SpinnerWrapper | undefined, message?: string): void {
@@ -94,7 +50,7 @@ export function stopSpinner(spinner: SpinnerWrapper | undefined, message?: strin
 }
 
 /**
- * Stop a spinner with a failure message and reset logger context.
+ * Stop a spinner with a failure message.
  * Safe to call with undefined spinner (no-op).
  */
 export function failSpinner(spinner: SpinnerWrapper | undefined, message?: string): void {

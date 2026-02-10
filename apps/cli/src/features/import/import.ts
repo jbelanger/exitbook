@@ -1,6 +1,6 @@
 import type { MetricsSummary } from '@exitbook/http';
 import type { ImportParams } from '@exitbook/ingestion';
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
+import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -16,6 +16,8 @@ import { isJsonMode } from '../shared/utils.js';
 import type { ImportResult } from './import-handler.js';
 import { createImportServices } from './import-service-factory.js';
 import { buildImportParams } from './import-utils.js';
+
+const logger = getLogger('import');
 
 /**
  * Import command options validated by Zod at CLI boundary
@@ -106,16 +108,6 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
   // JSON mode uses structured output functions
   const useInk = !options.json;
 
-  // Configure logger
-  configureLogger({
-    mode: options.json ? 'json' : 'text',
-    verbose: options.verbose ?? false,
-    sinks: {
-      ui: false,
-      structured: options.json ? 'off' : options.verbose ? 'stdout' : 'file',
-    },
-  });
-
   // Create services using factory
   const services = await createImportServices();
 
@@ -130,13 +122,13 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 
       // Mark as aborted and stop gracefully
       services.ingestionMonitor.abort();
-      services.ingestionMonitor.stop().catch(() => {
-        /* ignore cleanup errors on abort */
+      services.ingestionMonitor.stop().catch((cleanupErr) => {
+        logger.warn({ cleanupErr }, 'Failed to stop ingestion monitor on abort');
       });
-      services.cleanup().catch(() => {
-        /* ignore cleanup errors on abort */
+      services.cleanup().catch((cleanupErr) => {
+        logger.warn({ cleanupErr }, 'Failed to cleanup services on abort');
       });
-      resetLoggerContext();
+
       process.exit(130); // Standard exit code for SIGINT
     };
     process.on('SIGINT', abortHandler);
@@ -213,7 +205,6 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 
     // Cleanup always runs exactly once (success, error, or early return)
     await services.cleanup();
-    resetLoggerContext();
 
     // Only exit explicitly on error; undici cleanup allows natural exit on success
     if (exitCode !== 0) {

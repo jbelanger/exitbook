@@ -21,6 +21,7 @@ import {
   TokenMetadataService,
   TransactionProcessService,
 } from '@exitbook/ingestion';
+import { getLogger } from '@exitbook/logger';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
 import { getDataDir } from '../shared/data-dir.js';
@@ -28,6 +29,8 @@ import { createProviderManagerWithStats } from '../shared/provider-manager-facto
 
 import { IngestionMonitor } from './components/ingestion-monitor-components.js';
 import { ImportHandler } from './import-handler.js';
+
+const logger = getLogger('import-service-factory');
 
 type IngestionMonitorEvent = IngestionEvent | ProviderEvent;
 
@@ -57,7 +60,7 @@ export async function createImportServices(): Promise<ImportServices> {
 
   const eventBus = new EventBus<IngestionMonitorEvent>({
     onError: (err) => {
-      console.error('Event handler error:', err);
+      logger.error({ err }, 'EventBus error');
     },
   });
   providerManager.setEventBus(eventBus as EventBus<ProviderEvent>);

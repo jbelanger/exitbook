@@ -9,7 +9,7 @@ import {
   TransactionLinkRepository,
 } from '@exitbook/accounting';
 import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
-import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
+import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 import type { Command } from 'commander';
 import { render } from 'ink';
@@ -19,6 +19,7 @@ import type { z } from 'zod';
 import { displayCliError } from '../shared/cli-error.js';
 import { unwrapResult } from '../shared/command-execution.js';
 import { getDataDir } from '../shared/data-dir.js';
+import { withDatabase } from '../shared/database-utils.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { CostBasisCommandOptionsSchema } from '../shared/schemas.js';
@@ -106,13 +107,6 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
 
   const options = parseResult.data;
 
-  // Configure logger
-  configureLogger({
-    mode: options.json ? 'json' : 'text',
-    verbose: false,
-    sinks: options.json ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
-  });
-
   if (options.json) {
     if (options.calculationId) {
       await executeCostBasisViewJSON(options);
@@ -124,8 +118,6 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
   } else {
     await executeCostBasisCalculateTUI(options);
   }
-
-  resetLoggerContext();
 }
 
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
@@ -134,17 +126,14 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
   try {
     const params = unwrapResult(buildCostBasisParamsFromFlags(options));
 
-    const dataDir = getDataDir();
-    const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const transactionRepo = new TransactionRepository(database);
-    const linkRepo = new TransactionLinkRepository(database);
-    const costBasisRepo = new CostBasisRepository(database);
-    const lotTransferRepo = new LotTransferRepository(database);
-    const handler = new CostBasisHandler(transactionRepo, linkRepo, costBasisRepo, lotTransferRepo);
+    await withDatabase(async (database) => {
+      const transactionRepo = new TransactionRepository(database);
+      const linkRepo = new TransactionLinkRepository(database);
+      const costBasisRepo = new CostBasisRepository(database);
+      const lotTransferRepo = new LotTransferRepository(database);
+      const handler = new CostBasisHandler(transactionRepo, linkRepo, costBasisRepo, lotTransferRepo);
 
-    try {
       const result = await handler.execute(params);
-      await closeDatabase(database);
 
       if (result.isErr()) {
         displayCliError('cost-basis', result.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -152,10 +141,7 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
       }
 
       outputCostBasisJSON(result.value);
-    } catch (error) {
-      await closeDatabase(database);
-      throw error;
-    }
+    });
   } catch (error) {
     displayCliError(
       'cost-basis',
@@ -169,79 +155,79 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
 async function executeCostBasisViewJSON(options: CommandOptions): Promise<void> {
   const calculationId = options.calculationId!;
 
-  const dataDir = getDataDir();
-  const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-  const costBasisRepo = new CostBasisRepository(database);
-
   try {
-    const calcResult = await costBasisRepo.findCalculationById(calculationId);
-    if (calcResult.isErr()) {
-      displayCliError('cost-basis', calcResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      return;
-    }
+    await withDatabase(async (database) => {
+      const costBasisRepo = new CostBasisRepository(database);
 
-    const calculation = calcResult.value;
-    if (!calculation) {
-      displayCliError(
-        'cost-basis',
-        new Error(`Calculation not found: ${calculationId}`),
-        ExitCodes.GENERAL_ERROR,
-        'json'
-      );
-      return;
-    }
-
-    if (calculation.status !== 'completed') {
-      displayCliError(
-        'cost-basis',
-        new Error(`Calculation is not completed (status: ${calculation.status})`),
-        ExitCodes.GENERAL_ERROR,
-        'json'
-      );
-      return;
-    }
-
-    const currency = calculation.config.currency;
-
-    // Generate report for FX conversion if non-USD
-    let report: CostBasisReport | undefined;
-    if (currency !== 'USD') {
-      const reportResult = await generateReport(costBasisRepo, calculationId, currency);
-      if (reportResult) {
-        report = reportResult;
+      const calcResult = await costBasisRepo.findCalculationById(calculationId);
+      if (calcResult.isErr()) {
+        displayCliError('cost-basis', calcResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
       }
-    }
 
-    const totals = report?.summary ?? {
-      totalProceeds: calculation.totalProceeds,
-      totalCostBasis: calculation.totalCostBasis,
-      totalGainLoss: calculation.totalGainLoss,
-      totalTaxableGainLoss: calculation.totalTaxableGainLoss,
-    };
+      const calculation = calcResult.value;
+      if (!calculation) {
+        displayCliError(
+          'cost-basis',
+          new Error(`Calculation not found: ${calculationId}`),
+          ExitCodes.GENERAL_ERROR,
+          'json'
+        );
+        return;
+      }
 
-    const resultData: CostBasisCommandResult = {
-      calculationId: calculation.id,
-      method: calculation.config.method,
-      jurisdiction: calculation.config.jurisdiction,
-      taxYear: calculation.config.taxYear,
-      currency,
-      dateRange: {
-        startDate: calculation.startDate?.toISOString().split('T')[0] ?? '',
-        endDate: calculation.endDate?.toISOString().split('T')[0] ?? '',
-      },
-      results: {
-        lotsCreated: calculation.lotsCreated,
-        disposalsProcessed: calculation.disposalsProcessed,
-        assetsProcessed: calculation.assetsProcessed,
-        transactionsProcessed: calculation.transactionsProcessed,
-        totalProceeds: totals.totalProceeds.toFixed(),
-        totalCostBasis: totals.totalCostBasis.toFixed(),
-        totalGainLoss: totals.totalGainLoss.toFixed(),
-        totalTaxableGainLoss: totals.totalTaxableGainLoss.toFixed(),
-      },
-    };
+      if (calculation.status !== 'completed') {
+        displayCliError(
+          'cost-basis',
+          new Error(`Calculation is not completed (status: ${calculation.status})`),
+          ExitCodes.GENERAL_ERROR,
+          'json'
+        );
+        return;
+      }
 
-    outputSuccess('cost-basis', resultData);
+      const currency = calculation.config.currency;
+
+      // Generate report for FX conversion if non-USD
+      let report: CostBasisReport | undefined;
+      if (currency !== 'USD') {
+        const reportResult = await generateReport(costBasisRepo, calculationId, currency);
+        if (reportResult) {
+          report = reportResult;
+        }
+      }
+
+      const totals = report?.summary ?? {
+        totalProceeds: calculation.totalProceeds,
+        totalCostBasis: calculation.totalCostBasis,
+        totalGainLoss: calculation.totalGainLoss,
+        totalTaxableGainLoss: calculation.totalTaxableGainLoss,
+      };
+
+      const resultData: CostBasisCommandResult = {
+        calculationId: calculation.id,
+        method: calculation.config.method,
+        jurisdiction: calculation.config.jurisdiction,
+        taxYear: calculation.config.taxYear,
+        currency,
+        dateRange: {
+          startDate: calculation.startDate?.toISOString().split('T')[0] ?? '',
+          endDate: calculation.endDate?.toISOString().split('T')[0] ?? '',
+        },
+        results: {
+          lotsCreated: calculation.lotsCreated,
+          disposalsProcessed: calculation.disposalsProcessed,
+          assetsProcessed: calculation.assetsProcessed,
+          transactionsProcessed: calculation.transactionsProcessed,
+          totalProceeds: totals.totalProceeds.toFixed(),
+          totalCostBasis: totals.totalCostBasis.toFixed(),
+          totalGainLoss: totals.totalGainLoss.toFixed(),
+          totalTaxableGainLoss: totals.totalTaxableGainLoss.toFixed(),
+        },
+      };
+
+      outputSuccess('cost-basis', resultData);
+    });
   } catch (error) {
     displayCliError(
       'cost-basis',
@@ -249,8 +235,6 @@ async function executeCostBasisViewJSON(options: CommandOptions): Promise<void> 
       ExitCodes.GENERAL_ERROR,
       'json'
     );
-  } finally {
-    await closeDatabase(database);
   }
 }
 

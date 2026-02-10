@@ -12,7 +12,7 @@ import {
   type ProviderStatsRow,
 } from '@exitbook/blockchain-providers';
 import { getAllBlockchains } from '@exitbook/ingestion';
-import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
+import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
@@ -92,13 +92,6 @@ async function executeProvidersViewCommand(rawOptions: unknown): Promise<void> {
   const options = parseResult.data;
   const isJsonMode = options.json ?? false;
 
-  // Configure logger
-  configureLogger({
-    mode: isJsonMode ? 'json' : 'text',
-    verbose: false,
-    sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
-  });
-
   // Validate health filter if provided
   let validatedHealth: HealthFilter | undefined;
   if (options.health) {
@@ -114,7 +107,6 @@ async function executeProvidersViewCommand(rawOptions: unknown): Promise<void> {
   } else {
     await executeProvidersViewTUI(options, validatedHealth);
   }
-  resetLoggerContext();
 }
 
 /**
