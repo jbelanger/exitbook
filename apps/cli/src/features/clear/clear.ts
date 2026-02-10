@@ -16,11 +16,13 @@ import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
 
+import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { handleCancellation, promptConfirm } from '../shared/prompts.js';
 import { ClearCommandOptionsSchema } from '../shared/schemas.js';
+import { createSpinner, stopSpinner } from '../shared/spinner.js';
 
 import { ClearViewApp, createClearViewState } from './components/index.js';
 
@@ -55,10 +57,8 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
   // Validate options at CLI boundary with Zod
   const validationResult = ClearCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
-    const output = new OutputManager('text');
     const firstError = validationResult.error.issues[0];
-    output.error('clear', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
-    return;
+    displayCliError('clear', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR, 'text');
   }
 
   const options = validationResult.data;
@@ -238,7 +238,6 @@ async function executeClearLegacy(options: {
   json?: boolean | undefined;
   source?: string | undefined;
 }): Promise<void> {
-  const output = new OutputManager(options.json ? 'json' : 'text');
   const includeRaw = options.includeRaw ?? false;
 
   try {
@@ -275,8 +274,7 @@ async function executeClearLegacy(options: {
 
       if (previewResult.isErr()) {
         await closeDatabase(database);
-        output.error('clear', previewResult.error, ExitCodes.GENERAL_ERROR);
-        return;
+        displayCliError('clear', previewResult.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
       }
 
       const preview = previewResult.value;
@@ -292,10 +290,10 @@ async function executeClearLegacy(options: {
         preview.calculations;
       if (totalToDelete === 0 && (!includeRaw || (preview.sessions === 0 && preview.rawData === 0))) {
         await closeDatabase(database);
-        if (output.isTextMode()) {
+        if (!options.json) {
           console.error('No data to clear.');
         } else {
-          output.json('clear', { deleted: preview });
+          outputSuccess('clear', { deleted: preview });
         }
         return;
       }
@@ -303,7 +301,7 @@ async function executeClearLegacy(options: {
       // Show preview and confirm (skip in JSON mode with no data, or if --confirm flag is set)
       const shouldConfirm = !options.confirm && !options.json;
       if (shouldConfirm) {
-        if (output.isTextMode()) {
+        if (!options.json) {
           console.error('\nThis will clear:');
           if (preview.accounts > 0) console.error(`  • ${preview.accounts} accounts`);
           if (preview.transactions > 0) console.error(`  • ${preview.transactions} transactions`);
@@ -337,19 +335,7 @@ async function executeClearLegacy(options: {
         }
       }
 
-      const spinner = output.spinner();
-      spinner?.start('Clearing data...');
-
-      configureLogger({
-        mode: options.json ? 'json' : 'text',
-        spinner: spinner || undefined,
-        verbose: false,
-        sinks: options.json
-          ? { ui: false, structured: 'file' }
-          : spinner
-            ? { ui: true, structured: 'off' }
-            : { ui: false, structured: 'stdout' },
-      });
+      const spinner = createSpinner('Clearing data...', options.json ?? false);
 
       // Execute deletion
       const result = await clearService.execute({
@@ -362,12 +348,11 @@ async function executeClearLegacy(options: {
       resetLoggerContext();
 
       if (result.isErr()) {
-        spinner?.stop('Clear failed');
-        output.error('clear', result.error, ExitCodes.GENERAL_ERROR);
-        return;
+        stopSpinner(spinner);
+        displayCliError('clear', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
       }
 
-      handleClearSuccess(output, result.value, spinner);
+      handleClearSuccess(result.value, spinner, options.json ?? false);
     } catch (error) {
       await closeDatabase(database);
       resetLoggerContext();
@@ -375,7 +360,12 @@ async function executeClearLegacy(options: {
     }
   } catch (error) {
     resetLoggerContext();
-    output.error('clear', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'clear',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      options.json ? 'json' : 'text'
+    );
   }
 }
 
@@ -383,9 +373,9 @@ async function executeClearLegacy(options: {
  * Handle successful clear.
  */
 function handleClearSuccess(
-  output: OutputManager,
   clearResult: ClearResult,
-  spinner: ReturnType<OutputManager['spinner']>
+  spinner: ReturnType<typeof createSpinner>,
+  isJsonMode: boolean
 ): void {
   const resultData: ClearCommandResult = {
     deleted: clearResult.deleted,
@@ -404,7 +394,9 @@ function handleClearSuccess(
   const completionMessage =
     parts.length > 0 ? `Clear complete - ${parts.join(', ')}` : 'Clear complete - no data deleted';
 
-  spinner?.stop(completionMessage);
+  stopSpinner(spinner, completionMessage);
 
-  output.json('clear', resultData);
+  if (isJsonMode) {
+    outputSuccess('clear', resultData);
+  }
 }

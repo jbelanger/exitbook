@@ -1,7 +1,6 @@
 import path from 'node:path';
 
 // Command registration for links confirm subcommand
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
@@ -10,8 +9,9 @@ import type { z } from 'zod';
 import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { LinksConfirmCommandOptionsSchema } from '../shared/schemas.js';
+import { createSpinner, stopSpinner } from '../shared/spinner.js';
 
 import { LinkActionError, LinkActionResult } from './components/index.js';
 import { LinksConfirmHandler } from './links-confirm-handler.js';
@@ -66,22 +66,9 @@ async function executeLinksConfirmCommand(linkId: string, rawOptions: unknown): 
   }
 
   const options = parseResult.data;
-  const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    const spinner = output.spinner();
-    spinner?.start('Confirming link...');
-
-    configureLogger({
-      mode: options.json ? 'json' : 'text',
-      spinner: spinner ?? undefined,
-      verbose: false,
-      sinks: options.json
-        ? { ui: false, structured: 'file' }
-        : spinner
-          ? { ui: true, structured: 'off' }
-          : { ui: false, structured: 'stdout' },
-    });
+    const spinner = createSpinner('Confirming link...', options.json ?? false);
 
     // Initialize repositories and override store
     const { initializeDatabase, closeDatabase, TransactionRepository, OverrideStore } = await import('@exitbook/data');
@@ -99,12 +86,10 @@ async function executeLinksConfirmCommand(linkId: string, rawOptions: unknown): 
 
     await closeDatabase(database);
 
-    resetLoggerContext();
+    stopSpinner(spinner);
 
     if (result.isErr()) {
-      spinner?.stop();
-
-      if (output.isTextMode()) {
+      if (!options.json) {
         // Render error with Ink
         const { unmount } = render(
           React.createElement(LinkActionError, {
@@ -115,14 +100,17 @@ async function executeLinksConfirmCommand(linkId: string, rawOptions: unknown): 
         setTimeout(() => unmount(), 100);
       }
 
-      output.error('links-confirm', result.error, ExitCodes.GENERAL_ERROR);
-      return;
+      displayCliError('links-confirm', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
     }
 
-    handleLinksConfirmSuccess(output, result.value, spinner);
+    handleLinksConfirmSuccess(options.json ?? false, result.value);
   } catch (error) {
-    resetLoggerContext();
-    output.error('links-confirm', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'links-confirm',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      options.json ? 'json' : 'text'
+    );
   }
 }
 
@@ -130,7 +118,7 @@ async function executeLinksConfirmCommand(linkId: string, rawOptions: unknown): 
  * Handle successful link confirmation.
  */
 function handleLinksConfirmSuccess(
-  output: OutputManager,
+  isJsonMode: boolean,
   result: {
     asset?: string | undefined;
     confidence?: string | undefined;
@@ -142,12 +130,9 @@ function handleLinksConfirmSuccess(
     sourceName?: string | undefined;
     targetAmount?: string | undefined;
     targetName?: string | undefined;
-  },
-  spinner: ReturnType<OutputManager['spinner']>
+  }
 ): void {
-  spinner?.stop();
-
-  if (output.isTextMode()) {
+  if (!isJsonMode) {
     // Render Ink component for rich display
     if (
       result.asset &&
@@ -184,5 +169,7 @@ function handleLinksConfirmSuccess(
     reviewedAt: result.reviewedAt.toISOString(),
   };
 
-  output.json('links-confirm', resultData);
+  if (isJsonMode) {
+    outputSuccess('links-confirm', resultData);
+  }
 }

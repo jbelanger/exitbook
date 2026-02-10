@@ -18,9 +18,10 @@ import type { Command } from 'commander';
 import type { z } from 'zod';
 
 import { createEventDrivenController } from '../../ui/shared/index.js';
+import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputError, outputSuccess } from '../shared/json-output.js';
 import { PricesEnrichCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
@@ -64,17 +65,15 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
 
   const parseResult = PricesEnrichCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager(isJson ? 'json' : 'text');
-    output.error(
+    displayCliError(
       'prices-enrich',
       new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS
+      ExitCodes.INVALID_ARGS,
+      isJson ? 'json' : 'text'
     );
-    return;
   }
 
   const options = parseResult.data;
-  const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
     const params: PricesEnrichOptions = {
@@ -109,11 +108,10 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
         resetLoggerContext();
 
         if (result.isErr()) {
-          output.error('prices-enrich', result.error, ExitCodes.GENERAL_ERROR);
-          return;
+          outputError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR);
         }
 
-        output.json('prices-enrich', {
+        outputSuccess('prices-enrich', {
           derive: result.value.derive,
           fetch: result.value.fetch,
           normalize: result.value.normalize,
@@ -123,7 +121,7 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       } catch (error) {
         await closeDatabase(database);
         resetLoggerContext();
-        output.error(
+        outputError(
           'prices-enrich',
           error instanceof Error ? error : new Error(String(error)),
           ExitCodes.GENERAL_ERROR
@@ -196,6 +194,11 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       }
     }
   } catch (error) {
-    output.error('prices-enrich', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'prices-enrich',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      options.json ? 'json' : 'text'
+    );
   }
 }

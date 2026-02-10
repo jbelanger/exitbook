@@ -8,7 +8,7 @@ import { displayCliError } from '../shared/cli-error.js';
 import { createErrorResponse, exitCodeToErrorCode } from '../shared/cli-response.js';
 import { unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { promptConfirm } from '../shared/prompts.js';
 import { ImportCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
@@ -101,10 +101,9 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
   }
 
   const options = validationResult.data;
-  const output = new OutputManager(options.json ? 'json' : 'text');
 
-  // JSON mode still uses OutputManager for structured output
-  // Text mode will use Ink dashboard for all display (including errors)
+  // Text mode uses Ink dashboard for all display (including errors)
+  // JSON mode uses structured output functions
   const useInk = !options.json;
 
   // Configure logger
@@ -197,7 +196,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       runStats: services.instrumentation.getSummary(),
     };
 
-    handleImportSuccess(output, combinedResult, params);
+    handleImportSuccess(options.json ?? false, combinedResult, params);
 
     // Flush final dashboard renders before natural exit.
     // Undici agent cleanup in finally block allows process to terminate cleanly.
@@ -258,7 +257,7 @@ interface ImportResultWithMetrics extends ImportResult {
 /**
  * Handle successful import and processing.
  */
-function handleImportSuccess(output: OutputManager, importResult: ImportResultWithMetrics, params: ImportParams): void {
+function handleImportSuccess(isJsonMode: boolean, importResult: ImportResultWithMetrics, params: ImportParams): void {
   // Calculate totals from sessions
   const totalImported = importResult.sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
   const totalSkipped = importResult.sessions.reduce((sum, s) => sum + s.transactionsSkipped, 0);
@@ -270,22 +269,20 @@ function handleImportSuccess(output: OutputManager, importResult: ImportResultWi
     csvDir: params.csvDirectory,
     address: params.address,
     processed: importResult.processed !== undefined,
-    exchange: sourceIsBlockchain ? undefined : params.sourceName,
-    blockchain: sourceIsBlockchain ? params.sourceName : undefined,
+    ...(sourceIsBlockchain ? { blockchain: params.sourceName } : { exchange: params.sourceName }),
   };
 
   const hasProcessingErrors = importResult.processingErrors && importResult.processingErrors.length > 0;
   const status = hasProcessingErrors ? 'warning' : 'success';
 
-  let sessionSummaries: ImportSessionSummary[] | undefined;
-  if (includeSessions) {
-    sessionSummaries = importResult.sessions.map((s) => ({
-      id: s.id,
-      startedAt: s.startedAt ? new Date(s.startedAt).toISOString() : undefined,
-      completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : undefined,
-      status: s.status,
-    }));
-  }
+  const sessionSummaries = includeSessions
+    ? importResult.sessions.map((s) => ({
+        id: s.id,
+        startedAt: s.startedAt ? new Date(s.startedAt).toISOString() : undefined,
+        completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : undefined,
+        status: s.status,
+      }))
+    : undefined;
 
   const resultData: ImportCommandResult = {
     status,
@@ -307,7 +304,9 @@ function handleImportSuccess(output: OutputManager, importResult: ImportResultWi
     },
   };
 
-  if (output.isTextMode()) {
+  if (isJsonMode) {
+    outputSuccess('import', resultData);
+  } else {
     // ProgressHandler already shows import summary and API call stats in completion phase
     // Only show additional processing errors if any
     if (importResult.processingErrors && importResult.processingErrors.length > 0) {
@@ -317,6 +316,4 @@ function handleImportSuccess(output: OutputManager, importResult: ImportResultWi
       }
     }
   }
-
-  output.json('import', resultData);
 }

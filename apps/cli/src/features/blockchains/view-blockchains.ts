@@ -11,7 +11,7 @@ import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { BlockchainsViewCommandOptionsSchema } from '../shared/schemas.js';
 
 import { BlockchainsViewApp, computeCategoryCounts, createBlockchainsViewState } from './components/index.js';
@@ -105,7 +105,7 @@ function loadBlockchainData(options: CommandOptions): {
   validatedCategory: BlockchainCategory | undefined;
 } | null {
   // Validate category filter if provided
-  let validatedCategory: BlockchainCategory | undefined = undefined;
+  let validatedCategory: BlockchainCategory | undefined;
   if (options.category) {
     const categoryResult = validateCategory(options.category);
     if (categoryResult.isErr()) {
@@ -197,8 +197,6 @@ function executeBlockchainsViewTUI(options: CommandOptions): void {
  * Execute blockchains view in JSON mode
  */
 function executeBlockchainsViewJSON(options: CommandOptions): void {
-  const output = new OutputManager('json');
-
   try {
     const data = loadBlockchainData(options);
     if (!data) return;
@@ -212,9 +210,10 @@ function executeBlockchainsViewJSON(options: CommandOptions): void {
     }
 
     // Build filters record
-    const filters: Record<string, unknown> = {};
-    if (validatedCategory) filters['category'] = validatedCategory;
-    if (options.requiresApiKey) filters['requiresApiKey'] = true;
+    const filters: Record<string, unknown> = {
+      ...(validatedCategory && { category: validatedCategory }),
+      ...(options.requiresApiKey && { requiresApiKey: true }),
+    };
 
     // Build JSON-friendly blockchain data
     const jsonBlockchains = blockchains.map((b) => ({
@@ -245,12 +244,13 @@ function executeBlockchainsViewJSON(options: CommandOptions): void {
       },
     };
 
-    output.json('blockchains-view', resultData);
+    outputSuccess('blockchains-view', resultData);
   } catch (error) {
-    output.error(
+    displayCliError(
       'blockchains-view',
       error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR
+      ExitCodes.GENERAL_ERROR,
+      'json'
     );
   }
 }

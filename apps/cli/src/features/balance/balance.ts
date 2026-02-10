@@ -20,7 +20,7 @@ import { EventRelay } from '../../ui/shared/event-relay.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputError, outputSuccess } from '../shared/json-output.js';
 import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
 import { BalanceCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
@@ -121,8 +121,6 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
 
 async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void> {
-  const output = new OutputManager('json');
-
   const dataDir = getDataDir();
   const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
   const accountRepo = new AccountRepository(database);
@@ -153,14 +151,15 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
         });
       }
 
-      output.json('balance', {
-        data: { accounts: accountsData },
-        meta: {
+      outputSuccess(
+        'balance',
+        { accounts: accountsData },
+        {
           totalAccounts: accounts.length,
           mode: 'offline',
           filters: options.accountId ? { accountId: options.accountId } : {},
-        },
-      });
+        }
+      );
     } else if (options.accountId) {
       // Single-account online JSON (preserves existing format)
       const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
@@ -184,13 +183,12 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
 
         const result = await balanceService.verifyBalance({ accountId: options.accountId, credentials });
         if (result.isErr()) {
-          output.error('balance', result.error, ExitCodes.GENERAL_ERROR);
-          return;
+          outputError('balance', result.error, ExitCodes.GENERAL_ERROR);
         }
 
         const vr = result.value;
         const streamMetadata = extractStreamMetadata(vr.account);
-        output.json('balance', {
+        outputSuccess('balance', {
           status: vr.status,
           balances: vr.comparisons.map((c) => ({
             assetId: c.assetId,
@@ -284,11 +282,15 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
           // Derive account status from asset comparisons (not hardcoded 'success')
           const hasMismatch = vr.comparisons.some((c) => c.status === 'mismatch');
           const hasWarning = vr.comparisons.some((c) => c.status === 'warning');
-          const accountStatus = hasMismatch
-            ? ('failed' as const)
-            : hasWarning
-              ? ('warning' as const)
-              : ('success' as const);
+
+          let accountStatus: 'failed' | 'warning' | 'success';
+          if (hasMismatch) {
+            accountStatus = 'failed';
+          } else if (hasWarning) {
+            accountStatus = 'warning';
+          } else {
+            accountStatus = 'success';
+          }
 
           accountResults.push({
             accountId: account.id,
@@ -308,24 +310,25 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
           });
         }
 
-        output.json('balance', {
-          data: { accounts: accountResults },
-          meta: {
+        outputSuccess(
+          'balance',
+          { accounts: accountResults },
+          {
             totalAccounts: accounts.length,
             verified,
             skipped,
             matches: matchTotal,
             mismatches: mismatchTotal,
             timestamp: new Date().toISOString(),
-          },
-        });
+          }
+        );
       } finally {
         await balanceService.destroy();
         await cleanupProviderManager();
       }
     }
   } catch (error) {
-    output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    outputError('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   } finally {
     await closeDatabase(database);
   }
@@ -449,28 +452,10 @@ async function runVerificationLoop(
       // Build diagnostics for each asset
       const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);
       const comparisons = vr.comparisons.map((c) => {
-        const debugResult = buildBalanceAssetDebug({
-          assetId: c.assetId,
-          assetSymbol: c.assetSymbol,
-          transactions,
+        const diagnostics = buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, account.id, {
+          liveBalance: c.liveBalance,
+          calculatedBalance: c.calculatedBalance,
         });
-        const diagnostics = debugResult.isOk()
-          ? buildAssetDiagnostics(debugResult.value, {
-              liveBalance: c.liveBalance,
-              calculatedBalance: c.calculatedBalance,
-            })
-          : (() => {
-              logger.warn(
-                `Failed to build diagnostics for ${c.assetSymbol} (account #${account.id}): ${debugResult.error.message}`
-              );
-              return {
-                txCount: 0,
-                totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
-                topOutflows: [],
-                topInflows: [],
-                topFees: [],
-              };
-            })();
 
         return {
           assetId: c.assetId,
@@ -485,14 +470,17 @@ async function runVerificationLoop(
       });
 
       // Determine account-level status
-      const hasError = false;
       const hasMismatch = comparisons.some((c) => c.status === 'mismatch');
       const hasWarning = comparisons.some((c) => c.status === 'warning');
+
       let accountStatus: AccountVerificationItem['status'];
-      if (hasError) accountStatus = 'error';
-      else if (hasMismatch) accountStatus = 'failed';
-      else if (hasWarning) accountStatus = 'warning';
-      else accountStatus = 'success';
+      if (hasMismatch) {
+        accountStatus = 'failed';
+      } else if (hasWarning) {
+        accountStatus = 'warning';
+      } else {
+        accountStatus = 'success';
+      }
 
       const item: AccountVerificationItem = {
         accountId: account.id,
@@ -572,28 +560,10 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
     // Build asset comparisons with diagnostics
     const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);
     const comparisons = vr.comparisons.map((c) => {
-      const debugResult = buildBalanceAssetDebug({
-        assetId: c.assetId,
-        assetSymbol: c.assetSymbol,
-        transactions,
+      const diagnostics = buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, account.id, {
+        liveBalance: c.liveBalance,
+        calculatedBalance: c.calculatedBalance,
       });
-      const diagnostics = debugResult.isOk()
-        ? buildAssetDiagnostics(debugResult.value, {
-            liveBalance: c.liveBalance,
-            calculatedBalance: c.calculatedBalance,
-          })
-        : (() => {
-            logger.warn(
-              `Failed to build diagnostics for ${c.assetSymbol} (account #${account.id}): ${debugResult.error.message}`
-            );
-            return {
-              txCount: 0,
-              totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
-              topOutflows: [],
-              topInflows: [],
-              topFees: [],
-            };
-          })();
 
       return {
         assetId: c.assetId,
@@ -717,6 +687,39 @@ async function executeBalanceOfflineTUI(options: BalanceCommandOptions): Promise
 
 // ─── Shared Helpers ──────────────────────────────────────────────────────────
 
+/**
+ * Default empty diagnostics structure used when debug info cannot be built.
+ */
+function getEmptyDiagnostics() {
+  return {
+    txCount: 0,
+    totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
+    topOutflows: [],
+    topInflows: [],
+    topFees: [],
+  };
+}
+
+/**
+ * Build diagnostics for an asset, with fallback to empty diagnostics on error.
+ */
+function buildDiagnosticsForAsset(
+  assetId: string,
+  assetSymbol: string,
+  transactions: import('@exitbook/core').UniversalTransactionData[],
+  accountId: number,
+  balances?: { calculatedBalance: string; liveBalance: string }
+): ReturnType<typeof buildAssetDiagnostics> {
+  const debugResult = buildBalanceAssetDebug({ assetId, assetSymbol, transactions });
+
+  if (debugResult.isOk()) {
+    return buildAssetDiagnostics(debugResult.value, balances);
+  }
+
+  logger.warn(`Failed to build diagnostics for ${assetSymbol} (account #${accountId}): ${debugResult.error.message}`);
+  return getEmptyDiagnostics();
+}
+
 async function loadAllAccounts(accountRepo: AccountRepository): Promise<Account[]> {
   const result = await accountRepo.findAll();
   if (result.isErr()) throw result.error;
@@ -795,22 +798,7 @@ async function buildOfflineAssets(
 
   const assets = Object.entries(balances).map(([assetId, balance]) => {
     const assetSymbol = assetMetadata[assetId] ?? assetId;
-    const debugResult = buildBalanceAssetDebug({ assetId, assetSymbol, transactions });
-    const diagnostics = debugResult.isOk()
-      ? buildAssetDiagnostics(debugResult.value)
-      : (() => {
-          logger.warn(
-            `Failed to build diagnostics for ${assetSymbol} (account #${account.id}): ${debugResult.error.message}`
-          );
-          return {
-            txCount: 0,
-            totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
-            topOutflows: [],
-            topInflows: [],
-            topFees: [],
-          };
-        })();
-
+    const diagnostics = buildDiagnosticsForAsset(assetId, assetSymbol, transactions, account.id);
     return buildAssetOfflineItem(assetId, assetSymbol, balance, diagnostics);
   });
 

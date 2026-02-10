@@ -8,7 +8,7 @@ import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { writeFilesAtomically } from '../shared/file-utils.js';
-import { OutputManager } from '../shared/output.js';
+import { outputError, outputSuccess } from '../shared/json-output.js';
 import { TransactionsExportCommandOptionsSchema } from '../shared/schemas.js';
 
 /**
@@ -72,8 +72,6 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
     sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
   });
 
-  const output = new OutputManager(isJsonMode ? 'json' : 'text');
-
   const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
   const { ExportHandler } = await import('./transactions-export-handler.js');
@@ -101,12 +99,11 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
     database = undefined;
 
     if (result.isErr()) {
-      output.error('transactions-export', result.error, ExitCodes.GENERAL_ERROR);
-      return;
+      outputError('transactions-export', result.error, ExitCodes.GENERAL_ERROR);
     }
 
     if (result.value.transactionCount === 0) {
-      if (output.isTextMode()) {
+      if (!isJsonMode) {
         console.log('\nNo transactions found to export.');
       } else {
         const jsonResult: TransactionsExportCommandResult = {
@@ -117,7 +114,7 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
             outputPaths: [],
           },
         };
-        output.json('transactions-export', jsonResult);
+        outputSuccess('transactions-export', jsonResult);
       }
       return;
     }
@@ -125,8 +122,7 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
     // Write files atomically
     const writeResult = await writeFilesAtomically(result.value.outputs);
     if (writeResult.isErr()) {
-      output.error('transactions-export', writeResult.error, ExitCodes.GENERAL_ERROR);
-      return;
+      outputError('transactions-export', writeResult.error, ExitCodes.GENERAL_ERROR);
     }
 
     const outputPaths = writeResult.value;
@@ -140,7 +136,7 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
           outputPaths,
         },
       };
-      output.json('transactions-export', jsonResult);
+      outputSuccess('transactions-export', jsonResult);
     } else {
       const pathList = outputPaths.length === 1 ? outputPaths[0] : outputPaths.map((p) => `\n   - ${p}`).join('');
       console.log(`\nExported ${result.value.transactionCount} transactions to: ${pathList}`);
@@ -149,10 +145,11 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
     if (database) {
       await closeDatabase(database);
     }
-    output.error(
+    displayCliError(
       'transactions-export',
       error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR
+      ExitCodes.GENERAL_ERROR,
+      isJsonMode ? 'json' : 'text'
     );
   } finally {
     resetLoggerContext();

@@ -11,7 +11,7 @@ import { BenchmarkRateLimitHandler } from '../benchmark-rate-limit/benchmark-rat
 import { buildConfigOverride } from '../benchmark-rate-limit/benchmark-rate-limit-utils.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { ProvidersBenchmarkCommandOptionsSchema } from '../shared/schemas.js';
 
 import { BenchmarkApp } from './components/benchmark-components.js';
@@ -97,7 +97,6 @@ async function executeProvidersBenchmarkCommand(rawOptions: unknown): Promise<vo
  * Execute providers benchmark in JSON mode
  */
 async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<void> {
-  const output = new OutputManager('json');
   const handler = new BenchmarkRateLimitHandler();
 
   try {
@@ -105,7 +104,7 @@ async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<v
 
     if (result.isErr()) {
       resetLoggerContext();
-      output.error('providers-benchmark', result.error, ExitCodes.INVALID_ARGS);
+      displayCliError('providers-benchmark', result.error, ExitCodes.INVALID_ARGS, 'json');
       return;
     }
 
@@ -122,15 +121,16 @@ async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<v
       configOverride: buildConfigOverride(params.blockchain, provider.name, benchmarkResult.recommended),
     };
 
-    output.json('providers-benchmark', resultData);
+    outputSuccess('providers-benchmark', resultData);
 
     await handler.destroy();
   } catch (error) {
     resetLoggerContext();
-    output.error(
+    displayCliError(
       'providers-benchmark',
       error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR
+      ExitCodes.GENERAL_ERROR,
+      'json'
     );
   }
 }

@@ -18,7 +18,7 @@ const ERROR_TIPS: Record<string, string> = {
 /**
  * Display a CLI error and exit.
  *
- * Replaces OutputManager.error() for Ink-based commands.
+ * Centralized error handling for CLI commands.
  * - Text mode: formatted error to stderr with contextual tips
  * - JSON mode: structured JSON error to stdout
  */

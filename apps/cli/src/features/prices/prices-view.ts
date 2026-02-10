@@ -10,7 +10,7 @@ import type { z } from 'zod';
 import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { PricesViewCommandOptionsSchema } from '../shared/schemas.js';
 import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta } from '../shared/view-utils.js';
@@ -101,7 +101,7 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
     sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
   });
 
-  // JSON mode uses OutputManager
+  // JSON mode uses structured output functions
   if (isJsonMode) {
     if (isMissingMode) {
       await executeMissingViewJSON(params);
@@ -282,19 +282,13 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
  * Execute view prices in JSON mode
  */
 async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
-  const output = new OutputManager('json');
-
   const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
 
   let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
 
   try {
-    const spinner = output.spinner();
-    spinner?.start('Analyzing price coverage...');
-
     configureLogger({
       mode: 'json',
-      spinner: spinner || undefined,
       verbose: false,
       sinks: { ui: false, structured: 'file' },
     });
@@ -311,14 +305,11 @@ async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
     database = undefined;
 
     if (result.isErr()) {
-      spinner?.stop('Failed to analyze price coverage');
-      output.error('view-prices', result.error, ExitCodes.GENERAL_ERROR);
+      displayCliError('view-prices', result.error, ExitCodes.GENERAL_ERROR, 'json');
       return;
     }
 
     const { coverage, summary } = result.value;
-
-    spinner?.stop(`Analyzed ${summary.total_transactions} transactions across ${coverage.length} assets`);
 
     // Build JSON result
     const filters: Record<string, unknown> = {};
@@ -331,12 +322,17 @@ async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
       meta: buildViewMeta(coverage.length, 0, coverage.length, coverage.length, filters),
     };
 
-    output.json('view-prices', resultData);
+    outputSuccess('view-prices', resultData);
   } catch (error) {
     if (database) {
       await closeDatabase(database);
     }
-    output.error('view-prices', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'view-prices',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'json'
+    );
   }
 }
 
@@ -359,19 +355,13 @@ type MissingPricesCommandResult = ViewCommandResult<{
  * Execute missing prices in JSON mode
  */
 async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
-  const output = new OutputManager('json');
-
   const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
 
   let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
 
   try {
-    const spinner = output.spinner();
-    spinner?.start('Finding missing prices...');
-
     configureLogger({
       mode: 'json',
-      spinner: spinner || undefined,
       verbose: false,
       sinks: { ui: false, structured: 'file' },
     });
@@ -388,14 +378,11 @@ async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
     database = undefined;
 
     if (result.isErr()) {
-      spinner?.stop('Failed to find missing prices');
-      output.error('view-prices', result.error, ExitCodes.GENERAL_ERROR);
+      displayCliError('view-prices', result.error, ExitCodes.GENERAL_ERROR, 'json');
       return;
     }
 
     const { movements, assetBreakdown } = result.value;
-
-    spinner?.stop(`Found ${movements.length} movements missing prices across ${assetBreakdown.length} assets`);
 
     const filters: Record<string, unknown> = {};
     if (params.asset) filters['asset'] = params.asset;
@@ -417,11 +404,16 @@ async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
       meta: buildViewMeta(movements.length, 0, movements.length, movements.length, filters),
     };
 
-    output.json('view-prices', resultData);
+    outputSuccess('view-prices', resultData);
   } catch (error) {
     if (database) {
       await closeDatabase(database);
     }
-    output.error('view-prices', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'view-prices',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'json'
+    );
   }
 }

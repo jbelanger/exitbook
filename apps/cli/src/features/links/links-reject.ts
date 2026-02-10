@@ -1,7 +1,6 @@
 import path from 'node:path';
 
 // Command registration for links reject subcommand
-import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
@@ -10,8 +9,9 @@ import type { z } from 'zod';
 import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { LinksRejectCommandOptionsSchema } from '../shared/schemas.js';
+import { createSpinner, stopSpinner } from '../shared/spinner.js';
 
 import { LinkActionError, LinkActionResult } from './components/index.js';
 import { LinksRejectHandler } from './links-reject-handler.js';
@@ -66,22 +66,9 @@ async function executeLinksRejectCommand(linkId: string, rawOptions: unknown): P
   }
 
   const options = parseResult.data;
-  const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    const spinner = output.spinner();
-    spinner?.start('Rejecting link...');
-
-    configureLogger({
-      mode: options.json ? 'json' : 'text',
-      spinner: spinner ?? undefined,
-      verbose: false,
-      sinks: options.json
-        ? { ui: false, structured: 'file' }
-        : spinner
-          ? { ui: true, structured: 'off' }
-          : { ui: false, structured: 'stdout' },
-    });
+    const spinner = createSpinner('Rejecting link...', options.json ?? false);
 
     // Initialize repositories and override store
     const { initializeDatabase, closeDatabase, TransactionRepository, OverrideStore } = await import('@exitbook/data');
@@ -99,12 +86,10 @@ async function executeLinksRejectCommand(linkId: string, rawOptions: unknown): P
 
     await closeDatabase(database);
 
-    resetLoggerContext();
+    stopSpinner(spinner);
 
     if (result.isErr()) {
-      spinner?.stop();
-
-      if (output.isTextMode()) {
+      if (!options.json) {
         // Render error with Ink
         const { unmount } = render(
           React.createElement(LinkActionError, {
@@ -115,14 +100,17 @@ async function executeLinksRejectCommand(linkId: string, rawOptions: unknown): P
         setTimeout(() => unmount(), 100);
       }
 
-      output.error('links-reject', result.error, ExitCodes.GENERAL_ERROR);
-      return;
+      displayCliError('links-reject', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
     }
 
-    handleLinksRejectSuccess(output, result.value, spinner);
+    handleLinksRejectSuccess(options.json ?? false, result.value);
   } catch (error) {
-    resetLoggerContext();
-    output.error('links-reject', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'links-reject',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      options.json ? 'json' : 'text'
+    );
   }
 }
 
@@ -130,7 +118,7 @@ async function executeLinksRejectCommand(linkId: string, rawOptions: unknown): P
  * Handle successful link rejection.
  */
 function handleLinksRejectSuccess(
-  output: OutputManager,
+  isJsonMode: boolean,
   result: {
     asset?: string | undefined;
     confidence?: string | undefined;
@@ -142,12 +130,9 @@ function handleLinksRejectSuccess(
     sourceName?: string | undefined;
     targetAmount?: string | undefined;
     targetName?: string | undefined;
-  },
-  spinner: ReturnType<OutputManager['spinner']>
+  }
 ): void {
-  spinner?.stop();
-
-  if (output.isTextMode()) {
+  if (!isJsonMode) {
     // Render Ink component for rich display
     if (
       result.asset &&
@@ -184,5 +169,7 @@ function handleLinksRejectSuccess(
     reviewedAt: result.reviewedAt.toISOString(),
   };
 
-  output.json('links-reject', resultData);
+  if (isJsonMode) {
+    outputSuccess('links-reject', resultData);
+  }
 }

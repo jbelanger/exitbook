@@ -8,9 +8,10 @@ import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
+import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { PricesSetFxCommandOptionsSchema } from '../shared/schemas.js';
 
 import { PricesSetFxHandler } from './prices-set-fx-handler.js';
@@ -49,17 +50,15 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
   // Validate options at CLI boundary
   const parseResult = PricesSetFxCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager(isJsonMode ? 'json' : 'text');
-    output.error(
+    displayCliError(
       'prices-set-fx',
       new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS
+      ExitCodes.INVALID_ARGS,
+      isJsonMode ? 'json' : 'text'
     );
-    return;
   }
 
   const options = parseResult.data;
-  const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
     // Configure logger for JSON mode
@@ -85,13 +84,26 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
     resetLoggerContext();
 
     if (result.isErr()) {
-      output.error('prices-set-fx', result.error, ExitCodes.GENERAL_ERROR);
-      return;
+      displayCliError('prices-set-fx', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
     }
 
-    output.json('prices-set-fx', result.value);
+    if (options.json) {
+      outputSuccess('prices-set-fx', result.value);
+    } else {
+      console.log('✅ FX rate set successfully');
+      console.log(`   From: ${result.value.from}`);
+      console.log(`   To: ${result.value.to}`);
+      console.log(`   Date: ${result.value.timestamp.toISOString()}`);
+      console.log(`   Rate: ${result.value.rate}`);
+      console.log(`   Source: ${result.value.source}`);
+    }
   } catch (error) {
     resetLoggerContext();
-    output.error('prices-set-fx', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'prices-set-fx',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      options.json ? 'json' : 'text'
+    );
   }
 }

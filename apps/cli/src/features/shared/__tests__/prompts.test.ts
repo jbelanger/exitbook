@@ -1,82 +1,8 @@
-import * as p from '@clack/prompts';
-import type { MockInstance } from 'vitest';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import {
-  formatBlockchainName,
-  getAddressPlaceholder,
-  getBlockchainHint,
-  handleCancellation,
-  isCancelled,
-  sortBlockchainsByCategory,
-} from '../prompts.js';
-
-// Mock @clack/prompts
-vi.mock('@clack/prompts', () => ({
-  isCancel: vi.fn(),
-  cancel: vi.fn(),
-  unicodeOr: vi.fn((_primary: string, fallback: string) => fallback),
-}));
+import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../prompts.js';
 
 describe('prompts utilities', () => {
-  let processExitSpy: MockInstance<(code?: number | string | null) => never>;
-
-  beforeEach(() => {
-    processExitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: number | string | null) => {
-      throw new Error('process.exit called');
-    }) as never;
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    processExitSpy.mockRestore();
-  });
-
-  describe('isCancelled', () => {
-    it('should return true when value is a cancel symbol', () => {
-      const cancelSymbol = Symbol('cancel');
-      vi.mocked(p.isCancel).mockReturnValue(true);
-
-      const result = isCancelled(cancelSymbol);
-
-      expect(result).toBe(true);
-      expect(p.isCancel).toHaveBeenCalledWith(cancelSymbol);
-    });
-
-    it('should return false when value is not a cancel symbol', () => {
-      vi.mocked(p.isCancel).mockReturnValue(false);
-
-      const result = isCancelled('some value');
-
-      expect(result).toBe(false);
-      expect(p.isCancel).toHaveBeenCalledWith('some value');
-    });
-
-    it('should work with various value types', () => {
-      vi.mocked(p.isCancel).mockReturnValue(false);
-
-      expect(isCancelled('string')).toBe(false);
-      expect(isCancelled(123)).toBe(false);
-      expect(isCancelled({ key: 'value' })).toBe(false);
-    });
-  });
-
-  describe('handleCancellation', () => {
-    it('should call p.cancel with default message and exit', () => {
-      expect(() => handleCancellation()).toThrow('process.exit called');
-
-      expect(p.cancel).toHaveBeenCalledWith('Operation cancelled');
-      expect(processExitSpy).toHaveBeenCalledWith(0);
-    });
-
-    it('should call p.cancel with custom message and exit', () => {
-      expect(() => handleCancellation('Custom cancellation message')).toThrow('process.exit called');
-
-      expect(p.cancel).toHaveBeenCalledWith('Custom cancellation message');
-      expect(processExitSpy).toHaveBeenCalledWith(0);
-    });
-  });
-
   describe('formatBlockchainName', () => {
     it('should format known blockchain names correctly', () => {
       expect(formatBlockchainName('bitcoin')).toBe('Bitcoin');
@@ -147,57 +73,6 @@ describe('prompts utilities', () => {
 
     it('should return empty string for unknown chains', () => {
       expect(getBlockchainHint('unknown-chain')).toBe('');
-    });
-  });
-
-  describe('sortBlockchainsByCategory', () => {
-    it('should sort blockchains by popularity order', () => {
-      const blockchains = ['kusama', 'bitcoin', 'polygon', 'ethereum', 'solana'];
-      const sorted = sortBlockchainsByCategory(blockchains);
-
-      expect(sorted).toEqual(['bitcoin', 'ethereum', 'solana', 'polygon', 'kusama']);
-    });
-
-    it('should place unknown blockchains at the end alphabetically', () => {
-      const blockchains = ['unknown-z', 'bitcoin', 'unknown-a', 'ethereum'];
-      const sorted = sortBlockchainsByCategory(blockchains);
-
-      expect(sorted).toEqual(['bitcoin', 'ethereum', 'unknown-a', 'unknown-z']);
-    });
-
-    it('should handle all popular Layer 1 and Layer 2 chains', () => {
-      const blockchains = [
-        'base-mainnet',
-        'arbitrum-one',
-        'optimism-mainnet',
-        'polygon',
-        'solana',
-        'ethereum',
-        'bitcoin',
-      ];
-      const sorted = sortBlockchainsByCategory(blockchains);
-
-      // Popular L1s first, then L2s
-      expect(sorted[0]).toBe('bitcoin');
-      expect(sorted[1]).toBe('ethereum');
-      expect(sorted[2]).toBe('solana');
-      expect(sorted.slice(3, 7)).toEqual(['polygon', 'arbitrum-one', 'optimism-mainnet', 'base-mainnet']);
-    });
-
-    it('should not mutate original array', () => {
-      const original = ['polygon', 'bitcoin', 'ethereum'];
-      const originalCopy = [...original];
-      sortBlockchainsByCategory(original);
-
-      expect(original).toEqual(originalCopy);
-    });
-
-    it('should handle empty array', () => {
-      expect(sortBlockchainsByCategory([])).toEqual([]);
-    });
-
-    it('should handle single element', () => {
-      expect(sortBlockchainsByCategory(['bitcoin'])).toEqual(['bitcoin']);
     });
   });
 

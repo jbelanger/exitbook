@@ -21,7 +21,7 @@ import type { z } from 'zod';
 import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { ProvidersViewCommandOptionsSchema } from '../shared/schemas.js';
 
 import { ProvidersViewApp, computeHealthCounts, createProvidersViewState } from './components/index.js';
@@ -231,17 +231,16 @@ async function executeProvidersViewJSON(
   options: CommandOptions,
   validatedHealth: HealthFilter | undefined
 ): Promise<void> {
-  const output = new OutputManager('json');
-
   try {
     const viewItems = await loadProviderData(options, validatedHealth);
     const healthCounts = computeHealthCounts(viewItems);
 
     // Build filters record
-    const filters: Record<string, unknown> = {};
-    if (options.blockchain) filters['blockchain'] = options.blockchain;
-    if (validatedHealth) filters['health'] = validatedHealth;
-    if (options.missingApiKey) filters['missingApiKey'] = true;
+    const filters: Record<string, unknown> = {
+      ...(options.blockchain && { blockchain: options.blockchain }),
+      ...(validatedHealth && { health: validatedHealth }),
+      ...(options.missingApiKey && { missingApiKey: true }),
+    };
 
     // Build JSON-friendly provider data
     const jsonProviders = viewItems.map((p) => ({
@@ -294,8 +293,13 @@ async function executeProvidersViewJSON(
       },
     };
 
-    output.json('providers-view', resultData);
+    outputSuccess('providers-view', resultData);
   } catch (error) {
-    output.error('providers-view', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'providers-view',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'json'
+    );
   }
 }

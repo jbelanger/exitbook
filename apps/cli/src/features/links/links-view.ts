@@ -13,7 +13,7 @@ import type { z } from 'zod';
 import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { LinksViewCommandOptionsSchema } from '../shared/schemas.js';
 import { buildViewMeta, type ViewCommandResult } from '../shared/view-utils.js';
 
@@ -157,7 +157,7 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
     sinks: isJsonMode ? { ui: false, structured: 'file' } : { ui: false, structured: 'file' },
   });
 
-  // JSON mode uses OutputManager for structured output
+  // JSON mode uses structured output functions
   if (isJsonMode) {
     if (isGapsMode) {
       await executeGapsViewJSON(params);
@@ -374,8 +374,6 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
  * Execute links view in JSON mode
  */
 async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
-  const output = new OutputManager('json');
-
   const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
@@ -392,7 +390,7 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
     const linksResult = await linkRepo.findAll(params.status as LinkStatus);
     if (linksResult.isErr()) {
       await closeDatabase(database);
-      output.error('links-view', linksResult.error, ExitCodes.GENERAL_ERROR);
+      displayCliError('links-view', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
       return;
     }
 
@@ -430,12 +428,17 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
     await closeDatabase(database);
 
     // Output JSON
-    handleLinksViewJSON(output, result, params);
+    handleLinksViewJSON(result, params);
   } catch (error) {
     if (database) {
       await closeDatabase(database);
     }
-    output.error('links-view', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'links-view',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'json'
+    );
   }
 }
 
@@ -443,8 +446,6 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
  * Execute gaps view in JSON mode
  */
 async function executeGapsViewJSON(params: LinksViewParams): Promise<void> {
-  const output = new OutputManager('json');
-
   const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
@@ -461,7 +462,7 @@ async function executeGapsViewJSON(params: LinksViewParams): Promise<void> {
     const transactionsResult = await txRepo.getTransactions();
     if (transactionsResult.isErr()) {
       await closeDatabase(database);
-      output.error('links-view', transactionsResult.error, ExitCodes.GENERAL_ERROR);
+      displayCliError('links-view', transactionsResult.error, ExitCodes.GENERAL_ERROR, 'json');
       return;
     }
 
@@ -469,7 +470,7 @@ async function executeGapsViewJSON(params: LinksViewParams): Promise<void> {
     const linksResult = await linkRepo.findAll();
     if (linksResult.isErr()) {
       await closeDatabase(database);
-      output.error('links-view', linksResult.error, ExitCodes.GENERAL_ERROR);
+      displayCliError('links-view', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
       return;
     }
 
@@ -502,19 +503,24 @@ async function executeGapsViewJSON(params: LinksViewParams): Promise<void> {
       },
     };
 
-    output.json('links-view', resultData);
+    outputSuccess('links-view', resultData);
   } catch (error) {
     if (database) {
       await closeDatabase(database);
     }
-    output.error('links-view', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'links-view',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'json'
+    );
   }
 }
 
 /**
  * Handle links view JSON output.
  */
-function handleLinksViewJSON(output: OutputManager, result: LinksViewResult, params: LinksViewParams): void {
+function handleLinksViewJSON(result: LinksViewResult, params: LinksViewParams): void {
   const { links, count } = result;
 
   // Prepare result data for JSON mode
@@ -528,5 +534,5 @@ function handleLinksViewJSON(output: OutputManager, result: LinksViewResult, par
     meta: buildViewMeta(count, 0, params.limit || 50, count, filters),
   };
 
-  output.json('links-view', resultData);
+  outputSuccess('links-view', resultData);
 }

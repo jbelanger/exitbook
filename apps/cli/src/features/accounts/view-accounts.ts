@@ -11,7 +11,7 @@ import type { z } from 'zod';
 import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { AccountsViewCommandOptionsSchema } from '../shared/schemas.js';
 import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta } from '../shared/view-utils.js';
@@ -212,8 +212,6 @@ async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void>
  * Execute accounts view in JSON mode
  */
 async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void> {
-  const output = new OutputManager('json');
-
   const { initializeDatabase, closeDatabase, AccountRepository, UserRepository, ImportSessionRepository } =
     await import('@exitbook/data');
   const { AccountService } = await import('@exitbook/ingestion');
@@ -241,17 +239,18 @@ async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void
     database = undefined;
 
     if (result.isErr()) {
-      output.error('view-accounts', result.error, ExitCodes.GENERAL_ERROR);
+      displayCliError('view-accounts', result.error, ExitCodes.GENERAL_ERROR, 'json');
       return;
     }
 
     const { accounts, count, sessions } = result.value;
 
     // Prepare result data for JSON mode
-    const filters: Record<string, unknown> = {};
-    if (params.accountId) filters['accountId'] = params.accountId;
-    if (params.source) filters['source'] = params.source;
-    if (params.accountType) filters['accountType'] = params.accountType;
+    const filters: Record<string, unknown> = {
+      ...(params.accountId && { accountId: params.accountId }),
+      ...(params.source && { source: params.source }),
+      ...(params.accountType && { accountType: params.accountType }),
+    };
 
     // Convert sessions Map to Record for JSON serialization (if requested)
     const sessionsRecord: Record<string, SessionSummary[]> | undefined = sessions
@@ -268,11 +267,16 @@ async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void
       meta: buildViewMeta(count, 0, count, count, filters),
     };
 
-    output.json('view-accounts', resultData);
+    outputSuccess('view-accounts', resultData);
   } catch (error) {
     if (database) {
       await closeDatabase(database);
     }
-    output.error('view-accounts', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'view-accounts',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'json'
+    );
   }
 }

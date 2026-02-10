@@ -7,9 +7,10 @@ import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
+import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { PricesSetCommandOptionsSchema } from '../shared/schemas.js';
 
 import { PricesSetHandler } from './prices-set-handler.js';
@@ -48,17 +49,15 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
   // Validate options at CLI boundary
   const parseResult = PricesSetCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager(isJsonMode ? 'json' : 'text');
-    output.error(
+    displayCliError(
       'prices-set',
       new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS
+      ExitCodes.INVALID_ARGS,
+      isJsonMode ? 'json' : 'text'
     );
-    return;
   }
 
   const options = parseResult.data;
-  const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
     // Configure logger for JSON mode
@@ -85,13 +84,25 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
     resetLoggerContext();
 
     if (result.isErr()) {
-      output.error('prices-set', result.error, ExitCodes.GENERAL_ERROR);
-      return;
+      displayCliError('prices-set', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
     }
 
-    output.json('prices-set', result.value);
+    if (options.json) {
+      outputSuccess('prices-set', result.value);
+    } else {
+      console.log('✅ Price set successfully');
+      console.log(`   Asset: ${result.value.asset}`);
+      console.log(`   Date: ${result.value.timestamp.toISOString()}`);
+      console.log(`   Price: ${result.value.price} ${result.value.currency}`);
+      console.log(`   Source: ${result.value.source}`);
+    }
   } catch (error) {
     resetLoggerContext();
-    output.error('prices-set', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'prices-set',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      options.json ? 'json' : 'text'
+    );
   }
 }

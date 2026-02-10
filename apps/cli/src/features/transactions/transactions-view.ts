@@ -12,7 +12,7 @@ import { displayCliError } from '../shared/cli-error.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { writeFilesAtomically } from '../shared/file-utils.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { TransactionsViewCommandOptionsSchema } from '../shared/schemas.js';
 import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta, parseDate } from '../shared/view-utils.js';
@@ -279,8 +279,6 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
  * Execute transactions view in JSON mode
  */
 async function executeTransactionsViewJSON(params: ViewTransactionsParams): Promise<void> {
-  const output = new OutputManager('json');
-
   const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
 
   let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
@@ -297,7 +295,7 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
       const sinceResult = parseDate(params.since);
       if (sinceResult.isErr()) {
         await closeDatabase(database);
-        output.error('view-transactions', sinceResult.error, ExitCodes.INVALID_ARGS);
+        displayCliError('view-transactions', sinceResult.error, ExitCodes.INVALID_ARGS, 'json');
         return;
       }
       since = Math.floor(sinceResult.value.getTime() / 1000);
@@ -312,7 +310,7 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
     const txResult = await txRepo.getTransactions(filters);
     if (txResult.isErr()) {
       await closeDatabase(database);
-      output.error('view-transactions', txResult.error, ExitCodes.GENERAL_ERROR);
+      displayCliError('view-transactions', txResult.error, ExitCodes.GENERAL_ERROR, 'json');
       return;
     }
 
@@ -322,7 +320,7 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
     const filterResult = applyTransactionFilters(transactions, params);
     if (filterResult.isErr()) {
       await closeDatabase(database);
-      output.error('view-transactions', filterResult.error, ExitCodes.GENERAL_ERROR);
+      displayCliError('view-transactions', filterResult.error, ExitCodes.GENERAL_ERROR, 'json');
       return;
     }
     transactions = filterResult.value;
@@ -342,15 +340,16 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
 
     await closeDatabase(database);
 
-    handleViewTransactionsJSON(output, result, params, totalCount);
+    handleViewTransactionsJSON(result, params, totalCount);
   } catch (error) {
     if (database) {
       await closeDatabase(database);
     }
-    output.error(
+    displayCliError(
       'view-transactions',
       error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR
+      ExitCodes.GENERAL_ERROR,
+      'json'
     );
   }
 }
@@ -359,7 +358,6 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
  * Handle successful view transactions (JSON mode).
  */
 function handleViewTransactionsJSON(
-  output: OutputManager,
   result: ViewTransactionsResult,
   params: ViewTransactionsParams,
   totalCount: number
@@ -380,5 +378,5 @@ function handleViewTransactionsJSON(
     meta: buildViewMeta(count, 0, params.limit || 50, totalCount, filters),
   };
 
-  output.json('view-transactions', resultData);
+  outputSuccess('view-transactions', resultData);
 }

@@ -6,7 +6,7 @@ import type { z } from 'zod';
 import { displayCliError } from '../shared/cli-error.js';
 import { createErrorResponse, exitCodeToErrorCode } from '../shared/cli-response.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { ProcessCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
@@ -62,10 +62,9 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
   }
 
   const options = validationResult.data;
-  const output = new OutputManager(options.json ? 'json' : 'text');
 
-  // JSON mode still uses OutputManager for structured output
-  // Text mode will use Ink dashboard for all display (including errors)
+  // Text mode uses Ink dashboard for all display (including errors)
+  // JSON mode uses structured output functions
   const useInk = !options.json;
 
   // Configure logger
@@ -125,7 +124,7 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
       runStats: services.instrumentation.getSummary(),
     };
 
-    handleProcessSuccess(output, result);
+    handleProcessSuccess(options.json ?? false, result);
 
     // Flush final dashboard renders before natural exit.
     // Undici agent cleanup in finally block allows process to terminate cleanly.
@@ -184,7 +183,7 @@ interface ProcessResultWithMetrics extends ProcessResult {
 /**
  * Handle successful reprocessing.
  */
-function handleProcessSuccess(output: OutputManager, result: ProcessResultWithMetrics): void {
+function handleProcessSuccess(isJsonMode: boolean, result: ProcessResultWithMetrics): void {
   const status = result.errors.length > 0 ? 'warning' : 'success';
 
   const resultData: ProcessCommandResult = {
@@ -201,7 +200,9 @@ function handleProcessSuccess(output: OutputManager, result: ProcessResultWithMe
     },
   };
 
-  if (output.isTextMode()) {
+  if (isJsonMode) {
+    outputSuccess('reprocess', resultData);
+  } else {
     // Dashboard already shows reprocess summary and API call stats in completion phase
     // Only show additional processing errors if any
     if (result.errors.length > 0) {
@@ -211,6 +212,4 @@ function handleProcessSuccess(output: OutputManager, result: ProcessResultWithMe
       }
     }
   }
-
-  output.json('reprocess', resultData);
 }

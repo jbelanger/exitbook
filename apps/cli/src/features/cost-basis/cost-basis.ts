@@ -20,7 +20,7 @@ import { displayCliError } from '../shared/cli-error.js';
 import { unwrapResult } from '../shared/command-execution.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { OutputManager } from '../shared/output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { CostBasisCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
@@ -131,8 +131,6 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
 
 async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<void> {
-  const output = new OutputManager('json');
-
   try {
     const params = unwrapResult(buildCostBasisParamsFromFlags(options));
 
@@ -149,22 +147,26 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
       await closeDatabase(database);
 
       if (result.isErr()) {
-        output.error('cost-basis', result.error, ExitCodes.GENERAL_ERROR);
+        displayCliError('cost-basis', result.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
       }
 
-      outputCostBasisJSON(output, result.value);
+      outputCostBasisJSON(result.value);
     } catch (error) {
       await closeDatabase(database);
       throw error;
     }
   } catch (error) {
-    output.error('cost-basis', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'cost-basis',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'json'
+    );
   }
 }
 
 async function executeCostBasisViewJSON(options: CommandOptions): Promise<void> {
-  const output = new OutputManager('json');
   const calculationId = options.calculationId!;
 
   const dataDir = getDataDir();
@@ -174,21 +176,27 @@ async function executeCostBasisViewJSON(options: CommandOptions): Promise<void> 
   try {
     const calcResult = await costBasisRepo.findCalculationById(calculationId);
     if (calcResult.isErr()) {
-      output.error('cost-basis', calcResult.error, ExitCodes.GENERAL_ERROR);
+      displayCliError('cost-basis', calcResult.error, ExitCodes.GENERAL_ERROR, 'json');
       return;
     }
 
     const calculation = calcResult.value;
     if (!calculation) {
-      output.error('cost-basis', new Error(`Calculation not found: ${calculationId}`), ExitCodes.GENERAL_ERROR);
+      displayCliError(
+        'cost-basis',
+        new Error(`Calculation not found: ${calculationId}`),
+        ExitCodes.GENERAL_ERROR,
+        'json'
+      );
       return;
     }
 
     if (calculation.status !== 'completed') {
-      output.error(
+      displayCliError(
         'cost-basis',
         new Error(`Calculation is not completed (status: ${calculation.status})`),
-        ExitCodes.GENERAL_ERROR
+        ExitCodes.GENERAL_ERROR,
+        'json'
       );
       return;
     }
@@ -233,15 +241,20 @@ async function executeCostBasisViewJSON(options: CommandOptions): Promise<void> 
       },
     };
 
-    output.json('cost-basis', resultData);
+    outputSuccess('cost-basis', resultData);
   } catch (error) {
-    output.error('cost-basis', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'cost-basis',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'json'
+    );
   } finally {
     await closeDatabase(database);
   }
 }
 
-function outputCostBasisJSON(output: OutputManager, costBasisResult: CostBasisResult): void {
+function outputCostBasisJSON(costBasisResult: CostBasisResult): void {
   const { summary, missingPricesWarning, report } = costBasisResult;
   const currency = summary.calculation.config.currency;
   const totals = report?.summary ?? {
@@ -274,7 +287,7 @@ function outputCostBasisJSON(output: OutputManager, costBasisResult: CostBasisRe
     missingPricesWarning,
   };
 
-  output.json('cost-basis', resultData);
+  outputSuccess('cost-basis', resultData);
 }
 
 // ─── TUI: Calculate Mode ─────────────────────────────────────────────────────
