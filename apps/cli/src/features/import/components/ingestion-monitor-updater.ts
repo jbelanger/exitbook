@@ -427,7 +427,7 @@ function handleImportBatch(
     // Do not mark aggregated streams complete here.
     // Completion is handled by xpub.import.completed after all children finish.
   } else {
-    // Normal per-stream handling (unchanged from current implementation)
+    // Normal per-stream handling
     let stream = state.import.streams.get(event.streamType);
 
     if (!stream) {
