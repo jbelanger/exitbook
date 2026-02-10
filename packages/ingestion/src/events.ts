@@ -162,6 +162,45 @@ export type ImportEvent =
 export type ProcessEvent =
   | {
       /**
+       * Emitted when clearing derived data begins during reprocessing.
+       * Used by CLI dashboard to show clearing progress.
+       */
+      accountId?: number | undefined;
+      includeRaw: boolean;
+      preview: {
+        accounts: number;
+        calculations: number;
+        disposals: number;
+        links: number;
+        lots: number;
+        rawData: number;
+        sessions: number;
+        transactions: number;
+        transfers: number;
+      };
+      type: 'clear.started';
+    }
+  | {
+      /**
+       * Emitted when clearing derived data completes during reprocessing.
+       * Used by CLI dashboard to show clearing completion.
+       */
+      deleted: {
+        accounts: number;
+        calculations: number;
+        disposals: number;
+        links: number;
+        lots: number;
+        rawData: number;
+        sessions: number;
+        transactions: number;
+        transfers: number;
+      };
+      durationMs: number;
+      type: 'clear.completed';
+    }
+  | {
+      /**
        * Emitted when processing begins for one or more accounts.
        * Used by CLI dashboard to set timing state.
        */

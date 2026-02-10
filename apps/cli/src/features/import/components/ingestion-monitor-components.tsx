@@ -21,6 +21,7 @@ import {
 
 import {
   createIngestionMonitorState,
+  type ClearingOperation,
   type DerivationOperation,
   type ImportOperation,
   type IngestionMonitorState,
@@ -120,6 +121,9 @@ export const IngestionMonitor: FC<IngestionMonitorProps> = ({ relay, instrumenta
           xpubImport={state.xpubImport}
         />
       )}
+
+      {/* Clearing operation (reprocessing only) */}
+      {state.clearing && <ClearingSection clearing={state.clearing} />}
 
       {/* Processing operation */}
       {state.processing && <ProcessingSection processing={state.processing} />}
@@ -479,6 +483,28 @@ function getTransientMessageText(transientMessage: TransientMessage): ReactNode 
 
   return <Text color="cyan">{transientMessage.text}</Text>;
 }
+
+/**
+ * Clearing section — shows progress of clearing derived data during reprocessing.
+ */
+const ClearingSection: FC<{ clearing: ClearingOperation }> = ({ clearing }) => {
+  const duration = clearing.completedAt
+    ? formatDuration(clearing.completedAt - clearing.startedAt)
+    : formatDuration(performance.now() - clearing.startedAt);
+  const durationText = clearing.completedAt ? `(${duration})` : `· ${duration}`;
+
+  return (
+    <Box flexDirection="column">
+      <Text>
+        {statusIcon(clearing.status)} <Text bold>Clearing</Text> <Text dimColor>{durationText}</Text>
+      </Text>
+      <Text>
+        {'  '}
+        <Text dimColor>└─</Text> {clearing.transactions.toLocaleString()} <Text dimColor>transactions</Text>
+      </Text>
+    </Box>
+  );
+};
 
 /**
  * Processing section — progress, token metadata with live provider/rate, scam summary.

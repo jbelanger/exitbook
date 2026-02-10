@@ -94,7 +94,8 @@ export async function createProcessServices(database: KyselyDB): Promise<Process
     costBasis,
     lotTransfer,
     rawData,
-    importSession
+    importSession,
+    eventBus as EventBus<IngestionEvent>
   );
 
   const ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {

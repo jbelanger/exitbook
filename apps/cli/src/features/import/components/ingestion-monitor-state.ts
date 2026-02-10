@@ -123,6 +123,16 @@ export interface ProcessingMetadata {
 }
 
 /**
+ * Clearing operation state (reprocessing only)
+ */
+export interface ClearingOperation {
+  status: OperationStatus;
+  startedAt: number;
+  completedAt?: number | undefined;
+  transactions: number;
+}
+
+/**
  * Processing operation state
  */
 export interface ProcessingOperation {
@@ -174,6 +184,9 @@ export interface IngestionMonitorState {
 
   // Import operation
   import?: ImportOperation | undefined;
+
+  // Clearing operation (reprocessing only)
+  clearing?: ClearingOperation | undefined;
 
   // Processing operation
   processing?: ProcessingOperation | undefined;

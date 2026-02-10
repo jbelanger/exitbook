@@ -167,6 +167,14 @@ export function updateStateFromEvent(
       handleProviderFailover(state, event);
       break;
 
+    case 'clear.started':
+      handleClearStarted(state, event);
+      break;
+
+    case 'clear.completed':
+      handleClearCompleted(state, event);
+      break;
+
     case 'process.started':
       handleProcessStarted(state, event);
       break;
@@ -809,6 +817,33 @@ function handleProviderFailover(
       text: `↻ switched to ${event.to} (${event.from} ${event.reason})`,
       expiresAt: performance.now() + FAILOVER_MESSAGE_DURATION_MS,
     };
+  }
+}
+
+/**
+ * Handle clear.started event
+ */
+function handleClearStarted(
+  state: IngestionMonitorState,
+  event: Extract<IngestionEvent, { type: 'clear.started' }>
+): void {
+  state.clearing = {
+    status: 'active',
+    startedAt: performance.now(),
+    transactions: event.preview.transactions,
+  };
+}
+
+/**
+ * Handle clear.completed event
+ */
+function handleClearCompleted(
+  state: IngestionMonitorState,
+  _event: Extract<IngestionEvent, { type: 'clear.completed' }>
+): void {
+  if (state.clearing) {
+    state.clearing.status = 'completed';
+    state.clearing.completedAt = performance.now();
   }
 }
 

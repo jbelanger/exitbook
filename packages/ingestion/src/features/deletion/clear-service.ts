@@ -7,8 +7,11 @@ import type {
   TransactionRepository,
   UserRepository,
 } from '@exitbook/data';
+import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
+
+import type { IngestionEvent } from '../../events.js';
 
 import type { ClearServiceParams, DeletionPreview, ResolvedAccount } from './clear-service-utils.js';
 import {
@@ -40,7 +43,8 @@ export class ClearService {
     private costBasisRepo: CostBasisRepository,
     private lotTransferRepo: LotTransferRepository,
     private rawDataRepo: IRawDataRepository,
-    private sessionRepo: IImportSessionRepository
+    private sessionRepo: IImportSessionRepository,
+    private eventBus?: EventBus<IngestionEvent> | undefined
   ) {}
 
   /**
@@ -210,6 +214,7 @@ export class ClearService {
    * Execute the clear operation.
    */
   async execute(params: ClearServiceParams): Promise<Result<ClearResult, Error>> {
+    const startTime = Date.now();
     try {
       // Validate params
       const validation = validateClearParams(params);
@@ -232,6 +237,14 @@ export class ClearService {
       if (totalItems === 0) {
         return ok({ deleted: preview.value });
       }
+
+      // Emit clear.started event
+      this.eventBus?.emit({
+        type: 'clear.started',
+        accountId: params.accountId,
+        includeRaw: params.includeRaw,
+        preview: preview.value,
+      });
 
       // Resolve accounts to clear
       const accountsResult = await this.resolveAccounts(params);
@@ -265,6 +278,13 @@ export class ClearService {
       }
 
       logger.debug({ deleted: preview.value }, 'Data clearing completed');
+
+      // Emit clear.completed event
+      this.eventBus?.emit({
+        type: 'clear.completed',
+        deleted: preview.value,
+        durationMs: Date.now() - startTime,
+      });
 
       return ok({ deleted: preview.value });
     } catch (error) {
