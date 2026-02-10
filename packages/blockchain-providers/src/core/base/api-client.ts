@@ -10,6 +10,7 @@ import { ProviderRegistry } from '../registry/provider-registry.js';
 import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
 import { createStreamingIterator, type StreamingAdapterOptions } from '../streaming/streaming-adapter.js';
 import type {
+  BenchmarkProgressEvent,
   IBlockchainProvider,
   OneShotOperation,
   ProviderCapabilities,
@@ -163,16 +164,18 @@ export abstract class BaseApiClient implements IBlockchainProvider {
    * Benchmark API to find optimal rate limits
    * Tests both sustained per-second rates and per-minute burst limits
    * @param maxRequestsPerSecond - Maximum sustained rate to test (default: 5)
+   * @param numRequestsPerTest - Number of requests to send per rate test (default: 10)
    * @param testBurstLimits - Whether to test per-minute burst limits (default: true)
    * @param customRates - Optional custom rates to test instead of default progression
-   * @param numRequestsPerTest - Number of requests to send per rate test (default: 10)
+   * @param onProgress - Optional callback for live progress updates
    * @returns Recommended rate limit config
    */
   async benchmarkRateLimit(
     maxRequestsPerSecond = 5,
     numRequestsPerTest = 10,
     testBurstLimits = true,
-    customRates?: number[]
+    customRates?: number[],
+    onProgress?: (event: BenchmarkProgressEvent) => void
   ): Promise<{
     burstLimits?: { limit: number; success: boolean }[];
     maxSafeRate: number;
@@ -206,129 +209,15 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     const benchmarkStartTime = Date.now();
 
     try {
-      // Test per-minute burst limits first (faster to detect hard limits)
-      let burstLimits: { limit: number; success: boolean }[] | undefined;
-      let maxSafeBurstPerMinute: number | undefined;
-
-      if (testBurstLimits) {
-        this.logger.info('🔥 Starting per-minute burst limit tests...\n');
-        burstLimits = [];
-
-        // Test burst limits: 10, 15, 20, 30, 60 requests per minute
-        const burstLimitsToTest = [10, 15, 20, 30, 60];
-
-        for (const burstLimit of burstLimitsToTest) {
-          this.logger.info(`Testing burst: ${burstLimit} requests/minute (sending rapidly)`);
-
-          const burstStartTime = Date.now();
-          let burstSuccess = true;
-          const burstResponseTimes: number[] = [];
-          let failedOnRequest: number | undefined;
-
-          // Send requests in parallel batches to truly test burst limits
-          for (let batch = 0; batch < Math.ceil(burstLimit / BURST_BENCHMARK_BATCH_SIZE); batch++) {
-            const batchStart = batch * BURST_BENCHMARK_BATCH_SIZE;
-            const batchEnd = Math.min(batchStart + BURST_BENCHMARK_BATCH_SIZE, burstLimit);
-            const batchPromises: Promise<number>[] = [];
-
-            for (let i = batchStart; i < batchEnd; i++) {
-              const promise = (async () => {
-                const start = Date.now();
-                const result = await this.isHealthy();
-
-                if (result.isErr()) {
-                  // Check if it's a RateLimitError - this is a hard failure
-                  if (result.error instanceof RateLimitError) {
-                    failedOnRequest = i + 1;
-                    throw result.error;
-                  }
-                  // Other errors (timeout, network) also fail the test
-                  if (result.error.message.includes('timeout') || result.error.message.includes('network')) {
-                    failedOnRequest = i + 1;
-                    throw result.error;
-                  }
-                  throw result.error;
-                }
-
-                if (!result.value) {
-                  throw new Error('Health check returned false');
-                }
-
-                const responseTime = Date.now() - start;
-                return responseTime;
-              })();
-              batchPromises.push(promise);
-            }
-
-            try {
-              const batchResults = await Promise.all(batchPromises);
-              burstResponseTimes.push(...batchResults);
-            } catch (error) {
-              // RateLimitError or timeout means we hit the burst limit
-              if (error instanceof RateLimitError || (error instanceof Error && error.message.includes('timeout'))) {
-                this.logger.warn(
-                  `Burst limit hit at ${burstLimit} req/min on request #${failedOnRequest}/${burstLimit}`
-                );
-                burstSuccess = false;
-                break;
-              }
-              throw error;
-            }
-
-            // Tiny delay between batches to avoid overwhelming connection pool
-            if (batch < Math.ceil(burstLimit / BURST_BENCHMARK_BATCH_SIZE) - 1) {
-              await new Promise((resolve) => setTimeout(resolve, 50));
-            }
-          }
-
-          const burstDuration = (Date.now() - burstStartTime) / 1000;
-          const avgBurstResponseTime =
-            burstResponseTimes.length > 0
-              ? burstResponseTimes.reduce((a, b) => a + b, 0) / burstResponseTimes.length
-              : undefined;
-          const actualRate = burstResponseTimes.length / burstDuration;
-
-          burstLimits.push({ limit: burstLimit, success: burstSuccess });
-
-          if (burstSuccess) {
-            maxSafeBurstPerMinute = burstLimit;
-            this.logger.info(
-              `✅ Burst ${burstLimit} req/min succeeded - Completed ${burstResponseTimes.length} requests in ${burstDuration.toFixed(1)}s (${actualRate.toFixed(1)} req/sec actual), AvgResponseTime: ${avgBurstResponseTime?.toFixed(0)}ms`
-            );
-          } else {
-            this.logger.warn(
-              `❌ Burst ${burstLimit} req/min failed - ${burstResponseTimes.length} requests completed in ${burstDuration.toFixed(1)}s before hitting limit`
-            );
-            break;
-          }
-
-          // Wait 60 seconds before next burst test
-          this.logger.debug('Waiting 60 seconds before next burst test...');
-          await new Promise((resolve) => setTimeout(resolve, 60000));
-        }
-
-        if (maxSafeBurstPerMinute) {
-          this.logger.info(`\nMax safe burst detected: ${maxSafeBurstPerMinute} requests/minute`);
-          // Use burst limit to inform sustained rate testing
-          const impliedMaxRate = maxSafeBurstPerMinute / 60;
-          if (impliedMaxRate < maxRequestsPerSecond) {
-            this.logger.info(
-              `📊 Burst limit implies max sustained rate of ~${impliedMaxRate.toFixed(2)} req/sec, adjusting test range...`
-            );
-            maxRequestsPerSecond = Math.min(maxRequestsPerSecond, impliedMaxRate);
-          }
-        }
-
-        this.logger.info('\n');
-      }
-
-      // Test sustained per-second rates
+      // Test sustained per-second rates FIRST
       this.logger.info('⏱️  Starting sustained rate tests...\n');
       const ratesToTest = customRates
         ? customRates.sort((a, b) => a - b) // Use custom rates if provided, sorted ascending
         : [0.25, 0.5, 1.0, 2.5, 5.0, maxRequestsPerSecond].filter((r) => r <= maxRequestsPerSecond);
 
       for (const rate of ratesToTest) {
+        onProgress?.({ type: 'sustained-start', rate });
+
         const rateTestStartTime = Date.now();
         const elapsedMinutes = (rateTestStartTime - benchmarkStartTime) / 60000;
 
@@ -412,6 +301,8 @@ export abstract class BaseApiClient implements IBlockchainProvider {
           success,
         });
 
+        onProgress?.({ type: 'sustained-complete', rate, success, responseTimeMs: avgResponseTime });
+
         if (success) {
           maxSafeRate = rate;
           this.logger.info(`Rate ${rate} req/sec succeeded - AvgResponseTime: ${avgResponseTime?.toFixed(0)}ms`);
@@ -435,6 +326,118 @@ export abstract class BaseApiClient implements IBlockchainProvider {
         // Longer pause between rate tests to let sliding windows clear (60 seconds)
         this.logger.debug('Waiting 60 seconds before next rate test to clear any sliding windows...');
         await new Promise((resolve) => setTimeout(resolve, 60000));
+      }
+
+      // Test per-minute burst limits SECOND
+      let burstLimits: { limit: number; success: boolean }[] | undefined;
+      let maxSafeBurstPerMinute: number | undefined;
+
+      if (testBurstLimits) {
+        this.logger.info('\n🔥 Starting per-minute burst limit tests...\n');
+        burstLimits = [];
+
+        // Test burst limits: 10, 15, 20, 30, 60 requests per minute
+        const burstLimitsToTest = [10, 15, 20, 30, 60];
+
+        for (const burstLimit of burstLimitsToTest) {
+          onProgress?.({ type: 'burst-start', limit: burstLimit });
+
+          this.logger.info(`Testing burst: ${burstLimit} requests/minute (sending rapidly)`);
+
+          const burstStartTime = Date.now();
+          let burstSuccess = true;
+          const burstResponseTimes: number[] = [];
+          let failedOnRequest: number | undefined;
+
+          // Send requests in parallel batches to truly test burst limits
+          for (let batch = 0; batch < Math.ceil(burstLimit / BURST_BENCHMARK_BATCH_SIZE); batch++) {
+            const batchStart = batch * BURST_BENCHMARK_BATCH_SIZE;
+            const batchEnd = Math.min(batchStart + BURST_BENCHMARK_BATCH_SIZE, burstLimit);
+            const batchPromises: Promise<number>[] = [];
+
+            for (let i = batchStart; i < batchEnd; i++) {
+              const promise = (async () => {
+                const start = Date.now();
+                const result = await this.isHealthy();
+
+                if (result.isErr()) {
+                  // Check if it's a RateLimitError - this is a hard failure
+                  if (result.error instanceof RateLimitError) {
+                    failedOnRequest = i + 1;
+                    throw result.error;
+                  }
+                  // Other errors (timeout, network) also fail the test
+                  if (result.error.message.includes('timeout') || result.error.message.includes('network')) {
+                    failedOnRequest = i + 1;
+                    throw result.error;
+                  }
+                  throw result.error;
+                }
+
+                if (!result.value) {
+                  throw new Error('Health check returned false');
+                }
+
+                const responseTime = Date.now() - start;
+                return responseTime;
+              })();
+              batchPromises.push(promise);
+            }
+
+            try {
+              const batchResults = await Promise.all(batchPromises);
+              burstResponseTimes.push(...batchResults);
+            } catch (error) {
+              // RateLimitError or timeout means we hit the burst limit
+              if (error instanceof RateLimitError || (error instanceof Error && error.message.includes('timeout'))) {
+                this.logger.warn(
+                  `Burst limit hit at ${burstLimit} req/min on request #${failedOnRequest}/${burstLimit}`
+                );
+                burstSuccess = false;
+                break;
+              }
+              throw error;
+            }
+
+            // Tiny delay between batches to avoid overwhelming connection pool
+            if (batch < Math.ceil(burstLimit / BURST_BENCHMARK_BATCH_SIZE) - 1) {
+              await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+          }
+
+          const burstDuration = (Date.now() - burstStartTime) / 1000;
+          const avgBurstResponseTime =
+            burstResponseTimes.length > 0
+              ? burstResponseTimes.reduce((a, b) => a + b, 0) / burstResponseTimes.length
+              : undefined;
+          const actualRate = burstResponseTimes.length / burstDuration;
+
+          burstLimits.push({ limit: burstLimit, success: burstSuccess });
+
+          onProgress?.({ type: 'burst-complete', limit: burstLimit, success: burstSuccess });
+
+          if (burstSuccess) {
+            maxSafeBurstPerMinute = burstLimit;
+            this.logger.info(
+              `✅ Burst ${burstLimit} req/min succeeded - Completed ${burstResponseTimes.length} requests in ${burstDuration.toFixed(1)}s (${actualRate.toFixed(1)} req/sec actual), AvgResponseTime: ${avgBurstResponseTime?.toFixed(0)}ms`
+            );
+          } else {
+            this.logger.warn(
+              `❌ Burst ${burstLimit} req/min failed - ${burstResponseTimes.length} requests completed in ${burstDuration.toFixed(1)}s before hitting limit`
+            );
+            break;
+          }
+
+          // Wait 60 seconds before next burst test
+          this.logger.debug('Waiting 60 seconds before next burst test...');
+          await new Promise((resolve) => setTimeout(resolve, 60000));
+        }
+
+        if (maxSafeBurstPerMinute) {
+          this.logger.info(`\nMax safe burst detected: ${maxSafeBurstPerMinute} requests/minute`);
+        }
+
+        this.logger.info('\n');
       }
 
       // Calculate recommended config with 80% safety margin

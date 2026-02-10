@@ -2,6 +2,7 @@
  * Providers UI components
  */
 
+// Providers view components
 export { ProvidersViewApp } from './providers-view-components.js';
 export {
   handleProvidersKeyboardInput,
@@ -18,3 +19,14 @@ export {
   type ProvidersViewFilters,
   type ProvidersViewState,
 } from './providers-view-state.js';
+
+// Benchmark components
+export { BenchmarkApp } from './benchmark-components.js';
+export {
+  benchmarkReducer,
+  createBenchmarkState,
+  type BenchmarkAction,
+  type BenchmarkState,
+  type BurstTest,
+  type SustainedTest,
+} from './benchmark-state.js';

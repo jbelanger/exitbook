@@ -1,4 +1,8 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import type {
+  BlockchainProviderManager,
+  BenchmarkProgressEvent,
+  IBlockchainProvider,
+} from '@exitbook/blockchain-providers';
 import { loadExplorerConfig, ProviderRegistry } from '@exitbook/blockchain-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -27,6 +31,16 @@ interface BenchmarkResult {
   };
 }
 
+interface SetupResult {
+  params: BenchmarkParams;
+  provider: IBlockchainProvider;
+  providerInfo: {
+    blockchain: string;
+    name: string;
+    rateLimit: unknown;
+  };
+}
+
 /**
  * Handler for benchmark-rate-limit command.
  * Manages BlockchainProviderManager lifecycle and orchestrates benchmark execution.
@@ -35,14 +49,13 @@ export class BenchmarkRateLimitHandler {
   private providerManager: BlockchainProviderManager | undefined;
 
   /**
-   * Execute benchmark-rate-limit command.
+   * Setup phase: validate parameters and initialize provider.
+   * Returns setup result for TUI mode.
    */
-  async execute(
+  setup(
     options: Parameters<typeof buildBenchmarkParams>[0],
     ProviderManagerConstructor: new (config: ReturnType<typeof loadExplorerConfig>) => BlockchainProviderManager
-  ): Promise<
-    Result<{ params: BenchmarkParams; provider: { name: string; rateLimit: unknown }; result: BenchmarkResult }, Error>
-  > {
+  ): Result<SetupResult, Error> {
     // Validate and build parameters
     const paramsResult = buildBenchmarkParams(options);
     if (paramsResult.isErr()) {
@@ -83,20 +96,61 @@ export class BenchmarkRateLimitHandler {
 
     const provider = providers[0]!;
 
-    // Run benchmark
+    return ok({
+      params,
+      provider,
+      providerInfo: {
+        name: provider.name,
+        blockchain: provider.blockchain,
+        rateLimit: provider.rateLimit,
+      },
+    });
+  }
+
+  /**
+   * Run benchmark on an already-initialized provider.
+   * Used by both JSON and TUI modes.
+   */
+  async runBenchmark(
+    provider: IBlockchainProvider,
+    params: BenchmarkParams,
+    onProgress?: (event: BenchmarkProgressEvent) => void
+  ): Promise<BenchmarkResult> {
+    const result = await provider.benchmarkRateLimit(
+      params.maxRate,
+      params.numRequests,
+      !params.skipBurst,
+      params.customRates,
+      onProgress
+    );
+
+    return result;
+  }
+
+  /**
+   * Execute benchmark-rate-limit command (JSON mode, backward compat).
+   */
+  async execute(
+    options: Parameters<typeof buildBenchmarkParams>[0],
+    ProviderManagerConstructor: new (config: ReturnType<typeof loadExplorerConfig>) => BlockchainProviderManager
+  ): Promise<
+    Result<{ params: BenchmarkParams; provider: { name: string; rateLimit: unknown }; result: BenchmarkResult }, Error>
+  > {
+    const setupResult = this.setup(options, ProviderManagerConstructor);
+    if (setupResult.isErr()) {
+      return err(setupResult.error);
+    }
+
+    const { params, provider, providerInfo } = setupResult.value;
+
     try {
-      const result = await provider.benchmarkRateLimit(
-        params.maxRate,
-        params.numRequests,
-        !params.skipBurst,
-        params.customRates
-      );
+      const result = await this.runBenchmark(provider, params);
 
       return ok({
         params,
         provider: {
-          name: provider.name,
-          rateLimit: provider.rateLimit,
+          name: providerInfo.name,
+          rateLimit: providerInfo.rateLimit,
         },
         result,
       });

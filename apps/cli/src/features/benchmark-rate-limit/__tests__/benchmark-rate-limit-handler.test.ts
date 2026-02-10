@@ -102,7 +102,7 @@ describe('BenchmarkRateLimitHandler', () => {
       }
 
       // Verify benchmark was called with correct params
-      expect(mockProvider.benchmarkRateLimit).toHaveBeenCalledWith(5, 10, true, undefined);
+      expect(mockProvider.benchmarkRateLimit).toHaveBeenCalledWith(5, 10, true, undefined, undefined);
     });
 
     it('should pass custom rates to benchmark', async () => {
@@ -130,7 +130,7 @@ describe('BenchmarkRateLimitHandler', () => {
 
       // Verify custom rates were passed
       expect(result.isOk()).toBe(true);
-      expect(mockProvider.benchmarkRateLimit).toHaveBeenCalledWith(5, 10, true, [0.5, 1, 2]);
+      expect(mockProvider.benchmarkRateLimit).toHaveBeenCalledWith(5, 10, true, [0.5, 1, 2], undefined);
     });
 
     it('should skip burst tests when skipBurst is true', async () => {
@@ -158,7 +158,7 @@ describe('BenchmarkRateLimitHandler', () => {
 
       // Verify burst testing was disabled (3rd param should be false)
       expect(result.isOk()).toBe(true);
-      expect(mockProvider.benchmarkRateLimit).toHaveBeenCalledWith(5, 10, false, undefined);
+      expect(mockProvider.benchmarkRateLimit).toHaveBeenCalledWith(5, 10, false, undefined, undefined);
     });
 
     it('should return error when provider is not found for blockchain', async () => {

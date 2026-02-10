@@ -2,6 +2,7 @@
 
 import type { Command } from 'commander';
 
+import { registerProvidersBenchmarkCommand } from './benchmark-providers.js';
 import { registerProvidersViewCommand } from './view-providers.js';
 
 /**
@@ -9,9 +10,11 @@ import { registerProvidersViewCommand } from './view-providers.js';
  *
  * Structure:
  *   providers view               - View providers with filters
+ *   providers benchmark          - Benchmark rate limits
  */
 export function registerProvidersCommand(program: Command): void {
   const providers = program.command('providers').description('View and manage blockchain API providers');
 
   registerProvidersViewCommand(providers);
+  registerProvidersBenchmarkCommand(providers);
 }

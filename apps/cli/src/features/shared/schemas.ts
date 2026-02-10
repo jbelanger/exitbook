@@ -386,9 +386,9 @@ export const ProvidersViewCommandOptionsSchema = z.object({
 });
 
 /**
- * Benchmark-rate-limit command options
+ * Providers benchmark command options
  */
-export const BenchmarkRateLimitCommandOptionsSchema = z.object({
+export const ProvidersBenchmarkCommandOptionsSchema = z.object({
   blockchain: z.string(),
   provider: z.string(),
   maxRate: z.string().optional(),

@@ -23,7 +23,6 @@ export const CLI_VERSION = packageJson.version;
 
 import { registerAccountsCommand } from './features/accounts/accounts.js';
 import { registerBalanceCommand } from './features/balance/balance.js';
-import { registerBenchmarkRateLimitCommand } from './features/benchmark-rate-limit/benchmark-rate-limit.js';
 import { registerBlockchainsCommand } from './features/blockchains/blockchains.js';
 import { registerClearCommand } from './features/clear/clear.js';
 import { registerCostBasisCommand } from './features/cost-basis/cost-basis.js';
@@ -58,7 +57,6 @@ async function main() {
   registerBalanceCommand(program);
   registerBlockchainsCommand(program);
   registerProvidersCommand(program);
-  registerBenchmarkRateLimitCommand(program);
 
   await program.parseAsync();
 }
