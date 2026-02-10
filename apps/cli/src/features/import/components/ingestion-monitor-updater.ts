@@ -120,7 +120,7 @@ export function updateStateFromEvent(
       break;
 
     case 'import.batch':
-      handleImportBatch(state, event);
+      handleImportBatch(state, event, instrumentation, providerManager);
       break;
 
     case 'import.completed':
@@ -401,7 +401,9 @@ function resolveStreamStartTime(importOp: ImportOperation): number {
  */
 function handleImportBatch(
   state: IngestionMonitorState,
-  event: Extract<IngestionEvent, { type: 'import.batch' }>
+  event: Extract<IngestionEvent, { type: 'import.batch' }>,
+  instrumentation: InstrumentationCollector,
+  providerManager: BlockchainProviderManager
 ): void {
   if (!state.import) return;
 
@@ -429,6 +431,7 @@ function handleImportBatch(
   } else {
     // Normal per-stream handling
     let stream = state.import.streams.get(event.streamType);
+    const isNewStream = !stream;
 
     if (!stream) {
       stream = {
@@ -452,6 +455,11 @@ function handleImportBatch(
       }
       stream.completedAt = performance.now();
       stream.currentBatch = undefined;
+    }
+
+    // Update rates for newly created streams (provider events may have fired before stream existed)
+    if (isNewStream) {
+      updateStreamRates(state, instrumentation, providerManager);
     }
   }
 }
@@ -616,6 +624,12 @@ function handleProviderRequestStarted(
   state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.request.started' }>
 ): void {
+  // Create provider stats on first request (shows footer immediately)
+  const stats = getOrCreateProviderStats(state, event.provider);
+  stats.inFlightCount++; // Track in-flight requests for active status
+  stats.total++; // Increment per-provider total
+  state.apiCalls.total++; // Increment to show footer
+
   // Clear transient message on active import streams
   if (state.import) {
     for (const stream of state.import.streams.values()) {
@@ -641,8 +655,8 @@ function handleProviderRequestSucceeded(
   providerManager: BlockchainProviderManager
 ): void {
   const stats = getOrCreateProviderStats(state, event.provider);
-  stats.total++;
-  state.apiCalls.total++;
+  stats.inFlightCount = Math.max(0, stats.inFlightCount - 1); // Decrement in-flight count
+  // Note: total is already incremented in request.started, don't increment again
 
   const count = stats.responsesByStatus.get(event.status) || 0;
   stats.responsesByStatus.set(event.status, count + 1);
@@ -689,8 +703,8 @@ function handleProviderRequestFailed(
   providerManager: BlockchainProviderManager
 ): void {
   const stats = getOrCreateProviderStats(state, event.provider);
-  stats.total++;
-  state.apiCalls.total++;
+  stats.inFlightCount = Math.max(0, stats.inFlightCount - 1); // Decrement in-flight count
+  // Note: total is already incremented in request.started, don't increment again
 
   // Only count as failed if it's not a 429
   // 429 is a throttle/rate-limit, not an error

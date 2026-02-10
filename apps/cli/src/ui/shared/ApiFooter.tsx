@@ -25,9 +25,12 @@ interface ApiFooterProps {
 }
 
 /**
- * Check if provider is active (called within last 2 seconds)
+ * Check if provider is active (has in-flight requests or called within last 2 seconds)
  */
 function isProviderActive(stats: ProviderApiStats): boolean {
+  // Active if there are in-flight requests (even during long-running calls)
+  if (stats.inFlightCount > 0) return true;
+  // Or if recently completed a call
   if (stats.lastCallTime === 0) return false;
   return Date.now() - stats.lastCallTime < 2000;
 }
@@ -269,7 +272,7 @@ const ApiFooterLive: FC<{ byProvider: Map<string, ProviderApiStats>; total: numb
                 <Text color="cyan">{statusRate.padEnd(17)}</Text>
               </>
             ) : (
-              <Text dimColor>{statusRate.padEnd(18)}</Text>
+              <Text dimColor>{statusRate.padEnd(19)}</Text>
             )}
             <Text>{'  '}</Text>
             <Text dimColor>{latency.padStart(6)}</Text>

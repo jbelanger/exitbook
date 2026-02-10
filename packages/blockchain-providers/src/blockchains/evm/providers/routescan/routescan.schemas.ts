@@ -11,6 +11,15 @@ import { timestampToDate } from '../../../../core/utils/zod-utils.js';
 import { EvmAddressSchema } from '../../schemas.js';
 
 /**
+ * Preprocessor that converts null, empty string, or undefined to undefined
+ * for optional numeric fields that may be missing or invalid in API responses
+ */
+const nullishPreprocessor = (v: unknown) => {
+  if (v === null || v === undefined || v === '') return;
+  return v;
+};
+
+/**
  * Schema for Routescan normal transaction structure
  */
 export const RoutescanTransactionSchema = z.object({
@@ -18,17 +27,17 @@ export const RoutescanTransactionSchema = z.object({
   blockNumber: IntegerStringSchema,
   confirmations: IntegerStringSchema,
   contractAddress: z.string().nullish(),
-  cumulativeGasUsed: z.preprocess((v) => (v === '' || v === null ? undefined : v), DecimalStringSchema.nullish()),
+  cumulativeGasUsed: z.preprocess(nullishPreprocessor, DecimalStringSchema.optional()),
   from: EvmAddressSchema,
   functionName: z.string().nullish(),
-  gas: z.preprocess((v) => (v === '' || v === null ? undefined : v), DecimalStringSchema.nullish()),
-  gasPrice: z.preprocess((v) => (v === '' || v === null ? undefined : v), DecimalStringSchema.nullish()),
-  gasUsed: z.preprocess((v) => (v === '' || v === null ? undefined : v), DecimalStringSchema.nullish()),
+  gas: z.preprocess(nullishPreprocessor, DecimalStringSchema.optional()),
+  gasPrice: z.preprocess(nullishPreprocessor, DecimalStringSchema.optional()),
+  gasUsed: z.preprocess(nullishPreprocessor, DecimalStringSchema.optional()),
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   input: z.string(),
   isError: z.string().nullish(),
   methodId: z.string().nullish(),
-  nonce: z.preprocess((v) => (v === '' || v === null ? undefined : v), IntegerStringSchema.nullish()),
+  nonce: z.preprocess(nullishPreprocessor, IntegerStringSchema.optional()),
   timeStamp: timestampToDate,
   to: EvmAddressSchema,
   transactionIndex: IntegerStringSchema,
@@ -64,14 +73,14 @@ export const RoutescanTokenTransferSchema = z.object({
   blockNumber: IntegerStringSchema,
   confirmations: IntegerStringSchema,
   contractAddress: EvmAddressSchema,
-  cumulativeGasUsed: z.preprocess((v) => (v === '' || v === null ? undefined : v), DecimalStringSchema.nullish()),
+  cumulativeGasUsed: z.preprocess(nullishPreprocessor, DecimalStringSchema.optional()),
   from: EvmAddressSchema,
-  gas: z.preprocess((v) => (v === '' || v === null ? undefined : v), DecimalStringSchema.nullish()),
-  gasPrice: z.preprocess((v) => (v === '' || v === null ? undefined : v), DecimalStringSchema.nullish()),
-  gasUsed: z.preprocess((v) => (v === '' || v === null ? undefined : v), DecimalStringSchema.nullish()),
+  gas: z.preprocess(nullishPreprocessor, DecimalStringSchema.optional()),
+  gasPrice: z.preprocess(nullishPreprocessor, DecimalStringSchema.optional()),
+  gasUsed: z.preprocess(nullishPreprocessor, DecimalStringSchema.optional()),
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   input: z.string(),
-  nonce: z.preprocess((v) => (v === '' || v === null ? undefined : v), IntegerStringSchema.nullish()),
+  nonce: z.preprocess(nullishPreprocessor, IntegerStringSchema.optional()),
   timeStamp: timestampToDate,
   to: EvmAddressSchema,
   tokenDecimal: IntegerStringSchema,

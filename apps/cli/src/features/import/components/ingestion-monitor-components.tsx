@@ -308,7 +308,10 @@ const ImportSection: FC<{ import: ImportOperation; xpubImport?: XpubImportWrappe
         <Text>
           {statusIcon(importOp.status)} <Text bold>{label}</Text> <Text dimColor>{durationText}</Text>
         </Text>
-        <StreamList streams={xpubImport.aggregatedStreams} />
+        <StreamList
+          importStatus={importOp.status}
+          streams={xpubImport.aggregatedStreams}
+        />
       </Box>
     );
   }
@@ -320,7 +323,10 @@ const ImportSection: FC<{ import: ImportOperation; xpubImport?: XpubImportWrappe
         {statusIcon(importOp.status)} <Text bold>Importing</Text> <Text dimColor>{durationText}</Text>
       </Text>
       {/* Streams */}
-      <StreamList streams={importOp.streams} />
+      <StreamList
+        importStatus={importOp.status}
+        streams={importOp.streams}
+      />
     </Box>
   );
 };
@@ -328,13 +334,18 @@ const ImportSection: FC<{ import: ImportOperation; xpubImport?: XpubImportWrappe
 /**
  * Stream list with tree structure
  */
-const StreamList: FC<{ streams: Map<string, StreamState> }> = ({ streams }) => {
+const StreamList: FC<{ importStatus: OperationStatus; streams: Map<string, StreamState> }> = ({
+  importStatus,
+  streams,
+}) => {
   const streamArray = Array.from(streams.values());
+  const allCompleted = streamArray.length > 0 && streamArray.every((s) => s.status === 'completed');
+  const showFetchingNext = importStatus === 'active' && allCompleted;
 
   return (
     <Box flexDirection="column">
       {streamArray.map((stream, index) => {
-        const isLast = index === streamArray.length - 1;
+        const isLast = !showFetchingNext && index === streamArray.length - 1;
         return (
           <StreamLine
             key={stream.name}
@@ -343,6 +354,12 @@ const StreamList: FC<{ streams: Map<string, StreamState> }> = ({ streams }) => {
           />
         );
       })}
+      {showFetchingNext && (
+        <Text>
+          {'  '}
+          <Text dimColor>└─</Text> <Text dimColor>Fetching next stream...</Text>
+        </Text>
+      )}
     </Box>
   );
 };

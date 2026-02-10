@@ -20,6 +20,8 @@ export interface ProviderApiStats {
   failed: number;
   /** Current request rate (req/s) in recent window */
   currentRate?: number | undefined;
+  /** Number of requests currently in-flight (for active status during long calls) */
+  inFlightCount: number;
 
   /** Response breakdown by HTTP status code (for final view) */
   responsesByStatus: Map<number, number>;
@@ -53,6 +55,7 @@ export function createProviderStats(): ProviderApiStats {
     throttledCount: 0,
     failed: 0,
     currentRate: undefined,
+    inFlightCount: 0,
     responsesByStatus: new Map(),
     latencies: [],
     startTime: 0,
