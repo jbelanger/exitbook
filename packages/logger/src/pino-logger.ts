@@ -99,12 +99,18 @@ function createRootLogger(): Logger {
       },
     });
     pinoLogger = pino.pino(pinoConfig, noopStream);
-  } else {
+  } else if (transportTargets.length > 0) {
     // Only set transport if we have targets (avoids spawning workers in test mode)
-    if (transportTargets.length > 0) {
-      pinoConfig.transport = { targets: transportTargets };
-    }
+    pinoConfig.transport = { targets: transportTargets };
     pinoLogger = pino.pino(pinoConfig);
+  } else {
+    // No transports enabled - use a noop stream to suppress all output
+    const noopStream = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback();
+      },
+    });
+    pinoLogger = pino.pino(pinoConfig, noopStream);
   }
 
   return pinoLogger;
