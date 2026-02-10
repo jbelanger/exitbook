@@ -166,13 +166,6 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
               // Extract cursor for this specific account
               const accountCursorState = params?.cursor?.[accountId];
 
-              // Skip accounts that are already complete
-              if (accountCursorState?.metadata?.isComplete) {
-                logger.info({ accountId }, 'Skipping completed account');
-                accountIndex++;
-                continue;
-              }
-
               let accountCursor = accountCursorState?.primary.value as number | undefined;
 
               // Track cumulative count per account starting from previous cursor's totalFetched

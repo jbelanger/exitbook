@@ -549,7 +549,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     expect(mockFetchLedger).toHaveBeenCalledWith(undefined, 1704067200000, 100, { account_id: 'account1' });
   });
 
-  test('skips accounts marked as complete', async () => {
+  test('checks for new transactions on previously completed accounts', async () => {
     mockFetchAccounts.mockResolvedValueOnce([
       { id: 'account1', currency: 'BTC' },
       { id: 'account2', currency: 'USD' },
@@ -593,6 +593,9 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
       },
     ];
 
+    // account1: no new transactions (returns empty array)
+    mockFetchLedger.mockResolvedValueOnce([]);
+    // account2: has new transactions
     mockFetchLedger.mockResolvedValueOnce(usdEntries);
 
     if (!client.fetchTransactionDataStreaming) {
@@ -608,13 +611,18 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
       }
     }
 
-    // Should only have one batch for account2, account1 was skipped
-    expect(batches).toHaveLength(1);
-    expect(batches[0]?.operationType).toBe('account2');
+    // Should have completion batch for account1 (no new txs) + data batch for account2
+    expect(batches).toHaveLength(2);
+    expect(batches[0]?.operationType).toBe('account1');
+    expect(batches[0]?.transactions).toHaveLength(0);
+    expect(batches[0]?.isComplete).toBe(true);
+    expect(batches[1]?.operationType).toBe('account2');
+    expect(batches[1]?.transactions).toHaveLength(1);
 
-    // Verify fetchLedger was only called for account2
-    expect(mockFetchLedger).toHaveBeenCalledTimes(1);
-    expect(mockFetchLedger).toHaveBeenCalledWith(undefined, undefined, 100, { account_id: 'account2' });
+    // Verify fetchLedger was called for BOTH accounts
+    expect(mockFetchLedger).toHaveBeenCalledTimes(2);
+    expect(mockFetchLedger).toHaveBeenNthCalledWith(1, undefined, 1704067200000, 100, { account_id: 'account1' });
+    expect(mockFetchLedger).toHaveBeenNthCalledWith(2, undefined, undefined, 100, { account_id: 'account2' });
   });
 
   test('handles validation error mid-page', async () => {
