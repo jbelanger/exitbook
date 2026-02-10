@@ -142,16 +142,18 @@ export class HttpClient {
       return err(rateLimitResult.error);
     }
 
+    // Emit start event once before retry loop (logical request started)
+    const startTime = this.effects.now();
+    hooks?.onRequestStart?.({ endpoint: sanitizedEndpoint, method, timestamp: startTime });
+
     for (let attempt = 1; attempt <= this.config.retries!; attempt++) {
-      const startTime = this.effects.now();
-      hooks?.onRequestStart?.({ endpoint: sanitizedEndpoint, method, timestamp: startTime });
       let response: Response | undefined;
       const controller = new AbortController();
       let timeoutId: NodeJS.Timeout | undefined;
       let outcome: 'success' | 'failure' | undefined;
       let outcomeError: string | undefined;
       let outcomeStatus: number | undefined;
-      let suppressFailureHook = false;
+      const attemptStartTime = this.effects.now();
 
       try {
         this.effects.log(
@@ -193,6 +195,9 @@ export class HttpClient {
           if (response.status === 429) {
             const retryResult = await this.handleRateLimitResponse(response, attempt, hooks);
             if (retryResult === 'continue') {
+              // Suppress hook for intermediate attempt (only report final outcome)
+              outcome = undefined;
+              outcomeError = undefined;
               continue;
             }
             throw new RateLimitError(`${this.config.providerName} rate limit exceeded`, 'unknown', 'api_request');
@@ -228,7 +233,7 @@ export class HttpClient {
 
             const retryResult = await this.handleApplicationRateLimit(rateLimitError, response.status, attempt, hooks);
             if (retryResult === 'continue') {
-              suppressFailureHook = true;
+              // Suppress hook for intermediate attempt (only report final outcome)
               outcome = undefined;
               outcomeError = undefined;
               continue;
@@ -326,6 +331,9 @@ export class HttpClient {
           this.effects.log('debug', `Retrying after delay - Delay: ${delay}ms, NextAttempt: ${attempt + 1}`);
           hooks?.onBackoff?.({ attemptNumber: attempt, delayMs: delay, reason: 'retry' });
           await this.effects.delay(delay);
+          // Suppress hook for intermediate attempt (only report final outcome)
+          outcome = undefined;
+          outcomeError = undefined;
         }
       } finally {
         if (timeoutId) {
@@ -340,7 +348,7 @@ export class HttpClient {
             status: outcomeStatus ?? status,
             durationMs: this.effects.now() - startTime,
           });
-        } else if (outcome === 'failure' && outcomeError && !suppressFailureHook) {
+        } else if (outcome === 'failure' && outcomeError) {
           hooks?.onRequestFailure?.({
             endpoint: sanitizedEndpoint,
             method,
@@ -349,7 +357,8 @@ export class HttpClient {
             durationMs: this.effects.now() - startTime,
           });
         }
-        this.recordMetric(endpoint, method, status, startTime, errorLabel);
+        // Per-attempt timing for accurate latency metrics (not cumulative across retries)
+        this.recordMetric(endpoint, method, status, attemptStartTime, errorLabel);
       }
     }
 

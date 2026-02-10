@@ -31,6 +31,7 @@ export interface EventBusOptions {
 export class EventBus<TEvent> {
   private handlers: EventHandler<TEvent>[] = [];
   private queue: TEvent[] = [];
+  private head = 0;
   private flushing = false;
   private readonly maxQueueSize: number;
   private readonly onError: (err: unknown) => void;
@@ -59,8 +60,10 @@ export class EventBus<TEvent> {
   emit(event: TEvent): void {
     this.queue.push(event);
 
-    if (this.queue.length > this.maxQueueSize) {
-      this.queue = this.queue.slice(-this.maxQueueSize);
+    // Drop oldest events if logical queue exceeds max size
+    const logicalLength = this.queue.length - this.head;
+    if (logicalLength > this.maxQueueSize) {
+      this.head = this.queue.length - this.maxQueueSize;
     }
 
     this.scheduleFlush();
@@ -74,8 +77,9 @@ export class EventBus<TEvent> {
 
   private flush(): void {
     try {
-      while (this.queue.length > 0) {
-        const event = this.queue.shift()!;
+      while (this.head < this.queue.length) {
+        const event = this.queue[this.head]!;
+        this.head++;
         for (const handler of this.handlers) {
           try {
             handler(event);
@@ -85,9 +89,12 @@ export class EventBus<TEvent> {
           }
         }
       }
+      // Compact: reset when fully drained
+      this.queue.length = 0;
+      this.head = 0;
     } finally {
       this.flushing = false;
-      if (this.queue.length > 0) {
+      if (this.head < this.queue.length) {
         this.scheduleFlush();
       }
     }

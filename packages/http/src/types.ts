@@ -29,8 +29,27 @@ export interface HttpRequestOptions {
 }
 
 export interface HttpClientHooks {
+  /**
+   * Called once when a logical request starts (before any retry attempts).
+   * Paired with exactly one terminal event (onRequestSuccess or onRequestFailure).
+   *
+   * Note: Retry attempts do not trigger additional start events.
+   * Use onBackoff to track individual retry attempts.
+   */
   onRequestStart?: (event: { endpoint: string; method: string; timestamp: number }) => void;
+
+  /**
+   * Called once when a logical request succeeds (after all retries if applicable).
+   * The durationMs includes time spent on all retry attempts.
+   */
   onRequestSuccess?: (event: { durationMs: number; endpoint: string; method: string; status: number }) => void;
+
+  /**
+   * Called once when a logical request fails after all retry attempts exhausted.
+   *
+   * Note: Intermediate failures during retry are suppressed to avoid polluting
+   * circuit breaker metrics. Only the final outcome is reported.
+   */
   onRequestFailure?: (event: {
     durationMs: number;
     endpoint: string;
@@ -38,7 +57,13 @@ export interface HttpClientHooks {
     method: string;
     status?: number | undefined;
   }) => void;
+
   onRateLimited?: (event: { retryAfterMs?: number | undefined; status?: number | undefined }) => void;
+
+  /**
+   * Called before each retry attempt (including after rate limit backoffs).
+   * Use this to track retry behavior and count physical request attempts.
+   */
   onBackoff?: (event: { attemptNumber: number; delayMs: number; reason: 'rate_limit' | 'retry' }) => void;
 }
 

@@ -15,6 +15,7 @@ import {
   formatDuration,
   formatWaitTime,
   type LifecycleBridge,
+  type OperationStatus,
   statusIcon,
 } from '../../../ui/shared/index.js';
 

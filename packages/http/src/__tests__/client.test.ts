@@ -773,8 +773,9 @@ describe('HttpClient - Instrumentation', () => {
       // Mock now to return a sequence of values for start, rate limit checks, and end
       now: vi
         .fn()
-        .mockReturnValueOnce(1000) // Start time
         .mockReturnValueOnce(1000) // Rate limit check
+        .mockReturnValueOnce(1000) // Logical request start time
+        .mockReturnValueOnce(1000) // Attempt start time
         .mockReturnValueOnce(2000) // Duration calc (end)
         .mockReturnValueOnce(2000), // Timestamp (end)
     };
@@ -824,7 +825,8 @@ describe('HttpClient - Instrumentation', () => {
     // Override now for start/end
     vi.spyOn(mockEffects, 'now')
       .mockReturnValueOnce(1000) // Rate limit
-      .mockReturnValueOnce(1000) // Start time
+      .mockReturnValueOnce(1000) // Logical request start time
+      .mockReturnValueOnce(1000) // Attempt start time
       .mockReturnValue(2000); // Duration/Timestamp
 
     const client = new HttpClient(
@@ -1021,5 +1023,164 @@ describe('HttpClient - Concurrent Request Thread Safety', () => {
     // All timestamps should be unique (no race condition)
     const uniqueTimestamps = new Set(timestamps);
     expect(uniqueTimestamps.size).toBe(timestamps.length);
+  });
+});
+
+describe('HttpClient - Hook Event Pairing', () => {
+  it('should emit onRequestStart once per logical request across retries', async () => {
+    const onRequestStart = vi.fn();
+    const onRequestSuccess = vi.fn();
+    const onBackoff = vi.fn();
+    let attempt = 0;
+
+    const mockFetch = vi.fn().mockImplementation(() => {
+      attempt++;
+      if (attempt <= 2) {
+        // Throw generic error (not ServiceError) to trigger retry logic
+        throw new Error('Network error');
+      }
+      return Promise.resolve({
+        headers: new Headers(),
+        json: () => Promise.resolve({ success: true }),
+        ok: true,
+        status: 200,
+      });
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => Date.now(),
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        hooks: { onRequestStart, onRequestSuccess, onBackoff },
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+        retries: 3,
+      },
+      mockEffects
+    );
+
+    await client.get('/test');
+
+    expect(onRequestStart).toHaveBeenCalledTimes(1); // ✅ Once per logical request
+    expect(onRequestSuccess).toHaveBeenCalledTimes(1); // ✅ Once per logical request
+    expect(onBackoff).toHaveBeenCalledTimes(2); // ✅ Two retry attempts
+    expect(mockFetch).toHaveBeenCalledTimes(3); // Three physical attempts
+  });
+
+  it('should emit onRequestStart once for application-level rate limit retries', async () => {
+    const onRequestStart = vi.fn();
+    const onRequestSuccess = vi.fn();
+    const onRequestFailure = vi.fn();
+    let attempt = 0;
+
+    // Simulate Etherscan-style rate limit detection
+    const detectEtherscanRateLimit = (data: unknown): RateLimitError | void => {
+      const response = data as { result?: string; status?: string };
+      if (response.status === '0' && response.result?.includes('rate limit')) {
+        return new RateLimitError('Rate limit detected', 'test-provider', 'api_request', 1000);
+      }
+    };
+
+    const mockFetch = vi.fn().mockImplementation(() => {
+      attempt++;
+      return Promise.resolve({
+        headers: new Headers(),
+        json: () =>
+          Promise.resolve({
+            status: attempt < 2 ? '0' : '1',
+            result: attempt < 2 ? 'Max rate limit reached' : 'Success',
+          }),
+        ok: true,
+        status: 200,
+      });
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => Date.now(),
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        hooks: { onRequestStart, onRequestSuccess, onRequestFailure },
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+        retries: 3,
+      },
+      mockEffects
+    );
+
+    const result = await client.get('/test', {
+      validateResponse: detectEtherscanRateLimit,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(onRequestStart).toHaveBeenCalledTimes(1); // ✅ Once
+    expect(onRequestSuccess).toHaveBeenCalledTimes(1); // ✅ Once
+    expect(onRequestFailure).toHaveBeenCalledTimes(0); // ✅ Never (intermediate failures suppressed)
+    expect(mockFetch).toHaveBeenCalledTimes(2); // Two attempts
+  });
+
+  it('should calculate durationMs including all retry attempts', async () => {
+    const onRequestSuccess = vi.fn();
+    let currentTime = 1000;
+    let attempt = 0;
+
+    const mockFetch = vi.fn().mockImplementation(() => {
+      attempt++;
+      currentTime += 100; // Each attempt takes 100ms
+      if (attempt <= 2) {
+        // Throw generic error (not ServiceError) to trigger retry logic
+        throw new Error('Network error');
+      }
+      return Promise.resolve({
+        headers: new Headers(),
+        json: () => Promise.resolve({ success: true }),
+        ok: true,
+        status: 200,
+      });
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockImplementation((ms: number) => {
+        currentTime += ms;
+        return Promise.resolve();
+      }),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => currentTime,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        hooks: { onRequestSuccess },
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+        retries: 3,
+      },
+      mockEffects
+    );
+
+    await client.get('/test');
+
+    expect(onRequestSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        durationMs: expect.any(Number) as unknown,
+      })
+    );
+
+    const callArg = onRequestSuccess.mock.calls[0]?.[0] as { durationMs: number } | undefined;
+    const duration = callArg?.durationMs;
+    expect(duration).toBeGreaterThan(200); // Multiple attempts + backoff delays
   });
 });
