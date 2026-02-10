@@ -3,7 +3,7 @@ import ora, { type Ora } from 'ora';
 /**
  * Spinner wrapper that provides a consistent interface around Ora.
  */
-interface SpinnerWrapper {
+export interface SpinnerWrapper {
   readonly ora: Ora;
 }
 

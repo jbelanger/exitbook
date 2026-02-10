@@ -1,11 +1,7 @@
-import path from 'node:path';
-
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
   AccountRepository,
-  closeDatabase,
   ImportSessionRepository,
-  initializeDatabase,
   type KyselyDB,
   RawDataRepository,
   TokenMetadataRepository,
@@ -24,7 +20,6 @@ import {
 import { getLogger } from '@exitbook/logger';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
-import { getDataDir } from '../shared/data-dir.js';
 import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
 
 import { IngestionMonitor } from './components/ingestion-monitor-components.js';
@@ -47,11 +42,9 @@ export interface ImportServices {
 
 /**
  * Create all services needed for import command.
- * Handles initialization, wiring, and cleanup.
+ * Caller owns the database lifecycle (via CommandContext).
  */
-export async function createImportServices(): Promise<ImportServices> {
-  const dataDir = getDataDir();
-  const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
+export async function createImportServices(database: KyselyDB): Promise<ImportServices> {
   const repositories = createRepositories(database);
 
   const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
@@ -101,7 +94,6 @@ export async function createImportServices(): Promise<ImportServices> {
   const cleanup = async () => {
     await ingestionMonitor.stop();
     await cleanupProviderManager();
-    await closeDatabase(database);
   };
 
   return {

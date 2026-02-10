@@ -1,15 +1,11 @@
-import path from 'node:path';
-
 // Command registration for view transactions subcommand
 import type { Command } from 'commander';
-import { render } from 'ink';
 import { err, ok } from 'neverthrow';
 import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
-import { getDataDir } from '../shared/data-dir.js';
-import { withDatabase } from '../shared/database-utils.js';
+import { renderApp, runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { writeFilesAtomically } from '../shared/file-utils.js';
 import { outputSuccess } from '../shared/json-output.js';
@@ -116,154 +112,115 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
  * Execute transactions view in TUI mode
  */
 async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promise<void> {
-  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
-
-  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
-  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
-  let exitCode = 0;
+  const { TransactionRepository } = await import('@exitbook/data');
 
   try {
-    const dataDir = getDataDir();
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const txRepo = new TransactionRepository(database);
 
-    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const txRepo = new TransactionRepository(database);
+      let since: number | undefined;
+      if (params.since) {
+        const sinceResult = parseDate(params.since);
+        if (sinceResult.isErr()) {
+          console.error('\n⚠ Error:', sinceResult.error.message);
+          ctx.exitCode = ExitCodes.INVALID_ARGS;
+          return;
+        }
+        since = Math.floor(sinceResult.value.getTime() / 1000);
+      }
 
-    // Convert since to unix timestamp if provided
-    let since: number | undefined;
-    if (params.since) {
-      const sinceResult = parseDate(params.since);
-      if (sinceResult.isErr()) {
-        console.error('\n⚠ Error:', sinceResult.error.message);
-        exitCode = ExitCodes.INVALID_ARGS;
+      const filters = {
+        ...(params.source && { sourceName: params.source }),
+        ...(since && { since }),
+        includeExcluded: true,
+      };
+
+      const txResult = await txRepo.getTransactions(filters);
+      if (txResult.isErr()) {
+        console.error('\n⚠ Error:', txResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
         return;
       }
-      since = Math.floor(sinceResult.value.getTime() / 1000);
-    }
 
-    // Build DB-level filters
-    const filters = {
-      ...(params.source && { sourceName: params.source }),
-      ...(since && { since }),
-      includeExcluded: true,
-    };
+      let transactions = txResult.value;
 
-    // Fetch transactions
-    const txResult = await txRepo.getTransactions(filters);
-    if (txResult.isErr()) {
-      console.error('\n⚠ Error:', txResult.error.message);
-      exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
-
-    let transactions = txResult.value;
-
-    // Apply client-side filters
-    const filterResult = applyTransactionFilters(transactions, params);
-    if (filterResult.isErr()) {
-      console.error('\n⚠ Error:', filterResult.error.message);
-      exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
-    transactions = filterResult.value;
-
-    // Capture total count before limiting
-    const totalCount = transactions.length;
-
-    // Transform to view items (before limiting, for accurate category counts)
-    const allViewItems = transactions.map(toTransactionViewItem);
-
-    // Compute category counts from full dataset
-    const categoryCounts = computeCategoryCounts(allViewItems);
-
-    // Apply limit
-    const viewItems = params.limit ? allViewItems.slice(0, params.limit) : allViewItems;
-
-    // Build filters object for state and export
-    const viewFilters = {
-      sourceFilter: params.source,
-      assetFilter: params.assetSymbol,
-      operationTypeFilter: params.operationType,
-      noPriceFilter: params.noPrice,
-    };
-
-    // Create initial state
-    const initialState = createTransactionsViewState(viewItems, viewFilters, totalCount, categoryCounts);
-
-    // Create export handler (DB stays open for export re-queries)
-    const { TransactionLinkRepository } = await import('@exitbook/accounting');
-    const { ExportHandler } = await import('./transactions-export-handler.js');
-    const txLinkRepo = new TransactionLinkRepository(database);
-    const exportHandler = new ExportHandler(txRepo, txLinkRepo);
-
-    const onExport: OnExport = async (format, csvFormat) => {
-      try {
-        const outputPath = generateDefaultPath(viewFilters, format);
-
-        const result = await exportHandler.execute({
-          sourceName: params.source,
-          format,
-          csvFormat,
-          outputPath,
-          until: params.until,
-          assetSymbol: params.assetSymbol,
-          operationType: params.operationType,
-          noPrice: params.noPrice,
-        });
-
-        if (result.isErr()) {
-          return err(result.error);
-        }
-
-        // Write files atomically
-        const writeResult = await writeFilesAtomically(result.value.outputs);
-        if (writeResult.isErr()) {
-          return err(new Error(`Failed to write export files: ${writeResult.error.message}`));
-        }
-
-        const exportResult: ExportCallbackResult = {
-          outputPaths: writeResult.value,
-          transactionCount: result.value.transactionCount,
-        };
-        return ok(exportResult);
-      } catch (error) {
-        return err(error instanceof Error ? error : new Error(String(error)));
+      const filterResult = applyTransactionFilters(transactions, params);
+      if (filterResult.isErr()) {
+        console.error('\n⚠ Error:', filterResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
       }
-    };
+      transactions = filterResult.value;
 
-    // Render TUI
-    await new Promise<void>((resolve, reject) => {
-      inkInstance = render(
+      const totalCount = transactions.length;
+      const allViewItems = transactions.map(toTransactionViewItem);
+      const categoryCounts = computeCategoryCounts(allViewItems);
+      const viewItems = params.limit ? allViewItems.slice(0, params.limit) : allViewItems;
+
+      const viewFilters = {
+        sourceFilter: params.source,
+        assetFilter: params.assetSymbol,
+        operationTypeFilter: params.operationType,
+        noPriceFilter: params.noPrice,
+      };
+
+      const initialState = createTransactionsViewState(viewItems, viewFilters, totalCount, categoryCounts);
+
+      const { TransactionLinkRepository } = await import('@exitbook/accounting');
+      const { ExportHandler } = await import('./transactions-export-handler.js');
+      const txLinkRepo = new TransactionLinkRepository(database);
+      const exportHandler = new ExportHandler(txRepo, txLinkRepo);
+
+      const onExport: OnExport = async (format, csvFormat) => {
+        try {
+          const outputPath = generateDefaultPath(viewFilters, format);
+
+          const result = await exportHandler.execute({
+            sourceName: params.source,
+            format,
+            csvFormat,
+            outputPath,
+            until: params.until,
+            assetSymbol: params.assetSymbol,
+            operationType: params.operationType,
+            noPrice: params.noPrice,
+          });
+
+          if (result.isErr()) {
+            return err(result.error);
+          }
+
+          const writeResult = await writeFilesAtomically(result.value.outputs);
+          if (writeResult.isErr()) {
+            return err(new Error(`Failed to write export files: ${writeResult.error.message}`));
+          }
+
+          const exportResult: ExportCallbackResult = {
+            outputPaths: writeResult.value,
+            transactionCount: result.value.transactionCount,
+          };
+          return ok(exportResult);
+        } catch (error) {
+          return err(error instanceof Error ? error : new Error(String(error)));
+        }
+      };
+
+      await renderApp((unmount) =>
         React.createElement(TransactionsViewApp, {
           initialState,
           onExport,
-          onQuit: () => {
-            if (inkInstance) {
-              inkInstance.unmount();
-            }
-          },
+          onQuit: unmount,
         })
       );
-
-      inkInstance.waitUntilExit().then(resolve).catch(reject);
     });
   } catch (error) {
-    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
-    exitCode = ExitCodes.GENERAL_ERROR;
-  } finally {
-    if (inkInstance) {
-      try {
-        inkInstance.unmount();
-      } catch {
-        /* ignore unmount errors */
-      }
-    }
-    if (database) {
-      await closeDatabase(database);
-    }
-
-    if (exitCode !== 0) {
-      process.exit(exitCode);
-    }
+    displayCliError(
+      'transactions-view',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'text'
+    );
   }
 }
 
@@ -274,7 +231,8 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
   const { TransactionRepository } = await import('@exitbook/data');
 
   try {
-    await withDatabase(async (database) => {
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
       const txRepo = new TransactionRepository(database);
 
       // Convert since to unix timestamp if provided

@@ -2,7 +2,7 @@
 import type { Command } from 'commander';
 
 import { displayCliError } from '../shared/cli-error.js';
-import { withDatabase } from '../shared/database-utils.js';
+import { runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { writeFilesAtomically } from '../shared/file-utils.js';
 import { outputError, outputSuccess } from '../shared/json-output.js';
@@ -68,7 +68,8 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
   const { ExportHandler } = await import('./transactions-export-handler.js');
 
   try {
-    await withDatabase(async (database) => {
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
       const txRepo = new TransactionRepository(database);
       const txLinkRepo = new TransactionLinkRepository(database);
       const exportHandler = new ExportHandler(txRepo, txLinkRepo);

@@ -1,15 +1,11 @@
-import path from 'node:path';
-
 // Command registration for view accounts subcommand
 import type { AccountType } from '@exitbook/core';
 import type { Command } from 'commander';
-import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
-import { getDataDir } from '../shared/data-dir.js';
-import { withDatabase } from '../shared/database-utils.js';
+import { renderApp, runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { AccountsViewCommandOptionsSchema } from '../shared/schemas.js';
@@ -109,94 +105,62 @@ async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
  * Execute accounts view in TUI mode
  */
 async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void> {
-  const { initializeDatabase, closeDatabase, AccountRepository, UserRepository, ImportSessionRepository } =
-    await import('@exitbook/data');
+  const { AccountRepository, UserRepository, ImportSessionRepository } = await import('@exitbook/data');
   const { AccountService } = await import('@exitbook/ingestion');
 
-  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
-  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
-  let exitCode = 0;
-
   try {
-    const dataDir = getDataDir();
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const accountRepo = new AccountRepository(database);
+      const sessionRepo = new ImportSessionRepository(database);
+      const userRepo = new UserRepository(database);
 
-    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const accountRepo = new AccountRepository(database);
-    const sessionRepo = new ImportSessionRepository(database);
-    const userRepo = new UserRepository(database);
+      const accountService = new AccountService(accountRepo, sessionRepo, userRepo);
 
-    const accountService = new AccountService(accountRepo, sessionRepo, userRepo);
+      const result = await accountService.viewAccounts({
+        accountId: params.accountId,
+        accountType: params.accountType,
+        source: params.source,
+        showSessions: params.showSessions,
+      });
 
-    const result = await accountService.viewAccounts({
-      accountId: params.accountId,
-      accountType: params.accountType,
-      source: params.source,
-      showSessions: params.showSessions,
-    });
+      if (result.isErr()) {
+        console.error('\n⚠ Error:', result.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
 
-    if (result.isErr()) {
-      console.error('\n⚠ Error:', result.error.message);
-      exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
+      const { accounts, sessions } = result.value;
+      const viewItems = accounts.map((account) => toAccountViewItem(account, sessions));
+      const typeCounts = computeTypeCounts(viewItems);
 
-    const { accounts, sessions } = result.value;
+      await ctx.closeDatabase();
 
-    // Transform to view items
-    const viewItems = accounts.map((account) => toAccountViewItem(account, sessions));
-
-    // Compute type counts
-    const typeCounts = computeTypeCounts(viewItems);
-
-    // Close DB (read-only, no connection needed during browsing)
-    await closeDatabase(database);
-    database = undefined;
-
-    // Create initial state
-    const initialState = createAccountsViewState(
-      viewItems,
-      {
-        sourceFilter: params.source,
-        typeFilter: params.accountType,
-        showSessions: params.showSessions ?? false,
-      },
-      viewItems.length,
-      typeCounts
-    );
-
-    // Render TUI
-    await new Promise<void>((resolve, reject) => {
-      inkInstance = render(
-        React.createElement(AccountsViewApp, {
-          initialState,
-          onQuit: () => {
-            if (inkInstance) {
-              inkInstance.unmount();
-            }
-          },
-        })
+      const initialState = createAccountsViewState(
+        viewItems,
+        {
+          sourceFilter: params.source,
+          typeFilter: params.accountType,
+          showSessions: params.showSessions ?? false,
+        },
+        viewItems.length,
+        typeCounts
       );
 
-      inkInstance.waitUntilExit().then(resolve).catch(reject);
+      await renderApp((unmount) =>
+        React.createElement(AccountsViewApp, {
+          initialState,
+          onQuit: unmount,
+        })
+      );
     });
   } catch (error) {
-    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
-    exitCode = ExitCodes.GENERAL_ERROR;
-  } finally {
-    if (inkInstance) {
-      try {
-        inkInstance.unmount();
-      } catch {
-        /* ignore unmount errors */
-      }
-    }
-    if (database) {
-      await closeDatabase(database);
-    }
-
-    if (exitCode !== 0) {
-      process.exit(exitCode);
-    }
+    displayCliError(
+      'view-accounts',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'text'
+    );
   }
 }
 
@@ -208,7 +172,8 @@ async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void
   const { AccountService } = await import('@exitbook/ingestion');
 
   try {
-    await withDatabase(async (database) => {
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
       const accountRepo = new AccountRepository(database);
       const sessionRepo = new ImportSessionRepository(database);
       const userRepo = new UserRepository(database);
@@ -229,14 +194,12 @@ async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void
 
       const { accounts, count, sessions } = result.value;
 
-      // Prepare result data for JSON mode
       const filters: Record<string, unknown> = {
         ...(params.accountId && { accountId: params.accountId }),
         ...(params.source && { source: params.source }),
         ...(params.accountType && { accountType: params.accountType }),
       };
 
-      // Convert sessions Map to Record for JSON serialization (if requested)
       const sessionsRecord: Record<string, SessionSummary[]> | undefined = sessions
         ? Object.fromEntries(Array.from(sessions.entries()).map(([key, value]) => [key.toString(), value]))
         : undefined;

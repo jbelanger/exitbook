@@ -1,23 +1,20 @@
 // Command registration for benchmark providers subcommand
 
 import { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
-import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
 import { BenchmarkRateLimitHandler } from '../benchmark-rate-limit/benchmark-rate-limit-handler.js';
 import { buildConfigOverride } from '../benchmark-rate-limit/benchmark-rate-limit-utils.js';
 import { displayCliError } from '../shared/cli-error.js';
+import { renderApp, runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { ProvidersBenchmarkCommandOptionsSchema } from '../shared/schemas.js';
 
 import { BenchmarkApp } from './components/benchmark-components.js';
 import { createBenchmarkState } from './components/benchmark-state.js';
-
-const logger = getLogger('providers-benchmark');
 
 /**
  * Command options (validated at CLI boundary).
@@ -89,32 +86,32 @@ async function executeProvidersBenchmarkCommand(rawOptions: unknown): Promise<vo
  * Execute providers benchmark in JSON mode
  */
 async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<void> {
-  const handler = new BenchmarkRateLimitHandler();
-
   try {
-    const result = await handler.execute(options, BlockchainProviderManager);
+    await runCommand(async (ctx) => {
+      const handler = new BenchmarkRateLimitHandler();
+      ctx.onCleanup(async () => handler.destroy());
 
-    if (result.isErr()) {
-      displayCliError('providers-benchmark', result.error, ExitCodes.INVALID_ARGS, 'json');
-      return;
-    }
+      const result = await handler.execute(options, BlockchainProviderManager);
 
-    const { params, provider, result: benchmarkResult } = result.value;
+      if (result.isErr()) {
+        displayCliError('providers-benchmark', result.error, ExitCodes.INVALID_ARGS, 'json');
+      }
 
-    const resultData = {
-      blockchain: params.blockchain,
-      provider: provider.name,
-      currentRateLimit: provider.rateLimit,
-      maxSafeRate: benchmarkResult.maxSafeRate,
-      recommended: benchmarkResult.recommended,
-      testResults: benchmarkResult.testResults,
-      burstLimits: benchmarkResult.burstLimits,
-      configOverride: buildConfigOverride(params.blockchain, provider.name, benchmarkResult.recommended),
-    };
+      const { params, provider, result: benchmarkResult } = result.value;
 
-    outputSuccess('providers-benchmark', resultData);
+      const resultData = {
+        blockchain: params.blockchain,
+        provider: provider.name,
+        currentRateLimit: provider.rateLimit,
+        maxSafeRate: benchmarkResult.maxSafeRate,
+        recommended: benchmarkResult.recommended,
+        testResults: benchmarkResult.testResults,
+        burstLimits: benchmarkResult.burstLimits,
+        configOverride: buildConfigOverride(params.blockchain, provider.name, benchmarkResult.recommended),
+      };
 
-    await handler.destroy();
+      outputSuccess('providers-benchmark', resultData);
+    });
   } catch (error) {
     displayCliError(
       'providers-benchmark',
@@ -129,66 +126,44 @@ async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<v
  * Execute providers benchmark in TUI mode
  */
 async function executeProvidersBenchmarkTUI(options: CommandOptions): Promise<void> {
-  const handler = new BenchmarkRateLimitHandler();
-  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
-
-  // SIGINT handler
-  const handleSigint = () => {
-    logger.info('Received SIGINT, cleaning up...');
-    (async () => {
-      await handler.destroy();
-      if (inkInstance) {
-        inkInstance.unmount();
-      }
-      process.exit(130);
-    })().catch((error) => {
-      logger.error({ error }, 'Error during SIGINT cleanup');
-      process.exit(1);
-    });
-  };
-
-  process.on('SIGINT', handleSigint);
-
   try {
-    // Setup phase
-    const setupResult = handler.setup(options, BlockchainProviderManager);
+    await runCommand(async (ctx) => {
+      const handler = new BenchmarkRateLimitHandler();
+      ctx.onCleanup(async () => handler.destroy());
 
-    if (setupResult.isErr()) {
-      displayCliError('providers-benchmark', setupResult.error, ExitCodes.INVALID_ARGS, 'text');
-    }
+      // Setup phase
+      const setupResult = handler.setup(options, BlockchainProviderManager);
 
-    const { params, provider, providerInfo } = setupResult.value;
-
-    // Create initial state
-    const initialState = createBenchmarkState(params, providerInfo);
-
-    // Render TUI
-    inkInstance = render(
-      React.createElement(BenchmarkApp, {
-        initialState,
-        runBenchmark: async (onProgress) => {
-          return handler.runBenchmark(provider, params, onProgress);
-        },
-      })
-    );
-
-    // Wait for exit
-    await inkInstance.waitUntilExit();
-
-    // Cleanup
-    process.off('SIGINT', handleSigint);
-    await handler.destroy();
-  } catch (error) {
-    process.off('SIGINT', handleSigint);
-    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
-    if (inkInstance) {
-      try {
-        inkInstance.unmount();
-      } catch {
-        /* ignore unmount errors */
+      if (setupResult.isErr()) {
+        displayCliError('providers-benchmark', setupResult.error, ExitCodes.INVALID_ARGS, 'text');
       }
-    }
-    await handler.destroy();
-    process.exit(ExitCodes.GENERAL_ERROR);
+
+      const { params, provider, providerInfo } = setupResult.value;
+
+      // Create initial state
+      const initialState = createBenchmarkState(params, providerInfo);
+
+      // Register SIGINT so dispose() runs cleanup (handler.destroy)
+      ctx.onAbort(() => {
+        /* empty */
+      });
+
+      // Render TUI
+      await renderApp(() =>
+        React.createElement(BenchmarkApp, {
+          initialState,
+          runBenchmark: async (onProgress) => {
+            return handler.runBenchmark(provider, params, onProgress);
+          },
+        })
+      );
+    });
+  } catch (error) {
+    displayCliError(
+      'providers-benchmark',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'text'
+    );
   }
 }

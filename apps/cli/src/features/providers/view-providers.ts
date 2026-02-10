@@ -14,11 +14,11 @@ import {
 import { getAllBlockchains } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
-import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
+import { renderApp } from '../shared/command-runtime.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
@@ -176,8 +176,6 @@ async function executeProvidersViewTUI(
   options: CommandOptions,
   validatedHealth: HealthFilter | undefined
 ): Promise<void> {
-  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
-
   try {
     const viewItems = await loadProviderData(options, validatedHealth);
 
@@ -193,26 +191,19 @@ async function executeProvidersViewTUI(
       healthCounts
     );
 
-    inkInstance = render(
+    await renderApp((unmount) =>
       React.createElement(ProvidersViewApp, {
         initialState,
-        onQuit: () => {
-          if (inkInstance) {
-            inkInstance.unmount();
-          }
-        },
+        onQuit: unmount,
       })
     );
   } catch (error) {
-    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
-    if (inkInstance) {
-      try {
-        inkInstance.unmount();
-      } catch {
-        /* ignore unmount errors */
-      }
-    }
-    process.exit(ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'providers-view',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'text'
+    );
   }
 }
 

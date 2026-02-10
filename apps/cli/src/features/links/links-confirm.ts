@@ -5,8 +5,7 @@ import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
-import { getDataDir } from '../shared/data-dir.js';
-import { withDatabase } from '../shared/database-utils.js';
+import { runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { LinksConfirmCommandOptionsSchema } from '../shared/schemas.js';
@@ -69,40 +68,36 @@ async function executeLinksConfirmCommand(linkId: string, rawOptions: unknown): 
   try {
     const spinner = createSpinner('Confirming link...', options.json ?? false);
 
-    // Initialize repositories and override store
     const { TransactionRepository, OverrideStore } = await import('@exitbook/data');
     const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
-    const dataDir = getDataDir();
-
-    const result = await withDatabase(async (database) => {
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
       const linkRepo = new TransactionLinkRepository(database);
       const txRepo = new TransactionRepository(database);
-      const overrideStore = new OverrideStore(dataDir);
+      const overrideStore = new OverrideStore(ctx.dataDir);
 
       const handler = new LinksConfirmHandler(linkRepo, txRepo, overrideStore);
+      const result = await handler.execute({ linkId });
 
-      return await handler.execute({ linkId });
-    });
+      stopSpinner(spinner);
 
-    stopSpinner(spinner);
+      if (result.isErr()) {
+        if (!options.json) {
+          const { unmount } = render(
+            React.createElement(LinkActionError, {
+              linkId,
+              message: result.error.message,
+            })
+          );
+          setTimeout(() => unmount(), 100);
+        }
 
-    if (result.isErr()) {
-      if (!options.json) {
-        // Render error with Ink
-        const { unmount } = render(
-          React.createElement(LinkActionError, {
-            linkId,
-            message: result.error.message,
-          })
-        );
-        setTimeout(() => unmount(), 100);
+        displayCliError('links-confirm', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
       }
 
-      displayCliError('links-confirm', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
-    }
-
-    handleLinksConfirmSuccess(options.json ?? false, result.value);
+      handleLinksConfirmSuccess(options.json ?? false, result.value);
+    });
   } catch (error) {
     displayCliError(
       'links-confirm',

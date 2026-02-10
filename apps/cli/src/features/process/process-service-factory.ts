@@ -1,12 +1,10 @@
-import path from 'node:path';
-
 import { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
   AccountRepository,
-  closeDatabase,
   ImportSessionRepository,
-  initializeDatabase,
+  // eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
+  type KyselyDB,
   RawDataRepository,
   TokenMetadataRepository,
   TransactionRepository,
@@ -25,7 +23,6 @@ import type { Result } from 'neverthrow';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
 import { IngestionMonitor } from '../import/components/ingestion-monitor-components.js';
-import { getDataDir } from '../shared/data-dir.js';
 import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
 
 import type { ProcessHandlerParams, ProcessResult } from './process-handler.js';
@@ -48,12 +45,9 @@ export interface ProcessServices {
 
 /**
  * Create all services needed for process command.
- * Handles initialization, wiring, and cleanup.
+ * Caller owns the database lifecycle (via CommandContext).
  */
-export async function createProcessServices(): Promise<ProcessServices> {
-  const dataDir = getDataDir();
-  const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-
+export async function createProcessServices(database: KyselyDB): Promise<ProcessServices> {
   // Create repositories
   const user = new UserRepository(database);
   const account = new AccountRepository(database);
@@ -120,7 +114,6 @@ export async function createProcessServices(): Promise<ProcessServices> {
   const cleanup = async () => {
     await ingestionMonitor.stop();
     await cleanupProviderManager();
-    await closeDatabase(database);
   };
 
   return {

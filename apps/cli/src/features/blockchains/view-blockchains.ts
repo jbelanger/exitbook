@@ -4,11 +4,11 @@ import { ProviderRegistry } from '@exitbook/blockchain-providers';
 import type { ProviderInfo } from '@exitbook/blockchain-providers';
 import { getAllBlockchains } from '@exitbook/ingestion';
 import type { Command } from 'commander';
-import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
+import { renderApp } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { BlockchainsViewCommandOptionsSchema } from '../shared/schemas.js';
@@ -57,15 +57,15 @@ Categories:
     .option('--category <type>', 'Filter by category (evm, substrate, cosmos, utxo, solana)')
     .option('--requires-api-key', 'Show only blockchains that require API keys')
     .option('--json', 'Output results in JSON format')
-    .action((rawOptions: unknown) => {
-      executeBlockchainsViewCommand(rawOptions);
+    .action(async (rawOptions: unknown) => {
+      await executeBlockchainsViewCommand(rawOptions);
     });
 }
 
 /**
  * Execute the blockchains view command.
  */
-function executeBlockchainsViewCommand(rawOptions: unknown): void {
+async function executeBlockchainsViewCommand(rawOptions: unknown): Promise<void> {
   // Validate options at CLI boundary
   const parseResult = BlockchainsViewCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
@@ -83,7 +83,7 @@ function executeBlockchainsViewCommand(rawOptions: unknown): void {
   if (isJsonMode) {
     executeBlockchainsViewJSON(options);
   } else {
-    executeBlockchainsViewTUI(options);
+    await executeBlockchainsViewTUI(options);
   }
 }
 
@@ -133,55 +133,32 @@ function loadBlockchainData(options: CommandOptions): {
 /**
  * Execute blockchains view in TUI mode
  */
-function executeBlockchainsViewTUI(options: CommandOptions): void {
-  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
+async function executeBlockchainsViewTUI(options: CommandOptions): Promise<void> {
+  const data = loadBlockchainData(options);
+  if (!data) return;
 
-  try {
-    const data = loadBlockchainData(options);
-    if (!data) return;
+  const { blockchains, allProviders, validatedCategory } = data;
 
-    const { blockchains, allProviders, validatedCategory } = data;
+  const viewItems = blockchains.map((b) => toBlockchainViewItem(b));
+  const categoryCounts = computeCategoryCounts(viewItems);
+  const totalProviders = allProviders.length;
 
-    // Transform to view items (checks env vars for API key status)
-    const viewItems = blockchains.map((b) => toBlockchainViewItem(b));
+  const initialState = createBlockchainsViewState(
+    viewItems,
+    {
+      categoryFilter: validatedCategory,
+      requiresApiKeyFilter: options.requiresApiKey,
+    },
+    totalProviders,
+    categoryCounts
+  );
 
-    // Compute counts
-    const categoryCounts = computeCategoryCounts(viewItems);
-    const totalProviders = allProviders.length;
-
-    // Create initial state
-    const initialState = createBlockchainsViewState(
-      viewItems,
-      {
-        categoryFilter: validatedCategory,
-        requiresApiKeyFilter: options.requiresApiKey,
-      },
-      totalProviders,
-      categoryCounts
-    );
-
-    // Render TUI
-    inkInstance = render(
-      React.createElement(BlockchainsViewApp, {
-        initialState,
-        onQuit: () => {
-          if (inkInstance) {
-            inkInstance.unmount();
-          }
-        },
-      })
-    );
-  } catch (error) {
-    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
-    if (inkInstance) {
-      try {
-        inkInstance.unmount();
-      } catch {
-        /* ignore unmount errors */
-      }
-    }
-    process.exit(ExitCodes.GENERAL_ERROR);
-  }
+  await renderApp((unmount) =>
+    React.createElement(BlockchainsViewApp, {
+      initialState,
+      onQuit: unmount,
+    })
+  );
 }
 
 /**

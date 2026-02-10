@@ -1,5 +1,3 @@
-import path from 'node:path';
-
 /**
  * Command registration for prices enrich subcommand
  *
@@ -10,7 +8,7 @@ import path from 'node:path';
  * 4. Price propagation - Use newly fetched/normalized prices for ratio calculations
  */
 import { TransactionLinkRepository } from '@exitbook/accounting';
-import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
+import { TransactionRepository } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
@@ -19,7 +17,7 @@ import type { z } from 'zod';
 
 import { createEventDrivenController } from '../../ui/shared/index.js';
 import { displayCliError } from '../shared/cli-error.js';
-import { getDataDir } from '../shared/data-dir.js';
+import { runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputError, outputSuccess } from '../shared/json-output.js';
 import { PricesEnrichCommandOptionsSchema } from '../shared/schemas.js';
@@ -84,18 +82,17 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       fetchOnly: options.fetchOnly,
     };
 
-    const dataDir = getDataDir();
-    const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const transactionRepo = new TransactionRepository(database);
-    const linkRepo = new TransactionLinkRepository(database);
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const transactionRepo = new TransactionRepository(database);
+      const linkRepo = new TransactionLinkRepository(database);
 
-    if (options.json) {
-      // JSON mode: run handler directly without Ink UI
-      const handler = new PricesEnrichHandler(transactionRepo, linkRepo);
+      if (options.json) {
+        // JSON mode: run handler directly without Ink UI
+        const handler = new PricesEnrichHandler(transactionRepo, linkRepo);
+        ctx.onCleanup(async () => handler.destroy());
 
-      try {
         const result = await handler.execute(params);
-        await closeDatabase(database);
 
         if (result.isErr()) {
           outputError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR);
@@ -108,80 +105,44 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
           propagation: result.value.propagation,
           runStats: result.value.runStats,
         });
-      } catch (error) {
-        await closeDatabase(database);
-
-        outputError(
-          'prices-enrich',
-          error instanceof Error ? error : new Error(String(error)),
-          ExitCodes.GENERAL_ERROR
-        );
+        return;
       }
-      return;
-    }
 
-    // Ink TUI mode
-    const eventBus = new EventBus<PriceEvent>({
-      onError: (err) => {
-        logger.error({ err }, 'EventBus error');
-      },
-    });
-    const instrumentation = new InstrumentationCollector();
-    const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
-
-    const handler = new PricesEnrichHandler(transactionRepo, linkRepo, eventBus, instrumentation);
-
-    // Handle Ctrl-C gracefully
-    const abortHandler = () => {
-      process.off('SIGINT', abortHandler);
-      controller.abort();
-      controller.stop().catch((cleanupErr) => {
-        logger.warn({ cleanupErr }, 'Failed to stop controller on abort');
+      // Ink TUI mode
+      const eventBus = new EventBus<PriceEvent>({
+        onError: (err) => {
+          logger.error({ err }, 'EventBus error');
+        },
       });
-      handler.destroy().catch((cleanupErr) => {
-        logger.warn({ cleanupErr }, 'Failed to destroy handler on abort');
-      });
-      closeDatabase(database).catch((cleanupErr) => {
-        logger.warn({ cleanupErr }, 'Failed to close database on abort');
+      const instrumentation = new InstrumentationCollector();
+      const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
+
+      const handler = new PricesEnrichHandler(transactionRepo, linkRepo, eventBus, instrumentation);
+
+      ctx.onCleanup(async () => {
+        await handler.destroy();
       });
 
-      process.exit(130);
-    };
-    process.on('SIGINT', abortHandler);
+      ctx.onAbort(() => {
+        controller.abort();
+        void controller.stop().catch((cleanupErr) => {
+          logger.warn({ cleanupErr }, 'Failed to stop controller on abort');
+        });
+      });
 
-    controller.start();
+      controller.start();
 
-    let exitCode = 0;
-
-    try {
       const result = await handler.execute(params);
 
       if (result.isErr()) {
         controller.fail(result.error.message);
         await controller.stop();
-        exitCode = ExitCodes.GENERAL_ERROR;
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
       } else {
         controller.complete();
         await controller.stop();
-        // Success path exits naturally after event loop drains.
       }
-    } catch (error) {
-      controller.fail(error instanceof Error ? error.message : String(error));
-      await controller.stop();
-      exitCode = ExitCodes.GENERAL_ERROR;
-    } finally {
-      // Remove signal handler
-      process.off('SIGINT', abortHandler);
-
-      // Cleanup always runs exactly once (success, error, or early return)
-      await handler.destroy();
-      await closeDatabase(database);
-
-      // Only exit explicitly on error; undici cleanup allows natural exit on success
-      if (exitCode !== 0) {
-        process.exit(exitCode);
-      }
-    }
+    });
   } catch (error) {
     displayCliError(
       'prices-enrich',

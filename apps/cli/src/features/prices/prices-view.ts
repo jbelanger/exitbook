@@ -2,13 +2,11 @@ import path from 'node:path';
 
 // Command registration for view prices subcommand
 import type { Command } from 'commander';
-import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
-import { getDataDir } from '../shared/data-dir.js';
-import { withDatabase } from '../shared/database-utils.js';
+import { renderApp, runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { PricesViewCommandOptionsSchema } from '../shared/schemas.js';
@@ -117,79 +115,51 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
  * Execute coverage view in TUI mode (read-only)
  */
 async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
-  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
-
-  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
-  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
-  let exitCode = 0;
+  const { TransactionRepository } = await import('@exitbook/data');
 
   try {
-    const dataDir = getDataDir();
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const txRepo = new TransactionRepository(database);
+      const handler = new ViewPricesHandler(txRepo);
 
-    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const txRepo = new TransactionRepository(database);
-    const handler = new ViewPricesHandler(txRepo);
+      const detailResult = await handler.executeCoverageDetail(params);
+      if (detailResult.isErr()) {
+        console.error('\n⚠ Error:', detailResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
 
-    // Fetch coverage detail for TUI
-    const detailResult = await handler.executeCoverageDetail(params);
-    if (detailResult.isErr()) {
-      console.error('\n⚠ Error:', detailResult.error.message);
-      exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
+      const summaryResult = await handler.execute(params);
+      if (summaryResult.isErr()) {
+        console.error('\n⚠ Error:', summaryResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
 
-    // Also get summary for the header
-    const summaryResult = await handler.execute(params);
-    if (summaryResult.isErr()) {
-      console.error('\n⚠ Error:', summaryResult.error.message);
-      exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
+      await ctx.closeDatabase();
 
-    // Close DB (read-only mode)
-    await closeDatabase(database);
-    database = undefined;
-
-    const initialState = createCoverageViewState(
-      detailResult.value,
-      summaryResult.value.summary,
-      params.asset,
-      params.source
-    );
-
-    // Render TUI
-    await new Promise<void>((resolve, reject) => {
-      inkInstance = render(
-        React.createElement(PricesViewApp, {
-          initialState,
-          onQuit: () => {
-            if (inkInstance) {
-              inkInstance.unmount();
-            }
-          },
-        })
+      const initialState = createCoverageViewState(
+        detailResult.value,
+        summaryResult.value.summary,
+        params.asset,
+        params.source
       );
 
-      inkInstance.waitUntilExit().then(resolve).catch(reject);
+      await renderApp((unmount) =>
+        React.createElement(PricesViewApp, {
+          initialState,
+          onQuit: unmount,
+        })
+      );
     });
   } catch (error) {
-    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
-    exitCode = ExitCodes.GENERAL_ERROR;
-  } finally {
-    if (inkInstance) {
-      try {
-        inkInstance.unmount();
-      } catch {
-        /* ignore unmount errors */
-      }
-    }
-    if (database) {
-      await closeDatabase(database);
-    }
-
-    if (exitCode !== 0) {
-      process.exit(exitCode);
-    }
+    displayCliError(
+      'prices-view',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'text'
+    );
   }
 }
 
@@ -197,76 +167,50 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
  * Execute missing view in TUI mode (keeps DB open for set-price writes)
  */
 async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
-  const { initializeDatabase, closeDatabase, TransactionRepository, OverrideStore } = await import('@exitbook/data');
-
-  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
-  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
-  let exitCode = 0;
+  const { TransactionRepository, OverrideStore } = await import('@exitbook/data');
 
   try {
-    const dataDir = getDataDir();
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const txRepo = new TransactionRepository(database);
+      const overrideStore = new OverrideStore(ctx.dataDir);
+      const handler = new ViewPricesHandler(txRepo);
 
-    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const txRepo = new TransactionRepository(database);
-    const overrideStore = new OverrideStore(dataDir);
-    const handler = new ViewPricesHandler(txRepo);
-
-    // Fetch missing movements
-    const missingResult = await handler.executeMissing(params);
-    if (missingResult.isErr()) {
-      console.error('\n⚠ Error:', missingResult.error.message);
-      exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
-
-    const { movements, assetBreakdown } = missingResult.value;
-
-    const initialState = createMissingViewState(movements, assetBreakdown, params.asset, params.source);
-
-    // Set price handler for inline editing
-    const pricesSetHandler = new PricesSetHandler(path.join(dataDir, 'prices.db'), overrideStore);
-
-    const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
-      const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
-      if (result.isErr()) {
-        throw result.error;
+      const missingResult = await handler.executeMissing(params);
+      if (missingResult.isErr()) {
+        console.error('\n⚠ Error:', missingResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
       }
-    };
 
-    // Render TUI
-    await new Promise<void>((resolve, reject) => {
-      inkInstance = render(
+      const { movements, assetBreakdown } = missingResult.value;
+
+      const initialState = createMissingViewState(movements, assetBreakdown, params.asset, params.source);
+
+      const pricesSetHandler = new PricesSetHandler(path.join(ctx.dataDir, 'prices.db'), overrideStore);
+
+      const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
+        const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
+        if (result.isErr()) {
+          throw result.error;
+        }
+      };
+
+      await renderApp((unmount) =>
         React.createElement(PricesViewApp, {
           initialState,
           onSetPrice: handleSetPrice,
-          onQuit: () => {
-            if (inkInstance) {
-              inkInstance.unmount();
-            }
-          },
+          onQuit: unmount,
         })
       );
-
-      inkInstance.waitUntilExit().then(resolve).catch(reject);
     });
   } catch (error) {
-    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
-    exitCode = ExitCodes.GENERAL_ERROR;
-  } finally {
-    if (inkInstance) {
-      try {
-        inkInstance.unmount();
-      } catch {
-        /* ignore unmount errors */
-      }
-    }
-    if (database) {
-      await closeDatabase(database);
-    }
-
-    if (exitCode !== 0) {
-      process.exit(exitCode);
-    }
+    displayCliError(
+      'prices-view',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'text'
+    );
   }
 }
 
@@ -277,7 +221,8 @@ async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
   const { TransactionRepository } = await import('@exitbook/data');
 
   try {
-    await withDatabase(async (database) => {
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
       const txRepo = new TransactionRepository(database);
       const handler = new ViewPricesHandler(txRepo);
 
@@ -290,7 +235,6 @@ async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
 
       const { coverage, summary } = result.value;
 
-      // Build JSON result
       const filters: Record<string, unknown> = {};
       if (params.asset) filters['asset'] = params.asset;
       if (params.missingOnly) filters['missingOnly'] = params.missingOnly;
@@ -335,7 +279,8 @@ async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
   const { TransactionRepository } = await import('@exitbook/data');
 
   try {
-    await withDatabase(async (database) => {
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
       const txRepo = new TransactionRepository(database);
       const handler = new ViewPricesHandler(txRepo);
 
@@ -353,7 +298,6 @@ async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
       if (params.source) filters['source'] = params.source;
       filters['missingOnly'] = true;
 
-      // Flatten movements for JSON (omit operation fields)
       const jsonMovements = movements.map((m) => ({
         transactionId: m.transactionId,
         source: m.source,

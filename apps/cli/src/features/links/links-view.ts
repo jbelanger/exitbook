@@ -1,17 +1,13 @@
-import path from 'node:path';
-
 // Command registration for links view subcommand
 import type { LinkStatus, TransactionLink } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 import type { Command } from 'commander';
-import { render } from 'ink';
 import type { Result } from 'neverthrow';
 import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
-import { getDataDir } from '../shared/data-dir.js';
-import { withDatabase } from '../shared/database-utils.js';
+import { renderApp, runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { LinksViewCommandOptionsSchema } from '../shared/schemas.js';
@@ -173,108 +169,76 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
  * Execute links view in TUI mode (text mode, no JSON)
  */
 async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
-  const { initializeDatabase, closeDatabase, TransactionRepository, OverrideStore } = await import('@exitbook/data');
+  const { TransactionRepository, OverrideStore } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
-  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
-  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
-  let exitCode = 0;
-
   try {
-    // Initialize database and repositories
-    const dataDir = getDataDir();
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const linkRepo = new TransactionLinkRepository(database);
+      const txRepo = new TransactionRepository(database);
+      const overrideStore = new OverrideStore(ctx.dataDir);
 
-    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const linkRepo = new TransactionLinkRepository(database);
-    const txRepo = new TransactionRepository(database);
-    const overrideStore = new OverrideStore(dataDir);
-
-    // Fetch and process links
-    const linksResult = await linkRepo.findAll(params.status as LinkStatus);
-    if (linksResult.isErr()) {
-      console.error('\n⚠ Error:', linksResult.error.message);
-      exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
-
-    let links = linksResult.value;
-
-    // Apply filters
-    if (params.minConfidence !== undefined || params.maxConfidence !== undefined) {
-      links = filterLinksByConfidence(links, params.minConfidence, params.maxConfidence);
-    }
-
-    // Capture total before limiting
-    const totalCount = links.length;
-
-    if (params.limit !== undefined && params.limit > 0) {
-      links = links.slice(0, params.limit);
-    }
-
-    // Fetch transaction details
-    const linksWithTransactions: LinkWithTransactions[] = await fetchTransactionsForLinks(links, txRepo);
-
-    // Create handlers for confirm/reject actions
-    const confirmHandler = new LinksConfirmHandler(linkRepo, txRepo, overrideStore);
-    const rejectHandler = new LinksRejectHandler(linkRepo, txRepo, overrideStore);
-
-    const handleAction = async (linkId: string, action: 'confirm' | 'reject'): Promise<void> => {
-      if (action === 'confirm') {
-        const result = await confirmHandler.execute({ linkId });
-        if (result.isErr()) {
-          console.error('\n⚠ Error:', result.error.message);
-        }
-      } else {
-        const result = await rejectHandler.execute({ linkId });
-        if (result.isErr()) {
-          console.error('\n⚠ Error:', result.error.message);
-        }
+      const linksResult = await linkRepo.findAll(params.status as LinkStatus);
+      if (linksResult.isErr()) {
+        console.error('\n⚠ Error:', linksResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
       }
-    };
 
-    // Create initial state
-    const initialState = createLinksViewState(
-      linksWithTransactions,
-      params.status as LinkStatus,
-      params.verbose ?? false,
-      totalCount
-    );
+      let links = linksResult.value;
 
-    // Render TUI
-    await new Promise<void>((resolve, reject) => {
-      inkInstance = render(
+      if (params.minConfidence !== undefined || params.maxConfidence !== undefined) {
+        links = filterLinksByConfidence(links, params.minConfidence, params.maxConfidence);
+      }
+
+      const totalCount = links.length;
+
+      if (params.limit !== undefined && params.limit > 0) {
+        links = links.slice(0, params.limit);
+      }
+
+      const linksWithTransactions: LinkWithTransactions[] = await fetchTransactionsForLinks(links, txRepo);
+
+      const confirmHandler = new LinksConfirmHandler(linkRepo, txRepo, overrideStore);
+      const rejectHandler = new LinksRejectHandler(linkRepo, txRepo, overrideStore);
+
+      const handleAction = async (linkId: string, action: 'confirm' | 'reject'): Promise<void> => {
+        if (action === 'confirm') {
+          const result = await confirmHandler.execute({ linkId });
+          if (result.isErr()) {
+            console.error('\n⚠ Error:', result.error.message);
+          }
+        } else {
+          const result = await rejectHandler.execute({ linkId });
+          if (result.isErr()) {
+            console.error('\n⚠ Error:', result.error.message);
+          }
+        }
+      };
+
+      const initialState = createLinksViewState(
+        linksWithTransactions,
+        params.status as LinkStatus,
+        params.verbose ?? false,
+        totalCount
+      );
+
+      await renderApp((unmount) =>
         React.createElement(LinksViewApp, {
           initialState,
           onAction: handleAction,
-          onQuit: () => {
-            if (inkInstance) {
-              inkInstance.unmount();
-            }
-          },
+          onQuit: unmount,
         })
       );
-
-      // Wait for TUI to exit
-      inkInstance.waitUntilExit().then(resolve).catch(reject);
     });
   } catch (error) {
-    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
-    exitCode = ExitCodes.GENERAL_ERROR;
-  } finally {
-    if (inkInstance) {
-      try {
-        inkInstance.unmount();
-      } catch {
-        /* ignore unmount errors */
-      }
-    }
-    if (database) {
-      await closeDatabase(database);
-    }
-
-    if (exitCode !== 0) {
-      process.exit(exitCode);
-    }
+    displayCliError(
+      'links-view',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'text'
+    );
   }
 }
 
@@ -282,83 +246,53 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
  * Execute gaps view in TUI mode (read-only)
  */
 async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
-  const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
+  const { TransactionRepository } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
-  let database: Awaited<ReturnType<typeof initializeDatabase>> | undefined;
-  let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
-  let exitCode = 0;
-
   try {
-    const dataDir = getDataDir();
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const txRepo = new TransactionRepository(database);
+      const linkRepo = new TransactionLinkRepository(database);
 
-    database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const txRepo = new TransactionRepository(database);
-    const linkRepo = new TransactionLinkRepository(database);
+      const transactionsResult = await txRepo.getTransactions();
+      if (transactionsResult.isErr()) {
+        console.error('\n⚠ Error:', transactionsResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
 
-    // Fetch all transactions and links
-    const transactionsResult = await txRepo.getTransactions();
-    if (transactionsResult.isErr()) {
-      console.error('\n⚠ Error:', transactionsResult.error.message);
-      exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
+      const linksResult = await linkRepo.findAll();
+      if (linksResult.isErr()) {
+        console.error('\n⚠ Error:', linksResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
 
-    const linksResult = await linkRepo.findAll();
-    if (linksResult.isErr()) {
-      console.error('\n⚠ Error:', linksResult.error.message);
-      exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
+      const analysis = analyzeLinkGaps(transactionsResult.value, linksResult.value);
 
-    // Run gap analysis
-    const analysis = analyzeLinkGaps(transactionsResult.value, linksResult.value);
+      await ctx.closeDatabase();
 
-    // Close DB immediately (read-only mode)
-    await closeDatabase(database);
-    database = undefined;
+      if (params.limit !== undefined && params.limit > 0 && analysis.issues.length > params.limit) {
+        analysis.issues = analysis.issues.slice(0, params.limit);
+      }
 
-    // Apply limit to issues
-    if (params.limit !== undefined && params.limit > 0 && analysis.issues.length > params.limit) {
-      analysis.issues = analysis.issues.slice(0, params.limit);
-    }
+      const initialState = createGapsViewState(analysis);
 
-    // Create initial state
-    const initialState = createGapsViewState(analysis);
-
-    // Render TUI
-    await new Promise<void>((resolve, reject) => {
-      inkInstance = render(
+      await renderApp((unmount) =>
         React.createElement(LinksViewApp, {
           initialState,
-          onQuit: () => {
-            if (inkInstance) {
-              inkInstance.unmount();
-            }
-          },
+          onQuit: unmount,
         })
       );
-
-      inkInstance.waitUntilExit().then(resolve).catch(reject);
     });
   } catch (error) {
-    console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
-    exitCode = ExitCodes.GENERAL_ERROR;
-  } finally {
-    if (inkInstance) {
-      try {
-        inkInstance.unmount();
-      } catch {
-        /* ignore unmount errors */
-      }
-    }
-    if (database) {
-      await closeDatabase(database);
-    }
-
-    if (exitCode !== 0) {
-      process.exit(exitCode);
-    }
+    displayCliError(
+      'links-view',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'text'
+    );
   }
 }
 
@@ -370,11 +304,11 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
   try {
-    await withDatabase(async (database) => {
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
       const linkRepo = new TransactionLinkRepository(database);
       const txRepo = new TransactionRepository(database);
 
-      // Fetch links
       const linksResult = await linkRepo.findAll(params.status as LinkStatus);
       if (linksResult.isErr()) {
         displayCliError('links-view', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -383,7 +317,6 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
 
       let links = linksResult.value;
 
-      // Apply filters
       if (params.minConfidence !== undefined || params.maxConfidence !== undefined) {
         links = filterLinksByConfidence(links, params.minConfidence, params.maxConfidence);
       }
@@ -392,12 +325,10 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
         links = links.slice(0, params.limit);
       }
 
-      // Format links with transaction details
       const linksWithTransactions = await fetchTransactionsForLinks(links, txRepo);
       const linkInfos: LinkInfo[] = linksWithTransactions.map((item) => {
         const linkInfo = formatLinkInfo(item.link, item.sourceTransaction, item.targetTransaction);
 
-        // Remove full transaction details if not in verbose mode
         if (!params.verbose) {
           linkInfo.source_transaction = undefined;
           linkInfo.target_transaction = undefined;
@@ -406,13 +337,11 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
         return linkInfo;
       });
 
-      // Build result
       const result: LinksViewResult = {
         links: linkInfos,
         count: linkInfos.length,
       };
 
-      // Output JSON
       handleLinksViewJSON(result, params);
     });
   } catch (error) {
@@ -433,34 +362,30 @@ async function executeGapsViewJSON(params: LinksViewParams): Promise<void> {
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
   try {
-    await withDatabase(async (database) => {
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
       const txRepo = new TransactionRepository(database);
       const linkRepo = new TransactionLinkRepository(database);
 
-      // Fetch all transactions
       const transactionsResult = await txRepo.getTransactions();
       if (transactionsResult.isErr()) {
         displayCliError('links-view', transactionsResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
       }
 
-      // Fetch all links
       const linksResult = await linkRepo.findAll();
       if (linksResult.isErr()) {
         displayCliError('links-view', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
       }
 
-      // Run gap analysis
       const analysis = analyzeLinkGaps(transactionsResult.value, linksResult.value);
 
-      // Apply limit to issues
       let issues = analysis.issues;
       if (params.limit !== undefined && params.limit > 0) {
         issues = issues.slice(0, params.limit);
       }
 
-      // Output JSON per spec shape
       const resultData: GapsViewCommandResult = {
         data: issues,
         meta: {

@@ -7,6 +7,7 @@ import type { z } from 'zod';
 import { displayCliError } from '../shared/cli-error.js';
 import { createErrorResponse, exitCodeToErrorCode } from '../shared/cli-response.js';
 import { unwrapResult } from '../shared/command-execution.js';
+import { runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { promptConfirm } from '../shared/prompts.js';
@@ -103,113 +104,86 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
   }
 
   const options = validationResult.data;
-
-  // Text mode uses Ink dashboard for all display (including errors)
-  // JSON mode uses structured output functions
-  const useInk = !options.json;
-
-  // Create services using factory
-  const services = await createImportServices();
-
-  // Handle Ctrl-C gracefully
-  let abortHandler: (() => void) | undefined;
-  if (useInk) {
-    abortHandler = () => {
-      // Remove handler to prevent multiple triggers
-      if (abortHandler) {
-        process.off('SIGINT', abortHandler);
-      }
-
-      // Mark as aborted and stop gracefully
-      services.ingestionMonitor.abort();
-      services.ingestionMonitor.stop().catch((cleanupErr) => {
-        logger.warn({ cleanupErr }, 'Failed to stop ingestion monitor on abort');
-      });
-      services.cleanup().catch((cleanupErr) => {
-        logger.warn({ cleanupErr }, 'Failed to cleanup services on abort');
-      });
-
-      process.exit(130); // Standard exit code for SIGINT
-    };
-    process.on('SIGINT', abortHandler);
-  }
-
-  let exitCode = 0;
+  const isTuiMode = !options.json;
 
   try {
-    // Resolve import parameters
-    const params = unwrapResult(buildImportParams(options));
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const services = await createImportServices(database);
+      ctx.onCleanup(async () => services.cleanup());
 
-    // Add warning callback for single address imports (only in non-JSON mode)
-    let onSingleAddressWarning: (() => Promise<boolean>) | undefined;
-    if (!options.json) {
-      onSingleAddressWarning = async () => {
-        process.stderr.write('\n⚠️  Single address import (incomplete wallet view)\n\n');
-        process.stderr.write('Single address tracking has limitations:\n');
-        process.stderr.write('  • Cannot distinguish internal transfers from external sends\n');
-        process.stderr.write('  • Change to other addresses will appear as withdrawals\n');
-        process.stderr.write('  • Multi-address transactions may show incorrect amounts\n\n');
-        process.stderr.write('For complete wallet tracking, use xpub instead:\n');
-        process.stderr.write(
-          `  $ exitbook import --blockchain ${params.sourceName} --address xpub... [--xpub-gap 20]\n\n`
-        );
-        process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
+      if (isTuiMode) {
+        ctx.onAbort(() => {
+          services.ingestionMonitor.abort();
+          void services.ingestionMonitor.stop().catch((cleanupErr) => {
+            logger.warn({ cleanupErr }, 'Failed to stop ingestion monitor on abort');
+          });
+        });
+      }
 
-        return await promptConfirm('Continue with single address import?', false);
+      // Resolve import parameters
+      const params = unwrapResult(buildImportParams(options));
+
+      // Add warning callback for single address imports (only in non-JSON mode)
+      let onSingleAddressWarning: (() => Promise<boolean>) | undefined;
+      if (isTuiMode) {
+        onSingleAddressWarning = async () => {
+          process.stderr.write('\n⚠️  Single address import (incomplete wallet view)\n\n');
+          process.stderr.write('Single address tracking has limitations:\n');
+          process.stderr.write('  • Cannot distinguish internal transfers from external sends\n');
+          process.stderr.write('  • Change to other addresses will appear as withdrawals\n');
+          process.stderr.write('  • Multi-address transactions may show incorrect amounts\n\n');
+          process.stderr.write('For complete wallet tracking, use xpub instead:\n');
+          process.stderr.write(
+            `  $ exitbook import --blockchain ${params.sourceName} --address xpub... [--xpub-gap 20]\n\n`
+          );
+          process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
+
+          return await promptConfirm('Continue with single address import?', false);
+        };
+      }
+
+      const paramsWithCallback: ImportParams = {
+        ...params,
+        onSingleAddressWarning,
       };
-    }
 
-    const paramsWithCallback: ImportParams = {
-      ...params,
-      onSingleAddressWarning,
-    };
+      // Execute import
+      const importResult = await services.handler.executeImport(paramsWithCallback);
+      if (importResult.isErr()) {
+        await handleCommandError(importResult.error.message, isTuiMode, services.ingestionMonitor);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
 
-    // Execute import
-    const importResult = await services.handler.executeImport(paramsWithCallback);
-    if (importResult.isErr()) {
-      await handleCommandError(importResult.error.message, useInk, services.ingestionMonitor);
-      exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
+      // Execute processing
+      const processResult = await services.handler.processImportedSessions(importResult.value.sessions);
+      if (processResult.isErr()) {
+        await handleCommandError(processResult.error.message, isTuiMode, services.ingestionMonitor);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
 
-    // Execute processing
-    const processResult = await services.handler.processImportedSessions(importResult.value.sessions);
-    if (processResult.isErr()) {
-      await handleCommandError(processResult.error.message, useInk, services.ingestionMonitor);
-      exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
+      // Combine results and output success
+      const combinedResult = {
+        sessions: importResult.value.sessions,
+        processed: processResult.value.processed,
+        processingErrors: processResult.value.processingErrors,
+        runStats: services.instrumentation.getSummary(),
+      };
 
-    // Combine results and output success
-    const combinedResult = {
-      sessions: importResult.value.sessions,
-      processed: processResult.value.processed,
-      processingErrors: processResult.value.processingErrors,
-      runStats: services.instrumentation.getSummary(),
-    };
+      handleImportSuccess(options.json ?? false, combinedResult, params);
 
-    handleImportSuccess(options.json ?? false, combinedResult, params);
-
-    // Flush final dashboard renders before natural exit.
-    // Undici agent cleanup in finally block allows process to terminate cleanly.
-    await services.ingestionMonitor.stop();
+      // Flush final dashboard renders before natural exit
+      await services.ingestionMonitor.stop();
+    });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    await handleCommandError(errorMessage, useInk, services.ingestionMonitor);
-    exitCode = ExitCodes.GENERAL_ERROR;
-  } finally {
-    // Remove signal handler
-    if (abortHandler) {
-      process.off('SIGINT', abortHandler);
-    }
-
-    // Cleanup always runs exactly once (success, error, or early return)
-    await services.cleanup();
-
-    // Only exit explicitly on error; undici cleanup allows natural exit on success
-    if (exitCode !== 0) {
-      process.exit(exitCode);
-    }
+    displayCliError(
+      'import',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      options.json ? 'json' : 'text'
+    );
   }
 }
 

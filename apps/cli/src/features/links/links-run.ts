@@ -1,9 +1,7 @@
-import path from 'node:path';
-
 /* eslint-disable unicorn/no-null -- Used in React component code */
 import { TransactionLinkRepository } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
-import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
+import { TransactionRepository } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
@@ -14,8 +12,7 @@ import type { z } from 'zod';
 import { createEventDrivenController } from '../../ui/shared/index.js';
 import { PromptFlow, type PromptStep } from '../../ui/shared/PromptFlow.js';
 import { displayCliError } from '../shared/cli-error.js';
-import { getDataDir } from '../shared/data-dir.js';
-import { withDatabase } from '../shared/database-utils.js';
+import { runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
@@ -186,16 +183,16 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
     }
 
     const { OverrideStore } = await import('@exitbook/data');
-    const dataDir = getDataDir();
 
-    // JSON mode - run without UI
-    if (options.json) {
-      await withDatabase(async (database) => {
-        const transactionRepository = new TransactionRepository(database);
-        const linkRepository = new TransactionLinkRepository(database);
-        const overrideStore = new OverrideStore(dataDir);
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const transactionRepository = new TransactionRepository(database);
+      const linkRepository = new TransactionLinkRepository(database);
+      const overrideStore = new OverrideStore(ctx.dataDir);
+
+      if (options.json) {
+        // JSON mode: run handler directly without Ink UI
         const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
-
         const result = await handler.execute(params);
 
         if (result.isErr()) {
@@ -204,67 +201,38 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
 
         const duration_ms = Date.now() - startTime;
         outputSuccess('links-run', result.value, { duration_ms });
+        return;
+      }
+
+      // Ink TUI mode
+      const eventBus = new EventBus<LinkingEvent>({
+        onError: (err) => {
+          logger.error({ err }, 'EventBus error');
+        },
       });
-      return;
-    }
+      const controller = createEventDrivenController(eventBus, LinksRunMonitor, { dryRun: params.dryRun });
 
-    // TUI mode - keep original pattern with manual DB management
-    const database = await initializeDatabase(path.join(dataDir, 'transactions.db'));
-    const transactionRepository = new TransactionRepository(database);
-    const linkRepository = new TransactionLinkRepository(database);
-    const overrideStore = new OverrideStore(dataDir);
-
-    // Ink TUI mode
-    const eventBus = new EventBus<LinkingEvent>({
-      onError: (err) => {
-        logger.error({ err }, 'EventBus error');
-      },
-    });
-    const controller = createEventDrivenController(eventBus, LinksRunMonitor, { dryRun: params.dryRun });
-
-    // Handle Ctrl-C gracefully
-    const abortHandler = () => {
-      process.off('SIGINT', abortHandler);
-      controller.abort();
-      controller.stop().catch((cleanupErr) => {
-        logger.warn({ cleanupErr }, 'Failed to stop controller on abort');
-      });
-      closeDatabase(database).catch((cleanupErr) => {
-        logger.warn({ cleanupErr }, 'Failed to close database on abort');
+      ctx.onAbort(() => {
+        controller.abort();
+        void controller.stop().catch((cleanupErr) => {
+          logger.warn({ cleanupErr }, 'Failed to stop controller on abort');
+        });
       });
 
-      process.exit(130);
-    };
-    process.on('SIGINT', abortHandler);
+      controller.start();
 
-    controller.start();
-
-    const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore, eventBus);
-
-    try {
+      const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore, eventBus);
       const result = await handler.execute(params);
-
-      await closeDatabase(database);
-
-      process.off('SIGINT', abortHandler);
 
       if (result.isErr()) {
         controller.fail(result.error.message);
         await controller.stop();
-        process.exit(ExitCodes.GENERAL_ERROR);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
       } else {
         controller.complete();
         await controller.stop();
-        // Success path exits naturally after event loop drains.
       }
-    } catch (error) {
-      await closeDatabase(database);
-
-      process.off('SIGINT', abortHandler);
-      controller.fail(error instanceof Error ? error.message : String(error));
-      await controller.stop();
-      process.exit(ExitCodes.GENERAL_ERROR);
-    }
+    });
   } catch (error) {
     displayCliError(
       'links-run',

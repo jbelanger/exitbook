@@ -5,6 +5,7 @@ import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
 import { createErrorResponse, exitCodeToErrorCode } from '../shared/cli-response.js';
+import { runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { ProcessCommandOptionsSchema } from '../shared/schemas.js';
@@ -64,80 +65,52 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
   }
 
   const options = validationResult.data;
-
-  // Text mode uses Ink dashboard for all display (including errors)
-  // JSON mode uses structured output functions
-  const useInk = !options.json;
-
-  // Create services using factory
-  const services = await createProcessServices();
-
-  // Handle Ctrl-C gracefully
-  let abortHandler: (() => void) | undefined;
-  if (useInk) {
-    abortHandler = () => {
-      // Remove handler to prevent multiple triggers
-      if (abortHandler) {
-        process.off('SIGINT', abortHandler);
-      }
-
-      // Mark as aborted and stop gracefully
-      // Fire cleanup promises and exit immediately (signal handler must be sync)
-      services.ingestionMonitor.abort();
-      void services.ingestionMonitor.stop().catch((cleanupErr) => {
-        logger.warn({ cleanupErr }, 'Failed to stop ingestion monitor on abort');
-      });
-      void services.cleanup().catch((cleanupErr) => {
-        logger.warn({ cleanupErr }, 'Failed to cleanup services on abort');
-      });
-
-      process.exit(130); // Standard exit code for SIGINT
-    };
-    process.on('SIGINT', abortHandler);
-  }
-
-  let exitCode = 0;
+  const isTuiMode = !options.json;
 
   try {
-    // Execute reprocess
-    const processResult = await services.execute({
-      accountId: options.accountId,
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const services = await createProcessServices(database);
+      ctx.onCleanup(async () => services.cleanup());
+
+      if (isTuiMode) {
+        ctx.onAbort(() => {
+          services.ingestionMonitor.abort();
+          void services.ingestionMonitor.stop().catch((cleanupErr) => {
+            logger.warn({ cleanupErr }, 'Failed to stop ingestion monitor on abort');
+          });
+        });
+      }
+
+      // Execute reprocess
+      const processResult = await services.execute({
+        accountId: options.accountId,
+      });
+
+      if (processResult.isErr()) {
+        await handleCommandError(processResult.error.message, isTuiMode, services.ingestionMonitor);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
+
+      // Combine results and output success
+      const result = {
+        ...processResult.value,
+        runStats: services.instrumentation.getSummary(),
+      };
+
+      handleProcessSuccess(options.json ?? false, result);
+
+      // Flush final dashboard renders before natural exit
+      await services.ingestionMonitor.stop();
     });
-
-    if (processResult.isErr()) {
-      await handleCommandError(processResult.error.message, useInk, services.ingestionMonitor);
-      exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
-
-    // Combine results and output success
-    const result = {
-      ...processResult.value,
-      runStats: services.instrumentation.getSummary(),
-    };
-
-    handleProcessSuccess(options.json ?? false, result);
-
-    // Flush final dashboard renders before natural exit.
-    // Undici agent cleanup in finally block allows process to terminate cleanly.
-    await services.ingestionMonitor.stop();
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    await handleCommandError(errorMessage, useInk, services.ingestionMonitor);
-    exitCode = ExitCodes.GENERAL_ERROR;
-  } finally {
-    // Remove signal handler
-    if (abortHandler) {
-      process.off('SIGINT', abortHandler);
-    }
-
-    // Cleanup always runs exactly once (success, error, or early return)
-    await services.cleanup();
-
-    // Only exit explicitly on error; undici cleanup allows natural exit on success
-    if (exitCode !== 0) {
-      process.exit(exitCode);
-    }
+    displayCliError(
+      'reprocess',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      options.json ? 'json' : 'text'
+    );
   }
 }
 
