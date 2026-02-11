@@ -56,6 +56,11 @@ export function balanceViewReducer(state: BalanceState, action: BalanceAction): 
         return { ...state, error: undefined };
       }
       return state;
+    case 'ABORTING':
+      if (state.view === 'accounts' && !state.offline) {
+        return { ...state, aborting: true };
+      }
+      return state;
     default:
       return state;
   }

@@ -3,7 +3,8 @@
  */
 
 import { Box, Text, useInput, useStdout } from 'ink';
-import { useLayoutEffect, useReducer, type FC } from 'react';
+import Spinner from 'ink-spinner';
+import { useLayoutEffect, useReducer, type FC, type ReactNode } from 'react';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
 import { Divider } from '../../../ui/shared/index.js';
@@ -213,9 +214,9 @@ const AccountList: FC<{
   );
 };
 
-const AccountRow: FC<{ isSelected: boolean; item: AccountVerificationItem; }> = ({ item, isSelected }) => {
+const AccountRow: FC<{ isSelected: boolean; item: AccountVerificationItem }> = ({ item, isSelected }) => {
   const cursor = isSelected ? '▸' : ' ';
-  const { icon, iconColor } = getAccountStatusIcon(item);
+  const icon = getAccountStatusIcon(item);
   const id = `#${item.accountId}`.padStart(4);
   const source = item.sourceName.padEnd(10).substring(0, 10);
   const type = item.accountType.padEnd(12).substring(0, 12);
@@ -260,9 +261,8 @@ const AccountRow: FC<{ isSelected: boolean; item: AccountVerificationItem; }> = 
   if (item.status === 'error') {
     return (
       <Text>
-        {cursor} <Text color="red">{icon}</Text>
+        {cursor} {icon}{' '}
         <Text dimColor>
-          {' '}
           {id} {source} {type} {statusText}
         </Text>
       </Text>
@@ -271,8 +271,8 @@ const AccountRow: FC<{ isSelected: boolean; item: AccountVerificationItem; }> = 
 
   return (
     <Text>
-      {cursor} <Text color={iconColor}>{icon}</Text> {id} <Text color="cyan">{source}</Text>{' '}
-      <Text dimColor>{type}</Text> <AssetCountsInline item={item} />
+      {cursor} {icon} {id} <Text color="cyan">{source}</Text> <Text dimColor>{type}</Text>{' '}
+      <AssetCountsInline item={item} />
     </Text>
   );
 };
@@ -306,6 +306,15 @@ const AssetCountsInline: FC<{ item: AccountVerificationItem }> = ({ item }) => {
 const AccountDetailPanel: FC<{ state: BalanceVerificationState }> = ({ state }) => {
   const selected = state.accounts[state.selectedIndex];
   if (!selected) return null;
+
+  // Aborting: show abort message
+  if (state.aborting) {
+    return (
+      <Box flexDirection="column">
+        <Text color="yellow">⏹ Aborting verification...</Text>
+      </Box>
+    );
+  }
 
   // During verification: show current status
   if (state.phase === 'verifying') {
@@ -425,7 +434,7 @@ const AccountDetailPanel: FC<{ state: BalanceVerificationState }> = ({ state }) 
 };
 
 const ComparisonPreviewRow: FC<{ comparison: AssetComparisonItem }> = ({ comparison }) => {
-  const { icon, iconColor } = getAssetStatusIcon(comparison.status);
+  const icon = getAssetStatusIcon(comparison.status);
   const symbol = comparison.assetSymbol.padEnd(8).substring(0, 8);
   const calc = comparison.calculatedBalance.padStart(12);
   const live = comparison.liveBalance.padStart(12);
@@ -440,7 +449,7 @@ const ComparisonPreviewRow: FC<{ comparison: AssetComparisonItem }> = ({ compari
   return (
     <Text>
       {'  '}
-      <Text color={iconColor}>{icon}</Text>
+      {icon}
       {'  '}
       {symbol}
       {'  '}
@@ -451,7 +460,7 @@ const ComparisonPreviewRow: FC<{ comparison: AssetComparisonItem }> = ({ compari
       {comparison.status === 'match' ? (
         <Text color="green">{statusText}</Text>
       ) : (
-        <Text color={iconColor}>{statusText}</Text>
+        <Text color={comparison.status === 'mismatch' ? 'red' : 'yellow'}>{statusText}</Text>
       )}
     </Text>
   );
@@ -559,7 +568,7 @@ const OfflineAccountList: FC<{
   );
 };
 
-const OfflineAccountRow: FC<{ isSelected: boolean; item: AccountOfflineItem; }> = ({ item, isSelected }) => {
+const OfflineAccountRow: FC<{ isSelected: boolean; item: AccountOfflineItem }> = ({ item, isSelected }) => {
   const cursor = isSelected ? '▸' : ' ';
   const id = `#${item.accountId}`.padStart(4);
   const source = item.sourceName.padEnd(10).substring(0, 10);
@@ -576,8 +585,7 @@ const OfflineAccountRow: FC<{ isSelected: boolean; item: AccountOfflineItem; }> 
 
   return (
     <Text>
-      {cursor} {id} <Text color="cyan">{source}</Text> <Text dimColor>{type}</Text> {item.assetCount}{' '}
-      <Text dimColor>{item.assetCount === 1 ? 'asset' : 'assets'}</Text>
+      {cursor} {id} <Text color="cyan">{source}</Text> <Text dimColor>{type}</Text> <Text dimColor>{assets}</Text>
     </Text>
   );
 };
@@ -781,7 +789,7 @@ const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ s
 
 const OnlineAssetRow: FC<{ asset: AssetComparisonItem; isSelected: boolean }> = ({ asset, isSelected }) => {
   const cursor = isSelected ? '▸' : ' ';
-  const { icon, iconColor } = getAssetStatusIcon(asset.status);
+  const icon = getAssetStatusIcon(asset.status);
   const symbol = asset.assetSymbol.padEnd(8).substring(0, 8);
   const calc = asset.calculatedBalance.padStart(12);
   const live = asset.liveBalance.padStart(12);
@@ -808,7 +816,7 @@ const OnlineAssetRow: FC<{ asset: AssetComparisonItem; isSelected: boolean }> = 
 
   return (
     <Text>
-      {cursor} <Text color={iconColor}>{icon}</Text>
+      {cursor} {icon}
       {'  '}
       {symbol}
       {'  '}
@@ -1066,34 +1074,38 @@ const AssetControlsBar: FC<{ isDrilledDown: boolean }> = ({ isDrilledDown }) => 
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getAccountStatusIcon(item: AccountVerificationItem): { icon: string; iconColor: string } {
+function getAccountStatusIcon(item: AccountVerificationItem): ReactNode {
   switch (item.status) {
     case 'success':
-      return { icon: '✓', iconColor: 'green' };
+      return <Text color="green">✓</Text>;
     case 'warning':
-      return { icon: '⚠', iconColor: 'yellow' };
+      return <Text color="yellow">⚠</Text>;
     case 'failed':
-      return { icon: '✗', iconColor: 'red' };
+      return <Text color="red">✗</Text>;
     case 'error':
-      return { icon: '✗', iconColor: 'red' };
+      return <Text color="red">✗</Text>;
     case 'verifying':
-      return { icon: '⏳', iconColor: 'yellow' };
+      return (
+        <Text color="cyan">
+          <Spinner type="dots" />
+        </Text>
+      );
     case 'skipped':
-      return { icon: '—', iconColor: 'dim' };
+      return <Text dimColor>—</Text>;
     case 'pending':
-      return { icon: ' ', iconColor: 'dim' };
+      return <Text dimColor>·</Text>;
     default:
-      return { icon: '·', iconColor: 'dim' };
+      return <Text dimColor>·</Text>;
   }
 }
 
-function getAssetStatusIcon(status: 'match' | 'warning' | 'mismatch'): { icon: string; iconColor: string } {
+function getAssetStatusIcon(status: 'match' | 'warning' | 'mismatch'): ReactNode {
   switch (status) {
     case 'match':
-      return { icon: '✓', iconColor: 'green' };
+      return <Text color="green">✓</Text>;
     case 'warning':
-      return { icon: '⚠', iconColor: 'yellow' };
+      return <Text color="yellow">⚠</Text>;
     case 'mismatch':
-      return { icon: '✗', iconColor: 'red' };
+      return <Text color="red">✗</Text>;
   }
 }

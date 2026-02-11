@@ -369,21 +369,41 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
       const initialState = createBalanceVerificationState(initialItems);
       const relay = new EventRelay<BalanceEvent>();
 
-      runVerificationLoop(
+      // Create abort controller to cancel verification loop on quit
+      const abortController = new AbortController();
+
+      // Track the verification loop promise so we can wait for it to finish
+      const verificationPromise = runVerificationLoop(
         sorted.map((s) => s.account),
         balanceService,
         accountRepo,
         transactionRepo,
-        relay
+        relay,
+        abortController.signal
       ).catch((error) => {
+        // Ignore abort errors (expected when user quits)
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
         logger.error({ error }, 'Verification loop error');
+      });
+
+      // Register cleanup to wait for verification loop to complete/abort
+      ctx.onCleanup(async () => {
+        abortController.abort();
+        await verificationPromise;
       });
 
       await renderApp((unmount) =>
         React.createElement(BalanceApp, {
           initialState,
           relay,
-          onQuit: unmount,
+          onQuit: () => {
+            // Show aborting message in UI before unmounting
+            relay.push({ type: 'ABORTING' });
+            // Give React a tick to render the aborting message
+            setTimeout(unmount, 50);
+          },
         })
       );
     });
@@ -402,9 +422,17 @@ async function runVerificationLoop(
   balanceService: BalanceService,
   accountRepo: AccountRepository,
   transactionRepo: TransactionRepository,
-  relay: EventRelay<BalanceEvent>
+  relay: EventRelay<BalanceEvent>,
+  signal: AbortSignal
 ): Promise<void> {
   for (const account of accounts) {
+    // Check if aborted (user quit)
+    if (signal.aborted) {
+      const error = new Error('Verification aborted');
+      error.name = 'AbortError';
+      throw error;
+    }
+
     const { credentials, skipReason } = resolveAccountCredentials(account);
     if (skipReason) {
       // Already marked as skipped in initial state
@@ -421,10 +449,24 @@ async function runVerificationLoop(
         continue;
       }
 
+      // Check if aborted after async operation
+      if (signal.aborted) {
+        const error = new Error('Verification aborted');
+        error.name = 'AbortError';
+        throw error;
+      }
+
       const vr = result.value;
 
       // Build diagnostics for each asset
       const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);
+
+      // Check if aborted after async operation
+      if (signal.aborted) {
+        const error = new Error('Verification aborted');
+        error.name = 'AbortError';
+        throw error;
+      }
       const comparisons = vr.comparisons.map((c) => {
         const diagnostics = buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, account.id, {
           liveBalance: c.liveBalance,

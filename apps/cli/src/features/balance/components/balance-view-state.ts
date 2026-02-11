@@ -98,6 +98,7 @@ export interface BalanceVerificationState {
   selectedIndex: number;
   scrollOffset: number;
   error?: string | undefined;
+  aborting?: boolean | undefined;
 }
 
 export interface BalanceOfflineState {
@@ -143,11 +144,12 @@ export type BalanceState = BalanceVerificationState | BalanceOfflineState | Bala
 // ─── Events (for EventRelay in verification mode) ────────────────────────────
 
 export type BalanceEvent =
-  | { accountId: number; type: 'VERIFICATION_STARTED'; }
-  | { accountId: number; result: AccountVerificationItem; type: 'VERIFICATION_COMPLETED'; }
-  | { accountId: number; reason: string; type: 'VERIFICATION_SKIPPED'; }
-  | { accountId: number; error: string; type: 'VERIFICATION_ERROR'; }
-  | { type: 'ALL_VERIFICATIONS_COMPLETE' };
+  | { accountId: number; type: 'VERIFICATION_STARTED' }
+  | { accountId: number; result: AccountVerificationItem; type: 'VERIFICATION_COMPLETED' }
+  | { accountId: number; reason: string; type: 'VERIFICATION_SKIPPED' }
+  | { accountId: number; error: string; type: 'VERIFICATION_ERROR' }
+  | { type: 'ALL_VERIFICATIONS_COMPLETE' }
+  | { type: 'ABORTING' };
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
@@ -161,10 +163,10 @@ export type BalanceAction =
   | { type: 'END'; visibleRows: number }
 
   // Verification events (all-accounts mode)
-  | { accountId: number; type: 'VERIFICATION_STARTED'; }
-  | { accountId: number; result: AccountVerificationItem; type: 'VERIFICATION_COMPLETED'; }
-  | { accountId: number; reason: string; type: 'VERIFICATION_SKIPPED'; }
-  | { accountId: number; error: string; type: 'VERIFICATION_ERROR'; }
+  | { accountId: number; type: 'VERIFICATION_STARTED' }
+  | { accountId: number; result: AccountVerificationItem; type: 'VERIFICATION_COMPLETED' }
+  | { accountId: number; reason: string; type: 'VERIFICATION_SKIPPED' }
+  | { accountId: number; error: string; type: 'VERIFICATION_ERROR' }
   | { type: 'ALL_VERIFICATIONS_COMPLETE' }
 
   // Drill-down
@@ -173,7 +175,10 @@ export type BalanceAction =
 
   // Error handling
   | { type: 'CLEAR_ERROR' }
-  | { error: string; type: 'SET_ERROR'; };
+  | { error: string; type: 'SET_ERROR' }
+
+  // Abort
+  | { type: 'ABORTING' };
 
 // ─── Factory Functions ───────────────────────────────────────────────────────
 
@@ -190,10 +195,7 @@ export function createBalanceVerificationState(accounts: AccountVerificationItem
   };
 }
 
-export function createBalanceOfflineState(
-  accounts: AccountOfflineItem[],
-  sourceFilter?: string  
-): BalanceOfflineState {
+export function createBalanceOfflineState(accounts: AccountOfflineItem[], sourceFilter?: string): BalanceOfflineState {
   return {
     view: 'accounts',
     offline: true,
@@ -206,7 +208,7 @@ export function createBalanceOfflineState(
 }
 
 export function createBalanceAssetState(
-  account: { accountId: number; accountType: AccountType; sourceName: string; },
+  account: { accountId: number; accountType: AccountType; sourceName: string },
   assets: AssetComparisonItem[] | AssetOfflineItem[],
   options: {
     offline: boolean;
