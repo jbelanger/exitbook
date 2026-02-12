@@ -1,4 +1,4 @@
-export { createDatabase, clearDatabase, closeDatabase, type KyselyDB } from './storage/database.js';
+export { createDatabase, closeDatabase, type KyselyDB } from './storage/database.js';
 export { runMigrations, getMigrationStatus } from './storage/migrations.js';
 export { initializeDatabase } from './storage/initialization.js';
 export { BaseRepository } from './repositories/base-repository.js';

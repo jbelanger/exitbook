@@ -46,43 +46,6 @@ export function createDatabase(dbPath: string): Kysely<DatabaseSchema> {
 }
 
 /**
- * Clear and reinitialize the Kysely database
- * Drops all tables and recreates them
- */
-export async function clearDatabase(db: Kysely<DatabaseSchema>): Promise<void> {
-  try {
-    logger.info('Clearing database tables');
-
-    // Drop tables in correct order (respecting foreign key constraints)
-    const tablesToDrop = [
-      'symbol_index',
-      'token_metadata',
-      'lot_disposals',
-      'lot_transfers',
-      'acquisition_lots',
-      'cost_basis_calculations',
-      'transaction_links',
-      'transactions',
-      'raw_transactions',
-      'import_sessions',
-      'accounts',
-      'users',
-    ];
-
-    for (const table of tablesToDrop) {
-      await db.schema.dropTable(table).ifExists().execute();
-    }
-
-    // Note: Table creation should be handled by migration system
-    // This function only clears existing data
-    logger.info('Database cleared successfully');
-  } catch (error) {
-    logger.error({ error }, 'Error clearing database');
-    throw error;
-  }
-}
-
-/**
  * Utility function to close the Kysely database connection
  */
 export async function closeDatabase(db: Kysely<DatabaseSchema>): Promise<void> {
