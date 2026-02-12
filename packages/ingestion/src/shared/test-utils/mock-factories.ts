@@ -147,6 +147,5 @@ export function createMockLogger() {
     info: vi.fn(),
     warn: vi.fn(),
     trace: vi.fn(),
-    fatal: vi.fn(),
   };
 }

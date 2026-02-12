@@ -1,2 +1,12 @@
-export { getLogger, type Logger } from './pino-logger.js';
-export { loggerEnvSchema } from './env.schema.js';
+export {
+  initLogger,
+  getLogger,
+  flushLoggers,
+  type Logger,
+  type Sink,
+  type LogEntry,
+  type LogLevel,
+  type LoggerConfig,
+} from './logger.js';
+export { ConsoleSink } from './sinks/console.js';
+export { BufferedSink, type BufferedSinkOptions } from './buffered-sink.js';

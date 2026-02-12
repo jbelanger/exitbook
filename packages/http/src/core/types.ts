@@ -54,7 +54,7 @@ export interface RateLimitHeaderInfo {
 export interface HttpEffects {
   delay: (ms: number) => Promise<void>;
   fetch: typeof fetch;
-  log: (level: 'debug' | 'info' | 'warn' | 'error', message: string, metadata?: object) => void;
+  log: (level: 'debug' | 'info' | 'warn' | 'error', message: string, metadata?: Record<string, unknown>) => void;
   now: () => number;
 }
 
