@@ -167,87 +167,6 @@ export interface TransactionsTable {
 }
 
 /**
- * Cost basis calculations - tracks calculation runs and summary results
- */
-export interface CostBasisCalculationsTable {
-  id: string; // UUID
-  calculation_date: DateTime;
-  config_json: JSONString; // CostBasisConfig
-  start_date: DateTime | null;
-  end_date: DateTime | null;
-  total_proceeds: DecimalString;
-  total_cost_basis: DecimalString;
-  total_gain_loss: DecimalString;
-  total_taxable_gain_loss: DecimalString; // After jurisdiction rules (e.g., 50% for Canada)
-  assets_processed: JSONString; // Array of asset symbols
-  transactions_processed: number;
-  lots_created: number;
-  disposals_processed: number;
-  status: 'pending' | 'completed' | 'failed';
-  error_message: string | null;
-  created_at: DateTime;
-  completed_at: DateTime | null;
-  metadata_json: JSONString | null;
-}
-
-/**
- * Acquisition lots - tracks acquisition transactions for cost basis matching
- */
-export interface AcquisitionLotsTable {
-  id: string; // UUID
-  calculation_id: string; // FK to cost_basis_calculations.id
-  acquisition_transaction_id: number; // FK to transactions.id
-  asset: string; // BTC, ETH, etc.
-  quantity: DecimalString;
-  cost_basis_per_unit: DecimalString;
-  total_cost_basis: DecimalString;
-  acquisition_date: DateTime;
-  method: 'fifo' | 'lifo' | 'specific-id' | 'average-cost';
-  remaining_quantity: DecimalString;
-  status: 'open' | 'partially_disposed' | 'fully_disposed';
-  created_at: DateTime;
-  updated_at: DateTime;
-  metadata_json: JSONString | null;
-}
-
-/**
- * Lot disposals - tracks disposal matches and capital gains/losses
- */
-export interface LotDisposalsTable {
-  id: string; // UUID
-  lot_id: string; // FK to acquisition_lots.id
-  disposal_transaction_id: number; // FK to transactions.id
-  quantity_disposed: DecimalString;
-  proceeds_per_unit: DecimalString;
-  total_proceeds: DecimalString;
-  cost_basis_per_unit: DecimalString;
-  total_cost_basis: DecimalString;
-  gain_loss: DecimalString;
-  disposal_date: DateTime;
-  holding_period_days: number;
-  tax_treatment_category: string | null; // null (Canada), 'short_term'/'long_term' (US)
-  created_at: DateTime;
-  metadata_json: JSONString | null;
-}
-
-/**
- * Lot transfers - tracks cost basis transfers between lots via transaction links
- * Used when linked transactions (e.g., exchange withdrawal → blockchain deposit) propagate cost basis
- */
-export interface LotTransfersTable {
-  id: string; // UUID
-  calculation_id: string; // FK to cost_basis_calculations.id
-  source_lot_id: string; // FK to acquisition_lots.id
-  link_id: string; // FK to transaction_links.id
-  quantity_transferred: DecimalString;
-  cost_basis_per_unit: DecimalString;
-  source_transaction_id: number; // FK to transactions.id (withdrawal/send)
-  target_transaction_id: number; // FK to transactions.id (deposit/receive)
-  metadata_json: JSONString | null;
-  created_at: DateTime;
-}
-
-/**
  * Transaction links - tracks connections between related transactions
  * Used to propagate cost basis from exchanges to blockchain wallets
  */
@@ -313,12 +232,8 @@ export interface SymbolIndexTable {
 export interface DatabaseSchema {
   users: UsersTable;
   accounts: AccountsTable;
-  acquisition_lots: AcquisitionLotsTable;
-  cost_basis_calculations: CostBasisCalculationsTable;
   raw_transactions: RawTransactionTable;
   import_sessions: ImportSessionsTable;
-  lot_disposals: LotDisposalsTable;
-  lot_transfers: LotTransfersTable;
   symbol_index: SymbolIndexTable;
   token_metadata: TokenMetadataTable;
   transaction_links: TransactionLinksTable;

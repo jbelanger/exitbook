@@ -14,7 +14,6 @@ import type { CostBasisCalculation, LotDisposal } from '../domain/schemas.js';
 import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
 import { CanadaRules } from '../jurisdictions/canada-rules.js';
 import { USRules } from '../jurisdictions/us-rules.js';
-import type { CostBasisRepository } from '../persistence/cost-basis-repository.js';
 import type { IFxRateProvider } from '../price-enrichment/fx-rate-provider.interface.js';
 
 import type { CostBasisReport, ConvertedLotDisposal, FxConversionMetadata } from './types.js';
@@ -25,8 +24,10 @@ import type { CostBasisReport, ConvertedLotDisposal, FxConversionMetadata } from
 export interface ReportGeneratorConfig {
   /** Display currency for the report */
   displayCurrency: string;
-  /** Calculation ID to generate report for */
-  calculationId: string;
+  /** Calculation record */
+  calculation: CostBasisCalculation;
+  /** Disposals to convert */
+  disposals: LotDisposal[];
 }
 
 /**
@@ -41,10 +42,7 @@ export interface ReportGeneratorConfig {
 export class CostBasisReportGenerator {
   private readonly logger = getLogger('CostBasisReportGenerator');
 
-  constructor(
-    private readonly repository: CostBasisRepository,
-    private readonly fxProvider: IFxRateProvider
-  ) {}
+  constructor(private readonly fxProvider: IFxRateProvider) {}
 
   /**
    * Generate cost basis report with display currency conversion
@@ -53,30 +51,11 @@ export class CostBasisReportGenerator {
    * @returns Report with converted amounts or error
    */
   async generateReport(config: ReportGeneratorConfig): Promise<Result<CostBasisReport, Error>> {
-    const { calculationId, displayCurrency } = config;
+    const { calculation, disposals, displayCurrency } = config;
 
     try {
-      // Load calculation
-      const calculationResult = await this.repository.findCalculationById(calculationId);
-      if (calculationResult.isErr()) {
-        return err(calculationResult.error);
-      }
-
-      const calculation = calculationResult.value;
-      if (!calculation) {
-        return err(new Error(`Calculation ${calculationId} not found`));
-      }
-
-      // Load all disposals for this calculation
-      const disposalsResult = await this.repository.findDisposalsByCalculationId(calculationId);
-      if (disposalsResult.isErr()) {
-        return err(disposalsResult.error);
-      }
-
-      const disposals = disposalsResult.value;
-
       this.logger.info(
-        { calculationId, disposalCount: disposals.length, displayCurrency },
+        { calculationId: calculation.id, disposalCount: disposals.length, displayCurrency },
         'Generating cost basis report with currency conversion'
       );
 
@@ -100,7 +79,7 @@ export class CostBasisReportGenerator {
       const summary = this.calculateSummary(convertedDisposals, jurisdictionRules);
 
       const report: CostBasisReport = {
-        calculationId,
+        calculationId: calculation.id,
         displayCurrency,
         originalCurrency: 'USD',
         disposals: convertedDisposals,
@@ -115,7 +94,7 @@ export class CostBasisReportGenerator {
 
       this.logger.info(
         {
-          calculationId,
+          calculationId: calculation.id,
           disposalsConverted: convertedDisposals.length,
           totalGainLossUsd: calculation.totalGainLoss.toFixed(),
           totalGainLossDisplay: summary.totalGainLoss.toFixed(),
@@ -125,7 +104,7 @@ export class CostBasisReportGenerator {
 
       return ok(report);
     } catch (error) {
-      this.logger.error({ error, calculationId }, 'Failed to generate report');
+      this.logger.error({ error, calculationId: calculation.id }, 'Failed to generate report');
       return err(error instanceof Error ? error : new Error(String(error)));
     }
   }

@@ -1,33 +1,18 @@
-/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency, parseDecimal } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
-import { err, ok } from 'neverthrow';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  createMockCostBasisRepository,
-  createMockLotTransferRepository,
-  createTransaction,
-  createTransactionWithFee,
-} from '../../../__tests__/test-utils.js';
+import { createTransaction, createTransactionWithFee } from '../../../__tests__/test-utils.js';
 import type { CostBasisConfig } from '../../config/cost-basis-config.js';
-import type { LotDisposal } from '../../domain/schemas.js';
 import { CanadaRules } from '../../jurisdictions/canada-rules.js';
 import { USRules } from '../../jurisdictions/us-rules.js';
-import type { CostBasisRepository } from '../../persistence/cost-basis-repository.js';
-import type { LotTransferRepository } from '../../persistence/lot-transfer-repository.js';
 import { CostBasisCalculator } from '../cost-basis-calculator.js';
 
 describe('CostBasisCalculator', () => {
-  let mockRepository: CostBasisRepository;
-  let mockLotTransferRepository: LotTransferRepository;
   let calculator: CostBasisCalculator;
 
   beforeEach(() => {
-    mockRepository = createMockCostBasisRepository();
-    mockLotTransferRepository = createMockLotTransferRepository();
-    calculator = new CostBasisCalculator(mockRepository, mockLotTransferRepository);
+    calculator = new CostBasisCalculator();
   });
 
   describe('calculate', () => {
@@ -258,108 +243,7 @@ describe('CostBasisCalculator', () => {
       }
     });
 
-    it('should call repository methods in correct order', async () => {
-      const transactions: UniversalTransactionData[] = [
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'BTC', amount: '1', price: '30000' }]),
-        createTransaction(2, '2023-06-01T00:00:00Z', [], [{ assetSymbol: 'BTC', amount: '0.5', price: '40000' }]),
-      ];
-
-      const config: CostBasisConfig = {
-        method: 'fifo',
-        currency: 'CAD',
-        jurisdiction: 'US',
-        taxYear: 2023,
-      };
-
-      await calculator.calculate(transactions, config, new USRules());
-
-      // Verify repository was called
-      expect(mockRepository.createCalculation).toHaveBeenCalled();
-      expect(mockRepository.createLotsBulk).toHaveBeenCalled();
-      expect(mockRepository.createDisposalsBulk).toHaveBeenCalled();
-      expect(mockRepository.updateCalculation).toHaveBeenCalled();
-    });
-
-    it('should update calculation status on failure', async () => {
-      // Mock repository to fail on lot creation
-      const failingRepository = {
-        createCalculation: vi.fn().mockResolvedValue(ok('calc-id')),
-        createLotsBulk: vi.fn().mockResolvedValue(err(new Error('Database error'))),
-        createDisposalsBulk: vi.fn().mockResolvedValue(ok(1)),
-        updateCalculation: vi.fn().mockResolvedValue(ok(true)),
-      } as unknown as CostBasisRepository;
-
-      const failingCalculator = new CostBasisCalculator(failingRepository, mockLotTransferRepository);
-
-      const transactions: UniversalTransactionData[] = [
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'BTC', amount: '1', price: '30000' }]),
-      ];
-
-      const config: CostBasisConfig = {
-        method: 'fifo',
-        currency: 'CAD',
-        jurisdiction: 'US',
-        taxYear: 2023,
-      };
-
-      const result = await failingCalculator.calculate(transactions, config, new USRules());
-
-      // Should fail
-      expect(result.isErr()).toBe(true);
-
-      // Verify updateCalculation was called to mark as failed
-      expect(failingRepository.updateCalculation).toHaveBeenCalledWith(
-        expect.any(String) as string,
-        expect.objectContaining({
-          status: 'failed',
-          errorMessage: expect.stringContaining('Database error') as string,
-        })
-      );
-    });
-
-    it('should update calculation with final results on success', async () => {
-      const trackingRepository = {
-        createCalculation: vi.fn().mockResolvedValue(ok('calc-id')),
-        createLotsBulk: vi.fn().mockResolvedValue(ok(1)),
-        createDisposalsBulk: vi.fn().mockResolvedValue(ok(1)),
-        updateCalculation: vi.fn().mockResolvedValue(ok(true)),
-      } as unknown as CostBasisRepository;
-
-      const trackingCalculator = new CostBasisCalculator(trackingRepository, mockLotTransferRepository);
-
-      const transactions: UniversalTransactionData[] = [
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'BTC', amount: '1', price: '30000' }]),
-        createTransaction(2, '2023-06-01T00:00:00Z', [], [{ assetSymbol: 'BTC', amount: '0.5', price: '40000' }]),
-      ];
-
-      const config: CostBasisConfig = {
-        method: 'fifo',
-        currency: 'CAD',
-        jurisdiction: 'US',
-        taxYear: 2023,
-      };
-
-      const result = await trackingCalculator.calculate(transactions, config, new USRules());
-
-      expect(result.isOk()).toBe(true);
-
-      // Verify updateCalculation was called with final results
-      expect(trackingRepository.updateCalculation).toHaveBeenCalledWith(
-        expect.any(String) as string,
-        expect.objectContaining({
-          status: 'completed',
-          completedAt: expect.any(Date) as Date,
-          totalProceeds: expect.any(Decimal) as Decimal,
-          totalCostBasis: expect.any(Decimal) as Decimal,
-          totalGainLoss: expect.any(Decimal) as Decimal,
-          totalTaxableGainLoss: expect.any(Decimal) as Decimal,
-          lotsCreated: 1,
-          disposalsProcessed: 1,
-        })
-      );
-    });
-
-    it('should persist assetsProcessed to database (Issue #2 fix)', async () => {
+    it('should include assetsProcessed in summary (Issue #2 fix)', async () => {
       const transactions: UniversalTransactionData[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'BTC', amount: '1', price: '30000' }]),
         createTransaction(2, '2023-01-01T00:00:00Z', [{ assetSymbol: 'ETH', amount: '10', price: '2000' }]),
@@ -367,13 +251,6 @@ describe('CostBasisCalculator', () => {
         createTransaction(4, '2023-06-01T00:00:00Z', [], [{ assetSymbol: 'ETH', amount: '5', price: '2500' }]),
       ];
 
-      const trackingRepository = {
-        ...mockRepository,
-        updateCalculation: vi.fn().mockResolvedValue(ok(true)),
-      } as unknown as CostBasisRepository;
-
-      const trackingCalculator = new CostBasisCalculator(trackingRepository, mockLotTransferRepository);
-
       const config: CostBasisConfig = {
         method: 'fifo',
         currency: 'CAD',
@@ -381,28 +258,20 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await trackingCalculator.calculate(transactions, config, new USRules());
+      const result = await calculator.calculate(transactions, config, new USRules());
 
       expect(result.isOk()).toBe(true);
 
-      // Verify updateCalculation was called with assetsProcessed
-      expect(trackingRepository.updateCalculation).toHaveBeenCalledWith(
-        expect.any(String) as string,
-        expect.objectContaining({
-          assetsProcessed: expect.arrayContaining(['BTC', 'ETH']) as string[],
-        })
-      );
-
-      // Verify the call includes the array
-      const updateCall = (trackingRepository.updateCalculation as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(updateCall).toBeDefined();
-      const updates = updateCall?.[1] as { assetsProcessed?: string[] };
-      expect(updates.assetsProcessed).toHaveLength(2);
-      expect(updates.assetsProcessed).toContain('BTC');
-      expect(updates.assetsProcessed).toContain('ETH');
+      if (result.isOk()) {
+        const summary = result.value;
+        // Verify assetsProcessed is in the summary
+        expect(summary.assetsProcessed).toHaveLength(2);
+        expect(summary.assetsProcessed).toContain('BTC');
+        expect(summary.assetsProcessed).toContain('ETH');
+      }
     });
 
-    it('should save tax classifications to lot_disposals (Issue #3 fix)', async () => {
+    it('should include tax classifications in disposals (Issue #3 fix)', async () => {
       const transactions: UniversalTransactionData[] = [
         // Buy 1 BTC
         createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'BTC', amount: '1', price: '30000' }]),
@@ -412,17 +281,6 @@ describe('CostBasisCalculator', () => {
         createTransaction(3, '2024-02-05T00:00:00Z', [], [{ assetSymbol: 'BTC', amount: '0.5', price: '45000' }]),
       ];
 
-      const disposalsSaved: LotDisposal[] = [];
-      const trackingRepository = {
-        ...mockRepository,
-        createDisposalsBulk: vi.fn().mockImplementation((disposals: LotDisposal[]) => {
-          disposalsSaved.push(...disposals);
-          return Promise.resolve(ok(disposals.length));
-        }),
-      } as unknown as CostBasisRepository;
-
-      const trackingCalculator = new CostBasisCalculator(trackingRepository, mockLotTransferRepository);
-
       const config: CostBasisConfig = {
         method: 'fifo',
         currency: 'CAD',
@@ -430,22 +288,26 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await trackingCalculator.calculate(transactions, config, new USRules());
+      const result = await calculator.calculate(transactions, config, new USRules());
 
       expect(result.isOk()).toBe(true);
-      expect(disposalsSaved).toHaveLength(2);
 
-      // Check first disposal (short-term)
-      const shortTermDisposal = disposalsSaved[0];
-      expect(shortTermDisposal).toBeDefined();
-      expect(shortTermDisposal!.taxTreatmentCategory).toBe('short_term');
-      expect(shortTermDisposal!.holdingPeriodDays).toBeLessThan(365);
+      if (result.isOk()) {
+        const summary = result.value;
+        expect(summary.disposals).toHaveLength(2);
 
-      // Check second disposal (long-term)
-      const longTermDisposal = disposalsSaved[1];
-      expect(longTermDisposal).toBeDefined();
-      expect(longTermDisposal!.taxTreatmentCategory).toBe('long_term');
-      expect(longTermDisposal!.holdingPeriodDays).toBeGreaterThanOrEqual(365);
+        // Check first disposal (short-term)
+        const shortTermDisposal = summary.disposals[0];
+        expect(shortTermDisposal).toBeDefined();
+        expect(shortTermDisposal!.taxTreatmentCategory).toBe('short_term');
+        expect(shortTermDisposal!.holdingPeriodDays).toBeLessThan(365);
+
+        // Check second disposal (long-term)
+        const longTermDisposal = summary.disposals[1];
+        expect(longTermDisposal).toBeDefined();
+        expect(longTermDisposal!.taxTreatmentCategory).toBe('long_term');
+        expect(longTermDisposal!.holdingPeriodDays).toBeGreaterThanOrEqual(365);
+      }
     });
 
     it('should disallow wash sale loss with fee allocation (US)', async () => {
@@ -472,17 +334,6 @@ describe('CostBasisCalculator', () => {
         ),
       ];
 
-      const disposalsSaved: LotDisposal[] = [];
-      const trackingRepository = {
-        ...mockRepository,
-        createDisposalsBulk: vi.fn().mockImplementation((disposals: LotDisposal[]) => {
-          disposalsSaved.push(...disposals);
-          return Promise.resolve(ok(disposals.length));
-        }),
-      } as unknown as CostBasisRepository;
-
-      const trackingCalculator = new CostBasisCalculator(trackingRepository, mockLotTransferRepository);
-
       const config: CostBasisConfig = {
         method: 'fifo',
         currency: 'CAD',
@@ -490,7 +341,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2024,
       };
 
-      const result = await trackingCalculator.calculate(transactions, config, new USRules());
+      const result = await calculator.calculate(transactions, config, new USRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -502,8 +353,8 @@ describe('CostBasisCalculator', () => {
         // Verify fee was allocated correctly per ADR-005:
         // - Acquisitions: ALL fees increase cost basis
         // - Disposals: ONLY on-chain fees reduce proceeds (platform fees don't)
-        expect(disposalsSaved).toHaveLength(1);
-        const disposal = disposalsSaved[0];
+        expect(summary.disposals).toHaveLength(1);
+        const disposal = summary.disposals[0];
         expect(disposal).toBeDefined();
 
         // Proceeds: $30,000 (platform fee NOT subtracted per ADR-005)
@@ -831,17 +682,6 @@ describe('CostBasisCalculator', () => {
         ),
       ];
 
-      const disposalsSaved: LotDisposal[] = [];
-      const trackingRepository = {
-        ...mockRepository,
-        createDisposalsBulk: vi.fn().mockImplementation((disposals: LotDisposal[]) => {
-          disposalsSaved.push(...disposals);
-          return Promise.resolve(ok(disposals.length));
-        }),
-      } as unknown as CostBasisRepository;
-
-      const trackingCalculator = new CostBasisCalculator(trackingRepository, mockLotTransferRepository);
-
       const config: CostBasisConfig = {
         method: 'fifo',
         currency: 'CAD',
@@ -849,15 +689,15 @@ describe('CostBasisCalculator', () => {
         taxYear: 2024,
       };
 
-      const result = await trackingCalculator.calculate(transactions, config, new USRules());
+      const result = await calculator.calculate(transactions, config, new USRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const summary = result.value;
 
         // Verify long-term classification
-        expect(disposalsSaved).toHaveLength(1);
-        const disposal = disposalsSaved[0];
+        expect(summary.disposals).toHaveLength(1);
+        const disposal = summary.disposals[0];
         expect(disposal).toBeDefined();
         expect(disposal!.taxTreatmentCategory).toBe('long_term');
         expect(disposal!.holdingPeriodDays).toBeGreaterThanOrEqual(365);

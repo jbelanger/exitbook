@@ -1,16 +1,6 @@
-import path from 'node:path';
-
-import type { CostBasisReport } from '@exitbook/accounting';
-import {
-  CostBasisReportGenerator,
-  CostBasisRepository,
-  LotTransferRepository,
-  StandardFxRateProvider,
-  TransactionLinkRepository,
-} from '@exitbook/accounting';
+import { TransactionLinkRepository } from '@exitbook/accounting';
 import { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
-import { createPriceProviderManager } from '@exitbook/price-providers';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -120,7 +110,6 @@ export function registerCostBasisCommand(program: Command): void {
     .option('--fiat-currency <currency>', 'Fiat currency for cost basis: USD, CAD, EUR, GBP')
     .option('--start-date <date>', 'Custom start date (YYYY-MM-DD, requires --end-date)')
     .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
-    .option('--calculation-id <id>', 'View a previous calculation (no recomputation)')
     .option('--asset <symbol>', 'Filter to specific asset (lands on disposal list)')
     .option('--json', 'Output results in JSON format')
     .action(executeCostBasisCommand);
@@ -143,13 +132,7 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
   const options = parseResult.data;
 
   if (options.json) {
-    if (options.calculationId) {
-      await executeCostBasisViewJSON(options);
-    } else {
-      await executeCostBasisCalculateJSON(options);
-    }
-  } else if (options.calculationId) {
-    await executeCostBasisViewTUI(options);
+    await executeCostBasisCalculateJSON(options);
   } else {
     await executeCostBasisCalculateTUI(options);
   }
@@ -165,9 +148,7 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
       const database = await ctx.database();
       const transactionRepo = new TransactionRepository(database);
       const linkRepo = new TransactionLinkRepository(database);
-      const costBasisRepo = new CostBasisRepository(database);
-      const lotTransferRepo = new LotTransferRepository(database);
-      const handler = new CostBasisHandler(transactionRepo, linkRepo, costBasisRepo, lotTransferRepo);
+      const handler = new CostBasisHandler(transactionRepo, linkRepo);
 
       const result = await handler.execute(params);
 
@@ -177,110 +158,6 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
       }
 
       outputCostBasisJSON(result.value);
-    });
-  } catch (error) {
-    displayCliError(
-      'cost-basis',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
-}
-
-async function executeCostBasisViewJSON(options: CommandOptions): Promise<void> {
-  const calculationId = options.calculationId!;
-
-  try {
-    await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const costBasisRepo = new CostBasisRepository(database);
-
-      const calcResult = await costBasisRepo.findCalculationById(calculationId);
-      if (calcResult.isErr()) {
-        displayCliError('cost-basis', calcResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-
-      const calculation = calcResult.value;
-      if (!calculation) {
-        displayCliError(
-          'cost-basis',
-          new Error(`Calculation not found: ${calculationId}`),
-          ExitCodes.GENERAL_ERROR,
-          'json'
-        );
-        return;
-      }
-
-      if (calculation.status !== 'completed') {
-        displayCliError(
-          'cost-basis',
-          new Error(`Calculation is not completed (status: ${calculation.status})`),
-          ExitCodes.GENERAL_ERROR,
-          'json'
-        );
-        return;
-      }
-
-      const currency = calculation.config.currency;
-      const jurisdiction = calculation.config.jurisdiction;
-
-      // Load lots and disposals for detailed breakdown
-      const lotsResult = await costBasisRepo.findLotsByCalculationId(calculationId);
-      const disposalsResult = await costBasisRepo.findDisposalsByCalculationId(calculationId);
-
-      if (lotsResult.isErr()) {
-        displayCliError('cost-basis', lotsResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-      if (disposalsResult.isErr()) {
-        displayCliError('cost-basis', disposalsResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-
-      const lots = lotsResult.value;
-      const disposals = disposalsResult.value;
-
-      let report: CostBasisReport | undefined;
-      if (currency !== 'USD') {
-        const reportResult = await generateReport(costBasisRepo, calculationId, currency, ctx.dataDir);
-        if (reportResult) {
-          report = reportResult;
-        }
-      }
-
-      // Build detailed asset breakdown (same as TUI)
-      const assetItems = buildAssetCostBasisItems(lots, disposals, jurisdiction, currency, report);
-      const sortedAssets = sortAssetsByAbsGainLoss(assetItems);
-      const summaryTotals = computeSummaryTotals(sortedAssets, jurisdiction);
-
-      const resultData: CostBasisCommandResult = {
-        calculationId: calculation.id,
-        method: calculation.config.method,
-        jurisdiction,
-        taxYear: calculation.config.taxYear,
-        currency,
-        dateRange: {
-          startDate: calculation.startDate?.toISOString().split('T')[0] ?? '',
-          endDate: calculation.endDate?.toISOString().split('T')[0] ?? '',
-        },
-        summary: {
-          lotsCreated: calculation.lotsCreated,
-          disposalsProcessed: calculation.disposalsProcessed,
-          assetsProcessed: calculation.assetsProcessed,
-          transactionsProcessed: calculation.transactionsProcessed,
-          totalProceeds: summaryTotals.totalProceeds,
-          totalCostBasis: summaryTotals.totalCostBasis,
-          totalGainLoss: summaryTotals.totalGainLoss,
-          totalTaxableGainLoss: summaryTotals.totalTaxableGainLoss,
-          ...(summaryTotals.shortTermGainLoss ? { shortTermGainLoss: summaryTotals.shortTermGainLoss } : {}),
-          ...(summaryTotals.longTermGainLoss ? { longTermGainLoss: summaryTotals.longTermGainLoss } : {}),
-        },
-        assets: sortedAssets,
-      };
-
-      outputSuccess('cost-basis', resultData);
     });
   } catch (error) {
     displayCliError(
@@ -354,9 +231,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
       const database = await ctx.database();
       const transactionRepo = new TransactionRepository(database);
       const linkRepo = new TransactionLinkRepository(database);
-      const costBasisRepo = new CostBasisRepository(database);
-      const lotTransferRepo = new LotTransferRepository(database);
-      const handler = new CostBasisHandler(transactionRepo, linkRepo, costBasisRepo, lotTransferRepo);
+      const handler = new CostBasisHandler(transactionRepo, linkRepo);
 
       const result = await handler.execute(params);
       stopSpinner(spinner);
@@ -368,28 +243,10 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
       }
 
       const costBasisResult = result.value;
-      const { summary, missingPricesWarning, report } = costBasisResult;
+      const { summary, missingPricesWarning, report, lots, disposals } = costBasisResult;
       const calculation = summary.calculation;
       const currency = calculation.config.currency;
       const jurisdiction = calculation.config.jurisdiction;
-
-      const lotsResult = await costBasisRepo.findLotsByCalculationId(calculation.id);
-      const disposalsResult = await costBasisRepo.findDisposalsByCalculationId(calculation.id);
-
-      if (lotsResult.isErr() || disposalsResult.isErr()) {
-        const error = lotsResult.isErr()
-          ? lotsResult.error
-          : disposalsResult.isErr()
-            ? disposalsResult.error
-            : new Error('Unknown');
-        logger.error({ error }, 'Failed to load lots/disposals for TUI');
-        console.error(`\n\u26A0 Error loading results: ${error.message}`);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      const lots = lotsResult.value;
-      const disposals = disposalsResult.value;
 
       const assetItems = buildAssetCostBasisItems(lots, disposals, jurisdiction, currency, report);
       const sortedAssets = sortAssetsByAbsGainLoss(assetItems);
@@ -430,99 +287,6 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
   }
 }
 
-// ─── TUI: View Mode (--calculation-id) ──────────────────────────────────────
-
-async function executeCostBasisViewTUI(options: CommandOptions): Promise<void> {
-  const calculationId = options.calculationId!;
-
-  try {
-    await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const costBasisRepo = new CostBasisRepository(database);
-
-      const calcResult = await costBasisRepo.findCalculationById(calculationId);
-      if (calcResult.isErr()) {
-        console.error(`\n\u26A0 Error: ${calcResult.error.message}`);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      const calculation = calcResult.value;
-      if (!calculation) {
-        console.error(`\n\u26A0 Calculation not found: ${calculationId}`);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      if (calculation.status !== 'completed') {
-        console.error(`\n\u26A0 Calculation is not completed (status: ${calculation.status})`);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      const currency = calculation.config.currency;
-      const jurisdiction = calculation.config.jurisdiction;
-
-      const lotsResult = await costBasisRepo.findLotsByCalculationId(calculationId);
-      const disposalsResult = await costBasisRepo.findDisposalsByCalculationId(calculationId);
-
-      if (lotsResult.isErr() || disposalsResult.isErr()) {
-        const error = lotsResult.isErr()
-          ? lotsResult.error
-          : disposalsResult.isErr()
-            ? disposalsResult.error
-            : new Error('Unknown');
-        console.error(`\n\u26A0 Error: ${error.message}`);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      const lots = lotsResult.value;
-      const disposals = disposalsResult.value;
-
-      let report: CostBasisReport | undefined;
-      if (currency !== 'USD') {
-        report = await generateReport(costBasisRepo, calculationId, currency, ctx.dataDir);
-      }
-
-      const assetItems = buildAssetCostBasisItems(lots, disposals, jurisdiction, currency, report);
-      const sortedAssets = sortAssetsByAbsGainLoss(assetItems);
-      const summaryTotals = computeSummaryTotals(sortedAssets, jurisdiction);
-
-      const context: CalculationContext = {
-        calculationId: calculation.id,
-        method: calculation.config.method,
-        jurisdiction,
-        taxYear: calculation.config.taxYear,
-        currency,
-        dateRange: {
-          startDate: calculation.startDate?.toISOString().split('T')[0] ?? '',
-          endDate: calculation.endDate?.toISOString().split('T')[0] ?? '',
-        },
-      };
-
-      const initialState = createCostBasisAssetState(context, sortedAssets, summaryTotals, {
-        totalDisposals: calculation.disposalsProcessed,
-        totalLots: calculation.lotsCreated,
-      });
-
-      const finalState = resolveAssetFilter(initialState, options.asset);
-
-      await ctx.closeDatabase();
-
-      await renderApp((unmount) =>
-        React.createElement(CostBasisApp, {
-          initialState: finalState,
-          onQuit: unmount,
-        })
-      );
-    });
-  } catch (error) {
-    console.error('\n\u26A0 Error:', error instanceof Error ? error.message : String(error));
-    process.exit(ExitCodes.GENERAL_ERROR);
-  }
-}
-
 // ─── Shared Helpers ──────────────────────────────────────────────────────────
 
 /**
@@ -543,42 +307,4 @@ function resolveAssetFilter(
 
   const assetItem = state.assets[assetIndex]!;
   return createCostBasisDisposalState(assetItem, state, assetIndex);
-}
-
-/**
- * Generate a cost basis report with FX conversion for non-USD currencies.
- */
-async function generateReport(
-  costBasisRepo: CostBasisRepository,
-  calculationId: string,
-  displayCurrency: string,
-  dataDir: string
-): Promise<CostBasisReport | undefined> {
-  const priceManagerResult = await createPriceProviderManager({
-    providers: { databasePath: path.join(dataDir, 'prices.db') },
-  });
-  if (priceManagerResult.isErr()) {
-    logger.warn({ error: priceManagerResult.error }, 'Failed to create price provider manager for FX conversion');
-    return undefined;
-  }
-
-  const priceManager = priceManagerResult.value;
-  try {
-    const fxProvider = new StandardFxRateProvider(priceManager);
-    const reportGenerator = new CostBasisReportGenerator(costBasisRepo, fxProvider);
-
-    const reportResult = await reportGenerator.generateReport({
-      calculationId,
-      displayCurrency,
-    });
-
-    if (reportResult.isErr()) {
-      logger.warn({ error: reportResult.error }, 'Failed to generate FX report');
-      return undefined;
-    }
-
-    return reportResult.value;
-  } finally {
-    await priceManager.destroy();
-  }
 }

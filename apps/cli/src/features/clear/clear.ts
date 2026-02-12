@@ -1,4 +1,4 @@
-import { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
+import { TransactionLinkRepository } from '@exitbook/accounting';
 import {
   AccountRepository,
   ImportSessionRepository,
@@ -86,8 +86,6 @@ async function executeClearTUI(options: {
       const accountRepository = new AccountRepository(database);
       const transactionRepository = new TransactionRepository(database);
       const transactionLinkRepository = new TransactionLinkRepository(database);
-      const costBasisRepository = new CostBasisRepository(database);
-      const lotTransferRepository = new LotTransferRepository(database);
       const rawDataRepository = new RawDataRepository(database);
       const importSessionRepository = new ImportSessionRepository(database);
 
@@ -96,8 +94,6 @@ async function executeClearTUI(options: {
         accountRepository,
         transactionRepository,
         transactionLinkRepository,
-        costBasisRepository,
-        lotTransferRepository,
         rawDataRepository,
         importSessionRepository
       );
@@ -196,8 +192,6 @@ async function executeClearNonTui(options: {
       const accountRepository = new AccountRepository(database);
       const transactionRepository = new TransactionRepository(database);
       const transactionLinkRepository = new TransactionLinkRepository(database);
-      const costBasisRepository = new CostBasisRepository(database);
-      const lotTransferRepository = new LotTransferRepository(database);
       const rawDataRepository = new RawDataRepository(database);
       const importSessionRepository = new ImportSessionRepository(database);
 
@@ -206,8 +200,6 @@ async function executeClearNonTui(options: {
         accountRepository,
         transactionRepository,
         transactionLinkRepository,
-        costBasisRepository,
-        lotTransferRepository,
         rawDataRepository,
         importSessionRepository
       );
@@ -226,14 +218,7 @@ async function executeClearNonTui(options: {
       const preview = previewResult.value;
 
       // Check if there's anything to delete
-      const totalToDelete =
-        preview.accounts +
-        preview.transactions +
-        preview.links +
-        preview.lots +
-        preview.disposals +
-        preview.transfers +
-        preview.calculations;
+      const totalToDelete = preview.accounts + preview.transactions + preview.links;
       if (totalToDelete === 0 && (!includeRaw || (preview.sessions === 0 && preview.rawData === 0))) {
         if (!options.json) {
           console.error('No data to clear.');
@@ -251,10 +236,6 @@ async function executeClearNonTui(options: {
           if (preview.accounts > 0) console.error(`  • ${preview.accounts} accounts`);
           if (preview.transactions > 0) console.error(`  • ${preview.transactions} transactions`);
           if (preview.links > 0) console.error(`  • ${preview.links} transaction links`);
-          if (preview.lots > 0) console.error(`  • ${preview.lots} acquisition lots`);
-          if (preview.disposals > 0) console.error(`  • ${preview.disposals} lot disposals`);
-          if (preview.transfers > 0) console.error(`  • ${preview.transfers} lot transfers`);
-          if (preview.calculations > 0) console.error(`  • ${preview.calculations} cost basis calculations`);
 
           if (includeRaw) {
             console.error('\n⚠️  WARNING: Raw data will also be deleted:');
@@ -317,9 +298,6 @@ function handleClearSuccess(clearResult: ClearResult, spinner: SpinnerWrapper | 
   if (clearResult.deleted.accounts > 0) parts.push(`${clearResult.deleted.accounts} accounts`);
   if (clearResult.deleted.transactions > 0) parts.push(`${clearResult.deleted.transactions} transactions`);
   if (clearResult.deleted.links > 0) parts.push(`${clearResult.deleted.links} links`);
-  if (clearResult.deleted.lots > 0) parts.push(`${clearResult.deleted.lots} lots`);
-  if (clearResult.deleted.disposals > 0) parts.push(`${clearResult.deleted.disposals} disposals`);
-  if (clearResult.deleted.transfers > 0) parts.push(`${clearResult.deleted.transfers} transfers`);
   if (clearResult.deleted.rawData > 0) parts.push(`${clearResult.deleted.rawData} raw items`);
   if (clearResult.deleted.sessions > 0) parts.push(`${clearResult.deleted.sessions} sessions`);
 

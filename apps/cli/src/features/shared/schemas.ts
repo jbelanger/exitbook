@@ -350,7 +350,6 @@ export const CostBasisCommandOptionsSchema = z.object({
   fiatCurrency: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
-  calculationId: z.string().optional(),
   asset: z.string().optional(),
   json: z.boolean().optional(),
 });

@@ -55,17 +55,13 @@ When there's no data to delete (all categories are empty), the TUI still renders
 Clear Data — all accounts · 0 items · raw data: preserved
 
   · Transactions                    0
-  · Transaction links               0
-  · Acquisition lots                0
-▸ · Lot disposals                   0
-  · Lot transfers                   0
-  · Cost basis calculations         0
+▸ · Transaction links               0
   · Accounts                        0
   ✓ Import sessions               160 (preserved)
   ✓ Raw data items             56,523 (preserved)
 ────────────────────────────────────────────────────────────────────────────────
-  Lot disposals
-  Records of acquisition lot disposals
+  Transaction links
+  Transfer link matches between outflows and inflows
 
   No data to clear. All categories are empty.
 
@@ -86,23 +82,19 @@ Clear Data — all accounts · 0 items · raw data: preserved
 ## Visual Example (Preview Phase)
 
 ```
-Clear data — all accounts · 559 items · raw data: preserved
+Clear data — all accounts · 360 items · raw data: preserved
 
   ✗ Transactions                  312 (will delete)
-  ✗ Transaction links              48 (will delete)
-  ✗ Acquisition lots              156 (will delete)
-  ✗ Lot disposals                  23 (will delete)
-  ✗ Lot transfers                   8 (will delete)
-▸ ✗ Cost basis calculations        12 (will delete)
+▸ ✗ Transaction links              48 (will delete)
   · Accounts                        0
   ✓ Import sessions                 5 (preserved)
   ✓ Raw data items              1,204 (preserved)
 
 ────────────────────────────────────────────────────────────────────────────────
-Cost basis calculations
-Tax calculation snapshots and results
+Transaction links
+Transfer link matches between outflows and inflows
 
-12 items will be deleted
+48 items will be deleted
 
 ↑↓/j/k · d delete · r toggle raw · q cancel
 ```
@@ -110,14 +102,10 @@ Tax calculation snapshots and results
 ### With --include-raw
 
 ```
-Clear data — all accounts · 1,768 items · raw data: included
+Clear data — all accounts · 1,572 items · raw data: included
 
   ✗ Transactions                  312 (will delete)
   ✗ Transaction links              48 (will delete)
-  ✗ Acquisition lots              156 (will delete)
-  ✗ Lot disposals                  23 (will delete)
-  ✗ Lot transfers                   8 (will delete)
-  ✗ Cost basis calculations        12 (will delete)
   ✗ Accounts                        3 (will delete)
   ✗ Import sessions                 5 (will delete)
 ▸ ✗ Raw data items              1,204 (will delete)
@@ -134,14 +122,10 @@ Original imported data from exchanges and blockchains
 ### With --source Filter
 
 ```
-Clear data — (kraken) · 312 items · raw data: preserved
+Clear data — (kraken) · 226 items · raw data: preserved
 
   ✗ Transactions                  198 (will delete)
-  ✗ Transaction links              28 (will delete)
-  ✗ Acquisition lots               48 (will delete)
-  ✗ Lot disposals                   6 (will delete)
-  ✗ Lot transfers                   2 (will delete)
-▸ ✗ Cost basis calculations         4 (will delete)
+▸ ✗ Transaction links              28 (will delete)
   · Accounts                        0
   ✓ Import sessions                 2 (preserved)
   ✓ Raw data items                612 (preserved)
@@ -207,22 +191,18 @@ The "items" count shows only items that WILL be deleted (excludes preserved).
 
 **Processed data** (always deleted when count > 0):
 
-| Row | Key          | Label                   |
-| --- | ------------ | ----------------------- |
-| 1   | transactions | Transactions            |
-| 2   | links        | Transaction links       |
-| 3   | lots         | Acquisition lots        |
-| 4   | disposals    | Lot disposals           |
-| 5   | transfers    | Lot transfers           |
-| 6   | calculations | Cost basis calculations |
+| Row | Key          | Label             |
+| --- | ------------ | ----------------- |
+| 1   | transactions | Transactions      |
+| 2   | links        | Transaction links |
 
 **Raw data** (preserved by default, deleted with include-raw):
 
 | Row | Key      | Label           |
 | --- | -------- | --------------- |
-| 7   | accounts | Accounts        |
-| 8   | sessions | Import sessions |
-| 9   | rawData  | Raw data items  |
+| 3   | accounts | Accounts        |
+| 4   | sessions | Import sessions |
+| 5   | rawData  | Raw data items  |
 
 ### Icons
 
@@ -314,17 +294,13 @@ The `Sources:` line is only shown for `Raw data items` — it breaks down counts
 
 ## Category Descriptions
 
-| Category                | Description                                                  | Used By                                  | Recovery                                     |
-| ----------------------- | ------------------------------------------------------------ | ---------------------------------------- | -------------------------------------------- |
-| Transactions            | Processed transaction records with movements, fees, metadata | `exitbook transactions view`             | Run `exitbook process` to reprocess          |
-| Transaction links       | Transfer link matches between outflows and inflows           | `exitbook links view`                    | Run `exitbook links run` after reprocessing  |
-| Acquisition lots        | Cost basis tracking lots for tax calculations                | `exitbook cost-basis`                    | Run `exitbook cost-basis` after reprocessing |
-| Lot disposals           | Records of acquisition lot disposals                         | `exitbook cost-basis`                    | Run `exitbook cost-basis` after reprocessing |
-| Lot transfers           | Records of lot movements between accounts                    | `exitbook cost-basis`                    | Run `exitbook cost-basis` after reprocessing |
-| Cost basis calculations | Tax calculation snapshots and results                        | `exitbook cost-basis`                    | Run `exitbook cost-basis` after reprocessing |
-| Accounts                | Account records linking sources to your profile              | `exitbook accounts view`                 | Re-import to recreate accounts               |
-| Import sessions         | Import run history and metadata                              | `exitbook accounts view --show-sessions` | Re-import to recreate sessions               |
-| Raw data items          | Original imported data from exchanges and blockchains        | —                                        | Re-import from source (slow, rate-limited)   |
+| Category          | Description                                                  | Used By                                  | Recovery                                    |
+| ----------------- | ------------------------------------------------------------ | ---------------------------------------- | ------------------------------------------- |
+| Transactions      | Processed transaction records with movements, fees, metadata | `exitbook transactions view`             | Run `exitbook process` to reprocess         |
+| Transaction links | Transfer link matches between outflows and inflows           | `exitbook links view`                    | Run `exitbook links run` after reprocessing |
+| Accounts          | Account records linking sources to your profile              | `exitbook accounts view`                 | Re-import to recreate accounts              |
+| Import sessions   | Import run history and metadata                              | `exitbook accounts view --show-sessions` | Re-import to recreate sessions              |
+| Raw data items    | Original imported data from exchanges and blockchains        | —                                        | Re-import from source (slow, rate-limited)  |
 
 ---
 
@@ -395,14 +371,10 @@ Execution is typically fast (<1 second). On completion, transitions to complete 
 ## Phase: Complete
 
 ```
-Clear data — all accounts · 559 items · raw data: preserved
+Clear data — all accounts · 360 items · raw data: preserved
 
   ✓ Transactions                  312 (deleted)
   ✓ Transaction links              48 (deleted)
-  ✓ Acquisition lots              156 (deleted)
-  ✓ Lot disposals                  23 (deleted)
-  ✓ Lot transfers                   8 (deleted)
-  ✓ Cost basis calculations        12 (deleted)
   · Accounts                        0
   ✓ Import sessions                 5
   ✓ Raw data items              1,204
@@ -410,7 +382,7 @@ Clear data — all accounts · 559 items · raw data: preserved
 ────────────────────────────────────────────────────────────────────────────────
 ✓ Clear complete
 
-Deleted: 312 transactions, 48 links, 156 lots, 23 disposals, 8 transfers, 12 calculations
+Deleted: 312 transactions, 48 links
 
 Press 'q' to exit
 
@@ -425,14 +397,10 @@ q exit
 ### With Include-Raw
 
 ```
-Clear data — all accounts · 1,768 items · raw data: included
+Clear data — all accounts · 1,572 items · raw data: included
 
   ✓ Transactions                  312 (deleted)
   ✓ Transaction links              48 (deleted)
-  ✓ Acquisition lots              156 (deleted)
-  ✓ Lot disposals                  23 (deleted)
-  ✓ Lot transfers                   8 (deleted)
-  ✓ Cost basis calculations        12 (deleted)
   ✓ Accounts                        3 (deleted)
   ✓ Import sessions                 5 (deleted)
   ✓ Raw data items              1,204 (deleted)
@@ -440,7 +408,7 @@ Clear data — all accounts · 1,768 items · raw data: included
 ────────────────────────────────────────────────────────────────────────────────
 ✓ Clear complete
 
-Deleted: 312 transactions, 48 links, 156 lots, 23 disposals, 8 transfers, 12 calculations, 3 accounts, 5 sessions, 1,204 raw items
+Deleted: 312 transactions, 48 links, 3 accounts, 5 sessions, 1,204 raw items
 
 Press 'q' to exit
 
@@ -524,10 +492,6 @@ Clear Data  Error
 
   ✗  Transactions              312
   ✗  Transaction links          48
-  ✗  Acquisition lots          156
-  ✗  Lot disposals              23
-  ✗  Lot transfers               8
-  ✗  Cost basis calculations    12
   ·  Accounts                    0
   ✓  Import sessions             5   preserved
   ✓  Raw data items          1,204   preserved
@@ -561,10 +525,6 @@ Bypasses the TUI. Requires `--confirm` for execution. Without `--confirm`, outpu
       "accounts": 0,
       "transactions": 312,
       "links": 48,
-      "lots": 156,
-      "disposals": 23,
-      "transfers": 8,
-      "calculations": 12,
       "sessions": 0,
       "rawData": 0
     }
@@ -585,10 +545,6 @@ Bypasses the TUI. Requires `--confirm` for execution. Without `--confirm`, outpu
       "accounts": 0,
       "transactions": 312,
       "links": 48,
-      "lots": 156,
-      "disposals": 23,
-      "transfers": 8,
-      "calculations": 12,
       "sessions": 0,
       "rawData": 0
     }
@@ -697,10 +653,6 @@ function totalToDelete(state: ClearViewState): number {
   return (
     preview.transactions +
     preview.links +
-    preview.lots +
-    preview.disposals +
-    preview.transfers +
-    preview.calculations +
     preview.accounts +
     (state.includeRaw ? preview.sessions + preview.rawData : 0)
   );
@@ -734,34 +686,6 @@ function buildCategories(state: ClearViewState): ClearCategoryItem[] {
       count: preview.links,
       group: 'processed',
       status: preview.links > 0 ? 'will-delete' : 'empty',
-    },
-    {
-      key: 'lots',
-      label: 'Acquisition lots',
-      count: preview.lots,
-      group: 'processed',
-      status: preview.lots > 0 ? 'will-delete' : 'empty',
-    },
-    {
-      key: 'disposals',
-      label: 'Lot disposals',
-      count: preview.disposals,
-      group: 'processed',
-      status: preview.disposals > 0 ? 'will-delete' : 'empty',
-    },
-    {
-      key: 'transfers',
-      label: 'Lot transfers',
-      count: preview.transfers,
-      group: 'processed',
-      status: preview.transfers > 0 ? 'will-delete' : 'empty',
-    },
-    {
-      key: 'calculations',
-      label: 'Cost basis calculations',
-      count: preview.calculations,
-      group: 'processed',
-      status: preview.calculations > 0 ? 'will-delete' : 'empty',
     },
 
     // Raw data — preserved by default, use rawPreview for actual counts

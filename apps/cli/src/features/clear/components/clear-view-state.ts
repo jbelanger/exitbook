@@ -59,10 +59,6 @@ export function calculateTotalToDelete(state: ClearViewState): number {
   return (
     preview.transactions +
     preview.links +
-    preview.lots +
-    preview.disposals +
-    preview.transfers +
-    preview.calculations +
     (state.includeRaw ? preview.accounts + preview.sessions + preview.rawData : 0)
   );
 }
@@ -73,7 +69,7 @@ export function calculateTotalToDelete(state: ClearViewState): number {
 export function buildCategoryItems(state: ClearViewState): ClearCategoryItem[] {
   const preview = getActivePreview(state);
 
-  // Processed data categories (rows 1-6)
+  // Processed data categories (rows 1-2)
   const processed: ClearCategoryItem[] = [
     {
       key: 'transactions',
@@ -88,34 +84,6 @@ export function buildCategoryItems(state: ClearViewState): ClearCategoryItem[] {
       count: preview.links,
       group: 'processed',
       status: preview.links > 0 ? 'will-delete' : 'empty',
-    },
-    {
-      key: 'lots',
-      label: 'Acquisition lots',
-      count: preview.lots,
-      group: 'processed',
-      status: preview.lots > 0 ? 'will-delete' : 'empty',
-    },
-    {
-      key: 'disposals',
-      label: 'Lot disposals',
-      count: preview.disposals,
-      group: 'processed',
-      status: preview.disposals > 0 ? 'will-delete' : 'empty',
-    },
-    {
-      key: 'transfers',
-      label: 'Lot transfers',
-      count: preview.transfers,
-      group: 'processed',
-      status: preview.transfers > 0 ? 'will-delete' : 'empty',
-    },
-    {
-      key: 'calculations',
-      label: 'Cost basis calculations',
-      count: preview.calculations,
-      group: 'processed',
-      status: preview.calculations > 0 ? 'will-delete' : 'empty',
     },
   ];
 
@@ -186,34 +154,6 @@ export function buildResultCategoryItems(result: DeletionPreview): ClearCategory
       count: result.links,
       group: 'processed',
       status: result.links > 0 ? 'will-delete' : 'empty',
-    },
-    {
-      key: 'lots',
-      label: 'Acquisition lots',
-      count: result.lots,
-      group: 'processed',
-      status: result.lots > 0 ? 'will-delete' : 'empty',
-    },
-    {
-      key: 'disposals',
-      label: 'Lot disposals',
-      count: result.disposals,
-      group: 'processed',
-      status: result.disposals > 0 ? 'will-delete' : 'empty',
-    },
-    {
-      key: 'transfers',
-      label: 'Lot transfers',
-      count: result.transfers,
-      group: 'processed',
-      status: result.transfers > 0 ? 'will-delete' : 'empty',
-    },
-    {
-      key: 'calculations',
-      label: 'Cost basis calculations',
-      count: result.calculations,
-      group: 'processed',
-      status: result.calculations > 0 ? 'will-delete' : 'empty',
     },
   ];
 

@@ -4,12 +4,7 @@
 
 `exitbook cost-basis` calculates cost basis and capital gains/losses, then presents results in an interactive TUI. It replaces the current console.log output with a browsable two-level interface.
 
-Two entry modes:
-
-- **Calculate mode** (default): Run calculation with method/jurisdiction/year params, then browse results. Params come from CLI flags or interactive prompts (same as today).
-- **View mode** (`--calculation-id <id>`): Load a previous calculation from the database. No recomputation — instant load.
-
-Both modes land on the same TUI. `--json` bypasses the TUI in either mode.
+Run calculation with method/jurisdiction/year params, then browse results. Params come from CLI flags or interactive prompts (same as today). `--json` bypasses the TUI.
 
 ---
 
@@ -52,16 +47,8 @@ Bottom line, dim. Content adapts to current level.
 
 ### Loading State
 
-Calculate mode:
-
 ```
 ⠋ Calculating cost basis...
-```
-
-View mode:
-
-```
-⠋ Loading cost basis results...
 ```
 
 Brief spinner, then TUI appears.
@@ -446,14 +433,6 @@ Filters the asset list to show only the specified asset. When a single asset is 
 exitbook cost-basis --method fifo --jurisdiction CA --tax-year 2024 --asset BTC
 ```
 
-### Calculation ID (`--calculation-id`)
-
-Views a previous calculation without recomputing. Loads lots and disposals from the database.
-
-```bash
-exitbook cost-basis --calculation-id abc123-def456-...
-```
-
 ---
 
 ## Empty States
@@ -496,25 +475,11 @@ Cost Basis (FIFO · CA · 2024 · CAD)  error
 q quit
 ```
 
-### Calculation Not Found (--calculation-id)
-
-```
-Cost Basis  error
-
-  Calculation not found: {id}
-
-  List available calculations with --json and query the database.
-
-q quit
-```
-
 ---
 
 ## JSON Mode (`--json`)
 
-Bypasses the TUI. Preserves the existing JSON output shape for backward compatibility.
-
-### Calculate Mode
+Bypasses the TUI. Outputs calculation results in JSON format.
 
 ```json
 {
@@ -540,10 +505,6 @@ Bypasses the TUI. Preserves the existing JSON output shape for backward compatib
   "missingPricesWarning": "5 transactions were excluded due to missing prices."
 }
 ```
-
-### View Mode (`--calculation-id --json`)
-
-Same shape, loaded from stored calculation data.
 
 ---
 
@@ -789,7 +750,6 @@ Options:
   --start-date <date>            Custom start date (YYYY-MM-DD, requires --end-date)
   --end-date <date>              Custom end date (YYYY-MM-DD, requires --start-date)
   --asset <symbol>               Filter to specific asset (lands on disposal list)
-  --calculation-id <id>          View a previous calculation (no recomputation)
   --json                         Output JSON, bypass TUI
   -h, --help                     Display help
 ```
@@ -797,42 +757,30 @@ Options:
 Notes:
 
 - Interactive prompts still trigger when no method/jurisdiction/tax-year flags are provided (same behavior as today)
-- `--calculation-id` skips both prompts and calculation — loads directly from DB
 - `--asset` filters the result and skips straight to the disposal list for that asset
 
 ---
 
 ## Implementation Notes
 
-### Data Flow (Calculate Mode)
+### Data Flow
 
 1. Parse and validate CLI options at the boundary
 2. If interactive (no flags): run prompt flow (jurisdiction, method, year, currency, dates)
-3. Initialize database and repositories
+3. Initialize database
 4. Show spinner: "Calculating cost basis..."
-5. Call `CostBasisHandler.execute(params)` — same as today
-6. On success: load lots and disposals by calculation ID from `CostBasisRepository`
-7. Aggregate disposals by asset (group by `assetSymbol` via lot join)
-8. Compute per-asset summary: total proceeds, cost basis, gain/loss, taxable, holding period stats
-9. For non-USD currency: load `CostBasisReport` with converted amounts
-10. Render Ink TUI with computed view data
-11. On quit: close database
-
-### Data Flow (View Mode — `--calculation-id`)
-
-1. Initialize database
-2. Load calculation via `CostBasisRepository.findCalculationById(id)`
-3. Validate calculation exists and is `completed`
-4. Load lots via `CostBasisRepository.findLotsByCalculationId(id)`
-5. Load disposals via `CostBasisRepository.findDisposalsByCalculationId(id)`
-6. Same aggregation as calculate mode (steps 7–10)
-7. Render TUI
+5. Call `CostBasisHandler.execute(params)` — returns in-memory lots and disposals
+6. Aggregate disposals by asset (group by `assetSymbol` via lot join)
+7. Compute per-asset summary: total proceeds, cost basis, gain/loss, taxable, holding period stats
+8. For non-USD currency: use `CostBasisReportGenerator` with converted amounts
+9. Render Ink TUI with computed view data
+10. On quit: close database
 
 ### Disposal-to-Lot Join
 
 Each `LotDisposal` has a `lotId` that references an `AcquisitionLot`. To show acquisition context in the disposal detail panel:
 
-1. Load all lots for the calculation: `findLotsByCalculationId()`
+1. Get all lots from the in-memory calculation results
 2. Build a `Map<lotId, AcquisitionLot>` for O(1) lookup
 3. Each disposal detail panel resolves its lot to show acquisition date, acquisition transaction ID
 

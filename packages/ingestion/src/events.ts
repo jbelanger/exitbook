@@ -169,14 +169,10 @@ export type ProcessEvent =
       includeRaw: boolean;
       preview: {
         accounts: number;
-        calculations: number;
-        disposals: number;
         links: number;
-        lots: number;
         rawData: number;
         sessions: number;
         transactions: number;
-        transfers: number;
       };
       type: 'clear.started';
     }
@@ -187,14 +183,10 @@ export type ProcessEvent =
        */
       deleted: {
         accounts: number;
-        calculations: number;
-        disposals: number;
         links: number;
-        lots: number;
         rawData: number;
         sessions: number;
         transactions: number;
-        transfers: number;
       };
       durationMs: number;
       type: 'clear.completed';

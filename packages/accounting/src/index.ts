@@ -68,8 +68,6 @@ export { TransactionLinkingService } from './linking/transaction-linking-service
 export { DEFAULT_MATCHING_CONFIG, createTransactionLink } from './linking/matching-utils.js';
 export { LinkIndex } from './linking/link-index.js';
 export { TransactionLinkRepository } from './persistence/transaction-link-repository.js';
-export { CostBasisRepository } from './persistence/cost-basis-repository.js';
-export { LotTransferRepository } from './persistence/lot-transfer-repository.js';
 export { PriceEnrichmentService } from './price-enrichment/price-enrichment-service.js';
 export { PriceNormalizationService } from './price-enrichment/price-normalization-service.js';
 export type { NormalizeResult } from './price-enrichment/price-normalization-service.js';

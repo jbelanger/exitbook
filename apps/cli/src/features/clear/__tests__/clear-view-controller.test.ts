@@ -16,10 +16,6 @@ import {
 const mockPreviewWithoutRaw = {
   transactions: 100,
   links: 50,
-  lots: 75,
-  disposals: 25,
-  transfers: 10,
-  calculations: 5,
   accounts: 0,
   sessions: 0,
   rawData: 0,
@@ -29,10 +25,6 @@ const mockPreviewWithoutRaw = {
 const mockPreviewWithRaw = {
   transactions: 100,
   links: 50,
-  lots: 75,
-  disposals: 25,
-  transfers: 10,
-  calculations: 5,
   accounts: 3,
   sessions: 2,
   rawData: 500,
@@ -181,16 +173,16 @@ describe('State helper functions', () => {
       const state = createClearViewState(mockScope, mockPreviewWithRaw, mockPreviewWithoutRaw, false);
       const total = calculateTotalToDelete(state);
 
-      // 100 + 50 + 75 + 25 + 10 + 5 = 265 (no accounts, sessions, rawData)
-      expect(total).toBe(265);
+      // 100 + 50 = 150 (no accounts, sessions, rawData)
+      expect(total).toBe(150);
     });
 
     it('should include raw data when includeRaw is true', () => {
       const state = createClearViewState(mockScope, mockPreviewWithRaw, mockPreviewWithoutRaw, true);
       const total = calculateTotalToDelete(state);
 
-      // 100 + 50 + 75 + 25 + 10 + 5 + 3 + 2 + 500 = 770
-      expect(total).toBe(770);
+      // 100 + 50 + 3 + 2 + 500 = 655
+      expect(total).toBe(655);
     });
   });
 
@@ -234,11 +226,11 @@ describe('State helper functions', () => {
       expect(accounts?.count).toBe(3);
     });
 
-    it('should return exactly 9 items', () => {
+    it('should return exactly 5 items', () => {
       const state = createClearViewState(mockScope, mockPreviewWithRaw, mockPreviewWithoutRaw, false);
       const items = buildCategoryItems(state);
 
-      expect(items).toHaveLength(9);
+      expect(items).toHaveLength(5);
     });
 
     it('should have correct group assignments', () => {
@@ -248,7 +240,7 @@ describe('State helper functions', () => {
       const processed = items.filter((i) => i.group === 'processed');
       const raw = items.filter((i) => i.group === 'raw');
 
-      expect(processed).toHaveLength(6);
+      expect(processed).toHaveLength(2);
       expect(raw).toHaveLength(3);
     });
   });

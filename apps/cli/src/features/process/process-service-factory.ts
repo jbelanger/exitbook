@@ -1,4 +1,4 @@
-import { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
+import { TransactionLinkRepository } from '@exitbook/accounting';
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
   AccountRepository,
@@ -56,8 +56,6 @@ export async function createProcessServices(database: KyselyDB): Promise<Process
   const importSession = new ImportSessionRepository(database);
   const tokenMetadata = new TokenMetadataRepository(database);
   const transactionLink = new TransactionLinkRepository(database);
-  const costBasis = new CostBasisRepository(database);
-  const lotTransfer = new LotTransferRepository(database);
 
   const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
   const instrumentation = new InstrumentationCollector();
@@ -91,8 +89,6 @@ export async function createProcessServices(database: KyselyDB): Promise<Process
     account,
     transaction,
     transactionLink,
-    costBasis,
-    lotTransfer,
     rawData,
     importSession,
     eventBus as EventBus<IngestionEvent>

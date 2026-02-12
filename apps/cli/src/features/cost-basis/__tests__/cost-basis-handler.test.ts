@@ -3,9 +3,7 @@ import {
   CostBasisCalculator,
   CostBasisReportGenerator,
   type CostBasisReport,
-  type CostBasisRepository,
   type CostBasisSummary,
-  type LotTransferRepository,
   type TransactionLinkRepository,
 } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
@@ -51,8 +49,6 @@ describe('CostBasisHandler', () => {
   let handler: CostBasisHandler;
   let mockTransactionRepo: TransactionRepository;
   let mockLinkRepo: TransactionLinkRepository;
-  let mockCostBasisRepo: CostBasisRepository;
-  let mockLotTransferRepo: LotTransferRepository;
 
   beforeEach(() => {
     // Reset mocks
@@ -64,10 +60,8 @@ describe('CostBasisHandler', () => {
     } as unknown as TransactionRepository;
 
     mockLinkRepo = {} as unknown as TransactionLinkRepository;
-    mockCostBasisRepo = {} as unknown as CostBasisRepository;
-    mockLotTransferRepo = {} as unknown as LotTransferRepository;
 
-    handler = new CostBasisHandler(mockTransactionRepo, mockLinkRepo, mockCostBasisRepo, mockLotTransferRepo);
+    handler = new CostBasisHandler(mockTransactionRepo, mockLinkRepo);
   });
 
   describe('execute', () => {

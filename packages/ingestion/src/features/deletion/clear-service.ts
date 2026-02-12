@@ -1,4 +1,4 @@
-import type { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
+import type { TransactionLinkRepository } from '@exitbook/accounting';
 import type { Account } from '@exitbook/core';
 import type {
   AccountRepository,
@@ -40,8 +40,6 @@ export class ClearService {
     private accountRepo: AccountRepository,
     private transactionRepo: TransactionRepository,
     private transactionLinkRepo: TransactionLinkRepository,
-    private costBasisRepo: CostBasisRepository,
-    private lotTransferRepo: LotTransferRepository,
     private rawDataRepo: IRawDataRepository,
     private sessionRepo: IImportSessionRepository,
     private eventBus?: EventBus<IngestionEvent> | undefined
@@ -111,35 +109,11 @@ export class ClearService {
           return err(linksResult.error);
         }
 
-        const lotsResult = await this.costBasisRepo.countLotsByAccountIds(accountIds);
-        if (lotsResult.isErr()) {
-          return err(lotsResult.error);
-        }
-
-        const disposalsResult = await this.costBasisRepo.countDisposalsByAccountIds(accountIds);
-        if (disposalsResult.isErr()) {
-          return err(disposalsResult.error);
-        }
-
-        const transfersResult = await this.lotTransferRepo.countByAccountIds(accountIds);
-        if (transfersResult.isErr()) {
-          return err(transfersResult.error);
-        }
-
-        const calculationsResult = await this.costBasisRepo.countCalculationsByAccountIds(accountIds);
-        if (calculationsResult.isErr()) {
-          return err(calculationsResult.error);
-        }
-
         return ok({
           accounts: accountsCount,
-          calculations: calculationsResult.value,
-          disposals: disposalsResult.value,
           links: linksResult.value,
-          lots: lotsResult.value,
           rawData: rawDataCount,
           sessions: sessionsCount,
-          transfers: transfersResult.value,
           transactions: transactionsResult.value,
         });
       } else {
@@ -172,36 +146,12 @@ export class ClearService {
           return err(linksResult.error);
         }
 
-        const lotsResult = await this.costBasisRepo.countAllLots();
-        if (lotsResult.isErr()) {
-          return err(lotsResult.error);
-        }
-
-        const disposalsResult = await this.costBasisRepo.countAllDisposals();
-        if (disposalsResult.isErr()) {
-          return err(disposalsResult.error);
-        }
-
-        const transfersResult = await this.lotTransferRepo.countAll();
-        if (transfersResult.isErr()) {
-          return err(transfersResult.error);
-        }
-
-        const calculationsResult = await this.costBasisRepo.countAllCalculations();
-        if (calculationsResult.isErr()) {
-          return err(calculationsResult.error);
-        }
-
         // For delete-all, we don't delete accounts (they remain for future imports)
         return ok({
           accounts: 0,
-          calculations: calculationsResult.value,
-          disposals: disposalsResult.value,
           links: linksResult.value,
-          lots: lotsResult.value,
           rawData: rawDataCount,
           sessions: sessionsCount,
-          transfers: transfersResult.value,
           transactions: transactionsResult.value,
         });
       }
@@ -301,28 +251,8 @@ export class ClearService {
   ): Promise<Result<void, Error>> {
     const accountIds = extractAccountIds(accountsToClear);
 
-    // Delete cost basis and transaction data by account_id
+    // Delete transaction data by account_id
     // This ensures we only delete data for the specific accounts being cleared
-    const disposalsResult = await this.costBasisRepo.deleteDisposalsByAccountIds(accountIds);
-    if (disposalsResult.isErr()) {
-      return err(disposalsResult.error);
-    }
-
-    const transfersResult = await this.lotTransferRepo.deleteByAccountIds(accountIds);
-    if (transfersResult.isErr()) {
-      return err(transfersResult.error);
-    }
-
-    const lotsResult = await this.costBasisRepo.deleteLotsByAccountIds(accountIds);
-    if (lotsResult.isErr()) {
-      return err(lotsResult.error);
-    }
-
-    const calculationsResult = await this.costBasisRepo.deleteCalculationsByAccountIds(accountIds);
-    if (calculationsResult.isErr()) {
-      return err(calculationsResult.error);
-    }
-
     const linksResult = await this.transactionLinkRepo.deleteByAccountIds(accountIds);
     if (linksResult.isErr()) {
       return err(linksResult.error);
@@ -370,26 +300,6 @@ export class ClearService {
    * Delete all data.
    */
   private async deleteAll(includeRaw: boolean): Promise<Result<void, Error>> {
-    const disposalsResult = await this.costBasisRepo.deleteAllDisposals();
-    if (disposalsResult.isErr()) {
-      return err(disposalsResult.error);
-    }
-
-    const transfersResult = await this.lotTransferRepo.deleteAll();
-    if (transfersResult.isErr()) {
-      return err(transfersResult.error);
-    }
-
-    const lotsResult = await this.costBasisRepo.deleteAllLots();
-    if (lotsResult.isErr()) {
-      return err(lotsResult.error);
-    }
-
-    const calculationsResult = await this.costBasisRepo.deleteAllCalculations();
-    if (calculationsResult.isErr()) {
-      return err(calculationsResult.error);
-    }
-
     const linksResult = await this.transactionLinkRepo.deleteAll();
     if (linksResult.isErr()) {
       return err(linksResult.error);

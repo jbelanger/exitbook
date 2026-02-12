@@ -5,11 +5,10 @@
 
 import { Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
-import { err, ok, okAsync } from 'neverthrow';
+import { err, okAsync } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { CostBasisCalculation, LotDisposal } from '../../domain/schemas.js';
-import type { CostBasisRepository } from '../../persistence/cost-basis-repository.js';
 import type { FxRateData, IFxRateProvider } from '../../price-enrichment/fx-rate-provider.interface.js';
 import { CostBasisReportGenerator } from '../cost-basis-report-generator.js';
 
@@ -85,13 +84,6 @@ describe('CostBasisReportGenerator', () => {
     },
   ];
 
-  function createMockRepository(): CostBasisRepository {
-    return {
-      findCalculationById: vi.fn().mockResolvedValue(ok(mockCalculation)),
-      findDisposalsByCalculationId: vi.fn().mockResolvedValue(ok(mockDisposals)),
-    } as unknown as CostBasisRepository;
-  }
-
   function createMockFxProvider(rates: Record<string, Decimal>): IFxRateProvider {
     let callCount = 0;
 
@@ -120,12 +112,12 @@ describe('CostBasisReportGenerator', () => {
 
   describe('generateReport', () => {
     it('should generate USD report without conversion', async () => {
-      const repository = createMockRepository();
       const fxProvider = createMockFxProvider({});
-      const generator = new CostBasisReportGenerator(repository, fxProvider);
+      const generator = new CostBasisReportGenerator(fxProvider);
 
       const result = await generator.generateReport({
-        calculationId: mockCalculationId,
+        calculation: mockCalculation,
+        disposals: mockDisposals,
         displayCurrency: 'USD',
       });
 
@@ -154,18 +146,17 @@ describe('CostBasisReportGenerator', () => {
     });
 
     it('should convert disposals to CAD using historical rates', async () => {
-      const repository = createMockRepository();
-
       // Mock FX rates for specific dates
       const fxProvider = createMockFxProvider({
         '2024-03-15': new Decimal(1.35), // CAD/USD rate on Mar 15
         '2024-06-20': new Decimal(1.37), // CAD/USD rate on Jun 20
       });
 
-      const generator = new CostBasisReportGenerator(repository, fxProvider);
+      const generator = new CostBasisReportGenerator(fxProvider);
 
       const result = await generator.generateReport({
-        calculationId: mockCalculationId,
+        calculation: mockCalculation,
+        disposals: mockDisposals,
         displayCurrency: 'CAD',
       });
 
@@ -229,18 +220,17 @@ describe('CostBasisReportGenerator', () => {
     });
 
     it('should cache FX rates by date to minimize API calls', async () => {
-      const repository = createMockRepository();
-
       // Mock FX provider that tracks call count
       const fxProvider = createMockFxProvider({
         '2024-03-15': new Decimal(1.35),
         '2024-06-20': new Decimal(1.37),
       });
 
-      const generator = new CostBasisReportGenerator(repository, fxProvider);
+      const generator = new CostBasisReportGenerator(fxProvider);
 
       await generator.generateReport({
-        calculationId: mockCalculationId,
+        calculation: mockCalculation,
+        disposals: mockDisposals,
         displayCurrency: 'CAD',
       });
 
@@ -254,18 +244,17 @@ describe('CostBasisReportGenerator', () => {
     });
 
     it('should return error if FX rate is unavailable', async () => {
-      const repository = createMockRepository();
-
       // Mock FX provider that only has rate for one date
       const fxProvider = createMockFxProvider({
         '2024-03-15': new Decimal(1.35),
         // Missing rate for 2024-06-20
       });
 
-      const generator = new CostBasisReportGenerator(repository, fxProvider);
+      const generator = new CostBasisReportGenerator(fxProvider);
 
       const result = await generator.generateReport({
-        calculationId: mockCalculationId,
+        calculation: mockCalculation,
+        disposals: mockDisposals,
         displayCurrency: 'CAD',
       });
 
@@ -277,38 +266,13 @@ describe('CostBasisReportGenerator', () => {
       }
     });
 
-    it('should return error if calculation not found', async () => {
-      const repository = {
-        findCalculationById: vi.fn().mockResolvedValue(ok(undefined)),
-        findDisposalsByCalculationId: vi.fn(),
-      } as unknown as CostBasisRepository;
-
-      const fxProvider = createMockFxProvider({});
-      const generator = new CostBasisReportGenerator(repository, fxProvider);
-
-      const result = await generator.generateReport({
-        calculationId: 'nonexistent',
-        displayCurrency: 'CAD',
-      });
-
-      expect(result.isErr()).toBe(true);
-
-      if (result.isErr()) {
-        expect(result.error.message).toContain('not found');
-      }
-    });
-
     it('should handle empty disposals list', async () => {
-      const repository = {
-        findCalculationById: vi.fn().mockResolvedValue(ok(mockCalculation)),
-        findDisposalsByCalculationId: vi.fn().mockResolvedValue(ok([])),
-      } as unknown as CostBasisRepository;
-
       const fxProvider = createMockFxProvider({});
-      const generator = new CostBasisReportGenerator(repository, fxProvider);
+      const generator = new CostBasisReportGenerator(fxProvider);
 
       const result = await generator.generateReport({
-        calculationId: mockCalculationId,
+        calculation: mockCalculation,
+        disposals: [],
         displayCurrency: 'CAD',
       });
 

@@ -14,13 +14,9 @@ export interface ClearServiceParams {
  */
 export interface DeletionPreview {
   accounts: number;
-  calculations: number;
-  disposals: number;
   links: number;
-  lots: number;
   rawData: number;
   sessions: number;
-  transfers: number;
   transactions: number;
 }
 
@@ -57,17 +53,7 @@ export function resolveAccountsForClear(
  * Pure function.
  */
 export function calculateTotalDeletionItems(preview: DeletionPreview): number {
-  return (
-    preview.accounts +
-    preview.sessions +
-    preview.rawData +
-    preview.transactions +
-    preview.links +
-    preview.lots +
-    preview.disposals +
-    preview.transfers +
-    preview.calculations
-  );
+  return preview.accounts + preview.sessions + preview.rawData + preview.transactions + preview.links;
 }
 
 /**

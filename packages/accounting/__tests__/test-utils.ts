@@ -6,12 +6,8 @@ import type {
   UniversalTransactionData,
 } from '@exitbook/core';
 import { Currency, parseDecimal } from '@exitbook/core';
-import { ok } from 'neverthrow';
-import { vi } from 'vitest';
 
 import type { AcquisitionLot } from '../src/domain/types.js';
-import type { CostBasisRepository } from '../src/persistence/cost-basis-repository.js';
-import type { LotTransferRepository } from '../src/persistence/lot-transfer-repository.js';
 
 /**
  * Creates a PriceAtTxTime object with common defaults
@@ -173,27 +169,6 @@ export function createLot(
     createdAt: new Date(),
     updatedAt: new Date(),
   };
-}
-
-/**
- * Creates a mock CostBasisRepository with common defaults
- */
-export function createMockCostBasisRepository(): CostBasisRepository {
-  return {
-    createCalculation: vi.fn().mockResolvedValue(ok('calc-id')),
-    createLotsBulk: vi.fn().mockResolvedValue(ok(1)),
-    createDisposalsBulk: vi.fn().mockResolvedValue(ok(1)),
-    updateCalculation: vi.fn().mockResolvedValue(ok(true)),
-  } as unknown as CostBasisRepository;
-}
-
-/**
- * Creates a mock LotTransferRepository with common defaults
- */
-export function createMockLotTransferRepository(): LotTransferRepository {
-  return {
-    createBulk: vi.fn().mockResolvedValue(ok(0)),
-  } as unknown as LotTransferRepository;
 }
 
 /**

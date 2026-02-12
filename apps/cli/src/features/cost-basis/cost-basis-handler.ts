@@ -5,8 +5,6 @@ import {
   CostBasisCalculator,
   CostBasisReportGenerator,
   StandardFxRateProvider,
-  type CostBasisRepository,
-  type LotTransferRepository,
   type TransactionLinkRepository,
 } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
@@ -53,9 +51,7 @@ export interface CostBasisResult {
 export class CostBasisHandler {
   constructor(
     private transactionRepository: TransactionRepository,
-    private transactionLinkRepository: TransactionLinkRepository,
-    private costBasisRepository: CostBasisRepository,
-    private lotTransferRepository: LotTransferRepository
+    private transactionLinkRepository: TransactionLinkRepository
   ) {}
 
   /**
@@ -81,12 +77,7 @@ export class CostBasisHandler {
 
       // 2. Run calculation
       const rules = getJurisdictionRules(config.jurisdiction);
-      const calculator = new CostBasisCalculator(
-        this.costBasisRepository,
-        this.lotTransferRepository,
-        this.transactionRepository,
-        this.transactionLinkRepository
-      );
+      const calculator = new CostBasisCalculator(this.transactionRepository, this.transactionLinkRepository);
 
       const calcResult = await calculator.calculate(validTransactions, config, rules);
       if (calcResult.isErr()) {
@@ -104,24 +95,14 @@ export class CostBasisHandler {
         'Cost basis calculation completed'
       );
 
-      // 3. Load lots and disposals for detailed output
-      const lotsResult = await this.costBasisRepository.findLotsByCalculationId(summary.calculation.id);
-      const disposalsResult = await this.costBasisRepository.findDisposalsByCalculationId(summary.calculation.id);
-
-      if (lotsResult.isErr()) {
-        return err(lotsResult.error);
-      }
-      if (disposalsResult.isErr()) {
-        return err(disposalsResult.error);
-      }
-
-      const lots = lotsResult.value;
-      const disposals = disposalsResult.value;
+      // 3. Get lots and disposals from summary (already in-memory)
+      const lots = summary.lots;
+      const disposals = summary.disposals;
 
       // 4. Generate optional report with currency conversion
       let report: CostBasisReport | undefined;
       if (config.currency !== 'USD') {
-        const reportResult = await this.generateReport(summary.calculation.id, config.currency);
+        const reportResult = await this.generateReport(summary.calculation, disposals, config.currency);
         if (reportResult.isErr()) {
           return err(reportResult.error);
         }
@@ -200,7 +181,8 @@ export class CostBasisHandler {
    * Generate cost basis report with currency conversion
    */
   private async generateReport(
-    calculationId: string,
+    calculation: import('@exitbook/accounting').CostBasisCalculation,
+    disposals: import('@exitbook/accounting').LotDisposal[],
     displayCurrency: string
   ): Promise<Result<CostBasisReport, Error>> {
     logger.info({ displayCurrency }, 'Generating report with currency conversion');
@@ -216,10 +198,11 @@ export class CostBasisHandler {
     const priceManager = priceManagerResult.value;
     try {
       const fxProvider = new StandardFxRateProvider(priceManager);
-      const reportGenerator = new CostBasisReportGenerator(this.costBasisRepository, fxProvider);
+      const reportGenerator = new CostBasisReportGenerator(fxProvider);
 
       const reportResult = await reportGenerator.generateReport({
-        calculationId,
+        calculation,
+        disposals,
         displayCurrency,
       });
       if (reportResult.isErr()) {
@@ -229,7 +212,7 @@ export class CostBasisHandler {
       const report = reportResult.value;
       logger.info(
         {
-          calculationId,
+          calculationId: calculation.id,
           displayCurrency,
           disposalsConverted: report.disposals.length,
         },

@@ -46,9 +46,7 @@ export async function executeReprocess(
   }
   const deleted = clearResult.value.deleted;
 
-  logger.info(
-    `Cleared derived data (${deleted.links} links, ${deleted.lots} lots, ${deleted.disposals} disposals, ${deleted.calculations} calculations)`
-  );
+  logger.info(`Cleared derived data (${deleted.links} links, ${deleted.transactions} transactions)`);
 
   logger.info(`Reset ${deleted.transactions} transactions for reprocessing`);
 

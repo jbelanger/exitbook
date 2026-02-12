@@ -378,10 +378,6 @@ const CompleteDetail: FC<{ state: ClearViewState }> = ({ state }) => {
   const parts: string[] = [];
   if (state.result.transactions > 0) parts.push(`${formatCount(state.result.transactions)} transactions`);
   if (state.result.links > 0) parts.push(`${formatCount(state.result.links)} links`);
-  if (state.result.lots > 0) parts.push(`${formatCount(state.result.lots)} lots`);
-  if (state.result.disposals > 0) parts.push(`${formatCount(state.result.disposals)} disposals`);
-  if (state.result.transfers > 0) parts.push(`${formatCount(state.result.transfers)} transfers`);
-  if (state.result.calculations > 0) parts.push(`${formatCount(state.result.calculations)} calculations`);
   if (state.result.accounts > 0) parts.push(`${formatCount(state.result.accounts)} accounts`);
   if (state.result.sessions > 0) parts.push(`${formatCount(state.result.sessions)} sessions`);
   if (state.result.rawData > 0) parts.push(`${formatCount(state.result.rawData)} raw items`);
