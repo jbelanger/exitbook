@@ -375,6 +375,23 @@ export class TransactionLinkRepository extends BaseRepository {
     }
   }
 
+  async getLatestCreatedAt(): Promise<Result<Date | null, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('transaction_links')
+        .select(({ fn }) => [fn.max<string>('created_at').as('latest')])
+        .executeTakeFirst();
+
+      if (!result?.latest) {
+        return ok(null);
+      }
+
+      return ok(new Date(result.latest));
+    } catch (error) {
+      return wrapError(error, 'Failed to get latest transaction link created_at');
+    }
+  }
+
   /**
    * Delete a transaction link
    *

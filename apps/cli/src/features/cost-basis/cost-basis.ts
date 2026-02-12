@@ -25,6 +25,7 @@ import {
 } from './components/index.js';
 import type { CostBasisResult } from './cost-basis-handler.js';
 import { CostBasisHandler } from './cost-basis-handler.js';
+import { ensureLinks, ensurePrices } from './cost-basis-prereqs.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.js';
 import { buildCostBasisParamsFromFlags, type CostBasisHandlerParams } from './cost-basis-utils.js';
 
@@ -148,8 +149,29 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
       const database = await ctx.database();
       const transactionRepo = new TransactionRepository(database);
       const linkRepo = new TransactionLinkRepository(database);
-      const handler = new CostBasisHandler(transactionRepo, linkRepo);
 
+      // Auto-run prerequisites
+      const linksResult = await ensureLinks(transactionRepo, linkRepo, ctx.dataDir, ctx, true);
+      if (linksResult.isErr()) {
+        displayCliError('cost-basis', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
+
+      const pricesResult = await ensurePrices(
+        transactionRepo,
+        linkRepo,
+        params.config.startDate,
+        params.config.endDate,
+        params.config.currency,
+        ctx,
+        true
+      );
+      if (pricesResult.isErr()) {
+        displayCliError('cost-basis', pricesResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
+
+      const handler = new CostBasisHandler(transactionRepo, linkRepo);
       const result = await handler.execute(params);
 
       if (result.isErr()) {
@@ -212,27 +234,52 @@ function outputCostBasisJSON(costBasisResult: CostBasisResult): void {
 
 async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<void> {
   try {
-    // Resolve params: interactive prompts or CLI flags
-    let params: CostBasisHandlerParams;
-    if (!options.method && !options.jurisdiction && !options.taxYear) {
-      const result = await promptForCostBasisParams();
-      if (!result) {
-        console.log('\nCost basis calculation cancelled');
-        return;
-      }
-      params = result;
-    } else {
-      params = unwrapResult(buildCostBasisParamsFromFlags(options));
-    }
-
-    const spinner = createSpinner('Calculating cost basis...', false);
-
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const transactionRepo = new TransactionRepository(database);
       const linkRepo = new TransactionLinkRepository(database);
-      const handler = new CostBasisHandler(transactionRepo, linkRepo);
 
+      // Step 1: Auto-run linking if stale (before prompts so DB is available)
+      const linksResult = await ensureLinks(transactionRepo, linkRepo, ctx.dataDir, ctx, false);
+      if (linksResult.isErr()) {
+        console.error(`\n\u26A0 Error: ${linksResult.error.message}`);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
+
+      // Step 2: Resolve params via interactive prompts or CLI flags
+      let params: CostBasisHandlerParams;
+      if (!options.method && !options.jurisdiction && !options.taxYear) {
+        const promptResult = await promptForCostBasisParams();
+        if (!promptResult) {
+          console.log('\nCost basis calculation cancelled');
+          return;
+        }
+        params = promptResult;
+      } else {
+        params = unwrapResult(buildCostBasisParamsFromFlags(options));
+      }
+
+      // Step 3: Auto-run price enrichment if missing (needs date range from params)
+      const pricesResult = await ensurePrices(
+        transactionRepo,
+        linkRepo,
+        params.config.startDate,
+        params.config.endDate,
+        params.config.currency,
+        ctx,
+        false
+      );
+      if (pricesResult.isErr()) {
+        console.error(`\n\u26A0 Error: ${pricesResult.error.message}`);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
+
+      // Step 4: Calculate cost basis
+      const spinner = createSpinner('Calculating cost basis...', false);
+
+      const handler = new CostBasisHandler(transactionRepo, linkRepo);
       const result = await handler.execute(params);
       stopSpinner(spinner);
 

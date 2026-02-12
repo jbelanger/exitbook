@@ -234,34 +234,39 @@ const AssetList: FC<{ state: CostBasisAssetState; terminalHeight: number }> = ({
   );
 };
 
-const AssetRow: FC<{ currency: string; isSelected: boolean; item: AssetCostBasisItem; }> = ({
+const AssetRow: FC<{ currency: string; isSelected: boolean; item: AssetCostBasisItem }> = ({
   item,
   currency,
   isSelected,
 }) => {
   const cursor = isSelected ? '\u25B8' : ' ';
-  const asset = item.asset.padEnd(10).substring(0, 10);
-  const disposals = `${item.disposalCount} ${item.disposalCount === 1 ? 'disposal' : 'disposals'}`;
   const gainLossColor = item.isGain ? 'green' : 'red';
+
+  // Format columns with fixed widths and breathing room
+  const asset = item.asset.padEnd(6);
+  const disposalCount = `${item.disposalCount}`.padStart(5);
+  const disposalLabel = item.disposalCount === 1 ? 'disposal ' : 'disposals';
+  const proceeds = item.totalProceeds.padStart(10);
+  const basis = item.totalCostBasis.padStart(10);
+  const gainLoss = formatSignedCurrency(item.totalGainLoss, currency);
 
   if (isSelected) {
     return (
       <Text bold>
-        {cursor} {asset} {disposals} proceeds {currency} {item.totalProceeds} basis {currency} {item.totalCostBasis}{' '}
-        {formatSignedCurrency(item.totalGainLoss, currency)}
+        {cursor} {asset} {disposalCount} {disposalLabel} proceeds: {proceeds} basis: {basis} gain/loss: {gainLoss}
       </Text>
     );
   }
 
   return (
     <Text>
-      {cursor} {asset} {item.disposalCount} <Text dimColor>{item.disposalCount === 1 ? 'disposal' : 'disposals'}</Text>
-      {'   '}
-      <Text dimColor>proceeds</Text> <Text dimColor>{currency}</Text> {item.totalProceeds}
-      {'   '}
-      <Text dimColor>basis</Text> <Text dimColor>{currency}</Text> {item.totalCostBasis}
-      {'   '}
-      <Text color={gainLossColor}>{formatSignedCurrency(item.totalGainLoss, currency)}</Text>
+      {cursor} {asset} {disposalCount} <Text dimColor>{disposalLabel}</Text>
+      {'  '}
+      <Text dimColor>proceeds:</Text> {proceeds}
+      {'  '}
+      <Text dimColor>basis:</Text> {basis}
+      {'  '}
+      <Text dimColor>gain/loss:</Text> <Text color={gainLossColor}>{gainLoss}</Text>
     </Text>
   );
 };
@@ -432,7 +437,7 @@ const DisposalList: FC<{ state: CostBasisDisposalState; terminalHeight: number }
   );
 };
 
-const DisposalRow: FC<{ currency: string; isSelected: boolean; isUS: boolean; item: DisposalViewItem; }> = ({
+const DisposalRow: FC<{ currency: string; isSelected: boolean; isUS: boolean; item: DisposalViewItem }> = ({
   item,
   currency,
   isUS,
@@ -440,7 +445,6 @@ const DisposalRow: FC<{ currency: string; isSelected: boolean; isUS: boolean; it
 }) => {
   const cursor = isSelected ? '\u25B8' : ' ';
   const gainLossColor = item.isGain ? 'green' : 'red';
-  const holdingDays = `${item.holdingPeriodDays}d`;
 
   const taxCategory =
     isUS && item.taxTreatmentCategory
@@ -450,11 +454,16 @@ const DisposalRow: FC<{ currency: string; isSelected: boolean; isUS: boolean; it
       : undefined;
   const taxCategoryColor = taxCategory === 'long-term' ? 'green' : 'yellow';
 
+  // Format columns with fixed widths
+  const date = item.disposalDate; // Already YYYY-MM-DD (10 chars)
+  const quantity = `${item.quantityDisposed} ${item.asset}`.padEnd(46);
+  const gainLoss = formatSignedCurrency(item.gainLoss, currency).padStart(15);
+  const holding = `${item.holdingPeriodDays}d`.padStart(5);
+
   if (isSelected) {
     return (
       <Text bold>
-        {cursor} {item.disposalDate} {item.quantityDisposed} {item.asset}{' '}
-        {formatSignedCurrency(item.gainLoss, currency)} {holdingDays}
+        {cursor} {date} {quantity} {gainLoss} {holding}
         {taxCategory ? `  ${taxCategory}` : ''}
       </Text>
     );
@@ -462,12 +471,8 @@ const DisposalRow: FC<{ currency: string; isSelected: boolean; isUS: boolean; it
 
   return (
     <Text>
-      {cursor} <Text dimColor>{item.disposalDate}</Text> <Text color="green">{item.quantityDisposed}</Text> {item.asset}
-      {'   '}
-      <Text color={gainLossColor}>{formatSignedCurrency(item.gainLoss, currency)}</Text>
-      {'   '}
-      {item.holdingPeriodDays}
-      <Text dimColor>d</Text>
+      {cursor} <Text dimColor>{date}</Text> <Text color="green">{quantity}</Text>{' '}
+      <Text color={gainLossColor}>{gainLoss}</Text> {holding}
       {taxCategory && (
         <>
           {'  '}

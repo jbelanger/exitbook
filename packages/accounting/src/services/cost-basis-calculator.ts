@@ -113,6 +113,15 @@ export class CostBasisCalculator {
 
       const lotMatchResult = matchResult.value;
 
+      // Filter disposals to reporting period. Lot matching processes the full
+      // history so that pre-period acquisitions are available, but only
+      // in-period disposals count for the tax report.
+      if (config.startDate) {
+        for (const assetResult of lotMatchResult.assetResults) {
+          assetResult.disposals = assetResult.disposals.filter((d) => d.disposalDate >= config.startDate!);
+        }
+      }
+
       // Apply jurisdiction-specific tax rules to calculate gains/losses
       const gainLossResult = calculateGainLoss(lotMatchResult.assetResults, rules);
 
@@ -145,7 +154,7 @@ export class CostBasisCalculator {
         assetsProcessed: Array.from(gainLoss.byAsset.keys()),
         transactionsProcessed: transactions.length,
         lotsCreated: lotMatchResult.totalLotsCreated,
-        disposalsProcessed: lotMatchResult.totalDisposalsProcessed,
+        disposalsProcessed: disposals.length,
         status: 'completed',
         createdAt: calculationDate,
         completedAt: new Date(),
@@ -154,7 +163,7 @@ export class CostBasisCalculator {
       return ok({
         calculation: completedCalculation,
         lotsCreated: lotMatchResult.totalLotsCreated,
-        disposalsProcessed: lotMatchResult.totalDisposalsProcessed,
+        disposalsProcessed: disposals.length,
         totalCapitalGainLoss: gainLoss.totalCapitalGainLoss,
         totalTaxableGainLoss: gainLoss.totalTaxableGainLoss,
         assetsProcessed: Array.from(gainLoss.byAsset.keys()),

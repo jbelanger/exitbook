@@ -411,6 +411,23 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
+  async getLatestCreatedAt(): Promise<Result<Date | null, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('transactions')
+        .select(({ fn }) => [fn.max<string>('created_at').as('latest')])
+        .executeTakeFirst();
+
+      if (!result?.latest) {
+        return ok(null);
+      }
+
+      return ok(new Date(result.latest));
+    } catch (error) {
+      return wrapError(error, 'Failed to get latest transaction created_at');
+    }
+  }
+
   async deleteAll(): Promise<Result<number, Error>> {
     try {
       const result = await this.db.deleteFrom('transactions').executeTakeFirst();

@@ -1,5 +1,5 @@
 import { Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { LotMatcher } from '../lot-matcher.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
@@ -1244,6 +1244,166 @@ describe('LotMatcher - Fee Handling', () => {
         // XYZ gets $0 fee allocation (has no value in proportional calculation)
         const xyzLot = xyzResult!.lots[0]!;
         expect(xyzLot.totalCostBasis.toString()).toBe('0');
+      }
+    });
+  });
+
+  describe('Blockchain internal links (UTXO change outputs)', () => {
+    it('should exclude blockchain_internal links from disposals/acquisitions', async () => {
+      // Setup: Buy 1 BTC at an exchange
+      // Then: Bitcoin transaction with change output (blockchain_internal link)
+      // The change output should NOT create a disposal or acquisition
+      const transactions: UniversalTransactionData[] = [
+        {
+          id: 1,
+          accountId: 1,
+          externalId: 'tx1',
+          datetime: '2024-01-01T00:00:00Z',
+          timestamp: Date.parse('2024-01-01T00:00:00Z'),
+          source: 'exchange',
+          sourceType: 'exchange',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                assetId: 'test:btc',
+                assetSymbol: 'BTC',
+                grossAmount: parseDecimal('1'),
+                priceAtTxTime: createPriceAtTxTime('50000'),
+              },
+            ],
+            outflows: [],
+          },
+          fees: [],
+          operation: {
+            category: 'trade',
+            type: 'buy',
+          },
+        },
+        // UTXO change output (should be excluded)
+        {
+          id: 2,
+          accountId: 2, // Different address in same wallet
+          externalId: 'tx2-change',
+          datetime: '2024-02-01T00:00:00Z',
+          timestamp: Date.parse('2024-02-01T00:00:00Z'),
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          status: 'success',
+          movements: {
+            outflows: [
+              {
+                assetId: 'bitcoin:btc',
+                assetSymbol: 'BTC',
+                grossAmount: parseDecimal('0.5'), // Change output
+                priceAtTxTime: createPriceAtTxTime('55000'),
+              },
+            ],
+            inflows: [],
+          },
+          fees: [],
+          operation: {
+            category: 'transfer',
+            type: 'withdrawal',
+          },
+        },
+        // UTXO change input (should also be excluded)
+        {
+          id: 3,
+          accountId: 3, // Different address in same wallet
+          externalId: 'tx3-change',
+          datetime: '2024-02-01T00:00:01Z',
+          timestamp: Date.parse('2024-02-01T00:00:01Z'),
+          source: 'bitcoin',
+          sourceType: 'blockchain',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                assetId: 'bitcoin:btc',
+                assetSymbol: 'BTC',
+                grossAmount: parseDecimal('0.5'), // Change input
+                priceAtTxTime: createPriceAtTxTime('55000'),
+              },
+            ],
+            outflows: [],
+          },
+          fees: [],
+          operation: {
+            category: 'transfer',
+            type: 'deposit',
+          },
+        },
+      ];
+
+      // Mock blockchain_internal link between tx2 and tx3
+      const link: import('../../linking/types.js').TransactionLink = {
+        id: 'link1',
+        sourceTransactionId: 2,
+        targetTransactionId: 3,
+        assetSymbol: 'BTC',
+        sourceAmount: parseDecimal('0.5'),
+        targetAmount: parseDecimal('0.5'),
+        linkType: 'blockchain_internal', // This is the key - UTXO change
+        confidenceScore: parseDecimal('100'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('1'),
+          timingValid: true,
+          timingHours: 0.0002,
+          hashMatch: true,
+        },
+        status: 'confirmed',
+        createdAt: new Date('2024-02-01'),
+        updatedAt: new Date('2024-02-01'),
+      };
+
+      const mockTransactionRepo = () => {
+        const repo: Partial<import('@exitbook/data').TransactionRepository> = {
+          findById: vi.fn().mockImplementation((id: number) => {
+            const tx = transactions.find((t) => t.id === id);
+            return tx
+              ? { isOk: () => true, isErr: () => false, value: tx }
+              : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
+          }),
+        };
+        return repo as import('@exitbook/data').TransactionRepository;
+      };
+
+      const mockLinkRepo = () => {
+        const repo: Partial<import('../../persistence/transaction-link-repository.js').TransactionLinkRepository> = {
+          findAll: vi.fn().mockResolvedValue({
+            isOk: () => true,
+            isErr: () => false,
+            value: [link],
+          }),
+        };
+        return repo as import('../../persistence/transaction-link-repository.js').TransactionLinkRepository;
+      };
+
+      const matcherWithLinks = new LotMatcher(mockTransactionRepo(), mockLinkRepo());
+
+      const result = await matcherWithLinks.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
+        expect(btcResult).toBeDefined();
+
+        // Should have 1 acquisition lot from tx1 only
+        expect(btcResult!.lots).toHaveLength(1);
+        expect(btcResult!.lots[0]!.acquisitionTransactionId).toBe(1);
+        expect(btcResult!.lots[0]!.quantity.toString()).toBe('1');
+
+        // Should have 0 disposals (blockchain_internal links are excluded)
+        expect(btcResult!.disposals).toHaveLength(0);
+
+        // Should have 0 transfers (blockchain_internal links are excluded)
+        expect(btcResult!.lotTransfers).toHaveLength(0);
       }
     });
   });

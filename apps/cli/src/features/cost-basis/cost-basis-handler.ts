@@ -16,12 +16,7 @@ import { err, ok, type Result } from 'neverthrow';
 import { getDataDir } from '../shared/data-dir.js';
 
 import type { CostBasisHandlerParams } from './cost-basis-utils.js';
-import {
-  filterTransactionsByDateRange,
-  getJurisdictionRules,
-  validateCostBasisParams,
-  validateTransactionPrices,
-} from './cost-basis-utils.js';
+import { getJurisdictionRules, validateCostBasisParams, validateTransactionPrices } from './cost-basis-utils.js';
 
 // Re-export for convenience
 export type { CostBasisHandlerParams };
@@ -69,7 +64,7 @@ export class CostBasisHandler {
       logger.debug({ config }, 'Starting cost basis calculation');
 
       // 1. Fetch and filter transactions
-      const txResult = await this.validateAndGetTransactions(config);
+      const txResult = await this.loadTransactionsInReportWindow(config);
       if (txResult.isErr()) {
         return err(txResult.error);
       }
@@ -128,7 +123,7 @@ export class CostBasisHandler {
   /**
    * Fetch, filter, and validate transactions for cost basis
    */
-  private async validateAndGetTransactions(
+  private async loadTransactionsInReportWindow(
     config: CostBasisHandlerParams['config']
   ): Promise<Result<{ missingPricesCount: number; validTransactions: UniversalTransactionData[] }, Error>> {
     // Guard against any non-CLI callers that bypass validation.
@@ -149,19 +144,21 @@ export class CostBasisHandler {
       );
     }
 
-    // Filter by date range (dates are enforced by type + upstream validation)
-    const filteredTransactions = filterTransactionsByDateRange(allTransactions, config.startDate, config.endDate);
+    // Include all transactions up to end of reporting period.
+    // Pre-period acquisitions are needed to build the lot pool — e.g. a 2023 buy
+    // must exist so a 2024 transfer/disposal can match against it.
+    // The calculator filters output disposals to [startDate, endDate] for reporting.
+    const transactionsUpToEndDate = allTransactions.filter((tx) => {
+      const txDate = new Date(tx.timestamp);
+      return txDate <= config.endDate;
+    });
 
-    if (filteredTransactions.length === 0) {
-      return err(
-        new Error(
-          `No transactions found in the date range ${config.startDate.toISOString().split('T')[0]} to ${config.endDate.toISOString().split('T')[0]}`
-        )
-      );
+    if (transactionsUpToEndDate.length === 0) {
+      return err(new Error(`No transactions found on or before ${config.endDate.toISOString().split('T')[0]}`));
     }
 
     // Validate prices
-    const validationResult = validateTransactionPrices(filteredTransactions, config.currency);
+    const validationResult = validateTransactionPrices(transactionsUpToEndDate, config.currency);
     if (validationResult.isErr()) {
       return err(validationResult.error);
     }

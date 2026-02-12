@@ -115,9 +115,9 @@ describe('CostBasisHandler', () => {
       }
     });
 
-    it('should return error if date filtering leaves no transactions', async () => {
+    it('should return error if all transactions are after endDate', async () => {
       const dbTransactions = [
-        { timestamp: new Date('2023-01-01').getTime(), movements: { inflows: [], outflows: [] } },
+        { timestamp: new Date('2025-06-01').getTime(), movements: { inflows: [], outflows: [] } },
       ] as unknown as UniversalTransactionData[];
 
       vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok(dbTransactions));
@@ -126,7 +126,7 @@ describe('CostBasisHandler', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('No transactions found in the date range');
+        expect(result.error.message).toContain('No transactions found on or before');
       }
     });
 

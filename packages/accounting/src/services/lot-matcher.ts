@@ -109,15 +109,14 @@ export class LotMatcher {
       }
 
       // Load confirmed transaction links (≥95% confidence) if repository is available
+      // Include blockchain_internal links so we can skip them during matching
       let confirmedLinks: TransactionLink[] = [];
       if (this.linkRepository) {
         const linksResult = await this.linkRepository.findAll('confirmed');
         if (linksResult.isErr()) {
           return err(linksResult.error);
         }
-        confirmedLinks = linksResult.value.filter(
-          (link) => link.confidenceScore.gte(0.95) && link.linkType !== 'blockchain_internal'
-        );
+        confirmedLinks = linksResult.value.filter((link) => link.confidenceScore.gte(0.95));
         this.logger.debug({ linkCount: confirmedLinks.length }, 'Loaded confirmed transaction links for lot matching');
       }
 
@@ -196,6 +195,17 @@ export class LotMatcher {
             const link = linkIndex.findBySource(tx.id, outflow.assetSymbol, outflow.grossAmount);
 
             if (link) {
+              // Skip blockchain_internal links - these are UTXO change outputs within the same wallet
+              // They should not create disposals or transfers for cost basis calculations
+              if (link.linkType === 'blockchain_internal') {
+                this.logger.debug(
+                  { txId: tx.id, asset: assetSymbol, amount: outflow.grossAmount.toFixed() },
+                  'Skipping blockchain_internal outflow link'
+                );
+                linkIndex.consumeSourceLink(link);
+                continue;
+              }
+
               // Handle transfer source
               const transferResult = this.handleTransferSource(tx, outflow, link, lots, config, config.calculationId);
               if (transferResult.isErr()) {
@@ -227,6 +237,14 @@ export class LotMatcher {
           // Check if this transaction is a transfer target
           const link = linkIndex.findByTarget(tx.id, assetSymbol);
           if (link) {
+            // Skip blockchain_internal links - these are UTXO change inputs within the same wallet
+            // They should not create acquisition lots for cost basis calculations
+            if (link.linkType === 'blockchain_internal') {
+              this.logger.debug({ txId: tx.id, asset: assetSymbol }, 'Skipping blockchain_internal inflow link');
+              linkIndex.consumeTargetLink(link);
+              continue;
+            }
+
             // Aggregate all inflows of this asset for transfer targets
             // Use netAmount for consistency with link.targetAmount (net received amount)
             const totalAmount = assetInflows.reduce(
