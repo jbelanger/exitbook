@@ -15,13 +15,8 @@ import { buildViewMeta, parseDate } from '../shared/view-utils.js';
 
 import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from './components/index.js';
 import type { ExportCallbackResult, OnExport } from './components/index.js';
-import type { TransactionInfo, ViewTransactionsParams, ViewTransactionsResult } from './transactions-view-utils.js';
-import {
-  applyTransactionFilters,
-  formatTransactionForDisplay,
-  generateDefaultPath,
-  toTransactionViewItem,
-} from './transactions-view-utils.js';
+import type { ViewTransactionsParams } from './transactions-view-utils.js';
+import { applyTransactionFilters, generateDefaultPath, toTransactionViewItem } from './transactions-view-utils.js';
 
 /**
  * Command options (validated at CLI boundary).
@@ -31,7 +26,9 @@ export type CommandOptions = z.infer<typeof TransactionsViewCommandOptionsSchema
 /**
  * Result data for view transactions command (JSON mode).
  */
-type ViewTransactionsCommandResult = ViewCommandResult<TransactionInfo[]>;
+type ViewTransactionsCommandResult = ViewCommandResult<
+  import('./components/transactions-view-state.js').TransactionViewItem[]
+>;
 
 /**
  * Register the transactions view subcommand.
@@ -275,13 +272,10 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
         transactions = transactions.slice(0, params.limit);
       }
 
-      // Build result
-      const result: ViewTransactionsResult = {
-        transactions: transactions.map((tx) => formatTransactionForDisplay(tx)),
-        count: transactions.length,
-      };
+      // Build result with full transaction details (same as TUI)
+      const viewItems = transactions.map(toTransactionViewItem);
 
-      handleViewTransactionsJSON(result, params, totalCount);
+      handleViewTransactionsJSON(viewItems, params, totalCount);
     });
   } catch (error) {
     displayCliError(
@@ -297,12 +291,10 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
  * Handle successful view transactions (JSON mode).
  */
 function handleViewTransactionsJSON(
-  result: ViewTransactionsResult,
+  viewItems: import('./components/transactions-view-state.js').TransactionViewItem[],
   params: ViewTransactionsParams,
   totalCount: number
 ): void {
-  const { transactions, count } = result;
-
   // Prepare result data for JSON mode
   const filters: Record<string, unknown> = {};
   if (params.source) filters['source'] = params.source;
@@ -313,8 +305,8 @@ function handleViewTransactionsJSON(
   if (params.noPrice) filters['noPrice'] = params.noPrice;
 
   const resultData: ViewTransactionsCommandResult = {
-    data: transactions,
-    meta: buildViewMeta(count, 0, params.limit || 50, totalCount, filters),
+    data: viewItems,
+    meta: buildViewMeta(viewItems.length, 0, params.limit || 50, totalCount, filters),
   };
 
   outputSuccess('view-transactions', resultData);

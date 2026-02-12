@@ -40,6 +40,10 @@ export interface CostBasisResult {
   missingPricesWarning?: string | undefined;
   /** Report with display currency conversion (if displayCurrency != USD) */
   report?: CostBasisReport | undefined;
+  /** Lots created during calculation (for detailed JSON output) */
+  lots: import('@exitbook/accounting').AcquisitionLot[];
+  /** Disposals processed during calculation (for detailed JSON output) */
+  disposals: import('@exitbook/accounting').LotDisposal[];
 }
 
 /**
@@ -100,7 +104,21 @@ export class CostBasisHandler {
         'Cost basis calculation completed'
       );
 
-      // 3. Generate optional report with currency conversion
+      // 3. Load lots and disposals for detailed output
+      const lotsResult = await this.costBasisRepository.findLotsByCalculationId(summary.calculation.id);
+      const disposalsResult = await this.costBasisRepository.findDisposalsByCalculationId(summary.calculation.id);
+
+      if (lotsResult.isErr()) {
+        return err(lotsResult.error);
+      }
+      if (disposalsResult.isErr()) {
+        return err(disposalsResult.error);
+      }
+
+      const lots = lotsResult.value;
+      const disposals = disposalsResult.value;
+
+      // 4. Generate optional report with currency conversion
       let report: CostBasisReport | undefined;
       if (config.currency !== 'USD') {
         const reportResult = await this.generateReport(summary.calculation.id, config.currency);
@@ -110,7 +128,7 @@ export class CostBasisHandler {
         report = reportResult.value;
       }
 
-      // 4. Build result
+      // 5. Build result
       return ok({
         summary,
         missingPricesWarning:
@@ -118,6 +136,8 @@ export class CostBasisHandler {
             ? `${missingPricesCount} transactions were excluded due to missing prices. Run 'exitbook prices fetch' to populate missing prices.`
             : undefined,
         report,
+        lots,
+        disposals,
       });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));

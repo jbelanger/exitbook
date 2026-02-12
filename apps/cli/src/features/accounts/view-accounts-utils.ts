@@ -14,33 +14,6 @@ export interface ViewAccountsParams extends CommonViewFilters {
   showSessions?: boolean | undefined;
 }
 
-/**
- * Account info for display.
- */
-export interface AccountInfo {
-  id: number;
-  accountType: AccountType;
-  sourceName: string;
-  identifier: string;
-  parentAccountId?: number | undefined;
-  providerName?: string | undefined;
-  lastBalanceCheckAt?: string | undefined;
-  verificationStatus?: 'match' | 'mismatch' | 'never-checked' | undefined;
-  sessionCount: number | undefined;
-  childAccounts?: AccountInfo[] | undefined;
-  createdAt: string;
-}
-
-/**
- * Session summary for display (minimal info).
- */
-export interface SessionSummary {
-  id: number;
-  status: 'started' | 'completed' | 'failed' | 'cancelled';
-  startedAt: string;
-  completedAt?: string | undefined;
-}
-
 // ─── TUI Transformation Utilities ───────────────────────────────────────────
 
 /**

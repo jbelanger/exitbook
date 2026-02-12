@@ -328,6 +328,13 @@ const LinkDetailPanel: FC<{ state: LinksViewLinksState }> = ({ state }) => {
         <Text dimColor>Match: </Text>
         {formatMatchCriteria(link.matchCriteria)}
       </Text>
+      {(link.matchCriteria.hashMatch === true || link.linkType === 'blockchain_internal') &&
+        !link.sourceAmount.equals(link.targetAmount) && (
+          <Text>
+            {'  '}
+            <Text dimColor>Note: Amounts differ (UTXO change/fees or multi-output transaction)</Text>
+          </Text>
+        )}
     </Box>
   );
 };
@@ -730,15 +737,27 @@ function getConfidenceColor(score: number): string {
 function formatMatchCriteria(criteria: MatchCriteria): string {
   const parts: string[] = [];
 
+  // For hash matches, emphasize that over amount similarity
+  if (criteria.hashMatch === true) {
+    parts.push('hash');
+  }
+
   if (criteria.assetMatch) {
     parts.push('asset');
   }
 
+  // For hash matches with perfect similarity, show differently to avoid confusion
   const amountSimilarity =
     typeof criteria.amountSimilarity === 'string'
       ? parseFloat(criteria.amountSimilarity)
       : criteria.amountSimilarity.toNumber();
-  parts.push(`amount ${(amountSimilarity * 100).toFixed(1)}%`);
+
+  if (criteria.hashMatch === true && amountSimilarity === 1.0) {
+    // Don't show "amount 100%" for hash matches - it's misleading for UTXO transactions
+    // The hash match already validates the connection
+  } else {
+    parts.push(`amount ${(amountSimilarity * 100).toFixed(1)}%`);
+  }
 
   if (criteria.timingValid) {
     const timingHours =

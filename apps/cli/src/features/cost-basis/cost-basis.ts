@@ -58,16 +58,52 @@ interface CostBasisCommandResult {
     endDate: string;
     startDate: string;
   };
-  results: {
+  summary: {
     assetsProcessed: string[];
     disposalsProcessed: number;
+    longTermGainLoss?: string | undefined;
     lotsCreated: number;
+    shortTermGainLoss?: string | undefined;
     totalCostBasis: string;
     totalGainLoss: string;
     totalProceeds: string;
     totalTaxableGainLoss: string;
     transactionsProcessed: number;
   };
+  assets: {
+    asset: string;
+    avgHoldingDays: number;
+    disposalCount: number;
+    disposals: {
+      acquisitionDate: string;
+      acquisitionTransactionId: number;
+      asset: string;
+      costBasisPerUnit: string;
+      disposalDate: string;
+      disposalTransactionId: number;
+      fxConversion?: { fxRate: string; fxSource: string } | undefined;
+      gainLoss: string;
+      holdingPeriodDays: number;
+      id: string;
+      isGain: boolean;
+      proceedsPerUnit: string;
+      quantityDisposed: string;
+      taxTreatmentCategory?: string | undefined;
+      totalCostBasis: string;
+      totalProceeds: string;
+    }[];
+    isGain: boolean;
+    longestHoldingDays: number;
+    longTermCount?: number | undefined;
+    longTermGainLoss?: string | undefined;
+    shortestHoldingDays: number;
+    shortTermCount?: number | undefined;
+    shortTermGainLoss?: string | undefined;
+    totalCostBasis: string;
+    totalGainLoss: string;
+    totalProceeds: string;
+    totalTaxableGainLoss: string;
+  }[];
   missingPricesWarning?: string | undefined;
 }
 
@@ -188,6 +224,23 @@ async function executeCostBasisViewJSON(options: CommandOptions): Promise<void> 
       }
 
       const currency = calculation.config.currency;
+      const jurisdiction = calculation.config.jurisdiction;
+
+      // Load lots and disposals for detailed breakdown
+      const lotsResult = await costBasisRepo.findLotsByCalculationId(calculationId);
+      const disposalsResult = await costBasisRepo.findDisposalsByCalculationId(calculationId);
+
+      if (lotsResult.isErr()) {
+        displayCliError('cost-basis', lotsResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
+      if (disposalsResult.isErr()) {
+        displayCliError('cost-basis', disposalsResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
+
+      const lots = lotsResult.value;
+      const disposals = disposalsResult.value;
 
       let report: CostBasisReport | undefined;
       if (currency !== 'USD') {
@@ -197,33 +250,34 @@ async function executeCostBasisViewJSON(options: CommandOptions): Promise<void> 
         }
       }
 
-      const totals = report?.summary ?? {
-        totalProceeds: calculation.totalProceeds,
-        totalCostBasis: calculation.totalCostBasis,
-        totalGainLoss: calculation.totalGainLoss,
-        totalTaxableGainLoss: calculation.totalTaxableGainLoss,
-      };
+      // Build detailed asset breakdown (same as TUI)
+      const assetItems = buildAssetCostBasisItems(lots, disposals, jurisdiction, currency, report);
+      const sortedAssets = sortAssetsByAbsGainLoss(assetItems);
+      const summaryTotals = computeSummaryTotals(sortedAssets, jurisdiction);
 
       const resultData: CostBasisCommandResult = {
         calculationId: calculation.id,
         method: calculation.config.method,
-        jurisdiction: calculation.config.jurisdiction,
+        jurisdiction,
         taxYear: calculation.config.taxYear,
         currency,
         dateRange: {
           startDate: calculation.startDate?.toISOString().split('T')[0] ?? '',
           endDate: calculation.endDate?.toISOString().split('T')[0] ?? '',
         },
-        results: {
+        summary: {
           lotsCreated: calculation.lotsCreated,
           disposalsProcessed: calculation.disposalsProcessed,
           assetsProcessed: calculation.assetsProcessed,
           transactionsProcessed: calculation.transactionsProcessed,
-          totalProceeds: totals.totalProceeds.toFixed(),
-          totalCostBasis: totals.totalCostBasis.toFixed(),
-          totalGainLoss: totals.totalGainLoss.toFixed(),
-          totalTaxableGainLoss: totals.totalTaxableGainLoss.toFixed(),
+          totalProceeds: summaryTotals.totalProceeds,
+          totalCostBasis: summaryTotals.totalCostBasis,
+          totalGainLoss: summaryTotals.totalGainLoss,
+          totalTaxableGainLoss: summaryTotals.totalTaxableGainLoss,
+          ...(summaryTotals.shortTermGainLoss ? { shortTermGainLoss: summaryTotals.shortTermGainLoss } : {}),
+          ...(summaryTotals.longTermGainLoss ? { longTermGainLoss: summaryTotals.longTermGainLoss } : {}),
         },
+        assets: sortedAssets,
       };
 
       outputSuccess('cost-basis', resultData);
@@ -239,35 +293,38 @@ async function executeCostBasisViewJSON(options: CommandOptions): Promise<void> 
 }
 
 function outputCostBasisJSON(costBasisResult: CostBasisResult): void {
-  const { summary, missingPricesWarning, report } = costBasisResult;
+  const { summary, missingPricesWarning, report, lots, disposals } = costBasisResult;
   const currency = summary.calculation.config.currency;
-  const totals = report?.summary ?? {
-    totalProceeds: summary.calculation.totalProceeds,
-    totalCostBasis: summary.calculation.totalCostBasis,
-    totalGainLoss: summary.calculation.totalGainLoss,
-    totalTaxableGainLoss: summary.calculation.totalTaxableGainLoss,
-  };
+  const jurisdiction = summary.calculation.config.jurisdiction;
+
+  // Build detailed asset breakdown (same as TUI)
+  const assetItems = buildAssetCostBasisItems(lots, disposals, jurisdiction, currency, report);
+  const sortedAssets = sortAssetsByAbsGainLoss(assetItems);
+  const summaryTotals = computeSummaryTotals(sortedAssets, jurisdiction);
 
   const resultData: CostBasisCommandResult = {
     calculationId: summary.calculation.id,
     method: summary.calculation.config.method,
-    jurisdiction: summary.calculation.config.jurisdiction,
+    jurisdiction,
     taxYear: summary.calculation.config.taxYear,
     currency,
     dateRange: {
       startDate: summary.calculation.startDate?.toISOString().split('T')[0] ?? '',
       endDate: summary.calculation.endDate?.toISOString().split('T')[0] ?? '',
     },
-    results: {
+    summary: {
       lotsCreated: summary.lotsCreated,
       disposalsProcessed: summary.disposalsProcessed,
       assetsProcessed: summary.assetsProcessed,
       transactionsProcessed: summary.calculation.transactionsProcessed,
-      totalProceeds: totals.totalProceeds.toFixed(),
-      totalCostBasis: totals.totalCostBasis.toFixed(),
-      totalGainLoss: totals.totalGainLoss.toFixed(),
-      totalTaxableGainLoss: totals.totalTaxableGainLoss.toFixed(),
+      totalProceeds: summaryTotals.totalProceeds,
+      totalCostBasis: summaryTotals.totalCostBasis,
+      totalGainLoss: summaryTotals.totalGainLoss,
+      totalTaxableGainLoss: summaryTotals.totalTaxableGainLoss,
+      ...(summaryTotals.shortTermGainLoss ? { shortTermGainLoss: summaryTotals.shortTermGainLoss } : {}),
+      ...(summaryTotals.longTermGainLoss ? { longTermGainLoss: summaryTotals.longTermGainLoss } : {}),
     },
+    assets: sortedAssets,
     missingPricesWarning,
   };
 

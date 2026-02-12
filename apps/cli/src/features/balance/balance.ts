@@ -148,7 +148,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
           }
         );
       } else if (options.accountId) {
-        // Single-account online JSON (preserves existing format)
+        // Single-account online JSON
         const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
         const balanceService = new BalanceService(
           accountRepo,
@@ -171,33 +171,48 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
           const result = await balanceService.verifyBalance({ accountId: options.accountId, credentials });
           if (result.isErr()) {
             outputError('balance', result.error, ExitCodes.GENERAL_ERROR);
+            return;
           }
 
           const vr = result.value;
-          const streamMetadata = extractStreamMetadata(vr.account);
-          outputSuccess('balance', {
-            status: vr.status,
-            balances: vr.comparisons.map((c) => ({
+          const account = vr.account;
+
+          // Build diagnostics for each asset
+          const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);
+          const balances = vr.comparisons.map((c) => {
+            const diagnostics = buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, account.id, {
+              liveBalance: c.liveBalance,
+              calculatedBalance: c.calculatedBalance,
+            });
+
+            return {
               assetId: c.assetId,
-              currency: c.currency,
+              assetSymbol: c.assetSymbol,
               calculatedBalance: c.calculatedBalance,
               liveBalance: c.liveBalance,
               difference: c.difference,
               percentageDiff: c.percentageDiff,
               status: c.status,
-            })),
+              diagnostics,
+            };
+          });
+
+          const streamMetadata = extractStreamMetadata(account);
+          outputSuccess('balance', {
+            status: vr.status,
+            balances,
             summary: vr.summary,
             source: {
-              type: (vr.account.accountType === 'blockchain' ? 'blockchain' : 'exchange') as string,
-              name: vr.account.sourceName,
-              address: vr.account.accountType === 'blockchain' ? vr.account.identifier : undefined,
+              type: (account.accountType === 'blockchain' ? 'blockchain' : 'exchange') as string,
+              name: account.sourceName,
+              address: account.accountType === 'blockchain' ? account.identifier : undefined,
             },
             account: {
-              id: vr.account.id,
-              type: vr.account.accountType,
-              sourceName: vr.account.sourceName,
-              identifier: vr.account.identifier,
-              providerName: vr.account.providerName,
+              id: account.id,
+              type: account.accountType,
+              sourceName: account.sourceName,
+              identifier: account.identifier,
+              providerName: account.providerName,
             },
             meta: {
               timestamp: new Date(vr.timestamp).toISOString(),
@@ -266,9 +281,29 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
             matchTotal += vr.summary.matches;
             mismatchTotal += vr.summary.mismatches + vr.summary.warnings;
 
-            // Derive account status from asset comparisons (not hardcoded 'success')
-            const hasMismatch = vr.comparisons.some((c) => c.status === 'mismatch');
-            const hasWarning = vr.comparisons.some((c) => c.status === 'warning');
+            // Build diagnostics for each asset
+            const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);
+            const comparisons = vr.comparisons.map((c) => {
+              const diagnostics = buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, account.id, {
+                liveBalance: c.liveBalance,
+                calculatedBalance: c.calculatedBalance,
+              });
+
+              return {
+                assetId: c.assetId,
+                assetSymbol: c.assetSymbol,
+                calculatedBalance: c.calculatedBalance,
+                liveBalance: c.liveBalance,
+                difference: c.difference,
+                percentageDiff: c.percentageDiff,
+                status: c.status,
+                diagnostics,
+              };
+            });
+
+            // Derive account status from asset comparisons
+            const hasMismatch = comparisons.some((c) => c.status === 'mismatch');
+            const hasWarning = comparisons.some((c) => c.status === 'warning');
 
             let accountStatus: 'failed' | 'warning' | 'success';
             if (hasMismatch) {
@@ -285,15 +320,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
               accountType: account.accountType,
               status: accountStatus,
               summary: vr.summary,
-              comparisons: vr.comparisons.map((c) => ({
-                assetId: c.assetId,
-                assetSymbol: c.assetSymbol,
-                calculatedBalance: c.calculatedBalance,
-                liveBalance: c.liveBalance,
-                difference: c.difference,
-                percentageDiff: c.percentageDiff,
-                status: c.status,
-              })),
+              comparisons,
             });
           }
 

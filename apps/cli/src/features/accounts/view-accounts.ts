@@ -13,7 +13,7 @@ import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta } from '../shared/view-utils.js';
 
 import { AccountsViewApp, computeTypeCounts, createAccountsViewState } from './components/index.js';
-import type { AccountInfo, SessionSummary, ViewAccountsParams } from './view-accounts-utils.js';
+import type { ViewAccountsParams } from './view-accounts-utils.js';
 import { toAccountViewItem } from './view-accounts-utils.js';
 
 /**
@@ -24,12 +24,7 @@ export type CommandOptions = z.infer<typeof AccountsViewCommandOptionsSchema>;
 /**
  * Result data for view accounts command (JSON mode).
  */
-interface ViewAccountsCommandResultData {
-  accounts: AccountInfo[];
-  sessions?: Record<string, SessionSummary[]> | undefined;
-}
-
-type ViewAccountsCommandResult = ViewCommandResult<ViewAccountsCommandResultData>;
+type ViewAccountsCommandResult = ViewCommandResult<import('./components/accounts-view-state.js').AccountViewItem[]>;
 
 /**
  * Register the accounts view subcommand.
@@ -194,23 +189,17 @@ async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void
 
       const { accounts, count, sessions } = result.value;
 
+      // Transform to AccountViewItem format with nested sessions and children (same as TUI)
+      const viewItems = accounts.map((account) => toAccountViewItem(account, sessions));
+
       const filters: Record<string, unknown> = {
         ...(params.accountId && { accountId: params.accountId }),
         ...(params.source && { source: params.source }),
         ...(params.accountType && { accountType: params.accountType }),
       };
 
-      const sessionsRecord: Record<string, SessionSummary[]> | undefined = sessions
-        ? Object.fromEntries(Array.from(sessions.entries()).map(([key, value]) => [key.toString(), value]))
-        : undefined;
-
-      const data: ViewAccountsCommandResultData = {
-        accounts,
-        sessions: params.showSessions ? sessionsRecord : undefined,
-      };
-
       const resultData: ViewAccountsCommandResult = {
-        data,
+        data: viewItems,
         meta: buildViewMeta(count, 0, count, count, filters),
       };
 
