@@ -191,8 +191,9 @@ export class LotMatcher {
         for (const outflow of outflows) {
           if (outflow.assetSymbol === assetSymbol) {
             // Check if this outflow is part of a confirmed transfer
-            // Use grossAmount for link matching (link index stores gross amounts from extractPrimaryAmount)
-            const link = linkIndex.findBySource(tx.id, outflow.assetSymbol, outflow.grossAmount);
+            // Use netAmount (fallback grossAmount) for link matching — link sourceAmount is stored
+            // from candidate amount which uses the same netAmount ?? grossAmount precedence
+            const link = linkIndex.findBySource(tx.id, outflow.assetSymbol, outflow.netAmount ?? outflow.grossAmount);
 
             if (link) {
               // Skip blockchain_internal links - these are UTXO change outputs within the same wallet
