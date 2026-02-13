@@ -112,10 +112,10 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
 }
 
 /**
- * Execute coverage view in TUI mode (read-only)
+ * Execute coverage view in TUI mode (keeps DB open for drill-down into missing mode)
  */
 async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
-  const { TransactionRepository } = await import('@exitbook/data');
+  const { TransactionRepository, OverrideStore } = await import('@exitbook/data');
 
   try {
     await runCommand(async (ctx) => {
@@ -137,8 +137,6 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
         return;
       }
 
-      await ctx.closeDatabase();
-
       const initialState = createCoverageViewState(
         detailResult.value,
         summaryResult.value.summary,
@@ -146,9 +144,27 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
         params.source
       );
 
+      // Drill-down callback: load missing prices for a specific asset
+      const handleLoadMissing = async (asset: string) => {
+        const result = await handler.executeMissing({ ...params, asset });
+        if (result.isErr()) throw result.error;
+        return result.value;
+      };
+
+      // Set-price callback (used after drilling into missing mode)
+      const overrideStore = new OverrideStore(ctx.dataDir);
+      const pricesSetHandler = new PricesSetHandler(path.join(ctx.dataDir, 'prices.db'), overrideStore);
+
+      const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
+        const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
+        if (result.isErr()) throw result.error;
+      };
+
       await renderApp((unmount) =>
         React.createElement(PricesViewApp, {
           initialState,
+          onLoadMissing: handleLoadMissing,
+          onSetPrice: handleSetPrice,
           onQuit: unmount,
         })
       );

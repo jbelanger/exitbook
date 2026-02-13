@@ -5,7 +5,7 @@ import {
   type TransactionLink,
   type TransactionLinkRepository,
 } from '@exitbook/accounting';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import { applyLinkOverrides, type OrphanedLinkOverride, type OverrideStore } from '@exitbook/data';
 import type { TransactionRepository } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
@@ -263,7 +263,7 @@ export class LinksRunHandler {
    */
   private async applyOverrides(
     links: TransactionLink[],
-    transactions: { externalId: string; id: number; source: string }[]
+    transactions: UniversalTransactionData[]
   ): Promise<TransactionLink[]> {
     if (!this.overrideStore) return links;
 
@@ -296,8 +296,20 @@ export class LinksRunHandler {
 
       // Create new confirmed links for orphaned overrides (algorithm didn't rediscover the pair)
       for (const entry of orphaned) {
-        const newLink = this.buildLinkFromOrphanedOverride(entry);
-        typedLinks.push(newLink);
+        const linkResult = this.buildLinkFromOrphanedOverride(entry, transactions);
+        if (linkResult.isErr()) {
+          logger.error(
+            {
+              overrideId: entry.override.id,
+              sourceTransactionId: entry.sourceTransactionId,
+              targetTransactionId: entry.targetTransactionId,
+              asset: entry.assetSymbol,
+            },
+            `Skipping orphaned override: ${linkResult.error.message}`
+          );
+          continue;
+        }
+        typedLinks.push(linkResult.value);
         logger.info(
           {
             overrideId: entry.override.id,
@@ -344,15 +356,47 @@ export class LinksRunHandler {
    *
    * The metadata.overrideId field links this back to the original override event.
    */
-  private buildLinkFromOrphanedOverride(entry: OrphanedLinkOverride): TransactionLink {
+  private buildLinkFromOrphanedOverride(
+    entry: OrphanedLinkOverride,
+    transactions: UniversalTransactionData[]
+  ): Result<TransactionLink, Error> {
     const now = new Date();
     const zero = parseDecimal('0');
 
-    return {
+    // Look up actual assetId from source and target transactions
+    const sourceTx = transactions.find((tx) => tx.id === entry.sourceTransactionId);
+    const targetTx = transactions.find((tx) => tx.id === entry.targetTransactionId);
+
+    const sourceAssetIdResult = this.resolveUniqueAssetId(sourceTx, entry.sourceTransactionId, entry.assetSymbol, [
+      'outflows',
+      'inflows',
+    ]);
+    const targetAssetIdResult = this.resolveUniqueAssetId(targetTx, entry.targetTransactionId, entry.assetSymbol, [
+      'inflows',
+      'outflows',
+    ]);
+
+    if (sourceAssetIdResult.isErr() || targetAssetIdResult.isErr()) {
+      const sourceContext = sourceAssetIdResult.isOk() ? sourceAssetIdResult.value : sourceAssetIdResult.error.message;
+      const targetContext = targetAssetIdResult.isOk() ? targetAssetIdResult.value : targetAssetIdResult.error.message;
+
+      return err(
+        new Error(
+          `Cannot resolve assetId for ${entry.assetSymbol}: ` + `source=${sourceContext}, ` + `target=${targetContext}.`
+        )
+      );
+    }
+
+    const sourceAssetId = sourceAssetIdResult.value;
+    const targetAssetId = targetAssetIdResult.value;
+
+    return ok({
       id: uuidv4(),
       sourceTransactionId: entry.sourceTransactionId,
       targetTransactionId: entry.targetTransactionId,
       assetSymbol: entry.assetSymbol,
+      sourceAssetId,
+      targetAssetId,
       sourceAmount: zero, // Sentinel: unknown (user override, not algorithm match)
       targetAmount: zero, // Sentinel: unknown (user override, not algorithm match)
       linkType: entry.linkType as TransactionLink['linkType'],
@@ -369,6 +413,44 @@ export class LinksRunHandler {
       createdAt: now,
       updatedAt: now,
       metadata: { overrideId: entry.override.id },
-    };
+    });
+  }
+
+  /**
+   * Resolve a unique assetId for an asset symbol within a transaction.
+   * Returns an error if there are no matching movements or multiple assetIds.
+   */
+  private resolveUniqueAssetId(
+    tx: UniversalTransactionData | undefined,
+    transactionId: number,
+    assetSymbol: string,
+    movementPriority: ('inflows' | 'outflows')[]
+  ): Result<string, Error> {
+    if (!tx) {
+      return err(new Error(`tx ${transactionId} not found`));
+    }
+
+    const candidates: string[] = [];
+    for (const direction of movementPriority) {
+      const movements = tx.movements[direction] ?? [];
+      for (const movement of movements) {
+        if (movement.assetSymbol === assetSymbol) {
+          candidates.push(movement.assetId);
+        }
+      }
+    }
+
+    const uniqueCandidates = [...new Set(candidates)];
+    if (uniqueCandidates.length === 0) {
+      return err(new Error(`tx ${transactionId} has no ${assetSymbol} movements`));
+    }
+
+    if (uniqueCandidates.length > 1) {
+      return err(
+        new Error(`tx ${transactionId} has ambiguous ${assetSymbol} assetIds: ${uniqueCandidates.join(', ')}`)
+      );
+    }
+
+    return ok(uniqueCandidates[0]!);
   }
 }

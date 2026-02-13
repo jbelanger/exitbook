@@ -3,9 +3,10 @@
  */
 
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
+import type { AssetBreakdownEntry, MissingPriceMovement } from '../prices-view-utils.js';
 
 import { getPricesViewVisibleRows } from './prices-view-layout.js';
-import { missingRowKey, type PricesViewState } from './prices-view-state.js';
+import { missingRowKey, type PricesViewCoverageState, type PricesViewState } from './prices-view-state.js';
 
 /**
  * Action types
@@ -23,7 +24,17 @@ export type PricesViewAction =
   | { type: 'SUBMIT_PRICE' }
   | { price: string; rowKey: string; type: 'PRICE_SAVED' }
   | { error: string; type: 'PRICE_SAVE_FAILED' }
-  | { type: 'CLEAR_ERROR' };
+  | { type: 'CLEAR_ERROR' }
+  | { type: 'START_DRILL_DOWN' }
+  | {
+      asset: string;
+      assetBreakdown: AssetBreakdownEntry[];
+      movements: MissingPriceMovement[];
+      parentState: PricesViewCoverageState;
+      type: 'DRILL_DOWN_COMPLETE';
+    }
+  | { error: string; type: 'DRILL_DOWN_FAILED' }
+  | { type: 'GO_BACK' };
 
 /**
  * Get item count for the current mode
@@ -161,6 +172,77 @@ export function pricesViewReducer(state: PricesViewState, action: PricesViewActi
       return { ...state, error: undefined };
     }
 
+    case 'START_DRILL_DOWN': {
+      if (state.mode !== 'coverage') return state;
+      const selected = state.coverage[state.selectedIndex];
+      if (!selected || selected.missing_price === 0) return state;
+      return { ...state, drillDownAsset: selected.assetSymbol, error: undefined };
+    }
+
+    case 'DRILL_DOWN_COMPLETE': {
+      return {
+        mode: 'missing',
+        movements: action.movements,
+        assetBreakdown: action.assetBreakdown,
+        selectedIndex: 0,
+        scrollOffset: 0,
+        resolvedRows: new Set(),
+        activeInput: undefined,
+        assetFilter: action.asset,
+        error: undefined,
+        parentCoverageState: action.parentState,
+      };
+    }
+
+    case 'DRILL_DOWN_FAILED': {
+      if (state.mode !== 'coverage') return state;
+      return { ...state, drillDownAsset: undefined, error: action.error };
+    }
+
+    case 'GO_BACK': {
+      if (state.mode !== 'missing' || !state.parentCoverageState) return state;
+      const parent = state.parentCoverageState;
+      // Count unique transaction IDs — coverage stats are per-transaction, not per-movement.
+      // A single transaction can contribute multiple resolved rows for the same asset.
+      const resolvedTxIds = new Set<number>();
+      for (const key of state.resolvedRows) {
+        const txId = parseInt(key.split(':')[0]!, 10);
+        resolvedTxIds.add(txId);
+      }
+      const resolvedCount = resolvedTxIds.size;
+
+      // Optimistically update the parent coverage counts for the drilled asset
+      if (resolvedCount > 0 && state.assetFilter) {
+        const asset = state.assetFilter;
+        const updatedCoverage = parent.coverage.map((c) => {
+          if (c.assetSymbol !== asset) return c;
+          const newMissing = Math.max(0, c.missing_price - resolvedCount);
+          const newWithPrice = c.with_price + resolvedCount;
+          const newPct = c.total_transactions > 0 ? (newWithPrice / c.total_transactions) * 100 : 0;
+          return { ...c, missing_price: newMissing, with_price: newWithPrice, coverage_percentage: newPct };
+        });
+
+        const summaryMissing = Math.max(0, parent.summary.missing_price - resolvedCount);
+        const summaryWith = parent.summary.with_price + resolvedCount;
+        const totalForPct = summaryWith + summaryMissing;
+        const summaryPct = totalForPct > 0 ? (summaryWith / totalForPct) * 100 : 0;
+
+        return {
+          ...parent,
+          coverage: updatedCoverage,
+          summary: {
+            ...parent.summary,
+            missing_price: summaryMissing,
+            with_price: summaryWith,
+            overall_coverage_percentage: summaryPct,
+          },
+          drillDownAsset: undefined,
+        };
+      }
+
+      return { ...parent, drillDownAsset: undefined };
+    }
+
     default:
       return state;
   }
@@ -214,8 +296,24 @@ export function handlePricesKeyboardInput(
     return;
   }
 
-  // Normal mode: quit
-  if (input === 'q' || key.escape) {
+  // Coverage mode: Enter drills into missing prices
+  if (state.mode === 'coverage' && key.return) {
+    dispatch({ type: 'START_DRILL_DOWN' });
+    return;
+  }
+
+  // Missing mode with parent: Esc goes back, q always quits
+  if (state.mode === 'missing' && state.parentCoverageState) {
+    if (key.escape) {
+      dispatch({ type: 'GO_BACK' });
+      return;
+    }
+    if (input === 'q') {
+      onQuit();
+      return;
+    }
+  } else if (input === 'q' || key.escape) {
+    // Normal mode: quit
     onQuit();
     return;
   }

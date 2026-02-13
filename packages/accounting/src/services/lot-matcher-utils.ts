@@ -57,6 +57,93 @@ export function sortWithLogicalOrdering(
   });
 }
 
+/**
+ * Sort asset groups by cross-asset link dependencies using topological sort (Kahn's algorithm).
+ *
+ * When a transfer link has different sourceAssetId and targetAssetId (e.g., exchange:kraken:btc → blockchain:bitcoin:native),
+ * the source asset group must be processed before the target asset group so that lot transfers
+ * are available when the target group looks them up.
+ *
+ * Groups without cross-asset dependencies maintain their original insertion order.
+ * Any cycles (shouldn't happen in practice) are appended at the end.
+ */
+export function sortAssetGroupsByDependency(
+  entries: [string, { assetSymbol: string; transactions: UniversalTransactionData[] }][],
+  links: TransactionLink[]
+): [string, { assetSymbol: string; transactions: UniversalTransactionData[] }][] {
+  const assetIds = new Set(entries.map(([id]) => id));
+
+  // Build directed edges: sourceAssetId → targetAssetId (only cross-asset, both present)
+  const graph = new Map<string, Set<string>>();
+  const inDegree = new Map<string, number>();
+
+  for (const id of assetIds) {
+    graph.set(id, new Set());
+    inDegree.set(id, 0);
+  }
+
+  for (const link of links) {
+    if (
+      link.sourceAssetId !== link.targetAssetId &&
+      assetIds.has(link.sourceAssetId) &&
+      assetIds.has(link.targetAssetId)
+    ) {
+      const targets = graph.get(link.sourceAssetId)!;
+      if (!targets.has(link.targetAssetId)) {
+        targets.add(link.targetAssetId);
+        inDegree.set(link.targetAssetId, (inDegree.get(link.targetAssetId) ?? 0) + 1);
+      }
+    }
+  }
+
+  // Kahn's algorithm - use original order for tie-breaking
+  const indexMap = new Map(entries.map(([id], idx) => [id, idx]));
+  const queue: string[] = [];
+  for (const [id] of entries) {
+    if ((inDegree.get(id) ?? 0) === 0) {
+      queue.push(id);
+    }
+  }
+  // Sort queue by original index for stable ordering
+  queue.sort((a, b) => (indexMap.get(a) ?? 0) - (indexMap.get(b) ?? 0));
+
+  const sorted: string[] = [];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    sorted.push(current);
+
+    for (const neighbor of graph.get(current) ?? []) {
+      const newDegree = (inDegree.get(neighbor) ?? 1) - 1;
+      inDegree.set(neighbor, newDegree);
+      if (newDegree === 0) {
+        // Insert in original-order position to maintain stability
+        const neighborIdx = indexMap.get(neighbor) ?? 0;
+        let insertAt = queue.length;
+        for (let i = 0; i < queue.length; i++) {
+          if ((indexMap.get(queue[i]!) ?? 0) > neighborIdx) {
+            insertAt = i;
+            break;
+          }
+        }
+        queue.splice(insertAt, 0, neighbor);
+      }
+    }
+  }
+
+  // Append any remaining (cycle) nodes in original order
+  if (sorted.length < entries.length) {
+    for (const [id] of entries) {
+      if (!sorted.includes(id)) {
+        sorted.push(id);
+      }
+    }
+  }
+
+  // Build result in sorted order
+  const entryMap = new Map(entries);
+  return sorted.map((id) => [id, entryMap.get(id)!]);
+}
+
 export function getVarianceTolerance(
   source: string,
   configOverride?: { error: number; warn: number }
@@ -500,37 +587,38 @@ export function calculateFeesInFiat(
 }
 
 /**
- * Group transactions by asset (from both inflows and outflows)
+ * Group transactions by assetId (from both inflows and outflows).
+ * Returns a map keyed by assetId with { assetSymbol, transactions }.
  */
 export function groupTransactionsByAsset(
   transactions: UniversalTransactionData[]
-): Map<string, UniversalTransactionData[]> {
-  const assetMap = new Map<string, Set<number>>();
+): Map<string, { assetSymbol: string; transactions: UniversalTransactionData[] }> {
+  const assetMap = new Map<string, { assetSymbol: string; txIds: Set<number> }>();
 
-  // Collect unique assets
+  // Collect unique assets by assetId
   for (const tx of transactions) {
     const inflows = tx.movements.inflows || [];
     for (const inflow of inflows) {
-      if (!assetMap.has(inflow.assetSymbol)) {
-        assetMap.set(inflow.assetSymbol, new Set());
+      if (!assetMap.has(inflow.assetId)) {
+        assetMap.set(inflow.assetId, { assetSymbol: inflow.assetSymbol, txIds: new Set() });
       }
-      assetMap.get(inflow.assetSymbol)!.add(tx.id);
+      assetMap.get(inflow.assetId)!.txIds.add(tx.id);
     }
 
     const outflows = tx.movements.outflows || [];
     for (const outflow of outflows) {
-      if (!assetMap.has(outflow.assetSymbol)) {
-        assetMap.set(outflow.assetSymbol, new Set());
+      if (!assetMap.has(outflow.assetId)) {
+        assetMap.set(outflow.assetId, { assetSymbol: outflow.assetSymbol, txIds: new Set() });
       }
-      assetMap.get(outflow.assetSymbol)!.add(tx.id);
+      assetMap.get(outflow.assetId)!.txIds.add(tx.id);
     }
   }
 
-  // Build map of asset -> transactions
-  const result = new Map<string, UniversalTransactionData[]>();
-  for (const [asset, txIds] of assetMap) {
+  // Build map of assetId -> { assetSymbol, transactions }
+  const result = new Map<string, { assetSymbol: string; transactions: UniversalTransactionData[] }>();
+  for (const [assetId, { assetSymbol, txIds }] of assetMap) {
     const txsForAsset = transactions.filter((tx) => txIds.has(tx.id));
-    result.set(asset, txsForAsset);
+    result.set(assetId, { assetSymbol, transactions: txsForAsset });
   }
 
   return result;
@@ -570,6 +658,7 @@ export function buildAcquisitionLotFromInflow(
       id: uuidv4(),
       calculationId,
       acquisitionTransactionId: transaction.id,
+      assetId: inflow.assetId,
       assetSymbol: inflow.assetSymbol,
       quantity,
       costBasisPerUnit,
@@ -749,9 +838,9 @@ export function matchOutflowDisposal(
   strategy: ICostBasisStrategy
 ): Result<{ disposals: LotDisposal[]; updatedLots: AcquisitionLot[] }, Error> {
   try {
-    // Find open lots for this asset
+    // Find open lots for this asset (by assetId for contract-level precision)
     const openLots = allLots.filter(
-      (lot) => lot.assetSymbol === outflow.assetSymbol && (lot.status === 'open' || lot.status === 'partially_disposed')
+      (lot) => lot.assetId === outflow.assetId && (lot.status === 'open' || lot.status === 'partially_disposed')
     );
 
     // Calculate net proceeds after fees
@@ -822,7 +911,8 @@ export function processTransferSource(
   strategy: ICostBasisStrategy,
   calculationId: string,
   jurisdiction: { sameAssetTransferFeePolicy: 'disposal' | 'add-to-basis' },
-  varianceTolerance?: { error: number; warn: number }
+  varianceTolerance?: { error: number; warn: number },
+  effectiveAmount?: Decimal
 ): Result<
   {
     disposals: LotDisposal[];
@@ -854,21 +944,30 @@ export function processTransferSource(
     type: 'variance' | 'missing-price';
   }[] = [];
 
-  const cryptoFeeResult = extractCryptoFee(tx, outflow.assetSymbol);
-  if (cryptoFeeResult.isErr()) {
-    return err(cryptoFeeResult.error);
+  // When effectiveAmount is provided (UTXO partial outflow), the amount represents the
+  // external transfer portion only (gross minus internal change). Fees are already baked
+  // into the UTXO adjustment, so we skip fee extraction and validation.
+  const isPartialOutflow = effectiveAmount !== undefined;
+
+  let cryptoFee: { amount: Decimal; feeType: string; priceAtTxTime?: PriceAtTxTime | undefined };
+  if (isPartialOutflow) {
+    cryptoFee = { amount: parseDecimal('0'), feeType: 'none' };
+  } else {
+    const cryptoFeeResult = extractCryptoFee(tx, outflow.assetSymbol);
+    if (cryptoFeeResult.isErr()) {
+      return err(cryptoFeeResult.error);
+    }
+    cryptoFee = cryptoFeeResult.value;
+
+    // Validate that netAmount matches grossAmount minus on-chain fees
+    const feeValidationResult = validateOutflowFees(outflow, tx, tx.source, tx.id, varianceTolerance);
+    if (feeValidationResult.isErr()) {
+      return err(feeValidationResult.error);
+    }
   }
 
-  const cryptoFee = cryptoFeeResult.value;
-
-  // Validate that netAmount matches grossAmount minus on-chain fees
-  const feeValidationResult = validateOutflowFees(outflow, tx, tx.source, tx.id, varianceTolerance);
-  if (feeValidationResult.isErr()) {
-    return err(feeValidationResult.error);
-  }
-
-  // Use netAmount for transfer validation
-  const netTransferAmount = outflow.netAmount ?? outflow.grossAmount;
+  // Use effectiveAmount (UTXO adjusted) or outflow netAmount for transfer validation
+  const netTransferAmount = effectiveAmount ?? outflow.netAmount ?? outflow.grossAmount;
 
   // Validate transfer variance
   const varianceResult = validateTransferVariance(
@@ -897,10 +996,13 @@ export function processTransferSource(
     });
   }
 
-  const openLots = lots.filter((lot) => lot.assetSymbol === outflow.assetSymbol && lot.remainingQuantity.gt(0));
+  const openLots = lots.filter((lot) => lot.assetId === outflow.assetId && lot.remainingQuantity.gt(0));
 
   const feePolicy = jurisdiction.sameAssetTransferFeePolicy;
-  const { transferDisposalQuantity } = calculateTransferDisposalAmount(outflow, cryptoFee, feePolicy);
+  // For partial outflows, use effectiveAmount directly as the disposal quantity
+  const transferDisposalQuantity = isPartialOutflow
+    ? effectiveAmount
+    : calculateTransferDisposalAmount(outflow, cryptoFee, feePolicy).transferDisposalQuantity;
 
   const disposal = {
     transactionId: tx.id,
@@ -1169,6 +1271,7 @@ export function processTransferTarget(
     id: uuidv4(),
     calculationId,
     acquisitionTransactionId: tx.id,
+    assetId: inflow.assetId,
     assetSymbol: inflow.assetSymbol,
     quantity: receivedQuantity,
     costBasisPerUnit,

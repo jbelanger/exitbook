@@ -29,15 +29,17 @@ When the list exceeds the visible height:
 
 ### Navigation
 
-| Key               | Action           | When   |
-| ----------------- | ---------------- | ------ |
-| `↑` / `k`         | Move cursor up   | Always |
-| `↓` / `j`         | Move cursor down | Always |
-| `PgUp` / `Ctrl-U` | Page up          | Always |
-| `PgDn` / `Ctrl-D` | Page down        | Always |
-| `Home`            | Jump to first    | Always |
-| `End`             | Jump to last     | Always |
-| `q` / `Esc`       | Quit             | Always |
+| Key               | Action                     | When                                      |
+| ----------------- | -------------------------- | ----------------------------------------- |
+| `↑` / `k`         | Move cursor up             | Always                                    |
+| `↓` / `j`         | Move cursor down           | Always                                    |
+| `PgUp` / `Ctrl-U` | Page up                    | Always                                    |
+| `PgDn` / `Ctrl-D` | Page down                  | Always                                    |
+| `Home`            | Jump to first              | Always                                    |
+| `End`             | Jump to last               | Always                                    |
+| `Enter`           | Drill into missing prices  | Coverage mode, selected asset has missing |
+| `Esc`             | Go back to coverage / quit | Missing mode (drilled-in) / top-level     |
+| `q`               | Quit                       | Always                                    |
 
 ### Controls Bar
 
@@ -176,7 +178,19 @@ Price Coverage (BTC)  100.0% coverage · 312 with price · 0 missing
 ↑↓/j/k · ^U/^D page · Home/End · q/esc quit
 ```
 
-Coverage mode is read-only — no action keys.
+When selected asset has missing prices:
+
+```
+↑↓/j/k · ^U/^D page · Home/End · enter view missing · q/esc quit
+```
+
+When selected asset has 100% coverage:
+
+```
+↑↓/j/k · ^U/^D page · Home/End · q/esc quit
+```
+
+Pressing Enter on an asset with missing prices drills into missing mode filtered to that asset.
 
 ### Sorting
 
@@ -184,9 +198,47 @@ Default: by coverage percentage ascending (worst coverage first), then by asset 
 
 ---
 
+## Drill-Down: Coverage → Missing
+
+Pressing `Enter` on a coverage row with missing prices transitions to missing mode for that asset. This avoids quitting and re-launching with `--missing-only`.
+
+### Behavior
+
+1. **Enter** on asset with `missing_price > 0` → load missing movements for that asset → show missing mode
+2. **Enter** on 100% asset → no-op
+3. In drilled-in missing mode, **Esc** returns to coverage mode (with optimistically updated counts)
+4. **q** quits entirely from any mode
+
+### Header (Drilled-In)
+
+```
+← SOL Missing Prices  14 movements
+```
+
+Shows `←` breadcrumb indicator and asset name. No `across N assets` since it's filtered to one asset.
+
+### Controls Bar (Drilled-In Missing)
+
+```
+↑↓/j/k · ^U/^D page · Home/End · s set price · esc back · q quit
+```
+
+Esc and q are separate: Esc goes back, q quits.
+
+### Optimistic Count Updates
+
+When returning to coverage mode via Esc, resolved prices are reflected:
+
+- `missing_price` decremented by resolved count
+- `with_price` incremented by resolved count
+- Coverage percentage recalculated
+- Summary totals updated
+
+---
+
 ## Missing Mode
 
-Activated by `--missing-only`. Shows individual movements that lack price data. Supports inline set-price action.
+Activated by `--missing-only` or by drilling down from coverage mode. Shows individual movements that lack price data. Supports inline set-price action.
 
 ### Visual Example
 
@@ -634,6 +686,9 @@ interface PricesViewCoverageState {
 
   assetFilter?: string | undefined;
   sourceFilter?: string | undefined;
+
+  /** Set by reducer on Enter — picked up by useEffect to load missing data */
+  drillDownAsset?: string | undefined;
 }
 
 /** Missing mode state */
@@ -661,6 +716,9 @@ interface PricesViewMissingState {
   assetFilter?: string | undefined;
   sourceFilter?: string | undefined;
   error?: string | undefined;
+
+  /** When present, enables Esc-to-go-back to coverage mode */
+  parentCoverageState?: PricesViewCoverageState | undefined;
 }
 
 type PricesViewState = PricesViewCoverageState | PricesViewMissingState;
@@ -700,16 +758,27 @@ type PricesViewAction =
   | { type: 'END'; visibleRows: number }
 
   // Missing mode — set price
-  | { type: 'START_SET_PRICE' }
+  | { type: 'START_INPUT' }
   | { type: 'UPDATE_INPUT'; value: string }
   | { type: 'SUBMIT_PRICE' }
   | { type: 'CANCEL_INPUT' }
-  | { type: 'PRICE_SAVED'; rowIndex: number; price: string }
+  | { type: 'PRICE_SAVED'; rowKey: string; price: string }
   | { type: 'PRICE_SAVE_FAILED'; error: string }
 
+  // Drill-down: coverage → missing
+  | { type: 'START_DRILL_DOWN' }
+  | {
+      type: 'DRILL_DOWN_COMPLETE';
+      movements: MissingPriceMovement[];
+      assetBreakdown: AssetBreakdownEntry[];
+      asset: string;
+      parentState: PricesViewCoverageState;
+    }
+  | { type: 'DRILL_DOWN_FAILED'; error: string }
+  | { type: 'GO_BACK' }
+
   // Error handling
-  | { type: 'CLEAR_ERROR' }
-  | { type: 'SET_ERROR'; error: string };
+  | { type: 'CLEAR_ERROR' };
 ```
 
 ---

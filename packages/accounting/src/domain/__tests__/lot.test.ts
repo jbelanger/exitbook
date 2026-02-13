@@ -8,6 +8,7 @@ describe('createAcquisitionLot', () => {
   test('should create a new acquisition lot with correct properties', () => {
     const params = {
       acquisitionTransactionId: 1,
+      assetId: 'test:btc',
       assetSymbol: 'BTC',
       calculationId: 'calc-123',
       costBasisPerUnit: parseDecimal('50000'),
@@ -35,6 +36,7 @@ describe('createAcquisitionLot', () => {
   test('should calculate total cost basis correctly', () => {
     const lot = createAcquisitionLot({
       acquisitionTransactionId: 1,
+      assetId: 'test:eth',
       assetSymbol: 'ETH',
       calculationId: 'calc-123',
       costBasisPerUnit: parseDecimal('3000.50'),

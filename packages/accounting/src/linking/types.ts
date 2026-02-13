@@ -78,5 +78,5 @@ export type LinkingResult = z.infer<typeof LinkingResultSchema>;
 export interface OutflowGrouping {
   representativeTxId: number; // The TX that represents this group for matching
   groupMemberIds: Set<number>; // All TX IDs in this group (including representative)
-  assetSymbol: string;
+  assetId: string;
 }

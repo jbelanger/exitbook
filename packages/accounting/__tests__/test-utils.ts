@@ -158,6 +158,7 @@ export function createLot(
     id,
     calculationId: options?.calculationId ?? 'calc1',
     acquisitionTransactionId: options?.acquisitionTransactionId ?? 1,
+    assetId: `test:${assetSymbol.toLowerCase()}`,
     assetSymbol: assetSymbol,
     quantity: qty,
     costBasisPerUnit: costBasis,

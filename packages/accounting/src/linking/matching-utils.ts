@@ -583,13 +583,13 @@ export function validateLinkAmountsForMatch(match: PotentialMatch): Result<LinkA
  * @returns Aggregated amounts and asset symbols
  */
 export function aggregateMovementsByTransaction(group: UniversalTransactionData[]): {
-  assetSymbols: Set<string>;
+  assetIds: Set<string>;
   inflowAmountsByTx: Map<number, Map<string, Decimal>>;
   outflowAmountsByTx: Map<number, Map<string, Decimal>>;
 } {
   const inflowAmountsByTx = new Map<number, Map<string, Decimal>>();
   const outflowAmountsByTx = new Map<number, Map<string, Decimal>>();
-  const assetSymbols = new Set<string>();
+  const assetIds = new Set<string>();
 
   for (const tx of group) {
     const inflowMap = new Map<string, Decimal>();
@@ -597,23 +597,23 @@ export function aggregateMovementsByTransaction(group: UniversalTransactionData[
 
     for (const inflow of tx.movements.inflows ?? []) {
       const amount = parseDecimal(inflow.netAmount ?? inflow.grossAmount);
-      const current = inflowMap.get(inflow.assetSymbol) ?? parseDecimal('0');
-      inflowMap.set(inflow.assetSymbol, current.plus(amount));
-      assetSymbols.add(inflow.assetSymbol);
+      const current = inflowMap.get(inflow.assetId) ?? parseDecimal('0');
+      inflowMap.set(inflow.assetId, current.plus(amount));
+      assetIds.add(inflow.assetId);
     }
 
     for (const outflow of tx.movements.outflows ?? []) {
       const amount = parseDecimal(outflow.netAmount ?? outflow.grossAmount);
-      const current = outflowMap.get(outflow.assetSymbol) ?? parseDecimal('0');
-      outflowMap.set(outflow.assetSymbol, current.plus(amount));
-      assetSymbols.add(outflow.assetSymbol);
+      const current = outflowMap.get(outflow.assetId) ?? parseDecimal('0');
+      outflowMap.set(outflow.assetId, current.plus(amount));
+      assetIds.add(outflow.assetId);
     }
 
     if (inflowMap.size > 0) inflowAmountsByTx.set(tx.id, inflowMap);
     if (outflowMap.size > 0) outflowAmountsByTx.set(tx.id, outflowMap);
   }
 
-  return { inflowAmountsByTx, outflowAmountsByTx, assetSymbols };
+  return { inflowAmountsByTx, outflowAmountsByTx, assetIds };
 }
 
 /**
@@ -638,24 +638,24 @@ export function aggregateMovementsByTransaction(group: UniversalTransactionData[
  * @returns Transaction ID, adjusted amount, ambiguity flag, and all group member IDs; or skip reason
  */
 export function calculateOutflowAdjustment(
-  assetSymbol: string,
+  assetId: string,
   group: UniversalTransactionData[],
   inflowAmountsByTx: Map<number, Map<string, Decimal>>,
   outflowAmountsByTx: Map<number, Map<string, Decimal>>
 ):
-  | { adjustedAmount: Decimal; groupMemberIds: number[]; multipleOutflows: boolean; representativeTxId: number; }
+  | { adjustedAmount: Decimal; groupMemberIds: number[]; multipleOutflows: boolean; representativeTxId: number }
   | { skip: 'non-positive' | 'no-adjustment' } {
   const outflowTxs = group.filter((tx) => {
     const outflowMap = outflowAmountsByTx.get(tx.id);
     if (!outflowMap) return false;
-    const amount = outflowMap.get(assetSymbol);
+    const amount = outflowMap.get(assetId);
     return amount ? amount.gt(0) : false;
   });
 
   const inflowTxs = group.filter((tx) => {
     const inflowMap = inflowAmountsByTx.get(tx.id);
     if (!inflowMap) return false;
-    const amount = inflowMap.get(assetSymbol);
+    const amount = inflowMap.get(assetId);
     return amount ? amount.gt(0) : false;
   });
 
@@ -664,10 +664,10 @@ export function calculateOutflowAdjustment(
   const multipleOutflows = outflowTxs.length > 1;
   if (inflowTxs.length === 0 && !multipleOutflows) return { skip: 'no-adjustment' };
 
-  const sumGrossMovements = (movements: { assetSymbol: string; grossAmount: Decimal }[] | undefined): Decimal => {
+  const sumGrossMovements = (movements: { assetId: string; grossAmount: Decimal }[] | undefined): Decimal => {
     let total = parseDecimal('0');
     for (const movement of movements ?? []) {
-      if (movement.assetSymbol !== assetSymbol) continue;
+      if (movement.assetId !== assetId) continue;
       total = total.plus(parseDecimal(movement.grossAmount));
     }
     return total;
@@ -707,7 +707,7 @@ export function calculateOutflowAdjustment(
   let feeAmount = parseDecimal('0');
   for (const tx of group) {
     for (const fee of tx.fees ?? []) {
-      if (fee.assetSymbol !== assetSymbol) continue;
+      if (fee.assetId !== assetId) continue;
       if (fee.settlement !== 'on-chain') continue;
       const amount = parseDecimal(fee.amount);
       if (amount.gt(feeAmount)) feeAmount = amount;
@@ -739,10 +739,10 @@ export function convertToCandidates(
   const candidates: TransactionCandidate[] = [];
 
   // Helper to check if a transaction/asset is a non-representative group member
-  const isNonRepresentativeGroupMember = (txId: number, assetSymbol: string): boolean => {
+  const isNonRepresentativeGroupMember = (txId: number, assetId: string): boolean => {
     if (!outflowGroupings) return false;
     for (const grouping of outflowGroupings) {
-      if (grouping.assetSymbol === assetSymbol && grouping.groupMemberIds.has(txId)) {
+      if (grouping.assetId === assetId && grouping.groupMemberIds.has(txId)) {
         // This TX is in a group - only allow the representative
         return txId !== grouping.representativeTxId;
       }
@@ -759,6 +759,7 @@ export function convertToCandidates(
         sourceName: tx.source,
         sourceType: tx.sourceType,
         timestamp: new Date(tx.datetime),
+        assetId: inflow.assetId,
         assetSymbol: inflow.assetSymbol,
         amount: inflow.netAmount ?? inflow.grossAmount,
         direction: 'in',
@@ -773,7 +774,7 @@ export function convertToCandidates(
     for (const outflow of tx.movements.outflows ?? []) {
       // Skip non-representative members of UTXO outflow groups
       // (their amounts are already summed into the representative's adjusted amount)
-      if (isNonRepresentativeGroupMember(tx.id, outflow.assetSymbol)) {
+      if (isNonRepresentativeGroupMember(tx.id, outflow.assetId)) {
         continue;
       }
 
@@ -783,8 +784,9 @@ export function convertToCandidates(
         sourceName: tx.source,
         sourceType: tx.sourceType,
         timestamp: new Date(tx.datetime),
+        assetId: outflow.assetId,
         assetSymbol: outflow.assetSymbol,
-        amount: amountOverrides?.get(tx.id)?.get(outflow.assetSymbol) ?? outflow.netAmount ?? outflow.grossAmount,
+        amount: amountOverrides?.get(tx.id)?.get(outflow.assetId) ?? outflow.netAmount ?? outflow.grossAmount,
         direction: 'out',
         fromAddress: tx.from,
         toAddress: tx.to,
@@ -951,6 +953,8 @@ export function createTransactionLink(
     sourceTransactionId: match.sourceTransaction.id,
     targetTransactionId: match.targetTransaction.id,
     assetSymbol: assetSymbol,
+    sourceAssetId: match.sourceTransaction.assetId,
+    targetAssetId: match.targetTransaction.assetId,
     sourceAmount,
     targetAmount,
     linkType: match.linkType,

@@ -411,6 +411,193 @@ describe('handlePricesKeyboardInput', () => {
   });
 });
 
+describe('pricesViewReducer - drill-down', () => {
+  it('START_DRILL_DOWN sets drillDownAsset when selected has missing prices', () => {
+    const state = createCoverageViewState(createMockCoverage(), createMockSummary());
+    state.selectedIndex = 0; // BTC has missing_price: 10
+
+    const newState = pricesViewReducer(state, { type: 'START_DRILL_DOWN' });
+    expect(newState.mode).toBe('coverage');
+    if (newState.mode === 'coverage') {
+      expect(newState.drillDownAsset).toBe('BTC');
+    }
+  });
+
+  it('START_DRILL_DOWN is no-op when selected has 100% coverage', () => {
+    const state = createCoverageViewState(createMockCoverage(), createMockSummary());
+    state.selectedIndex = 1; // ETH has missing_price: 0
+
+    const newState = pricesViewReducer(state, { type: 'START_DRILL_DOWN' });
+    expect(newState.mode).toBe('coverage');
+    if (newState.mode === 'coverage') {
+      expect(newState.drillDownAsset).toBeUndefined();
+    }
+  });
+
+  it('START_DRILL_DOWN is no-op in missing mode', () => {
+    const state = createMissingViewState(createMockMovements(), []);
+    const newState = pricesViewReducer(state, { type: 'START_DRILL_DOWN' });
+    expect(newState).toBe(state);
+  });
+
+  it('DRILL_DOWN_COMPLETE transitions to missing state with parent', () => {
+    const coverageState = createCoverageViewState(createMockCoverage(), createMockSummary());
+    const movements = createMockMovements();
+
+    const newState = pricesViewReducer(coverageState, {
+      type: 'DRILL_DOWN_COMPLETE',
+      movements,
+      assetBreakdown: [{ assetSymbol: 'BTC', count: 3, sources: [{ name: 'kraken', count: 3 }] }],
+      asset: 'BTC',
+      parentState: coverageState,
+    });
+
+    expect(newState.mode).toBe('missing');
+    if (newState.mode === 'missing') {
+      expect(newState.movements).toBe(movements);
+      expect(newState.assetFilter).toBe('BTC');
+      expect(newState.parentCoverageState).toBe(coverageState);
+      expect(newState.selectedIndex).toBe(0);
+      expect(newState.resolvedRows.size).toBe(0);
+    }
+  });
+
+  it('DRILL_DOWN_FAILED clears drillDownAsset', () => {
+    const state = createCoverageViewState(createMockCoverage(), createMockSummary());
+    state.drillDownAsset = 'BTC';
+
+    const newState = pricesViewReducer(state, { type: 'DRILL_DOWN_FAILED', error: 'Failed' });
+    expect(newState.mode).toBe('coverage');
+    if (newState.mode === 'coverage') {
+      expect(newState.drillDownAsset).toBeUndefined();
+    }
+  });
+
+  it('GO_BACK restores coverage state', () => {
+    const parentState = createCoverageViewState(createMockCoverage(), createMockSummary());
+    parentState.selectedIndex = 2;
+
+    const missingState = createMissingViewState(createMockMovements(), [], 'SOL');
+    missingState.parentCoverageState = parentState;
+
+    const newState = pricesViewReducer(missingState, { type: 'GO_BACK' });
+    expect(newState.mode).toBe('coverage');
+    if (newState.mode === 'coverage') {
+      expect(newState.selectedIndex).toBe(2);
+      expect(newState.drillDownAsset).toBeUndefined();
+    }
+  });
+
+  it('GO_BACK optimistically updates counts when prices were resolved', () => {
+    const parentState = createCoverageViewState(createMockCoverage(), createMockSummary());
+    // SOL is at index 2: missing_price: 25, with_price: 25
+
+    const movements = createMockMovements();
+    const missingState = createMissingViewState(movements, [], 'SOL');
+    missingState.parentCoverageState = parentState;
+    missingState.resolvedRows.add(missingRowKey(movements[0]!));
+    missingState.resolvedRows.add(missingRowKey(movements[1]!));
+
+    const newState = pricesViewReducer(missingState, { type: 'GO_BACK' });
+    expect(newState.mode).toBe('coverage');
+    if (newState.mode === 'coverage') {
+      const sol = newState.coverage.find((c) => c.assetSymbol === 'SOL');
+      expect(sol?.missing_price).toBe(23); // 25 - 2
+      expect(sol?.with_price).toBe(27); // 25 + 2
+      expect(newState.summary.missing_price).toBe(33); // 35 - 2
+      expect(newState.summary.with_price).toBe(317); // 315 + 2
+    }
+  });
+
+  it('GO_BACK is no-op in missing mode without parent', () => {
+    const state = createMissingViewState(createMockMovements(), []);
+    const newState = pricesViewReducer(state, { type: 'GO_BACK' });
+    expect(newState).toBe(state);
+  });
+
+  it('GO_BACK is no-op in coverage mode', () => {
+    const state = createCoverageViewState(createMockCoverage(), createMockSummary());
+    const newState = pricesViewReducer(state, { type: 'GO_BACK' });
+    expect(newState).toBe(state);
+  });
+});
+
+describe('handlePricesKeyboardInput - drill-down', () => {
+  const noKey = {
+    backspace: false,
+    ctrl: false,
+    delete: false,
+    downArrow: false,
+    end: false,
+    escape: false,
+    home: false,
+    pageDown: false,
+    pageUp: false,
+    return: false,
+    upArrow: false,
+  };
+
+  it('dispatches START_DRILL_DOWN on Enter in coverage mode', () => {
+    let received: unknown;
+    const dispatch = (action: unknown) => {
+      received = action;
+    };
+    const state = createCoverageViewState(createMockCoverage(), createMockSummary());
+
+    handlePricesKeyboardInput('', { ...noKey, return: true }, dispatch, noop, 24, state);
+    expect(received).toEqual({ type: 'START_DRILL_DOWN' });
+  });
+
+  it('dispatches GO_BACK on Esc in missing mode with parent', () => {
+    let received: unknown;
+    const dispatch = (action: unknown) => {
+      received = action;
+    };
+    const parentState = createCoverageViewState(createMockCoverage(), createMockSummary());
+    const state = createMissingViewState(createMockMovements(), []);
+    state.parentCoverageState = parentState;
+
+    handlePricesKeyboardInput('', { ...noKey, escape: true }, dispatch, noop, 24, state);
+    expect(received).toEqual({ type: 'GO_BACK' });
+  });
+
+  it('calls onQuit on q in missing mode with parent', () => {
+    let quitCalled = false;
+    const parentState = createCoverageViewState(createMockCoverage(), createMockSummary());
+    const state = createMissingViewState(createMockMovements(), []);
+    state.parentCoverageState = parentState;
+
+    handlePricesKeyboardInput(
+      'q',
+      noKey,
+      noop,
+      () => {
+        quitCalled = true;
+      },
+      24,
+      state
+    );
+    expect(quitCalled).toBe(true);
+  });
+
+  it('calls onQuit on Esc in missing mode without parent', () => {
+    let quitCalled = false;
+    const state = createMissingViewState(createMockMovements(), []);
+
+    handlePricesKeyboardInput(
+      '',
+      { ...noKey, escape: true },
+      noop,
+      () => {
+        quitCalled = true;
+      },
+      24,
+      state
+    );
+    expect(quitCalled).toBe(true);
+  });
+});
+
 // ─── Test Helpers ───────────────────────────────────────────────────────────
 
 function createMockCoverage() {

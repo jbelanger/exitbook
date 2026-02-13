@@ -67,7 +67,7 @@ export class TransactionLinkingService {
         this.logger.info(
           `Creating candidates with ${outflowGroupings.length} outflow groupings: ` +
             outflowGroupings
-              .map((g) => `${g.assetSymbol} [${Array.from(g.groupMemberIds).join(', ')}] rep=${g.representativeTxId}`)
+              .map((g) => `${g.assetId} [${Array.from(g.groupMemberIds).join(', ')}] rep=${g.representativeTxId}`)
               .join('; ')
         );
       }
@@ -337,11 +337,24 @@ export class TransactionLinkingService {
               continue;
             }
 
+            const sourceAssetId = this.extractPrimaryAssetId(tx1);
+            const targetAssetId = this.extractPrimaryAssetId(tx2);
+
+            if (!sourceAssetId || !targetAssetId) {
+              this.logger.warn(
+                { normalizedHash, tx1Id: tx1.id, tx2Id: tx2.id },
+                'Skipping internal link - cannot extract assetId from both transactions'
+              );
+              continue;
+            }
+
             links.push({
               id: uuidv4(),
               sourceTransactionId: tx1.id,
               targetTransactionId: tx2.id,
               assetSymbol: asset1,
+              sourceAssetId,
+              targetAssetId,
               sourceAmount: amount1,
               targetAmount: amount2,
               linkType: 'blockchain_internal',
@@ -414,7 +427,6 @@ export class TransactionLinkingService {
       if (link.linkType !== 'blockchain_internal') continue;
       const sourceId = link.sourceTransactionId;
       const targetId = link.targetTransactionId;
-      const asset = link.assetSymbol;
 
       // Build adjacency for clustering
       if (!adjacency.has(sourceId)) adjacency.set(sourceId, new Set());
@@ -422,11 +434,11 @@ export class TransactionLinkingService {
       adjacency.get(sourceId)?.add(targetId);
       adjacency.get(targetId)?.add(sourceId);
 
-      // Track which assets are linked for each transaction
+      // Track which assetIds are linked for each transaction
       if (!linkedAssetsPerTx.has(sourceId)) linkedAssetsPerTx.set(sourceId, new Set());
       if (!linkedAssetsPerTx.has(targetId)) linkedAssetsPerTx.set(targetId, new Set());
-      linkedAssetsPerTx.get(sourceId)?.add(asset);
-      linkedAssetsPerTx.get(targetId)?.add(asset);
+      linkedAssetsPerTx.get(sourceId)?.add(link.sourceAssetId);
+      linkedAssetsPerTx.get(targetId)?.add(link.targetAssetId);
     }
 
     // Find connected components (clusters) and merge linked assets
@@ -474,13 +486,13 @@ export class TransactionLinkingService {
 
       // Only process assets that are actually linked in this cluster
       // This prevents adjusting unrelated assets (e.g., fees in multi-asset transactions)
-      for (const assetSymbol of linkedAssets) {
-        const result = calculateOutflowAdjustment(assetSymbol, group, inflowAmountsByTx, outflowAmountsByTx);
+      for (const assetId of linkedAssets) {
+        const result = calculateOutflowAdjustment(assetId, group, inflowAmountsByTx, outflowAmountsByTx);
 
         if ('skip' in result) {
           if (result.skip === 'non-positive') {
             nonPositiveCount++;
-            this.logger.debug({ assetSymbol }, 'Skipping internal outflow adjustment: adjusted amount is non-positive');
+            this.logger.debug({ assetId }, 'Skipping internal outflow adjustment: adjusted amount is non-positive');
           }
           continue;
         }
@@ -488,7 +500,7 @@ export class TransactionLinkingService {
         // Info when multiple outflows exist - UTXO transaction with multiple inputs
         if (result.multipleOutflows) {
           this.logger.info(
-            `Multiple outflows detected for ${assetSymbol} - summed all outflows and subtracted change | ` +
+            `Multiple outflows detected for ${assetId} - summed all outflows and subtracted change | ` +
               `Representative TX: ${result.representativeTxId} | ` +
               `Group Members: [${result.groupMemberIds.join(', ')}] | ` +
               `Adjusted Amount: ${result.adjustedAmount.toFixed()}`
@@ -498,12 +510,12 @@ export class TransactionLinkingService {
           outflowGroupings.push({
             representativeTxId: result.representativeTxId,
             groupMemberIds: new Set(result.groupMemberIds),
-            assetSymbol,
+            assetId,
           });
         }
 
         const byAsset = adjustments.get(result.representativeTxId) ?? new Map<string, Decimal>();
-        byAsset.set(assetSymbol, result.adjustedAmount);
+        byAsset.set(assetId, result.adjustedAmount);
         adjustments.set(result.representativeTxId, byAsset);
         adjustmentCount++;
       }
@@ -526,6 +538,20 @@ export class TransactionLinkingService {
 
     if (outflows.length > 0 && outflows[0]) return outflows[0].assetSymbol;
     if (inflows.length > 0 && inflows[0]) return inflows[0].assetSymbol;
+
+    return;
+  }
+
+  /**
+   * Extract primary asset ID from transaction movements
+   * Prefers outflows, then inflows
+   */
+  private extractPrimaryAssetId(tx: UniversalTransactionData): string | undefined {
+    const outflows = tx.movements.outflows ?? [];
+    const inflows = tx.movements.inflows ?? [];
+
+    if (outflows.length > 0 && outflows[0]) return outflows[0].assetId;
+    if (inflows.length > 0 && inflows[0]) return inflows[0].assetId;
 
     return;
   }

@@ -35,6 +35,8 @@ describe('LinksRunHandler', () => {
       sourceTransactionId: 1,
       targetTransactionId: 2,
       assetSymbol: 'ETH',
+      sourceAssetId: 'test:eth',
+      targetAssetId: 'test:eth',
       sourceAmount: parseDecimal('1'),
       targetAmount: parseDecimal('1'),
       linkType: 'blockchain_internal',
@@ -141,6 +143,8 @@ describe('LinksRunHandler', () => {
       sourceTransactionId: 1,
       targetTransactionId: 2,
       assetSymbol: 'BTC',
+      sourceAssetId: 'test:btc',
+      targetAssetId: 'test:btc',
       sourceAmount: parseDecimal('1'),
       targetAmount: parseDecimal('1'),
       linkType: 'exchange_to_blockchain',
@@ -273,5 +277,241 @@ describe('LinksRunHandler', () => {
     expect(emittedEvents.some((e) => e.type === 'match.completed')).toBe(true);
     expect(emittedEvents.some((e) => e.type === 'save.started')).toBe(false);
     expect(emittedEvents.some((e) => e.type === 'save.completed')).toBe(false);
+  });
+
+  it('skips orphaned override when assetId cannot be resolved from movements', async () => {
+    // Algorithm produces no links
+    mockLinkTransactions.mockReturnValue(
+      ok({
+        confirmedLinks: [],
+        suggestedLinks: [],
+        totalSourceTransactions: 1,
+        totalTargetTransactions: 1,
+        unmatchedSourceCount: 1,
+        unmatchedTargetCount: 1,
+      })
+    );
+
+    // Transactions have ETH movements only — override references BTC (no match)
+    const transactions = [
+      {
+        id: 1,
+        source: 'kraken',
+        externalId: 'tx-1',
+        movements: {
+          outflows: [{ assetId: 'exchange:kraken:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('10') }],
+        },
+      },
+      {
+        id: 2,
+        source: 'blockchain:bitcoin',
+        externalId: 'tx-2',
+        movements: {
+          inflows: [{ assetId: 'blockchain:bitcoin:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('10') }],
+        },
+      },
+    ];
+
+    // Override event that references BTC — but neither tx has BTC movements
+    const linkOverride: OverrideEvent = {
+      id: 'evt-orphan',
+      created_at: '2026-02-07T10:00:00.000Z',
+      actor: 'cli-user',
+      source: 'cli',
+      scope: 'link',
+      payload: {
+        type: 'link_override',
+        action: 'confirm',
+        link_type: 'transfer',
+        source_fingerprint: 'kraken:tx-1',
+        target_fingerprint: 'blockchain:bitcoin:tx-2',
+        asset: 'BTC',
+      },
+    };
+
+    const transactionRepository = {
+      getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+    } as unknown as TransactionRepository;
+
+    const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
+    const linkRepository = {
+      countAll: vi.fn().mockResolvedValue(ok(0)),
+      deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
+      createBulk: mockCreateBulk,
+    } as unknown as TransactionLinkRepository;
+
+    const overrideStore = {
+      readAll: vi.fn().mockResolvedValue(ok([linkOverride])),
+    } as unknown as OverrideStore;
+
+    const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
+
+    const result = await handler.execute({
+      dryRun: false,
+      minConfidenceScore: parseDecimal('0.7'),
+      autoConfirmThreshold: parseDecimal('0.95'),
+    });
+
+    // Should succeed — the orphaned override is skipped, not a fatal error
+    expect(result.isOk()).toBe(true);
+
+    // No links should have been saved (the orphaned override was rejected)
+    expect(mockCreateBulk).not.toHaveBeenCalled();
+  });
+
+  it('skips orphaned override when source transaction has ambiguous assetIds for symbol', async () => {
+    mockLinkTransactions.mockReturnValue(
+      ok({
+        confirmedLinks: [],
+        suggestedLinks: [],
+        totalSourceTransactions: 1,
+        totalTargetTransactions: 1,
+        unmatchedSourceCount: 1,
+        unmatchedTargetCount: 1,
+      })
+    );
+
+    const transactions = [
+      {
+        id: 1,
+        source: 'kraken',
+        externalId: 'tx-1',
+        movements: {
+          outflows: [
+            { assetId: 'exchange:kraken:usdc', assetSymbol: 'USDC', grossAmount: parseDecimal('100') },
+            { assetId: 'blockchain:ethereum:0xa0b8...usdc', assetSymbol: 'USDC', grossAmount: parseDecimal('1') },
+          ],
+        },
+      },
+      {
+        id: 2,
+        source: 'blockchain:ethereum',
+        externalId: 'tx-2',
+        movements: {
+          inflows: [
+            { assetId: 'blockchain:ethereum:0xa0b8...usdc', assetSymbol: 'USDC', grossAmount: parseDecimal('101') },
+          ],
+        },
+      },
+    ];
+
+    const linkOverride: OverrideEvent = {
+      id: 'evt-orphan-ambiguous-source',
+      created_at: '2026-02-07T10:00:00.000Z',
+      actor: 'cli-user',
+      source: 'cli',
+      scope: 'link',
+      payload: {
+        type: 'link_override',
+        action: 'confirm',
+        link_type: 'transfer',
+        source_fingerprint: 'kraken:tx-1',
+        target_fingerprint: 'blockchain:ethereum:tx-2',
+        asset: 'USDC',
+      },
+    };
+
+    const transactionRepository = {
+      getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+    } as unknown as TransactionRepository;
+
+    const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
+    const linkRepository = {
+      countAll: vi.fn().mockResolvedValue(ok(0)),
+      deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
+      createBulk: mockCreateBulk,
+    } as unknown as TransactionLinkRepository;
+
+    const overrideStore = {
+      readAll: vi.fn().mockResolvedValue(ok([linkOverride])),
+    } as unknown as OverrideStore;
+
+    const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
+
+    const result = await handler.execute({
+      dryRun: false,
+      minConfidenceScore: parseDecimal('0.7'),
+      autoConfirmThreshold: parseDecimal('0.95'),
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(mockCreateBulk).not.toHaveBeenCalled();
+  });
+
+  it('skips orphaned override when target transaction has ambiguous assetIds for symbol', async () => {
+    mockLinkTransactions.mockReturnValue(
+      ok({
+        confirmedLinks: [],
+        suggestedLinks: [],
+        totalSourceTransactions: 1,
+        totalTargetTransactions: 1,
+        unmatchedSourceCount: 1,
+        unmatchedTargetCount: 1,
+      })
+    );
+
+    const transactions = [
+      {
+        id: 1,
+        source: 'kraken',
+        externalId: 'tx-1',
+        movements: {
+          outflows: [{ assetId: 'exchange:kraken:usdc', assetSymbol: 'USDC', grossAmount: parseDecimal('100') }],
+        },
+      },
+      {
+        id: 2,
+        source: 'blockchain:ethereum',
+        externalId: 'tx-2',
+        movements: {
+          inflows: [
+            { assetId: 'blockchain:ethereum:0xa0b8...usdc', assetSymbol: 'USDC', grossAmount: parseDecimal('99') },
+            { assetId: 'blockchain:arbitrum:0xaf88...usdc', assetSymbol: 'USDC', grossAmount: parseDecimal('1') },
+          ],
+        },
+      },
+    ];
+
+    const linkOverride: OverrideEvent = {
+      id: 'evt-orphan-ambiguous-target',
+      created_at: '2026-02-07T10:00:00.000Z',
+      actor: 'cli-user',
+      source: 'cli',
+      scope: 'link',
+      payload: {
+        type: 'link_override',
+        action: 'confirm',
+        link_type: 'transfer',
+        source_fingerprint: 'kraken:tx-1',
+        target_fingerprint: 'blockchain:ethereum:tx-2',
+        asset: 'USDC',
+      },
+    };
+
+    const transactionRepository = {
+      getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+    } as unknown as TransactionRepository;
+
+    const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
+    const linkRepository = {
+      countAll: vi.fn().mockResolvedValue(ok(0)),
+      deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
+      createBulk: mockCreateBulk,
+    } as unknown as TransactionLinkRepository;
+
+    const overrideStore = {
+      readAll: vi.fn().mockResolvedValue(ok([linkOverride])),
+    } as unknown as OverrideStore;
+
+    const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
+
+    const result = await handler.execute({
+      dryRun: false,
+      minConfidenceScore: parseDecimal('0.7'),
+      autoConfirmThreshold: parseDecimal('0.95'),
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(mockCreateBulk).not.toHaveBeenCalled();
   });
 });

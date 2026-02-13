@@ -15,6 +15,8 @@ describe('links-view-utils', () => {
     sourceTransactionId: 1,
     targetTransactionId: 2,
     assetSymbol: 'BTC',
+    sourceAssetId: 'test:btc',
+    targetAssetId: 'test:btc',
     sourceAmount: parseDecimal('1.0'),
     targetAmount: parseDecimal('1.0'),
     linkType: 'exchange_to_blockchain',

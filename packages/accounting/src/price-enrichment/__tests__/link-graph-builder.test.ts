@@ -70,11 +70,14 @@ function createTransactionLink(params: {
   targetAmount?: string;
   targetTransactionId: number;
 }): TransactionLink {
+  const asset = params.asset ?? 'BTC';
   return {
     id: params.id,
     sourceTransactionId: params.sourceTransactionId,
     targetTransactionId: params.targetTransactionId,
-    assetSymbol: params.asset ?? 'BTC',
+    assetSymbol: asset,
+    sourceAssetId: `test:${asset.toLowerCase()}`,
+    targetAssetId: `test:${asset.toLowerCase()}`,
     sourceAmount: parseDecimal(params.sourceAmount ?? '1.0'),
     targetAmount: parseDecimal(params.targetAmount ?? '1.0'),
     linkType: params.linkType,

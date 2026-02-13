@@ -8,6 +8,7 @@ import type { AcquisitionLot, LotStatus } from './types.js';
  */
 export function createAcquisitionLot(params: {
   acquisitionTransactionId: number;
+  assetId: string;
   assetSymbol: string;
   calculationId: string;
   costBasisPerUnit: Decimal;
@@ -22,6 +23,7 @@ export function createAcquisitionLot(params: {
   return {
     acquisitionDate: params.transactionDate,
     acquisitionTransactionId: params.acquisitionTransactionId,
+    assetId: params.assetId,
     assetSymbol: params.assetSymbol,
     calculationId: params.calculationId,
     costBasisPerUnit: params.costBasisPerUnit,

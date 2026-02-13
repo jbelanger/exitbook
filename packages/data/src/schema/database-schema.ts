@@ -174,7 +174,9 @@ export interface TransactionLinksTable {
   id: string; // UUID
   source_transaction_id: number; // FK to transactions.id (withdrawal/send)
   target_transaction_id: number; // FK to transactions.id (deposit/receive)
-  asset: string; // Transferred asset symbol (e.g., 'BTC', 'ETH')
+  asset: string; // Transferred asset symbol (e.g., 'BTC', 'ETH') — kept for display/debugging
+  source_asset_id: string; // Asset ID on source side (e.g., 'exchange:kraken:btc')
+  target_asset_id: string; // Asset ID on target side (e.g., 'blockchain:bitcoin:native')
   source_amount: DecimalString; // Gross outflow amount (before fees deducted)
   target_amount: DecimalString; // Net received amount (after fees)
   link_type: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange' | 'blockchain_internal';

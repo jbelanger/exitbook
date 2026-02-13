@@ -44,12 +44,16 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     assetSymbol: string,
     sourceAmount: string,
     targetAmount: string,
-    confidenceScore = '98.5'
+    confidenceScore = '98.5',
+    sourceAssetId?: string  ,
+    targetAssetId?: string  
   ): TransactionLink => ({
     id,
     sourceTransactionId,
     targetTransactionId,
     assetSymbol: assetSymbol,
+    sourceAssetId: sourceAssetId ?? `test:${assetSymbol.toLowerCase()}`,
+    targetAssetId: targetAssetId ?? `test:${assetSymbol.toLowerCase()}`,
     sourceAmount: parseDecimal(sourceAmount),
     targetAmount: parseDecimal(targetAmount),
     linkType: 'exchange_to_blockchain',
@@ -1290,6 +1294,115 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         const expectedBasis = parseDecimal('49975');
         const expectedPerUnit = expectedBasis.dividedBy(parseDecimal('0.9995'));
         expect(transferLot?.costBasisPerUnit.toFixed()).toBe(expectedPerUnit.toFixed());
+      }
+    });
+  });
+
+  describe('14. Cross-assetId transfer (exchange → blockchain with different assetIds)', () => {
+    it('should inherit cost basis across asset groups with different assetIds', async () => {
+      // BTC purchase on exchange
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'kraken',
+        [
+          {
+            assetId: 'exchange:kraken:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
+        []
+      );
+
+      // Exchange withdrawal
+      const withdrawalTx = createTransaction(
+        2,
+        '2024-02-01T12:00:00Z',
+        'kraken',
+        [],
+        [
+          {
+            assetId: 'exchange:kraken:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
+        [createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '60000')]
+      );
+
+      // Blockchain deposit — different assetId
+      const depositTx = createTransaction(
+        3,
+        '2024-02-01T14:00:00Z',
+        'blockchain:bitcoin',
+        [
+          {
+            assetId: 'blockchain:bitcoin:native',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
+        []
+      );
+
+      transactions = [purchaseTx, withdrawalTx, depositTx];
+
+      // Link with different sourceAssetId / targetAssetId
+      const link = createLink(
+        'link1',
+        2,
+        3,
+        'BTC',
+        '0.9995',
+        '0.9995',
+        '98.5',
+        'exchange:kraken:btc',
+        'blockchain:bitcoin:native'
+      );
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      if (result.isErr()) {
+        console.error('Test #14 error:', result.error.message);
+      }
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const exchangeResult = result.value.assetResults.find((r) => r.assetId === 'exchange:kraken:btc');
+        const blockchainResult = result.value.assetResults.find((r) => r.assetId === 'blockchain:bitcoin:native');
+
+        expect(exchangeResult).toBeDefined();
+        expect(blockchainResult).toBeDefined();
+
+        // Exchange group: 1 purchase lot, 1 fee disposal, 1 transfer
+        expect(exchangeResult!.lots).toHaveLength(1);
+        expect(exchangeResult!.lots[0]?.costBasisPerUnit.toFixed()).toBe('50000');
+        expect(exchangeResult!.lotTransfers).toHaveLength(1);
+        expect(exchangeResult!.disposals).toHaveLength(1);
+        expect(exchangeResult!.disposals[0]?.quantityDisposed.toFixed()).toBe('0.0005');
+
+        // Blockchain group: 1 lot (transfer target) with inherited cost basis
+        expect(blockchainResult!.lots).toHaveLength(1);
+        const transferLot = blockchainResult!.lots[0];
+        expect(transferLot?.acquisitionTransactionId).toBe(3);
+        expect(transferLot?.quantity.toFixed()).toBe('0.9995');
+        expect(transferLot?.costBasisPerUnit.toFixed()).toBe('50000');
+
+        // Totals
+        expect(result.value.totalTransfersProcessed).toBe(1);
       }
     });
   });

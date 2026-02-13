@@ -20,6 +20,9 @@ export interface PricesViewCoverageState {
   scrollOffset: number;
   assetFilter?: string | undefined;
   sourceFilter?: string | undefined;
+  /** Set by reducer when user presses Enter — picked up by useEffect to load missing data */
+  drillDownAsset?: string | undefined;
+  error?: string | undefined;
 }
 
 /**
@@ -38,6 +41,8 @@ export interface PricesViewMissingState {
   assetFilter?: string | undefined;
   sourceFilter?: string | undefined;
   error?: string | undefined;
+  /** When present, enables Esc-to-go-back to coverage mode */
+  parentCoverageState?: PricesViewCoverageState | undefined;
 }
 
 /**

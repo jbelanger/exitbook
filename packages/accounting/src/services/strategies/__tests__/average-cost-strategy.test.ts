@@ -554,6 +554,7 @@ function createLot(id: string, quantity: string, costBasisPerUnit: string, acqui
     id,
     calculationId: 'calc1',
     acquisitionTransactionId: 1,
+    assetId: 'test:btc',
     assetSymbol: 'BTC',
     quantity: qty,
     costBasisPerUnit: cost,

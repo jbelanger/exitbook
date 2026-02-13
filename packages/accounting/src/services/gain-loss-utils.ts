@@ -25,7 +25,7 @@ export function calculateGainLoss(
     let totalDisallowedLosses = 0;
 
     for (const assetResult of assetResults) {
-      const { assetSymbol: asset, lots, disposals } = assetResult;
+      const { assetId, assetSymbol: asset, lots, disposals } = assetResult;
 
       // Skip assets with no lots and no disposals (e.g., fiat currencies)
       if (lots.length === 0 && disposals.length === 0) {
@@ -84,7 +84,7 @@ export function calculateGainLoss(
       if (summaryResult.isErr()) {
         return err(summaryResult.error);
       }
-      assetSummaries.set(asset, summaryResult.value);
+      assetSummaries.set(assetId, summaryResult.value);
     }
 
     // Aggregate across all assets

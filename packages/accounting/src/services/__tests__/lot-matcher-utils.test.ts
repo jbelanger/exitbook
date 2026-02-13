@@ -14,6 +14,7 @@ import type { TransactionLink } from '../../linking/types.js';
 import {
   buildDependencyGraph,
   sortWithLogicalOrdering,
+  sortAssetGroupsByDependency,
   getVarianceTolerance,
   extractOnChainFees,
   extractCryptoFee,
@@ -137,6 +138,8 @@ function createTransactionLink(
     sourceTransactionId: sourceName,
     targetTransactionId: targetId,
     assetSymbol,
+    sourceAssetId: `test:${assetSymbol.toLowerCase()}`,
+    targetAssetId: `test:${assetSymbol.toLowerCase()}`,
     sourceAmount: new Decimal(sourceAmount),
     targetAmount: new Decimal(targetAmount),
     linkType: 'exchange_to_blockchain',
@@ -224,6 +227,72 @@ describe('lot-matcher-utils', () => {
       const sorted = sortWithLogicalOrdering(transactions, new Map());
 
       expect(sorted.map((t) => t.id)).toEqual([1, 2, 3]);
+    });
+  });
+
+  describe('sortAssetGroupsByDependency', () => {
+    const makeEntry = (
+      assetId: string,
+      assetSymbol: string
+    ): [string, { assetSymbol: string; transactions: UniversalTransactionData[] }] => [
+      assetId,
+      { assetSymbol, transactions: [] },
+    ];
+
+    const makeCrossAssetLink = (_sourceAssetId: string, _targetAssetId: string): TransactionLink =>
+      createTransactionLink('link-1', 1, 2, 'BTC', '1', '1');
+
+    it('should return original order when no cross-asset links exist', () => {
+      const entries = [makeEntry('test:btc', 'BTC'), makeEntry('test:eth', 'ETH')];
+      const links = [createTransactionLink('link-1', 1, 2, 'BTC', '1', '1')]; // same-asset link
+
+      const result = sortAssetGroupsByDependency(entries, links);
+
+      expect(result.map(([id]) => id)).toEqual(['test:btc', 'test:eth']);
+    });
+
+    it('should order source group before target group for cross-asset link', () => {
+      const entries = [makeEntry('blockchain:bitcoin:native', 'BTC'), makeEntry('exchange:kraken:btc', 'BTC')];
+      const link: TransactionLink = {
+        ...makeCrossAssetLink('exchange:kraken:btc', 'blockchain:bitcoin:native'),
+        sourceAssetId: 'exchange:kraken:btc',
+        targetAssetId: 'blockchain:bitcoin:native',
+      };
+
+      const result = sortAssetGroupsByDependency(entries, [link]);
+
+      expect(result.map(([id]) => id)).toEqual(['exchange:kraken:btc', 'blockchain:bitcoin:native']);
+    });
+
+    it('should handle chain A→B→C correctly', () => {
+      const entries = [makeEntry('c', 'BTC'), makeEntry('a', 'BTC'), makeEntry('b', 'BTC')];
+      const linkAB: TransactionLink = {
+        ...makeCrossAssetLink('a', 'b'),
+        sourceAssetId: 'a',
+        targetAssetId: 'b',
+      };
+      const linkBC: TransactionLink = {
+        ...makeCrossAssetLink('b', 'c'),
+        sourceAssetId: 'b',
+        targetAssetId: 'c',
+      };
+
+      const result = sortAssetGroupsByDependency(entries, [linkAB, linkBC]);
+
+      expect(result.map(([id]) => id)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('should not reorder for same-asset links', () => {
+      const entries = [makeEntry('test:btc', 'BTC'), makeEntry('test:eth', 'ETH')];
+      const link: TransactionLink = {
+        ...makeCrossAssetLink('test:btc', 'test:btc'),
+        sourceAssetId: 'test:btc',
+        targetAssetId: 'test:btc',
+      };
+
+      const result = sortAssetGroupsByDependency(entries, [link]);
+
+      expect(result.map(([id]) => id)).toEqual(['test:btc', 'test:eth']);
     });
   });
 
@@ -648,8 +717,8 @@ describe('lot-matcher-utils', () => {
       const grouped = groupTransactionsByAsset(transactions);
 
       expect(grouped.size).toBe(2);
-      expect(grouped.get('BTC')?.map((t) => t.id)).toEqual([1, 2]);
-      expect(grouped.get('ETH')?.map((t) => t.id)).toEqual([3]);
+      expect(grouped.get('test:btc')?.transactions.map((t) => t.id)).toEqual([1, 2]);
+      expect(grouped.get('test:eth')?.transactions.map((t) => t.id)).toEqual([3]);
     });
 
     it('should handle transactions with multiple assets', () => {
@@ -663,8 +732,8 @@ describe('lot-matcher-utils', () => {
       const grouped = groupTransactionsByAsset(transactions);
 
       expect(grouped.size).toBe(2);
-      expect(grouped.get('BTC')?.map((t) => t.id)).toEqual([1]);
-      expect(grouped.get('USD')?.map((t) => t.id)).toEqual([1]);
+      expect(grouped.get('test:btc')?.transactions.map((t) => t.id)).toEqual([1]);
+      expect(grouped.get('test:usd')?.transactions.map((t) => t.id)).toEqual([1]);
     });
 
     it('should return empty map for no transactions', () => {

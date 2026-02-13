@@ -175,6 +175,52 @@ describe('PricesViewApp - coverage mode', () => {
     expect(frame).toContain('q/esc quit');
     expect(frame).not.toContain('s set price');
   });
+
+  it('shows enter view missing when selected asset has missing prices', () => {
+    const coverage = createMockCoverage();
+    const state = createCoverageViewState(coverage, createMockSummary());
+    state.selectedIndex = 0; // BTC has missing_price: 10
+    const { lastFrame } = render(
+      <PricesViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+
+    expect(frame).toContain('enter view missing');
+  });
+
+  it('does not show enter view missing when selected asset has 100% coverage', () => {
+    const coverage = createMockCoverage();
+    const state = createCoverageViewState(coverage, createMockSummary());
+    state.selectedIndex = 1; // ETH has missing_price: 0
+    const { lastFrame } = render(
+      <PricesViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+
+    expect(frame).not.toContain('enter view missing');
+  });
+
+  it('shows drill-down tip instead of CLI tip for missing sources', () => {
+    const coverage = createMockCoverage();
+    const state = createCoverageViewState(coverage, createMockSummary());
+    state.selectedIndex = 0; // BTC has missing sources
+    const { lastFrame } = render(
+      <PricesViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+
+    expect(frame).toContain('Press Enter to view and set missing prices');
+    expect(frame).not.toContain('exitbook prices view --missing-only');
+  });
 });
 
 describe('PricesViewApp - missing mode', () => {
@@ -370,6 +416,53 @@ describe('PricesViewApp - missing mode', () => {
 
     expect(frame).toContain('2');
     expect(frame).toContain('1 resolved');
+  });
+
+  it('shows esc back in controls bar when drilled-in from coverage', () => {
+    const parentState = createCoverageViewState(createMockCoverage(), createMockSummary());
+    const state = createMissingViewState(createMockMovements(), createMockAssetBreakdown(), 'BTC');
+    state.parentCoverageState = parentState;
+    const { lastFrame } = render(
+      <PricesViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+
+    expect(frame).toContain('esc back');
+    expect(frame).toContain('q quit');
+    expect(frame).not.toContain('q/esc quit');
+  });
+
+  it('shows breadcrumb header when drilled-in from coverage', () => {
+    const parentState = createCoverageViewState(createMockCoverage(), createMockSummary());
+    const state = createMissingViewState(createMockMovements(), createMockAssetBreakdown(), 'BTC');
+    state.parentCoverageState = parentState;
+    const { lastFrame } = render(
+      <PricesViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+
+    expect(frame).toContain('← ');
+    expect(frame).toContain('BTC Missing Prices');
+  });
+
+  it('shows normal header when not drilled-in', () => {
+    const state = createMissingViewState(createMockMovements(), createMockAssetBreakdown());
+    const { lastFrame } = render(
+      <PricesViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+
+    expect(frame).toContain('Missing Prices');
+    expect(frame).not.toContain('← ');
   });
 
   it('shows resolved price and tip in detail panel after save', () => {

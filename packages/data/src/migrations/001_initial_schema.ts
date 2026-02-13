@@ -255,6 +255,8 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('source_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
     .addColumn('target_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
     .addColumn('asset', 'text', (col) => col.notNull())
+    .addColumn('source_asset_id', 'text', (col) => col.notNull())
+    .addColumn('target_asset_id', 'text', (col) => col.notNull())
     .addColumn('source_amount', 'text', (col) => col.notNull())
     .addColumn('target_amount', 'text', (col) => col.notNull())
     .addColumn('link_type', 'text', (col) => col.notNull())
@@ -297,14 +299,14 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
   await db.schema
     .createIndex('idx_tx_links_source_lookup')
     .on('transaction_links')
-    .columns(['source_transaction_id', 'asset', 'source_amount'])
+    .columns(['source_transaction_id', 'source_asset_id', 'source_amount'])
     .execute();
 
   // Create composite index for target link lookup (used by LinkIndex)
   await db.schema
     .createIndex('idx_tx_links_target_lookup')
     .on('transaction_links')
-    .columns(['target_transaction_id', 'asset'])
+    .columns(['target_transaction_id', 'target_asset_id'])
     .execute();
 }
 

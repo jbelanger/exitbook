@@ -1,6 +1,7 @@
 import { Currency, parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
+import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../domain/schemas.js';
@@ -16,6 +17,7 @@ import {
   matchOutflowDisposal,
   processTransferSource,
   processTransferTarget,
+  sortAssetGroupsByDependency,
   sortWithLogicalOrdering,
 } from './lot-matcher-utils.js';
 import type { ICostBasisStrategy } from './strategies/base-strategy.js';
@@ -42,7 +44,9 @@ export interface LotMatcherConfig {
  * Result of lot matching for a single asset
  */
 export interface AssetLotMatchResult {
-  /** Asset symbol */
+  /** Asset ID (contract-level identifier) */
+  assetId: string;
+  /** Asset symbol (display name) */
   assetSymbol: string;
   /** Acquisition lots created */
   lots: AcquisitionLot[];
@@ -65,6 +69,27 @@ export interface LotMatchResult {
   /** Total number of transfers processed */
   totalTransfersProcessed: number;
 }
+
+/**
+ * Result of searching for an effective source link for an outflow.
+ *
+ * - transfer: Found a cross-source link (may have consumed internal links first)
+ * - internal_only: Found only blockchain_internal links (outflow should be skipped)
+ * - none: No links found (treat as regular disposal)
+ */
+type SourceLinkResult =
+  | { isPartialOutflow: boolean; link: TransactionLink; type: 'transfer' }
+  | { type: 'internal_only' }
+  | { type: 'none' };
+
+/**
+ * Result of searching for an effective target link for an inflow.
+ *
+ * - transfer: Found a cross-source link (may have consumed internal links first)
+ * - internal_only: Found only blockchain_internal links (inflow should be skipped)
+ * - none: No links found (treat as regular acquisition)
+ */
+type TargetLinkResult = { link: TransactionLink; type: 'transfer' } | { type: 'internal_only' } | { type: 'none' };
 
 /**
  * LotMatcher - Matches disposal transactions to acquisition lots using a specified strategy
@@ -129,14 +154,27 @@ export class LotMatcher {
       // Build link index for efficient lookup during matching
       const linkIndex = new LinkIndex(confirmedLinks);
 
-      // Group transactions by asset
+      // Group transactions by assetId
       const transactionsByAsset = groupTransactionsByAsset(sortedTransactions);
 
-      // Process each asset separately
+      // Sort asset groups so that cross-asset transfer sources are processed before targets
+      const sortedAssetEntries = sortAssetGroupsByDependency([...transactionsByAsset.entries()], confirmedLinks);
+
+      // Shared lot transfers array across all asset groups for cross-assetId transfers
+      const sharedLotTransfers: LotTransfer[] = [];
+
+      // Process each asset separately (in dependency order)
       const assetResults: AssetLotMatchResult[] = [];
 
-      for (const [asset, assetTransactions] of transactionsByAsset) {
-        const result = await this.matchAsset(asset, assetTransactions, config, linkIndex);
+      for (const [assetId, { assetSymbol, transactions: assetTransactions }] of sortedAssetEntries) {
+        const result = await this.matchAsset(
+          assetId,
+          assetSymbol,
+          assetTransactions,
+          config,
+          linkIndex,
+          sharedLotTransfers
+        );
         if (result.isErr()) {
           return err(result.error);
         }
@@ -160,23 +198,26 @@ export class LotMatcher {
   }
 
   /**
-   * Match transactions for a single asset
+   * Match transactions for a single asset (grouped by assetId)
    */
   private async matchAsset(
+    assetId: string,
     assetSymbol: string,
     transactions: UniversalTransactionData[],
     config: LotMatcherConfig,
-    linkIndex: LinkIndex
+    linkIndex: LinkIndex,
+    sharedLotTransfers: LotTransfer[]
   ): Promise<Result<AssetLotMatchResult, Error>> {
     try {
       const lots: AcquisitionLot[] = [];
       const disposals: LotDisposal[] = [];
-      const lotTransfers: LotTransfer[] = [];
+      const transferStartIdx = sharedLotTransfers.length;
 
       // Skip fiat currencies - we only track cost basis for crypto assets
       const assetCurrency = Currency.create(assetSymbol);
       if (assetCurrency.isFiat()) {
         return ok({
+          assetId,
           assetSymbol,
           lots: [],
           disposals: [],
@@ -189,36 +230,40 @@ export class LotMatcher {
         // Check outflows (disposals or transfer sources)
         const outflows = tx.movements.outflows || [];
         for (const outflow of outflows) {
-          if (outflow.assetSymbol === assetSymbol) {
-            // Check if this outflow is part of a confirmed transfer
-            // Use netAmount (fallback grossAmount) for link matching — link sourceAmount is stored
-            // from candidate amount which uses the same netAmount ?? grossAmount precedence
-            const link = linkIndex.findBySource(tx.id, outflow.assetSymbol, outflow.netAmount ?? outflow.grossAmount);
+          if (outflow.assetId === assetId) {
+            // Find the effective link for this outflow, consuming any blockchain_internal
+            // links along the way. A single outflow can have both a blockchain_internal link
+            // (UTXO change) and a cross-source link (exchange withdrawal). We need to consume
+            // the internal one and process the cross-source one.
+            const linkResult = this.findEffectiveSourceLink(linkIndex, tx.id, outflow);
 
-            if (link) {
-              // Skip blockchain_internal links - these are UTXO change outputs within the same wallet
-              // They should not create disposals or transfers for cost basis calculations
-              if (link.linkType === 'blockchain_internal') {
-                this.logger.debug(
-                  { txId: tx.id, asset: assetSymbol, amount: outflow.grossAmount.toFixed() },
-                  'Skipping blockchain_internal outflow link'
-                );
-                linkIndex.consumeSourceLink(link);
-                continue;
-              }
+            if (linkResult.type === 'transfer') {
+              const { link, isPartialOutflow } = linkResult;
+              // When blockchain_internal links were consumed, the outflow is split: only the
+              // link's sourceAmount represents the external transfer (gross minus internal change).
+              // Fees are already factored into the UTXO adjustment.
+              const effectiveAmount = isPartialOutflow ? link.sourceAmount : undefined;
 
               // Handle transfer source
-              const transferResult = this.handleTransferSource(tx, outflow, link, lots, config, config.calculationId);
+              const transferResult = this.handleTransferSource(
+                tx,
+                outflow,
+                link,
+                lots,
+                config,
+                config.calculationId,
+                effectiveAmount
+              );
               if (transferResult.isErr()) {
                 return err(transferResult.error);
               }
-              lotTransfers.push(...transferResult.value.transfers);
+              sharedLotTransfers.push(...transferResult.value.transfers);
               disposals.push(...transferResult.value.disposals);
               // Update lots array with new state
               lots.splice(0, lots.length, ...transferResult.value.updatedLots);
               linkIndex.consumeSourceLink(link);
-            } else {
-              // Handle regular disposal
+            } else if (linkResult.type === 'none') {
+              // Handle regular disposal (no links found at all)
               const result = matchOutflowDisposal(tx, outflow, lots, config.strategy);
               if (result.isErr()) {
                 return err(result.error);
@@ -227,25 +272,19 @@ export class LotMatcher {
               // Update lots array with new state
               lots.splice(0, lots.length, ...result.value.updatedLots);
             }
+            // linkResult.type === 'internal_only' means only blockchain_internal links found → skip outflow
           }
         }
 
         // Check inflows (acquisitions or transfer targets)
         const inflows = tx.movements.inflows || [];
-        const assetInflows = inflows.filter((inflow) => inflow.assetSymbol === assetSymbol);
+        const assetInflows = inflows.filter((inflow) => inflow.assetId === assetId);
 
         if (assetInflows.length > 0) {
-          // Check if this transaction is a transfer target
-          const link = linkIndex.findByTarget(tx.id, assetSymbol);
-          if (link) {
-            // Skip blockchain_internal links - these are UTXO change inputs within the same wallet
-            // They should not create acquisition lots for cost basis calculations
-            if (link.linkType === 'blockchain_internal') {
-              this.logger.debug({ txId: tx.id, asset: assetSymbol }, 'Skipping blockchain_internal inflow link');
-              linkIndex.consumeTargetLink(link);
-              continue;
-            }
-
+          // Find the effective target link, consuming any blockchain_internal links along the way
+          const linkResult = this.findEffectiveTargetLink(linkIndex, tx.id, assetId);
+          if (linkResult.type === 'transfer') {
+            const { link } = linkResult;
             // Aggregate all inflows of this asset for transfer targets
             // Use netAmount for consistency with link.targetAmount (net received amount)
             const totalAmount = assetInflows.reduce(
@@ -260,13 +299,13 @@ export class LotMatcher {
             };
 
             // Handle transfer target with aggregated amount
-            const lotResult = await this.handleTransferTarget(tx, aggregatedInflow, link, lotTransfers, config);
+            const lotResult = await this.handleTransferTarget(tx, aggregatedInflow, link, sharedLotTransfers, config);
             if (lotResult.isErr()) {
               return err(lotResult.error);
             }
             lots.push(lotResult.value);
             linkIndex.consumeTargetLink(link);
-          } else {
+          } else if (linkResult.type === 'none') {
             // Handle each inflow as regular acquisition
             for (const inflow of assetInflows) {
               const lotResult = buildAcquisitionLotFromInflow(
@@ -281,18 +320,88 @@ export class LotMatcher {
               lots.push(lotResult.value);
             }
           }
+          // linkResult.type === 'internal_only' means only blockchain_internal links found → skip inflow
         }
       }
 
       return ok({
+        assetId,
         assetSymbol,
         lots,
         disposals,
-        lotTransfers,
+        lotTransfers: sharedLotTransfers.slice(transferStartIdx),
       });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  /**
+   * Find the effective source link for an outflow, skipping blockchain_internal links.
+   *
+   * A UTXO outflow can have both a blockchain_internal link (change output) and a cross-source
+   * link (exchange withdrawal). This method consumes internal links and returns the first
+   * non-internal link.
+   *
+   * When blockchain_internal links were consumed before finding a cross-source link,
+   * isPartialOutflow=true signals that the link's sourceAmount (adjusted: gross minus change)
+   * should be used instead of the full outflow amount for variance checks and disposal.
+   */
+  private findEffectiveSourceLink(linkIndex: LinkIndex, txId: number, outflow: AssetMovement): SourceLinkResult {
+    // Three-level source lookup:
+    // 1. netAmount ?? grossAmount — matches cross-source links (convertToCandidates uses netAmount)
+    // 2. grossAmount — matches blockchain_internal links (extractPrimaryAmount uses grossAmount)
+    // 3. (txId, asset) only — matches UTXO cross-source links where sourceAmount is an adjusted
+    //    amount (gross minus internal change) that differs from both netAmount and grossAmount
+    const findLink = (): TransactionLink | undefined => {
+      const lookupAmount = outflow.netAmount ?? outflow.grossAmount;
+      let link = linkIndex.findBySource(txId, outflow.assetId, lookupAmount);
+      if (!link && outflow.netAmount && !outflow.netAmount.eq(outflow.grossAmount)) {
+        link = linkIndex.findBySource(txId, outflow.assetId, outflow.grossAmount);
+      }
+      if (!link) {
+        link = linkIndex.findAnyBySource(txId, outflow.assetId);
+      }
+      return link;
+    };
+
+    let foundInternal = false;
+    let link = findLink();
+
+    while (link && link.linkType === 'blockchain_internal') {
+      this.logger.debug(
+        { txId, asset: outflow.assetSymbol, amount: outflow.grossAmount.toFixed() },
+        'Consuming blockchain_internal outflow link'
+      );
+      linkIndex.consumeSourceLink(link);
+      foundInternal = true;
+      link = findLink();
+    }
+
+    if (link) {
+      return { type: 'transfer', link, isPartialOutflow: foundInternal };
+    }
+    return foundInternal ? { type: 'internal_only' } : { type: 'none' };
+  }
+
+  /**
+   * Find the effective target link for an inflow, skipping blockchain_internal links.
+   */
+  private findEffectiveTargetLink(linkIndex: LinkIndex, txId: number, assetId: string): TargetLinkResult {
+    let foundInternal = false;
+    let link = linkIndex.findByTarget(txId, assetId);
+
+    while (link && link.linkType === 'blockchain_internal') {
+      this.logger.debug({ txId, assetId }, 'Consuming blockchain_internal inflow link');
+      linkIndex.consumeTargetLink(link);
+      foundInternal = true;
+      link = linkIndex.findByTarget(txId, assetId);
+    }
+
+    if (link) {
+      return { link, type: 'transfer' };
+    }
+    return foundInternal ? { type: 'internal_only' } : { type: 'none' };
   }
 
   private sortTransactionsWithLogicalOrdering(
@@ -309,7 +418,8 @@ export class LotMatcher {
     link: TransactionLink,
     lots: AcquisitionLot[],
     config: LotMatcherConfig,
-    calculationId: string
+    calculationId: string,
+    effectiveAmount?: Decimal
   ): Result<{ disposals: LotDisposal[]; transfers: LotTransfer[]; updatedLots: AcquisitionLot[] }, Error> {
     if (!config.jurisdiction) {
       return err(new Error('Jurisdiction configuration is required for handling transfer sources'));
@@ -324,7 +434,8 @@ export class LotMatcher {
       config.strategy,
       calculationId,
       config.jurisdiction,
-      config.varianceTolerance
+      config.varianceTolerance,
+      effectiveAmount
     );
 
     if (result.isErr()) {

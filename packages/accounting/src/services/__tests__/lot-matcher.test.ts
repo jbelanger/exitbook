@@ -1342,6 +1342,8 @@ describe('LotMatcher - Fee Handling', () => {
         sourceTransactionId: 2,
         targetTransactionId: 3,
         assetSymbol: 'BTC',
+        sourceAssetId: 'bitcoin:btc',
+        targetAssetId: 'bitcoin:btc',
         sourceAmount: parseDecimal('0.5'),
         targetAmount: parseDecimal('0.5'),
         linkType: 'blockchain_internal', // This is the key - UTXO change

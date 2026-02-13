@@ -12,12 +12,14 @@ describe('calculateGainLoss', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
           assetSymbol: 'BTC',
+          assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('30000'),
               totalCostBasis: parseDecimal('30000'),
@@ -59,7 +61,7 @@ describe('calculateGainLoss', () => {
         expect(gainLoss.totalDisposalsProcessed).toBe(1);
         expect(gainLoss.disallowedLossCount).toBe(0);
 
-        const btcSummary = gainLoss.byAsset.get('BTC');
+        const btcSummary = gainLoss.byAsset.get('test:btc');
         expect(btcSummary).toBeDefined();
         expect(btcSummary?.totalCapitalGainLoss.toString()).toBe('5000');
       }
@@ -69,12 +71,14 @@ describe('calculateGainLoss', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
           assetSymbol: 'ETH',
+          assetId: 'test:eth',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
               assetSymbol: 'ETH',
+              assetId: 'test:eth',
               quantity: parseDecimal('10'),
               costBasisPerUnit: parseDecimal('2000'),
               totalCostBasis: parseDecimal('20000'),
@@ -120,12 +124,14 @@ describe('calculateGainLoss', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
           assetSymbol: 'BTC',
+          assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('30000'),
               totalCostBasis: parseDecimal('30000'),
@@ -141,6 +147,7 @@ describe('calculateGainLoss', () => {
               calculationId: 'calc-1',
               acquisitionTransactionId: 3,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('35000'),
               totalCostBasis: parseDecimal('35000'),
@@ -191,7 +198,7 @@ describe('calculateGainLoss', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const gainLoss = result.value;
-        const btcSummary = gainLoss.byAsset.get('BTC');
+        const btcSummary = gainLoss.byAsset.get('test:btc');
 
         expect(btcSummary).toBeDefined();
         expect(btcSummary?.byCategory.size).toBe(2);
@@ -210,12 +217,14 @@ describe('calculateGainLoss', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
           assetSymbol: 'BTC',
+          assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('50000'),
               totalCostBasis: parseDecimal('50000'),
@@ -265,12 +274,14 @@ describe('calculateGainLoss', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
           assetSymbol: 'BTC',
+          assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('50000'),
               totalCostBasis: parseDecimal('50000'),
@@ -286,6 +297,7 @@ describe('calculateGainLoss', () => {
               calculationId: 'calc-1',
               acquisitionTransactionId: 3,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('32000'),
               totalCostBasis: parseDecimal('32000'),
@@ -326,7 +338,7 @@ describe('calculateGainLoss', () => {
         expect(gainLoss.totalTaxableGainLoss.toString()).toBe('0');
         expect(gainLoss.disallowedLossCount).toBe(1);
 
-        const btcSummary = gainLoss.byAsset.get('BTC');
+        const btcSummary = gainLoss.byAsset.get('test:btc');
         expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(true);
       }
     });
@@ -335,12 +347,14 @@ describe('calculateGainLoss', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
           assetSymbol: 'BTC',
+          assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('30000'),
               totalCostBasis: parseDecimal('30000'),
@@ -372,12 +386,14 @@ describe('calculateGainLoss', () => {
         },
         {
           assetSymbol: 'ETH',
+          assetId: 'test:eth',
           lots: [
             {
               id: 'lot-2',
               calculationId: 'calc-1',
               acquisitionTransactionId: 3,
               assetSymbol: 'ETH',
+              assetId: 'test:eth',
               quantity: parseDecimal('10'),
               costBasisPerUnit: parseDecimal('2000'),
               totalCostBasis: parseDecimal('20000'),
@@ -418,10 +434,10 @@ describe('calculateGainLoss', () => {
         expect(gainLoss.totalCapitalGainLoss.toString()).toBe('10000');
         expect(gainLoss.totalDisposalsProcessed).toBe(2);
 
-        const btcSummary = gainLoss.byAsset.get('BTC');
+        const btcSummary = gainLoss.byAsset.get('test:btc');
         expect(btcSummary?.totalCapitalGainLoss.toString()).toBe('5000');
 
-        const ethSummary = gainLoss.byAsset.get('ETH');
+        const ethSummary = gainLoss.byAsset.get('test:eth');
         expect(ethSummary?.totalCapitalGainLoss.toString()).toBe('5000');
       }
     });
@@ -430,12 +446,14 @@ describe('calculateGainLoss', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
           assetSymbol: 'BTC',
+          assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('30000'),
               totalCostBasis: parseDecimal('30000'),
@@ -461,7 +479,7 @@ describe('calculateGainLoss', () => {
         expect(gainLoss.totalTaxableGainLoss.toString()).toBe('0');
         expect(gainLoss.totalDisposalsProcessed).toBe(0);
 
-        const btcSummary = gainLoss.byAsset.get('BTC');
+        const btcSummary = gainLoss.byAsset.get('test:btc');
         expect(btcSummary).toBeDefined();
         expect(btcSummary?.disposalCount).toBe(0);
         expect(btcSummary?.disposals).toEqual([]);
@@ -496,12 +514,14 @@ describe('calculateGainLoss', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
           assetSymbol: 'BTC',
+          assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('30000'),
               totalCostBasis: parseDecimal('30000'),
@@ -538,7 +558,7 @@ describe('calculateGainLoss', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const gainLoss = result.value;
-        const btcSummary = gainLoss.byAsset.get('BTC');
+        const btcSummary = gainLoss.byAsset.get('test:btc');
         const disposal = btcSummary?.disposals[0];
 
         expect(disposal?.holdingPeriodDays).toBe(holdingPeriodDays);
@@ -560,12 +580,14 @@ describe('calculateGainLoss', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
           assetSymbol: 'BTC',
+          assetId: 'test:btc',
           lots: [
             {
               id: 'lot-old',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('10000'),
               totalCostBasis: parseDecimal('10000'),
@@ -581,6 +603,7 @@ describe('calculateGainLoss', () => {
               calculationId: 'calc-1',
               acquisitionTransactionId: 3,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('32000'),
               totalCostBasis: parseDecimal('32000'),
@@ -634,12 +657,14 @@ describe('calculateGainLoss', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
           assetSymbol: 'BTC',
+          assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('50000'),
               totalCostBasis: parseDecimal('50000'),
@@ -655,6 +680,7 @@ describe('calculateGainLoss', () => {
               calculationId: 'calc-1',
               acquisitionTransactionId: 3,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('32000'),
               totalCostBasis: parseDecimal('32000'),
@@ -695,7 +721,7 @@ describe('calculateGainLoss', () => {
         expect(gainLoss.disallowedLossCount).toBe(0);
         expect(gainLoss.totalTaxableGainLoss.toString()).toBe('-20000');
 
-        const btcSummary = gainLoss.byAsset.get('BTC');
+        const btcSummary = gainLoss.byAsset.get('test:btc');
         expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(false);
       }
     });
@@ -712,12 +738,14 @@ describe('calculateGainLoss', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
           assetSymbol: 'BTC',
+          assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('50000'),
               totalCostBasis: parseDecimal('50000'),
@@ -733,6 +761,7 @@ describe('calculateGainLoss', () => {
               calculationId: 'calc-1',
               acquisitionTransactionId: 2,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('48000'),
               totalCostBasis: parseDecimal('48000'),
@@ -773,7 +802,7 @@ describe('calculateGainLoss', () => {
         expect(gainLoss.disallowedLossCount).toBe(0);
         expect(gainLoss.totalTaxableGainLoss.toString()).toBe('-10000'); // 50% inclusion
 
-        const btcSummary = gainLoss.byAsset.get('BTC');
+        const btcSummary = gainLoss.byAsset.get('test:btc');
         expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(false);
       }
     });
@@ -790,12 +819,14 @@ describe('calculateGainLoss', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
           assetSymbol: 'BTC',
+          assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('50000'),
               totalCostBasis: parseDecimal('50000'),
@@ -811,6 +842,7 @@ describe('calculateGainLoss', () => {
               calculationId: 'calc-1',
               acquisitionTransactionId: 3,
               assetSymbol: 'BTC',
+              assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('32000'),
               totalCostBasis: parseDecimal('32000'),
@@ -851,7 +883,7 @@ describe('calculateGainLoss', () => {
         expect(gainLoss.disallowedLossCount).toBe(1);
         expect(gainLoss.totalTaxableGainLoss.toString()).toBe('0');
 
-        const btcSummary = gainLoss.byAsset.get('BTC');
+        const btcSummary = gainLoss.byAsset.get('test:btc');
         expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(true);
       }
     });

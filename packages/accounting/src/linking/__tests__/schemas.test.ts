@@ -113,6 +113,8 @@ describe('schemas', () => {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
+        sourceAssetId: 'exchange:kraken:btc',
+        targetAssetId: 'blockchain:bitcoin:btc',
         sourceAmount: parseDecimal('1.0'),
         targetAmount: parseDecimal('0.9995'),
         linkType: 'exchange_to_blockchain',
@@ -137,6 +139,8 @@ describe('schemas', () => {
       expect(result.sourceTransactionId).toBe(1);
       expect(result.targetTransactionId).toBe(2);
       expect(result.assetSymbol).toBe('BTC');
+      expect(result.sourceAssetId).toBe('exchange:kraken:btc');
+      expect(result.targetAssetId).toBe('blockchain:bitcoin:btc');
       expect(result.sourceAmount).toBeInstanceOf(Decimal);
       expect(result.sourceAmount.toFixed()).toBe('1');
       expect(result.targetAmount).toBeInstanceOf(Decimal);
@@ -155,6 +159,8 @@ describe('schemas', () => {
         sourceTransactionId: 3,
         targetTransactionId: 4,
         assetSymbol: 'ETH',
+        sourceAssetId: 'blockchain:ethereum:0xc02...c02',
+        targetAssetId: 'blockchain:arbitrum:0x82a...82a',
         sourceAmount: '10.0',
         targetAmount: '9.98',
         linkType: 'blockchain_to_blockchain',
@@ -208,6 +214,7 @@ describe('schemas', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetSymbol: 'BTC',
+        assetId: 'exchange:kraken:btc',
         amount: parseDecimal('1.5'),
         direction: 'out',
         fromAddress: 'addr123',
@@ -221,6 +228,7 @@ describe('schemas', () => {
       expect(result.externalId).toBe('W123');
       expect(result.timestamp).toBeInstanceOf(Date);
       expect(result.assetSymbol).toBe('BTC');
+      expect(result.assetId).toBe('exchange:kraken:btc');
       expect(result.amount).toBeInstanceOf(Decimal);
       expect(result.amount.toFixed()).toBe('1.5');
       expect(result.direction).toBe('out');
@@ -233,6 +241,7 @@ describe('schemas', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T13:00:00Z'),
         assetSymbol: 'BTC',
+        assetId: 'blockchain:bitcoin:btc',
         amount: '1.5',
         direction: 'in',
         toAddress: 'bc1q...',
@@ -251,6 +260,7 @@ describe('schemas', () => {
         sourceType: 'exchange',
         timestamp: new Date(),
         assetSymbol: 'ETH',
+        assetId: 'exchange:test:eth',
         amount: parseDecimal('0.5'),
         direction: 'neutral',
       };
@@ -295,6 +305,7 @@ describe('schemas', () => {
       sourceType: 'exchange' as const,
       timestamp: new Date(),
       assetSymbol: 'BTC',
+      assetId: 'exchange:test:btc',
       amount: parseDecimal('1.0'),
       direction: 'out' as const,
       ...overrides,
@@ -414,6 +425,7 @@ describe('schemas', () => {
       sourceType: 'exchange' as const,
       timestamp: new Date(),
       assetSymbol: 'BTC',
+      assetId: 'test:btc',
       amount: parseDecimal('1.0'),
       direction: 'out' as const,
     });
@@ -436,6 +448,8 @@ describe('schemas', () => {
       sourceTransactionId: sourceName,
       targetTransactionId: targetId,
       assetSymbol: 'BTC',
+      sourceAssetId: 'test:btc',
+      targetAssetId: 'test:btc',
       sourceAmount: parseDecimal('1.0'),
       targetAmount: parseDecimal('1.0'),
       linkType: 'exchange_to_blockchain' as const,
@@ -567,6 +581,7 @@ describe('schemas', () => {
         sourceType: 'exchange' as const,
         timestamp: new Date(),
         assetSymbol: 'SHIB',
+        assetId: 'test:shib',
         amount: '1000000000000',
         direction: 'in' as const,
       };

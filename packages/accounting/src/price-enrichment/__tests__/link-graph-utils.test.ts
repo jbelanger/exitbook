@@ -60,6 +60,8 @@ function createLink(
     sourceTransactionId: sourceName,
     targetTransactionId: targetId,
     assetSymbol: 'BTC',
+    sourceAssetId: 'test:btc',
+    targetAssetId: 'test:btc',
     sourceAmount: parseDecimal('1.0'),
     targetAmount: parseDecimal('1.0'),
     linkType: 'exchange_to_blockchain',

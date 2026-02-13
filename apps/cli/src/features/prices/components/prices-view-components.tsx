@@ -19,9 +19,12 @@ import { missingRowKey } from './prices-view-state.js';
  */
 export const PricesViewApp: FC<{
   initialState: PricesViewState;
+  onLoadMissing?: (
+    asset: string
+  ) => Promise<{ assetBreakdown: AssetBreakdownEntry[]; movements: MissingPriceMovement[] }>;
   onQuit: () => void;
   onSetPrice?: (asset: string, date: string, price: string) => Promise<void>;
-}> = ({ initialState, onSetPrice, onQuit }) => {
+}> = ({ initialState, onLoadMissing, onSetPrice, onQuit }) => {
   const [state, dispatch] = useReducer(pricesViewReducer, initialState);
 
   const { stdout } = useStdout();
@@ -56,6 +59,33 @@ export const PricesViewApp: FC<{
         submittingRef.current = false;
       });
   }, [submitted, onSetPrice]);
+
+  // Handle drill-down from coverage to missing mode
+  const drillDownAsset = state.mode === 'coverage' ? state.drillDownAsset : undefined;
+  const loadingRef = useRef(false);
+  useEffect(() => {
+    if (!drillDownAsset || !onLoadMissing || loadingRef.current) return;
+
+    loadingRef.current = true;
+    const parentState = state as PricesViewCoverageState;
+
+    void onLoadMissing(drillDownAsset)
+      .then(({ movements, assetBreakdown }) => {
+        dispatch({
+          type: 'DRILL_DOWN_COMPLETE',
+          movements,
+          assetBreakdown,
+          asset: drillDownAsset,
+          parentState,
+        });
+      })
+      .catch(() => {
+        dispatch({ type: 'DRILL_DOWN_FAILED', error: 'Failed to load missing prices' });
+      })
+      .finally(() => {
+        loadingRef.current = false;
+      });
+  }, [drillDownAsset, onLoadMissing]);
 
   if (state.mode === 'coverage') {
     return (
@@ -98,8 +128,9 @@ const CoverageView: FC<{
       />
       <Divider width={terminalWidth} />
       <CoverageDetailPanel state={state} />
+      {state.error && <Text color="red"> {state.error}</Text>}
       <Text> </Text>
-      <CoverageControlsBar />
+      <CoverageControlsBar state={state} />
     </Box>
   );
 };
@@ -249,24 +280,31 @@ const CoverageDetailPanel: FC<{ state: PricesViewCoverageState }> = ({ state }) 
         </Text>
       </Text>
       {selected.missingSources.length > 0 && (
-        <Text>
-          {'  '}
-          <Text dimColor>Missing in: </Text>
-          {selected.missingSources.map((s, i) => (
-            <Text key={s.name}>
-              {i > 0 && <Text dimColor> · </Text>}
-              <Text color="cyan">{s.name}</Text>
-              <Text color="yellow"> ({s.count})</Text>
-            </Text>
-          ))}
-        </Text>
+        <>
+          <Text>
+            {'  '}
+            <Text dimColor>Missing in: </Text>
+            {selected.missingSources.map((s, i) => (
+              <Text key={s.name}>
+                {i > 0 && <Text dimColor> · </Text>}
+                <Text color="cyan">{s.name}</Text>
+                <Text color="yellow"> ({s.count})</Text>
+              </Text>
+            ))}
+          </Text>
+          <Text> </Text>
+          <Text dimColor>{'  '}Tip: Press Enter to view and set missing prices</Text>
+        </>
       )}
     </Box>
   );
 };
 
-const CoverageControlsBar: FC = () => {
-  return <Text dimColor>↑↓/j/k · ^U/^D page · Home/End · q/esc quit</Text>;
+const CoverageControlsBar: FC<{ state: PricesViewCoverageState }> = ({ state }) => {
+  const selected = state.coverage[state.selectedIndex];
+  const canDrill = selected && selected.missing_price > 0;
+
+  return <Text dimColor>↑↓/j/k · ^U/^D page · Home/End{canDrill ? ' · enter view missing' : ''} · q/esc quit</Text>;
 };
 
 const CoverageEmptyState: FC<{ state: PricesViewCoverageState }> = ({ state }) => {
@@ -331,8 +369,28 @@ const MissingView: FC<{
 };
 
 const MissingHeader: FC<{ state: PricesViewMissingState }> = ({ state }) => {
-  const { movements, resolvedRows, assetBreakdown, assetFilter, sourceFilter } = state;
+  const { movements, resolvedRows, assetBreakdown, assetFilter, sourceFilter, parentCoverageState } = state;
   const remaining = movements.length - resolvedRows.size;
+  const isDrilledIn = !!parentCoverageState;
+
+  if (isDrilledIn && assetFilter) {
+    return (
+      <Box>
+        <Text dimColor>← </Text>
+        <Text bold>{assetFilter} Missing Prices</Text>
+        <Text> </Text>
+        <Text color="yellow">{remaining}</Text>
+        <Text dimColor> movement{remaining !== 1 ? 's' : ''}</Text>
+        {resolvedRows.size > 0 && (
+          <>
+            <Text dimColor> · </Text>
+            <Text color="green">{resolvedRows.size} resolved</Text>
+          </>
+        )}
+      </Box>
+    );
+  }
+
   const filterParts: string[] = [];
   if (assetFilter) filterParts.push(assetFilter);
   if (sourceFilter) filterParts.push(sourceFilter);
@@ -574,8 +632,16 @@ const MissingControlsBar: FC<{ state: PricesViewMissingState }> = ({ state }) =>
 
   const movement = state.movements[state.selectedIndex];
   const canSetPrice = movement && !state.resolvedRows.has(missingRowKey(movement));
+  const isDrilledIn = !!state.parentCoverageState;
 
-  return <Text dimColor>↑↓/j/k · ^U/^D page · Home/End{canSetPrice ? ' · s set price' : ''} · q/esc quit</Text>;
+  const quitPart = isDrilledIn ? ' · esc back · q quit' : ' · q/esc quit';
+
+  return (
+    <Text dimColor>
+      ↑↓/j/k · ^U/^D page · Home/End{canSetPrice ? ' · s set price' : ''}
+      {quitPart}
+    </Text>
+  );
 };
 
 const MissingEmptyState: FC<{ state: PricesViewMissingState }> = ({ state }) => {
