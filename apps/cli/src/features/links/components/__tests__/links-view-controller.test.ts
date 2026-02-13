@@ -222,15 +222,17 @@ describe('linksViewReducer', () => {
     }
   });
 
-  it('clears error message', () => {
+  it('clears error message and pending action', () => {
     const links = createMockLinks();
     const state = createLinksViewState(links);
     state.error = 'Something went wrong';
+    state.pendingAction = { linkId: 'link-003-suggested', action: 'confirm' };
 
     const newState = linksViewReducer(state, { type: 'CLEAR_ERROR' });
     expect(newState.mode).toBe('links');
     if (newState.mode === 'links') {
       expect(newState.error).toBeUndefined();
+      expect(newState.pendingAction).toBeUndefined();
     }
   });
 });

@@ -185,6 +185,7 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
       return {
         ...state,
         error: undefined,
+        pendingAction: undefined,
       };
     }
 
