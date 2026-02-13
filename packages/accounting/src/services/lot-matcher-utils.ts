@@ -12,53 +12,6 @@ import type { TransactionLink } from '../linking/types.js';
 import type { ICostBasisStrategy } from './strategies/base-strategy.js';
 
 /**
- * Build dependency graph from transaction links
- *
- * Creates a map where each target transaction ID points to a set of
- * source transaction IDs that must be processed before it.
- *
- * @param links - Confirmed transaction links
- * @returns Map of target transaction ID to set of source transaction IDs
- */
-export function buildDependencyGraph(links: TransactionLink[]): Map<number, Set<number>> {
-  const mustProcessAfter = new Map<number, Set<number>>();
-
-  for (const link of links) {
-    const existing = mustProcessAfter.get(link.targetTransactionId) ?? new Set();
-    existing.add(link.sourceTransactionId);
-    mustProcessAfter.set(link.targetTransactionId, existing);
-  }
-
-  return mustProcessAfter;
-}
-
-/**
- * Sort transactions with link-aware logical ordering
- *
- * Ensures linked source transactions are processed before their targets,
- * regardless of timestamps. Falls back to chronological order for unlinked
- * transactions.
- *
- * @param transactions - Transactions to sort
- * @param dependencyGraph - Map of target ID to source IDs that must come first
- * @returns Sorted transaction array
- */
-export function sortWithLogicalOrdering(
-  transactions: UniversalTransactionData[],
-  dependencyGraph: Map<number, Set<number>>
-): UniversalTransactionData[] {
-  return [...transactions].sort((a, b) => {
-    const aAfterB = dependencyGraph.get(a.id)?.has(b.id);
-    const bAfterA = dependencyGraph.get(b.id)?.has(a.id);
-
-    if (aAfterB) return 1;
-    if (bAfterA) return -1;
-
-    return new Date(a.datetime).getTime() - new Date(b.datetime).getTime();
-  });
-}
-
-/**
  * Topological sort of transactions by link dependencies using Kahn's algorithm.
  *
  * Dependencies:
@@ -226,103 +179,6 @@ function findCyclePath(cycleNodes: number[], graph: Map<number, Set<number>>): n
   }
 
   return cycleNodes; // Fallback if DFS doesn't find cycle
-}
-
-/**
- * Sort asset groups by cross-asset link dependencies using topological sort (Kahn's algorithm).
- *
- * When a transfer link has different sourceAssetId and targetAssetId (e.g., exchange:kraken:btc → blockchain:bitcoin:native),
- * the source asset group must be processed before the target asset group so that lot transfers
- * are available when the target group looks them up.
- *
- * Groups without cross-asset dependencies maintain their original insertion order.
- * Any cycles (shouldn't happen in practice) are appended at the end.
- */
-export function sortAssetGroupsByDependency(
-  entries: [string, { assetSymbol: string; transactions: UniversalTransactionData[] }][],
-  links: TransactionLink[]
-): Result<[string, { assetSymbol: string; transactions: UniversalTransactionData[] }][], Error> {
-  const assetIds = new Set(entries.map(([id]) => id));
-
-  // Build directed edges: sourceAssetId → targetAssetId (only cross-asset, both present)
-  const graph = new Map<string, Set<string>>();
-  const inDegree = new Map<string, number>();
-
-  for (const id of assetIds) {
-    graph.set(id, new Set());
-    inDegree.set(id, 0);
-  }
-
-  for (const link of links) {
-    if (
-      link.sourceAssetId !== link.targetAssetId &&
-      assetIds.has(link.sourceAssetId) &&
-      assetIds.has(link.targetAssetId)
-    ) {
-      const targets = graph.get(link.sourceAssetId)!;
-      if (!targets.has(link.targetAssetId)) {
-        targets.add(link.targetAssetId);
-        inDegree.set(link.targetAssetId, (inDegree.get(link.targetAssetId) ?? 0) + 1);
-      }
-    }
-  }
-
-  // Kahn's algorithm - use original order for tie-breaking
-  const indexMap = new Map(entries.map(([id], idx) => [id, idx]));
-  const queue: string[] = [];
-  for (const [id] of entries) {
-    if ((inDegree.get(id) ?? 0) === 0) {
-      queue.push(id);
-    }
-  }
-  // Sort queue by original index for stable ordering
-  queue.sort((a, b) => (indexMap.get(a) ?? 0) - (indexMap.get(b) ?? 0));
-
-  const sorted: string[] = [];
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    sorted.push(current);
-
-    for (const neighbor of graph.get(current) ?? []) {
-      const newDegree = (inDegree.get(neighbor) ?? 1) - 1;
-      inDegree.set(neighbor, newDegree);
-      if (newDegree === 0) {
-        // Insert in original-order position to maintain stability
-        const neighborIdx = indexMap.get(neighbor) ?? 0;
-        let insertAt = queue.length;
-        for (let i = 0; i < queue.length; i++) {
-          if ((indexMap.get(queue[i]!) ?? 0) > neighborIdx) {
-            insertAt = i;
-            break;
-          }
-        }
-        queue.splice(insertAt, 0, neighbor);
-      }
-    }
-  }
-
-  // Detect cycles - if not all nodes were processed, there's a dependency cycle
-  if (sorted.length < entries.length) {
-    const cycleAssets = entries.map(([id]) => id).filter((id) => !sorted.includes(id));
-
-    const logger = getLogger('lot-matcher-utils:sortAssetGroupsByDependency');
-    logger.error(
-      { cycleAssets, totalAssets: entries.length, sortedCount: sorted.length },
-      'Cross-asset dependency cycle detected in asset-level sort'
-    );
-
-    return err(
-      new Error(
-        `Cross-asset dependency cycle detected between assets: ${cycleAssets.join(' ↔ ')}. ` +
-          `This indicates bidirectional transfers in the same period. ` +
-          `Transaction-level dependency resolution is required (not yet implemented).`
-      )
-    );
-  }
-
-  // Build result in sorted order
-  const entryMap = new Map(entries);
-  return ok(sorted.map((id) => [id, entryMap.get(id)!]));
 }
 
 export function getVarianceTolerance(
@@ -765,44 +621,6 @@ export function calculateFeesInFiat(
   const allocatedFee = allocateFeesProportionally(totalFeeValue, values, targetMovement, inflows);
 
   return ok(allocatedFee);
-}
-
-/**
- * Group transactions by assetId (from both inflows and outflows).
- * Returns a map keyed by assetId with { assetSymbol, transactions }.
- */
-export function groupTransactionsByAsset(
-  transactions: UniversalTransactionData[]
-): Map<string, { assetSymbol: string; transactions: UniversalTransactionData[] }> {
-  const assetMap = new Map<string, { assetSymbol: string; txIds: Set<number> }>();
-
-  // Collect unique assets by assetId
-  for (const tx of transactions) {
-    const inflows = tx.movements.inflows || [];
-    for (const inflow of inflows) {
-      if (!assetMap.has(inflow.assetId)) {
-        assetMap.set(inflow.assetId, { assetSymbol: inflow.assetSymbol, txIds: new Set() });
-      }
-      assetMap.get(inflow.assetId)!.txIds.add(tx.id);
-    }
-
-    const outflows = tx.movements.outflows || [];
-    for (const outflow of outflows) {
-      if (!assetMap.has(outflow.assetId)) {
-        assetMap.set(outflow.assetId, { assetSymbol: outflow.assetSymbol, txIds: new Set() });
-      }
-      assetMap.get(outflow.assetId)!.txIds.add(tx.id);
-    }
-  }
-
-  // Build map of assetId -> { assetSymbol, transactions }
-  const result = new Map<string, { assetSymbol: string; transactions: UniversalTransactionData[] }>();
-  for (const [assetId, { assetSymbol, txIds }] of assetMap) {
-    const txsForAsset = transactions.filter((tx) => txIds.has(tx.id));
-    result.set(assetId, { assetSymbol, transactions: txsForAsset });
-  }
-
-  return result;
 }
 
 /**
@@ -1329,7 +1147,7 @@ export function processTransferTarget(
   inflow: AssetMovement,
   link: TransactionLink,
   sourceTx: UniversalTransactionData,
-  lotTransfers: LotTransfer[],
+  transfersForLink: LotTransfer[],
   calculationId: string,
   strategyName: 'fifo' | 'lifo' | 'specific-id' | 'average-cost',
   varianceTolerance?: { error: number; warn: number }
@@ -1370,9 +1188,7 @@ export function processTransferTarget(
     type: 'no-transfers' | 'variance' | 'missing-price';
   }[] = [];
 
-  const transfers = lotTransfers.filter((t) => t.linkId === link.id);
-
-  if (transfers.length === 0) {
+  if (transfersForLink.length === 0) {
     warnings.push({
       type: 'no-transfers',
       data: {
@@ -1390,7 +1206,7 @@ export function processTransferTarget(
   }
 
   // Calculate inherited cost basis from source lots
-  const { totalCostBasis: inheritedCostBasis, transferredQuantity } = calculateInheritedCostBasis(transfers);
+  const { totalCostBasis: inheritedCostBasis, transferredQuantity } = calculateInheritedCostBasis(transfersForLink);
 
   const receivedQuantity = inflow.grossAmount;
 
