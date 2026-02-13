@@ -76,6 +76,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
       }
 
       const classification = this.determineOperationFromFundFlow(fundFlow);
+      const normalizedDestinationAddress = primaryEntry.normalized.address?.trim();
 
       const processedTransaction: ProcessedTransaction = {
         externalId: primaryEntry.normalized.id,
@@ -121,6 +122,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
 
         operation: classification.operation,
         notes: classification.notes,
+        ...(normalizedDestinationAddress ? { to: normalizedDestinationAddress } : {}),
       };
 
       transactions.push(processedTransaction);

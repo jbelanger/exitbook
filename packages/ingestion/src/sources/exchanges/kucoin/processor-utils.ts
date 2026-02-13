@@ -147,6 +147,7 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
   // (needs to match the on-chain amount from the source withdrawal)
   // Fee is charged separately from user's credited balance
   const netAmount = grossAmount;
+  const depositAddress = row['Deposit Address']?.trim();
 
   return ok({
     externalId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
@@ -155,6 +156,7 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
     source: 'kucoin',
     sourceType: 'exchange',
     status: mapKucoinStatus(row.Status, 'deposit_withdrawal'),
+    ...(depositAddress ? { to: depositAddress } : {}),
 
     // Structured movements - deposit means we gained assets
     movements: {
@@ -684,6 +686,7 @@ export function convertKucoinWithdrawalToTransaction(
   const { timestamp, datetime } = parsedTimestamp.value;
   const grossAmount = parseDecimal(row.Amount).abs();
   const fee = parseDecimal(row.Fee ?? '0');
+  const withdrawalAddress = row['Withdrawal Address/Account']?.trim();
 
   // Build assetId
   const assetIdResult = buildExchangeAssetId(EXCHANGE_NAME, row.Coin);
@@ -700,6 +703,7 @@ export function convertKucoinWithdrawalToTransaction(
     source: 'kucoin',
     sourceType: 'exchange',
     status: mapKucoinStatus(row.Status, 'deposit_withdrawal'),
+    ...(withdrawalAddress ? { to: withdrawalAddress } : {}),
 
     // Structured movements - withdrawal means we lost assets
     movements: {

@@ -117,25 +117,39 @@ export function determineLinkType(sourceType: SourceType, targetType: SourceType
 /**
  * Check if blockchain addresses match (if available)
  *
- * @param sourceTransaction - Source transaction with to_address
- * @param targetTransaction - Target transaction with from_address
- * @returns True if addresses match, undefined if addresses not available
+ * Compares source destination address (`to`) against target endpoint addresses.
+ * Target endpoint may be available as either `to` (preferred) or `from`
+ * depending on source-specific ingestion details.
+ *
+ * @param sourceTransaction - Source transaction with destination address
+ * @param targetTransaction - Target transaction with endpoint addresses
+ * @returns True if addresses match, false if they conflict, undefined if unavailable
  */
 export function checkAddressMatch(
   sourceTransaction: TransactionCandidate,
   targetTransaction: TransactionCandidate
 ): boolean | undefined {
-  const sourceToAddress = sourceTransaction.toAddress;
-  const targetFromAddress = targetTransaction.fromAddress;
-
-  // If both addresses are available, compare them
-  if (sourceToAddress && targetFromAddress) {
-    // Normalize addresses (case-insensitive comparison)
-    return sourceToAddress.toLowerCase() === targetFromAddress.toLowerCase();
+  const sourceDestinationAddress = sourceTransaction.toAddress;
+  if (!sourceDestinationAddress) {
+    return undefined;
   }
 
-  // If addresses not available, return undefined
-  return undefined;
+  const targetDestinationAddress = targetTransaction.toAddress;
+  const targetSourceAddress = targetTransaction.fromAddress;
+  if (!targetDestinationAddress && !targetSourceAddress) {
+    return undefined;
+  }
+
+  const normalizedSource = sourceDestinationAddress.toLowerCase();
+  if (targetDestinationAddress && normalizedSource === targetDestinationAddress.toLowerCase()) {
+    return true;
+  }
+
+  if (targetSourceAddress && normalizedSource === targetSourceAddress.toLowerCase()) {
+    return true;
+  }
+
+  return false;
 }
 
 /**

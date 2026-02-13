@@ -481,6 +481,7 @@ describe('CoinbaseProcessor - Blockchain Hash Extraction', () => {
     expect(transaction.blockchain?.name).toBe('bitcoin');
     expect(transaction.blockchain?.transaction_hash).toBe('0xabc123def456');
     expect(transaction.blockchain?.is_confirmed).toBe(true);
+    expect(transaction.to).toBe('bc1q...');
   });
 
   test('sets blockchain is_confirmed to false when status is not success', async () => {

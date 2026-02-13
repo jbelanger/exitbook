@@ -128,6 +128,39 @@ describe('matching-utils', () => {
   });
 
   describe('checkAddressMatch', () => {
+    it('should return true when source.to matches target.to', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceName: 'coinbase',
+        sourceType: 'exchange',
+        externalId: 'W123',
+        timestamp: new Date(),
+        assetId: 'test:sol',
+        assetSymbol: 'SOL',
+        amount: parseDecimal('1.0'),
+        direction: 'out',
+        fromAddress: undefined,
+        toAddress: '4Yno2U5DfFJdKmSz9XuUToEFEwnWv6SMx1pd9hJ3YzsP',
+      };
+
+      const target: TransactionCandidate = {
+        id: 2,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        externalId: 'D123',
+        timestamp: new Date(),
+        assetId: 'test:sol',
+        assetSymbol: 'SOL',
+        amount: parseDecimal('0.99'),
+        direction: 'in',
+        fromAddress: undefined,
+        toAddress: '4Yno2U5DfFJdKmSz9XuUToEFEwnWv6SMx1pd9hJ3YzsP',
+      };
+
+      const match = checkAddressMatch(source, target);
+      expect(match).toBe(true);
+    });
+
     it('should return true when addresses match', () => {
       const source: TransactionCandidate = {
         id: 1,

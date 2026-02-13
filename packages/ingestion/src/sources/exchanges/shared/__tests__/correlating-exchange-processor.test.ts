@@ -308,4 +308,26 @@ describe('CorrelatingExchangeProcessor - Metadata', () => {
 
     expect(result.value[0]?.status).toBe('pending');
   });
+
+  test('preserves normalized destination address as to', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [
+      wrapEntry(
+        createEntry({
+          id: 'E1',
+          amount: '-100',
+          assetSymbol: 'USDT',
+          address: '0xDest123',
+        })
+      ),
+    ];
+
+    const result = await processor.process(entries);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value[0]?.to).toBe('0xDest123');
+  });
 });

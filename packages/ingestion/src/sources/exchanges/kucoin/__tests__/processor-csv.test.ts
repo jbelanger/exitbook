@@ -181,6 +181,7 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.status).toBe('success');
+    expect(transaction.to).toBe('bc1q...');
 
     // Verify net amount equals gross (on-chain amount for transfer matching)
     // Fee is charged separately from credited balance (settlement='balance')
@@ -224,6 +225,7 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
 
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
+    expect(transaction.to).toBe('0x123...');
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.assetSymbol).toBe('ETH');
