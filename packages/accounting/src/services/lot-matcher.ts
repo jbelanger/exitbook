@@ -11,14 +11,11 @@ import type { TransactionLinkRepository } from '../persistence/transaction-link-
 
 import {
   buildAcquisitionLotFromInflow,
-  buildDependencyGraph,
   filterTransactionsWithoutPrices,
-  groupTransactionsByAsset,
   matchOutflowDisposal,
   processTransferSource,
   processTransferTarget,
-  sortAssetGroupsByDependency,
-  sortWithLogicalOrdering,
+  sortTransactionsByDependency,
 } from './lot-matcher-utils.js';
 import type { ICostBasisStrategy } from './strategies/base-strategy.js';
 
@@ -92,12 +89,22 @@ type SourceLinkResult =
 type TargetLinkResult = { link: TransactionLink; type: 'transfer' } | { type: 'internal_only' } | { type: 'none' };
 
 /**
+ * Mutable per-asset state used during the global transaction processing pass.
+ */
+interface AssetProcessingState {
+  assetSymbol: string;
+  lots: AcquisitionLot[];
+  disposals: LotDisposal[];
+  lotTransfers: LotTransfer[];
+}
+
+/**
  * LotMatcher - Matches disposal transactions to acquisition lots using a specified strategy
  *
  * This service:
- * 1. Groups transactions by asset
- * 2. Creates acquisition lots from inflow transactions
- * 3. Matches outflow transactions (disposals) to acquisition lots using the specified strategy
+ * 1. Sorts transactions by dependency order (topological sort)
+ * 2. Processes each transaction globally: outflows first, then inflows
+ * 3. Creates acquisition lots, disposals, and lot transfers per asset
  * 4. Returns lots and disposals for storage
  *
  * Note: Transactions must have priceAtTxTime populated on all movements before matching.
@@ -145,44 +152,139 @@ export class LotMatcher {
         this.logger.debug({ linkCount: confirmedLinks.length }, 'Loaded confirmed transaction links for lot matching');
       }
 
-      // Sort transactions with logical ordering (respecting transfer dependencies)
-      const sortedTransactions =
-        confirmedLinks.length > 0
-          ? this.sortTransactionsWithLogicalOrdering(transactions, confirmedLinks)
-          : [...transactions].sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+      // Sort transactions by dependency order (topological sort with chronological tie-breaking)
+      const sortResult = sortTransactionsByDependency(transactions, confirmedLinks);
+      if (sortResult.isErr()) {
+        return err(sortResult.error);
+      }
+      const sortedTransactions = sortResult.value;
 
       // Build link index for efficient lookup during matching
       const linkIndex = new LinkIndex(confirmedLinks);
 
-      // Group transactions by assetId
-      const transactionsByAsset = groupTransactionsByAsset(sortedTransactions);
-
-      // Sort asset groups so that cross-asset transfer sources are processed before targets
-      const sortResult = sortAssetGroupsByDependency([...transactionsByAsset.entries()], confirmedLinks);
-      if (sortResult.isErr()) {
-        return err(sortResult.error);
-      }
-      const sortedAssetEntries = sortResult.value;
-
-      // Shared lot transfers array across all asset groups for cross-assetId transfers
+      // Per-asset mutable state for the global transaction pass
+      const lotStateByAssetId = new Map<string, AssetProcessingState>();
       const sharedLotTransfers: LotTransfer[] = [];
+      const transfersByLinkId = new Map<string, LotTransfer[]>();
 
-      // Process each asset separately (in dependency order)
-      const assetResults: AssetLotMatchResult[] = [];
+      // Global transaction loop: process each transaction in dependency order
+      for (const tx of sortedTransactions) {
+        // Phase 1: Process outflows (disposals and transfer sources)
+        const outflows = tx.movements.outflows || [];
+        for (const outflow of outflows) {
+          if (Currency.create(outflow.assetSymbol).isFiat()) continue;
 
-      for (const [assetId, { assetSymbol, transactions: assetTransactions }] of sortedAssetEntries) {
-        const result = await this.matchAsset(
-          assetId,
-          assetSymbol,
-          assetTransactions,
-          config,
-          linkIndex,
-          sharedLotTransfers
-        );
-        if (result.isErr()) {
-          return err(result.error);
+          const assetState = this.getOrInitAssetState(outflow.assetId, outflow.assetSymbol, lotStateByAssetId);
+          const linkResult = this.findEffectiveSourceLink(linkIndex, tx.id, outflow);
+
+          if (linkResult.type === 'transfer') {
+            const { link, isPartialOutflow } = linkResult;
+            const effectiveAmount = isPartialOutflow ? link.sourceAmount : undefined;
+
+            const transferResult = this.handleTransferSource(
+              tx,
+              outflow,
+              link,
+              assetState.lots,
+              config,
+              config.calculationId,
+              effectiveAmount
+            );
+            if (transferResult.isErr()) {
+              return err(transferResult.error);
+            }
+
+            // Record transfers into shared list, per-asset state, and link index
+            for (const transfer of transferResult.value.transfers) {
+              sharedLotTransfers.push(transfer);
+              assetState.lotTransfers.push(transfer);
+              const existing = transfersByLinkId.get(transfer.linkId) ?? [];
+              existing.push(transfer);
+              transfersByLinkId.set(transfer.linkId, existing);
+            }
+
+            assetState.disposals.push(...transferResult.value.disposals);
+            assetState.lots.splice(0, assetState.lots.length, ...transferResult.value.updatedLots);
+            linkIndex.consumeSourceLink(link);
+          } else if (linkResult.type === 'none') {
+            const result = matchOutflowDisposal(tx, outflow, assetState.lots, config.strategy);
+            if (result.isErr()) {
+              return err(result.error);
+            }
+            assetState.disposals.push(...result.value.disposals);
+            assetState.lots.splice(0, assetState.lots.length, ...result.value.updatedLots);
+          }
+          // linkResult.type === 'internal_only' → skip outflow
         }
-        assetResults.push(result.value);
+
+        // Phase 2: Process inflows (acquisitions and transfer targets)
+        const inflows = tx.movements.inflows || [];
+
+        // Group inflows by assetId within this transaction
+        const inflowsByAsset = new Map<string, AssetMovement[]>();
+        for (const inflow of inflows) {
+          if (Currency.create(inflow.assetSymbol).isFiat()) continue;
+          const existing = inflowsByAsset.get(inflow.assetId) ?? [];
+          existing.push(inflow);
+          inflowsByAsset.set(inflow.assetId, existing);
+        }
+
+        for (const [assetId, assetInflows] of inflowsByAsset) {
+          const assetState = this.getOrInitAssetState(assetId, assetInflows[0]!.assetSymbol, lotStateByAssetId);
+          const linkResult = this.findEffectiveTargetLink(linkIndex, tx.id, assetId);
+
+          if (linkResult.type === 'transfer') {
+            const { link } = linkResult;
+            // Aggregate all inflows of this asset for transfer targets
+            // Use netAmount for consistency with link.targetAmount (net received amount)
+            const totalAmount = assetInflows.reduce(
+              (sum, inflow) => sum.plus(inflow.netAmount ?? inflow.grossAmount),
+              parseDecimal('0')
+            );
+
+            // Use first inflow as template with aggregated amount
+            const aggregatedInflow: AssetMovement = {
+              ...assetInflows[0]!,
+              grossAmount: totalAmount,
+            };
+
+            // Handle transfer target with pre-filtered transfers for this link
+            const transfersForLink = transfersByLinkId.get(link.id) ?? [];
+            const lotResult = await this.handleTransferTarget(tx, aggregatedInflow, link, transfersForLink, config);
+            if (lotResult.isErr()) {
+              return err(lotResult.error);
+            }
+            assetState.lots.push(lotResult.value);
+            linkIndex.consumeTargetLink(link);
+          } else if (linkResult.type === 'none') {
+            // Handle each inflow as regular acquisition
+            for (const inflow of assetInflows) {
+              const lotResult = buildAcquisitionLotFromInflow(
+                tx,
+                inflow,
+                config.calculationId,
+                config.strategy.getName()
+              );
+              if (lotResult.isErr()) {
+                return err(lotResult.error);
+              }
+              assetState.lots.push(lotResult.value);
+            }
+          }
+          // linkResult.type === 'internal_only' → skip inflows
+        }
+      }
+
+      // Build asset results from accumulated state
+      const assetResults: AssetLotMatchResult[] = [];
+      for (const [assetId, state] of lotStateByAssetId) {
+        assetResults.push({
+          assetId,
+          assetSymbol: state.assetSymbol,
+          lots: state.lots,
+          disposals: state.disposals,
+          lotTransfers: state.lotTransfers,
+        });
       }
 
       // Calculate totals
@@ -202,142 +304,19 @@ export class LotMatcher {
   }
 
   /**
-   * Match transactions for a single asset (grouped by assetId)
+   * Get or initialize per-asset processing state.
    */
-  private async matchAsset(
+  private getOrInitAssetState(
     assetId: string,
     assetSymbol: string,
-    transactions: UniversalTransactionData[],
-    config: LotMatcherConfig,
-    linkIndex: LinkIndex,
-    sharedLotTransfers: LotTransfer[]
-  ): Promise<Result<AssetLotMatchResult, Error>> {
-    try {
-      const lots: AcquisitionLot[] = [];
-      const disposals: LotDisposal[] = [];
-      const transferStartIdx = sharedLotTransfers.length;
-
-      // Skip fiat currencies - we only track cost basis for crypto assets
-      const assetCurrency = Currency.create(assetSymbol);
-      if (assetCurrency.isFiat()) {
-        return ok({
-          assetId,
-          assetSymbol,
-          lots: [],
-          disposals: [],
-          lotTransfers: [],
-        });
-      }
-
-      // Process each transaction (already sorted with logical ordering in match())
-      for (const tx of transactions) {
-        // Check outflows (disposals or transfer sources)
-        const outflows = tx.movements.outflows || [];
-        for (const outflow of outflows) {
-          if (outflow.assetId === assetId) {
-            // Find the effective link for this outflow, consuming any blockchain_internal
-            // links along the way. A single outflow can have both a blockchain_internal link
-            // (UTXO change) and a cross-source link (exchange withdrawal). We need to consume
-            // the internal one and process the cross-source one.
-            const linkResult = this.findEffectiveSourceLink(linkIndex, tx.id, outflow);
-
-            if (linkResult.type === 'transfer') {
-              const { link, isPartialOutflow } = linkResult;
-              // When blockchain_internal links were consumed, the outflow is split: only the
-              // link's sourceAmount represents the external transfer (gross minus internal change).
-              // Fees are already factored into the UTXO adjustment.
-              const effectiveAmount = isPartialOutflow ? link.sourceAmount : undefined;
-
-              // Handle transfer source
-              const transferResult = this.handleTransferSource(
-                tx,
-                outflow,
-                link,
-                lots,
-                config,
-                config.calculationId,
-                effectiveAmount
-              );
-              if (transferResult.isErr()) {
-                return err(transferResult.error);
-              }
-              sharedLotTransfers.push(...transferResult.value.transfers);
-              disposals.push(...transferResult.value.disposals);
-              // Update lots array with new state
-              lots.splice(0, lots.length, ...transferResult.value.updatedLots);
-              linkIndex.consumeSourceLink(link);
-            } else if (linkResult.type === 'none') {
-              // Handle regular disposal (no links found at all)
-              const result = matchOutflowDisposal(tx, outflow, lots, config.strategy);
-              if (result.isErr()) {
-                return err(result.error);
-              }
-              disposals.push(...result.value.disposals);
-              // Update lots array with new state
-              lots.splice(0, lots.length, ...result.value.updatedLots);
-            }
-            // linkResult.type === 'internal_only' means only blockchain_internal links found → skip outflow
-          }
-        }
-
-        // Check inflows (acquisitions or transfer targets)
-        const inflows = tx.movements.inflows || [];
-        const assetInflows = inflows.filter((inflow) => inflow.assetId === assetId);
-
-        if (assetInflows.length > 0) {
-          // Find the effective target link, consuming any blockchain_internal links along the way
-          const linkResult = this.findEffectiveTargetLink(linkIndex, tx.id, assetId);
-          if (linkResult.type === 'transfer') {
-            const { link } = linkResult;
-            // Aggregate all inflows of this asset for transfer targets
-            // Use netAmount for consistency with link.targetAmount (net received amount)
-            const totalAmount = assetInflows.reduce(
-              (sum, inflow) => sum.plus(inflow.netAmount ?? inflow.grossAmount),
-              parseDecimal('0')
-            );
-
-            // Use first inflow as template with aggregated amount
-            const aggregatedInflow: AssetMovement = {
-              ...assetInflows[0]!,
-              grossAmount: totalAmount,
-            };
-
-            // Handle transfer target with aggregated amount
-            const lotResult = await this.handleTransferTarget(tx, aggregatedInflow, link, sharedLotTransfers, config);
-            if (lotResult.isErr()) {
-              return err(lotResult.error);
-            }
-            lots.push(lotResult.value);
-            linkIndex.consumeTargetLink(link);
-          } else if (linkResult.type === 'none') {
-            // Handle each inflow as regular acquisition
-            for (const inflow of assetInflows) {
-              const lotResult = buildAcquisitionLotFromInflow(
-                tx,
-                inflow,
-                config.calculationId,
-                config.strategy.getName()
-              );
-              if (lotResult.isErr()) {
-                return err(lotResult.error);
-              }
-              lots.push(lotResult.value);
-            }
-          }
-          // linkResult.type === 'internal_only' means only blockchain_internal links found → skip inflow
-        }
-      }
-
-      return ok({
-        assetId,
-        assetSymbol,
-        lots,
-        disposals,
-        lotTransfers: sharedLotTransfers.slice(transferStartIdx),
-      });
-    } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+    lotStateByAssetId: Map<string, AssetProcessingState>
+  ): AssetProcessingState {
+    let state = lotStateByAssetId.get(assetId);
+    if (!state) {
+      state = { assetSymbol, lots: [], disposals: [], lotTransfers: [] };
+      lotStateByAssetId.set(assetId, state);
     }
+    return state;
   }
 
   /**
@@ -406,14 +385,6 @@ export class LotMatcher {
       return { link, type: 'transfer' };
     }
     return foundInternal ? { type: 'internal_only' } : { type: 'none' };
-  }
-
-  private sortTransactionsWithLogicalOrdering(
-    transactions: UniversalTransactionData[],
-    links: TransactionLink[]
-  ): UniversalTransactionData[] {
-    const dependencyGraph = buildDependencyGraph(links);
-    return sortWithLogicalOrdering(transactions, dependencyGraph);
   }
 
   private handleTransferSource(
@@ -497,7 +468,7 @@ export class LotMatcher {
     tx: UniversalTransactionData,
     inflow: AssetMovement,
     link: TransactionLink,
-    lotTransfers: LotTransfer[],
+    transfersForLink: LotTransfer[],
     config: LotMatcherConfig
   ): Promise<Result<AcquisitionLot, Error>> {
     // Fetch source transaction (repository dependency - imperative shell)
@@ -521,7 +492,7 @@ export class LotMatcher {
       inflow,
       link,
       sourceTx,
-      lotTransfers,
+      transfersForLink,
       config.calculationId,
       config.strategy.getName(),
       config.varianceTolerance

@@ -1089,12 +1089,9 @@ describe('LotMatcher - Fee Handling', () => {
         const lot = xyzResult!.lots[0]!;
         expect(lot.totalCostBasis.toString()).toBe('5');
 
-        // USD may appear in results but should have empty lots (fiat not tracked for cost basis)
+        // Fiat assets are excluded from assetResults entirely
         const usdResult = result.value.assetResults.find((r) => r.assetSymbol === 'USD');
-        if (usdResult) {
-          expect(usdResult.lots).toHaveLength(0);
-          expect(usdResult.disposals).toHaveLength(0);
-        }
+        expect(usdResult).toBeUndefined();
       }
     });
 
@@ -1152,25 +1149,8 @@ describe('LotMatcher - Fee Handling', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        // Fiat currencies may appear in results but with empty lots/disposals
-        const usdResult = result.value.assetResults.find((r) => r.assetSymbol === 'USD');
-        const cadResult = result.value.assetResults.find((r) => r.assetSymbol === 'CAD');
-
-        if (usdResult) {
-          expect(usdResult.lots).toHaveLength(0);
-          expect(usdResult.disposals).toHaveLength(0);
-        }
-
-        if (cadResult) {
-          expect(cadResult.lots).toHaveLength(0);
-          expect(cadResult.disposals).toHaveLength(0);
-        }
-
-        // No non-fiat crypto assets should exist
-        const nonFiatAssets = result.value.assetResults.filter(
-          (r) => r.assetSymbol !== 'USD' && r.assetSymbol !== 'CAD'
-        );
-        expect(nonFiatAssets).toHaveLength(0);
+        // Fiat-only transactions produce no asset results (fiat is excluded from cost basis tracking)
+        expect(result.value.assetResults).toHaveLength(0);
       }
     });
 
