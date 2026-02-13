@@ -204,6 +204,30 @@ describe('AverageCostStrategy', () => {
       }
     });
 
+    it('should tolerate dust-level shortfall from Decimal drift', () => {
+      const disposal = {
+        transactionId: 100,
+        assetSymbol: 'ALGO',
+        quantity: parseDecimal('0.00001'),
+        date: new Date('2024-03-01'),
+        proceedsPerUnit: parseDecimal('0.2'),
+      };
+
+      const lots: AcquisitionLot[] = [createLot('lot1', '0.0000099999999999999999996', '0.1', new Date('2024-01-01'))];
+
+      const result = strategy.matchDisposal(disposal, lots);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const totalDisposed = result.value.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
+        const shortfall = disposal.quantity.minus(totalDisposed);
+
+        expect(totalDisposed.equals(parseDecimal('0.0000099999999999999999996'))).toBe(true);
+        expect(shortfall.gt(0)).toBe(true);
+        expect(shortfall.lt(parseDecimal('1e-18'))).toBe(true);
+      }
+    });
+
     it('should skip fully disposed lots', () => {
       const disposal = {
         transactionId: 100,

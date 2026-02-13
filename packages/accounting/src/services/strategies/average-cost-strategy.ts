@@ -51,8 +51,27 @@ export class AverageCostStrategy implements ICostBasisStrategy {
     // Calculate pool totals
     const totalRemainingQty = eligibleOpenLots.reduce((sum, lot) => sum.plus(lot.remainingQuantity), parseDecimal('0'));
 
-    // Validate sufficient quantity
-    if (disposal.quantity.gt(totalRemainingQty)) {
+    // CRITICAL: Strict accounting with relative tolerance for legitimate Decimal rounding
+    // Tolerance is based on the smaller of pool or disposal to prevent false positives.
+    // Uses 1e-10 (1e-8% relative) of min(pool, disposal) with minimum of 1e-18 for small amounts.
+    // Decimal precision is set to 28 in @exitbook/core/utils/decimal-utils.
+    const toleranceBase = Decimal.min(totalRemainingQty, disposal.quantity);
+    const tolerance = Decimal.max(parseDecimal('1e-18'), toleranceBase.times('1e-10'));
+
+    // Guard zero-available pools explicitly so tiny disposals cannot bypass sufficiency checks.
+    if (totalRemainingQty.isZero()) {
+      return err(
+        new Error(
+          `Insufficient acquisition lots for disposal. Asset: ${disposal.assetSymbol}, ` +
+            `Disposal quantity: ${disposal.quantity.toFixed()}, ` +
+            `Available quantity: ${totalRemainingQty.toFixed()}, ` +
+            `Shortfall: ${disposal.quantity.minus(totalRemainingQty).toFixed()}`
+        )
+      );
+    }
+
+    // Validate sufficient quantity with tolerance for dust-level Decimal drift.
+    if (disposal.quantity.gt(totalRemainingQty.plus(tolerance))) {
       return err(
         new Error(
           `Insufficient acquisition lots for disposal. Asset: ${disposal.assetSymbol}, ` +
@@ -71,12 +90,6 @@ export class AverageCostStrategy implements ICostBasisStrategy {
     const pooledCostPerUnit = totalBasis.dividedBy(totalRemainingQty);
 
     // Distribute disposal pro-rata with remainder absorption
-    // CRITICAL: Strict accounting with relative tolerance for legitimate Decimal rounding
-    // Tolerance is based on the smaller of pool or disposal to prevent false negatives
-    // Uses 1e-10 (1e-8% relative) of min(pool, disposal) with minimum of 1e-18 for small amounts
-    // Decimal precision is set to 28 in @exitbook/core/utils/decimal-utils
-    const toleranceBase = Decimal.min(totalRemainingQty, disposal.quantity);
-    const tolerance = Decimal.max(parseDecimal('1e-18'), toleranceBase.times('1e-10'));
     const disposals: LotDisposal[] = [];
     let totalAllocated = parseDecimal('0');
 

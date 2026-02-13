@@ -45,8 +45,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     sourceAmount: string,
     targetAmount: string,
     confidenceScore = '98.5',
-    sourceAssetId?: string  ,
-    targetAssetId?: string  
+    sourceAssetId?: string,
+    targetAssetId?: string
   ): TransactionLink => ({
     id,
     sourceTransactionId,
@@ -1129,14 +1129,12 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
+      expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        console.error('Test #11 should have errored but succeeded');
-      }
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Outflow fee validation failed');
-        expect(result.error.message).toContain('hidden fee');
-        expect(result.error.message).toContain('Exceeds error threshold');
+        expect(result.value.errors).toHaveLength(1);
+        expect(result.value.errors[0]!.error).toContain('Outflow fee validation failed');
+        expect(result.value.errors[0]!.error).toContain('hidden fee');
+        expect(result.value.errors[0]!.error).toContain('Exceeds error threshold');
       }
     });
   });

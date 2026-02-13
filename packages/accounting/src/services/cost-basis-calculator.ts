@@ -14,6 +14,7 @@ import type { TransactionLinkRepository } from '../persistence/transaction-link-
 import { getStrategyForMethod } from './cost-basis-utils.js';
 import { validateTransactionPrices } from './cost-basis-validation-utils.js';
 import { calculateGainLoss } from './gain-loss-utils.js';
+import type { AssetMatchError } from './lot-matcher.js';
 import { LotMatcher } from './lot-matcher.js';
 
 /**
@@ -38,6 +39,8 @@ export interface CostBasisSummary {
   disposals: LotDisposal[];
   /** Lot transfers (for same-asset transfers) */
   lotTransfers: LotTransfer[];
+  /** Per-asset errors that didn't abort the entire calculation */
+  errors: AssetMatchError[];
 }
 
 /**
@@ -170,6 +173,7 @@ export class CostBasisCalculator {
         lots,
         disposals,
         lotTransfers,
+        errors: lotMatchResult.errors,
       });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));

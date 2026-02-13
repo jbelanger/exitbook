@@ -92,6 +92,9 @@ export interface CostBasisAssetState {
   // Warning
   missingPricesWarning?: string | undefined;
 
+  // Calculation errors (partial failure — some assets failed)
+  calculationErrors?: { asset: string; error: string }[] | undefined;
+
   // Navigation
   selectedIndex: number;
   scrollOffset: number;
@@ -159,6 +162,7 @@ export function createCostBasisAssetState(
   assets: AssetCostBasisItem[],
   summary: CostBasisAssetState['summary'],
   options?: {
+    calculationErrors?: { asset: string; error: string }[] | undefined;
     missingPricesWarning?: string | undefined;
     totalDisposals?: number | undefined;
     totalLots?: number | undefined;
@@ -177,6 +181,7 @@ export function createCostBasisAssetState(
     totalDisposals: options?.totalDisposals ?? assets.reduce((sum, a) => sum + a.disposalCount, 0),
     totalLots: options?.totalLots ?? 0,
     missingPricesWarning: options?.missingPricesWarning,
+    calculationErrors: options?.calculationErrors,
     selectedIndex: 0,
     scrollOffset: 0,
   };

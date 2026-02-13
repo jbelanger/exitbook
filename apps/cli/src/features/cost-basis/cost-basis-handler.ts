@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import type { CostBasisReport, CostBasisSummary } from '@exitbook/accounting';
+import type { AssetMatchError, CostBasisReport, CostBasisSummary } from '@exitbook/accounting';
 import {
   CostBasisCalculator,
   CostBasisReportGenerator,
@@ -37,6 +37,8 @@ export interface CostBasisResult {
   lots: import('@exitbook/accounting').AcquisitionLot[];
   /** Disposals processed during calculation (for detailed JSON output) */
   disposals: import('@exitbook/accounting').LotDisposal[];
+  /** Per-asset calculation errors (partial failure) */
+  errors: AssetMatchError[];
 }
 
 /**
@@ -114,6 +116,7 @@ export class CostBasisHandler {
         report,
         lots,
         disposals,
+        errors: summary.errors,
       });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));

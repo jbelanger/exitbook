@@ -143,6 +143,20 @@ When transactions were excluded due to missing prices, a warning line appears be
 - `⚠`: yellow
 - Warning text: yellow
 
+### Calculation Errors
+
+When per-asset errors occur during calculation (e.g., insufficient acquisition lots), the affected assets are excluded from results and an error bar appears between the warning bar and the asset list:
+
+```
+  ✗ ALGO — Insufficient acquisition lots for disposal. Asset: ALGO, Disposal quantity: 0.00001, ...
+```
+
+- `✗` and text: red
+- One line per failed asset
+- Appears below the warning bar (if both present) and above the asset list
+- Successfully processed assets display normally
+- If ALL assets fail, an error-only empty state is shown with no asset list
+
 ### Asset List Columns
 
 ```
@@ -519,6 +533,7 @@ Same conventions as all other TUI views.
 | Icon | Color  | Meaning                |
 | ---- | ------ | ---------------------- |
 | `⚠`  | yellow | Missing prices warning |
+| `✗`  | red    | Per-asset calc error   |
 | `▸`  | —      | Cursor (bold)          |
 
 No per-row status icons — gain/loss color carries the signal.
@@ -601,6 +616,9 @@ interface CostBasisAssetState {
 
   // Warning
   missingPricesWarning?: string | undefined;
+
+  // Calculation errors (partial failure)
+  calculationErrors?: { asset: string; error: string }[] | undefined;
 
   // Navigation
   selectedIndex: number;
@@ -718,6 +736,7 @@ CostBasisApp
 ├── AssetSummaryView (default level)
 │   ├── CostBasisHeader (method, jurisdiction, year, currency, financial totals)
 │   ├── WarningBar (missing prices, when present)
+│   ├── ErrorBar (per-asset calculation errors, when present)
 │   ├── AssetList
 │   │   └── AssetRow
 │   ├── Divider

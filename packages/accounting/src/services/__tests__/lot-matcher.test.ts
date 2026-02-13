@@ -777,10 +777,11 @@ describe('LotMatcher - Fee Handling', () => {
         strategy: fifoStrategy,
       });
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Fee in ETH missing priceAtTxTime');
-        expect(result.error.message).toContain('Transaction: 1');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.errors).toHaveLength(1);
+        expect(result.value.errors[0]!.error).toContain('Fee in ETH missing priceAtTxTime');
+        expect(result.value.errors[0]!.error).toContain('Transaction: 1');
       }
     });
 
@@ -884,10 +885,11 @@ describe('LotMatcher - Fee Handling', () => {
         strategy: fifoStrategy,
       });
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Fee in CAD cannot be converted to USD');
-        expect(result.error.message).toContain('without exchange rate');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.errors).toHaveLength(1);
+        expect(result.value.errors[0]!.error).toContain('Fee in CAD cannot be converted to USD');
+        expect(result.value.errors[0]!.error).toContain('without exchange rate');
       }
     });
   });

@@ -54,6 +54,16 @@ export interface AssetLotMatchResult {
 }
 
 /**
+ * A per-asset error that did not abort the entire calculation.
+ * The failed asset is excluded from results; other assets continue normally.
+ */
+export interface AssetMatchError {
+  assetId: string;
+  assetSymbol: string;
+  error: string;
+}
+
+/**
  * Result of lot matching across all assets
  */
 export interface LotMatchResult {
@@ -65,6 +75,8 @@ export interface LotMatchResult {
   totalDisposalsProcessed: number;
   /** Total number of transfers processed */
   totalTransfersProcessed: number;
+  /** Per-asset errors that didn't abort the entire calculation */
+  errors: AssetMatchError[];
 }
 
 /**
@@ -167,12 +179,17 @@ export class LotMatcher {
       const sharedLotTransfers: LotTransfer[] = [];
       const transfersByLinkId = new Map<string, LotTransfer[]>();
 
+      // Per-asset error collection: failed assets are excluded from further processing
+      const failedAssetIds = new Set<string>();
+      const errors: AssetMatchError[] = [];
+
       // Global transaction loop: process each transaction in dependency order
       for (const tx of sortedTransactions) {
         // Phase 1: Process outflows (disposals and transfer sources)
         const outflows = tx.movements.outflows || [];
         for (const outflow of outflows) {
           if (Currency.create(outflow.assetSymbol).isFiat()) continue;
+          if (failedAssetIds.has(outflow.assetId)) continue;
 
           const assetState = this.getOrInitAssetState(outflow.assetId, outflow.assetSymbol, lotStateByAssetId);
           const linkResult = this.findEffectiveSourceLink(linkIndex, tx.id, outflow);
@@ -191,7 +208,17 @@ export class LotMatcher {
               effectiveAmount
             );
             if (transferResult.isErr()) {
-              return err(transferResult.error);
+              this.logger.warn(
+                { assetId: outflow.assetId, assetSymbol: outflow.assetSymbol, error: transferResult.error.message },
+                'Per-asset error during transfer source processing; excluding asset from results'
+              );
+              failedAssetIds.add(outflow.assetId);
+              errors.push({
+                assetId: outflow.assetId,
+                assetSymbol: outflow.assetSymbol,
+                error: transferResult.error.message,
+              });
+              continue;
             }
 
             // Record transfers into shared list, per-asset state, and link index
@@ -209,7 +236,13 @@ export class LotMatcher {
           } else if (linkResult.type === 'none') {
             const result = matchOutflowDisposal(tx, outflow, assetState.lots, config.strategy);
             if (result.isErr()) {
-              return err(result.error);
+              this.logger.warn(
+                { assetId: outflow.assetId, assetSymbol: outflow.assetSymbol, error: result.error.message },
+                'Per-asset error during disposal matching; excluding asset from results'
+              );
+              failedAssetIds.add(outflow.assetId);
+              errors.push({ assetId: outflow.assetId, assetSymbol: outflow.assetSymbol, error: result.error.message });
+              continue;
             }
             assetState.disposals.push(...result.value.disposals);
             assetState.lots.splice(0, assetState.lots.length, ...result.value.updatedLots);
@@ -230,6 +263,8 @@ export class LotMatcher {
         }
 
         for (const [assetId, assetInflows] of inflowsByAsset) {
+          if (failedAssetIds.has(assetId)) continue;
+
           const assetState = this.getOrInitAssetState(assetId, assetInflows[0]!.assetSymbol, lotStateByAssetId);
           const linkResult = this.findEffectiveTargetLink(linkIndex, tx.id, assetId);
 
@@ -252,7 +287,14 @@ export class LotMatcher {
             const transfersForLink = transfersByLinkId.get(link.id) ?? [];
             const lotResult = await this.handleTransferTarget(tx, aggregatedInflow, link, transfersForLink, config);
             if (lotResult.isErr()) {
-              return err(lotResult.error);
+              const assetSymbol = assetInflows[0]!.assetSymbol;
+              this.logger.warn(
+                { assetId, assetSymbol, error: lotResult.error.message },
+                'Per-asset error during transfer target processing; excluding asset from results'
+              );
+              failedAssetIds.add(assetId);
+              errors.push({ assetId, assetSymbol, error: lotResult.error.message });
+              continue;
             }
             assetState.lots.push(lotResult.value);
             linkIndex.consumeTargetLink(link);
@@ -266,7 +308,13 @@ export class LotMatcher {
                 config.strategy.getName()
               );
               if (lotResult.isErr()) {
-                return err(lotResult.error);
+                this.logger.warn(
+                  { assetId, assetSymbol: inflow.assetSymbol, error: lotResult.error.message },
+                  'Per-asset error during acquisition lot creation; excluding asset from results'
+                );
+                failedAssetIds.add(assetId);
+                errors.push({ assetId, assetSymbol: inflow.assetSymbol, error: lotResult.error.message });
+                break;
               }
               assetState.lots.push(lotResult.value);
             }
@@ -275,9 +323,10 @@ export class LotMatcher {
         }
       }
 
-      // Build asset results from accumulated state
+      // Build asset results from accumulated state, excluding failed assets
       const assetResults: AssetLotMatchResult[] = [];
       for (const [assetId, state] of lotStateByAssetId) {
+        if (failedAssetIds.has(assetId)) continue;
         assetResults.push({
           assetId,
           assetSymbol: state.assetSymbol,
@@ -285,6 +334,13 @@ export class LotMatcher {
           disposals: state.disposals,
           lotTransfers: state.lotTransfers,
         });
+      }
+
+      if (errors.length > 0) {
+        this.logger.warn(
+          { failedAssets: errors.map((e) => e.assetSymbol), errorCount: errors.length },
+          'Lot matching completed with per-asset errors; partial results returned'
+        );
       }
 
       // Calculate totals
@@ -297,6 +353,7 @@ export class LotMatcher {
         totalLotsCreated,
         totalDisposalsProcessed,
         totalTransfersProcessed,
+        errors,
       });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));

@@ -21,7 +21,7 @@ export type {
 
 // Services
 export { LotMatcher } from './services/lot-matcher.js';
-export type { LotMatcherConfig, LotMatchResult, AssetLotMatchResult } from './services/lot-matcher.js';
+export type { LotMatcherConfig, LotMatchResult, AssetLotMatchResult, AssetMatchError } from './services/lot-matcher.js';
 export type { GainLossResult, AssetGainLossSummary, DisposalGainLoss } from './services/gain-loss-calculator.js';
 export {
   calculateGainLoss,

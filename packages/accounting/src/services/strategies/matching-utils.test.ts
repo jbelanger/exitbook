@@ -340,6 +340,23 @@ describe('matchDisposalToSortedLots', () => {
     }
   });
 
+  it('should tolerate dust-level residual from Decimal drift', () => {
+    const disposal = createDisposal('0.00001');
+    const lots = [createLot('lot1', '2024-01-01', '0.0000099999999999999999996', '0.0000099999999999999999996')];
+
+    const result = matchDisposalToSortedLots(disposal, lots);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const totalDisposed = result.value.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
+      const shortfall = disposal.quantity.minus(totalDisposed);
+
+      expect(totalDisposed.equals(parseDecimal('0.0000099999999999999999996'))).toBe(true);
+      expect(shortfall.gt(0)).toBe(true);
+      expect(shortfall.lt(parseDecimal('1e-18'))).toBe(true);
+    }
+  });
+
   it('should throw error if all lots are fully disposed', () => {
     const disposal = createDisposal('0.5');
     const lots = [createLot('lot1', '2024-01-01', '1', '0'), createLot('lot2', '2024-01-15', '1', '0')];

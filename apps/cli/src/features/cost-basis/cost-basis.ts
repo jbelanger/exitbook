@@ -96,6 +96,7 @@ interface CostBasisCommandResult {
     totalTaxableGainLoss: string;
   }[];
   missingPricesWarning?: string | undefined;
+  errors?: { asset: string; error: string }[] | undefined;
 }
 
 /**
@@ -225,6 +226,9 @@ function outputCostBasisJSON(costBasisResult: CostBasisResult): void {
     },
     assets: sortedAssets,
     missingPricesWarning,
+    ...(costBasisResult.errors.length > 0
+      ? { errors: costBasisResult.errors.map((e) => ({ asset: e.assetSymbol, error: e.error })) }
+      : {}),
   };
 
   outputSuccess('cost-basis', resultData);
@@ -311,10 +315,16 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
         },
       };
 
+      const calculationErrors =
+        costBasisResult.errors.length > 0
+          ? costBasisResult.errors.map((e) => ({ asset: e.assetSymbol, error: e.error }))
+          : undefined;
+
       const initialState = createCostBasisAssetState(context, sortedAssets, summaryTotals, {
         totalDisposals: summary.disposalsProcessed,
         totalLots: summary.lotsCreated,
         missingPricesWarning,
+        calculationErrors,
       });
 
       const finalState = resolveAssetFilter(initialState, options.asset);

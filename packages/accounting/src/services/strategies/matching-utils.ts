@@ -1,3 +1,4 @@
+import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
@@ -29,6 +30,38 @@ export function matchDisposalToSortedLots(
   disposal: DisposalRequest,
   sortedLots: AcquisitionLot[]
 ): Result<LotDisposal[], Error> {
+  const totalRemainingQty = sortedLots.reduce((sum, lot) => {
+    if (lot.remainingQuantity.lte(0)) {
+      return sum;
+    }
+    return sum.plus(lot.remainingQuantity);
+  }, parseDecimal('0'));
+  const toleranceBase = Decimal.min(totalRemainingQty, disposal.quantity);
+  const tolerance = Decimal.max(parseDecimal('1e-18'), toleranceBase.times('1e-10'));
+
+  // Guard zero-available pools explicitly so tiny disposals cannot bypass sufficiency checks.
+  if (totalRemainingQty.isZero() && disposal.quantity.gt(0)) {
+    return err(
+      new Error(
+        `Insufficient acquisition lots for disposal. Asset: ${disposal.assetSymbol}, ` +
+          `Disposal quantity: ${disposal.quantity.toFixed()}, ` +
+          `Unmatched quantity: ${disposal.quantity.toFixed()}`
+      )
+    );
+  }
+
+  // Validate quantity with tolerance for dust-level Decimal drift.
+  if (disposal.quantity.gt(totalRemainingQty.plus(tolerance))) {
+    const unmatchedQuantity = disposal.quantity.minus(totalRemainingQty);
+    return err(
+      new Error(
+        `Insufficient acquisition lots for disposal. Asset: ${disposal.assetSymbol}, ` +
+          `Disposal quantity: ${disposal.quantity.toFixed()}, ` +
+          `Unmatched quantity: ${unmatchedQuantity.toFixed()}`
+      )
+    );
+  }
+
   const disposals: LotDisposal[] = [];
   let remainingQuantity = disposal.quantity;
 
@@ -76,13 +109,13 @@ export function matchDisposalToSortedLots(
     remainingQuantity = remainingQuantity.minus(quantityToDispose);
   }
 
-  // If there's still remaining quantity, we have insufficient lots
-  if (remainingQuantity.gt(0)) {
+  // If there's still remaining quantity above tolerance, we have insufficient lots.
+  if (remainingQuantity.gt(tolerance)) {
     return err(
       new Error(
         `Insufficient acquisition lots for disposal. Asset: ${disposal.assetSymbol}, ` +
-          `Disposal quantity: ${disposal.quantity.toString()}, ` +
-          `Unmatched quantity: ${remainingQuantity.toString()}`
+          `Disposal quantity: ${disposal.quantity.toFixed()}, ` +
+          `Unmatched quantity: ${remainingQuantity.toFixed()}`
       )
     );
   }

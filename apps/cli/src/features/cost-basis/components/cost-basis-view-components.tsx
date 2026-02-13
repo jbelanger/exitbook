@@ -76,6 +76,7 @@ const AssetSummaryView: FC<{
       <Text> </Text>
       <CostBasisHeader state={state} />
       {state.missingPricesWarning && <WarningBar message={state.missingPricesWarning} />}
+      {state.calculationErrors && state.calculationErrors.length > 0 && <ErrorBar errors={state.calculationErrors} />}
       <Text> </Text>
       <AssetList
         state={state}
@@ -97,6 +98,20 @@ const AssetSummaryView: FC<{
 
 const AssetEmptyState: FC<{ state: CostBasisAssetState }> = ({ state }) => {
   const methodLabel = `${state.method.toUpperCase()} · ${state.jurisdiction} · ${state.taxYear} · ${state.currency}`;
+  if (state.calculationErrors && state.calculationErrors.length > 0) {
+    // All assets failed — show error-only state
+    return (
+      <Box flexDirection="column">
+        <Text> </Text>
+        <Text>
+          <Text bold>Cost Basis</Text> <Text dimColor>({methodLabel})</Text>
+        </Text>
+        <ErrorBar errors={state.calculationErrors} />
+        <Text> </Text>
+        <Text dimColor>q quit</Text>
+      </Box>
+    );
+  }
 
   if (state.totalLots > 0) {
     // No disposals but lots were created
@@ -192,6 +207,20 @@ const WarningBar: FC<{ message: string }> = ({ message }) => (
     {'  '}
     {'\u26A0'} {message}
   </Text>
+);
+
+const ErrorBar: FC<{ errors: { asset: string; error: string }[] }> = ({ errors }) => (
+  <Box flexDirection="column">
+    {errors.map((e) => (
+      <Text
+        key={e.asset}
+        color="red"
+      >
+        {'  '}
+        {'\u2717'} {e.asset} — {e.error}
+      </Text>
+    ))}
+  </Box>
 );
 
 // ─── Asset List ──────────────────────────────────────────────────────────────
