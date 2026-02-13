@@ -1,52 +1,52 @@
 ---
 last_verified: 2026-02-13
-status: draft
+status: implemented
 ---
 
-# Lot Matcher Transaction Dependency Ordering Specification
+# Lot Matcher Transaction Dependency Ordering
 
-> ⚠️ **Code is law**: If this document disagrees with implementation, implementation is correct and this spec must be updated.
-
-Defines the target end-state behavior for lot matching after the transaction-level dependency refactor is complete.
+> **Code is law**: If this document disagrees with implementation, implementation is correct and this spec must be updated.
 
 ## Quick Reference
 
-| Concept           | Key Rule                                                 |
-| ----------------- | -------------------------------------------------------- |
-| `Dependency node` | Transaction ID                                           |
-| `Dependency edge` | `sourceTransactionId -> targetTransactionId`             |
-| `Ordering`        | Topological order, then `datetime ASC`, then `tx.id ASC` |
-| `Processing unit` | One global transaction pass (not per-asset group pass)   |
-| `Within-tx order` | Outflows first, inflows second                           |
-| `Transfer lookup` | `Map<linkId, LotTransfer[]>` (`linkId` is UUID string)   |
-| `Cycle handling`  | Fail fast with `Err`, include cycle diagnostics          |
+| Concept         | Rule                                                     |
+| --------------- | -------------------------------------------------------- |
+| Dependency node | Transaction ID (`number`)                                |
+| Dependency edge | `sourceTransactionId → targetTransactionId`              |
+| Ordering        | Topological order, then `datetime ASC`, then `tx.id ASC` |
+| Processing unit | Single global transaction pass                           |
+| Within-tx order | Outflows first, inflows second                           |
+| Transfer lookup | `Map<string, LotTransfer[]>` keyed by link ID (UUID)     |
+| Cycle handling  | `Err` with DFS-derived cycle path                        |
+| Fiat assets     | Skipped in both outflow and inflow phases                |
 
 ## Goals
 
-- **Correct transfer sequencing**: Ensure transfer targets never run before required source transfers in valid acyclic histories.
-- **Deterministic outcomes**: Same inputs produce same lots/disposals/transfers across runs.
-- **Behavioral preservation**: Keep existing disposal, acquisition, fee, and transfer math intact while changing orchestration.
+- **Correct transfer sequencing**: Transfer targets never process before their source in valid acyclic histories.
+- **Deterministic outcomes**: Same inputs produce identical lots/disposals/transfers across runs.
+- **Behavioral preservation**: Existing disposal, acquisition, fee, and transfer math is unchanged; only orchestration differs.
 
 ## Non-Goals
 
-- Changing transfer-link discovery heuristics.
+- Changing transfer-link discovery heuristics (`TransactionLinkingService`).
 - Changing fee valuation formulas or tax policy decisions.
-- Introducing schema or migration changes.
+- Schema or migration changes.
 
-## Definitions
+## Core Data Structures
 
 ### Transaction Dependency Graph
 
-Directed graph over transaction IDs in the current batch:
+Directed graph built from confirmed links over the current transaction batch:
 
-- Node: transaction ID
-- Edge: `link.sourceTransactionId -> link.targetTransactionId`
-- Only edges where both endpoints exist in current batch are included
-- Self edges are ignored
+- **Node**: `tx.id` (integer)
+- **Edge**: `link.sourceTransactionId → link.targetTransactionId`
+- Only edges where both endpoints exist in the batch are included
+- Self-referential edges (`source === target`) are ignored
+- Duplicate edges between the same pair are deduplicated (indegree incremented once)
 
-### Asset Processing State
+### Per-Asset Mutable State
 
-In-memory state for each asset ID during the global pass:
+Each asset ID encountered during processing gets its own state container:
 
 ```ts
 interface AssetProcessingState {
@@ -57,141 +57,121 @@ interface AssetProcessingState {
 }
 ```
 
+Initialized lazily on first encounter via `getOrInitAssetState`.
+
 ### Transfer Index
 
-Fast lookup map used during transfer-target processing:
+O(1) lookup map for transfer-target processing, populated as transfers are created:
 
 ```ts
-Map<string, LotTransfer[]>;
-```
-
-Key is `TransactionLink.id` / `LotTransfer.linkId` (UUID string).
-
-## Behavioral Rules
-
-### 1. Transaction Ordering
-
-Transactions are ordered using `sortTransactionsByDependency`:
-
-1. Build graph from confirmed links.
-2. Run Kahn topological sort.
-3. Break ties by:
-   - `datetime ASC` (canonical time source)
-   - `tx.id ASC`
-4. If not all nodes are resolved, return `Err` with cycle details.
-
-### 2. Global Processing Pass
-
-`LotMatcher.match()` processes one sorted transaction list, not asset groups:
-
-```text
-for tx in sortedTransactions:
-  processOutflows(tx)
-  processInflows(tx)
-```
-
-Asset state is resolved per movement asset ID, so multi-asset transactions are handled correctly.
-
-### 3. Outflow Phase
-
-For each outflow movement:
-
-- Skip fiat assets.
-- Resolve effective source link (including blockchain-internal skip behavior).
-- If transfer link exists:
-  - Run transfer-source logic.
-  - Update asset lots/disposals.
-  - Record every produced `LotTransfer` into:
-    - global transfer list
-    - source asset's `lotTransfers`
-    - `transfersByLinkId`
-- If no link:
-  - Run regular disposal matching.
-
-### 4. Inflow Phase
-
-For each asset in the transaction inflows:
-
-- Skip fiat assets.
-- Resolve effective target link.
-- If transfer link exists:
-  - Aggregate same-asset inflows for that tx (existing behavior).
-  - Load `transfersForLink = transfersByLinkId.get(link.id) ?? []`.
-  - Run transfer-target lot creation from inherited basis.
-- If no link:
-  - Run regular acquisition-lot creation.
-
-### 5. Error Semantics
-
-Must return `Err` (no silent fallback) for:
-
-- Invalid `datetime` in dependency sort input.
-- Transaction dependency cycles.
-- Transfer target with no source transfers for its link.
-- Any existing fatal transfer/disposal/acquisition validation failures.
-
-## Data Model
-
-No persistent schema changes are required.
-
-### In-Memory Structures
-
-```ts
-const lotStateByAssetId = new Map<string, AssetProcessingState>();
-const sharedLotTransfers: LotTransfer[] = [];
 const transfersByLinkId = new Map<string, LotTransfer[]>();
 ```
 
-### Persisted Outputs (unchanged)
+Key is `TransactionLink.id` / `LotTransfer.linkId` (UUID string). `processTransferTarget` receives pre-filtered transfers directly — no runtime filter scan.
 
-- `AcquisitionLot[]`
-- `LotDisposal[]`
-- `LotTransfer[]`
-
-Grouped into `assetResults` by asset ID in `LotMatchResult`.
-
-## Pipeline / Flow
+## Processing Pipeline
 
 ```mermaid
 graph TD
-    A["Transactions + Confirmed Links"] --> B["Build Tx Dependency Graph"]
-    B --> C["Topological Sort (datetime, tx.id tie-break)"]
-    C --> D["Global Tx Loop"]
-    D --> E["Outflow Phase"]
-    E --> F["Record LotTransfers + Index by linkId"]
-    D --> G["Inflow Phase"]
-    G --> H["Lookup transfersByLinkId for transfer targets"]
-    H --> I["Create Lots / Disposals / Transfers by Asset"]
+    A[Load confirmed links ≥95% confidence] --> B[sortTransactionsByDependency]
+    B --> C[Build LinkIndex for source/target lookup]
+    C --> D[Global transaction loop]
+    D --> E[Outflow phase: disposals + transfer sources]
+    E --> F[Index LotTransfers by linkId]
+    D --> G[Inflow phase: acquisitions + transfer targets]
+    G --> H[Lookup transfersByLinkId for inherited basis]
+    E & G --> I[Accumulate into AssetProcessingState]
+    I --> J[Build LotMatchResult grouped by asset]
 ```
+
+### 1. Transaction Ordering (`sortTransactionsByDependency`)
+
+Kahn's algorithm with deterministic tie-breaking:
+
+1. Build adjacency list and indegree map from confirmed links.
+2. Seed queue with zero-indegree nodes, sorted by `(datetime ASC, tx.id ASC)`.
+3. Pop from queue front, decrement neighbor indegrees, insert newly-freed nodes at sorted position (binary-style insertion maintaining `datetime ASC, tx.id ASC`).
+4. If `sorted.length < transactions.length`, unresolved nodes form a cycle — return `Err` with DFS-derived cycle path.
+
+Canonical time source is `tx.datetime` (ISO string parsed via `Date.parse`), not `tx.timestamp`.
+
+### 2. Outflow Phase (per transaction)
+
+For each outflow movement in the transaction:
+
+1. Skip if fiat asset (`Currency.create(symbol).isFiat()`).
+2. Resolve `AssetProcessingState` by `outflow.assetId`.
+3. Find effective source link via `findEffectiveSourceLink`:
+   - Consumes `blockchain_internal` links first (change outputs).
+   - Returns first non-internal link, or signals `internal_only` / `none`.
+   - When internal links were consumed before a cross-source link, `isPartialOutflow=true` — use `link.sourceAmount` instead of outflow amount.
+4. **Transfer**: call `handleTransferSource` → record each `LotTransfer` into shared list, asset state, and `transfersByLinkId` → consume source link.
+5. **None**: call `matchOutflowDisposal` → update lots/disposals.
+6. **Internal only**: skip.
+
+### 3. Inflow Phase (per transaction)
+
+Inflows are grouped by asset ID within the transaction, then processed per group:
+
+1. Skip fiat assets.
+2. Resolve `AssetProcessingState` by `inflow.assetId`.
+3. Find effective target link via `findEffectiveTargetLink` (same internal-skip behavior as source).
+4. **Transfer**: aggregate same-asset inflows → `transfersForLink = transfersByLinkId.get(link.id) ?? []` → call `handleTransferTarget` with pre-filtered transfers → push lot → consume target link.
+5. **None**: create acquisition lot per inflow via `buildAcquisitionLotFromInflow`.
+6. **Internal only**: skip.
+
+### 4. Result Assembly
+
+After the global loop, `lotStateByAssetId` entries become `AssetLotMatchResult[]` with totals.
+
+## Error Semantics
+
+All errors return `Err<Error>` (no throws, no silent fallbacks):
+
+| Condition                                   | Error source                   |
+| ------------------------------------------- | ------------------------------ |
+| Invalid `datetime` string                   | `sortTransactionsByDependency` |
+| Transaction dependency cycle                | `sortTransactionsByDependency` |
+| Transfer target with no source transfers    | `processTransferTarget`        |
+| Transfer variance exceeding error threshold | `validateTransferVariance`     |
+| Missing jurisdiction config for transfers   | `handleTransferSource`         |
+| Missing prices on non-fiat movements        | `match()` pre-validation       |
+
+Cycle errors include a DFS-traced path (e.g., `1 → 2 → 1`) for diagnostics.
 
 ## Invariants
 
-- **Dependency correctness**: If link `A -> B` exists in batch, tx `A` must be processed before tx `B`.
-- **Within-transaction ordering**: Outflows are always processed before inflows.
-- **Determinism**: Ordering is stable under identical inputs.
-- **Link-key consistency**: Transfer indexing uses string UUID link IDs.
-- **Transfer integrity**: Transfer-target lot creation requires source-side `LotTransfer` records for the same link.
+1. **Dependency correctness**: If link `A → B` exists in batch, tx `A` is processed before tx `B`.
+2. **Within-transaction ordering**: Outflows always processed before inflows.
+3. **Determinism**: Identical inputs produce identical output ordering and results.
+4. **Transfer integrity**: Transfer-target lot creation requires pre-existing `LotTransfer` records for the same link ID.
+5. **Asset isolation**: Lots, disposals, and transfers accumulate into the correct asset state based on movement `assetId`, not transaction-level fields.
 
-## Edge Cases & Gotchas
+## Edge Cases
 
-- **Duplicate links**: Multiple links with same source/target edge do not multiply indegree.
-- **Self-referential links**: Ignored for dependency graph purposes.
-- **External links**: Links referencing tx IDs outside current batch are ignored for ordering.
-- **Datetime vs timestamp mismatch**: Dependency sort uses `datetime` as canonical ordering source.
-- **Multi-asset transactions**: Must be processed per movement asset ID, not by a single tx asset field.
+- **Duplicate links**: Same `(source, target)` pair from multiple links increments indegree only once (Set-based edge tracking).
+- **Self-referential links**: Ignored (`source !== target` guard).
+- **External links**: Links referencing tx IDs outside the current batch are ignored.
+- **Datetime vs timestamp**: Sort uses `datetime` (ISO string) as canonical source, not the numeric `timestamp` field.
+- **Multi-asset transactions**: A single transaction can touch multiple asset states; each movement resolves its own `AssetProcessingState`.
+- **UTXO partial outflows**: When `blockchain_internal` links are consumed before a cross-source link, the link's `sourceAmount` (gross minus change) is used for variance checks and disposal quantity.
 
-## Known Limitations (Target Implementation)
+## Limitations
 
-- Dependency ordering only knows about links present in input; missing links can still lead to non-transfer disposal behavior.
-- True transaction cycles are treated as data integrity errors and fail the run.
-- Existing transfer matching constraints (confidence/status rules, link availability) remain unchanged.
+- Dependency ordering only considers links present in the input batch; missing links can cause non-transfer (regular disposal) behavior.
+- True transaction cycles are treated as data integrity errors — the entire matching run fails.
+- Link confidence threshold (≥95%) and status filtering are applied before dependency analysis.
+
+## Implementation Files
+
+| File                   | Role                                          |
+| ---------------------- | --------------------------------------------- |
+| `lot-matcher.ts`       | Orchestration: global loop, state management  |
+| `lot-matcher-utils.ts` | Pure functions: sort, disposal, transfer math |
+| `link-index.ts`        | Source/target link lookup and consumption     |
 
 ## Related Specs
 
-- [Transfers & Tax](./transfers-and-tax.md) - transfer linkage and tax behavior
-- [Average Cost Basis](./average-cost-basis.md) - strategy-level disposal allocation
-- [Fees](./fees.md) - fee semantics used during cost-basis calculations
-
----
-
-_Last updated: 2026-02-13_
+- [Transfers & Tax](./transfers-and-tax.md) — transfer linkage and tax behavior
+- [Average Cost Basis](./average-cost-basis.md) — strategy-level disposal allocation
+- [Fees](./fees.md) — fee semantics used during cost-basis calculations
