@@ -66,7 +66,7 @@ export function sortWithLogicalOrdering(
  *
  * Tie-breaking (stable, deterministic):
  *   1. Topological order (dependency-first)
- *   2. Timestamp ASC (chronological)
+ *   2. Datetime ASC (chronological)
  *   3. Transaction ID ASC (database insertion order)
  *
  * Cycle handling:
@@ -87,11 +87,18 @@ export function sortTransactionsByDependency(
   const graph = new Map<number, Set<number>>(); // txId → [dependent txIds]
   const inDegree = new Map<number, number>();
   const txMap = new Map(transactions.map((tx) => [tx.id, tx]));
+  const datetimeByTxId = new Map<number, number>();
 
   // Initialize nodes
   for (const tx of transactions) {
+    const datetimeMs = Date.parse(tx.datetime);
+    if (Number.isNaN(datetimeMs)) {
+      return err(new Error(`Invalid datetime for transaction ${tx.id}: "${tx.datetime}"`));
+    }
+
     graph.set(tx.id, new Set());
     inDegree.set(tx.id, 0);
+    datetimeByTxId.set(tx.id, datetimeMs);
   }
 
   // Add edges from links (source → target)
@@ -117,11 +124,9 @@ export function sortTransactionsByDependency(
     }
   }
 
-  // Sort queue by (timestamp ASC, txId ASC) for stable ordering
+  // Sort queue by (datetime ASC, txId ASC) for stable ordering
   queue.sort((a, b) => {
-    const txA = txMap.get(a)!;
-    const txB = txMap.get(b)!;
-    const timeCompare = txA.timestamp - txB.timestamp;
+    const timeCompare = datetimeByTxId.get(a)! - datetimeByTxId.get(b)!;
     return timeCompare !== 0 ? timeCompare : a - b;
   });
 
@@ -137,13 +142,11 @@ export function sortTransactionsByDependency(
       inDegree.set(neighbor, newDegree);
 
       if (newDegree === 0) {
-        // Insert maintaining (timestamp, txId) order
-        const neighborTx = txMap.get(neighbor)!;
+        // Insert maintaining (datetime, txId) order
         let insertAt = queue.length;
 
         for (let i = 0; i < queue.length; i++) {
-          const queueTx = txMap.get(queue[i]!)!;
-          const timeCompare = neighborTx.timestamp - queueTx.timestamp;
+          const timeCompare = datetimeByTxId.get(neighbor)! - datetimeByTxId.get(queue[i]!)!;
           const shouldInsertHere = timeCompare < 0 || (timeCompare === 0 && neighbor < queue[i]!);
 
           if (shouldInsertHere) {

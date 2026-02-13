@@ -276,6 +276,45 @@ describe('lot-matcher-utils', () => {
       expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2]); // Chronological (link ignored)
     });
 
+    it('should ignore self-referential links', () => {
+      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
+      const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
+      const selfLink = createTransactionLink('link-self', 1, 1, 'BTC', '1', '1');
+
+      const result = sortTransactionsByDependency([tx2, tx1], [selfLink]);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2]);
+    });
+
+    it('should deduplicate repeated links between same transactions', () => {
+      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
+      const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
+      const link1 = createTransactionLink('link-1', 1, 2, 'BTC', '1', '1');
+      const link2 = createTransactionLink('link-2', 1, 2, 'BTC', '1', '1');
+
+      const result = sortTransactionsByDependency([tx2, tx1], [link1, link2]);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2]);
+    });
+
+    it('should use datetime for tie-breaking even if timestamp differs', () => {
+      const tx1: UniversalTransactionData = {
+        ...createMockTransaction(1, '2024-01-01T10:00:00Z', {}),
+        timestamp: Date.parse('2024-01-01T12:00:00Z'),
+      };
+      const tx2: UniversalTransactionData = {
+        ...createMockTransaction(2, '2024-01-01T11:00:00Z', {}),
+        timestamp: Date.parse('2024-01-01T09:00:00Z'),
+      };
+
+      const result = sortTransactionsByDependency([tx2, tx1], []);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2]);
+    });
+
     it('should return error with unresolved tx ids on cycle', () => {
       const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
       const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
