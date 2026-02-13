@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- ok for tests  */
 import { Currency, parseDecimal } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -128,6 +129,35 @@ describe('PriceRepository', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value?.price).toEqual(parseDecimal('43000'));
+      }
+    });
+
+    it('should normalize null granularity from cache to undefined', async () => {
+      await db
+        .insertInto('prices')
+        .values({
+          asset_symbol: 'BTC',
+          currency: 'USD',
+          timestamp: '2024-01-15T00:00:00.000Z',
+          price: '43000',
+          source_provider: 'coingecko',
+          provider_coin_id: null,
+          granularity: undefined,
+          fetched_at: '2024-01-15T12:00:00.000Z',
+          updated_at: null,
+        })
+        .execute();
+
+      const result = await repository.getPrice(
+        Currency.create('BTC'),
+        Currency.create('USD'),
+        new Date('2024-01-15T08:30:00.000Z')
+      );
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBeDefined();
+        expect(result.value?.granularity).toBeUndefined();
       }
     });
   });

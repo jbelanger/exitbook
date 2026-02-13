@@ -809,6 +809,64 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
     expect(result.isErr()).toBe(true);
     expect(result.isErr() && result.error.message).toContain('Transaction 999 not found');
   });
+
+  it('should reject invalid movement price metadata before persisting', async () => {
+    await db
+      .insertInto('transactions')
+      .values({
+        id: 2,
+        account_id: 1,
+        source_name: 'kraken',
+        source_type: 'exchange',
+        external_id: 'tx-2',
+        transaction_status: 'success',
+        transaction_datetime: new Date().toISOString(),
+        operation_type: 'swap',
+        is_spam: false,
+        excluded_from_accounting: false,
+        movements_inflows: JSON.stringify([
+          { assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' },
+        ]),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .execute();
+
+    const enrichedTx: UniversalTransactionData = {
+      id: 2,
+      accountId: 1,
+      externalId: 'tx-2',
+      datetime: new Date().toISOString(),
+      timestamp: Date.now(),
+      source: 'kraken',
+      sourceType: 'exchange' as const,
+      status: 'success',
+      operation: { category: 'trade', type: 'swap' },
+      movements: {
+        inflows: [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1.0'),
+            netAmount: parseDecimal('1.0'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              source: 'coingecko',
+              fetchedAt: new Date(),
+              granularity: null as unknown as 'exact',
+            },
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+    };
+
+    const result = await repository.updateMovementsWithPrices(enrichedTx);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.isErr() ? result.error.message : '').toContain('Invalid inflow movement data');
+  });
 });
 
 // Skipping tests for deprecated behavior - transactions are now scoped to accounts, not sessions

@@ -303,14 +303,23 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     try {
       const inflows = transaction.movements.inflows ?? [];
       const outflows = transaction.movements.outflows ?? [];
+      const fees = transaction.fees ?? [];
+
+      const validationResult = this.validatePriceDataForPersistence(
+        inflows,
+        outflows,
+        fees,
+        `transaction ${transaction.id}`
+      );
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
 
       // Build update object using Kysely's Updateable type
       const updateData: Partial<Updateable<TransactionsTable>> = {
         movements_inflows: (inflows.length > 0 ? this.serializeToJson(inflows) : null) as string | null,
         movements_outflows: (outflows.length > 0 ? this.serializeToJson(outflows) : null) as string | null,
-        fees: (transaction.fees && transaction.fees.length > 0 ? this.serializeToJson(transaction.fees) : null) as
-          | string
-          | null,
+        fees: (fees.length > 0 ? this.serializeToJson(fees) : null) as string | null,
         updated_at: this.getCurrentDateTimeForDB(),
       };
 
@@ -469,6 +478,16 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       normalizedOutflows.push(result.value);
     }
 
+    const validationResult = this.validatePriceDataForPersistence(
+      normalizedInflows,
+      normalizedOutflows,
+      transaction.fees ?? [],
+      `externalId ${transaction.externalId || '[generated]'}`
+    );
+    if (validationResult.isErr()) {
+      return err(validationResult.error);
+    }
+
     return ok({
       created_at: createdAt ?? this.getCurrentDateTimeForDB(),
       external_id: transaction.externalId || generateDeterministicTransactionHash(transaction),
@@ -516,18 +535,30 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     // Parse movements
     const inflowsResult = this.parseMovements(row.movements_inflows as string | null);
     if (inflowsResult.isErr()) {
-      return err(inflowsResult.error);
+      return err(
+        new Error(
+          `Transaction ${row.id} (${row.external_id ?? 'no-external-id'}) inflows parse failed: ${inflowsResult.error.message}`
+        )
+      );
     }
 
     const outflowsResult = this.parseMovements(row.movements_outflows as string | null);
     if (outflowsResult.isErr()) {
-      return err(outflowsResult.error);
+      return err(
+        new Error(
+          `Transaction ${row.id} (${row.external_id ?? 'no-external-id'}) outflows parse failed: ${outflowsResult.error.message}`
+        )
+      );
     }
 
     // Parse fees array
     const feesResult = this.parseFees(row.fees as string | null);
     if (feesResult.isErr()) {
-      return err(feesResult.error);
+      return err(
+        new Error(
+          `Transaction ${row.id} (${row.external_id ?? 'no-external-id'}) fees parse failed: ${feesResult.error.message}`
+        )
+      );
     }
 
     const status: TransactionStatus = row.transaction_status;
@@ -635,5 +666,29 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     } catch (error) {
       return err(new Error(`Failed to parse fees JSON: ${error instanceof Error ? error.message : String(error)}`));
     }
+  }
+
+  private validatePriceDataForPersistence(
+    inflows: AssetMovement[],
+    outflows: AssetMovement[],
+    fees: FeeMovement[],
+    context: string
+  ): Result<void, Error> {
+    const inflowsValidation = z.array(AssetMovementSchema).safeParse(inflows);
+    if (!inflowsValidation.success) {
+      return err(new Error(`Invalid inflow movement data for ${context}: ${inflowsValidation.error.message}`));
+    }
+
+    const outflowsValidation = z.array(AssetMovementSchema).safeParse(outflows);
+    if (!outflowsValidation.success) {
+      return err(new Error(`Invalid outflow movement data for ${context}: ${outflowsValidation.error.message}`));
+    }
+
+    const feesValidation = z.array(FeeMovementSchema).safeParse(fees);
+    if (!feesValidation.success) {
+      return err(new Error(`Invalid fee data for ${context}: ${feesValidation.error.message}`));
+    }
+
+    return ok(undefined);
   }
 }

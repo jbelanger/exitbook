@@ -4,6 +4,7 @@
 
 import { Currency, parseDecimal } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
+import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
@@ -19,7 +20,7 @@ export interface PriceRecord {
   price: string;
   source_provider: string;
   provider_coin_id: string | null;
-  granularity: string | undefined;
+  granularity: string | null | undefined;
   fetched_at: string;
   updated_at: string | null;
 }
@@ -28,6 +29,8 @@ export interface PriceRecord {
  * Repository for managing cached price data
  */
 export class PriceRepository {
+  private readonly logger = getLogger('PriceRepository');
+
   constructor(private readonly db: PricesDB) {}
 
   /**
@@ -227,6 +230,8 @@ export class PriceRepository {
   }
 
   private recordToPriceData(record: PriceRecord): PriceData {
+    const granularity = this.normalizeGranularity(record.granularity, record);
+
     return {
       assetSymbol: Currency.create(record.asset_symbol),
       currency: Currency.create(record.currency),
@@ -234,7 +239,29 @@ export class PriceRepository {
       price: parseDecimal(record.price),
       source: record.source_provider,
       fetchedAt: new Date(record.fetched_at),
-      granularity: record.granularity as 'minute' | 'hour' | 'day' | undefined,
+      granularity,
     };
+  }
+
+  private normalizeGranularity(raw: string | null | undefined, record: PriceRecord): PriceData['granularity'] {
+    if (raw === null || raw === undefined) {
+      return undefined;
+    }
+
+    if (raw === 'exact' || raw === 'minute' || raw === 'hour' || raw === 'day') {
+      return raw;
+    }
+
+    this.logger.warn(
+      {
+        granularity: raw,
+        assetSymbol: record.asset_symbol,
+        currency: record.currency,
+        timestamp: record.timestamp,
+        sourceProvider: record.source_provider,
+      },
+      'Invalid granularity found in cached price record'
+    );
+    throw new Error(`Invalid cached price granularity: ${raw}`);
   }
 }
