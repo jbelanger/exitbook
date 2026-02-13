@@ -1066,6 +1066,7 @@ describe('lot-matcher-utils', () => {
           costBasisPerUnit: parseDecimal('50000'),
           sourceTransactionId: 1,
           targetTransactionId: 2,
+          transferDate: new Date('2024-01-15'),
           createdAt: new Date(),
         },
         {
@@ -1077,6 +1078,7 @@ describe('lot-matcher-utils', () => {
           costBasisPerUnit: parseDecimal('51000'),
           sourceTransactionId: 1,
           targetTransactionId: 2,
+          transferDate: new Date('2024-01-15'),
           createdAt: new Date(),
         },
       ];
@@ -1100,6 +1102,7 @@ describe('lot-matcher-utils', () => {
           costBasisPerUnit: parseDecimal('50000'),
           sourceTransactionId: 1,
           targetTransactionId: 2,
+          transferDate: new Date('2024-01-15'),
           metadata: { cryptoFeeUsdValue: parseDecimal('25') },
           createdAt: new Date(),
         },

@@ -1062,9 +1062,10 @@ export function processTransferSource(
       sourceLotId: lotDisposal.lotId,
       linkId: link.id,
       quantityTransferred: lotDisposal.quantityDisposed.times(quantityToTransfer.dividedBy(transferDisposalQuantity)),
-      costBasisPerUnit: lot.costBasisPerUnit,
+      costBasisPerUnit: lotDisposal.costBasisPerUnit,
       sourceTransactionId: tx.id,
       targetTransactionId: link.targetTransactionId,
+      transferDate: new Date(tx.datetime),
       metadata,
       createdAt: new Date(),
     });

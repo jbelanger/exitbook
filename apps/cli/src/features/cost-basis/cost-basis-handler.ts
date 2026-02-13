@@ -37,6 +37,8 @@ export interface CostBasisResult {
   lots: import('@exitbook/accounting').AcquisitionLot[];
   /** Disposals processed during calculation (for detailed JSON output) */
   disposals: import('@exitbook/accounting').LotDisposal[];
+  /** Lot transfers during calculation (for detailed JSON output) */
+  lotTransfers: import('@exitbook/accounting').LotTransfer[];
   /** Per-asset calculation errors (partial failure) */
   errors: AssetMatchError[];
 }
@@ -92,14 +94,21 @@ export class CostBasisHandler {
         'Cost basis calculation completed'
       );
 
-      // 3. Get lots and disposals from summary (already in-memory)
+      // 3. Get lots, disposals, and transfers from summary (already in-memory)
       const lots = summary.lots;
       const disposals = summary.disposals;
+      const lotTransfers = summary.lotTransfers;
 
       // 4. Generate optional report with currency conversion
       let report: CostBasisReport | undefined;
       if (config.currency !== 'USD') {
-        const reportResult = await this.generateReport(summary.calculation, disposals, config.currency);
+        const reportResult = await this.generateReport(
+          summary.calculation,
+          disposals,
+          lots,
+          lotTransfers,
+          config.currency
+        );
         if (reportResult.isErr()) {
           return err(reportResult.error);
         }
@@ -116,6 +125,7 @@ export class CostBasisHandler {
         report,
         lots,
         disposals,
+        lotTransfers,
         errors: summary.errors,
       });
     } catch (error) {
@@ -183,6 +193,8 @@ export class CostBasisHandler {
   private async generateReport(
     calculation: import('@exitbook/accounting').CostBasisCalculation,
     disposals: import('@exitbook/accounting').LotDisposal[],
+    lots: import('@exitbook/accounting').AcquisitionLot[],
+    lotTransfers: import('@exitbook/accounting').LotTransfer[],
     displayCurrency: string
   ): Promise<Result<CostBasisReport, Error>> {
     logger.info({ displayCurrency }, 'Generating report with currency conversion');
@@ -203,6 +215,8 @@ export class CostBasisHandler {
       const reportResult = await reportGenerator.generateReport({
         calculation,
         disposals,
+        lots,
+        lotTransfers,
         displayCurrency,
       });
       if (reportResult.isErr()) {
@@ -215,6 +229,8 @@ export class CostBasisHandler {
           calculationId: calculation.id,
           displayCurrency,
           disposalsConverted: report.disposals.length,
+          lotsConverted: report.lots.length,
+          transfersConverted: report.lotTransfers.length,
         },
         'Report generation completed'
       );

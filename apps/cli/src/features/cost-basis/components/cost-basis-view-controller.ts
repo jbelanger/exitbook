@@ -4,9 +4,9 @@
 
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 
-import { getCostBasisAssetsVisibleRows, getCostBasisDisposalsVisibleRows } from './cost-basis-view-layout.js';
+import { getCostBasisAssetsVisibleRows, getCostBasisTimelineVisibleRows } from './cost-basis-view-layout.js';
 import type { CostBasisAction, CostBasisState } from './cost-basis-view-state.js';
-import { createCostBasisDisposalState } from './cost-basis-view-state.js';
+import { createCostBasisTimelineState } from './cost-basis-view-state.js';
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 
@@ -41,7 +41,7 @@ export function costBasisViewReducer(state: CostBasisState, action: CostBasisAct
 // ─── Navigation ──────────────────────────────────────────────────────────────
 
 function handleNavigation(state: CostBasisState, action: CostBasisAction): CostBasisState {
-  const itemCount = state.view === 'assets' ? state.assets.length : state.disposals.length;
+  const itemCount = state.view === 'assets' ? state.assets.length : state.events.length;
 
   const buildContext = (visibleRows: number) => ({
     itemCount,
@@ -87,13 +87,17 @@ function handleDrillDown(state: CostBasisState): CostBasisState {
   if (state.view !== 'assets') return state;
 
   const selected = state.assets[state.selectedIndex];
-  if (!selected || selected.disposals.length === 0) return state;
+  if (!selected) return state;
 
-  return createCostBasisDisposalState(selected, state, state.selectedIndex);
+  // Allow drill-down if any events exist (lots, disposals, or transfers)
+  const hasEvents = selected.lots.length > 0 || selected.disposals.length > 0 || selected.transfers.length > 0;
+  if (!hasEvents) return state;
+
+  return createCostBasisTimelineState(selected, state, state.selectedIndex);
 }
 
 function handleDrillUp(state: CostBasisState): CostBasisState {
-  if (state.view !== 'disposals') return state;
+  if (state.view !== 'timeline') return state;
 
   return state.parentState;
 }
@@ -122,9 +126,9 @@ export function handleCostBasisKeyboardInput(
   const visibleRows =
     state.view === 'assets'
       ? getCostBasisAssetsVisibleRows(terminalHeight)
-      : getCostBasisDisposalsVisibleRows(terminalHeight);
+      : getCostBasisTimelineVisibleRows(terminalHeight);
 
-  const isDrilledDown = state.view === 'disposals';
+  const isDrilledDown = state.view === 'timeline';
 
   // Quit / back
   if (key.escape) {
@@ -145,13 +149,13 @@ export function handleCostBasisKeyboardInput(
     return;
   }
 
-  // Backspace: back from disposal list
+  // Backspace: back from timeline view
   if (key.backspace && isDrilledDown) {
     dispatch({ type: 'DRILL_UP' });
     return;
   }
 
-  // Enter: drill down into disposals
+  // Enter: drill down into asset history timeline
   if (key.return && state.view === 'assets') {
     dispatch({ type: 'DRILL_DOWN' });
     return;

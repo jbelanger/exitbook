@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { TransactionLink } from '../../linking/types.js';
 import type { TransactionLinkRepository } from '../../persistence/transaction-link-repository.js';
 import { LotMatcher } from '../lot-matcher.js';
+import { AverageCostStrategy } from '../strategies/average-cost-strategy.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
 
 describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () => {
@@ -1401,6 +1402,186 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
         // Totals
         expect(result.value.totalTransfersProcessed).toBe(1);
+      }
+    });
+  });
+
+  describe('15. Strategy-specific transfer basis handling', () => {
+    it('should use pooled ACB cost basis on transfer records under average-cost', async () => {
+      const purchaseLotA = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'kraken',
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('10000'),
+          },
+        ],
+        []
+      );
+      const purchaseLotB = createTransaction(
+        2,
+        '2024-01-02T00:00:00Z',
+        'kraken',
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('30000'),
+          },
+        ],
+        []
+      );
+      const withdrawalTx = createTransaction(
+        3,
+        '2024-02-01T12:00:00Z',
+        'kraken',
+        [],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('40000'),
+          },
+        ]
+      );
+      const depositTx = createTransaction(
+        4,
+        '2024-02-01T14:00:00Z',
+        'wallet',
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('40000'),
+          },
+        ],
+        []
+      );
+
+      transactions = [purchaseLotA, purchaseLotB, withdrawalTx, depositTx];
+
+      const link = createLink('link-acb', 3, 4, 'BTC', '1', '1');
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const averageCostStrategy = new AverageCostStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc-acb-transfer',
+        strategy: averageCostStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
+        expect(btcResult).toBeDefined();
+
+        // Two source lots should produce two transfer records.
+        expect(btcResult!.lotTransfers).toHaveLength(2);
+        for (const transfer of btcResult!.lotTransfers) {
+          expect(transfer.costBasisPerUnit.toFixed()).toBe('20000');
+        }
+
+        // Target lot should inherit pooled ACB.
+        const transferLot = btcResult!.lots.find((lot) => lot.acquisitionTransactionId === 4);
+        expect(transferLot).toBeDefined();
+        expect(transferLot?.costBasisPerUnit.toFixed()).toBe('20000');
+      }
+    });
+
+    it('should preserve per-lot basis under fifo when transfer spans multiple lots', async () => {
+      const purchaseLotA = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'kraken',
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('10000'),
+          },
+        ],
+        []
+      );
+      const purchaseLotB = createTransaction(
+        2,
+        '2024-01-02T00:00:00Z',
+        'kraken',
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('30000'),
+          },
+        ],
+        []
+      );
+      const withdrawalTx = createTransaction(
+        3,
+        '2024-02-01T12:00:00Z',
+        'kraken',
+        [],
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1.5'),
+            netAmount: parseDecimal('1.5'),
+            priceAtTxTime: createPriceAtTxTime('40000'),
+          },
+        ]
+      );
+      const depositTx = createTransaction(
+        4,
+        '2024-02-01T14:00:00Z',
+        'wallet',
+        [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1.5'),
+            priceAtTxTime: createPriceAtTxTime('40000'),
+          },
+        ],
+        []
+      );
+
+      transactions = [purchaseLotA, purchaseLotB, withdrawalTx, depositTx];
+
+      const link = createLink('link-fifo', 3, 4, 'BTC', '1.5', '1.5');
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc-fifo-transfer',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
+        expect(btcResult).toBeDefined();
+        expect(btcResult!.lotTransfers).toHaveLength(2);
+
+        const transferByBasis = new Map(
+          btcResult!.lotTransfers.map((transfer) => [transfer.costBasisPerUnit.toFixed(), transfer])
+        );
+        expect(transferByBasis.get('10000')?.quantityTransferred.toFixed()).toBe('1');
+        expect(transferByBasis.get('30000')?.quantityTransferred.toFixed()).toBe('0.5');
       }
     });
   });

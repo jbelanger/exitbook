@@ -2,27 +2,43 @@
  * Cost basis view pure utility functions.
  */
 
-import type { AcquisitionLot, LotDisposal } from '@exitbook/accounting';
-import type { ConvertedLotDisposal } from '@exitbook/accounting';
+import type {
+  AcquisitionLot,
+  ConvertedAcquisitionLot,
+  ConvertedLotDisposal,
+  ConvertedLotTransfer,
+  LotDisposal,
+  LotTransfer,
+} from '@exitbook/accounting';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 
-import type { AssetCostBasisItem, DisposalViewItem } from './cost-basis-view-state.js';
+import type {
+  AcquisitionViewItem,
+  AssetCostBasisItem,
+  DisposalViewItem,
+  TransferViewItem,
+} from './cost-basis-view-state.js';
 
 const logger = getLogger('cost-basis-view-utils');
 
 // ─── Data Transformation ────────────────────────────────────────────────────
 
 /**
- * Build per-asset aggregate items from lots and disposals.
- * Groups disposals by asset (via lot join), computes aggregates.
+ * Build per-asset aggregate items from lots, disposals, and transfers.
+ * Groups by asset, builds timeline events with FX conversion.
  */
 export function buildAssetCostBasisItems(
   lots: AcquisitionLot[],
   disposals: LotDisposal[],
+  lotTransfers: LotTransfer[],
   jurisdiction: string,
   currency: string,
-  report?: { disposals: ConvertedLotDisposal[] }  
+  report?: {
+    disposals: ConvertedLotDisposal[];
+    lots: ConvertedAcquisitionLot[];
+    lotTransfers: ConvertedLotTransfer[];
+  }
 ): AssetCostBasisItem[] {
   // Build lot lookup
   const lotsMap = new Map<string, AcquisitionLot>();
@@ -30,16 +46,37 @@ export function buildAssetCostBasisItems(
     lotsMap.set(lot.id, lot);
   }
 
-  // Build converted disposal lookup (by disposal ID)
-  const convertedMap = new Map<string, ConvertedLotDisposal>();
+  // Build converted lookups (by ID)
+  const convertedDisposalsMap = new Map<string, ConvertedLotDisposal>();
+  const convertedLotsMap = new Map<string, ConvertedAcquisitionLot>();
+  const convertedTransfersMap = new Map<string, ConvertedLotTransfer>();
+
   if (report) {
     for (const cd of report.disposals) {
-      convertedMap.set(cd.id, cd);
+      convertedDisposalsMap.set(cd.id, cd);
+    }
+    for (const cl of report.lots) {
+      convertedLotsMap.set(cl.id, cl);
+    }
+    for (const ct of report.lotTransfers) {
+      convertedTransfersMap.set(ct.id, ct);
+    }
+  }
+
+  // Group lots by asset
+  const assetLotsMap = new Map<string, AcquisitionLot[]>();
+  for (const lot of lots) {
+    const asset = lot.assetSymbol;
+    const group = assetLotsMap.get(asset);
+    if (group) {
+      group.push(lot);
+    } else {
+      assetLotsMap.set(asset, [lot]);
     }
   }
 
   // Group disposals by asset (via lot's assetSymbol)
-  const assetGroups = new Map<string, LotDisposal[]>();
+  const assetDisposalsMap = new Map<string, LotDisposal[]>();
   for (const disposal of disposals) {
     const lot = lotsMap.get(disposal.lotId);
     if (!lot) {
@@ -47,18 +84,42 @@ export function buildAssetCostBasisItems(
       continue;
     }
     const asset = lot.assetSymbol;
-    const group = assetGroups.get(asset);
+    const group = assetDisposalsMap.get(asset);
     if (group) {
       group.push(disposal);
     } else {
-      assetGroups.set(asset, [disposal]);
+      assetDisposalsMap.set(asset, [disposal]);
     }
   }
+
+  // Group transfers by asset (via source lot's assetSymbol)
+  const assetTransfersMap = new Map<string, LotTransfer[]>();
+  for (const transfer of lotTransfers) {
+    const sourceLot = lotsMap.get(transfer.sourceLotId);
+    if (!sourceLot) {
+      logger.warn({ transferId: transfer.id, sourceLotId: transfer.sourceLotId }, 'Transfer references missing lot');
+      continue;
+    }
+    const asset = sourceLot.assetSymbol;
+    const group = assetTransfersMap.get(asset);
+    if (group) {
+      group.push(transfer);
+    } else {
+      assetTransfersMap.set(asset, [transfer]);
+    }
+  }
+
+  // Collect all assets that have any activity (lots, disposals, or transfers)
+  const allAssets = new Set<string>([...assetLotsMap.keys(), ...assetDisposalsMap.keys(), ...assetTransfersMap.keys()]);
 
   // Build aggregate items
   const items: AssetCostBasisItem[] = [];
 
-  for (const [asset, assetDisposals] of assetGroups) {
+  for (const asset of allAssets) {
+    const assetLots = assetLotsMap.get(asset) ?? [];
+    const assetDisposals = assetDisposalsMap.get(asset) ?? [];
+    const assetTransfers = assetTransfersMap.get(asset) ?? [];
+
     let totalProceeds = new Decimal(0);
     let totalCostBasis = new Decimal(0);
     let totalGainLoss = new Decimal(0);
@@ -70,10 +131,38 @@ export function buildAssetCostBasisItems(
     let shortestHolding = Infinity;
     let longestHolding = 0;
 
-    const disposalViewItems: DisposalViewItem[] = [];
+    // Build acquisition view items
+    const acquisitionViewItems: AcquisitionViewItem[] = [];
+    for (const lot of assetLots) {
+      const converted = convertedLotsMap.get(lot.id);
+      const costBasisPerUnit = converted ? converted.displayCostBasisPerUnit : lot.costBasisPerUnit;
+      const totalCostBasisLot = converted ? converted.displayTotalCostBasis : lot.totalCostBasis;
 
+      acquisitionViewItems.push({
+        type: 'acquisition',
+        id: lot.id,
+        date: formatDateString(lot.acquisitionDate),
+        sortTimestamp: lot.acquisitionDate.toISOString(),
+        quantity: formatCryptoQuantity(lot.quantity),
+        asset,
+        costBasisPerUnit: costBasisPerUnit.toFixed(2),
+        totalCostBasis: totalCostBasisLot.toFixed(2),
+        transactionId: lot.acquisitionTransactionId,
+        lotId: lot.id,
+        remainingQuantity: formatCryptoQuantity(lot.remainingQuantity),
+        status: lot.status,
+        fxConversion: converted
+          ? { fxRate: converted.fxConversion.fxRate.toFixed(4), fxSource: converted.fxConversion.fxSource }
+          : undefined,
+        fxUnavailable: converted?.fxUnavailable,
+        originalCurrency: converted?.originalCurrency,
+      });
+    }
+
+    // Build disposal view items
+    const disposalViewItems: DisposalViewItem[] = [];
     for (const disposal of assetDisposals) {
-      const converted = convertedMap.get(disposal.id);
+      const converted = convertedDisposalsMap.get(disposal.id);
       const proceeds = converted ? converted.displayTotalProceeds : disposal.totalProceeds;
       const costBasis = converted ? converted.displayTotalCostBasis : disposal.totalCostBasis;
       const gainLoss = converted ? converted.displayGainLoss : disposal.gainLoss;
@@ -99,12 +188,13 @@ export function buildAssetCostBasisItems(
       if (disposal.holdingPeriodDays < shortestHolding) shortestHolding = disposal.holdingPeriodDays;
       if (disposal.holdingPeriodDays > longestHolding) longestHolding = disposal.holdingPeriodDays;
 
-      // Build disposal view item
       const lot = lotsMap.get(disposal.lotId);
       disposalViewItems.push({
+        type: 'disposal',
         id: disposal.id,
-        disposalDate: formatDateString(disposal.disposalDate),
-        quantityDisposed: disposal.quantityDisposed.toFixed(),
+        date: formatDateString(disposal.disposalDate),
+        sortTimestamp: disposal.disposalDate.toISOString(),
+        quantityDisposed: formatCryptoQuantity(disposal.quantityDisposed),
         asset,
         proceedsPerUnit: proceedsPerUnit.toFixed(2),
         totalProceeds: proceeds.toFixed(2),
@@ -123,14 +213,46 @@ export function buildAssetCostBasisItems(
       });
     }
 
-    const totalTaxableGainLoss = computeTaxableAmount(totalGainLoss, jurisdiction);
+    // Build transfer view items
+    const transferViewItems: TransferViewItem[] = [];
+    for (const transfer of assetTransfers) {
+      const converted = convertedTransfersMap.get(transfer.id);
+      const costBasisPerUnit = converted ? converted.displayCostBasisPerUnit : transfer.costBasisPerUnit;
+      const totalCostBasisTransfer = converted
+        ? converted.displayTotalCostBasis
+        : transfer.quantityTransferred.times(transfer.costBasisPerUnit);
 
-    // Sort disposals by date ascending
-    disposalViewItems.sort((a, b) => a.disposalDate.localeCompare(b.disposalDate));
+      const sourceLot = lotsMap.get(transfer.sourceLotId);
+
+      transferViewItems.push({
+        type: 'transfer',
+        id: transfer.id,
+        date: formatDateString(transfer.transferDate),
+        sortTimestamp: transfer.transferDate.toISOString(),
+        quantity: formatCryptoQuantity(transfer.quantityTransferred),
+        asset,
+        costBasisPerUnit: costBasisPerUnit.toFixed(2),
+        totalCostBasis: totalCostBasisTransfer.toFixed(2),
+        sourceTransactionId: transfer.sourceTransactionId,
+        targetTransactionId: transfer.targetTransactionId,
+        sourceLotId: transfer.sourceLotId,
+        sourceAcquisitionDate: sourceLot ? formatDateString(sourceLot.acquisitionDate) : 'unknown',
+        feeUsdValue: transfer.metadata?.cryptoFeeUsdValue?.toFixed(2),
+        fxConversion: converted
+          ? { fxRate: converted.fxConversion.fxRate.toFixed(4), fxSource: converted.fxConversion.fxSource }
+          : undefined,
+        fxUnavailable: converted?.fxUnavailable,
+        originalCurrency: converted?.originalCurrency,
+      });
+    }
+
+    const totalTaxableGainLoss = computeTaxableAmount(totalGainLoss, jurisdiction);
 
     const item: AssetCostBasisItem = {
       asset,
       disposalCount: assetDisposals.length,
+      lotCount: assetLots.length,
+      transferCount: assetTransfers.length,
       totalProceeds: totalProceeds.toFixed(2),
       totalCostBasis: totalCostBasis.toFixed(2),
       totalGainLoss: totalGainLoss.toFixed(2),
@@ -140,6 +262,8 @@ export function buildAssetCostBasisItems(
       shortestHoldingDays: shortestHolding === Infinity ? 0 : shortestHolding,
       longestHoldingDays: longestHolding,
       disposals: disposalViewItems,
+      lots: acquisitionViewItems,
+      transfers: transferViewItems,
     };
 
     // Add US-specific fields
@@ -202,6 +326,40 @@ export function formatUnsignedCurrency(amount: string, currency: string): string
   }
 
   return `${currency} ${parts.join('.')}`;
+}
+
+/**
+ * Format crypto quantity for display: max 8dp, trim trailing zeros (min 2dp), show <0.00000001 for dust
+ *
+ * Examples:
+ * - 0.25000 → "0.25"
+ * - 0.00000112 → "0.00000112"
+ * - 0.0000000000001 → "<0.00000001"
+ * - 0 → "0.00"
+ */
+export function formatCryptoQuantity(quantity: Decimal | string): string {
+  const decimal = typeof quantity === 'string' ? new Decimal(quantity) : quantity;
+
+  // Format with max 8 decimal places
+  const formatted = decimal.toFixed(8);
+
+  // Handle dust: original value was positive but rounds to zero at 8dp
+  if (decimal.gt(0) && formatted === '0.00000000') {
+    return '<0.00000001';
+  }
+
+  // Trim trailing zeros, but keep at least 2 decimal places
+  const parts = formatted.split('.');
+  if (parts[1]) {
+    // Trim trailing zeros from decimal part
+    const trimmed = parts[1].replace(/0+$/, '');
+    // Ensure at least 2 decimal places
+    const minDecimals = Math.max(trimmed.length, 2);
+    return decimal.toFixed(minDecimals);
+  }
+
+  // No decimal part, use 2 decimal places
+  return decimal.toFixed(2);
 }
 
 /**

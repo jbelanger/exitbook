@@ -19,7 +19,7 @@ import {
   buildAssetCostBasisItems,
   computeSummaryTotals,
   createCostBasisAssetState,
-  createCostBasisDisposalState,
+  createCostBasisTimelineState,
   sortAssetsByAbsGainLoss,
   type CalculationContext,
 } from './components/index.js';
@@ -70,7 +70,7 @@ interface CostBasisCommandResult {
       acquisitionTransactionId: number;
       asset: string;
       costBasisPerUnit: string;
-      disposalDate: string;
+      date: string;
       disposalTransactionId: number;
       fxConversion?: { fxRate: string; fxSource: string } | undefined;
       gainLoss: string;
@@ -79,14 +79,34 @@ interface CostBasisCommandResult {
       isGain: boolean;
       proceedsPerUnit: string;
       quantityDisposed: string;
+      sortTimestamp: string;
       taxTreatmentCategory?: string | undefined;
       totalCostBasis: string;
       totalProceeds: string;
+      type: 'disposal';
     }[];
     isGain: boolean;
     longestHoldingDays: number;
     longTermCount?: number | undefined;
     longTermGainLoss?: string | undefined;
+    lotCount: number;
+    lots: {
+      asset: string;
+      costBasisPerUnit: string;
+      date: string;
+      fxConversion?: { fxRate: string; fxSource: string } | undefined;
+      fxUnavailable?: true | undefined;
+      id: string;
+      lotId: string;
+      originalCurrency?: string | undefined;
+      quantity: string;
+      remainingQuantity: string;
+      sortTimestamp: string;
+      status: string;
+      totalCostBasis: string;
+      transactionId: number;
+      type: 'acquisition';
+    }[];
     shortestHoldingDays: number;
     shortTermCount?: number | undefined;
     shortTermGainLoss?: string | undefined;
@@ -94,6 +114,25 @@ interface CostBasisCommandResult {
     totalGainLoss: string;
     totalProceeds: string;
     totalTaxableGainLoss: string;
+    transferCount: number;
+    transfers: {
+      asset: string;
+      costBasisPerUnit: string;
+      date: string;
+      feeUsdValue?: string | undefined;
+      fxConversion?: { fxRate: string; fxSource: string } | undefined;
+      fxUnavailable?: true | undefined;
+      id: string;
+      originalCurrency?: string | undefined;
+      quantity: string;
+      sortTimestamp: string;
+      sourceAcquisitionDate: string;
+      sourceLotId: string;
+      sourceTransactionId: number;
+      targetTransactionId: number;
+      totalCostBasis: string;
+      type: 'transfer';
+    }[];
   }[];
   missingPricesWarning?: string | undefined;
   errors?: { asset: string; error: string }[] | undefined;
@@ -112,7 +151,7 @@ export function registerCostBasisCommand(program: Command): void {
     .option('--fiat-currency <currency>', 'Fiat currency for cost basis: USD, CAD, EUR, GBP')
     .option('--start-date <date>', 'Custom start date (YYYY-MM-DD, requires --end-date)')
     .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
-    .option('--asset <symbol>', 'Filter to specific asset (lands on disposal list)')
+    .option('--asset <symbol>', 'Filter to specific asset (lands on asset history timeline)')
     .option('--json', 'Output results in JSON format')
     .action(executeCostBasisCommand);
 }
@@ -193,12 +232,12 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
 }
 
 function outputCostBasisJSON(costBasisResult: CostBasisResult): void {
-  const { summary, missingPricesWarning, report, lots, disposals } = costBasisResult;
+  const { summary, missingPricesWarning, report, lots, disposals, lotTransfers } = costBasisResult;
   const currency = summary.calculation.config.currency;
   const jurisdiction = summary.calculation.config.jurisdiction;
 
   // Build detailed asset breakdown (same as TUI)
-  const assetItems = buildAssetCostBasisItems(lots, disposals, jurisdiction, currency, report);
+  const assetItems = buildAssetCostBasisItems(lots, disposals, lotTransfers, jurisdiction, currency, report);
   const sortedAssets = sortAssetsByAbsGainLoss(assetItems);
   const summaryTotals = computeSummaryTotals(sortedAssets, jurisdiction);
 
@@ -294,12 +333,12 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
       }
 
       const costBasisResult = result.value;
-      const { summary, missingPricesWarning, report, lots, disposals } = costBasisResult;
+      const { summary, missingPricesWarning, report, lots, disposals, lotTransfers } = costBasisResult;
       const calculation = summary.calculation;
       const currency = calculation.config.currency;
       const jurisdiction = calculation.config.jurisdiction;
 
-      const assetItems = buildAssetCostBasisItems(lots, disposals, jurisdiction, currency, report);
+      const assetItems = buildAssetCostBasisItems(lots, disposals, lotTransfers, jurisdiction, currency, report);
       const sortedAssets = sortAssetsByAbsGainLoss(assetItems);
       const summaryTotals = computeSummaryTotals(sortedAssets, jurisdiction);
 
@@ -347,12 +386,12 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
 // ─── Shared Helpers ──────────────────────────────────────────────────────────
 
 /**
- * If --asset is specified, find the matching asset and jump to its disposal list.
+ * If --asset is specified, find the matching asset and jump to its timeline.
  */
 function resolveAssetFilter(
   state: ReturnType<typeof createCostBasisAssetState>,
   assetFilter?: string
-): ReturnType<typeof createCostBasisAssetState> | ReturnType<typeof createCostBasisDisposalState> {
+): ReturnType<typeof createCostBasisAssetState> | ReturnType<typeof createCostBasisTimelineState> {
   if (!assetFilter) return state;
 
   const upperFilter = assetFilter.toUpperCase();
@@ -363,5 +402,5 @@ function resolveAssetFilter(
   }
 
   const assetItem = state.assets[assetIndex]!;
-  return createCostBasisDisposalState(assetItem, state, assetIndex);
+  return createCostBasisTimelineState(assetItem, state, assetIndex);
 }

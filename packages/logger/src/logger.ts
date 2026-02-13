@@ -5,7 +5,7 @@ export interface LogEntry {
   category: string;
   timestamp: Date;
   msg: string;
-  context?: Record<string, unknown> | undefined;
+  context?: Record<string, unknown>;
 }
 
 export interface Sink {
@@ -126,7 +126,7 @@ class LoggerImpl implements Logger {
       category: this.category,
       timestamp: new Date(),
       msg,
-      context,
+      ...(context ? { context } : {}),
     };
 
     for (const sink of globalConfig.sinks) {

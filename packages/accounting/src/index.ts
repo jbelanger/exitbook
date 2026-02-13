@@ -49,7 +49,13 @@ export { USRules } from './jurisdictions/us-rules.js';
 export { JURISDICTION_CONFIGS, getJurisdictionConfig } from './jurisdictions/jurisdiction-configs.js';
 
 // Reports
-export type { CostBasisReport, ConvertedLotDisposal, FxConversionMetadata } from './reports/types.js';
+export type {
+  CostBasisReport,
+  ConvertedAcquisitionLot,
+  ConvertedLotDisposal,
+  ConvertedLotTransfer,
+  FxConversionMetadata,
+} from './reports/types.js';
 export { CostBasisReportGenerator } from './reports/cost-basis-report-generator.js';
 export type { ReportGeneratorConfig } from './reports/cost-basis-report-generator.js';
 

@@ -231,6 +231,8 @@ describe('CostBasisHandler', () => {
             totalTaxableGainLoss: new Decimal('25'),
           },
           disposals: [],
+          lots: [],
+          lotTransfers: [],
         } as CostBasisReport)
       );
       vi.mocked(CostBasisReportGenerator).mockImplementation(function () {

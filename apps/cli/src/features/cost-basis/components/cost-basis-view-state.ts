@@ -8,6 +8,8 @@
 export interface AssetCostBasisItem {
   asset: string;
   disposalCount: number;
+  lotCount: number;
+  transferCount: number;
   totalProceeds: string;
   totalCostBasis: string;
   totalGainLoss: string;
@@ -25,14 +27,18 @@ export interface AssetCostBasisItem {
   shortestHoldingDays: number;
   longestHoldingDays: number;
 
-  // Disposal data for drill-down
+  // Timeline data for drill-down
   disposals: DisposalViewItem[];
+  lots: AcquisitionViewItem[];
+  transfers: TransferViewItem[];
 }
 
-/** Individual disposal in the disposal drill-down list */
+/** Individual disposal in the timeline */
 export interface DisposalViewItem {
+  type: 'disposal';
   id: string;
-  disposalDate: string;
+  date: string; // YYYY-MM-DD for display
+  sortTimestamp: string; // Full ISO timestamp for ordering
   quantityDisposed: string;
   asset: string;
 
@@ -59,6 +65,69 @@ export interface DisposalViewItem {
       }
     | undefined;
 }
+
+/** Individual acquisition lot in the timeline */
+export interface AcquisitionViewItem {
+  type: 'acquisition';
+  id: string;
+  date: string; // YYYY-MM-DD for display
+  sortTimestamp: string; // Full ISO timestamp for ordering
+  quantity: string;
+  asset: string;
+
+  costBasisPerUnit: string;
+  totalCostBasis: string;
+
+  transactionId: number;
+  lotId: string;
+  remainingQuantity: string;
+  status: string; // 'open' | 'partially_disposed' | 'fully_disposed'
+
+  // FX conversion (non-USD currency)
+  fxConversion?:
+    | {
+        fxRate: string;
+        fxSource: string;
+      }
+    | undefined;
+  fxUnavailable?: true | undefined;
+  /** Original currency when fxUnavailable (always 'USD') */
+  originalCurrency?: string | undefined;
+}
+
+/** Individual lot transfer in the timeline */
+export interface TransferViewItem {
+  type: 'transfer';
+  id: string;
+  date: string; // YYYY-MM-DD for display
+  sortTimestamp: string; // Full ISO timestamp for ordering
+  quantity: string;
+  asset: string;
+
+  costBasisPerUnit: string;
+  totalCostBasis: string;
+
+  sourceTransactionId: number;
+  targetTransactionId: number;
+  sourceLotId: string;
+  sourceAcquisitionDate: string;
+
+  feeUsdValue?: string | undefined;
+
+  // FX conversion (non-USD currency)
+  fxConversion?:
+    | {
+        fxRate: string;
+        fxSource: string;
+      }
+    | undefined;
+  fxUnavailable?: true | undefined;
+  /** Original currency when fxUnavailable (always 'USD') */
+  originalCurrency?: string | undefined;
+}
+
+/** Union of all timeline event types */
+export type TimelineEvent = AcquisitionViewItem | DisposalViewItem | TransferViewItem;
 
 // ─── State Types ────────────────────────────────────────────────────────────
 
@@ -101,19 +170,21 @@ export interface CostBasisAssetState {
   error?: string | undefined;
 }
 
-/** Disposal list level (Level 2 — drill-down) */
-export interface CostBasisDisposalState {
-  view: 'disposals';
+/** Timeline level (Level 2 — drill-down) */
+export interface CostBasisTimelineState {
+  view: 'timeline';
 
   // Asset context
   asset: string;
   currency: string;
   jurisdiction: string;
   assetTotalGainLoss: string;
+  assetLotCount: number;
   assetDisposalCount: number;
+  assetTransferCount: number;
 
-  // Disposal items
-  disposals: DisposalViewItem[];
+  // Timeline events
+  events: TimelineEvent[];
 
   // Navigation
   selectedIndex: number;
@@ -125,7 +196,7 @@ export interface CostBasisDisposalState {
   error?: string | undefined;
 }
 
-export type CostBasisState = CostBasisAssetState | CostBasisDisposalState;
+export type CostBasisState = CostBasisAssetState | CostBasisTimelineState;
 
 // ─── Actions ────────────────────────────────────────────────────────────────
 
@@ -187,19 +258,32 @@ export function createCostBasisAssetState(
   };
 }
 
-export function createCostBasisDisposalState(
+export function createCostBasisTimelineState(
   assetItem: AssetCostBasisItem,
   parentState: CostBasisAssetState,
   parentAssetIndex: number
-): CostBasisDisposalState {
+): CostBasisTimelineState {
+  // Combine all events and sort by timestamp
+  const events: TimelineEvent[] = [...assetItem.lots, ...assetItem.disposals, ...assetItem.transfers].sort((a, b) => {
+    // Primary sort: timestamp
+    const timestampCompare = a.sortTimestamp.localeCompare(b.sortTimestamp);
+    if (timestampCompare !== 0) return timestampCompare;
+
+    // Secondary sort (same timestamp): acquisition < transfer < disposal
+    const typeOrder = { acquisition: 0, transfer: 1, disposal: 2 };
+    return typeOrder[a.type] - typeOrder[b.type];
+  });
+
   return {
-    view: 'disposals',
+    view: 'timeline',
     asset: assetItem.asset,
     currency: parentState.currency,
     jurisdiction: parentState.jurisdiction,
     assetTotalGainLoss: assetItem.totalGainLoss,
+    assetLotCount: assetItem.lotCount,
     assetDisposalCount: assetItem.disposalCount,
-    disposals: assetItem.disposals,
+    assetTransferCount: assetItem.transferCount,
+    events,
     selectedIndex: 0,
     scrollOffset: 0,
     parentState: { ...parentState, selectedIndex: parentAssetIndex, scrollOffset: parentState.scrollOffset },

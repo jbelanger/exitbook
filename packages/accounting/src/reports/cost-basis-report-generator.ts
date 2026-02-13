@@ -10,13 +10,19 @@ import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { CostBasisCalculation, LotDisposal } from '../domain/schemas.js';
+import type { AcquisitionLot, CostBasisCalculation, LotDisposal, LotTransfer } from '../domain/schemas.js';
 import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
 import { CanadaRules } from '../jurisdictions/canada-rules.js';
 import { USRules } from '../jurisdictions/us-rules.js';
 import type { IFxRateProvider } from '../price-enrichment/fx-rate-provider.interface.js';
 
-import type { CostBasisReport, ConvertedLotDisposal, FxConversionMetadata } from './types.js';
+import type {
+  CostBasisReport,
+  ConvertedAcquisitionLot,
+  ConvertedLotDisposal,
+  ConvertedLotTransfer,
+  FxConversionMetadata,
+} from './types.js';
 
 /**
  * Report generator configuration
@@ -28,6 +34,10 @@ export interface ReportGeneratorConfig {
   calculation: CostBasisCalculation;
   /** Disposals to convert */
   disposals: LotDisposal[];
+  /** Acquisition lots to convert */
+  lots: AcquisitionLot[];
+  /** Lot transfers to convert */
+  lotTransfers: LotTransfer[];
 }
 
 /**
@@ -51,26 +61,41 @@ export class CostBasisReportGenerator {
    * @returns Report with converted amounts or error
    */
   async generateReport(config: ReportGeneratorConfig): Promise<Result<CostBasisReport, Error>> {
-    const { calculation, disposals, displayCurrency } = config;
+    const { calculation, disposals, lots, lotTransfers, displayCurrency } = config;
 
     try {
       this.logger.info(
-        { calculationId: calculation.id, disposalCount: disposals.length, displayCurrency },
+        {
+          calculationId: calculation.id,
+          disposalCount: disposals.length,
+          lotCount: lots.length,
+          transferCount: lotTransfers.length,
+          displayCurrency,
+        },
         'Generating cost basis report with currency conversion'
       );
 
       // If display currency is USD, no conversion needed
       if (displayCurrency === 'USD') {
-        return this.generateUsdReport(calculation, disposals);
+        return this.generateUsdReport(calculation, disposals, lots, lotTransfers);
       }
 
-      // Convert each disposal to display currency
-      const convertedDisposalsResult = await this.convertDisposals(disposals, displayCurrency);
+      // Shared FX rate cache across all conversions
+      const fxRateCache = new Map<string, FxConversionMetadata>();
+
+      // Convert disposals first (hard-fail, populates cache with disposal dates)
+      const convertedDisposalsResult = await this.convertDisposals(disposals, displayCurrency, fxRateCache);
       if (convertedDisposalsResult.isErr()) {
         return err(convertedDisposalsResult.error);
       }
 
       const convertedDisposals = convertedDisposalsResult.value;
+
+      // Convert lots (soft-fail, reuses cache)
+      const convertedLots = await this.convertLots(lots, displayCurrency, fxRateCache);
+
+      // Convert transfers (soft-fail, reuses cache)
+      const convertedTransfers = await this.convertTransfers(lotTransfers, displayCurrency, fxRateCache);
 
       // Get jurisdiction rules for calculating taxable amounts
       const jurisdictionRules = this.getJurisdictionRules(calculation.config.jurisdiction);
@@ -83,6 +108,8 @@ export class CostBasisReportGenerator {
         displayCurrency,
         originalCurrency: 'USD',
         disposals: convertedDisposals,
+        lots: convertedLots,
+        lotTransfers: convertedTransfers,
         summary,
         originalSummary: {
           totalProceeds: calculation.totalProceeds,
@@ -96,6 +123,9 @@ export class CostBasisReportGenerator {
         {
           calculationId: calculation.id,
           disposalsConverted: convertedDisposals.length,
+          lotsConverted: convertedLots.length,
+          transfersConverted: convertedTransfers.length,
+          uniqueFxDates: fxRateCache.size,
           totalGainLossUsd: calculation.totalGainLoss.toFixed(),
           totalGainLossDisplay: summary.totalGainLoss.toFixed(),
         },
@@ -130,8 +160,18 @@ export class CostBasisReportGenerator {
    */
   private generateUsdReport(
     calculation: CostBasisCalculation,
-    disposals: LotDisposal[]
+    disposals: LotDisposal[],
+    lots: AcquisitionLot[],
+    lotTransfers: LotTransfer[]
   ): Result<CostBasisReport, Error> {
+    const identityFxMetadata: FxConversionMetadata = {
+      originalCurrency: 'USD',
+      displayCurrency: 'USD',
+      fxRate: new Decimal(1),
+      fxSource: 'identity',
+      fxFetchedAt: new Date(),
+    };
+
     // For USD, no conversion needed - just add identity FX metadata
     const convertedDisposals: ConvertedLotDisposal[] = disposals.map((disposal) => ({
       ...disposal,
@@ -140,13 +180,21 @@ export class CostBasisReportGenerator {
       displayCostBasisPerUnit: disposal.costBasisPerUnit,
       displayTotalCostBasis: disposal.totalCostBasis,
       displayGainLoss: disposal.gainLoss,
-      fxConversion: {
-        originalCurrency: 'USD',
-        displayCurrency: 'USD',
-        fxRate: new Decimal(1),
-        fxSource: 'identity',
-        fxFetchedAt: new Date(),
-      },
+      fxConversion: identityFxMetadata,
+    }));
+
+    const convertedLots: ConvertedAcquisitionLot[] = lots.map((lot) => ({
+      ...lot,
+      displayCostBasisPerUnit: lot.costBasisPerUnit,
+      displayTotalCostBasis: lot.totalCostBasis,
+      fxConversion: identityFxMetadata,
+    }));
+
+    const convertedTransfers: ConvertedLotTransfer[] = lotTransfers.map((transfer) => ({
+      ...transfer,
+      displayCostBasisPerUnit: transfer.costBasisPerUnit,
+      displayTotalCostBasis: transfer.quantityTransferred.times(transfer.costBasisPerUnit),
+      fxConversion: identityFxMetadata,
     }));
 
     const report: CostBasisReport = {
@@ -154,6 +202,8 @@ export class CostBasisReportGenerator {
       displayCurrency: 'USD',
       originalCurrency: 'USD',
       disposals: convertedDisposals,
+      lots: convertedLots,
+      lotTransfers: convertedTransfers,
       summary: {
         totalProceeds: calculation.totalProceeds,
         totalCostBasis: calculation.totalCostBasis,
@@ -172,52 +222,72 @@ export class CostBasisReportGenerator {
   }
 
   /**
+   * Get or fetch FX rate from cache, with caching by date
+   */
+  private async getOrFetchFxRate(
+    date: Date,
+    displayCurrency: string,
+    cache: Map<string, FxConversionMetadata>
+  ): Promise<Result<FxConversionMetadata, Error>> {
+    // Get date key for caching (YYYY-MM-DD)
+    const dateKey = date.toISOString().split('T')[0] ?? '';
+
+    // Check cache first
+    let fxMetadata = cache.get(dateKey);
+
+    if (!fxMetadata) {
+      // Fetch FX rate for this date
+      this.logger.debug({ date: dateKey, displayCurrency }, 'Fetching FX rate');
+
+      const fxRateResult = await this.fxProvider.getRateFromUSD(Currency.create(displayCurrency), date);
+
+      if (fxRateResult.isErr()) {
+        return err(
+          new Error(`Failed to fetch FX rate for ${displayCurrency} on ${dateKey}: ${fxRateResult.error.message}`)
+        );
+      }
+
+      const fxData = fxRateResult.value;
+
+      fxMetadata = {
+        originalCurrency: 'USD',
+        displayCurrency,
+        fxRate: fxData.rate,
+        fxSource: fxData.source,
+        fxFetchedAt: fxData.fetchedAt,
+      };
+
+      // Cache for reuse
+      cache.set(dateKey, fxMetadata);
+
+      this.logger.debug({ date: dateKey, rate: fxData.rate.toFixed(), source: fxData.source }, 'Cached FX rate');
+    }
+
+    return ok(fxMetadata);
+  }
+
+  /**
    * Convert all disposals to display currency using historical rates
    *
    * Key feature: Caches FX rates by date to minimize API calls
    */
   private async convertDisposals(
     disposals: LotDisposal[],
-    displayCurrency: string
+    displayCurrency: string,
+    cache: Map<string, FxConversionMetadata>
   ): Promise<Result<ConvertedLotDisposal[], Error>> {
     const converted: ConvertedLotDisposal[] = [];
-    const fxRateCache = new Map<string, FxConversionMetadata>(); // date -> FX metadata
 
     for (const disposal of disposals) {
-      // Get date key for caching (YYYY-MM-DD)
       const disposalDate = new Date(disposal.disposalDate);
-      const dateKey = disposalDate.toISOString().split('T')[0] ?? '';
 
-      // Check cache first
-      let fxMetadata = fxRateCache.get(dateKey);
-
-      if (!fxMetadata) {
-        // Fetch FX rate for this disposal date
-        this.logger.debug({ date: dateKey, displayCurrency }, 'Fetching FX rate for disposal date');
-
-        const fxRateResult = await this.fxProvider.getRateFromUSD(Currency.create(displayCurrency), disposalDate);
-
-        if (fxRateResult.isErr()) {
-          return err(
-            new Error(`Failed to fetch FX rate for ${displayCurrency} on ${dateKey}: ${fxRateResult.error.message}`)
-          );
-        }
-
-        const fxData = fxRateResult.value;
-
-        fxMetadata = {
-          originalCurrency: 'USD',
-          displayCurrency,
-          fxRate: fxData.rate,
-          fxSource: fxData.source,
-          fxFetchedAt: fxData.fetchedAt,
-        };
-
-        // Cache for reuse
-        fxRateCache.set(dateKey, fxMetadata);
-
-        this.logger.debug({ date: dateKey, rate: fxData.rate.toFixed(), source: fxData.source }, 'Cached FX rate');
+      // Get FX rate (hard-fail for disposals - tax-critical)
+      const fxMetadataResult = await this.getOrFetchFxRate(disposalDate, displayCurrency, cache);
+      if (fxMetadataResult.isErr()) {
+        return err(fxMetadataResult.error);
       }
+
+      const fxMetadata = fxMetadataResult.value;
 
       // Convert all USD amounts to display currency
       const convertedDisposal: ConvertedLotDisposal = {
@@ -234,11 +304,146 @@ export class CostBasisReportGenerator {
     }
 
     this.logger.info(
-      { totalDisposals: disposals.length, uniqueDates: fxRateCache.size },
+      { totalDisposals: disposals.length, uniqueDates: cache.size },
       'Converted all disposals (FX rates cached by date)'
     );
 
     return ok(converted);
+  }
+
+  /**
+   * Convert all acquisition lots to display currency using historical rates
+   *
+   * Soft-fail: On FX error, logs warning and uses identity rate (1.0) with USD fallback
+   */
+  private async convertLots(
+    lots: AcquisitionLot[],
+    displayCurrency: string,
+    cache: Map<string, FxConversionMetadata>
+  ): Promise<ConvertedAcquisitionLot[]> {
+    const converted: ConvertedAcquisitionLot[] = [];
+
+    for (const lot of lots) {
+      const acquisitionDate = new Date(lot.acquisitionDate);
+
+      // Try to get FX rate (soft-fail for lots)
+      const fxMetadataResult = await this.getOrFetchFxRate(acquisitionDate, displayCurrency, cache);
+
+      if (fxMetadataResult.isErr()) {
+        // FX failure: log warning and use USD fallback with identity rate
+        this.logger.warn(
+          {
+            assetSymbol: lot.assetSymbol,
+            lotId: lot.id,
+            acquisitionDate: acquisitionDate.toISOString().split('T')[0],
+            displayCurrency,
+            error: fxMetadataResult.error.message,
+          },
+          'FX rate unavailable for lot acquisition date, using USD fallback'
+        );
+
+        const convertedLot: ConvertedAcquisitionLot = {
+          ...lot,
+          displayCostBasisPerUnit: lot.costBasisPerUnit,
+          displayTotalCostBasis: lot.totalCostBasis,
+          fxConversion: {
+            originalCurrency: 'USD',
+            displayCurrency: 'USD',
+            fxRate: new Decimal(1),
+            fxSource: 'fallback',
+            fxFetchedAt: new Date(),
+          },
+          fxUnavailable: true,
+          originalCurrency: 'USD',
+        };
+
+        converted.push(convertedLot);
+        continue;
+      }
+
+      const fxMetadata = fxMetadataResult.value;
+
+      // Convert USD amounts to display currency
+      const convertedLot: ConvertedAcquisitionLot = {
+        ...lot,
+        displayCostBasisPerUnit: lot.costBasisPerUnit.times(fxMetadata.fxRate),
+        displayTotalCostBasis: lot.totalCostBasis.times(fxMetadata.fxRate),
+        fxConversion: fxMetadata,
+      };
+
+      converted.push(convertedLot);
+    }
+
+    this.logger.info({ totalLots: lots.length, uniqueDates: cache.size }, 'Converted all acquisition lots');
+
+    return converted;
+  }
+
+  /**
+   * Convert all lot transfers to display currency using historical rates
+   *
+   * Soft-fail: On FX error, logs warning and uses identity rate (1.0) with USD fallback
+   */
+  private async convertTransfers(
+    transfers: LotTransfer[],
+    displayCurrency: string,
+    cache: Map<string, FxConversionMetadata>
+  ): Promise<ConvertedLotTransfer[]> {
+    const converted: ConvertedLotTransfer[] = [];
+
+    for (const transfer of transfers) {
+      const transferDate = new Date(transfer.transferDate);
+
+      // Try to get FX rate (soft-fail for transfers)
+      const fxMetadataResult = await this.getOrFetchFxRate(transferDate, displayCurrency, cache);
+
+      if (fxMetadataResult.isErr()) {
+        // FX failure: log warning and use USD fallback with identity rate
+        this.logger.warn(
+          {
+            transferId: transfer.id,
+            transferDate: transferDate.toISOString().split('T')[0],
+            displayCurrency,
+            error: fxMetadataResult.error.message,
+          },
+          'FX rate unavailable for transfer date, using USD fallback'
+        );
+
+        const convertedTransfer: ConvertedLotTransfer = {
+          ...transfer,
+          displayCostBasisPerUnit: transfer.costBasisPerUnit,
+          displayTotalCostBasis: transfer.quantityTransferred.times(transfer.costBasisPerUnit),
+          fxConversion: {
+            originalCurrency: 'USD',
+            displayCurrency: 'USD',
+            fxRate: new Decimal(1),
+            fxSource: 'fallback',
+            fxFetchedAt: new Date(),
+          },
+          fxUnavailable: true,
+          originalCurrency: 'USD',
+        };
+
+        converted.push(convertedTransfer);
+        continue;
+      }
+
+      const fxMetadata = fxMetadataResult.value;
+
+      // Convert USD amounts to display currency
+      const convertedTransfer: ConvertedLotTransfer = {
+        ...transfer,
+        displayCostBasisPerUnit: transfer.costBasisPerUnit.times(fxMetadata.fxRate),
+        displayTotalCostBasis: transfer.quantityTransferred.times(transfer.costBasisPerUnit).times(fxMetadata.fxRate),
+        fxConversion: fxMetadata,
+      };
+
+      converted.push(convertedTransfer);
+    }
+
+    this.logger.info({ totalTransfers: transfers.length, uniqueDates: cache.size }, 'Converted all lot transfers');
+
+    return converted;
   }
 
   /**

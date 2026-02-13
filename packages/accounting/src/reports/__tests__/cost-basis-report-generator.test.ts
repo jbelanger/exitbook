@@ -118,6 +118,8 @@ describe('CostBasisReportGenerator', () => {
       const result = await generator.generateReport({
         calculation: mockCalculation,
         disposals: mockDisposals,
+        lots: [],
+        lotTransfers: [],
         displayCurrency: 'USD',
       });
 
@@ -157,6 +159,8 @@ describe('CostBasisReportGenerator', () => {
       const result = await generator.generateReport({
         calculation: mockCalculation,
         disposals: mockDisposals,
+        lots: [],
+        lotTransfers: [],
         displayCurrency: 'CAD',
       });
 
@@ -231,6 +235,8 @@ describe('CostBasisReportGenerator', () => {
       await generator.generateReport({
         calculation: mockCalculation,
         disposals: mockDisposals,
+        lots: [],
+        lotTransfers: [],
         displayCurrency: 'CAD',
       });
 
@@ -255,6 +261,8 @@ describe('CostBasisReportGenerator', () => {
       const result = await generator.generateReport({
         calculation: mockCalculation,
         disposals: mockDisposals,
+        lots: [],
+        lotTransfers: [],
         displayCurrency: 'CAD',
       });
 
@@ -273,6 +281,8 @@ describe('CostBasisReportGenerator', () => {
       const result = await generator.generateReport({
         calculation: mockCalculation,
         disposals: [],
+        lots: [],
+        lotTransfers: [],
         displayCurrency: 'CAD',
       });
 
@@ -283,6 +293,166 @@ describe('CostBasisReportGenerator', () => {
         expect(report.disposals).toHaveLength(0);
         expect(report.summary.totalProceeds.toFixed()).toBe('0');
         expect(report.summary.totalGainLoss.toFixed()).toBe('0');
+      }
+    });
+
+    it('should convert acquisition lots and lot transfers to CAD', async () => {
+      // Mock FX rates for specific dates
+      const fxProvider = createMockFxProvider({
+        '2024-01-10': new Decimal(1.33), // CAD/USD rate on Jan 10 (lot acquisition)
+        '2024-02-15': new Decimal(1.34), // CAD/USD rate on Feb 15 (transfer)
+        '2024-03-15': new Decimal(1.35), // CAD/USD rate on Mar 15 (disposals)
+        '2024-06-20': new Decimal(1.37), // CAD/USD rate on Jun 20 (disposal)
+      });
+
+      const generator = new CostBasisReportGenerator(fxProvider);
+
+      // Create mock lots
+      const mockLots = [
+        {
+          id: 'lot-1',
+          calculationId: mockCalculationId,
+          acquisitionTransactionId: 201,
+          assetId: 'btc',
+          assetSymbol: 'BTC',
+          quantity: new Decimal(1.0),
+          costBasisPerUnit: new Decimal(40000),
+          totalCostBasis: new Decimal(40000),
+          acquisitionDate: new Date('2024-01-10'),
+          method: 'fifo' as const,
+          remainingQuantity: new Decimal(0.5),
+          status: 'open' as const,
+          createdAt: new Date('2024-01-10'),
+          updatedAt: new Date('2024-01-10'),
+        },
+      ];
+
+      // Create mock lot transfers
+      const mockTransfers = [
+        {
+          id: 'transfer-1',
+          calculationId: mockCalculationId,
+          sourceLotId: 'lot-1',
+          linkId: 'link-1',
+          quantityTransferred: new Decimal(0.25),
+          costBasisPerUnit: new Decimal(40000),
+          sourceTransactionId: 301,
+          targetTransactionId: 302,
+          transferDate: new Date('2024-02-15'),
+          createdAt: new Date('2024-02-15'),
+        },
+      ];
+
+      const result = await generator.generateReport({
+        calculation: mockCalculation,
+        disposals: mockDisposals,
+        lots: mockLots,
+        lotTransfers: mockTransfers,
+        displayCurrency: 'CAD',
+      });
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        const report = result.value;
+
+        // Verify lots were converted
+        expect(report.lots).toHaveLength(1);
+        const lot = report.lots[0];
+        expect(lot?.displayCostBasisPerUnit.toFixed(2)).toBe('53200.00'); // 40000 * 1.33
+        expect(lot?.displayTotalCostBasis.toFixed(2)).toBe('53200.00'); // 40000 * 1.33
+        expect(lot?.fxConversion.fxRate.toFixed(2)).toBe('1.33');
+        expect(lot?.fxConversion.fxSource).toBe('test-provider');
+
+        // Verify lot transfers were converted
+        expect(report.lotTransfers).toHaveLength(1);
+        const transfer = report.lotTransfers[0];
+        expect(transfer?.displayCostBasisPerUnit.toFixed(2)).toBe('53600.00'); // 40000 * 1.34
+        expect(transfer?.displayTotalCostBasis.toFixed(2)).toBe('13400.00'); // 0.25 * 40000 * 1.34
+        expect(transfer?.fxConversion.fxRate.toFixed(2)).toBe('1.34');
+        expect(transfer?.fxConversion.fxSource).toBe('test-provider');
+
+        // Verify FX provider was called for all unique dates (4 total)
+        expect(fxProvider.getRateFromUSD).toHaveBeenCalledTimes(4);
+      }
+    });
+
+    it('should soft-fail on FX unavailability for lots and transfers', async () => {
+      // Mock FX provider with missing rates for lot/transfer dates
+      const fxProvider = createMockFxProvider({
+        '2024-03-15': new Decimal(1.35), // Only disposal dates available
+        '2024-06-20': new Decimal(1.37),
+        // Missing rates for 2024-01-10 (lot) and 2024-02-15 (transfer)
+      });
+
+      const generator = new CostBasisReportGenerator(fxProvider);
+
+      const mockLots = [
+        {
+          id: 'lot-1',
+          calculationId: mockCalculationId,
+          acquisitionTransactionId: 201,
+          assetId: 'btc',
+          assetSymbol: 'BTC',
+          quantity: new Decimal(1.0),
+          costBasisPerUnit: new Decimal(40000),
+          totalCostBasis: new Decimal(40000),
+          acquisitionDate: new Date('2024-01-10'),
+          method: 'fifo' as const,
+          remainingQuantity: new Decimal(0.5),
+          status: 'open' as const,
+          createdAt: new Date('2024-01-10'),
+          updatedAt: new Date('2024-01-10'),
+        },
+      ];
+
+      const mockTransfers = [
+        {
+          id: 'transfer-1',
+          calculationId: mockCalculationId,
+          sourceLotId: 'lot-1',
+          linkId: 'link-1',
+          quantityTransferred: new Decimal(0.25),
+          costBasisPerUnit: new Decimal(40000),
+          sourceTransactionId: 301,
+          targetTransactionId: 302,
+          transferDate: new Date('2024-02-15'),
+          createdAt: new Date('2024-02-15'),
+        },
+      ];
+
+      const result = await generator.generateReport({
+        calculation: mockCalculation,
+        disposals: mockDisposals,
+        lots: mockLots,
+        lotTransfers: mockTransfers,
+        displayCurrency: 'CAD',
+      });
+
+      // Should succeed despite FX failures for lots/transfers (soft-fail)
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        const report = result.value;
+
+        // Verify lot fell back to USD with identity rate
+        const lot = report.lots[0];
+        expect(lot?.displayCostBasisPerUnit.toFixed(2)).toBe('40000.00'); // Original USD amount
+        expect(lot?.fxConversion.fxRate.toFixed(2)).toBe('1.00');
+        expect(lot?.fxConversion.fxSource).toBe('fallback');
+        expect(lot?.fxUnavailable).toBe(true);
+        expect(lot?.originalCurrency).toBe('USD');
+
+        // Verify transfer fell back to USD with identity rate
+        const transfer = report.lotTransfers[0];
+        expect(transfer?.displayCostBasisPerUnit.toFixed(2)).toBe('40000.00'); // Original USD amount
+        expect(transfer?.fxConversion.fxRate.toFixed(2)).toBe('1.00');
+        expect(transfer?.fxConversion.fxSource).toBe('fallback');
+        expect(transfer?.fxUnavailable).toBe(true);
+        expect(transfer?.originalCurrency).toBe('USD');
+
+        // Disposals should still be converted (hard-fail would have prevented this)
+        expect(report.disposals[0]?.fxConversion.fxSource).toBe('test-provider');
       }
     });
   });

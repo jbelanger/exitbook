@@ -86,6 +86,7 @@ export const LotTransferSchema = z.object({
   costBasisPerUnit: DecimalSchema,
   sourceTransactionId: z.number().int().positive(),
   targetTransactionId: z.number().int().positive(),
+  transferDate: DateSchema,
   createdAt: DateSchema,
   metadata: LotTransferMetadataSchema.optional(),
 });

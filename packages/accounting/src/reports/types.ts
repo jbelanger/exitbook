@@ -4,7 +4,7 @@
 
 import type { Decimal } from 'decimal.js';
 
-import type { LotDisposal } from '../domain/schemas.js';
+import type { AcquisitionLot, LotDisposal, LotTransfer } from '../domain/schemas.js';
 
 /**
  * FX conversion metadata for audit trail
@@ -41,6 +41,38 @@ export interface ConvertedLotDisposal extends LotDisposal {
 }
 
 /**
+ * Acquisition lot with amounts converted to display currency
+ */
+export interface ConvertedAcquisitionLot extends AcquisitionLot {
+  /** Converted cost basis per unit in display currency */
+  displayCostBasisPerUnit: Decimal;
+  /** Converted total cost basis in display currency */
+  displayTotalCostBasis: Decimal;
+  /** FX conversion metadata for audit trail */
+  fxConversion: FxConversionMetadata;
+  /** True if FX rate was unavailable (USD fallback used) */
+  fxUnavailable?: true | undefined;
+  /** Original currency when fxUnavailable (always 'USD') */
+  originalCurrency?: string | undefined;
+}
+
+/**
+ * Lot transfer with amounts converted to display currency
+ */
+export interface ConvertedLotTransfer extends LotTransfer {
+  /** Converted cost basis per unit in display currency */
+  displayCostBasisPerUnit: Decimal;
+  /** Converted total cost basis in display currency */
+  displayTotalCostBasis: Decimal;
+  /** FX conversion metadata for audit trail */
+  fxConversion: FxConversionMetadata;
+  /** True if FX rate was unavailable (USD fallback used) */
+  fxUnavailable?: true | undefined;
+  /** Original currency when fxUnavailable (always 'USD') */
+  originalCurrency?: string | undefined;
+}
+
+/**
  * Cost basis report with display currency conversion
  */
 export interface CostBasisReport {
@@ -52,6 +84,10 @@ export interface CostBasisReport {
   originalCurrency: string;
   /** All disposals with converted amounts */
   disposals: ConvertedLotDisposal[];
+  /** All lots with converted amounts */
+  lots: ConvertedAcquisitionLot[];
+  /** All lot transfers with converted amounts */
+  lotTransfers: ConvertedLotTransfer[];
   /** Summary totals in display currency */
   summary: {
     totalCostBasis: Decimal;

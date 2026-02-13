@@ -8,13 +8,15 @@ import { useReducer, type FC } from 'react';
 import { Divider } from '../../../ui/shared/index.js';
 
 import { costBasisViewReducer, handleCostBasisKeyboardInput } from './cost-basis-view-controller.js';
-import { getCostBasisAssetsVisibleRows, getCostBasisDisposalsVisibleRows } from './cost-basis-view-layout.js';
+import { getCostBasisAssetsVisibleRows, getCostBasisTimelineVisibleRows } from './cost-basis-view-layout.js';
 import type {
+  AcquisitionViewItem,
   AssetCostBasisItem,
   CostBasisAssetState,
-  CostBasisDisposalState,
   CostBasisState,
+  CostBasisTimelineState,
   DisposalViewItem,
+  TransferViewItem,
 } from './cost-basis-view-state.js';
 import { formatSignedCurrency, formatUnsignedCurrency } from './cost-basis-view-utils.js';
 
@@ -52,7 +54,7 @@ export const CostBasisApp: FC<{
   }
 
   return (
-    <DisposalListView
+    <TimelineView
       state={state}
       terminalHeight={terminalHeight}
       terminalWidth={terminalWidth}
@@ -67,7 +69,7 @@ const AssetSummaryView: FC<{
   terminalHeight: number;
   terminalWidth: number;
 }> = ({ state, terminalHeight, terminalWidth }) => {
-  if (state.assets.length === 0) {
+  if (state.assets.length === 0 || state.totalDisposals === 0) {
     return <AssetEmptyState state={state} />;
   }
 
@@ -91,14 +93,14 @@ const AssetSummaryView: FC<{
         </Text>
       )}
       <Text> </Text>
-      <Text dimColor>{'↑↓/j/k · ^U/^D page · Home/End · enter view disposals · q/esc quit'}</Text>
+      <Text dimColor>{'↑↓/j/k · ^U/^D page · Home/End · enter view history · q/esc quit'}</Text>
     </Box>
   );
 };
 
 const AssetEmptyState: FC<{ state: CostBasisAssetState }> = ({ state }) => {
   const methodLabel = `${state.method.toUpperCase()} · ${state.jurisdiction} · ${state.taxYear} · ${state.currency}`;
-  if (state.calculationErrors && state.calculationErrors.length > 0) {
+  if (state.assets.length === 0 && state.calculationErrors && state.calculationErrors.length > 0) {
     // All assets failed — show error-only state
     return (
       <Box flexDirection="column">
@@ -379,39 +381,38 @@ const AssetDetailPanel: FC<{ state: CostBasisAssetState }> = ({ state }) => {
         <Text dimColor>d</Text>
       </Text>
       <Text> </Text>
-      <Text dimColor>{'  '}Press enter to view disposals</Text>
+      <Text>
+        {'  '}
+        <Text dimColor>Lots:</Text> {selected.lotCount} <Text dimColor>acquired</Text>
+        <Text dimColor> · </Text>
+        {selected.transferCount} <Text dimColor>transfers</Text>
+      </Text>
+      <Text> </Text>
+      <Text dimColor>{'  '}Press enter to view history</Text>
     </Box>
   );
 };
 
-// ─── Disposal List View (Level 2) ───────────────────────────────────────────
+// ─── Timeline View (Level 2) ────────────────────────────────────────────────
 
-const DisposalListView: FC<{
-  state: CostBasisDisposalState;
+const TimelineView: FC<{
+  state: CostBasisTimelineState;
   terminalHeight: number;
   terminalWidth: number;
 }> = ({ state, terminalHeight, terminalWidth }) => {
-  const gainLossColor = parseFloat(state.assetTotalGainLoss) >= 0 ? 'green' : 'red';
+  const _gainLossColor = parseFloat(state.assetTotalGainLoss) >= 0 ? 'green' : 'red';
 
   return (
     <Box flexDirection="column">
       <Text> </Text>
-      <Text>
-        <Text bold>Cost Basis</Text>
-        {'  '}
-        <Text bold>{state.asset}</Text>
-        {'  '}
-        {state.assetDisposalCount} <Text dimColor>disposals</Text>
-        <Text dimColor> · gain/loss</Text>{' '}
-        <Text color={gainLossColor}>{formatSignedCurrency(state.assetTotalGainLoss, state.currency)}</Text>
-      </Text>
+      <TimelineHeader state={state} />
       <Text> </Text>
-      <DisposalList
+      <TimelineList
         state={state}
         terminalHeight={terminalHeight}
       />
       <Divider width={terminalWidth} />
-      <DisposalDetailPanel state={state} />
+      <TimelineDetailPanel state={state} />
       {state.error && (
         <Text color="red">
           {'  '}
@@ -424,16 +425,36 @@ const DisposalListView: FC<{
   );
 };
 
-// ─── Disposal List ───────────────────────────────────────────────────────────
+const TimelineHeader: FC<{ state: CostBasisTimelineState }> = ({ state }) => {
+  const gainLossColor = parseFloat(state.assetTotalGainLoss) >= 0 ? 'green' : 'red';
 
-const DisposalList: FC<{ state: CostBasisDisposalState; terminalHeight: number }> = ({ state, terminalHeight }) => {
-  const visibleRows = getCostBasisDisposalsVisibleRows(terminalHeight);
+  return (
+    <Text>
+      <Text bold>Cost Basis</Text>
+      {'  '}
+      <Text bold>{state.asset}</Text>
+      {'  '}
+      {state.assetLotCount} <Text dimColor>lots</Text>
+      <Text dimColor> · </Text>
+      {state.assetDisposalCount} <Text dimColor>disposals</Text>
+      <Text dimColor> · </Text>
+      {state.assetTransferCount} <Text dimColor>transfers</Text>
+      <Text dimColor> · gain/loss</Text>{' '}
+      <Text color={gainLossColor}>{formatSignedCurrency(state.assetTotalGainLoss, state.currency)}</Text>
+    </Text>
+  );
+};
+
+// ─── Timeline List ───────────────────────────────────────────────────────────
+
+const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }> = ({ state, terminalHeight }) => {
+  const visibleRows = getCostBasisTimelineVisibleRows(terminalHeight);
   const startIndex = state.scrollOffset;
-  const endIndex = Math.min(startIndex + visibleRows, state.disposals.length);
-  const visible = state.disposals.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + visibleRows, state.events.length);
+  const visible = state.events.slice(startIndex, endIndex);
 
   const hasMoreAbove = startIndex > 0;
-  const hasMoreBelow = endIndex < state.disposals.length;
+  const hasMoreBelow = endIndex < state.events.length;
   const isUS = state.jurisdiction === 'US';
 
   return (
@@ -444,25 +465,84 @@ const DisposalList: FC<{ state: CostBasisDisposalState; terminalHeight: number }
           {'\u25B2'} {startIndex} more above
         </Text>
       )}
-      {visible.map((item, windowIndex) => {
+      {visible.map((event, windowIndex) => {
         const actualIndex = startIndex + windowIndex;
+        const isSelected = actualIndex === state.selectedIndex;
+
+        if (event.type === 'acquisition') {
+          return (
+            <AcquisitionRow
+              key={event.id}
+              item={event}
+              currency={state.currency}
+              isSelected={isSelected}
+            />
+          );
+        }
+
+        if (event.type === 'disposal') {
+          return (
+            <DisposalRow
+              key={event.id}
+              item={event}
+              currency={state.currency}
+              isUS={isUS}
+              isSelected={isSelected}
+            />
+          );
+        }
+
         return (
-          <DisposalRow
-            key={item.id}
-            item={item}
+          <TransferRow
+            key={event.id}
+            item={event}
             currency={state.currency}
-            isUS={isUS}
-            isSelected={actualIndex === state.selectedIndex}
+            isSelected={isSelected}
           />
         );
       })}
       {hasMoreBelow && (
         <Text dimColor>
           {'  '}
-          {'\u25BC'} {state.disposals.length - endIndex} more below
+          {'\u25BC'} {state.events.length - endIndex} more below
         </Text>
       )}
     </Box>
+  );
+};
+
+// ─── Timeline Event Rows ─────────────────────────────────────────────────────
+
+const AcquisitionRow: FC<{ currency: string; isSelected: boolean; item: AcquisitionViewItem }> = ({
+  item,
+  currency,
+  isSelected,
+}) => {
+  const cursor = isSelected ? '\u25B8' : ' ';
+  const marker = '+';
+
+  const date = item.date;
+  const quantity = `${item.quantity} ${item.asset}`.padEnd(46);
+  const displayCurrency = item.fxUnavailable ? 'USD' : currency;
+  const basis = formatUnsignedCurrency(item.totalCostBasis, displayCurrency).padStart(15);
+  const txId = `#${item.transactionId}`;
+  const fxNote = item.fxUnavailable ? ' (FX unavailable)' : '';
+
+  if (isSelected) {
+    return (
+      <Text bold>
+        {cursor} <Text color="green">{marker}</Text> {date} acquired {quantity} basis {basis} {txId}
+        {fxNote && <Text dimColor>{fxNote}</Text>}
+      </Text>
+    );
+  }
+
+  return (
+    <Text>
+      {cursor} <Text color="green">{marker}</Text> <Text dimColor>{date}</Text> <Text dimColor>acquired</Text>{' '}
+      <Text color="green">{quantity}</Text> <Text dimColor>basis</Text> {basis} <Text dimColor>{txId}</Text>
+      {fxNote && <Text dimColor>{fxNote}</Text>}
+    </Text>
   );
 };
 
@@ -473,6 +553,7 @@ const DisposalRow: FC<{ currency: string; isSelected: boolean; isUS: boolean; it
   isSelected,
 }) => {
   const cursor = isSelected ? '\u25B8' : ' ';
+  const marker = '−';
   const gainLossColor = item.isGain ? 'green' : 'red';
 
   const taxCategory =
@@ -483,16 +564,16 @@ const DisposalRow: FC<{ currency: string; isSelected: boolean; isUS: boolean; it
       : undefined;
   const taxCategoryColor = taxCategory === 'long-term' ? 'green' : 'yellow';
 
-  // Format columns with fixed widths
-  const date = item.disposalDate; // Already YYYY-MM-DD (10 chars)
-  const quantity = `${item.quantityDisposed} ${item.asset}`.padEnd(46);
+  const date = item.date;
+  const quantity = `${item.quantityDisposed} ${item.asset}`.padEnd(40);
   const gainLoss = formatSignedCurrency(item.gainLoss, currency).padStart(15);
-  const holding = `${item.holdingPeriodDays}d`.padStart(5);
+  const holding = `held ${item.holdingPeriodDays}d`.padStart(12);
+  const txId = `#${item.disposalTransactionId}`;
 
   if (isSelected) {
     return (
       <Text bold>
-        {cursor} {date} {quantity} {gainLoss} {holding}
+        {cursor} <Text color="red">{marker}</Text> {date} disposed {quantity} {gainLoss} {holding} {txId}
         {taxCategory ? `  ${taxCategory}` : ''}
       </Text>
     );
@@ -500,8 +581,9 @@ const DisposalRow: FC<{ currency: string; isSelected: boolean; isUS: boolean; it
 
   return (
     <Text>
-      {cursor} <Text dimColor>{date}</Text> <Text color="green">{quantity}</Text>{' '}
-      <Text color={gainLossColor}>{gainLoss}</Text> {holding}
+      {cursor} <Text color="red">{marker}</Text> <Text dimColor>{date}</Text> <Text dimColor>disposed</Text>{' '}
+      <Text color="red">{quantity}</Text> <Text color={gainLossColor}>{gainLoss}</Text> <Text dimColor>{holding}</Text>{' '}
+      <Text dimColor>{txId}</Text>
       {taxCategory && (
         <>
           {'  '}
@@ -512,18 +594,126 @@ const DisposalRow: FC<{ currency: string; isSelected: boolean; isUS: boolean; it
   );
 };
 
-// ─── Disposal Detail Panel ───────────────────────────────────────────────────
+const TransferRow: FC<{ currency: string; isSelected: boolean; item: TransferViewItem }> = ({
+  item,
+  currency,
+  isSelected,
+}) => {
+  const cursor = isSelected ? '\u25B8' : ' ';
+  const marker = '→';
 
-const DisposalDetailPanel: FC<{ state: CostBasisDisposalState }> = ({ state }) => {
-  const selected = state.disposals[state.selectedIndex];
+  const date = item.date;
+  const quantity = `${item.quantity} ${item.asset}`.padEnd(40);
+  const displayCurrency = item.fxUnavailable ? 'USD' : currency;
+  const basis = formatUnsignedCurrency(item.totalCostBasis, displayCurrency).padStart(15);
+  const txIds = `#${item.sourceTransactionId} → #${item.targetTransactionId}`;
+  const fxNote = item.fxUnavailable ? ' (FX unavailable)' : '';
+
+  if (isSelected) {
+    return (
+      <Text bold>
+        {cursor} <Text color="cyan">{marker}</Text> {date} transfer {quantity} basis {basis} {txIds}
+        {fxNote && <Text dimColor>{fxNote}</Text>}
+      </Text>
+    );
+  }
+
+  return (
+    <Text>
+      {cursor} <Text color="cyan">{marker}</Text> <Text dimColor>{date}</Text> <Text dimColor>transfer</Text>{' '}
+      <Text color="cyan">{quantity}</Text> <Text dimColor>basis</Text> {basis} <Text dimColor>{txIds}</Text>
+      {fxNote && <Text dimColor>{fxNote}</Text>}
+    </Text>
+  );
+};
+
+// ─── Timeline Detail Panel ───────────────────────────────────────────────────
+
+const TimelineDetailPanel: FC<{ state: CostBasisTimelineState }> = ({ state }) => {
+  const selected = state.events[state.selectedIndex];
   if (!selected) return null;
 
-  const gainLossColor = selected.isGain ? 'green' : 'red';
+  if (selected.type === 'acquisition') {
+    return (
+      <AcquisitionDetail
+        item={selected}
+        state={state}
+      />
+    );
+  }
+
+  if (selected.type === 'disposal') {
+    return (
+      <DisposalDetail
+        item={selected}
+        state={state}
+      />
+    );
+  }
+
+  return (
+    <TransferDetail
+      item={selected}
+      state={state}
+    />
+  );
+};
+
+const AcquisitionDetail: FC<{ item: AcquisitionViewItem; state: CostBasisTimelineState }> = ({ item, state }) => {
+  const displayCurrency = item.fxUnavailable ? 'USD' : state.currency;
+  const statusLabel = formatLotStatus(item.status);
+
+  return (
+    <Box flexDirection="column">
+      <Text>
+        <Text bold>{'\u25B8'} Acquisition</Text>
+        {'  '}
+        <Text dimColor>{item.date}</Text>
+        {'  '}
+        <Text color="green">{item.quantity}</Text> <Text bold>{item.asset}</Text>
+      </Text>
+      <Text> </Text>
+      <Text>
+        {'  '}
+        <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(item.totalCostBasis, displayCurrency)}
+        <Text dimColor> ({formatUnsignedCurrency(item.costBasisPerUnit, displayCurrency)}/unit)</Text>
+      </Text>
+      <Text>
+        {'  '}
+        <Text dimColor>Status:</Text> {statusLabel}
+        <Text dimColor> · remaining</Text> {item.remainingQuantity} <Text dimColor>{item.asset}</Text>
+      </Text>
+      <Text> </Text>
+      <Text>
+        {'  '}
+        <Text dimColor>Transaction:</Text> #{item.transactionId}
+      </Text>
+      {item.fxConversion && (
+        <Text>
+          {'  '}
+          <Text dimColor>
+            FX: USD {'\u2192'} {displayCurrency} at
+          </Text>{' '}
+          {item.fxConversion.fxRate} <Text dimColor>({item.fxConversion.fxSource})</Text>
+        </Text>
+      )}
+      {item.fxUnavailable && (
+        <Text>
+          {'  '}
+          <Text dimColor>FX rate unavailable for this date — amounts shown in USD</Text>
+        </Text>
+      )}
+    </Box>
+  );
+};
+
+const DisposalDetail: FC<{ item: DisposalViewItem; state: CostBasisTimelineState }> = ({ item, state }) => {
+  const gainLossColor = item.isGain ? 'green' : 'red';
   const isUS = state.jurisdiction === 'US';
 
   const taxCategory =
-    isUS && selected.taxTreatmentCategory
-      ? selected.taxTreatmentCategory === 'long_term'
+    isUS && item.taxTreatmentCategory
+      ? item.taxTreatmentCategory === 'long_term'
         ? 'long-term'
         : 'short-term'
       : undefined;
@@ -533,40 +723,40 @@ const DisposalDetailPanel: FC<{ state: CostBasisDisposalState }> = ({ state }) =
       <Text>
         <Text bold>{'\u25B8'} Disposal</Text>
         {'  '}
-        <Text dimColor>{selected.disposalDate}</Text>
+        <Text dimColor>{item.date}</Text>
         {'  '}
-        <Text color="green">{selected.quantityDisposed}</Text> <Text bold>{selected.asset}</Text>
+        <Text color="red">{item.quantityDisposed}</Text> <Text bold>{item.asset}</Text>
       </Text>
       <Text> </Text>
       <Text>
         {'  '}
-        <Text dimColor>Proceeds: </Text> {formatUnsignedCurrency(selected.totalProceeds, state.currency)}
-        <Text dimColor> ({formatUnsignedCurrency(selected.proceedsPerUnit, state.currency)}/unit)</Text>
+        <Text dimColor>Proceeds: </Text> {formatUnsignedCurrency(item.totalProceeds, state.currency)}
+        <Text dimColor> ({formatUnsignedCurrency(item.proceedsPerUnit, state.currency)}/unit)</Text>
       </Text>
       <Text>
         {'  '}
-        <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(selected.totalCostBasis, state.currency)}
-        <Text dimColor> ({formatUnsignedCurrency(selected.costBasisPerUnit, state.currency)}/unit)</Text>
+        <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(item.totalCostBasis, state.currency)}
+        <Text dimColor> ({formatUnsignedCurrency(item.costBasisPerUnit, state.currency)}/unit)</Text>
       </Text>
       <Text>
         {'  '}
         <Text dimColor>Gain/Loss: </Text>{' '}
-        <Text color={gainLossColor}>{formatSignedCurrency(selected.gainLoss, state.currency)}</Text>
+        <Text color={gainLossColor}>{formatSignedCurrency(item.gainLoss, state.currency)}</Text>
       </Text>
       {!isUS && (
         <Text>
           {'  '}
           <Text dimColor>Taxable: </Text>{' '}
           <Text color={gainLossColor}>
-            {formatSignedCurrency(computeDisposalTaxable(selected.gainLoss, state.jurisdiction), state.currency)}
+            {formatSignedCurrency(computeDisposalTaxable(item.gainLoss, state.jurisdiction), state.currency)}
           </Text>
         </Text>
       )}
       <Text> </Text>
       <Text>
         {'  '}
-        <Text dimColor>Lot:</Text> <Text dimColor>acquired</Text> <Text dimColor>{selected.acquisitionDate}</Text>
-        <Text dimColor> · held</Text> {selected.holdingPeriodDays} <Text dimColor>days</Text>
+        <Text dimColor>Lot:</Text> <Text dimColor>acquired</Text> <Text dimColor>{item.acquisitionDate}</Text>
+        <Text dimColor> · held</Text> {item.holdingPeriodDays} <Text dimColor>days</Text>
         {taxCategory && (
           <>
             <Text dimColor> · </Text>
@@ -576,16 +766,70 @@ const DisposalDetailPanel: FC<{ state: CostBasisDisposalState }> = ({ state }) =
       </Text>
       <Text>
         {'  '}
-        <Text dimColor>Transactions:</Text> <Text dimColor>acquired</Text> #{selected.acquisitionTransactionId}
-        <Text dimColor> · disposed</Text> #{selected.disposalTransactionId}
+        <Text dimColor>Transactions:</Text> <Text dimColor>acquired</Text> #{item.acquisitionTransactionId}
+        <Text dimColor> · disposed</Text> #{item.disposalTransactionId}
       </Text>
-      {selected.fxConversion && (
+      {item.fxConversion && (
         <Text>
           {'  '}
           <Text dimColor>
             FX: USD {'\u2192'} {state.currency} at
           </Text>{' '}
-          {selected.fxConversion.fxRate} <Text dimColor>({selected.fxConversion.fxSource})</Text>
+          {item.fxConversion.fxRate} <Text dimColor>({item.fxConversion.fxSource})</Text>
+        </Text>
+      )}
+    </Box>
+  );
+};
+
+const TransferDetail: FC<{ item: TransferViewItem; state: CostBasisTimelineState }> = ({ item, state }) => {
+  const displayCurrency = item.fxUnavailable ? 'USD' : state.currency;
+
+  return (
+    <Box flexDirection="column">
+      <Text>
+        <Text bold>{'\u25B8'} Transfer</Text>
+        {'  '}
+        <Text dimColor>{item.date}</Text>
+        {'  '}
+        <Text color="cyan">{item.quantity}</Text> <Text bold>{item.asset}</Text>
+      </Text>
+      <Text> </Text>
+      <Text>
+        {'  '}
+        <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(item.totalCostBasis, displayCurrency)}
+        <Text dimColor> ({formatUnsignedCurrency(item.costBasisPerUnit, displayCurrency)}/unit)</Text>
+      </Text>
+      <Text> </Text>
+      <Text>
+        {'  '}
+        <Text dimColor>Source Lot:</Text> <Text dimColor>acquired</Text>{' '}
+        <Text dimColor>{item.sourceAcquisitionDate}</Text>
+      </Text>
+      <Text>
+        {'  '}
+        <Text dimColor>Transactions:</Text> <Text dimColor>source</Text> #{item.sourceTransactionId}
+        <Text dimColor> · target</Text> #{item.targetTransactionId}
+      </Text>
+      {item.feeUsdValue && (
+        <Text>
+          {'  '}
+          <Text dimColor>Fee:</Text> USD {item.feeUsdValue}
+        </Text>
+      )}
+      {item.fxConversion && (
+        <Text>
+          {'  '}
+          <Text dimColor>
+            FX: USD {'\u2192'} {displayCurrency} at
+          </Text>{' '}
+          {item.fxConversion.fxRate} <Text dimColor>({item.fxConversion.fxSource})</Text>
+        </Text>
+      )}
+      {item.fxUnavailable && (
+        <Text>
+          {'  '}
+          <Text dimColor>FX rate unavailable for this date — amounts shown in USD</Text>
         </Text>
       )}
     </Box>
@@ -605,4 +849,8 @@ function computeDisposalTaxable(gainLoss: string, jurisdiction: string): string 
     return (value * 0.5).toFixed(2);
   }
   return gainLoss;
+}
+
+function formatLotStatus(status: string): string {
+  return status.replace(/_/g, ' ');
 }
