@@ -14,6 +14,7 @@ import type { TransactionLink } from '../../linking/types.js';
 import {
   buildDependencyGraph,
   sortWithLogicalOrdering,
+  sortTransactionsByDependency,
   sortAssetGroupsByDependency,
   getVarianceTolerance,
   extractOnChainFees,
@@ -227,6 +228,103 @@ describe('lot-matcher-utils', () => {
       const sorted = sortWithLogicalOrdering(transactions, new Map());
 
       expect(sorted.map((t) => t.id)).toEqual([1, 2, 3]);
+    });
+  });
+
+  describe('sortTransactionsByDependency', () => {
+    it('should return chronological order when links empty', () => {
+      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
+      const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
+      const tx3 = createMockTransaction(3, '2024-01-01T12:00:00Z', {});
+
+      const result = sortTransactionsByDependency([tx3, tx1, tx2], []);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2, 3]);
+    });
+
+    it('should enforce source-before-target regardless of timestamp', () => {
+      const tx1 = createMockTransaction(1, '2024-01-01T12:00:00Z', {}); // Later timestamp
+      const tx2 = createMockTransaction(2, '2024-01-01T10:00:00Z', {}); // Earlier timestamp
+      const link = createTransactionLink('link-1', 1, 2, 'BTC', '1', '1'); // 1 → 2
+
+      const result = sortTransactionsByDependency([tx2, tx1], [link]);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2]); // Dependency overrides timestamp
+    });
+
+    it('should break ties by tx id when datetime equal', () => {
+      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
+      const tx2 = createMockTransaction(2, '2024-01-01T10:00:00Z', {}); // Same timestamp
+      const tx3 = createMockTransaction(3, '2024-01-01T10:00:00Z', {}); // Same timestamp
+
+      const result = sortTransactionsByDependency([tx3, tx1, tx2], []);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2, 3]); // Sorted by ID
+    });
+
+    it('should ignore links not in provided tx set', () => {
+      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
+      const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
+      const linkToExternal = createTransactionLink('link-1', 1, 999, 'BTC', '1', '1'); // 1 → 999 (not in set)
+
+      const result = sortTransactionsByDependency([tx2, tx1], [linkToExternal]);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2]); // Chronological (link ignored)
+    });
+
+    it('should return error with unresolved tx ids on cycle', () => {
+      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
+      const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
+      const link1 = createTransactionLink('link-1', 1, 2, 'BTC', '1', '1'); // 1 → 2
+      const link2 = createTransactionLink('link-2', 2, 1, 'BTC', '1', '1'); // 2 → 1 (creates cycle)
+
+      const result = sortTransactionsByDependency([tx1, tx2], [link1, link2]);
+
+      expect(result.isErr()).toBe(true);
+      const error = result._unsafeUnwrapErr();
+      expect(error.message).toContain('Transaction dependency cycle detected');
+      expect(error.message).toMatch(/1.*2/); // Both tx IDs mentioned
+    });
+
+    it('should handle complex dependency chains', () => {
+      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {}); // No deps
+      const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {}); // Depends on 1
+      const tx3 = createMockTransaction(3, '2024-01-01T09:00:00Z', {}); // Earlier, but depends on 2
+      const tx4 = createMockTransaction(4, '2024-01-01T08:00:00Z', {}); // Earliest, no deps
+
+      const link1 = createTransactionLink('link-1', 1, 2, 'BTC', '1', '1'); // 1 → 2
+      const link2 = createTransactionLink('link-2', 2, 3, 'BTC', '1', '1'); // 2 → 3
+
+      const result = sortTransactionsByDependency([tx3, tx4, tx1, tx2], [link1, link2]);
+
+      expect(result.isOk()).toBe(true);
+      const sorted = result._unsafeUnwrap().map((tx) => tx.id);
+
+      // tx4 and tx1 have no dependencies, sorted by timestamp (4 is earlier)
+      // Then tx2 (depends on tx1), then tx3 (depends on tx2)
+      expect(sorted).toEqual([4, 1, 2, 3]);
+    });
+
+    it('should handle cross-asset bidirectional transfers (non-cycle)', () => {
+      // A → B (deposit to exchange)
+      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {}); // blockchain send
+      const tx2 = createMockTransaction(2, '2024-01-01T10:30:00Z', {}); // exchange receive
+
+      // B → A (withdrawal from exchange) - different transaction IDs
+      const tx3 = createMockTransaction(3, '2024-01-01T14:00:00Z', {}); // exchange send
+      const tx4 = createMockTransaction(4, '2024-01-01T14:30:00Z', {}); // blockchain receive
+
+      const link1 = createTransactionLink('link-1', 1, 2, 'BTC', '1', '1'); // tx1 → tx2
+      const link2 = createTransactionLink('link-2', 3, 4, 'BTC', '1', '1'); // tx3 → tx4
+
+      const result = sortTransactionsByDependency([tx1, tx2, tx3, tx4], [link1, link2]);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2, 3, 4]); // Chronological + dependency
     });
   });
 
