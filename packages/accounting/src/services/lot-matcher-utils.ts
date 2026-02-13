@@ -1,5 +1,6 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency, parseDecimal, type AssetMovement, type FeeMovement, type PriceAtTxTime } from '@exitbook/core';
+import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
@@ -70,7 +71,7 @@ export function sortWithLogicalOrdering(
 export function sortAssetGroupsByDependency(
   entries: [string, { assetSymbol: string; transactions: UniversalTransactionData[] }][],
   links: TransactionLink[]
-): [string, { assetSymbol: string; transactions: UniversalTransactionData[] }][] {
+): Result<[string, { assetSymbol: string; transactions: UniversalTransactionData[] }][], Error> {
   const assetIds = new Set(entries.map(([id]) => id));
 
   // Build directed edges: sourceAssetId → targetAssetId (only cross-asset, both present)
@@ -130,18 +131,28 @@ export function sortAssetGroupsByDependency(
     }
   }
 
-  // Append any remaining (cycle) nodes in original order
+  // Detect cycles - if not all nodes were processed, there's a dependency cycle
   if (sorted.length < entries.length) {
-    for (const [id] of entries) {
-      if (!sorted.includes(id)) {
-        sorted.push(id);
-      }
-    }
+    const cycleAssets = entries.map(([id]) => id).filter((id) => !sorted.includes(id));
+
+    const logger = getLogger('lot-matcher-utils:sortAssetGroupsByDependency');
+    logger.error(
+      { cycleAssets, totalAssets: entries.length, sortedCount: sorted.length },
+      'Cross-asset dependency cycle detected in asset-level sort'
+    );
+
+    return err(
+      new Error(
+        `Cross-asset dependency cycle detected between assets: ${cycleAssets.join(' ↔ ')}. ` +
+          `This indicates bidirectional transfers in the same period. ` +
+          `Transaction-level dependency resolution is required (not yet implemented).`
+      )
+    );
   }
 
   // Build result in sorted order
   const entryMap = new Map(entries);
-  return sorted.map((id) => [id, entryMap.get(id)!]);
+  return ok(sorted.map((id) => [id, entryMap.get(id)!]));
 }
 
 export function getVarianceTolerance(

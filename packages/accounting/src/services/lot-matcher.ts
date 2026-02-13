@@ -158,7 +158,11 @@ export class LotMatcher {
       const transactionsByAsset = groupTransactionsByAsset(sortedTransactions);
 
       // Sort asset groups so that cross-asset transfer sources are processed before targets
-      const sortedAssetEntries = sortAssetGroupsByDependency([...transactionsByAsset.entries()], confirmedLinks);
+      const sortResult = sortAssetGroupsByDependency([...transactionsByAsset.entries()], confirmedLinks);
+      if (sortResult.isErr()) {
+        return err(sortResult.error);
+      }
+      const sortedAssetEntries = sortResult.value;
 
       // Shared lot transfers array across all asset groups for cross-assetId transfers
       const sharedLotTransfers: LotTransfer[] = [];

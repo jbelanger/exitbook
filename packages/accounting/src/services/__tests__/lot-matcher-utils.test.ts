@@ -248,7 +248,8 @@ describe('lot-matcher-utils', () => {
 
       const result = sortAssetGroupsByDependency(entries, links);
 
-      expect(result.map(([id]) => id)).toEqual(['test:btc', 'test:eth']);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().map(([id]) => id)).toEqual(['test:btc', 'test:eth']);
     });
 
     it('should order source group before target group for cross-asset link', () => {
@@ -261,7 +262,8 @@ describe('lot-matcher-utils', () => {
 
       const result = sortAssetGroupsByDependency(entries, [link]);
 
-      expect(result.map(([id]) => id)).toEqual(['exchange:kraken:btc', 'blockchain:bitcoin:native']);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().map(([id]) => id)).toEqual(['exchange:kraken:btc', 'blockchain:bitcoin:native']);
     });
 
     it('should handle chain A→B→C correctly', () => {
@@ -279,7 +281,8 @@ describe('lot-matcher-utils', () => {
 
       const result = sortAssetGroupsByDependency(entries, [linkAB, linkBC]);
 
-      expect(result.map(([id]) => id)).toEqual(['a', 'b', 'c']);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().map(([id]) => id)).toEqual(['a', 'b', 'c']);
     });
 
     it('should not reorder for same-asset links', () => {
@@ -292,7 +295,33 @@ describe('lot-matcher-utils', () => {
 
       const result = sortAssetGroupsByDependency(entries, [link]);
 
-      expect(result.map(([id]) => id)).toEqual(['test:btc', 'test:eth']);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().map(([id]) => id)).toEqual(['test:btc', 'test:eth']);
+    });
+
+    it('should detect cross-asset dependency cycles and return error', () => {
+      const entries = [makeEntry('exchange:kraken:btc', 'BTC'), makeEntry('blockchain:bitcoin:native', 'BTC')];
+
+      // Create bidirectional links (A ↔ B)
+      const linkAtoB: TransactionLink = {
+        ...makeCrossAssetLink('exchange:kraken:btc', 'blockchain:bitcoin:native'),
+        sourceAssetId: 'exchange:kraken:btc',
+        targetAssetId: 'blockchain:bitcoin:native',
+      };
+      const linkBtoA: TransactionLink = {
+        ...makeCrossAssetLink('blockchain:bitcoin:native', 'exchange:kraken:btc'),
+        sourceAssetId: 'blockchain:bitcoin:native',
+        targetAssetId: 'exchange:kraken:btc',
+      };
+
+      const result = sortAssetGroupsByDependency(entries, [linkAtoB, linkBtoA]);
+
+      expect(result.isErr()).toBe(true);
+      const error = result._unsafeUnwrapErr();
+      expect(error.message).toContain('Cross-asset dependency cycle');
+      expect(error.message).toContain('exchange:kraken:btc');
+      expect(error.message).toContain('blockchain:bitcoin:native');
+      expect(error.message).toContain('Transaction-level dependency resolution is required');
     });
   });
 
