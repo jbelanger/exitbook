@@ -119,7 +119,7 @@ describe('ImportOrchestrator', () => {
     mockAccountRepo = {
       findOrCreate: vi.fn(),
       findByUniqueConstraint: vi.fn().mockResolvedValue(ok(undefined)),
-      findByParent: vi.fn().mockResolvedValue(ok([])),
+      findAll: vi.fn().mockResolvedValue(ok([])),
       update: vi.fn().mockResolvedValue(ok(undefined)),
     } as unknown as AccountRepository;
 

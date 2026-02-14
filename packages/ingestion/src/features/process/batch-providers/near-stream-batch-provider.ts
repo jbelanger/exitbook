@@ -1,6 +1,7 @@
 import type { RawTransaction } from '@exitbook/core';
-import type { IRawDataRepository } from '@exitbook/data';
 import { err, ok, type Result } from 'neverthrow';
+
+import type { NearRawDataQueries } from '../../../sources/blockchains/near/near-raw-data-queries.js';
 
 import type { IRawDataBatchProvider } from './raw-data-batch-provider.interface.js';
 
@@ -21,7 +22,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
   private lastBatchWasEmpty = false;
 
   constructor(
-    private readonly rawDataRepository: IRawDataRepository,
+    private readonly nearRawDataQueries: NearRawDataQueries,
     private readonly accountId: number,
     private readonly hashBatchSize = 100
   ) {}
@@ -32,7 +33,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
     }
 
     // 1) Anchor on transaction hashes from transactions + receipts + token-transfers
-    const hashesResult = await this.rawDataRepository.loadPendingNearAnchorHashes(this.accountId, this.hashBatchSize);
+    const hashesResult = await this.nearRawDataQueries.loadPendingNearAnchorHashes(this.accountId, this.hashBatchSize);
     if (hashesResult.isErr()) {
       return err(hashesResult.error);
     }
@@ -44,7 +45,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
     }
 
     // 2) Load all pending rows for those hashes
-    const baseResult = await this.rawDataRepository.loadPendingByHashes(this.accountId, hashes);
+    const baseResult = await this.nearRawDataQueries.loadPendingByHashes(this.accountId, hashes);
     if (baseResult.isErr()) {
       return baseResult;
     }
@@ -63,7 +64,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
     // 4) Fetch balance-changes missing transactionHash linked by receiptId via JSON1
     const extraRows: RawTransaction[] = [];
     if (receiptIds.size > 0) {
-      const extraResult = await this.rawDataRepository.loadPendingNearByReceiptIds(this.accountId, [...receiptIds]);
+      const extraResult = await this.nearRawDataQueries.loadPendingNearByReceiptIds(this.accountId, [...receiptIds]);
       if (extraResult.isErr()) {
         return extraResult;
       }

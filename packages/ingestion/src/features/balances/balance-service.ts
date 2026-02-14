@@ -193,7 +193,7 @@ export class BalanceService {
   private async getLastImportTimestamp(account: Account): Promise<number | undefined> {
     try {
       // Get child accounts if this is a parent account (e.g., xpub)
-      const childAccountsResult = await this.accountRepository.findByParent(account.id);
+      const childAccountsResult = await this.accountRepository.findAll({ parentAccountId: account.id });
       if (childAccountsResult.isErr()) {
         logger.warn(`Failed to fetch child accounts: ${childAccountsResult.error.message}`);
         return undefined;
@@ -235,7 +235,7 @@ export class BalanceService {
   ): Promise<Result<{ assetMetadata: Record<string, string>; balances: Record<string, Decimal> }, Error>> {
     try {
       // Get child accounts if this is a parent account (e.g., xpub)
-      const childAccountsResult = await this.accountRepository.findByParent(account.id);
+      const childAccountsResult = await this.accountRepository.findAll({ parentAccountId: account.id });
       if (childAccountsResult.isErr()) {
         return err(childAccountsResult.error);
       }
@@ -323,7 +323,7 @@ export class BalanceService {
    */
   private async fetchBlockchainBalance(account: Account): Promise<Result<UnifiedBalanceSnapshot, Error>> {
     // Check if this account has child accounts (e.g., from xpub import)
-    const childAccountsResult = await this.accountRepository.findByParent(account.id);
+    const childAccountsResult = await this.accountRepository.findAll({ parentAccountId: account.id });
     if (childAccountsResult.isErr()) {
       return err(childAccountsResult.error);
     }
@@ -363,7 +363,7 @@ export class BalanceService {
   ): Promise<Result<{ amounts: Record<string, Decimal>; spamAssetIds: Set<string> }, Error>> {
     try {
       // Get child accounts if this is a parent account (e.g., xpub)
-      const childAccountsResult = await this.accountRepository.findByParent(account.id);
+      const childAccountsResult = await this.accountRepository.findAll({ parentAccountId: account.id });
       if (childAccountsResult.isErr()) {
         return err(childAccountsResult.error);
       }

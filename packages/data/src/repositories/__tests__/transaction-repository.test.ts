@@ -114,52 +114,6 @@ describe('TransactionRepository - delete methods', () => {
     await db.destroy();
   });
 
-  describe('deleteBySource', () => {
-    it('should delete all transactions from a specific source', async () => {
-      // Verify initial state
-      const initialTransactions = await db.selectFrom('transactions').selectAll().execute();
-      expect(initialTransactions).toHaveLength(5);
-
-      // Delete kraken transactions
-      const result = await repository.deleteBySource('kraken');
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBe(3); // Should delete 3 transactions
-      }
-
-      // Verify only ethereum transactions remain
-      const remainingTransactions = await db.selectFrom('transactions').selectAll().execute();
-      expect(remainingTransactions).toHaveLength(2);
-      expect(remainingTransactions.every((t) => t.source_name === 'ethereum')).toBe(true);
-    });
-
-    it('should return 0 when no transactions match the source', async () => {
-      const result = await repository.deleteBySource('nonexistent');
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBe(0);
-      }
-
-      // Verify all transactions remain
-      const allTransactions = await db.selectFrom('transactions').selectAll().execute();
-      expect(allTransactions).toHaveLength(5);
-    });
-
-    it('should handle database errors', async () => {
-      await db.destroy();
-
-      const result = await repository.deleteBySource('kraken');
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        // Error message varies depending on when DB is destroyed
-        expect(result.error.message.length).toBeGreaterThan(0);
-      }
-    });
-  });
-
   describe('deleteAll', () => {
     it('should delete all transactions', async () => {
       // Verify initial state

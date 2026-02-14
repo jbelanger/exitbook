@@ -80,7 +80,8 @@ export async function createImportServices(database: KyselyDB): Promise<ImportSe
     providerManager,
     tokenMetadataService,
     repositories.importSession,
-    eventBus as EventBus<IngestionEvent>
+    eventBus as EventBus<IngestionEvent>,
+    database
   );
 
   const handler = new ImportHandler(importOrchestrator, transactionProcessService);

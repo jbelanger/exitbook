@@ -313,7 +313,7 @@ describe('AccountRepository', () => {
         identifier: 'apiKey123',
       });
 
-      const result = await repository.findByUser(1);
+      const result = await repository.findAll({ userId: 1 });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -323,7 +323,7 @@ describe('AccountRepository', () => {
     });
 
     it('should return empty array for user with no accounts', async () => {
-      const result = await repository.findByUser(999);
+      const result = await repository.findAll({ userId: 999 });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -349,7 +349,7 @@ describe('AccountRepository', () => {
         identifier: '0x456',
       });
 
-      const result = await repository.findByUser(1);
+      const result = await repository.findAll({ userId: 1 });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -361,7 +361,7 @@ describe('AccountRepository', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.findByUser(1);
+      const result = await repository.findAll({ userId: 1 });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -547,7 +547,7 @@ describe('AccountRepository', () => {
           identifier: 'bc1q2...',
         });
 
-        const result = await repository.findByParent(parentId);
+        const result = await repository.findAll({ parentAccountId: parentId });
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -568,7 +568,7 @@ describe('AccountRepository', () => {
       expect(parentResult.isOk()).toBe(true);
 
       if (parentResult.isOk()) {
-        const result = await repository.findByParent(parentResult.value.id);
+        const result = await repository.findAll({ parentAccountId: parentResult.value.id });
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -617,7 +617,7 @@ describe('AccountRepository', () => {
           });
 
           // Query parent 1 children - should only get one child
-          const result = await repository.findByParent(parent1Result.value.id);
+          const result = await repository.findAll({ parentAccountId: parent1Result.value.id });
 
           expect(result.isOk()).toBe(true);
           if (result.isOk()) {
@@ -631,7 +631,7 @@ describe('AccountRepository', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.findByParent(1);
+      const result = await repository.findAll({ parentAccountId: 1 });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

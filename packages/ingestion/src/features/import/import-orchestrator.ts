@@ -269,7 +269,7 @@ export class ImportOrchestrator {
 
     // Check if parent account already exists by looking for existing children or metadata
     // This is more robust than checking metadata alone (handles legacy accounts or interrupted imports)
-    const existingChildrenResult = await this.accountRepository.findByParent(parentAccount.id);
+    const existingChildrenResult = await this.accountRepository.findAll({ parentAccountId: parentAccount.id });
     const hasExistingChildren = existingChildrenResult.isOk() && existingChildrenResult.value.length > 0;
     const hasExistingMetadata = parentAccount.metadata?.xpub !== undefined;
     const parentAlreadyExists = hasExistingChildren || hasExistingMetadata;
@@ -391,7 +391,7 @@ export class ImportOrchestrator {
       );
     } else {
       // 2g. Reuse existing children
-      const childrenResult = await this.accountRepository.findByParent(parentAccount.id);
+      const childrenResult = await this.accountRepository.findAll({ parentAccountId: parentAccount.id });
       if (childrenResult.isErr()) return err(childrenResult.error);
 
       childAccounts = childrenResult.value;

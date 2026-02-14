@@ -195,7 +195,7 @@ export class AccountService {
       }
 
       // Check if this account has children
-      const childAccountsResult = await this.accountRepo.findByParent(account.id);
+      const childAccountsResult = await this.accountRepo.findAll({ parentAccountId: account.id });
       if (childAccountsResult.isErr()) {
         return err(childAccountsResult.error);
       }

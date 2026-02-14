@@ -16,7 +16,6 @@ import {
   parseDecimal,
   type TokenMetadataRecord,
 } from '@exitbook/core';
-import type { IRawDataRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { err, errAsync, ok, type Result } from 'neverthrow';
 
@@ -28,6 +27,7 @@ import type {
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
 
+import type { NearRawDataQueries } from './near-raw-data-queries.js';
 import {
   classifyOperation,
   consolidateByAsset,
@@ -55,7 +55,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
   constructor(
     tokenMetadataService: ITokenMetadataService,
     scamDetectionService?: IScamDetectionService,
-    private readonly rawDataRepository?: IRawDataRepository,
+    private readonly nearRawDataQueries?: NearRawDataQueries,
     private readonly accountId?: number | undefined
   ) {
     super('near', tokenMetadataService, scamDetectionService);
@@ -220,9 +220,9 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
   private async loadPreviousBalances(
     balanceChanges: NearBalanceChange[]
   ): Promise<Result<Map<string, string>, string>> {
-    if (!this.rawDataRepository || this.accountId === undefined) {
+    if (!this.nearRawDataQueries || this.accountId === undefined) {
       this.logger.warn(
-        'NEAR processor missing rawDataRepository/accountId. Proceeding without previous balance lookup.'
+        'NEAR processor missing nearRawDataQueries/accountId. Proceeding without previous balance lookup.'
       );
       return ok(new Map());
     }
@@ -247,7 +247,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
     }
 
     const affectedAccounts = Array.from(earliestByAccount.keys());
-    const processedResult = await this.rawDataRepository.loadProcessedNearBalanceChangesByAccounts(
+    const processedResult = await this.nearRawDataQueries.loadProcessedNearBalanceChangesByAccounts(
       this.accountId,
       affectedAccounts,
       maxTimestamp

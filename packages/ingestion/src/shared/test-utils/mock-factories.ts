@@ -15,12 +15,10 @@ export function createMockRawDataRepository(): Mocked<IRawDataRepository> {
   return {
     load: vi.fn().mockResolvedValue(ok([])),
     markAsProcessed: vi.fn().mockResolvedValue(ok()),
-    save: vi.fn().mockResolvedValue(ok(1)),
     saveBatch: vi.fn().mockResolvedValue(ok(0)),
     resetProcessingStatusByAccount: vi.fn().mockResolvedValue(ok(0)),
     resetProcessingStatusAll: vi.fn().mockResolvedValue(ok(0)),
-    countAll: vi.fn().mockResolvedValue(ok(0)),
-    countByAccount: vi.fn().mockResolvedValue(ok(0)),
+    count: vi.fn().mockResolvedValue(ok(0)),
     deleteByAccount: vi.fn().mockResolvedValue(ok(0)),
     deleteAll: vi.fn().mockResolvedValue(ok(0)),
   } as unknown as Mocked<IRawDataRepository>;
@@ -34,16 +32,12 @@ export function createMockImportSessionRepository(): Mocked<IImportSessionReposi
   return {
     create: vi.fn().mockResolvedValue(ok(1)),
     finalize: vi.fn().mockResolvedValue(ok()),
-    findAll: vi.fn().mockResolvedValue(ok([])),
     findById: vi.fn().mockResolvedValue(ok()),
-    findByAccount: vi.fn().mockResolvedValue(ok([])),
     findByAccounts: vi.fn().mockResolvedValue(ok([])),
-    getImportSessionIdsByAccounts: vi.fn().mockResolvedValue(ok([])),
     getSessionCountsByAccount: vi.fn().mockResolvedValue(ok(new Map())),
     findLatestIncomplete: vi.fn().mockResolvedValue(ok(undefined)),
     update: vi.fn().mockResolvedValue(ok()),
-    countAll: vi.fn().mockResolvedValue(ok(0)),
-    countByAccount: vi.fn().mockResolvedValue(ok(0)),
+    count: vi.fn().mockResolvedValue(ok(0)),
     deleteByAccount: vi.fn().mockResolvedValue(ok()),
     deleteAll: vi.fn().mockResolvedValue(ok()),
   } as unknown as Mocked<IImportSessionRepository>;

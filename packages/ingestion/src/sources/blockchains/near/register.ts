@@ -7,6 +7,7 @@ import type { ITokenMetadataService } from '../../../features/token-metadata/tok
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
 import { NearTransactionImporter } from './importer.js';
+import type { NearRawDataQueries } from './near-raw-data-queries.js';
 import { NearTransactionProcessor } from './processor.js';
 
 export function registerNearChain(): void {
@@ -37,7 +38,11 @@ export function registerNearChain(): void {
       if (!tokenMetadataService) {
         return err(new Error('TokenMetadataService is required for NEAR processor'));
       }
-      return ok(new NearTransactionProcessor(tokenMetadataService, scamDetectionService, rawDataRepository, accountId));
+      // rawDataRepository is actually NearRawDataQueries for NEAR blockchain
+      const nearRawDataQueries = rawDataRepository as NearRawDataQueries | undefined;
+      return ok(
+        new NearTransactionProcessor(tokenMetadataService, scamDetectionService, nearRawDataQueries, accountId)
+      );
     },
   });
 }

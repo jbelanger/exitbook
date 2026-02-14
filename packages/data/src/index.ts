@@ -6,10 +6,14 @@ export { UserRepository } from './repositories/user-repository.js';
 export { AccountRepository } from './repositories/account-repository.js';
 export type { FindOrCreateAccountParams, UpdateAccountParams } from './repositories/account-repository.js';
 export { TransactionRepository } from './repositories/transaction-repository.js';
-export type { ITransactionRepository, TransactionFilters } from './repositories/transaction-repository.interface.js';
+export type {
+  ITransactionRepository,
+  TransactionFilters,
+  TransactionSummary,
+} from './repositories/transaction-repository.interface.js';
 export { generateDeterministicTransactionHash } from './repositories/transaction-id-utils.js';
 export { TokenMetadataRepository } from './repositories/token-metadata-repository.js';
-export type { DatabaseSchema, TransactionLinksTable } from './schema/database-schema.js';
+export type { DatabaseSchema, TransactionLinksTable, RawTransactionTable } from './schema/database-schema.js';
 export {
   RawDataRepository,
   type IRawDataRepository,

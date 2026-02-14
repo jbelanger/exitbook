@@ -84,13 +84,13 @@ export class ClearService {
         let accountsCount = 0;
 
         if (params.includeRaw) {
-          const sessionsResult = await this.sessionRepo.countByAccount(accountIds);
+          const sessionsResult = await this.sessionRepo.count({ accountIds });
           if (sessionsResult.isErr()) {
             return err(sessionsResult.error);
           }
           sessionsCount = sessionsResult.value;
 
-          const rawDataResult = await this.rawDataRepo.countByAccount(accountIds);
+          const rawDataResult = await this.rawDataRepo.count({ accountIds });
           if (rawDataResult.isErr()) {
             return err(rawDataResult.error);
           }
@@ -99,7 +99,7 @@ export class ClearService {
           accountsCount = accountsToClear.length;
         }
 
-        const transactionsResult = await this.transactionRepo.countByAccountIds(accountIds);
+        const transactionsResult = await this.transactionRepo.countTransactions({ accountIds, includeExcluded: true });
         if (transactionsResult.isErr()) {
           return err(transactionsResult.error);
         }
@@ -123,20 +123,20 @@ export class ClearService {
         let rawDataCount = 0;
 
         if (params.includeRaw) {
-          const sessionsResult = await this.sessionRepo.countAll();
+          const sessionsResult = await this.sessionRepo.count();
           if (sessionsResult.isErr()) {
             return err(sessionsResult.error);
           }
           sessionsCount = sessionsResult.value;
 
-          const rawDataResult = await this.rawDataRepo.countAll();
+          const rawDataResult = await this.rawDataRepo.count();
           if (rawDataResult.isErr()) {
             return err(rawDataResult.error);
           }
           rawDataCount = rawDataResult.value;
         }
 
-        const transactionsResult = await this.transactionRepo.countAll();
+        const transactionsResult = await this.transactionRepo.countTransactions({ includeExcluded: true });
         if (transactionsResult.isErr()) {
           return err(transactionsResult.error);
         }

@@ -81,7 +81,8 @@ export async function createProcessServices(database: KyselyDB): Promise<Process
     providerManager,
     tokenMetadataService,
     importSession,
-    eventBus as EventBus<IngestionEvent>
+    eventBus as EventBus<IngestionEvent>,
+    database
   );
 
   const clearService = new ClearService(

@@ -216,85 +216,11 @@ export class AccountRepository extends BaseRepository {
   }
 
   /**
-   * Find all accounts for a user
-   */
-  async findByUser(userId: number): Promise<Result<Account[], Error>> {
-    try {
-      const rows = await this.db.selectFrom('accounts').selectAll().where('user_id', '=', userId).execute();
-
-      const accounts: Account[] = [];
-      for (const row of rows) {
-        const accountResult = this.toAccount(row);
-        if (accountResult.isErr()) {
-          return err(accountResult.error);
-        }
-        accounts.push(accountResult.value);
-      }
-
-      return ok(accounts);
-    } catch (error) {
-      return wrapError(error, 'Failed to find accounts by user');
-    }
-  }
-
-  /**
-   * Find all accounts matching a source name
-   */
-  async findBySourceName(sourceName: string, userId: number): Promise<Result<Account[], Error>> {
-    try {
-      const rows = await this.db
-        .selectFrom('accounts')
-        .selectAll()
-        .where('source_name', '=', sourceName)
-        .where('user_id', '=', userId)
-        .execute();
-
-      const accounts: Account[] = [];
-      for (const row of rows) {
-        const accountResult = this.toAccount(row);
-        if (accountResult.isErr()) {
-          return err(accountResult.error);
-        }
-        accounts.push(accountResult.value);
-      }
-
-      return ok(accounts);
-    } catch (error) {
-      return wrapError(error, 'Failed to find accounts by source name');
-    }
-  }
-
-  /**
-   * Find all child accounts for a parent account
-   */
-  async findByParent(parentAccountId: number): Promise<Result<Account[], Error>> {
-    try {
-      const rows = await this.db
-        .selectFrom('accounts')
-        .selectAll()
-        .where('parent_account_id', '=', parentAccountId)
-        .execute();
-
-      const accounts: Account[] = [];
-      for (const row of rows) {
-        const accountResult = this.toAccount(row);
-        if (accountResult.isErr()) {
-          return err(accountResult.error);
-        }
-        accounts.push(accountResult.value);
-      }
-
-      return ok(accounts);
-    } catch (error) {
-      return wrapError(error, 'Failed to find accounts by parent');
-    }
-  }
-
-  /**
    * Find all accounts with optional filtering
    */
   async findAll(filters?: {
     accountType?: AccountType | undefined;
+    parentAccountId?: number | undefined;
     sourceName?: string | undefined;
     userId?: number | null | undefined;
   }): Promise<Result<Account[], Error>> {
@@ -315,6 +241,10 @@ export class AccountRepository extends BaseRepository {
         } else {
           query = query.where('user_id', '=', filters.userId);
         }
+      }
+
+      if (filters?.parentAccountId !== undefined) {
+        query = query.where('parent_account_id', '=', filters.parentAccountId);
       }
 
       const rows = await query.execute();
@@ -413,35 +343,6 @@ export class AccountRepository extends BaseRepository {
       return ok();
     } catch (error) {
       return wrapError(error, 'Failed to update account');
-    }
-  }
-
-  /**
-   * Update account identifier
-   * This is a special case method to update the identifier field, which is part of the unique constraint.
-   * Use with caution - this should only be used when merging CSV directories for exchange-csv accounts.
-   */
-  async updateIdentifier(accountId: number, newIdentifier: string): Promise<Result<void, Error>> {
-    try {
-      if (!newIdentifier || newIdentifier.trim() === '') {
-        return err(new Error('Account identifier must not be empty'));
-      }
-
-      const currentTimestamp = this.getCurrentDateTimeForDB();
-
-      await this.db
-        .updateTable('accounts')
-        .set({
-          identifier: newIdentifier,
-          updated_at: currentTimestamp,
-        })
-        .where('id', '=', accountId)
-        .execute();
-
-      this.logger.info({ accountId, newIdentifier }, 'Updated account identifier');
-      return ok();
-    } catch (error) {
-      return wrapError(error, 'Failed to update account identifier');
     }
   }
 

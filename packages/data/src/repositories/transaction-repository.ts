@@ -21,7 +21,13 @@ import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
 import { generateDeterministicTransactionHash } from './transaction-id-utils.js';
-import type { ITransactionRepository, TransactionFilters } from './transaction-repository.interface.js';
+import type {
+  ITransactionRepository,
+  TransactionFilters,
+  TransactionSummary,
+  FullTransactionFilters,
+  SummaryTransactionFilters,
+} from './transaction-repository.interface.js';
 
 type MovementRow = Selectable<TransactionMovementsTable>;
 
@@ -379,8 +385,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransactionData[], Error>> {
+  async getTransactions(filters: SummaryTransactionFilters): Promise<Result<TransactionSummary[], Error>>;
+  async getTransactions(filters?: FullTransactionFilters): Promise<Result<UniversalTransactionData[], Error>>;
+  async getTransactions(
+    filters?: FullTransactionFilters | SummaryTransactionFilters
+  ): Promise<Result<UniversalTransactionData[] | TransactionSummary[], Error>> {
     try {
+      const projection = filters?.projection ?? 'full';
+
       let query = this.db.selectFrom('transactions').selectAll();
 
       if (filters) {
@@ -408,6 +420,16 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       const rows = await query.execute();
 
+      // Summary projection: skip movement JOIN and parsing
+      if (projection === 'summary') {
+        const summaries: TransactionSummary[] = [];
+        for (const row of rows) {
+          summaries.push(this.toTransactionSummary(row));
+        }
+        return ok(summaries);
+      }
+
+      // Full projection: JOIN movements and parse
       const transactionIds = rows.map((r) => r.id);
       const movementsMapResult = await this.loadMovementsForTransactions(transactionIds);
       if (movementsMapResult.isErr()) {
@@ -559,66 +581,44 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async deleteBySource(sourceName: string): Promise<Result<number, Error>> {
-    try {
-      const result = await this.db.deleteFrom('transactions').where('source_name', '=', sourceName).executeTakeFirst();
-      return ok(Number(result.numDeletedRows));
-    } catch (error) {
-      return wrapError(error, 'Failed to delete transactions by source');
-    }
-  }
-
-  async countAll(): Promise<Result<number, Error>> {
-    try {
-      const result = await this.db
-        .selectFrom('transactions')
-        .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .executeTakeFirst();
-      return ok(result?.count ?? 0);
-    } catch (error) {
-      return wrapError(error, 'Failed to count all transactions');
-    }
-  }
-
   /**
-   * Count transactions by account IDs
-   * Filters transactions WHERE account_id IN (accountIds)
+   * Count transactions with optional filtering.
+   * Reuses TransactionFilters type for consistent filtering logic.
    */
-  async countByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
+  async countTransactions(filters?: TransactionFilters): Promise<Result<number, Error>> {
     try {
-      if (accountIds.length === 0) {
-        return ok(0);
+      let query = this.db.selectFrom('transactions').select(({ fn }) => [fn.count<number>('id').as('count')]);
+
+      if (filters) {
+        if (filters.sourceName) {
+          query = query.where('source_name', '=', filters.sourceName);
+        }
+
+        if (filters.since) {
+          const sinceDate = new Date(filters.since * 1000).toISOString();
+          query = query.where('created_at', '>=', sinceDate as unknown as string);
+        }
+
+        if (filters.accountId !== undefined) {
+          query = query.where('account_id', '=', filters.accountId);
+        } else if (filters.accountIds !== undefined && filters.accountIds.length > 0) {
+          query = query.where('account_id', 'in', filters.accountIds);
+        } else if (filters.accountIds !== undefined && filters.accountIds.length === 0) {
+          return ok(0);
+        }
+
+        if (!filters.includeExcluded) {
+          query = query.where('excluded_from_accounting', '=', false);
+        }
+      } else {
+        // Default: exclude accounting-excluded transactions
+        query = query.where('excluded_from_accounting', '=', false);
       }
 
-      const result = await this.db
-        .selectFrom('transactions')
-        .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .where('account_id', 'in', accountIds)
-        .executeTakeFirst();
+      const result = await query.executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
-      return wrapError(error, 'Failed to count transactions by account IDs');
-    }
-  }
-
-  /**
-   * Check if account has any beacon withdrawal transactions
-   * Used to determine beacon withdrawal completeness for balance reports
-   * Beacon withdrawals are identified by the presence of 'consensus_withdrawal' in notes
-   */
-  async hasConsensusWithdrawalNotes(accountId: number): Promise<Result<boolean, Error>> {
-    try {
-      // Query for transactions with consensus_withdrawal in notes
-      // This is a simple heuristic - beacon withdrawals have notes with type='consensus_withdrawal'
-      const result = await this.db
-        .selectFrom('transactions')
-        .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .where('account_id', '=', accountId)
-        .where('notes_json', 'like', '%consensus_withdrawal%')
-        .executeTakeFirst();
-      return ok((result?.count ?? 0) > 0);
-    } catch (error) {
-      return wrapError(error, 'Failed to check for beacon withdrawal transactions');
+      return wrapError(error, 'Failed to count transactions');
     }
   }
 
@@ -745,6 +745,40 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     } catch (error) {
       return wrapError(error, 'Failed to load movements for transactions');
     }
+  }
+
+  private toTransactionSummary(row: Selectable<TransactionsTable>): TransactionSummary {
+    const datetime = row.transaction_datetime;
+    const timestamp = new Date(datetime).getTime();
+    const status: TransactionStatus = row.transaction_status;
+
+    const summary: TransactionSummary = {
+      id: row.id,
+      accountId: row.account_id,
+      externalId: row.external_id ?? `${row.source_name}-${row.id}`,
+      datetime,
+      timestamp,
+      source: row.source_name,
+      sourceType: row.source_type,
+      status,
+      from: row.from_address ?? undefined,
+      to: row.to_address ?? undefined,
+      operation: {
+        category: row.operation_category ?? 'transfer',
+        type: row.operation_type ?? 'transfer',
+      },
+      isSpam: row.is_spam ? true : undefined,
+      excludedFromAccounting: row.excluded_from_accounting ? true : undefined,
+    };
+
+    if (row.blockchain_name) {
+      summary.blockchain = {
+        name: row.blockchain_name,
+        transaction_hash: row.blockchain_transaction_hash ?? '',
+      };
+    }
+
+    return summary;
   }
 
   private toUniversalTransaction(

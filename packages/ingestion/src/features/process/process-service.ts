@@ -5,6 +5,7 @@ import type {
   IImportSessionRepository,
   IRawDataRepository,
   ITransactionRepository,
+  KyselyDB,
 } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
@@ -21,6 +22,7 @@ import type {
   ProcessedTransaction,
   ITransactionProcessor,
 } from '../../shared/types/processors.js';
+import { NearRawDataQueries } from '../../sources/blockchains/near/near-raw-data-queries.js';
 import type { IScamDetectionService } from '../scam-detection/scam-detection-service.interface.js';
 import { ScamDetectionService } from '../scam-detection/scam-detection-service.js';
 import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.js';
@@ -47,7 +49,8 @@ export class TransactionProcessService {
     private providerManager: BlockchainProviderManager,
     private tokenMetadataService: ITokenMetadataService,
     private importSessionRepository: IImportSessionRepository,
-    private eventBus: EventBus<IngestionEvent>
+    private eventBus: EventBus<IngestionEvent>,
+    private db: KyselyDB
   ) {
     this.logger = getLogger('TransactionProcessService');
     this.scamDetectionService = new ScamDetectionService(eventBus);
@@ -237,7 +240,8 @@ export class TransactionProcessService {
   private createBatchProvider(sourceType: string, sourceName: string, accountId: number): IRawDataBatchProvider {
     // NEAR requires special multi-stream batch provider
     if (sourceType === 'blockchain' && sourceName.toLowerCase() === 'near') {
-      return new NearStreamBatchProvider(this.rawDataRepository, accountId, RAW_DATA_HASH_BATCH_SIZE);
+      const nearRawDataQueries = new NearRawDataQueries(this.db);
+      return new NearStreamBatchProvider(nearRawDataQueries, accountId, RAW_DATA_HASH_BATCH_SIZE);
     }
 
     if (sourceType === 'blockchain') {
@@ -424,7 +428,7 @@ export class TransactionProcessService {
       processingContext.primaryAddress = account.identifier;
 
       if (account.userId) {
-        const userAccountsResult = await this.accountRepository.findByUser(account.userId);
+        const userAccountsResult = await this.accountRepository.findAll({ userId: account.userId });
         if (userAccountsResult.isOk()) {
           const userAccounts = userAccountsResult.value;
           const userAddresses = userAccounts
@@ -453,6 +457,19 @@ export class TransactionProcessService {
       if (!adapter) {
         return err(new Error(`Unknown blockchain: ${sourceName}`));
       }
+
+      // NEAR requires NearRawDataQueries instead of rawDataRepository
+      if (sourceName.toLowerCase() === 'near') {
+        const nearRawDataQueries = new NearRawDataQueries(this.db);
+        return adapter.createProcessor(
+          this.providerManager,
+          this.tokenMetadataService,
+          this.scamDetectionService,
+          nearRawDataQueries as unknown as IRawDataRepository,
+          accountId
+        );
+      }
+
       return adapter.createProcessor(
         this.providerManager,
         this.tokenMetadataService,

@@ -1,7 +1,7 @@
 import type { ImportSession, ImportSessionStatus } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
-import type { StoredImportSession, ImportSessionQuery, ImportSessionUpdate } from '@exitbook/data';
+import type { StoredImportSession, ImportSessionUpdate } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -29,30 +29,14 @@ export interface IImportSessionRepository {
   ): Promise<Result<void, Error>>;
 
   /**
-   * Find all import sessions with optional filtering.
-   */
-  findAll(filters?: ImportSessionQuery): Promise<Result<ImportSession[], Error>>;
-
-  /**
    * Find import session by ID.
    */
   findById(sessionId: number): Promise<Result<ImportSession | undefined, Error>>;
 
   /**
-   * Find all import sessions for an account.
-   */
-  findByAccount(accountId: number, limit?: number): Promise<Result<ImportSession[], Error>>;
-
-  /**
    * Find all import sessions for multiple accounts in one query (avoids N+1).
    */
   findByAccounts(accountIds: number[]): Promise<Result<ImportSession[], Error>>;
-
-  /**
-   * Get all import_session_ids (session IDs) for multiple accounts in one query (avoids N+1).
-   * Returns an array of session IDs across all specified accounts.
-   */
-  getImportSessionIdsByAccounts(accountIds: number[]): Promise<Result<number[], Error>>;
 
   /**
    * Get session counts for multiple accounts in one query (avoids N+1).
@@ -72,14 +56,9 @@ export interface IImportSessionRepository {
   update(sessionId: number, updates: ImportSessionUpdate): Promise<Result<void, Error>>;
 
   /**
-   * Count all import sessions.
+   * Count import sessions with optional filtering.
    */
-  countAll(): Promise<Result<number, Error>>;
-
-  /**
-   * Count import sessions by account IDs.
-   */
-  countByAccount(accountIds: number[]): Promise<Result<number, Error>>;
+  count(filters?: { accountIds?: number[] }): Promise<Result<number, Error>>;
 
   /**
    * Delete all import sessions for an account.
@@ -163,51 +142,6 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
   }
 
   /**
-   * Find all import sessions matching filters
-   */
-  async findAll(filters?: ImportSessionQuery): Promise<Result<ImportSession[], Error>> {
-    try {
-      let query = this.db.selectFrom('import_sessions').selectAll();
-
-      if (filters?.accountId !== undefined) {
-        query = query.where('account_id', '=', filters.accountId);
-      }
-
-      if (filters?.status) {
-        query = query.where('status', '=', filters.status);
-      }
-
-      if (filters?.since) {
-        // Convert Unix timestamp to ISO string for comparison
-        const sinceDate = new Date(filters.since * 1000).toISOString();
-        query = query.where('started_at', '>=', sinceDate);
-      }
-
-      query = query.orderBy('started_at', 'desc');
-
-      if (filters?.limit) {
-        query = query.limit(filters.limit);
-      }
-
-      const rows = await query.execute();
-
-      // Convert rows to domain models, failing fast on any parse errors
-      const importSessions: ImportSession[] = [];
-      for (const row of rows) {
-        const result = this.toImportSession(row);
-        if (result.isErr()) {
-          return err(result.error);
-        }
-        importSessions.push(result.value);
-      }
-
-      return ok(importSessions);
-    } catch (error) {
-      return wrapError(error, 'Failed to find import sessions');
-    }
-  }
-
-  /**
    * Find import session by ID
    */
   async findById(sessionId: number): Promise<Result<ImportSession | undefined, Error>> {
@@ -231,13 +165,6 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
     } catch (error) {
       return wrapError(error, 'Failed to find import session by ID');
     }
-  }
-
-  /**
-   * Find all import sessions for an account
-   */
-  async findByAccount(accountId: number, limit?: number): Promise<Result<ImportSession[], Error>> {
-    return this.findAll({ accountId, limit });
   }
 
   /**
@@ -308,28 +235,6 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
   }
 
   /**
-   * Get all import_session_ids (session IDs) for multiple accounts in one query (avoids N+1).
-   * Returns an array of session IDs across all specified accounts.
-   */
-  async getImportSessionIdsByAccounts(accountIds: number[]): Promise<Result<number[], Error>> {
-    try {
-      if (accountIds.length === 0) {
-        return ok([]);
-      }
-
-      const results = await this.db
-        .selectFrom('import_sessions')
-        .select('id')
-        .where('account_id', 'in', accountIds)
-        .execute();
-
-      return ok(results.map((row) => row.id));
-    } catch (error) {
-      return wrapError(error, 'Failed to get import session IDs by accounts');
-    }
-  }
-
-  /**
    * Update import session
    */
   async update(sessionId: number, updates: ImportSessionUpdate): Promise<Result<void, Error>> {
@@ -378,37 +283,23 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
   }
 
   /**
-   * Count all import sessions
+   * Count import sessions with optional filtering
    */
-  async countAll(): Promise<Result<number, Error>> {
+  async count(filters?: { accountIds?: number[] }): Promise<Result<number, Error>> {
     try {
-      const result = await this.db
-        .selectFrom('import_sessions')
-        .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .executeTakeFirst();
-      return ok(result?.count ?? 0);
-    } catch (error) {
-      return wrapError(error, 'Failed to count all import sessions');
-    }
-  }
+      let query = this.db.selectFrom('import_sessions').select(({ fn }) => [fn.count<number>('id').as('count')]);
 
-  /**
-   * Count import sessions by account IDs
-   */
-  async countByAccount(accountIds: number[]): Promise<Result<number, Error>> {
-    try {
-      if (accountIds.length === 0) {
-        return ok(0);
+      if (filters?.accountIds !== undefined) {
+        if (filters.accountIds.length === 0) {
+          return ok(0);
+        }
+        query = query.where('account_id', 'in', filters.accountIds);
       }
 
-      const result = await this.db
-        .selectFrom('import_sessions')
-        .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .where('account_id', 'in', accountIds)
-        .executeTakeFirst();
+      const result = await query.executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
-      return wrapError(error, 'Failed to count import sessions by account');
+      return wrapError(error, 'Failed to count import sessions');
     }
   }
 

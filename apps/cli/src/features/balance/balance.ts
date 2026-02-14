@@ -764,7 +764,7 @@ async function loadAccountTransactions(
   accountRepo: AccountRepository,
   transactionRepo: TransactionRepository
 ): Promise<import('@exitbook/core').UniversalTransactionData[]> {
-  const childResult = await accountRepo.findByParent(account.id);
+  const childResult = await accountRepo.findAll({ parentAccountId: account.id });
   const accountIds = [account.id];
   if (childResult.isOk()) {
     accountIds.push(...childResult.value.map((c) => c.id));
