@@ -135,11 +135,8 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('notes_json', 'text') // Array<TransactionNote>
     .addColumn('is_spam', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('excluded_from_accounting', 'integer', (col) => col.notNull().defaultTo(0))
-    // Structured movements
-    .addColumn('movements_inflows', 'text')
-    .addColumn('movements_outflows', 'text')
-    // Structured fees
-    .addColumn('fees', 'text') // Stores fees array: Array<FeeMovement>
+    // Structured movements - REMOVED (normalized to transaction_movements table)
+    // Structured fees - REMOVED (normalized to transaction_movements table)
     // Operation classification
     .addColumn('operation_category', 'text')
     .addColumn('operation_type', 'text')
@@ -164,15 +161,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
       sql`operation_type IS NULL OR operation_type IN ('buy', 'sell', 'deposit', 'withdrawal', 'stake', 'unstake', 'reward', 'swap', 'fee', 'batch', 'transfer', 'refund', 'vote', 'proposal', 'airdrop')`
     )
     .addCheckConstraint('transactions_notes_json_valid', sql`notes_json IS NULL OR json_valid(notes_json)`)
-    .addCheckConstraint(
-      'transactions_movements_inflows_json_valid',
-      sql`movements_inflows IS NULL OR json_valid(movements_inflows)`
-    )
-    .addCheckConstraint(
-      'transactions_movements_outflows_json_valid',
-      sql`movements_outflows IS NULL OR json_valid(movements_outflows)`
-    )
-    .addCheckConstraint('transactions_fees_json_valid', sql`fees IS NULL OR json_valid(fees)`)
+    // REMOVED: movements_inflows, movements_outflows, fees check constraints (normalized to transaction_movements)
     .execute();
 
   // Create index on account_id for fast account-scoped queries
@@ -191,6 +180,69 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .createIndex('idx_transactions_excluded_from_accounting')
     .on('transactions')
     .column('excluded_from_accounting')
+    .execute();
+
+  // Create transaction_movements table - normalized storage for asset movements and fees
+  await db.schema
+    .createTable('transaction_movements')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('transaction_id', 'integer', (col) => col.notNull().references('transactions.id').onDelete('cascade'))
+    .addColumn('position', 'integer', (col) => col.notNull())
+    .addColumn('movement_type', 'text', (col) => col.notNull())
+    .addColumn('asset_id', 'text', (col) => col.notNull())
+    .addColumn('asset_symbol', 'text', (col) => col.notNull())
+    // Amount fields
+    .addColumn('gross_amount', 'text') // NULL for fee rows
+    .addColumn('net_amount', 'text') // NULL for fee rows
+    .addColumn('fee_amount', 'text') // NULL for inflow/outflow rows
+    // Fee-specific fields
+    .addColumn('fee_scope', 'text') // NULL for inflow/outflow rows
+    .addColumn('fee_settlement', 'text') // NULL for inflow/outflow rows
+    // Price metadata
+    .addColumn('price_amount', 'text')
+    .addColumn('price_currency', 'text')
+    .addColumn('price_source', 'text')
+    .addColumn('price_fetched_at', 'text')
+    .addColumn('price_granularity', 'text')
+    .addColumn('fx_rate_to_usd', 'text')
+    .addColumn('fx_source', 'text')
+    .addColumn('fx_timestamp', 'text')
+    .addCheckConstraint('transaction_movements_type_valid', sql`movement_type IN ('inflow', 'outflow', 'fee')`)
+    .addCheckConstraint(
+      'transaction_movements_fee_scope_valid',
+      sql`fee_scope IS NULL OR fee_scope IN ('network', 'platform', 'spread', 'tax', 'other')`
+    )
+    .addCheckConstraint(
+      'transaction_movements_fee_settlement_valid',
+      sql`fee_settlement IS NULL OR fee_settlement IN ('on-chain', 'balance', 'external')`
+    )
+    .addCheckConstraint(
+      'transaction_movements_inflow_outflow_amounts',
+      sql`(movement_type IN ('inflow', 'outflow') AND gross_amount IS NOT NULL) OR movement_type = 'fee'`
+    )
+    .addCheckConstraint(
+      'transaction_movements_fee_fields',
+      sql`(movement_type = 'fee' AND fee_amount IS NOT NULL AND fee_scope IS NOT NULL AND fee_settlement IS NOT NULL) OR movement_type IN ('inflow', 'outflow')`
+    )
+    .addCheckConstraint(
+      'transaction_movements_price_all_or_nothing',
+      sql`(price_amount IS NULL AND price_currency IS NULL AND price_source IS NULL AND price_fetched_at IS NULL AND price_granularity IS NULL) OR (price_amount IS NOT NULL AND price_currency IS NOT NULL AND price_source IS NOT NULL AND price_fetched_at IS NOT NULL)`
+    )
+    .execute();
+
+  // Create unique index on (transaction_id, position) to enforce ordering and prevent duplicates
+  await db.schema
+    .createIndex('idx_transaction_movements_tx_position')
+    .on('transaction_movements')
+    .columns(['transaction_id', 'position'])
+    .unique()
+    .execute();
+
+  // Create index on transaction_id for efficient joins (non-unique for batch loading)
+  await db.schema
+    .createIndex('idx_transaction_movements_transaction_id')
+    .on('transaction_movements')
+    .column('transaction_id')
     .execute();
 
   // Create token_metadata table
@@ -311,6 +363,8 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  // Drop transaction_movements BEFORE transactions (FK constraint)
+  await db.schema.dropTable('transaction_movements').execute();
   // Drop transaction linking table
   await db.schema.dropTable('transaction_links').execute();
   // Drop token metadata tables

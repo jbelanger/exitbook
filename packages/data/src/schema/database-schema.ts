@@ -127,14 +127,6 @@ export interface TransactionsTable {
   // Accounting exclusions
   excluded_from_accounting: boolean; // Skip from price enrichment and cost basis (e.g., scam tokens)
 
-  // Structured movements
-  movements_inflows: JSONString | null; // Array<{assetSymbol: string, amount: Decimal}>
-  movements_outflows: JSONString | null; // Array<{assetSymbol: string, amount: Decimal}>
-
-  // Structured fees (JSON: Array<FeeMovement>)
-  // Each fee: { assetSymbol, amount, scope, settlement, priceAtTxTime? }
-  fees: JSONString | null;
-
   // Enhanced operation classification
   operation_category: 'trade' | 'transfer' | 'staking' | 'defi' | 'fee' | 'governance' | null;
   operation_type:
@@ -164,6 +156,35 @@ export interface TransactionsTable {
   // Timestamps
   created_at: DateTime;
   updated_at: DateTime | null;
+}
+
+/**
+ * Transaction movements table - normalized storage for asset movements and fees
+ * Each row represents either an inflow, outflow, or fee
+ */
+export interface TransactionMovementsTable {
+  id: Generated<number>;
+  transaction_id: number; // FK to transactions.id
+  position: number; // Order within transaction (0-indexed)
+  movement_type: 'inflow' | 'outflow' | 'fee';
+  asset_id: string;
+  asset_symbol: string;
+  // Amount fields (inflow/outflow only)
+  gross_amount: DecimalString | null;
+  net_amount: DecimalString | null;
+  fee_amount: DecimalString | null;
+  // Fee-specific fields (fee only)
+  fee_scope: 'network' | 'platform' | 'spread' | 'tax' | 'other' | null;
+  fee_settlement: 'on-chain' | 'balance' | 'external' | null;
+  // Price metadata (all types)
+  price_amount: DecimalString | null;
+  price_currency: string | null;
+  price_source: string | null;
+  price_fetched_at: DateTime | null;
+  price_granularity: 'exact' | 'minute' | 'hour' | 'day' | null;
+  fx_rate_to_usd: DecimalString | null;
+  fx_source: string | null;
+  fx_timestamp: DateTime | null;
 }
 
 /**
@@ -238,6 +259,7 @@ export interface DatabaseSchema {
   import_sessions: ImportSessionsTable;
   symbol_index: SymbolIndexTable;
   token_metadata: TokenMetadataTable;
+  transaction_movements: TransactionMovementsTable;
   transaction_links: TransactionLinksTable;
   transactions: TransactionsTable;
 }
