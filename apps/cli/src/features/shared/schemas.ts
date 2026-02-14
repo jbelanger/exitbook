@@ -396,3 +396,27 @@ export const ProvidersBenchmarkCommandOptionsSchema = z.object({
   skipBurst: z.boolean().optional(),
   json: z.boolean().optional(),
 });
+
+/**
+ * Portfolio command options
+ */
+export const PortfolioCommandOptionsSchema = z
+  .object({
+    method: z.string().optional(),
+    jurisdiction: z.string().optional(),
+    fiatCurrency: z.string().optional(),
+    asOf: z.string().optional(),
+    json: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      // average-cost only valid with CA jurisdiction
+      if (data.method === 'average-cost' && data.jurisdiction && data.jurisdiction !== 'CA') {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'average-cost method is only valid with CA jurisdiction',
+    }
+  );

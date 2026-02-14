@@ -2,8 +2,10 @@
  * Layout constants and helpers for accounts TUI rows.
  */
 
+import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
+
 const ACCOUNTS_CHROME_LINES = 16;
 
 export function getAccountsViewVisibleRows(terminalHeight: number): number {
-  return Math.max(1, terminalHeight - ACCOUNTS_CHROME_LINES);
+  return calculateVisibleRows(terminalHeight, ACCOUNTS_CHROME_LINES);
 }

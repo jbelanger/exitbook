@@ -19,3 +19,15 @@ export { SelectPrompt, type SelectPromptProps, type SelectOption } from './Selec
 export { StatusIcon, statusIcon, type OperationStatus } from './status-icon.js';
 export { TextPrompt, type TextPromptProps } from './TextPrompt.js';
 export { TreeChars } from './tree-chars.js';
+
+export { DynamicTable, type DynamicTableProps, type TableColumn } from './DynamicTable.js';
+export { computeColumnWidth, computeColumnWidths, padEnd, padStart } from './table-utils.js';
+export {
+  arrayLines,
+  calculateChromeLines,
+  calculateVisibleRows,
+  conditionalLines,
+  type ChromeSections,
+  type SectionLineCounter,
+} from './chrome-layout.js';
+export { getSelectionCursor, SELECTED_CURSOR, UNSELECTED_CURSOR } from './selection-cursor.js';

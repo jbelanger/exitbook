@@ -5,7 +5,7 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { Divider } from '../../../ui/shared/index.js';
+import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 
 import { handleAccountsKeyboardInput, accountsViewReducer } from './accounts-view-controller.js';
 import { getAccountsViewVisibleRows } from './accounts-view-layout.js';
@@ -142,7 +142,7 @@ const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({
 // ─── Row ────────────────────────────────────────────────────────────────────
 
 const AccountRow: FC<{ isSelected: boolean; item: AccountViewItem }> = ({ item, isSelected }) => {
-  const cursor = isSelected ? '▸' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const acctId = `#${item.id}`.padStart(5);
   const source = item.sourceName.padEnd(12).substring(0, 12);
   const type = formatAccountType(item.accountType).padEnd(13).substring(0, 13);

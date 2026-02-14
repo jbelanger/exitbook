@@ -5,7 +5,7 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { Divider } from '../../../ui/shared/index.js';
+import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 
 import { costBasisViewReducer, handleCostBasisKeyboardInput } from './cost-basis-view-controller.js';
 import { getCostBasisAssetsVisibleRows, getCostBasisTimelineVisibleRows } from './cost-basis-view-layout.js';
@@ -270,7 +270,7 @@ const AssetRow: FC<{ currency: string; isSelected: boolean; item: AssetCostBasis
   currency,
   isSelected,
 }) => {
-  const cursor = isSelected ? '\u25B8' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const gainLossColor = item.isGain ? 'green' : 'red';
 
   // Format columns with fixed widths and breathing room
@@ -518,7 +518,7 @@ const AcquisitionRow: FC<{ currency: string; isSelected: boolean; item: Acquisit
   currency,
   isSelected,
 }) => {
-  const cursor = isSelected ? '\u25B8' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const marker = '+';
 
   const date = item.date;
@@ -552,7 +552,7 @@ const DisposalRow: FC<{ currency: string; isSelected: boolean; isUS: boolean; it
   isUS,
   isSelected,
 }) => {
-  const cursor = isSelected ? '\u25B8' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const marker = '−';
   const gainLossColor = item.isGain ? 'green' : 'red';
 
@@ -599,7 +599,7 @@ const TransferRow: FC<{ currency: string; isSelected: boolean; item: TransferVie
   currency,
   isSelected,
 }) => {
-  const cursor = isSelected ? '\u25B8' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const marker = '→';
 
   const date = item.date;

@@ -5,7 +5,7 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, useRef, type FC } from 'react';
 
-import { Divider } from '../../../ui/shared/index.js';
+import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 import type { AssetBreakdownEntry, MissingPriceMovement, PriceCoverageDetail } from '../prices-view-utils.js';
 import { formatCoveragePercentage } from '../prices-view-utils.js';
 
@@ -199,7 +199,7 @@ const CoverageList: FC<{ state: PricesViewCoverageState; terminalHeight: number 
 };
 
 const CoverageRow: FC<{ isSelected: boolean; item: PriceCoverageDetail }> = ({ item, isSelected }) => {
-  const cursor = isSelected ? '▸' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const asset = item.assetSymbol.padEnd(10).substring(0, 10);
   const total = String(item.total_transactions).padStart(8);
   const withPrice = String(item.with_price).padStart(8);
@@ -484,7 +484,7 @@ const MissingRow: FC<{
   isSelected: boolean;
   movement: MissingPriceMovement;
 }> = ({ movement, isSelected, isResolved }) => {
-  const cursor = isSelected ? '▸' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const txId = `#${movement.transactionId}`.padStart(6);
   const source = movement.source.padEnd(10).substring(0, 10);
   const timestamp = movement.datetime.substring(0, 16).replace('T', ' ');

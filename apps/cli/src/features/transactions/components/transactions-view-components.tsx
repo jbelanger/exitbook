@@ -7,7 +7,7 @@ import { Box, Text, useInput, useStdout } from 'ink';
 import Spinner from 'ink-spinner';
 import { useReducer, type FC } from 'react';
 
-import { Divider } from '../../../ui/shared/index.js';
+import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 
 import {
   FORMAT_OPTIONS,
@@ -191,7 +191,7 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
 // ─── Row ────────────────────────────────────────────────────────────────────
 
 const TransactionRow: FC<{ isSelected: boolean; item: TransactionViewItem }> = ({ item, isSelected }) => {
-  const cursor = isSelected ? '▸' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const txId = `#${item.id}`.padStart(6);
   const source = item.source.padEnd(10).substring(0, 10);
   const timestamp = item.datetime.substring(0, 16).replace('T', ' ');
@@ -451,7 +451,7 @@ const FormatSelector: FC<{ selectedIndex: number }> = ({ selectedIndex }) => {
       <Text> </Text>
       {FORMAT_OPTIONS.map((option, i) => {
         const isSelected = i === selectedIndex;
-        const cursor = isSelected ? '▸' : ' ';
+        const cursor = getSelectionCursor(isSelected);
         const number = `${i + 1}`;
         return (
           <Text key={option.label}>

@@ -7,7 +7,7 @@ import Spinner from 'ink-spinner';
 import { useLayoutEffect, useReducer, type FC, type ReactNode } from 'react';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
-import { Divider } from '../../../ui/shared/index.js';
+import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 
 import { balanceViewReducer, handleBalanceKeyboardInput } from './balance-view-controller.js';
 import { getBalanceAccountsVisibleRows, getBalanceAssetsVisibleRows } from './balance-view-layout.js';
@@ -215,7 +215,7 @@ const AccountList: FC<{
 };
 
 const AccountRow: FC<{ isSelected: boolean; item: AccountVerificationItem }> = ({ item, isSelected }) => {
-  const cursor = isSelected ? '▸' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const icon = getAccountStatusIcon(item);
   const id = `#${item.accountId}`.padStart(4);
   const source = item.sourceName.padEnd(10).substring(0, 10);
@@ -569,7 +569,7 @@ const OfflineAccountList: FC<{
 };
 
 const OfflineAccountRow: FC<{ isSelected: boolean; item: AccountOfflineItem }> = ({ item, isSelected }) => {
-  const cursor = isSelected ? '▸' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const id = `#${item.accountId}`.padStart(4);
   const source = item.sourceName.padEnd(10).substring(0, 10);
   const type = item.accountType.padEnd(12).substring(0, 12);
@@ -788,7 +788,7 @@ const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ s
 };
 
 const OnlineAssetRow: FC<{ asset: AssetComparisonItem; isSelected: boolean }> = ({ asset, isSelected }) => {
-  const cursor = isSelected ? '▸' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const icon = getAssetStatusIcon(asset.status);
   const symbol = asset.assetSymbol.padEnd(8).substring(0, 8);
   const calc = asset.calculatedBalance.padStart(12);
@@ -830,7 +830,7 @@ const OnlineAssetRow: FC<{ asset: AssetComparisonItem; isSelected: boolean }> = 
 };
 
 const OfflineAssetRow: FC<{ asset: AssetOfflineItem; isSelected: boolean }> = ({ asset, isSelected }) => {
-  const cursor = isSelected ? '▸' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const symbol = asset.assetSymbol.padEnd(8).substring(0, 8);
   const balance = asset.calculatedBalance.padStart(12);
   const balanceColor = asset.isNegative ? 'red' : 'green';

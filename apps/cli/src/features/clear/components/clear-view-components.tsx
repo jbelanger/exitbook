@@ -6,7 +6,7 @@ import type { ClearService, ClearServiceParams } from '@exitbook/ingestion';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { Divider, StatusIcon } from '../../../ui/shared/index.js';
+import { Divider, getSelectionCursor, StatusIcon } from '../../../ui/shared/index.js';
 
 import { clearViewReducer, handleClearKeyboardInput } from './clear-view-controller.js';
 import { getClearViewVisibleRows } from './clear-view-layout.js';
@@ -160,7 +160,7 @@ const CategoryRow: FC<{ isComplete: boolean; isSelected: boolean; item: ClearCat
   isSelected,
   isComplete,
 }) => {
-  const cursor = isSelected ? '▸' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const icon = getCategoryIcon(item.status);
   const displayLabel = item.label.padEnd(25).substring(0, 25);
   const countStr = formatCount(item.count).padStart(8);

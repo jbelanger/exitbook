@@ -5,7 +5,7 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { Divider } from '../../../ui/shared/index.js';
+import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 
 import { handleBlockchainsKeyboardInput, blockchainsViewReducer } from './blockchains-view-controller.js';
 import { getBlockchainsViewVisibleRows } from './blockchains-view-layout.js';
@@ -144,7 +144,7 @@ const BlockchainList: FC<{ state: BlockchainsViewState; terminalHeight: number }
 // --- Row ---
 
 const BlockchainRow: FC<{ isSelected: boolean; item: BlockchainViewItem }> = ({ item, isSelected }) => {
-  const cursor = isSelected ? '▸' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const icon = getKeyStatusIcon(item.keyStatus);
   const displayName = item.displayName.padEnd(14).substring(0, 14);
   const category = item.category.padEnd(10).substring(0, 10);

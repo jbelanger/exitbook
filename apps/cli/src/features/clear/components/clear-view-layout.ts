@@ -2,6 +2,8 @@
  * Clear view layout calculations
  */
 
+import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
+
 /**
  * Calculate visible rows for category list.
  * Layout breakdown (total: 14 rows of chrome):
@@ -19,5 +21,5 @@
  */
 export function getClearViewVisibleRows(terminalHeight: number): number {
   const chromeHeight = 14;
-  return Math.max(1, terminalHeight - chromeHeight);
+  return calculateVisibleRows(terminalHeight, chromeHeight);
 }

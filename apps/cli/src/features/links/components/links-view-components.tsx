@@ -6,7 +6,7 @@ import type { LinkStatus, MatchCriteria } from '@exitbook/accounting';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC } from 'react';
 
-import { Divider } from '../../../ui/shared/index.js';
+import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 import type { LinkGapAssetSummary, LinkGapIssue } from '../links-gap-utils.js';
 
 import { handleKeyboardInput, linksViewReducer } from './links-view-controller.js';
@@ -231,7 +231,7 @@ const LinkRow: FC<{ isSelected: boolean; item: LinkWithTransactions }> = ({ item
 
   const { icon, iconColor } = getStatusDisplay(link.status);
 
-  const cursor = isSelected ? '▸' : ' ';
+  const cursor = getSelectionCursor(isSelected);
 
   if (isSelected) {
     return (
@@ -572,7 +572,7 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
  * Individual gap row component
  */
 const GapRow: FC<{ isSelected: boolean; issue: LinkGapIssue }> = ({ issue, isSelected }) => {
-  const cursor = isSelected ? '▸' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const txId = `#${issue.transactionId}`.padStart(6);
   const source = (issue.blockchain ?? issue.source).padEnd(10).substring(0, 10);
   const timestamp = issue.timestamp.substring(0, 16).replace('T', ' ');

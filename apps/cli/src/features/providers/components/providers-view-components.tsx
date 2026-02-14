@@ -5,7 +5,7 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { Divider } from '../../../ui/shared/index.js';
+import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 import { formatTimeAgo } from '../view-providers-utils.js';
 
 import { handleProvidersKeyboardInput, providersViewReducer } from './providers-view-controller.js';
@@ -187,7 +187,7 @@ const ProviderList: FC<{ state: ProvidersViewState; terminalHeight: number }> = 
 // --- Row ---
 
 const ProviderRow: FC<{ isSelected: boolean; item: ProviderViewItem }> = ({ item, isSelected }) => {
-  const cursor = isSelected ? '▸' : ' ';
+  const cursor = getSelectionCursor(isSelected);
   const icon = getHealthIcon(item.healthStatus);
   const displayName = item.name.padEnd(16).substring(0, 16);
   const chainLabel = item.chainCount === 1 ? 'chain ' : 'chains';
