@@ -97,9 +97,6 @@ describe('TransactionRepository - delete methods', () => {
           notes_json: undefined,
           is_spam: false,
           excluded_from_accounting: false,
-          movements_inflows: undefined,
-          movements_outflows: undefined,
-          fees: undefined,
           operation_category: undefined,
           operation_type: 'deposit' as const,
           blockchain_name: undefined,
@@ -266,11 +263,32 @@ describe('TransactionRepository - scam token filtering', () => {
           transaction_datetime: new Date().toISOString(),
           is_spam: false,
           excluded_from_accounting: false,
-          movements_inflows: JSON.stringify([
-            { assetId: 'blockchain:ethereum:native', assetSymbol: 'ETH', grossAmount: '1.0', netAmount: '1.0' },
-          ]),
           operation_type: 'transfer' as const,
           created_at: new Date().toISOString(),
+        })
+        .execute();
+
+      await db
+        .insertInto('transaction_movements')
+        .values({
+          transaction_id: i,
+          position: 0,
+          movement_type: 'inflow',
+          asset_id: 'blockchain:ethereum:native',
+          asset_symbol: 'ETH',
+          gross_amount: '1.0',
+          net_amount: '1.0',
+          fee_amount: null,
+          fee_scope: null,
+          fee_settlement: null,
+          price_amount: null,
+          price_currency: null,
+          price_source: null,
+          price_fetched_at: null,
+          price_granularity: null,
+          fx_rate_to_usd: null,
+          fx_source: null,
+          fx_timestamp: null,
         })
         .execute();
     }
@@ -290,11 +308,32 @@ describe('TransactionRepository - scam token filtering', () => {
           notes_json: JSON.stringify([{ type: 'SCAM_TOKEN', message: 'Scam token detected', severity: 'error' }]),
           is_spam: true,
           excluded_from_accounting: true, // Scam tokens excluded
-          movements_inflows: JSON.stringify([
-            { assetId: 'blockchain:ethereum:0xscam', assetSymbol: 'SCAM', grossAmount: '1000.0', netAmount: '1000.0' },
-          ]),
           operation_type: 'transfer' as const,
           created_at: new Date().toISOString(),
+        })
+        .execute();
+
+      await db
+        .insertInto('transaction_movements')
+        .values({
+          transaction_id: i,
+          position: 0,
+          movement_type: 'inflow',
+          asset_id: 'blockchain:ethereum:0xscam',
+          asset_symbol: 'SCAM',
+          gross_amount: '1000.0',
+          net_amount: '1000.0',
+          fee_amount: null,
+          fee_scope: null,
+          fee_settlement: null,
+          price_amount: null,
+          price_currency: null,
+          price_source: null,
+          price_fetched_at: null,
+          price_granularity: null,
+          fx_rate_to_usd: null,
+          fx_source: null,
+          fx_timestamp: null,
         })
         .execute();
     }
@@ -669,21 +708,55 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         operation_type: 'swap',
         is_spam: false,
         excluded_from_accounting: false,
-        movements_inflows: JSON.stringify([
-          { assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' },
-        ]),
-        fees: JSON.stringify([
-          {
-            assetId: 'blockchain:bitcoin:native',
-            assetSymbol: 'BTC',
-            amount: '0.0001',
-            scope: 'network',
-            settlement: 'on-chain',
-          },
-        ]),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
+      .execute();
+
+    await db
+      .insertInto('transaction_movements')
+      .values([
+        {
+          transaction_id: 1,
+          position: 0,
+          movement_type: 'inflow',
+          asset_id: 'blockchain:bitcoin:native',
+          asset_symbol: 'BTC',
+          gross_amount: '1.0',
+          net_amount: '1.0',
+          fee_amount: null,
+          fee_scope: null,
+          fee_settlement: null,
+          price_amount: null,
+          price_currency: null,
+          price_source: null,
+          price_fetched_at: null,
+          price_granularity: null,
+          fx_rate_to_usd: null,
+          fx_source: null,
+          fx_timestamp: null,
+        },
+        {
+          transaction_id: 1,
+          position: 1,
+          movement_type: 'fee',
+          asset_id: 'blockchain:bitcoin:native',
+          asset_symbol: 'BTC',
+          gross_amount: null,
+          net_amount: null,
+          fee_amount: '0.0001',
+          fee_scope: 'network',
+          fee_settlement: 'on-chain',
+          price_amount: null,
+          price_currency: null,
+          price_source: null,
+          price_fetched_at: null,
+          price_granularity: null,
+          fx_rate_to_usd: null,
+          fx_source: null,
+          fx_timestamp: null,
+        },
+      ])
       .execute();
 
     // Build enriched transaction (repository just persists what it's told)
@@ -736,41 +809,281 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
     expect(result.isOk()).toBe(true);
 
     // Verify movements and fees were persisted correctly
-    const tx = await db.selectFrom('transactions').selectAll().where('id', '=', 1).executeTakeFirst();
-    const inflows = JSON.parse(tx!.movements_inflows as string) as {
-      assetSymbol: string;
-      grossAmount: string;
-      netAmount: string;
-      priceAtTxTime?: {
-        fetchedAt: string;
-        granularity: string;
-        price: { amount: string; currency: string };
-        source: string;
-      };
-    }[];
-    const fees = JSON.parse(tx!.fees as string) as {
-      amount: string;
-      assetSymbol: string;
-      priceAtTxTime?: {
-        fetchedAt: string;
-        granularity: string;
-        price: { amount: string; currency: string };
-        source: string;
-      };
-      scope: string;
-      settlement: string;
-    }[];
+    const movements = await db
+      .selectFrom('transaction_movements')
+      .selectAll()
+      .where('transaction_id', '=', 1)
+      .orderBy('position', 'asc')
+      .execute();
 
-    expect(inflows[0]).toBeDefined();
-    expect(inflows[0]?.priceAtTxTime).toBeDefined();
-    expect(inflows[0]?.priceAtTxTime?.source).toBe('coingecko');
-    expect(inflows[0]?.priceAtTxTime?.price.amount).toBe('50000');
+    const inflow = movements.find((m) => m.movement_type === 'inflow');
+    const fee = movements.find((m) => m.movement_type === 'fee');
 
-    // Verify fees were enriched
-    expect(fees[0]).toBeDefined();
-    expect(fees[0]?.priceAtTxTime).toBeDefined();
-    expect(fees[0]?.priceAtTxTime?.source).toBe('coingecko');
-    expect(fees[0]?.priceAtTxTime?.price.amount).toBe('50000');
+    expect(inflow).toBeDefined();
+    expect(inflow?.price_source).toBe('coingecko');
+    expect(inflow?.price_amount).toBe('50000');
+
+    expect(fee).toBeDefined();
+    expect(fee?.price_source).toBe('coingecko');
+    expect(fee?.price_amount).toBe('50000');
+  });
+
+  it('should replace old movement rows and preserve position ordering', async () => {
+    await db
+      .insertInto('transactions')
+      .values({
+        id: 2,
+        account_id: 1,
+        source_name: 'kraken',
+        source_type: 'exchange',
+        external_id: 'tx-2',
+        transaction_status: 'success',
+        transaction_datetime: new Date().toISOString(),
+        operation_type: 'swap',
+        is_spam: false,
+        excluded_from_accounting: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .execute();
+
+    await db
+      .insertInto('transaction_movements')
+      .values({
+        transaction_id: 2,
+        position: 0,
+        movement_type: 'inflow',
+        asset_id: 'legacy:asset',
+        asset_symbol: 'OLD',
+        gross_amount: '1.0',
+        net_amount: '1.0',
+        fee_amount: null,
+        fee_scope: null,
+        fee_settlement: null,
+        price_amount: null,
+        price_currency: null,
+        price_source: null,
+        price_fetched_at: null,
+        price_granularity: null,
+        fx_rate_to_usd: null,
+        fx_source: null,
+        fx_timestamp: null,
+      })
+      .execute();
+
+    const enrichedTx: UniversalTransactionData = {
+      id: 2,
+      accountId: 1,
+      externalId: 'tx-2',
+      datetime: new Date().toISOString(),
+      timestamp: Date.now(),
+      source: 'kraken',
+      sourceType: 'exchange' as const,
+      status: 'success',
+      operation: { category: 'trade', type: 'swap' },
+      movements: {
+        inflows: [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1.0'),
+            netAmount: parseDecimal('1.0'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              source: 'coingecko',
+              fetchedAt: new Date(),
+              granularity: 'hour' as const,
+            },
+          },
+        ],
+        outflows: [
+          {
+            assetId: 'test:usdt',
+            assetSymbol: 'USDT',
+            grossAmount: parseDecimal('50000'),
+            netAmount: parseDecimal('50000'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('1'), currency: Currency.create('USD') },
+              source: 'coingecko',
+              fetchedAt: new Date(),
+              granularity: 'hour' as const,
+            },
+          },
+        ],
+      },
+      fees: [
+        {
+          assetId: 'test:btc',
+          assetSymbol: 'BTC',
+          amount: parseDecimal('0.0001'),
+          scope: 'network',
+          settlement: 'on-chain',
+          priceAtTxTime: {
+            price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+            source: 'coingecko',
+            fetchedAt: new Date(),
+            granularity: 'hour' as const,
+          },
+        },
+      ],
+    };
+
+    const result = await repository.updateMovementsWithPrices(enrichedTx);
+
+    expect(result.isOk()).toBe(true);
+
+    const movements = await db
+      .selectFrom('transaction_movements')
+      .selectAll()
+      .where('transaction_id', '=', 2)
+      .orderBy('position', 'asc')
+      .execute();
+
+    expect(movements).toHaveLength(3);
+    expect(movements.map((m) => m.position)).toEqual([0, 1, 2]);
+    expect(movements.map((m) => m.movement_type)).toEqual(['inflow', 'outflow', 'fee']);
+    expect(movements.some((m) => m.asset_id === 'legacy:asset')).toBe(false);
+  });
+
+  it('should reject invalid movement price metadata before persisting', async () => {
+    await db
+      .insertInto('transactions')
+      .values({
+        id: 3,
+        account_id: 1,
+        source_name: 'kraken',
+        source_type: 'exchange',
+        external_id: 'tx-3',
+        transaction_status: 'success',
+        transaction_datetime: new Date().toISOString(),
+        operation_type: 'swap',
+        is_spam: false,
+        excluded_from_accounting: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .execute();
+
+    await db
+      .insertInto('transaction_movements')
+      .values({
+        transaction_id: 3,
+        position: 0,
+        movement_type: 'inflow',
+        asset_id: 'test:btc',
+        asset_symbol: 'BTC',
+        gross_amount: '1.0',
+        net_amount: '1.0',
+        fee_amount: null,
+        fee_scope: null,
+        fee_settlement: null,
+        price_amount: null,
+        price_currency: null,
+        price_source: null,
+        price_fetched_at: null,
+        price_granularity: null,
+        fx_rate_to_usd: null,
+        fx_source: null,
+        fx_timestamp: null,
+      })
+      .execute();
+
+    const enrichedTx: UniversalTransactionData = {
+      id: 3,
+      accountId: 1,
+      externalId: 'tx-3',
+      datetime: new Date().toISOString(),
+      timestamp: Date.now(),
+      source: 'kraken',
+      sourceType: 'exchange' as const,
+      status: 'success',
+      operation: { category: 'trade', type: 'swap' },
+      movements: {
+        inflows: [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC',
+            grossAmount: parseDecimal('1.0'),
+            netAmount: parseDecimal('1.0'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              source: 'coingecko',
+              fetchedAt: new Date(),
+              granularity: 'invalid-granularity' as unknown as 'hour',
+            },
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+    };
+
+    const result = await repository.updateMovementsWithPrices(enrichedTx);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.isErr() ? result.error.message : '').toContain('Invalid inflow movement data');
+
+    const movements = await db
+      .selectFrom('transaction_movements')
+      .selectAll()
+      .where('transaction_id', '=', 3)
+      .orderBy('position', 'asc')
+      .execute();
+    expect(movements).toHaveLength(1);
+    expect(movements[0]?.price_source).toBeNull();
+  });
+
+  it('should cascade-delete movement rows when transaction is deleted', async () => {
+    await db
+      .insertInto('transactions')
+      .values({
+        id: 4,
+        account_id: 1,
+        source_name: 'kraken',
+        source_type: 'exchange',
+        external_id: 'tx-4',
+        transaction_status: 'success',
+        transaction_datetime: new Date().toISOString(),
+        operation_type: 'deposit',
+        is_spam: false,
+        excluded_from_accounting: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .execute();
+
+    await db
+      .insertInto('transaction_movements')
+      .values({
+        transaction_id: 4,
+        position: 0,
+        movement_type: 'inflow',
+        asset_id: 'test:eth',
+        asset_symbol: 'ETH',
+        gross_amount: '2.0',
+        net_amount: '2.0',
+        fee_amount: null,
+        fee_scope: null,
+        fee_settlement: null,
+        price_amount: null,
+        price_currency: null,
+        price_source: null,
+        price_fetched_at: null,
+        price_granularity: null,
+        fx_rate_to_usd: null,
+        fx_source: null,
+        fx_timestamp: null,
+      })
+      .execute();
+
+    await db.deleteFrom('transactions').where('id', '=', 4).execute();
+
+    const remaining = await db
+      .selectFrom('transaction_movements')
+      .selectAll()
+      .where('transaction_id', '=', 4)
+      .execute();
+    expect(remaining).toHaveLength(0);
   });
 
   it('should return error when transaction ID does not exist', async () => {
@@ -808,239 +1121,5 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result.isErr() && result.error.message).toContain('Transaction 999 not found');
-  });
-
-  it('should reject invalid movement price metadata before persisting', async () => {
-    await db
-      .insertInto('transactions')
-      .values({
-        id: 2,
-        account_id: 1,
-        source_name: 'kraken',
-        source_type: 'exchange',
-        external_id: 'tx-2',
-        transaction_status: 'success',
-        transaction_datetime: new Date().toISOString(),
-        operation_type: 'swap',
-        is_spam: false,
-        excluded_from_accounting: false,
-        movements_inflows: JSON.stringify([
-          { assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' },
-        ]),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .execute();
-
-    const enrichedTx: UniversalTransactionData = {
-      id: 2,
-      accountId: 1,
-      externalId: 'tx-2',
-      datetime: new Date().toISOString(),
-      timestamp: Date.now(),
-      source: 'kraken',
-      sourceType: 'exchange' as const,
-      status: 'success',
-      operation: { category: 'trade', type: 'swap' },
-      movements: {
-        inflows: [
-          {
-            assetId: 'test:btc',
-            assetSymbol: 'BTC',
-            grossAmount: parseDecimal('1.0'),
-            netAmount: parseDecimal('1.0'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
-              source: 'coingecko',
-              fetchedAt: new Date(),
-              granularity: null as unknown as 'exact',
-            },
-          },
-        ],
-        outflows: [],
-      },
-      fees: [],
-    };
-
-    const result = await repository.updateMovementsWithPrices(enrichedTx);
-
-    expect(result.isErr()).toBe(true);
-    expect(result.isErr() ? result.error.message : '').toContain('Invalid inflow movement data');
-  });
-});
-
-// Skipping tests for deprecated behavior - transactions are now scoped to accounts, not sessions
-// Deduplication happens at database level via unique constraints on (account_id, blockchain_transaction_hash)
-describe.skip('TransactionRepository - deduplication across sessions (deprecated)', () => {
-  let db: KyselyDB;
-  let repository: TransactionRepository;
-
-  beforeEach(async () => {
-    db = createDatabase(':memory:');
-    await runMigrations(db);
-    repository = new TransactionRepository(db);
-
-    // Create default user and account
-    await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
-    await db
-      .insertInto('accounts')
-      .values({
-        id: 1,
-        user_id: 1,
-        account_type: 'exchange-api',
-        source_name: 'kraken',
-        identifier: 'test-api-key',
-        provider_name: null,
-        parent_account_id: null,
-        last_cursor: null,
-        last_balance_check_at: null,
-        verification_metadata: null,
-        created_at: new Date().toISOString(),
-        updated_at: null,
-      })
-      .execute();
-
-    // Create multiple import sessions for the same account
-    await db
-      .insertInto('import_sessions')
-      .values([
-        {
-          id: 1,
-          account_id: 1,
-          started_at: new Date('2024-01-01').toISOString(),
-          status: 'completed',
-          transactions_imported: 3,
-          transactions_skipped: 0,
-          created_at: new Date('2024-01-01').toISOString(),
-          completed_at: new Date('2024-01-01').toISOString(),
-        },
-        {
-          id: 2,
-          account_id: 1,
-          started_at: new Date('2024-01-02').toISOString(),
-          status: 'completed',
-          transactions_imported: 5,
-          transactions_skipped: 0,
-          created_at: new Date('2024-01-02').toISOString(),
-          completed_at: new Date('2024-01-02').toISOString(),
-        },
-      ])
-      .execute();
-
-    // Create transactions in first session (3 unique transactions)
-    for (let i = 1; i <= 3; i++) {
-      await db
-        .insertInto('transactions')
-        .values({
-          id: i,
-          account_id: 1,
-          source_name: 'kraken',
-          source_type: 'exchange' as const,
-          external_id: `tx-${i}`,
-          transaction_status: 'success' as const,
-          transaction_datetime: new Date('2024-01-01').toISOString(),
-          is_spam: false,
-          excluded_from_accounting: false,
-          movements_inflows: JSON.stringify([
-            { assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' },
-          ]),
-          operation_type: 'deposit' as const,
-          created_at: new Date('2024-01-01').toISOString(),
-        })
-        .execute();
-    }
-
-    // Create transactions in second session:
-    // - tx-1 and tx-2 are duplicates from session 1
-    // - tx-4 and tx-5 are new unique transactions
-    const secondSessionTxs = [
-      { id: 4, externalId: 'tx-1' }, // Duplicate
-      { id: 5, externalId: 'tx-2' }, // Duplicate
-      { id: 6, externalId: 'tx-4' }, // New
-      { id: 7, externalId: 'tx-5' }, // New
-    ];
-
-    for (const { id, externalId } of secondSessionTxs) {
-      await db
-        .insertInto('transactions')
-        .values({
-          id,
-          account_id: 2,
-          source_name: 'kraken',
-          source_type: 'exchange' as const,
-          external_id: externalId,
-          transaction_status: 'success' as const,
-          transaction_datetime: new Date('2024-01-02').toISOString(),
-          is_spam: false,
-          excluded_from_accounting: false,
-          movements_inflows: JSON.stringify([
-            { assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' },
-          ]),
-          operation_type: 'deposit' as const,
-          created_at: new Date('2024-01-02').toISOString(),
-        })
-        .execute();
-    }
-  });
-
-  afterEach(async () => {
-    await db.destroy();
-  });
-
-  it('should deduplicate transactions when aggregating across multiple sessions', async () => {
-    // Query all completed sessions for account 1
-    const result = await repository.getTransactions({
-      accountId: 1,
-    });
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const transactions = result.value;
-
-      // Should have 5 unique transactions after deduplication:
-      // - tx-1, tx-2, tx-3 from session 1
-      // - tx-4, tx-5 from session 2 (new)
-      // - duplicates of tx-1 and tx-2 from session 2 should be filtered out
-      expect(transactions).toHaveLength(5);
-
-      // Verify the unique external IDs
-      const externalIds = transactions.map((tx) => tx.externalId).sort();
-      expect(externalIds).toEqual(['tx-1', 'tx-2', 'tx-3', 'tx-4', 'tx-5']);
-
-      // Verify deduplication kept the first occurrence (from session 1 for duplicates)
-      const tx1 = transactions.find((tx) => tx.externalId === 'tx-1');
-      expect(tx1?.id).toBe(1); // From session 1, not session 2 (id 4)
-
-      const tx2 = transactions.find((tx) => tx.externalId === 'tx-2');
-      expect(tx2?.id).toBe(2); // From session 1, not session 2 (id 5)
-    }
-  });
-
-  it('should not deduplicate when querying a single session', async () => {
-    // Query only session 2
-    const result = await repository.getTransactions({
-      accountId: 2,
-    });
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      // Should return all 4 transactions from session 2 without deduplication
-      expect(result.value).toHaveLength(4);
-    }
-  });
-
-  it('should log warning when duplicates are found and removed', async () => {
-    // This test documents that deduplication happens and logs a warning
-    // The actual logging is tested by checking the behavior is correct
-    const result = await repository.getTransactions({
-      accountId: 1,
-    });
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      // 7 total transactions in DB, but only 5 unique after deduplication
-      expect(result.value).toHaveLength(5);
-      // The warning is logged internally with message about 2 duplicates removed
-    }
   });
 });

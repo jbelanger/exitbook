@@ -1,26 +1,60 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
-import type { AssetMovement, FeeMovement, TransactionStatus, UniversalTransactionData } from '@exitbook/core';
-import { AssetMovementSchema, FeeMovementSchema, TransactionNoteSchema, wrapError } from '@exitbook/core';
-import type { Insertable, Selectable, Updateable } from 'kysely';
+import {
+  AssetMovementSchema,
+  Currency,
+  FeeMovementSchema,
+  TransactionNoteSchema,
+  parseDecimal,
+  type AssetMovement,
+  type FeeMovement,
+  type TransactionStatus,
+  type UniversalTransactionData,
+  wrapError,
+} from '@exitbook/core';
+import type { Insertable, Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';
 
-import type { TransactionsTable } from '../schema/database-schema.js';
+import type { TransactionMovementsTable, TransactionsTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
 import { generateDeterministicTransactionHash } from './transaction-id-utils.js';
 import type { ITransactionRepository, TransactionFilters } from './transaction-repository.interface.js';
 
-/**
- * Validate and normalize movement to ensure all required fields exist
- *
- * Clean break implementation - grossAmount is required, no legacy field support.
- * Processors MUST emit grossAmount. netAmount defaults to grossAmount when not specified.
- */
-function normalizeMovement(movement: AssetMovement): Result<AssetMovement, Error> {
-  // Require grossAmount - fail fast if processor didn't update
+type MovementRow = Selectable<TransactionMovementsTable>;
+
+function validatePriceDataForPersistence(
+  inflows: AssetMovement[],
+  outflows: AssetMovement[],
+  fees: FeeMovement[],
+  context: string
+): Result<void, Error> {
+  const inflowsValidation = z.array(AssetMovementSchema).safeParse(inflows);
+  if (!inflowsValidation.success) {
+    return err(new Error(`Invalid inflow movement data for ${context}: ${inflowsValidation.error.message}`));
+  }
+
+  const outflowsValidation = z.array(AssetMovementSchema).safeParse(outflows);
+  if (!outflowsValidation.success) {
+    return err(new Error(`Invalid outflow movement data for ${context}: ${outflowsValidation.error.message}`));
+  }
+
+  const feesValidation = z.array(FeeMovementSchema).safeParse(fees);
+  if (!feesValidation.success) {
+    return err(new Error(`Invalid fee data for ${context}: ${feesValidation.error.message}`));
+  }
+
+  return ok(undefined);
+}
+
+function assetMovementToRow(
+  movement: AssetMovement,
+  transactionId: number,
+  position: number,
+  movementType: 'inflow' | 'outflow'
+): Result<Insertable<TransactionMovementsTable>, Error> {
   if (!movement.grossAmount) {
     return err(
       new Error(
@@ -31,14 +65,177 @@ function normalizeMovement(movement: AssetMovement): Result<AssetMovement, Error
     );
   }
 
-  // Default: netAmount = grossAmount (valid for most transactions with no on-chain fees)
-  const netAmount = movement.netAmount ?? movement.grossAmount;
+  const row: Insertable<TransactionMovementsTable> = {
+    transaction_id: transactionId,
+    position,
+    movement_type: movementType,
+    asset_id: movement.assetId,
+    asset_symbol: movement.assetSymbol,
+    gross_amount: movement.grossAmount.toFixed(),
+    net_amount: (movement.netAmount ?? movement.grossAmount).toFixed(),
+    fee_amount: null,
+    fee_scope: null,
+    fee_settlement: null,
+    price_amount: movement.priceAtTxTime?.price.amount.toFixed() ?? null,
+    price_currency: movement.priceAtTxTime?.price.currency.toString() ?? null,
+    price_source: movement.priceAtTxTime?.source ?? null,
+    price_fetched_at: movement.priceAtTxTime?.fetchedAt
+      ? new Date(movement.priceAtTxTime.fetchedAt).toISOString()
+      : null,
+    price_granularity: movement.priceAtTxTime?.granularity ?? null,
+    fx_rate_to_usd: movement.priceAtTxTime?.fxRateToUSD?.toFixed() ?? null,
+    fx_source: movement.priceAtTxTime?.fxSource ?? null,
+    fx_timestamp: movement.priceAtTxTime?.fxTimestamp
+      ? new Date(movement.priceAtTxTime.fxTimestamp).toISOString()
+      : null,
+  };
 
-  return ok({
-    ...movement,
-    grossAmount: movement.grossAmount,
-    netAmount,
-  });
+  return ok(row);
+}
+
+function feeMovementToRow(
+  fee: FeeMovement,
+  transactionId: number,
+  position: number
+): Result<Insertable<TransactionMovementsTable>, Error> {
+  const row: Insertable<TransactionMovementsTable> = {
+    transaction_id: transactionId,
+    position,
+    movement_type: 'fee',
+    asset_id: fee.assetId,
+    asset_symbol: fee.assetSymbol,
+    gross_amount: null,
+    net_amount: null,
+    fee_amount: fee.amount.toFixed(),
+    fee_scope: fee.scope,
+    fee_settlement: fee.settlement,
+    price_amount: fee.priceAtTxTime?.price.amount.toFixed() ?? null,
+    price_currency: fee.priceAtTxTime?.price.currency.toString() ?? null,
+    price_source: fee.priceAtTxTime?.source ?? null,
+    price_fetched_at: fee.priceAtTxTime?.fetchedAt ? new Date(fee.priceAtTxTime.fetchedAt).toISOString() : null,
+    price_granularity: fee.priceAtTxTime?.granularity ?? null,
+    fx_rate_to_usd: fee.priceAtTxTime?.fxRateToUSD?.toFixed() ?? null,
+    fx_source: fee.priceAtTxTime?.fxSource ?? null,
+    fx_timestamp: fee.priceAtTxTime?.fxTimestamp ? new Date(fee.priceAtTxTime.fxTimestamp).toISOString() : null,
+  };
+
+  return ok(row);
+}
+
+function rowToAssetMovement(row: MovementRow): Result<AssetMovement, Error> {
+  if (row.movement_type !== 'inflow' && row.movement_type !== 'outflow') {
+    return err(new Error(`Expected inflow/outflow row, got ${row.movement_type}`));
+  }
+
+  if (!row.gross_amount) {
+    return err(new Error(`Movement row missing gross_amount (id: ${row.id})`));
+  }
+
+  const movement: AssetMovement = {
+    assetId: row.asset_id,
+    assetSymbol: row.asset_symbol,
+    grossAmount: parseDecimal(row.gross_amount),
+    netAmount: row.net_amount ? parseDecimal(row.net_amount) : parseDecimal(row.gross_amount),
+  };
+
+  if (row.price_amount && row.price_currency && row.price_source && row.price_fetched_at) {
+    movement.priceAtTxTime = {
+      price: {
+        amount: parseDecimal(row.price_amount),
+        currency: Currency.create(row.price_currency),
+      },
+      source: row.price_source,
+      fetchedAt: new Date(row.price_fetched_at),
+      granularity: row.price_granularity ?? undefined,
+      fxRateToUSD: row.fx_rate_to_usd ? parseDecimal(row.fx_rate_to_usd) : undefined,
+      fxSource: row.fx_source ?? undefined,
+      fxTimestamp: row.fx_timestamp ? new Date(row.fx_timestamp) : undefined,
+    };
+  }
+
+  const validation = AssetMovementSchema.safeParse(movement);
+  if (!validation.success) {
+    return err(new Error(`Movement row failed schema validation (id: ${row.id}): ${validation.error.message}`));
+  }
+
+  return ok(validation.data);
+}
+
+function rowToFeeMovement(row: MovementRow): Result<FeeMovement, Error> {
+  if (row.movement_type !== 'fee') {
+    return err(new Error(`Expected fee row, got ${row.movement_type}`));
+  }
+
+  if (!row.fee_amount || !row.fee_scope || !row.fee_settlement) {
+    return err(new Error(`Fee row missing required fields (id: ${row.id})`));
+  }
+
+  const fee: FeeMovement = {
+    assetId: row.asset_id,
+    assetSymbol: row.asset_symbol,
+    amount: parseDecimal(row.fee_amount),
+    scope: row.fee_scope,
+    settlement: row.fee_settlement,
+  };
+
+  if (row.price_amount && row.price_currency && row.price_source && row.price_fetched_at) {
+    fee.priceAtTxTime = {
+      price: {
+        amount: parseDecimal(row.price_amount),
+        currency: Currency.create(row.price_currency),
+      },
+      source: row.price_source,
+      fetchedAt: new Date(row.price_fetched_at),
+      granularity: row.price_granularity ?? undefined,
+      fxRateToUSD: row.fx_rate_to_usd ? parseDecimal(row.fx_rate_to_usd) : undefined,
+      fxSource: row.fx_source ?? undefined,
+      fxTimestamp: row.fx_timestamp ? new Date(row.fx_timestamp) : undefined,
+    };
+  }
+
+  const validation = FeeMovementSchema.safeParse(fee);
+  if (!validation.success) {
+    return err(new Error(`Fee row failed schema validation (id: ${row.id}): ${validation.error.message}`));
+  }
+
+  return ok(validation.data);
+}
+
+function buildMovementRows(
+  transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
+  transactionId: number
+): Result<Insertable<TransactionMovementsTable>[], Error> {
+  const inflows = transaction.movements.inflows ?? [];
+  const outflows = transaction.movements.outflows ?? [];
+  const fees = transaction.fees ?? [];
+
+  const validationResult = validatePriceDataForPersistence(inflows, outflows, fees, `transaction ${transactionId}`);
+  if (validationResult.isErr()) {
+    return err(validationResult.error);
+  }
+
+  const rows: Insertable<TransactionMovementsTable>[] = [];
+  let position = 0;
+
+  for (const inflow of inflows) {
+    const result = assetMovementToRow(inflow, transactionId, position++, 'inflow');
+    if (result.isErr()) return err(result.error);
+    rows.push(result.value);
+  }
+
+  for (const outflow of outflows) {
+    const result = assetMovementToRow(outflow, transactionId, position++, 'outflow');
+    if (result.isErr()) return err(result.error);
+    rows.push(result.value);
+  }
+
+  for (const fee of fees) {
+    const result = feeMovementToRow(fee, transactionId, position++);
+    if (result.isErr()) return err(result.error);
+    rows.push(result.value);
+  }
+
+  return ok(rows);
 }
 
 /**
@@ -62,40 +259,44 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       const values = valuesResult.value;
 
-      const result = await this.db
-        .insertInto('transactions')
-        .values(values)
-        .onConflict((oc) =>
-          // For blockchain transactions, conflict on unique index (account_id, blockchain_transaction_hash)
-          // For exchange transactions, we don't have a unique constraint, so this won't trigger
-          oc.doNothing()
-        )
-        .returning('id')
-        .executeTakeFirst();
+      return await this.withTransaction(async (trx) => {
+        const txResult = await trx
+          .insertInto('transactions')
+          .values(values)
+          .onConflict((oc) => oc.doNothing())
+          .returning('id')
+          .executeTakeFirst();
 
-      // If no result, the insert was skipped due to a conflict (duplicate transaction)
-      // Find and return the existing transaction's ID
-      if (!result) {
-        // For blockchain transactions, look up by blockchain_transaction_hash
-        if (values.blockchain_transaction_hash) {
-          const existing = await this.db
-            .selectFrom('transactions')
-            .select('id')
-            .where('account_id', '=', accountId)
-            .where('blockchain_transaction_hash', '=', values.blockchain_transaction_hash)
-            .executeTakeFirst();
+        if (!txResult) {
+          if (values.blockchain_transaction_hash) {
+            const existing = await trx
+              .selectFrom('transactions')
+              .select('id')
+              .where('account_id', '=', accountId)
+              .where('blockchain_transaction_hash', '=', values.blockchain_transaction_hash)
+              .executeTakeFirst();
 
-          if (existing) {
-            return ok(existing.id);
+            if (existing) {
+              return ok(existing.id);
+            }
           }
+          throw new Error('Transaction insert skipped due to conflict, but existing transaction not found');
         }
 
-        // If we couldn't find the existing transaction, return an error
-        // This should not happen in normal operation
-        return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
-      }
+        const transactionId = txResult.id;
 
-      return ok(result.id);
+        const movementRowsResult = buildMovementRows(transaction, transactionId);
+        if (movementRowsResult.isErr()) {
+          throw movementRowsResult.error;
+        }
+
+        const movementRows = movementRowsResult.value;
+        if (movementRows.length > 0) {
+          await trx.insertInto('transaction_movements').values(movementRows).execute();
+        }
+
+        return ok(transactionId);
+      });
     } catch (error) {
       return wrapError(error, 'Failed to save transaction');
     }
@@ -110,30 +311,30 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
 
     const createdAt = this.getCurrentDateTimeForDB();
-    const insertValues: Insertable<TransactionsTable>[] = [];
-
-    for (const [index, transaction] of transactions.entries()) {
-      const valuesResult = this.buildInsertValues(transaction, accountId, createdAt);
-      if (valuesResult.isErr()) {
-        return err(new Error(`Transaction index-${index}: ${valuesResult.error.message}`));
-      }
-      insertValues.push(valuesResult.value);
-    }
 
     try {
-      const result = await this.withTransaction(async (trx) => {
+      return await this.withTransaction(async (trx) => {
         let saved = 0;
         let duplicates = 0;
 
-        for (const values of insertValues) {
-          const insertResult = await trx
+        for (const [index, transaction] of transactions.entries()) {
+          const valuesResult = this.buildInsertValues(transaction, accountId, createdAt);
+          if (valuesResult.isErr()) {
+            throw new Error(`Transaction index-${index}: ${valuesResult.error.message}`);
+          }
+          const values = valuesResult.value;
+
+          const txResult = await trx
             .insertInto('transactions')
             .values(values)
             .onConflict((oc) => oc.doNothing())
             .returning('id')
             .executeTakeFirst();
 
-          if (!insertResult) {
+          let transactionId: number;
+          let isDuplicate = false;
+
+          if (!txResult) {
             if (values.blockchain_transaction_hash) {
               const existing = await trx
                 .selectFrom('transactions')
@@ -143,22 +344,36 @@ export class TransactionRepository extends BaseRepository implements ITransactio
                 .executeTakeFirst();
 
               if (existing) {
-                saved++;
+                transactionId = existing.id;
+                isDuplicate = true;
                 duplicates++;
-                continue;
+              } else {
+                throw new Error('Transaction insert skipped due to conflict, but existing transaction not found');
               }
+            } else {
+              throw new Error('Transaction insert skipped due to conflict, but existing transaction not found');
+            }
+          } else {
+            transactionId = txResult.id;
+          }
+
+          if (!isDuplicate) {
+            const movementRowsResult = buildMovementRows(transaction, transactionId);
+            if (movementRowsResult.isErr()) {
+              throw movementRowsResult.error;
             }
 
-            throw new Error('Transaction insert skipped due to conflict, but existing transaction not found');
+            const movementRows = movementRowsResult.value;
+            if (movementRows.length > 0) {
+              await trx.insertInto('transaction_movements').values(movementRows).execute();
+            }
           }
 
           saved++;
         }
 
-        return { saved, duplicates };
+        return ok({ saved, duplicates });
       });
-
-      return ok(result);
     } catch (error) {
       return wrapError(error, 'Failed to save transaction batch');
     }
@@ -168,14 +383,12 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     try {
       let query = this.db.selectFrom('transactions').selectAll();
 
-      // Add WHERE conditions if provided
       if (filters) {
         if (filters.sourceName) {
           query = query.where('source_name', '=', filters.sourceName);
         }
 
         if (filters.since) {
-          // Convert Unix timestamp to ISO string for comparison
           const sinceDate = new Date(filters.since * 1000).toISOString();
           query = query.where('created_at', '>=', sinceDate as unknown as string);
         }
@@ -187,21 +400,25 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         }
       }
 
-      // By default, exclude transactions marked as excluded_from_accounting (scam tokens, etc.)
-      // unless explicitly requested
       if (!filters?.includeExcluded) {
         query = query.where('excluded_from_accounting', '=', false);
       }
 
-      // Order by transaction datetime ascending (oldest to newest)
       query = query.orderBy('transaction_datetime', 'asc');
 
       const rows = await query.execute();
 
-      // Convert rows to domain models, failing fast on any parse errors
+      const transactionIds = rows.map((r) => r.id);
+      const movementsMapResult = await this.loadMovementsForTransactions(transactionIds);
+      if (movementsMapResult.isErr()) {
+        return err(movementsMapResult.error);
+      }
+      const movementsMap = movementsMapResult.value;
+
       const transactions: UniversalTransactionData[] = [];
       for (const row of rows) {
-        const result = this.toUniversalTransaction(row);
+        const movementRows = movementsMap.get(row.id) ?? [];
+        const result = this.toUniversalTransaction(row, movementRows);
         if (result.isErr()) {
           return err(result.error);
         }
@@ -222,7 +439,13 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         return ok(undefined);
       }
 
-      const result = this.toUniversalTransaction(row);
+      const movementsResult = await this.loadMovementsForTransactions([id]);
+      if (movementsResult.isErr()) {
+        return err(movementsResult.error);
+      }
+      const movementRows = movementsResult.value.get(id) ?? [];
+
+      const result = this.toUniversalTransaction(row, movementRows);
       if (result.isErr()) {
         return err(result.error);
       }
@@ -233,58 +456,43 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  /**
-   * Find transactions with movements or fees that need price data
-   * Optionally filter by specific asset(s)
-   */
   async findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransactionData[], Error>> {
     try {
-      const query = this.db
-        .selectFrom('transactions')
-        .selectAll()
-        .where((eb) =>
-          eb.and([
-            eb.or([
-              eb('movements_inflows', 'is not', null),
-              eb('movements_outflows', 'is not', null),
-              eb('fees', 'is not', null),
-            ]),
-            eb('excluded_from_accounting', '=', false),
-          ])
-        );
+      const query = this.db.selectFrom('transactions').selectAll().where('excluded_from_accounting', '=', false);
 
       const rows = await query.execute();
 
-      // Convert rows to domain models
+      if (rows.length === 0) {
+        return ok([]);
+      }
+
+      const transactionIds = rows.map((r) => r.id);
+      const movementsMapResult = await this.loadMovementsForTransactions(transactionIds);
+      if (movementsMapResult.isErr()) {
+        return err(movementsMapResult.error);
+      }
+      const movementsMap = movementsMapResult.value;
+
       const transactions: UniversalTransactionData[] = [];
       for (const row of rows) {
-        const result = this.toUniversalTransaction(row);
+        const movementRows = movementsMap.get(row.id) ?? [];
+        const result = this.toUniversalTransaction(row, movementRows);
         if (result.isErr()) {
           return err(result.error);
         }
         transactions.push(result.value);
       }
 
-      // Filter transactions that have movements or fees without priceAtTxTime
       const transactionsNeedingPrices = transactions.filter((tx) => {
         const allMovements = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? []), ...(tx.fees ?? [])];
 
-        // Check if any movement is missing priceAtTxTime or has tentative non-USD price
         return allMovements.some((movement) => {
-          // If asset filter is provided, only check movements matching the filter
           if (assetFilter && assetFilter.length > 0) {
             if (!assetFilter.includes(movement.assetSymbol)) {
               return false;
             }
           }
 
-          // Movement needs price if:
-          // 1. No price at all, OR
-          // 2. Price source is 'fiat-execution-tentative' (not yet normalized to USD)
-          // This ensures Stage 3 fetch runs as fallback if Stage 2 FX normalization fails
-          //
-          // Note: We do NOT skip fiat currencies here because Pass 0 needs to stamp identity
-          // prices on fiat movements (1 USD = 1 USD, 1 CAD = 1 CAD, etc.)
           return !movement.priceAtTxTime || movement.priceAtTxTime.source === 'fiat-execution-tentative';
         });
       });
@@ -295,45 +503,55 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  /**
-   * Update a transaction's movements and fees with enriched price data
-   * @param transaction - The enriched transaction with price data
-   */
   async updateMovementsWithPrices(transaction: UniversalTransactionData): Promise<Result<void, Error>> {
     try {
-      const inflows = transaction.movements.inflows ?? [];
-      const outflows = transaction.movements.outflows ?? [];
-      const fees = transaction.fees ?? [];
-
-      const validationResult = this.validatePriceDataForPersistence(
-        inflows,
-        outflows,
-        fees,
+      const validationResult = validatePriceDataForPersistence(
+        transaction.movements.inflows ?? [],
+        transaction.movements.outflows ?? [],
+        transaction.fees ?? [],
         `transaction ${transaction.id}`
       );
       if (validationResult.isErr()) {
         return err(validationResult.error);
       }
 
-      // Build update object using Kysely's Updateable type
-      const updateData: Partial<Updateable<TransactionsTable>> = {
-        movements_inflows: (inflows.length > 0 ? this.serializeToJson(inflows) : null) as string | null,
-        movements_outflows: (outflows.length > 0 ? this.serializeToJson(outflows) : null) as string | null,
-        fees: (fees.length > 0 ? this.serializeToJson(fees) : null) as string | null,
-        updated_at: this.getCurrentDateTimeForDB(),
-      };
+      await this.withTransaction(async (trx) => {
+        const txExists = await trx
+          .selectFrom('transactions')
+          .select('id')
+          .where('id', '=', transaction.id)
+          .executeTakeFirst();
 
-      // Update transaction with enriched movements and fees
-      const result = await this.db
-        .updateTable('transactions')
-        .set(updateData)
-        .where('id', '=', transaction.id)
-        .executeTakeFirst();
+        if (!txExists) {
+          throw new Error(`Transaction ${transaction.id} not found`);
+        }
 
-      // Verify transaction exists (0 rows updated means ID was invalid)
-      if (result.numUpdatedRows === 0n) {
-        return err(new Error(`Transaction ${transaction.id} not found`));
-      }
+        await trx.deleteFrom('transaction_movements').where('transaction_id', '=', transaction.id).execute();
+
+        const transactionForMovementRebuild = {
+          ...transaction,
+          id: undefined,
+          accountId: undefined,
+        } as Omit<UniversalTransactionData, 'id' | 'accountId'>;
+
+        const movementRowsResult = buildMovementRows(transactionForMovementRebuild, transaction.id);
+        if (movementRowsResult.isErr()) {
+          throw movementRowsResult.error;
+        }
+
+        const movementRows = movementRowsResult.value;
+        if (movementRows.length > 0) {
+          await trx.insertInto('transaction_movements').values(movementRows).execute();
+        }
+
+        await trx
+          .updateTable('transactions')
+          .set({ updated_at: this.getCurrentDateTimeForDB() })
+          .where('id', '=', transaction.id)
+          .execute();
+
+        return ok(undefined);
+      });
 
       return ok(undefined);
     } catch (error) {
@@ -451,7 +669,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     accountId: number,
     createdAt?: string
   ): Result<Insertable<TransactionsTable>, Error> {
-    // Validate notes before saving
     if (transaction.notes !== undefined) {
       const notesValidation = z.array(TransactionNoteSchema).safeParse(transaction.notes);
       if (!notesValidation.success) {
@@ -459,29 +676,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       }
     }
 
-    // Normalize movements: ensure gross/net fields exist
-    const normalizedInflows: AssetMovement[] = [];
-    for (const inflow of transaction.movements.inflows ?? []) {
-      const result = normalizeMovement(inflow);
-      if (result.isErr()) {
-        return err(result.error);
-      }
-      normalizedInflows.push(result.value);
-    }
+    const inflows = transaction.movements.inflows ?? [];
+    const outflows = transaction.movements.outflows ?? [];
+    const fees = transaction.fees ?? [];
 
-    const normalizedOutflows: AssetMovement[] = [];
-    for (const outflow of transaction.movements.outflows ?? []) {
-      const result = normalizeMovement(outflow);
-      if (result.isErr()) {
-        return err(result.error);
-      }
-      normalizedOutflows.push(result.value);
-    }
-
-    const validationResult = this.validatePriceDataForPersistence(
-      normalizedInflows,
-      normalizedOutflows,
-      transaction.fees ?? [],
+    const validationResult = validatePriceDataForPersistence(
+      inflows,
+      outflows,
+      fees,
       `externalId ${transaction.externalId || '[generated]'}`
     );
     if (validationResult.isErr()) {
@@ -504,19 +706,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         ? new Date(transaction.datetime).toISOString()
         : new Date().toISOString(),
       transaction_status: transaction.status,
-
-      // Serialize normalized movements
-      movements_inflows: (normalizedInflows.length > 0 ? this.serializeToJson(normalizedInflows) : null) ?? null,
-      movements_outflows: (normalizedOutflows.length > 0 ? this.serializeToJson(normalizedOutflows) : null) ?? null,
-
-      // Serialize fees array
-      fees: (transaction.fees && transaction.fees.length > 0 ? this.serializeToJson(transaction.fees) : null) ?? null,
-
-      // Enhanced operation classification
       operation_category: transaction.operation?.category ?? null,
       operation_type: transaction.operation?.type ?? null,
-
-      // Blockchain metadata
       blockchain_name: transaction.blockchain?.name ?? null,
       blockchain_block_height: transaction.blockchain?.block_height ?? null,
       blockchain_transaction_hash: transaction.blockchain?.transaction_hash ?? null,
@@ -524,46 +715,81 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     });
   }
 
-  /**
-   * Convert database row to UniversalTransactionData domain model
-   */
-  private toUniversalTransaction(row: Selectable<TransactionsTable>): Result<UniversalTransactionData, Error> {
-    // Parse timestamp from datetime
+  private async loadMovementsForTransactions(
+    transactionIds: number[]
+  ): Promise<Result<Map<number, MovementRow[]>, Error>> {
+    if (transactionIds.length === 0) {
+      return ok(new Map());
+    }
+
+    try {
+      const rows = await this.db
+        .selectFrom('transaction_movements')
+        .selectAll()
+        .where('transaction_id', 'in', transactionIds)
+        .orderBy('transaction_id', 'asc')
+        .orderBy('position', 'asc')
+        .execute();
+
+      const map = new Map<number, MovementRow[]>();
+      for (const row of rows) {
+        const existing = map.get(row.transaction_id);
+        if (existing) {
+          existing.push(row);
+        } else {
+          map.set(row.transaction_id, [row]);
+        }
+      }
+
+      return ok(map);
+    } catch (error) {
+      return wrapError(error, 'Failed to load movements for transactions');
+    }
+  }
+
+  private toUniversalTransaction(
+    row: Selectable<TransactionsTable>,
+    movementRows: MovementRow[]
+  ): Result<UniversalTransactionData, Error> {
     const datetime = row.transaction_datetime;
     const timestamp = new Date(datetime).getTime();
 
-    // Parse movements
-    const inflowsResult = this.parseMovements(row.movements_inflows as string | null);
-    if (inflowsResult.isErr()) {
-      return err(
-        new Error(
-          `Transaction ${row.id} (${row.external_id ?? 'no-external-id'}) inflows parse failed: ${inflowsResult.error.message}`
-        )
-      );
+    const inflowRows = movementRows.filter((r) => r.movement_type === 'inflow');
+    const outflowRows = movementRows.filter((r) => r.movement_type === 'outflow');
+    const feeRows = movementRows.filter((r) => r.movement_type === 'fee');
+
+    const inflows: AssetMovement[] = [];
+    for (const r of inflowRows) {
+      const result = rowToAssetMovement(r);
+      if (result.isErr()) {
+        this.logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse inflow');
+        return err(new Error(`Transaction ${row.id} inflow parse failed (movement ${r.id}): ${result.error.message}`));
+      }
+      inflows.push(result.value);
     }
 
-    const outflowsResult = this.parseMovements(row.movements_outflows as string | null);
-    if (outflowsResult.isErr()) {
-      return err(
-        new Error(
-          `Transaction ${row.id} (${row.external_id ?? 'no-external-id'}) outflows parse failed: ${outflowsResult.error.message}`
-        )
-      );
+    const outflows: AssetMovement[] = [];
+    for (const r of outflowRows) {
+      const result = rowToAssetMovement(r);
+      if (result.isErr()) {
+        this.logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse outflow');
+        return err(new Error(`Transaction ${row.id} outflow parse failed (movement ${r.id}): ${result.error.message}`));
+      }
+      outflows.push(result.value);
     }
 
-    // Parse fees array
-    const feesResult = this.parseFees(row.fees as string | null);
-    if (feesResult.isErr()) {
-      return err(
-        new Error(
-          `Transaction ${row.id} (${row.external_id ?? 'no-external-id'}) fees parse failed: ${feesResult.error.message}`
-        )
-      );
+    const fees: FeeMovement[] = [];
+    for (const r of feeRows) {
+      const result = rowToFeeMovement(r);
+      if (result.isErr()) {
+        this.logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse fee');
+        return err(new Error(`Transaction ${row.id} fee parse failed (movement ${r.id}): ${result.error.message}`));
+      }
+      fees.push(result.value);
     }
 
     const status: TransactionStatus = row.transaction_status;
 
-    // Build UniversalTransactionData
     const transaction: UniversalTransactionData = {
       id: row.id,
       accountId: row.account_id,
@@ -576,10 +802,10 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       from: row.from_address ?? undefined,
       to: row.to_address ?? undefined,
       movements: {
-        inflows: inflowsResult.value,
-        outflows: outflowsResult.value,
+        inflows: inflows.length > 0 ? inflows : [],
+        outflows: outflows.length > 0 ? outflows : [],
       },
-      fees: feesResult.value,
+      fees: fees.length > 0 ? fees : [],
       operation: {
         category: row.operation_category ?? 'transfer',
         type: row.operation_type ?? 'transfer',
@@ -588,7 +814,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       excludedFromAccounting: row.excluded_from_accounting ? true : undefined,
     };
 
-    // Add blockchain data if present
     if (row.blockchain_name) {
       transaction.blockchain = {
         name: row.blockchain_name,
@@ -598,7 +823,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       };
     }
 
-    // Add notes if present
     if (row.notes_json) {
       const notesResult = this.parseWithSchema(row.notes_json, z.array(TransactionNoteSchema));
       if (notesResult.isErr()) {
@@ -608,87 +832,5 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
 
     return ok(transaction);
-  }
-
-  /**
-   * Parse movements from JSON
-   */
-  private parseMovements(jsonString: string | null): Result<AssetMovement[], Error> {
-    if (!jsonString) {
-      return ok([]);
-    }
-
-    try {
-      const parsed: unknown = JSON.parse(jsonString);
-      const result = z.array(AssetMovementSchema).safeParse(parsed);
-
-      if (!result.success) {
-        return err(new Error(`Failed to parse movements JSON: ${result.error.message}`));
-      }
-
-      // Normalize and validate all movements
-      const normalizedMovements: AssetMovement[] = [];
-      for (const movement of result.data) {
-        const normalizeResult = normalizeMovement(movement);
-        if (normalizeResult.isErr()) {
-          return err(normalizeResult.error);
-        }
-        normalizedMovements.push(normalizeResult.value);
-      }
-
-      return ok(normalizedMovements);
-    } catch (error) {
-      return err(
-        new Error(`Failed to parse movements JSON: ${error instanceof Error ? error.message : String(error)}`)
-      );
-    }
-  }
-
-  /**
-   * Parse fees array from JSON column
-   *
-   * Schema validation via FeeMovementSchema ensures required fields (scope, settlement) are present.
-   */
-  private parseFees(jsonString: string | null): Result<FeeMovement[], Error> {
-    if (!jsonString) {
-      return ok([]);
-    }
-
-    try {
-      const parsed: unknown = JSON.parse(jsonString);
-      const result = z.array(FeeMovementSchema).safeParse(parsed);
-
-      if (!result.success) {
-        return err(new Error(`Failed to parse fees JSON: ${result.error.message}`));
-      }
-
-      return ok(result.data);
-    } catch (error) {
-      return err(new Error(`Failed to parse fees JSON: ${error instanceof Error ? error.message : String(error)}`));
-    }
-  }
-
-  private validatePriceDataForPersistence(
-    inflows: AssetMovement[],
-    outflows: AssetMovement[],
-    fees: FeeMovement[],
-    context: string
-  ): Result<void, Error> {
-    const inflowsValidation = z.array(AssetMovementSchema).safeParse(inflows);
-    if (!inflowsValidation.success) {
-      return err(new Error(`Invalid inflow movement data for ${context}: ${inflowsValidation.error.message}`));
-    }
-
-    const outflowsValidation = z.array(AssetMovementSchema).safeParse(outflows);
-    if (!outflowsValidation.success) {
-      return err(new Error(`Invalid outflow movement data for ${context}: ${outflowsValidation.error.message}`));
-    }
-
-    const feesValidation = z.array(FeeMovementSchema).safeParse(fees);
-    if (!feesValidation.success) {
-      return err(new Error(`Invalid fee data for ${context}: ${feesValidation.error.message}`));
-    }
-
-    return ok(undefined);
   }
 }
