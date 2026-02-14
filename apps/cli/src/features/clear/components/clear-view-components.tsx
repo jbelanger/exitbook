@@ -6,10 +6,15 @@ import type { ClearService, ClearServiceParams } from '@exitbook/ingestion';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { Divider, getSelectionCursor, StatusIcon } from '../../../ui/shared/index.js';
+import {
+  calculateChromeLines,
+  calculateVisibleRows,
+  Divider,
+  getSelectionCursor,
+  StatusIcon,
+} from '../../../ui/shared/index.js';
 
 import { clearViewReducer, handleClearKeyboardInput } from './clear-view-controller.js';
-import { getClearViewVisibleRows } from './clear-view-layout.js';
 import {
   buildCategoryItems,
   buildResultCategoryItems,
@@ -17,6 +22,17 @@ import {
   type ClearCategoryItem,
   type ClearViewState,
 } from './clear-view-state.js';
+
+export const CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 1, // "Clear Data"
+  afterHeader: 1, // blank line
+  divider: 1, // separator line
+  detail: 4, // category detail panel
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 4, // bottom margin
+});
 import { formatCount, getCategoryDescription } from './clear-view-utils.js';
 
 /**
@@ -117,7 +133,7 @@ const CategoryList: FC<{
   terminalHeight: number;
 }> = ({ state, categoryItems, terminalHeight, isComplete }) => {
   const { selectedIndex, scrollOffset } = state;
-  const visibleRows = getClearViewVisibleRows(terminalHeight);
+  const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, categoryItems.length);

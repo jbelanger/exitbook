@@ -2,9 +2,10 @@
  * Cost basis view controller — reducer and keyboard handler.
  */
 
+import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 
-import { getCostBasisAssetsVisibleRows, getCostBasisTimelineVisibleRows } from './cost-basis-view-layout.js';
+import { COST_BASIS_ASSETS_CHROME_LINES, COST_BASIS_TIMELINE_CHROME_LINES } from './cost-basis-view-components.js';
 import type { CostBasisAction, CostBasisState } from './cost-basis-view-state.js';
 import { createCostBasisTimelineState } from './cost-basis-view-state.js';
 
@@ -125,8 +126,8 @@ export function handleCostBasisKeyboardInput(
 ): void {
   const visibleRows =
     state.view === 'assets'
-      ? getCostBasisAssetsVisibleRows(terminalHeight)
-      : getCostBasisTimelineVisibleRows(terminalHeight);
+      ? calculateVisibleRows(terminalHeight, COST_BASIS_ASSETS_CHROME_LINES)
+      : calculateVisibleRows(terminalHeight, COST_BASIS_TIMELINE_CHROME_LINES);
 
   const isDrilledDown = state.view === 'timeline';
 

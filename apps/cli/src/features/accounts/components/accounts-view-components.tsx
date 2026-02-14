@@ -5,10 +5,9 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 
 import { handleAccountsKeyboardInput, accountsViewReducer } from './accounts-view-controller.js';
-import { getAccountsViewVisibleRows } from './accounts-view-layout.js';
 import type {
   AccountViewItem,
   AccountsViewState,
@@ -16,6 +15,18 @@ import type {
   SessionViewItem,
   TypeCounts,
 } from './accounts-view-state.js';
+
+export const CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 1, // "Accounts · N total · type counts"
+  afterHeader: 1, // blank line
+  listScrollIndicators: 2, // "▲/▼ N more above/below"
+  divider: 1, // separator line
+  detail: 7, // account detail panel
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 1, // bottom margin
+});
 
 /**
  * Main accounts view app component
@@ -104,7 +115,7 @@ function buildTypeParts(counts: TypeCounts): { count: number; label: string }[] 
 
 const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { accounts, selectedIndex, scrollOffset } = state;
-  const visibleRows = getAccountsViewVisibleRows(terminalHeight);
+  const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, accounts.length);

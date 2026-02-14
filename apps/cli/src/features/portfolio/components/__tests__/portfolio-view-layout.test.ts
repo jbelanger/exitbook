@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getPortfolioAssetsLayout, getPortfolioAssetsVisibleRows } from '../portfolio-view-layout.js';
+import { getPortfolioAssetsLayout, getPortfolioAssetsVisibleRows } from '../portfolio-view-components.js';
 import { createPortfolioAssetsState } from '../portfolio-view-state.js';
 
 function createState(openLotCount: number) {

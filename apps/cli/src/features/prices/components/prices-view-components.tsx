@@ -5,14 +5,36 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, useRef, type FC } from 'react';
 
-import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 import type { AssetBreakdownEntry, MissingPriceMovement, PriceCoverageDetail } from '../prices-view-utils.js';
 import { formatCoveragePercentage } from '../prices-view-utils.js';
 
 import { handlePricesKeyboardInput, pricesViewReducer } from './prices-view-controller.js';
-import { getPricesViewVisibleRows } from './prices-view-layout.js';
 import type { PricesViewCoverageState, PricesViewMissingState, PricesViewState } from './prices-view-state.js';
 import { missingRowKey } from './prices-view-state.js';
+
+export const COVERAGE_CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 1, // "Price Coverage · N assets"
+  afterHeader: 1, // blank line
+  divider: 1, // separator line
+  detail: 7, // coverage detail panel
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 1, // bottom margin
+});
+
+export const MISSING_CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 1, // "Missing Prices · N movements"
+  afterHeader: 1, // blank line
+  listScrollIndicators: 2, // "▲/▼ N more above/below"
+  divider: 1, // separator line
+  detail: 9, // missing price detail panel
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 1, // bottom margin
+});
 
 /**
  * Main prices view app component
@@ -163,7 +185,7 @@ const CoverageHeader: FC<{ state: PricesViewCoverageState }> = ({ state }) => {
 
 const CoverageList: FC<{ state: PricesViewCoverageState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { coverage, selectedIndex, scrollOffset } = state;
-  const visibleRows = getPricesViewVisibleRows(terminalHeight, 'coverage');
+  const visibleRows = calculateVisibleRows(terminalHeight, COVERAGE_CHROME_LINES);
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, coverage.length);
@@ -443,7 +465,7 @@ const MissingAssetBreakdown: FC<{ assets: AssetBreakdownEntry[] }> = ({ assets }
 
 const MissingList: FC<{ state: PricesViewMissingState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { movements, selectedIndex, scrollOffset, resolvedRows } = state;
-  const visibleRows = getPricesViewVisibleRows(terminalHeight, 'missing');
+  const visibleRows = calculateVisibleRows(terminalHeight, MISSING_CHROME_LINES);
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, movements.length);

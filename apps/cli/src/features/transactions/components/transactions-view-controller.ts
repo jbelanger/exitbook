@@ -2,10 +2,11 @@
  * Transactions view controller — reducer and keyboard handler
  */
 
+import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 import type { CsvFormat, ExportFormat } from '../transactions-export-utils.js';
 
-import { getTransactionsViewVisibleRows } from './transactions-view-layout.js';
+import { CHROME_LINES } from './transactions-view-components.js';
 import type { TransactionsViewState } from './transactions-view-state.js';
 
 /**
@@ -176,7 +177,7 @@ export function handleTransactionsKeyboardInput(
   phase: TransactionsViewState['phase'],
   exportPanel: TransactionsViewState['exportPanel']
 ): { csvFormat: CsvFormat | undefined; format: ExportFormat } | undefined {
-  const visibleRows = getTransactionsViewVisibleRows(terminalHeight);
+  const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
 
   // Ignore all input while exporting
   if (phase === 'exporting') return undefined;

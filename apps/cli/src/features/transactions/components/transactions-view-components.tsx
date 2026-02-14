@@ -7,14 +7,13 @@ import { Box, Text, useInput, useStdout } from 'ink';
 import Spinner from 'ink-spinner';
 import { useReducer, type FC } from 'react';
 
-import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 
 import {
   FORMAT_OPTIONS,
   handleTransactionsKeyboardInput,
   transactionsViewReducer,
 } from './transactions-view-controller.js';
-import { getTransactionsViewVisibleRows } from './transactions-view-layout.js';
 import type {
   CategoryCounts,
   ExportPanelState,
@@ -25,6 +24,18 @@ import type {
   TransactionsViewPhase,
   TransactionsViewState,
 } from './transactions-view-state.js';
+
+export const CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 1, // "Transactions · N total · category counts"
+  afterHeader: 1, // blank line
+  listScrollIndicators: 2, // "▲/▼ N more above/below"
+  divider: 1, // separator line
+  detail: 9, // transaction detail panel (movements, fees, prices)
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 1, // bottom margin
+});
 
 /**
  * Main transactions view app component
@@ -153,7 +164,7 @@ function buildCategoryParts(counts: CategoryCounts): { count: number; label: str
 
 const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { transactions, selectedIndex, scrollOffset } = state;
-  const visibleRows = getTransactionsViewVisibleRows(terminalHeight);
+  const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, transactions.length);

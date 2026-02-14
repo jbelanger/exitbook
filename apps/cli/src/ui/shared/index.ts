@@ -20,7 +20,6 @@ export { StatusIcon, statusIcon, type OperationStatus } from './status-icon.js';
 export { TextPrompt, type TextPromptProps } from './TextPrompt.js';
 export { TreeChars } from './tree-chars.js';
 
-export { DynamicTable, type DynamicTableProps, type TableColumn } from './DynamicTable.js';
 export { computeColumnWidth, computeColumnWidths, padEnd, padStart } from './table-utils.js';
 export {
   arrayLines,

@@ -4,7 +4,7 @@
 
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 
-import { getBalanceAccountsVisibleRows, getBalanceAssetsVisibleRows } from './balance-view-layout.js';
+import { getBalanceAccountsVisibleRows, getBalanceAssetsVisibleRows } from './balance-view-components.js';
 import type {
   AccountVerificationItem,
   BalanceAction,

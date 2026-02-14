@@ -6,18 +6,236 @@ import { Decimal } from 'decimal.js';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import {
+  calculateChromeLines,
+  calculateVisibleRows,
+  computeColumnWidths,
+  conditionalLines,
+  Divider,
+  getSelectionCursor,
+} from '../../../ui/shared/index.js';
 import { formatCryptoQuantity } from '../../cost-basis/components/index.js';
 import type { PortfolioPositionItem, PortfolioTransactionItem } from '../portfolio-types.js';
 
 import { portfolioViewReducer, handlePortfolioKeyboardInput } from './portfolio-view-controller.js';
-import { getPortfolioAssetsLayout, getPortfolioHistoryVisibleRows } from './portfolio-view-layout.js';
 import {
   getVisiblePositions,
   type PortfolioAssetsState,
   type PortfolioHistoryState,
   type PortfolioPnlMode,
 } from './portfolio-view-state.js';
+
+// ─── Layout Logic ────────────────────────────────────────────────────────────
+
+const PORTFOLIO_HISTORY_CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 1, // "Transaction History"
+  afterHeader: 1, // blank line
+  listScrollIndicators: 2, // "▲/▼ N more above/below"
+  divider: 1, // separator line
+  detail: 7, // transaction detail panel
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 1, // bottom margin
+});
+
+const PORTFOLIO_LIST_SCROLL_INDICATOR_RESERVE_LINES = 2;
+
+export interface PortfolioAssetsLayout {
+  hiddenOpenLots: number;
+  listVisibleRows: number;
+  openLotsVisibleRows: number;
+}
+
+export function getPortfolioAssetsLayout(terminalHeight: number, state: PortfolioAssetsState): PortfolioAssetsLayout {
+  const selected = getVisiblePositions(state)[state.selectedIndex];
+  const totalOpenLots = getOpenLotsRows(selected);
+  const chromeLines = calculatePortfolioAssetsChromeLinesWithoutOpenLots(state, selected);
+  const availableRows = calculateVisibleRows(terminalHeight, chromeLines);
+
+  if (totalOpenLots === 0) {
+    return {
+      hiddenOpenLots: 0,
+      listVisibleRows: availableRows,
+      openLotsVisibleRows: 0,
+    };
+  }
+
+  // Keep at least one row for the top list and use the remainder for open lots.
+  const maxLotSectionRows = Math.max(0, availableRows - 1);
+  if (maxLotSectionRows === 0) {
+    return {
+      hiddenOpenLots: totalOpenLots,
+      listVisibleRows: availableRows,
+      openLotsVisibleRows: 0,
+    };
+  }
+
+  if (totalOpenLots <= maxLotSectionRows) {
+    return {
+      hiddenOpenLots: 0,
+      listVisibleRows: Math.max(1, availableRows - totalOpenLots),
+      openLotsVisibleRows: totalOpenLots,
+    };
+  }
+
+  if (maxLotSectionRows === 1) {
+    return {
+      hiddenOpenLots: totalOpenLots,
+      listVisibleRows: Math.max(1, availableRows - 1),
+      openLotsVisibleRows: 0,
+    };
+  }
+
+  const openLotsVisibleRows = maxLotSectionRows - 1;
+  return {
+    hiddenOpenLots: totalOpenLots - openLotsVisibleRows,
+    listVisibleRows: Math.max(1, availableRows - maxLotSectionRows),
+    openLotsVisibleRows,
+  };
+}
+
+export function getPortfolioAssetsVisibleRows(terminalHeight: number, state: PortfolioAssetsState): number {
+  return getPortfolioAssetsLayout(terminalHeight, state).listVisibleRows;
+}
+
+export function getPortfolioHistoryVisibleRows(terminalHeight: number): number {
+  return calculateVisibleRows(terminalHeight, PORTFOLIO_HISTORY_CHROME_LINES);
+}
+
+function calculatePortfolioAssetsChromeLinesWithoutOpenLots(
+  state: PortfolioAssetsState,
+  selected: PortfolioPositionItem | undefined
+): number {
+  return calculateChromeLines({
+    beforeHeader: 1,
+    header: getHeaderLines(state),
+    beforeList: 1,
+    listScrollIndicators: PORTFOLIO_LIST_SCROLL_INDICATOR_RESERVE_LINES,
+    divider: 1,
+    detail: selected ? getAssetDetailLinesWithoutOpenLots(selected, state.pnlMode) : 0,
+    error: conditionalLines(Boolean(state.error), 1),
+    beforeControls: 1,
+    controls: 1,
+  });
+}
+
+function getHeaderLines(state: PortfolioAssetsState): number {
+  const visiblePositions = getVisiblePositions(state);
+  const pricedNonNegative = visiblePositions.filter(
+    (position) => position.priceStatus === 'ok' && !position.isNegative
+  ).length;
+  const showUnrealized = state.pnlMode !== 'realized';
+  const showRealized = state.pnlMode !== 'unrealized';
+
+  let lines = 1;
+
+  if (state.warnings.length > 0) {
+    lines += state.warnings.length;
+  }
+
+  if (state.totalNetFiatIn !== undefined) {
+    lines += 1;
+  }
+
+  if (pricedNonNegative === 0) {
+    if (showRealized && state.totalRealizedGainLossAllTime !== undefined) {
+      lines += 1;
+    }
+    return lines;
+  }
+
+  if (state.totalCost !== undefined || showUnrealized) {
+    lines += 1;
+  }
+
+  if (showRealized) {
+    lines += 1;
+  }
+
+  return lines;
+}
+
+function getAssetDetailLinesWithoutOpenLots(selected: PortfolioPositionItem, pnlMode: PortfolioPnlMode): number {
+  let lines = 0;
+
+  // Title row + blank line.
+  lines += 1;
+  lines += 1;
+
+  if (selected.isClosedPosition === true) {
+    lines += 1;
+    lines += 1;
+    lines += 1;
+    lines += 1;
+    lines += 1;
+    return lines;
+  }
+
+  if (selected.priceStatus === 'unavailable' || selected.spotPricePerUnit === undefined) {
+    lines += 1;
+    lines += 1;
+    lines += 1;
+    lines += 1;
+    lines += 1;
+    return lines;
+  }
+
+  if (selected.isNegative) {
+    lines += 1;
+    lines += 1;
+    lines += 1;
+    lines += 1;
+    lines += 1;
+    return lines;
+  }
+
+  lines += 1;
+
+  const showUnrealized = pnlMode !== 'realized';
+  const showRealized = pnlMode !== 'unrealized';
+
+  if (
+    selected.openLots.length === 0 ||
+    selected.totalCostBasis === undefined ||
+    selected.unrealizedGainLoss === undefined
+  ) {
+    lines += 1;
+    if (showRealized) {
+      lines += 1;
+    }
+  } else {
+    lines += 1;
+    lines += conditionalLines(showUnrealized, 1);
+    lines += conditionalLines(showRealized, 1);
+    lines += 1;
+    lines += 1;
+  }
+
+  lines += 1;
+  lines += 1;
+  lines += 1;
+
+  return lines;
+}
+
+function getOpenLotsRows(selected: PortfolioPositionItem | undefined): number {
+  if (!selected) {
+    return 0;
+  }
+  if (selected.isClosedPosition === true || selected.isNegative) {
+    return 0;
+  }
+  if (selected.priceStatus === 'unavailable' || selected.spotPricePerUnit === undefined) {
+    return 0;
+  }
+  if (selected.totalCostBasis === undefined || selected.unrealizedGainLoss === undefined) {
+    return 0;
+  }
+  return selected.openLots.length;
+}
+
+// ─── Components ──────────────────────────────────────────────────────────────
 
 export const PortfolioApp: FC<{
   initialState: PortfolioAssetsState;
@@ -810,39 +1028,44 @@ function getPortfolioAssetColumnWidths(
   positions: PortfolioPositionItem[],
   displayCurrency: string
 ): PortfolioAssetColumnWidths {
-  let value = 'USD 0.00'.length;
-  let allocation = '--'.length;
-  let cost = 'unavailable'.length;
-  let unrealized = '—'.length;
-  let realized = '—'.length;
-
-  for (const position of positions) {
-    if (position.priceStatus === 'ok' && position.currentValue !== undefined) {
-      const valueNumber = new Decimal(position.currentValue);
-      const signedValue = position.isNegative ? valueNumber.negated().toFixed(2) : valueNumber.toFixed(2);
-      value = Math.max(value, formatCurrency(signedValue, displayCurrency).length);
-    }
-
-    allocation = Math.max(allocation, (position.allocationPct ? `${position.allocationPct}%` : '--').length);
-
-    const costSegment =
-      position.totalCostBasis !== undefined ? formatCurrency(position.totalCostBasis, displayCurrency) : 'unavailable';
-    cost = Math.max(cost, costSegment.length);
-
-    const unrealizedSegment =
-      position.unrealizedGainLoss !== undefined
-        ? formatSignedCurrency(position.unrealizedGainLoss, displayCurrency)
-        : '—';
-    unrealized = Math.max(unrealized, unrealizedSegment.length);
-
-    const realizedSegment =
-      position.realizedGainLossAllTime !== undefined
-        ? formatSignedCurrency(position.realizedGainLossAllTime, displayCurrency)
-        : '—';
-    realized = Math.max(realized, realizedSegment.length);
-  }
-
-  return { value, allocation, cost, unrealized, realized };
+  return computeColumnWidths(positions, {
+    value: {
+      minWidth: 'USD 0.00'.length,
+      format: (position) => {
+        if (position.priceStatus !== 'ok' || position.currentValue === undefined) {
+          return 'USD 0.00';
+        }
+        const valueNumber = new Decimal(position.currentValue);
+        const signedValue = position.isNegative ? valueNumber.negated().toFixed(2) : valueNumber.toFixed(2);
+        return formatCurrency(signedValue, displayCurrency);
+      },
+    },
+    allocation: {
+      minWidth: '--'.length,
+      format: (position) => (position.allocationPct ? `${position.allocationPct}%` : '--'),
+    },
+    cost: {
+      minWidth: 'unavailable'.length,
+      format: (position) =>
+        position.totalCostBasis !== undefined
+          ? formatCurrency(position.totalCostBasis, displayCurrency)
+          : 'unavailable',
+    },
+    unrealized: {
+      minWidth: '—'.length,
+      format: (position) =>
+        position.unrealizedGainLoss !== undefined
+          ? formatSignedCurrency(position.unrealizedGainLoss, displayCurrency)
+          : '—',
+    },
+    realized: {
+      minWidth: '—'.length,
+      format: (position) =>
+        position.realizedGainLossAllTime !== undefined
+          ? formatSignedCurrency(position.realizedGainLossAllTime, displayCurrency)
+          : '—',
+    },
+  });
 }
 
 function formatSignedCurrency(amount: string, currency: string): string {

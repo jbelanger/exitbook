@@ -2,10 +2,11 @@
  * Prices view controller — reducer + keyboard handler
  */
 
+import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 import type { AssetBreakdownEntry, MissingPriceMovement } from '../prices-view-utils.js';
 
-import { getPricesViewVisibleRows } from './prices-view-layout.js';
+import { COVERAGE_CHROME_LINES, MISSING_CHROME_LINES } from './prices-view-components.js';
 import { missingRowKey, type PricesViewCoverageState, type PricesViewState } from './prices-view-state.js';
 
 /**
@@ -272,7 +273,10 @@ export function handlePricesKeyboardInput(
   terminalHeight: number,
   state: PricesViewState
 ): void {
-  const visibleRows = getPricesViewVisibleRows(terminalHeight, state.mode);
+  const visibleRows =
+    state.mode === 'coverage'
+      ? calculateVisibleRows(terminalHeight, COVERAGE_CHROME_LINES)
+      : calculateVisibleRows(terminalHeight, MISSING_CHROME_LINES);
 
   // Input mode (missing only)
   if (state.mode === 'missing' && state.activeInput) {

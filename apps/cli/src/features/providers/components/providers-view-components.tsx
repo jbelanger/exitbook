@@ -5,17 +5,28 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 import { formatTimeAgo } from '../view-providers-utils.js';
 
 import { handleProvidersKeyboardInput, providersViewReducer } from './providers-view-controller.js';
-import { getProvidersViewVisibleRows } from './providers-view-layout.js';
 import type {
   HealthStatus,
   ProviderBlockchainItem,
   ProviderViewItem,
   ProvidersViewState,
 } from './providers-view-state.js';
+
+export const CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 1, // "Blockchain Providers · N providers"
+  afterHeader: 1, // blank line
+  listScrollIndicators: 2, // "▲/▼ N more above/below"
+  divider: 1, // separator line
+  detail: 9, // provider detail panel (chains list)
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 1, // bottom margin
+});
 
 // --- Color Helpers ---
 
@@ -149,7 +160,7 @@ const ProvidersHeader: FC<{ state: ProvidersViewState }> = ({ state }) => {
 
 const ProviderList: FC<{ state: ProvidersViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { providers, selectedIndex, scrollOffset } = state;
-  const visibleRows = getProvidersViewVisibleRows(terminalHeight);
+  const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, providers.length);

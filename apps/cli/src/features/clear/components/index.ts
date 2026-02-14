@@ -4,7 +4,6 @@
 
 export { ClearViewApp } from './clear-view-components.js';
 export { clearViewReducer, handleClearKeyboardInput, type ClearViewAction } from './clear-view-controller.js';
-export { getClearViewVisibleRows } from './clear-view-layout.js';
 export {
   buildCategoryItems,
   buildResultCategoryItems,

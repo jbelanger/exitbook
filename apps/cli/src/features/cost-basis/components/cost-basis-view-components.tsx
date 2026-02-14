@@ -5,10 +5,9 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 
 import { costBasisViewReducer, handleCostBasisKeyboardInput } from './cost-basis-view-controller.js';
-import { getCostBasisAssetsVisibleRows, getCostBasisTimelineVisibleRows } from './cost-basis-view-layout.js';
 import type {
   AcquisitionViewItem,
   AssetCostBasisItem,
@@ -19,6 +18,30 @@ import type {
   TransferViewItem,
 } from './cost-basis-view-state.js';
 import { formatSignedCurrency, formatUnsignedCurrency } from './cost-basis-view-utils.js';
+
+export const COST_BASIS_ASSETS_CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 2, // "Cost Basis Summary" + methodology line
+  afterHeader: 1, // blank line
+  listScrollIndicators: 2, // "▲/▼ N more above/below"
+  divider: 1, // separator line
+  detail: 10, // asset detail panel (lots/disposals)
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 1, // bottom margin
+});
+
+export const COST_BASIS_TIMELINE_CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 1, // "Timeline for {asset}"
+  afterHeader: 1, // blank line
+  listScrollIndicators: 2, // "▲/▼ N more above/below"
+  divider: 1, // separator line
+  detail: 7, // timeline event detail
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 1, // bottom margin
+});
 
 // ─── Main App ────────────────────────────────────────────────────────────────
 
@@ -228,7 +251,7 @@ const ErrorBar: FC<{ errors: { asset: string; error: string }[] }> = ({ errors }
 // ─── Asset List ──────────────────────────────────────────────────────────────
 
 const AssetList: FC<{ state: CostBasisAssetState; terminalHeight: number }> = ({ state, terminalHeight }) => {
-  const visibleRows = getCostBasisAssetsVisibleRows(terminalHeight);
+  const visibleRows = calculateVisibleRows(terminalHeight, COST_BASIS_ASSETS_CHROME_LINES);
   const startIndex = state.scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, state.assets.length);
   const visible = state.assets.slice(startIndex, endIndex);
@@ -448,7 +471,7 @@ const TimelineHeader: FC<{ state: CostBasisTimelineState }> = ({ state }) => {
 // ─── Timeline List ───────────────────────────────────────────────────────────
 
 const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }> = ({ state, terminalHeight }) => {
-  const visibleRows = getCostBasisTimelineVisibleRows(terminalHeight);
+  const visibleRows = calculateVisibleRows(terminalHeight, COST_BASIS_TIMELINE_CHROME_LINES);
   const startIndex = state.scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, state.events.length);
   const visible = state.events.slice(startIndex, endIndex);

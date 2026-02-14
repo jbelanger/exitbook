@@ -6,17 +6,39 @@ import type { LinkStatus, MatchCriteria } from '@exitbook/accounting';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC } from 'react';
 
-import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 import type { LinkGapAssetSummary, LinkGapIssue } from '../links-gap-utils.js';
 
 import { handleKeyboardInput, linksViewReducer } from './links-view-controller.js';
-import { getLinksViewVisibleRows } from './links-view-layout.js';
 import type {
   LinkWithTransactions,
   LinksViewGapsState,
   LinksViewLinksState,
   LinksViewState,
 } from './links-view-state.js';
+
+export const LINKS_CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 1, // "Links · N total"
+  afterHeader: 1, // blank line
+  divider: 1, // separator line
+  detail: 7, // link detail panel
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 1, // bottom margin
+});
+
+export const GAPS_CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 1, // "Balance Gaps · N issues"
+  afterHeader: 1, // blank line
+  listScrollIndicators: 2, // "▲/▼ N more above/below"
+  divider: 1, // separator line
+  detail: 9, // gap detail panel (transactions, suggestions)
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 1, // bottom margin
+});
 
 /**
  * Main links view app component
@@ -177,7 +199,7 @@ const LinksHeader: FC<{ state: LinksViewLinksState }> = ({ state }) => {
 const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { links, selectedIndex, scrollOffset } = state;
 
-  const visibleRows = getLinksViewVisibleRows(terminalHeight, 'links');
+  const visibleRows = calculateVisibleRows(terminalHeight, LINKS_CHROME_LINES);
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, links.length);
@@ -533,7 +555,7 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
   const { linkAnalysis, selectedIndex, scrollOffset } = state;
   const issues = linkAnalysis.issues;
 
-  const visibleRows = getLinksViewVisibleRows(terminalHeight, 'gaps');
+  const visibleRows = calculateVisibleRows(terminalHeight, GAPS_CHROME_LINES);
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, issues.length);

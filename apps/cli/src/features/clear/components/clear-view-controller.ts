@@ -4,9 +4,10 @@
 
 import type { DeletionPreview } from '@exitbook/ingestion';
 
+import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 
-import { getClearViewVisibleRows } from './clear-view-layout.js';
+import { CHROME_LINES } from './clear-view-components.js';
 import type { ClearViewState } from './clear-view-state.js';
 
 /**
@@ -151,7 +152,7 @@ export function handleClearKeyboardInput(
   terminalHeight: number,
   totalToDelete: number
 ): void {
-  const visibleRows = getClearViewVisibleRows(terminalHeight);
+  const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
 
   // Phase-specific keyboard handling
 

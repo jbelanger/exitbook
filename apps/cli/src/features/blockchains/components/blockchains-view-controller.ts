@@ -2,9 +2,10 @@
  * Blockchains view controller — reducer and keyboard handler
  */
 
+import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 
-import { getBlockchainsViewVisibleRows } from './blockchains-view-layout.js';
+import { CHROME_LINES } from './blockchains-view-components.js';
 import type { BlockchainsViewState } from './blockchains-view-state.js';
 
 /**
@@ -99,7 +100,7 @@ export function handleBlockchainsKeyboardInput(
   onQuit: () => void,
   terminalHeight: number
 ): void {
-  const visibleRows = getBlockchainsViewVisibleRows(terminalHeight);
+  const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
 
   // Quit
   if (input === 'q' || key.escape) {

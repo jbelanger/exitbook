@@ -2,9 +2,10 @@
  * Accounts view controller — reducer and keyboard handler
  */
 
+import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 
-import { getAccountsViewVisibleRows } from './accounts-view-layout.js';
+import { CHROME_LINES } from './accounts-view-components.js';
 import type { AccountsViewState } from './accounts-view-state.js';
 
 /**
@@ -96,7 +97,7 @@ export function handleAccountsKeyboardInput(
   onQuit: () => void,
   terminalHeight: number
 ): void {
-  const visibleRows = getAccountsViewVisibleRows(terminalHeight);
+  const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
 
   // Quit
   if (input === 'q' || key.escape) {

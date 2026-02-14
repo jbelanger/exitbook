@@ -7,10 +7,9 @@ import Spinner from 'ink-spinner';
 import { useLayoutEffect, useReducer, type FC, type ReactNode } from 'react';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
-import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 
 import { balanceViewReducer, handleBalanceKeyboardInput } from './balance-view-controller.js';
-import { getBalanceAccountsVisibleRows, getBalanceAssetsVisibleRows } from './balance-view-layout.js';
 import type {
   AccountOfflineItem,
   AccountVerificationItem,
@@ -24,6 +23,38 @@ import type {
   BalanceVerificationState,
 } from './balance-view-state.js';
 import { formatSignedAmount, truncateAddress } from './balance-view-utils.js';
+
+const BALANCE_ACCOUNTS_CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 1, // "Balance Verification · N accounts"
+  afterHeader: 1, // blank line
+  listScrollIndicators: 2, // "▲/▼ N more above/below"
+  divider: 1, // separator line
+  detail: 7, // account detail panel (asset balances)
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 1, // bottom margin
+});
+
+const BALANCE_ASSETS_CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 1, // "Balance Verification · N assets"
+  afterHeader: 1, // blank line
+  listScrollIndicators: 2, // "▲/▼ N more above/below"
+  divider: 1, // separator line
+  detail: 7, // asset detail panel (account breakdown)
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 1, // bottom margin
+});
+
+export function getBalanceAccountsVisibleRows(terminalHeight: number): number {
+  return calculateVisibleRows(terminalHeight, BALANCE_ACCOUNTS_CHROME_LINES);
+}
+
+export function getBalanceAssetsVisibleRows(terminalHeight: number): number {
+  return calculateVisibleRows(terminalHeight, BALANCE_ASSETS_CHROME_LINES);
+}
 
 // ─── Main App ────────────────────────────────────────────────────────────────
 

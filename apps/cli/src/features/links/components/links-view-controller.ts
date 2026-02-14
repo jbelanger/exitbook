@@ -2,9 +2,10 @@
  * Links view controller - manages state updates and keyboard input
  */
 
+import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 
-import { getLinksViewVisibleRows } from './links-view-layout.js';
+import { GAPS_CHROME_LINES, LINKS_CHROME_LINES } from './links-view-components.js';
 import type { LinksViewState } from './links-view-state.js';
 
 /**
@@ -226,7 +227,10 @@ export function handleKeyboardInput(
   terminalHeight: number,
   mode: 'links' | 'gaps' = 'links'
 ): void {
-  const visibleRows = getLinksViewVisibleRows(terminalHeight, mode);
+  const visibleRows =
+    mode === 'links'
+      ? calculateVisibleRows(terminalHeight, LINKS_CHROME_LINES)
+      : calculateVisibleRows(terminalHeight, GAPS_CHROME_LINES);
 
   // Quit
   if (input === 'q' || key.escape) {

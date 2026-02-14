@@ -2,9 +2,10 @@
  * Providers view controller — reducer and keyboard handler
  */
 
+import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 
-import { getProvidersViewVisibleRows } from './providers-view-layout.js';
+import { CHROME_LINES } from './providers-view-components.js';
 import type { ProvidersViewState } from './providers-view-state.js';
 
 /**
@@ -96,7 +97,7 @@ export function handleProvidersKeyboardInput(
   onQuit: () => void,
   terminalHeight: number
 ): void {
-  const visibleRows = getProvidersViewVisibleRows(terminalHeight);
+  const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
 
   // Quit
   if (input === 'q' || key.escape) {

@@ -5,11 +5,22 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
 
 import { handleBlockchainsKeyboardInput, blockchainsViewReducer } from './blockchains-view-controller.js';
-import { getBlockchainsViewVisibleRows } from './blockchains-view-layout.js';
 import type { BlockchainViewItem, BlockchainsViewState, ProviderViewItem } from './blockchains-view-state.js';
+
+export const CHROME_LINES = calculateChromeLines({
+  beforeHeader: 1, // blank line
+  header: 1, // "Blockchains · N registered"
+  afterHeader: 1, // blank line
+  listScrollIndicators: 2, // "▲/▼ N more above/below"
+  divider: 1, // separator line
+  detail: 7, // blockchain detail panel (providers list)
+  beforeControls: 1, // blank line
+  controls: 1, // control hints
+  buffer: 1, // bottom margin
+});
 
 /**
  * Main blockchains view app component
@@ -106,7 +117,7 @@ function buildCategoryParts(counts: Record<string, number>): { count: number; la
 
 const BlockchainList: FC<{ state: BlockchainsViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { blockchains, selectedIndex, scrollOffset } = state;
-  const visibleRows = getBlockchainsViewVisibleRows(terminalHeight);
+  const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, blockchains.length);
