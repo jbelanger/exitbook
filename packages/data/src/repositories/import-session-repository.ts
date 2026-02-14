@@ -6,6 +6,8 @@ import { BaseRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import type { DatabaseSchema } from '../schema/database-schema.js';
+
 /**
  * Interface for import session repository operations.
  */
@@ -75,7 +77,7 @@ export interface IImportSessionRepository {
  * Kysely-based repository for import session database operations.
  * Handles storage and retrieval of ImportSession entities using type-safe queries.
  */
-export class ImportSessionRepository extends BaseRepository implements IImportSessionRepository {
+export class ImportSessionRepository extends BaseRepository<DatabaseSchema> implements IImportSessionRepository {
   constructor(db: KyselyDB) {
     super(db, 'ImportSessionRepository');
   }

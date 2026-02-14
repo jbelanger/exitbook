@@ -245,60 +245,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .column('transaction_id')
     .execute();
 
-  // Create token_metadata table
-  await db.schema
-    .createTable('token_metadata')
-    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('blockchain', 'text', (col) => col.notNull())
-    .addColumn('contract_address', 'text', (col) => col.notNull())
-    .addColumn('symbol', 'text')
-    .addColumn('name', 'text')
-    .addColumn('decimals', 'integer')
-    .addColumn('logo_url', 'text')
-    // Professional spam detection (Moralis, Helius, etc.) - SQLite uses INTEGER for booleans (0/1)
-    .addColumn('possible_spam', 'integer')
-    .addColumn('verified_contract', 'integer')
-    // Additional metadata for pattern-based detection (fallback)
-    .addColumn('description', 'text')
-    .addColumn('external_url', 'text')
-    // Additional useful fields from providers
-    .addColumn('total_supply', 'text')
-    .addColumn('created_at_provider', 'text')
-    .addColumn('block_number', 'integer')
-    .addColumn('source', 'text', (col) => col.notNull())
-    .addColumn('refreshed_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
-    .execute();
-
-  // Create unique index on (blockchain, contract_address)
-  await db.schema
-    .createIndex('idx_token_metadata_blockchain_contract')
-    .on('token_metadata')
-    .columns(['blockchain', 'contract_address'])
-    .unique()
-    .execute();
-
-  // Create index for staleness checks
-  await db.schema.createIndex('idx_token_metadata_refreshed_at').on('token_metadata').column('refreshed_at').execute();
-
-  // Create symbol_index table for reverse lookups
-  await db.schema
-    .createTable('symbol_index')
-    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('blockchain', 'text', (col) => col.notNull())
-    .addColumn('symbol', 'text', (col) => col.notNull())
-    .addColumn('contract_address', 'text', (col) => col.notNull())
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
-    .execute();
-
-  // Create index for fast symbol lookups
-  await db.schema
-    .createIndex('idx_symbol_index_blockchain_symbol')
-    .on('symbol_index')
-    .columns(['blockchain', 'symbol'])
-    .execute();
-
-  // Create index for fast contract lookups
-  await db.schema.createIndex('idx_symbol_index_contract').on('symbol_index').column('contract_address').execute();
+  // Token metadata cache tables moved to token-metadata.db.
 
   // Create transaction_links table
   await db.schema
@@ -368,8 +315,8 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   // Drop transaction linking table
   await db.schema.dropTable('transaction_links').execute();
   // Drop token metadata tables
-  await db.schema.dropTable('symbol_index').execute();
-  await db.schema.dropTable('token_metadata').execute();
+  await db.schema.dropTable('symbol_index').ifExists().execute();
+  await db.schema.dropTable('token_metadata').ifExists().execute();
   // Drop transaction-related tables
   await db.schema.dropTable('transactions').execute();
   await db.schema.dropTable('raw_transactions').execute();

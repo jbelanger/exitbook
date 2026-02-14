@@ -1,21 +1,20 @@
 import { type Logger, getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
-import type { Transaction } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 import type { z } from 'zod';
 
 import type { DatabaseSchema } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/database.js';
 
 /**
  * Base repository class for Kysely-based database operations
  * Provides common functionality and utilities for all repositories
  */
-export abstract class BaseRepository {
-  protected db: KyselyDB;
+export abstract class BaseRepository<TDatabase = DatabaseSchema> {
+  protected db: Kysely<TDatabase>;
   protected logger: Logger;
 
-  constructor(db: KyselyDB, repositoryName: string) {
+  constructor(db: Kysely<TDatabase>, repositoryName: string) {
     this.db = db;
     this.logger = getLogger(repositoryName);
   }
@@ -24,7 +23,7 @@ export abstract class BaseRepository {
    * Execute a function within a database transaction
    * Automatically handles commit/rollback
    */
-  protected async withTransaction<T>(fn: (trx: Transaction<DatabaseSchema>) => Promise<T>): Promise<T> {
+  protected async withTransaction<T>(fn: (trx: Transaction<TDatabase>) => Promise<T>): Promise<T> {
     return this.db.transaction().execute(async (trx) => {
       try {
         this.logger.debug('Starting database transaction');

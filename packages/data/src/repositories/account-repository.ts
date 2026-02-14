@@ -12,7 +12,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';
 
-import type { AccountsTable } from '../schema/database-schema.js';
+import type { AccountsTable, DatabaseSchema } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
@@ -46,7 +46,7 @@ export interface UpdateAccountParams {
 /**
  * Repository for Account database operations
  */
-export class AccountRepository extends BaseRepository {
+export class AccountRepository extends BaseRepository<DatabaseSchema> {
   constructor(db: KyselyDB) {
     super(db, 'AccountRepository');
   }

@@ -86,7 +86,7 @@ describe('LinksRunHandler', () => {
 
     const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
     const linkRepository = {
-      countAll: vi.fn().mockResolvedValue(ok(0)),
+      count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
       createBulk: mockCreateBulk,
     } as unknown as TransactionLinkRepository;
@@ -121,7 +121,7 @@ describe('LinksRunHandler', () => {
     } as unknown as TransactionRepository;
 
     const linkRepository = {
-      countAll: vi.fn().mockResolvedValue(ok(0)),
+      count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
       createBulk: vi.fn().mockResolvedValue(ok(0)),
     } as unknown as TransactionLinkRepository;
@@ -184,7 +184,7 @@ describe('LinksRunHandler', () => {
     } as unknown as TransactionRepository;
 
     const linkRepository = {
-      countAll: vi.fn().mockResolvedValue(ok(0)),
+      count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
       createBulk: vi.fn().mockResolvedValue(ok(1)),
     } as unknown as TransactionLinkRepository;
@@ -246,7 +246,7 @@ describe('LinksRunHandler', () => {
     } as unknown as TransactionRepository;
 
     const linkRepository = {
-      countAll: vi.fn().mockResolvedValue(ok(0)),
+      count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
       createBulk: vi.fn(),
     } as unknown as TransactionLinkRepository;
@@ -335,7 +335,7 @@ describe('LinksRunHandler', () => {
 
     const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
     const linkRepository = {
-      countAll: vi.fn().mockResolvedValue(ok(0)),
+      count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
       createBulk: mockCreateBulk,
     } as unknown as TransactionLinkRepository;
@@ -417,7 +417,7 @@ describe('LinksRunHandler', () => {
 
     const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
     const linkRepository = {
-      countAll: vi.fn().mockResolvedValue(ok(0)),
+      count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
       createBulk: mockCreateBulk,
     } as unknown as TransactionLinkRepository;
@@ -494,7 +494,7 @@ describe('LinksRunHandler', () => {
 
     const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
     const linkRepository = {
-      countAll: vi.fn().mockResolvedValue(ok(0)),
+      count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
       createBulk: mockCreateBulk,
     } as unknown as TransactionLinkRepository;

@@ -1,8 +1,8 @@
 import type { Account, ExchangeCredentials } from '@exitbook/core';
 import {
   AccountRepository,
+  createTokenMetadataPersistence,
   ImportSessionRepository,
-  TokenMetadataRepository,
   TransactionRepository,
 } from '@exitbook/data';
 import { BalanceService, calculateBalances } from '@exitbook/ingestion';
@@ -14,6 +14,7 @@ import type { z } from 'zod';
 import { EventRelay } from '../../ui/shared/event-relay.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { renderApp, runCommand } from '../shared/command-runtime.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputError, outputSuccess } from '../shared/json-output.js';
 import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
@@ -114,7 +115,6 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
       const accountRepo = new AccountRepository(database);
       const transactionRepo = new TransactionRepository(database);
       const sessionRepo = new ImportSessionRepository(database);
-      const tokenMetadataRepo = new TokenMetadataRepository(database);
 
       if (options.offline) {
         // Offline JSON
@@ -147,143 +147,47 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
             filters: options.accountId ? { accountId: options.accountId } : {},
           }
         );
-      } else if (options.accountId) {
-        // Single-account online JSON
-        const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-        const balanceService = new BalanceService(
-          accountRepo,
-          transactionRepo,
-          sessionRepo,
-          tokenMetadataRepo,
-          providerManager
-        );
-
-        try {
-          let credentials: ExchangeCredentials | undefined;
-          if (options.apiKey && options.apiSecret) {
-            credentials = {
-              apiKey: options.apiKey,
-              apiSecret: options.apiSecret,
-              ...(options.apiPassphrase && { apiPassphrase: options.apiPassphrase }),
-            };
-          }
-
-          const result = await balanceService.verifyBalance({ accountId: options.accountId, credentials });
-          if (result.isErr()) {
-            outputError('balance', result.error, ExitCodes.GENERAL_ERROR);
-            return;
-          }
-
-          const vr = result.value;
-          const account = vr.account;
-
-          // Build diagnostics for each asset
-          const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);
-          const balances = vr.comparisons.map((c) => {
-            const diagnostics = buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, account.id, {
-              liveBalance: c.liveBalance,
-              calculatedBalance: c.calculatedBalance,
-            });
-
-            return {
-              assetId: c.assetId,
-              assetSymbol: c.assetSymbol,
-              calculatedBalance: c.calculatedBalance,
-              liveBalance: c.liveBalance,
-              difference: c.difference,
-              percentageDiff: c.percentageDiff,
-              status: c.status,
-              diagnostics,
-            };
-          });
-
-          const streamMetadata = extractStreamMetadata(account);
-          outputSuccess('balance', {
-            status: vr.status,
-            balances,
-            summary: vr.summary,
-            source: {
-              type: (account.accountType === 'blockchain' ? 'blockchain' : 'exchange') as string,
-              name: account.sourceName,
-              address: account.accountType === 'blockchain' ? account.identifier : undefined,
-            },
-            account: {
-              id: account.id,
-              type: account.accountType,
-              sourceName: account.sourceName,
-              identifier: account.identifier,
-              providerName: account.providerName,
-            },
-            meta: {
-              timestamp: new Date(vr.timestamp).toISOString(),
-              ...(streamMetadata && { streams: streamMetadata }),
-            },
-            suggestion: vr.suggestion,
-            warnings: vr.warnings,
-          });
-        } finally {
-          await balanceService.destroy();
-          await cleanupProviderManager();
-        }
       } else {
-        // All-accounts online JSON
-        const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-        const balanceService = new BalanceService(
-          accountRepo,
-          transactionRepo,
-          sessionRepo,
-          tokenMetadataRepo,
-          providerManager
-        );
+        const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
+        if (tokenMetadataResult.isErr()) {
+          throw tokenMetadataResult.error;
+        }
+        const { repository: tokenMetadataRepo, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
+        ctx.onCleanup(async () => cleanupTokenMetadata());
 
-        try {
-          const accounts = await loadAllAccounts(accountRepo);
-          const sorted = sortAccountsByVerificationPriority(
-            accounts.map((a) => ({ accountId: a.id, sourceName: a.sourceName, accountType: a.accountType, account: a }))
+        if (options.accountId) {
+          // Single-account online JSON
+          const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
+          const balanceService = new BalanceService(
+            accountRepo,
+            transactionRepo,
+            sessionRepo,
+            tokenMetadataRepo,
+            providerManager
           );
 
-          const accountResults = [];
-          let verified = 0;
-          let skipped = 0;
-          let matchTotal = 0;
-          let mismatchTotal = 0;
-
-          for (const item of sorted) {
-            const account = item.account;
-            const { credentials, skipReason } = resolveAccountCredentials(account);
-
-            if (skipReason) {
-              skipped++;
-              accountResults.push({
-                accountId: account.id,
-                sourceName: account.sourceName,
-                accountType: account.accountType,
-                status: 'skipped' as const,
-                reason: skipReason,
-              });
-              continue;
+          try {
+            let credentials: ExchangeCredentials | undefined;
+            if (options.apiKey && options.apiSecret) {
+              credentials = {
+                apiKey: options.apiKey,
+                apiSecret: options.apiSecret,
+                ...(options.apiPassphrase && { apiPassphrase: options.apiPassphrase }),
+              };
             }
 
-            const result = await balanceService.verifyBalance({ accountId: account.id, credentials });
+            const result = await balanceService.verifyBalance({ accountId: options.accountId, credentials });
             if (result.isErr()) {
-              accountResults.push({
-                accountId: account.id,
-                sourceName: account.sourceName,
-                accountType: account.accountType,
-                status: 'error' as const,
-                error: result.error.message,
-              });
-              continue;
+              outputError('balance', result.error, ExitCodes.GENERAL_ERROR);
+              return;
             }
 
             const vr = result.value;
-            verified++;
-            matchTotal += vr.summary.matches;
-            mismatchTotal += vr.summary.mismatches + vr.summary.warnings;
+            const account = vr.account;
 
             // Build diagnostics for each asset
             const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);
-            const comparisons = vr.comparisons.map((c) => {
+            const balances = vr.comparisons.map((c) => {
               const diagnostics = buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, account.id, {
                 liveBalance: c.liveBalance,
                 calculatedBalance: c.calculatedBalance,
@@ -301,44 +205,154 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
               };
             });
 
-            // Derive account status from asset comparisons
-            const hasMismatch = comparisons.some((c) => c.status === 'mismatch');
-            const hasWarning = comparisons.some((c) => c.status === 'warning');
-
-            let accountStatus: 'failed' | 'warning' | 'success';
-            if (hasMismatch) {
-              accountStatus = 'failed';
-            } else if (hasWarning) {
-              accountStatus = 'warning';
-            } else {
-              accountStatus = 'success';
-            }
-
-            accountResults.push({
-              accountId: account.id,
-              sourceName: account.sourceName,
-              accountType: account.accountType,
-              status: accountStatus,
+            const streamMetadata = extractStreamMetadata(account);
+            outputSuccess('balance', {
+              status: vr.status,
+              balances,
               summary: vr.summary,
-              comparisons,
+              source: {
+                type: (account.accountType === 'blockchain' ? 'blockchain' : 'exchange') as string,
+                name: account.sourceName,
+                address: account.accountType === 'blockchain' ? account.identifier : undefined,
+              },
+              account: {
+                id: account.id,
+                type: account.accountType,
+                sourceName: account.sourceName,
+                identifier: account.identifier,
+                providerName: account.providerName,
+              },
+              meta: {
+                timestamp: new Date(vr.timestamp).toISOString(),
+                ...(streamMetadata && { streams: streamMetadata }),
+              },
+              suggestion: vr.suggestion,
+              warnings: vr.warnings,
             });
+          } finally {
+            await balanceService.destroy();
+            await cleanupProviderManager();
           }
-
-          outputSuccess(
-            'balance',
-            { accounts: accountResults },
-            {
-              totalAccounts: accounts.length,
-              verified,
-              skipped,
-              matches: matchTotal,
-              mismatches: mismatchTotal,
-              timestamp: new Date().toISOString(),
-            }
+        } else {
+          // All-accounts online JSON
+          const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
+          const balanceService = new BalanceService(
+            accountRepo,
+            transactionRepo,
+            sessionRepo,
+            tokenMetadataRepo,
+            providerManager
           );
-        } finally {
-          await balanceService.destroy();
-          await cleanupProviderManager();
+
+          try {
+            const accounts = await loadAllAccounts(accountRepo);
+            const sorted = sortAccountsByVerificationPriority(
+              accounts.map((a) => ({
+                accountId: a.id,
+                sourceName: a.sourceName,
+                accountType: a.accountType,
+                account: a,
+              }))
+            );
+
+            const accountResults = [];
+            let verified = 0;
+            let skipped = 0;
+            let matchTotal = 0;
+            let mismatchTotal = 0;
+
+            for (const item of sorted) {
+              const account = item.account;
+              const { credentials, skipReason } = resolveAccountCredentials(account);
+
+              if (skipReason) {
+                skipped++;
+                accountResults.push({
+                  accountId: account.id,
+                  sourceName: account.sourceName,
+                  accountType: account.accountType,
+                  status: 'skipped' as const,
+                  reason: skipReason,
+                });
+                continue;
+              }
+
+              const result = await balanceService.verifyBalance({ accountId: account.id, credentials });
+              if (result.isErr()) {
+                accountResults.push({
+                  accountId: account.id,
+                  sourceName: account.sourceName,
+                  accountType: account.accountType,
+                  status: 'error' as const,
+                  error: result.error.message,
+                });
+                continue;
+              }
+
+              const vr = result.value;
+              verified++;
+              matchTotal += vr.summary.matches;
+              mismatchTotal += vr.summary.mismatches + vr.summary.warnings;
+
+              // Build diagnostics for each asset
+              const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);
+              const comparisons = vr.comparisons.map((c) => {
+                const diagnostics = buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, account.id, {
+                  liveBalance: c.liveBalance,
+                  calculatedBalance: c.calculatedBalance,
+                });
+
+                return {
+                  assetId: c.assetId,
+                  assetSymbol: c.assetSymbol,
+                  calculatedBalance: c.calculatedBalance,
+                  liveBalance: c.liveBalance,
+                  difference: c.difference,
+                  percentageDiff: c.percentageDiff,
+                  status: c.status,
+                  diagnostics,
+                };
+              });
+
+              // Derive account status from asset comparisons
+              const hasMismatch = comparisons.some((c) => c.status === 'mismatch');
+              const hasWarning = comparisons.some((c) => c.status === 'warning');
+
+              let accountStatus: 'failed' | 'warning' | 'success';
+              if (hasMismatch) {
+                accountStatus = 'failed';
+              } else if (hasWarning) {
+                accountStatus = 'warning';
+              } else {
+                accountStatus = 'success';
+              }
+
+              accountResults.push({
+                accountId: account.id,
+                sourceName: account.sourceName,
+                accountType: account.accountType,
+                status: accountStatus,
+                summary: vr.summary,
+                comparisons,
+              });
+            }
+
+            outputSuccess(
+              'balance',
+              { accounts: accountResults },
+              {
+                totalAccounts: accounts.length,
+                verified,
+                skipped,
+                matches: matchTotal,
+                mismatches: mismatchTotal,
+                timestamp: new Date().toISOString(),
+              }
+            );
+          } finally {
+            await balanceService.destroy();
+            await cleanupProviderManager();
+          }
         }
       }
     });
@@ -356,7 +370,12 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
       const accountRepo = new AccountRepository(database);
       const transactionRepo = new TransactionRepository(database);
       const sessionRepo = new ImportSessionRepository(database);
-      const tokenMetadataRepo = new TokenMetadataRepository(database);
+      const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
+      if (tokenMetadataResult.isErr()) {
+        throw tokenMetadataResult.error;
+      }
+      const { repository: tokenMetadataRepo, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
+      ctx.onCleanup(async () => cleanupTokenMetadata());
 
       const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
       const balanceService = new BalanceService(
@@ -561,7 +580,12 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
       const accountRepo = new AccountRepository(database);
       const transactionRepo = new TransactionRepository(database);
       const sessionRepo = new ImportSessionRepository(database);
-      const tokenMetadataRepo = new TokenMetadataRepository(database);
+      const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
+      if (tokenMetadataResult.isErr()) {
+        throw tokenMetadataResult.error;
+      }
+      const { repository: tokenMetadataRepo, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
+      ctx.onCleanup(async () => cleanupTokenMetadata());
 
       const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
       const balanceService = new BalanceService(

@@ -13,6 +13,11 @@ export type {
 } from './repositories/transaction-repository.interface.js';
 export { generateDeterministicTransactionHash } from './repositories/transaction-id-utils.js';
 export { TokenMetadataRepository } from './repositories/token-metadata-repository.js';
+export {
+  createTokenMetadataPersistence,
+  type TokenMetadataPersistenceDeps,
+} from './persistence/token-metadata/factory.js';
+export type { TokenMetadataDatabase } from './persistence/token-metadata/schema.js';
 export type { DatabaseSchema, TransactionLinksTable, RawTransactionTable } from './schema/database-schema.js';
 export {
   RawDataRepository,

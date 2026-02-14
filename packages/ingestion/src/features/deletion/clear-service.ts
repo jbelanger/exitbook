@@ -104,7 +104,7 @@ export class ClearService {
           return err(transactionsResult.error);
         }
 
-        const linksResult = await this.transactionLinkRepo.countByAccountIds(accountIds);
+        const linksResult = await this.transactionLinkRepo.count({ accountIds });
         if (linksResult.isErr()) {
           return err(linksResult.error);
         }
@@ -141,7 +141,7 @@ export class ClearService {
           return err(transactionsResult.error);
         }
 
-        const linksResult = await this.transactionLinkRepo.countAll();
+        const linksResult = await this.transactionLinkRepo.count();
         if (linksResult.isErr()) {
           return err(linksResult.error);
         }

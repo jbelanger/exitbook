@@ -16,7 +16,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';
 
-import type { TransactionMovementsTable, TransactionsTable } from '../schema/database-schema.js';
+import type { DatabaseSchema, TransactionMovementsTable, TransactionsTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
@@ -248,7 +248,7 @@ function buildMovementRows(
  * Kysely-based repository for transaction database operations.
  * Handles storage and retrieval of UniversalTransactionData entities using type-safe queries.
  */
-export class TransactionRepository extends BaseRepository implements ITransactionRepository {
+export class TransactionRepository extends BaseRepository<DatabaseSchema> implements ITransactionRepository {
   constructor(db: KyselyDB) {
     super(db, 'TransactionRepository');
   }

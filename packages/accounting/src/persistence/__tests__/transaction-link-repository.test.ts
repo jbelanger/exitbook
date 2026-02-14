@@ -300,8 +300,8 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
     });
   });
 
-  describe('findBySourceTransactionId', () => {
-    it('should find links by source transaction with amounts', async () => {
+  describe('findByTransactionIds', () => {
+    it('should find links by related transaction IDs with amounts', async () => {
       const link1: TransactionLink = {
         id: uuidv4(),
         sourceTransactionId: 7,
@@ -349,7 +349,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
       await repo.create(link1);
       await repo.create(link2);
 
-      const result = await repo.findBySourceTransactionId(7);
+      const result = await repo.findByTransactionIds([7]);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toHaveLength(2);
@@ -395,6 +395,164 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         expect(foundLink?.assetSymbol).toBe('BTC');
         expect(foundLink?.sourceAmount.toFixed()).toBe('1');
         expect(foundLink?.targetAmount.toFixed()).toBe('0.9995');
+      }
+    });
+  });
+
+  describe('count', () => {
+    it('should count all links when no filters are provided', async () => {
+      const link1: TransactionLink = {
+        id: uuidv4(),
+        sourceTransactionId: 1,
+        targetTransactionId: 2,
+        assetSymbol: 'BTC',
+        sourceAssetId: 'test:btc',
+        targetAssetId: 'test:btc',
+        sourceAmount: parseDecimal('1.0'),
+        targetAmount: parseDecimal('0.9995'),
+        linkType: 'exchange_to_blockchain',
+        confidenceScore: parseDecimal('0.98'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.9995'),
+          timingValid: true,
+          timingHours: 0.5,
+        },
+        status: 'confirmed',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const link2: TransactionLink = {
+        id: uuidv4(),
+        sourceTransactionId: 3,
+        targetTransactionId: 4,
+        assetSymbol: 'ETH',
+        sourceAssetId: 'test:eth',
+        targetAssetId: 'test:eth',
+        sourceAmount: parseDecimal('5.0'),
+        targetAmount: parseDecimal('4.99'),
+        linkType: 'exchange_to_blockchain',
+        confidenceScore: parseDecimal('0.97'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.998'),
+          timingValid: true,
+          timingHours: 1.0,
+        },
+        status: 'confirmed',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await repo.create(link1);
+      await repo.create(link2);
+
+      const result = await repo.count();
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(2);
+      }
+    });
+
+    it('should count links scoped to account IDs', async () => {
+      await db
+        .insertInto('accounts')
+        .values({
+          id: 2,
+          user_id: 1,
+          parent_account_id: null,
+          account_type: 'exchange-api',
+          source_name: 'test-2',
+          identifier: 'test-api-key-2',
+          provider_name: null,
+          last_cursor: null,
+          last_balance_check_at: null,
+          verification_metadata: null,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+        })
+        .execute();
+
+      for (const transactionId of [11, 12]) {
+        await db
+          .insertInto('transactions')
+          .values({
+            id: transactionId,
+            account_id: 2,
+            source_name: 'test-2',
+            source_type: 'exchange',
+            transaction_status: 'success',
+            transaction_datetime: new Date().toISOString(),
+            is_spam: false,
+            excluded_from_accounting: false,
+            created_at: new Date().toISOString(),
+          })
+          .execute();
+      }
+
+      await repo.create({
+        id: uuidv4(),
+        sourceTransactionId: 1,
+        targetTransactionId: 2,
+        assetSymbol: 'BTC',
+        sourceAssetId: 'test:btc',
+        targetAssetId: 'test:btc',
+        sourceAmount: parseDecimal('1.0'),
+        targetAmount: parseDecimal('0.9995'),
+        linkType: 'exchange_to_blockchain',
+        confidenceScore: parseDecimal('0.98'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.9995'),
+          timingValid: true,
+          timingHours: 0.5,
+        },
+        status: 'confirmed',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await repo.create({
+        id: uuidv4(),
+        sourceTransactionId: 11,
+        targetTransactionId: 12,
+        assetSymbol: 'ETH',
+        sourceAssetId: 'test:eth',
+        targetAssetId: 'test:eth',
+        sourceAmount: parseDecimal('10.0'),
+        targetAmount: parseDecimal('9.95'),
+        linkType: 'exchange_to_exchange',
+        confidenceScore: parseDecimal('0.96'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.995'),
+          timingValid: true,
+          timingHours: 0.75,
+        },
+        status: 'suggested',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const accountOneCount = await repo.count({ accountIds: [1] });
+      expect(accountOneCount.isOk()).toBe(true);
+      if (accountOneCount.isOk()) {
+        expect(accountOneCount.value).toBe(1);
+      }
+
+      const accountTwoCount = await repo.count({ accountIds: [2] });
+      expect(accountTwoCount.isOk()).toBe(true);
+      if (accountTwoCount.isOk()) {
+        expect(accountTwoCount.value).toBe(1);
+      }
+    });
+
+    it('should return 0 when accountIds filter is empty', async () => {
+      const result = await repo.count({ accountIds: [] });
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(0);
       }
     });
   });

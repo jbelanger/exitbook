@@ -1,21 +1,38 @@
 import type { TokenMetadataRecord } from '@exitbook/core';
-import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import {
+  closeTokenMetadataDatabase,
+  createTokenMetadataDatabase,
+  initializeTokenMetadataDatabase,
+  type TokenMetadataDB,
+} from '../../persistence/token-metadata/database.js';
 import { TokenMetadataRepository } from '../token-metadata-repository.js';
 
 describe('TokenMetadataRepository', () => {
-  let db: KyselyDB;
+  let db: TokenMetadataDB;
   let repository: TokenMetadataRepository;
 
   beforeEach(async () => {
-    db = createDatabase(':memory:');
-    await runMigrations(db);
+    const dbResult = createTokenMetadataDatabase(':memory:');
+    if (dbResult.isErr()) {
+      throw dbResult.error;
+    }
+    db = dbResult.value;
+
+    const initResult = await initializeTokenMetadataDatabase(db);
+    if (initResult.isErr()) {
+      throw initResult.error;
+    }
+
     repository = new TokenMetadataRepository(db);
   });
 
   afterEach(async () => {
-    await db.destroy();
+    const closeResult = await closeTokenMetadataDatabase(db);
+    if (closeResult.isErr()) {
+      throw closeResult.error;
+    }
   });
 
   describe('save with spam detection fields', () => {

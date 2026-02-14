@@ -1,10 +1,10 @@
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
   AccountRepository,
+  createTokenMetadataPersistence,
   ImportSessionRepository,
   type KyselyDB,
   RawDataRepository,
-  TokenMetadataRepository,
   TransactionRepository,
   UserRepository,
 } from '@exitbook/data';
@@ -20,6 +20,7 @@ import {
 import { getLogger } from '@exitbook/logger';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
+import { getDataDir } from '../shared/data-dir.js';
 import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
 
 import { IngestionMonitor } from './components/ingestion-monitor-components.js';
@@ -47,62 +48,98 @@ export interface ImportServices {
 export async function createImportServices(database: KyselyDB): Promise<ImportServices> {
   const repositories = createRepositories(database);
 
-  const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-  const instrumentation = new InstrumentationCollector();
-  providerManager.setInstrumentation(instrumentation);
+  const dataDir = getDataDir();
+  const tokenMetadataResult = await createTokenMetadataPersistence(dataDir);
+  if (tokenMetadataResult.isErr()) {
+    logger.error({ error: tokenMetadataResult.error }, 'Failed to create token metadata repository');
+    throw tokenMetadataResult.error;
+  }
 
-  const eventBus = new EventBus<IngestionMonitorEvent>({
-    onError: (err) => {
-      logger.error({ err }, 'EventBus error');
-    },
-  });
-  providerManager.setEventBus(eventBus as EventBus<ProviderEvent>);
+  const { repository: tokenMetadataRepository, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
 
-  const tokenMetadataService = new TokenMetadataService(
-    repositories.tokenMetadata,
-    providerManager,
-    eventBus as EventBus<IngestionEvent>
-  );
+  let providerManagerCleanup: (() => Promise<void>) | undefined;
+  try {
+    const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
+    providerManagerCleanup = cleanupProviderManager;
+    const instrumentation = new InstrumentationCollector();
+    providerManager.setInstrumentation(instrumentation);
 
-  const importOrchestrator = new ImportOrchestrator(
-    repositories.user,
-    repositories.account,
-    repositories.rawData,
-    repositories.importSession,
-    providerManager,
-    eventBus as EventBus<ImportEvent>
-  );
+    const eventBus = new EventBus<IngestionMonitorEvent>({
+      onError: (err) => {
+        logger.error({ err }, 'EventBus error');
+      },
+    });
+    providerManager.setEventBus(eventBus as EventBus<ProviderEvent>);
 
-  const transactionProcessService = new TransactionProcessService(
-    repositories.rawData,
-    repositories.account,
-    repositories.transaction,
-    providerManager,
-    tokenMetadataService,
-    repositories.importSession,
-    eventBus as EventBus<IngestionEvent>,
-    database
-  );
+    const tokenMetadataService = new TokenMetadataService(
+      tokenMetadataRepository,
+      providerManager,
+      eventBus as EventBus<IngestionEvent>
+    );
 
-  const handler = new ImportHandler(importOrchestrator, transactionProcessService);
+    const importOrchestrator = new ImportOrchestrator(
+      repositories.user,
+      repositories.account,
+      repositories.rawData,
+      repositories.importSession,
+      providerManager,
+      eventBus as EventBus<ImportEvent>
+    );
 
-  const ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {
-    instrumentation,
-    providerManager,
-  });
-  ingestionMonitor.start();
+    const transactionProcessService = new TransactionProcessService(
+      repositories.rawData,
+      repositories.account,
+      repositories.transaction,
+      providerManager,
+      tokenMetadataService,
+      repositories.importSession,
+      eventBus as EventBus<IngestionEvent>,
+      database
+    );
 
-  const cleanup = async () => {
-    await ingestionMonitor.stop();
-    await cleanupProviderManager();
-  };
+    const handler = new ImportHandler(importOrchestrator, transactionProcessService);
 
-  return {
-    handler,
-    ingestionMonitor,
-    instrumentation,
-    cleanup,
-  };
+    const ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {
+      instrumentation,
+      providerManager,
+    });
+    ingestionMonitor.start();
+
+    const cleanup = async () => {
+      try {
+        await ingestionMonitor.stop();
+      } finally {
+        try {
+          await cleanupProviderManager();
+        } finally {
+          await cleanupTokenMetadata();
+        }
+      }
+    };
+
+    return {
+      handler,
+      ingestionMonitor,
+      instrumentation,
+      cleanup,
+    };
+  } catch (error) {
+    if (providerManagerCleanup) {
+      try {
+        await providerManagerCleanup();
+      } catch (cleanupError) {
+        logger.warn({ cleanupError }, 'Failed to cleanup provider manager after service initialization failure');
+      }
+    }
+
+    try {
+      await cleanupTokenMetadata();
+    } catch (cleanupError) {
+      logger.warn({ cleanupError }, 'Failed to cleanup token metadata database after service initialization failure');
+    }
+
+    throw error;
+  }
 }
 
 /**
@@ -115,6 +152,5 @@ function createRepositories(database: KyselyDB) {
     transaction: new TransactionRepository(database),
     rawData: new RawDataRepository(database),
     importSession: new ImportSessionRepository(database),
-    tokenMetadata: new TokenMetadataRepository(database),
   };
 }

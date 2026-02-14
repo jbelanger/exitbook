@@ -212,44 +212,6 @@ export interface TransactionLinksTable {
 }
 
 /**
- * Token metadata table - stores token information by contract address
- * Used by processors to enrich transaction data with token details
- */
-export interface TokenMetadataTable {
-  id: Generated<number>;
-  blockchain: string;
-  contract_address: string;
-  symbol: string | null;
-  name: string | null;
-  decimals: number | null;
-  logo_url: string | null;
-  // Professional spam detection (SQLite uses INTEGER for booleans: 0/1)
-  possible_spam: number | null;
-  verified_contract: number | null;
-  // Additional metadata for pattern-based detection
-  description: string | null;
-  external_url: string | null;
-  // Additional useful fields from providers
-  total_supply: string | null;
-  created_at_provider: string | null;
-  block_number: number | null;
-  source: string;
-  refreshed_at: DateTime;
-}
-
-/**
- * Symbol index table - enables reverse lookup from symbol to contract addresses
- * Supports multiple contracts with the same symbol
- */
-export interface SymbolIndexTable {
-  id: Generated<number>;
-  blockchain: string;
-  symbol: string;
-  contract_address: string;
-  created_at: DateTime;
-}
-
-/**
  * Main database interface combining all tables
  */
 export interface DatabaseSchema {
@@ -257,8 +219,6 @@ export interface DatabaseSchema {
   accounts: AccountsTable;
   raw_transactions: RawTransactionTable;
   import_sessions: ImportSessionsTable;
-  symbol_index: SymbolIndexTable;
-  token_metadata: TokenMetadataTable;
   transaction_movements: TransactionMovementsTable;
   transaction_links: TransactionLinksTable;
   transactions: TransactionsTable;

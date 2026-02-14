@@ -55,7 +55,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Database
 
 - Kysely + SQLite. Auto-migrate via `initializeDatabase()`.
-- Data dir: `EXITBOOK_DATA_DIR` if set, else `process.cwd()/data` (CLI default is `apps/cli/data/`). Named transactions.db.
+- Data dir: `EXITBOOK_DATA_DIR` if set, else `process.cwd()/data` (CLI default is `apps/cli/data/`).
+- Database files:
+  - `transactions.db` - Transactional data (accounts, transactions, movements, raw imports)
+  - `token-metadata.db` - Token metadata cache (persists across dev cycles)
+  - `prices.db` - Price cache (persists across dev cycles)
+  - `providers.db` - Provider health/circuit breaker stats (persists across dev cycles)
 
 ### Multi-Currency & FX
 

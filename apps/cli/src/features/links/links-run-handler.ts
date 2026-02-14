@@ -120,7 +120,7 @@ export class LinksRunHandler {
 
       let existingLinksCleared: number | undefined;
       if (!params.dryRun) {
-        const existingCountResult = await this.linkRepository.countAll();
+        const existingCountResult = await this.linkRepository.count();
         if (existingCountResult.isOk()) {
           const existingCount = existingCountResult.value;
           if (existingCount > 0) {

@@ -3,6 +3,7 @@ import { UserSchema, wrapError } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import type { DatabaseSchema } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
@@ -10,7 +11,7 @@ import { BaseRepository } from './base-repository.js';
 /**
  * Repository for User database operations
  */
-export class UserRepository extends BaseRepository {
+export class UserRepository extends BaseRepository<DatabaseSchema> {
   constructor(db: KyselyDB) {
     super(db, 'UserRepository');
   }

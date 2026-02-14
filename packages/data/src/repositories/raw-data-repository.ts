@@ -108,7 +108,7 @@ export interface IRawDataRepository {
  * Handles storage and retrieval of external transaction data using type-safe queries.
  * All operations return Result types and fail fast on errors.
  */
-export class RawDataRepository extends BaseRepository implements IRawDataRepository {
+export class RawDataRepository extends BaseRepository<DatabaseSchema> implements IRawDataRepository {
   constructor(db: KyselyDB) {
     super(db, 'RawDataRepository');
   }

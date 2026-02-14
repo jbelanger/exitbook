@@ -1,19 +1,19 @@
 /* eslint-disable unicorn/no-null -- null needed by Kysely */
 import { DecimalSchema, wrapError } from '@exitbook/core';
-import type { KyselyDB, TransactionLinksTable } from '@exitbook/data';
+import type { DatabaseSchema, KyselyDB, TransactionLinksTable } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { Selectable } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
 import { MatchCriteriaSchema, TransactionLinkMetadataSchema } from '../linking/schemas.js';
-import type { TransactionLink } from '../linking/types.js';
+import type { LinkStatus, TransactionLink } from '../linking/types.js';
 
 export type StoredTransactionLink = Selectable<TransactionLinksTable>;
 
 /**
  * Repository for transaction link operations
  */
-export class TransactionLinkRepository extends BaseRepository {
+export class TransactionLinkRepository extends BaseRepository<DatabaseSchema> {
   constructor(db: KyselyDB) {
     super(db, 'TransactionLinkRepository');
   }
@@ -155,74 +155,12 @@ export class TransactionLinkRepository extends BaseRepository {
   }
 
   /**
-   * Find links by source transaction ID
-   *
-   * @param sourceTransactionId - Source transaction ID
-   * @returns Result with array of links
-   */
-  async findBySourceTransactionId(sourceTransactionId: number): Promise<Result<TransactionLink[], Error>> {
-    try {
-      const rows = await this.db
-        .selectFrom('transaction_links')
-        .selectAll()
-        .where('source_transaction_id', '=', sourceTransactionId)
-        .execute();
-
-      // Convert rows to domain models, failing fast on any parse errors
-      const links: TransactionLink[] = [];
-      for (const row of rows) {
-        const result = this.toTransactionLink(row);
-        if (result.isErr()) {
-          return err(result.error);
-        }
-        links.push(result.value);
-      }
-
-      return ok(links);
-    } catch (error) {
-      this.logger.error({ error, sourceTransactionId }, 'Failed to find links by source transaction');
-      return wrapError(error, 'Failed to find links by source transaction');
-    }
-  }
-
-  /**
-   * Find links by target transaction ID
-   *
-   * @param targetTransactionId - Target transaction ID
-   * @returns Result with array of links
-   */
-  async findByTargetTransactionId(targetTransactionId: number): Promise<Result<TransactionLink[], Error>> {
-    try {
-      const rows = await this.db
-        .selectFrom('transaction_links')
-        .selectAll()
-        .where('target_transaction_id', '=', targetTransactionId)
-        .execute();
-
-      // Convert rows to domain models, failing fast on any parse errors
-      const links: TransactionLink[] = [];
-      for (const row of rows) {
-        const result = this.toTransactionLink(row);
-        if (result.isErr()) {
-          return err(result.error);
-        }
-        links.push(result.value);
-      }
-
-      return ok(links);
-    } catch (error) {
-      this.logger.error({ error, targetTransactionId }, 'Failed to find links by target transaction');
-      return wrapError(error, 'Failed to find links by target transaction');
-    }
-  }
-
-  /**
    * Find all links with optional status filter
    *
    * @param status - Optional status filter
    * @returns Result with array of links
    */
-  async findAll(status?: 'suggested' | 'confirmed' | 'rejected'): Promise<Result<TransactionLink[], Error>> {
+  async findAll(status?: LinkStatus): Promise<Result<TransactionLink[], Error>> {
     try {
       let query = this.db.selectFrom('transaction_links').selectAll();
 
@@ -297,11 +235,7 @@ export class TransactionLinkRepository extends BaseRepository {
    * @param reviewedBy - User who reviewed
    * @returns Result with success boolean
    */
-  async updateStatus(
-    id: string,
-    status: 'suggested' | 'confirmed' | 'rejected',
-    reviewedBy: string
-  ): Promise<Result<boolean, Error>> {
+  async updateStatus(id: string, status: LinkStatus, reviewedBy: string): Promise<Result<boolean, Error>> {
     try {
       const now = new Date().toISOString();
 
@@ -326,56 +260,41 @@ export class TransactionLinkRepository extends BaseRepository {
   }
 
   /**
-   * Count all transaction links
+   * Count transaction links with optional filters.
+   * When accountIds is provided, counts links where source OR target transactions belong
+   * to those accounts.
    *
+   * @param filters - Optional filters
    * @returns Result with count
    */
-  async countAll(): Promise<Result<number, Error>> {
+  async count(filters?: { accountIds?: number[] | undefined }): Promise<Result<number, Error>> {
     try {
-      const result = await this.db
-        .selectFrom('transaction_links')
-        .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .executeTakeFirst();
-      return ok(result?.count ?? 0);
-    } catch (error) {
-      this.logger.error({ error }, 'Failed to count all transaction links');
-      return wrapError(error, 'Failed to count all transaction links');
-    }
-  }
-
-  /**
-   * Count transaction links by account IDs
-   * Counts links where source OR target transactions belong to the specified accounts
-   * Filters WHERE source_transaction_id IN (...) OR target_transaction_id IN (...)
-   *
-   * @param accountIds - Account IDs to filter by
-   * @returns Result with count
-   */
-  async countByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
-    try {
-      if (accountIds.length === 0) {
+      const accountIds = filters?.accountIds;
+      if (accountIds !== undefined && accountIds.length === 0) {
         return ok(0);
       }
 
-      const transactionsSubquery = this.db
-        .selectFrom('transactions')
-        .select('id')
-        .where('account_id', 'in', accountIds);
+      let query = this.db.selectFrom('transaction_links').select(({ fn }) => [fn.count<number>('id').as('count')]);
 
-      const result = await this.db
-        .selectFrom('transaction_links')
-        .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .where((eb) =>
+      if (accountIds !== undefined) {
+        const transactionsSubquery = this.db
+          .selectFrom('transactions')
+          .select('id')
+          .where('account_id', 'in', accountIds);
+
+        query = query.where((eb) =>
           eb.or([
             eb('source_transaction_id', 'in', transactionsSubquery),
             eb('target_transaction_id', 'in', transactionsSubquery),
           ])
-        )
-        .executeTakeFirst();
+        );
+      }
+
+      const result = await query.executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
-      this.logger.error({ error, accountIds }, 'Failed to count transaction links by account IDs');
-      return wrapError(error, 'Failed to count transaction links by account IDs');
+      this.logger.error({ error, filters }, 'Failed to count transaction links');
+      return wrapError(error, 'Failed to count transaction links');
     }
   }
 
@@ -393,73 +312,6 @@ export class TransactionLinkRepository extends BaseRepository {
       return ok(new Date(result.latest));
     } catch (error) {
       return wrapError(error, 'Failed to get latest transaction link created_at');
-    }
-  }
-
-  /**
-   * Delete a transaction link
-   *
-   * @param id - Link ID
-   * @returns Result with success boolean
-   */
-  async delete(id: string): Promise<Result<boolean, Error>> {
-    try {
-      const result = await this.db.deleteFrom('transaction_links').where('id', '=', id).execute();
-
-      const deleted = result[0] ? Number(result[0].numDeletedRows ?? 0) > 0 : false;
-      this.logger.debug({ linkId: id, deleted }, 'Deleted transaction link');
-      return ok(deleted);
-    } catch (error) {
-      this.logger.error({ error, id }, 'Failed to delete transaction link');
-      return wrapError(error, 'Failed to delete transaction link');
-    }
-  }
-
-  /**
-   * Delete all links for a source transaction
-   *
-   * @param sourceTransactionId - Source transaction ID
-   * @returns Result with count of deleted links
-   */
-  async deleteBySourceTransactionId(sourceTransactionId: number): Promise<Result<number, Error>> {
-    try {
-      const result = await this.db
-        .deleteFrom('transaction_links')
-        .where('source_transaction_id', '=', sourceTransactionId)
-        .execute();
-
-      const count = result[0] ? Number(result[0].numDeletedRows ?? 0) : 0;
-      this.logger.debug({ sourceTransactionId, count }, 'Deleted transaction links by source transaction');
-      return ok(count);
-    } catch (error) {
-      this.logger.error({ error, sourceTransactionId }, 'Failed to delete links by source transaction');
-      return wrapError(error, 'Failed to delete links by source transaction');
-    }
-  }
-
-  /**
-   * Delete all links where source transactions match a specific source_name
-   *
-   * @param sourceName - Source ID to match (e.g., 'kraken', 'ethereum')
-   * @returns Result with count of deleted links
-   */
-  async deleteBySource(sourceName: string): Promise<Result<number, Error>> {
-    try {
-      const result = await this.db
-        .deleteFrom('transaction_links')
-        .where(
-          'source_transaction_id',
-          'in',
-          this.db.selectFrom('transactions').select('id').where('source_name', '=', sourceName)
-        )
-        .executeTakeFirst();
-
-      const count = Number(result.numDeletedRows ?? 0);
-      this.logger.debug({ sourceName, count }, 'Deleted transaction links by source');
-      return ok(count);
-    } catch (error) {
-      this.logger.error({ error, sourceName }, 'Failed to delete links by source');
-      return wrapError(error, 'Failed to delete links by source');
     }
   }
 

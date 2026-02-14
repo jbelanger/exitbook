@@ -1,9 +1,10 @@
 /* eslint-disable unicorn/no-null -- null required for db */
 import type { TokenMetadataRecord } from '@exitbook/core';
+import type { Kysely } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { KyselyDB } from '../storage/database.js';
+import type { TokenMetadataDatabase } from '../persistence/token-metadata/schema.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -13,8 +14,8 @@ const STALENESS_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
  * Repository for token metadata storage and retrieval
  * Stores token information by contract address with symbol indexing for reverse lookups
  */
-export class TokenMetadataRepository extends BaseRepository {
-  constructor(db: KyselyDB) {
+export class TokenMetadataRepository extends BaseRepository<TokenMetadataDatabase> {
+  constructor(db: Kysely<TokenMetadataDatabase>) {
     super(db, 'TokenMetadataRepository');
   }
 
