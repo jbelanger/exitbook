@@ -1,6 +1,11 @@
 import { DateSchema, DecimalSchema } from '@exitbook/core';
 import { z } from 'zod';
 
+const UnitIntervalDecimalSchema = DecimalSchema.refine(
+  (value) => value.greaterThanOrEqualTo(0) && value.lessThanOrEqualTo(1),
+  { message: 'Value must be between 0 and 1 (inclusive)' }
+);
+
 /**
  * Link type schema
  */
@@ -21,7 +26,7 @@ export const LinkStatusSchema = z.enum(['suggested', 'confirmed', 'rejected']);
  */
 export const MatchCriteriaSchema = z.object({
   assetMatch: z.boolean(),
-  amountSimilarity: DecimalSchema,
+  amountSimilarity: UnitIntervalDecimalSchema,
   timingValid: z.boolean(),
   timingHours: z.number(),
   addressMatch: z.boolean().optional(),
@@ -46,7 +51,7 @@ export const TransactionLinkSchema = z.object({
   sourceAmount: DecimalSchema,
   targetAmount: DecimalSchema,
   linkType: LinkTypeSchema,
-  confidenceScore: DecimalSchema,
+  confidenceScore: UnitIntervalDecimalSchema,
   matchCriteria: MatchCriteriaSchema,
   status: LinkStatusSchema,
   reviewedBy: z.string().optional(),
@@ -80,7 +85,7 @@ export const TransactionCandidateSchema = z.object({
 export const PotentialMatchSchema = z.object({
   sourceTransaction: TransactionCandidateSchema,
   targetTransaction: TransactionCandidateSchema,
-  confidenceScore: DecimalSchema,
+  confidenceScore: UnitIntervalDecimalSchema,
   matchCriteria: MatchCriteriaSchema,
   linkType: LinkTypeSchema,
 });

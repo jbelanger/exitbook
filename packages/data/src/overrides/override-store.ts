@@ -32,7 +32,7 @@ import type { CreateOverrideEventOptions } from './override.types.js';
 export class OverrideStore {
   private readonly filePath: string;
   private readonly logger: Logger;
-  private writeQueue: Promise<unknown> = Promise.resolve();
+  private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(dataDir: string) {
     this.filePath = path.join(dataDir, 'overrides.jsonl');
@@ -47,14 +47,17 @@ export class OverrideStore {
    * concurrent writes from corrupting the JSONL file.
    */
   async append(options: CreateOverrideEventOptions): Promise<Result<OverrideEvent, Error>> {
-    // Queue this write to ensure serialization
-    this.writeQueue = this.writeQueue
-      .then(() => this.appendImpl(options))
-      .catch(() => {
-        /* empty */
-      }); // Prevent queue from stopping on error
+    // Queue this write to ensure serialization while returning the operation result.
+    // The queue itself is always reset to a resolved state so later appends continue.
+    const appendResult = this.writeQueue.then(() => this.appendImpl(options));
 
-    return this.writeQueue as Promise<Result<OverrideEvent, Error>>;
+    this.writeQueue = appendResult
+      .then(() => void 0)
+      .catch((error: unknown) => {
+        this.logger.error({ error }, 'Unexpected write queue failure, continuing with next write');
+      });
+
+    return appendResult.catch((error: unknown) => wrapError(error, 'Write queue failure'));
   }
 
   /**

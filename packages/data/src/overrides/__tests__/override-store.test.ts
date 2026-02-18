@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 import { OverrideStore } from '../override-store.js';
 import type { LinkOverridePayload, PriceOverridePayload } from '../override.schemas.js';
@@ -114,6 +114,40 @@ describe('OverrideStore', () => {
 
       expect(result.isOk()).toBe(true);
       expect(store.exists()).toBe(true);
+    });
+
+    it('should return an error result and recover queue after unexpected append failure', async () => {
+      const payload: LinkOverridePayload = {
+        type: 'link_override',
+        action: 'confirm',
+        link_type: 'transfer',
+        source_fingerprint: 'kraken:TRADE-123',
+        target_fingerprint: 'blockchain:bitcoin:abc',
+        asset: 'BTC',
+      };
+
+      const appendImplSpy = vi
+        .spyOn(store as unknown as { appendImpl: (options: unknown) => Promise<unknown> }, 'appendImpl')
+        .mockRejectedValueOnce(new Error('simulated append failure'));
+
+      const firstResult = await store.append({
+        scope: 'link',
+        payload,
+      });
+
+      expect(firstResult.isErr()).toBe(true);
+      if (firstResult.isErr()) {
+        expect(firstResult.error.message).toContain('simulated append failure');
+      }
+
+      appendImplSpy.mockRestore();
+
+      const secondResult = await store.append({
+        scope: 'link',
+        payload,
+      });
+
+      expect(secondResult.isOk()).toBe(true);
     });
   });
 

@@ -7,7 +7,7 @@ import {
   VerificationMetadataSchema,
   wrapError,
 } from '@exitbook/core';
-import type { Selectable } from 'kysely';
+import type { Selectable, Updateable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';
@@ -270,65 +270,63 @@ export class AccountRepository extends BaseRepository<DatabaseSchema> {
   async update(accountId: number, updates: UpdateAccountParams): Promise<Result<void, Error>> {
     try {
       const currentTimestamp = this.getCurrentDateTimeForDB();
-      const updateData: Record<string, unknown> = {
+      const updateData: Updateable<AccountsTable> = {
         updated_at: currentTimestamp,
       };
 
       if (updates.parentAccountId !== undefined) {
-        updateData['parent_account_id'] = updates.parentAccountId;
+        updateData.parent_account_id = updates.parentAccountId;
       }
 
       if (updates.providerName !== undefined) {
-        updateData['provider_name'] = updates.providerName;
+        updateData.provider_name = updates.providerName;
       }
 
       if (updates.credentials !== undefined) {
         if (updates.credentials === null) {
-          updateData['credentials'] = null;
+          updateData.credentials = null;
         } else {
           const validationResult = ExchangeCredentialsSchema.safeParse(updates.credentials);
           if (!validationResult.success) {
             return err(new Error(`Invalid credentials: ${validationResult.error.message}`));
           }
-          updateData['credentials'] = this.serializeToJson(validationResult.data);
+          updateData.credentials = this.serializeToJson(validationResult.data) ?? null;
         }
       }
 
       if (updates.lastCursor !== undefined) {
         if (updates.lastCursor === null) {
-          updateData['last_cursor'] = null;
+          updateData.last_cursor = null;
         } else {
           const validationResult = z.record(z.string(), CursorStateSchema).safeParse(updates.lastCursor);
           if (!validationResult.success) {
             return err(new Error(`Invalid cursor map: ${validationResult.error.message}`));
           }
-          updateData['last_cursor'] = this.serializeToJson(validationResult.data);
+          updateData.last_cursor = this.serializeToJson(validationResult.data) ?? null;
         }
       }
 
       if (updates.lastBalanceCheckAt !== undefined) {
-        updateData['last_balance_check_at'] = updates.lastBalanceCheckAt
-          ? updates.lastBalanceCheckAt.toISOString()
-          : null;
+        updateData.last_balance_check_at = updates.lastBalanceCheckAt ? updates.lastBalanceCheckAt.toISOString() : null;
       }
 
       if (updates.verificationMetadata !== undefined) {
         if (updates.verificationMetadata === null) {
-          updateData['verification_metadata'] = null;
+          updateData.verification_metadata = null;
         } else {
           const validationResult = VerificationMetadataSchema.safeParse(updates.verificationMetadata);
           if (!validationResult.success) {
             return err(new Error(`Invalid verification metadata: ${validationResult.error.message}`));
           }
-          updateData['verification_metadata'] = this.serializeToJson(validationResult.data);
+          updateData.verification_metadata = this.serializeToJson(validationResult.data) ?? null;
         }
       }
 
       if (updates.metadata !== undefined) {
         if (updates.metadata === null) {
-          updateData['metadata'] = null;
+          updateData.metadata = null;
         } else {
-          updateData['metadata'] = this.serializeToJson(updates.metadata);
+          updateData.metadata = this.serializeToJson(updates.metadata) ?? null;
         }
       }
 

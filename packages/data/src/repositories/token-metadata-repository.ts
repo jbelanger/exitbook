@@ -1,14 +1,17 @@
 /* eslint-disable unicorn/no-null -- null required for db */
 import type { TokenMetadataRecord } from '@exitbook/core';
-import type { Kysely } from 'kysely';
+import type { Kysely, Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import type { TokenMetadataDatabase } from '../persistence/token-metadata/schema.js';
 
 import { BaseRepository } from './base-repository.js';
+import { fromSqliteBoolean, toSqliteBoolean } from './sqlite-utils.js';
 
 const STALENESS_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+type TokenMetadataRow = TokenMetadataDatabase['token_metadata'];
+type TokenMetadataSelectableRow = Selectable<TokenMetadataRow>;
 
 /**
  * Repository for token metadata storage and retrieval
@@ -27,38 +30,19 @@ export class TokenMetadataRepository extends BaseRepository<TokenMetadataDatabas
     contractAddress: string
   ): Promise<Result<TokenMetadataRecord | undefined, Error>> {
     try {
-      const result = await this.db
+      const row = await this.db
         .selectFrom('token_metadata')
         .selectAll()
         .where('blockchain', '=', blockchain)
         .where('contract_address', '=', contractAddress)
         .executeTakeFirst();
 
-      if (!result) {
+      if (!row) {
         this.logger.debug(`Token metadata not found - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
         return ok(undefined);
       }
 
-      const metadata: TokenMetadataRecord = {
-        blockchain: result.blockchain,
-        contractAddress: result.contract_address,
-        symbol: result.symbol ?? undefined,
-        name: result.name ?? undefined,
-        decimals: result.decimals ?? undefined,
-        logoUrl: result.logo_url ?? undefined,
-        // Professional spam detection (convert SQLite integer 0/1 to boolean)
-        possibleSpam: result.possible_spam !== null ? result.possible_spam === 1 : undefined,
-        verifiedContract: result.verified_contract !== null ? result.verified_contract === 1 : undefined,
-        // Additional metadata for pattern-based detection
-        description: result.description ?? undefined,
-        externalUrl: result.external_url ?? undefined,
-        // Additional useful fields
-        totalSupply: result.total_supply ?? undefined,
-        createdAt: result.created_at_provider ?? undefined,
-        blockNumber: result.block_number ?? undefined,
-        refreshedAt: new Date(result.refreshed_at),
-        source: result.source,
-      };
+      const metadata = this.mapTokenMetadataRow(row);
 
       this.logger.debug(
         `Token metadata found - Blockchain: ${blockchain}, Contract: ${contractAddress}, Symbol: ${metadata.symbol ?? 'unknown'}`
@@ -84,7 +68,7 @@ export class TokenMetadataRepository extends BaseRepository<TokenMetadataDatabas
         return ok(new Map());
       }
 
-      const results = await this.db
+      const rows = await this.db
         .selectFrom('token_metadata')
         .selectAll()
         .where('blockchain', '=', blockchain)
@@ -99,30 +83,13 @@ export class TokenMetadataRepository extends BaseRepository<TokenMetadataDatabas
       }
 
       // Fill in found metadata
-      for (const result of results) {
-        const metadata: TokenMetadataRecord = {
-          blockchain: result.blockchain,
-          contractAddress: result.contract_address,
-          symbol: result.symbol ?? undefined,
-          name: result.name ?? undefined,
-          decimals: result.decimals ?? undefined,
-          logoUrl: result.logo_url ?? undefined,
-          // Convert SQLite integer 0/1 to boolean
-          possibleSpam: result.possible_spam !== null ? result.possible_spam === 1 : undefined,
-          verifiedContract: result.verified_contract !== null ? result.verified_contract === 1 : undefined,
-          description: result.description ?? undefined,
-          externalUrl: result.external_url ?? undefined,
-          totalSupply: result.total_supply ?? undefined,
-          createdAt: result.created_at_provider ?? undefined,
-          blockNumber: result.block_number ?? undefined,
-          refreshedAt: new Date(result.refreshed_at),
-          source: result.source,
-        };
-        metadataMap.set(result.contract_address, metadata);
+      for (const row of rows) {
+        const metadata = this.mapTokenMetadataRow(row);
+        metadataMap.set(row.contract_address, metadata);
       }
 
       this.logger.debug(
-        `Batch token metadata lookup - Blockchain: ${blockchain}, Requested: ${contractAddresses.length}, Found: ${results.length}`
+        `Batch token metadata lookup - Blockchain: ${blockchain}, Requested: ${contractAddresses.length}, Found: ${rows.length}`
       );
 
       return ok(metadataMap);
@@ -189,20 +156,14 @@ export class TokenMetadataRepository extends BaseRepository<TokenMetadataDatabas
       const mergedDecimals = metadata.decimals !== undefined ? metadata.decimals : (existing?.decimals ?? null);
       const mergedLogoUrl = metadata.logoUrl !== undefined ? metadata.logoUrl : (existing?.logoUrl ?? null);
 
-      // Professional spam detection (convert boolean to SQLite integer: 0/1)
-      let mergedPossibleSpam: number | null = null;
-      if (metadata.possibleSpam !== undefined) {
-        mergedPossibleSpam = metadata.possibleSpam ? 1 : 0;
-      } else if (existing?.possibleSpam !== undefined) {
-        mergedPossibleSpam = existing.possibleSpam ? 1 : 0;
-      }
-
-      let mergedVerifiedContract: number | null = null;
-      if (metadata.verifiedContract !== undefined) {
-        mergedVerifiedContract = metadata.verifiedContract ? 1 : 0;
-      } else if (existing?.verifiedContract !== undefined) {
-        mergedVerifiedContract = existing.verifiedContract ? 1 : 0;
-      }
+      const mergedPossibleSpam =
+        metadata.possibleSpam !== undefined
+          ? toSqliteBoolean(metadata.possibleSpam)
+          : toSqliteBoolean(existing?.possibleSpam);
+      const mergedVerifiedContract =
+        metadata.verifiedContract !== undefined
+          ? toSqliteBoolean(metadata.verifiedContract)
+          : toSqliteBoolean(existing?.verifiedContract);
 
       // Additional metadata
       const mergedDescription =
@@ -332,6 +293,26 @@ export class TokenMetadataRepository extends BaseRepository<TokenMetadataDatabas
         `Unhandled error in background refresh - Blockchain: ${blockchain}, Contract: ${contractAddress}`
       );
     });
+  }
+
+  private mapTokenMetadataRow(row: TokenMetadataSelectableRow): TokenMetadataRecord {
+    return {
+      blockchain: row.blockchain,
+      contractAddress: row.contract_address,
+      symbol: row.symbol ?? undefined,
+      name: row.name ?? undefined,
+      decimals: row.decimals ?? undefined,
+      logoUrl: row.logo_url ?? undefined,
+      possibleSpam: fromSqliteBoolean(row.possible_spam),
+      verifiedContract: fromSqliteBoolean(row.verified_contract),
+      description: row.description ?? undefined,
+      externalUrl: row.external_url ?? undefined,
+      totalSupply: row.total_supply ?? undefined,
+      createdAt: row.created_at_provider ?? undefined,
+      blockNumber: row.block_number ?? undefined,
+      refreshedAt: new Date(row.refreshed_at),
+      source: row.source,
+    };
   }
 
   /**

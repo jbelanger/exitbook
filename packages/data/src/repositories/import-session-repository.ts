@@ -242,32 +242,33 @@ export class ImportSessionRepository extends BaseRepository<DatabaseSchema> impl
   async update(sessionId: number, updates: ImportSessionUpdate): Promise<Result<void, Error>> {
     try {
       const currentTimestamp = this.getCurrentDateTimeForDB();
-      const updateData: Record<string, unknown> = {
+      const updateData: ImportSessionUpdate = {
         updated_at: currentTimestamp,
       };
 
       if (updates.status !== undefined) {
-        updateData['status'] = updates.status;
+        updateData.status = updates.status;
 
         if (updates.status === 'completed' || updates.status === 'failed' || updates.status === 'cancelled') {
-          updateData['completed_at'] = currentTimestamp;
+          updateData.completed_at = currentTimestamp;
         }
       }
 
       if (updates.error_message !== undefined) {
-        updateData['error_message'] = updates.error_message;
+        updateData.error_message = updates.error_message;
       }
 
       if (updates.error_details !== undefined) {
-        updateData['error_details'] = this.serializeToJson(updates.error_details);
+        const serializedErrorDetails = this.serializeToJson(updates.error_details);
+        updateData.error_details = serializedErrorDetails ?? updates.error_details;
       }
 
       if (updates.transactions_imported !== undefined) {
-        updateData['transactions_imported'] = updates.transactions_imported;
+        updateData.transactions_imported = updates.transactions_imported;
       }
 
       if (updates.transactions_skipped !== undefined) {
-        updateData['transactions_skipped'] = updates.transactions_skipped;
+        updateData.transactions_skipped = updates.transactions_skipped;
       }
 
       // Only update if there are actual changes besides updated_at

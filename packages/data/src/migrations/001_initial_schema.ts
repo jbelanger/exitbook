@@ -271,8 +271,50 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
       'transaction_links_link_type_valid',
       sql`link_type IN ('exchange_to_blockchain', 'blockchain_to_blockchain', 'exchange_to_exchange', 'blockchain_internal')`
     )
+    .addCheckConstraint(
+      'transaction_links_confidence_score_valid',
+      sql`
+        CASE
+          WHEN json_valid(confidence_score)
+          THEN json_type(confidence_score) IN ('integer', 'real')
+            AND CAST(confidence_score AS REAL) >= 0
+            AND CAST(confidence_score AS REAL) <= 1
+          ELSE 0
+        END
+      `
+    )
     .addCheckConstraint('transaction_links_status_valid', sql`status IN ('suggested', 'confirmed', 'rejected')`)
     .addCheckConstraint('transaction_links_match_criteria_json_valid', sql`json_valid(match_criteria_json)`)
+    .addCheckConstraint(
+      'transaction_links_match_criteria_shape_valid',
+      sql`
+        json_type(match_criteria_json) = 'object'
+        AND json_type(match_criteria_json, '$.assetMatch') IN ('true', 'false')
+        AND json_type(match_criteria_json, '$.timingValid') IN ('true', 'false')
+        AND json_type(match_criteria_json, '$.timingHours') IN ('integer', 'real')
+        AND (
+          CASE
+            WHEN json_type(match_criteria_json, '$.amountSimilarity') IN ('integer', 'real')
+            THEN CAST(json_extract(match_criteria_json, '$.amountSimilarity') AS REAL) >= 0
+              AND CAST(json_extract(match_criteria_json, '$.amountSimilarity') AS REAL) <= 1
+            WHEN json_type(match_criteria_json, '$.amountSimilarity') = 'text'
+            THEN json_valid(json_extract(match_criteria_json, '$.amountSimilarity'))
+              AND json_type(json_extract(match_criteria_json, '$.amountSimilarity')) IN ('integer', 'real')
+              AND CAST(json_extract(match_criteria_json, '$.amountSimilarity') AS REAL) >= 0
+              AND CAST(json_extract(match_criteria_json, '$.amountSimilarity') AS REAL) <= 1
+            ELSE 0
+          END
+        )
+        AND (
+          json_type(match_criteria_json, '$.addressMatch') IS NULL
+          OR json_type(match_criteria_json, '$.addressMatch') IN ('true', 'false')
+        )
+        AND (
+          json_type(match_criteria_json, '$.hashMatch') IS NULL
+          OR json_type(match_criteria_json, '$.hashMatch') IN ('true', 'false')
+        )
+      `
+    )
     .addCheckConstraint(
       'transaction_links_metadata_json_valid',
       sql`metadata_json IS NULL OR json_valid(metadata_json)`

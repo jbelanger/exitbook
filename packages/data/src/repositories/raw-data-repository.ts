@@ -239,13 +239,9 @@ export class RawDataRepository extends BaseRepository<DatabaseSchema> implements
               inserted++;
             }
           } catch (error) {
-            // Check if this is a unique constraint violation (duplicate blockchain transaction or exchange transaction)
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            if (
-              errorMessage.includes('UNIQUE constraint failed') ||
-              errorMessage.includes('idx_raw_tx_account_blockchain_hash') ||
-              errorMessage.includes('idx_raw_tx_account_event_id')
-            ) {
+            // Classify duplicates using stable SQLite error code (message text is format-dependent).
+            if (this.isSqliteUniqueConstraintError(error)) {
+              const errorMessage = error instanceof Error ? error.message : String(error);
               if (this.isEventIdConstraintViolation(errorMessage)) {
                 await this.warnOnEventIdCollision(trx, accountId, item);
               }
@@ -437,6 +433,14 @@ export class RawDataRepository extends BaseRepository<DatabaseSchema> implements
       errorMessage.includes('idx_raw_tx_account_event_id') ||
       (errorMessage.includes('raw_transactions.account_id') && errorMessage.includes('raw_transactions.event_id'))
     );
+  }
+
+  private isSqliteUniqueConstraintError(error: unknown): boolean {
+    if (!error || typeof error !== 'object' || !('code' in error)) {
+      return false;
+    }
+
+    return (error as { code?: unknown }).code === 'SQLITE_CONSTRAINT_UNIQUE';
   }
 
   private stableStringify(value: unknown): string {

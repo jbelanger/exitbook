@@ -13,6 +13,16 @@ import type { TransactionGroup } from './types.js';
 
 const logger = getLogger('PriceEnrichmentService');
 
+function transactionNeedsPrice(transaction: UniversalTransactionData): boolean {
+  const inflows = transaction.movements.inflows ?? [];
+  const outflows = transaction.movements.outflows ?? [];
+  const fees = transaction.fees ?? [];
+
+  return [...inflows, ...outflows, ...fees].some((movement) => {
+    return !movement.priceAtTxTime || movement.priceAtTxTime.source === 'fiat-execution-tentative';
+  });
+}
+
 /**
  * Service for enriching transaction movements with price data
  * derived from the transaction data itself.
@@ -45,18 +55,6 @@ export class PriceEnrichmentService {
     try {
       logger.info('Starting price enrichment process');
 
-      // Find all transactions needing prices
-      const needingPricesResult = await this.transactionRepository.findTransactionsNeedingPrices();
-
-      if (needingPricesResult.isErr()) {
-        return err(needingPricesResult.error);
-      }
-
-      const transactions = needingPricesResult.value;
-
-      // Track which transactions originally needed prices
-      const txIdsNeedingPrices = new Set(transactions.map((tx) => tx.id));
-
       // Get full transaction data - we must process ALL transactions even if none need prices
       // because Pass N+2 recalculates ratios for swaps that already have fetched prices
       const allTransactionsResult = await this.transactionRepository.getTransactions();
@@ -71,8 +69,12 @@ export class PriceEnrichmentService {
         return ok({ transactionsUpdated: 0 });
       }
 
+      // Track which transactions originally needed prices.
+      // This avoids a second repository read while preserving update eligibility semantics.
+      const txIdsNeedingPrices = new Set(allTransactions.filter(transactionNeedsPrice).map((tx) => tx.id));
+
       logger.info(
-        { totalTransactions: allTransactions.length, needingPrices: transactions.length },
+        { totalTransactions: allTransactions.length, needingPrices: txIdsNeedingPrices.size },
         'Starting price enrichment'
       );
 

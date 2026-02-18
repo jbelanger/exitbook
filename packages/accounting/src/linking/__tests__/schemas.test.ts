@@ -103,6 +103,24 @@ describe('schemas', () => {
           // missing required fields
         })
       ).toThrow();
+
+      expect(() =>
+        MatchCriteriaSchema.parse({
+          assetMatch: true,
+          amountSimilarity: parseDecimal('1.01'),
+          timingValid: true,
+          timingHours: 1.5,
+        })
+      ).toThrow();
+
+      expect(() =>
+        MatchCriteriaSchema.parse({
+          assetMatch: true,
+          amountSimilarity: parseDecimal('-0.01'),
+          timingValid: true,
+          timingHours: 1.5,
+        })
+      ).toThrow();
     });
   });
 
@@ -197,6 +215,30 @@ describe('schemas', () => {
           linkType: 'exchange_to_blockchain',
           confidenceScore: parseDecimal('0.95'),
           matchCriteria: {},
+          status: 'confirmed',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      ).toThrow();
+
+      expect(() =>
+        TransactionLinkSchema.parse({
+          id: 'link-123',
+          sourceTransactionId: 1,
+          targetTransactionId: 2,
+          assetSymbol: 'BTC',
+          sourceAssetId: 'exchange:kraken:btc',
+          targetAssetId: 'blockchain:bitcoin:btc',
+          sourceAmount: parseDecimal('1.0'),
+          targetAmount: parseDecimal('1.0'),
+          linkType: 'exchange_to_blockchain',
+          confidenceScore: parseDecimal('1.5'),
+          matchCriteria: {
+            assetMatch: true,
+            amountSimilarity: parseDecimal('1.0'),
+            timingValid: true,
+            timingHours: 1.5,
+          },
           status: 'confirmed',
           createdAt: new Date(),
           updatedAt: new Date(),
