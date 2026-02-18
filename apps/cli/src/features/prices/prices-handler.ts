@@ -68,7 +68,7 @@ export class PricesFetchHandler {
     }
     const assetFilter = assetFilterResult.value?.map((c) => c.toString());
 
-    // Query transactions needing prices using repository
+    // Query transactions needing prices
     const transactionsResult = await this.transactionRepo.findTransactionsNeedingPrices(assetFilter);
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);

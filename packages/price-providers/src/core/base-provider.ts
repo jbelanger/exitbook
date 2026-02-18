@@ -9,7 +9,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { PriceRepository } from '../persistence/repositories/price-repository.js';
+import type { PriceQueries } from '../persistence/repositories/price-queries.js';
 
 import type { IPriceProvider, PriceData, PriceQuery, ProviderMetadata } from './types.js';
 import { validatePriceData, validateQueryTimeRange } from './utils.js';
@@ -21,7 +21,7 @@ import { validatePriceData, validateQueryTimeRange } from './utils.js';
  */
 export abstract class BasePriceProvider implements IPriceProvider {
   protected abstract metadata: ProviderMetadata;
-  protected priceRepo!: PriceRepository; // Set by subclass constructor
+  protected priceQueries!: PriceQueries; // Set by subclass constructor
   protected httpClient!: HttpClient; // Set by subclass constructor
   protected readonly logger = getLogger('BasePriceProvider');
 
@@ -84,7 +84,7 @@ export abstract class BasePriceProvider implements IPriceProvider {
    * Shared cache-checking logic used by all providers (addresses recommendation #1)
    */
   protected async checkCache(query: PriceQuery, currency: Currency): Promise<Result<PriceData | undefined, Error>> {
-    const cachedResult = await this.priceRepo.getPrice(query.assetSymbol, currency, query.timestamp);
+    const cachedResult = await this.priceQueries.getPrice(query.assetSymbol, currency, query.timestamp);
 
     if (cachedResult.isErr()) {
       return err(cachedResult.error);
@@ -116,7 +116,7 @@ export abstract class BasePriceProvider implements IPriceProvider {
       return;
     }
 
-    const cacheResult = await this.priceRepo.savePrice(priceData, identifier);
+    const cacheResult = await this.priceQueries.savePrice(priceData, identifier);
     if (cacheResult.isErr()) {
       this.logger.warn({ error: cacheResult.error.message }, 'Failed to cache price');
       // Don't fail the request if caching fails

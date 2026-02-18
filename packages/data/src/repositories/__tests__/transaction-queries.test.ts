@@ -161,12 +161,12 @@ describe('TransactionQueries - delete methods', () => {
 
 describe('TransactionQueries - scam token filtering', () => {
   let db: KyselyDB;
-  let repository: TransactionQueries;
+  let queries: TransactionQueries;
 
   beforeEach(async () => {
     db = createDatabase(':memory:');
     await runMigrations(db);
-    repository = createTransactionQueries(db);
+    queries = createTransactionQueries(db);
 
     // Create default user and account
     await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
@@ -298,7 +298,7 @@ describe('TransactionQueries - scam token filtering', () => {
   });
 
   it('should exclude scam tokens by default', async () => {
-    const result = await repository.getTransactions({ accountId: 1 });
+    const result = await queries.getTransactions({ accountId: 1 });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -309,7 +309,7 @@ describe('TransactionQueries - scam token filtering', () => {
   });
 
   it('should exclude scam tokens when includeExcluded is false', async () => {
-    const result = await repository.getTransactions({ accountId: 1, includeExcluded: false });
+    const result = await queries.getTransactions({ accountId: 1, includeExcluded: false });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -319,7 +319,7 @@ describe('TransactionQueries - scam token filtering', () => {
   });
 
   it('should include scam tokens when includeExcluded is true', async () => {
-    const result = await repository.getTransactions({ accountId: 1, includeExcluded: true });
+    const result = await queries.getTransactions({ accountId: 1, includeExcluded: true });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -343,8 +343,7 @@ describe('TransactionQueries - scam token filtering', () => {
       .execute();
     expect(nonExcluded).toHaveLength(3);
 
-    // Verify through repository
-    const result = await repository.getTransactions({ accountId: 1 });
+    const result = await queries.getTransactions({ accountId: 1 });
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toHaveLength(3);
@@ -354,12 +353,12 @@ describe('TransactionQueries - scam token filtering', () => {
 
 describe('TransactionQueries - isSpam field', () => {
   let db: KyselyDB;
-  let repository: TransactionQueries;
+  let queries: TransactionQueries;
 
   beforeEach(async () => {
     db = createDatabase(':memory:');
     await runMigrations(db);
-    repository = createTransactionQueries(db);
+    queries = createTransactionQueries(db);
 
     // Create default user and account
     await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
@@ -434,7 +433,7 @@ describe('TransactionQueries - isSpam field', () => {
       timestamp: Date.now(),
     };
 
-    const result = await repository.save(transaction, 1);
+    const result = await queries.save(transaction, 1);
 
     expect(result.isOk()).toBe(true);
 
@@ -475,7 +474,7 @@ describe('TransactionQueries - isSpam field', () => {
       timestamp: Date.now(),
     };
 
-    const result = await repository.save(transaction, 1);
+    const result = await queries.save(transaction, 1);
 
     expect(result.isOk()).toBe(true);
 
@@ -515,7 +514,7 @@ describe('TransactionQueries - isSpam field', () => {
       timestamp: Date.now(),
     };
 
-    const result = await repository.save(transaction, 1);
+    const result = await queries.save(transaction, 1);
 
     expect(result.isOk()).toBe(true);
 
@@ -549,7 +548,7 @@ describe('TransactionQueries - isSpam field', () => {
       timestamp: Date.now(),
     };
 
-    const result = await repository.save(transaction, 1);
+    const result = await queries.save(transaction, 1);
 
     expect(result.isOk()).toBe(true);
 
@@ -583,7 +582,7 @@ describe('TransactionQueries - isSpam field', () => {
       timestamp: Date.now(),
     };
 
-    const result = await repository.save(spamTransaction, 1);
+    const result = await queries.save(spamTransaction, 1);
 
     expect(result.isOk()).toBe(true);
 
@@ -600,12 +599,12 @@ describe('TransactionQueries - isSpam field', () => {
 
 describe('TransactionQueries - updateMovementsWithPrices', () => {
   let db: KyselyDB;
-  let repository: TransactionQueries;
+  let queries: TransactionQueries;
 
   beforeEach(async () => {
     db = createDatabase(':memory:');
     await runMigrations(db);
-    repository = createTransactionQueries(db);
+    queries = createTransactionQueries(db);
 
     // Create default user and account
     await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
@@ -758,7 +757,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
       ],
     };
 
-    const result = await repository.updateMovementsWithPrices(enrichedTx);
+    const result = await queries.updateMovementsWithPrices(enrichedTx);
 
     expect(result.isOk()).toBe(true);
 
@@ -882,7 +881,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
       ],
     };
 
-    const result = await repository.updateMovementsWithPrices(enrichedTx);
+    const result = await queries.updateMovementsWithPrices(enrichedTx);
 
     expect(result.isOk()).toBe(true);
 
@@ -972,7 +971,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
       fees: [],
     };
 
-    const result = await repository.updateMovementsWithPrices(enrichedTx);
+    const result = await queries.updateMovementsWithPrices(enrichedTx);
 
     expect(result.isErr()).toBe(true);
     expect(result.isErr() ? result.error.message : '').toContain('Invalid inflow movement data');
@@ -1071,7 +1070,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
       fees: [],
     };
 
-    const result = await repository.updateMovementsWithPrices(enrichedTx);
+    const result = await queries.updateMovementsWithPrices(enrichedTx);
 
     expect(result.isErr()).toBe(true);
     expect(result.isErr() && result.error.message).toContain('Transaction 999 not found');

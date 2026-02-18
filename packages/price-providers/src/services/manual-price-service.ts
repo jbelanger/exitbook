@@ -11,7 +11,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { createPricesDatabase, initializePricesDatabase } from '../persistence/database.js';
-import { PriceRepository } from '../persistence/repositories/price-repository.js';
+import { createPriceQueries, type PriceQueries } from '../persistence/repositories/price-queries.js';
 
 /**
  * Manual price entry data
@@ -42,7 +42,7 @@ export interface ManualFxRateEntry {
  * to the price cache. All database management is handled internally.
  */
 export class ManualPriceService {
-  private repository: PriceRepository | undefined;
+  private queries: PriceQueries | undefined;
   private initialized = false;
 
   constructor(private readonly databasePath: string) {}
@@ -78,7 +78,7 @@ export class ManualPriceService {
       const currency = Currency.create(entry.currency || 'USD');
 
       // Save to cache
-      const saveResult = await this.repository!.savePrice({
+      const saveResult = await this.queries!.savePrice({
         assetSymbol: asset,
         currency,
         timestamp: entry.date,
@@ -134,7 +134,7 @@ export class ManualPriceService {
       }
 
       // Save to cache (asset=from, currency=to)
-      const saveResult = await this.repository!.savePrice({
+      const saveResult = await this.queries!.savePrice({
         assetSymbol: fromCurrency,
         currency: toCurrency,
         timestamp: entry.date,
@@ -155,7 +155,7 @@ export class ManualPriceService {
    * Ensure database is initialized
    */
   private async ensureInitialized(): Promise<Result<void, Error>> {
-    if (this.initialized && this.repository) {
+    if (this.initialized && this.queries) {
       return ok();
     }
 
@@ -174,8 +174,8 @@ export class ManualPriceService {
         return err(new Error(`Failed to initialize database: ${migrationResult.error.message}`));
       }
 
-      // Create repository
-      this.repository = new PriceRepository(db);
+      // Create queries
+      this.queries = createPriceQueries(db);
       this.initialized = true;
 
       return ok();

@@ -1,5 +1,5 @@
 /**
- * Price repository - manages cached price data
+ * Price queries - manages cached price data
  */
 
 import { Currency, parseDecimal } from '@exitbook/core';
@@ -26,19 +26,53 @@ export interface PriceRecord {
 }
 
 /**
- * Repository for managing cached price data
+ * Queries for managing cached price data
  */
-export class PriceRepository {
-  private readonly logger = getLogger('PriceRepository');
+export function createPriceQueries(db: PricesDB) {
+  const logger = getLogger('price-queries');
 
-  constructor(private readonly db: PricesDB) {}
+  function normalizeGranularity(raw: string | null | undefined, record: PriceRecord): PriceData['granularity'] {
+    if (raw === null || raw === undefined) {
+      return undefined;
+    }
+
+    if (raw === 'exact' || raw === 'minute' || raw === 'hour' || raw === 'day') {
+      return raw;
+    }
+
+    logger.warn(
+      {
+        granularity: raw,
+        assetSymbol: record.asset_symbol,
+        currency: record.currency,
+        timestamp: record.timestamp,
+        sourceProvider: record.source_provider,
+      },
+      'Invalid granularity found in cached price record'
+    );
+    throw new Error(`Invalid cached price granularity: ${raw}`);
+  }
+
+  function recordToPriceData(record: PriceRecord): PriceData {
+    const granularity = normalizeGranularity(record.granularity, record);
+
+    return {
+      assetSymbol: Currency.create(record.asset_symbol),
+      currency: Currency.create(record.currency),
+      timestamp: new Date(record.timestamp),
+      price: parseDecimal(record.price),
+      source: record.source_provider,
+      fetchedAt: new Date(record.fetched_at),
+      granularity,
+    };
+  }
 
   /**
    * Get cached price for asset/currency/timestamp
    * Tries multiple granularity levels: minute, hour, day
    * Returns the most precise match available
    */
-  async getPrice(
+  async function getPrice(
     assetSymbol: Currency,
     currency: Currency,
     timestamp: Date
@@ -54,7 +88,7 @@ export class PriceRepository {
       const endOfDay = new Date(dayBucket);
       endOfDay.setUTCHours(23, 59, 59, 999);
 
-      const records = await this.db
+      const records = await db
         .selectFrom('prices')
         .selectAll()
         .where('asset_symbol', '=', assetSymbol.toString())
@@ -71,19 +105,19 @@ export class PriceRepository {
       // 1. Try minute bucket
       const minuteMatch = records.find((r) => r.timestamp === minuteBucket.toISOString());
       if (minuteMatch) {
-        return ok(this.recordToPriceData(minuteMatch));
+        return ok(recordToPriceData(minuteMatch));
       }
 
       // 2. Try hour bucket
       const hourMatch = records.find((r) => r.timestamp === hourBucket.toISOString());
       if (hourMatch) {
-        return ok(this.recordToPriceData(hourMatch));
+        return ok(recordToPriceData(hourMatch));
       }
 
       // 3. Try day bucket
       const dayMatch = records.find((r) => r.timestamp === dayBucket.toISOString());
       if (dayMatch) {
-        return ok(this.recordToPriceData(dayMatch));
+        return ok(recordToPriceData(dayMatch));
       }
 
       // 4. No exact bucket match - find closest timestamp
@@ -98,7 +132,7 @@ export class PriceRepository {
         }
       }
 
-      return ok(this.recordToPriceData(closestRecord));
+      return ok(recordToPriceData(closestRecord));
     } catch (error) {
       return wrapError(error, `Failed to get price`);
     }
@@ -107,11 +141,11 @@ export class PriceRepository {
   /**
    * Save price to cache (upsert)
    */
-  async savePrice(priceData: PriceData, providerCoinId?: string): Promise<Result<void, Error>> {
+  async function savePrice(priceData: PriceData, providerCoinId?: string): Promise<Result<void, Error>> {
     try {
       const timestampStr = priceData.timestamp.toISOString();
 
-      await this.db
+      await db
         .insertInto('prices')
         .values({
           asset_symbol: priceData.assetSymbol.toString(),
@@ -144,7 +178,7 @@ export class PriceRepository {
   /**
    * Batch save prices
    */
-  async savePrices(prices: PriceData[], providerCoinIds?: Map<string, string>): Promise<Result<void, Error>> {
+  async function savePrices(prices: PriceData[], providerCoinIds?: Map<string, string>): Promise<Result<void, Error>> {
     try {
       // Insert in batches to avoid too many SQL variables
       const batchSize = 100;
@@ -153,7 +187,7 @@ export class PriceRepository {
 
         for (const priceData of batch) {
           const coinId = providerCoinIds?.get(priceData.assetSymbol.toString());
-          const result = await this.savePrice(priceData, coinId);
+          const result = await savePrice(priceData, coinId);
 
           if (result.isErr()) {
             return result;
@@ -170,7 +204,7 @@ export class PriceRepository {
   /**
    * Get price range for an asset
    */
-  async getPriceRange(
+  async function getPriceRange(
     assetSymbol: string,
     currency: string,
     startDate: Date,
@@ -180,7 +214,7 @@ export class PriceRepository {
       const startStr = startDate.toISOString();
       const endStr = endDate.toISOString();
 
-      const records = await this.db
+      const records = await db
         .selectFrom('prices')
         .selectAll()
         .where('asset_symbol', '=', assetSymbol.toUpperCase())
@@ -190,7 +224,7 @@ export class PriceRepository {
         .orderBy('timestamp', 'asc')
         .execute();
 
-      const prices: PriceData[] = records.map((record) => this.recordToPriceData(record));
+      const prices: PriceData[] = records.map((record) => recordToPriceData(record));
 
       return ok(prices);
     } catch (error) {
@@ -201,7 +235,7 @@ export class PriceRepository {
   /**
    * Check if price exists in cache for the given day
    */
-  async hasPrice(assetSymbol: string, currency: string, timestamp: Date): Promise<Result<boolean, Error>> {
+  async function hasPrice(assetSymbol: string, currency: string, timestamp: Date): Promise<Result<boolean, Error>> {
     try {
       // Look for prices on the same day
       const startOfDay = new Date(timestamp);
@@ -210,7 +244,7 @@ export class PriceRepository {
       const endOfDay = new Date(timestamp);
       endOfDay.setUTCHours(23, 59, 59, 999);
 
-      const count = await this.db
+      const count = await db
         .selectFrom('prices')
         .select((eb) => eb.fn.countAll().as('count'))
         .where('asset_symbol', '=', assetSymbol.toUpperCase())
@@ -224,39 +258,14 @@ export class PriceRepository {
       return wrapError(error, `Failed to check price existence`);
     }
   }
-  private recordToPriceData(record: PriceRecord): PriceData {
-    const granularity = this.normalizeGranularity(record.granularity, record);
 
-    return {
-      assetSymbol: Currency.create(record.asset_symbol),
-      currency: Currency.create(record.currency),
-      timestamp: new Date(record.timestamp),
-      price: parseDecimal(record.price),
-      source: record.source_provider,
-      fetchedAt: new Date(record.fetched_at),
-      granularity,
-    };
-  }
-
-  private normalizeGranularity(raw: string | null | undefined, record: PriceRecord): PriceData['granularity'] {
-    if (raw === null || raw === undefined) {
-      return undefined;
-    }
-
-    if (raw === 'exact' || raw === 'minute' || raw === 'hour' || raw === 'day') {
-      return raw;
-    }
-
-    this.logger.warn(
-      {
-        granularity: raw,
-        assetSymbol: record.asset_symbol,
-        currency: record.currency,
-        timestamp: record.timestamp,
-        sourceProvider: record.source_provider,
-      },
-      'Invalid granularity found in cached price record'
-    );
-    throw new Error(`Invalid cached price granularity: ${raw}`);
-  }
+  return {
+    getPrice,
+    savePrice,
+    savePrices,
+    getPriceRange,
+    hasPrice,
+  };
 }
+
+export type PriceQueries = ReturnType<typeof createPriceQueries>;

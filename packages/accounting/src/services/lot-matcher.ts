@@ -125,8 +125,8 @@ export class LotMatcher {
   private readonly logger = getLogger('LotMatcher');
 
   constructor(
-    private readonly transactionRepository?: TransactionQueries | undefined,
-    private readonly linkRepository?: TransactionLinkQueries | undefined
+    private readonly transactionRepository: TransactionQueries,
+    private readonly linkRepository: TransactionLinkQueries
   ) {}
 
   /**
@@ -152,17 +152,15 @@ export class LotMatcher {
         );
       }
 
-      // Load confirmed transaction links (≥95% confidence) if repository is available
+      // Load confirmed transaction links (≥95% confidence)
       // Include blockchain_internal links so we can skip them during matching
       let confirmedLinks: TransactionLink[] = [];
-      if (this.linkRepository) {
-        const linksResult = await this.linkRepository.findAll('confirmed');
-        if (linksResult.isErr()) {
-          return err(linksResult.error);
-        }
-        confirmedLinks = linksResult.value.filter((link) => link.confidenceScore.gte(0.95));
-        this.logger.debug({ linkCount: confirmedLinks.length }, 'Loaded confirmed transaction links for lot matching');
+      const linksResult = await this.linkRepository.findAll('confirmed');
+      if (linksResult.isErr()) {
+        return err(linksResult.error);
       }
+      confirmedLinks = linksResult.value.filter((link) => link.confidenceScore.gte(0.95));
+      this.logger.debug({ linkCount: confirmedLinks.length }, 'Loaded confirmed transaction links for lot matching');
 
       // Sort transactions by dependency order (topological sort with chronological tie-breaking)
       const sortResult = sortTransactionsByDependency(transactions, confirmedLinks);
@@ -528,11 +526,6 @@ export class LotMatcher {
     transfersForLink: LotTransfer[],
     config: LotMatcherConfig
   ): Promise<Result<AcquisitionLot, Error>> {
-    // Fetch source transaction (repository dependency - imperative shell)
-    if (!this.transactionRepository) {
-      return err(new Error('TransactionQueries is required for handling transfer targets'));
-    }
-
     const sourceTxResult = await this.transactionRepository.findById(link.sourceTransactionId);
     if (sourceTxResult.isErr()) {
       return err(sourceTxResult.error);

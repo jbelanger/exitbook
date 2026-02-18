@@ -18,7 +18,7 @@ import { err, ok, type Result } from 'neverthrow';
 import type { ProviderEvent } from '../events.js';
 import type { NormalizedTransactionBase } from '../index.js';
 import { hydrateProviderStats } from '../persistence/provider-stats-utils.js';
-import type { ProviderStatsRepository } from '../persistence/repositories/provider-stats-repository.js';
+import type { ProviderStatsQueries } from '../persistence/repositories/provider-stats-queries.js';
 
 import { emitProviderTransition } from './provider-manager-events.js';
 import {
@@ -96,7 +96,7 @@ export class BlockchainProviderManager {
   private providers = new Map<string, IBlockchainProvider[]>();
   private requestCache = new Map<string, CacheEntry>();
   private preferredProviders = new Map<string, string>(); // blockchain -> preferred provider name
-  private statsRepository?: ProviderStatsRepository | undefined;
+  private statsQueries?: ProviderStatsQueries | undefined;
   private totalSuccesses = new Map<string, number>(); // blockchain/providerName -> lifetime successes
   private totalFailures = new Map<string, number>(); // blockchain/providerName -> lifetime failures
 
@@ -443,21 +443,21 @@ export class BlockchainProviderManager {
   }
 
   /**
-   * Set the stats repository for persisting provider health across runs
+   * Set stats queries for persisting provider health across runs
    */
-  setStatsRepository(repository: ProviderStatsRepository): void {
-    this.statsRepository = repository;
+  setStatsQueries(queries: ProviderStatsQueries): void {
+    this.statsQueries = queries;
   }
 
   /**
    * Load persisted provider stats from the database.
-   * Must be called after setStatsRepository() and before providers are registered
+   * Must be called after setStatsQueries() and before providers are registered
    * so that registerProviders() sees existing health/circuit data and skips re-initialization.
    */
   async loadPersistedStats(): Promise<void> {
-    if (!this.statsRepository) return;
+    if (!this.statsQueries) return;
 
-    const result = await this.statsRepository.getAll();
+    const result = await this.statsQueries.getAll();
     if (result.isErr()) {
       logger.warn(`Failed to load persisted provider stats: ${result.error.message}`);
       return;
@@ -485,7 +485,7 @@ export class BlockchainProviderManager {
    * Per-provider failures are logged as warnings; does not throw.
    */
   private async savePersistedStats(): Promise<void> {
-    if (!this.statsRepository) return;
+    if (!this.statsQueries) return;
 
     for (const [providerKey, health] of this.healthStatus) {
       const { blockchain, providerName } = parseProviderKey(providerKey);
@@ -493,7 +493,7 @@ export class BlockchainProviderManager {
       const circuitState = this.circuitStates.get(providerKey);
       if (!circuitState) continue;
 
-      const result = await this.statsRepository.upsert({
+      const result = await this.statsQueries.upsert({
         blockchain,
         providerName,
         avgResponseTime: health.averageResponseTime,

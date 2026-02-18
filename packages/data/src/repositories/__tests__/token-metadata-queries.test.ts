@@ -11,7 +11,7 @@ import { createTokenMetadataQueries, type TokenMetadataQueries } from '../token-
 
 describe('TokenMetadataQueries', () => {
   let db: TokenMetadataDB;
-  let repository: TokenMetadataQueries;
+  let queries: TokenMetadataQueries;
 
   beforeEach(async () => {
     const dbResult = createTokenMetadataDatabase(':memory:');
@@ -25,7 +25,7 @@ describe('TokenMetadataQueries', () => {
       throw initResult.error;
     }
 
-    repository = createTokenMetadataQueries(db);
+    queries = createTokenMetadataQueries(db);
   });
 
   afterEach(async () => {
@@ -47,11 +47,11 @@ describe('TokenMetadataQueries', () => {
         symbol: 'SCAM',
       };
 
-      const result = await repository.save('ethereum', '0x123', metadata);
+      const result = await queries.save('ethereum', '0x123', metadata);
 
       expect(result.isOk()).toBe(true);
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       expect(retrieved.isOk()).toBe(true);
       expect(retrieved._unsafeUnwrap()?.possibleSpam).toBe(true);
     });
@@ -67,11 +67,11 @@ describe('TokenMetadataQueries', () => {
         symbol: 'LGT',
       };
 
-      const result = await repository.save('ethereum', '0x123', metadata);
+      const result = await queries.save('ethereum', '0x123', metadata);
 
       expect(result.isOk()).toBe(true);
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       expect(retrieved.isOk()).toBe(true);
       expect(retrieved._unsafeUnwrap()?.possibleSpam).toBe(false);
     });
@@ -87,11 +87,11 @@ describe('TokenMetadataQueries', () => {
         verifiedContract: true,
       };
 
-      const result = await repository.save('ethereum', '0x123', metadata);
+      const result = await queries.save('ethereum', '0x123', metadata);
 
       expect(result.isOk()).toBe(true);
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       expect(retrieved.isOk()).toBe(true);
       expect(retrieved._unsafeUnwrap()?.verifiedContract).toBe(true);
     });
@@ -107,11 +107,11 @@ describe('TokenMetadataQueries', () => {
         verifiedContract: false,
       };
 
-      const result = await repository.save('ethereum', '0x123', metadata);
+      const result = await queries.save('ethereum', '0x123', metadata);
 
       expect(result.isOk()).toBe(true);
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       expect(retrieved.isOk()).toBe(true);
       expect(retrieved._unsafeUnwrap()?.verifiedContract).toBe(false);
     });
@@ -128,11 +128,11 @@ describe('TokenMetadataQueries', () => {
         verifiedContract: false,
       };
 
-      const result = await repository.save('ethereum', '0x123', metadata);
+      const result = await queries.save('ethereum', '0x123', metadata);
 
       expect(result.isOk()).toBe(true);
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       const record = retrieved._unsafeUnwrap();
       expect(record?.possibleSpam).toBe(true);
       expect(record?.verifiedContract).toBe(false);
@@ -148,11 +148,11 @@ describe('TokenMetadataQueries', () => {
         symbol: 'TKN',
       };
 
-      const result = await repository.save('ethereum', '0x123', metadata);
+      const result = await queries.save('ethereum', '0x123', metadata);
 
       expect(result.isOk()).toBe(true);
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       const record = retrieved._unsafeUnwrap();
       expect(record?.possibleSpam).toBeUndefined();
       expect(record?.verifiedContract).toBeUndefined();
@@ -171,11 +171,11 @@ describe('TokenMetadataQueries', () => {
         symbol: 'TKN',
       };
 
-      const result = await repository.save('ethereum', '0x123', metadata);
+      const result = await queries.save('ethereum', '0x123', metadata);
 
       expect(result.isOk()).toBe(true);
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       expect(retrieved._unsafeUnwrap()?.description).toBe('A legitimate DeFi token');
     });
 
@@ -190,11 +190,11 @@ describe('TokenMetadataQueries', () => {
         symbol: 'TKN',
       };
 
-      const result = await repository.save('ethereum', '0x123', metadata);
+      const result = await queries.save('ethereum', '0x123', metadata);
 
       expect(result.isOk()).toBe(true);
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       expect(retrieved._unsafeUnwrap()?.externalUrl).toBe('https://example.com');
     });
 
@@ -209,11 +209,11 @@ describe('TokenMetadataQueries', () => {
         totalSupply: '1000000000000000000',
       };
 
-      const result = await repository.save('ethereum', '0x123', metadata);
+      const result = await queries.save('ethereum', '0x123', metadata);
 
       expect(result.isOk()).toBe(true);
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       expect(retrieved._unsafeUnwrap()?.totalSupply).toBe('1000000000000000000');
     });
 
@@ -228,11 +228,11 @@ describe('TokenMetadataQueries', () => {
         symbol: 'TKN',
       };
 
-      const result = await repository.save('ethereum', '0x123', metadata);
+      const result = await queries.save('ethereum', '0x123', metadata);
 
       expect(result.isOk()).toBe(true);
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       expect(retrieved._unsafeUnwrap()?.createdAt).toBe('2024-01-01T00:00:00Z');
     });
 
@@ -247,11 +247,11 @@ describe('TokenMetadataQueries', () => {
         symbol: 'TKN',
       };
 
-      const result = await repository.save('ethereum', '0x123', metadata);
+      const result = await queries.save('ethereum', '0x123', metadata);
 
       expect(result.isOk()).toBe(true);
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       expect(retrieved._unsafeUnwrap()?.blockNumber).toBe(12345678);
     });
 
@@ -274,11 +274,11 @@ describe('TokenMetadataQueries', () => {
         verifiedContract: true,
       };
 
-      const result = await repository.save('ethereum', '0x123', metadata);
+      const result = await queries.save('ethereum', '0x123', metadata);
 
       expect(result.isOk()).toBe(true);
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       const record = retrieved._unsafeUnwrap();
       expect(record?.name).toBe('Complete Token');
       expect(record?.symbol).toBe('CMP');
@@ -297,7 +297,7 @@ describe('TokenMetadataQueries', () => {
   describe('save merging behavior with spam detection fields', () => {
     it('should preserve existing possibleSpam when updating with undefined', async () => {
       // Insert with possibleSpam true
-      await repository.save('ethereum', '0x123', {
+      await queries.save('ethereum', '0x123', {
         blockchain: 'ethereum',
         contractAddress: '0x123',
         name: 'Token',
@@ -308,7 +308,7 @@ describe('TokenMetadataQueries', () => {
       });
 
       // Update without possibleSpam (undefined)
-      await repository.save('ethereum', '0x123', {
+      await queries.save('ethereum', '0x123', {
         blockchain: 'ethereum',
         contractAddress: '0x123',
         name: 'Updated Token',
@@ -317,7 +317,7 @@ describe('TokenMetadataQueries', () => {
         symbol: 'TKN',
       });
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       const record = retrieved._unsafeUnwrap();
       expect(record?.possibleSpam).toBe(true); // Should preserve original value
       expect(record?.name).toBe('Updated Token'); // Should update name
@@ -325,7 +325,7 @@ describe('TokenMetadataQueries', () => {
 
     it('should override possibleSpam when explicitly set to false', async () => {
       // Insert with possibleSpam true
-      await repository.save('ethereum', '0x123', {
+      await queries.save('ethereum', '0x123', {
         blockchain: 'ethereum',
         contractAddress: '0x123',
         name: 'Token',
@@ -336,7 +336,7 @@ describe('TokenMetadataQueries', () => {
       });
 
       // Update with possibleSpam false
-      await repository.save('ethereum', '0x123', {
+      await queries.save('ethereum', '0x123', {
         blockchain: 'ethereum',
         contractAddress: '0x123',
         name: 'Token',
@@ -346,13 +346,13 @@ describe('TokenMetadataQueries', () => {
         symbol: 'TKN',
       });
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       expect(retrieved._unsafeUnwrap()?.possibleSpam).toBe(false);
     });
 
     it('should preserve existing verifiedContract when updating with undefined', async () => {
       // Insert with verifiedContract true
-      await repository.save('ethereum', '0x123', {
+      await queries.save('ethereum', '0x123', {
         blockchain: 'ethereum',
         contractAddress: '0x123',
         name: 'Token',
@@ -363,7 +363,7 @@ describe('TokenMetadataQueries', () => {
       });
 
       // Update without verifiedContract (undefined)
-      await repository.save('ethereum', '0x123', {
+      await queries.save('ethereum', '0x123', {
         blockchain: 'ethereum',
         contractAddress: '0x123',
         name: 'Updated Token',
@@ -372,13 +372,13 @@ describe('TokenMetadataQueries', () => {
         symbol: 'TKN',
       });
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       expect(retrieved._unsafeUnwrap()?.verifiedContract).toBe(true);
     });
 
     it('should preserve all additional metadata fields when updating with undefined', async () => {
       // Insert with all fields
-      await repository.save('ethereum', '0x123', {
+      await queries.save('ethereum', '0x123', {
         blockchain: 'ethereum',
         blockNumber: 12345678,
         contractAddress: '0x123',
@@ -393,7 +393,7 @@ describe('TokenMetadataQueries', () => {
       });
 
       // Update without additional fields
-      await repository.save('ethereum', '0x123', {
+      await queries.save('ethereum', '0x123', {
         blockchain: 'ethereum',
         contractAddress: '0x123',
         name: 'Updated Token',
@@ -402,7 +402,7 @@ describe('TokenMetadataQueries', () => {
         symbol: 'TKN',
       });
 
-      const retrieved = await repository.getByContract('ethereum', '0x123');
+      const retrieved = await queries.getByContract('ethereum', '0x123');
       const record = retrieved._unsafeUnwrap();
       expect(record?.description).toBe('Original description');
       expect(record?.externalUrl).toBe('https://example.com');

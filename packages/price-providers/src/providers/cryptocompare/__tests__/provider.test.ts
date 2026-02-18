@@ -31,7 +31,7 @@ vi.mock('../cryptocompare-utils.js', async () => {
 import { Currency, parseDecimal } from '@exitbook/core';
 
 import type { PriceData } from '../../../core/types.js';
-import type { PriceRepository } from '../../../persistence/repositories/price-repository.js';
+import type { PriceQueries } from '../../../persistence/repositories/price-queries.js';
 // Import after mocks so they receive mocked dependencies
 import { CryptoCompareProvider } from '../provider.js';
 
@@ -44,7 +44,7 @@ describe('CryptoCompareProvider', () => {
     getPrice: ReturnType<typeof vi.fn>;
     savePrice: ReturnType<typeof vi.fn>;
   };
-  let priceRepo: PriceRepository;
+  let priceRepo: PriceQueries;
   let provider: CryptoCompareProvider;
 
   beforeEach(() => {
@@ -59,7 +59,7 @@ describe('CryptoCompareProvider', () => {
       getPrice: vi.fn().mockResolvedValue(ok()),
       savePrice: vi.fn().mockResolvedValue(ok()),
     };
-    priceRepo = priceRepoMocks as unknown as PriceRepository;
+    priceRepo = priceRepoMocks as unknown as PriceQueries;
 
     const mockRateLimit = {
       burstLimit: 5,

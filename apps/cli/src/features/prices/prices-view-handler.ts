@@ -35,7 +35,6 @@ export class ViewPricesHandler {
    * Execute the view prices command (coverage mode).
    */
   async execute(params: ViewPricesParams): Promise<Result<ViewPricesResult, Error>> {
-    // Fetch transactions from repository
     const txResult = await this.txRepo.getTransactions(params.source ? { sourceName: params.source } : undefined);
 
     if (txResult.isErr()) {

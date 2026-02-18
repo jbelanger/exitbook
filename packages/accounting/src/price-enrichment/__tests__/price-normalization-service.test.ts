@@ -43,7 +43,6 @@ describe('PriceNormalizationService', () => {
   let service: PriceNormalizationService;
 
   beforeEach(() => {
-    // Mock transaction repository
     mockTransactionRepo = {
       getTransactions: vi.fn(),
       updateMovementsWithPrices: vi.fn(),

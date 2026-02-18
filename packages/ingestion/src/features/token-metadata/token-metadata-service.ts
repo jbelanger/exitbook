@@ -16,12 +16,12 @@ import {
 
 /**
  * Token metadata service implementation.
- * Encapsulates repository and provider manager dependencies, providing a clean interface
+ * Encapsulates queries and provider manager dependencies, providing a clean interface
  * for token metadata operations without exposing storage or provider implementation details.
  *
  * This follows the "Functional Core, Imperative Shell" pattern:
  * - Pure business logic lives in token-metadata-utils.js
- * - This class manages resources (repository, provider manager)
+ * - This class manages resources (queries, provider manager)
  * - Processors depend on ITokenMetadataService interface, not concrete dependencies
  */
 export class TokenMetadataService implements ITokenMetadataService {

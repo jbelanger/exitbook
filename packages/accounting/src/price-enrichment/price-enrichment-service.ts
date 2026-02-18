@@ -70,7 +70,7 @@ export class PriceEnrichmentService {
       }
 
       // Track which transactions originally needed prices.
-      // This avoids a second repository read while preserving update eligibility semantics.
+      // This avoids a second read while preserving update eligibility semantics.
       const txIdsNeedingPrices = new Set(allTransactions.filter(transactionNeedsPrice).map((tx) => tx.id));
 
       logger.info(

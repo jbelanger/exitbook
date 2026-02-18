@@ -25,10 +25,10 @@ export function createMockRawDataQueries(): Mocked<RawDataQueries> {
 }
 
 /**
- * Creates a mock import session repository with default implementations.
+ * Creates a mock import session queries object with default implementations.
  * All methods return successful Results by default. Override specific methods as needed.
  */
-export function createMockImportSessionRepository(): Mocked<ImportSessionQueries> {
+export function createMockImportSessionQueries(): Mocked<ImportSessionQueries> {
   return {
     create: vi.fn().mockResolvedValue(ok(1)),
     finalize: vi.fn().mockResolvedValue(ok()),

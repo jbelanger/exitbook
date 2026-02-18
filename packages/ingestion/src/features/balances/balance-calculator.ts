@@ -46,7 +46,7 @@ function processTransactionForBalance(
   };
 
   // Process inflows (what user gained)
-  // Movements are already deserialized by the repository with Decimal amounts
+  // Movements are already deserialized with Decimal amounts
   const inflows = transaction.movements.inflows;
   if (inflows && Array.isArray(inflows) && inflows.length > 0) {
     for (const inflow of inflows) {
@@ -59,7 +59,7 @@ function processTransactionForBalance(
   }
 
   // Process outflows (what user lost)
-  // Movements are already deserialized by the repository with Decimal amounts
+  // Movements are already deserialized with Decimal amounts
   const outflows = transaction.movements.outflows;
   if (outflows && Array.isArray(outflows) && outflows.length > 0) {
     for (const outflow of outflows) {

@@ -60,7 +60,7 @@ export async function createProcessServices(database: KyselyDB): Promise<Process
   const dataDir = getDataDir();
   const tokenMetadataResult = await createTokenMetadataPersistence(dataDir);
   if (tokenMetadataResult.isErr()) {
-    logger.error({ error: tokenMetadataResult.error }, 'Failed to create token metadata repository');
+    logger.error({ error: tokenMetadataResult.error }, 'Failed to create token metadata queries');
     throw tokenMetadataResult.error;
   }
 

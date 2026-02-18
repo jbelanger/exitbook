@@ -41,18 +41,15 @@ describe('LinksConfirmHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Mock link repository
     mockLinkRepository = {
       findById: vi.fn(),
       updateStatus: vi.fn(),
     };
 
-    // Mock transaction repository with findById for fingerprint computation
     mockTransactionRepository = {
       findById: vi.fn(),
     };
 
-    // Mock override store
     mockOverrideStore = {
       append: vi.fn().mockResolvedValue(ok({ id: 'test-event-id' })),
     };

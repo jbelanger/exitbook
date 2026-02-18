@@ -25,11 +25,11 @@ vi.mock('@exitbook/accounting', async () => {
 });
 
 describe('LinksRejectHandler', () => {
-  let mockLinkRepository: {
+  let mockLinkQueries: {
     findById: Mock;
     updateStatus: Mock;
   };
-  let mockTransactionRepository: {
+  let mockTransactionQueries: {
     findById: Mock;
   };
   let mockOverrideStore: {
@@ -40,14 +40,14 @@ describe('LinksRejectHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Mock link repository
-    mockLinkRepository = {
+    // Mock link queries
+    mockLinkQueries = {
       findById: vi.fn(),
       updateStatus: vi.fn(),
     };
 
-    // Mock transaction repository with findById for fingerprint computation
-    mockTransactionRepository = {
+    // Mock transaction queries with findById for fingerprint computation
+    mockTransactionQueries = {
       findById: vi.fn(),
     };
 
@@ -57,13 +57,13 @@ describe('LinksRejectHandler', () => {
     };
 
     // Setup mocks
-    (createTransactionQueries as unknown as Mock).mockImplementation(() => mockTransactionRepository);
+    (createTransactionQueries as unknown as Mock).mockImplementation(() => mockTransactionQueries);
 
-    (createTransactionLinkQueries as unknown as Mock).mockImplementation(() => mockLinkRepository);
+    (createTransactionLinkQueries as unknown as Mock).mockImplementation(() => mockLinkQueries);
 
     handler = new LinksRejectHandler(
-      mockLinkRepository as unknown as TransactionLinkQueries,
-      mockTransactionRepository as unknown as TransactionQueries,
+      mockLinkQueries as unknown as TransactionLinkQueries,
+      mockTransactionQueries as unknown as TransactionQueries,
       mockOverrideStore as unknown as OverrideStore
     );
   });
@@ -119,9 +119,9 @@ describe('LinksRejectHandler', () => {
 
       const suggestedLink = createMockLink('link-123', 'suggested');
 
-      mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
-      mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
-      mockTransactionRepository.findById.mockImplementation((id: number) => {
+      mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
+      mockLinkQueries.updateStatus.mockResolvedValue(ok(true));
+      mockTransactionQueries.findById.mockImplementation((id: number) => {
         if (id === 1) return Promise.resolve(ok(mockSourceTx));
         if (id === 2) return Promise.resolve(ok(mockTargetTx));
         return Promise.resolve(ok(undefined));
@@ -136,8 +136,8 @@ describe('LinksRejectHandler', () => {
       expect(rejectResult.reviewedBy).toBe('cli-user');
       expect(rejectResult.reviewedAt).toBeInstanceOf(Date);
 
-      expect(mockLinkRepository.findById).toHaveBeenCalledWith('link-123');
-      expect(mockLinkRepository.updateStatus).toHaveBeenCalledWith('link-123', 'rejected', 'cli-user');
+      expect(mockLinkQueries.findById).toHaveBeenCalledWith('link-123');
+      expect(mockLinkQueries.updateStatus).toHaveBeenCalledWith('link-123', 'rejected', 'cli-user');
     });
 
     it('should write unlink_override event after successful reject', async () => {
@@ -147,9 +147,9 @@ describe('LinksRejectHandler', () => {
 
       const suggestedLink = createMockLink('link-123', 'suggested');
 
-      mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
-      mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
-      mockTransactionRepository.findById.mockImplementation((id: number) => {
+      mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
+      mockLinkQueries.updateStatus.mockResolvedValue(ok(true));
+      mockTransactionQueries.findById.mockImplementation((id: number) => {
         if (id === 1) return Promise.resolve(ok(mockSourceTx));
         if (id === 2) return Promise.resolve(ok(mockTargetTx));
         return Promise.resolve(ok(undefined));
@@ -174,9 +174,9 @@ describe('LinksRejectHandler', () => {
 
       const suggestedLink = createMockLink('link-123', 'suggested');
 
-      mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
-      mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
-      mockTransactionRepository.findById.mockImplementation((id: number) => {
+      mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
+      mockLinkQueries.updateStatus.mockResolvedValue(ok(true));
+      mockTransactionQueries.findById.mockImplementation((id: number) => {
         if (id === 1) return Promise.resolve(ok(mockSourceTx));
         if (id === 2) return Promise.resolve(ok(mockTargetTx));
         return Promise.resolve(ok(undefined));
@@ -196,7 +196,7 @@ describe('LinksRejectHandler', () => {
 
       const rejectedLink = createMockLink('link-123', 'rejected', 'cli-user', new Date('2024-01-02T12:00:00Z'));
 
-      mockLinkRepository.findById.mockResolvedValue(ok(rejectedLink));
+      mockLinkQueries.findById.mockResolvedValue(ok(rejectedLink));
 
       const result = await handler.execute(params);
 
@@ -207,7 +207,7 @@ describe('LinksRejectHandler', () => {
       expect(rejectResult.reviewedBy).toBe('cli-user');
 
       // Should not call updateStatus for already rejected links
-      expect(mockLinkRepository.updateStatus).not.toHaveBeenCalled();
+      expect(mockLinkQueries.updateStatus).not.toHaveBeenCalled();
       // Should not write override for idempotent no-op
       expect(mockOverrideStore.append).not.toHaveBeenCalled();
     });
@@ -219,9 +219,9 @@ describe('LinksRejectHandler', () => {
 
       const confirmedLink = createMockLink('link-123', 'confirmed', 'cli-user', new Date('2024-01-02T12:00:00Z'));
 
-      mockLinkRepository.findById.mockResolvedValue(ok(confirmedLink));
-      mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
-      mockTransactionRepository.findById.mockImplementation((id: number) => {
+      mockLinkQueries.findById.mockResolvedValue(ok(confirmedLink));
+      mockLinkQueries.updateStatus.mockResolvedValue(ok(true));
+      mockTransactionQueries.findById.mockImplementation((id: number) => {
         if (id === 1) return Promise.resolve(ok(mockSourceTx));
         if (id === 2) return Promise.resolve(ok(mockTargetTx));
         return Promise.resolve(ok(undefined));
@@ -235,7 +235,7 @@ describe('LinksRejectHandler', () => {
       expect(rejectResult.newStatus).toBe('rejected');
       expect(rejectResult.reviewedBy).toBe('cli-user');
 
-      expect(mockLinkRepository.updateStatus).toHaveBeenCalledWith('link-123', 'rejected', 'cli-user');
+      expect(mockLinkQueries.updateStatus).toHaveBeenCalledWith('link-123', 'rejected', 'cli-user');
     });
 
     it('should return error if link not found', async () => {
@@ -243,14 +243,14 @@ describe('LinksRejectHandler', () => {
         linkId: 'non-existent-link',
       };
 
-      mockLinkRepository.findById.mockResolvedValue(ok(undefined));
+      mockLinkQueries.findById.mockResolvedValue(ok(undefined));
 
       const result = await handler.execute(params);
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().message).toContain('not found');
 
-      expect(mockLinkRepository.updateStatus).not.toHaveBeenCalled();
+      expect(mockLinkQueries.updateStatus).not.toHaveBeenCalled();
     });
 
     it('should return error if findById fails', async () => {
@@ -258,14 +258,14 @@ describe('LinksRejectHandler', () => {
         linkId: 'link-123',
       };
 
-      mockLinkRepository.findById.mockResolvedValue(err(new Error('Database error')));
+      mockLinkQueries.findById.mockResolvedValue(err(new Error('Database error')));
 
       const result = await handler.execute(params);
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().message).toBe('Database error');
 
-      expect(mockLinkRepository.updateStatus).not.toHaveBeenCalled();
+      expect(mockLinkQueries.updateStatus).not.toHaveBeenCalled();
     });
 
     it('should return error if updateStatus fails', async () => {
@@ -275,8 +275,8 @@ describe('LinksRejectHandler', () => {
 
       const suggestedLink = createMockLink('link-123', 'suggested');
 
-      mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
-      mockLinkRepository.updateStatus.mockResolvedValue(err(new Error('Update failed')));
+      mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
+      mockLinkQueries.updateStatus.mockResolvedValue(err(new Error('Update failed')));
 
       const result = await handler.execute(params);
 
@@ -291,8 +291,8 @@ describe('LinksRejectHandler', () => {
 
       const suggestedLink = createMockLink('link-123', 'suggested');
 
-      mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
-      mockLinkRepository.updateStatus.mockResolvedValue(ok(false));
+      mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
+      mockLinkQueries.updateStatus.mockResolvedValue(ok(false));
 
       const result = await handler.execute(params);
 
@@ -305,7 +305,7 @@ describe('LinksRejectHandler', () => {
         linkId: 'link-123',
       };
 
-      mockLinkRepository.findById.mockRejectedValue(new Error('Unexpected error'));
+      mockLinkQueries.findById.mockRejectedValue(new Error('Unexpected error'));
 
       const result = await handler.execute(params);
 

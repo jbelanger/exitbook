@@ -13,7 +13,7 @@ import {
   createProviderStatsDatabase,
   initializeProviderStatsDatabase,
   loadExplorerConfig,
-  ProviderStatsRepository,
+  createProviderStatsQueries,
   type BlockchainExplorersConfig,
   type ProviderStatsDB,
 } from '@exitbook/blockchain-providers';
@@ -51,8 +51,8 @@ export async function createProviderManagerWithStats(
     const migrationResult = await initializeProviderStatsDatabase(providerStatsDb);
 
     if (migrationResult.isOk()) {
-      const repository = new ProviderStatsRepository(providerStatsDb);
-      providerManager.setStatsRepository(repository);
+      const statsQueries = createProviderStatsQueries(providerStatsDb);
+      providerManager.setStatsQueries(statsQueries);
       await providerManager.loadPersistedStats();
     } else {
       logger.warn(`Provider stats migration failed: ${migrationResult.error.message}. Running without persistence.`);

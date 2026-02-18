@@ -95,7 +95,7 @@ export function mapMoralisTokenTransfer(rawData: MoralisTokenTransfer): Result<E
 
   const tokenAddress = normalizeEvmAddress(rawData.address);
   // Use contract address for currency to keep eventId stable across providers.
-  // The processor will enrich contract addresses with metadata from the token repository.
+  // The processor will enrich contract addresses with metadata
   const currency = tokenAddress ?? rawData.address;
   const tokenSymbol = rawData.token_symbol || undefined;
 

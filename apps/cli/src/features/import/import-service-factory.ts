@@ -51,11 +51,11 @@ export async function createImportServices(database: KyselyDB): Promise<ImportSe
   const dataDir = getDataDir();
   const tokenMetadataResult = await createTokenMetadataPersistence(dataDir);
   if (tokenMetadataResult.isErr()) {
-    logger.error({ error: tokenMetadataResult.error }, 'Failed to create token metadata repository');
+    logger.error({ error: tokenMetadataResult.error }, 'Failed to create token metadata queries persistence');
     throw tokenMetadataResult.error;
   }
 
-  const { queries: tokenMetadataRepository, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
+  const { queries: tokenMetadataQueries, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
 
   let providerManagerCleanup: (() => Promise<void>) | undefined;
   try {
@@ -72,7 +72,7 @@ export async function createImportServices(database: KyselyDB): Promise<ImportSe
     providerManager.setEventBus(eventBus as EventBus<ProviderEvent>);
 
     const tokenMetadataService = new TokenMetadataService(
-      tokenMetadataRepository,
+      tokenMetadataQueries,
       providerManager,
       eventBus as EventBus<IngestionEvent>
     );

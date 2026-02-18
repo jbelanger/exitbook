@@ -10,12 +10,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('RawDataQueries', () => {
   let db: KyselyDB;
-  let repository: RawDataQueries;
+  let queries: RawDataQueries;
 
   beforeEach(async () => {
     db = createDatabase(':memory:');
     await runMigrations(db);
-    repository = createRawDataQueries(db);
+    queries = createRawDataQueries(db);
 
     // Create default user
     await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
@@ -120,7 +120,7 @@ describe('RawDataQueries', () => {
       expect(initialProcessed.length).toBeGreaterThan(0);
 
       // Reset processing status for kraken (account_id = 1)
-      const result = await repository.resetProcessingStatusByAccount(1);
+      const result = await queries.resetProcessingStatusByAccount(1);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -145,7 +145,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should return 0 when no records match the account', async () => {
-      const result = await repository.resetProcessingStatusByAccount(999);
+      const result = await queries.resetProcessingStatusByAccount(999);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -156,7 +156,7 @@ describe('RawDataQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.resetProcessingStatusByAccount(1);
+      const result = await queries.resetProcessingStatusByAccount(1);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -176,7 +176,7 @@ describe('RawDataQueries', () => {
         .execute();
       expect(initialProcessed.length).toBeGreaterThan(0);
 
-      const result = await repository.resetProcessingStatusAll();
+      const result = await queries.resetProcessingStatusAll();
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -194,7 +194,7 @@ describe('RawDataQueries', () => {
       // Delete all records
       await db.deleteFrom('raw_transactions').execute();
 
-      const result = await repository.resetProcessingStatusAll();
+      const result = await queries.resetProcessingStatusAll();
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -205,7 +205,7 @@ describe('RawDataQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.resetProcessingStatusAll();
+      const result = await queries.resetProcessingStatusAll();
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -222,7 +222,7 @@ describe('RawDataQueries', () => {
       expect(initialRecords).toHaveLength(5);
 
       // Delete kraken records (account_id = 1)
-      const result = await repository.deleteByAccount(1);
+      const result = await queries.deleteByAccount(1);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -236,7 +236,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should return 0 when no records match the account', async () => {
-      const result = await repository.deleteByAccount(999);
+      const result = await queries.deleteByAccount(999);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -251,7 +251,7 @@ describe('RawDataQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.deleteByAccount(1);
+      const result = await queries.deleteByAccount(1);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -268,7 +268,7 @@ describe('RawDataQueries', () => {
       expect(initialRecords).toHaveLength(5);
 
       // Delete all records
-      const result = await repository.deleteAll();
+      const result = await queries.deleteAll();
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -284,7 +284,7 @@ describe('RawDataQueries', () => {
       // Delete all records first
       await db.deleteFrom('raw_transactions').execute();
 
-      const result = await repository.deleteAll();
+      const result = await queries.deleteAll();
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -295,7 +295,7 @@ describe('RawDataQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.deleteAll();
+      const result = await queries.deleteAll();
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -441,7 +441,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should load all events for the first N distinct hashes', async () => {
-      const result = await repository.loadPendingByHashBatch(2, 2);
+      const result = await queries.loadPendingByHashBatch(2, 2);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -458,7 +458,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should group all events for the same hash together', async () => {
-      const result = await repository.loadPendingByHashBatch(2, 1);
+      const result = await queries.loadPendingByHashBatch(2, 1);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -476,7 +476,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should respect hash limit', async () => {
-      const result = await repository.loadPendingByHashBatch(2, 10);
+      const result = await queries.loadPendingByHashBatch(2, 10);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -491,7 +491,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should order by hash then by id', async () => {
-      const result = await repository.loadPendingByHashBatch(2, 10);
+      const result = await queries.loadPendingByHashBatch(2, 10);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -517,7 +517,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should filter by account_id', async () => {
-      const result = await repository.loadPendingByHashBatch(1, 10);
+      const result = await queries.loadPendingByHashBatch(1, 10);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -531,7 +531,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should only load pending events', async () => {
-      const result = await repository.loadPendingByHashBatch(2, 10);
+      const result = await queries.loadPendingByHashBatch(2, 10);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -549,7 +549,7 @@ describe('RawDataQueries', () => {
         .set({ processing_status: 'processed', processed_at: new Date().toISOString() })
         .execute();
 
-      const result = await repository.loadPendingByHashBatch(2, 10);
+      const result = await queries.loadPendingByHashBatch(2, 10);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -558,7 +558,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should return empty array for non-existent account', async () => {
-      const result = await repository.loadPendingByHashBatch(999, 10);
+      const result = await queries.loadPendingByHashBatch(999, 10);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -569,7 +569,7 @@ describe('RawDataQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.loadPendingByHashBatch(2, 10);
+      const result = await queries.loadPendingByHashBatch(2, 10);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

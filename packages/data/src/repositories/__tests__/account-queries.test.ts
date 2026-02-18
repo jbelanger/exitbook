@@ -7,12 +7,12 @@ import { createAccountQueries } from '../account-queries.js';
 
 describe('AccountQueries', () => {
   let db: KyselyDB;
-  let repository: ReturnType<typeof createAccountQueries>;
+  let queries: ReturnType<typeof createAccountQueries>;
 
   beforeEach(async () => {
     db = createDatabase(':memory:');
     await runMigrations(db);
-    repository = createAccountQueries(db);
+    queries = createAccountQueries(db);
 
     // Create default user for tests
     await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
@@ -24,7 +24,7 @@ describe('AccountQueries', () => {
 
   describe('findOrCreate', () => {
     it('should create a new blockchain account', async () => {
-      const result = await repository.findOrCreate({
+      const result = await queries.findOrCreate({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
@@ -45,7 +45,7 @@ describe('AccountQueries', () => {
     });
 
     it('should create a new exchange-api account with credentials', async () => {
-      const result = await repository.findOrCreate({
+      const result = await queries.findOrCreate({
         userId: 1,
         accountType: 'exchange-api',
         sourceName: 'kraken',
@@ -70,7 +70,7 @@ describe('AccountQueries', () => {
 
     it('should return existing account instead of creating duplicate', async () => {
       // Create first account
-      const firstResult = await repository.findOrCreate({
+      const firstResult = await queries.findOrCreate({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'ethereum',
@@ -84,7 +84,7 @@ describe('AccountQueries', () => {
         const firstCreatedAt = firstResult.value.createdAt;
 
         // Try to create same account again
-        const secondResult = await repository.findOrCreate({
+        const secondResult = await queries.findOrCreate({
           userId: 1,
           accountType: 'blockchain',
           sourceName: 'ethereum',
@@ -106,7 +106,7 @@ describe('AccountQueries', () => {
 
     it('should allow multiple accounts on same exchange with different API keys (ADR-007 Use Case 1)', async () => {
       // Personal account
-      const personalResult = await repository.findOrCreate({
+      const personalResult = await queries.findOrCreate({
         userId: 1,
         accountType: 'exchange-api',
         sourceName: 'kraken',
@@ -114,7 +114,7 @@ describe('AccountQueries', () => {
       });
 
       // Business account (different API key)
-      const businessResult = await repository.findOrCreate({
+      const businessResult = await queries.findOrCreate({
         userId: 1,
         accountType: 'exchange-api',
         sourceName: 'kraken',
@@ -138,7 +138,7 @@ describe('AccountQueries', () => {
 
     it('should allow exchange-api and exchange-csv accounts on same exchange', async () => {
       // API account
-      const apiResult = await repository.findOrCreate({
+      const apiResult = await queries.findOrCreate({
         userId: 1,
         accountType: 'exchange-api',
         sourceName: 'kraken',
@@ -146,7 +146,7 @@ describe('AccountQueries', () => {
       });
 
       // CSV account (same exchange, different type)
-      const csvResult = await repository.findOrCreate({
+      const csvResult = await queries.findOrCreate({
         userId: 1,
         accountType: 'exchange-csv',
         sourceName: 'kraken',
@@ -165,7 +165,7 @@ describe('AccountQueries', () => {
     });
 
     it('should support tracking external accounts with null userId (ADR-007 Use Case 3)', async () => {
-      const result = await repository.findOrCreate({
+      const result = await queries.findOrCreate({
         userId: undefined,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
@@ -182,7 +182,7 @@ describe('AccountQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.findOrCreate({
+      const result = await queries.findOrCreate({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
@@ -198,7 +198,7 @@ describe('AccountQueries', () => {
 
   describe('findById', () => {
     it('should find an existing account by ID', async () => {
-      const createResult = await repository.findOrCreate({
+      const createResult = await queries.findOrCreate({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'ethereum',
@@ -209,7 +209,7 @@ describe('AccountQueries', () => {
 
       if (createResult.isOk()) {
         const accountId = createResult.value.id;
-        const result = await repository.findById(accountId);
+        const result = await queries.findById(accountId);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -220,7 +220,7 @@ describe('AccountQueries', () => {
     });
 
     it('should return error for non-existent account', async () => {
-      const result = await repository.findById(999);
+      const result = await queries.findById(999);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -231,7 +231,7 @@ describe('AccountQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.findById(1);
+      const result = await queries.findById(1);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -259,7 +259,7 @@ describe('AccountQueries', () => {
         .returning('id')
         .executeTakeFirstOrThrow();
 
-      const result = await repository.findById(inserted.id);
+      const result = await queries.findById(inserted.id);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -287,7 +287,7 @@ describe('AccountQueries', () => {
         .returning('id')
         .executeTakeFirstOrThrow();
 
-      const result = await repository.findById(inserted.id);
+      const result = await queries.findById(inserted.id);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -298,14 +298,14 @@ describe('AccountQueries', () => {
 
   describe('findByUniqueConstraint', () => {
     it('should find account by unique constraint fields', async () => {
-      await repository.findOrCreate({
+      await queries.findOrCreate({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
         identifier: 'bc1q...',
       });
 
-      const result = await repository.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1q...', 1);
+      const result = await queries.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1q...', 1);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -316,7 +316,7 @@ describe('AccountQueries', () => {
     });
 
     it('should return undefined for non-matching account', async () => {
-      const result = await repository.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1qnone...', 1);
+      const result = await queries.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1qnone...', 1);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -326,14 +326,14 @@ describe('AccountQueries', () => {
 
     it('should handle null userId correctly (COALESCE logic)', async () => {
       // Create account with null userId
-      await repository.findOrCreate({
+      await queries.findOrCreate({
         userId: undefined,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
         identifier: 'bc1q...',
       });
 
-      const result = await repository.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1q...', undefined);
+      const result = await queries.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1q...', undefined);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -345,7 +345,7 @@ describe('AccountQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1q...', 1);
+      const result = await queries.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1q...', 1);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -356,21 +356,21 @@ describe('AccountQueries', () => {
 
   describe('findByUser', () => {
     it('should find all accounts for a user', async () => {
-      await repository.findOrCreate({
+      await queries.findOrCreate({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
         identifier: 'bc1q...',
       });
 
-      await repository.findOrCreate({
+      await queries.findOrCreate({
         userId: 1,
         accountType: 'exchange-api',
         sourceName: 'kraken',
         identifier: 'apiKey123',
       });
 
-      const result = await repository.findAll({ userId: 1 });
+      const result = await queries.findAll({ userId: 1 });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -380,7 +380,7 @@ describe('AccountQueries', () => {
     });
 
     it('should return empty array for user with no accounts', async () => {
-      const result = await repository.findAll({ userId: 999 });
+      const result = await queries.findAll({ userId: 999 });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -392,21 +392,21 @@ describe('AccountQueries', () => {
       // Create second user
       await db.insertInto('users').values({ id: 2, created_at: new Date().toISOString() }).execute();
 
-      await repository.findOrCreate({
+      await queries.findOrCreate({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
         identifier: 'bc1q...',
       });
 
-      await repository.findOrCreate({
+      await queries.findOrCreate({
         userId: 2,
         accountType: 'blockchain',
         sourceName: 'ethereum',
         identifier: '0x456',
       });
 
-      const result = await repository.findAll({ userId: 1 });
+      const result = await queries.findAll({ userId: 1 });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -418,7 +418,7 @@ describe('AccountQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.findAll({ userId: 1 });
+      const result = await queries.findAll({ userId: 1 });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -431,7 +431,7 @@ describe('AccountQueries', () => {
     let account: Account;
 
     beforeEach(async () => {
-      const result = await repository.findOrCreate({
+      const result = await queries.findOrCreate({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
@@ -444,13 +444,13 @@ describe('AccountQueries', () => {
     });
 
     it('should update providerName', async () => {
-      const result = await repository.update(account.id, {
+      const result = await queries.update(account.id, {
         providerName: 'mempool.space',
       });
 
       expect(result.isOk()).toBe(true);
 
-      const updated = await repository.findById(account.id);
+      const updated = await queries.findById(account.id);
       if (updated.isOk()) {
         expect(updated.value.providerName).toBe('mempool.space');
       }
@@ -458,13 +458,13 @@ describe('AccountQueries', () => {
 
     it('should update lastBalanceCheckAt', async () => {
       const checkTime = new Date('2025-01-15T10:30:00Z');
-      const result = await repository.update(account.id, {
+      const result = await queries.update(account.id, {
         lastBalanceCheckAt: checkTime,
       });
 
       expect(result.isOk()).toBe(true);
 
-      const updated = await repository.findById(account.id);
+      const updated = await queries.findById(account.id);
       if (updated.isOk()) {
         expect(updated.value.lastBalanceCheckAt).toEqual(checkTime);
       }
@@ -488,20 +488,20 @@ describe('AccountQueries', () => {
         },
       };
 
-      const result = await repository.update(account.id, {
+      const result = await queries.update(account.id, {
         verificationMetadata: metadata,
       });
 
       expect(result.isOk()).toBe(true);
 
-      const updated = await repository.findById(account.id);
+      const updated = await queries.findById(account.id);
       if (updated.isOk()) {
         expect(updated.value.verificationMetadata).toEqual(metadata);
       }
     });
 
     it('should update credentials', async () => {
-      const exchangeResult = await repository.findOrCreate({
+      const exchangeResult = await queries.findOrCreate({
         userId: 1,
         accountType: 'exchange-api',
         sourceName: 'kraken',
@@ -513,7 +513,7 @@ describe('AccountQueries', () => {
       });
 
       if (exchangeResult.isOk()) {
-        const result = await repository.update(exchangeResult.value.id, {
+        const result = await queries.update(exchangeResult.value.id, {
           credentials: {
             apiKey: 'new_key',
             apiSecret: 'new_secret',
@@ -522,7 +522,7 @@ describe('AccountQueries', () => {
 
         expect(result.isOk()).toBe(true);
 
-        const updated = await repository.findById(exchangeResult.value.id);
+        const updated = await queries.findById(exchangeResult.value.id);
         if (updated.isOk()) {
           expect(updated.value.credentials).toEqual({
             apiKey: 'new_key',
@@ -533,34 +533,34 @@ describe('AccountQueries', () => {
     });
 
     it('should set updated_at timestamp', async () => {
-      const result = await repository.update(account.id, {
+      const result = await queries.update(account.id, {
         providerName: 'new_provider',
       });
 
       expect(result.isOk()).toBe(true);
 
-      const updated = await repository.findById(account.id);
+      const updated = await queries.findById(account.id);
       if (updated.isOk()) {
         expect(updated.value.updatedAt).toBeInstanceOf(Date);
       }
     });
 
     it('should treat undefined update fields as no-op', async () => {
-      const setResult = await repository.update(account.id, {
+      const setResult = await queries.update(account.id, {
         providerName: 'existing-provider',
       });
       expect(setResult.isOk()).toBe(true);
 
-      const beforeNoOp = await repository.findById(account.id);
+      const beforeNoOp = await queries.findById(account.id);
       expect(beforeNoOp.isOk()).toBe(true);
 
-      const result = await repository.update(account.id, {
+      const result = await queries.update(account.id, {
         providerName: undefined,
       });
 
       expect(result.isOk()).toBe(true);
 
-      const updated = await repository.findById(account.id);
+      const updated = await queries.findById(account.id);
       if (updated.isOk() && beforeNoOp.isOk()) {
         expect(updated.value.providerName).toBe('existing-provider');
         expect(updated.value.updatedAt?.toISOString()).toBe(beforeNoOp.value.updatedAt?.toISOString());
@@ -570,7 +570,7 @@ describe('AccountQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.update(account.id, {
+      const result = await queries.update(account.id, {
         providerName: 'test',
       });
 
@@ -584,7 +584,7 @@ describe('AccountQueries', () => {
   describe('findByParent', () => {
     it('should find all child accounts for a parent account', async () => {
       // Create parent account (xpub)
-      const parentResult = await repository.findOrCreate({
+      const parentResult = await queries.findOrCreate({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
@@ -597,7 +597,7 @@ describe('AccountQueries', () => {
         const parentId = parentResult.value.id;
 
         // Create child accounts
-        await repository.findOrCreate({
+        await queries.findOrCreate({
           userId: 1,
           parentAccountId: parentId,
           accountType: 'blockchain',
@@ -605,7 +605,7 @@ describe('AccountQueries', () => {
           identifier: 'bc1q1...',
         });
 
-        await repository.findOrCreate({
+        await queries.findOrCreate({
           userId: 1,
           parentAccountId: parentId,
           accountType: 'blockchain',
@@ -613,7 +613,7 @@ describe('AccountQueries', () => {
           identifier: 'bc1q2...',
         });
 
-        const result = await repository.findAll({ parentAccountId: parentId });
+        const result = await queries.findAll({ parentAccountId: parentId });
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -624,7 +624,7 @@ describe('AccountQueries', () => {
     });
 
     it('should return empty array for parent with no children', async () => {
-      const parentResult = await repository.findOrCreate({
+      const parentResult = await queries.findOrCreate({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
@@ -634,7 +634,7 @@ describe('AccountQueries', () => {
       expect(parentResult.isOk()).toBe(true);
 
       if (parentResult.isOk()) {
-        const result = await repository.findAll({ parentAccountId: parentResult.value.id });
+        const result = await queries.findAll({ parentAccountId: parentResult.value.id });
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -645,7 +645,7 @@ describe('AccountQueries', () => {
 
     it('should not include accounts from other parents', async () => {
       // Create first parent with child
-      const parent1Result = await repository.findOrCreate({
+      const parent1Result = await queries.findOrCreate({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
@@ -655,7 +655,7 @@ describe('AccountQueries', () => {
       expect(parent1Result.isOk()).toBe(true);
 
       if (parent1Result.isOk()) {
-        await repository.findOrCreate({
+        await queries.findOrCreate({
           userId: 1,
           parentAccountId: parent1Result.value.id,
           accountType: 'blockchain',
@@ -664,7 +664,7 @@ describe('AccountQueries', () => {
         });
 
         // Create second parent with child
-        const parent2Result = await repository.findOrCreate({
+        const parent2Result = await queries.findOrCreate({
           userId: 1,
           accountType: 'blockchain',
           sourceName: 'bitcoin',
@@ -674,7 +674,7 @@ describe('AccountQueries', () => {
         expect(parent2Result.isOk()).toBe(true);
 
         if (parent2Result.isOk()) {
-          await repository.findOrCreate({
+          await queries.findOrCreate({
             userId: 1,
             parentAccountId: parent2Result.value.id,
             accountType: 'blockchain',
@@ -683,7 +683,7 @@ describe('AccountQueries', () => {
           });
 
           // Query parent 1 children - should only get one child
-          const result = await repository.findAll({ parentAccountId: parent1Result.value.id });
+          const result = await queries.findAll({ parentAccountId: parent1Result.value.id });
 
           expect(result.isOk()).toBe(true);
           if (result.isOk()) {
@@ -697,7 +697,7 @@ describe('AccountQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.findAll({ parentAccountId: 1 });
+      const result = await queries.findAll({ parentAccountId: 1 });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -710,7 +710,7 @@ describe('AccountQueries', () => {
     let account: Account;
 
     beforeEach(async () => {
-      const result = await repository.findOrCreate({
+      const result = await queries.findOrCreate({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'ethereum',
@@ -732,11 +732,11 @@ describe('AccountQueries', () => {
         totalFetched: 500,
       };
 
-      const result = await repository.updateCursor(account.id, 'normal', cursor);
+      const result = await queries.updateCursor(account.id, 'normal', cursor);
 
       expect(result.isOk()).toBe(true);
 
-      const updated = await repository.findById(account.id);
+      const updated = await queries.findById(account.id);
       if (updated.isOk()) {
         expect(updated.value.lastCursor).toEqual({
           normal: cursor,
@@ -746,7 +746,7 @@ describe('AccountQueries', () => {
 
     it('should merge cursors for multiple operation types (ADR-007 streaming imports)', async () => {
       // Set cursor for normal transactions
-      await repository.updateCursor(account.id, 'normal', {
+      await queries.updateCursor(account.id, 'normal', {
         primary: {
           type: 'blockNumber' as const,
           value: 18000000,
@@ -756,7 +756,7 @@ describe('AccountQueries', () => {
       });
 
       // Set cursor for internal transactions
-      await repository.updateCursor(account.id, 'internal', {
+      await queries.updateCursor(account.id, 'internal', {
         primary: {
           type: 'blockNumber' as const,
           value: 17950000,
@@ -765,7 +765,7 @@ describe('AccountQueries', () => {
         totalFetched: 150,
       });
 
-      const updated = await repository.findById(account.id);
+      const updated = await queries.findById(account.id);
       if (updated.isOk()) {
         expect(updated.value.lastCursor?.['normal']).toBeDefined();
         expect(updated.value.lastCursor?.['internal']).toBeDefined();
@@ -776,7 +776,7 @@ describe('AccountQueries', () => {
 
     it('should update existing cursor for operation type', async () => {
       // Set initial cursor
-      await repository.updateCursor(account.id, 'normal', {
+      await queries.updateCursor(account.id, 'normal', {
         primary: {
           type: 'blockNumber' as const,
           value: 18000000,
@@ -786,7 +786,7 @@ describe('AccountQueries', () => {
       });
 
       // Update same operation type with new cursor
-      await repository.updateCursor(account.id, 'normal', {
+      await queries.updateCursor(account.id, 'normal', {
         primary: {
           type: 'blockNumber' as const,
           value: 18001000,
@@ -795,7 +795,7 @@ describe('AccountQueries', () => {
         totalFetched: 1000,
       });
 
-      const updated = await repository.findById(account.id);
+      const updated = await queries.findById(account.id);
       if (updated.isOk()) {
         expect(updated.value.lastCursor?.['normal']?.totalFetched).toBe(1000);
         expect(updated.value.lastCursor?.['normal']?.lastTransactionId).toBe('tx1000');
@@ -803,7 +803,7 @@ describe('AccountQueries', () => {
     });
 
     it('should reject invalid cursor data', async () => {
-      const result = await repository.updateCursor(account.id, 'normal', { invalid: 'data' } as unknown as CursorState);
+      const result = await queries.updateCursor(account.id, 'normal', { invalid: 'data' } as unknown as CursorState);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -814,7 +814,7 @@ describe('AccountQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.updateCursor(account.id, 'normal', {
+      const result = await queries.updateCursor(account.id, 'normal', {
         primary: {
           type: 'blockNumber' as const,
           value: 1,

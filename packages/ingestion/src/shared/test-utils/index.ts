@@ -54,7 +54,7 @@ export {
 // Mock factories
 export {
   createMockRawDataQueries,
-  createMockImportSessionRepository,
+  createMockImportSessionQueries as createMockImportSessionRepository,
   createMockTokenMetadataService,
   createMockProviderManager,
   createMockExchangeClient,

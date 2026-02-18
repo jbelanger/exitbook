@@ -610,7 +610,7 @@ Options:
 2. Get all providers from `ProviderRegistry.getAllProviders()`
 3. Get provider metadata (API key env vars, supported chains) from `ProviderRegistry.getMetadata()`
 4. Load config overrides from `loadExplorerConfig()`
-5. Open `providers.db`, load persisted stats from `ProviderStatsRepository.getAll()`
+5. Open `providers.db`, load persisted stats from `createProviderStatsQueries(db).getAll()`
 6. Group providers by name (deduplicate multi-chain providers into single rows)
 7. Merge registry metadata + config overrides + persisted stats into `ProviderViewItem[]`
 8. Check API key status via env vars

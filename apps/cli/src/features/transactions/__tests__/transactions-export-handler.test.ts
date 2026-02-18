@@ -29,7 +29,6 @@ describe('ExportHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Mock transaction repository
     mockTransactionRepository = {
       getTransactions: vi.fn(),
     };

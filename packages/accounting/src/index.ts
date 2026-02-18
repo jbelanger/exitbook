@@ -38,10 +38,6 @@ export { LifoStrategy } from './services/strategies/lifo-strategy.js';
 export { AverageCostStrategy } from './services/strategies/average-cost-strategy.js';
 export type { ICostBasisStrategy, DisposalRequest } from './services/strategies/base-strategy.js';
 
-// Repositories
-// export { LotRepository } from './repositories/lot-repository.js';
-// export { CalculationRepository } from './repositories/calculation-repository.js';
-
 // Jurisdiction rules
 export type { IJurisdictionRules } from './jurisdictions/base-rules.js';
 export { CanadaRules } from './jurisdictions/canada-rules.js';

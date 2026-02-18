@@ -13,8 +13,8 @@ import { createProviderHttpClient } from '../../core/utils.js';
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../index.js';
 import { CoinNotFoundError, PriceDataUnavailableError } from '../../index.js';
 import type { PricesDB } from '../../persistence/database.js';
-import { PriceRepository } from '../../persistence/repositories/price-repository.js';
-import { ProviderRepository } from '../../persistence/repositories/provider-repository.js';
+import { createPriceQueries, type PriceQueries } from '../../persistence/repositories/price-queries.js';
+import { createProviderQueries, type ProviderQueries } from '../../persistence/repositories/provider-queries.js';
 
 import {
   canUseSimplePrice,
@@ -105,9 +105,9 @@ export function createCoinGeckoProvider(
       rateLimit,
     });
 
-    // Create repositories
-    const priceRepo = new PriceRepository(db);
-    const providerRepo = new ProviderRepository(db);
+    // Create queries
+    const priceRepo = createPriceQueries(db);
+    const providerRepo = createProviderQueries(db);
 
     // Create provider
     const provider = new CoinGeckoProvider(httpClient, priceRepo, providerRepo, { apiKey, useProApi }, rateLimit);
@@ -129,7 +129,7 @@ export function createCoinGeckoProvider(
  */
 export class CoinGeckoProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
-  private readonly providerRepo: ProviderRepository;
+  private readonly providerRepo: ProviderQueries;
   private readonly config: CoinGeckoProviderConfig;
 
   // Cache provider ID after first lookup
@@ -137,15 +137,15 @@ export class CoinGeckoProvider extends BasePriceProvider {
 
   constructor(
     httpClient: HttpClient,
-    priceRepo: PriceRepository,
-    providerRepo: ProviderRepository,
+    priceRepo: PriceQueries,
+    providerRepo: ProviderQueries,
     config: CoinGeckoProviderConfig = {},
     rateLimit: ProviderRateLimitConfig
   ) {
     super();
 
     this.httpClient = httpClient;
-    this.priceRepo = priceRepo;
+    this.priceQueries = priceRepo;
     this.providerRepo = providerRepo;
     this.config = config;
 

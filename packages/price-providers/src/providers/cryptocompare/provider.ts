@@ -14,7 +14,7 @@ import { createProviderHttpClient } from '../../core/utils.js';
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../index.js';
 import { CoinNotFoundError } from '../../index.js';
 import type { PricesDB } from '../../persistence/database.js';
-import { PriceRepository } from '../../persistence/repositories/price-repository.js';
+import { createPriceQueries, type PriceQueries } from '../../persistence/repositories/price-queries.js';
 
 import {
   buildHistoricalParams,
@@ -83,8 +83,8 @@ export function createCryptoCompareProvider(
       // CryptoCompare uses query param for API key, not header
     });
 
-    // Create repository
-    const priceRepo = new PriceRepository(db);
+    // Create queries
+    const priceRepo = createPriceQueries(db);
 
     // Create provider
     const provider = new CryptoCompareProvider(httpClient, priceRepo, { apiKey }, rateLimit);
@@ -110,14 +110,14 @@ export class CryptoCompareProvider extends BasePriceProvider {
 
   constructor(
     httpClient: HttpClient,
-    priceRepo: PriceRepository,
+    priceQueries: PriceQueries,
     config: CryptoCompareProviderConfig = {},
     rateLimit: ProviderRateLimitConfig
   ) {
     super();
 
     this.httpClient = httpClient;
-    this.priceRepo = priceRepo;
+    this.priceQueries = priceQueries;
     this.config = config;
 
     // Provider metadata

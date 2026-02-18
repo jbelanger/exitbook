@@ -45,7 +45,7 @@ import { Currency } from '@exitbook/core';
 
 import { createTestPriceData } from '../../../__tests__/test-helpers.js';
 import { CoinNotFoundError, type PriceData } from '../../../index.js';
-import type { PriceRepository } from '../../../persistence/repositories/price-repository.js';
+import type { PriceQueries } from '../../../persistence/repositories/price-queries.js';
 // Import after mocks so they receive mocked dependencies
 import { BinanceProvider } from '../provider.js';
 
@@ -58,7 +58,7 @@ describe('BinanceProvider', () => {
     getPrice: ReturnType<typeof vi.fn>;
     savePrice: ReturnType<typeof vi.fn>;
   };
-  let priceRepo: PriceRepository;
+  let priceRepo: PriceQueries;
   let provider: BinanceProvider;
 
   beforeEach(() => {
@@ -76,7 +76,7 @@ describe('BinanceProvider', () => {
       getPrice: vi.fn().mockResolvedValue(ok()),
       savePrice: vi.fn().mockResolvedValue(ok()),
     };
-    priceRepo = priceRepoMocks as unknown as PriceRepository;
+    priceRepo = priceRepoMocks as unknown as PriceQueries;
 
     const mockRateLimit = {
       burstLimit: 50,

@@ -14,7 +14,7 @@ import type { ProviderMetadata, PriceQuery, PriceData } from '../../core/types.j
 import type { ProviderRateLimitConfig } from '../../core/utils.js';
 import { createProviderHttpClient } from '../../core/utils.js';
 import type { PricesDB } from '../../persistence/database.js';
-import { PriceRepository } from '../../persistence/repositories/price-repository.js';
+import { createPriceQueries, type PriceQueries } from '../../persistence/repositories/price-queries.js';
 
 import {
   buildBinanceKlinesParams,
@@ -71,8 +71,8 @@ export function createBinanceProvider(
       rateLimit,
     });
 
-    // Create repository
-    const priceRepo = new PriceRepository(db);
+    // Create queries
+    const priceRepo = createPriceQueries(db);
 
     // Create provider
     const provider = new BinanceProvider(httpClient, priceRepo, config, rateLimit);
@@ -101,14 +101,14 @@ export class BinanceProvider extends BasePriceProvider {
 
   constructor(
     httpClient: HttpClient,
-    priceRepo: PriceRepository,
+    priceRepo: PriceQueries,
     _config: BinanceProviderConfig = {},
     rateLimit: ProviderRateLimitConfig
   ) {
     super();
 
     this.httpClient = httpClient;
-    this.priceRepo = priceRepo;
+    this.priceQueries = priceRepo;
     this.config = _config;
 
     // Provider metadata

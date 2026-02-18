@@ -8,7 +8,7 @@ import {
   initializeProviderStatsDatabase,
   loadExplorerConfig,
   ProviderRegistry,
-  ProviderStatsRepository,
+  createProviderStatsQueries,
   type ProviderStatsRow,
 } from '@exitbook/blockchain-providers';
 import { getAllBlockchains } from '@exitbook/ingestion';
@@ -134,8 +134,8 @@ async function loadProviderData(
     const migrationResult = await initializeProviderStatsDatabase(db);
 
     if (migrationResult.isOk()) {
-      const repo = new ProviderStatsRepository(db);
-      const statsResult = await repo.getAll();
+      const statsQueries = createProviderStatsQueries(db);
+      const statsResult = await statsQueries.getAll();
       if (statsResult.isOk()) {
         allStatsRows = statsResult.value;
       } else {

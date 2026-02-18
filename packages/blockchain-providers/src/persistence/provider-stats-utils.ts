@@ -6,9 +6,6 @@ import type { CircuitState } from '@exitbook/http';
 
 import type { ProviderHealth } from '../core/types/index.js';
 
-/**
- * Row shape returned by the repository
- */
 export interface ProviderStatsRow {
   blockchain: string;
   provider_name: string;

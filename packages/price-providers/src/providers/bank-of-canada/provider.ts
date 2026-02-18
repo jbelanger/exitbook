@@ -16,7 +16,7 @@ import type { ProviderRateLimitConfig } from '../../core/utils.js';
 import { createProviderHttpClient } from '../../core/utils.js';
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../index.js';
 import type { PricesDB } from '../../persistence/database.js';
-import { PriceRepository } from '../../persistence/repositories/price-repository.js';
+import { createPriceQueries, type PriceQueries } from '../../persistence/repositories/price-queries.js';
 
 import { formatBoCDate, transformBoCResponse } from './boc-utils.js';
 import { BankOfCanadaResponseSchema } from './schemas.js';
@@ -55,8 +55,8 @@ export function createBankOfCanadaProvider(
       rateLimit: BOC_RATE_LIMIT,
     });
 
-    // Create repository
-    const priceRepo = new PriceRepository(db);
+    // Create queries
+    const priceRepo = createPriceQueries(db);
 
     // Create provider
     const provider = new BankOfCanadaProvider(httpClient, priceRepo);
@@ -79,11 +79,11 @@ export function createBankOfCanadaProvider(
 export class BankOfCanadaProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
 
-  constructor(httpClient: HttpClient, priceRepo: PriceRepository) {
+  constructor(httpClient: HttpClient, priceRepo: PriceQueries) {
     super();
 
     this.httpClient = httpClient;
-    this.priceRepo = priceRepo;
+    this.priceQueries = priceRepo;
 
     // Provider metadata
     this.metadata = {

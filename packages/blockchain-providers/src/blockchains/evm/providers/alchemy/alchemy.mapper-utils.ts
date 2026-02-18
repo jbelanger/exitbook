@@ -177,7 +177,6 @@ function enrichWithTokenFields(transaction: EvmTransaction, rawData: AlchemyAsse
   if (!contractAddress) return;
 
   transaction.tokenAddress = normalizeEvmAddress(contractAddress);
-  // Use contract address - processor will enrich with symbol from token repository
   transaction.tokenSymbol = contractAddress;
 
   const rawDecimals = rawData.rawContract?.decimal;

@@ -206,7 +206,6 @@ export class PriceNormalizationService {
    */
   private async updateTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>> {
     try {
-      // Pass the complete enriched transaction to the repository
       return await this.transactionRepository.updateMovementsWithPrices(tx);
     } catch (error) {
       return wrapError(error, `Failed to update transaction ${tx.id}`);

@@ -3,7 +3,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { PriceRepository } from '../../persistence/repositories/price-repository.js';
+import type { PriceQueries } from '../../persistence/repositories/price-queries.js';
 import { BasePriceProvider } from '../base-provider.js';
 import type { PriceData, PriceQuery, ProviderMetadata } from '../types.js';
 
@@ -39,9 +39,9 @@ class TestPriceProvider extends BasePriceProvider {
 
   private fetchImpl: (query: PriceQuery) => Promise<Result<PriceData, Error>>;
 
-  constructor(priceRepo: PriceRepository, fetchImpl: (query: PriceQuery) => Promise<Result<PriceData, Error>>) {
+  constructor(priceRepo: PriceQueries, fetchImpl: (query: PriceQuery) => Promise<Result<PriceData, Error>>) {
     super();
-    this.priceRepo = priceRepo;
+    this.priceQueries = priceRepo;
     this.fetchImpl = fetchImpl;
   }
 
@@ -60,18 +60,18 @@ class TestPriceProvider extends BasePriceProvider {
 }
 
 describe('BasePriceProvider', () => {
-  let priceRepoMocks: {
+  let priceQueriesMocks: {
     getPrice: ReturnType<typeof vi.fn>;
     savePrice: ReturnType<typeof vi.fn>;
   };
-  let priceRepo: PriceRepository;
+  let priceRepo: PriceQueries;
 
   beforeEach(() => {
-    priceRepoMocks = {
+    priceQueriesMocks = {
       getPrice: vi.fn(),
       savePrice: vi.fn(),
     };
-    priceRepo = priceRepoMocks as unknown as PriceRepository;
+    priceRepo = priceQueriesMocks as unknown as PriceQueries;
   });
 
   describe('fetchPrice', () => {
@@ -243,7 +243,7 @@ describe('BasePriceProvider', () => {
         fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
       };
 
-      priceRepoMocks.getPrice.mockResolvedValue(ok(cachedPrice));
+      priceQueriesMocks.getPrice.mockResolvedValue(ok(cachedPrice));
 
       const fetchImpl = vi.fn();
       const provider = new TestPriceProvider(priceRepo, fetchImpl);
@@ -261,11 +261,11 @@ describe('BasePriceProvider', () => {
       if (result.isOk()) {
         expect(result.value).toEqual(cachedPrice);
       }
-      expect(priceRepoMocks.getPrice).toHaveBeenCalled();
+      expect(priceQueriesMocks.getPrice).toHaveBeenCalled();
     });
 
     it('should return undefined when cache miss', async () => {
-      priceRepoMocks.getPrice.mockResolvedValue(ok());
+      priceQueriesMocks.getPrice.mockResolvedValue(ok());
 
       const fetchImpl = vi.fn();
       const provider = new TestPriceProvider(priceRepo, fetchImpl);
@@ -286,7 +286,7 @@ describe('BasePriceProvider', () => {
     });
 
     it('should propagate errors from repository', async () => {
-      priceRepoMocks.getPrice.mockResolvedValue(err(new Error('Database error')));
+      priceQueriesMocks.getPrice.mockResolvedValue(err(new Error('Database error')));
 
       const fetchImpl = vi.fn();
       const provider = new TestPriceProvider(priceRepo, fetchImpl);
@@ -309,7 +309,7 @@ describe('BasePriceProvider', () => {
 
   describe('saveToCache', () => {
     it('should save price data to cache', async () => {
-      priceRepoMocks.savePrice.mockResolvedValue(ok());
+      priceQueriesMocks.savePrice.mockResolvedValue(ok());
 
       const fetchImpl = vi.fn();
       const provider = new TestPriceProvider(priceRepo, fetchImpl);
@@ -325,11 +325,11 @@ describe('BasePriceProvider', () => {
 
       await provider.testSaveToCache(priceData, 'bitcoin');
 
-      expect(priceRepoMocks.savePrice).toHaveBeenCalledWith(priceData, 'bitcoin');
+      expect(priceQueriesMocks.savePrice).toHaveBeenCalledWith(priceData, 'bitcoin');
     });
 
     it('should not throw when cache save fails', async () => {
-      priceRepoMocks.savePrice.mockResolvedValue(err(new Error('Database error')));
+      priceQueriesMocks.savePrice.mockResolvedValue(err(new Error('Database error')));
 
       const fetchImpl = vi.fn();
       const provider = new TestPriceProvider(priceRepo, fetchImpl);
