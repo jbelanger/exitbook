@@ -5,9 +5,16 @@
 import { Currency } from '@exitbook/core';
 import { Box, Text, useInput, useStdout } from 'ink';
 import Spinner from 'ink-spinner';
-import { useReducer, type FC } from 'react';
+import { useMemo, useReducer, type FC } from 'react';
 
-import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import {
+  calculateChromeLines,
+  calculateVisibleRows,
+  type Columns,
+  createColumns,
+  Divider,
+  getSelectionCursor,
+} from '../../../ui/shared/index.js';
 
 import {
   FORMAT_OPTIONS,
@@ -165,6 +172,17 @@ function buildCategoryParts(counts: CategoryCounts): { count: number; label: str
 const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { transactions, selectedIndex, scrollOffset } = state;
   const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
+  const cols = useMemo(
+    () =>
+      createColumns(transactions, {
+        txId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 6 },
+        source: { format: (item) => item.source, minWidth: 10 },
+        operation: { format: (item) => formatOperationShort(item.operationCategory, item.operationType), minWidth: 15 },
+        asset: { format: (item) => item.primaryAsset ?? '', minWidth: 10 },
+        amount: { format: (item) => formatAmount(item.primaryAmount ?? '', 12), align: 'right', minWidth: 12 },
+      }),
+    [transactions]
+  );
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, transactions.length);
@@ -187,6 +205,7 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
             key={item.id}
             item={item}
             isSelected={actualIndex === selectedIndex}
+            cols={cols}
           />
         );
       })}
@@ -201,15 +220,15 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
 
 // ─── Row ────────────────────────────────────────────────────────────────────
 
-const TransactionRow: FC<{ isSelected: boolean; item: TransactionViewItem }> = ({ item, isSelected }) => {
+const TransactionRow: FC<{
+  cols: Columns<TransactionViewItem, 'txId' | 'source' | 'operation' | 'asset' | 'amount'>;
+  isSelected: boolean;
+  item: TransactionViewItem;
+}> = ({ item, isSelected, cols }) => {
   const cursor = getSelectionCursor(isSelected);
-  const txId = `#${item.id}`.padStart(6);
-  const source = item.source.padEnd(10).substring(0, 10);
+  const { txId, source, operation, asset, amount } = cols.format(item);
   const timestamp = item.datetime.substring(0, 16).replace('T', ' ');
-  const operation = formatOperationShort(item.operationCategory, item.operationType).padEnd(15).substring(0, 15);
-  const asset = (item.primaryAsset ?? '').padEnd(10).substring(0, 10);
   const dir = item.primaryDirection === 'in' ? 'IN ' : item.primaryDirection === 'out' ? 'OUT' : '   ';
-  const amount = formatAmount(item.primaryAmount ?? '', 12);
   const { icon, iconColor } = getPriceStatusIcon(item.priceStatus);
 
   const isExcluded = item.excludedFromAccounting || item.isSpam;

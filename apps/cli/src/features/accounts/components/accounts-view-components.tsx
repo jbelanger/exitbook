@@ -5,7 +5,14 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import {
+  calculateChromeLines,
+  calculateVisibleRows,
+  type Columns,
+  createColumns,
+  Divider,
+  getSelectionCursor,
+} from '../../../ui/shared/index.js';
 
 import { handleAccountsKeyboardInput, accountsViewReducer } from './accounts-view-controller.js';
 import type {
@@ -116,6 +123,11 @@ function buildTypeParts(counts: TypeCounts): { count: number; label: string }[] 
 const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { accounts, selectedIndex, scrollOffset } = state;
   const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
+  const cols = createColumns(accounts, {
+    acctId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 5 },
+    source: { format: (item) => item.sourceName, minWidth: 12 },
+    type: { format: (item) => formatAccountType(item.accountType), minWidth: 13 },
+  });
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, accounts.length);
@@ -138,6 +150,7 @@ const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({
             key={item.id}
             item={item}
             isSelected={actualIndex === selectedIndex}
+            cols={cols}
           />
         );
       })}
@@ -152,11 +165,13 @@ const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({
 
 // ─── Row ────────────────────────────────────────────────────────────────────
 
-const AccountRow: FC<{ isSelected: boolean; item: AccountViewItem }> = ({ item, isSelected }) => {
+const AccountRow: FC<{
+  cols: Columns<AccountViewItem, 'acctId' | 'source' | 'type'>;
+  isSelected: boolean;
+  item: AccountViewItem;
+}> = ({ item, isSelected, cols }) => {
   const cursor = getSelectionCursor(isSelected);
-  const acctId = `#${item.id}`.padStart(5);
-  const source = item.sourceName.padEnd(12).substring(0, 12);
-  const type = formatAccountType(item.accountType).padEnd(13).substring(0, 13);
+  const { acctId, source, type } = cols.format(item);
   const identifier = truncateIdentifier(item.identifier, item.accountType, 28);
   const sessions = item.sessionCount !== undefined ? `${item.sessionCount} sess` : '';
   const { icon, iconColor } = getVerificationDisplay(item.verificationStatus);

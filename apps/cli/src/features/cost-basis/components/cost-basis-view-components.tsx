@@ -5,7 +5,14 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import {
+  calculateChromeLines,
+  calculateVisibleRows,
+  type Columns,
+  createColumns,
+  Divider,
+  getSelectionCursor,
+} from '../../../ui/shared/index.js';
 
 import { costBasisViewReducer, handleCostBasisKeyboardInput } from './cost-basis-view-controller.js';
 import type {
@@ -252,6 +259,12 @@ const ErrorBar: FC<{ errors: { asset: string; error: string }[] }> = ({ errors }
 
 const AssetList: FC<{ state: CostBasisAssetState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const visibleRows = calculateVisibleRows(terminalHeight, COST_BASIS_ASSETS_CHROME_LINES);
+  const cols = createColumns(state.assets, {
+    asset: { format: (item) => item.asset, minWidth: 6 },
+    disposalCount: { format: (item) => `${item.disposalCount}`, align: 'right', minWidth: 5 },
+    proceeds: { format: (item) => item.totalProceeds, align: 'right', minWidth: 10 },
+    basis: { format: (item) => item.totalCostBasis, align: 'right', minWidth: 10 },
+  });
   const startIndex = state.scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, state.assets.length);
   const visible = state.assets.slice(startIndex, endIndex);
@@ -275,6 +288,7 @@ const AssetList: FC<{ state: CostBasisAssetState; terminalHeight: number }> = ({
             item={item}
             currency={state.currency}
             isSelected={actualIndex === state.selectedIndex}
+            cols={cols}
           />
         );
       })}
@@ -288,20 +302,17 @@ const AssetList: FC<{ state: CostBasisAssetState; terminalHeight: number }> = ({
   );
 };
 
-const AssetRow: FC<{ currency: string; isSelected: boolean; item: AssetCostBasisItem }> = ({
-  item,
-  currency,
-  isSelected,
-}) => {
+const AssetRow: FC<{
+  cols: Columns<AssetCostBasisItem, 'asset' | 'disposalCount' | 'proceeds' | 'basis'>;
+  currency: string;
+  isSelected: boolean;
+  item: AssetCostBasisItem;
+}> = ({ item, currency, isSelected, cols }) => {
   const cursor = getSelectionCursor(isSelected);
   const gainLossColor = item.isGain ? 'green' : 'red';
 
-  // Format columns with fixed widths and breathing room
-  const asset = item.asset.padEnd(6);
-  const disposalCount = `${item.disposalCount}`.padStart(5);
+  const { asset, disposalCount, proceeds, basis } = cols.format(item);
   const disposalLabel = item.disposalCount === 1 ? 'disposal ' : 'disposals';
-  const proceeds = item.totalProceeds.padStart(10);
-  const basis = item.totalCostBasis.padStart(10);
   const gainLoss = formatSignedCurrency(item.totalGainLoss, currency);
 
   if (isSelected) {
@@ -470,8 +481,34 @@ const TimelineHeader: FC<{ state: CostBasisTimelineState }> = ({ state }) => {
 
 // ─── Timeline List ───────────────────────────────────────────────────────────
 
+type TimelineEvent = AcquisitionViewItem | DisposalViewItem | TransferViewItem;
+
+function getTimelineQuantityLabel(event: TimelineEvent): string {
+  if (event.type === 'acquisition') return `${event.quantity} ${event.asset}`;
+  if (event.type === 'disposal') return `${event.quantityDisposed} ${event.asset}`;
+  return `${event.quantity} ${event.asset}`;
+}
+
 const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const visibleRows = calculateVisibleRows(terminalHeight, COST_BASIS_TIMELINE_CHROME_LINES);
+  const cols = createColumns(state.events, {
+    quantityAsset: { format: (event) => getTimelineQuantityLabel(event), minWidth: 40 },
+    basisOrGainLoss: {
+      format: (event) => {
+        const displayCurrency = 'fxUnavailable' in event && event.fxUnavailable ? 'USD' : state.currency;
+        if (event.type === 'disposal') return formatSignedCurrency(event.gainLoss, state.currency);
+        return formatUnsignedCurrency(event.totalCostBasis, displayCurrency);
+      },
+      align: 'right',
+      minWidth: 15,
+    },
+    holding: {
+      format: (event) => (event.type === 'disposal' ? `held ${event.holdingPeriodDays}d` : ''),
+      align: 'right',
+      minWidth: 12,
+    },
+  });
+
   const startIndex = state.scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, state.events.length);
   const visible = state.events.slice(startIndex, endIndex);
@@ -499,6 +536,7 @@ const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }
               item={event}
               currency={state.currency}
               isSelected={isSelected}
+              cols={cols}
             />
           );
         }
@@ -511,6 +549,7 @@ const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }
               currency={state.currency}
               isUS={isUS}
               isSelected={isSelected}
+              cols={cols}
             />
           );
         }
@@ -521,6 +560,7 @@ const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }
             item={event}
             currency={state.currency}
             isSelected={isSelected}
+            cols={cols}
           />
         );
       })}
@@ -536,18 +576,18 @@ const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }
 
 // ─── Timeline Event Rows ─────────────────────────────────────────────────────
 
-const AcquisitionRow: FC<{ currency: string; isSelected: boolean; item: AcquisitionViewItem }> = ({
+type TimelineCols = Columns<TimelineEvent, 'quantityAsset' | 'basisOrGainLoss' | 'holding'>;
+
+const AcquisitionRow: FC<{ cols: TimelineCols; currency: string; isSelected: boolean; item: AcquisitionViewItem }> = ({
   item,
-  currency,
   isSelected,
+  cols,
 }) => {
   const cursor = getSelectionCursor(isSelected);
   const marker = '+';
 
   const date = item.date;
-  const quantity = `${item.quantity} ${item.asset}`.padEnd(46);
-  const displayCurrency = item.fxUnavailable ? 'USD' : currency;
-  const basis = formatUnsignedCurrency(item.totalCostBasis, displayCurrency).padStart(15);
+  const { quantityAsset: quantity, basisOrGainLoss: basis } = cols.format(item);
   const txId = `#${item.transactionId}`;
   const fxNote = item.fxUnavailable ? ' (FX unavailable)' : '';
 
@@ -569,12 +609,13 @@ const AcquisitionRow: FC<{ currency: string; isSelected: boolean; item: Acquisit
   );
 };
 
-const DisposalRow: FC<{ currency: string; isSelected: boolean; isUS: boolean; item: DisposalViewItem }> = ({
-  item,
-  currency,
-  isUS,
-  isSelected,
-}) => {
+const DisposalRow: FC<{
+  cols: TimelineCols;
+  currency: string;
+  isSelected: boolean;
+  isUS: boolean;
+  item: DisposalViewItem;
+}> = ({ item, isUS, isSelected, cols }) => {
   const cursor = getSelectionCursor(isSelected);
   const marker = '−';
   const gainLossColor = item.isGain ? 'green' : 'red';
@@ -588,9 +629,7 @@ const DisposalRow: FC<{ currency: string; isSelected: boolean; isUS: boolean; it
   const taxCategoryColor = taxCategory === 'long-term' ? 'green' : 'yellow';
 
   const date = item.date;
-  const quantity = `${item.quantityDisposed} ${item.asset}`.padEnd(40);
-  const gainLoss = formatSignedCurrency(item.gainLoss, currency).padStart(15);
-  const holding = `held ${item.holdingPeriodDays}d`.padStart(12);
+  const { quantityAsset: quantity, basisOrGainLoss: gainLoss, holding } = cols.format(item);
   const txId = `#${item.disposalTransactionId}`;
 
   if (isSelected) {
@@ -617,18 +656,16 @@ const DisposalRow: FC<{ currency: string; isSelected: boolean; isUS: boolean; it
   );
 };
 
-const TransferRow: FC<{ currency: string; isSelected: boolean; item: TransferViewItem }> = ({
+const TransferRow: FC<{ cols: TimelineCols; currency: string; isSelected: boolean; item: TransferViewItem }> = ({
   item,
-  currency,
   isSelected,
+  cols,
 }) => {
   const cursor = getSelectionCursor(isSelected);
   const marker = '→';
 
   const date = item.date;
-  const quantity = `${item.quantity} ${item.asset}`.padEnd(40);
-  const displayCurrency = item.fxUnavailable ? 'USD' : currency;
-  const basis = formatUnsignedCurrency(item.totalCostBasis, displayCurrency).padStart(15);
+  const { quantityAsset: quantity, basisOrGainLoss: basis } = cols.format(item);
   const txIds = `#${item.sourceTransactionId} → #${item.targetTransactionId}`;
   const fxNote = item.fxUnavailable ? ' (FX unavailable)' : '';
 

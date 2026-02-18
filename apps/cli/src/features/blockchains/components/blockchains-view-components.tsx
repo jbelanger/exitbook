@@ -8,7 +8,8 @@ import { useReducer, type FC } from 'react';
 import {
   calculateChromeLines,
   calculateVisibleRows,
-  computeColumnWidths,
+  type Columns,
+  createColumns,
   Divider,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
@@ -144,7 +145,20 @@ function buildCategoryParts(counts: Record<string, number>): { count: number; la
 
 const BlockchainList: FC<{ state: BlockchainsViewState; visibleRows: number }> = ({ state, visibleRows }) => {
   const { blockchains, selectedIndex, scrollOffset } = state;
-  const columnWidths = getBlockchainColumnWidths(blockchains);
+  const cols = createColumns(blockchains, {
+    displayName: { format: (item) => item.displayName, minWidth: 10 },
+    category: { format: (item) => item.category, minWidth: 6 },
+    layer: { format: (item) => (item.layer ? `L${item.layer}` : ''), minWidth: 2 },
+    providers: {
+      format: (item) => {
+        const label = item.providerCount === 1 ? 'provider ' : 'providers';
+        return `${item.providerCount} ${label}`;
+      },
+      align: 'right',
+      minWidth: 10,
+    },
+    keyStatus: { format: (item) => getKeyStatusText(item.keyStatus, item.missingKeyCount), minWidth: 12 },
+  });
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, blockchains.length);
@@ -167,7 +181,7 @@ const BlockchainList: FC<{ state: BlockchainsViewState; visibleRows: number }> =
             key={item.name}
             item={item}
             isSelected={actualIndex === selectedIndex}
-            columnWidths={columnWidths}
+            cols={cols}
           />
         );
       })}
@@ -183,23 +197,18 @@ const BlockchainList: FC<{ state: BlockchainsViewState; visibleRows: number }> =
 // --- Row ---
 
 const BlockchainRow: FC<{
-  columnWidths: BlockchainColumnWidths;
+  cols: Columns<BlockchainViewItem, 'displayName' | 'category' | 'layer' | 'providers' | 'keyStatus'>;
   isSelected: boolean;
   item: BlockchainViewItem;
-}> = ({ item, isSelected, columnWidths }) => {
+}> = ({ item, isSelected, cols }) => {
   const cursor = getSelectionCursor(isSelected);
   const icon = getKeyStatusIcon(item.keyStatus);
-  const displayName = item.displayName.padEnd(columnWidths.displayName);
-  const category = item.category.padEnd(columnWidths.category);
-  const layer = (item.layer ? `L${item.layer}` : '').padEnd(columnWidths.layer);
-  const providerLabel = item.providerCount === 1 ? 'provider ' : 'providers';
-  const providerText = `${item.providerCount} ${providerLabel}`.padStart(columnWidths.providers);
-  const keyStatusText = getKeyStatusText(item.keyStatus, item.missingKeyCount);
+  const { displayName, category, layer, providers, keyStatus } = cols.format(item);
 
   if (isSelected) {
     return (
       <Text bold>
-        {cursor} {icon.char} {displayName} {category} {layer} {providerText} {keyStatusText}
+        {cursor} {icon.char} {displayName} {category} {layer} {providers} {keyStatus}
       </Text>
     );
   }
@@ -207,9 +216,9 @@ const BlockchainRow: FC<{
   return (
     <Text>
       {cursor} <Text color={icon.color}>{icon.char}</Text> {displayName} <Text dimColor>{category}</Text>{' '}
-      <Text dimColor>{layer}</Text> {providerText}
+      <Text dimColor>{layer}</Text> {providers}
       {'  '}
-      <Text color={icon.color}>{keyStatusText}</Text>
+      <Text color={icon.color}>{keyStatus}</Text>
     </Text>
   );
 };
@@ -366,42 +375,4 @@ function getProviderIcon(provider: ProviderViewItem): { char: string; color: str
     return { char: '✓', color: 'green' };
   }
   return { char: '⚠', color: 'yellow' };
-}
-
-// ─── Column Width Logic ──────────────────────────────────────────────────────
-
-interface BlockchainColumnWidths {
-  category: number;
-  displayName: number;
-  keyStatus: number;
-  layer: number;
-  providers: number;
-}
-
-function getBlockchainColumnWidths(blockchains: BlockchainViewItem[]): BlockchainColumnWidths {
-  return computeColumnWidths(blockchains, {
-    displayName: {
-      minWidth: 10,
-      format: (item) => item.displayName,
-    },
-    category: {
-      minWidth: 6,
-      format: (item) => item.category,
-    },
-    layer: {
-      minWidth: 2,
-      format: (item) => (item.layer ? `L${item.layer}` : ''),
-    },
-    providers: {
-      minWidth: 10,
-      format: (item) => {
-        const label = item.providerCount === 1 ? 'provider ' : 'providers';
-        return `${item.providerCount} ${label}`;
-      },
-    },
-    keyStatus: {
-      minWidth: 12,
-      format: (item) => getKeyStatusText(item.keyStatus, item.missingKeyCount),
-    },
-  });
 }

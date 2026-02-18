@@ -5,7 +5,14 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import {
+  calculateChromeLines,
+  calculateVisibleRows,
+  type Columns,
+  createColumns,
+  Divider,
+  getSelectionCursor,
+} from '../../../ui/shared/index.js';
 import { formatTimeAgo } from '../view-providers-utils.js';
 
 import { handleProvidersKeyboardInput, providersViewReducer } from './providers-view-controller.js';
@@ -161,6 +168,25 @@ const ProvidersHeader: FC<{ state: ProvidersViewState }> = ({ state }) => {
 const ProviderList: FC<{ state: ProvidersViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { providers, selectedIndex, scrollOffset } = state;
   const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
+  const cols = createColumns(providers, {
+    displayName: { format: (item) => item.name, minWidth: 16 },
+    chains: { format: (item) => `${item.chainCount} ${item.chainCount === 1 ? 'chain ' : 'chains'}`, minWidth: 10 },
+    avgResponse: {
+      format: (item) => (item.stats !== undefined ? `${item.stats.avgResponseTime}ms` : '—'),
+      align: 'right',
+      minWidth: 7,
+    },
+    errorRate: {
+      format: (item) => (item.stats !== undefined ? `${item.stats.errorRate}%` : '—'),
+      align: 'right',
+      minWidth: 7,
+    },
+    totalReqs: {
+      format: (item) => (item.stats !== undefined ? `${item.stats.totalRequests.toLocaleString()} req` : '0 req'),
+      align: 'right',
+      minWidth: 12,
+    },
+  });
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, providers.length);
@@ -183,6 +209,7 @@ const ProviderList: FC<{ state: ProvidersViewState; terminalHeight: number }> = 
             key={item.name}
             item={item}
             isSelected={actualIndex === selectedIndex}
+            cols={cols}
           />
         );
       })}
@@ -197,19 +224,16 @@ const ProviderList: FC<{ state: ProvidersViewState; terminalHeight: number }> = 
 
 // --- Row ---
 
-const ProviderRow: FC<{ isSelected: boolean; item: ProviderViewItem }> = ({ item, isSelected }) => {
+const ProviderRow: FC<{
+  cols: Columns<ProviderViewItem, 'displayName' | 'chains' | 'avgResponse' | 'errorRate' | 'totalReqs'>;
+  isSelected: boolean;
+  item: ProviderViewItem;
+}> = ({ item, isSelected, cols }) => {
   const cursor = getSelectionCursor(isSelected);
   const icon = getHealthIcon(item.healthStatus);
-  const displayName = item.name.padEnd(16).substring(0, 16);
-  const chainLabel = item.chainCount === 1 ? 'chain ' : 'chains';
-  const chainText = `${item.chainCount} ${chainLabel}`.padEnd(10);
+  const { displayName, chains, avgResponse, errorRate, totalReqs } = cols.format(item);
 
   const hasStats = item.stats !== undefined;
-  const avgResponse = hasStats ? `${item.stats!.avgResponseTime}ms`.padStart(7) : '     —';
-  const errorRate = hasStats ? `${item.stats!.errorRate}%`.padStart(7) : '     —';
-  const totalReqs = hasStats
-    ? `${item.stats!.totalRequests.toLocaleString()} req`.padStart(12)
-    : '     0 req'.padStart(12);
 
   // API key info
   let apiKeyText = '';
@@ -220,7 +244,7 @@ const ProviderRow: FC<{ isSelected: boolean; item: ProviderViewItem }> = ({ item
   if (isSelected) {
     return (
       <Text bold>
-        {cursor} {icon.char} {displayName} {chainText} {avgResponse} {errorRate} {totalReqs}
+        {cursor} {icon.char} {displayName} {chains} {avgResponse} {errorRate} {totalReqs}
         {apiKeyText ? `   ${apiKeyText} ${item.apiKeyConfigured ? '✓' : '✗'}` : ''}
       </Text>
     );
@@ -230,7 +254,7 @@ const ProviderRow: FC<{ isSelected: boolean; item: ProviderViewItem }> = ({ item
   if (item.healthStatus === 'no-stats') {
     return (
       <Text dimColor>
-        {cursor} {icon.char} {displayName} {chainText} {avgResponse} {errorRate} {totalReqs}
+        {cursor} {icon.char} {displayName} {chains} {avgResponse} {errorRate} {totalReqs}
         {apiKeyText ? `   ${apiKeyText}` : ''}
       </Text>
     );
@@ -239,7 +263,7 @@ const ProviderRow: FC<{ isSelected: boolean; item: ProviderViewItem }> = ({ item
   // Normal row: use pre-formatted strings for alignment, apply colors to content
   return (
     <Text>
-      {cursor} <Text color={icon.color}>{icon.char}</Text> {displayName} {chainText}{' '}
+      {cursor} <Text color={icon.color}>{icon.char}</Text> {displayName} {chains}{' '}
       {hasStats ? (
         <Text color={getResponseTimeColor(item.stats!.avgResponseTime)}>{avgResponse}</Text>
       ) : (
@@ -385,7 +409,7 @@ const ProviderDetailPanel: FC<{ state: ProvidersViewState }> = ({ state }) => {
 };
 
 const BlockchainLine: FC<{ blockchain: ProviderBlockchainItem }> = ({ blockchain }) => {
-  const name = blockchain.name.padEnd(14).substring(0, 14);
+  const name = blockchain.name.substring(0, 14).padEnd(14);
   const capabilities = blockchain.capabilities.join(' · ');
   const rateLimit = blockchain.rateLimit ? `${blockchain.rateLimit}` : '';
   const hasStats = blockchain.stats !== undefined;

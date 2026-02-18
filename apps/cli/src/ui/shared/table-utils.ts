@@ -83,3 +83,60 @@ export function padStart(value: string, width: number): string {
 export function padEnd(value: string, width: number): string {
   return value.padEnd(width);
 }
+
+// ─── createColumns ───────────────────────────────────────────────────────────
+
+type Align = 'left' | 'right';
+
+interface ColumnDef<T> {
+  format: (item: T) => string;
+  align?: Align | undefined;
+  minWidth?: number | undefined;
+  /** Hard cap: values longer than maxWidth are truncated before padding. */
+  maxWidth?: number | undefined;
+}
+
+export interface Columns<T, K extends string> {
+  widths: Record<K, number>;
+  format: (item: T) => Record<K, string>;
+}
+
+/**
+ * Compute column widths and return a formatter that produces pre-padded strings.
+ *
+ * Combines width computation + padding into a single step so callers don't need
+ * separate width interfaces, getter functions, or manual padEnd/padStart calls.
+ *
+ * @example
+ * ```ts
+ * const cols = createColumns(items, {
+ *   name:  { format: (i) => i.name, minWidth: 10 },
+ *   count: { format: (i) => `${i.count}`, align: 'right', minWidth: 5 },
+ * });
+ * // In row component:
+ * const { name, count } = cols.format(item);
+ * ```
+ */
+export function createColumns<T, K extends string>(items: T[], defs: Record<K, ColumnDef<T>>): Columns<T, K> {
+  const widths = {} as Record<K, number>;
+  const entries = Object.entries(defs) as [K, ColumnDef<T>][];
+
+  for (const [key, def] of entries) {
+    const rawWidth = computeColumnWidth(items, def.format, def.minWidth ?? 0);
+    widths[key] = def.maxWidth !== undefined ? Math.min(rawWidth, def.maxWidth) : rawWidth;
+  }
+
+  return {
+    widths,
+    format(item: T): Record<K, string> {
+      const result = {} as Record<K, string>;
+      for (const [key, def] of entries) {
+        const raw = def.format(item);
+        const width = widths[key];
+        const clipped = raw.length > width ? raw.substring(0, width) : raw;
+        result[key] = def.align === 'right' ? clipped.padStart(width) : clipped.padEnd(width);
+      }
+      return result;
+    },
+  };
+}

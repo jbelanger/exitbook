@@ -6,7 +6,14 @@ import type { LinkStatus, MatchCriteria } from '@exitbook/accounting';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC } from 'react';
 
-import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import {
+  calculateChromeLines,
+  calculateVisibleRows,
+  type Columns,
+  createColumns,
+  Divider,
+  getSelectionCursor,
+} from '../../../ui/shared/index.js';
 import type { LinkGapAssetSummary, LinkGapIssue } from '../links-gap-utils.js';
 
 import { handleKeyboardInput, linksViewReducer } from './links-view-controller.js';
@@ -200,6 +207,19 @@ const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ 
   const { links, selectedIndex, scrollOffset } = state;
 
   const visibleRows = calculateVisibleRows(terminalHeight, LINKS_CHROME_LINES);
+  const cols = createColumns(links, {
+    asset: { format: (item) => item.link.assetSymbol, minWidth: 5 },
+    status: { format: (item) => item.link.status, minWidth: 9 },
+    sourceTarget: {
+      format: (item) => {
+        const sourceName = item.sourceTransaction?.source || 'unknown';
+        const targetName = item.targetTransaction?.source || 'unknown';
+        return `${sourceName} → ${targetName}`;
+      },
+      minWidth: 30,
+      maxWidth: 50,
+    },
+  });
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, links.length);
@@ -222,6 +242,7 @@ const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ 
             key={item.link.id}
             item={item}
             isSelected={actualIndex === selectedIndex}
+            cols={cols}
           />
         );
       })}
@@ -237,19 +258,18 @@ const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ 
 /**
  * Individual link row component
  */
-const LinkRow: FC<{ isSelected: boolean; item: LinkWithTransactions }> = ({ item, isSelected }) => {
-  const { link, sourceTransaction, targetTransaction } = item;
+const LinkRow: FC<{
+  cols: Columns<LinkWithTransactions, 'asset' | 'status' | 'sourceTarget'>;
+  isSelected: boolean;
+  item: LinkWithTransactions;
+}> = ({ item, isSelected, cols }) => {
+  const { link } = item;
 
   const shortId = link.id.substring(0, 8);
-  const asset = link.assetSymbol.padEnd(5).substring(0, 5);
+  const { asset, status, sourceTarget } = cols.format(item);
   const sourceAmount = formatAmount(link.sourceAmount.toFixed(), 15);
   const targetAmount = formatAmount(link.targetAmount.toFixed(), 15);
   const confidence = formatConfidenceScore(link.confidenceScore.toNumber());
-  const status = link.status.padEnd(9);
-
-  const sourceName = sourceTransaction?.source || 'unknown';
-  const targetName = targetTransaction?.source || 'unknown';
-  const sourceTarget = `${sourceName} → ${targetName}`.padEnd(30);
 
   const { icon, iconColor } = getStatusDisplay(link.status);
 
@@ -556,6 +576,11 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
   const issues = linkAnalysis.issues;
 
   const visibleRows = calculateVisibleRows(terminalHeight, GAPS_CHROME_LINES);
+  const cols = createColumns(issues, {
+    txId: { format: (issue) => `#${issue.transactionId}`, align: 'right', minWidth: 6 },
+    source: { format: (issue) => issue.blockchain ?? issue.source, minWidth: 10 },
+    asset: { format: (issue) => issue.assetSymbol, minWidth: 5 },
+  });
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, issues.length);
@@ -578,6 +603,7 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
             key={`${issue.transactionId}-${issue.assetSymbol}-${issue.direction}`}
             issue={issue}
             isSelected={actualIndex === selectedIndex}
+            cols={cols}
           />
         );
       })}
@@ -593,12 +619,14 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
 /**
  * Individual gap row component
  */
-const GapRow: FC<{ isSelected: boolean; issue: LinkGapIssue }> = ({ issue, isSelected }) => {
+const GapRow: FC<{
+  cols: Columns<LinkGapIssue, 'txId' | 'source' | 'asset'>;
+  isSelected: boolean;
+  issue: LinkGapIssue;
+}> = ({ issue, isSelected, cols }) => {
   const cursor = getSelectionCursor(isSelected);
-  const txId = `#${issue.transactionId}`.padStart(6);
-  const source = (issue.blockchain ?? issue.source).padEnd(10).substring(0, 10);
+  const { txId, source, asset } = cols.format(issue);
   const timestamp = issue.timestamp.substring(0, 16).replace('T', ' ');
-  const asset = issue.assetSymbol.padEnd(5).substring(0, 5);
   const dir = issue.direction === 'inflow' ? 'IN ' : 'OUT';
   const dirColor = issue.direction === 'inflow' ? 'green' : 'yellow';
   const coverage = formatCoverage(issue.confirmedCoveragePercent);

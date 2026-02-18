@@ -7,7 +7,14 @@ import Spinner from 'ink-spinner';
 import { useLayoutEffect, useReducer, type FC, type ReactNode } from 'react';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
-import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import {
+  calculateChromeLines,
+  calculateVisibleRows,
+  type Columns,
+  createColumns,
+  Divider,
+  getSelectionCursor,
+} from '../../../ui/shared/index.js';
 
 import { balanceViewReducer, handleBalanceKeyboardInput } from './balance-view-controller.js';
 import type {
@@ -212,6 +219,11 @@ const AccountList: FC<{
   terminalHeight: number;
 }> = ({ accounts, selectedIndex, scrollOffset, terminalHeight }) => {
   const visibleRows = getBalanceAccountsVisibleRows(terminalHeight);
+  const cols = createColumns(accounts, {
+    id: { format: (item) => `#${item.accountId}`, align: 'right', minWidth: 4 },
+    source: { format: (item) => item.sourceName, minWidth: 10 },
+    type: { format: (item) => item.accountType, minWidth: 12 },
+  });
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, accounts.length);
   const visible = accounts.slice(startIndex, endIndex);
@@ -233,6 +245,7 @@ const AccountList: FC<{
             key={item.accountId}
             item={item}
             isSelected={actualIndex === selectedIndex}
+            cols={cols}
           />
         );
       })}
@@ -245,12 +258,14 @@ const AccountList: FC<{
   );
 };
 
-const AccountRow: FC<{ isSelected: boolean; item: AccountVerificationItem }> = ({ item, isSelected }) => {
+const AccountRow: FC<{
+  cols: Columns<AccountVerificationItem, 'id' | 'source' | 'type'>;
+  isSelected: boolean;
+  item: AccountVerificationItem;
+}> = ({ item, isSelected, cols }) => {
   const cursor = getSelectionCursor(isSelected);
   const icon = getAccountStatusIcon(item);
-  const id = `#${item.accountId}`.padStart(4);
-  const source = item.sourceName.padEnd(10).substring(0, 10);
-  const type = item.accountType.padEnd(12).substring(0, 12);
+  const { id, source, type } = cols.format(item);
 
   // Status-dependent content
   let statusText = '';
@@ -566,6 +581,11 @@ const OfflineAccountList: FC<{
   terminalHeight: number;
 }> = ({ accounts, selectedIndex, scrollOffset, terminalHeight }) => {
   const visibleRows = getBalanceAccountsVisibleRows(terminalHeight);
+  const cols = createColumns(accounts, {
+    id: { format: (item) => `#${item.accountId}`, align: 'right', minWidth: 4 },
+    source: { format: (item) => item.sourceName, minWidth: 10 },
+    type: { format: (item) => item.accountType, minWidth: 12 },
+  });
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, accounts.length);
   const visible = accounts.slice(startIndex, endIndex);
@@ -587,6 +607,7 @@ const OfflineAccountList: FC<{
             key={item.accountId}
             item={item}
             isSelected={actualIndex === selectedIndex}
+            cols={cols}
           />
         );
       })}
@@ -599,11 +620,13 @@ const OfflineAccountList: FC<{
   );
 };
 
-const OfflineAccountRow: FC<{ isSelected: boolean; item: AccountOfflineItem }> = ({ item, isSelected }) => {
+const OfflineAccountRow: FC<{
+  cols: Columns<AccountOfflineItem, 'id' | 'source' | 'type'>;
+  isSelected: boolean;
+  item: AccountOfflineItem;
+}> = ({ item, isSelected, cols }) => {
   const cursor = getSelectionCursor(isSelected);
-  const id = `#${item.accountId}`.padStart(4);
-  const source = item.sourceName.padEnd(10).substring(0, 10);
-  const type = item.accountType.padEnd(12).substring(0, 12);
+  const { id, source, type } = cols.format(item);
   const assets = `${item.assetCount} ${item.assetCount === 1 ? 'asset' : 'assets'}`;
 
   if (isSelected) {
@@ -775,6 +798,10 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
 
 const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const visibleRows = getBalanceAssetsVisibleRows(terminalHeight);
+  const assetCols: BalanceAssetCols = createColumns(state.assets as BalanceAssetBase[], {
+    symbol: { format: (item) => item.assetSymbol, minWidth: 8 },
+    calc: { format: (item) => item.calculatedBalance, align: 'right', minWidth: 12 },
+  });
   const startIndex = state.scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, state.assets.length);
   const visible = state.assets.slice(startIndex, endIndex);
@@ -798,6 +825,7 @@ const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ s
               key={item.assetId}
               asset={item as AssetOfflineItem}
               isSelected={isSelected}
+              assetCols={assetCols}
             />
           );
         }
@@ -806,6 +834,7 @@ const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ s
             key={item.assetId}
             asset={item as AssetComparisonItem}
             isSelected={isSelected}
+            assetCols={assetCols}
           />
         );
       })}
@@ -818,12 +847,18 @@ const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ s
   );
 };
 
-const OnlineAssetRow: FC<{ asset: AssetComparisonItem; isSelected: boolean }> = ({ asset, isSelected }) => {
+type BalanceAssetBase = Pick<AssetComparisonItem, 'assetSymbol' | 'calculatedBalance'>;
+type BalanceAssetCols = Columns<BalanceAssetBase, 'symbol' | 'calc'>;
+
+const OnlineAssetRow: FC<{ asset: AssetComparisonItem; assetCols: BalanceAssetCols; isSelected: boolean }> = ({
+  asset,
+  isSelected,
+  assetCols,
+}) => {
   const cursor = getSelectionCursor(isSelected);
   const icon = getAssetStatusIcon(asset.status);
-  const symbol = asset.assetSymbol.padEnd(8).substring(0, 8);
-  const calc = asset.calculatedBalance.padStart(12);
-  const live = asset.liveBalance.padStart(12);
+  const { symbol, calc } = assetCols.format(asset);
+  const live = asset.liveBalance.padStart(assetCols.widths.calc);
 
   const statusContent =
     asset.status === 'match' ? (
@@ -860,10 +895,13 @@ const OnlineAssetRow: FC<{ asset: AssetComparisonItem; isSelected: boolean }> = 
   );
 };
 
-const OfflineAssetRow: FC<{ asset: AssetOfflineItem; isSelected: boolean }> = ({ asset, isSelected }) => {
+const OfflineAssetRow: FC<{ asset: AssetOfflineItem; assetCols: BalanceAssetCols; isSelected: boolean }> = ({
+  asset,
+  isSelected,
+  assetCols,
+}) => {
   const cursor = getSelectionCursor(isSelected);
-  const symbol = asset.assetSymbol.padEnd(8).substring(0, 8);
-  const balance = asset.calculatedBalance.padStart(12);
+  const { symbol, calc: balance } = assetCols.format(asset);
   const balanceColor = asset.isNegative ? 'red' : 'green';
 
   if (isSelected) {

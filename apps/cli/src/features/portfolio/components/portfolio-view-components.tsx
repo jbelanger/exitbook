@@ -9,7 +9,8 @@ import { useReducer, type FC } from 'react';
 import {
   calculateChromeLines,
   calculateVisibleRows,
-  computeColumnWidths,
+  type Columns,
+  createColumns,
   conditionalLines,
   Divider,
   getSelectionCursor,
@@ -489,9 +490,55 @@ const PortfolioHeader: FC<{ state: PortfolioAssetsState }> = ({ state }) => {
   );
 };
 
+type PortfolioAssetCols = Columns<
+  PortfolioPositionItem,
+  'symbol' | 'quantity' | 'value' | 'allocation' | 'cost' | 'unrealized' | 'realized'
+>;
+
 const PortfolioAssetsList: FC<{ state: PortfolioAssetsState; visibleRows: number }> = ({ state, visibleRows }) => {
   const visiblePositions = getVisiblePositions(state);
-  const columnWidths = getPortfolioAssetColumnWidths(visiblePositions, state.displayCurrency);
+  const { displayCurrency } = state;
+  const cols = createColumns<
+    PortfolioPositionItem,
+    'symbol' | 'quantity' | 'value' | 'allocation' | 'cost' | 'unrealized' | 'realized'
+  >(visiblePositions, {
+    symbol: { format: (p) => p.assetSymbol, minWidth: 10 },
+    quantity: { format: (p) => formatCryptoQuantity(p.quantity), align: 'right', minWidth: 14 },
+    value: {
+      format: (p) => {
+        if (p.priceStatus !== 'ok' || p.currentValue === undefined) return 'USD 0.00';
+        const v = new Decimal(p.currentValue);
+        return formatCurrency(p.isNegative ? v.negated().toFixed(2) : v.toFixed(2), displayCurrency);
+      },
+      align: 'right',
+      minWidth: 'USD 0.00'.length,
+    },
+    allocation: {
+      format: (p) => (p.allocationPct ? `${p.allocationPct}%` : '--'),
+      align: 'right',
+      minWidth: '--'.length,
+    },
+    cost: {
+      format: (p) =>
+        p.totalCostBasis !== undefined ? formatCurrency(p.totalCostBasis, displayCurrency) : 'unavailable',
+      align: 'right',
+      minWidth: 'unavailable'.length,
+    },
+    unrealized: {
+      format: (p) =>
+        p.unrealizedGainLoss !== undefined ? formatSignedCurrency(p.unrealizedGainLoss, displayCurrency) : '—',
+      align: 'right',
+      minWidth: '—'.length,
+    },
+    realized: {
+      format: (p) =>
+        p.realizedGainLossAllTime !== undefined
+          ? formatSignedCurrency(p.realizedGainLossAllTime, displayCurrency)
+          : '—',
+      align: 'right',
+      minWidth: '—'.length,
+    },
+  });
   const startIndex = state.scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, visiblePositions.length);
   const visible = visiblePositions.slice(startIndex, endIndex);
@@ -514,9 +561,8 @@ const PortfolioAssetsList: FC<{ state: PortfolioAssetsState; visibleRows: number
             key={position.assetId}
             position={position}
             isSelected={actualIndex === state.selectedIndex}
-            displayCurrency={state.displayCurrency}
             pnlMode={state.pnlMode}
-            columnWidths={columnWidths}
+            cols={cols}
           />
         );
       })}
@@ -531,21 +577,15 @@ const PortfolioAssetsList: FC<{ state: PortfolioAssetsState; visibleRows: number
 };
 
 const PortfolioAssetRow: FC<{
-  columnWidths: PortfolioAssetColumnWidths;
-  displayCurrency: string;
+  cols: PortfolioAssetCols;
   isSelected: boolean;
   pnlMode: PortfolioPnlMode;
   position: PortfolioPositionItem;
-}> = ({ position, isSelected, displayCurrency, pnlMode, columnWidths }) => {
+}> = ({ position, isSelected, pnlMode, cols }) => {
   const cursor = getSelectionCursor(isSelected);
-  const symbol = position.assetSymbol.padEnd(10);
-  const quantity = formatCryptoQuantity(position.quantity).padStart(14);
+  const { symbol, quantity, value, allocation, cost, unrealized, realized } = cols.format(position);
   const quantityColor = position.isNegative ? 'red' : 'white';
 
-  const realizedSegment =
-    position.realizedGainLossAllTime !== undefined
-      ? formatSignedCurrency(position.realizedGainLossAllTime, displayCurrency)
-      : '—';
   const realizedColor =
     position.realizedGainLossAllTime === undefined
       ? 'white'
@@ -561,7 +601,7 @@ const PortfolioAssetRow: FC<{
         {cursor} {symbol} <Text color={quantityColor}>{quantity}</Text> {'  '}
         <Text dimColor>closed position</Text>
         {'  '}
-        <Text dimColor>realized</Text> <Text color={realizedColor}>{realizedSegment}</Text>
+        <Text dimColor>realized</Text> <Text color={realizedColor}>{realized}</Text>
       </Text>
     );
   }
@@ -573,32 +613,14 @@ const PortfolioAssetRow: FC<{
         {pnlMode !== 'unrealized' && (
           <>
             {'  '}
-            <Text dimColor>realized</Text> <Text color={realizedColor}>{realizedSegment}</Text>
+            <Text dimColor>realized</Text> <Text color={realizedColor}>{realized}</Text>
           </>
         )}
       </Text>
     );
   }
 
-  const valueNumber = new Decimal(position.currentValue);
-  const signedValue = position.isNegative ? valueNumber.negated().toFixed(2) : valueNumber.toFixed(2);
   const valueColor = position.isNegative ? 'red' : 'white';
-  const valueDisplay = formatCurrency(signedValue, displayCurrency).padStart(columnWidths.value);
-  const allocationDisplay = (position.allocationPct ? `${position.allocationPct}%` : '--').padStart(
-    columnWidths.allocation
-  );
-
-  const costSegment =
-    position.totalCostBasis !== undefined
-      ? `${formatCurrency(position.totalCostBasis, displayCurrency)}`
-      : 'unavailable';
-  const costDisplay = costSegment.padStart(columnWidths.cost);
-
-  const unrealizedSegment =
-    position.unrealizedGainLoss !== undefined
-      ? formatSignedCurrency(position.unrealizedGainLoss, displayCurrency)
-      : '—';
-  const unrealizedDisplay = unrealizedSegment.padStart(columnWidths.unrealized);
 
   const unrealizedColor =
     position.unrealizedGainLoss === undefined
@@ -614,10 +636,9 @@ const PortfolioAssetRow: FC<{
       return (
         <>
           {'  '}
-          <Text dimColor>cost</Text> {costDisplay}
+          <Text dimColor>cost</Text> {cost}
           {'  '}
-          <Text dimColor>realized</Text>{' '}
-          <Text color={realizedColor}>{realizedSegment.padStart(columnWidths.realized)}</Text>
+          <Text dimColor>realized</Text> <Text color={realizedColor}>{realized}</Text>
         </>
       );
     }
@@ -626,12 +647,11 @@ const PortfolioAssetRow: FC<{
       return (
         <>
           {'  '}
-          <Text dimColor>cost</Text> {costDisplay}
+          <Text dimColor>cost</Text> {cost}
           {'  '}
-          <Text dimColor>unrealized</Text> <Text color={unrealizedColor}>{unrealizedDisplay}</Text>
+          <Text dimColor>unrealized</Text> <Text color={unrealizedColor}>{unrealized}</Text>
           {'  '}
-          <Text dimColor>realized</Text>{' '}
-          <Text color={realizedColor}>{realizedSegment.padStart(columnWidths.realized)}</Text>
+          <Text dimColor>realized</Text> <Text color={realizedColor}>{realized}</Text>
         </>
       );
     }
@@ -639,9 +659,9 @@ const PortfolioAssetRow: FC<{
     return (
       <>
         {'  '}
-        <Text dimColor>cost</Text> {costDisplay}
+        <Text dimColor>cost</Text> {cost}
         {'  '}
-        <Text dimColor>unrealized</Text> <Text color={unrealizedColor}>{unrealizedDisplay}</Text>
+        <Text dimColor>unrealized</Text> <Text color={unrealizedColor}>{unrealized}</Text>
       </>
     );
   };
@@ -649,9 +669,9 @@ const PortfolioAssetRow: FC<{
   return (
     <Text>
       {cursor} {symbol} <Text color={quantityColor}>{quantity}</Text> {'  '}
-      <Text color={valueColor}>{valueDisplay}</Text>
+      <Text color={valueColor}>{value}</Text>
       {'  '}
-      <Text dimColor>{allocationDisplay}</Text>
+      <Text dimColor>{allocation}</Text>
       {renderPnlColumns()}
     </Text>
   );
@@ -881,10 +901,26 @@ const PortfolioHistoryView: FC<{
   );
 };
 
+type PortfolioHistoryCols = Columns<PortfolioTransactionItem, 'category' | 'valueOrTransfer'>;
+
 const PortfolioHistoryList: FC<{
   state: PortfolioHistoryState;
   terminalHeight: number;
 }> = ({ state, terminalHeight }) => {
+  const { displayCurrency } = state;
+  const cols = createColumns<PortfolioTransactionItem, 'category' | 'valueOrTransfer'>(state.transactions, {
+    category: { format: (t) => t.operationCategory, minWidth: 10 },
+    valueOrTransfer: {
+      format: (t) =>
+        t.transferDirection && t.transferPeer
+          ? `${t.transferDirection === 'to' ? '→' : '←'} ${t.transferPeer}`
+          : t.fiatValue
+            ? formatCurrency(t.fiatValue, displayCurrency)
+            : '',
+      minWidth: 24,
+      maxWidth: 40,
+    },
+  });
   const visibleRows = getPortfolioHistoryVisibleRows(terminalHeight);
   const startIndex = state.scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, state.transactions.length);
@@ -908,8 +944,8 @@ const PortfolioHistoryList: FC<{
             key={transaction.id}
             transaction={transaction}
             isSelected={actualIndex === state.selectedIndex}
-            displayCurrency={state.displayCurrency}
             assetSymbol={state.assetSymbol}
+            cols={cols}
           />
         );
       })}
@@ -925,29 +961,22 @@ const PortfolioHistoryList: FC<{
 
 const PortfolioHistoryRow: FC<{
   assetSymbol: string;
-  displayCurrency: string;
+  cols: PortfolioHistoryCols;
   isSelected: boolean;
   transaction: PortfolioTransactionItem;
-}> = ({ transaction, isSelected, displayCurrency, assetSymbol }) => {
+}> = ({ transaction, isSelected, assetSymbol, cols }) => {
   const cursor = getSelectionCursor(isSelected);
   const date = transaction.datetime.split('T')[0] ?? transaction.datetime;
-  const category = transaction.operationCategory.padEnd(10);
+  const { category, valueOrTransfer } = cols.format(transaction);
   const amountPrefix = transaction.assetDirection === 'in' ? '+' : '-';
   const amountColor = transaction.assetDirection === 'in' ? 'green' : 'red';
   const amount = `${amountPrefix}${formatCryptoQuantity(transaction.assetAmount)} ${assetSymbol}`;
-
-  const valueOrTransfer =
-    transaction.transferDirection && transaction.transferPeer
-      ? `${transaction.transferDirection === 'to' ? '→' : '←'} ${transaction.transferPeer}`
-      : transaction.fiatValue
-        ? formatCurrency(transaction.fiatValue, displayCurrency)
-        : '';
 
   return (
     <Text>
       {cursor} <Text dimColor>{date}</Text> {category} <Text color={amountColor}>{amount}</Text>
       {'  '}
-      <Text>{valueOrTransfer.padEnd(24)}</Text>
+      <Text>{valueOrTransfer}</Text>
       {'  '}
       <Text color="cyan">{transaction.sourceName}</Text>
     </Text>
@@ -1014,58 +1043,6 @@ const PortfolioTransactionDetail: FC<{ state: PortfolioHistoryState }> = ({ stat
 
 function formatMovementList(items: { amount: string; assetSymbol: string }[]): string {
   return items.map((item) => `${formatCryptoQuantity(item.amount)} ${item.assetSymbol}`).join(', ');
-}
-
-interface PortfolioAssetColumnWidths {
-  allocation: number;
-  cost: number;
-  realized: number;
-  unrealized: number;
-  value: number;
-}
-
-function getPortfolioAssetColumnWidths(
-  positions: PortfolioPositionItem[],
-  displayCurrency: string
-): PortfolioAssetColumnWidths {
-  return computeColumnWidths(positions, {
-    value: {
-      minWidth: 'USD 0.00'.length,
-      format: (position) => {
-        if (position.priceStatus !== 'ok' || position.currentValue === undefined) {
-          return 'USD 0.00';
-        }
-        const valueNumber = new Decimal(position.currentValue);
-        const signedValue = position.isNegative ? valueNumber.negated().toFixed(2) : valueNumber.toFixed(2);
-        return formatCurrency(signedValue, displayCurrency);
-      },
-    },
-    allocation: {
-      minWidth: '--'.length,
-      format: (position) => (position.allocationPct ? `${position.allocationPct}%` : '--'),
-    },
-    cost: {
-      minWidth: 'unavailable'.length,
-      format: (position) =>
-        position.totalCostBasis !== undefined
-          ? formatCurrency(position.totalCostBasis, displayCurrency)
-          : 'unavailable',
-    },
-    unrealized: {
-      minWidth: '—'.length,
-      format: (position) =>
-        position.unrealizedGainLoss !== undefined
-          ? formatSignedCurrency(position.unrealizedGainLoss, displayCurrency)
-          : '—',
-    },
-    realized: {
-      minWidth: '—'.length,
-      format: (position) =>
-        position.realizedGainLossAllTime !== undefined
-          ? formatSignedCurrency(position.realizedGainLossAllTime, displayCurrency)
-          : '—',
-    },
-  });
 }
 
 function formatSignedCurrency(amount: string, currency: string): string {

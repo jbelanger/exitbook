@@ -21,6 +21,14 @@ Exitbook doesn't do any of that. Every number traces back to a real import. Ever
 2. **Import all your wallets** — transfers between your own wallets need both sides to link correctly. Missing a wallet means broken links.
 3. **Pricing is intraday** — USD prices are per-day, not per-second. Close enough for tax reporting.
 
+## How it works
+
+1. **Import** — pull transactions from blockchains (by wallet address) or exchanges (by API key, or CSV for KuCoin).
+2. **Normalize** — convert everything into a universal transaction format.
+3. **Link** — detect transfers between your wallets. You review, confirm, or reject each suggested link.
+4. **Price** — attach USD prices to every inflow, outflow, and fee. Fill any gaps manually.
+5. **Calculate** — compute cost basis (FIFO, LIFO, or average).
+
 ## Supported Sources
 
 ### Blockchains

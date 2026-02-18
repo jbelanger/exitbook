@@ -20,7 +20,14 @@ export { StatusIcon, statusIcon, type OperationStatus } from './status-icon.js';
 export { TextPrompt, type TextPromptProps } from './TextPrompt.js';
 export { TreeChars } from './tree-chars.js';
 
-export { computeColumnWidth, computeColumnWidths, padEnd, padStart } from './table-utils.js';
+export {
+  computeColumnWidth,
+  computeColumnWidths,
+  createColumns,
+  padEnd,
+  padStart,
+  type Columns,
+} from './table-utils.js';
 export {
   arrayLines,
   calculateChromeLines,

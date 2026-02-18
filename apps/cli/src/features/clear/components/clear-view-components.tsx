@@ -9,6 +9,8 @@ import { useReducer, type FC } from 'react';
 import {
   calculateChromeLines,
   calculateVisibleRows,
+  type Columns,
+  createColumns,
   Divider,
   getSelectionCursor,
   StatusIcon,
@@ -134,6 +136,10 @@ const CategoryList: FC<{
 }> = ({ state, categoryItems, terminalHeight, isComplete }) => {
   const { selectedIndex, scrollOffset } = state;
   const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
+  const cols = createColumns(categoryItems, {
+    label: { format: (item) => item.label, minWidth: 25 },
+    count: { format: (item) => formatCount(item.count), align: 'right', minWidth: 8 },
+  });
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, categoryItems.length);
@@ -157,6 +163,7 @@ const CategoryList: FC<{
             item={item}
             isSelected={actualIndex === selectedIndex}
             isComplete={isComplete}
+            cols={cols}
           />
         );
       })}
@@ -171,15 +178,15 @@ const CategoryList: FC<{
 
 // --- Category Row ---
 
-const CategoryRow: FC<{ isComplete: boolean; isSelected: boolean; item: ClearCategoryItem }> = ({
-  item,
-  isSelected,
-  isComplete,
-}) => {
+const CategoryRow: FC<{
+  cols: Columns<ClearCategoryItem, 'label' | 'count'>;
+  isComplete: boolean;
+  isSelected: boolean;
+  item: ClearCategoryItem;
+}> = ({ item, isSelected, isComplete, cols }) => {
   const cursor = getSelectionCursor(isSelected);
   const icon = getCategoryIcon(item.status);
-  const displayLabel = item.label.padEnd(25).substring(0, 25);
-  const countStr = formatCount(item.count).padStart(8);
+  const { label: displayLabel, count: countStr } = cols.format(item);
 
   // In complete phase, show "deleted" instead of "will delete"
   let statusLabel = '';

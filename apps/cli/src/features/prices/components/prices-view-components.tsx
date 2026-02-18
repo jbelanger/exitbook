@@ -3,9 +3,16 @@
  */
 
 import { Box, Text, useInput, useStdout } from 'ink';
-import { useEffect, useReducer, useRef, type FC } from 'react';
+import { useEffect, useMemo, useReducer, useRef, type FC } from 'react';
 
-import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import {
+  calculateChromeLines,
+  calculateVisibleRows,
+  type Columns,
+  createColumns,
+  Divider,
+  getSelectionCursor,
+} from '../../../ui/shared/index.js';
 import type { AssetBreakdownEntry, MissingPriceMovement, PriceCoverageDetail } from '../prices-view-utils.js';
 import { formatCoveragePercentage } from '../prices-view-utils.js';
 
@@ -186,6 +193,17 @@ const CoverageHeader: FC<{ state: PricesViewCoverageState }> = ({ state }) => {
 const CoverageList: FC<{ state: PricesViewCoverageState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { coverage, selectedIndex, scrollOffset } = state;
   const visibleRows = calculateVisibleRows(terminalHeight, COVERAGE_CHROME_LINES);
+  const cols = useMemo(
+    () =>
+      createColumns(coverage, {
+        asset: { format: (item) => item.assetSymbol, minWidth: 10 },
+        total: { format: (item) => String(item.total_transactions), align: 'right', minWidth: 8 },
+        withPrice: { format: (item) => String(item.with_price), align: 'right', minWidth: 8 },
+        missing: { format: (item) => String(item.missing_price), align: 'right', minWidth: 8 },
+        pct: { format: (item) => formatCoveragePercentage(item.coverage_percentage), align: 'right', minWidth: 8 },
+      }),
+    [coverage]
+  );
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, coverage.length);
@@ -208,6 +226,7 @@ const CoverageList: FC<{ state: PricesViewCoverageState; terminalHeight: number 
             key={item.assetSymbol}
             item={item}
             isSelected={actualIndex === selectedIndex}
+            cols={cols}
           />
         );
       })}
@@ -220,13 +239,13 @@ const CoverageList: FC<{ state: PricesViewCoverageState; terminalHeight: number 
   );
 };
 
-const CoverageRow: FC<{ isSelected: boolean; item: PriceCoverageDetail }> = ({ item, isSelected }) => {
+const CoverageRow: FC<{
+  cols: Columns<PriceCoverageDetail, 'asset' | 'total' | 'withPrice' | 'missing' | 'pct'>;
+  isSelected: boolean;
+  item: PriceCoverageDetail;
+}> = ({ item, isSelected, cols }) => {
   const cursor = getSelectionCursor(isSelected);
-  const asset = item.assetSymbol.padEnd(10).substring(0, 10);
-  const total = String(item.total_transactions).padStart(8);
-  const withPrice = String(item.with_price).padStart(8);
-  const missing = String(item.missing_price).padStart(8);
-  const pct = formatCoveragePercentage(item.coverage_percentage).padStart(8);
+  const { asset, total, withPrice, missing, pct } = cols.format(item);
 
   const icon = getCoverageIcon(item.coverage_percentage, item.missing_price);
   const iconColor = getCoverageIconColor(item.coverage_percentage, item.missing_price);
@@ -466,6 +485,15 @@ const MissingAssetBreakdown: FC<{ assets: AssetBreakdownEntry[] }> = ({ assets }
 const MissingList: FC<{ state: PricesViewMissingState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { movements, selectedIndex, scrollOffset, resolvedRows } = state;
   const visibleRows = calculateVisibleRows(terminalHeight, MISSING_CHROME_LINES);
+  const cols = useMemo(
+    () =>
+      createColumns(movements, {
+        txId: { format: (m) => `#${m.transactionId}`, align: 'right', minWidth: 6 },
+        source: { format: (m) => m.source, minWidth: 10 },
+        asset: { format: (m) => m.assetSymbol, minWidth: 10 },
+      }),
+    [movements]
+  );
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, movements.length);
@@ -489,6 +517,7 @@ const MissingList: FC<{ state: PricesViewMissingState; terminalHeight: number }>
             movement={movement}
             isSelected={actualIndex === selectedIndex}
             isResolved={resolvedRows.has(missingRowKey(movement))}
+            cols={cols}
           />
         );
       })}
@@ -502,15 +531,14 @@ const MissingList: FC<{ state: PricesViewMissingState; terminalHeight: number }>
 };
 
 const MissingRow: FC<{
+  cols: Columns<MissingPriceMovement, 'txId' | 'source' | 'asset'>;
   isResolved: boolean;
   isSelected: boolean;
   movement: MissingPriceMovement;
-}> = ({ movement, isSelected, isResolved }) => {
+}> = ({ movement, isSelected, isResolved, cols }) => {
   const cursor = getSelectionCursor(isSelected);
-  const txId = `#${movement.transactionId}`.padStart(6);
-  const source = movement.source.padEnd(10).substring(0, 10);
+  const { txId, source, asset } = cols.format(movement);
   const timestamp = movement.datetime.substring(0, 16).replace('T', ' ');
-  const asset = movement.assetSymbol.padEnd(10).substring(0, 10);
   const dir = movement.direction === 'inflow' ? 'IN ' : 'OUT';
   const dirColor = movement.direction === 'inflow' ? 'green' : 'yellow';
   const amount = formatAmount(movement.amount, 12);
