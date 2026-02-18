@@ -9,7 +9,7 @@
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ImportSession } from '@exitbook/core';
-import type { AccountRepository, IImportSessionRepository, IRawDataRepository, UserRepository } from '@exitbook/data';
+import type { AccountQueries, ImportSessionQueries, RawDataQueries, UserRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -73,10 +73,10 @@ vi.mock('../../../shared/types/blockchain-adapter.js', () => ({
 
 describe('ImportOrchestrator', () => {
   let orchestrator: ImportOrchestrator;
-  let mockUserRepo: UserRepository;
-  let mockAccountRepo: AccountRepository;
-  let mockRawDataRepo: IRawDataRepository;
-  let mockImportSessionRepo: IImportSessionRepository;
+  let mockUserQueries: UserRepository;
+  let mockAccountQueries: AccountQueries;
+  let mockRawDataQueries: RawDataQueries;
+  let mockImportSessionQueries: ImportSessionQueries;
   let mockProviderManager: BlockchainProviderManager;
 
   const mockUser = { id: 1, createdAt: new Date() };
@@ -112,26 +112,26 @@ describe('ImportOrchestrator', () => {
       createProcessor: vi.fn(),
     });
 
-    mockUserRepo = {
+    mockUserQueries = {
       ensureDefaultUser: vi.fn().mockResolvedValue(ok(mockUser)),
     } as unknown as UserRepository;
 
-    mockAccountRepo = {
+    mockAccountQueries = {
       findOrCreate: vi.fn(),
       findByUniqueConstraint: vi.fn().mockResolvedValue(ok(undefined)),
       findAll: vi.fn().mockResolvedValue(ok([])),
       update: vi.fn().mockResolvedValue(ok(undefined)),
-    } as unknown as AccountRepository;
+    } as unknown as AccountQueries;
 
-    mockRawDataRepo = {} as IRawDataRepository;
-    mockImportSessionRepo = {} as IImportSessionRepository;
+    mockRawDataQueries = {} as RawDataQueries;
+    mockImportSessionQueries = {} as ImportSessionQueries;
     mockProviderManager = {} as BlockchainProviderManager;
 
     orchestrator = new ImportOrchestrator(
-      mockUserRepo,
-      mockAccountRepo,
-      mockRawDataRepo,
-      mockImportSessionRepo,
+      mockUserQueries,
+      mockAccountQueries,
+      mockRawDataQueries,
+      mockImportSessionQueries,
       mockProviderManager
     );
 
@@ -150,7 +150,7 @@ describe('ImportOrchestrator', () => {
         createdAt: new Date(),
       };
 
-      vi.mocked(mockAccountRepo.findOrCreate).mockResolvedValue(ok(mockAccount));
+      vi.mocked(mockAccountQueries.findOrCreate).mockResolvedValue(ok(mockAccount));
 
       const result = await orchestrator.importBlockchain('bitcoin', 'bc1q...');
 
@@ -163,7 +163,7 @@ describe('ImportOrchestrator', () => {
         expect(session.id).toBe(1);
       }
 
-      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
+      expect(mockAccountQueries.findOrCreate).toHaveBeenCalledWith({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
@@ -183,7 +183,7 @@ describe('ImportOrchestrator', () => {
         createdAt: new Date(),
       };
 
-      vi.mocked(mockAccountRepo.findOrCreate).mockResolvedValue(ok(mockAccount));
+      vi.mocked(mockAccountQueries.findOrCreate).mockResolvedValue(ok(mockAccount));
 
       // Logger is mocked, so we can't verify the warning directly,
       // but we can verify the import still succeeds
@@ -229,7 +229,7 @@ describe('ImportOrchestrator', () => {
         { address: 'bc1q2...', derivationPath: "m/84'/0'/0'/0/1" },
       ]);
 
-      vi.mocked(mockAccountRepo.findOrCreate)
+      vi.mocked(mockAccountQueries.findOrCreate)
         .mockResolvedValueOnce(ok(parentAccount))
         .mockResolvedValueOnce(ok(childAccount1))
         .mockResolvedValueOnce(ok(childAccount2));
@@ -247,7 +247,7 @@ describe('ImportOrchestrator', () => {
       }
 
       // Verify parent account creation
-      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
+      expect(mockAccountQueries.findOrCreate).toHaveBeenCalledWith({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
@@ -257,7 +257,7 @@ describe('ImportOrchestrator', () => {
       });
 
       // Verify child account creation with parentAccountId
-      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
+      expect(mockAccountQueries.findOrCreate).toHaveBeenCalledWith({
         userId: 1,
         parentAccountId: 10,
         accountType: 'blockchain',
@@ -267,7 +267,7 @@ describe('ImportOrchestrator', () => {
         credentials: undefined,
       });
 
-      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
+      expect(mockAccountQueries.findOrCreate).toHaveBeenCalledWith({
         userId: 1,
         parentAccountId: 10,
         accountType: 'blockchain',
@@ -277,7 +277,7 @@ describe('ImportOrchestrator', () => {
         credentials: undefined,
       });
 
-      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledTimes(3); // 1 parent + 2 children
+      expect(mockAccountQueries.findOrCreate).toHaveBeenCalledTimes(3); // 1 parent + 2 children
     });
 
     it('should respect custom xpubGap when deriving addresses', async () => {
@@ -292,7 +292,7 @@ describe('ImportOrchestrator', () => {
 
       mockDeriveAddresses.mockResolvedValue([{ address: 'bc1q1...', derivationPath: "m/84'/0'/0'/0/0" }]);
 
-      vi.mocked(mockAccountRepo.findOrCreate).mockResolvedValue(ok(parentAccount));
+      vi.mocked(mockAccountQueries.findOrCreate).mockResolvedValue(ok(parentAccount));
 
       await orchestrator.importBlockchain('bitcoin', 'xpub6C...', undefined, 5);
 
@@ -322,7 +322,7 @@ describe('ImportOrchestrator', () => {
 
       mockDeriveAddresses.mockResolvedValue([{ address: 'addr1q...', derivationPath: "m/1852'/1815'/0'/0/0" }]);
 
-      vi.mocked(mockAccountRepo.findOrCreate)
+      vi.mocked(mockAccountQueries.findOrCreate)
         .mockResolvedValueOnce(ok(parentAccount))
         .mockResolvedValueOnce(ok(childAccount));
 
@@ -330,7 +330,7 @@ describe('ImportOrchestrator', () => {
 
       expect(result.isOk()).toBe(true);
       expect(mockDeriveAddresses).toHaveBeenCalledWith('stake1u...', mockProviderManager, 'cardano', 20);
-      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledTimes(2); // 1 parent + 1 child
+      expect(mockAccountQueries.findOrCreate).toHaveBeenCalledTimes(2); // 1 parent + 1 child
     });
 
     it('should return success with 0 transactions if xpub derivation produces zero addresses', async () => {
@@ -345,7 +345,7 @@ describe('ImportOrchestrator', () => {
 
       mockDeriveAddresses.mockResolvedValue([]); // No addresses derived (no activity found)
 
-      vi.mocked(mockAccountRepo.findOrCreate).mockResolvedValue(ok(parentAccount));
+      vi.mocked(mockAccountQueries.findOrCreate).mockResolvedValue(ok(parentAccount));
 
       const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');
 
@@ -358,7 +358,7 @@ describe('ImportOrchestrator', () => {
       }
 
       // Should have created parent but not child accounts or called import
-      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledTimes(1);
+      expect(mockAccountQueries.findOrCreate).toHaveBeenCalledTimes(1);
     });
 
     it('should fail fast if any child import fails', async () => {
@@ -396,7 +396,7 @@ describe('ImportOrchestrator', () => {
         { address: 'bc1q2...', derivationPath: "m/84'/0'/0'/0/1" },
       ]);
 
-      vi.mocked(mockAccountRepo.findOrCreate)
+      vi.mocked(mockAccountQueries.findOrCreate)
         .mockResolvedValueOnce(ok(parentAccount))
         .mockResolvedValueOnce(ok(childAccount1))
         .mockResolvedValueOnce(ok(childAccount2));
@@ -451,7 +451,7 @@ describe('ImportOrchestrator', () => {
 
       mockDeriveAddresses.mockResolvedValue([{ address: 'bc1q1...', derivationPath: "m/84'/0'/0'/0/0" }]);
 
-      vi.mocked(mockAccountRepo.findOrCreate)
+      vi.mocked(mockAccountQueries.findOrCreate)
         .mockResolvedValueOnce(ok(parentAccount))
         .mockResolvedValueOnce(ok(childAccount));
 
@@ -493,14 +493,14 @@ describe('ImportOrchestrator', () => {
 
       mockDeriveAddresses.mockResolvedValue([{ address: 'bc1q1...', derivationPath: "m/84'/0'/0'/0/0" }]);
 
-      vi.mocked(mockAccountRepo.findOrCreate)
+      vi.mocked(mockAccountQueries.findOrCreate)
         .mockResolvedValueOnce(ok(parentAccount))
         .mockResolvedValueOnce(ok(childAccount));
 
       await orchestrator.importBlockchain('bitcoin', 'xpub6C...', 'mempool.space');
 
       // Verify providerName passed to parent
-      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
+      expect(mockAccountQueries.findOrCreate).toHaveBeenCalledWith({
         userId: 1,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
@@ -510,7 +510,7 @@ describe('ImportOrchestrator', () => {
       });
 
       // Verify providerName passed to child
-      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
+      expect(mockAccountQueries.findOrCreate).toHaveBeenCalledWith({
         userId: 1,
         parentAccountId: 10,
         accountType: 'blockchain',
@@ -533,7 +533,7 @@ describe('ImportOrchestrator', () => {
     });
 
     it('should handle user creation failure', async () => {
-      vi.mocked(mockUserRepo.ensureDefaultUser).mockResolvedValue(err(new Error('User creation failed')));
+      vi.mocked(mockUserQueries.ensureDefaultUser).mockResolvedValue(err(new Error('User creation failed')));
 
       const result = await orchestrator.importBlockchain('bitcoin', 'bc1q...');
 
@@ -546,7 +546,7 @@ describe('ImportOrchestrator', () => {
     it('should handle parent account creation failure for xpub', async () => {
       mockDeriveAddresses.mockResolvedValue([{ address: 'bc1q1...', derivationPath: "m/84'/0'/0'/0/0" }]);
 
-      vi.mocked(mockAccountRepo.findOrCreate).mockResolvedValue(err(new Error('Database error')));
+      vi.mocked(mockAccountQueries.findOrCreate).mockResolvedValue(err(new Error('Database error')));
 
       const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');
 
@@ -568,7 +568,7 @@ describe('ImportOrchestrator', () => {
 
       mockDeriveAddresses.mockResolvedValue([{ address: 'bc1q1...', derivationPath: "m/84'/0'/0'/0/0" }]);
 
-      vi.mocked(mockAccountRepo.findOrCreate)
+      vi.mocked(mockAccountQueries.findOrCreate)
         .mockResolvedValueOnce(ok(parentAccount))
         .mockResolvedValueOnce(err(new Error('Child account creation failed')));
 

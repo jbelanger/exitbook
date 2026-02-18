@@ -2,8 +2,8 @@ import { NormalizedTransactionBaseSchema, type BlockchainProviderManager } from 
 import { getErrorMessage, type RawTransaction } from '@exitbook/core';
 import type {
   AccountQueries,
-  IImportSessionRepository,
-  IRawDataRepository,
+  ImportSessionQueries,
+  RawDataQueries,
   ITransactionRepository,
   KyselyDB,
 } from '@exitbook/data';
@@ -43,12 +43,12 @@ export class TransactionProcessService {
   private scamDetectionService: IScamDetectionService;
 
   constructor(
-    private rawDataRepository: IRawDataRepository,
-    private accountRepository: AccountQueries,
-    private transactionRepository: ITransactionRepository,
+    private rawDataQueries: RawDataQueries,
+    private accountQueries: AccountQueries,
+    private transactionQueries: ITransactionRepository,
     private providerManager: BlockchainProviderManager,
     private tokenMetadataService: ITokenMetadataService,
-    private importSessionRepository: IImportSessionRepository,
+    private importSessionQueries: ImportSessionQueries,
     private eventBus: EventBus<IngestionEvent>,
     private db: KyselyDB
   ) {
@@ -72,13 +72,13 @@ export class TransactionProcessService {
       const accountTransactionCounts = new Map<number, Map<string, number>>();
 
       for (const accountId of accountIds) {
-        const countResult = await this.rawDataRepository.countPending(accountId);
+        const countResult = await this.rawDataQueries.countPending(accountId);
         if (countResult.isOk()) {
           totalRaw += countResult.value;
         }
 
         // Fetch transaction counts by stream type for dashboard display
-        const streamCountsResult = await this.rawDataRepository.countByStreamType(accountId);
+        const streamCountsResult = await this.rawDataQueries.countByStreamType(accountId);
         if (streamCountsResult.isOk()) {
           accountTransactionCounts.set(accountId, streamCountsResult.value);
         }
@@ -149,7 +149,7 @@ export class TransactionProcessService {
     this.logger.info('Processing all accounts with pending records');
 
     try {
-      const accountIdsResult = await this.rawDataRepository.getAccountsWithPendingData();
+      const accountIdsResult = await this.rawDataQueries.getAccountsWithPendingData();
       if (accountIdsResult.isErr()) {
         return err(accountIdsResult.error);
       }
@@ -213,7 +213,7 @@ export class TransactionProcessService {
       }
 
       // Load account to get source information
-      const accountResult = await this.accountRepository.findById(accountId);
+      const accountResult = await this.accountQueries.findById(accountId);
       if (accountResult.isErr()) {
         return err(new Error(`Failed to load account ${accountId}: ${accountResult.error.message}`));
       }
@@ -246,10 +246,10 @@ export class TransactionProcessService {
 
     if (sourceType === 'blockchain') {
       // Hash-grouped batching for blockchains to ensure correlation integrity
-      return new HashGroupedBatchProvider(this.rawDataRepository, accountId, RAW_DATA_HASH_BATCH_SIZE);
+      return new HashGroupedBatchProvider(this.rawDataQueries, accountId, RAW_DATA_HASH_BATCH_SIZE);
     } else {
       // All-at-once batching for exchanges (manageable data volumes)
-      return new AllAtOnceBatchProvider(this.rawDataRepository, accountId);
+      return new AllAtOnceBatchProvider(this.rawDataQueries, accountId);
     }
   }
 
@@ -268,7 +268,7 @@ export class TransactionProcessService {
     let batchNumber = 0;
 
     // Query pending count once at start
-    const pendingCountResult = await this.rawDataRepository.countPending(accountId);
+    const pendingCountResult = await this.rawDataQueries.countPending(accountId);
     let pendingCount = 0;
     if (pendingCountResult.isOk()) {
       pendingCount = pendingCountResult.value;
@@ -428,7 +428,7 @@ export class TransactionProcessService {
       processingContext.primaryAddress = account.identifier;
 
       if (account.userId) {
-        const userAccountsResult = await this.accountRepository.findAll({ userId: account.userId });
+        const userAccountsResult = await this.accountQueries.findAll({ userId: account.userId });
         if (userAccountsResult.isOk()) {
           const userAccounts = userAccountsResult.value;
           const userAddresses = userAccounts
@@ -465,7 +465,7 @@ export class TransactionProcessService {
           this.providerManager,
           this.tokenMetadataService,
           this.scamDetectionService,
-          nearRawDataQueries as unknown as IRawDataRepository,
+          nearRawDataQueries as unknown as RawDataQueries,
           accountId
         );
       }
@@ -474,7 +474,7 @@ export class TransactionProcessService {
         this.providerManager,
         this.tokenMetadataService,
         this.scamDetectionService,
-        this.rawDataRepository,
+        this.rawDataQueries,
         accountId
       );
     } else {
@@ -546,7 +546,7 @@ export class TransactionProcessService {
 
     for (let start = 0; start < transactions.length; start += TRANSACTION_SAVE_BATCH_SIZE) {
       const batch = transactions.slice(start, start + TRANSACTION_SAVE_BATCH_SIZE);
-      const saveResult = await this.transactionRepository.saveBatch(batch, accountId);
+      const saveResult = await this.transactionQueries.saveBatch(batch, accountId);
 
       if (saveResult.isErr()) {
         const errorMessage = `CRITICAL: Failed to save transactions batch starting at index ${start} for account ${accountId}: ${saveResult.error.message}`;
@@ -570,7 +570,7 @@ export class TransactionProcessService {
     const allRawDataIds = rawDataItems.map((item) => item.id);
     for (let start = 0; start < allRawDataIds.length; start += RAW_DATA_MARK_BATCH_SIZE) {
       const batchIds = allRawDataIds.slice(start, start + RAW_DATA_MARK_BATCH_SIZE);
-      const markAsProcessedResult = await this.rawDataRepository.markAsProcessed(batchIds);
+      const markAsProcessedResult = await this.rawDataQueries.markAsProcessed(batchIds);
 
       if (markAsProcessedResult.isErr()) {
         return err(markAsProcessedResult.error);
@@ -591,7 +591,7 @@ export class TransactionProcessService {
       return ok(undefined);
     }
 
-    const sessionsResult = await this.importSessionRepository.findByAccounts(accountIds);
+    const sessionsResult = await this.importSessionQueries.findByAccounts(accountIds);
     if (sessionsResult.isErr()) {
       return err(new Error(`Failed to check for active imports: ${sessionsResult.error.message}`));
     }

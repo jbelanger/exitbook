@@ -2,8 +2,8 @@ import type { Account, ExchangeCredentials } from '@exitbook/core';
 import {
   type AccountQueries,
   createAccountQueries,
+  createImportSessionQueries,
   createTokenMetadataPersistence,
-  ImportSessionRepository,
   TransactionRepository,
 } from '@exitbook/data';
 import { BalanceService, calculateBalances } from '@exitbook/ingestion';
@@ -115,7 +115,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
       const database = await ctx.database();
       const accountRepo = createAccountQueries(database);
       const transactionRepo = new TransactionRepository(database);
-      const sessionRepo = new ImportSessionRepository(database);
+      const sessionRepo = createImportSessionQueries(database);
 
       if (options.offline) {
         // Offline JSON
@@ -370,7 +370,7 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
       const database = await ctx.database();
       const accountRepo = createAccountQueries(database);
       const transactionRepo = new TransactionRepository(database);
-      const sessionRepo = new ImportSessionRepository(database);
+      const sessionRepo = createImportSessionQueries(database);
       const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
       if (tokenMetadataResult.isErr()) {
         throw tokenMetadataResult.error;
@@ -580,7 +580,7 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
       const database = await ctx.database();
       const accountRepo = createAccountQueries(database);
       const transactionRepo = new TransactionRepository(database);
-      const sessionRepo = new ImportSessionRepository(database);
+      const sessionRepo = createImportSessionQueries(database);
       const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
       if (tokenMetadataResult.isErr()) {
         throw tokenMetadataResult.error;

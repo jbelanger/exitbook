@@ -1,4 +1,4 @@
-import type { IRawDataRepository } from '@exitbook/data';
+import type { RawDataQueries } from '@exitbook/data';
 import type { ClearService, TransactionProcessService } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -19,7 +19,7 @@ export interface ProcessHandlerParams {
 interface ProcessDependencies {
   transactionProcessService: TransactionProcessService;
   clearService: ClearService;
-  rawDataRepository: IRawDataRepository;
+  rawDataQueries: RawDataQueries;
 }
 
 const logger = getLogger('ProcessHandler');
@@ -33,7 +33,7 @@ export async function executeReprocess(
   deps: ProcessDependencies
 ): Promise<Result<ProcessResult, Error>> {
   const { accountId } = params;
-  const { transactionProcessService, clearService, rawDataRepository } = deps;
+  const { transactionProcessService, clearService, rawDataQueries: rawDataRepository } = deps;
 
   // Always clear derived data and reset raw data to pending
   const clearResult = await clearService.execute({

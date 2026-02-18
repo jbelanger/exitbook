@@ -2,11 +2,11 @@ import { TransactionLinkRepository } from '@exitbook/accounting';
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
   createAccountQueries,
+  createImportSessionQueries,
+  createRawDataQueries,
   createTokenMetadataPersistence,
-  ImportSessionRepository,
   // eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
   type KyselyDB,
-  RawDataRepository,
   TransactionRepository,
   UserRepository,
 } from '@exitbook/data';
@@ -53,8 +53,8 @@ export async function createProcessServices(database: KyselyDB): Promise<Process
   const user = new UserRepository(database);
   const account = createAccountQueries(database);
   const transaction = new TransactionRepository(database);
-  const rawData = new RawDataRepository(database);
-  const importSession = new ImportSessionRepository(database);
+  const rawData = createRawDataQueries(database);
+  const importSession = createImportSessionQueries(database);
   const transactionLink = new TransactionLinkRepository(database);
 
   const dataDir = getDataDir();
@@ -118,7 +118,7 @@ export async function createProcessServices(database: KyselyDB): Promise<Process
       executeReprocess(params, {
         transactionProcessService,
         clearService,
-        rawDataRepository: rawData,
+        rawDataQueries: rawData,
       });
 
     const cleanup = async () => {

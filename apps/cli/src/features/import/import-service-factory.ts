@@ -1,10 +1,10 @@
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
   createAccountQueries,
+  createImportSessionQueries,
+  createRawDataQueries,
   createTokenMetadataPersistence,
-  ImportSessionRepository,
   type KyselyDB,
-  RawDataRepository,
   TransactionRepository,
   UserRepository,
 } from '@exitbook/data';
@@ -150,7 +150,7 @@ function createRepositories(database: KyselyDB) {
     user: new UserRepository(database),
     account: createAccountQueries(database),
     transaction: new TransactionRepository(database),
-    rawData: new RawDataRepository(database),
-    importSession: new ImportSessionRepository(database),
+    rawData: createRawDataQueries(database),
+    importSession: createImportSessionQueries(database),
   };
 }

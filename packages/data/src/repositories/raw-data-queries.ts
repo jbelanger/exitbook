@@ -23,11 +23,11 @@ export interface LoadRawDataFilters {
 }
 
 /**
- * Interface for raw data repository operations.
+ * Interface for raw data query operations.
  * Abstracts the database operations for external transaction storage.
  * All operations return Result types for proper error handling.
  */
-export interface IRawDataRepository {
+export interface RawDataQueries {
   /**
    * Load external data from storage with optional filtering.
    */
@@ -104,13 +104,13 @@ export interface IRawDataRepository {
 }
 
 /**
- * Kysely-based repository for raw data database operations.
+ * Kysely-based raw data database operations.
  * Handles storage and retrieval of external transaction data using type-safe queries.
  * All operations return Result types and fail fast on errors.
  */
-export class RawDataRepository extends BaseRepository<DatabaseSchema> implements IRawDataRepository {
+class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements RawDataQueries {
   constructor(db: KyselyDB) {
-    super(db, 'RawDataRepository');
+    super(db, 'RawDataQueries');
   }
 
   async load(filters?: LoadRawDataFilters): Promise<Result<RawTransaction[], Error>> {
@@ -561,4 +561,8 @@ export class RawDataRepository extends BaseRepository<DatabaseSchema> implements
       createdAt: new Date(row.created_at),
     });
   }
+}
+
+export function createRawDataQueries(db: KyselyDB): RawDataQueries {
+  return new RawDataQueriesRepository(db);
 }

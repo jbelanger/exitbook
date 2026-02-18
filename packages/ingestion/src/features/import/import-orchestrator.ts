@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ExchangeCredentials, ImportSession } from '@exitbook/core';
-import type { AccountQueries, IImportSessionRepository, IRawDataRepository, UserRepository } from '@exitbook/data';
+import type { AccountQueries, ImportSessionQueries, RawDataQueries, UserRepository } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -32,10 +32,10 @@ export class ImportOrchestrator {
   private eventBus?: EventBus<ImportEvent> | undefined;
 
   constructor(
-    private userRepository: UserRepository,
-    private accountRepository: AccountQueries,
-    rawDataRepository: IRawDataRepository,
-    importSessionRepository: IImportSessionRepository,
+    private userQueries: UserRepository,
+    private accountQueries: AccountQueries,
+    rawDataQueries: RawDataQueries,
+    importSessionQueries: ImportSessionQueries,
     providerManager: BlockchainProviderManager,
     eventBus?: EventBus<ImportEvent>
   ) {
@@ -43,9 +43,9 @@ export class ImportOrchestrator {
     this.providerManager = providerManager;
     this.eventBus = eventBus;
     this.importExecutor = new ImportExecutor(
-      rawDataRepository,
-      importSessionRepository,
-      accountRepository,
+      rawDataQueries,
+      importSessionQueries,
+      accountQueries,
       providerManager,
       eventBus
     );
@@ -64,7 +64,7 @@ export class ImportOrchestrator {
     this.logger.debug(`Starting blockchain import for ${blockchain} (${addressOrXpub.substring(0, 20)}...)`);
 
     // 1. Ensure default CLI user exists (id=1)
-    const userResult = await this.userRepository.ensureDefaultUser();
+    const userResult = await this.userQueries.ensureDefaultUser();
     if (userResult.isErr()) {
       return err(userResult.error);
     }
@@ -99,7 +99,7 @@ export class ImportOrchestrator {
     }
 
     // 4. Regular address: find or create account
-    const accountResult = await this.accountRepository.findOrCreate({
+    const accountResult = await this.accountQueries.findOrCreate({
       userId: user.id,
       accountType: 'blockchain',
       sourceName: blockchain,
@@ -130,14 +130,14 @@ export class ImportOrchestrator {
     }
 
     // 1. Ensure default CLI user exists (id=1)
-    const userResult = await this.userRepository.ensureDefaultUser();
+    const userResult = await this.userQueries.ensureDefaultUser();
     if (userResult.isErr()) {
       return err(userResult.error);
     }
     const user = userResult.value;
 
     // 2. Find or create account (using apiKey as identifier)
-    const accountResult = await this.accountRepository.findOrCreate({
+    const accountResult = await this.accountQueries.findOrCreate({
       userId: user.id,
       accountType: 'exchange-api',
       sourceName: exchange,
@@ -172,14 +172,14 @@ export class ImportOrchestrator {
     const normalizedPath = path.normalize(csvDirectory).replace(/[/\\]+$/, '');
 
     // 1. Ensure default CLI user exists (id=1)
-    const userResult = await this.userRepository.ensureDefaultUser();
+    const userResult = await this.userQueries.ensureDefaultUser();
     if (userResult.isErr()) {
       return err(userResult.error);
     }
     const user = userResult.value;
 
     // 2. Check if an account already exists for this exchange (regardless of directory)
-    const existingAccountsResult = await this.accountRepository.findAll({
+    const existingAccountsResult = await this.accountQueries.findAll({
       accountType: 'exchange-csv',
       sourceName: exchange,
       userId: user.id,
@@ -210,7 +210,7 @@ export class ImportOrchestrator {
     }
 
     // 3. Create new account (use normalized path for consistency)
-    const accountResult = await this.accountRepository.findOrCreate({
+    const accountResult = await this.accountQueries.findOrCreate({
       userId: user.id,
       accountType: 'exchange-csv',
       sourceName: exchange,
@@ -252,7 +252,7 @@ export class ImportOrchestrator {
     this.logger.debug(`Processing xpub import for ${blockchain}`);
 
     // 1. Create parent account
-    const parentAccountResult = await this.accountRepository.findOrCreate({
+    const parentAccountResult = await this.accountQueries.findOrCreate({
       userId,
       accountType: 'blockchain',
       sourceName: blockchain,
@@ -269,7 +269,7 @@ export class ImportOrchestrator {
 
     // Check if parent account already exists by looking for existing children or metadata
     // This is more robust than checking metadata alone (handles legacy accounts or interrupted imports)
-    const existingChildrenResult = await this.accountRepository.findAll({ parentAccountId: parentAccount.id });
+    const existingChildrenResult = await this.accountQueries.findAll({ parentAccountId: parentAccount.id });
     const hasExistingChildren = existingChildrenResult.isOk() && existingChildrenResult.value.length > 0;
     const hasExistingMetadata = parentAccount.metadata?.xpub !== undefined;
     const parentAlreadyExists = hasExistingChildren || hasExistingMetadata;
@@ -347,7 +347,7 @@ export class ImportOrchestrator {
           continue;
         }
 
-        const childResult = await this.accountRepository.findOrCreate({
+        const childResult = await this.accountQueries.findOrCreate({
           userId,
           parentAccountId: parentAccount.id,
           accountType: 'blockchain',
@@ -376,7 +376,7 @@ export class ImportOrchestrator {
       });
 
       // 2f. Update parent metadata
-      await this.accountRepository.update(parentAccount.id, {
+      await this.accountQueries.update(parentAccount.id, {
         metadata: {
           xpub: {
             gapLimit: requestedGap,
@@ -391,7 +391,7 @@ export class ImportOrchestrator {
       );
     } else {
       // 2g. Reuse existing children
-      const childrenResult = await this.accountRepository.findAll({ parentAccountId: parentAccount.id });
+      const childrenResult = await this.accountQueries.findAll({ parentAccountId: parentAccount.id });
       if (childrenResult.isErr()) return err(childrenResult.error);
 
       childAccounts = childrenResult.value;

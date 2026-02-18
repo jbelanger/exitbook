@@ -1,6 +1,6 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ImportSession } from '@exitbook/core';
-import type { AccountQueries, IImportSessionRepository, IRawDataRepository } from '@exitbook/data';
+import type { AccountQueries, ImportSessionQueries, RawDataQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -21,9 +21,9 @@ export class ImportExecutor {
   private logger: Logger;
 
   constructor(
-    private rawDataRepository: IRawDataRepository,
-    private importSessionRepository: IImportSessionRepository,
-    private accountRepository: AccountQueries,
+    private rawDataQueries: RawDataQueries,
+    private importSessionQueries: ImportSessionQueries,
+    private accountQueries: AccountQueries,
     private providerManager: BlockchainProviderManager,
     private eventBus?: EventBus<ImportEvent> | undefined
   ) {
@@ -104,7 +104,7 @@ export class ImportExecutor {
   ): Promise<Result<ImportSession, Error>> {
     const sourceName = account.sourceName;
 
-    const incompleteImportSessionResult = await this.importSessionRepository.findLatestIncomplete(account.id);
+    const incompleteImportSessionResult = await this.importSessionQueries.findLatestIncomplete(account.id);
 
     if (incompleteImportSessionResult.isErr()) {
       return err(incompleteImportSessionResult.error);
@@ -126,12 +126,12 @@ export class ImportExecutor {
       );
 
       // Reset status to 'started' in case the previous attempt failed
-      const updateResult = await this.importSessionRepository.update(importSessionId, { status: 'started' });
+      const updateResult = await this.importSessionQueries.update(importSessionId, { status: 'started' });
       if (updateResult.isErr()) {
         return err(updateResult.error);
       }
     } else {
-      const importSessionCreateResult = await this.importSessionRepository.create(account.id);
+      const importSessionCreateResult = await this.importSessionQueries.create(account.id);
       if (importSessionCreateResult.isErr()) {
         return err(importSessionCreateResult.error);
       }
@@ -146,7 +146,7 @@ export class ImportExecutor {
     // Fetch transaction counts by stream type for existing accounts
     let transactionCounts: Map<string, number> | undefined;
     if (!isNewAccount) {
-      const countsResult = await this.rawDataRepository.countByStreamType(account.id);
+      const countsResult = await this.rawDataQueries.countByStreamType(account.id);
       if (countsResult.isOk()) {
         transactionCounts = countsResult.value;
       }
@@ -171,7 +171,7 @@ export class ImportExecutor {
 
       for await (const batchResult of batchIterator) {
         if (batchResult.isErr()) {
-          await this.importSessionRepository.update(importSessionId, {
+          await this.importSessionQueries.update(importSessionId, {
             status: 'failed',
             error_message: batchResult.error.message,
           });
@@ -195,10 +195,10 @@ export class ImportExecutor {
         }
 
         this.logger.debug(`Saving ${batch.rawTransactions.length} ${batch.streamType}...`);
-        const saveResult = await this.rawDataRepository.saveBatch(account.id, batch.rawTransactions);
+        const saveResult = await this.rawDataQueries.saveBatch(account.id, batch.rawTransactions);
 
         if (saveResult.isErr()) {
-          await this.importSessionRepository.update(importSessionId, {
+          await this.importSessionQueries.update(importSessionId, {
             status: 'failed',
             error_message: saveResult.error.message,
           });
@@ -215,11 +215,7 @@ export class ImportExecutor {
         }
 
         // Update progress and cursor after EACH batch for crash recovery
-        const cursorUpdateResult = await this.accountRepository.updateCursor(
-          account.id,
-          batch.streamType,
-          batch.cursor
-        );
+        const cursorUpdateResult = await this.accountQueries.updateCursor(account.id, batch.streamType, batch.cursor);
 
         if (cursorUpdateResult.isErr()) {
           this.logger.warn(`Failed to update cursor for ${batch.streamType}: ${cursorUpdateResult.error.message}`);
@@ -253,7 +249,7 @@ export class ImportExecutor {
       if (allWarnings.length > 0) {
         const warningMessage = `Import completed with ${allWarnings.length} warning(s) and was marked as failed to prevent processing incomplete data. `;
 
-        const finalizeResult = await this.importSessionRepository.finalize(
+        const finalizeResult = await this.importSessionQueries.finalize(
           importSessionId,
           'failed',
           startTime,
@@ -279,7 +275,7 @@ export class ImportExecutor {
         return err(new Error(warningMessage));
       }
 
-      const finalizeResult = await this.importSessionRepository.finalize(
+      const finalizeResult = await this.importSessionQueries.finalize(
         importSessionId,
         'completed',
         startTime,
@@ -308,7 +304,7 @@ export class ImportExecutor {
         durationMs: Date.now() - startTime,
       });
 
-      const sessionResult = await this.importSessionRepository.findById(importSessionId);
+      const sessionResult = await this.importSessionQueries.findById(importSessionId);
       if (sessionResult.isErr()) {
         return err(sessionResult.error);
       }
@@ -320,7 +316,7 @@ export class ImportExecutor {
     } catch (error) {
       const originalError = error instanceof Error ? error : new Error(String(error));
 
-      await this.importSessionRepository.finalize(
+      await this.importSessionQueries.finalize(
         importSessionId,
         'failed',
         startTime,

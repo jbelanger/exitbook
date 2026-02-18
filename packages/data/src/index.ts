@@ -19,12 +19,9 @@ export {
 } from './persistence/token-metadata/factory.js';
 export type { TokenMetadataDatabase } from './persistence/token-metadata/schema.js';
 export type { DatabaseSchema, TransactionLinksTable, RawTransactionTable } from './schema/database-schema.js';
-export {
-  RawDataRepository,
-  type IRawDataRepository,
-  type LoadRawDataFilters,
-} from './repositories/raw-data-repository.js';
-export { ImportSessionRepository, type IImportSessionRepository } from './repositories/import-session-repository.js';
+export { createRawDataQueries, type RawDataQueries, type LoadRawDataFilters } from './repositories/raw-data-queries.js';
+export { createImportSessionQueries } from './repositories/import-session-queries.js';
+export type { ImportSessionQueries } from './repositories/import-session-queries.js';
 export type { StoredImportSession, ImportSessionQuery, ImportSessionUpdate } from './types/data-types.js';
 export { TransactionLinkRepository, type TransactionLinkRow } from './repositories/transaction-link-repository.js';
 export * from './overrides/index.js';

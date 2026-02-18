@@ -1,15 +1,21 @@
 /* eslint-disable unicorn/no-null -- needed for db */
-import { createDatabase, RawDataRepository, runMigrations, type KyselyDB } from '@exitbook/data';
+import {
+  createDatabase,
+  createRawDataQueries,
+  runMigrations,
+  type KyselyDB,
+  type RawDataQueries,
+} from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-describe('RawDataRepository', () => {
+describe('RawDataQueries', () => {
   let db: KyselyDB;
-  let repository: RawDataRepository;
+  let repository: RawDataQueries;
 
   beforeEach(async () => {
     db = createDatabase(':memory:');
     await runMigrations(db);
-    repository = new RawDataRepository(db);
+    repository = createRawDataQueries(db);
 
     // Create default user
     await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();

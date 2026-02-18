@@ -1,6 +1,6 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { PaginationCursor } from '@exitbook/core';
-import type { IImportSessionRepository, IRawDataRepository } from '@exitbook/data';
+import type { ImportSessionQueries, RawDataQueries } from '@exitbook/data';
 import type { IExchangeClient, BalanceSnapshot } from '@exitbook/exchanges-providers';
 import { errAsync, ok } from 'neverthrow';
 import { vi, type Mocked } from 'vitest';
@@ -11,7 +11,7 @@ import type { ITokenMetadataService } from '../../features/token-metadata/token-
  * Creates a mock raw data repository with default implementations.
  * All methods return successful Results by default. Override specific methods as needed.
  */
-export function createMockRawDataRepository(): Mocked<IRawDataRepository> {
+export function createMockRawDataRepository(): Mocked<RawDataQueries> {
   return {
     load: vi.fn().mockResolvedValue(ok([])),
     markAsProcessed: vi.fn().mockResolvedValue(ok()),
@@ -21,14 +21,14 @@ export function createMockRawDataRepository(): Mocked<IRawDataRepository> {
     count: vi.fn().mockResolvedValue(ok(0)),
     deleteByAccount: vi.fn().mockResolvedValue(ok(0)),
     deleteAll: vi.fn().mockResolvedValue(ok(0)),
-  } as unknown as Mocked<IRawDataRepository>;
+  } as unknown as Mocked<RawDataQueries>;
 }
 
 /**
  * Creates a mock import session repository with default implementations.
  * All methods return successful Results by default. Override specific methods as needed.
  */
-export function createMockImportSessionRepository(): Mocked<IImportSessionRepository> {
+export function createMockImportSessionRepository(): Mocked<ImportSessionQueries> {
   return {
     create: vi.fn().mockResolvedValue(ok(1)),
     finalize: vi.fn().mockResolvedValue(ok()),
@@ -40,7 +40,7 @@ export function createMockImportSessionRepository(): Mocked<IImportSessionReposi
     count: vi.fn().mockResolvedValue(ok(0)),
     deleteByAccount: vi.fn().mockResolvedValue(ok()),
     deleteAll: vi.fn().mockResolvedValue(ok()),
-  } as unknown as Mocked<IImportSessionRepository>;
+  } as unknown as Mocked<ImportSessionQueries>;
 }
 
 /**

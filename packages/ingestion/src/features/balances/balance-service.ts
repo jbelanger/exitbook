@@ -10,7 +10,7 @@ import type {
 import { parseAssetId } from '@exitbook/core';
 import type {
   AccountQueries,
-  IImportSessionRepository,
+  ImportSessionQueries,
   TokenMetadataRepository,
   TransactionRepository,
 } from '@exitbook/data';
@@ -46,10 +46,10 @@ export interface BalanceServiceParams {
  */
 export class BalanceService {
   constructor(
-    private accountRepository: AccountQueries,
-    private transactionRepository: TransactionRepository,
-    private sessionRepository: IImportSessionRepository,
-    private tokenMetadataRepository: TokenMetadataRepository,
+    private accountQueries: AccountQueries,
+    private transactionQueries: TransactionRepository,
+    private sessionQueries: ImportSessionQueries,
+    private tokenMetadataQueries: TokenMetadataRepository,
     private providerManager: BlockchainProviderManager
   ) {}
 
@@ -60,7 +60,7 @@ export class BalanceService {
   async verifyBalance(params: BalanceServiceParams): Promise<Result<BalanceVerificationResult, Error>> {
     try {
       // 1. Fetch the account by ID
-      const accountResult = await this.accountRepository.findById(params.accountId);
+      const accountResult = await this.accountQueries.findById(params.accountId);
       if (accountResult.isErr()) {
         return err(accountResult.error);
       }
@@ -193,7 +193,7 @@ export class BalanceService {
   private async getLastImportTimestamp(account: Account): Promise<number | undefined> {
     try {
       // Get child accounts if this is a parent account (e.g., xpub)
-      const childAccountsResult = await this.accountRepository.findAll({ parentAccountId: account.id });
+      const childAccountsResult = await this.accountQueries.findAll({ parentAccountId: account.id });
       if (childAccountsResult.isErr()) {
         logger.warn(`Failed to fetch child accounts: ${childAccountsResult.error.message}`);
         return undefined;
@@ -203,7 +203,7 @@ export class BalanceService {
       const accountIds = [account.id, ...childAccounts.map((child) => child.id)];
 
       // Find sessions for all accounts in one query
-      const sessionsResult: Result<ImportSession[], Error> = await this.sessionRepository.findByAccounts(accountIds);
+      const sessionsResult: Result<ImportSession[], Error> = await this.sessionQueries.findByAccounts(accountIds);
 
       if (sessionsResult.isErr()) {
         logger.warn(`Failed to fetch import sessions: ${sessionsResult.error.message}`);
@@ -235,7 +235,7 @@ export class BalanceService {
   ): Promise<Result<{ assetMetadata: Record<string, string>; balances: Record<string, Decimal> }, Error>> {
     try {
       // Get child accounts if this is a parent account (e.g., xpub)
-      const childAccountsResult = await this.accountRepository.findAll({ parentAccountId: account.id });
+      const childAccountsResult = await this.accountQueries.findAll({ parentAccountId: account.id });
       if (childAccountsResult.isErr()) {
         return err(childAccountsResult.error);
       }
@@ -244,7 +244,7 @@ export class BalanceService {
       const accountIds = [account.id, ...childAccounts.map((child) => child.id)];
 
       // Find sessions for all accounts in one query (avoids N+1)
-      const sessionsResult: Result<ImportSession[], Error> = await this.sessionRepository.findByAccounts(accountIds);
+      const sessionsResult: Result<ImportSession[], Error> = await this.sessionQueries.findByAccounts(accountIds);
       if (sessionsResult.isErr()) {
         return err(sessionsResult.error);
       }
@@ -263,7 +263,7 @@ export class BalanceService {
 
       // Fetch ALL transactions for all accounts in one query (avoids N+1)
       const transactionsResult: Result<UniversalTransactionData[], Error> =
-        await this.transactionRepository.getTransactions({
+        await this.transactionQueries.getTransactions({
           accountIds,
         });
 
@@ -323,7 +323,7 @@ export class BalanceService {
    */
   private async fetchBlockchainBalance(account: Account): Promise<Result<UnifiedBalanceSnapshot, Error>> {
     // Check if this account has child accounts (e.g., from xpub import)
-    const childAccountsResult = await this.accountRepository.findAll({ parentAccountId: account.id });
+    const childAccountsResult = await this.accountQueries.findAll({ parentAccountId: account.id });
     if (childAccountsResult.isErr()) {
       return err(childAccountsResult.error);
     }
@@ -336,7 +336,7 @@ export class BalanceService {
       // Don't pass providerName - allow failover to all available providers for accurate balance verification
       return fetchChildAccountsBalance(
         this.providerManager,
-        this.tokenMetadataRepository,
+        this.tokenMetadataQueries,
         account.sourceName,
         account.identifier,
         childAccounts
@@ -347,7 +347,7 @@ export class BalanceService {
     // Don't pass providerName - allow failover to all available providers for accurate balance verification
     return fetchBlockchainBalance(
       this.providerManager,
-      this.tokenMetadataRepository,
+      this.tokenMetadataQueries,
       account.sourceName,
       account.identifier
     );
@@ -363,7 +363,7 @@ export class BalanceService {
   ): Promise<Result<{ amounts: Record<string, Decimal>; spamAssetIds: Set<string> }, Error>> {
     try {
       // Get child accounts if this is a parent account (e.g., xpub)
-      const childAccountsResult = await this.accountRepository.findAll({ parentAccountId: account.id });
+      const childAccountsResult = await this.accountQueries.findAll({ parentAccountId: account.id });
       if (childAccountsResult.isErr()) {
         return err(childAccountsResult.error);
       }
@@ -372,7 +372,7 @@ export class BalanceService {
       const accountIds = [account.id, ...childAccounts.map((child) => child.id)];
 
       // Find sessions for all accounts in one query (avoids N+1)
-      const sessionsResult: Result<ImportSession[], Error> = await this.sessionRepository.findByAccounts(accountIds);
+      const sessionsResult: Result<ImportSession[], Error> = await this.sessionQueries.findByAccounts(accountIds);
       if (sessionsResult.isErr()) {
         return err(sessionsResult.error);
       }
@@ -390,11 +390,12 @@ export class BalanceService {
       }
 
       // Fetch ALL excluded transactions for all accounts in one query (avoids N+1)
-      const excludedTxResult: Result<UniversalTransactionData[], Error> =
-        await this.transactionRepository.getTransactions({
+      const excludedTxResult: Result<UniversalTransactionData[], Error> = await this.transactionQueries.getTransactions(
+        {
           accountIds,
           includeExcluded: true, // Must include to get the excluded ones
-        });
+        }
+      );
 
       if (excludedTxResult.isErr()) {
         return err(excludedTxResult.error);
@@ -452,7 +453,7 @@ export class BalanceService {
         },
       };
 
-      const updateResult: Result<void, Error> = await this.accountRepository.update(account.id, {
+      const updateResult: Result<void, Error> = await this.accountQueries.update(account.id, {
         verificationMetadata,
         lastBalanceCheckAt: new Date(),
       });

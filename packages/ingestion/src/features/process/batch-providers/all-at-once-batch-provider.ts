@@ -1,5 +1,5 @@
 import type { RawTransaction } from '@exitbook/core';
-import type { IRawDataRepository } from '@exitbook/data';
+import type { RawDataQueries } from '@exitbook/data';
 import { ok, type Result } from 'neverthrow';
 
 import type { IRawDataBatchProvider } from './raw-data-batch-provider.interface.js';
@@ -13,7 +13,7 @@ export class AllAtOnceBatchProvider implements IRawDataBatchProvider {
   private fetched = false;
 
   constructor(
-    private readonly rawDataRepository: IRawDataRepository,
+    private readonly rawDataRepository: RawDataQueries,
     private readonly accountId: number
   ) {}
 

@@ -1,5 +1,5 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { IRawDataRepository } from '@exitbook/data';
+import type { RawDataQueries } from '@exitbook/data';
 import { type Result } from 'neverthrow';
 
 import type { IScamDetectionService } from '../../features/scam-detection/scam-detection-service.interface.js';
@@ -21,7 +21,7 @@ export interface BlockchainAdapter {
     providerManager: BlockchainProviderManager,
     tokenMetadataService?: ITokenMetadataService,
     scamDetectionService?: IScamDetectionService,
-    rawDataRepository?: IRawDataRepository,
+    rawDataQueries?: RawDataQueries,
     accountId?: number
   ) => Result<ITransactionProcessor, Error>;
 

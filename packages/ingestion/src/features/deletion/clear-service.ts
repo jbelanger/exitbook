@@ -2,8 +2,8 @@ import type { TransactionLinkRepository } from '@exitbook/accounting';
 import type { Account } from '@exitbook/core';
 import type {
   AccountQueries,
-  IImportSessionRepository,
-  IRawDataRepository,
+  ImportSessionQueries,
+  RawDataQueries,
   TransactionRepository,
   UserRepository,
 } from '@exitbook/data';
@@ -36,12 +36,12 @@ export interface ClearResult {
  */
 export class ClearService {
   constructor(
-    private userRepo: UserRepository,
-    private accountRepo: AccountQueries,
-    private transactionRepo: TransactionRepository,
-    private transactionLinkRepo: TransactionLinkRepository,
-    private rawDataRepo: IRawDataRepository,
-    private sessionRepo: IImportSessionRepository,
+    private userQueries: UserRepository,
+    private accountQueries: AccountQueries,
+    private transactionQueries: TransactionRepository,
+    private transactionLinkQueries: TransactionLinkRepository,
+    private rawDataQueries: RawDataQueries,
+    private sessionQueries: ImportSessionQueries,
     private eventBus?: EventBus<IngestionEvent> | undefined
   ) {}
 
@@ -84,13 +84,13 @@ export class ClearService {
         let accountsCount = 0;
 
         if (params.includeRaw) {
-          const sessionsResult = await this.sessionRepo.count({ accountIds });
+          const sessionsResult = await this.sessionQueries.count({ accountIds });
           if (sessionsResult.isErr()) {
             return err(sessionsResult.error);
           }
           sessionsCount = sessionsResult.value;
 
-          const rawDataResult = await this.rawDataRepo.count({ accountIds });
+          const rawDataResult = await this.rawDataQueries.count({ accountIds });
           if (rawDataResult.isErr()) {
             return err(rawDataResult.error);
           }
@@ -99,12 +99,15 @@ export class ClearService {
           accountsCount = accountsToClear.length;
         }
 
-        const transactionsResult = await this.transactionRepo.countTransactions({ accountIds, includeExcluded: true });
+        const transactionsResult = await this.transactionQueries.countTransactions({
+          accountIds,
+          includeExcluded: true,
+        });
         if (transactionsResult.isErr()) {
           return err(transactionsResult.error);
         }
 
-        const linksResult = await this.transactionLinkRepo.count({ accountIds });
+        const linksResult = await this.transactionLinkQueries.count({ accountIds });
         if (linksResult.isErr()) {
           return err(linksResult.error);
         }
@@ -123,25 +126,25 @@ export class ClearService {
         let rawDataCount = 0;
 
         if (params.includeRaw) {
-          const sessionsResult = await this.sessionRepo.count();
+          const sessionsResult = await this.sessionQueries.count();
           if (sessionsResult.isErr()) {
             return err(sessionsResult.error);
           }
           sessionsCount = sessionsResult.value;
 
-          const rawDataResult = await this.rawDataRepo.count();
+          const rawDataResult = await this.rawDataQueries.count();
           if (rawDataResult.isErr()) {
             return err(rawDataResult.error);
           }
           rawDataCount = rawDataResult.value;
         }
 
-        const transactionsResult = await this.transactionRepo.countTransactions({ includeExcluded: true });
+        const transactionsResult = await this.transactionQueries.countTransactions({ includeExcluded: true });
         if (transactionsResult.isErr()) {
           return err(transactionsResult.error);
         }
 
-        const linksResult = await this.transactionLinkRepo.count();
+        const linksResult = await this.transactionLinkQueries.count();
         if (linksResult.isErr()) {
           return err(linksResult.error);
         }
@@ -253,12 +256,12 @@ export class ClearService {
 
     // Delete transaction data by account_id
     // This ensures we only delete data for the specific accounts being cleared
-    const linksResult = await this.transactionLinkRepo.deleteByAccountIds(accountIds);
+    const linksResult = await this.transactionLinkQueries.deleteByAccountIds(accountIds);
     if (linksResult.isErr()) {
       return err(linksResult.error);
     }
 
-    const transactionsResult = await this.transactionRepo.deleteByAccountIds(accountIds);
+    const transactionsResult = await this.transactionQueries.deleteByAccountIds(accountIds);
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);
     }
@@ -266,18 +269,18 @@ export class ClearService {
     // Delete raw data and sessions (by account_id)
     for (const { account } of accountsToClear) {
       if (includeRaw) {
-        const rawDataResult = await this.rawDataRepo.deleteByAccount(account.id);
+        const rawDataResult = await this.rawDataQueries.deleteByAccount(account.id);
         if (rawDataResult.isErr()) {
           return err(rawDataResult.error);
         }
 
-        const importSessionResult = await this.sessionRepo.deleteByAccount(account.id);
+        const importSessionResult = await this.sessionQueries.deleteByAccount(account.id);
         if (importSessionResult.isErr()) {
           return err(importSessionResult.error);
         }
       } else {
         // Reset raw data processing_status to 'pending' for reprocessing
-        const resetResult = await this.rawDataRepo.resetProcessingStatusByAccount(account.id);
+        const resetResult = await this.rawDataQueries.resetProcessingStatusByAccount(account.id);
         if (resetResult.isErr()) {
           return err(resetResult.error);
         }
@@ -287,7 +290,7 @@ export class ClearService {
     // Only delete accounts if we're doing a full clear (includeRaw: true)
     // When includeRaw: false, we're just resetting for reprocessing, so keep the accounts
     if (includeRaw) {
-      const deleteAccountsResult = await this.accountRepo.deleteByIds(accountIds);
+      const deleteAccountsResult = await this.accountQueries.deleteByIds(accountIds);
       if (deleteAccountsResult.isErr()) {
         return err(deleteAccountsResult.error);
       }
@@ -300,29 +303,29 @@ export class ClearService {
    * Delete all data.
    */
   private async deleteAll(includeRaw: boolean): Promise<Result<void, Error>> {
-    const linksResult = await this.transactionLinkRepo.deleteAll();
+    const linksResult = await this.transactionLinkQueries.deleteAll();
     if (linksResult.isErr()) {
       return err(linksResult.error);
     }
 
-    const transactionsResult = await this.transactionRepo.deleteAll();
+    const transactionsResult = await this.transactionQueries.deleteAll();
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);
     }
 
     if (includeRaw) {
-      const rawDataResult = await this.rawDataRepo.deleteAll();
+      const rawDataResult = await this.rawDataQueries.deleteAll();
       if (rawDataResult.isErr()) {
         return err(rawDataResult.error);
       }
 
-      const importSessionResult = await this.sessionRepo.deleteAll();
+      const importSessionResult = await this.sessionQueries.deleteAll();
       if (importSessionResult.isErr()) {
         return err(importSessionResult.error);
       }
     } else {
       // Reset raw data processing_status to 'pending' for reprocessing
-      const resetResult = await this.rawDataRepo.resetProcessingStatusAll();
+      const resetResult = await this.rawDataQueries.resetProcessingStatusAll();
       if (resetResult.isErr()) {
         return err(resetResult.error);
       }
@@ -338,7 +341,7 @@ export class ClearService {
    */
   private async resolveAccounts(params: ClearServiceParams): Promise<Result<ResolvedAccount[], Error>> {
     // 1. Ensure default user exists (id=1)
-    const userResult = await this.userRepo.ensureDefaultUser();
+    const userResult = await this.userQueries.ensureDefaultUser();
     if (userResult.isErr()) {
       return err(userResult.error);
     }
@@ -350,7 +353,7 @@ export class ClearService {
     // 2. Find accounts scoped to this user
     if (params.accountId) {
       // Use findAll with userId filter to ensure user scoping
-      const result = await this.accountRepo.findAll({ userId: user.id });
+      const result = await this.accountQueries.findAll({ userId: user.id });
       if (result.isErr()) {
         return err(result.error);
       }
@@ -363,7 +366,7 @@ export class ClearService {
 
     if (params.source) {
       // Use findAll with userId and sourceName filters
-      const result = await this.accountRepo.findAll({
+      const result = await this.accountQueries.findAll({
         userId: user.id,
         sourceName: params.source,
       });

@@ -2,8 +2,8 @@ import { TransactionLinkRepository } from '@exitbook/accounting';
 import {
   type AccountQueries,
   createAccountQueries,
-  ImportSessionRepository,
-  RawDataRepository,
+  createImportSessionQueries,
+  createRawDataQueries,
   TransactionRepository,
   UserRepository,
 } from '@exitbook/data';
@@ -83,20 +83,20 @@ async function executeClearTUI(options: {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const userRepository = new UserRepository(database);
-      const accountRepository = createAccountQueries(database);
-      const transactionRepository = new TransactionRepository(database);
-      const transactionLinkRepository = new TransactionLinkRepository(database);
-      const rawDataRepository = new RawDataRepository(database);
-      const importSessionRepository = new ImportSessionRepository(database);
+      const userQueries = new UserRepository(database);
+      const accountQueries = createAccountQueries(database);
+      const transactionQueries = new TransactionRepository(database);
+      const transactionLinkQueries = new TransactionLinkRepository(database);
+      const rawDataQueries = createRawDataQueries(database);
+      const importSessionQueries = createImportSessionQueries(database);
 
       const clearService = new ClearService(
-        userRepository,
-        accountRepository,
-        transactionRepository,
-        transactionLinkRepository,
-        rawDataRepository,
-        importSessionRepository
+        userQueries,
+        accountQueries,
+        transactionQueries,
+        transactionLinkQueries,
+        rawDataQueries,
+        importSessionQueries
       );
 
       const params = {
@@ -125,7 +125,7 @@ async function executeClearTUI(options: {
       const previewWithoutRaw = previewWithoutRawResult.value;
       const previewWithRaw = previewWithRawResult.value;
 
-      const scopeLabel = await buildScopeLabel(options.accountId, options.source, accountRepository);
+      const scopeLabel = await buildScopeLabel(options.accountId, options.source, accountQueries);
 
       const initialState = createClearViewState(
         { accountId: options.accountId, source: options.source, label: scopeLabel },
@@ -193,8 +193,8 @@ async function executeClearNonTui(options: {
       const accountRepository = createAccountQueries(database);
       const transactionRepository = new TransactionRepository(database);
       const transactionLinkRepository = new TransactionLinkRepository(database);
-      const rawDataRepository = new RawDataRepository(database);
-      const importSessionRepository = new ImportSessionRepository(database);
+      const rawDataRepository = createRawDataQueries(database);
+      const importSessionRepository = createImportSessionQueries(database);
 
       const clearService = new ClearService(
         userRepository,

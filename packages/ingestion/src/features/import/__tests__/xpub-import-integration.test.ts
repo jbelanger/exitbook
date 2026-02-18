@@ -11,13 +11,16 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
 import {
+  createAccountQueries,
   createDatabase,
-  ImportSessionRepository,
-  RawDataRepository,
+  createImportSessionQueries,
+  createRawDataQueries,
+  type ImportSessionQueries,
+  type RawDataQueries,
   runMigrations,
   type KyselyDB,
 } from '@exitbook/data';
-import { type AccountQueries, createAccountQueries, UserRepository } from '@exitbook/data';
+import { type AccountQueries, UserRepository } from '@exitbook/data';
 import { ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -73,10 +76,10 @@ vi.mock('../../../shared/types/exchange-adapter.js', () => ({
 describe('xpub import integration tests', () => {
   let db: KyselyDB;
   let orchestrator: ImportOrchestrator;
-  let userRepo: UserRepository;
-  let accountRepo: AccountQueries;
-  let rawDataRepo: RawDataRepository;
-  let sessionRepo: ImportSessionRepository;
+  let userQueries: UserRepository;
+  let accountQueries: AccountQueries;
+  let rawDataQueries: RawDataQueries;
+  let sessionQueries: ImportSessionQueries;
 
   beforeEach(async () => {
     // Clear and register mock blockchain adapters
@@ -113,13 +116,19 @@ describe('xpub import integration tests', () => {
     await runMigrations(db);
 
     // Create repositories
-    userRepo = new UserRepository(db);
-    accountRepo = createAccountQueries(db);
-    rawDataRepo = new RawDataRepository(db);
-    sessionRepo = new ImportSessionRepository(db);
+    userQueries = new UserRepository(db);
+    accountQueries = createAccountQueries(db);
+    rawDataQueries = createRawDataQueries(db);
+    sessionQueries = createImportSessionQueries(db);
 
     // Create orchestrator
-    orchestrator = new ImportOrchestrator(userRepo, accountRepo, rawDataRepo, sessionRepo, mockProviderManager);
+    orchestrator = new ImportOrchestrator(
+      userQueries,
+      accountQueries,
+      rawDataQueries,
+      sessionQueries,
+      mockProviderManager
+    );
 
     // Reset mocks
     mockDeriveAddresses.mockReset();
