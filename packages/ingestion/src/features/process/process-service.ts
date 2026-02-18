@@ -3,10 +3,11 @@ import { getErrorMessage, type RawTransaction } from '@exitbook/core';
 import type {
   AccountQueries,
   ImportSessionQueries,
+  KyselyDB,
   RawDataQueries,
   TransactionQueries,
-  KyselyDB,
 } from '@exitbook/data';
+import { createNearRawDataQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -22,7 +23,6 @@ import type {
   ProcessedTransaction,
   ITransactionProcessor,
 } from '../../shared/types/processors.js';
-import { NearRawDataQueries } from '../../sources/blockchains/near/near-raw-data-queries.js';
 import type { IScamDetectionService } from '../scam-detection/scam-detection-service.interface.js';
 import { ScamDetectionService } from '../scam-detection/scam-detection-service.js';
 import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.js';
@@ -240,7 +240,7 @@ export class TransactionProcessService {
   private createBatchProvider(sourceType: string, sourceName: string, accountId: number): IRawDataBatchProvider {
     // NEAR requires special multi-stream batch provider
     if (sourceType === 'blockchain' && sourceName.toLowerCase() === 'near') {
-      const nearRawDataQueries = new NearRawDataQueries(this.db);
+      const nearRawDataQueries = createNearRawDataQueries(this.db);
       return new NearStreamBatchProvider(nearRawDataQueries, accountId, RAW_DATA_HASH_BATCH_SIZE);
     }
 
@@ -460,7 +460,7 @@ export class TransactionProcessService {
 
       // NEAR requires NearRawDataQueries instead of shared RawDataQueries
       if (sourceName.toLowerCase() === 'near') {
-        const nearRawDataQueries = new NearRawDataQueries(this.db);
+        const nearRawDataQueries = createNearRawDataQueries(this.db);
         return adapter.createProcessor(
           this.providerManager,
           this.tokenMetadataService,

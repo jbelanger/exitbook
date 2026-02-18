@@ -2,13 +2,11 @@
 import type { ProcessingStatus } from '@exitbook/core';
 import { RawTransactionInputSchema, wrapError, type RawTransactionInput, type RawTransaction } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import type { Selectable } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { RawTransactionTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
 
-import { parseJson, withControlledTransaction } from './query-utils.js';
+import { mapRawTransactionRow, parseJson, withControlledTransaction } from './query-utils.js';
 
 /**
  * Filter options for loading raw data from storage.
@@ -23,14 +21,12 @@ export interface LoadRawDataFilters {
   offset?: number | undefined;
 }
 
-class RawDataQueriesRepository {
-  private readonly logger = getLogger('raw-data-queries');
+export function createRawDataQueries(db: KyselyDB) {
+  const logger = getLogger('raw-data-queries');
 
-  constructor(private readonly db: KyselyDB) {}
-
-  async load(filters?: LoadRawDataFilters): Promise<Result<RawTransaction[], Error>> {
+  async function load(filters?: LoadRawDataFilters): Promise<Result<RawTransaction[], Error>> {
     try {
-      let query = this.db.selectFrom('raw_transactions').selectAll();
+      let query = db.selectFrom('raw_transactions').selectAll();
 
       if (filters?.accountId !== undefined) {
         query = query.where('account_id', '=', filters.accountId);
@@ -63,7 +59,7 @@ class RawDataQueriesRepository {
 
       const transactions: RawTransaction[] = [];
       for (const row of rows) {
-        const result = this.toRawTransaction(row);
+        const result = mapRawTransactionRow(row);
         if (result.isErr()) {
           return err(result.error);
         }
@@ -76,14 +72,14 @@ class RawDataQueriesRepository {
     }
   }
 
-  async markAsProcessed(rawTransactionIds: number[]): Promise<Result<void, Error>> {
+  async function markAsProcessed(rawTransactionIds: number[]): Promise<Result<void, Error>> {
     if (rawTransactionIds.length === 0) {
       return ok();
     }
 
     return withControlledTransaction(
-      this.db,
-      this.logger,
+      db,
+      logger,
       async (trx) => {
         const processedAt = new Date().toISOString();
 
@@ -102,7 +98,7 @@ class RawDataQueriesRepository {
     );
   }
 
-  async saveBatch(
+  async function saveBatch(
     accountId: number,
     items: RawTransactionInput[]
   ): Promise<Result<{ inserted: number; skipped: number }, Error>> {
@@ -122,8 +118,8 @@ class RawDataQueriesRepository {
     }
 
     return withControlledTransaction(
-      this.db,
-      this.logger,
+      db,
+      logger,
       async (trx) => {
         let inserted = 0;
         const createdAt = new Date().toISOString();
@@ -153,10 +149,10 @@ class RawDataQueriesRepository {
               inserted++;
             }
           } catch (error) {
-            if (this.isSqliteUniqueConstraintError(error)) {
+            if (isSqliteUniqueConstraintError(error)) {
               const errorMessage = error instanceof Error ? error.message : String(error);
-              if (this.isEventIdConstraintViolation(errorMessage)) {
-                await this.warnOnEventIdCollision(trx, accountId, item);
+              if (isEventIdConstraintViolation(errorMessage)) {
+                await warnOnEventIdCollision(trx, accountId, item);
               }
               continue;
             }
@@ -171,9 +167,9 @@ class RawDataQueriesRepository {
     );
   }
 
-  async resetProcessingStatusByAccount(accountId: number): Promise<Result<number, Error>> {
+  async function resetProcessingStatusByAccount(accountId: number): Promise<Result<number, Error>> {
     try {
-      const result = await this.db
+      const result = await db
         .updateTable('raw_transactions')
         .set({
           processed_at: null,
@@ -188,9 +184,9 @@ class RawDataQueriesRepository {
     }
   }
 
-  async resetProcessingStatusAll(): Promise<Result<number, Error>> {
+  async function resetProcessingStatusAll(): Promise<Result<number, Error>> {
     try {
-      const result = await this.db
+      const result = await db
         .updateTable('raw_transactions')
         .set({
           processed_at: null,
@@ -204,9 +200,9 @@ class RawDataQueriesRepository {
     }
   }
 
-  async count(filters?: { accountIds?: number[] }): Promise<Result<number, Error>> {
+  async function count(filters?: { accountIds?: number[] }): Promise<Result<number, Error>> {
     try {
-      let query = this.db.selectFrom('raw_transactions').select(({ fn }) => [fn.count<number>('id').as('count')]);
+      let query = db.selectFrom('raw_transactions').select(({ fn }) => [fn.count<number>('id').as('count')]);
 
       if (filters?.accountIds !== undefined) {
         if (filters.accountIds.length === 0) {
@@ -222,9 +218,9 @@ class RawDataQueriesRepository {
     }
   }
 
-  async countPending(accountId: number): Promise<Result<number, Error>> {
+  async function countPending(accountId: number): Promise<Result<number, Error>> {
     try {
-      const result = await this.db
+      const result = await db
         .selectFrom('raw_transactions')
         .select(({ fn }) => [fn.count<number>('id').as('count')])
         .where('account_id', '=', accountId)
@@ -236,9 +232,9 @@ class RawDataQueriesRepository {
     }
   }
 
-  async countByStreamType(accountId: number): Promise<Result<Map<string, number>, Error>> {
+  async function countByStreamType(accountId: number): Promise<Result<Map<string, number>, Error>> {
     try {
-      const results = await this.db
+      const results = await db
         .selectFrom('raw_transactions')
         .select(['transaction_type_hint', ({ fn }) => fn.count<number>('id').as('count')])
         .where('account_id', '=', accountId)
@@ -258,12 +254,9 @@ class RawDataQueriesRepository {
     }
   }
 
-  async deleteByAccount(accountId: number): Promise<Result<number, Error>> {
+  async function deleteByAccount(accountId: number): Promise<Result<number, Error>> {
     try {
-      const result = await this.db
-        .deleteFrom('raw_transactions')
-        .where('account_id', '=', accountId)
-        .executeTakeFirst();
+      const result = await db.deleteFrom('raw_transactions').where('account_id', '=', accountId).executeTakeFirst();
 
       return ok(Number(result.numDeletedRows));
     } catch (error) {
@@ -271,18 +264,18 @@ class RawDataQueriesRepository {
     }
   }
 
-  async deleteAll(): Promise<Result<number, Error>> {
+  async function deleteAll(): Promise<Result<number, Error>> {
     try {
-      const result = await this.db.deleteFrom('raw_transactions').executeTakeFirst();
+      const result = await db.deleteFrom('raw_transactions').executeTakeFirst();
       return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete all raw data');
     }
   }
 
-  async getAccountsWithPendingData(): Promise<Result<number[], Error>> {
+  async function getAccountsWithPendingData(): Promise<Result<number[], Error>> {
     try {
-      const rows = await this.db
+      const rows = await db
         .selectFrom('raw_transactions')
         .select('account_id')
         .distinct()
@@ -295,9 +288,12 @@ class RawDataQueriesRepository {
     }
   }
 
-  async loadPendingByHashBatch(accountId: number, hashLimit: number): Promise<Result<RawTransaction[], Error>> {
+  async function loadPendingByHashBatch(
+    accountId: number,
+    hashLimit: number
+  ): Promise<Result<RawTransaction[], Error>> {
     try {
-      const hashesSubquery = this.db
+      const hashesSubquery = db
         .selectFrom('raw_transactions')
         .select('blockchain_transaction_hash')
         .distinct()
@@ -307,7 +303,7 @@ class RawDataQueriesRepository {
         .orderBy('blockchain_transaction_hash', 'asc')
         .limit(hashLimit);
 
-      const rows = await this.db
+      const rows = await db
         .with('hashes', () => hashesSubquery)
         .selectFrom('raw_transactions as rt')
         .innerJoin('hashes as h', 'rt.blockchain_transaction_hash', 'h.blockchain_transaction_hash')
@@ -320,7 +316,7 @@ class RawDataQueriesRepository {
 
       const transactions: RawTransaction[] = [];
       for (const row of rows) {
-        const result = this.toRawTransaction(row);
+        const result = mapRawTransactionRow(row);
         if (result.isErr()) {
           return err(result.error);
         }
@@ -333,14 +329,14 @@ class RawDataQueriesRepository {
     }
   }
 
-  private isEventIdConstraintViolation(errorMessage: string): boolean {
+  function isEventIdConstraintViolation(errorMessage: string): boolean {
     return (
       errorMessage.includes('idx_raw_tx_account_event_id') ||
       (errorMessage.includes('raw_transactions.account_id') && errorMessage.includes('raw_transactions.event_id'))
     );
   }
 
-  private isSqliteUniqueConstraintError(error: unknown): boolean {
+  function isSqliteUniqueConstraintError(error: unknown): boolean {
     if (!error || typeof error !== 'object' || !('code' in error)) {
       return false;
     }
@@ -348,7 +344,7 @@ class RawDataQueriesRepository {
     return (error as { code?: unknown }).code === 'SQLITE_CONSTRAINT_UNIQUE';
   }
 
-  private stableStringify(value: unknown): string {
+  function stableStringify(value: unknown): string {
     function normalize(input: unknown): unknown {
       if (Array.isArray(input)) {
         return input.map(normalize);
@@ -372,7 +368,7 @@ class RawDataQueriesRepository {
     return JSON.stringify(normalize(value));
   }
 
-  private async warnOnEventIdCollision(trx: KyselyDB, accountId: number, item: RawTransactionInput): Promise<void> {
+  async function warnOnEventIdCollision(trx: KyselyDB, accountId: number, item: RawTransactionInput): Promise<void> {
     try {
       const existing = await trx
         .selectFrom('raw_transactions')
@@ -382,7 +378,7 @@ class RawDataQueriesRepository {
         .executeTakeFirst();
 
       if (!existing) {
-        this.logger.warn(
+        logger.warn(
           { accountId, eventId: item.eventId, providerName: item.providerName },
           'Duplicate eventId constraint hit but existing row not found'
         );
@@ -391,7 +387,7 @@ class RawDataQueriesRepository {
 
       const existingNormalizedResult = parseJson<unknown>(existing.normalized_data);
       if (existingNormalizedResult.isErr()) {
-        this.logger.warn(
+        logger.warn(
           { accountId, eventId: item.eventId, error: existingNormalizedResult.error },
           'Failed to parse existing normalized_data during eventId collision check'
         );
@@ -401,11 +397,11 @@ class RawDataQueriesRepository {
       const existingNormalized = existingNormalizedResult.value;
       const incomingNormalized = item.normalizedData;
 
-      const existingNormalizedStable = this.stableStringify(existingNormalized);
-      const incomingNormalizedStable = this.stableStringify(incomingNormalized);
+      const existingNormalizedStable = stableStringify(existingNormalized);
+      const incomingNormalizedStable = stableStringify(incomingNormalized);
 
       if (existingNormalizedStable !== incomingNormalizedStable) {
-        this.logger.warn(
+        logger.warn(
           {
             accountId,
             eventId: item.eventId,
@@ -418,48 +414,27 @@ class RawDataQueriesRepository {
         );
       }
     } catch (error) {
-      this.logger.warn(
+      logger.warn(
         { accountId, eventId: item.eventId, error },
         'Failed to inspect eventId collision after unique constraint violation'
       );
     }
   }
 
-  private toRawTransaction(row: Selectable<RawTransactionTable>): Result<RawTransaction, Error> {
-    const rawDataResult = parseJson<unknown>(row.provider_data);
-    const normalizedDataResult = parseJson<unknown>(row.normalized_data);
-
-    if (rawDataResult.isErr()) {
-      return err(rawDataResult.error);
-    }
-    if (normalizedDataResult.isErr()) {
-      return err(normalizedDataResult.error);
-    }
-
-    if (!row.provider_name) {
-      return err(new Error('Missing required provider_name field'));
-    }
-
-    return ok({
-      id: row.id,
-      accountId: row.account_id,
-      providerName: row.provider_name,
-      sourceAddress: row.source_address ?? undefined,
-      transactionTypeHint: row.transaction_type_hint ?? undefined,
-      eventId: row.event_id,
-      blockchainTransactionHash: row.blockchain_transaction_hash ?? undefined,
-      timestamp: row.timestamp,
-      providerData: rawDataResult.value,
-      normalizedData: normalizedDataResult.value,
-      processingStatus: row.processing_status,
-      processedAt: row.processed_at ? new Date(row.processed_at) : undefined,
-      createdAt: new Date(row.created_at),
-    });
-  }
-}
-
-export function createRawDataQueries(db: KyselyDB) {
-  return new RawDataQueriesRepository(db);
+  return {
+    load,
+    markAsProcessed,
+    saveBatch,
+    resetProcessingStatusByAccount,
+    resetProcessingStatusAll,
+    count,
+    countPending,
+    countByStreamType,
+    deleteByAccount,
+    deleteAll,
+    getAccountsWithPendingData,
+    loadPendingByHashBatch,
+  };
 }
 
 export type RawDataQueries = ReturnType<typeof createRawDataQueries>;

@@ -38,7 +38,7 @@ export interface UpdateAccountParams {
 }
 
 export function createAccountQueries(db: KyselyDB) {
-  const logger = getLogger('account-repository');
+  const logger = getLogger('account-queries');
 
   function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
     const credentialsResult = parseWithSchema(row.credentials, ExchangeCredentialsSchema.optional());

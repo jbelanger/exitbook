@@ -11,7 +11,7 @@ import {
   type UniversalTransactionData,
   wrapError,
 } from '@exitbook/core';
-import { getLogger, type Logger } from '@exitbook/logger';
+import { getLogger } from '@exitbook/logger';
 import type { Insertable, Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -283,18 +283,14 @@ function buildMovementRows(
   return ok(rows);
 }
 
-class TransactionQueriesRepository {
-  private readonly logger: Logger;
+export function createTransactionQueries(db: KyselyDB) {
+  const logger = getLogger('transaction-queries');
 
-  constructor(private readonly db: KyselyDB) {
-    this.logger = getLogger('transaction-queries');
-  }
-
-  async save(
+  async function save(
     transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
     accountId: number
   ): Promise<Result<number, Error>> {
-    const valuesResult = this.buildInsertValues(transaction, accountId);
+    const valuesResult = buildInsertValues(transaction, accountId);
     if (valuesResult.isErr()) {
       return err(valuesResult.error);
     }
@@ -302,8 +298,8 @@ class TransactionQueriesRepository {
     const values = valuesResult.value;
 
     return withControlledTransaction(
-      this.db,
-      this.logger,
+      db,
+      logger,
       async (trx) => {
         const txResult = await trx
           .insertInto('transactions')
@@ -346,7 +342,7 @@ class TransactionQueriesRepository {
     );
   }
 
-  async saveBatch(
+  async function saveBatch(
     transactions: Omit<UniversalTransactionData, 'id' | 'accountId'>[],
     accountId: number
   ): Promise<Result<{ duplicates: number; saved: number }, Error>> {
@@ -357,14 +353,14 @@ class TransactionQueriesRepository {
     const createdAt = new Date().toISOString();
 
     return withControlledTransaction(
-      this.db,
-      this.logger,
+      db,
+      logger,
       async (trx) => {
         let saved = 0;
         let duplicates = 0;
 
         for (const [index, transaction] of transactions.entries()) {
-          const valuesResult = this.buildInsertValues(transaction, accountId, createdAt);
+          const valuesResult = buildInsertValues(transaction, accountId, createdAt);
           if (valuesResult.isErr()) {
             return err(new Error(`Transaction index-${index}: ${valuesResult.error.message}`));
           }
@@ -424,15 +420,15 @@ class TransactionQueriesRepository {
     );
   }
 
-  async getTransactions(filters: SummaryTransactionFilters): Promise<Result<TransactionSummary[], Error>>;
-  async getTransactions(filters?: FullTransactionFilters): Promise<Result<UniversalTransactionData[], Error>>;
-  async getTransactions(
+  function getTransactions(filters: SummaryTransactionFilters): Promise<Result<TransactionSummary[], Error>>;
+  function getTransactions(filters?: FullTransactionFilters): Promise<Result<UniversalTransactionData[], Error>>;
+  async function getTransactions(
     filters?: FullTransactionFilters | SummaryTransactionFilters
   ): Promise<Result<UniversalTransactionData[] | TransactionSummary[], Error>> {
     try {
       const projection = filters?.projection ?? 'full';
 
-      let query = this.db.selectFrom('transactions').selectAll();
+      let query = db.selectFrom('transactions').selectAll();
 
       if (filters) {
         if (filters.sourceName) {
@@ -463,14 +459,14 @@ class TransactionQueriesRepository {
       if (projection === 'summary') {
         const summaries: TransactionSummary[] = [];
         for (const row of rows) {
-          summaries.push(this.toTransactionSummary(row));
+          summaries.push(toTransactionSummary(row));
         }
         return ok(summaries);
       }
 
       // Full projection: JOIN movements and parse
       const transactionIds = rows.map((r) => r.id);
-      const movementsMapResult = await this.loadMovementsForTransactions(transactionIds);
+      const movementsMapResult = await loadMovementsForTransactions(transactionIds);
       if (movementsMapResult.isErr()) {
         return err(movementsMapResult.error);
       }
@@ -479,7 +475,7 @@ class TransactionQueriesRepository {
       const transactions: UniversalTransactionData[] = [];
       for (const row of rows) {
         const movementRows = movementsMap.get(row.id) ?? [];
-        const result = this.toUniversalTransaction(row, movementRows);
+        const result = toUniversalTransaction(row, movementRows);
         if (result.isErr()) {
           return err(result.error);
         }
@@ -492,21 +488,21 @@ class TransactionQueriesRepository {
     }
   }
 
-  async findById(id: number): Promise<Result<UniversalTransactionData | undefined, Error>> {
+  async function findById(id: number): Promise<Result<UniversalTransactionData | undefined, Error>> {
     try {
-      const row = await this.db.selectFrom('transactions').selectAll().where('id', '=', id).executeTakeFirst();
+      const row = await db.selectFrom('transactions').selectAll().where('id', '=', id).executeTakeFirst();
 
       if (!row) {
         return ok(undefined);
       }
 
-      const movementsResult = await this.loadMovementsForTransactions([id]);
+      const movementsResult = await loadMovementsForTransactions([id]);
       if (movementsResult.isErr()) {
         return err(movementsResult.error);
       }
       const movementRows = movementsResult.value.get(id) ?? [];
 
-      const result = this.toUniversalTransaction(row, movementRows);
+      const result = toUniversalTransaction(row, movementRows);
       if (result.isErr()) {
         return err(result.error);
       }
@@ -517,9 +513,11 @@ class TransactionQueriesRepository {
     }
   }
 
-  async findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransactionData[], Error>> {
+  async function findTransactionsNeedingPrices(
+    assetFilter?: string[]
+  ): Promise<Result<UniversalTransactionData[], Error>> {
     try {
-      const query = this.db.selectFrom('transactions').selectAll().where('excluded_from_accounting', '=', false);
+      const query = db.selectFrom('transactions').selectAll().where('excluded_from_accounting', '=', false);
 
       const rows = await query.execute();
 
@@ -528,7 +526,7 @@ class TransactionQueriesRepository {
       }
 
       const transactionIds = rows.map((r) => r.id);
-      const movementsMapResult = await this.loadMovementsForTransactions(transactionIds);
+      const movementsMapResult = await loadMovementsForTransactions(transactionIds);
       if (movementsMapResult.isErr()) {
         return err(movementsMapResult.error);
       }
@@ -537,7 +535,7 @@ class TransactionQueriesRepository {
       const transactions: UniversalTransactionData[] = [];
       for (const row of rows) {
         const movementRows = movementsMap.get(row.id) ?? [];
-        const result = this.toUniversalTransaction(row, movementRows);
+        const result = toUniversalTransaction(row, movementRows);
         if (result.isErr()) {
           return err(result.error);
         }
@@ -564,7 +562,7 @@ class TransactionQueriesRepository {
     }
   }
 
-  async updateMovementsWithPrices(transaction: UniversalTransactionData): Promise<Result<void, Error>> {
+  async function updateMovementsWithPrices(transaction: UniversalTransactionData): Promise<Result<void, Error>> {
     const validationResult = validatePriceDataForPersistence(
       transaction.movements.inflows ?? [],
       transaction.movements.outflows ?? [],
@@ -576,8 +574,8 @@ class TransactionQueriesRepository {
     }
 
     return withControlledTransaction(
-      this.db,
-      this.logger,
+      db,
+      logger,
       async (trx) => {
         const txExists = await trx
           .selectFrom('transactions')
@@ -623,9 +621,9 @@ class TransactionQueriesRepository {
    * Count transactions with optional filtering.
    * Reuses TransactionFilters type for consistent filtering logic.
    */
-  async countTransactions(filters?: TransactionFilters): Promise<Result<number, Error>> {
+  async function countTransactions(filters?: TransactionFilters): Promise<Result<number, Error>> {
     try {
-      let query = this.db.selectFrom('transactions').select(({ fn }) => [fn.count<number>('id').as('count')]);
+      let query = db.selectFrom('transactions').select(({ fn }) => [fn.count<number>('id').as('count')]);
 
       if (filters) {
         if (filters.sourceName) {
@@ -664,21 +662,21 @@ class TransactionQueriesRepository {
    * Delete transactions by account IDs
    * Deletes transactions WHERE account_id IN (accountIds)
    */
-  async deleteByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
+  async function deleteByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
       if (accountIds.length === 0) {
         return ok(0);
       }
-      const result = await this.db.deleteFrom('transactions').where('account_id', 'in', accountIds).executeTakeFirst();
+      const result = await db.deleteFrom('transactions').where('account_id', 'in', accountIds).executeTakeFirst();
       return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete transactions by account IDs');
     }
   }
 
-  async getLatestCreatedAt(): Promise<Result<Date | null, Error>> {
+  async function getLatestCreatedAt(): Promise<Result<Date | null, Error>> {
     try {
-      const result = await this.db
+      const result = await db
         .selectFrom('transactions')
         .select(({ fn }) => [fn.max<string>('created_at').as('latest')])
         .executeTakeFirst();
@@ -693,16 +691,16 @@ class TransactionQueriesRepository {
     }
   }
 
-  async deleteAll(): Promise<Result<number, Error>> {
+  async function deleteAll(): Promise<Result<number, Error>> {
     try {
-      const result = await this.db.deleteFrom('transactions').executeTakeFirst();
+      const result = await db.deleteFrom('transactions').executeTakeFirst();
       return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete all transactions');
     }
   }
 
-  private buildInsertValues(
+  function buildInsertValues(
     transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
     accountId: number,
     createdAt?: string
@@ -758,7 +756,7 @@ class TransactionQueriesRepository {
     });
   }
 
-  private async loadMovementsForTransactions(
+  async function loadMovementsForTransactions(
     transactionIds: number[]
   ): Promise<Result<Map<number, MovementRow[]>, Error>> {
     if (transactionIds.length === 0) {
@@ -766,7 +764,7 @@ class TransactionQueriesRepository {
     }
 
     try {
-      const rows = await this.db
+      const rows = await db
         .selectFrom('transaction_movements')
         .selectAll()
         .where('transaction_id', 'in', transactionIds)
@@ -790,7 +788,7 @@ class TransactionQueriesRepository {
     }
   }
 
-  private toTransactionSummary(row: Selectable<TransactionsTable>): TransactionSummary {
+  function toTransactionSummary(row: Selectable<TransactionsTable>): TransactionSummary {
     const datetime = row.transaction_datetime;
     const timestamp = new Date(datetime).getTime();
     const status: TransactionStatus = row.transaction_status;
@@ -824,7 +822,7 @@ class TransactionQueriesRepository {
     return summary;
   }
 
-  private toUniversalTransaction(
+  function toUniversalTransaction(
     row: Selectable<TransactionsTable>,
     movementRows: MovementRow[]
   ): Result<UniversalTransactionData, Error> {
@@ -839,7 +837,7 @@ class TransactionQueriesRepository {
     for (const r of inflowRows) {
       const result = rowToAssetMovement(r);
       if (result.isErr()) {
-        this.logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse inflow');
+        logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse inflow');
         return err(new Error(`Transaction ${row.id} inflow parse failed (movement ${r.id}): ${result.error.message}`));
       }
       inflows.push(result.value);
@@ -849,7 +847,7 @@ class TransactionQueriesRepository {
     for (const r of outflowRows) {
       const result = rowToAssetMovement(r);
       if (result.isErr()) {
-        this.logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse outflow');
+        logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse outflow');
         return err(new Error(`Transaction ${row.id} outflow parse failed (movement ${r.id}): ${result.error.message}`));
       }
       outflows.push(result.value);
@@ -859,7 +857,7 @@ class TransactionQueriesRepository {
     for (const r of feeRows) {
       const result = rowToFeeMovement(r);
       if (result.isErr()) {
-        this.logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse fee');
+        logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse fee');
         return err(new Error(`Transaction ${row.id} fee parse failed (movement ${r.id}): ${result.error.message}`));
       }
       fees.push(result.value);
@@ -910,10 +908,19 @@ class TransactionQueriesRepository {
 
     return ok(transaction);
   }
-}
 
-export function createTransactionQueries(db: KyselyDB) {
-  return new TransactionQueriesRepository(db);
+  return {
+    save,
+    saveBatch,
+    getTransactions,
+    findById,
+    findTransactionsNeedingPrices,
+    updateMovementsWithPrices,
+    countTransactions,
+    deleteByAccountIds,
+    getLatestCreatedAt,
+    deleteAll,
+  };
 }
 
 export type TransactionQueries = ReturnType<typeof createTransactionQueries>;

@@ -1,9 +1,11 @@
-import { wrapError } from '@exitbook/core';
+import { type RawTransaction, wrapError } from '@exitbook/core';
 import { type Logger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
-import type { ControlledTransaction, Kysely } from 'kysely';
+import type { ControlledTransaction, Kysely, Selectable } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 import type { z } from 'zod';
+
+import type { RawTransactionTable } from '../schema/database-schema.js';
 
 function isDecimalLike(value: unknown): value is { toFixed: () => string } {
   return (
@@ -101,4 +103,39 @@ export function parseJson<T = unknown>(value: unknown): Result<T | undefined, Er
   } catch (error) {
     return err(new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`));
   }
+}
+
+/**
+ * Convert raw_transactions row to RawTransaction domain model.
+ */
+export function mapRawTransactionRow(row: Selectable<RawTransactionTable>): Result<RawTransaction, Error> {
+  const rawDataResult = parseJson<unknown>(row.provider_data);
+  const normalizedDataResult = parseJson<unknown>(row.normalized_data);
+
+  if (rawDataResult.isErr()) {
+    return err(rawDataResult.error);
+  }
+  if (normalizedDataResult.isErr()) {
+    return err(normalizedDataResult.error);
+  }
+
+  if (!row.provider_name) {
+    return err(new Error('Missing required provider_name field'));
+  }
+
+  return ok({
+    id: row.id,
+    accountId: row.account_id,
+    providerName: row.provider_name,
+    sourceAddress: row.source_address ?? undefined,
+    transactionTypeHint: row.transaction_type_hint ?? undefined,
+    eventId: row.event_id,
+    blockchainTransactionHash: row.blockchain_transaction_hash ?? undefined,
+    timestamp: row.timestamp,
+    providerData: rawDataResult.value,
+    normalizedData: normalizedDataResult.value,
+    processingStatus: row.processing_status,
+    processedAt: row.processed_at ? new Date(row.processed_at) : undefined,
+    createdAt: new Date(row.created_at),
+  });
 }

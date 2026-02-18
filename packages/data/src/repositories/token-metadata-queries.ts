@@ -1,36 +1,114 @@
 /* eslint-disable unicorn/no-null -- null required for db */
 import type { TokenMetadataRecord } from '@exitbook/core';
+import { getLogger } from '@exitbook/logger';
 import type { Kysely, Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import type { TokenMetadataDatabase } from '../persistence/token-metadata/schema.js';
 
-import { BaseRepository } from './base-repository.js';
 import { fromSqliteBoolean, toSqliteBoolean } from './sqlite-utils.js';
 
 const STALENESS_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 type TokenMetadataRow = TokenMetadataDatabase['token_metadata'];
 type TokenMetadataSelectableRow = Selectable<TokenMetadataRow>;
 
 /**
- * Repository for token metadata storage and retrieval
- * Stores token information by contract address with symbol indexing for reverse lookups
+ * Query module for token metadata storage and retrieval.
+ * Stores token information by contract address with symbol indexing for reverse lookups.
  */
-class TokenMetadataQueriesRepository extends BaseRepository<TokenMetadataDatabase> {
-  constructor(db: Kysely<TokenMetadataDatabase>) {
-    super(db, 'TokenMetadataQueries');
+export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
+  const logger = getLogger('token-metadata-queries');
+
+  function mapTokenMetadataRow(row: TokenMetadataSelectableRow): TokenMetadataRecord {
+    return {
+      blockchain: row.blockchain,
+      contractAddress: row.contract_address,
+      symbol: row.symbol ?? undefined,
+      name: row.name ?? undefined,
+      decimals: row.decimals ?? undefined,
+      logoUrl: row.logo_url ?? undefined,
+      possibleSpam: fromSqliteBoolean(row.possible_spam),
+      verifiedContract: fromSqliteBoolean(row.verified_contract),
+      description: row.description ?? undefined,
+      externalUrl: row.external_url ?? undefined,
+      totalSupply: row.total_supply ?? undefined,
+      createdAt: row.created_at_provider ?? undefined,
+      blockNumber: row.block_number ?? undefined,
+      refreshedAt: new Date(row.refreshed_at),
+      source: row.source,
+    };
   }
 
   /**
-   * Get token metadata by contract address (primary lookup)
+   * Upsert symbol index entry.
    */
-  async getByContract(
+  async function upsertSymbolIndex(
+    blockchain: string,
+    symbol: string,
+    contractAddress: string
+  ): Promise<Result<void, Error>> {
+    try {
+      const existing = await db
+        .selectFrom('symbol_index')
+        .selectAll()
+        .where('blockchain', '=', blockchain)
+        .where('symbol', '=', symbol)
+        .where('contract_address', '=', contractAddress)
+        .executeTakeFirst();
+
+      if (!existing) {
+        await db
+          .insertInto('symbol_index')
+          .values({
+            blockchain,
+            symbol,
+            contract_address: contractAddress,
+            created_at: new Date().toISOString(),
+          })
+          .execute();
+      }
+
+      return ok();
+    } catch (error) {
+      logger.error({ error }, 'Failed to upsert symbol index');
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  /**
+   * Delete symbol index entry for a specific contract and symbol.
+   */
+  async function deleteSymbolIndex(
+    blockchain: string,
+    symbol: string,
+    contractAddress: string
+  ): Promise<Result<void, Error>> {
+    try {
+      await db
+        .deleteFrom('symbol_index')
+        .where('blockchain', '=', blockchain)
+        .where('symbol', '=', symbol)
+        .where('contract_address', '=', contractAddress)
+        .execute();
+
+      return ok();
+    } catch (error) {
+      logger.error({ error }, 'Failed to delete symbol index');
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  /**
+   * Get token metadata by contract address (primary lookup).
+   */
+  async function getByContract(
     blockchain: string,
     contractAddress: string
   ): Promise<Result<TokenMetadataRecord | undefined, Error>> {
     try {
-      const row = await this.db
+      const row = await db
         .selectFrom('token_metadata')
         .selectAll()
         .where('blockchain', '=', blockchain)
@@ -38,18 +116,18 @@ class TokenMetadataQueriesRepository extends BaseRepository<TokenMetadataDatabas
         .executeTakeFirst();
 
       if (!row) {
-        this.logger.debug(`Token metadata not found - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
+        logger.debug(`Token metadata not found - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
         return ok(undefined);
       }
 
-      const metadata = this.mapTokenMetadataRow(row);
+      const metadata = mapTokenMetadataRow(row);
 
-      this.logger.debug(
+      logger.debug(
         `Token metadata found - Blockchain: ${blockchain}, Contract: ${contractAddress}, Symbol: ${metadata.symbol ?? 'unknown'}`
       );
       return ok(metadata);
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get token metadata by contract');
+      logger.error({ error }, 'Failed to get token metadata by contract');
       return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
@@ -59,7 +137,7 @@ class TokenMetadataQueriesRepository extends BaseRepository<TokenMetadataDatabas
    * More efficient than sequential getByContract calls.
    * Returns a map of contract address to metadata (undefined if not found).
    */
-  async getByContracts(
+  async function getByContracts(
     blockchain: string,
     contractAddresses: string[]
   ): Promise<Result<Map<string, TokenMetadataRecord | undefined>, Error>> {
@@ -68,7 +146,7 @@ class TokenMetadataQueriesRepository extends BaseRepository<TokenMetadataDatabas
         return ok(new Map());
       }
 
-      const rows = await this.db
+      const rows = await db
         .selectFrom('token_metadata')
         .selectAll()
         .where('blockchain', '=', blockchain)
@@ -84,27 +162,27 @@ class TokenMetadataQueriesRepository extends BaseRepository<TokenMetadataDatabas
 
       // Fill in found metadata
       for (const row of rows) {
-        const metadata = this.mapTokenMetadataRow(row);
+        const metadata = mapTokenMetadataRow(row);
         metadataMap.set(row.contract_address, metadata);
       }
 
-      this.logger.debug(
+      logger.debug(
         `Batch token metadata lookup - Blockchain: ${blockchain}, Requested: ${contractAddresses.length}, Found: ${rows.length}`
       );
 
       return ok(metadataMap);
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get token metadata by contracts (batch)');
+      logger.error({ error }, 'Failed to get token metadata by contracts (batch)');
       return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   /**
-   * Get token metadata by symbol (reverse lookup, returns array due to collisions)
+   * Get token metadata by symbol (reverse lookup, returns array due to collisions).
    */
-  async getBySymbol(blockchain: string, symbol: string): Promise<Result<TokenMetadataRecord[], Error>> {
+  async function getBySymbol(blockchain: string, symbol: string): Promise<Result<TokenMetadataRecord[], Error>> {
     try {
-      const contracts = await this.db
+      const contracts = await db
         .selectFrom('symbol_index')
         .select('contract_address')
         .where('blockchain', '=', blockchain)
@@ -112,38 +190,42 @@ class TokenMetadataQueriesRepository extends BaseRepository<TokenMetadataDatabas
         .execute();
 
       if (contracts.length === 0) {
-        this.logger.debug(`Token metadata not found for symbol - Blockchain: ${blockchain}, Symbol: ${symbol}`);
+        logger.debug(`Token metadata not found for symbol - Blockchain: ${blockchain}, Symbol: ${symbol}`);
         return ok([]);
       }
 
       const results: TokenMetadataRecord[] = [];
       for (const { contract_address } of contracts) {
-        const metadataResult = await this.getByContract(blockchain, contract_address);
+        const metadataResult = await getByContract(blockchain, contract_address);
         if (metadataResult.isOk() && metadataResult.value) {
           results.push(metadataResult.value);
         }
       }
 
-      this.logger.debug(
+      logger.debug(
         `Token metadata found for symbol - Blockchain: ${blockchain}, Symbol: ${symbol}, Contracts found: ${results.length}`
       );
       return ok(results);
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get token metadata by symbol');
+      logger.error({ error }, 'Failed to get token metadata by symbol');
       return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   /**
-   * Save token metadata (upsert)
-   * Merges with existing data - only updates fields that are explicitly provided
+   * Save token metadata (upsert).
+   * Merges with existing data - only updates fields that are explicitly provided.
    */
-  async save(blockchain: string, contractAddress: string, metadata: TokenMetadataRecord): Promise<Result<void, Error>> {
+  async function save(
+    blockchain: string,
+    contractAddress: string,
+    metadata: TokenMetadataRecord
+  ): Promise<Result<void, Error>> {
     try {
-      const now = this.getCurrentDateTimeForDB();
+      const now = new Date().toISOString();
 
       // Fetch existing record to merge with new data
-      const existingResult = await this.getByContract(blockchain, contractAddress);
+      const existingResult = await getByContract(blockchain, contractAddress);
       if (existingResult.isErr()) {
         return err(existingResult.error);
       }
@@ -176,7 +258,7 @@ class TokenMetadataQueriesRepository extends BaseRepository<TokenMetadataDatabas
       const mergedBlockNumber =
         metadata.blockNumber !== undefined ? metadata.blockNumber : (existing?.blockNumber ?? null);
 
-      await this.db
+      await db
         .insertInto('token_metadata')
         .values({
           blockchain,
@@ -216,9 +298,9 @@ class TokenMetadataQueriesRepository extends BaseRepository<TokenMetadataDatabas
 
       // Remove old symbol index entry if symbol has changed
       if (existing?.symbol && existing.symbol !== mergedSymbol) {
-        const deleteResult = await this.deleteSymbolIndex(blockchain, existing.symbol, contractAddress);
+        const deleteResult = await deleteSymbolIndex(blockchain, existing.symbol, contractAddress);
         if (deleteResult.isErr()) {
-          this.logger.warn(
+          logger.warn(
             `Failed to delete old symbol index - Blockchain: ${blockchain}, Contract: ${contractAddress}, Old Symbol: ${existing.symbol}, Error: ${deleteResult.error.message}`
           );
         }
@@ -226,38 +308,38 @@ class TokenMetadataQueriesRepository extends BaseRepository<TokenMetadataDatabas
 
       // Add new symbol index entry
       if (mergedSymbol) {
-        const symbolIndexResult = await this.upsertSymbolIndex(blockchain, mergedSymbol, contractAddress);
+        const symbolIndexResult = await upsertSymbolIndex(blockchain, mergedSymbol, contractAddress);
         if (symbolIndexResult.isErr()) {
-          this.logger.warn(
+          logger.warn(
             `Failed to update symbol index - Blockchain: ${blockchain}, Contract: ${contractAddress}, Symbol: ${mergedSymbol}, Error: ${symbolIndexResult.error.message}`
           );
         }
       }
 
-      this.logger.debug(
+      logger.debug(
         `Token metadata saved - Blockchain: ${blockchain}, Contract: ${contractAddress}, Symbol: ${mergedSymbol ?? 'unknown'}, Source: ${metadata.source}`
       );
       return ok();
     } catch (error) {
-      this.logger.error({ error }, 'Failed to save token metadata');
+      logger.error({ error }, 'Failed to save token metadata');
       return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   /**
-   * Check if token metadata is stale (older than 7 days)
+   * Check if token metadata is stale (older than 7 days).
    */
-  isStale(updatedAt: Date): boolean {
+  function isStale(updatedAt: Date): boolean {
     const now = new Date();
     const ageMs = now.getTime() - updatedAt.getTime();
     return ageMs > STALENESS_THRESHOLD_MS;
   }
 
   /**
-   * Refresh stale token metadata in background (no await)
-   * This is called asynchronously when stale data is served
+   * Refresh stale token metadata in background (no await).
+   * This is called asynchronously when stale data is served.
    */
-  refreshInBackground(
+  function refreshInBackground(
     blockchain: string,
     contractAddress: string,
     fetchFn: () => Promise<Result<TokenMetadataRecord, Error>>
@@ -265,118 +347,41 @@ class TokenMetadataQueriesRepository extends BaseRepository<TokenMetadataDatabas
     // Fire and forget - don't block the caller
     (async () => {
       try {
-        this.logger.debug(`Background refresh started - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
+        logger.debug(`Background refresh started - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
         const result = await fetchFn();
         if (result.isOk()) {
-          const saveResult = await this.save(blockchain, contractAddress, result.value);
+          const saveResult = await save(blockchain, contractAddress, result.value);
           if (saveResult.isErr()) {
-            this.logger.warn(
+            logger.warn(
               `Background refresh failed to update - Blockchain: ${blockchain}, Contract: ${contractAddress}, Error: ${saveResult.error.message}`
             );
           } else {
-            this.logger.debug(`Background refresh completed - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
+            logger.debug(`Background refresh completed - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
           }
         } else {
-          this.logger.warn(
+          logger.warn(
             `Background refresh failed to fetch data - Blockchain: ${blockchain}, Contract: ${contractAddress}, Error: ${result.error.message}`
           );
         }
       } catch (error) {
-        this.logger.error(
-          { error },
-          `Background refresh error - Blockchain: ${blockchain}, Contract: ${contractAddress}`
-        );
+        logger.error({ error }, `Background refresh error - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
       }
     })().catch((error) => {
-      this.logger.error(
+      logger.error(
         { error },
         `Unhandled error in background refresh - Blockchain: ${blockchain}, Contract: ${contractAddress}`
       );
     });
   }
 
-  private mapTokenMetadataRow(row: TokenMetadataSelectableRow): TokenMetadataRecord {
-    return {
-      blockchain: row.blockchain,
-      contractAddress: row.contract_address,
-      symbol: row.symbol ?? undefined,
-      name: row.name ?? undefined,
-      decimals: row.decimals ?? undefined,
-      logoUrl: row.logo_url ?? undefined,
-      possibleSpam: fromSqliteBoolean(row.possible_spam),
-      verifiedContract: fromSqliteBoolean(row.verified_contract),
-      description: row.description ?? undefined,
-      externalUrl: row.external_url ?? undefined,
-      totalSupply: row.total_supply ?? undefined,
-      createdAt: row.created_at_provider ?? undefined,
-      blockNumber: row.block_number ?? undefined,
-      refreshedAt: new Date(row.refreshed_at),
-      source: row.source,
-    };
-  }
-
-  /**
-   * Upsert symbol index entry
-   */
-  private async upsertSymbolIndex(
-    blockchain: string,
-    symbol: string,
-    contractAddress: string
-  ): Promise<Result<void, Error>> {
-    try {
-      const existing = await this.db
-        .selectFrom('symbol_index')
-        .selectAll()
-        .where('blockchain', '=', blockchain)
-        .where('symbol', '=', symbol)
-        .where('contract_address', '=', contractAddress)
-        .executeTakeFirst();
-
-      if (!existing) {
-        await this.db
-          .insertInto('symbol_index')
-          .values({
-            blockchain,
-            symbol,
-            contract_address: contractAddress,
-            created_at: this.getCurrentDateTimeForDB(),
-          })
-          .execute();
-      }
-
-      return ok();
-    } catch (error) {
-      this.logger.error({ error }, 'Failed to upsert symbol index');
-      return err(error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  /**
-   * Delete symbol index entry for a specific contract and symbol
-   */
-  private async deleteSymbolIndex(
-    blockchain: string,
-    symbol: string,
-    contractAddress: string
-  ): Promise<Result<void, Error>> {
-    try {
-      await this.db
-        .deleteFrom('symbol_index')
-        .where('blockchain', '=', blockchain)
-        .where('symbol', '=', symbol)
-        .where('contract_address', '=', contractAddress)
-        .execute();
-
-      return ok();
-    } catch (error) {
-      this.logger.error({ error }, 'Failed to delete symbol index');
-      return err(error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-}
-
-export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
-  return new TokenMetadataQueriesRepository(db);
+  return {
+    getByContract,
+    getByContracts,
+    getBySymbol,
+    save,
+    isStale,
+    refreshInBackground,
+  };
 }
 
 export type TokenMetadataQueries = ReturnType<typeof createTokenMetadataQueries>;

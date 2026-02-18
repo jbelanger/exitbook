@@ -1,5 +1,6 @@
 import { isValidNearAccountId } from '@exitbook/blockchain-providers';
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import type { NearRawDataQueries } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
@@ -7,7 +8,6 @@ import type { ITokenMetadataService } from '../../../features/token-metadata/tok
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
 import { NearTransactionImporter } from './importer.js';
-import type { NearRawDataQueries } from './near-raw-data-queries.js';
 import { NearTransactionProcessor } from './processor.js';
 
 export function registerNearChain(): void {

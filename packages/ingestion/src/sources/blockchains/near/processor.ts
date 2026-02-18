@@ -16,6 +16,7 @@ import {
   parseDecimal,
   type TokenMetadataRecord,
 } from '@exitbook/core';
+import type { NearRawDataQueries } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { err, errAsync, ok, type Result } from 'neverthrow';
 
@@ -27,7 +28,6 @@ import type {
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
 
-import type { NearRawDataQueries } from './near-raw-data-queries.js';
 import {
   classifyOperation,
   consolidateByAsset,

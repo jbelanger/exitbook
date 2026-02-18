@@ -1,7 +1,6 @@
 import type { RawTransaction } from '@exitbook/core';
+import type { NearRawDataQueries } from '@exitbook/data';
 import { err, ok, type Result } from 'neverthrow';
-
-import type { NearRawDataQueries } from '../../../sources/blockchains/near/near-raw-data-queries.js';
 
 import type { IRawDataBatchProvider } from './raw-data-batch-provider.interface.js';
 

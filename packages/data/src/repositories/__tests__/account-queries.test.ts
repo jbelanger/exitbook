@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createAccountQueries } from '../account-queries.js';
 
-describe('AccountRepository', () => {
+describe('AccountQueries', () => {
   let db: KyselyDB;
   let repository: ReturnType<typeof createAccountQueries>;
 

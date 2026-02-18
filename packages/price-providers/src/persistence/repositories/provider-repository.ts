@@ -65,7 +65,7 @@ export class ProviderRepository {
           display_name: displayName,
           is_active: 1 as unknown as boolean, // SQLite uses integers for booleans
           metadata: '{}',
-          created_at: this.getCurrentDateTimeForDB(),
+          created_at: new Date().toISOString(),
         })
         .returningAll()
         .executeTakeFirstOrThrow();
@@ -120,7 +120,7 @@ export class ProviderRepository {
 
       // Insert new mappings in batches
       const batchSize = 500;
-      const createdAt = this.getCurrentDateTimeForDB();
+      const createdAt = new Date().toISOString();
       for (let i = 0; i < mappings.length; i += batchSize) {
         const batch = mappings.slice(i, i + batchSize);
 
@@ -211,9 +211,5 @@ export class ProviderRepository {
     } catch (error) {
       return wrapError(error, `Failed to check sync status`);
     }
-  }
-
-  private getCurrentDateTimeForDB(): string {
-    return new Date().toISOString();
   }
 }

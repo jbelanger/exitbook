@@ -130,7 +130,7 @@ export class PriceRepository {
             provider_coin_id: providerCoinId ?? undefined,
             granularity: priceData.granularity ?? undefined,
             fetched_at: priceData.fetchedAt.toISOString(),
-            updated_at: this.getCurrentDateTimeForDB(),
+            updated_at: new Date().toISOString(),
           })
         )
         .execute();
@@ -224,11 +224,6 @@ export class PriceRepository {
       return wrapError(error, `Failed to check price existence`);
     }
   }
-
-  private getCurrentDateTimeForDB(): string {
-    return new Date().toISOString();
-  }
-
   private recordToPriceData(record: PriceRecord): PriceData {
     const granularity = this.normalizeGranularity(record.granularity, record);
 

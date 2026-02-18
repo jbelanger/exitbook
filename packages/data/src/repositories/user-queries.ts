@@ -8,7 +8,7 @@ import type { UsersTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
 
 export function createUserQueries(db: KyselyDB) {
-  const logger = getLogger('user-repository');
+  const logger = getLogger('user-queries');
 
   function toUser(row: Selectable<UsersTable>): User {
     const parseResult = UserSchema.safeParse({
