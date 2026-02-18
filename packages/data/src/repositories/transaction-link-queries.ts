@@ -20,9 +20,9 @@ export type TransactionLinkRow = Selectable<TransactionLinksTable>;
 /**
  * Repository for transaction link operations
  */
-export class TransactionLinkRepository extends BaseRepository<DatabaseSchema> {
+class TransactionLinkQueriesRepository extends BaseRepository<DatabaseSchema> {
   constructor(db: KyselyDB) {
-    super(db, 'TransactionLinkRepository');
+    super(db, 'TransactionLinkQueries');
   }
 
   /**
@@ -419,3 +419,9 @@ export class TransactionLinkRepository extends BaseRepository<DatabaseSchema> {
     });
   }
 }
+
+export function createTransactionLinkQueries(db: KyselyDB) {
+  return new TransactionLinkQueriesRepository(db);
+}
+
+export type TransactionLinkQueries = ReturnType<typeof createTransactionLinkQueries>;

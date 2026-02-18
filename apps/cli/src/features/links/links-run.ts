@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- Used in React component code */
-import { TransactionLinkRepository } from '@exitbook/accounting';
+import { createTransactionLinkQueries } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
 import { createTransactionQueries } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
@@ -187,7 +187,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const transactionRepository = createTransactionQueries(database);
-      const linkRepository = new TransactionLinkRepository(database);
+      const linkRepository = createTransactionLinkQueries(database);
       const overrideStore = new OverrideStore(ctx.dataDir);
 
       if (options.json) {

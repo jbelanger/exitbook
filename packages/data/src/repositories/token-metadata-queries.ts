@@ -17,9 +17,9 @@ type TokenMetadataSelectableRow = Selectable<TokenMetadataRow>;
  * Repository for token metadata storage and retrieval
  * Stores token information by contract address with symbol indexing for reverse lookups
  */
-export class TokenMetadataRepository extends BaseRepository<TokenMetadataDatabase> {
+class TokenMetadataQueriesRepository extends BaseRepository<TokenMetadataDatabase> {
   constructor(db: Kysely<TokenMetadataDatabase>) {
-    super(db, 'TokenMetadataRepository');
+    super(db, 'TokenMetadataQueries');
   }
 
   /**
@@ -374,3 +374,9 @@ export class TokenMetadataRepository extends BaseRepository<TokenMetadataDatabas
     }
   }
 }
+
+export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
+  return new TokenMetadataQueriesRepository(db);
+}
+
+export type TokenMetadataQueries = ReturnType<typeof createTokenMetadataQueries>;

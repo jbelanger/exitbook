@@ -11,7 +11,7 @@
  * These unit tests focus on configuration and orchestration logic.
  */
 
-import type { TransactionLinkRepository } from '@exitbook/accounting';
+import type { TransactionLinkQueries } from '@exitbook/accounting';
 import type { TransactionQueries } from '@exitbook/data';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -20,11 +20,11 @@ import type { PricesEnrichOptions } from '../prices-enrich-handler.js';
 
 describe('PricesEnrichHandler', () => {
   let mockTransactionRepo: TransactionQueries;
-  let mockLinkRepo: TransactionLinkRepository;
+  let mockLinkRepo: TransactionLinkQueries;
 
   beforeEach(() => {
     mockTransactionRepo = {} as TransactionQueries;
-    mockLinkRepo = {} as TransactionLinkRepository;
+    mockLinkRepo = {} as TransactionLinkQueries;
   });
 
   describe('Configuration', () => {

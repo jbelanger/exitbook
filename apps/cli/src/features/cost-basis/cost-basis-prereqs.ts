@@ -1,4 +1,4 @@
-import type { TransactionLinkRepository } from '@exitbook/accounting';
+import type { TransactionLinkQueries } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
@@ -27,7 +27,7 @@ const logger = getLogger('cost-basis-prereqs');
  */
 export async function ensureLinks(
   txRepo: TransactionQueries,
-  linkRepo: TransactionLinkRepository,
+  linkRepo: TransactionLinkQueries,
   dataDir: string,
   ctx: CommandContext,
   isJsonMode: boolean
@@ -117,7 +117,7 @@ export async function ensureLinks(
  */
 export async function ensurePrices(
   txRepo: TransactionQueries,
-  linkRepo: TransactionLinkRepository,
+  linkRepo: TransactionLinkQueries,
   startDate: Date,
   endDate: Date,
   currency: string,

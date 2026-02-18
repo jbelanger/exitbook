@@ -1,4 +1,4 @@
-import { TransactionLinkRepository } from '@exitbook/accounting';
+import { createTransactionLinkQueries } from '@exitbook/accounting';
 import { createTransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
@@ -188,7 +188,7 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const transactionRepo = createTransactionQueries(database);
-      const linkRepo = new TransactionLinkRepository(database);
+      const linkRepo = createTransactionLinkQueries(database);
 
       // Auto-run prerequisites
       const linksResult = await ensureLinks(transactionRepo, linkRepo, ctx.dataDir, ctx, true);
@@ -280,7 +280,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const transactionRepo = createTransactionQueries(database);
-      const linkRepo = new TransactionLinkRepository(database);
+      const linkRepo = createTransactionLinkQueries(database);
 
       // Step 1: Auto-run linking if stale (before prompts so DB is available)
       const linksResult = await ensureLinks(transactionRepo, linkRepo, ctx.dataDir, ctx, false);

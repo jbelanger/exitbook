@@ -1,4 +1,4 @@
-import { TransactionLinkRepository } from '@exitbook/accounting';
+import { createTransactionLinkQueries } from '@exitbook/accounting';
 import { createAccountQueries, createTransactionQueries } from '@exitbook/data';
 import type { Command } from 'commander';
 import React from 'react';
@@ -69,7 +69,7 @@ async function executePortfolioJSON(options: PortfolioCommandOptions): Promise<v
       const database = await ctx.database();
       const accountRepo = createAccountQueries(database);
       const transactionRepo = createTransactionQueries(database);
-      const linkRepo = new TransactionLinkRepository(database);
+      const linkRepo = createTransactionLinkQueries(database);
 
       const handler = new PortfolioHandler(accountRepo, transactionRepo, linkRepo);
       const result = await handler.execute({
@@ -124,7 +124,7 @@ async function executePortfolioTUI(options: PortfolioCommandOptions): Promise<vo
       const database = await ctx.database();
       const accountRepo = createAccountQueries(database);
       const transactionRepo = createTransactionQueries(database);
-      const linkRepo = new TransactionLinkRepository(database);
+      const linkRepo = createTransactionLinkQueries(database);
 
       const handler = new PortfolioHandler(accountRepo, transactionRepo, linkRepo);
 

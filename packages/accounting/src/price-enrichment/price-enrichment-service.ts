@@ -5,7 +5,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { TransactionLinkRepository } from '../persistence/transaction-link-repository.js';
+import type { TransactionLinkQueries } from '../persistence/transaction-link-queries.js';
 
 import { buildLinkGraph } from './link-graph-utils.js';
 import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from './price-enrichment-utils.js';
@@ -33,7 +33,7 @@ function transactionNeedsPrice(transaction: UniversalTransactionData): boolean {
  * 3. Recalculate crypto-crypto swap ratios using fetched prices
  *
  * Link-aware price propagation:
- * - Uses TransactionLinkRepository to fetch confirmed transaction links
+ * - Uses TransactionLinkQueries to fetch confirmed transaction links
  * - Groups linked transactions together via Union-Find algorithm
  * - Enables price propagation across platforms (exchange ↔ blockchain)
  *
@@ -45,7 +45,7 @@ function transactionNeedsPrice(transaction: UniversalTransactionData): boolean {
 export class PriceEnrichmentService {
   constructor(
     private readonly transactionRepository: TransactionQueries,
-    private readonly linkRepository: TransactionLinkRepository
+    private readonly linkRepository: TransactionLinkQueries
   ) {}
 
   /**

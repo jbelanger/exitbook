@@ -154,7 +154,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
         if (tokenMetadataResult.isErr()) {
           throw tokenMetadataResult.error;
         }
-        const { repository: tokenMetadataRepo, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
+        const { queries: tokenMetadataRepo, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
         ctx.onCleanup(async () => cleanupTokenMetadata());
 
         if (options.accountId) {
@@ -376,7 +376,7 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
       if (tokenMetadataResult.isErr()) {
         throw tokenMetadataResult.error;
       }
-      const { repository: tokenMetadataRepo, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
+      const { queries: tokenMetadataRepo, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
       ctx.onCleanup(async () => cleanupTokenMetadata());
 
       const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
@@ -586,7 +586,7 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
       if (tokenMetadataResult.isErr()) {
         throw tokenMetadataResult.error;
       }
-      const { repository: tokenMetadataRepo, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
+      const { queries: tokenMetadataRepo, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
       ctx.onCleanup(async () => cleanupTokenMetadata());
 
       const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();

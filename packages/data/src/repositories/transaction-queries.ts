@@ -11,15 +11,16 @@ import {
   type UniversalTransactionData,
   wrapError,
 } from '@exitbook/core';
+import { getLogger, type Logger } from '@exitbook/logger';
 import type { Insertable, Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';
 
-import type { DatabaseSchema, TransactionMovementsTable, TransactionsTable } from '../schema/database-schema.js';
+import type { TransactionMovementsTable, TransactionsTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
 
-import { BaseRepository } from './base-repository.js';
+import { parseWithSchema, serializeToJson, withControlledTransaction } from './query-utils.js';
 import { generateDeterministicTransactionHash } from './transaction-id-utils.js';
 
 /**
@@ -282,28 +283,28 @@ function buildMovementRows(
   return ok(rows);
 }
 
-/**
- * Kysely-based repository for transaction database operations.
- * Handles storage and retrieval of UniversalTransactionData entities using type-safe queries.
- */
-class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
-  constructor(db: KyselyDB) {
-    super(db, 'TransactionQueries');
+class TransactionQueriesRepository {
+  private readonly logger: Logger;
+
+  constructor(private readonly db: KyselyDB) {
+    this.logger = getLogger('transaction-queries');
   }
 
   async save(
     transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
     accountId: number
   ): Promise<Result<number, Error>> {
-    try {
-      const valuesResult = this.buildInsertValues(transaction, accountId);
-      if (valuesResult.isErr()) {
-        return err(valuesResult.error);
-      }
+    const valuesResult = this.buildInsertValues(transaction, accountId);
+    if (valuesResult.isErr()) {
+      return err(valuesResult.error);
+    }
 
-      const values = valuesResult.value;
+    const values = valuesResult.value;
 
-      return await this.withTransaction(async (trx) => {
+    return withControlledTransaction(
+      this.db,
+      this.logger,
+      async (trx) => {
         const txResult = await trx
           .insertInto('transactions')
           .values(values)
@@ -324,14 +325,14 @@ class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
               return ok(existing.id);
             }
           }
-          throw new Error('Transaction insert skipped due to conflict, but existing transaction not found');
+          return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
         }
 
         const transactionId = txResult.id;
 
         const movementRowsResult = buildMovementRows(transaction, transactionId);
         if (movementRowsResult.isErr()) {
-          throw movementRowsResult.error;
+          return err(movementRowsResult.error);
         }
 
         const movementRows = movementRowsResult.value;
@@ -340,10 +341,9 @@ class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
         }
 
         return ok(transactionId);
-      });
-    } catch (error) {
-      return wrapError(error, 'Failed to save transaction');
-    }
+      },
+      'Failed to save transaction'
+    );
   }
 
   async saveBatch(
@@ -354,17 +354,19 @@ class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
       return ok({ saved: 0, duplicates: 0 });
     }
 
-    const createdAt = this.getCurrentDateTimeForDB();
+    const createdAt = new Date().toISOString();
 
-    try {
-      return await this.withTransaction(async (trx) => {
+    return withControlledTransaction(
+      this.db,
+      this.logger,
+      async (trx) => {
         let saved = 0;
         let duplicates = 0;
 
         for (const [index, transaction] of transactions.entries()) {
           const valuesResult = this.buildInsertValues(transaction, accountId, createdAt);
           if (valuesResult.isErr()) {
-            throw new Error(`Transaction index-${index}: ${valuesResult.error.message}`);
+            return err(new Error(`Transaction index-${index}: ${valuesResult.error.message}`));
           }
           const values = valuesResult.value;
 
@@ -392,10 +394,10 @@ class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
                 isDuplicate = true;
                 duplicates++;
               } else {
-                throw new Error('Transaction insert skipped due to conflict, but existing transaction not found');
+                return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
               }
             } else {
-              throw new Error('Transaction insert skipped due to conflict, but existing transaction not found');
+              return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
             }
           } else {
             transactionId = txResult.id;
@@ -404,7 +406,7 @@ class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
           if (!isDuplicate) {
             const movementRowsResult = buildMovementRows(transaction, transactionId);
             if (movementRowsResult.isErr()) {
-              throw movementRowsResult.error;
+              return err(movementRowsResult.error);
             }
 
             const movementRows = movementRowsResult.value;
@@ -417,10 +419,9 @@ class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
         }
 
         return ok({ saved, duplicates });
-      });
-    } catch (error) {
-      return wrapError(error, 'Failed to save transaction batch');
-    }
+      },
+      'Failed to save transaction batch'
+    );
   }
 
   async getTransactions(filters: SummaryTransactionFilters): Promise<Result<TransactionSummary[], Error>>;
@@ -564,18 +565,20 @@ class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
   }
 
   async updateMovementsWithPrices(transaction: UniversalTransactionData): Promise<Result<void, Error>> {
-    try {
-      const validationResult = validatePriceDataForPersistence(
-        transaction.movements.inflows ?? [],
-        transaction.movements.outflows ?? [],
-        transaction.fees ?? [],
-        `transaction ${transaction.id}`
-      );
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
+    const validationResult = validatePriceDataForPersistence(
+      transaction.movements.inflows ?? [],
+      transaction.movements.outflows ?? [],
+      transaction.fees ?? [],
+      `transaction ${transaction.id}`
+    );
+    if (validationResult.isErr()) {
+      return err(validationResult.error);
+    }
 
-      await this.withTransaction(async (trx) => {
+    return withControlledTransaction(
+      this.db,
+      this.logger,
+      async (trx) => {
         const txExists = await trx
           .selectFrom('transactions')
           .select('id')
@@ -583,7 +586,7 @@ class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
           .executeTakeFirst();
 
         if (!txExists) {
-          throw new Error(`Transaction ${transaction.id} not found`);
+          return err(new Error(`Transaction ${transaction.id} not found`));
         }
 
         await trx.deleteFrom('transaction_movements').where('transaction_id', '=', transaction.id).execute();
@@ -596,7 +599,7 @@ class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
 
         const movementRowsResult = buildMovementRows(transactionForMovementRebuild, transaction.id);
         if (movementRowsResult.isErr()) {
-          throw movementRowsResult.error;
+          return err(movementRowsResult.error);
         }
 
         const movementRows = movementRowsResult.value;
@@ -606,17 +609,14 @@ class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
 
         await trx
           .updateTable('transactions')
-          .set({ updated_at: this.getCurrentDateTimeForDB() })
+          .set({ updated_at: new Date().toISOString() })
           .where('id', '=', transaction.id)
           .execute();
 
         return ok(undefined);
-      });
-
-      return ok(undefined);
-    } catch (error) {
-      return wrapError(error, 'Failed to update movements with prices');
-    }
+      },
+      'Failed to update movements with prices'
+    );
   }
 
   /**
@@ -728,13 +728,18 @@ class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
       return err(validationResult.error);
     }
 
+    const notesJsonResult =
+      transaction.notes && transaction.notes.length > 0 ? serializeToJson(transaction.notes) : ok(undefined);
+    if (notesJsonResult.isErr()) {
+      return err(notesJsonResult.error);
+    }
+
     return ok({
-      created_at: createdAt ?? this.getCurrentDateTimeForDB(),
+      created_at: createdAt ?? new Date().toISOString(),
       external_id: transaction.externalId || generateDeterministicTransactionHash(transaction),
       from_address: transaction.from ?? null,
       account_id: accountId,
-      notes_json:
-        (transaction.notes && transaction.notes.length > 0 ? this.serializeToJson(transaction.notes) : null) ?? null,
+      notes_json: notesJsonResult.value ?? null,
       is_spam: transaction.isSpam ?? false,
       excluded_from_accounting: transaction.excludedFromAccounting ?? transaction.isSpam ?? false,
       source_name: transaction.source,
@@ -896,7 +901,7 @@ class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
     }
 
     if (row.notes_json) {
-      const notesResult = this.parseWithSchema(row.notes_json, z.array(TransactionNoteSchema));
+      const notesResult = parseWithSchema(row.notes_json, z.array(TransactionNoteSchema));
       if (notesResult.isErr()) {
         return err(notesResult.error);
       }

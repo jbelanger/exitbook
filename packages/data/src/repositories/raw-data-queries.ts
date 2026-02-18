@@ -1,17 +1,18 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
 import type { ProcessingStatus } from '@exitbook/core';
 import { RawTransactionInputSchema, wrapError, type RawTransactionInput, type RawTransaction } from '@exitbook/core';
-import type { KyselyDB } from '@exitbook/data';
-import { BaseRepository } from '@exitbook/data';
-import type { Selectable, Transaction } from 'kysely';
+import { getLogger } from '@exitbook/logger';
+import type { Selectable } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { DatabaseSchema, RawTransactionTable } from '../schema/database-schema.js';
+import type { RawTransactionTable } from '../schema/database-schema.js';
+import type { KyselyDB } from '../storage/database.js';
+
+import { parseJson, withControlledTransaction } from './query-utils.js';
 
 /**
- * Filter options for loading raw data from repository
- * Ingestion-specific concern
- * Raw data is scoped by account - each account owns its transaction data
+ * Filter options for loading raw data from storage.
+ * Raw data is scoped by account - each account owns its transaction data.
  */
 export interface LoadRawDataFilters {
   accountId?: number | undefined;
@@ -22,96 +23,10 @@ export interface LoadRawDataFilters {
   offset?: number | undefined;
 }
 
-/**
- * Interface for raw data query operations.
- * Abstracts the database operations for external transaction storage.
- * All operations return Result types for proper error handling.
- */
-export interface RawDataQueries {
-  /**
-   * Load external data from storage with optional filtering.
-   */
-  load(filters?: LoadRawDataFilters): Promise<Result<RawTransaction[], Error>>;
+class RawDataQueriesRepository {
+  private readonly logger = getLogger('raw-data-queries');
 
-  /**
-   * Mark multiple items as processed.
-   */
-  markAsProcessed(rawTransactionIds: number[]): Promise<Result<void, Error>>;
-
-  /**
-   * Save multiple external data items to storage in a single transaction.
-   * Returns inserted and skipped counts (skipped = duplicates per unique constraint).
-   */
-  saveBatch(
-    accountId: number,
-    items: RawTransactionInput[]
-  ): Promise<Result<{ inserted: number; skipped: number }, Error>>;
-
-  /**
-   * Reset processing status to 'pending' for all raw data for an account.
-   * Used when clearing processed data but keeping raw data for reprocessing.
-   */
-  resetProcessingStatusByAccount(accountId: number): Promise<Result<number, Error>>;
-
-  /**
-   * Reset processing status to 'pending' for all raw data.
-   * Used when clearing all processed data but keeping raw data for reprocessing.
-   */
-  resetProcessingStatusAll(): Promise<Result<number, Error>>;
-
-  /**
-   * Count raw data with optional filtering.
-   */
-  count(filters?: { accountIds?: number[] }): Promise<Result<number, Error>>;
-
-  /**
-   * Count pending raw data for an account.
-   */
-  countPending(accountId: number): Promise<Result<number, Error>>;
-
-  /**
-   * Count transactions by stream type for an account.
-   * Returns a map of transaction_type_hint -> count.
-   */
-  countByStreamType(accountId: number): Promise<Result<Map<string, number>, Error>>;
-
-  /**
-   * Delete all raw data for an account.
-   */
-  deleteByAccount(accountId: number): Promise<Result<number, Error>>;
-
-  /**
-   * Delete all raw data.
-   */
-  deleteAll(): Promise<Result<number, Error>>;
-
-  /**
-   * Get distinct account IDs that have pending raw data.
-   * Efficient query that doesn't load all raw data into memory.
-   */
-  getAccountsWithPendingData(): Promise<Result<number[], Error>>;
-
-  /**
-   * Load pending raw data grouped by transaction hash.
-   * Returns all pending raw rows for the first N distinct blockchain_transaction_hash values.
-   * Ensures all events sharing the same hash are processed together.
-   *
-   * @param accountId - Account to load data for
-   * @param hashLimit - Maximum number of distinct hashes to load
-   * @returns All raw transactions for the first hashLimit distinct hashes
-   */
-  loadPendingByHashBatch(accountId: number, hashLimit: number): Promise<Result<RawTransaction[], Error>>;
-}
-
-/**
- * Kysely-based raw data database operations.
- * Handles storage and retrieval of external transaction data using type-safe queries.
- * All operations return Result types and fail fast on errors.
- */
-class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements RawDataQueries {
-  constructor(db: KyselyDB) {
-    super(db, 'RawDataQueries');
-  }
+  constructor(private readonly db: KyselyDB) {}
 
   async load(filters?: LoadRawDataFilters): Promise<Result<RawTransaction[], Error>> {
     try {
@@ -130,7 +45,6 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
       }
 
       if (filters?.since) {
-        // Convert Unix timestamp to Date - now type-safe with DateTime type and plugin
         const sinceDate = new Date(filters.since * 1000).toISOString();
         query = query.where('created_at', '>=', sinceDate);
       }
@@ -147,7 +61,6 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
 
       const rows = await query.execute();
 
-      // Convert rows to domain models, failing fast on any parse errors
       const transactions: RawTransaction[] = [];
       for (const row of rows) {
         const result = this.toRawTransaction(row);
@@ -164,13 +77,15 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
   }
 
   async markAsProcessed(rawTransactionIds: number[]): Promise<Result<void, Error>> {
-    try {
-      if (rawTransactionIds.length === 0) {
-        return ok();
-      }
+    if (rawTransactionIds.length === 0) {
+      return ok();
+    }
 
-      await this.withTransaction(async (trx) => {
-        const processedAt = this.getCurrentDateTimeForDB();
+    return withControlledTransaction(
+      this.db,
+      this.logger,
+      async (trx) => {
+        const processedAt = new Date().toISOString();
 
         await trx
           .updateTable('raw_transactions')
@@ -180,12 +95,11 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
           })
           .where('id', 'in', rawTransactionIds)
           .execute();
-      });
 
-      return ok();
-    } catch (error) {
-      return wrapError(error, 'Failed to mark items as processed');
-    }
+        return ok(undefined);
+      },
+      'Failed to mark items as processed'
+    );
   }
 
   async saveBatch(
@@ -196,23 +110,23 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
       return ok({ inserted: 0, skipped: 0 });
     }
 
-    // Validate all items before processing
     for (const item of items) {
       if (!item.providerData) {
         return err(new Error('Raw data cannot be null or undefined in batch items'));
       }
 
-      // Validate external transaction structure
       const validationResult = RawTransactionInputSchema.safeParse(item);
       if (!validationResult.success) {
         return err(new Error(`Invalid external transaction in batch: ${validationResult.error.message}`));
       }
     }
 
-    try {
-      const result = await this.withTransaction(async (trx) => {
+    return withControlledTransaction(
+      this.db,
+      this.logger,
+      async (trx) => {
         let inserted = 0;
-        const createdAt = this.getCurrentDateTimeForDB();
+        const createdAt = new Date().toISOString();
 
         for (const item of items) {
           try {
@@ -239,28 +153,22 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
               inserted++;
             }
           } catch (error) {
-            // Classify duplicates using stable SQLite error code (message text is format-dependent).
             if (this.isSqliteUniqueConstraintError(error)) {
               const errorMessage = error instanceof Error ? error.message : String(error);
               if (this.isEventIdConstraintViolation(errorMessage)) {
                 await this.warnOnEventIdCollision(trx, accountId, item);
               }
-              // Skip duplicate - this is expected for blockchain transactions shared across derived addresses or re-imported exchange data
               continue;
             }
-            // Re-throw other errors
-            throw error;
+            return wrapError(error, 'Failed to save raw data batch');
           }
         }
 
         const skipped = items.length - inserted;
-        return { inserted, skipped };
-      });
-
-      return ok(result);
-    } catch (error) {
-      return wrapError(error, 'Failed to save raw data batch');
-    }
+        return ok({ inserted, skipped });
+      },
+      'Failed to save raw data batch'
+    );
   }
 
   async resetProcessingStatusByAccount(accountId: number): Promise<Result<number, Error>> {
@@ -389,7 +297,6 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
 
   async loadPendingByHashBatch(accountId: number, hashLimit: number): Promise<Result<RawTransaction[], Error>> {
     try {
-      // CTE to get first N distinct transaction hashes for this account
       const hashesSubquery = this.db
         .selectFrom('raw_transactions')
         .select('blockchain_transaction_hash')
@@ -400,7 +307,6 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
         .orderBy('blockchain_transaction_hash', 'asc')
         .limit(hashLimit);
 
-      // Main query: get all raw rows for those hashes
       const rows = await this.db
         .with('hashes', () => hashesSubquery)
         .selectFrom('raw_transactions as rt')
@@ -412,7 +318,6 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
         .orderBy('rt.id', 'asc')
         .execute();
 
-      // Convert rows to domain models
       const transactions: RawTransaction[] = [];
       for (const row of rows) {
         const result = this.toRawTransaction(row);
@@ -467,11 +372,7 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
     return JSON.stringify(normalize(value));
   }
 
-  private async warnOnEventIdCollision(
-    trx: Transaction<DatabaseSchema>,
-    accountId: number,
-    item: RawTransactionInput
-  ): Promise<void> {
+  private async warnOnEventIdCollision(trx: KyselyDB, accountId: number, item: RawTransactionInput): Promise<void> {
     try {
       const existing = await trx
         .selectFrom('raw_transactions')
@@ -488,7 +389,7 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
         return;
       }
 
-      const existingNormalizedResult = this.parseJson<unknown>(existing.normalized_data);
+      const existingNormalizedResult = parseJson<unknown>(existing.normalized_data);
       if (existingNormalizedResult.isErr()) {
         this.logger.warn(
           { accountId, eventId: item.eventId, error: existingNormalizedResult.error },
@@ -524,15 +425,10 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
     }
   }
 
-  /**
-   * Convert database row to RawTransaction domain model
-   * Handles JSON parsing and camelCase conversion
-   */
   private toRawTransaction(row: Selectable<RawTransactionTable>): Result<RawTransaction, Error> {
-    const rawDataResult = this.parseJson<unknown>(row.provider_data);
-    const normalizedDataResult = this.parseJson<unknown>(row.normalized_data);
+    const rawDataResult = parseJson<unknown>(row.provider_data);
+    const normalizedDataResult = parseJson<unknown>(row.normalized_data);
 
-    // Fail fast on any parse errors
     if (rawDataResult.isErr()) {
       return err(rawDataResult.error);
     }
@@ -540,7 +436,6 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
       return err(normalizedDataResult.error);
     }
 
-    // providerName is required in the domain model
     if (!row.provider_name) {
       return err(new Error('Missing required provider_name field'));
     }
@@ -563,6 +458,8 @@ class RawDataQueriesRepository extends BaseRepository<DatabaseSchema> implements
   }
 }
 
-export function createRawDataQueries(db: KyselyDB): RawDataQueries {
+export function createRawDataQueries(db: KyselyDB) {
   return new RawDataQueriesRepository(db);
 }
+
+export type RawDataQueries = ReturnType<typeof createRawDataQueries>;

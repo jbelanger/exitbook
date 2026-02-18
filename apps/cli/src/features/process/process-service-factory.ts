@@ -1,4 +1,4 @@
-import { TransactionLinkRepository } from '@exitbook/accounting';
+import { createTransactionLinkQueries } from '@exitbook/accounting';
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
   createAccountQueries,
@@ -55,7 +55,7 @@ export async function createProcessServices(database: KyselyDB): Promise<Process
   const transaction = createTransactionQueries(database);
   const rawData = createRawDataQueries(database);
   const importSession = createImportSessionQueries(database);
-  const transactionLink = new TransactionLinkRepository(database);
+  const transactionLink = createTransactionLinkQueries(database);
 
   const dataDir = getDataDir();
   const tokenMetadataResult = await createTokenMetadataPersistence(dataDir);
@@ -64,7 +64,7 @@ export async function createProcessServices(database: KyselyDB): Promise<Process
     throw tokenMetadataResult.error;
   }
 
-  const { repository: tokenMetadata, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
+  const { queries: tokenMetadata, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
 
   let providerManagerCleanup: (() => Promise<void>) | undefined;
   try {

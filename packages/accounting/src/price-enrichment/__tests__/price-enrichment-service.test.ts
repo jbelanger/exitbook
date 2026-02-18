@@ -8,7 +8,7 @@ import { ok, err } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { TransactionLink } from '../../linking/types.js';
-import type { TransactionLinkRepository } from '../../persistence/transaction-link-repository.js';
+import type { TransactionLinkQueries } from '../../persistence/transaction-link-queries.js';
 import { PriceEnrichmentService } from '../price-enrichment-service.js';
 
 // Helper to create a mock TransactionQueries
@@ -19,11 +19,11 @@ function createMockTransactionRepository(): TransactionQueries {
   } as unknown as TransactionQueries;
 }
 
-// Helper to create a mock TransactionLinkRepository
-function createMockLinkRepository(): TransactionLinkRepository {
+// Helper to create a mock TransactionLinkQueries
+function createMockLinkRepository(): TransactionLinkQueries {
   return {
     findAll: vi.fn().mockResolvedValue(ok([])), // Default: no links
-  } as unknown as TransactionLinkRepository;
+  } as unknown as TransactionLinkQueries;
 }
 
 // Helper to create a mock UniversalTransactionData with typed movements

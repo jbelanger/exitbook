@@ -5,7 +5,7 @@ import {
   CostBasisCalculator,
   CostBasisReportGenerator,
   StandardFxRateProvider,
-  type TransactionLinkRepository,
+  type TransactionLinkQueries,
 } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
@@ -50,7 +50,7 @@ export interface CostBasisResult {
 export class CostBasisHandler {
   constructor(
     private transactionRepository: TransactionQueries,
-    private transactionLinkRepository: TransactionLinkRepository
+    private transactionLinkRepository: TransactionLinkQueries
   ) {}
 
   /**

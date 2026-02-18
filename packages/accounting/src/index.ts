@@ -73,7 +73,7 @@ export type {
 export { TransactionLinkingService } from './linking/transaction-linking-service.js';
 export { DEFAULT_MATCHING_CONFIG, createTransactionLink } from './linking/matching-utils.js';
 export { LinkIndex } from './linking/link-index.js';
-export { TransactionLinkRepository } from './persistence/transaction-link-repository.js';
+export { createTransactionLinkQueries, type TransactionLinkQueries } from './persistence/transaction-link-queries.js';
 export { PriceEnrichmentService } from './price-enrichment/price-enrichment-service.js';
 export { PriceNormalizationService } from './price-enrichment/price-normalization-service.js';
 export type { NormalizeResult } from './price-enrichment/price-normalization-service.js';

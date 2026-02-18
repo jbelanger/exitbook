@@ -1355,14 +1355,14 @@ describe('LotMatcher - Fee Handling', () => {
       };
 
       const mockLinkRepo = () => {
-        const repo: Partial<import('../../persistence/transaction-link-repository.js').TransactionLinkRepository> = {
+        const repo: Partial<import('../../persistence/transaction-link-queries.js').TransactionLinkQueries> = {
           findAll: vi.fn().mockResolvedValue({
             isOk: () => true,
             isErr: () => false,
             value: [link],
           }),
         };
-        return repo as import('../../persistence/transaction-link-repository.js').TransactionLinkRepository;
+        return repo as import('../../persistence/transaction-link-queries.js').TransactionLinkQueries;
       };
 
       const matcherWithLinks = new LotMatcher(mockTransactionRepo(), mockLinkRepo());

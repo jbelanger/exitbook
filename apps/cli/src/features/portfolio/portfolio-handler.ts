@@ -8,7 +8,7 @@ import path from 'node:path';
 import {
   CostBasisCalculator,
   type FiatCurrency as AccountingFiatCurrency,
-  type TransactionLinkRepository,
+  type TransactionLinkQueries,
 } from '@exitbook/accounting';
 import { Currency, type UniversalTransactionData } from '@exitbook/core';
 import type { AccountQueries, TransactionQueries } from '@exitbook/data';
@@ -90,7 +90,7 @@ export class PortfolioHandler {
   constructor(
     private accountRepository: AccountQueries,
     private transactionRepository: TransactionQueries,
-    private transactionLinkRepository: TransactionLinkRepository
+    private transactionLinkRepository: TransactionLinkQueries
   ) {}
 
   /**

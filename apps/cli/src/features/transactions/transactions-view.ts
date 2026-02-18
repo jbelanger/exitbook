@@ -164,9 +164,9 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
 
       const initialState = createTransactionsViewState(viewItems, viewFilters, totalCount, categoryCounts);
 
-      const { TransactionLinkRepository } = await import('@exitbook/accounting');
+      const { createTransactionLinkQueries } = await import('@exitbook/accounting');
       const { ExportHandler } = await import('./transactions-export-handler.js');
-      const txLinkRepo = new TransactionLinkRepository(database);
+      const txLinkRepo = createTransactionLinkQueries(database);
       const exportHandler = new ExportHandler(txRepo, txLinkRepo);
 
       const onExport: OnExport = async (format, csvFormat) => {

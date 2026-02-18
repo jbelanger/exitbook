@@ -29,7 +29,7 @@ vi.mock('@exitbook/data', async (importOriginal) => {
     ...actual,
     createUserQueries: vi.fn(),
     createAccountQueries: vi.fn(),
-    TokenMetadataRepository: vi.fn(),
+    TokenMetadataQueries: vi.fn(),
   };
 });
 

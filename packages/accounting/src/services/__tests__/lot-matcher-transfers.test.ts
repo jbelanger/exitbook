@@ -5,7 +5,7 @@ import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { TransactionLink } from '../../linking/types.js';
-import type { TransactionLinkRepository } from '../../persistence/transaction-link-repository.js';
+import type { TransactionLinkQueries } from '../../persistence/transaction-link-queries.js';
 import { LotMatcher } from '../lot-matcher.js';
 import { AverageCostStrategy } from '../strategies/average-cost-strategy.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
@@ -113,14 +113,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
   };
 
   const mockLinkRepo = (links: TransactionLink[]) => {
-    const repo: Partial<TransactionLinkRepository> = {
+    const repo: Partial<TransactionLinkQueries> = {
       findAll: vi.fn().mockResolvedValue({
         isOk: () => true,
         isErr: () => false,
         value: links,
       }),
     };
-    return repo as TransactionLinkRepository;
+    return repo as TransactionLinkQueries;
   };
 
   let transactions: UniversalTransactionData[] = [];

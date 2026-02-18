@@ -69,11 +69,11 @@ async function executeLinksRejectCommand(linkId: string, rawOptions: unknown): P
     const spinner = createSpinner('Rejecting link...', options.json ?? false);
 
     const { createTransactionQueries, OverrideStore } = await import('@exitbook/data');
-    const { TransactionLinkRepository } = await import('@exitbook/accounting');
+    const { createTransactionLinkQueries } = await import('@exitbook/accounting');
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const linkRepo = new TransactionLinkRepository(database);
+      const linkRepo = createTransactionLinkQueries(database);
       const txRepo = createTransactionQueries(database);
       const overrideStore = new OverrideStore(ctx.dataDir);
 

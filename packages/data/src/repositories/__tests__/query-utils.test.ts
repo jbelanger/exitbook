@@ -10,7 +10,7 @@ describe('query-utils', () => {
       const result = serializeToJson({ amount: new Decimal('0.00000001') });
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value).toBe('{"amount":"1e-8"}');
+        expect(result.value).toBe('{"amount":"0.00000001"}');
       }
     });
 

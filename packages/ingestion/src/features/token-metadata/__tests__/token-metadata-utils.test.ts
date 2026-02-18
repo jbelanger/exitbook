@@ -2,7 +2,7 @@
 import type { BlockchainProviderManager, IBlockchainProvider } from '@exitbook/blockchain-providers';
 import { ProviderError } from '@exitbook/blockchain-providers';
 import type { TokenMetadataRecord } from '@exitbook/core';
-import type { TokenMetadataRepository } from '@exitbook/data';
+import type { TokenMetadataQueries } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -15,7 +15,7 @@ import {
 
 describe('token-metadata-utils', () => {
   describe('getOrFetchTokenMetadata', () => {
-    let mockRepository: TokenMetadataRepository;
+    let mockRepository: TokenMetadataQueries;
     let mockProviderManager: BlockchainProviderManager;
 
     beforeEach(() => {
@@ -24,7 +24,7 @@ describe('token-metadata-utils', () => {
         save: vi.fn(),
         isStale: vi.fn(),
         refreshInBackground: vi.fn(),
-      } as unknown as TokenMetadataRepository;
+      } as unknown as TokenMetadataQueries;
 
       mockProviderManager = {
         getProviders: vi.fn(),
@@ -214,7 +214,7 @@ describe('token-metadata-utils', () => {
   });
 
   describe('enrichTokenMetadataBatch', () => {
-    let mockRepository: TokenMetadataRepository;
+    let mockRepository: TokenMetadataQueries;
     let mockProviderManager: BlockchainProviderManager;
 
     beforeEach(() => {
@@ -223,7 +223,7 @@ describe('token-metadata-utils', () => {
         save: vi.fn(),
         isStale: vi.fn(),
         refreshInBackground: vi.fn(),
-      } as unknown as TokenMetadataRepository;
+      } as unknown as TokenMetadataQueries;
 
       mockProviderManager = {
         getProviders: vi.fn(),

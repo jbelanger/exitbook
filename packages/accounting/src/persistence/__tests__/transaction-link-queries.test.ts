@@ -5,10 +5,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { TransactionLink } from '../../linking/types.js';
-import { TransactionLinkRepository } from '../transaction-link-repository.js';
+import { createTransactionLinkQueries, type TransactionLinkQueries } from '../transaction-link-queries.js';
 
-describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
-  let repo: TransactionLinkRepository;
+describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
+  let repo: TransactionLinkQueries;
   let db: KyselyDB;
 
   beforeEach(async () => {
@@ -22,7 +22,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
     await db.deleteFrom('transactions').execute();
     await db.deleteFrom('import_sessions').execute();
 
-    repo = new TransactionLinkRepository(db);
+    repo = createTransactionLinkQueries(db);
 
     // Create default user and account for foreign key constraints
     await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();

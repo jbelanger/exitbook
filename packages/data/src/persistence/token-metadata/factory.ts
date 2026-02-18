@@ -4,7 +4,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { TokenMetadataRepository } from '../../repositories/token-metadata-repository.js';
+import { createTokenMetadataQueries, type TokenMetadataQueries } from '../../repositories/token-metadata-queries.js';
 
 import {
   closeTokenMetadataDatabase,
@@ -13,10 +13,10 @@ import {
   type TokenMetadataDB,
 } from './database.js';
 
-const logger = getLogger('TokenMetadataRepositoryFactory');
+const logger = getLogger('TokenMetadataQueriesFactory');
 
 export interface TokenMetadataPersistenceDeps {
-  repository: TokenMetadataRepository;
+  queries: TokenMetadataQueries;
   database: TokenMetadataDB;
   cleanup: () => Promise<void>;
 }
@@ -48,7 +48,7 @@ export async function createTokenMetadataPersistence(
     return err(migrationResult.error);
   }
 
-  const repository = new TokenMetadataRepository(database);
+  const queries = createTokenMetadataQueries(database);
 
   const cleanup = async () => {
     const closeResult = await closeTokenMetadataDatabase(database);
@@ -58,7 +58,7 @@ export async function createTokenMetadataPersistence(
   };
 
   return ok({
-    repository,
+    queries,
     database,
     cleanup,
   });

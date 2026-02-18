@@ -1,4 +1,4 @@
-import { TransactionLinkRepository } from '@exitbook/accounting';
+import { createTransactionLinkQueries } from '@exitbook/accounting';
 import {
   type AccountQueries,
   createAccountQueries,
@@ -86,7 +86,7 @@ async function executeClearTUI(options: {
       const userQueries = createUserQueries(database);
       const accountQueries = createAccountQueries(database);
       const transactionQueries = createTransactionQueries(database);
-      const transactionLinkQueries = new TransactionLinkRepository(database);
+      const transactionLinkQueries = createTransactionLinkQueries(database);
       const rawDataQueries = createRawDataQueries(database);
       const importSessionQueries = createImportSessionQueries(database);
 
@@ -192,7 +192,7 @@ async function executeClearNonTui(options: {
       const userQueries = createUserQueries(database);
       const accountRepository = createAccountQueries(database);
       const transactionRepository = createTransactionQueries(database);
-      const transactionLinkRepository = new TransactionLinkRepository(database);
+      const transactionLinkRepository = createTransactionLinkQueries(database);
       const rawDataQueries = createRawDataQueries(database);
       const importSessionRepository = createImportSessionQueries(database);
 

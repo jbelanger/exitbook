@@ -1,4 +1,4 @@
-import type { TransactionLinkRepository } from '@exitbook/accounting';
+import type { TransactionLinkQueries } from '@exitbook/accounting';
 import type { Account } from '@exitbook/core';
 import type {
   AccountQueries,
@@ -39,7 +39,7 @@ export class ClearService {
     private userQueries: UserQueries,
     private accountQueries: AccountQueries,
     private transactionQueries: TransactionQueries,
-    private transactionLinkQueries: TransactionLinkRepository,
+    private transactionLinkQueries: TransactionLinkQueries,
     private rawDataQueries: RawDataQueries,
     private sessionQueries: ImportSessionQueries,
     private eventBus?: EventBus<IngestionEvent> | undefined

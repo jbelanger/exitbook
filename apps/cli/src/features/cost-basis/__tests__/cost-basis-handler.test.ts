@@ -4,7 +4,7 @@ import {
   CostBasisReportGenerator,
   type CostBasisReport,
   type CostBasisSummary,
-  type TransactionLinkRepository,
+  type TransactionLinkQueries,
 } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
@@ -48,7 +48,7 @@ vi.mock('@exitbook/logger', () => ({
 describe('CostBasisHandler', () => {
   let handler: CostBasisHandler;
   let mockTransactionRepo: TransactionQueries;
-  let mockLinkRepo: TransactionLinkRepository;
+  let mockLinkRepo: TransactionLinkQueries;
 
   beforeEach(() => {
     // Reset mocks
@@ -59,7 +59,7 @@ describe('CostBasisHandler', () => {
       getTransactions: vi.fn(),
     } as unknown as TransactionQueries;
 
-    mockLinkRepo = {} as unknown as TransactionLinkRepository;
+    mockLinkRepo = {} as unknown as TransactionLinkQueries;
 
     handler = new CostBasisHandler(mockTransactionRepo, mockLinkRepo);
   });

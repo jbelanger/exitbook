@@ -170,12 +170,12 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
  */
 async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
   const { createTransactionQueries, OverrideStore } = await import('@exitbook/data');
-  const { TransactionLinkRepository } = await import('@exitbook/accounting');
+  const { createTransactionLinkQueries } = await import('@exitbook/accounting');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const linkRepo = new TransactionLinkRepository(database);
+      const linkRepo = createTransactionLinkQueries(database);
       const txRepo = createTransactionQueries(database);
       const overrideStore = new OverrideStore(ctx.dataDir);
 
@@ -247,13 +247,13 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
  */
 async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
   const { createTransactionQueries } = await import('@exitbook/data');
-  const { TransactionLinkRepository } = await import('@exitbook/accounting');
+  const { createTransactionLinkQueries } = await import('@exitbook/accounting');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const txRepo = createTransactionQueries(database);
-      const linkRepo = new TransactionLinkRepository(database);
+      const linkRepo = createTransactionLinkQueries(database);
 
       const transactionsResult = await txRepo.getTransactions();
       if (transactionsResult.isErr()) {
@@ -301,12 +301,12 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
  */
 async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
   const { createTransactionQueries } = await import('@exitbook/data');
-  const { TransactionLinkRepository } = await import('@exitbook/accounting');
+  const { createTransactionLinkQueries } = await import('@exitbook/accounting');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const linkRepo = new TransactionLinkRepository(database);
+      const linkRepo = createTransactionLinkQueries(database);
       const txRepo = createTransactionQueries(database);
 
       const linksResult = await linkRepo.findAll(params.status as LinkStatus);
@@ -359,13 +359,13 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
  */
 async function executeGapsViewJSON(params: LinksViewParams): Promise<void> {
   const { createTransactionQueries } = await import('@exitbook/data');
-  const { TransactionLinkRepository } = await import('@exitbook/accounting');
+  const { createTransactionLinkQueries } = await import('@exitbook/accounting');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const txRepo = createTransactionQueries(database);
-      const linkRepo = new TransactionLinkRepository(database);
+      const linkRepo = createTransactionLinkQueries(database);
 
       const transactionsResult = await txRepo.getTransactions();
       if (transactionsResult.isErr()) {

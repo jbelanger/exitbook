@@ -7,11 +7,11 @@ import {
   initializeTokenMetadataDatabase,
   type TokenMetadataDB,
 } from '../../persistence/token-metadata/database.js';
-import { TokenMetadataRepository } from '../token-metadata-repository.js';
+import { createTokenMetadataQueries, type TokenMetadataQueries } from '../token-metadata-queries.js';
 
-describe('TokenMetadataRepository', () => {
+describe('TokenMetadataQueries', () => {
   let db: TokenMetadataDB;
-  let repository: TokenMetadataRepository;
+  let repository: TokenMetadataQueries;
 
   beforeEach(async () => {
     const dbResult = createTokenMetadataDatabase(':memory:');
@@ -25,7 +25,7 @@ describe('TokenMetadataRepository', () => {
       throw initResult.error;
     }
 
-    repository = new TokenMetadataRepository(db);
+    repository = createTokenMetadataQueries(db);
   });
 
   afterEach(async () => {

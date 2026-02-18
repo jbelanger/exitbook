@@ -24,7 +24,7 @@ import {
   PriceEnrichmentService,
   PriceNormalizationService,
   StandardFxRateProvider,
-  type TransactionLinkRepository,
+  type TransactionLinkQueries,
 } from '@exitbook/accounting';
 import type { NormalizeResult } from '@exitbook/accounting';
 import type { TransactionQueries } from '@exitbook/data';
@@ -90,7 +90,7 @@ export class PricesEnrichHandler {
 
   constructor(
     private readonly transactionRepo: TransactionQueries,
-    private readonly linkRepo: TransactionLinkRepository,
+    private readonly linkRepo: TransactionLinkQueries,
     private readonly eventBus?: EventBus<PriceEvent>,
     instrumentation?: InstrumentationCollector
   ) {

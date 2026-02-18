@@ -1,6 +1,6 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { TokenMetadataRecord } from '@exitbook/core';
-import type { TokenMetadataRepository } from '@exitbook/data';
+import type { TokenMetadataQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
@@ -29,7 +29,7 @@ export class TokenMetadataService implements ITokenMetadataService {
   private batchCounter = 0;
 
   constructor(
-    private readonly tokenMetadataRepository: TokenMetadataRepository,
+    private readonly tokenMetadataQueries: TokenMetadataQueries,
     private readonly providerManager: BlockchainProviderManager,
     private readonly eventBus: EventBus<IngestionEvent>
   ) {}
@@ -57,7 +57,7 @@ export class TokenMetadataService implements ITokenMetadataService {
       blockchain,
       contractExtractor,
       metadataUpdater,
-      this.tokenMetadataRepository,
+      this.tokenMetadataQueries,
       this.providerManager,
       decimalsExtractor
     );
@@ -86,7 +86,7 @@ export class TokenMetadataService implements ITokenMetadataService {
     blockchain: string,
     contractAddress: string
   ): Promise<Result<TokenMetadataRecord | undefined, Error>> {
-    return getOrFetchTokenMetadata(blockchain, contractAddress, this.tokenMetadataRepository, this.providerManager);
+    return getOrFetchTokenMetadata(blockchain, contractAddress, this.tokenMetadataQueries, this.providerManager);
   }
 
   /**
@@ -98,12 +98,7 @@ export class TokenMetadataService implements ITokenMetadataService {
     blockchain: string,
     contractAddresses: string[]
   ): Promise<Result<Map<string, TokenMetadataRecord | undefined>, Error>> {
-    return getOrFetchTokenMetadataBatch(
-      blockchain,
-      contractAddresses,
-      this.tokenMetadataRepository,
-      this.providerManager
-    );
+    return getOrFetchTokenMetadataBatch(blockchain, contractAddresses, this.tokenMetadataQueries, this.providerManager);
   }
 
   /**
@@ -129,7 +124,7 @@ export class TokenMetadataService implements ITokenMetadataService {
     }
 
     // Use batch lookup instead of N sequential queries
-    const cacheResult = await this.tokenMetadataRepository.getByContracts(blockchain, Array.from(contractAddresses));
+    const cacheResult = await this.tokenMetadataQueries.getByContracts(blockchain, Array.from(contractAddresses));
 
     if (cacheResult.isErr()) {
       this.logger.warn({ error: cacheResult.error, blockchain }, 'Batch cache lookup failed, treating all as misses');

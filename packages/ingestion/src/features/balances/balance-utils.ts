@@ -7,7 +7,7 @@ import {
   parseDecimal,
   wrapError,
 } from '@exitbook/core';
-import type { TokenMetadataRepository } from '@exitbook/data';
+import type { TokenMetadataQueries } from '@exitbook/data';
 import type { IExchangeClient } from '@exitbook/exchanges-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -88,7 +88,7 @@ export async function fetchExchangeBalance(
  */
 export async function fetchBlockchainBalance(
   providerManager: BlockchainProviderManager,
-  tokenMetadataRepository: TokenMetadataRepository,
+  tokenMetadataRepository: TokenMetadataQueries,
   blockchain: string,
   address: string,
   providerName?: string
@@ -213,7 +213,7 @@ export async function fetchBlockchainBalance(
  */
 export async function fetchChildAccountsBalance(
   providerManager: BlockchainProviderManager,
-  tokenMetadataRepository: TokenMetadataRepository,
+  tokenMetadataRepository: TokenMetadataQueries,
   blockchain: string,
   parentAddress: string,
   childAccounts: { identifier: string }[],
@@ -302,7 +302,7 @@ export function convertBalancesToDecimals(balances: Record<string, string>): Rec
 async function enrichBalanceData(
   balance: RawBalanceData,
   blockchain: string,
-  tokenMetadataRepository: TokenMetadataRepository,
+  tokenMetadataRepository: TokenMetadataQueries,
   providerManager: BlockchainProviderManager
 ): Promise<Result<RawBalanceData, Error>> {
   // If we have all required fields (symbol and decimals), no need to enrich

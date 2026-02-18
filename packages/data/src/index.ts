@@ -8,7 +8,7 @@ export type { AccountQueries, FindOrCreateAccountParams, UpdateAccountParams } f
 export { createTransactionQueries, type TransactionQueries } from './repositories/transaction-queries.js';
 export type { TransactionFilters, TransactionSummary } from './repositories/transaction-queries.js';
 export { generateDeterministicTransactionHash } from './repositories/transaction-id-utils.js';
-export { TokenMetadataRepository } from './repositories/token-metadata-repository.js';
+export { createTokenMetadataQueries, type TokenMetadataQueries } from './repositories/token-metadata-queries.js';
 export {
   createTokenMetadataPersistence,
   type TokenMetadataPersistenceDeps,
@@ -19,5 +19,9 @@ export { createRawDataQueries, type RawDataQueries, type LoadRawDataFilters } fr
 export { createImportSessionQueries } from './repositories/import-session-queries.js';
 export type { ImportSessionQueries } from './repositories/import-session-queries.js';
 export type { StoredImportSession, ImportSessionQuery, ImportSessionUpdate } from './types/data-types.js';
-export { TransactionLinkRepository, type TransactionLinkRow } from './repositories/transaction-link-repository.js';
+export {
+  createTransactionLinkQueries,
+  type TransactionLinkQueries,
+  type TransactionLinkRow,
+} from './repositories/transaction-link-queries.js';
 export * from './overrides/index.js';

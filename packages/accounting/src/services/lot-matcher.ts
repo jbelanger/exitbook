@@ -7,7 +7,7 @@ import { err, ok, type Result } from 'neverthrow';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../domain/schemas.js';
 import { LinkIndex } from '../linking/link-index.js';
 import type { TransactionLink } from '../linking/types.js';
-import type { TransactionLinkRepository } from '../persistence/transaction-link-repository.js';
+import type { TransactionLinkQueries } from '../persistence/transaction-link-queries.js';
 
 import {
   buildAcquisitionLotFromInflow,
@@ -126,7 +126,7 @@ export class LotMatcher {
 
   constructor(
     private readonly transactionRepository?: TransactionQueries | undefined,
-    private readonly linkRepository?: TransactionLinkRepository | undefined
+    private readonly linkRepository?: TransactionLinkQueries | undefined
   ) {}
 
   /**

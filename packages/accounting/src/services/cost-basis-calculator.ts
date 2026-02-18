@@ -9,7 +9,7 @@ import type { CostBasisConfig } from '../config/cost-basis-config.js';
 import type { CostBasisCalculation } from '../domain/schemas.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../domain/schemas.js';
 import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
-import type { TransactionLinkRepository } from '../persistence/transaction-link-repository.js';
+import type { TransactionLinkQueries } from '../persistence/transaction-link-queries.js';
 
 import { getStrategyForMethod } from './cost-basis-utils.js';
 import { validateTransactionPrices } from './cost-basis-validation-utils.js';
@@ -57,7 +57,7 @@ export class CostBasisCalculator {
   private readonly lotMatcher: LotMatcher;
   private readonly logger = getLogger('CostBasisCalculator');
 
-  constructor(transactionRepository?: TransactionQueries, linkRepository?: TransactionLinkRepository) {
+  constructor(transactionRepository?: TransactionQueries, linkRepository?: TransactionLinkQueries) {
     this.lotMatcher = new LotMatcher(transactionRepository, linkRepository);
   }
 

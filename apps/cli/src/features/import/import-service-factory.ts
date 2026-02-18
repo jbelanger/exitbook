@@ -55,7 +55,7 @@ export async function createImportServices(database: KyselyDB): Promise<ImportSe
     throw tokenMetadataResult.error;
   }
 
-  const { repository: tokenMetadataRepository, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
+  const { queries: tokenMetadataRepository, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
 
   let providerManagerCleanup: (() => Promise<void>) | undefined;
   try {

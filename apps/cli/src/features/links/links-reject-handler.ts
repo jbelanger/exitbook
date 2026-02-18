@@ -1,6 +1,6 @@
 // Handler for links reject command
 
-import type { TransactionLinkRepository } from '@exitbook/accounting';
+import type { TransactionLinkQueries } from '@exitbook/accounting';
 import type { OverrideStore } from '@exitbook/data';
 import type { TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
@@ -41,7 +41,7 @@ export interface LinksRejectResult {
  */
 export class LinksRejectHandler {
   constructor(
-    private readonly linkRepo: TransactionLinkRepository,
+    private readonly linkRepo: TransactionLinkQueries,
     private readonly txRepo: TransactionQueries,
     private readonly overrideStore?: OverrideStore | undefined
   ) {}

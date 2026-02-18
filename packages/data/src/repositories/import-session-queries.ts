@@ -11,73 +11,8 @@ import type { ImportSessionUpdate } from '../types/data-types.js';
 
 import { parseJson, serializeToJson } from './query-utils.js';
 
-/**
- * Import session query operations.
- */
-export interface ImportSessionQueries {
-  /**
-   * Create a new import session for an account.
-   */
-  create(accountId: number): Promise<Result<number, Error>>;
-
-  /**
-   * Finalize an import session with results and status.
-   */
-  finalize(
-    sessionId: number,
-    status: Exclude<ImportSessionStatus, 'started'>,
-    startTime: number,
-    transactionsImported: number,
-    transactionsSkipped: number,
-    errorMessage?: string,
-    errorDetails?: unknown
-  ): Promise<Result<void, Error>>;
-
-  /**
-   * Find import session by ID.
-   */
-  findById(sessionId: number): Promise<Result<ImportSession | undefined, Error>>;
-
-  /**
-   * Find all import sessions for multiple accounts in one query (avoids N+1).
-   */
-  findByAccounts(accountIds: number[]): Promise<Result<ImportSession[], Error>>;
-
-  /**
-   * Get session counts for multiple accounts in one query (avoids N+1).
-   * Returns a Map of accountId -> session count.
-   */
-  getSessionCountsByAccount(accountIds: number[]): Promise<Result<Map<number, number>, Error>>;
-
-  /**
-   * Find latest incomplete import session for an account to support resume.
-   * Status 'started' or 'failed' indicates incomplete import.
-   */
-  findLatestIncomplete(accountId: number): Promise<Result<ImportSession | undefined, Error>>;
-
-  /**
-   * Update an existing import session.
-   */
-  update(sessionId: number, updates: ImportSessionUpdate): Promise<Result<void, Error>>;
-
-  /**
-   * Count import sessions with optional filtering.
-   */
-  count(filters?: { accountIds?: number[] }): Promise<Result<number, Error>>;
-
-  /**
-   * Delete all import sessions for an account.
-   */
-  deleteByAccount(accountId: number): Promise<Result<void, Error>>;
-
-  /**
-   * Delete all import sessions.
-   */
-  deleteAll(): Promise<Result<void, Error>>;
-}
-
-export function createImportSessionQueries(db: KyselyDB): ImportSessionQueries {
-  const logger = getLogger('import-session-repository');
+export function createImportSessionQueries(db: KyselyDB) {
+  const logger = getLogger('import-session-queries');
 
   function toImportSession(row: Selectable<ImportSessionsTable>): Result<ImportSession, Error> {
     const errorDetailsResult = parseJson<unknown>(row.error_details);
@@ -368,3 +303,5 @@ export function createImportSessionQueries(db: KyselyDB): ImportSessionQueries {
     deleteAll,
   };
 }
+
+export type ImportSessionQueries = ReturnType<typeof createImportSessionQueries>;

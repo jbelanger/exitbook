@@ -2,7 +2,7 @@ import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { ProviderError } from '@exitbook/blockchain-providers';
 import type { TokenMetadata, TokenMetadataRecord } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { TokenMetadataRepository } from '@exitbook/data';
+import type { TokenMetadataQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -28,7 +28,7 @@ const logger = getLogger('token-metadata-utils');
 export async function getOrFetchTokenMetadata(
   blockchain: string,
   contractAddress: string,
-  tokenMetadataRepository: TokenMetadataRepository,
+  tokenMetadataRepository: TokenMetadataQueries,
   providerManager: BlockchainProviderManager
 ): Promise<Result<TokenMetadataRecord | undefined, Error>> {
   try {
@@ -187,7 +187,7 @@ async function fetchBatchFromProvider(
 export async function getOrFetchTokenMetadataBatch(
   blockchain: string,
   contractAddresses: string[],
-  tokenMetadataRepository: TokenMetadataRepository,
+  tokenMetadataRepository: TokenMetadataQueries,
   providerManager: BlockchainProviderManager
 ): Promise<Result<Map<string, TokenMetadataRecord | undefined>, Error>> {
   try {
@@ -381,7 +381,7 @@ export async function enrichTokenMetadataBatch<T>(
   blockchain: string,
   contractExtractor: (item: T) => string | undefined,
   metadataUpdater: (item: T, metadata: TokenMetadataRecord) => void,
-  tokenMetadataRepository: TokenMetadataRepository,
+  tokenMetadataRepository: TokenMetadataQueries,
   providerManager: BlockchainProviderManager,
   decimalsExtractor?: (item: T) => boolean
 ): Promise<Result<void, Error>> {

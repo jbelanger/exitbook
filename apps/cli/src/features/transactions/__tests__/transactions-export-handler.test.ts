@@ -1,4 +1,4 @@
-import type { TransactionLinkRepository } from '@exitbook/accounting';
+import type { TransactionLinkQueries } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
@@ -21,7 +21,7 @@ describe('ExportHandler', () => {
   let mockTransactionRepository: {
     getTransactions: Mock;
   };
-  let mockTransactionLinkRepository: {
+  let mockTransactionLinkQueries: {
     findByTransactionIds: Mock;
   };
   let handler: ExportHandler;
@@ -34,13 +34,13 @@ describe('ExportHandler', () => {
       getTransactions: vi.fn(),
     };
 
-    mockTransactionLinkRepository = {
+    mockTransactionLinkQueries = {
       findByTransactionIds: vi.fn().mockResolvedValue(ok([])),
     };
 
     handler = new ExportHandler(
       mockTransactionRepository as unknown as TransactionQueries,
-      mockTransactionLinkRepository as unknown as TransactionLinkRepository
+      mockTransactionLinkQueries as unknown as TransactionLinkQueries
     );
   });
 
@@ -89,7 +89,7 @@ describe('ExportHandler', () => {
       expect(exportResult.outputs[3]?.path).toBe('./data/transactions.links.csv');
 
       expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith({ includeExcluded: true });
-      expect(mockTransactionLinkRepository.findByTransactionIds).toHaveBeenCalledWith([1, 2]);
+      expect(mockTransactionLinkQueries.findByTransactionIds).toHaveBeenCalledWith([1, 2]);
     });
 
     it('should successfully export transactions to JSON', async () => {
@@ -110,7 +110,7 @@ describe('ExportHandler', () => {
       expect(exportResult.format).toBe('json');
       expect(exportResult.outputs).toHaveLength(1);
       expect(exportResult.outputs[0]?.path).toBe('./data/transactions.json');
-      expect(mockTransactionLinkRepository.findByTransactionIds).not.toHaveBeenCalled();
+      expect(mockTransactionLinkQueries.findByTransactionIds).not.toHaveBeenCalled();
 
       const parsedContent = JSON.parse(exportResult.outputs[0]?.content ?? '[]') as UniversalTransactionData[];
       expect(parsedContent).toHaveLength(1);
@@ -137,7 +137,7 @@ describe('ExportHandler', () => {
       expect(exportResult.csvFormat).toBe('simple');
       expect(exportResult.outputs).toHaveLength(1);
       expect(exportResult.outputs[0]?.content).toContain('id,external_id,source,operation_category');
-      expect(mockTransactionLinkRepository.findByTransactionIds).not.toHaveBeenCalled();
+      expect(mockTransactionLinkQueries.findByTransactionIds).not.toHaveBeenCalled();
     });
 
     it('should filter by source name', async () => {

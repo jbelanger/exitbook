@@ -3,7 +3,7 @@ import {
   DEFAULT_MATCHING_CONFIG,
   TransactionLinkingService,
   type TransactionLink,
-  type TransactionLinkRepository,
+  type TransactionLinkQueries,
 } from '@exitbook/accounting';
 import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import { applyLinkOverrides, type OrphanedLinkOverride, type OverrideStore } from '@exitbook/data';
@@ -74,7 +74,7 @@ export interface LinksRunResult {
 export class LinksRunHandler {
   constructor(
     private transactionRepository: TransactionQueries,
-    private linkRepository: TransactionLinkRepository,
+    private linkRepository: TransactionLinkQueries,
     private overrideStore?: OverrideStore | undefined,
     private eventBus?: EventBus<LinkingEvent> | undefined
   ) {}
