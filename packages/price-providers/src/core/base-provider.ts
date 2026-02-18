@@ -9,7 +9,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { PriceQueries } from '../persistence/repositories/price-queries.js';
+import type { PriceQueries } from '../persistence/queries/price-queries.js';
 
 import type { IPriceProvider, PriceData, PriceQuery, ProviderMetadata } from './types.js';
 import { validatePriceData, validateQueryTimeRange } from './utils.js';

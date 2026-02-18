@@ -101,7 +101,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
   }
 
   const mockTransactionRepo = () => {
-    const repo: Partial<TransactionQueries> = {
+    const queries: Partial<TransactionQueries> = {
       findById: vi.fn().mockImplementation((id: number) => {
         const sourceTx = transactions.find((t) => t.id === id);
         return sourceTx
@@ -109,18 +109,18 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
           : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
       }),
     };
-    return repo as TransactionQueries;
+    return queries as TransactionQueries;
   };
 
   const mockLinkRepo = (links: TransactionLink[]) => {
-    const repo: Partial<TransactionLinkQueries> = {
+    const queries: Partial<TransactionLinkQueries> = {
       findAll: vi.fn().mockResolvedValue({
         isOk: () => true,
         isErr: () => false,
         value: links,
       }),
     };
-    return repo as TransactionLinkQueries;
+    return queries as TransactionLinkQueries;
   };
 
   let transactions: UniversalTransactionData[] = [];

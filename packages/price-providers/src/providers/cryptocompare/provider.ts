@@ -14,7 +14,7 @@ import { createProviderHttpClient } from '../../core/utils.js';
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../index.js';
 import { CoinNotFoundError } from '../../index.js';
 import type { PricesDB } from '../../persistence/database.js';
-import { createPriceQueries, type PriceQueries } from '../../persistence/repositories/price-queries.js';
+import { createPriceQueries, type PriceQueries } from '../../persistence/queries/price-queries.js';
 
 import {
   buildHistoricalParams,

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
-
 import type { SourceType, UniversalTransactionData } from '@exitbook/core';
 import { Currency, parseDecimal, type AssetMovement } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';

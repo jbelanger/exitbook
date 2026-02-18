@@ -14,7 +14,7 @@ import type { ProviderMetadata, PriceQuery, PriceData } from '../../core/types.j
 import type { ProviderRateLimitConfig } from '../../core/utils.js';
 import { createProviderHttpClient } from '../../core/utils.js';
 import type { PricesDB } from '../../persistence/database.js';
-import { createPriceQueries, type PriceQueries } from '../../persistence/repositories/price-queries.js';
+import { createPriceQueries, type PriceQueries } from '../../persistence/queries/price-queries.js';
 
 import {
   buildBinanceKlinesParams,

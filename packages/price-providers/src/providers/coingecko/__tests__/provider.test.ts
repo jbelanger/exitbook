@@ -32,8 +32,8 @@ import { Currency } from '@exitbook/core';
 
 import { createTestPriceData } from '../../../__tests__/test-helpers.js';
 import type { PriceData } from '../../../core/types.js';
-import type { PriceQueries } from '../../../persistence/repositories/price-queries.js';
-import type { ProviderQueries } from '../../../persistence/repositories/provider-queries.js';
+import type { PriceQueries } from '../../../persistence/queries/price-queries.js';
+import type { ProviderQueries } from '../../../persistence/queries/provider-queries.js';
 // Import after mocks so they receive mocked dependencies
 import { CoinGeckoProvider } from '../provider.js';
 

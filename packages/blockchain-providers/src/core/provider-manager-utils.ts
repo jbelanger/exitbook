@@ -353,37 +353,6 @@ export function deduplicateTransactions<T extends { normalized: NormalizedTransa
 }
 
 /**
- * Load recent transaction IDs from storage to seed deduplication set
- *
- * When resuming with a replay window, we need to filter out transactions
- * that were already processed. Loading recent IDs prevents duplicates.
- *
- * This is a placeholder that will be implemented in Phase 2.3 when we add
- * storage integration to the provider manager.
- *
- * @param importSessionId - Import session to load transactions from
- * @param windowSize - Number of recent transactions to load
- * @returns Promise resolving to array of transaction IDs from the last N transactions
- */
-export function loadRecentTransactionIds(
-  importSessionId: number,
-  _windowSize = DEFAULT_DEDUP_WINDOW_SIZE
-): Promise<string[]> {
-  // TODO: Implement in Phase 2.3
-  // This will query the repository:
-  // Query: SELECT event_id FROM raw_transactions
-  //        WHERE import_session_id = ?
-  //        ORDER BY id DESC
-  //        LIMIT ?
-
-  // Suppress unused parameter warning - will be used in Phase 2.3
-  void importSessionId;
-
-  // For now, return empty array (Phase 1-2 proof of concept only)
-  return Promise.resolve([]);
-}
-
-/**
  * Configuration for cursor resolution
  */
 export interface CursorResolutionConfig {

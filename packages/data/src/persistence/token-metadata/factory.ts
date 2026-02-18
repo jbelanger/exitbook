@@ -4,7 +4,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { createTokenMetadataQueries, type TokenMetadataQueries } from '../../repositories/token-metadata-queries.js';
+import { createTokenMetadataQueries, type TokenMetadataQueries } from '../../queries/token-metadata-queries.js';
 
 import {
   closeTokenMetadataDatabase,

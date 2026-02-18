@@ -1,11 +1,27 @@
 import { Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import type { TransactionQueries } from '@exitbook/data';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { TransactionLinkQueries } from '../../persistence/transaction-link-queries.js';
 import { LotMatcher } from '../lot-matcher.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
 
+const mockTransactionRepo = () => {
+  const queries: Partial<TransactionQueries> = {
+    findById: vi.fn().mockResolvedValue({ isOk: () => false, isErr: () => true, error: new Error('Not found') }),
+  };
+  return queries as TransactionQueries;
+};
+
+const mockLinkRepo = () => {
+  const queries: Partial<TransactionLinkQueries> = {
+    findAll: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
+  };
+  return queries as TransactionLinkQueries;
+};
+
 describe('LotMatcher - Fee Handling', () => {
-  const matcher = new LotMatcher();
+  const matcher = new LotMatcher(mockTransactionRepo(), mockLinkRepo());
   const fifoStrategy = new FifoStrategy();
 
   const createPriceAtTxTime = (amount: string, currency = 'USD') => ({
@@ -1343,7 +1359,7 @@ describe('LotMatcher - Fee Handling', () => {
       };
 
       const mockTransactionRepo = () => {
-        const repo: Partial<import('@exitbook/data').TransactionQueries> = {
+        const queries: Partial<import('@exitbook/data').TransactionQueries> = {
           findById: vi.fn().mockImplementation((id: number) => {
             const tx = transactions.find((t) => t.id === id);
             return tx
@@ -1351,18 +1367,18 @@ describe('LotMatcher - Fee Handling', () => {
               : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
           }),
         };
-        return repo as import('@exitbook/data').TransactionQueries;
+        return queries as import('@exitbook/data').TransactionQueries;
       };
 
       const mockLinkRepo = () => {
-        const repo: Partial<import('../../persistence/transaction-link-queries.js').TransactionLinkQueries> = {
+        const queries: Partial<import('../../persistence/transaction-link-queries.js').TransactionLinkQueries> = {
           findAll: vi.fn().mockResolvedValue({
             isOk: () => true,
             isErr: () => false,
             value: [link],
           }),
         };
-        return repo as import('../../persistence/transaction-link-queries.js').TransactionLinkQueries;
+        return queries as import('../../persistence/transaction-link-queries.js').TransactionLinkQueries;
       };
 
       const matcherWithLinks = new LotMatcher(mockTransactionRepo(), mockLinkRepo());

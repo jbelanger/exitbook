@@ -11,7 +11,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { createPricesDatabase, initializePricesDatabase } from '../persistence/database.js';
-import { createPriceQueries, type PriceQueries } from '../persistence/repositories/price-queries.js';
+import { createPriceQueries, type PriceQueries } from '../persistence/queries/price-queries.js';
 
 /**
  * Manual price entry data

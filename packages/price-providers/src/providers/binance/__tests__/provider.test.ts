@@ -45,7 +45,7 @@ import { Currency } from '@exitbook/core';
 
 import { createTestPriceData } from '../../../__tests__/test-helpers.js';
 import { CoinNotFoundError, type PriceData } from '../../../index.js';
-import type { PriceQueries } from '../../../persistence/repositories/price-queries.js';
+import type { PriceQueries } from '../../../persistence/queries/price-queries.js';
 // Import after mocks so they receive mocked dependencies
 import { BinanceProvider } from '../provider.js';
 

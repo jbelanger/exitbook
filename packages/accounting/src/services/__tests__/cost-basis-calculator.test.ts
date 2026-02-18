@@ -1,18 +1,34 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency, parseDecimal } from '@exitbook/core';
-import { beforeEach, describe, expect, it } from 'vitest';
+import type { TransactionQueries } from '@exitbook/data';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTransaction, createTransactionWithFee } from '../../../__tests__/test-utils.js';
 import type { CostBasisConfig } from '../../config/cost-basis-config.js';
 import { CanadaRules } from '../../jurisdictions/canada-rules.js';
 import { USRules } from '../../jurisdictions/us-rules.js';
+import type { TransactionLinkQueries } from '../../persistence/transaction-link-queries.js';
 import { CostBasisCalculator } from '../cost-basis-calculator.js';
+
+const mockTransactionRepo = () => {
+  const queries: Partial<TransactionQueries> = {
+    findById: vi.fn().mockResolvedValue({ isOk: () => false, isErr: () => true, error: new Error('Not found') }),
+  };
+  return queries as TransactionQueries;
+};
+
+const mockLinkRepo = () => {
+  const queries: Partial<TransactionLinkQueries> = {
+    findAll: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
+  };
+  return queries as TransactionLinkQueries;
+};
 
 describe('CostBasisCalculator', () => {
   let calculator: CostBasisCalculator;
 
   beforeEach(() => {
-    calculator = new CostBasisCalculator();
+    calculator = new CostBasisCalculator(mockTransactionRepo(), mockLinkRepo());
   });
 
   describe('calculate', () => {

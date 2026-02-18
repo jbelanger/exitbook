@@ -57,7 +57,7 @@ export class CostBasisCalculator {
   private readonly lotMatcher: LotMatcher;
   private readonly logger = getLogger('CostBasisCalculator');
 
-  constructor(transactionRepository?: TransactionQueries, linkRepository?: TransactionLinkQueries) {
+  constructor(transactionRepository: TransactionQueries, linkRepository: TransactionLinkQueries) {
     this.lotMatcher = new LotMatcher(transactionRepository, linkRepository);
   }
 

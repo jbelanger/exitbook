@@ -12,7 +12,7 @@ import { Currency, parseDecimal } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../persistence/database.js';
-import { createPriceQueries, type PriceQueries } from '../../persistence/repositories/price-queries.js';
+import { createPriceQueries, type PriceQueries } from '../../persistence/queries/price-queries.js';
 import { ManualPriceService, saveManualFxRate, saveManualPrice } from '../manual-price-service.js';
 
 describe('ManualPriceService', () => {

@@ -9,4 +9,4 @@ export {
   createProviderStatsQueries,
   type ProviderStatsQueries,
   type ProviderStatsInput,
-} from './repositories/provider-stats-queries.js';
+} from './queries/provider-stats-queries.js';

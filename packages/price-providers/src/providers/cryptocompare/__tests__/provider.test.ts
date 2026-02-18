@@ -31,7 +31,7 @@ vi.mock('../cryptocompare-utils.js', async () => {
 import { Currency, parseDecimal } from '@exitbook/core';
 
 import type { PriceData } from '../../../core/types.js';
-import type { PriceQueries } from '../../../persistence/repositories/price-queries.js';
+import type { PriceQueries } from '../../../persistence/queries/price-queries.js';
 // Import after mocks so they receive mocked dependencies
 import { CryptoCompareProvider } from '../provider.js';
 

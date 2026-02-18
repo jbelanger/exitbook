@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 import {
   CostBasisCalculator,
   CostBasisReportGenerator,

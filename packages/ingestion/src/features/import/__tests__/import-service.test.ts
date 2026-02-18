@@ -5,8 +5,6 @@
  * This service coordinates importing from exchanges and blockchains
  */
 
-/* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
-
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, AccountType, CursorState, ExchangeCredentials, ImportSession } from '@exitbook/core';
 import type { AccountQueries, ImportSessionQueries, RawDataQueries } from '@exitbook/data';

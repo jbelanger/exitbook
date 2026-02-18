@@ -18,7 +18,7 @@ import { err, ok, type Result } from 'neverthrow';
 import type { ProviderEvent } from '../events.js';
 import type { NormalizedTransactionBase } from '../index.js';
 import { hydrateProviderStats } from '../persistence/provider-stats-utils.js';
-import type { ProviderStatsQueries } from '../persistence/repositories/provider-stats-queries.js';
+import type { ProviderStatsQueries } from '../persistence/queries/provider-stats-queries.js';
 
 import { emitProviderTransition } from './provider-manager-events.js';
 import {
@@ -734,10 +734,7 @@ export class BlockchainProviderManager {
     let currentCursor = resumeCursor;
     let providerIndex = 0;
 
-    // ✅ CRITICAL: Populate dedup set from recent database transactions to prevent duplicates
-    // during replay window (5 blocks/minutes can be dozens of transactions)
     const initialIds = resumeCursor ? [resumeCursor.lastTransactionId] : [];
-    // TODO Phase 2.3: Use loadRecentTransactionIds() from utils to seed dedup set from storage
     const deduplicationWindow = createDeduplicationWindow(initialIds);
 
     let lastErrorMessage: string | undefined;
