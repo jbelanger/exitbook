@@ -35,7 +35,7 @@ export function registerEvmChains(): void {
         providerManager: BlockchainProviderManager,
         tokenMetadataService?: ITokenMetadataService,
         scamDetectionService?: IScamDetectionService,
-        _rawDataRepository?,
+        _rawDataQueries?,
         _accountId?
       ) => {
         if (!tokenMetadataService) {

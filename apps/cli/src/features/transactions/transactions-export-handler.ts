@@ -1,5 +1,5 @@
 import type { TransactionLinkRepository } from '@exitbook/accounting';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -44,7 +44,7 @@ export interface ExportOutput {
  */
 export class ExportHandler {
   constructor(
-    private transactionRepository: TransactionRepository,
+    private transactionRepository: TransactionQueries,
     private transactionLinkRepository: TransactionLinkRepository
   ) {}
 

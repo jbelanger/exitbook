@@ -21,13 +21,51 @@ import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
 import { generateDeterministicTransactionHash } from './transaction-id-utils.js';
-import type {
-  ITransactionRepository,
-  TransactionFilters,
-  TransactionSummary,
-  FullTransactionFilters,
-  SummaryTransactionFilters,
-} from './transaction-repository.interface.js';
+
+/**
+ * Filters for querying transactions.
+ */
+export interface TransactionFilters {
+  sourceName?: string | undefined;
+  since?: number | undefined;
+  accountId?: number | undefined;
+  accountIds?: number[] | undefined;
+  includeExcluded?: boolean | undefined;
+}
+
+/**
+ * Full transaction projection filters.
+ */
+export interface FullTransactionFilters extends TransactionFilters {
+  projection?: 'full' | undefined;
+}
+
+/**
+ * Summary transaction projection filters.
+ */
+export interface SummaryTransactionFilters extends TransactionFilters {
+  projection: 'summary';
+}
+
+/**
+ * Lightweight transaction summary without movements/fees.
+ */
+export interface TransactionSummary {
+  id: number;
+  accountId: number;
+  externalId: string;
+  datetime: string;
+  timestamp: number;
+  source: string;
+  sourceType: string;
+  status: TransactionStatus;
+  from?: string | undefined;
+  to?: string | undefined;
+  operation: { category: string; type: string };
+  isSpam?: boolean | undefined;
+  excludedFromAccounting?: boolean | undefined;
+  blockchain?: { name: string; transaction_hash: string } | undefined;
+}
 
 type MovementRow = Selectable<TransactionMovementsTable>;
 
@@ -248,9 +286,9 @@ function buildMovementRows(
  * Kysely-based repository for transaction database operations.
  * Handles storage and retrieval of UniversalTransactionData entities using type-safe queries.
  */
-export class TransactionRepository extends BaseRepository<DatabaseSchema> implements ITransactionRepository {
+class TransactionQueriesRepository extends BaseRepository<DatabaseSchema> {
   constructor(db: KyselyDB) {
-    super(db, 'TransactionRepository');
+    super(db, 'TransactionQueries');
   }
 
   async save(
@@ -868,3 +906,9 @@ export class TransactionRepository extends BaseRepository<DatabaseSchema> implem
     return ok(transaction);
   }
 }
+
+export function createTransactionQueries(db: KyselyDB) {
+  return new TransactionQueriesRepository(db);
+}
+
+export type TransactionQueries = ReturnType<typeof createTransactionQueries>;

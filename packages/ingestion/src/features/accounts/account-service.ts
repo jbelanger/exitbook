@@ -1,5 +1,5 @@
 import type { Account } from '@exitbook/core';
-import type { AccountQueries, ImportSessionQueries, UserRepository } from '@exitbook/data';
+import type { AccountQueries, ImportSessionQueries, UserQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -28,7 +28,7 @@ export class AccountService {
   constructor(
     private readonly accountQueries: AccountQueries,
     private readonly sessionQueries: ImportSessionQueries,
-    private readonly userQueries: UserRepository
+    private readonly userQueries: UserQueries
   ) {}
 
   /**

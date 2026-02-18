@@ -1343,7 +1343,7 @@ describe('LotMatcher - Fee Handling', () => {
       };
 
       const mockTransactionRepo = () => {
-        const repo: Partial<import('@exitbook/data').TransactionRepository> = {
+        const repo: Partial<import('@exitbook/data').TransactionQueries> = {
           findById: vi.fn().mockImplementation((id: number) => {
             const tx = transactions.find((t) => t.id === id);
             return tx
@@ -1351,7 +1351,7 @@ describe('LotMatcher - Fee Handling', () => {
               : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
           }),
         };
-        return repo as import('@exitbook/data').TransactionRepository;
+        return repo as import('@exitbook/data').TransactionQueries;
       };
 
       const mockLinkRepo = () => {

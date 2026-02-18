@@ -4,7 +4,7 @@ import type {
   AccountQueries,
   ImportSessionQueries,
   RawDataQueries,
-  ITransactionRepository,
+  TransactionQueries,
   KyselyDB,
 } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
@@ -45,7 +45,7 @@ export class TransactionProcessService {
   constructor(
     private rawDataQueries: RawDataQueries,
     private accountQueries: AccountQueries,
-    private transactionQueries: ITransactionRepository,
+    private transactionQueries: TransactionQueries,
     private providerManager: BlockchainProviderManager,
     private tokenMetadataService: ITokenMetadataService,
     private importSessionQueries: ImportSessionQueries,
@@ -458,7 +458,7 @@ export class TransactionProcessService {
         return err(new Error(`Unknown blockchain: ${sourceName}`));
       }
 
-      // NEAR requires NearRawDataQueries instead of rawDataRepository
+      // NEAR requires NearRawDataQueries instead of shared RawDataQueries
       if (sourceName.toLowerCase() === 'near') {
         const nearRawDataQueries = new NearRawDataQueries(this.db);
         return adapter.createProcessor(

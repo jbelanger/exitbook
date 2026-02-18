@@ -13,7 +13,7 @@
  *   expectOk,
  *   expectMovement,
  *   expectFee,
- *   createMockRawDataRepository,
+ *   createMockRawDataQueries,
  *   ExchangeEntryBuilder,
  *   BITCOIN_ADDRESSES,
  * } from '@tests/test-utils';
@@ -24,7 +24,7 @@
  * expectFee(transactions[0], 'network').toHaveAmount('0.0001');
  *
  * // Use mock factories
- * const mockRepo = createMockRawDataRepository();
+ * const mockRepo = createMockRawDataQueries();
  * mockRepo.saveBatch.mockResolvedValue(ok(2));
  *
  * // Use builders
@@ -53,7 +53,7 @@ export {
 
 // Mock factories
 export {
-  createMockRawDataRepository,
+  createMockRawDataQueries,
   createMockImportSessionRepository,
   createMockTokenMetadataService,
   createMockProviderManager,

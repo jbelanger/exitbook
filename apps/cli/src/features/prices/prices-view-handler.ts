@@ -2,7 +2,7 @@
 
 import type { UniversalTransactionData } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
@@ -29,7 +29,7 @@ export interface MissingPricesResult {
  * Handler for viewing price coverage.
  */
 export class ViewPricesHandler {
-  constructor(private readonly txRepo: TransactionRepository) {}
+  constructor(private readonly txRepo: TransactionQueries) {}
 
   /**
    * Execute the view prices command (coverage mode).

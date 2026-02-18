@@ -35,7 +35,7 @@ export function registerCosmosChains(): void {
         _providerManager,
         _tokenMetadataService?: ITokenMetadataService,
         scamDetectionService?: IScamDetectionService,
-        _rawDataRepository?,
+        _rawDataQueries?,
         _accountId?
       ) => ok(new CosmosProcessor(config, scamDetectionService)),
     });

@@ -29,7 +29,7 @@ export function registerSolanaChain(): void {
       _providerManager,
       tokenMetadataService?: ITokenMetadataService,
       scamDetectionService?: IScamDetectionService,
-      _rawDataRepository?,
+      _rawDataQueries?,
       _accountId?
     ) => {
       if (!tokenMetadataService) {

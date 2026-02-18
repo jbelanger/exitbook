@@ -22,7 +22,7 @@ export function registerXrpChains(): void {
         _providerManager,
         _tokenMetadataService?: ITokenMetadataService,
         scamDetectionService?: IScamDetectionService,
-        _rawDataRepository?,
+        _rawDataQueries?,
         _accountId?
       ) => ok(new XrpTransactionProcessor(config, scamDetectionService)),
 

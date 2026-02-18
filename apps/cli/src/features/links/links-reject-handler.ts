@@ -2,7 +2,7 @@
 
 import type { TransactionLinkRepository } from '@exitbook/accounting';
 import type { OverrideStore } from '@exitbook/data';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -42,7 +42,7 @@ export interface LinksRejectResult {
 export class LinksRejectHandler {
   constructor(
     private readonly linkRepo: TransactionLinkRepository,
-    private readonly txRepo: TransactionRepository,
+    private readonly txRepo: TransactionQueries,
     private readonly overrideStore?: OverrideStore | undefined
   ) {}
 

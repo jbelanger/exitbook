@@ -63,14 +63,14 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
   const options = parseResult.data;
   const isJsonMode = options.json ?? false;
 
-  const { TransactionRepository } = await import('@exitbook/data');
+  const { createTransactionQueries } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
   const { ExportHandler } = await import('./transactions-export-handler.js');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = new TransactionRepository(database);
+      const txRepo = createTransactionQueries(database);
       const txLinkRepo = new TransactionLinkRepository(database);
       const exportHandler = new ExportHandler(txRepo, txLinkRepo);
 

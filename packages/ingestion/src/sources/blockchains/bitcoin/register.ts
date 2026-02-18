@@ -30,7 +30,7 @@ export function registerBitcoinChains(): void {
         _providerManager,
         _tokenMetadataService?: ITokenMetadataService,
         scamDetectionService?: IScamDetectionService,
-        _rawDataRepository?,
+        _rawDataQueries?,
         _accountId?
       ) => ok(new BitcoinTransactionProcessor(config, scamDetectionService)),
 

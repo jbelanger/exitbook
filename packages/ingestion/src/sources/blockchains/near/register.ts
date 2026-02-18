@@ -32,14 +32,14 @@ export function registerNearChain(): void {
       _providerManager,
       tokenMetadataService?: ITokenMetadataService,
       scamDetectionService?: IScamDetectionService,
-      rawDataRepository?,
+      rawDataQueries?,
       accountId?
     ) => {
       if (!tokenMetadataService) {
         return err(new Error('TokenMetadataService is required for NEAR processor'));
       }
-      // rawDataRepository is actually NearRawDataQueries for NEAR blockchain
-      const nearRawDataQueries = rawDataRepository as NearRawDataQueries | undefined;
+      // rawDataQueries is actually NearRawDataQueries for NEAR blockchain
+      const nearRawDataQueries = rawDataQueries as NearRawDataQueries | undefined;
       return ok(
         new NearTransactionProcessor(tokenMetadataService, scamDetectionService, nearRawDataQueries, accountId)
       );

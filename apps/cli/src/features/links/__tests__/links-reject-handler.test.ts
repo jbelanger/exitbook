@@ -1,6 +1,6 @@
 import { TransactionLinkRepository, type TransactionLink } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
-import { TransactionRepository, type OverrideStore } from '@exitbook/data';
+import { createTransactionQueries, type OverrideStore, type TransactionQueries } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -12,7 +12,7 @@ vi.mock('@exitbook/data', async () => {
   const actual = await vi.importActual<typeof import('@exitbook/data')>('@exitbook/data');
   return {
     ...actual,
-    TransactionRepository: vi.fn(),
+    createTransactionQueries: vi.fn(),
   };
 });
 
@@ -57,13 +57,13 @@ describe('LinksRejectHandler', () => {
     };
 
     // Setup mocks
-    (TransactionRepository as unknown as Mock).mockImplementation(() => mockTransactionRepository);
+    (createTransactionQueries as unknown as Mock).mockImplementation(() => mockTransactionRepository);
 
     (TransactionLinkRepository as unknown as Mock).mockImplementation(() => mockLinkRepository);
 
     handler = new LinksRejectHandler(
       mockLinkRepository as unknown as TransactionLinkRepository,
-      mockTransactionRepository as unknown as TransactionRepository,
+      mockTransactionRepository as unknown as TransactionQueries,
       mockOverrideStore as unknown as OverrideStore
     );
   });

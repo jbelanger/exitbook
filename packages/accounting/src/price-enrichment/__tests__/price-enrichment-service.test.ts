@@ -2,7 +2,7 @@
 
 import type { SourceType, UniversalTransactionData } from '@exitbook/core';
 import { Currency, parseDecimal, type AssetMovement } from '@exitbook/core';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { ok, err } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
@@ -11,12 +11,12 @@ import type { TransactionLink } from '../../linking/types.js';
 import type { TransactionLinkRepository } from '../../persistence/transaction-link-repository.js';
 import { PriceEnrichmentService } from '../price-enrichment-service.js';
 
-// Helper to create a mock TransactionRepository
-function createMockTransactionRepository(): TransactionRepository {
+// Helper to create a mock TransactionQueries
+function createMockTransactionRepository(): TransactionQueries {
   return {
     getTransactions: vi.fn(),
     updateMovementsWithPrices: vi.fn(),
-  } as unknown as TransactionRepository;
+  } as unknown as TransactionQueries;
 }
 
 // Helper to create a mock TransactionLinkRepository

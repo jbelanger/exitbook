@@ -1,5 +1,5 @@
 import { type UniversalTransactionData } from '@exitbook/core';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -57,7 +57,7 @@ export class CostBasisCalculator {
   private readonly lotMatcher: LotMatcher;
   private readonly logger = getLogger('CostBasisCalculator');
 
-  constructor(transactionRepository?: TransactionRepository, linkRepository?: TransactionLinkRepository) {
+  constructor(transactionRepository?: TransactionQueries, linkRepository?: TransactionLinkRepository) {
     this.lotMatcher = new LotMatcher(transactionRepository, linkRepository);
   }
 

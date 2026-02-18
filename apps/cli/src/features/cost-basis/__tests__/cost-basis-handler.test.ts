@@ -7,7 +7,7 @@ import {
   type TransactionLinkRepository,
 } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
@@ -47,7 +47,7 @@ vi.mock('@exitbook/logger', () => ({
 
 describe('CostBasisHandler', () => {
   let handler: CostBasisHandler;
-  let mockTransactionRepo: TransactionRepository;
+  let mockTransactionRepo: TransactionQueries;
   let mockLinkRepo: TransactionLinkRepository;
 
   beforeEach(() => {
@@ -57,7 +57,7 @@ describe('CostBasisHandler', () => {
     // Setup mock repos
     mockTransactionRepo = {
       getTransactions: vi.fn(),
-    } as unknown as TransactionRepository;
+    } as unknown as TransactionQueries;
 
     mockLinkRepo = {} as unknown as TransactionLinkRepository;
 

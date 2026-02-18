@@ -109,12 +109,12 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
  * Execute transactions view in TUI mode
  */
 async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promise<void> {
-  const { TransactionRepository } = await import('@exitbook/data');
+  const { createTransactionQueries } = await import('@exitbook/data');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = new TransactionRepository(database);
+      const txRepo = createTransactionQueries(database);
 
       let since: number | undefined;
       if (params.since) {
@@ -225,12 +225,12 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
  * Execute transactions view in JSON mode
  */
 async function executeTransactionsViewJSON(params: ViewTransactionsParams): Promise<void> {
-  const { TransactionRepository } = await import('@exitbook/data');
+  const { createTransactionQueries } = await import('@exitbook/data');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = new TransactionRepository(database);
+      const txRepo = createTransactionQueries(database);
 
       // Convert since to unix timestamp if provided
       let since: number | undefined;

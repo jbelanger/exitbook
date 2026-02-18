@@ -33,7 +33,7 @@ export async function executeReprocess(
   deps: ProcessDependencies
 ): Promise<Result<ProcessResult, Error>> {
   const { accountId } = params;
-  const { transactionProcessService, clearService, rawDataQueries: rawDataRepository } = deps;
+  const { transactionProcessService, clearService, rawDataQueries } = deps;
 
   // Always clear derived data and reset raw data to pending
   const clearResult = await clearService.execute({
@@ -55,7 +55,7 @@ export async function executeReprocess(
   if (accountId) {
     accountIds = [accountId];
   } else {
-    const accountIdsResult = await rawDataRepository.getAccountsWithPendingData();
+    const accountIdsResult = await rawDataQueries.getAccountsWithPendingData();
     if (accountIdsResult.isErr()) {
       return err(accountIdsResult.error);
     }

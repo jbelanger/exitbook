@@ -7,7 +7,7 @@ import {
 } from '@exitbook/accounting';
 import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import { applyLinkOverrides, type OrphanedLinkOverride, type OverrideStore } from '@exitbook/data';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -73,7 +73,7 @@ export interface LinksRunResult {
  */
 export class LinksRunHandler {
   constructor(
-    private transactionRepository: TransactionRepository,
+    private transactionRepository: TransactionQueries,
     private linkRepository: TransactionLinkRepository,
     private overrideStore?: OverrideStore | undefined,
     private eventBus?: EventBus<LinkingEvent> | undefined

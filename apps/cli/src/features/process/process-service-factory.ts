@@ -5,10 +5,10 @@ import {
   createImportSessionQueries,
   createRawDataQueries,
   createTokenMetadataPersistence,
+  createUserQueries,
   // eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
   type KyselyDB,
-  TransactionRepository,
-  UserRepository,
+  createTransactionQueries,
 } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
@@ -50,9 +50,9 @@ export interface ProcessServices {
  */
 export async function createProcessServices(database: KyselyDB): Promise<ProcessServices> {
   // Create repositories
-  const user = new UserRepository(database);
+  const userQueries = createUserQueries(database);
   const account = createAccountQueries(database);
-  const transaction = new TransactionRepository(database);
+  const transaction = createTransactionQueries(database);
   const rawData = createRawDataQueries(database);
   const importSession = createImportSessionQueries(database);
   const transactionLink = new TransactionLinkRepository(database);
@@ -98,7 +98,7 @@ export async function createProcessServices(database: KyselyDB): Promise<Process
     );
 
     const clearService = new ClearService(
-      user,
+      userQueries,
       account,
       transaction,
       transactionLink,

@@ -8,7 +8,7 @@
 
 import { Currency, parseDecimal } from '@exitbook/core';
 import type { FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -38,7 +38,7 @@ function createFeeMovement(
 }
 
 describe('PriceNormalizationService', () => {
-  let mockTransactionRepo: TransactionRepository;
+  let mockTransactionRepo: TransactionQueries;
   let mockFxProvider: IFxRateProvider;
   let service: PriceNormalizationService;
 
@@ -47,7 +47,7 @@ describe('PriceNormalizationService', () => {
     mockTransactionRepo = {
       getTransactions: vi.fn(),
       updateMovementsWithPrices: vi.fn(),
-    } as unknown as TransactionRepository;
+    } as unknown as TransactionQueries;
 
     // Mock FX rate provider
     mockFxProvider = {

@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ExchangeCredentials, ImportSession } from '@exitbook/core';
-import type { AccountQueries, ImportSessionQueries, RawDataQueries, UserRepository } from '@exitbook/data';
+import type { AccountQueries, ImportSessionQueries, RawDataQueries, UserQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -32,7 +32,7 @@ export class ImportOrchestrator {
   private eventBus?: EventBus<ImportEvent> | undefined;
 
   constructor(
-    private userQueries: UserRepository,
+    private userQueries: UserQueries,
     private accountQueries: AccountQueries,
     rawDataQueries: RawDataQueries,
     importSessionQueries: ImportSessionQueries,

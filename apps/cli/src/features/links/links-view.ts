@@ -169,14 +169,14 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
  * Execute links view in TUI mode (text mode, no JSON)
  */
 async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
-  const { TransactionRepository, OverrideStore } = await import('@exitbook/data');
+  const { createTransactionQueries, OverrideStore } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const linkRepo = new TransactionLinkRepository(database);
-      const txRepo = new TransactionRepository(database);
+      const txRepo = createTransactionQueries(database);
       const overrideStore = new OverrideStore(ctx.dataDir);
 
       const linksResult = await linkRepo.findAll(params.status as LinkStatus);
@@ -246,13 +246,13 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
  * Execute gaps view in TUI mode (read-only)
  */
 async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
-  const { TransactionRepository } = await import('@exitbook/data');
+  const { createTransactionQueries } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = new TransactionRepository(database);
+      const txRepo = createTransactionQueries(database);
       const linkRepo = new TransactionLinkRepository(database);
 
       const transactionsResult = await txRepo.getTransactions();
@@ -300,14 +300,14 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
  * Execute links view in JSON mode
  */
 async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
-  const { TransactionRepository } = await import('@exitbook/data');
+  const { createTransactionQueries } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const linkRepo = new TransactionLinkRepository(database);
-      const txRepo = new TransactionRepository(database);
+      const txRepo = createTransactionQueries(database);
 
       const linksResult = await linkRepo.findAll(params.status as LinkStatus);
       if (linksResult.isErr()) {
@@ -358,13 +358,13 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
  * Execute gaps view in JSON mode
  */
 async function executeGapsViewJSON(params: LinksViewParams): Promise<void> {
-  const { TransactionRepository } = await import('@exitbook/data');
+  const { createTransactionQueries } = await import('@exitbook/data');
   const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = new TransactionRepository(database);
+      const txRepo = createTransactionQueries(database);
       const linkRepo = new TransactionLinkRepository(database);
 
       const transactionsResult = await txRepo.getTransactions();

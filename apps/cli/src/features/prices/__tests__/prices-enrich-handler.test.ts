@@ -12,18 +12,18 @@
  */
 
 import type { TransactionLinkRepository } from '@exitbook/accounting';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { PricesEnrichHandler } from '../prices-enrich-handler.js';
 import type { PricesEnrichOptions } from '../prices-enrich-handler.js';
 
 describe('PricesEnrichHandler', () => {
-  let mockTransactionRepo: TransactionRepository;
+  let mockTransactionRepo: TransactionQueries;
   let mockLinkRepo: TransactionLinkRepository;
 
   beforeEach(() => {
-    mockTransactionRepo = {} as TransactionRepository;
+    mockTransactionRepo = {} as TransactionQueries;
     mockLinkRepo = {} as TransactionLinkRepository;
   });
 

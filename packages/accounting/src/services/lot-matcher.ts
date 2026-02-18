@@ -1,5 +1,5 @@
 import { Currency, parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -125,7 +125,7 @@ export class LotMatcher {
   private readonly logger = getLogger('LotMatcher');
 
   constructor(
-    private readonly transactionRepository?: TransactionRepository | undefined,
+    private readonly transactionRepository?: TransactionQueries | undefined,
     private readonly linkRepository?: TransactionLinkRepository | undefined
   ) {}
 
@@ -530,7 +530,7 @@ export class LotMatcher {
   ): Promise<Result<AcquisitionLot, Error>> {
     // Fetch source transaction (repository dependency - imperative shell)
     if (!this.transactionRepository) {
-      return err(new Error('TransactionRepository is required for handling transfer targets'));
+      return err(new Error('TransactionQueries is required for handling transfer targets'));
     }
 
     const sourceTxResult = await this.transactionRepository.findById(link.sourceTransactionId);

@@ -20,7 +20,7 @@
 
 import type { PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -54,7 +54,7 @@ export interface NormalizeResult {
  */
 export class PriceNormalizationService {
   constructor(
-    private readonly transactionRepository: TransactionRepository,
+    private readonly transactionRepository: TransactionQueries,
     private readonly fxRateProvider: IFxRateProvider
   ) {}
 

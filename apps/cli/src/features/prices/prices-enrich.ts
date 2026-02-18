@@ -8,7 +8,7 @@
  * 4. Price propagation - Use newly fetched/normalized prices for ratio calculations
  */
 import { TransactionLinkRepository } from '@exitbook/accounting';
-import { TransactionRepository } from '@exitbook/data';
+import { createTransactionQueries } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
@@ -84,7 +84,7 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const transactionRepo = new TransactionRepository(database);
+      const transactionRepo = createTransactionQueries(database);
       const linkRepo = new TransactionLinkRepository(database);
 
       if (options.json) {

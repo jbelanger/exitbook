@@ -1,6 +1,6 @@
 import type { TransactionLinkRepository } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
@@ -26,7 +26,7 @@ const logger = getLogger('cost-basis-prereqs');
  * If newest tx > newest link (or no links exist), re-runs linking.
  */
 export async function ensureLinks(
-  txRepo: TransactionRepository,
+  txRepo: TransactionQueries,
   linkRepo: TransactionLinkRepository,
   dataDir: string,
   ctx: CommandContext,
@@ -116,7 +116,7 @@ export async function ensureLinks(
  * If missingPricesCount > 0, runs the full PricesEnrichHandler pipeline.
  */
 export async function ensurePrices(
-  txRepo: TransactionRepository,
+  txRepo: TransactionQueries,
   linkRepo: TransactionLinkRepository,
   startDate: Date,
   endDate: Date,

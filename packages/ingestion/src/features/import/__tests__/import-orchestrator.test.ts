@@ -5,11 +5,9 @@
  * with particular focus on xpub/HD wallet parent-child account creation
  */
 
-/* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
-
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ImportSession } from '@exitbook/core';
-import type { AccountQueries, ImportSessionQueries, RawDataQueries, UserRepository } from '@exitbook/data';
+import type { AccountQueries, ImportSessionQueries, RawDataQueries, UserQueries } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -73,7 +71,7 @@ vi.mock('../../../shared/types/blockchain-adapter.js', () => ({
 
 describe('ImportOrchestrator', () => {
   let orchestrator: ImportOrchestrator;
-  let mockUserQueries: UserRepository;
+  let mockUserQueries: UserQueries;
   let mockAccountQueries: AccountQueries;
   let mockRawDataQueries: RawDataQueries;
   let mockImportSessionQueries: ImportSessionQueries;
@@ -114,7 +112,7 @@ describe('ImportOrchestrator', () => {
 
     mockUserQueries = {
       ensureDefaultUser: vi.fn().mockResolvedValue(ok(mockUser)),
-    } as unknown as UserRepository;
+    } as unknown as UserQueries;
 
     mockAccountQueries = {
       findOrCreate: vi.fn(),

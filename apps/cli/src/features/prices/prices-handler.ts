@@ -4,7 +4,7 @@
 import { enrichMovementsWithPrices } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency } from '@exitbook/core';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
@@ -33,7 +33,7 @@ export class PricesFetchHandler {
   private errors: string[] = [];
 
   constructor(
-    private transactionRepo: TransactionRepository,
+    private transactionRepo: TransactionQueries,
     private readonly instrumentation: InstrumentationCollector,
     private readonly eventBus?: EventBus<PriceEvent>
   ) {}

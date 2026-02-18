@@ -8,12 +8,7 @@ import type {
   VerificationMetadata,
 } from '@exitbook/core';
 import { parseAssetId } from '@exitbook/core';
-import type {
-  AccountQueries,
-  ImportSessionQueries,
-  TokenMetadataRepository,
-  TransactionRepository,
-} from '@exitbook/data';
+import type { AccountQueries, ImportSessionQueries, TokenMetadataRepository, TransactionQueries } from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchanges-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -47,7 +42,7 @@ export interface BalanceServiceParams {
 export class BalanceService {
   constructor(
     private accountQueries: AccountQueries,
-    private transactionQueries: TransactionRepository,
+    private transactionQueries: TransactionQueries,
     private sessionQueries: ImportSessionQueries,
     private tokenMetadataQueries: TokenMetadataRepository,
     private providerManager: BlockchainProviderManager

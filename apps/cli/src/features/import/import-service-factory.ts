@@ -4,9 +4,9 @@ import {
   createImportSessionQueries,
   createRawDataQueries,
   createTokenMetadataPersistence,
+  createUserQueries,
   type KyselyDB,
-  TransactionRepository,
-  UserRepository,
+  createTransactionQueries,
 } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
@@ -147,9 +147,9 @@ export async function createImportServices(database: KyselyDB): Promise<ImportSe
  */
 function createRepositories(database: KyselyDB) {
   return {
-    user: new UserRepository(database),
+    user: createUserQueries(database),
     account: createAccountQueries(database),
-    transaction: new TransactionRepository(database),
+    transaction: createTransactionQueries(database),
     rawData: createRawDataQueries(database),
     importSession: createImportSessionQueries(database),
   };

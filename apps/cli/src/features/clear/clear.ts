@@ -4,8 +4,8 @@ import {
   createAccountQueries,
   createImportSessionQueries,
   createRawDataQueries,
-  TransactionRepository,
-  UserRepository,
+  createUserQueries,
+  createTransactionQueries,
 } from '@exitbook/data';
 import { ClearService, type ClearResult, type DeletionPreview } from '@exitbook/ingestion';
 import type { Command } from 'commander';
@@ -83,9 +83,9 @@ async function executeClearTUI(options: {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const userQueries = new UserRepository(database);
+      const userQueries = createUserQueries(database);
       const accountQueries = createAccountQueries(database);
-      const transactionQueries = new TransactionRepository(database);
+      const transactionQueries = createTransactionQueries(database);
       const transactionLinkQueries = new TransactionLinkRepository(database);
       const rawDataQueries = createRawDataQueries(database);
       const importSessionQueries = createImportSessionQueries(database);
@@ -189,19 +189,19 @@ async function executeClearNonTui(options: {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const userRepository = new UserRepository(database);
+      const userQueries = createUserQueries(database);
       const accountRepository = createAccountQueries(database);
-      const transactionRepository = new TransactionRepository(database);
+      const transactionRepository = createTransactionQueries(database);
       const transactionLinkRepository = new TransactionLinkRepository(database);
-      const rawDataRepository = createRawDataQueries(database);
+      const rawDataQueries = createRawDataQueries(database);
       const importSessionRepository = createImportSessionQueries(database);
 
       const clearService = new ClearService(
-        userRepository,
+        userQueries,
         accountRepository,
         transactionRepository,
         transactionLinkRepository,
-        rawDataRepository,
+        rawDataQueries,
         importSessionRepository
       );
 

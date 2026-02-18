@@ -1,10 +1,11 @@
 import type { Account, ExchangeCredentials } from '@exitbook/core';
 import {
   type AccountQueries,
+  type TransactionQueries,
   createAccountQueries,
   createImportSessionQueries,
   createTokenMetadataPersistence,
-  TransactionRepository,
+  createTransactionQueries,
 } from '@exitbook/data';
 import { BalanceService, calculateBalances } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
@@ -114,7 +115,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const accountRepo = createAccountQueries(database);
-      const transactionRepo = new TransactionRepository(database);
+      const transactionRepo = createTransactionQueries(database);
       const sessionRepo = createImportSessionQueries(database);
 
       if (options.offline) {
@@ -369,7 +370,7 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const accountRepo = createAccountQueries(database);
-      const transactionRepo = new TransactionRepository(database);
+      const transactionRepo = createTransactionQueries(database);
       const sessionRepo = createImportSessionQueries(database);
       const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
       if (tokenMetadataResult.isErr()) {
@@ -468,7 +469,7 @@ async function runVerificationLoop(
   accounts: Account[],
   balanceService: BalanceService,
   accountRepo: AccountQueries,
-  transactionRepo: TransactionRepository,
+  transactionRepo: TransactionQueries,
   relay: EventRelay<BalanceEvent>,
   signal: AbortSignal
 ): Promise<void> {
@@ -579,7 +580,7 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const accountRepo = createAccountQueries(database);
-      const transactionRepo = new TransactionRepository(database);
+      const transactionRepo = createTransactionQueries(database);
       const sessionRepo = createImportSessionQueries(database);
       const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
       if (tokenMetadataResult.isErr()) {
@@ -676,7 +677,7 @@ async function executeBalanceOfflineTUI(options: BalanceCommandOptions): Promise
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const accountRepo = createAccountQueries(database);
-      const transactionRepo = new TransactionRepository(database);
+      const transactionRepo = createTransactionQueries(database);
 
       if (options.accountId) {
         const account = await loadSingleAccountOrFail(accountRepo, options.accountId);
@@ -787,7 +788,7 @@ async function loadSingleAccountOrFail(accountRepo: AccountQueries, accountId: n
 async function loadAccountTransactions(
   account: Account,
   accountRepo: AccountQueries,
-  transactionRepo: TransactionRepository
+  transactionRepo: TransactionQueries
 ): Promise<import('@exitbook/core').UniversalTransactionData[]> {
   const childResult = await accountRepo.findAll({ parentAccountId: account.id });
   const accountIds = [account.id];
@@ -829,7 +830,7 @@ function extractStreamMetadata(account: Account): Record<string, unknown> | unde
 async function buildOfflineAssets(
   account: Account,
   accountRepo: AccountQueries,
-  transactionRepo: TransactionRepository
+  transactionRepo: TransactionQueries
 ): Promise<{ assets: import('./components/index.js').AssetOfflineItem[] }> {
   const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);
 

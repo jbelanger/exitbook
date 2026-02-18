@@ -13,7 +13,7 @@ export class AllAtOnceBatchProvider implements IRawDataBatchProvider {
   private fetched = false;
 
   constructor(
-    private readonly rawDataRepository: RawDataQueries,
+    private readonly rawDataQueries: RawDataQueries,
     private readonly accountId: number
   ) {}
 
@@ -24,7 +24,7 @@ export class AllAtOnceBatchProvider implements IRawDataBatchProvider {
 
     this.fetched = true;
 
-    const result = await this.rawDataRepository.load({
+    const result = await this.rawDataQueries.load({
       processingStatus: 'pending',
       accountId: this.accountId,
     });

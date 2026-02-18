@@ -27,7 +27,7 @@ import {
   type TransactionLinkRepository,
 } from '@exitbook/accounting';
 import type { NormalizeResult } from '@exitbook/accounting';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { InstrumentationCollector, type MetricsSummary } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
@@ -89,7 +89,7 @@ export class PricesEnrichHandler {
   private readonly instrumentation: InstrumentationCollector;
 
   constructor(
-    private readonly transactionRepo: TransactionRepository,
+    private readonly transactionRepo: TransactionQueries,
     private readonly linkRepo: TransactionLinkRepository,
     private readonly eventBus?: EventBus<PriceEvent>,
     instrumentation?: InstrumentationCollector

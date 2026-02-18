@@ -115,12 +115,12 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
  * Execute coverage view in TUI mode (keeps DB open for drill-down into missing mode)
  */
 async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
-  const { TransactionRepository, OverrideStore } = await import('@exitbook/data');
+  const { createTransactionQueries, OverrideStore } = await import('@exitbook/data');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = new TransactionRepository(database);
+      const txRepo = createTransactionQueries(database);
       const handler = new ViewPricesHandler(txRepo);
 
       const detailResult = await handler.executeCoverageDetail(params);
@@ -183,12 +183,12 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
  * Execute missing view in TUI mode (keeps DB open for set-price writes)
  */
 async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
-  const { TransactionRepository, OverrideStore } = await import('@exitbook/data');
+  const { createTransactionQueries, OverrideStore } = await import('@exitbook/data');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = new TransactionRepository(database);
+      const txRepo = createTransactionQueries(database);
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new ViewPricesHandler(txRepo);
 
@@ -234,12 +234,12 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
  * Execute view prices in JSON mode
  */
 async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
-  const { TransactionRepository } = await import('@exitbook/data');
+  const { createTransactionQueries } = await import('@exitbook/data');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = new TransactionRepository(database);
+      const txRepo = createTransactionQueries(database);
       const handler = new ViewPricesHandler(txRepo);
 
       const result = await handler.execute(params);
@@ -292,12 +292,12 @@ type MissingPricesCommandResult = ViewCommandResult<{
  * Execute missing prices in JSON mode
  */
 async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
-  const { TransactionRepository } = await import('@exitbook/data');
+  const { createTransactionQueries } = await import('@exitbook/data');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = new TransactionRepository(database);
+      const txRepo = createTransactionQueries(database);
       const handler = new ViewPricesHandler(txRepo);
 
       const result = await handler.executeMissing(params);

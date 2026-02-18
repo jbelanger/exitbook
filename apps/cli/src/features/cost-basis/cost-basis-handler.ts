@@ -8,7 +8,7 @@ import {
   type TransactionLinkRepository,
 } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
@@ -49,7 +49,7 @@ export interface CostBasisResult {
  */
 export class CostBasisHandler {
   constructor(
-    private transactionRepository: TransactionRepository,
+    private transactionRepository: TransactionQueries,
     private transactionLinkRepository: TransactionLinkRepository
   ) {}
 

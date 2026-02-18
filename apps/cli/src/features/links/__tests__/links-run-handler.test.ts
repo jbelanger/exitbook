@@ -1,6 +1,6 @@
 import type { TransactionLink, TransactionLinkRepository } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
-import type { OverrideEvent, OverrideStore, TransactionRepository } from '@exitbook/data';
+import type { OverrideEvent, OverrideStore, TransactionQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
@@ -82,7 +82,7 @@ describe('LinksRunHandler', () => {
 
     const transactionRepository = {
       getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
-    } as unknown as TransactionRepository;
+    } as unknown as TransactionQueries;
 
     const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
     const linkRepository = {
@@ -118,7 +118,7 @@ describe('LinksRunHandler', () => {
 
     const transactionRepository = {
       getTransactions: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
-    } as unknown as TransactionRepository;
+    } as unknown as TransactionQueries;
 
     const linkRepository = {
       count: vi.fn().mockResolvedValue(ok(0)),
@@ -181,7 +181,7 @@ describe('LinksRunHandler', () => {
 
     const transactionRepository = {
       getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
-    } as unknown as TransactionRepository;
+    } as unknown as TransactionQueries;
 
     const linkRepository = {
       count: vi.fn().mockResolvedValue(ok(0)),
@@ -243,7 +243,7 @@ describe('LinksRunHandler', () => {
 
     const transactionRepository = {
       getTransactions: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
-    } as unknown as TransactionRepository;
+    } as unknown as TransactionQueries;
 
     const linkRepository = {
       count: vi.fn().mockResolvedValue(ok(0)),
@@ -331,7 +331,7 @@ describe('LinksRunHandler', () => {
 
     const transactionRepository = {
       getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
-    } as unknown as TransactionRepository;
+    } as unknown as TransactionQueries;
 
     const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
     const linkRepository = {
@@ -413,7 +413,7 @@ describe('LinksRunHandler', () => {
 
     const transactionRepository = {
       getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
-    } as unknown as TransactionRepository;
+    } as unknown as TransactionQueries;
 
     const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
     const linkRepository = {
@@ -490,7 +490,7 @@ describe('LinksRunHandler', () => {
 
     const transactionRepository = {
       getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
-    } as unknown as TransactionRepository;
+    } as unknown as TransactionQueries;
 
     const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
     const linkRepository = {

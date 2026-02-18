@@ -79,7 +79,7 @@ export function registerCardanoChain(): void {
       _providerManager,
       _tokenMetadataService?: ITokenMetadataService,
       scamDetectionService?: IScamDetectionService,
-      _rawDataRepository?,
+      _rawDataQueries?,
       _accountId?
     ) => ok(new CardanoTransactionProcessor(scamDetectionService)),
   });

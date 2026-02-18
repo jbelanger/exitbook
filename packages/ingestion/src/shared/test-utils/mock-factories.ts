@@ -8,10 +8,10 @@ import { vi, type Mocked } from 'vitest';
 import type { ITokenMetadataService } from '../../features/token-metadata/token-metadata-service.interface.js';
 
 /**
- * Creates a mock raw data repository with default implementations.
+ * Creates a mock raw data queries object with default implementations.
  * All methods return successful Results by default. Override specific methods as needed.
  */
-export function createMockRawDataRepository(): Mocked<RawDataQueries> {
+export function createMockRawDataQueries(): Mocked<RawDataQueries> {
   return {
     load: vi.fn().mockResolvedValue(ok([])),
     markAsProcessed: vi.fn().mockResolvedValue(ok()),

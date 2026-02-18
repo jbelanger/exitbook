@@ -2,15 +2,11 @@ export { createDatabase, closeDatabase, type KyselyDB } from './storage/database
 export { runMigrations, getMigrationStatus } from './storage/migrations.js';
 export { initializeDatabase } from './storage/initialization.js';
 export { BaseRepository } from './repositories/base-repository.js';
-export { UserRepository } from './repositories/user-repository.js';
+export { createUserQueries, type UserQueries } from './repositories/user-queries.js';
 export { createAccountQueries } from './repositories/account-queries.js';
 export type { AccountQueries, FindOrCreateAccountParams, UpdateAccountParams } from './repositories/account-queries.js';
-export { TransactionRepository } from './repositories/transaction-repository.js';
-export type {
-  ITransactionRepository,
-  TransactionFilters,
-  TransactionSummary,
-} from './repositories/transaction-repository.interface.js';
+export { createTransactionQueries, type TransactionQueries } from './repositories/transaction-queries.js';
+export type { TransactionFilters, TransactionSummary } from './repositories/transaction-queries.js';
 export { generateDeterministicTransactionHash } from './repositories/transaction-id-utils.js';
 export { TokenMetadataRepository } from './repositories/token-metadata-repository.js';
 export {

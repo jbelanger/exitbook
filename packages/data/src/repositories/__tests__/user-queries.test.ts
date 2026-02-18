@@ -1,16 +1,16 @@
 import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { UserRepository } from '../user-repository.js';
+import { createUserQueries, type UserQueries } from '../user-queries.js';
 
-describe('UserRepository', () => {
+describe('UserQueries', () => {
   let db: KyselyDB;
-  let repository: UserRepository;
+  let queries: UserQueries;
 
   beforeEach(async () => {
     db = createDatabase(':memory:');
     await runMigrations(db);
-    repository = new UserRepository(db);
+    queries = createUserQueries(db);
   });
 
   afterEach(async () => {
@@ -19,7 +19,7 @@ describe('UserRepository', () => {
 
   describe('create', () => {
     it('should create a new user and return its ID', async () => {
-      const result = await repository.create();
+      const result = await queries.create();
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -34,8 +34,8 @@ describe('UserRepository', () => {
     });
 
     it('should create multiple users with different IDs', async () => {
-      const result1 = await repository.create();
-      const result2 = await repository.create();
+      const result1 = await queries.create();
+      const result2 = await queries.create();
 
       expect(result1.isOk()).toBe(true);
       expect(result2.isOk()).toBe(true);
@@ -47,7 +47,7 @@ describe('UserRepository', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.create();
+      const result = await queries.create();
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -58,12 +58,12 @@ describe('UserRepository', () => {
 
   describe('findById', () => {
     it('should find an existing user by ID', async () => {
-      const createResult = await repository.create();
+      const createResult = await queries.create();
       expect(createResult.isOk()).toBe(true);
 
       if (createResult.isOk()) {
         const userId = createResult.value;
-        const result = await repository.findById(userId);
+        const result = await queries.findById(userId);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -75,7 +75,7 @@ describe('UserRepository', () => {
     });
 
     it('should return undefined for non-existent user', async () => {
-      const result = await repository.findById(999);
+      const result = await queries.findById(999);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -86,7 +86,7 @@ describe('UserRepository', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.findById(1);
+      const result = await queries.findById(1);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -97,7 +97,7 @@ describe('UserRepository', () => {
 
   describe('ensureDefaultUser', () => {
     it('should create default user (id=1) if not exists', async () => {
-      const result = await repository.ensureDefaultUser();
+      const result = await queries.ensureDefaultUser();
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -113,14 +113,14 @@ describe('UserRepository', () => {
 
     it('should return existing default user if already exists', async () => {
       // Create default user first
-      const firstResult = await repository.ensureDefaultUser();
+      const firstResult = await queries.ensureDefaultUser();
       expect(firstResult.isOk()).toBe(true);
 
       if (firstResult.isOk()) {
         const firstCreatedAt = firstResult.value.createdAt;
 
         // Call again - should return same user
-        const secondResult = await repository.ensureDefaultUser();
+        const secondResult = await queries.ensureDefaultUser();
         expect(secondResult.isOk()).toBe(true);
 
         if (secondResult.isOk()) {
@@ -136,9 +136,9 @@ describe('UserRepository', () => {
 
     it('should be idempotent and safe to call multiple times', async () => {
       // Call sequentially (concurrent calls may have race conditions)
-      const result1 = await repository.ensureDefaultUser();
-      const result2 = await repository.ensureDefaultUser();
-      const result3 = await repository.ensureDefaultUser();
+      const result1 = await queries.ensureDefaultUser();
+      const result2 = await queries.ensureDefaultUser();
+      const result3 = await queries.ensureDefaultUser();
 
       // All should succeed
       expect(result1.isOk()).toBe(true);
@@ -161,7 +161,7 @@ describe('UserRepository', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.ensureDefaultUser();
+      const result = await queries.ensureDefaultUser();
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

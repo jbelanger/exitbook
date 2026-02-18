@@ -4,8 +4,8 @@ import type {
   AccountQueries,
   ImportSessionQueries,
   RawDataQueries,
-  TransactionRepository,
-  UserRepository,
+  TransactionQueries,
+  UserQueries,
 } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
@@ -36,9 +36,9 @@ export interface ClearResult {
  */
 export class ClearService {
   constructor(
-    private userQueries: UserRepository,
+    private userQueries: UserQueries,
     private accountQueries: AccountQueries,
-    private transactionQueries: TransactionRepository,
+    private transactionQueries: TransactionQueries,
     private transactionLinkQueries: TransactionLinkRepository,
     private rawDataQueries: RawDataQueries,
     private sessionQueries: ImportSessionQueries,

@@ -7,7 +7,7 @@ import {
   type OverrideStore,
   type CreateOverrideEventOptions,
 } from '@exitbook/data';
-import type { ITransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('LinkOverrideUtils');
@@ -18,7 +18,7 @@ const logger = getLogger('LinkOverrideUtils');
  * Logs warnings on failure but never throws — the DB update already succeeded.
  */
 export async function writeLinkOverrideEvent(
-  txRepo: ITransactionRepository,
+  txRepo: TransactionQueries,
   overrideStore: OverrideStore,
   sourceTransactionId: number,
   targetTransactionId: number,
@@ -51,7 +51,7 @@ export async function writeLinkOverrideEvent(
  * Logs warnings on failure but never throws — the DB update already succeeded.
  */
 export async function writeUnlinkOverrideEvent(
-  txRepo: ITransactionRepository,
+  txRepo: TransactionQueries,
   overrideStore: OverrideStore,
   sourceTransactionId: number,
   targetTransactionId: number,
@@ -79,7 +79,7 @@ export async function writeUnlinkOverrideEvent(
  * Returns undefined if any step fails (with warnings logged).
  */
 async function resolveFingerprints(
-  txRepo: ITransactionRepository,
+  txRepo: TransactionQueries,
   sourceTransactionId: number,
   targetTransactionId: number,
   assetSymbol: string

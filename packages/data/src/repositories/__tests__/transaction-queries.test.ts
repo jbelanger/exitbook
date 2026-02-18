@@ -4,16 +4,16 @@ import { Currency, parseDecimal } from '@exitbook/core';
 import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { TransactionRepository } from '../transaction-repository.js';
+import { createTransactionQueries, type TransactionQueries } from '../transaction-queries.js';
 
-describe('TransactionRepository - delete methods', () => {
+describe('TransactionQueries - delete methods', () => {
   let db: KyselyDB;
-  let repository: TransactionRepository;
+  let queries: TransactionQueries;
 
   beforeEach(async () => {
     db = createDatabase(':memory:');
     await runMigrations(db);
-    repository = new TransactionRepository(db);
+    queries = createTransactionQueries(db);
 
     // Create default user
     await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
@@ -121,7 +121,7 @@ describe('TransactionRepository - delete methods', () => {
       expect(initialTransactions).toHaveLength(5);
 
       // Delete all transactions
-      const result = await repository.deleteAll();
+      const result = await queries.deleteAll();
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -137,7 +137,7 @@ describe('TransactionRepository - delete methods', () => {
       // Delete all transactions first
       await db.deleteFrom('transactions').execute();
 
-      const result = await repository.deleteAll();
+      const result = await queries.deleteAll();
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -148,7 +148,7 @@ describe('TransactionRepository - delete methods', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.deleteAll();
+      const result = await queries.deleteAll();
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -159,14 +159,14 @@ describe('TransactionRepository - delete methods', () => {
   });
 });
 
-describe('TransactionRepository - scam token filtering', () => {
+describe('TransactionQueries - scam token filtering', () => {
   let db: KyselyDB;
-  let repository: TransactionRepository;
+  let repository: TransactionQueries;
 
   beforeEach(async () => {
     db = createDatabase(':memory:');
     await runMigrations(db);
-    repository = new TransactionRepository(db);
+    repository = createTransactionQueries(db);
 
     // Create default user and account
     await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
@@ -352,14 +352,14 @@ describe('TransactionRepository - scam token filtering', () => {
   });
 });
 
-describe('TransactionRepository - isSpam field', () => {
+describe('TransactionQueries - isSpam field', () => {
   let db: KyselyDB;
-  let repository: TransactionRepository;
+  let repository: TransactionQueries;
 
   beforeEach(async () => {
     db = createDatabase(':memory:');
     await runMigrations(db);
-    repository = new TransactionRepository(db);
+    repository = createTransactionQueries(db);
 
     // Create default user and account
     await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
@@ -598,14 +598,14 @@ describe('TransactionRepository - isSpam field', () => {
   });
 });
 
-describe('TransactionRepository - updateMovementsWithPrices', () => {
+describe('TransactionQueries - updateMovementsWithPrices', () => {
   let db: KyselyDB;
-  let repository: TransactionRepository;
+  let repository: TransactionQueries;
 
   beforeEach(async () => {
     db = createDatabase(':memory:');
     await runMigrations(db);
-    repository = new TransactionRepository(db);
+    repository = createTransactionQueries(db);
 
     // Create default user and account
     await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();

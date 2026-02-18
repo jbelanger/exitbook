@@ -1,7 +1,7 @@
 import type { TransactionLinkRepository } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import type { TransactionRepository } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -13,7 +13,7 @@ vi.mock('@exitbook/data', async () => {
   const actual = await vi.importActual<typeof import('@exitbook/data')>('@exitbook/data');
   return {
     ...actual,
-    TransactionRepository: vi.fn(),
+    createTransactionQueries: vi.fn(),
   };
 });
 
@@ -39,7 +39,7 @@ describe('ExportHandler', () => {
     };
 
     handler = new ExportHandler(
-      mockTransactionRepository as unknown as TransactionRepository,
+      mockTransactionRepository as unknown as TransactionQueries,
       mockTransactionLinkRepository as unknown as TransactionLinkRepository
     );
   });

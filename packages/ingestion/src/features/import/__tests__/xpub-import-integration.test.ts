@@ -15,12 +15,14 @@ import {
   createDatabase,
   createImportSessionQueries,
   createRawDataQueries,
+  createUserQueries,
   type ImportSessionQueries,
   type RawDataQueries,
+  type UserQueries,
   runMigrations,
   type KyselyDB,
 } from '@exitbook/data';
-import { type AccountQueries, UserRepository } from '@exitbook/data';
+import { type AccountQueries } from '@exitbook/data';
 import { ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -76,7 +78,7 @@ vi.mock('../../../shared/types/exchange-adapter.js', () => ({
 describe('xpub import integration tests', () => {
   let db: KyselyDB;
   let orchestrator: ImportOrchestrator;
-  let userQueries: UserRepository;
+  let userQueries: UserQueries;
   let accountQueries: AccountQueries;
   let rawDataQueries: RawDataQueries;
   let sessionQueries: ImportSessionQueries;
@@ -116,7 +118,7 @@ describe('xpub import integration tests', () => {
     await runMigrations(db);
 
     // Create repositories
-    userQueries = new UserRepository(db);
+    userQueries = createUserQueries(db);
     accountQueries = createAccountQueries(db);
     rawDataQueries = createRawDataQueries(db);
     sessionQueries = createImportSessionQueries(db);
