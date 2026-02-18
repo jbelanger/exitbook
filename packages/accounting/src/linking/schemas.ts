@@ -1,4 +1,12 @@
-import { DateSchema, DecimalSchema } from '@exitbook/core';
+import {
+  DateSchema,
+  DecimalSchema,
+  LinkStatusSchema,
+  LinkTypeSchema,
+  MatchCriteriaSchema,
+  TransactionLinkMetadataSchema,
+  TransactionLinkSchema,
+} from '@exitbook/core';
 import { z } from 'zod';
 
 const UnitIntervalDecimalSchema = DecimalSchema.refine(
@@ -7,59 +15,9 @@ const UnitIntervalDecimalSchema = DecimalSchema.refine(
 );
 
 /**
- * Link type schema
+ * Shared transaction link schemas re-exported for accounting APIs
  */
-export const LinkTypeSchema = z.enum([
-  'exchange_to_blockchain',
-  'blockchain_to_blockchain',
-  'exchange_to_exchange',
-  'blockchain_internal',
-]);
-
-/**
- * Link status schema
- */
-export const LinkStatusSchema = z.enum(['suggested', 'confirmed', 'rejected']);
-
-/**
- * Match criteria schema
- */
-export const MatchCriteriaSchema = z.object({
-  assetMatch: z.boolean(),
-  amountSimilarity: UnitIntervalDecimalSchema,
-  timingValid: z.boolean(),
-  timingHours: z.number(),
-  addressMatch: z.boolean().optional(),
-  hashMatch: z.boolean().optional(),
-});
-
-/**
- * Transaction link metadata schema
- */
-export const TransactionLinkMetadataSchema = z.record(z.string(), z.unknown());
-
-/**
- * Transaction link schema
- */
-export const TransactionLinkSchema = z.object({
-  id: z.string(),
-  sourceTransactionId: z.number(),
-  targetTransactionId: z.number(),
-  assetSymbol: z.string(),
-  sourceAssetId: z.string(),
-  targetAssetId: z.string(),
-  sourceAmount: DecimalSchema,
-  targetAmount: DecimalSchema,
-  linkType: LinkTypeSchema,
-  confidenceScore: UnitIntervalDecimalSchema,
-  matchCriteria: MatchCriteriaSchema,
-  status: LinkStatusSchema,
-  reviewedBy: z.string().optional(),
-  reviewedAt: DateSchema.optional(),
-  createdAt: DateSchema,
-  updatedAt: DateSchema,
-  metadata: TransactionLinkMetadataSchema.optional(),
-});
+export { LinkTypeSchema, LinkStatusSchema, MatchCriteriaSchema, TransactionLinkMetadataSchema, TransactionLinkSchema };
 
 /**
  * Transaction candidate schema

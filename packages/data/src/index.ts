@@ -26,4 +26,5 @@ export {
 } from './repositories/raw-data-repository.js';
 export { ImportSessionRepository, type IImportSessionRepository } from './repositories/import-session-repository.js';
 export type { StoredImportSession, ImportSessionQuery, ImportSessionUpdate } from './types/data-types.js';
+export { TransactionLinkRepository, type TransactionLinkRow } from './repositories/transaction-link-repository.js';
 export * from './overrides/index.js';

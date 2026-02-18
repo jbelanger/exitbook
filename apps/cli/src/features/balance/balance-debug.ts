@@ -3,6 +3,11 @@ import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
+export interface DateRange {
+  earliest: string;
+  latest: string;
+}
+
 interface MovementSample {
   amount: Decimal;
   datetime: string;
@@ -27,6 +32,8 @@ export interface BalanceAssetDebugResult {
     outflows: Decimal;
     txCount: number;
   };
+  /** Actual first and last transaction dates across all movements for this asset. */
+  dateRange?: DateRange | undefined;
   topInflows: MovementSample[];
   topOutflows: MovementSample[];
   topFees: FeeSample[];
@@ -52,6 +59,8 @@ export function buildBalanceAssetDebug(params: {
   let outflowTotal = parseDecimal('0');
   let feeTotal = parseDecimal('0');
   let txCount = 0;
+  let earliestDate: string | undefined;
+  let latestDate: string | undefined;
 
   for (const tx of params.transactions) {
     let touched = false;
@@ -106,6 +115,8 @@ export function buildBalanceAssetDebug(params: {
 
     if (touched) {
       txCount++;
+      if (!earliestDate || tx.datetime < earliestDate) earliestDate = tx.datetime;
+      if (!latestDate || tx.datetime > latestDate) latestDate = tx.datetime;
     }
   }
 
@@ -125,6 +136,7 @@ export function buildBalanceAssetDebug(params: {
       net,
       txCount,
     },
+    dateRange: earliestDate && latestDate ? { earliest: earliestDate, latest: latestDate } : undefined,
     topInflows: inflows.slice(0, topN),
     topOutflows: outflows.slice(0, topN),
     topFees: fees.slice(0, topN),

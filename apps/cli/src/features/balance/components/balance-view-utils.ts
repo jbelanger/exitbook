@@ -26,7 +26,7 @@ import type {
  */
 export function buildAssetDiagnostics(
   debugResult: BalanceAssetDebugResult,
-  comparison?: { calculatedBalance: string; liveBalance: string; }  
+  comparison?: { calculatedBalance: string; liveBalance: string }
 ): AssetDiagnostics {
   const topOutflows: DiagnosticSample[] = debugResult.topOutflows.map((s) => ({
     amount: s.amount.toFixed(),
@@ -50,15 +50,7 @@ export function buildAssetDiagnostics(
     transactionHash: s.transactionHash,
   }));
 
-  // Date range from top inflows/outflows
-  let dateRange: { earliest: string; latest: string } | undefined;
-  const allDates = [...debugResult.topInflows, ...debugResult.topOutflows, ...debugResult.topFees].map(
-    (s) => s.datetime
-  );
-  if (allDates.length > 0) {
-    allDates.sort();
-    dateRange = { earliest: allDates[0]!, latest: allDates[allDates.length - 1]! };
-  }
+  const dateRange = debugResult.dateRange;
 
   // Implied missing = live - calculated (when there's a comparison)
   let impliedMissing: string | undefined;
@@ -98,7 +90,7 @@ const ACCOUNT_TYPE_PRIORITY: Record<AccountType, number> = {
 /**
  * Sort accounts by verification priority: blockchain first, then exchange-api, then exchange-csv.
  */
-export function sortAccountsByVerificationPriority<T extends { accountId: number; accountType: AccountType; }>(
+export function sortAccountsByVerificationPriority<T extends { accountId: number; accountType: AccountType }>(
   accounts: T[]
 ): T[] {
   return [...accounts].sort((a, b) => {

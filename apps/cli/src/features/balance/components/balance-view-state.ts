@@ -4,6 +4,8 @@
 
 import type { AccountType } from '@exitbook/core';
 
+import type { DateRange } from '../balance-debug.js';
+
 // ─── Diagnostics ─────────────────────────────────────────────────────────────
 
 export interface DiagnosticSample {
@@ -22,7 +24,7 @@ export interface DiagnosticFeeSample {
 
 export interface AssetDiagnostics {
   txCount: number;
-  dateRange?: { earliest: string; latest: string } | undefined;
+  dateRange?: DateRange | undefined;
   totals: {
     fees: string;
     inflows: string;
