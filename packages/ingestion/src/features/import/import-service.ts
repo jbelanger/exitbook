@@ -1,6 +1,6 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ImportSession } from '@exitbook/core';
-import type { AccountRepository, IImportSessionRepository, IRawDataRepository } from '@exitbook/data';
+import type { AccountQueries, IImportSessionRepository, IRawDataRepository } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -23,7 +23,7 @@ export class ImportExecutor {
   constructor(
     private rawDataRepository: IRawDataRepository,
     private importSessionRepository: IImportSessionRepository,
-    private accountRepository: AccountRepository,
+    private accountRepository: AccountQueries,
     private providerManager: BlockchainProviderManager,
     private eventBus?: EventBus<ImportEvent> | undefined
   ) {

@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ExchangeCredentials, ImportSession } from '@exitbook/core';
-import type { AccountRepository, IImportSessionRepository, IRawDataRepository, UserRepository } from '@exitbook/data';
+import type { AccountQueries, IImportSessionRepository, IRawDataRepository, UserRepository } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -33,7 +33,7 @@ export class ImportOrchestrator {
 
   constructor(
     private userRepository: UserRepository,
-    private accountRepository: AccountRepository,
+    private accountRepository: AccountQueries,
     rawDataRepository: IRawDataRepository,
     importSessionRepository: IImportSessionRepository,
     providerManager: BlockchainProviderManager,

@@ -1,7 +1,7 @@
 import { TransactionLinkRepository } from '@exitbook/accounting';
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
-  AccountRepository,
+  createAccountQueries,
   createTokenMetadataPersistence,
   ImportSessionRepository,
   // eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
@@ -51,7 +51,7 @@ export interface ProcessServices {
 export async function createProcessServices(database: KyselyDB): Promise<ProcessServices> {
   // Create repositories
   const user = new UserRepository(database);
-  const account = new AccountRepository(database);
+  const account = createAccountQueries(database);
   const transaction = new TransactionRepository(database);
   const rawData = new RawDataRepository(database);
   const importSession = new ImportSessionRepository(database);

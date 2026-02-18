@@ -1,6 +1,7 @@
 import { TransactionLinkRepository } from '@exitbook/accounting';
 import {
-  AccountRepository,
+  type AccountQueries,
+  createAccountQueries,
   ImportSessionRepository,
   RawDataRepository,
   TransactionRepository,
@@ -83,7 +84,7 @@ async function executeClearTUI(options: {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const userRepository = new UserRepository(database);
-      const accountRepository = new AccountRepository(database);
+      const accountRepository = createAccountQueries(database);
       const transactionRepository = new TransactionRepository(database);
       const transactionLinkRepository = new TransactionLinkRepository(database);
       const rawDataRepository = new RawDataRepository(database);
@@ -158,7 +159,7 @@ async function executeClearTUI(options: {
 async function buildScopeLabel(
   accountId: number | undefined,
   source: string | undefined,
-  accountRepo: AccountRepository
+  accountRepo: AccountQueries
 ): Promise<string> {
   if (accountId) {
     const accountResult = await accountRepo.findById(accountId);
@@ -189,7 +190,7 @@ async function executeClearNonTui(options: {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const userRepository = new UserRepository(database);
-      const accountRepository = new AccountRepository(database);
+      const accountRepository = createAccountQueries(database);
       const transactionRepository = new TransactionRepository(database);
       const transactionLinkRepository = new TransactionLinkRepository(database);
       const rawDataRepository = new RawDataRepository(database);

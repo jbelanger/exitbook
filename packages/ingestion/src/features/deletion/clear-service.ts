@@ -1,7 +1,7 @@
 import type { TransactionLinkRepository } from '@exitbook/accounting';
 import type { Account } from '@exitbook/core';
 import type {
-  AccountRepository,
+  AccountQueries,
   IImportSessionRepository,
   IRawDataRepository,
   TransactionRepository,
@@ -37,7 +37,7 @@ export interface ClearResult {
 export class ClearService {
   constructor(
     private userRepo: UserRepository,
-    private accountRepo: AccountRepository,
+    private accountRepo: AccountQueries,
     private transactionRepo: TransactionRepository,
     private transactionLinkRepo: TransactionLinkRepository,
     private rawDataRepo: IRawDataRepository,

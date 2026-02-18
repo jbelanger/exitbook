@@ -1,6 +1,7 @@
 import type { Account, ExchangeCredentials } from '@exitbook/core';
 import {
-  AccountRepository,
+  type AccountQueries,
+  createAccountQueries,
   createTokenMetadataPersistence,
   ImportSessionRepository,
   TransactionRepository,
@@ -112,7 +113,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const accountRepo = new AccountRepository(database);
+      const accountRepo = createAccountQueries(database);
       const transactionRepo = new TransactionRepository(database);
       const sessionRepo = new ImportSessionRepository(database);
 
@@ -367,7 +368,7 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const accountRepo = new AccountRepository(database);
+      const accountRepo = createAccountQueries(database);
       const transactionRepo = new TransactionRepository(database);
       const sessionRepo = new ImportSessionRepository(database);
       const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
@@ -466,7 +467,7 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
 async function runVerificationLoop(
   accounts: Account[],
   balanceService: BalanceService,
-  accountRepo: AccountRepository,
+  accountRepo: AccountQueries,
   transactionRepo: TransactionRepository,
   relay: EventRelay<BalanceEvent>,
   signal: AbortSignal
@@ -577,7 +578,7 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const accountRepo = new AccountRepository(database);
+      const accountRepo = createAccountQueries(database);
       const transactionRepo = new TransactionRepository(database);
       const sessionRepo = new ImportSessionRepository(database);
       const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
@@ -674,7 +675,7 @@ async function executeBalanceOfflineTUI(options: BalanceCommandOptions): Promise
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const accountRepo = new AccountRepository(database);
+      const accountRepo = createAccountQueries(database);
       const transactionRepo = new TransactionRepository(database);
 
       if (options.accountId) {
@@ -762,21 +763,21 @@ function buildDiagnosticsForAsset(
   return getEmptyDiagnostics();
 }
 
-async function loadAllAccounts(accountRepo: AccountRepository): Promise<Account[]> {
+async function loadAllAccounts(accountRepo: AccountQueries): Promise<Account[]> {
   const result = await accountRepo.findAll();
   if (result.isErr()) throw result.error;
   // Filter to top-level accounts only (no child/derived accounts)
   return result.value.filter((a) => !a.parentAccountId);
 }
 
-async function loadSingleAccount(accountRepo: AccountRepository, accountId: number): Promise<Account[]> {
+async function loadSingleAccount(accountRepo: AccountQueries, accountId: number): Promise<Account[]> {
   const result = await accountRepo.findById(accountId);
   if (result.isErr()) throw result.error;
   if (!result.value) throw new Error(`Account #${accountId} not found`);
   return [result.value];
 }
 
-async function loadSingleAccountOrFail(accountRepo: AccountRepository, accountId: number): Promise<Account> {
+async function loadSingleAccountOrFail(accountRepo: AccountQueries, accountId: number): Promise<Account> {
   const result = await accountRepo.findById(accountId);
   if (result.isErr()) throw result.error;
   if (!result.value) throw new Error(`Account #${accountId} not found`);
@@ -785,7 +786,7 @@ async function loadSingleAccountOrFail(accountRepo: AccountRepository, accountId
 
 async function loadAccountTransactions(
   account: Account,
-  accountRepo: AccountRepository,
+  accountRepo: AccountQueries,
   transactionRepo: TransactionRepository
 ): Promise<import('@exitbook/core').UniversalTransactionData[]> {
   const childResult = await accountRepo.findAll({ parentAccountId: account.id });
@@ -827,7 +828,7 @@ function extractStreamMetadata(account: Account): Record<string, unknown> | unde
 
 async function buildOfflineAssets(
   account: Account,
-  accountRepo: AccountRepository,
+  accountRepo: AccountQueries,
   transactionRepo: TransactionRepository
 ): Promise<{ assets: import('./components/index.js').AssetOfflineItem[] }> {
   const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);

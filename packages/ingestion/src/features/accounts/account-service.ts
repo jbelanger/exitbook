@@ -1,5 +1,5 @@
 import type { Account } from '@exitbook/core';
-import type { AccountRepository, IImportSessionRepository, UserRepository } from '@exitbook/data';
+import type { AccountQueries, IImportSessionRepository, UserRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -26,7 +26,7 @@ export interface ViewAccountsParams extends AccountQueryParams {
  */
 export class AccountService {
   constructor(
-    private readonly accountRepo: AccountRepository,
+    private readonly accountRepo: AccountQueries,
     private readonly sessionRepo: IImportSessionRepository,
     private readonly userRepo: UserRepository
   ) {}

@@ -100,13 +100,17 @@ async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
  * Execute accounts view in TUI mode
  */
 async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void> {
-  const { AccountRepository, UserRepository, ImportSessionRepository } = await import('@exitbook/data');
+  const {
+    createAccountQueries: createAccountRepository,
+    UserRepository,
+    ImportSessionRepository,
+  } = await import('@exitbook/data');
   const { AccountService } = await import('@exitbook/ingestion');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const accountRepo = new AccountRepository(database);
+      const accountRepo = createAccountRepository(database);
       const sessionRepo = new ImportSessionRepository(database);
       const userRepo = new UserRepository(database);
 
@@ -163,13 +167,17 @@ async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void>
  * Execute accounts view in JSON mode
  */
 async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void> {
-  const { AccountRepository, UserRepository, ImportSessionRepository } = await import('@exitbook/data');
+  const {
+    createAccountQueries: createAccountRepository,
+    UserRepository,
+    ImportSessionRepository,
+  } = await import('@exitbook/data');
   const { AccountService } = await import('@exitbook/ingestion');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const accountRepo = new AccountRepository(database);
+      const accountRepo = createAccountRepository(database);
       const sessionRepo = new ImportSessionRepository(database);
       const userRepo = new UserRepository(database);
 

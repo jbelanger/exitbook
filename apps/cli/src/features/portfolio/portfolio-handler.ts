@@ -11,7 +11,7 @@ import {
   type TransactionLinkRepository,
 } from '@exitbook/accounting';
 import { Currency, type UniversalTransactionData } from '@exitbook/core';
-import type { AccountRepository, TransactionRepository } from '@exitbook/data';
+import type { AccountQueries, TransactionRepository } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager } from '@exitbook/price-providers';
@@ -88,7 +88,7 @@ export interface PortfolioResult {
  */
 export class PortfolioHandler {
   constructor(
-    private accountRepository: AccountRepository,
+    private accountRepository: AccountQueries,
     private transactionRepository: TransactionRepository,
     private transactionLinkRepository: TransactionLinkRepository
   ) {}

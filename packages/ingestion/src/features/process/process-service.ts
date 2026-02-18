@@ -1,7 +1,7 @@
 import { NormalizedTransactionBaseSchema, type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getErrorMessage, type RawTransaction } from '@exitbook/core';
 import type {
-  AccountRepository,
+  AccountQueries,
   IImportSessionRepository,
   IRawDataRepository,
   ITransactionRepository,
@@ -44,7 +44,7 @@ export class TransactionProcessService {
 
   constructor(
     private rawDataRepository: IRawDataRepository,
-    private accountRepository: AccountRepository,
+    private accountRepository: AccountQueries,
     private transactionRepository: ITransactionRepository,
     private providerManager: BlockchainProviderManager,
     private tokenMetadataService: ITokenMetadataService,

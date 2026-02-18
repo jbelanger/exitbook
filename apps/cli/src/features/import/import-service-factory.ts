@@ -1,6 +1,6 @@
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
-  AccountRepository,
+  createAccountQueries,
   createTokenMetadataPersistence,
   ImportSessionRepository,
   type KyselyDB,
@@ -148,7 +148,7 @@ export async function createImportServices(database: KyselyDB): Promise<ImportSe
 function createRepositories(database: KyselyDB) {
   return {
     user: new UserRepository(database),
-    account: new AccountRepository(database),
+    account: createAccountQueries(database),
     transaction: new TransactionRepository(database),
     rawData: new RawDataRepository(database),
     importSession: new ImportSessionRepository(database),

@@ -3,8 +3,8 @@ export { runMigrations, getMigrationStatus } from './storage/migrations.js';
 export { initializeDatabase } from './storage/initialization.js';
 export { BaseRepository } from './repositories/base-repository.js';
 export { UserRepository } from './repositories/user-repository.js';
-export { AccountRepository } from './repositories/account-repository.js';
-export type { FindOrCreateAccountParams, UpdateAccountParams } from './repositories/account-repository.js';
+export { createAccountQueries } from './repositories/account-queries.js';
+export type { AccountQueries, FindOrCreateAccountParams, UpdateAccountParams } from './repositories/account-queries.js';
 export { TransactionRepository } from './repositories/transaction-repository.js';
 export type {
   ITransactionRepository,

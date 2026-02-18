@@ -28,7 +28,7 @@ vi.mock('@exitbook/data', async (importOriginal) => {
   return {
     ...actual,
     UserRepository: vi.fn(),
-    AccountRepository: vi.fn(),
+    createAccountRepository: vi.fn(),
     TokenMetadataRepository: vi.fn(),
   };
 });

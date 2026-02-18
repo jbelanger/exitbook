@@ -1,17 +1,18 @@
+/* eslint-disable unicorn/no-null --- null needed for db */
 import type { Account, CursorState } from '@exitbook/core';
 import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { AccountRepository } from '../account-repository.js';
+import { createAccountQueries } from '../account-queries.js';
 
 describe('AccountRepository', () => {
   let db: KyselyDB;
-  let repository: AccountRepository;
+  let repository: ReturnType<typeof createAccountQueries>;
 
   beforeEach(async () => {
     db = createDatabase(':memory:');
     await runMigrations(db);
-    repository = new AccountRepository(db);
+    repository = createAccountQueries(db);
 
     // Create default user for tests
     await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
@@ -235,6 +236,62 @@ describe('AccountRepository', () => {
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('should return error when stored cursor JSON fails schema validation', async () => {
+      const inserted = await db
+        .insertInto('accounts')
+        .values({
+          user_id: 1,
+          parent_account_id: null,
+          account_type: 'blockchain',
+          source_name: 'bitcoin',
+          identifier: 'bc1q-invalid-cursor',
+          provider_name: null,
+          credentials: null,
+          last_cursor: JSON.stringify({ normal: { invalid: 'shape' } }),
+          last_balance_check_at: null,
+          verification_metadata: null,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+
+      const result = await repository.findById(inserted.id);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Schema validation failed');
+      }
+    });
+
+    it('should return error when stored credentials fail schema validation', async () => {
+      const inserted = await db
+        .insertInto('accounts')
+        .values({
+          user_id: 1,
+          parent_account_id: null,
+          account_type: 'exchange-api',
+          source_name: 'kraken',
+          identifier: 'apiKey-invalid-schema',
+          provider_name: null,
+          credentials: JSON.stringify({ apiKey: 'key123' }),
+          last_cursor: null,
+          last_balance_check_at: null,
+          verification_metadata: null,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+
+      const result = await repository.findById(inserted.id);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Schema validation failed');
       }
     });
   });
@@ -488,7 +545,15 @@ describe('AccountRepository', () => {
       }
     });
 
-    it('should allow setting fields to null', async () => {
+    it('should treat undefined update fields as no-op', async () => {
+      const setResult = await repository.update(account.id, {
+        providerName: 'existing-provider',
+      });
+      expect(setResult.isOk()).toBe(true);
+
+      const beforeNoOp = await repository.findById(account.id);
+      expect(beforeNoOp.isOk()).toBe(true);
+
       const result = await repository.update(account.id, {
         providerName: undefined,
       });
@@ -496,8 +561,9 @@ describe('AccountRepository', () => {
       expect(result.isOk()).toBe(true);
 
       const updated = await repository.findById(account.id);
-      if (updated.isOk()) {
-        expect(updated.value.providerName).toBeUndefined();
+      if (updated.isOk() && beforeNoOp.isOk()) {
+        expect(updated.value.providerName).toBe('existing-provider');
+        expect(updated.value.updatedAt?.toISOString()).toBe(beforeNoOp.value.updatedAt?.toISOString());
       }
     });
 

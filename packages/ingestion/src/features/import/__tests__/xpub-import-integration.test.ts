@@ -17,7 +17,7 @@ import {
   runMigrations,
   type KyselyDB,
 } from '@exitbook/data';
-import { AccountRepository, UserRepository } from '@exitbook/data';
+import { type AccountQueries, createAccountQueries, UserRepository } from '@exitbook/data';
 import { ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -74,7 +74,7 @@ describe('xpub import integration tests', () => {
   let db: KyselyDB;
   let orchestrator: ImportOrchestrator;
   let userRepo: UserRepository;
-  let accountRepo: AccountRepository;
+  let accountRepo: AccountQueries;
   let rawDataRepo: RawDataRepository;
   let sessionRepo: ImportSessionRepository;
 
@@ -114,7 +114,7 @@ describe('xpub import integration tests', () => {
 
     // Create repositories
     userRepo = new UserRepository(db);
-    accountRepo = new AccountRepository(db);
+    accountRepo = createAccountQueries(db);
     rawDataRepo = new RawDataRepository(db);
     sessionRepo = new ImportSessionRepository(db);
 

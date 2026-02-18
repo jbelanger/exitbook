@@ -9,7 +9,7 @@ import type {
 } from '@exitbook/core';
 import { parseAssetId } from '@exitbook/core';
 import type {
-  AccountRepository,
+  AccountQueries,
   IImportSessionRepository,
   TokenMetadataRepository,
   TransactionRepository,
@@ -46,7 +46,7 @@ export interface BalanceServiceParams {
  */
 export class BalanceService {
   constructor(
-    private accountRepository: AccountRepository,
+    private accountRepository: AccountQueries,
     private transactionRepository: TransactionRepository,
     private sessionRepository: IImportSessionRepository,
     private tokenMetadataRepository: TokenMetadataRepository,
