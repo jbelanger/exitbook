@@ -26,10 +26,17 @@ export function serializeToJson(data: unknown): Result<string | undefined, Error
   if (data === undefined || data === null) return ok(undefined);
 
   try {
-    const serialized = JSON.stringify(data, (_key, value: unknown) => {
-      if (value instanceof Decimal || isDecimalLike(value)) return value.toFixed();
-      return value as string | number | boolean | null | object;
-    });
+    const serialized = JSON.stringify(
+      data,
+      function replacer(this: Record<string, unknown>, key: string, value: unknown) {
+        const holderValue = this[key];
+
+        if (holderValue instanceof Decimal || isDecimalLike(holderValue)) return holderValue.toFixed();
+        if (value instanceof Decimal || isDecimalLike(value)) return value.toFixed();
+
+        return value;
+      }
+    );
     return ok(serialized);
   } catch (error) {
     return err(new Error(`Failed to serialize JSON: ${error instanceof Error ? error.message : String(error)}`));

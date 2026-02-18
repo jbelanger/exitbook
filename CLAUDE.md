@@ -25,7 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Reprocess: `pnpm run dev reprocess` (clears derived data, reprocesses all raw data)
   - Prices enrich: `pnpm run dev prices enrich` (4-stage pipeline; use flags to slice)
   - Export: `pnpm run dev export --exchange kraken --format csv --output ./reports/kraken.csv`
-  - Discover: `pnpm run dev list-blockchains`
+  - Discover: `pnpm run dev blockchains view`
 - For full command list: `pnpm run dev --help`
 
 ### Provider Management

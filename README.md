@@ -1,9 +1,7 @@
 # ExitBook
 
-> Open-source CLI for crypto transaction reconciliation and tax reporting
+> Open-source CLI for crypto transaction tracking and tax reporting
 > **Status: Work in Progress**
-
-ExitBook helps you track cryptocurrency activity across exchanges and blockchains by importing raw data, processing it into a universal transaction format, and verifying balances against live on-chain state.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Test Suite](https://github.com/jbelanger/exitbook/actions/workflows/test.yml/badge.svg)](https://github.com/jbelanger/exitbook/actions/workflows/test.yml)
@@ -11,14 +9,17 @@ ExitBook helps you track cryptocurrency activity across exchanges and blockchain
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24-blue.svg)](https://nodejs.org)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D10.6.2-orange.svg)](https://pnpm.io)
 
-## Current Focus
+## Why Exitbook exists
 
-We're building the infrastructure to support:
+Crypto tax tools charge per transaction, hide their calculations, and some fabricate events to fill gaps in your data.
 
-- Fetching data in batches with cursor-based resumption
-- Automatic failover across multiple data providers
-- Live balance verification against blockchain state
-- Handling both EOA addresses and contract interactions
+Exitbook doesn't do any of that. Every number traces back to a real import. Every calculation is visible. If data is missing, it tells you instead of guessing.
+
+## Before you file
+
+1. **Check balances** — after importing, run `balance` to verify Exitbook matches the chain. If balances are correct, the calculations built on top of them will be too.
+2. **Import all your wallets** — transfers between your own wallets need both sides to link correctly. Missing a wallet means broken links.
+3. **Pricing is intraday** — USD prices are per-day, not per-second. Close enough for tax reporting.
 
 ## Supported Sources
 
@@ -239,44 +240,6 @@ pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET
 ```
 
 **Configuration:** Add API keys to `.env` in project root (see `CLAUDE.md` for details)
-
-## Architecture
-
-```
-apps/cli/              # Commander-based CLI entry point
-packages/
-  blockchain-providers/  # Multi-provider blockchain data fetching
-  exchange-providers/    # Exchange API clients (ccxt-based)
-  ingestion/            # Import & process pipelines
-  accounting/           # Linking, pricing, cost-basis
-  data/                # SQLite repositories (Kysely)
-  core/                # Shared types and schemas
-```
-
-**Design principles:**
-
-- Vertical slices per exchange/blockchain (co-locate importers, processors, schemas)
-- Functional core with `Result` types (neverthrow) and Zod validation
-- Dynamic provider discovery via metadata registries
-- Two-phase pipeline: import raw → process to universal format
-
-## What's Next
-
-- [ ] Support complex wallet scenarios (multi-sig, smart contracts, cross-chain)
-- [ ] Transaction linking (correlate withdrawals with deposits)
-- [ ] Cost-basis calculation (FIFO, LIFO, Specific ID)
-- [ ] Multi-currency pricing pipeline
-- [ ] Advanced gap detection and data quality checks
-
-## Contributing
-
-This project follows strict code quality standards. See `CLAUDE.md` for:
-
-- Development workflows and testing patterns
-- Adding new blockchain providers or exchange adapters
-- Architecture patterns (functional core, Result types, vertical slices)
-
-Run `pnpm build` and `pnpm lint` before opening PRs.
 
 ## License
 

@@ -5,22 +5,46 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
-import { calculateChromeLines, calculateVisibleRows, Divider, getSelectionCursor } from '../../../ui/shared/index.js';
+import {
+  calculateChromeLines,
+  calculateVisibleRows,
+  computeColumnWidths,
+  Divider,
+  getSelectionCursor,
+} from '../../../ui/shared/index.js';
 
 import { handleBlockchainsKeyboardInput, blockchainsViewReducer } from './blockchains-view-controller.js';
 import type { BlockchainViewItem, BlockchainsViewState, ProviderViewItem } from './blockchains-view-state.js';
 
-export const CHROME_LINES = calculateChromeLines({
-  beforeHeader: 1, // blank line
-  header: 1, // "Blockchains · N registered"
-  afterHeader: 1, // blank line
-  listScrollIndicators: 2, // "▲/▼ N more above/below"
-  divider: 1, // separator line
-  detail: 7, // blockchain detail panel (providers list)
-  beforeControls: 1, // blank line
-  controls: 1, // control hints
-  buffer: 1, // bottom margin
-});
+function getDetailLines(selected: BlockchainViewItem | undefined): number {
+  if (!selected) return 0;
+
+  const providerLines = selected.providers.length > 0 ? 1 + selected.providers.length : 1;
+
+  return (
+    1 + // title line (▸ name, category, layer, providers)
+    1 + // blank line
+    providerLines + // "Providers" label + provider rows, or "No providers registered"
+    1 + // blank line
+    1 // example command
+  );
+}
+
+function getBlockchainsVisibleRows(terminalHeight: number, selected: BlockchainViewItem | undefined): number {
+  const chromeLines = calculateChromeLines({
+    beforeHeader: 1,
+    header: 1,
+    afterHeader: 1,
+    listScrollIndicators: 2,
+    divider: 1,
+    detail: getDetailLines(selected),
+    beforeControls: 1,
+    controls: 1,
+    buffer: 1,
+  });
+
+  return calculateVisibleRows(terminalHeight, chromeLines);
+}
 
 /**
  * Main blockchains view app component
@@ -35,8 +59,11 @@ export const BlockchainsViewApp: FC<{
   const terminalHeight = stdout?.rows || 24;
   const terminalWidth = stdout?.columns || 80;
 
+  const selected = state.blockchains[state.selectedIndex];
+  const visibleRows = getBlockchainsVisibleRows(terminalHeight, selected);
+
   useInput((input, key) => {
-    handleBlockchainsKeyboardInput(input, key, dispatch, onQuit, terminalHeight);
+    handleBlockchainsKeyboardInput(input, key, dispatch, onQuit, visibleRows);
   });
 
   if (state.blockchains.length === 0) {
@@ -50,7 +77,7 @@ export const BlockchainsViewApp: FC<{
       <Text> </Text>
       <BlockchainList
         state={state}
-        terminalHeight={terminalHeight}
+        visibleRows={visibleRows}
       />
       <Divider width={terminalWidth} />
       <BlockchainDetailPanel state={state} />
@@ -115,9 +142,9 @@ function buildCategoryParts(counts: Record<string, number>): { count: number; la
 
 // --- List ---
 
-const BlockchainList: FC<{ state: BlockchainsViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
+const BlockchainList: FC<{ state: BlockchainsViewState; visibleRows: number }> = ({ state, visibleRows }) => {
   const { blockchains, selectedIndex, scrollOffset } = state;
-  const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
+  const columnWidths = getBlockchainColumnWidths(blockchains);
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, blockchains.length);
@@ -140,6 +167,7 @@ const BlockchainList: FC<{ state: BlockchainsViewState; terminalHeight: number }
             key={item.name}
             item={item}
             isSelected={actualIndex === selectedIndex}
+            columnWidths={columnWidths}
           />
         );
       })}
@@ -154,14 +182,18 @@ const BlockchainList: FC<{ state: BlockchainsViewState; terminalHeight: number }
 
 // --- Row ---
 
-const BlockchainRow: FC<{ isSelected: boolean; item: BlockchainViewItem }> = ({ item, isSelected }) => {
+const BlockchainRow: FC<{
+  columnWidths: BlockchainColumnWidths;
+  isSelected: boolean;
+  item: BlockchainViewItem;
+}> = ({ item, isSelected, columnWidths }) => {
   const cursor = getSelectionCursor(isSelected);
   const icon = getKeyStatusIcon(item.keyStatus);
-  const displayName = item.displayName.padEnd(14).substring(0, 14);
-  const category = item.category.padEnd(10).substring(0, 10);
-  const layer = item.layer ? `L${item.layer}`.padEnd(4) : '    ';
+  const displayName = item.displayName.padEnd(columnWidths.displayName);
+  const category = item.category.padEnd(columnWidths.category);
+  const layer = (item.layer ? `L${item.layer}` : '').padEnd(columnWidths.layer);
   const providerLabel = item.providerCount === 1 ? 'provider ' : 'providers';
-  const providerText = `${item.providerCount} ${providerLabel}`.padStart(14);
+  const providerText = `${item.providerCount} ${providerLabel}`.padStart(columnWidths.providers);
   const keyStatusText = getKeyStatusText(item.keyStatus, item.missingKeyCount);
 
   if (isSelected) {
@@ -175,8 +207,8 @@ const BlockchainRow: FC<{ isSelected: boolean; item: BlockchainViewItem }> = ({ 
   return (
     <Text>
       {cursor} <Text color={icon.color}>{icon.char}</Text> {displayName} <Text dimColor>{category}</Text>{' '}
-      <Text dimColor>{layer}</Text> {item.providerCount} <Text dimColor>{providerLabel}</Text>
-      {'   '}
+      <Text dimColor>{layer}</Text> {providerText}
+      {'  '}
       <Text color={icon.color}>{keyStatusText}</Text>
     </Text>
   );
@@ -334,4 +366,42 @@ function getProviderIcon(provider: ProviderViewItem): { char: string; color: str
     return { char: '✓', color: 'green' };
   }
   return { char: '⚠', color: 'yellow' };
+}
+
+// ─── Column Width Logic ──────────────────────────────────────────────────────
+
+interface BlockchainColumnWidths {
+  category: number;
+  displayName: number;
+  keyStatus: number;
+  layer: number;
+  providers: number;
+}
+
+function getBlockchainColumnWidths(blockchains: BlockchainViewItem[]): BlockchainColumnWidths {
+  return computeColumnWidths(blockchains, {
+    displayName: {
+      minWidth: 10,
+      format: (item) => item.displayName,
+    },
+    category: {
+      minWidth: 6,
+      format: (item) => item.category,
+    },
+    layer: {
+      minWidth: 2,
+      format: (item) => (item.layer ? `L${item.layer}` : ''),
+    },
+    providers: {
+      minWidth: 10,
+      format: (item) => {
+        const label = item.providerCount === 1 ? 'provider ' : 'providers';
+        return `${item.providerCount} ${label}`;
+      },
+    },
+    keyStatus: {
+      minWidth: 12,
+      format: (item) => getKeyStatusText(item.keyStatus, item.missingKeyCount),
+    },
+  });
 }
