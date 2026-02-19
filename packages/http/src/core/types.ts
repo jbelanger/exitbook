@@ -17,22 +17,6 @@ export interface RateLimitState {
 }
 
 /**
- * Circuit breaker state (immutable)
- */
-export interface CircuitState {
-  failureCount: number;
-  lastFailureTime: number;
-  lastSuccessTime: number;
-  maxFailures: number;
-  recoveryTimeoutMs: number;
-}
-
-/**
- * Circuit breaker states
- */
-export type CircuitStatus = 'closed' | 'open' | 'half-open';
-
-/**
  * HTTP error classification
  */
 export interface ErrorClassification {
@@ -59,14 +43,6 @@ export interface HttpEffects {
 }
 
 /**
- * Complete HTTP context (all state needed for pure functions)
- */
-export interface HttpContext {
-  circuitState: CircuitState;
-  rateLimitState: RateLimitState;
-}
-
-/**
  * Factory functions for initial states
  */
 export const createInitialRateLimitState = (config: RateLimitConfig): RateLimitState => ({
@@ -77,17 +53,4 @@ export const createInitialRateLimitState = (config: RateLimitConfig): RateLimitS
   requestsPerMinute: config.requestsPerMinute,
   requestsPerSecond: config.requestsPerSecond,
   tokens: config.burstLimit || 1,
-});
-
-export const createInitialCircuitState = (maxFailures = 3, recoveryTimeoutMs = 300_000): CircuitState => ({
-  failureCount: 0,
-  lastFailureTime: 0,
-  lastSuccessTime: 0,
-  maxFailures,
-  recoveryTimeoutMs,
-});
-
-export const createInitialContext = (config: RateLimitConfig): HttpContext => ({
-  circuitState: createInitialCircuitState(),
-  rateLimitState: createInitialRateLimitState(config),
 });

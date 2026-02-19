@@ -4,8 +4,8 @@
  */
 
 import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
-import { createInitialCircuitState, recordFailure, type CircuitState } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
+import { createInitialCircuitState, recordFailure, type CircuitState } from '@exitbook/utils/circuit-breaker';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CursorResolutionConfig } from '../provider-manager-utils.js';

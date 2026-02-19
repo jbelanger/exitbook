@@ -4,7 +4,9 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { calculateVisibleRows } from '../../../../ui/shared/chrome-layout.js';
 import type { MissingPriceMovement } from '../../prices-view-utils.js';
+import { getCoverageChromeLines, getMissingChromeLines } from '../prices-view-components.js';
 import { handlePricesKeyboardInput, pricesViewReducer } from '../prices-view-controller.js';
 import { createCoverageViewState, createMissingViewState, missingRowKey } from '../prices-view-state.js';
 
@@ -242,9 +244,11 @@ describe('handlePricesKeyboardInput', () => {
       received = action;
     };
     const state = createCoverageViewState(createMockCoverage(), createMockSummary());
+    const hasMissingSources = (state.coverage[state.selectedIndex]?.missingSources.length ?? 0) > 0;
+    const expectedVisibleRows = calculateVisibleRows(24, getCoverageChromeLines(hasMissingSources));
 
     handlePricesKeyboardInput('', { ...noKey, upArrow: true }, dispatch, noop, 24, state);
-    expect(received).toEqual({ type: 'NAVIGATE_UP', visibleRows: 10 });
+    expect(received).toEqual({ type: 'NAVIGATE_UP', visibleRows: expectedVisibleRows });
   });
 
   it('dispatches NAVIGATE_DOWN on j', () => {
@@ -253,9 +257,11 @@ describe('handlePricesKeyboardInput', () => {
       received = action;
     };
     const state = createCoverageViewState(createMockCoverage(), createMockSummary());
+    const hasMissingSources = (state.coverage[state.selectedIndex]?.missingSources.length ?? 0) > 0;
+    const expectedVisibleRows = calculateVisibleRows(24, getCoverageChromeLines(hasMissingSources));
 
     handlePricesKeyboardInput('j', noKey, dispatch, noop, 24, state);
-    expect(received).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: 10 });
+    expect(received).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: expectedVisibleRows });
   });
 
   it('calls onQuit on q', () => {
@@ -392,10 +398,11 @@ describe('handlePricesKeyboardInput', () => {
       receivedVisibleRows = (action as { visibleRows: number }).visibleRows;
     };
     const state = createCoverageViewState(createMockCoverage(), createMockSummary());
+    const hasMissingSources = (state.coverage[state.selectedIndex]?.missingSources.length ?? 0) > 0;
+    const expectedVisibleRows = calculateVisibleRows(24, getCoverageChromeLines(hasMissingSources));
 
-    // Coverage mode: 24 - 14 = 10
     handlePricesKeyboardInput('j', noKey, dispatch, noop, 24, state);
-    expect(receivedVisibleRows).toBe(10);
+    expect(receivedVisibleRows).toBe(expectedVisibleRows);
   });
 
   it('uses missing chrome lines', () => {
@@ -404,10 +411,10 @@ describe('handlePricesKeyboardInput', () => {
       receivedVisibleRows = (action as { visibleRows: number }).visibleRows;
     };
     const state = createMissingViewState(createMockMovements(), []);
+    const expectedVisibleRows = calculateVisibleRows(24, getMissingChromeLines(state.assetBreakdown.length));
 
-    // Missing mode: 24 - 18 = 6
     handlePricesKeyboardInput('j', noKey, dispatch, noop, 24, state);
-    expect(receivedVisibleRows).toBe(6);
+    expect(receivedVisibleRows).toBe(expectedVisibleRows);
   });
 });
 

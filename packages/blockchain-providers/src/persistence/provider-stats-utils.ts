@@ -2,7 +2,7 @@
  * Pure functions for converting between DB rows and in-memory provider state
  */
 
-import type { CircuitState } from '@exitbook/http';
+import type { CircuitState } from '@exitbook/utils/circuit-breaker';
 
 import type { ProviderHealth } from '../core/types/index.js';
 

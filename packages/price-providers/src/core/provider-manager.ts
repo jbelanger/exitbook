@@ -4,14 +4,14 @@
  */
 
 import { Currency } from '@exitbook/core';
+import { getLogger } from '@exitbook/logger';
 import {
   createInitialCircuitState,
   recordFailure,
   recordSuccess,
   resetCircuit,
   type CircuitState,
-} from '@exitbook/http';
-import { getLogger } from '@exitbook/logger';
+} from '@exitbook/utils/circuit-breaker';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 

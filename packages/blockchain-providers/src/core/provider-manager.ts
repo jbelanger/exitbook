@@ -1,8 +1,9 @@
 import { getErrorMessage, type CursorState } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
+import type { HttpClientHooks, InstrumentationCollector } from '@exitbook/http';
+import { getLogger } from '@exitbook/logger';
 import {
   createInitialCircuitState,
-  type HttpClientHooks,
   isCircuitHalfOpen,
   isCircuitOpen,
   recordFailure,
@@ -10,9 +11,7 @@ import {
   resetCircuit,
   type CircuitState,
   type CircuitStatus,
-  type InstrumentationCollector,
-} from '@exitbook/http';
-import { getLogger } from '@exitbook/logger';
+} from '@exitbook/utils/circuit-breaker';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderEvent } from '../events.js';

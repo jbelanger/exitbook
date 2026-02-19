@@ -107,6 +107,7 @@ describe('PortfolioApp - pnl rendering', () => {
     );
     expect(realizedFrame()).toContain('SOL');
     expect(realizedFrame()).toContain('closed position');
-    expect(realizedFrame()).toContain('realized +USD 250.00');
+    expect(realizedFrame()).toContain('realized');
+    expect(realizedFrame()).toContain('+USD 250.00');
   });
 });

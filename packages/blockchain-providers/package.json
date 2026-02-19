@@ -57,6 +57,7 @@
     "@exitbook/data": "workspace:*",
     "@exitbook/events": "workspace:*",
     "@exitbook/http": "workspace:*",
-    "@exitbook/logger": "workspace:*"
+    "@exitbook/logger": "workspace:*",
+    "@exitbook/utils": "workspace:*"
   }
 }

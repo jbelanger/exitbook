@@ -6,8 +6,13 @@
  */
 
 import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
-import type { CircuitState, CircuitStatus } from '@exitbook/http';
-import { getCircuitStatus, isCircuitHalfOpen, isCircuitOpen } from '@exitbook/http';
+import {
+  getCircuitStatus,
+  isCircuitHalfOpen,
+  isCircuitOpen,
+  type CircuitState,
+  type CircuitStatus,
+} from '@exitbook/utils/circuit-breaker';
 
 import type { NormalizedTransactionBase } from '../index.js';
 

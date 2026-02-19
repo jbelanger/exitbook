@@ -4,8 +4,7 @@
  * No mocks needed - all functions are pure!
  */
 
-import type { CircuitState } from '@exitbook/http';
-import { createInitialCircuitState } from '@exitbook/http';
+import { createInitialCircuitState, type CircuitState } from '@exitbook/utils/circuit-breaker';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
