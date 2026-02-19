@@ -20,28 +20,36 @@ import { handlePricesKeyboardInput, pricesViewReducer } from './prices-view-cont
 import type { PricesViewCoverageState, PricesViewMissingState, PricesViewState } from './prices-view-state.js';
 import { missingRowKey } from './prices-view-state.js';
 
-export const COVERAGE_CHROME_LINES = calculateChromeLines({
-  beforeHeader: 1, // blank line
-  header: 1, // "Price Coverage · N assets"
-  afterHeader: 1, // blank line
-  divider: 1, // separator line
-  detail: 7, // coverage detail panel
-  beforeControls: 1, // blank line
-  controls: 1, // control hints
-  buffer: 1, // bottom margin
-});
+// detail is 7 lines base; adds 3 when missingSources are present (missing-in row + blank + tip)
+export function getCoverageChromeLines(hasMissingSources: boolean): number {
+  return calculateChromeLines({
+    beforeHeader: 1, // blank line
+    header: 1, // "Price Coverage · N assets"
+    afterHeader: 1, // blank line
+    divider: 1, // separator line
+    detail: hasMissingSources ? 10 : 7, // coverage detail panel
+    beforeControls: 1, // blank line
+    controls: 1, // control hints
+    buffer: 1, // bottom margin
+  });
+}
 
-export const MISSING_CHROME_LINES = calculateChromeLines({
-  beforeHeader: 1, // blank line
-  header: 1, // "Missing Prices · N movements"
-  afterHeader: 1, // blank line
-  listScrollIndicators: 2, // "▲/▼ N more above/below"
-  divider: 1, // separator line
-  detail: 9, // missing price detail panel
-  beforeControls: 1, // blank line
-  controls: 1, // control hints
-  buffer: 1, // bottom margin
-});
+// assetBreakdown is 0 lines when empty, or (1 header + N rows) when present
+export function getMissingChromeLines(assetCount: number): number {
+  return calculateChromeLines({
+    beforeHeader: 1, // blank line
+    header: 1, // "Missing Prices · N movements"
+    afterHeader: 1, // blank line
+    assetBreakdown: assetCount > 0 ? 1 + assetCount : 0, // "Asset Breakdown" header + rows
+    afterBreakdown: 1, // blank line (always rendered)
+    listScrollIndicators: 2, // "▲/▼ N more above/below"
+    divider: 1, // separator line
+    detail: 6, // missing price detail panel (max: unresolved = 6 lines)
+    beforeControls: 1, // blank line
+    controls: 1, // control hints
+    buffer: 1, // bottom margin
+  });
+}
 
 /**
  * Main prices view app component
@@ -192,7 +200,8 @@ const CoverageHeader: FC<{ state: PricesViewCoverageState }> = ({ state }) => {
 
 const CoverageList: FC<{ state: PricesViewCoverageState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { coverage, selectedIndex, scrollOffset } = state;
-  const visibleRows = calculateVisibleRows(terminalHeight, COVERAGE_CHROME_LINES);
+  const hasMissingSources = (state.coverage[state.selectedIndex]?.missingSources.length ?? 0) > 0;
+  const visibleRows = calculateVisibleRows(terminalHeight, getCoverageChromeLines(hasMissingSources));
   const cols = useMemo(
     () =>
       createColumns(coverage, {
@@ -484,7 +493,7 @@ const MissingAssetBreakdown: FC<{ assets: AssetBreakdownEntry[] }> = ({ assets }
 
 const MissingList: FC<{ state: PricesViewMissingState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { movements, selectedIndex, scrollOffset, resolvedRows } = state;
-  const visibleRows = calculateVisibleRows(terminalHeight, MISSING_CHROME_LINES);
+  const visibleRows = calculateVisibleRows(terminalHeight, getMissingChromeLines(state.assetBreakdown.length));
   const cols = useMemo(
     () =>
       createColumns(movements, {

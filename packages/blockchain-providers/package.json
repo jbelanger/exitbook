@@ -37,15 +37,12 @@
   "dependencies": {
     "@cardano-sdk/core": "^0.46.12",
     "@cardano-sdk/crypto": "^0.4.5",
-    "@cardano-sdk/key-management": "^0.29.12",
-    "@polkadot/util": "^14.0.1",
     "@polkadot/util-crypto": "^14.0.1",
     "@scure/bip32": "^2.0.0",
     "bech32": "^2.0.0",
     "better-sqlite3": "^12.6.2",
     "bitcoinjs-lib": "^7.0.1",
     "decimal.js": "^10.6.0",
-    "jose": "^6.0.13",
     "kysely": "^0.28.11",
     "neverthrow": "^8.2.0",
     "zod": "^4.3.6"

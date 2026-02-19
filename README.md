@@ -1,7 +1,6 @@
 # ExitBook
 
 > Open-source CLI for crypto transaction tracking and tax reporting
-> **Status: Work in Progress**
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Test Suite](https://github.com/jbelanger/exitbook/actions/workflows/test.yml/badge.svg)](https://github.com/jbelanger/exitbook/actions/workflows/test.yml)
@@ -15,12 +14,6 @@ Crypto tax tools charge per transaction, hide their calculations, and some fabri
 
 Exitbook doesn't do any of that. Every number traces back to a real import. Every calculation is visible. If data is missing, it tells you instead of guessing.
 
-## Before you file
-
-1. **Check balances** — after importing, run `balance` to verify Exitbook matches the chain. If balances are correct, the calculations built on top of them will be too.
-2. **Import all your wallets** — transfers between your own wallets need both sides to link correctly. Missing a wallet means broken links.
-3. **Pricing is intraday** — USD prices are per-day, not per-second. Close enough for tax reporting.
-
 ## How it works
 
 1. **Import** — pull transactions from blockchains (by wallet address) or exchanges (by API key, or CSV for KuCoin).
@@ -28,6 +21,12 @@ Exitbook doesn't do any of that. Every number traces back to a real import. Ever
 3. **Link** — detect transfers between your wallets. You review, confirm, or reject each suggested link.
 4. **Price** — attach USD prices to every inflow, outflow, and fee. Fill any gaps manually.
 5. **Calculate** — compute cost basis (FIFO, LIFO, or average).
+
+## Before you file
+
+1. **Check balances** — after importing, run `balance` to verify Exitbook matches the chain. If balances are correct, the calculations built on top of them will be too.
+2. **Import all your wallets** — transfers between your own wallets need both sides to link correctly. Missing a wallet means broken links.
+3. **Pricing is intraday** — USD prices are per-day, not per-second. Close enough for tax reporting.
 
 ## Supported Sources
 
