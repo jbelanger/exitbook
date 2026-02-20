@@ -31,13 +31,6 @@ import {
   mapEtherscanTokenTransactionToEvmTransaction,
   parseEtherscanTokenTransactionResponse,
 } from './etherscan.mapper-utils.js';
-import type {
-  EtherscanBeaconWithdrawal,
-  EtherscanNormalTransaction,
-  EtherscanInternalTransaction,
-  EtherscanTokenTransaction,
-} from './etherscan.schemas.js';
-
 /**
  * Custom API URLs for chains that use Etherscan-compatible APIs
  * but are hosted on different infrastructure (e.g., Blockscout).
@@ -260,26 +253,66 @@ export class EtherscanApiClient extends BaseApiClient {
     }
 
     const streamType = operation.streamType || 'normal';
+    const nativeCurrency = this.chainConfig.nativeCurrency;
+
+    type Iter = AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>>;
+
     switch (streamType) {
       case 'normal':
-        yield* this.streamAddressNormalTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
-          Result<StreamingBatchResult<T>, Error>
-        >;
+        yield* this.streamTransactions(
+          operation.address,
+          'normal',
+          {
+            action: 'txlist',
+            label: 'normal transactions',
+            parseResponse: parseEtherscanNormalTransactionResponse,
+            mapItem: (raw) => mapEtherscanNormalTransactionToEvmTransaction(raw, nativeCurrency),
+            getItemId: (raw) => raw.hash,
+          },
+          resumeCursor
+        ) as Iter;
         break;
       case 'internal':
-        yield* this.streamAddressInternalTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
-          Result<StreamingBatchResult<T>, Error>
-        >;
+        yield* this.streamTransactions(
+          operation.address,
+          'internal',
+          {
+            action: 'txlistinternal',
+            label: 'internal transactions',
+            parseResponse: parseEtherscanInternalTransactionResponse,
+            mapItem: (raw) => mapEtherscanInternalTransactionToEvmTransaction(raw, nativeCurrency),
+            getItemId: (raw) => raw.hash,
+          },
+          resumeCursor
+        ) as Iter;
         break;
       case 'token':
-        yield* this.streamAddressTokenTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
-          Result<StreamingBatchResult<T>, Error>
-        >;
+        yield* this.streamTransactions(
+          operation.address,
+          'token',
+          {
+            action: 'tokentx',
+            label: 'token transactions',
+            parseResponse: parseEtherscanTokenTransactionResponse,
+            mapItem: (raw) => mapEtherscanTokenTransactionToEvmTransaction(raw, nativeCurrency),
+            getItemId: (raw) => raw.hash,
+          },
+          resumeCursor
+        ) as Iter;
         break;
       case 'beacon_withdrawal':
-        yield* this.streamAddressBeaconWithdrawals(operation.address, resumeCursor) as AsyncIterableIterator<
-          Result<StreamingBatchResult<T>, Error>
-        >;
+        yield* this.streamTransactions(
+          operation.address,
+          'beacon_withdrawal',
+          {
+            action: 'txsBeaconWithdrawal',
+            label: 'beacon withdrawals',
+            parseResponse: parseEtherscanWithdrawalResponse,
+            mapItem: (raw) => mapEtherscanWithdrawalToEvmTransaction(raw, nativeCurrency),
+            getItemId: (raw) => raw.withdrawalIndex,
+          },
+          resumeCursor
+        ) as Iter;
         break;
       default:
         yield err(new Error(`Unsupported transaction type: ${streamType}`));
@@ -298,158 +331,33 @@ export class EtherscanApiClient extends BaseApiClient {
   }
 
   /**
-   * Streams beacon chain withdrawals for an address using intelligent hybrid pagination.
+   * Unified streaming method for all Etherscan transaction types.
    *
-   * Etherscan API constraints:
-   * - page * offset ≤ 10,000 hard limit (V2 API)
-   * - Supports startblock/endblock for block range filtering
-   *
-   * Strategy:
-   * - Fetch pages 1-10 using offset pagination (10k items)
-   * - At page 10 with more data, reset to page 1 with startblock set to last withdrawal's block + 1
-   * - Repeat cycles automatically until all data fetched
-   * - PageToken format: "page:startblock" (e.g., "5:19500000" = page 5 starting from block 19500000)
+   * Uses intelligent hybrid pagination to work within Etherscan's V2 API constraints:
+   * - page × offset ≤ 10,000 hard limit
+   * - Fetches pages 1-10 using offset pagination (10k items)
+   * - At page 10 with more data, resets to page 1 with startblock set to last item's block
+   * - Repeats cycles until all data fetched
+   * - PageToken format: "page:startblock" (e.g., "5:19500000")
    */
-  private streamAddressBeaconWithdrawals(
+  private streamTransactions<TRaw extends { blockNumber: string }>(
     address: string,
+    streamType: string,
+    config: {
+      action: string;
+      getItemId: (raw: TRaw) => string;
+      label: string;
+      mapItem: (raw: TRaw) => Result<EvmTransaction, { message?: string; reason?: string; type: string }>;
+      parseResponse: (raw: unknown) => Result<TRaw[], Error>;
+    },
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
-    const fetchPage = async (
-      ctx: StreamingPageContext
-    ): Promise<Result<StreamingPage<EtherscanBeaconWithdrawal>, Error>> => {
+    const { action, label, parseResponse } = config;
+
+    const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<TRaw>, Error>> => {
       const params = new URLSearchParams({
         module: 'account',
-        action: 'txsBeaconWithdrawal',
-        address,
-        apikey: this.apiKey,
-        ...(this.usesCustomUrl ? {} : { chainid: String(this.chainConfig.chainId) }),
-        sort: 'asc',
-        offset: String(EtherscanApiClient.PAGE_SIZE),
-      });
-
-      // Parse pageToken as "page:startblock" or just "page"
-      let currentPage = 1;
-      let startBlock: number | undefined;
-
-      if (ctx.pageToken) {
-        const parts = ctx.pageToken.split(':');
-        const pageStr = parts[0];
-        if (pageStr !== undefined) {
-          currentPage = parseInt(pageStr, 10);
-        }
-        const blockStr = parts[1];
-        if (blockStr !== undefined) {
-          startBlock = parseInt(blockStr, 10);
-        }
-      } else if (ctx.replayedCursor?.type === 'blockNumber') {
-        // Resuming from a blockNumber cursor (from previous run)
-        startBlock = ctx.replayedCursor.value;
-      }
-
-      params.append('page', String(currentPage));
-      if (startBlock !== undefined) {
-        params.append('startblock', String(startBlock));
-        this.logger.debug(`Fetching page ${currentPage} from block ${startBlock}`);
-      }
-
-      const endpoint = `?${params.toString()}`;
-      const result = await this.httpClient.get(endpoint, { validateResponse: detectEtherscanRateLimit });
-
-      if (result.isErr()) {
-        this.logger.error(
-          `Failed to fetch beacon withdrawals for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
-        );
-        return err(result.error);
-      }
-
-      const parseResult = parseEtherscanWithdrawalResponse(result.value);
-      if (parseResult.isErr()) {
-        this.logger.error(`Failed to parse Etherscan response: ${parseResult.error.message}`);
-        return err(parseResult.error);
-      }
-
-      const items = parseResult.value;
-      const isComplete = items.length < EtherscanApiClient.PAGE_SIZE;
-
-      let nextPageToken: string | undefined;
-
-      if (!isComplete) {
-        if (currentPage >= 10) {
-          // Hit the 10k limit - reset to page 1 with new startblock
-          const lastWithdrawal = items[items.length - 1];
-          if (!lastWithdrawal) {
-            this.logger.error('Cannot advance pagination: no withdrawals in page');
-            return err(new Error('Cannot advance pagination: no withdrawals in page'));
-          }
-          // Do NOT increment the block here: the 10k boundary can cut mid-block.
-          // Advancing by +1 would skip remaining withdrawals from the same block.
-          const nextStartBlockInclusive = parseInt(lastWithdrawal.blockNumber, 10);
-          nextPageToken = `1:${nextStartBlockInclusive}`;
-          this.logger.debug(
-            `Completed page ${currentPage} cycle, resetting to page 1 from block ${nextStartBlockInclusive} (dedup will drop duplicates)`
-          );
-        } else {
-          // Continue within current cycle
-          nextPageToken = startBlock !== undefined ? `${currentPage + 1}:${startBlock}` : String(currentPage + 1);
-        }
-      }
-
-      this.logger.debug(
-        `Fetched ${items.length} beacon withdrawals (page ${currentPage}${startBlock !== undefined ? ` from block ${startBlock}` : ''})${!isComplete ? ' (more available)' : ' (complete)'}`
-      );
-
-      return ok({
-        items,
-        nextPageToken,
-        isComplete,
-      });
-    };
-
-    return createStreamingIterator<EtherscanBeaconWithdrawal, EvmTransaction>({
-      providerName: this.name,
-      operation: { type: 'getAddressTransactions', streamType: 'beacon_withdrawal', address },
-      resumeCursor,
-      fetchPage,
-      mapItem: (raw) => {
-        const mapped = mapEtherscanWithdrawalToEvmTransaction(raw, this.chainConfig.nativeCurrency);
-        if (mapped.isErr()) {
-          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.error(`Failed to map beacon withdrawal ${raw.withdrawalIndex} - Error: ${errorMessage}`);
-          return err(new Error(`Failed to map beacon withdrawal: ${errorMessage}`));
-        }
-
-        return ok([
-          {
-            raw,
-            normalized: mapped.value,
-          } as TransactionWithRawData<EvmTransaction>,
-        ]);
-      },
-      extractCursors: (tx) => this.extractCursors(tx),
-      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
-      dedupWindowSize: 500,
-      logger: this.logger,
-    });
-  }
-
-  /**
-   * Streams normal (external) transactions for an address using page/offset pagination.
-   *
-   * Uses Etherscan's txlist endpoint to fetch standard EVM transactions.
-   * Supports the same hybrid pagination strategy as beacon withdrawals.
-   *
-   * API Docs: https://docs.etherscan.io/api-endpoints/accounts#get-a-list-of-normal-transactions-by-address
-   */
-  private streamAddressNormalTransactions(
-    address: string,
-    resumeCursor?: CursorState
-  ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
-    const fetchPage = async (
-      ctx: StreamingPageContext
-    ): Promise<Result<StreamingPage<EtherscanNormalTransaction>, Error>> => {
-      const params = new URLSearchParams({
-        module: 'account',
-        action: 'txlist',
+        action,
         address,
         apikey: this.apiKey,
         ...(this.usesCustomUrl ? {} : { chainid: String(this.chainConfig.chainId) }),
@@ -486,12 +394,12 @@ export class EtherscanApiClient extends BaseApiClient {
 
       if (result.isErr()) {
         this.logger.error(
-          `Failed to fetch normal transactions for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
+          `Failed to fetch ${label} for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
         );
         return err(result.error);
       }
 
-      const parseResult = parseEtherscanNormalTransactionResponse(result.value);
+      const parseResult = parseResponse(result.value);
       if (parseResult.isErr()) {
         this.logger.error(`Failed to parse Etherscan response: ${parseResult.error.message}`);
         return err(parseResult.error);
@@ -504,12 +412,14 @@ export class EtherscanApiClient extends BaseApiClient {
 
       if (!isComplete) {
         if (currentPage >= 10) {
-          const lastTx = items[items.length - 1];
-          if (!lastTx) {
-            this.logger.error('Cannot advance pagination: no transactions in page');
-            return err(new Error('Cannot advance pagination: no transactions in page'));
+          const lastItem = items[items.length - 1];
+          if (!lastItem) {
+            this.logger.error(`Cannot advance pagination: no ${label} in page`);
+            return err(new Error(`Cannot advance pagination: no ${label} in page`));
           }
-          const nextStartBlockInclusive = parseInt(lastTx.blockNumber, 10);
+          // Do NOT increment the block: the 10k boundary can cut mid-block.
+          // Advancing by +1 would skip remaining items from the same block.
+          const nextStartBlockInclusive = parseInt(lastItem.blockNumber, 10);
           nextPageToken = `1:${nextStartBlockInclusive}`;
           this.logger.debug(
             `Completed page ${currentPage} cycle, resetting to page 1 from block ${nextStartBlockInclusive}`
@@ -520,7 +430,7 @@ export class EtherscanApiClient extends BaseApiClient {
       }
 
       this.logger.debug(
-        `Fetched ${items.length} normal transactions (page ${currentPage}${startBlock !== undefined ? ` from block ${startBlock}` : ''})${!isComplete ? ' (more available)' : ' (complete)'}`
+        `Fetched ${items.length} ${label} (page ${currentPage}${startBlock !== undefined ? ` from block ${startBlock}` : ''})${!isComplete ? ' (more available)' : ' (complete)'}`
       );
 
       return ok({
@@ -530,267 +440,17 @@ export class EtherscanApiClient extends BaseApiClient {
       });
     };
 
-    return createStreamingIterator<EtherscanNormalTransaction, EvmTransaction>({
+    return createStreamingIterator<TRaw, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', streamType: 'normal', address },
+      operation: { type: 'getAddressTransactions', streamType, address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapEtherscanNormalTransactionToEvmTransaction(raw, this.chainConfig.nativeCurrency);
+        const mapped = config.mapItem(raw);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.error(`Failed to map normal transaction ${raw.hash} - Error: ${errorMessage}`);
-          return err(new Error(`Failed to map normal transaction: ${errorMessage}`));
-        }
-
-        return ok([
-          {
-            raw,
-            normalized: mapped.value,
-          } as TransactionWithRawData<EvmTransaction>,
-        ]);
-      },
-      extractCursors: (tx) => this.extractCursors(tx),
-      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
-      dedupWindowSize: 500,
-      logger: this.logger,
-    });
-  }
-
-  /**
-   * Streams internal transactions for an address using page/offset pagination.
-   *
-   * Uses Etherscan's txlistinternal endpoint to fetch contract-triggered transactions.
-   * Supports the same hybrid pagination strategy as beacon withdrawals.
-   *
-   * API Docs: https://docs.etherscan.io/api-endpoints/accounts#get-a-list-of-internal-transactions-by-address
-   */
-  private streamAddressInternalTransactions(
-    address: string,
-    resumeCursor?: CursorState
-  ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
-    const fetchPage = async (
-      ctx: StreamingPageContext
-    ): Promise<Result<StreamingPage<EtherscanInternalTransaction>, Error>> => {
-      const params = new URLSearchParams({
-        module: 'account',
-        action: 'txlistinternal',
-        address,
-        apikey: this.apiKey,
-        ...(this.usesCustomUrl ? {} : { chainid: String(this.chainConfig.chainId) }),
-        sort: 'asc',
-        offset: String(EtherscanApiClient.PAGE_SIZE),
-      });
-
-      // Parse pageToken as "page:startblock" or just "page"
-      let currentPage = 1;
-      let startBlock: number | undefined;
-
-      if (ctx.pageToken) {
-        const parts = ctx.pageToken.split(':');
-        const pageStr = parts[0];
-        if (pageStr !== undefined) {
-          currentPage = parseInt(pageStr, 10);
-        }
-        const blockStr = parts[1];
-        if (blockStr !== undefined) {
-          startBlock = parseInt(blockStr, 10);
-        }
-      } else if (ctx.replayedCursor?.type === 'blockNumber') {
-        startBlock = ctx.replayedCursor.value;
-      }
-
-      params.append('page', String(currentPage));
-      if (startBlock !== undefined) {
-        params.append('startblock', String(startBlock));
-        this.logger.debug(`Fetching page ${currentPage} from block ${startBlock}`);
-      }
-
-      const endpoint = `?${params.toString()}`;
-      const result = await this.httpClient.get(endpoint, { validateResponse: detectEtherscanRateLimit });
-
-      if (result.isErr()) {
-        this.logger.error(
-          `Failed to fetch internal transactions for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
-        );
-        return err(result.error);
-      }
-
-      const parseResult = parseEtherscanInternalTransactionResponse(result.value);
-      if (parseResult.isErr()) {
-        this.logger.error(`Failed to parse Etherscan response: ${parseResult.error.message}`);
-        return err(parseResult.error);
-      }
-
-      const items = parseResult.value;
-      const isComplete = items.length < EtherscanApiClient.PAGE_SIZE;
-
-      let nextPageToken: string | undefined;
-
-      if (!isComplete) {
-        if (currentPage >= 10) {
-          const lastTx = items[items.length - 1];
-          if (!lastTx) {
-            this.logger.error('Cannot advance pagination: no transactions in page');
-            return err(new Error('Cannot advance pagination: no transactions in page'));
-          }
-          const nextStartBlockInclusive = parseInt(lastTx.blockNumber, 10);
-          nextPageToken = `1:${nextStartBlockInclusive}`;
-          this.logger.debug(
-            `Completed page ${currentPage} cycle, resetting to page 1 from block ${nextStartBlockInclusive}`
-          );
-        } else {
-          nextPageToken = startBlock !== undefined ? `${currentPage + 1}:${startBlock}` : String(currentPage + 1);
-        }
-      }
-
-      this.logger.debug(
-        `Fetched ${items.length} internal transactions (page ${currentPage}${startBlock !== undefined ? ` from block ${startBlock}` : ''})${!isComplete ? ' (more available)' : ' (complete)'}`
-      );
-
-      return ok({
-        items,
-        nextPageToken,
-        isComplete,
-      });
-    };
-
-    return createStreamingIterator<EtherscanInternalTransaction, EvmTransaction>({
-      providerName: this.name,
-      operation: { type: 'getAddressTransactions', streamType: 'internal', address },
-      resumeCursor,
-      fetchPage,
-      mapItem: (raw) => {
-        const mapped = mapEtherscanInternalTransactionToEvmTransaction(raw, this.chainConfig.nativeCurrency);
-        if (mapped.isErr()) {
-          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.error(`Failed to map internal transaction ${raw.hash} - Error: ${errorMessage}`);
-          return err(new Error(`Failed to map internal transaction: ${errorMessage}`));
-        }
-
-        return ok([
-          {
-            raw,
-            normalized: mapped.value,
-          } as TransactionWithRawData<EvmTransaction>,
-        ]);
-      },
-      extractCursors: (tx) => this.extractCursors(tx),
-      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
-      dedupWindowSize: 500,
-      logger: this.logger,
-    });
-  }
-
-  /**
-   * Streams token (ERC-20/ERC-721/ERC-1155) transactions for an address using page/offset pagination.
-   *
-   * Uses Etherscan's tokentx endpoint to fetch token transfer events.
-   * Supports the same hybrid pagination strategy as beacon withdrawals.
-   *
-   * API Docs: https://docs.etherscan.io/api-endpoints/accounts#get-a-list-of-erc20-token-transfer-events-by-address
-   */
-  private streamAddressTokenTransactions(
-    address: string,
-    resumeCursor?: CursorState
-  ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
-    const fetchPage = async (
-      ctx: StreamingPageContext
-    ): Promise<Result<StreamingPage<EtherscanTokenTransaction>, Error>> => {
-      const params = new URLSearchParams({
-        module: 'account',
-        action: 'tokentx',
-        address,
-        apikey: this.apiKey,
-        ...(this.usesCustomUrl ? {} : { chainid: String(this.chainConfig.chainId) }),
-        sort: 'asc',
-        offset: String(EtherscanApiClient.PAGE_SIZE),
-      });
-
-      // Parse pageToken as "page:startblock" or just "page"
-      let currentPage = 1;
-      let startBlock: number | undefined;
-
-      if (ctx.pageToken) {
-        const parts = ctx.pageToken.split(':');
-        const pageStr = parts[0];
-        if (pageStr !== undefined) {
-          currentPage = parseInt(pageStr, 10);
-        }
-        const blockStr = parts[1];
-        if (blockStr !== undefined) {
-          startBlock = parseInt(blockStr, 10);
-        }
-      } else if (ctx.replayedCursor?.type === 'blockNumber') {
-        startBlock = ctx.replayedCursor.value;
-      }
-
-      params.append('page', String(currentPage));
-      if (startBlock !== undefined) {
-        params.append('startblock', String(startBlock));
-        this.logger.debug(`Fetching page ${currentPage} from block ${startBlock}`);
-      }
-
-      const endpoint = `?${params.toString()}`;
-      const result = await this.httpClient.get(endpoint, { validateResponse: detectEtherscanRateLimit });
-
-      if (result.isErr()) {
-        this.logger.error(
-          `Failed to fetch token transactions for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
-        );
-        return err(result.error);
-      }
-
-      const parseResult = parseEtherscanTokenTransactionResponse(result.value);
-      if (parseResult.isErr()) {
-        this.logger.error(`Failed to parse Etherscan response: ${parseResult.error.message}`);
-        return err(parseResult.error);
-      }
-
-      const items = parseResult.value;
-      const isComplete = items.length < EtherscanApiClient.PAGE_SIZE;
-
-      let nextPageToken: string | undefined;
-
-      if (!isComplete) {
-        if (currentPage >= 10) {
-          const lastTx = items[items.length - 1];
-          if (!lastTx) {
-            this.logger.error('Cannot advance pagination: no transactions in page');
-            return err(new Error('Cannot advance pagination: no transactions in page'));
-          }
-          const nextStartBlockInclusive = parseInt(lastTx.blockNumber, 10);
-          nextPageToken = `1:${nextStartBlockInclusive}`;
-          this.logger.debug(
-            `Completed page ${currentPage} cycle, resetting to page 1 from block ${nextStartBlockInclusive}`
-          );
-        } else {
-          nextPageToken = startBlock !== undefined ? `${currentPage + 1}:${startBlock}` : String(currentPage + 1);
-        }
-      }
-
-      this.logger.debug(
-        `Fetched ${items.length} token transactions (page ${currentPage}${startBlock !== undefined ? ` from block ${startBlock}` : ''})${!isComplete ? ' (more available)' : ' (complete)'}`
-      );
-
-      return ok({
-        items,
-        nextPageToken,
-        isComplete,
-      });
-    };
-
-    return createStreamingIterator<EtherscanTokenTransaction, EvmTransaction>({
-      providerName: this.name,
-      operation: { type: 'getAddressTransactions', streamType: 'token', address },
-      resumeCursor,
-      fetchPage,
-      mapItem: (raw) => {
-        const mapped = mapEtherscanTokenTransactionToEvmTransaction(raw, this.chainConfig.nativeCurrency);
-        if (mapped.isErr()) {
-          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.error(`Failed to map token transaction ${raw.hash} - Error: ${errorMessage}`);
-          return err(new Error(`Failed to map token transaction: ${errorMessage}`));
+          this.logger.error(`Failed to map ${label.slice(0, -1)} ${config.getItemId(raw)} - Error: ${errorMessage}`);
+          return err(new Error(`Failed to map ${label.slice(0, -1)}: ${errorMessage}`));
         }
 
         return ok([
