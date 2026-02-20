@@ -43,7 +43,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Blockchain Provider System
 
-- Auto-registered via `@RegisterApiClient` (see `*/register-apis.ts`); metadata lives in providers.
+- Registration is explicit: each blockchain exports provider factory arrays from `blockchains/<blockchain>/register-apis.ts`; `packages/blockchain-providers/src/register-apis.ts` aggregates them.
 - Chain lists come from `*-chains.json` (e.g., EVM has many chains; see file instead of enumerating here).
 - Core handles failover/circuit-breakers/caching (`packages/blockchain-providers/src/core/`).
 
@@ -132,8 +132,8 @@ KUCOIN_PASSPHRASE=...
 1. **Provider:** `packages/blockchain-providers/src/blockchains/<blockchain>/providers/<provider-name>/`
    - API client (extends `BaseApiClient`)
    - Mapper utilities + Zod schemas
-   - `@RegisterApiClient` decorator on client
-   - Import in blockchain's `register-apis.ts`
+   - Export provider factory (optional barrel export from provider directory)
+   - Add factory to blockchain `register-apis.ts` array (aggregated by `packages/blockchain-providers/src/register-apis.ts`)
 
 2. **Ingestion:** `packages/ingestion/src/sources/blockchains/<blockchain>/`
    - Importer (implements `IImporter`)

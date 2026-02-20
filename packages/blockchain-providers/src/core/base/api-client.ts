@@ -240,6 +240,9 @@ export abstract class BaseApiClient implements IBlockchainProvider {
       ...(config.defaultHeaders && { defaultHeaders: config.defaultHeaders }),
     };
 
+    this.httpClient.close().catch((error: unknown) => {
+      this.logger.warn({ error }, 'Failed to close previous HTTP client during reinitialization');
+    });
     this.httpClient = new HttpClient(clientConfig);
   }
 

@@ -175,46 +175,22 @@ export class BlockchainProviderManager {
   }
 
   /**
-   * Execute operation with intelligent failover - unified iterator API
+   * Execute streaming operation with intelligent failover
    *
-   * This method provides a consistent interface for both streaming and one-shot operations:
-   * - Transaction fetching operations (getAddressTransactions, etc.) yield multiple batches with pagination
-   * - One-shot operations (getBalance, getTokenMetadata, etc.) yield exactly once
-   *
-   * All operations return an AsyncIterableIterator for consistency. Consumers always use:
-   * ```typescript
-   * for await (const batchResult of manager.executeWithFailover(blockchain, operation)) {
-   *   if (batchResult.isErr()) { handle error }
-   *   const batch = batchResult.value;
-   *   // process batch.data
-   * }
-   * ```
+   * Yields multiple batches with pagination and cursor state for transaction fetching.
+   * For one-shot operations (getBalance, getTokenMetadata, etc.), use executeWithFailoverOnce instead.
    *
    * @param blockchain - Blockchain identifier (e.g., 'ethereum', 'bitcoin')
-   * @param operation - Operation to execute
-   * @param resumeCursor - Optional cursor for resuming streaming operations (ignored for one-shot)
-   * @returns AsyncIterableIterator yielding Result-wrapped batches
+   * @param operation - Streaming operation (getAddressTransactions)
+   * @param resumeCursor - Optional cursor for resuming from a previous position
+   * @returns AsyncIterableIterator yielding Result-wrapped batches with cursor state
    */
   async *executeWithFailover<T>(
     blockchain: string,
-    operation: ProviderOperation,
+    operation: StreamingOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<FailoverStreamingExecutionResult<T>, Error>> {
-    if (operation.type === 'getAddressTransactions') {
-      // Multi-batch streaming with pagination support
-      yield* this.executeStreamingImpl<T>(blockchain, operation, resumeCursor);
-    } else {
-      // One-shot operation - yield single batch and complete
-      const result = await this.executeOneShotImpl<T>(blockchain, operation);
-
-      if (result.isErr()) {
-        yield err(result.error);
-        return;
-      }
-
-      // Wrap one-shot result as single-element batch with completion marker
-      yield ok(this.wrapOneShotResult(result.value));
-    }
+    yield* this.executeStreamingImpl<T>(blockchain, operation, resumeCursor);
   }
 
   /**
@@ -227,42 +203,7 @@ export class BlockchainProviderManager {
     blockchain: string,
     operation: OneShotOperation
   ): Promise<Result<FailoverExecutionResult<T>, Error>> {
-    // Runtime guard in case typing is bypassed
-    if ((operation as ProviderOperation).type === 'getAddressTransactions') {
-      return err(
-        new Error(
-          `executeWithFailoverOnce is only for one-shot operations; received streaming operation: ${(operation as ProviderOperation).type}`
-        )
-      );
-    }
-
-    let seenBatch = false;
-    for await (const batchResult of this.executeWithFailover<T>(blockchain, operation)) {
-      if (batchResult.isErr()) {
-        return err(batchResult.error);
-      }
-
-      // Extract first item from batch array for one-shot operations
-      const data = batchResult.value.data[0];
-      if (data === undefined) {
-        return err(new Error('One-shot operation yielded empty batch'));
-      }
-      if (seenBatch) {
-        return err(
-          new Error(
-            `One-shot operation yielded multiple batches. Use executeWithFailover for streaming operations. Operation: ${operation.type}`
-          )
-        );
-      }
-      seenBatch = true;
-      return ok({
-        data,
-        providerName: batchResult.value.providerName,
-      });
-    }
-
-    // Should never reach here for valid one-shot operations
-    return err(new Error('No result yielded from one-shot operation'));
+    return this.executeOneShotImpl<T>(blockchain, operation);
   }
 
   /**
@@ -455,6 +396,12 @@ export class BlockchainProviderManager {
     operation: StreamingOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<FailoverStreamingExecutionResult<T>, Error>> {
+    // Auto-register providers for this blockchain if not already registered
+    const existingProviders = this.providers.get(blockchain);
+    if (!existingProviders || existingProviders.length === 0) {
+      this.autoRegisterFromConfig(blockchain);
+    }
+
     const providers = this.getProvidersInOrder(blockchain, operation);
 
     if (providers.length === 0) {
@@ -842,30 +789,5 @@ export class BlockchainProviderManager {
     }
 
     return scoredProviders.map((item) => item.provider);
-  }
-
-  /**
-   * Wrap a one-shot execution result into a streaming batch format
-   */
-  private wrapOneShotResult<T>(result: FailoverExecutionResult<T>): FailoverStreamingExecutionResult<T> {
-    return {
-      data: [result.data] as T[],
-      providerName: result.providerName,
-      cursor: {
-        primary: { type: 'blockNumber' as const, value: 0 },
-        lastTransactionId: '',
-        totalFetched: 1,
-        metadata: {
-          providerName: result.providerName,
-          updatedAt: Date.now(),
-        },
-      },
-      isComplete: true,
-      stats: {
-        fetched: 1,
-        deduplicated: 0,
-        yielded: 1,
-      },
-    };
   }
 }

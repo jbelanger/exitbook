@@ -22,6 +22,7 @@ import type {
   ProviderOperation,
   ProviderOperationType,
 } from '../types/index.js';
+import type { ProviderMetadata } from '../types/registry.js';
 
 // Deduplication window size: Used for in-memory dedup during streaming and loading recent transaction IDs
 // Sized to cover typical replay overlap (5 blocks × ~200 txs/block = ~1000 items max)
@@ -474,16 +475,6 @@ export function resolveCursorForResumption(
 }
 
 /**
- * Provider metadata for API key validation and configuration
- */
-export interface ProviderMetadata {
-  apiKeyEnvVar?: string | undefined;
-  displayName: string;
-  name: string;
-  requiresApiKey?: boolean | undefined;
-}
-
-/**
  * Result type for API key validation
  */
 export interface ApiKeyValidationResult {
@@ -495,7 +486,9 @@ export interface ApiKeyValidationResult {
  * Validate that required API key is available in environment
  * Pure function - checks env vars and returns validation result
  */
-export function validateProviderApiKey(metadata: ProviderMetadata): ApiKeyValidationResult {
+export function validateProviderApiKey(
+  metadata: Pick<ProviderMetadata, 'apiKeyEnvVar' | 'displayName' | 'name' | 'requiresApiKey'>
+): ApiKeyValidationResult {
   const envVar = metadata.apiKeyEnvVar || `${metadata.name.toUpperCase().replace(/-/g, '_')}_API_KEY`;
   const apiKey = process.env[envVar];
   const available = Boolean(apiKey && apiKey !== 'YourApiKeyToken');
