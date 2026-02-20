@@ -1,6 +1,5 @@
 // Base classes (foundation)
 export * from './base/api-client.js';
-export * from './base/mapper.js';
 
 // Core types
 export * from './types/index.js';

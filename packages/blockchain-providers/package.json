@@ -40,15 +40,12 @@
     "@polkadot/util-crypto": "^14.0.1",
     "@scure/bip32": "^2.0.0",
     "bech32": "^2.0.0",
-    "better-sqlite3": "^12.6.2",
     "bitcoinjs-lib": "^7.0.1",
     "decimal.js": "^10.6.0",
-    "kysely": "^0.28.11",
     "neverthrow": "^8.2.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "tsconfig": "workspace:*",
     "tsx": "^4.21.0"
   },
@@ -58,6 +55,7 @@
     "@exitbook/events": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/logger": "workspace:*",
-    "@exitbook/resilience": "workspace:*"
+    "@exitbook/resilience": "workspace:*",
+    "@exitbook/sqlite": "workspace:*"
   }
 }

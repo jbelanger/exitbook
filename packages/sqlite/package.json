@@ -1,8 +1,8 @@
 {
-  "name": "@exitbook/data",
+  "name": "@exitbook/sqlite",
   "version": "0.1.0",
   "private": true,
-  "description": "Data access layer for cryptocurrency platform",
+  "description": "Shared SQLite + Kysely database utilities",
   "license": "AGPL-3.0",
   "type": "module",
   "exports": {
@@ -19,16 +19,17 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "decimal.js": "^10.6.0",
+    "better-sqlite3": "^12.6.2",
+    "kysely": "^0.28.11",
     "neverthrow": "^8.2.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "tsconfig": "workspace:*",
     "tsx": "^4.21.0"
   },
   "peerDependencies": {
     "@exitbook/core": "workspace:*",
-    "@exitbook/logger": "workspace:*",
-    "@exitbook/sqlite": "workspace:*"
+    "@exitbook/logger": "workspace:*"
   }
 }

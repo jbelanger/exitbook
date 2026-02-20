@@ -1,7 +1,7 @@
 import type { User } from '@exitbook/core';
 import { UserSchema, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import type { Selectable } from 'kysely';
+import type { Selectable } from '@exitbook/sqlite';
 import { err, ok } from 'neverthrow';
 
 import type { UsersTable } from '../schema/database-schema.js';

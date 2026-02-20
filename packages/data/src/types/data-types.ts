@@ -1,6 +1,6 @@
 // Database schema types for data persistence
 import type { ImportSessionStatus } from '@exitbook/core';
-import type { Selectable, Insertable, Updateable } from 'kysely';
+import type { Selectable, Insertable, Updateable } from '@exitbook/sqlite';
 
 import type { ImportSessionsTable, TransactionsTable } from '../schema/database-schema.js';
 

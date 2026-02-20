@@ -1,4 +1,4 @@
-import type { ColumnType } from 'kysely';
+import type { ColumnType } from '@exitbook/sqlite';
 
 /**
  * Token metadata table - stores token information by contract address.

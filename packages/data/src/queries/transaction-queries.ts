@@ -12,7 +12,7 @@ import {
   wrapError,
 } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import type { Insertable, Selectable } from 'kysely';
+import type { Insertable, Selectable } from '@exitbook/sqlite';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';

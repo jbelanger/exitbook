@@ -1,4 +1,4 @@
-import { sql, type Kysely } from 'kysely';
+import { sql, type Kysely } from '@exitbook/sqlite';
 
 import type { ProviderStatsDatabase } from '../schema.js';
 

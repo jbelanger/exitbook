@@ -1,7 +1,7 @@
 import type { Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createProviderStatsDatabase, initializeProviderStatsDatabase, type ProviderStatsDB } from '../../database.js';
+import { type ProviderStatsDB, createProviderStatsDatabase, initializeProviderStatsDatabase } from '../../database.js';
 import type { ProviderStatsInput } from '../provider-stats-queries.js';
 import { createProviderStatsQueries, type ProviderStatsQueries } from '../provider-stats-queries.js';
 

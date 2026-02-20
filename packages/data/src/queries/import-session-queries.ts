@@ -2,7 +2,7 @@
 import type { ImportSession, ImportSessionStatus } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import type { Selectable, Updateable } from 'kysely';
+import type { Selectable, Updateable } from '@exitbook/sqlite';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ImportSessionsTable } from '../schema/database-schema.js';

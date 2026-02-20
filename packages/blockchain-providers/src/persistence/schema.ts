@@ -5,7 +5,7 @@
  * and circuit breaker state across CLI runs
  */
 
-import type { ColumnType } from 'kysely';
+import type { ColumnType } from '@exitbook/sqlite';
 
 /**
  * Provider stats table — one row per (blockchain, provider_name) pair

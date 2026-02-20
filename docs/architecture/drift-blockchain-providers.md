@@ -1,208 +1,351 @@
 V2 Architecture Audit: @exitbook/blockchain-providers
 
-     Scope: packages/blockchain-providers/ — all 7 analysis dimensions.
-     Package size: 185 non-test source files, ~12,000 lines of production code.
+     Scope: packages/blockchain-providers (295 source files, ~28k LOC non-test)
 
      ---
      1. Dependency Audit
 
-     ---
-     1d. Finding: bech32 package used for two functions; already available via @polkadot/util-crypto
+    1b. Over-dependency
+
+     [1b-1] Heavy crypto dependencies used for address derivation only
 
      What exists:
-     src/blockchains/cosmos/utils.ts imports { bech32 } from the bech32 package to implement validateBech32Address and decodeBech32/encodeBech32 helpers (lines 2–60). The project
-     already has @polkadot/util-crypto which exposes bech32Decode / bech32Encode / bech32Validate from the same underlying spec.
+     Four chain-specific cryptography packages are declared as dependencies:
+     - @cardano-sdk/core + @cardano-sdk/crypto -- used in 1 file (/Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/cardano/utils.ts)
+     - @polkadot/util-crypto -- used in 1 file (/Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/substrate/utils.ts)
+     - bitcoinjs-lib + @scure/bip32 -- used in 2 files (/Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/bitcoin/utils.ts,
+     /Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/bitcoin/network-registry.ts)
+     - bech32 -- used in 1 file (/Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/cosmos/utils.ts)
 
      Why it's a problem:
-     This is a redundant dependency for extremely thin usage (3 wrapper functions), and adds a second bech32 implementation to the bundle alongside the one shipped inside
-     @polkadot/util-crypto.
+     These are large dependency trees (especially @cardano-sdk and @polkadot) pulled into every installation of this package. They are used exclusively for xpub-to-address derivation
+      and address validation -- functionality that is consumed by exactly one caller (the gap scanning flow). This inflates install size and introduces native compilation
+     requirements (libsodium for Cardano) for all consumers, even those who never use xpub derivation.
 
      What V2 should do:
-     Replace the bech32 package by using @polkadot/util-crypto's bech32 functions, or inline the 3–5 lines of validation logic directly (bech32 validation is a regexp + prefix check
-     for the use case here). Either eliminates the standalone bech32 package.
+     Extract address derivation into a separate @exitbook/address-derivation package. The blockchain-providers package would depend on it only for the gap-scan flow, and the heavy
+     crypto libraries would be scoped to a smaller boundary that most consumers never import.
 
      Needs coverage:
 
-     ┌──────────────────────────────────┬──────────────────────────────────────────────┬───────┐
-     │        Current capability        │           Covered by replacement?            │ Notes │
-     ├──────────────────────────────────┼──────────────────────────────────────────────┼───────┤
-     │ Decode address to bytes + prefix │ Yes, bech32Decode from @polkadot/util-crypto │       │
-     ├──────────────────────────────────┼──────────────────────────────────────────────┼───────┤
-     │ Validate bech32 format           │ Yes, bech32Validate                          │       │
-     ├──────────────────────────────────┼──────────────────────────────────────────────┼───────┤
-     │ Encode bytes to address          │ Yes, bech32Encode                            │       │
-     └──────────────────────────────────┴──────────────────────────────────────────────┴───────┘
+     ┌────────────────────────────┬────────────────────────┬───────────────────────────────┐
+     │     Current capability     │ Covered by separation? │             Notes             │
+     ├────────────────────────────┼────────────────────────┼───────────────────────────────┤
+     │ Bitcoin xpub derivation    │ Yes                    │ Moves to dedicated package    │
+     ├────────────────────────────┼────────────────────────┼───────────────────────────────┤
+     │ Cardano address derivation │ Yes                    │ Moves to dedicated package    │
+     ├────────────────────────────┼────────────────────────┼───────────────────────────────┤
+     │ Substrate SS58 encoding    │ Yes                    │ Moves to dedicated package    │
+     ├────────────────────────────┼────────────────────────┼───────────────────────────────┤
+     │ Cosmos bech32 encoding     │ Yes                    │ Moves to dedicated package    │
+     ├────────────────────────────┼────────────────────────┼───────────────────────────────┤
+     │ API client address masking │ Yes                    │ Stays in blockchain-providers │
+     └────────────────────────────┴────────────────────────┴───────────────────────────────┘
 
-     Surface: 1 file (cosmos/utils.ts), ~60 lines affected.
+     Surface: ~6 files, 4 dependency declarations affected
 
-     Leverage: Low.
+     Leverage: Medium -- reduces install footprint and build complexity; no correctness improvement.
 
-     ---
-     3c. Finding: BIP44 gap scanning algorithm duplicated across Bitcoin and Cardano
+     1b-2] better-sqlite3 + kysely as direct dependencies
 
      What exists:
-     src/blockchains/bitcoin/utils.ts (performBitcoinAddressGapScanning, lines 321–397) and src/blockchains/cardano/utils.ts (CardanoUtils.performAddressGapScanning, lines 338–418)
-     implement the same BIP44 gap-scanning algorithm. The logic is structurally identical: iterate derived addresses, track consecutiveUnusedCount and highestUsedIndex, call
-     hasAddressTransactions, apply the same MAX_ERRORS = 3 guard, and compute the same slice formula. The only differences are the hardcoded blockchain string ('bitcoin' vs
-     'cardano') and the cache key prefix.
+     The blockchain-providers package.json declares better-sqlite3 and kysely as direct dependencies. They are used only in
+     /Users/joel/Dev/exitbook/packages/blockchain-providers/src/persistence/database.ts and the persistence layer (~5 files) for provider stats storage.
 
      Why it's a problem:
-     The two implementations have already diverged: the Cardano version reads gapLimit from walletAddress.addressGap (a field); the Bitcoin version takes gapLimit as a function
-     parameter. Any future change to the algorithm (e.g., adjusting MAX_ERRORS, changing gap-limit behavior) must be applied twice and can drift.
+     This is a provider/API client package that should not own database infrastructure. The @exitbook/data package already exists as a peer dependency and is the canonical home for
+     database concerns. Having two packages independently creating SQLite connections and running migrations creates split ownership of the data layer.
 
      What V2 should do:
-     Extract a shared performAddressGapScanning(config: GapScanConfig): Promise<Result<void, Error>> function into src/core/utils/gap-scan-utils.ts. Both Bitcoin and Cardano call the
-      shared function with their chain-specific parameters.
+     Move provider stats persistence into @exitbook/data and inject a query interface into the provider manager. Remove better-sqlite3 and kysely from this package's direct
+     dependencies.
 
      Needs coverage:
 
-     ┌──────────────────────────┬─────────────────────────┬──────────────────────────┐
-     │    Current capability    │ Covered by replacement? │          Notes           │
-     ├──────────────────────────┼─────────────────────────┼──────────────────────────┤
-     │ BIP44 gap detection      │ Yes, parameterized      │ blockchain passed as arg │
-     ├──────────────────────────┼─────────────────────────┼──────────────────────────┤
-     │ Chain-specific cache key │ Yes, as config field    │                          │
-     ├──────────────────────────┼─────────────────────────┼──────────────────────────┤
-     │ Error threshold          │ Yes, as config field    │ Currently hardcoded to 3 │
-     └──────────────────────────┴─────────────────────────┴──────────────────────────┘
+     ┌──────────────────────────┬────────────────────────┬───────────────────────────────────────────────────────────────┐
+     │    Current capability    │ Covered by extraction? │                             Notes                             │
+     ├──────────────────────────┼────────────────────────┼───────────────────────────────────────────────────────────────┤
+     │ Provider stats CRUD      │ Yes                    │ Query interface stays, implementation moves to @exitbook/data │
+     ├──────────────────────────┼────────────────────────┼───────────────────────────────────────────────────────────────┤
+     │ Migration management     │ Yes                    │ Consolidates with other migration paths                       │
+     ├──────────────────────────┼────────────────────────┼───────────────────────────────────────────────────────────────┤
+     │ WAL mode / pragma config │ Yes                    │ Handled centrally                                             │
+     └──────────────────────────┴────────────────────────┴───────────────────────────────────────────────────────────────┘
 
-     Surface: 2 files (~80 lines of duplicate logic each), replaced by 1 shared utility + 2 thin call-sites (~10 lines each).
+     Surface: ~5 files in persistence/, database.ts, schema.ts, migrations/, queries
 
-     Leverage: Medium. Correctness risk from divergence; algorithm is non-trivial.
-
+     Leverage: Medium -- cleaner separation of concerns, fewer native dependencies in this package.
 
      ---
-     4. Data Layer
+     2. Architectural Seams
 
-     4a. Finding: providers.db persists circuit breaker state across process restarts — stale state semantics are subtle
+     [2b] Package boundary: persistence layer belongs elsewhere
 
      What exists:
-     src/persistence/ implements a SQLite database (via Kysely) that persists provider health and circuit breaker state between CLI runs. provider-stats-utils.ts implements
-     hydrateProviderStats() which applies a "staleness" recovery: if now - lastFailureTime >= recoveryTimeoutMs (5 minutes), the circuit is reset to closed on load (lines 55–56).
+     The persistence/ directory (database.ts, schema.ts, migrations/, queries/, provider-stats-utils.ts) inside blockchain-providers manages its own SQLite database (providers.db)
+     with Kysely.
 
      Why it's a problem:
-     The staleness threshold (5 minutes) is hardcoded in provider-stats-utils.ts line 40 as DEFAULT_RECOVERY_TIMEOUT_MS, but the circuit state stored in the DB was created with
-     whatever recoveryTimeoutMs was set at runtime (typically also 5 min, in createInitialCircuitState). The hydration function uses a hardcoded constant rather than reading the
-     stored recoveryTimeoutMs, meaning if the timeout is ever changed at runtime the persisted stale-circuit recovery applies the wrong threshold.
-
-     More importantly, for a CLI tool, persisting failure state across invocations is questionable: a provider that was rate-limited during yesterday's import should not be penalized
-      today. The 5-minute recovery window is appropriate for a long-running daemon but too long for a CLI that runs once and exits.
+     This creates a second database lifecycle alongside the main @exitbook/data package. The blockchain-providers package -- conceptually an API client + coordination layer -- is
+     also a database owner, which is a boundary violation. The ProviderStatsStore already uses an injected ProviderStatsQueries interface, meaning the data access is already
+     abstracted; only the wiring lives in the wrong package.
 
      What V2 should do:
-     Make recoveryTimeoutMs configurable at construction time (it already is in createInitialCircuitState but the hydration ignores the stored value). For CLI use specifically,
-     either clear circuit state on startup (fresh start semantics) or apply a much shorter default recovery timeout (e.g., 30 seconds for CLI mode vs 5 minutes for daemon mode). The
-     persisted stats for health scoring (averageResponseTime, errorRate) retain long-term value and should stay — only the circuit state (failureCount, lastFailureTime) warrants the
-     shorter window.
+     Move persistence/ into @exitbook/data. The blockchain-providers package keeps ProviderStatsStore with its injected queries interface (already the case). The database creation,
+     migration, and schema definition move to the data package.
 
      Needs coverage:
 
-     ┌────────────────────────────────────────┬──────────────────────────────────────────────────┬───────┐
-     │           Current capability           │             Covered by replacement?              │ Notes │
-     ├────────────────────────────────────────┼──────────────────────────────────────────────────┼───────┤
-     │ Long-term health scoring               │ Yes, persisted separately from circuit state     │       │
-     ├────────────────────────────────────────┼──────────────────────────────────────────────────┼───────┤
-     │ Circuit recovery after process restart │ Yes, configurable timeout per invocation context │       │
-     ├────────────────────────────────────────┼──────────────────────────────────────────────────┼───────┤
-     │ Provider ordering by historic health   │ Yes, unchanged                                   │       │
-     └────────────────────────────────────────┴──────────────────────────────────────────────────┴───────┘
+     ┌───────────────────────────────┬──────────┬──────────────────────────────────────────────────┐
+     │      Current capability       │ Covered? │                      Notes                       │
+     ├───────────────────────────────┼──────────┼──────────────────────────────────────────────────┤
+     │ Provider stats queries        │ Yes      │ Interface already abstract; implementation moves │
+     ├───────────────────────────────┼──────────┼──────────────────────────────────────────────────┤
+     │ Separate providers.db         │ Yes      │ Data package manages all databases               │
+     ├───────────────────────────────┼──────────┼──────────────────────────────────────────────────┤
+     │ Stats persistence across runs │ Yes      │ Unchanged behavior                               │
+     └───────────────────────────────┴──────────┴──────────────────────────────────────────────────┘
 
-     Surface: persistence/provider-stats-utils.ts (~84 lines), persistence/schema.ts.
+     Surface: ~7 files in persistence/
 
-     Leverage: Medium. Incorrect stale-state recovery is a behavioral correctness issue.
+     Leverage: Medium -- reduces coupling and consolidates database management.
+
+     [2d] Registration is manual, not decorator-based
+
+     What exists:
+     CLAUDE.md mentions @RegisterApiClient decorators, but grep confirms zero uses. Registration is done via explicit factory arrays in register-apis.ts files (e.g.,
+     /Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/evm/register-apis.ts), which are aggregated in
+     /Users/joel/Dev/exitbook/packages/blockchain-providers/src/register-apis.ts.
+
+     Why it's a problem (minor):
+     The CLAUDE.md documentation is stale. The actual pattern -- explicit factory arrays imported and concatenated -- is straightforward and debuggable. However, adding a new
+     provider requires editing two files: the provider file and the blockchain's register-apis.ts. This is a minor friction point, not a bug.
+
+     What V2 should do:
+     Keep the explicit factory registration pattern (it is simpler and more debuggable than decorators). Update CLAUDE.md to reflect reality. Consider barrel-exporting factories from
+      each provider directory to reduce the register-apis.ts boilerplate.
+
+     Surface: 8 register-apis.ts files + 1 aggregation file
+
+     Leverage: Low -- documentation fix, minor ergonomic improvement.
+
+     ---
+     3. Pattern Re-evaluation
+
+     [3a] execute<T> with switch-case dispatch
+
+     What exists:
+     Every BaseApiClient implementation has an execute<T>(operation: OneShotOperation) method containing a switch statement that dispatches on operation.type:
+     - /Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/evm/providers/alchemy/alchemy.api-client.ts (lines 234-261)
+     - /Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/bitcoin/providers/blockstream/blockstream-api-client.ts (lines 118-135)
+     - Every other API client follows the same pattern.
+
+     The return type is Promise<Result<T, Error>> with an unsafe cast as Result<T, Error> at each case.
+
+     Why it's a problem:
+     The T generic is unconstrained and always casted. This means execute<string>(getBalanceOperation) compiles even though getBalance returns RawBalanceData. The type safety is
+     illusory. Additionally, every provider duplicates the same switch boilerplate.
+
+     What V2 should do:
+     Replace the single execute<T> method with typed operation-specific methods on the interface:
+     interface IBlockchainProvider {
+       getAddressBalances(address: string): Promise<Result<RawBalanceData, Error>>;
+       getTokenMetadata(contracts: string[]): Promise<Result<TokenMetadata[], Error>>;
+       // etc.
+     }
+     The ProviderManager would call the specific method, eliminating the switch and the unsafe generic cast. Providers that don't support an operation simply don't implement the
+     optional method (or return an error).
+
+     Needs coverage:
+
+     ┌──────────────────────────────┬──────────┬─────────────────────────────────────────────────────────────────────────────────────────┐
+     │      Current capability      │ Covered? │                                          Notes                                          │
+     ├──────────────────────────────┼──────────┼─────────────────────────────────────────────────────────────────────────────────────────┤
+     │ Dynamic operation dispatch   │ Yes      │ Manager calls typed methods based on operation type                                     │
+     ├──────────────────────────────┼──────────┼─────────────────────────────────────────────────────────────────────────────────────────┤
+     │ Provider capability checking │ Yes      │ supportsOperation becomes typeof provider.getBalance === 'function' or capability flags │
+     ├──────────────────────────────┼──────────┼─────────────────────────────────────────────────────────────────────────────────────────┤
+     │ Caching via getCacheKey      │ Yes      │ Remains on the operation object                                                         │
+     └──────────────────────────────┴──────────┴─────────────────────────────────────────────────────────────────────────────────────────┘
+
+     Surface: ~25 API client files, 1 interface file, provider-manager dispatch logic
+
+     Leverage: High -- eliminates unsafe casts and boilerplate in every provider.
+
+     [3e] Streaming adapter pattern -- well-designed but complex
+
+     What exists:
+     /Users/joel/Dev/exitbook/packages/blockchain-providers/src/core/streaming/streaming-adapter.ts provides createStreamingIterator, a generic pagination engine. Providers supply
+     fetchPage and mapItem callbacks. The adapter handles dedup, cursor building, replay windows, and completion detection.
+
+     Why it's a problem (minor):
+     The StreamingAdapterOptions interface has 10 fields including optional hooks (derivePageParams, applyReplayWindow). This is necessary complexity for the domain (cross-provider
+     failover with heterogeneous pagination), but the interface could benefit from a builder pattern or sensible defaults object to reduce the boilerplate at call sites.
+
+     What V2 should do:
+     Keep the adapter. Consider grouping optional hooks into a paginationStrategy object to reduce top-level option sprawl. This is polish, not a structural change.
+
+     Surface: 1 core file, ~25 call sites
+
+     Leverage: Low -- the current design works; improvements are ergonomic.
+
+     ---
 
 
+     ---
+     5. Toolchain & Infrastructure
+
+     [5c] Test infrastructure
+
+     What exists:
+     102 test files split between 61 unit tests and 41 e2e tests. E2e tests hit real APIs (gated by .env keys). Unit tests are pure-function focused (*-utils.test.ts,
+     mapper-utils.test.ts).
+
+     Why it's a problem (minor):
+     The e2e tests are valuable for validating API contracts but slow and non-deterministic. There is no recorded/replay HTTP layer (e.g., nock, msw, or polly.js) that would allow
+     testing API client logic without network calls.
+
+     What V2 should do:
+     Consider adding HTTP recording/replay for provider API client tests. This would allow testing the full client stack (schema validation, mapping, error handling) without
+     requiring API keys or network access. The e2e tests would remain as smoke tests run less frequently.
+
+     Needs coverage:
+
+     ┌───────────────────────────┬──────────┬─────────────────────────────────┐
+     │    Current capability     │ Covered? │              Notes              │
+     ├───────────────────────────┼──────────┼─────────────────────────────────┤
+     │ Real API validation       │ Yes      │ E2e tests remain as smoke tests │
+     ├───────────────────────────┼──────────┼─────────────────────────────────┤
+     │ Schema validation testing │ Yes      │ Replay captures real responses  │
+     ├───────────────────────────┼──────────┼─────────────────────────────────┤
+     │ Mapper testing            │ Yes      │ Already covered by unit tests   │
+     └───────────────────────────┴──────────┴─────────────────────────────────┘
+
+     Surface: 41 e2e test files could gain replay equivalents
+
+     Leverage: Medium -- improves CI reliability and developer onboarding (no API keys needed for most tests).
+
+     ---
+     6. File & Code Organization
+
+
+
+     [6b] Naming conventions -- consistent
+
+     Files follow <entity>.<concern>.ts (e.g., alchemy.api-client.ts, alchemy.schemas.ts, alchemy.mapper-utils.ts). The pattern is consistent across all 8 blockchain families. Test
+     files use *.test.ts for unit and *.e2e.test.ts for integration.
+
+     No material issues found.
+
+     ---
+     7. Error Handling & Observability
+
+
+     [7b] Silent failure paths
+
+     What exists:
+     In alchemy.api-client.ts (line 714-717), when a single transaction fails to map, it returns ok([]) instead of err(), silently dropping the transaction from the stream. The skip
+     rate is monitored (lines 708-713) and warns above 5%, which is good.
+
+     Across the codebase, the pattern is consistent: mapper errors in streaming contexts are logged and skipped rather than failing the stream. This is a deliberate design choice for
+      resilience (one bad transaction should not abort import of thousands).
+
+     Why it's a problem (minor):
+     The skip-on-map-failure pattern is reasonable for resilience, but the caller (import service) has no structured signal about how many transactions were skipped. The BatchStats
+     type tracks deduplicated but not skipped_due_to_errors. This could mask data quality issues.
+
+     What V2 should do:
+     Add a mapErrors: number field to BatchStats / StreamingBatchResult so the import service can surface "X transactions skipped due to data quality issues" in a structured way.
+
+     Needs coverage:
+
+     ┌─────────────────────────┬──────────┬─────────────────────────────────────┐
+     │   Current capability    │ Covered? │                Notes                │
+     ├─────────────────────────┼──────────┼─────────────────────────────────────┤
+     │ Resilient streaming     │ Yes      │ Skip behavior unchanged             │
+     ├─────────────────────────┼──────────┼─────────────────────────────────────┤
+     │ Error logging           │ Yes      │ Logger.warn remains                 │
+     ├─────────────────────────┼──────────┼─────────────────────────────────────┤
+     │ Data quality visibility │ Improved │ Structured count surfaces to caller │
+     └─────────────────────────┴──────────┴─────────────────────────────────────┘
+
+     Surface: BatchStats type, streaming adapter, ~25 provider mapItem callbacks
+
+     Leverage: Medium -- improves observability for a financial accuracy system.
+
+     [7c] Observability readiness
+
+     What exists:
+     The ProviderEvent type system (/Users/joel/Dev/exitbook/packages/blockchain-providers/src/events.ts) provides 9 event types covering request lifecycle, provider selection,
+     failover, rate limiting, circuit breaker state, and cursor adjustments. The InstrumentationCollector (from @exitbook/http) is injected for HTTP-level tracking.
+
+     Why it's a problem:
+     This is actually well-designed for a CLI tool. The event bus provides structured telemetry that the CLI dashboard consumes. For a production service, you would want
+     OpenTelemetry traces, but for a local CLI, the current approach is proportional.
+
+     No material issues found.
 
      ---
      V2 Decision Summary
 
      Rank: 1
-     Change: Fix errAsync → err in two places (api-client.ts:122, etherscan.api-client.ts:248)
-     Dimension: 3 / 7
+     Change: Replace execute<T> switch dispatch with typed operation methods
+     Dimension: 3 (Patterns)
      Leverage: High
-     One-line Rationale: Silent failure path in a financial system — errors are silently swallowed in the IBlockchainProvider default implementation and the Etherscan execute()
-     method
+     One-line Rationale: Eliminates unsafe generic casts and boilerplate in every provider
      ────────────────────────────────────────
      Rank: 2
-     Change: Extract benchmark tool out of IBlockchainProvider into a standalone BenchmarkTool
-     Dimension: 5
-     Leverage: High
-     One-line Rationale: 295-line tool method on every provider instance with emoji logs pollutes the production interface and is a misuse footgun
+     Change: Add mapErrors to BatchStats for structured skip tracking
+     Dimension: 7 (Observability)
+     Leverage: Medium
+     One-line Rationale: Financial system should surface data quality issues structurally
      ────────────────────────────────────────
      Rank: 3
-     Change: Refactor BlockchainProviderManager into composable objects; make timers opt-in
-     Dimension: 2
-     Leverage: High
-     One-line Rationale: 1,389-line class with 11 responsibilities unconditionally starts background timers, making it untestable without destroy() calls
+     Change: Move persistence layer to @exitbook/data
+     Dimension: 2 (Seams)
+     Leverage: Medium
+     One-line Rationale: Consolidates database ownership; removes sqlite/kysely from provider deps
      ────────────────────────────────────────
      Rank: 4
-     Change: Consolidate four Tatum chain clients into one generic base class
-     Dimension: 3
-     Leverage: High
-     One-line Rationale: 1,314 lines of near-identical code have already diverged on executeStreaming routing semantics across chains
+     Change: Extract address derivation crypto deps into separate package
+     Dimension: 1 (Dependencies)
+     Leverage: Medium
+     One-line Rationale: Reduces install footprint; heavy crypto deps scoped to opt-in boundary
      ────────────────────────────────────────
      Rank: 5
-     Change: Replace @RegisterApiClient decorator singleton with explicit factory-based registry
-     Dimension: 3
-     Leverage: Medium-High
-     One-line Rationale: Global singleton registry makes test isolation impossible; explicit createProviderRegistry() factory is idiomatic and testable
+     Change: Add HTTP replay/recording for provider tests
+     Dimension: 5 (Toolchain)
+     Leverage: Medium
+     One-line Rationale: CI reliability without API keys; faster test cycles
      ────────────────────────────────────────
      Rank: 6
-     Change: Move CircuitState/circuit functions from @exitbook/http to @exitbook/core
-     Dimension: 2
-     Leverage: Medium
-     One-line Rationale: HTTP package should not export circuit-breaker domain types
+     Change: Extract streaming failover from provider-manager.ts
+     Dimension: 6 (Organization)
+     Leverage: Low
+     One-line Rationale: 871-LOC file becomes two focused modules
      ────────────────────────────────────────
      Rank: 7
-     Change: Extract shared gap-scanning algorithm from Bitcoin and Cardano utils
-     Dimension: 3
-     Leverage: Medium
-     One-line Rationale: Two ~80-line implementations of the same BIP44 algorithm have already diverged in parameter passing style
+     Change: Delete dead BaseRawDataMapper class
+     Dimension: 2 (Seams)
+     Leverage: Low
+     One-line Rationale: Zero consumers; false signal about architecture
      ────────────────────────────────────────
      Rank: 8
-     Change: Consolidate Alchemy's three streamAddress* methods + skip-rate tracking
-     Dimension: 6
-     Leverage: Medium
-     One-line Rationale: 450 lines of copy-paste across 3 methods in a 1,199-line file; skip-rate threshold cannot be changed in one place
-     ────────────────────────────────────────
-     Rank: 9
-     Change: Add traceId to failover execution path log calls
-     Dimension: 7
-     Leverage: Medium
-     One-line Rationale: No way to correlate logs across a single import operation that spans multiple provider failures
-     ────────────────────────────────────────
-     Rank: 10
-     Change: Fix circuit state staleness: use stored recoveryTimeoutMs, add CLI fast-recovery mode
-     Dimension: 4
-     Leverage: Medium
-     One-line Rationale: 5-minute circuit recovery is for daemons, not CLI; hydration ignores stored timeout value
-     ────────────────────────────────────────
-     Rank: 11
-     Change: Remove jose, @cardano-sdk/key-management, @polkadot/util from deps
-     Dimension: 1
+     Change: Update CLAUDE.md re: @RegisterApiClient
+     Dimension: 2 (Seams)
      Leverage: Low
-     One-line Rationale: Three unused/redundant dependencies inflate install footprint and security audit surface
-     ────────────────────────────────────────
-     Rank: 12
-     Change: Replace standalone bech32 package with @polkadot/util-crypto bech32 functions
-     Dimension: 1
-     Leverage: Low
-     One-line Rationale: Redundant bech32 implementation alongside the one shipped in @polkadot/util-crypto
+     One-line Rationale: Documentation accuracy
 
-     ---
      What V2 Keeps
 
-     The following patterns earned their place and should carry forward unchanged:
+     Patterns and tools that earned their place:
 
-     - neverthrow Result types. They enforce explicit error handling at every boundary and are applied consistently across ~185 files. The one bug (items 1 and 2 above) is a misuse
-     of errAsync, not an indictment of the pattern.
-     - BaseApiClient inheritance model. The base class correctly centralizes HTTP client initialization, API key resolution, and the streaming adapter bridge. The inheritance
-     boundary is clean: concrete providers only need to implement execute, executeStreaming, getHealthCheckConfig, and the cursor methods.
-     - createStreamingIterator / StreamingAdapterOptions. The streaming adapter pattern is the right abstraction. Providing fetchPage + mapItem + extractCursors as pure callbacks
-     with the adapter owning the loop, dedup, and cursor state building is clean and well-tested.
-     - Zod schemas co-located with providers. Each provider's *.schemas.ts next to its *.api-client.ts is correct vertical-slice organization. No suggestion to centralize schemas.
-     - @exitbook/http HttpClient with built-in rate limiting and retries. The HTTP client abstraction is appropriate and well-designed. Rate limiting at the client level (not the
-     provider level) is correct.
-     - Vertical slice directory structure. blockchains/<chain>/providers/<provider>/ is clear, discoverable, and consistent across 8 blockchains.
-     - Separate SQLite databases (transactions.db, prices.db, providers.db). The separation keeps schema concerns isolated and allows independent persistence of ephemeral (providers)
-      vs durable (transactions) data.
-     - Pure functions in provider-manager-utils.ts for scoring, selection, and dedup. These are well-extracted and tested without mocks, exactly as CLAUDE.md prescribes.
+     - neverthrow Result types -- consistently applied, good fit for fallible API operations. The NormalizationError skip/error discriminated union is well-designed.
+     - Zod runtime validation -- every provider validates API responses through colocated schemas. Catches contract drift early.
+     - Streaming adapter (createStreamingIterator) -- clean separation of pagination mechanics from provider-specific logic. The fetchPage/mapItem callback design scales well.
+     - Factory-based registration -- explicit, debuggable, no magic decorators. The ProviderFactory interface is minimal.
+     - Vertical-slice directory structure -- blockchains/<chain>/providers/<provider>/ is clear and self-documenting. New providers follow an obvious pattern.
+     - Circuit breaker + health scoring for failover -- production-grade resilience with pure-function scoring logic that is independently testable.
+     - Event bus for CLI observability -- 9 well-typed events provide structured telemetry without requiring distributed tracing infrastructure.
+     - Chain configuration via JSON -- evm-chains.json, cosmos-chains.json, etc. make adding new chains a data change, not a code change.
+     - Peer dependency model -- @exitbook/core, @exitbook/http, @exitbook/resilience as peer deps keeps the dependency graph clean and avoids version conflicts.

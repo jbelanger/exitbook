@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-null -- null required for db */
 import type { TokenMetadataRecord } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import type { Kysely, Selectable } from 'kysely';
+import type { Kysely, Selectable } from '@exitbook/sqlite';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 

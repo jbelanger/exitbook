@@ -5,8 +5,6 @@ import type { NormalizationError } from '../types/errors.js';
 
 /**
  * Higher-order function that wraps a pure mapper function with input/output validation.
- * Restores the validation guarantees that were present in the original BaseRawDataMapper class
- * while preserving the benefits of pure functions (testability, composability).
  *
  * @param inputSchema - Zod schema for validating raw input data
  * @param outputSchema - Zod schema for validating normalized output data

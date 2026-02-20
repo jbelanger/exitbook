@@ -128,18 +128,6 @@ describe('Database', () => {
       const result2 = await initializePricesDatabase(db);
       expect(result2.isOk()).toBe(true);
     });
-
-    it('should handle custom migrations path', async () => {
-      if (!db) throw new Error('DB not initialized');
-
-      // Use the actual migrations path
-      const migrationsPath = path.join(process.cwd(), 'packages/price-providers/src/pricing/migrations');
-
-      const result = await initializePricesDatabase(db, migrationsPath);
-
-      // This should fail if path is invalid, succeed if valid
-      expect(result.isOk() || result.isErr()).toBe(true);
-    });
   });
 
   describe('closePricesDatabase', () => {

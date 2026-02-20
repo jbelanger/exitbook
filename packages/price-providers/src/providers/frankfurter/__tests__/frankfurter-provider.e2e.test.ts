@@ -6,39 +6,22 @@
  */
 
 import { Currency } from '@exitbook/core';
-import Database from 'better-sqlite3';
-import { Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import type { PricesDB } from '../../../persistence/database.js';
-import { initializePricesDatabase } from '../../../persistence/database.js';
-import type { PricesDatabase } from '../../../persistence/schema.js';
+import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../../persistence/database.js';
 import { createFrankfurterProvider, type FrankfurterProvider } from '../provider.js';
 
 describe('Frankfurter Provider E2E', () => {
   let db: PricesDB;
-  let sqliteDb: Database.Database;
   let provider: FrankfurterProvider;
 
   beforeAll(async () => {
-    // Create in-memory database for testing
-    sqliteDb = new Database(':memory:');
+    const dbResult = createPricesDatabase(':memory:');
+    if (dbResult.isErr()) throw dbResult.error;
+    db = dbResult.value;
 
-    // Configure SQLite pragmas
-    sqliteDb.pragma('foreign_keys = ON');
-
-    // Create Kysely instance
-    db = new Kysely<PricesDatabase>({
-      dialect: new SqliteDialect({
-        database: sqliteDb,
-      }),
-    });
-
-    // Run migrations
     const migrationsResult = await initializePricesDatabase(db);
-    if (migrationsResult.isErr()) {
-      throw migrationsResult.error;
-    }
+    if (migrationsResult.isErr()) throw migrationsResult.error;
 
     // Create provider (no API key required)
     const providerResult = createFrankfurterProvider(db);
@@ -52,7 +35,6 @@ describe('Frankfurter Provider E2E', () => {
 
   afterAll(async () => {
     await db.destroy();
-    sqliteDb.close();
   });
 
   describe('EUR conversions', () => {

@@ -1,7 +1,7 @@
 import { type RawTransaction, wrapError } from '@exitbook/core';
 import { type Logger } from '@exitbook/logger';
+import type { ControlledTransaction, Kysely, Selectable } from '@exitbook/sqlite';
 import { Decimal } from 'decimal.js';
-import type { ControlledTransaction, Kysely, Selectable } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 import type { z } from 'zod';
 

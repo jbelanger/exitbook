@@ -1,5 +1,5 @@
 import type { ImportSessionStatus, ProcessingStatus, SourceType } from '@exitbook/core';
-import type { Generated, ColumnType } from 'kysely';
+import type { Generated, ColumnType } from '@exitbook/sqlite';
 
 /**
  * Database schema definitions

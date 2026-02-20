@@ -1,8 +1,7 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
 import type { RawTransaction } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { Selectable } from 'kysely';
-import { sql } from 'kysely';
+import { sql, type Selectable } from '@exitbook/sqlite';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { RawTransactionTable } from '../schema/database-schema.js';

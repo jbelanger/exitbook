@@ -1,63 +1,26 @@
-import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { getLogger } from '@exitbook/logger';
-import { FileMigrationProvider, Migrator } from 'kysely';
+import { Migrator, runMigrations as runSqliteMigrations } from '@exitbook/sqlite';
+
+import * as initialSchema from '../migrations/001_initial_schema.js';
 
 import type { KyselyDB } from './database.js';
 
 const logger = getLogger('Migrations');
 
+const migrations = {
+  '001_initial_schema': initialSchema,
+};
+
 /**
  * Run database migrations
  */
 export async function runMigrations(db: KyselyDB): Promise<void> {
-  try {
-    // Get the current file's directory
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-
-    // Create migration provider
-    const migrationProvider = new FileMigrationProvider({
-      fs,
-      migrationFolder: path.join(__dirname, '../migrations'),
-      path,
-    });
-
-    // Create migrator
-    const migrator = new Migrator({
-      db,
-      provider: migrationProvider,
-    });
-
-    // Run migrations
-    const { error, results } = await migrator.migrateToLatest();
-
-    if (error) {
-      logger.error({ error }, 'Migration failed');
-      throw new Error('Migration failed');
-    }
-
-    if (!results) {
-      logger.debug('No migrations to run');
-      return;
-    }
-
-    for (const result of results) {
-      if (result.status === 'Success') {
-        logger.debug(`Migration "${result.migrationName}" executed successfully`);
-      } else if (result.status === 'Error') {
-        logger.error(`Migration "${result.migrationName}" failed`);
-        throw new Error(`Migration "${result.migrationName}" failed`);
-      }
-    }
-
-    logger.debug(`Executed ${results.length} migrations`);
-  } catch (error) {
-    logger.error({ error }, 'Failed to run migrations');
-    throw error;
+  const result = await runSqliteMigrations(db, migrations);
+  if (result.isErr()) {
+    throw result.error;
   }
+
+  logger.debug('Migrations completed');
 }
 
 /**
@@ -65,26 +28,15 @@ export async function runMigrations(db: KyselyDB): Promise<void> {
  */
 export async function getMigrationStatus(db: KyselyDB): Promise<{ executed: string[]; pending: string[] }> {
   try {
-    // Get the current file's directory
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-
-    const migrationProvider = new FileMigrationProvider({
-      fs,
-      migrationFolder: path.join(__dirname, '../migrations'),
-      path,
-    });
-
     const migrator = new Migrator({
       db,
-      provider: migrationProvider,
+      provider: { getMigrations: () => Promise.resolve(migrations) },
     });
 
-    const migrations = await migrator.getMigrations();
+    const allMigrations = await migrator.getMigrations();
 
-    const pending = migrations.filter((m) => m.executedAt === undefined).map((m) => m.name);
-
-    const executed = migrations.filter((m) => m.executedAt !== undefined).map((m) => m.name);
+    const pending = allMigrations.filter((m) => m.executedAt === undefined).map((m) => m.name);
+    const executed = allMigrations.filter((m) => m.executedAt !== undefined).map((m) => m.name);
 
     return { executed, pending };
   } catch (error) {

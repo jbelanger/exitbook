@@ -5,7 +5,7 @@
  * across development cycles when transactions.db is dropped
  */
 
-import type { ColumnType } from 'kysely';
+import type { ColumnType } from '@exitbook/sqlite';
 
 /**
  * Provider metadata table

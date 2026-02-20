@@ -1,11 +1,6 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-
 import { getLogger } from '@exitbook/logger';
-import Database from 'better-sqlite3';
-import { Kysely, SqliteDialect } from 'kysely';
+import { createSqliteDatabase, type Kysely } from '@exitbook/sqlite';
 
-import { sqliteTypeAdapterPlugin } from '../plugins/sqlite-type-adapter-plugin.js';
 import type { DatabaseSchema } from '../schema/database-schema.js';
 
 const logger = getLogger('KyselyDatabase');
@@ -14,35 +9,13 @@ const logger = getLogger('KyselyDatabase');
  * Create and configure database instance
  */
 export function createDatabase(dbPath: string): Kysely<DatabaseSchema> {
-  const finalPath = dbPath;
-
-  // Ensure data directory exists
-  const dataDir = path.dirname(finalPath);
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+  const result = createSqliteDatabase<DatabaseSchema>(dbPath);
+  if (result.isErr()) {
+    throw result.error;
   }
 
-  // Create better-sqlite3 database instance
-  const sqliteDb = new Database(finalPath);
-
-  // Configure SQLite pragmas for optimal performance and data integrity
-  sqliteDb.pragma('foreign_keys = ON');
-  sqliteDb.pragma('journal_mode = WAL');
-  sqliteDb.pragma('synchronous = NORMAL');
-  sqliteDb.pragma('cache_size = 10000');
-  sqliteDb.pragma('temp_store = memory');
-
-  logger.debug(`Connected to SQLite database: ${finalPath}`);
-
-  // Create Kysely instance with SQLite dialect
-  // Note: No CamelCasePlugin - we use snake_case to match database columns exactly
-  const kysely = new Kysely<DatabaseSchema>({
-    dialect: new SqliteDialect({
-      database: sqliteDb,
-    }),
-  });
-
-  return kysely.withPlugin(sqliteTypeAdapterPlugin);
+  logger.debug(`Connected to SQLite database: ${dbPath}`);
+  return result.value;
 }
 
 /**
