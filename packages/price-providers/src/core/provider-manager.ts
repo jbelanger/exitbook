@@ -5,7 +5,7 @@
 
 import { Currency } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { CircuitBreakerRegistry } from '@exitbook/utils/circuit-breaker';
+import { CircuitBreakerRegistry } from '@exitbook/resilience/circuit-breaker';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 

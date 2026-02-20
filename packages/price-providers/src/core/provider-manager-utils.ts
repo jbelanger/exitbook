@@ -4,7 +4,12 @@
  * Functional core - all decision logic without side effects
  */
 
-import { getCircuitStatus, isCircuitHalfOpen, isCircuitOpen, type CircuitState } from '@exitbook/utils/circuit-breaker';
+import {
+  getCircuitStatus,
+  isCircuitHalfOpen,
+  isCircuitOpen,
+  type CircuitState,
+} from '@exitbook/resilience/circuit-breaker';
 
 import type { IPriceProvider, ProviderHealth, ProviderMetadata } from './types.js';
 

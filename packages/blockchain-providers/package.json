@@ -58,6 +58,6 @@
     "@exitbook/events": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/logger": "workspace:*",
-    "@exitbook/utils": "workspace:*"
+    "@exitbook/resilience": "workspace:*"
   }
 }

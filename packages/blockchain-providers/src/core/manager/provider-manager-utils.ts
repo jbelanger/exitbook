@@ -12,7 +12,7 @@ import {
   isCircuitOpen,
   type CircuitState,
   type CircuitStatus,
-} from '@exitbook/utils/circuit-breaker';
+} from '@exitbook/resilience/circuit-breaker';
 
 import type { NormalizedTransactionBase } from '../index.js';
 import type {

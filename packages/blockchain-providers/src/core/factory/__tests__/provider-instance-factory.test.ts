@@ -11,7 +11,7 @@ import { ProviderRegistry } from '../../registry/provider-registry.js';
 import type { IBlockchainProvider, ProviderInfo, ProviderMetadata } from '../../types/index.js';
 import { ProviderInstanceFactory } from '../provider-instance-factory.js';
 
-vi.mock('../registry/provider-registry.js', () => ({
+vi.mock('../../registry/provider-registry.js', () => ({
   ProviderRegistry: {
     getAvailable: vi.fn(),
     getMetadata: vi.fn(),

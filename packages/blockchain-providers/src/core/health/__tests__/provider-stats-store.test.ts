@@ -2,7 +2,7 @@
  * Tests for ProviderStatsStore and composite key helpers.
  */
 
-import { createInitialCircuitState } from '@exitbook/utils/circuit-breaker';
+import { createInitialCircuitState } from '@exitbook/resilience/circuit-breaker';
 import { describe, expect, test } from 'vitest';
 
 import { getProviderKey, parseProviderKey, ProviderStatsStore } from '../provider-stats-store.js';

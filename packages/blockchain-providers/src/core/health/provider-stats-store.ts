@@ -7,7 +7,7 @@
  */
 
 import { getLogger } from '@exitbook/logger';
-import type { CircuitBreakerRegistry, CircuitState, CircuitStatus } from '@exitbook/utils/circuit-breaker';
+import type { CircuitBreakerRegistry, CircuitState, CircuitStatus } from '@exitbook/resilience/circuit-breaker';
 
 import { hydrateProviderStats } from '../../persistence/provider-stats-utils.js';
 import type { ProviderStatsQueries } from '../../persistence/queries/provider-stats-queries.js';

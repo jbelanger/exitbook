@@ -13,7 +13,7 @@ export * from './registry/decorators.js';
 export * from './registry/provider-registry.js';
 
 // Provider management
-export { CircuitBreakerRegistry } from '@exitbook/utils/circuit-breaker';
+export { CircuitBreakerRegistry } from '@exitbook/resilience/circuit-breaker';
 export * from './health/provider-health-monitor.js';
 export * from './factory/provider-instance-factory.js';
 export * from './manager/provider-manager.js';

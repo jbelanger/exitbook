@@ -5,7 +5,7 @@
 
 import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { createInitialCircuitState, recordFailure, type CircuitState } from '@exitbook/utils/circuit-breaker';
+import { createInitialCircuitState, recordFailure, type CircuitState } from '@exitbook/resilience/circuit-breaker';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IBlockchainProvider, ProviderCapabilities, ProviderHealth } from '../../types/index.js';

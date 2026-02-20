@@ -8,7 +8,7 @@ import {
   isCircuitOpen,
   type CircuitState,
   type CircuitStatus,
-} from '@exitbook/utils/circuit-breaker';
+} from '@exitbook/resilience/circuit-breaker';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderEvent } from '../../events.js';

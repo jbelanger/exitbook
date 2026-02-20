@@ -207,9 +207,9 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
-      '@exitbook/utils':
+      '@exitbook/resilience':
         specifier: workspace:*
-        version: link:../utils
+        version: link:../resilience
       '@polkadot/util-crypto':
         specifier: ^14.0.1
         version: 14.0.1(@polkadot/util@14.0.1)
@@ -411,9 +411,9 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
-      '@exitbook/utils':
+      '@exitbook/resilience':
         specifier: workspace:*
-        version: link:../utils
+        version: link:../resilience
       better-sqlite3:
         specifier: ^12.6.2
         version: 12.6.2
@@ -437,13 +437,13 @@ importers:
         specifier: ^4.21.0
         version: 4.21.0
 
-  packages/tsconfig: {}
-
-  packages/utils:
+  packages/resilience:
     devDependencies:
       tsconfig:
         specifier: workspace:*
         version: link:../tsconfig
+
+  packages/tsconfig: {}
 
 packages:
 

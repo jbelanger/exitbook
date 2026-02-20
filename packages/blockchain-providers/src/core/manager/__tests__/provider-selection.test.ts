@@ -8,7 +8,7 @@ import {
   recordFailure,
   shouldCircuitBlock,
   type CircuitState,
-} from '@exitbook/utils/circuit-breaker';
+} from '@exitbook/resilience/circuit-breaker';
 import { describe, expect, it } from 'vitest';
 
 import type { OneShotOperation, ProviderCapabilities } from '../../types/index.js';
