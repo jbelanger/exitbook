@@ -11,6 +11,7 @@ import { displayCliError } from '../shared/cli-error.js';
 import { renderApp, runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
+import { providerRegistry } from '../shared/provider-registry.js';
 import { ProvidersBenchmarkCommandOptionsSchema } from '../shared/schemas.js';
 
 import { BenchmarkApp } from './components/benchmark-components.js';
@@ -91,7 +92,7 @@ async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<v
       const handler = new BenchmarkRateLimitHandler();
       ctx.onCleanup(async () => handler.destroy());
 
-      const result = await handler.execute(options, BlockchainProviderManager);
+      const result = await handler.execute(options, providerRegistry, BlockchainProviderManager);
 
       if (result.isErr()) {
         displayCliError('providers-benchmark', result.error, ExitCodes.INVALID_ARGS, 'json');
@@ -132,7 +133,7 @@ async function executeProvidersBenchmarkTUI(options: CommandOptions): Promise<vo
       ctx.onCleanup(async () => handler.destroy());
 
       // Setup phase
-      const setupResult = handler.setup(options, BlockchainProviderManager);
+      const setupResult = handler.setup(options, providerRegistry, BlockchainProviderManager);
 
       if (setupResult.isErr()) {
         displayCliError('providers-benchmark', setupResult.error, ExitCodes.INVALID_ARGS, 'text');

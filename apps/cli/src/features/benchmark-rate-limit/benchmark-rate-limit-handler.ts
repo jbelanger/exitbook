@@ -1,5 +1,5 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import { loadExplorerConfig, ProviderRegistry } from '@exitbook/blockchain-providers';
+import type { BlockchainProviderManager, ProviderRegistry } from '@exitbook/blockchain-providers';
+import { loadExplorerConfig } from '@exitbook/blockchain-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -69,7 +69,11 @@ export class BenchmarkRateLimitHandler {
    */
   setup(
     options: Parameters<typeof buildBenchmarkParams>[0],
-    ProviderManagerConstructor: new (config: ReturnType<typeof loadExplorerConfig>) => BlockchainProviderManager
+    registry: ProviderRegistry,
+    ProviderManagerConstructor: new (
+      registry: ProviderRegistry,
+      config: ReturnType<typeof loadExplorerConfig>
+    ) => BlockchainProviderManager
   ): Result<SetupResult, Error> {
     // Validate and build parameters
     const paramsResult = buildBenchmarkParams(options);
@@ -81,14 +85,14 @@ export class BenchmarkRateLimitHandler {
 
     // Load configuration and initialize provider manager
     const explorerConfig = loadExplorerConfig();
-    this.providerManager = new ProviderManagerConstructor(explorerConfig);
+    this.providerManager = new ProviderManagerConstructor(registry, explorerConfig);
 
     // Auto-register provider
     const providers = this.providerManager.autoRegisterFromConfig(params.blockchain, params.provider);
 
     if (providers.length === 0) {
       // Provider not found - gather helpful information
-      const allProviders = ProviderRegistry.getAllProviders();
+      const allProviders = registry.getAllProviders();
       const blockchainProviders = allProviders.filter((p) => p.blockchain === params.blockchain);
 
       if (blockchainProviders.length > 0) {
@@ -162,11 +166,15 @@ export class BenchmarkRateLimitHandler {
    */
   async execute(
     options: Parameters<typeof buildBenchmarkParams>[0],
-    ProviderManagerConstructor: new (config: ReturnType<typeof loadExplorerConfig>) => BlockchainProviderManager
+    registry: ProviderRegistry,
+    ProviderManagerConstructor: new (
+      registry: ProviderRegistry,
+      config: ReturnType<typeof loadExplorerConfig>
+    ) => BlockchainProviderManager
   ): Promise<
     Result<{ params: BenchmarkParams; provider: { name: string; rateLimit: unknown }; result: BenchmarkResult }, Error>
   > {
-    const setupResult = this.setup(options, ProviderManagerConstructor);
+    const setupResult = this.setup(options, registry, ProviderManagerConstructor);
     if (setupResult.isErr()) {
       return err(setupResult.error);
     }

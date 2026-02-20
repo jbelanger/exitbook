@@ -4,8 +4,8 @@ import { createHash } from 'node:crypto';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { RawBalanceData, StreamingOperation } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { NearBalanceChange, NearReceipt, NearTokenTransfer, NearTransaction } from '../../../schemas.js';
 import { sortKeys } from '../mapper-utils.js';
 import { NearBlocksApiClient } from '../nearblocks.api-client.js';
@@ -48,6 +48,7 @@ function generateDeterministicHash(data: unknown): string {
 }
 
 describe('NearBlocksApiClient', () => {
+  const providerRegistry = createProviderRegistry();
   let client: NearBlocksApiClient;
   let mockHttpGet: ReturnType<typeof vi.fn>;
 
@@ -60,7 +61,7 @@ describe('NearBlocksApiClient', () => {
       resetTime: Date.now() + 60000,
     }));
 
-    const config = ProviderRegistry.createDefaultConfig('near', 'nearblocks');
+    const config = providerRegistry.createDefaultConfig('near', 'nearblocks');
     // Disable rate limiting for tests
     config.rateLimit = {
       requestsPerSecond: 1000,
@@ -93,7 +94,7 @@ describe('NearBlocksApiClient', () => {
     });
 
     it('should not require API key', () => {
-      const config = ProviderRegistry.createDefaultConfig('near', 'nearblocks');
+      const config = providerRegistry.createDefaultConfig('near', 'nearblocks');
       const newClient = new NearBlocksApiClient(config);
       expect(newClient).toBeDefined();
     });
@@ -102,7 +103,7 @@ describe('NearBlocksApiClient', () => {
       const originalApiKey = process.env['NEARBLOCKS_API_KEY'];
       process.env['NEARBLOCKS_API_KEY'] = 'test-api-key';
       try {
-        const config = ProviderRegistry.createDefaultConfig('near', 'nearblocks');
+        const config = providerRegistry.createDefaultConfig('near', 'nearblocks');
         const newClient = new NearBlocksApiClient(config);
         expect(newClient).toBeDefined();
       } finally {

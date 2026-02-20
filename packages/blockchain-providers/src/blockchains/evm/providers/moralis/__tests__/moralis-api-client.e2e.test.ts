@@ -1,13 +1,15 @@
 import type { TokenMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { RawBalanceData } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import { MoralisApiClient } from '../moralis.api-client.js';
+
+const providerRegistry = createProviderRegistry();
 
 describe('MoralisApiClient Integration - Multi-Chain', () => {
   describe('Ethereum', () => {
-    const config = ProviderRegistry.createDefaultConfig('ethereum', 'moralis');
+    const config = providerRegistry.createDefaultConfig('ethereum', 'moralis');
     const provider = new MoralisApiClient(config);
     const testAddress = '0xE472E43C3417cd0E39F7289B2bC836C08F529CA7'; // Vitalik's address
 
@@ -207,7 +209,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
   });
 
   describe('Avalanche', () => {
-    const config = ProviderRegistry.createDefaultConfig('avalanche', 'moralis');
+    const config = providerRegistry.createDefaultConfig('avalanche', 'moralis');
     const provider = new MoralisApiClient(config);
 
     describe('Health Checks', () => {

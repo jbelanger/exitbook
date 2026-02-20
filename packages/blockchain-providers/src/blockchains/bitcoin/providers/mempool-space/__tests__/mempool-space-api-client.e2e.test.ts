@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { RawBalanceData } from '../../../../../core/index.js';
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import { MempoolSpaceApiClient } from '../mempool-space-api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('MempoolSpaceProvider Integration', () => {
-  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'mempool.space');
+  const config = providerRegistry.createDefaultConfig('bitcoin', 'mempool.space');
   const provider = new MempoolSpaceApiClient(config);
   const testAddress = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2';
   const emptyAddress = 'bc1qeppvcnauqak9xn7mmekw4crr79tl9c8lnxpp2k'; // Address with no transactions

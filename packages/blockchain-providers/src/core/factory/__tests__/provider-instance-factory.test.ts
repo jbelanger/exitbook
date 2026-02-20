@@ -2,28 +2,26 @@
  * Tests for ProviderInstanceFactory — config routing, override merging,
  * priority ordering, and preferred-provider validation.
  *
- * Uses a mocked ProviderRegistry to avoid requiring real API keys.
+ * Uses a mock registry to avoid requiring real API keys.
  */
 
 import { beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 
-import { ProviderRegistry } from '../../registry/provider-registry.js';
+import type { ProviderRegistry } from '../../registry/provider-registry.js';
 import type { IBlockchainProvider, ProviderInfo, ProviderMetadata } from '../../types/index.js';
 import { ProviderInstanceFactory } from '../provider-instance-factory.js';
 
-vi.mock('../../registry/provider-registry.js', () => ({
-  ProviderRegistry: {
+function createMockRegistry() {
+  return {
+    createProvider: vi.fn(),
     getAvailable: vi.fn(),
     getMetadata: vi.fn(),
-    createProvider: vi.fn(),
-  },
-}));
-
-const mockRegistry = ProviderRegistry as unknown as {
-  createProvider: Mock;
-  getAvailable: Mock;
-  getMetadata: Mock;
-};
+  } as unknown as ProviderRegistry & {
+    createProvider: Mock;
+    getAvailable: Mock;
+    getMetadata: Mock;
+  };
+}
 
 function makeProviderInfo(name: string, blockchain = 'ethereum'): ProviderInfo {
   return {
@@ -53,10 +51,14 @@ function makeMockProvider(name: string, blockchain = 'ethereum'): IBlockchainPro
 }
 
 describe('ProviderInstanceFactory — no config', () => {
-  beforeEach(() => vi.clearAllMocks());
+  let mockRegistry: ReturnType<typeof createMockRegistry>;
+
+  beforeEach(() => {
+    mockRegistry = createMockRegistry();
+  });
 
   test('uses registry when no explorerConfig is provided', () => {
-    const factory = new ProviderInstanceFactory();
+    const factory = new ProviderInstanceFactory(mockRegistry);
 
     mockRegistry.getAvailable.mockReturnValue([makeProviderInfo('moralis')]);
     mockRegistry.getMetadata.mockReturnValue(makeMetadata('moralis'));
@@ -69,7 +71,7 @@ describe('ProviderInstanceFactory — no config', () => {
   });
 
   test('returns empty providers when no providers are registered', () => {
-    const factory = new ProviderInstanceFactory();
+    const factory = new ProviderInstanceFactory(mockRegistry);
 
     mockRegistry.getAvailable.mockReturnValue([]);
 
@@ -79,7 +81,7 @@ describe('ProviderInstanceFactory — no config', () => {
   });
 
   test('throws a descriptive error when preferred provider is not registered', () => {
-    const factory = new ProviderInstanceFactory();
+    const factory = new ProviderInstanceFactory(mockRegistry);
 
     mockRegistry.getAvailable.mockReturnValue([makeProviderInfo('moralis')]);
 
@@ -87,7 +89,7 @@ describe('ProviderInstanceFactory — no config', () => {
   });
 
   test('sets preferredProviderName in the result', () => {
-    const factory = new ProviderInstanceFactory();
+    const factory = new ProviderInstanceFactory(mockRegistry);
 
     mockRegistry.getAvailable.mockReturnValue([makeProviderInfo('moralis')]);
     mockRegistry.getMetadata.mockReturnValue(makeMetadata('moralis'));
@@ -100,10 +102,16 @@ describe('ProviderInstanceFactory — no config', () => {
 });
 
 describe('ProviderInstanceFactory — override config', () => {
-  beforeEach(() => vi.clearAllMocks());
+  let mockRegistry: ReturnType<typeof createMockRegistry>;
+
+  beforeEach(() => {
+    mockRegistry = createMockRegistry();
+  });
 
   test('enables only providers listed in defaultEnabled', () => {
-    const factory = new ProviderInstanceFactory({ ethereum: { defaultEnabled: ['routescan'], overrides: {} } });
+    const factory = new ProviderInstanceFactory(mockRegistry, {
+      ethereum: { defaultEnabled: ['routescan'], overrides: {} },
+    });
 
     mockRegistry.getAvailable.mockReturnValue([makeProviderInfo('moralis'), makeProviderInfo('routescan')]);
     mockRegistry.getMetadata.mockImplementation((_: string, name: string) => makeMetadata(name));
@@ -116,7 +124,7 @@ describe('ProviderInstanceFactory — override config', () => {
   });
 
   test('skips providers disabled via override', () => {
-    const factory = new ProviderInstanceFactory({
+    const factory = new ProviderInstanceFactory(mockRegistry, {
       ethereum: {
         defaultEnabled: ['moralis', 'routescan'],
         overrides: { moralis: { enabled: false } },
@@ -134,7 +142,7 @@ describe('ProviderInstanceFactory — override config', () => {
   });
 
   test('respects explicit priority ordering from overrides', () => {
-    const factory = new ProviderInstanceFactory({
+    const factory = new ProviderInstanceFactory(mockRegistry, {
       ethereum: {
         defaultEnabled: ['moralis', 'routescan'],
         overrides: { moralis: { priority: 2 }, routescan: { priority: 1 } },
@@ -152,7 +160,7 @@ describe('ProviderInstanceFactory — override config', () => {
   });
 
   test('uses all registered providers when defaultEnabled is omitted', () => {
-    const factory = new ProviderInstanceFactory({ ethereum: { overrides: {} } });
+    const factory = new ProviderInstanceFactory(mockRegistry, { ethereum: { overrides: {} } });
 
     mockRegistry.getAvailable.mockReturnValue([makeProviderInfo('moralis'), makeProviderInfo('routescan')]);
     mockRegistry.getMetadata.mockImplementation((_: string, name: string) => makeMetadata(name));
@@ -164,7 +172,7 @@ describe('ProviderInstanceFactory — override config', () => {
   });
 
   test('falls back to registry when blockchain has no config entry', () => {
-    const factory = new ProviderInstanceFactory({ bitcoin: { overrides: {} } });
+    const factory = new ProviderInstanceFactory(mockRegistry, { bitcoin: { overrides: {} } });
 
     mockRegistry.getAvailable.mockReturnValue([makeProviderInfo('moralis')]);
     mockRegistry.getMetadata.mockReturnValue(makeMetadata('moralis'));
@@ -177,7 +185,7 @@ describe('ProviderInstanceFactory — override config', () => {
   });
 
   test('warns and skips provider listed in defaultEnabled that is not registered', () => {
-    const factory = new ProviderInstanceFactory({
+    const factory = new ProviderInstanceFactory(mockRegistry, {
       ethereum: { defaultEnabled: ['moralis', 'unknown-provider'], overrides: {} },
     });
 
@@ -194,10 +202,14 @@ describe('ProviderInstanceFactory — override config', () => {
 });
 
 describe('ProviderInstanceFactory — setContext', () => {
-  beforeEach(() => vi.clearAllMocks());
+  let mockRegistry: ReturnType<typeof createMockRegistry>;
+
+  beforeEach(() => {
+    mockRegistry = createMockRegistry();
+  });
 
   test('instrumentation is forwarded to created provider config', () => {
-    const factory = new ProviderInstanceFactory();
+    const factory = new ProviderInstanceFactory(mockRegistry);
     const mockInstrumentation = {} as never;
 
     factory.setContext({ instrumentation: mockInstrumentation });

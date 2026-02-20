@@ -1,14 +1,16 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { StreamingBatchResult } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { EvmTransaction } from '../../../types.js';
 import { AlchemyApiClient } from '../alchemy.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('AlchemyApiClient Streaming E2E', () => {
   describe('Ethereum Streaming', () => {
-    const config = ProviderRegistry.createDefaultConfig('ethereum', 'alchemy');
+    const config = providerRegistry.createDefaultConfig('ethereum', 'alchemy');
     const provider = new AlchemyApiClient(config);
     // Address with moderate transaction volume for testing
     const testAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4';

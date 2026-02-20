@@ -4,12 +4,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { RawBalanceData } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import { AlchemyApiClient } from '../alchemy.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('AlchemyApiClient Integration', () => {
-  const config = ProviderRegistry.createDefaultConfig('ethereum', 'alchemy');
+  const config = providerRegistry.createDefaultConfig('ethereum', 'alchemy');
   const provider = new AlchemyApiClient(config);
   const testAddress = '0xE472E43C3417cd0E39F7289B2bC836C08F529CA7'; // Vitalik's address
 
@@ -232,7 +234,7 @@ describe('AlchemyApiClient Integration', () => {
 
   describe('Multi-Chain Support', () => {
     it('should support Avalanche chain with correct base URL', () => {
-      const avalancheConfig = ProviderRegistry.createDefaultConfig('avalanche', 'alchemy');
+      const avalancheConfig = providerRegistry.createDefaultConfig('avalanche', 'alchemy');
       const avalancheProvider = new AlchemyApiClient(avalancheConfig);
 
       expect(avalancheProvider).toBeDefined();
@@ -240,7 +242,7 @@ describe('AlchemyApiClient Integration', () => {
     });
 
     it('should support Polygon chain with correct base URL', () => {
-      const polygonConfig = ProviderRegistry.createDefaultConfig('polygon', 'alchemy');
+      const polygonConfig = providerRegistry.createDefaultConfig('polygon', 'alchemy');
       const polygonProvider = new AlchemyApiClient(polygonConfig);
 
       expect(polygonProvider).toBeDefined();

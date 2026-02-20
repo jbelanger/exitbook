@@ -19,6 +19,7 @@ import { ProviderHealthMonitor } from '../health/provider-health-monitor.js';
 import { getProviderKey } from '../health/provider-stats-store.js';
 import { ProviderStatsStore } from '../health/provider-stats-store.js';
 import type { NormalizedTransactionBase } from '../index.js';
+import type { ProviderRegistry } from '../registry/provider-registry.js';
 import { ProviderError } from '../types/errors.js';
 import type {
   FailoverExecutionResult,
@@ -57,8 +58,8 @@ export class BlockchainProviderManager {
   private providers = new Map<string, IBlockchainProvider[]>();
   private preferredProviders = new Map<string, string>(); // blockchain -> preferred provider name
 
-  constructor(explorerConfig?: BlockchainExplorersConfig) {
-    this.instanceFactory = new ProviderInstanceFactory(explorerConfig);
+  constructor(registry: ProviderRegistry, explorerConfig?: BlockchainExplorersConfig) {
+    this.instanceFactory = new ProviderInstanceFactory(registry, explorerConfig);
     this.healthMonitor = new ProviderHealthMonitor(
       () => this.providers,
       (blockchain, providerName, success, responseTime, error) => {
@@ -142,20 +143,15 @@ export class BlockchainProviderManager {
       logger.warn(`Failed to save provider stats on destroy: ${getErrorMessage(error)}`);
     }
 
-    const closePromises: Promise<PromiseSettledResult<void>>[] = [];
+    const closePromises: Promise<void>[] = [];
 
     for (const providerList of this.providers.values()) {
       for (const provider of providerList) {
-        closePromises.push(
-          Promise.resolve(provider.destroy()).then(
-            () => ({ status: 'fulfilled' as const, value: undefined }),
-            (error: unknown) => ({ status: 'rejected' as const, reason: error })
-          )
-        );
+        closePromises.push(provider.destroy());
       }
     }
 
-    const results = await Promise.all(closePromises);
+    const results = await Promise.allSettled(closePromises);
     const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
 
     for (const failure of failures) {

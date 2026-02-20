@@ -1,13 +1,15 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { BitcoinTransaction } from '../../../schemas.js';
 import { BlockchainComApiClient } from '../blockchain-com.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('BlockchainComApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockchain.com');
+  const config = providerRegistry.createDefaultConfig('bitcoin', 'blockchain.com');
   const provider = new BlockchainComApiClient(config);
   // Genesis block address - known to have transactions
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';

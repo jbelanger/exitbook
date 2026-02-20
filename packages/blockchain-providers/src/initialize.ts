@@ -1,32 +1,15 @@
-/**
- * Provider Initialization
- *
- * This module provides a clean, explicit way to initialize all blockchain
- * and exchange providers. Call this once during application startup.
- */
-
-import './register-apis.js';
-
-let initialized = false;
+import { ProviderRegistry } from './core/registry/provider-registry.js';
+import { allProviderFactories } from './register-apis.js';
 
 /**
- * Initialize all blockchain and exchange providers.
- *
- * This function:
- * - Registers all API clients via decorators
- * - Can be called multiple times safely (idempotent)
- *
- * @example
- * ```typescript
- * import { initializeProviders } from '@exitbook/blockchain-providers';
- *
- * initializeProviders();
- * ```
+ * Create a new ProviderRegistry populated with all blockchain provider factories.
  */
-export function initializeProviders(): void {
-  if (initialized) {
-    return;
+export function createProviderRegistry(): ProviderRegistry {
+  const registry = new ProviderRegistry();
+
+  for (const factory of allProviderFactories) {
+    registry.register(factory);
   }
 
-  initialized = true;
+  return registry;
 }

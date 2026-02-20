@@ -1,12 +1,14 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { NearBalanceChange, NearReceipt, NearTokenTransfer, NearTransaction } from '../../../schemas.js';
 import { NearBlocksApiClient } from '../nearblocks.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe.sequential('NearBlocksApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('near', 'nearblocks');
+  const config = providerRegistry.createDefaultConfig('near', 'nearblocks');
   const client = new NearBlocksApiClient(config);
   // NEAR Foundation address - well-known address with transaction history
   const testAddress = 'nearkat.near';

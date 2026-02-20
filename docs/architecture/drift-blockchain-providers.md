@@ -38,46 +38,6 @@ V2 Architecture Audit: @exitbook/blockchain-providers
      Leverage: Low.
 
      ---
-     3. Pattern Re-evaluation
-
-     3a. Finding: errAsync misused as err in two places — latent type-safety bug
-
-     What exists:
-     In src/core/base/api-client.ts line 122, the default executeStreaming implementation yields errAsync(new Error(...)). In
-     src/blockchains/evm/providers/etherscan/etherscan.api-client.ts line 248, execute<T> returns errAsync(new Error(...)).
-
-     errAsync(e) creates a ResultAsync<never, Error> (a Promise-based wrapper), not a Result<never, Error>. The generator's declared return type is
-     AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>>. Yielding a ResultAsync from a generator that consumers expect to yield Result instances means any for await (const
-      r of iter) will receive a Promise object rather than a Result, causing r.isErr() to throw at runtime (no such method on a Promise).
-
-     The same applies to execute() returning errAsync: callers use await provider.execute(...) and then call .isErr() on the Result — but errAsync returns a ResultAsync, which is a
-     PromiseLike<Result>. Since execute is already async, await provider.execute(...) awaits the Promise<ResultAsync>, yielding a ResultAsync, not a Result. Calling .isErr() on a
-     ResultAsync returns false (no such property), silently swallowing the error.
-
-     TypeScript does not catch this because ResultAsync is assignable to the Promise<Result<T, E>> return type in some configurations.
-
-     Why it's a problem:
-     This is a latent silent failure path in a financial system. When the default streaming guard fires (unsupported provider) or when Etherscan's execute() is called directly, the
-     error is silently lost rather than surfaced.
-
-     What V2 should do:
-     Replace both errAsync(new Error(...)) usages with err(new Error(...)).
-     - api-client.ts line 122: yield err(new Error(...))
-     - etherscan.api-client.ts line 248: return err(new Error(...))
-
-     Needs coverage:
-
-     ┌───────────────────────────────┬─────────────────────────┬───────────────────────────────────┐
-     │      Current capability       │ Covered by replacement? │               Notes               │
-     ├───────────────────────────────┼─────────────────────────┼───────────────────────────────────┤
-     │ Signal unsupported operations │ Yes, via err()          │ Identical semantics, correct type │
-     └───────────────────────────────┴─────────────────────────┴───────────────────────────────────┘
-
-     Surface: 2 files, 2 lines. Trivial fix with correctness impact.
-
-     Leverage: High (correctness bug, financial system).
-
-     ---
      3c. Finding: BIP44 gap scanning algorithm duplicated across Bitcoin and Cardano
 
      What exists:
@@ -110,92 +70,6 @@ V2 Architecture Audit: @exitbook/blockchain-providers
 
      Leverage: Medium. Correctness risk from divergence; algorithm is non-trivial.
 
-     ---
-     3d. Finding: Skip-rate tracking closure duplicated three times within alchemy.api-client.ts
-
-     What exists:
-     src/blockchains/evm/providers/alchemy/alchemy.api-client.ts (1,199 lines) contains three streamAddress* private methods (lines 659, 828, 994). Each method constructs a mapItem
-     closure that maintains identical let totalProcessed = 0; let totalSkipped = 0; counter state and identical skip-rate logging logic (lines 769–806, 935–972, 1106–1143). The three
-      closures are character-for-character identical except for the streamType string in one log message.
-
-     Why it's a problem:
-     The three streaming methods are themselves near-identical — they differ only in: category parameter (['external'], ['internal'], ['erc20', 'erc721', 'erc1155']), whether
-     enrichTransfersWithGasFees is called, and streamType value. The duplication inflates the file by ~300 lines and means the skip-rate threshold (currently 5% after 10 items)
-     cannot be changed in one place.
-
-     What V2 should do:
-     Consolidate the three methods into one streamAddressAssetTransfers(address, category, streamType, enrichWithGas, resumeCursor) method. Move the mapItem skip-rate logic into a
-     shared createMappingWrapper(mapper, logger) factory. The file drops from 1,199 to roughly 700 lines.
-
-     Needs coverage:
-
-     ┌────────────────────────────────────┬────────────────────────────────┬───────┐
-     │         Current capability         │    Covered by replacement?     │ Notes │
-     ├────────────────────────────────────┼────────────────────────────────┼───────┤
-     │ External tx streaming              │ Yes, category: ['external']    │       │
-     ├────────────────────────────────────┼────────────────────────────────┼───────┤
-     │ Internal tx streaming              │ Yes, category: ['internal']    │       │
-     ├────────────────────────────────────┼────────────────────────────────┼───────┤
-     │ Token tx streaming                 │ Yes, category: ['erc20', ...]  │       │
-     ├────────────────────────────────────┼────────────────────────────────┼───────┤
-     │ Gas fee enrichment (external only) │ Yes, enrichWithGas: true/false │       │
-     ├────────────────────────────────────┼────────────────────────────────┼───────┤
-     │ Skip-rate monitoring               │ Yes, shared wrapper            │       │
-     └────────────────────────────────────┴────────────────────────────────┴───────┘
-
-     Surface: 1 file (alchemy.api-client.ts), ~500 lines affected across 3 methods.
-
-     Leverage: Medium. File is hard to navigate at current size; skip-rate logic divergence risk.
-
-     ---
-     3e. Finding: @RegisterApiClient decorator forces eager global singleton registration at module load time
-
-     What exists:
-     The @RegisterApiClient decorator (defined in src/core/registry/decorators.ts) calls ProviderRegistry.register(factory) when the class is defined. All 20+ provider classes are
-     registered by importing src/register-apis.ts, which transitively imports every provider file. The ProviderRegistry is a static class with a module-level Map — effectively a
-     global singleton.
-
-     The initializeProviders() function in src/initialize.ts does nothing except import register-apis.ts as a side effect.
-
-     Why it's a problem:
-     - The registry is shared across all tests. Any test that imports a provider class mutates the shared singleton, creating implicit ordering dependencies between test files.
-     - There is no mechanism to unregister providers or reset the registry in tests.
-     - The decorator pattern is TC39 Stage 3 but TypeScript's implementation still requires experimentalDecorators or the newer Stage 3 syntax depending on compiler version —
-     introducing friction in toolchain upgrades.
-     - initializeProviders() is a misleading no-op function that the codebase requires callers to invoke ("initialize before using") but provides no actual initialization other than
-     a side-effect import.
-
-     What V2 should do:
-     Replace the static ProviderRegistry singleton with an explicit ProviderRegistry instance that is constructed and passed to BlockchainProviderManager. Each provider registers
-     itself by exporting a providerFactory constant (no decorator needed). Tests create isolated registry instances. The initializeProviders() entry point becomes:
-
-     export function createProviderRegistry(): ProviderRegistry {
-       const registry = new ProviderRegistry();
-       registry.register(alchemyFactory);
-       registry.register(etherscanFactory);
-       // ...
-       return registry;
-     }
-
-     This makes registration explicit, testable, and tree-shakeable.
-
-     Needs coverage:
-
-     ┌──────────────────────────────────────────┬─────────────────────────────────────────────┬──────────────────────────────────┐
-     │            Current capability            │           Covered by replacement?           │              Notes               │
-     ├──────────────────────────────────────────┼─────────────────────────────────────────────┼──────────────────────────────────┤
-     │ Auto-discovery of providers              │ Yes, explicit createProviderRegistry()      │ Trade-off: slightly more verbose │
-     ├──────────────────────────────────────────┼─────────────────────────────────────────────┼──────────────────────────────────┤
-     │ Metadata co-location with implementation │ Yes, providerFactory constant next to class │                                  │
-     ├──────────────────────────────────────────┼─────────────────────────────────────────────┼──────────────────────────────────┤
-     │ Multi-chain support                      │ Yes, factory carries metadata               │                                  │
-     ├──────────────────────────────────────────┼─────────────────────────────────────────────┼──────────────────────────────────┤
-     │ Test isolation                           │ Yes, new instance per test                  │ Currently impossible             │
-     └──────────────────────────────────────────┴─────────────────────────────────────────────┴──────────────────────────────────┘
-
-     Surface: 1 decorator, 20+ provider files (trivial factory export each), 1 registry class, initialize.ts.
-
-     Leverage: Medium-High. Test isolation and explicit initialization are significant DX improvements.
 
      ---
      4. Data Layer
@@ -236,39 +110,6 @@ V2 Architecture Audit: @exitbook/blockchain-providers
 
      Leverage: Medium. Incorrect stale-state recovery is a behavioral correctness issue.
 
-     ---
-     4b. Finding: Schema duplication across Tatum providers — 4 sets of nearly-identical schemas
-
-     What exists:
-     The Tatum provider directory contains:
-     - tatum.schemas.ts (Bitcoin)
-     - tatum-litecoin.schemas.ts
-     - tatum-dogecoin.schemas.ts
-     - tatum-bcash.schemas.ts
-
-     Each defines TatumXxxTransactionSchema and TatumXxxBalanceSchema. Examining these, the structural differences are minimal: field names are identical, the only variation is
-     whether amounts are returned as numbers or strings (Bitcoin returns numbers; Litecoin/Dogecoin/BCash return strings).
-
-     Why it's a problem:
-     This is a direct consequence of Finding 3b (Tatum class duplication). The schema duplication amplifies the maintenance surface — Zod schema changes (e.g., adding a new field
-     that Tatum started returning) require edits in 4 files.
-
-     What V2 should do:
-     Define a single TatumTransactionSchema with a amountType: 'number' | 'string' discriminator, or use Zod's .or() to accept both. Resolved by the same consolidation as Finding 3b.
-
-     Surface: 4 schema files, affected by 3b fix.
-
-     Leverage: Low in isolation; resolved by 3b.
-
-     ---
-     6. File & Code Organization
-
-     ---
-     7. Error Handling & Observability
-
-     7a. Finding: errAsync bug creates silent failure paths (cross-references Finding 3a)
-
-     Already covered in 3a above. This is the highest-priority correctness issue in the package.
 
 
      ---

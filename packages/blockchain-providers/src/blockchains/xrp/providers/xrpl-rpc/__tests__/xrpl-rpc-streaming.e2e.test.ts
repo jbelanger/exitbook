@@ -1,12 +1,14 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { XrpTransaction } from '../../../schemas.js';
 import { XrplRpcApiClient } from '../xrpl-rpc.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe.sequential('XrplRpcApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('xrp', 'xrpl-rpc');
+  const config = providerRegistry.createDefaultConfig('xrp', 'xrpl-rpc');
   const client = new XrplRpcApiClient(config);
   // Ripple's well-known donation address with consistent activity
   const testAddress = 'rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY';

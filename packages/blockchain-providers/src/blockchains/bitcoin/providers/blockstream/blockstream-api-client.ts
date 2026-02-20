@@ -7,12 +7,14 @@ import type {
   NormalizedTransactionBase,
   OneShotOperation,
   ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
 } from '../../../../core/index.js';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
+import { BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -33,7 +35,7 @@ import {
 import { mapBlockstreamTransaction } from './mapper-utils.js';
 import { calculateBlockstreamBalance } from './utils.js';
 
-@RegisterApiClient({
+export const blockstreamMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'BLOCKSTREAM_API_KEY',
   baseUrl: 'https://blockstream.info/api',
   blockchain: 'bitcoin',
@@ -59,7 +61,13 @@ import { calculateBlockstreamBalance } from './utils.js';
   displayName: 'Blockstream.info API',
   name: 'blockstream.info',
   requiresApiKey: false,
-})
+};
+
+export const blockstreamFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new BlockstreamApiClient(config),
+  metadata: blockstreamMetadata,
+};
+
 export class BlockstreamApiClient extends BaseApiClient {
   private readonly chainConfig: BitcoinChainConfig;
 

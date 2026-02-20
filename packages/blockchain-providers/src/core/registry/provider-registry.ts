@@ -1,33 +1,57 @@
 import type {
   IBlockchainProvider,
   ProviderConfig,
+  ProviderCreateConfig,
   ProviderFactory,
   ProviderInfo,
   ProviderMetadata,
 } from '../types/index.js';
 
+function toProviderInfo(metadata: ProviderMetadata): ProviderInfo {
+  return {
+    blockchain: metadata.blockchain,
+    capabilities: metadata.capabilities,
+    defaultConfig: metadata.defaultConfig,
+    description: metadata.description,
+    displayName: metadata.displayName,
+    name: metadata.name,
+    requiresApiKey: metadata.requiresApiKey ?? false,
+  };
+}
+
+function getSupportedChains(metadata: ProviderMetadata): string[] {
+  const { supportedChains, blockchain } = metadata;
+
+  if (!supportedChains) {
+    return [blockchain];
+  }
+
+  if (Array.isArray(supportedChains)) {
+    return supportedChains;
+  }
+
+  return Object.keys(supportedChains);
+}
+
 /**
- * Central registry for blockchain providers
+ * Central registry for blockchain providers.
+ *
+ * Always used as an instance — create via `new ProviderRegistry()` or
+ * the higher-level `createProviderRegistry()` helper.
  */
 export class ProviderRegistry {
-  private static providers = new Map<string, ProviderFactory>();
+  private providers = new Map<string, ProviderFactory>();
+
+  // ---------------------------------------------------------------------------
+  // Instance methods (the real implementation)
+  // ---------------------------------------------------------------------------
 
   /**
-   * Create a provider instance
-   * Supports multi-chain providers via supportedChains metadata
+   * Create a provider instance.
+   * Supports multi-chain providers via supportedChains metadata.
    */
-  static createProvider(blockchain: string, name: string, config: ProviderConfig): IBlockchainProvider {
-    // Try exact match first (primary blockchain)
-    const exactKey = `${blockchain}:${name}`;
-    let factory = this.providers.get(exactKey);
-
-    // If not found, search for multi-chain provider that supports this blockchain
-    if (!factory) {
-      factory = Array.from(this.providers.values()).find((f) => {
-        const chains = this.getSupportedChains(f.metadata);
-        return f.metadata.name === name && chains.includes(blockchain);
-      });
-    }
+  createProvider(blockchain: string, name: string, config: ProviderCreateConfig): IBlockchainProvider {
+    const factory = this.findFactory(blockchain, name);
 
     if (!factory) {
       const available = this.getAvailable(blockchain).map((p) => p.name);
@@ -40,105 +64,71 @@ export class ProviderRegistry {
       );
     }
 
-    return factory.create(config);
+    if (config.metadata && config.metadata.name !== factory.metadata.name) {
+      throw new Error(
+        `Provider config metadata mismatch for '${name}' on '${blockchain}'. ` +
+          `Expected metadata for '${factory.metadata.name}', got '${config.metadata.name}'.`
+      );
+    }
+
+    const resolvedConfig: ProviderConfig = {
+      ...config,
+      metadata: factory.metadata,
+    };
+
+    return factory.create(resolvedConfig);
   }
 
   /**
    * Check if any providers are registered
    */
-  static hasAnyProviders(): boolean {
+  hasAnyProviders(): boolean {
     return this.providers.size > 0;
   }
 
   /**
    * Get all registered providers
    */
-  static getAllProviders(): ProviderInfo[] {
+  getAllProviders(): ProviderInfo[] {
     const uniqueProviders = new Map<string, ProviderInfo>();
 
     for (const factory of this.providers.values()) {
-      const providerInfo: ProviderInfo = {
-        blockchain: factory.metadata.blockchain,
-        capabilities: factory.metadata.capabilities,
-        defaultConfig: factory.metadata.defaultConfig,
-        description: factory.metadata.description || '',
-        displayName: factory.metadata.displayName,
-        name: factory.metadata.name,
-        requiresApiKey: factory.metadata.requiresApiKey || false,
-      };
-
-      // Use provider name as key to deduplicate
-      uniqueProviders.set(factory.metadata.name, providerInfo);
+      uniqueProviders.set(factory.metadata.name, toProviderInfo(factory.metadata));
     }
 
     return Array.from(uniqueProviders.values());
   }
 
   /**
-   * Get all available providers for a blockchain
-   * Supports multi-chain providers via supportedChains metadata
+   * Get all available providers for a blockchain.
+   * Supports multi-chain providers via supportedChains metadata.
    */
-  static getAvailable(blockchain: string): ProviderInfo[] {
+  getAvailable(blockchain: string): ProviderInfo[] {
     return Array.from(this.providers.values())
-      .filter((factory) => {
-        const chains = this.getSupportedChains(factory.metadata);
-        return chains.includes(blockchain);
-      })
-      .map((factory) => {
-        return {
-          blockchain: factory.metadata.blockchain,
-          capabilities: factory.metadata.capabilities,
-          defaultConfig: factory.metadata.defaultConfig,
-          description: factory.metadata.description || '',
-          displayName: factory.metadata.displayName,
-          name: factory.metadata.name,
-          requiresApiKey: factory.metadata.requiresApiKey || false,
-        };
-      });
+      .filter((factory) => getSupportedChains(factory.metadata).includes(blockchain))
+      .map((factory) => toProviderInfo(factory.metadata));
   }
 
   /**
-   * Get provider metadata
-   * Supports multi-chain providers via supportedChains metadata
+   * Get provider metadata.
+   * Supports multi-chain providers via supportedChains metadata.
    */
-  static getMetadata(blockchain: string, name: string): ProviderMetadata | undefined {
-    // Try exact match first
-    const exactKey = `${blockchain}:${name}`;
-    let factory = this.providers.get(exactKey);
-
-    // If not found, search for multi-chain provider
-    if (!factory) {
-      factory = Array.from(this.providers.values()).find((f) => {
-        const chains = this.getSupportedChains(f.metadata);
-        return f.metadata.name === name && chains.includes(blockchain);
-      });
-    }
-
-    return factory?.metadata || undefined;
+  getMetadata(blockchain: string, name: string): ProviderMetadata | undefined {
+    return this.findFactory(blockchain, name)?.metadata;
   }
 
   /**
-   * Check if a provider is registered
-   * Supports multi-chain providers via supportedChains metadata
+   * Check if a provider is registered.
+   * Supports multi-chain providers via supportedChains metadata.
    */
-  static isRegistered(blockchain: string, name: string): boolean {
-    // Try exact match first
-    const exactKey = `${blockchain}:${name}`;
-    if (this.providers.has(exactKey)) {
-      return true;
-    }
-
-    // Check if any multi-chain provider supports this blockchain
-    return Array.from(this.providers.values()).some((factory) => {
-      const chains = this.getSupportedChains(factory.metadata);
-      return factory.metadata.name === name && chains.includes(blockchain);
-    });
+  isRegistered(blockchain: string, name: string): boolean {
+    return this.findFactory(blockchain, name) !== undefined;
   }
 
   /**
    * Register a provider with the registry
    */
-  static register(factory: ProviderFactory): void {
+  register(factory: ProviderFactory): void {
     const key = `${factory.metadata.blockchain}:${factory.metadata.name}`;
 
     if (this.providers.has(key)) {
@@ -149,20 +139,18 @@ export class ProviderRegistry {
   }
 
   /**
-   * Create a default ProviderConfig from metadata
-   * Useful for tests and manual provider instantiation
-   * Automatically applies chain-specific baseUrl from supportedChains object format
+   * Create a default ProviderConfig from metadata.
+   * Useful for tests and manual provider instantiation.
+   * Automatically applies chain-specific baseUrl from supportedChains object format.
    */
-  static createDefaultConfig(blockchain: string, name: string): ProviderConfig {
+  createDefaultConfig(blockchain: string, name: string): ProviderConfig {
     const metadata = this.getMetadata(blockchain, name);
     if (!metadata) {
       throw new Error(`Provider '${name}' not found for blockchain '${blockchain}'`);
     }
 
-    // Determine baseUrl: use chain-specific if available, otherwise use default
     let baseUrl = metadata.baseUrl;
 
-    // If supportedChains is an object format, extract chain-specific baseUrl
     if (metadata.supportedChains && !Array.isArray(metadata.supportedChains)) {
       const chainConfig = metadata.supportedChains[blockchain];
       if (chainConfig?.baseUrl) {
@@ -175,6 +163,7 @@ export class ProviderRegistry {
       blockchain,
       displayName: metadata.displayName,
       enabled: true,
+      metadata,
       name: metadata.name,
       priority: 1,
       rateLimit: metadata.defaultConfig.rateLimit,
@@ -185,10 +174,10 @@ export class ProviderRegistry {
   }
 
   /**
-   * Validate provider configuration against registered providers
-   * Supports both legacy (explorers array) and new (override-based) formats
+   * Validate provider configuration against registered providers.
+   * Supports both legacy (explorers array) and new (override-based) formats.
    */
-  static validateConfig(config: Record<string, unknown>): {
+  validateConfig(config: Record<string, unknown>): {
     errors: string[];
     valid: boolean;
   } {
@@ -205,10 +194,14 @@ export class ProviderRegistry {
         overrides?: Record<string, unknown>;
       };
 
-      const availableProviders = this.getAvailable(blockchain);
-      const availableNames = availableProviders.map((p) => p.name);
+      const availableNames = this.getAvailable(blockchain).map((provider) => provider.name);
+      const availableNameSet = new Set(availableNames);
+      const availableNamesText = availableNames.join(', ');
+      const addUnknownProviderError = (providerName: string, section: 'defaultEnabled' | 'explorers' | 'overrides') =>
+        errors.push(
+          `Unknown provider '${providerName}' in ${section} for blockchain '${blockchain}'. Available: ${availableNamesText}`
+        );
 
-      // Handle legacy format (explorers array)
       if (configObj.explorers) {
         for (const explorer of configObj.explorers) {
           const explorerObj = explorer as { name?: string };
@@ -217,35 +210,24 @@ export class ProviderRegistry {
             continue;
           }
 
-          if (!availableNames.includes(explorerObj.name)) {
-            errors.push(
-              `Unknown provider '${explorerObj.name}' for blockchain '${blockchain}'. ` +
-                `Available: ${availableNames.join(', ')}`
-            );
+          if (!availableNameSet.has(explorerObj.name)) {
+            addUnknownProviderError(explorerObj.name, 'explorers');
           }
         }
       }
 
-      // Handle new override-based format
       if (configObj.defaultEnabled) {
         for (const providerName of configObj.defaultEnabled) {
-          if (!availableNames.includes(providerName)) {
-            errors.push(
-              `Unknown provider '${providerName}' in defaultEnabled for blockchain '${blockchain}'. ` +
-                `Available: ${availableNames.join(', ')}`
-            );
+          if (!availableNameSet.has(providerName)) {
+            addUnknownProviderError(providerName, 'defaultEnabled');
           }
         }
       }
 
-      // Validate overrides section
       if (configObj.overrides) {
         for (const providerName of Object.keys(configObj.overrides)) {
-          if (!availableNames.includes(providerName)) {
-            errors.push(
-              `Unknown provider '${providerName}' in overrides for blockchain '${blockchain}'. ` +
-                `Available: ${availableNames.join(', ')}`
-            );
+          if (!availableNameSet.has(providerName)) {
+            addUnknownProviderError(providerName, 'overrides');
           }
         }
       }
@@ -257,20 +239,18 @@ export class ProviderRegistry {
     };
   }
 
-  /**
-   * Helper to get supported chains from metadata (handles both string[] and object formats)
-   */
-  private static getSupportedChains(metadata: ProviderMetadata): string[] {
-    const { supportedChains, blockchain } = metadata;
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
 
-    if (!supportedChains) {
-      return [blockchain]; // Default to primary blockchain
-    }
+  private findFactory(blockchain: string, name: string): ProviderFactory | undefined {
+    const exactKey = `${blockchain}:${name}`;
+    const factory = this.providers.get(exactKey);
+    if (factory) return factory;
 
-    if (Array.isArray(supportedChains)) {
-      return supportedChains; // String array format
-    }
-
-    return Object.keys(supportedChains); // Object format with baseUrls
+    return Array.from(this.providers.values()).find((f) => {
+      const chains = getSupportedChains(f.metadata);
+      return f.metadata.name === name && chains.includes(blockchain);
+    });
   }
 }

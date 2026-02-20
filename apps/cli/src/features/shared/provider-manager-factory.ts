@@ -20,6 +20,7 @@ import {
 import { getLogger } from '@exitbook/logger';
 
 import { getDataDir } from './data-dir.js';
+import { providerRegistry } from './provider-registry.js';
 
 const logger = getLogger('provider-manager-factory');
 
@@ -39,7 +40,7 @@ export async function createProviderManagerWithStats(
   config?: BlockchainExplorersConfig
 ): Promise<ProviderManagerWithStats> {
   const explorerConfig = config ?? loadExplorerConfig();
-  const providerManager = new BlockchainProviderManager(explorerConfig);
+  const providerManager = new BlockchainProviderManager(providerRegistry, explorerConfig);
   providerManager.startBackgroundTasks();
 
   let providerStatsDb: ProviderStatsDB | undefined;

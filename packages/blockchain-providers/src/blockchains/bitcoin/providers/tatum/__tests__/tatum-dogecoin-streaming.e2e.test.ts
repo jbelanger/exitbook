@@ -1,13 +1,15 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { BitcoinTransaction } from '../../../schemas.js';
 import { TatumDogecoinApiClient } from '../tatum-dogecoin.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('TatumDogecoinApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('dogecoin', 'tatum');
+  const config = providerRegistry.createDefaultConfig('dogecoin', 'tatum');
   const provider = new TatumDogecoinApiClient(config);
   // Known Dogecoin address with transactions (Dogecoin Foundation donation address)
   const testAddress = 'DH5yaieqoZN36fDVciNyRueRGvGLR3mr7L';

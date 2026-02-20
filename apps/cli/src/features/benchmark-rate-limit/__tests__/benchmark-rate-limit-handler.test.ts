@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
-import { loadExplorerConfig, ProviderRegistry } from '@exitbook/blockchain-providers';
+import { loadExplorerConfig, type ProviderRegistry } from '@exitbook/blockchain-providers';
 import { ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,9 +12,6 @@ vi.mock('@exitbook/blockchain-providers', async () => {
   return {
     ...actual,
     loadExplorerConfig: vi.fn(),
-    ProviderRegistry: {
-      getAllProviders: vi.fn(),
-    },
   };
 });
 
@@ -51,6 +48,7 @@ describe('BenchmarkRateLimitHandler', () => {
   let handler: BenchmarkRateLimitHandler;
   let mockLoadExplorerConfig: ReturnType<typeof vi.fn>;
   let MockProviderManagerConstructor: ReturnType<typeof vi.fn>;
+  let mockRegistry: ProviderRegistry;
   let mockProviderManager: {
     autoRegisterFromConfig: ReturnType<typeof vi.fn>;
     destroy: ReturnType<typeof vi.fn>;
@@ -70,6 +68,10 @@ describe('BenchmarkRateLimitHandler', () => {
     MockProviderManagerConstructor = vi.fn().mockImplementation(function () {
       return mockProviderManager;
     });
+
+    mockRegistry = {
+      getAllProviders: vi.fn().mockReturnValue([]),
+    } as unknown as ProviderRegistry;
 
     handler = new BenchmarkRateLimitHandler();
   });
@@ -112,6 +114,7 @@ describe('BenchmarkRateLimitHandler', () => {
           maxRate: '5',
           numRequests: '10',
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 
@@ -155,6 +158,7 @@ describe('BenchmarkRateLimitHandler', () => {
           provider: 'blockstream.info',
           rates: '0.5,1,2',
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 
@@ -185,6 +189,7 @@ describe('BenchmarkRateLimitHandler', () => {
           provider: 'blockstream.info',
           skipBurst: true,
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 
@@ -199,7 +204,7 @@ describe('BenchmarkRateLimitHandler', () => {
     it('should return error when provider is not found for blockchain', async () => {
       mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
 
-      vi.mocked(ProviderRegistry.getAllProviders).mockReturnValue([
+      vi.mocked(mockRegistry.getAllProviders).mockReturnValue([
         {
           blockchain: 'bitcoin',
           name: 'blockstream.info',
@@ -243,6 +248,7 @@ describe('BenchmarkRateLimitHandler', () => {
           blockchain: 'bitcoin',
           provider: 'invalid-provider',
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 
@@ -258,7 +264,7 @@ describe('BenchmarkRateLimitHandler', () => {
     it('should return error when blockchain is not supported', async () => {
       mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
 
-      vi.mocked(ProviderRegistry.getAllProviders).mockReturnValue([
+      vi.mocked(mockRegistry.getAllProviders).mockReturnValue([
         {
           blockchain: 'bitcoin',
           name: 'blockstream.info',
@@ -302,6 +308,7 @@ describe('BenchmarkRateLimitHandler', () => {
           blockchain: 'invalid-blockchain',
           provider: 'some-provider',
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 
@@ -320,6 +327,7 @@ describe('BenchmarkRateLimitHandler', () => {
           blockchain: '',
           provider: 'blockstream.info',
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 
@@ -335,6 +343,7 @@ describe('BenchmarkRateLimitHandler', () => {
           blockchain: 'bitcoin',
           provider: '',
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 
@@ -351,6 +360,7 @@ describe('BenchmarkRateLimitHandler', () => {
           provider: 'blockstream.info',
           maxRate: 'invalid',
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 
@@ -367,6 +377,7 @@ describe('BenchmarkRateLimitHandler', () => {
           provider: 'blockstream.info',
           numRequests: 'invalid',
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 
@@ -383,6 +394,7 @@ describe('BenchmarkRateLimitHandler', () => {
           provider: 'blockstream.info',
           rates: '1,invalid,5',
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 
@@ -406,6 +418,7 @@ describe('BenchmarkRateLimitHandler', () => {
           blockchain: 'bitcoin',
           provider: 'blockstream.info',
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 
@@ -433,6 +446,7 @@ describe('BenchmarkRateLimitHandler', () => {
           blockchain: 'bitcoin',
           provider: 'blockstream.info',
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 
@@ -458,6 +472,7 @@ describe('BenchmarkRateLimitHandler', () => {
           blockchain: 'bitcoin',
           provider: 'plain-provider',
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 
@@ -487,6 +502,7 @@ describe('BenchmarkRateLimitHandler', () => {
           blockchain: 'bitcoin',
           provider: 'blockstream.info',
         },
+        mockRegistry,
         MockProviderManagerConstructor as never
       );
 

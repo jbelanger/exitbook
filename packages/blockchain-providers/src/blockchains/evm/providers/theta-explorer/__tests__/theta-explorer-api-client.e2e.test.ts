@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import { ThetaExplorerApiClient } from '../theta-explorer.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('ThetaExplorerApiClient Integration', () => {
-  const config = ProviderRegistry.createDefaultConfig('theta', 'theta-explorer');
+  const config = providerRegistry.createDefaultConfig('theta', 'theta-explorer');
   const provider = new ThetaExplorerApiClient(config);
   // Theta Labs deployer address - known to have transactions
 

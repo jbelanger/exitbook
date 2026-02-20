@@ -2,8 +2,14 @@ import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { NormalizedTransactionBase, ProviderConfig, ProviderOperation } from '../../../../core/index.js';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
+  ProviderOperation,
+} from '../../../../core/index.js';
+import { BaseApiClient } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -21,7 +27,7 @@ import type { EvmTransaction } from '../../types.js';
 import { mapThetaScanTransaction } from './thetascan.mapper-utils.js';
 import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBalance } from './thetascan.schemas.js';
 
-@RegisterApiClient({
+export const thetaScanMetadata: ProviderMetadata = {
   apiKeyEnvVar: undefined,
   baseUrl: 'http://www.thetascan.io/api',
   blockchain: 'theta',
@@ -47,7 +53,13 @@ import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBala
   name: 'thetascan',
   requiresApiKey: false,
   supportedChains: ['theta'],
-})
+};
+
+export const thetaScanFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new ThetaScanApiClient(config),
+  metadata: thetaScanMetadata,
+};
+
 export class ThetaScanApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);

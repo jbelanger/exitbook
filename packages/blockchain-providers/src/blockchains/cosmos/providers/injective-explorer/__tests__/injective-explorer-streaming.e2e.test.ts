@@ -1,13 +1,15 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { CosmosTransaction } from '../../../types.js';
 import { InjectiveExplorerApiClient } from '../injective-explorer.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('InjectiveExplorerApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('injective', 'injective-explorer');
+  const config = providerRegistry.createDefaultConfig('injective', 'injective-explorer');
   const provider = new InjectiveExplorerApiClient(config);
   // Test address with some activity
   const testAddress = 'inj1zk3259rhsxcg5qg96eursm4x8ek2qc5pty4rau';

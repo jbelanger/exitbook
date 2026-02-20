@@ -6,11 +6,9 @@ import { getErrorMessage } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { ProviderRegistry } from '../core/index.js';
-import { initializeProviders } from '../initialize.js';
+import { createProviderRegistry } from '../initialize.js';
 
-// Initialize all providers
-initializeProviders();
+const registry = createProviderRegistry();
 
 interface ValidationError {
   message: string;
@@ -28,13 +26,13 @@ function validateProvider(blockchain: string, providerName: string): ValidationR
 
   try {
     // Check if provider is registered
-    if (!ProviderRegistry.isRegistered(blockchain, providerName)) {
+    if (!registry.isRegistered(blockchain, providerName)) {
       addError('Provider not found in registry');
       return err(errors);
     }
 
     // Get metadata
-    const metadata = ProviderRegistry.getMetadata(blockchain, providerName);
+    const metadata = registry.getMetadata(blockchain, providerName);
     if (!metadata) {
       addError('No metadata found');
       return err(errors);
@@ -71,17 +69,8 @@ function validateProvider(blockchain: string, providerName: string): ValidationR
 
     // Test provider instantiation
     try {
-      // Build proper ProviderConfig from metadata
-      const config = {
-        ...metadata.defaultConfig,
-        baseUrl: metadata.baseUrl,
-        blockchain,
-        displayName: metadata.displayName,
-        name: metadata.name,
-        requiresApiKey: metadata.requiresApiKey,
-      };
-
-      const provider = ProviderRegistry.createProvider(blockchain, providerName, config);
+      const config = registry.createDefaultConfig(blockchain, providerName);
+      const provider = registry.createProvider(blockchain, providerName, config);
 
       // Check provider properties
       if (provider.name !== providerName) {
@@ -122,7 +111,7 @@ function validateProvider(blockchain: string, providerName: string): ValidationR
 function validateProviders(): void {
   console.log('🔍 Validating Provider Registrations\n');
 
-  const allProviders = ProviderRegistry.getAllProviders();
+  const allProviders = registry.getAllProviders();
 
   if (allProviders.length === 0) {
     console.log('❌ No providers found. Ensure provider files are imported.');

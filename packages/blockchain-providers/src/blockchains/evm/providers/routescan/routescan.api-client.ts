@@ -4,8 +4,13 @@ import { ServiceError } from '@exitbook/http';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../../core/base/api-client.js';
-import type { NormalizedTransactionBase, ProviderConfig, ProviderOperation } from '../../../../core/index.js';
-import { RegisterApiClient } from '../../../../core/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
+  ProviderOperation,
+} from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -90,7 +95,7 @@ const ROUTESCAN_PAGE_SIZE = 10000;
 const ROUTESCAN_TOKEN_PAGE_SIZE = 1000; // Token endpoint is much slower, smaller page size to avoid timeouts
 const ROUTESCAN_BLOCK_CURSOR_PREFIX = 'block:';
 
-@RegisterApiClient({
+export const routescanMetadata: ProviderMetadata = {
   baseUrl: 'https://api.routescan.io/v2/network/mainnet/evm/1/etherscan/api',
   blockchain: 'ethereum',
   capabilities: {
@@ -115,7 +120,13 @@ const ROUTESCAN_BLOCK_CURSOR_PREFIX = 'block:';
   name: 'routescan',
   requiresApiKey: false,
   supportedChains: Object.keys(CHAIN_ID_MAP),
-})
+};
+
+export const routescanFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new RoutescanApiClient(config),
+  metadata: routescanMetadata,
+};
+
 export class RoutescanApiClient extends BaseApiClient {
   private readonly chainConfig: EvmChainConfig;
   private readonly routescanChainId: number;

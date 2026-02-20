@@ -1,12 +1,14 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { SolanaTransaction } from '../../../schemas.js';
 import { SolscanApiClient } from '../solscan.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe.sequential('SolscanApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('solana', 'solscan');
+  const config = providerRegistry.createDefaultConfig('solana', 'solscan');
   const client = new SolscanApiClient(config);
   // Solana Foundation Donate Address (high volume)
   const testAddress = 'EpZeFeF2o1E98qFr8Gat2JgE517Z58K71Q515325515';

@@ -1,12 +1,14 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { SubstrateTransaction } from '../../../types.js';
 import { SubscanApiClient } from '../subscan.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe.sequential('SubscanApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('polkadot', 'subscan');
+  const config = providerRegistry.createDefaultConfig('polkadot', 'subscan');
   const client = new SubscanApiClient(config);
   // Test address with some activity but not too much (to avoid rate limiting)
   // This is a known address from Polkadot Wiki with limited transactions

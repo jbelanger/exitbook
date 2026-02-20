@@ -2,7 +2,7 @@ import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { OneShotOperation, RawBalanceData } from '../../../../core/index.js';
-import { ProviderRegistry } from '../../../../core/index.js';
+import { createProviderRegistry } from '../../../../initialize.js';
 import { BlockfrostApiClient } from '../blockfrost-api-client.js';
 import type { BlockfrostAddress } from '../blockfrost.schemas.js';
 
@@ -30,6 +30,7 @@ vi.mock('@exitbook/logger', () => ({
 }));
 
 describe('BlockfrostApiClient', () => {
+  const providerRegistry = createProviderRegistry();
   let client: BlockfrostApiClient;
   let mockHttpGet: ReturnType<typeof vi.fn>;
 
@@ -45,7 +46,7 @@ describe('BlockfrostApiClient', () => {
     // Set API key for tests
     process.env['BLOCKFROST_API_KEY'] = 'test-api-key-123';
 
-    const config = ProviderRegistry.createDefaultConfig('cardano', 'blockfrost');
+    const config = providerRegistry.createDefaultConfig('cardano', 'blockfrost');
     client = new BlockfrostApiClient(config);
     Object.defineProperty(client, 'httpClient', {
       configurable: true,
@@ -71,7 +72,7 @@ describe('BlockfrostApiClient', () => {
     });
 
     it('should require API key', () => {
-      const config = ProviderRegistry.createDefaultConfig('cardano', 'blockfrost');
+      const config = providerRegistry.createDefaultConfig('cardano', 'blockfrost');
       const newClient = new BlockfrostApiClient(config);
       expect(newClient).toBeDefined();
     });

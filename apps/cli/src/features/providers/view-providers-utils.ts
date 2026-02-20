@@ -2,12 +2,12 @@
 // All functions are pure — no side effects (except checkApiKeyStatus which reads process.env)
 
 import type { ProviderInfo, ProviderStatsRow } from '@exitbook/blockchain-providers';
-import { ProviderRegistry } from '@exitbook/blockchain-providers';
 import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { providerToSummary } from '../blockchains/view-blockchains-utils.js';
+import { providerRegistry } from '../shared/provider-registry.js';
 
 import type {
   HealthStatus,
@@ -227,7 +227,7 @@ export function mergeProviderData(
     if (providerInfo.requiresApiKey) {
       // Check metadata from any blockchain — env var is provider-level
       for (const entry of entries) {
-        const metadata = ProviderRegistry.getMetadata(entry.blockchain, providerName);
+        const metadata = providerRegistry.getMetadata(entry.blockchain, providerName);
         if (metadata?.apiKeyEnvVar) {
           apiKeyEnvVar = metadata.apiKeyEnvVar;
           break;

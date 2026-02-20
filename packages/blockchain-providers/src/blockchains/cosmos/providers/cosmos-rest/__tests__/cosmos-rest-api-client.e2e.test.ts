@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { CosmosTransaction } from '../../../types.js';
 import { CosmosRestApiClient } from '../cosmos-rest.api-client.js';
 import type { CosmosTxResponse } from '../cosmos-rest.schemas.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('CosmosRestApiClient Integration - Fetch.ai', () => {
   const config = {
-    ...ProviderRegistry.createDefaultConfig('fetch', 'cosmos-rest'),
+    ...providerRegistry.createDefaultConfig('fetch', 'cosmos-rest'),
     chainName: 'fetch',
   };
   const provider = new CosmosRestApiClient(config);
@@ -148,7 +150,7 @@ describe('CosmosRestApiClient Integration - Fetch.ai', () => {
 
 describe('CosmosRestApiClient Integration - Osmosis', () => {
   const config = {
-    ...ProviderRegistry.createDefaultConfig('osmosis', 'cosmos-rest'),
+    ...providerRegistry.createDefaultConfig('osmosis', 'cosmos-rest'),
     chainName: 'osmosis',
   };
   const provider = new CosmosRestApiClient(config);

@@ -3,8 +3,14 @@ import { getErrorMessage } from '@exitbook/core';
 import { HttpClient } from '@exitbook/http';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { NormalizedTransactionBase, ProviderConfig, ProviderOperation } from '../../../../core/index.js';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
+  ProviderOperation,
+} from '../../../../core/index.js';
+import { BaseApiClient } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -30,7 +36,7 @@ import type {
 import { InjectiveApiResponseSchema, InjectiveBalanceResponseSchema } from './injective-explorer.schemas.js';
 import { mapInjectiveExplorerTransaction } from './mapper-utils.js';
 
-@RegisterApiClient({
+export const injectiveExplorerMetadata: ProviderMetadata = {
   baseUrl: 'https://sentry.exchange.grpc-web.injective.network',
   blockchain: 'injective',
   capabilities: {
@@ -55,7 +61,13 @@ import { mapInjectiveExplorerTransaction } from './mapper-utils.js';
   name: 'injective-explorer',
   requiresApiKey: false,
   supportedChains: ['injective'],
-})
+};
+
+export const injectiveExplorerFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new InjectiveExplorerApiClient(config),
+  metadata: injectiveExplorerMetadata,
+};
+
 export class InjectiveExplorerApiClient extends BaseApiClient {
   private chainConfig: CosmosChainConfig;
   private restClient: HttpClient;

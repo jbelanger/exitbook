@@ -14,8 +14,13 @@ import { HttpClient } from '@exitbook/http';
 import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
-import type { NormalizedTransactionBase, ProviderConfig } from '../../../../core/index.js';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
+} from '../../../../core/index.js';
+import { BaseApiClient } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -46,9 +51,9 @@ import {
   AlchemyTokenMetadataSchema,
 } from './alchemy.schemas.js';
 
-@RegisterApiClient({
+export const alchemyMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'ALCHEMY_API_KEY',
-  baseUrl: 'https://eth-mainnet.g.alchemy.com/v2', // Default for Ethereum
+  baseUrl: 'https://eth-mainnet.g.alchemy.com/v2',
   blockchain: 'ethereum',
   capabilities: {
     supportedOperations: [
@@ -127,7 +132,13 @@ import {
     zksync: { baseUrl: 'https://zksync-mainnet.g.alchemy.com/v2' },
     zora: { baseUrl: 'https://zora-mainnet.g.alchemy.com/v2' },
   },
-})
+};
+
+export const alchemyFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new AlchemyApiClient(config),
+  metadata: alchemyMetadata,
+};
+
 export class AlchemyApiClient extends BaseApiClient {
   private readonly chainConfig: EvmChainConfig;
   private portfolioClient: HttpClient;

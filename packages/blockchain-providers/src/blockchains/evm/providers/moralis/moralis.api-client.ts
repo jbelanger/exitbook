@@ -3,8 +3,14 @@ import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
-import type { NormalizedTransactionBase, ProviderConfig, ProviderOperation } from '../../../../core/index.js';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
+  ProviderOperation,
+} from '../../../../core/index.js';
+import { BaseApiClient } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -48,7 +54,7 @@ const CHAIN_ID_MAP: Record<string, string> = {
   polygon: 'polygon',
 };
 
-@RegisterApiClient({
+export const moralisMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'MORALIS_API_KEY',
   baseUrl: 'https://deep-index.moralis.io/api/v2.2',
   blockchain: 'ethereum',
@@ -80,7 +86,13 @@ const CHAIN_ID_MAP: Record<string, string> = {
   name: 'moralis',
   requiresApiKey: true,
   supportedChains: ['ethereum', 'avalanche', 'polygon'],
-})
+};
+
+export const moralisFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new MoralisApiClient(config),
+  metadata: moralisMetadata,
+};
+
 export class MoralisApiClient extends BaseApiClient {
   private readonly chainConfig: EvmChainConfig;
   private readonly moralisChainId: string;

@@ -2,8 +2,14 @@ import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { NormalizedTransactionBase, ProviderConfig, ProviderOperation } from '../../../../core/index.js';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
+  ProviderOperation,
+} from '../../../../core/index.js';
+import { BaseApiClient } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -16,7 +22,7 @@ import type { EvmTransaction } from '../../types.js';
 import { mapThetaExplorerTransaction } from './theta-explorer.mapper-utils.js';
 import type { ThetaTransaction, ThetaAccountTxResponse } from './theta-explorer.schemas.js';
 
-@RegisterApiClient({
+export const thetaExplorerMetadata: ProviderMetadata = {
   baseUrl: 'https://explorer-api.thetatoken.org/api',
   blockchain: 'theta',
   capabilities: {
@@ -41,7 +47,13 @@ import type { ThetaTransaction, ThetaAccountTxResponse } from './theta-explorer.
   name: 'theta-explorer',
   requiresApiKey: false,
   supportedChains: ['theta'],
-})
+};
+
+export const thetaExplorerFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new ThetaExplorerApiClient(config),
+  metadata: thetaExplorerMetadata,
+};
+
 export class ThetaExplorerApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);

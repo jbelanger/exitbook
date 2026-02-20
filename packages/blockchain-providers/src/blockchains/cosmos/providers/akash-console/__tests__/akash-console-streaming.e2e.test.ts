@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { CosmosTransaction } from '../../../types.js';
 import { AkashConsoleApiClient } from '../akash-console.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('AkashConsoleApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('akash', 'akash-console');
+  const config = providerRegistry.createDefaultConfig('akash', 'akash-console');
   const provider = new AkashConsoleApiClient(config);
   // Test address from AKASH_RPC_CLIENT_GUIDE.md (has 5 transactions as of 2026-01-19)
   const testAddress = 'akash1asagzdynnr5h6c7sq3qgn4azjmsewt0lr97wj5';

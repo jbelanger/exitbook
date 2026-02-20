@@ -2,20 +2,9 @@
  * @exitbook/blockchain-providers
  *
  * Unified package for blockchain and exchange API providers.
- *
- * IMPORTANT: Call `initializeProviders()` once at application startup
- * to register all providers before using them.
- *
- * @example
- * ```typescript
- * import { initializeProviders } from '@exitbook/blockchain-providers';
- *
- * // Initialize once at startup
- * initializeProviders();
- * ```
  */
 
-export { initializeProviders } from './initialize.js';
+export { createProviderRegistry } from './initialize.js';
 
 export * from './core/index.js';
 

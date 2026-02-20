@@ -4,6 +4,8 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type {
   ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
   ProviderOperation,
   JsonRpcResponse,
   RawBalanceData,
@@ -12,7 +14,7 @@ import type {
   OneShotOperation,
   StreamingOperation,
 } from '../../../../core/index.js';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
+import { BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -41,7 +43,7 @@ export interface SolanaRawTokenBalanceData {
   tokenAccounts: SolanaTokenAccountsResponse;
 }
 
-@RegisterApiClient({
+export const heliusMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'HELIUS_API_KEY',
   baseUrl: 'https://rpc.helius.xyz',
   blockchain: 'solana',
@@ -70,7 +72,13 @@ export interface SolanaRawTokenBalanceData {
   displayName: 'Helius RPC API',
   name: 'helius',
   requiresApiKey: true,
-})
+};
+
+export const heliusFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new HeliusApiClient(config),
+  metadata: heliusMetadata,
+};
+
 export class HeliusApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);

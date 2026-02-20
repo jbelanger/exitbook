@@ -6,12 +6,10 @@
 
 import { getErrorMessage } from '@exitbook/core';
 
-import { ProviderRegistry } from '../core/index.js';
 import { loadExplorerConfig } from '../core/utils/config-utils.js';
-import { initializeProviders } from '../initialize.js';
+import { createProviderRegistry } from '../initialize.js';
 
-// Initialize all providers
-initializeProviders();
+const registry = createProviderRegistry();
 
 interface ConfigValidationOptions {
   fix?: boolean | undefined;
@@ -31,7 +29,7 @@ function validateConfiguration(options: ConfigValidationOptions = {}): void {
       console.log('📋 Available Providers from Registry');
       console.log('─'.repeat(40));
 
-      const allProviders = ProviderRegistry.getAllProviders();
+      const allProviders = registry.getAllProviders();
       const providersByBlockchain = new Map<string, typeof allProviders>();
 
       for (const provider of allProviders) {
@@ -58,7 +56,7 @@ function validateConfiguration(options: ConfigValidationOptions = {}): void {
     }
 
     // Validate against registry
-    const validation = ProviderRegistry.validateConfig(config);
+    const validation = registry.validateConfig(config);
 
     if (validation.valid) {
       console.log('✅ Configuration is valid!\n');
@@ -87,7 +85,7 @@ function validateConfiguration(options: ConfigValidationOptions = {}): void {
         if (enabled.length > 0) {
           console.log('  Enabled providers:');
           for (const provider of enabled.sort((a, b) => a.priority - b.priority)) {
-            const metadata = ProviderRegistry.getMetadata(blockchain, provider.name);
+            const metadata = registry.getMetadata(blockchain, provider.name);
             const apiKeyInfo = metadata?.requiresApiKey
               ? metadata.apiKeyEnvVar
                 ? ` (${metadata.apiKeyEnvVar})`

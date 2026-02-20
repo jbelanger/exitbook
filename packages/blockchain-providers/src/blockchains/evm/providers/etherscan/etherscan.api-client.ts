@@ -2,8 +2,14 @@ import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, errAsync, ok, type Result } from 'neverthrow';
 
-import type { NormalizedTransactionBase, ProviderConfig, ProviderOperation } from '../../../../core/index.js';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
+  ProviderOperation,
+} from '../../../../core/index.js';
+import { BaseApiClient } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -129,9 +135,9 @@ const ETHERSCAN_SUPPORTED_CHAINS = [
  *
  * Note: This provider only supports streaming operations. Use executeStreaming() for all operations.
  */
-@RegisterApiClient({
+export const etherscanMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'ETHERSCAN_API_KEY',
-  baseUrl: 'https://api.etherscan.io/v2/api', // Default for Ethereum
+  baseUrl: 'https://api.etherscan.io/v2/api',
   blockchain: 'ethereum',
   capabilities: {
     supportedOperations: ['getAddressTransactions'],
@@ -154,7 +160,13 @@ const ETHERSCAN_SUPPORTED_CHAINS = [
   name: 'etherscan',
   requiresApiKey: true,
   supportedChains: ETHERSCAN_SUPPORTED_CHAINS,
-})
+};
+
+export const etherscanFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new EtherscanApiClient(config),
+  metadata: etherscanMetadata,
+};
+
 export class EtherscanApiClient extends BaseApiClient {
   // Etherscan V2 API constraint: PageNo × Offset ≤ 10,000
   // Using 1000 allows up to 10 pages (10 × 1000 = 10,000)

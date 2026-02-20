@@ -6,12 +6,14 @@ import type {
   NormalizedTransactionBase,
   OneShotOperation,
   ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
 } from '../../../../core/index.js';
-import { BaseApiClient, maskAddress, RegisterApiClient } from '../../../../core/index.js';
+import { BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -45,7 +47,7 @@ interface XrplPaginationMarker {
   seq: number;
 }
 
-@RegisterApiClient({
+export const xrplRpcMetadata: ProviderMetadata = {
   baseUrl: 'https://s1.ripple.com:51234',
   blockchain: 'xrp',
   capabilities: {
@@ -74,7 +76,13 @@ interface XrplPaginationMarker {
   displayName: 'XRPL RPC',
   name: 'xrpl-rpc',
   requiresApiKey: false,
-})
+};
+
+export const xrplRpcFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new XrplRpcApiClient(config),
+  metadata: xrplRpcMetadata,
+};
+
 export class XrplRpcApiClient extends BaseApiClient {
   private readonly chainConfig: XrpChainConfig;
 

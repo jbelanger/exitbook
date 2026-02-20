@@ -1,14 +1,16 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { OneShotOperation, StreamingBatchResult } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { EvmTransaction } from '../../../types.js';
 import { EtherscanApiClient } from '../etherscan.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('EtherscanApiClient Streaming E2E', () => {
   describe('Ethereum Beacon Withdrawals Streaming', () => {
-    const config = ProviderRegistry.createDefaultConfig('ethereum', 'etherscan');
+    const config = providerRegistry.createDefaultConfig('ethereum', 'etherscan');
     const provider = new EtherscanApiClient(config);
 
     // Known address with beacon chain withdrawals (staking pool contract)

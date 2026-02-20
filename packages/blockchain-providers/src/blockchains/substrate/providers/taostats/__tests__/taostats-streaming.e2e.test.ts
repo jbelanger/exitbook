@@ -1,12 +1,14 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { SubstrateTransaction } from '../../../types.js';
 import { TaostatsApiClient } from '../taostats.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe.sequential('TaostatsApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('bittensor', 'taostats');
+  const config = providerRegistry.createDefaultConfig('bittensor', 'taostats');
   const client = new TaostatsApiClient(config);
   // Test address with minimal transaction history to avoid rate limits
   const testAddress = '5HEo565WAy4Dbq3Sv271SAi7syBSofyfhhwRNjFNSM2gP9M2';

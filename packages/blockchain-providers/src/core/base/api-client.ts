@@ -5,7 +5,6 @@ import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import { err, errAsync, ok, type Result } from 'neverthrow';
 
-import { ProviderRegistry } from '../registry/provider-registry.js';
 import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
 import { createStreamingIterator, type StreamingAdapterOptions } from '../streaming/streaming-adapter.js';
 import type {
@@ -32,32 +31,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
 
   constructor(config: ProviderConfig) {
     this.config = config;
-
-    // Get metadata from registry
-    const metadata = ProviderRegistry.getMetadata(config.blockchain, config.name);
-    if (!metadata) {
-      const availableProviders = ProviderRegistry.getAvailable(config.blockchain).map((p) => p.name);
-      const availableProvidersList = availableProviders.length > 0 ? availableProviders.join(', ') : 'none';
-      const registryLogger = getLogger('provider-registry');
-
-      registryLogger.warn(
-        {
-          availableProviders,
-          blockchain: config.blockchain,
-          providerName: config.name,
-        },
-        `Provider not found in registry for blockchain '${config.blockchain}' and provider '${config.name}'. Available providers: ${availableProvidersList}.`
-      );
-
-      registryLogger.info(
-        `HINT: Run 'pnpm run providers:list --blockchain ${config.blockchain}' to see all options. ` +
-          `HINT: Check for typos in provider name '${config.name}'. ` +
-          `HINT: Use 'pnpm run providers:sync --fix' to sync configuration.`
-      );
-
-      throw new Error(`Provider '${config.name}' not found in registry for blockchain '${config.blockchain}'.`);
-    }
-    this.metadata = metadata;
+    this.metadata = config.metadata;
 
     this.logger = getLogger(`${this.metadata.displayName.replace(/\s+/g, '')}`);
 
@@ -79,9 +53,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
       timeout: config.timeout,
     });
 
-    this.logger.debug(
-      `Initialized ${this.metadata.displayName} for ${config.blockchain} - BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
-    );
+    this.logger.debug(`Initialized ${this.metadata.displayName} for ${config.blockchain} - BaseUrl: ${this.baseUrl}`);
   }
 
   get blockchain(): string {
@@ -257,14 +229,14 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     timeout?: number | undefined;
   }): void {
     const clientConfig = {
-      baseUrl: config.baseUrl || this.baseUrl,
+      baseUrl: config.baseUrl ?? this.baseUrl,
       instrumentation: this.config.instrumentation,
       hooks: this.config.requestHooks,
-      providerName: config.providerName || this.metadata.name,
-      rateLimit: config.rateLimit || this.metadata.defaultConfig.rateLimit,
-      retries: config.retries || this.metadata.defaultConfig.retries,
+      providerName: config.providerName ?? this.metadata.name,
+      rateLimit: config.rateLimit ?? this.metadata.defaultConfig.rateLimit,
+      retries: config.retries ?? this.metadata.defaultConfig.retries,
       service: 'blockchain' as const,
-      timeout: config.timeout || this.metadata.defaultConfig.timeout,
+      timeout: config.timeout ?? this.metadata.defaultConfig.timeout,
       ...(config.defaultHeaders && { defaultHeaders: config.defaultHeaders }),
     };
 

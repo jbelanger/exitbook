@@ -1,13 +1,15 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { BitcoinTransaction } from '../../../schemas.js';
 import { MempoolSpaceApiClient } from '../mempool-space-api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('MempoolSpaceApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'mempool.space');
+  const config = providerRegistry.createDefaultConfig('bitcoin', 'mempool.space');
   const provider = new MempoolSpaceApiClient(config);
   // Genesis block address - known to have transactions
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';

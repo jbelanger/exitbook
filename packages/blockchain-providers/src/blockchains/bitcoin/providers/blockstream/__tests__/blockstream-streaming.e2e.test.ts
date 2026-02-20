@@ -1,13 +1,15 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { BitcoinTransaction } from '../../../schemas.js';
 import { BlockstreamApiClient } from '../blockstream-api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('BlockstreamApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockstream.info');
+  const config = providerRegistry.createDefaultConfig('bitcoin', 'blockstream.info');
   const provider = new BlockstreamApiClient(config);
   // Genesis block address - known to have transactions
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';

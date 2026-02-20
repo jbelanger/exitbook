@@ -1,10 +1,12 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../core/index.js';
 import type { StreamingBatchResult, StreamingOperation } from '../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../initialize.js';
 import type { CardanoTransaction } from '../../schemas.js';
 import { BlockfrostApiClient } from '../blockfrost-api-client.js';
+
+const providerRegistry = createProviderRegistry();
 
 /**
  * Blockfrost Streaming E2E Tests
@@ -25,7 +27,7 @@ import { BlockfrostApiClient } from '../blockfrost-api-client.js';
  * TOTAL: ~219 API calls for full test suite
  */
 describe('BlockfrostApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('cardano', 'blockfrost');
+  const config = providerRegistry.createDefaultConfig('cardano', 'blockfrost');
   const provider = new BlockfrostApiClient(config);
   // Minswap DEX contract address - a well-known public address with many transactions
   const testAddress =

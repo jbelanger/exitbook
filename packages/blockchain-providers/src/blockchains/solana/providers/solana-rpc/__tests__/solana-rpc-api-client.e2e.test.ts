@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { RawBalanceData } from '../../../../../core/index.js';
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import { SolanaRPCApiClient } from '../solana-rpc.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('SolanaRPCApiClient Integration', () => {
-  const config = ProviderRegistry.createDefaultConfig('solana', 'solana-rpc');
+  const config = providerRegistry.createDefaultConfig('solana', 'solana-rpc');
   const provider = new SolanaRPCApiClient(config);
   const testAddress = 'Afn6A9Vom27wd8AUYqDf2DyUqYWvA34AFGHqcqCgXvMm'; // A known Solana address
 
@@ -118,7 +120,7 @@ describe('SolanaRPCApiClient Integration', () => {
 
   describe('Configuration', () => {
     it('should support Solana chain with correct configuration', () => {
-      const solanaConfig = ProviderRegistry.createDefaultConfig('solana', 'solana-rpc');
+      const solanaConfig = providerRegistry.createDefaultConfig('solana', 'solana-rpc');
       const solanaProvider = new SolanaRPCApiClient(solanaConfig);
 
       expect(solanaProvider).toBeDefined();

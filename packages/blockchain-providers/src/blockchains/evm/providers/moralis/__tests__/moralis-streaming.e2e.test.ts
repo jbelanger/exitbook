@@ -1,14 +1,16 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { EvmTransaction } from '../../../types.js';
 import { MoralisApiClient } from '../moralis.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('MoralisApiClient Streaming E2E', () => {
   describe('Ethereum Streaming', () => {
-    const config = ProviderRegistry.createDefaultConfig('ethereum', 'moralis');
+    const config = providerRegistry.createDefaultConfig('ethereum', 'moralis');
     const provider = new MoralisApiClient(config);
     // Address with moderate transaction volume for testing (to minimize API credits usage)
     const testAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4';
@@ -820,7 +822,7 @@ describe('MoralisApiClient Streaming E2E', () => {
 
   describe('Multi-chain streaming', () => {
     it('should stream Avalanche transactions with correct currency', async () => {
-      const config = ProviderRegistry.createDefaultConfig('avalanche', 'moralis');
+      const config = providerRegistry.createDefaultConfig('avalanche', 'moralis');
       const provider = new MoralisApiClient(config);
       const testAddress = '0x70c68a08d8c1C1Fa1CD5E5533e85a77c4Ac07022';
 
@@ -844,7 +846,7 @@ describe('MoralisApiClient Streaming E2E', () => {
     }, 60000);
 
     it('should stream Polygon transactions with correct currency', async () => {
-      const config = ProviderRegistry.createDefaultConfig('polygon', 'moralis');
+      const config = providerRegistry.createDefaultConfig('polygon', 'moralis');
       const provider = new MoralisApiClient(config);
       const testAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4';
 

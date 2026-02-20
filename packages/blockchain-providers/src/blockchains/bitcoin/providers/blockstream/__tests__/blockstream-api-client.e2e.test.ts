@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { RawBalanceData } from '../../../../../core/index.js';
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import { BlockstreamApiClient } from '../blockstream-api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('BlockstreamApiClient E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockstream.info');
+  const config = providerRegistry.createDefaultConfig('bitcoin', 'blockstream.info');
   const client = new BlockstreamApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
   const emptyAddress = 'bc1qeppvcnauqak9xn7mmekw4crr79tl9c8lnxpp2k'; // Address with no transactions

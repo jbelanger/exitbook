@@ -4,8 +4,12 @@ import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { BaseApiClient } from '../../../core/base/api-client.js';
-import type { NormalizedTransactionBase, ProviderConfig } from '../../../core/index.js';
-import { RegisterApiClient } from '../../../core/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
+} from '../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -45,7 +49,7 @@ import {
  *
  * Rate limits: Default 10 req/sec with burst limit of 500 req/min.
  */
-@RegisterApiClient({
+export const blockfrostMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'BLOCKFROST_API_KEY',
   baseUrl: 'https://cardano-mainnet.blockfrost.io/api/v0',
   blockchain: 'cardano',
@@ -70,7 +74,13 @@ import {
   displayName: 'Blockfrost Cardano API',
   name: 'blockfrost',
   requiresApiKey: true,
-})
+};
+
+export const blockfrostFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new BlockfrostApiClient(config),
+  metadata: blockfrostMetadata,
+};
+
 export class BlockfrostApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);

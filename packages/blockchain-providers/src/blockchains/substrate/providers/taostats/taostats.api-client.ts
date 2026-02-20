@@ -5,10 +5,12 @@ import { err, ok, type Result } from 'neverthrow';
 import type {
   NormalizedTransactionBase,
   ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
   ProviderOperation,
   StreamingBatchResult,
 } from '../../../../core/index.js';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import { BaseApiClient } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -26,7 +28,7 @@ import { convertTaostatsTransaction, isTransactionRelevant } from './taostats.ma
 import type { TaostatsBalanceResponse, TaostatsTransaction } from './taostats.schemas.js';
 import { TaostatsBalanceResponseSchema, TaostatsTransactionsResponseSchema } from './taostats.schemas.js';
 
-@RegisterApiClient({
+export const taostatsMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'TAOSTATS_API_KEY',
   baseUrl: 'https://api.taostats.io/api',
   blockchain: 'bittensor',
@@ -51,7 +53,13 @@ import { TaostatsBalanceResponseSchema, TaostatsTransactionsResponseSchema } fro
   name: 'taostats',
   requiresApiKey: true,
   supportedChains: ['bittensor'],
-})
+};
+
+export const taostatsFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new TaostatsApiClient(config),
+  metadata: taostatsMetadata,
+};
+
 export class TaostatsApiClient extends BaseApiClient {
   private readonly chainConfig: SubstrateChainConfig;
 

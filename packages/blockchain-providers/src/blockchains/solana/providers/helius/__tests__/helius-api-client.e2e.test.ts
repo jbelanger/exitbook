@@ -2,11 +2,13 @@ import type { TokenMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { RawBalanceData } from '../../../../../core/index.js';
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import { HeliusApiClient } from '../helius.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('HeliusApiClient Integration', () => {
-  const config = ProviderRegistry.createDefaultConfig('solana', 'helius');
+  const config = providerRegistry.createDefaultConfig('solana', 'helius');
   const provider = new HeliusApiClient(config);
   const testAddress = 'Afn6A9Vom27wd8AUYqDf2DyUqYWvA34AFGHqcqCgXvMm'; // A known Solana address
 
@@ -215,7 +217,7 @@ describe('HeliusApiClient Integration', () => {
 
   describe('Multi-Chain Support', () => {
     it('should support Solana chain with correct configuration', () => {
-      const solanaConfig = ProviderRegistry.createDefaultConfig('solana', 'helius');
+      const solanaConfig = providerRegistry.createDefaultConfig('solana', 'helius');
       const solanaProvider = new HeliusApiClient(solanaConfig);
 
       expect(solanaProvider).toBeDefined();

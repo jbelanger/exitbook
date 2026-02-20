@@ -8,18 +8,16 @@ import { fileURLToPath } from 'node:url';
 
 import { getErrorMessage } from '@exitbook/core';
 
-import { ProviderRegistry } from '../core/index.js';
-import { initializeProviders } from '../initialize.js';
+import { createProviderRegistry } from '../initialize.js';
 
-// Initialize all providers
-initializeProviders();
+const registry = createProviderRegistry();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function generateConfiguration(): void {
   console.log('🔧 Generating Blockchain Configuration Template\n');
 
-  const allProviders = ProviderRegistry.getAllProviders();
+  const allProviders = registry.getAllProviders();
 
   if (allProviders.length === 0) {
     console.log('❌ No providers found. Ensure provider files are imported.');
@@ -51,7 +49,7 @@ function generateConfiguration(): void {
   for (const [blockchain, providers] of providersByBlockchain.entries()) {
     config[blockchain] = {
       explorers: providers.map((provider, index) => {
-        const metadata = ProviderRegistry.getMetadata(blockchain, provider.name);
+        const metadata = registry.getMetadata(blockchain, provider.name);
 
         const explorerConfig: {
           [key: string]: unknown;
@@ -141,7 +139,7 @@ function generateConfiguration(): void {
     const apiKeyProviders = allProviders.filter((p) => p.requiresApiKey);
     if (apiKeyProviders.length > 0) {
       for (const provider of apiKeyProviders) {
-        const metadata = ProviderRegistry.getMetadata(provider.blockchain, provider.name);
+        const metadata = registry.getMetadata(provider.blockchain, provider.name);
         if (metadata?.apiKeyEnvVar) {
           console.log(`     export ${metadata.apiKeyEnvVar}="your_${provider.name}_api_key"`);
         }

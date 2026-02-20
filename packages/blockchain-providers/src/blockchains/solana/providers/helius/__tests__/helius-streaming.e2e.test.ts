@@ -1,12 +1,14 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { SolanaTransaction } from '../../../schemas.js';
 import { HeliusApiClient } from '../helius.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe.sequential('HeliusApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('solana', 'helius');
+  const config = providerRegistry.createDefaultConfig('solana', 'helius');
   const client = new HeliusApiClient(config);
   // Solana Foundation Donate Address (high volume)
   const testAddress = 'EpZeFeF2o1E98qFr8Gat2JgE517Z58K71Q515325515';

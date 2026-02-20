@@ -1,14 +1,16 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { StreamingBatchResult } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { EvmTransaction } from '../../../types.js';
 import { RoutescanApiClient } from '../routescan.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('RoutescanApiClient Streaming E2E', () => {
   describe('Ethereum Streaming', () => {
-    const config = ProviderRegistry.createDefaultConfig('ethereum', 'routescan');
+    const config = providerRegistry.createDefaultConfig('ethereum', 'routescan');
     const provider = new RoutescanApiClient(config);
     // Vitalik's address for testing
     const testAddress = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';

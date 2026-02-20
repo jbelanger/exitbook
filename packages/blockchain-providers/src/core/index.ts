@@ -9,7 +9,6 @@ export * from './types/index.js';
 export * from './schemas/index.js';
 
 // Registry system
-export * from './registry/decorators.js';
 export * from './registry/provider-registry.js';
 
 // Provider management

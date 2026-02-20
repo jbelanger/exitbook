@@ -8,12 +8,10 @@ import { getErrorMessage } from '@exitbook/core';
  * Sync registered providers with blockchain configuration
  * Detects missing providers and can automatically fix config drift
  */
-import { ProviderRegistry } from '../core/index.js';
 import { BlockchainExplorersConfigSchema, type BlockchainExplorersConfig } from '../core/utils/config-utils.js';
-import { initializeProviders } from '../initialize.js';
+import { createProviderRegistry } from '../initialize.js';
 
-// Initialize all providers
-initializeProviders();
+const registry = createProviderRegistry();
 
 interface SyncResult {
   blockchain: string;
@@ -44,7 +42,7 @@ function saveConfig(config: BlockchainExplorersConfig): void {
 function syncProviders(fix = false): SyncResult[] {
   console.log('🔄 Syncing Registered Providers with Configuration\n');
 
-  const allProviders = ProviderRegistry.getAllProviders();
+  const allProviders = registry.getAllProviders();
   const currentConfig = loadCurrentConfig();
   const results: SyncResult[] = [];
   let hasAnyChanges = false;
@@ -157,9 +155,9 @@ Usage:
   pnpm run providers:sync --help       # Show this help
 
 Description:
-  Compares registered providers (from @RegisterProvider decorators) with
-  the blockchain-explorers.json configuration. Detects missing providers
-  and can automatically add them to the config.
+  Compares registered providers with the blockchain-explorers.json
+  configuration. Detects missing providers and can automatically add
+  them to the config.
 
 Examples:
   pnpm run providers:sync              # Analyze only

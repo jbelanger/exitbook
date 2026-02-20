@@ -2,11 +2,11 @@
 // All functions are pure — no side effects
 
 import type { ProviderInfo } from '@exitbook/blockchain-providers';
-import { ProviderRegistry } from '@exitbook/blockchain-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../shared/prompts.js';
+import { providerRegistry } from '../shared/provider-registry.js';
 
 import type { BlockchainViewItem, ProviderViewItem } from './components/blockchains-view-state.js';
 
@@ -117,7 +117,7 @@ export function providerToSummary(provider: ProviderInfo): ProviderSummary {
   }
 
   if (provider.requiresApiKey) {
-    const metadata = ProviderRegistry.getMetadata(provider.blockchain, provider.name);
+    const metadata = providerRegistry.getMetadata(provider.blockchain, provider.name);
     if (metadata?.apiKeyEnvVar) {
       summary.apiKeyEnvVar = metadata.apiKeyEnvVar;
     }

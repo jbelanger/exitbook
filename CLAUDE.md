@@ -72,6 +72,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Result Type (neverthrow)
 
 - All fallible functions return `Result<T, Error>` (no throws). Chain/mapErr; propagate/log.
+- **`errAsync`/`okAsync` are valid in async contracts:** Do not report `errAsync`/`okAsync` as a type-safety issue when returned from `async` methods typed as `Promise<Result<...>>` or yielded from `async` generators typed as `AsyncIterableIterator<Result<...>>`; `ResultAsync` is `PromiseLike<Result<...>>` and is unwrapped by `async`/`for await` semantics.
 
 ### Zod Schemas
 

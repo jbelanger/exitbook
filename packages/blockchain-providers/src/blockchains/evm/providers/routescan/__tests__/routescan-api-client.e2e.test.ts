@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { RawBalanceData } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import { RoutescanApiClient } from '../routescan.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('RoutescanApiClient Integration - Ethereum', () => {
-  const config = ProviderRegistry.createDefaultConfig('ethereum', 'routescan');
+  const config = providerRegistry.createDefaultConfig('ethereum', 'routescan');
   const provider = new RoutescanApiClient(config);
   const testAddress = '0xE472E43C3417cd0E39F7289B2bC836C08F529CA7';
 
@@ -42,7 +44,7 @@ describe('RoutescanApiClient Integration - Ethereum', () => {
 });
 
 describe('RoutescanApiClient Integration - Optimism', () => {
-  const config = ProviderRegistry.createDefaultConfig('optimism', 'routescan');
+  const config = providerRegistry.createDefaultConfig('optimism', 'routescan');
   const provider = new RoutescanApiClient(config);
   const testAddress = '0xE472E43C3417cd0E39F7289B2bC836C08F529CA7'; // Low activity address
 
@@ -76,7 +78,7 @@ describe('RoutescanApiClient Integration - Optimism', () => {
 });
 
 describe('RoutescanApiClient Integration - BSC', () => {
-  const config = ProviderRegistry.createDefaultConfig('bsc', 'routescan');
+  const config = providerRegistry.createDefaultConfig('bsc', 'routescan');
   const provider = new RoutescanApiClient(config);
   const testAddress = '0xE472E43C3417cd0E39F7289B2bC836C08F529CA7'; // Low activity address
 
@@ -113,7 +115,7 @@ describe('RoutescanApiClient Integration - BSC', () => {
 });
 
 describe('RoutescanApiClient Integration - Mantle', () => {
-  const config = ProviderRegistry.createDefaultConfig('mantle', 'routescan');
+  const config = providerRegistry.createDefaultConfig('mantle', 'routescan');
   const provider = new RoutescanApiClient(config);
   const testAddress = '0xE472E43C3417cd0E39F7289B2bC836C08F529CA7'; // Low activity address
 

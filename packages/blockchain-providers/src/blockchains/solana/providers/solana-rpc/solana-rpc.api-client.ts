@@ -1,8 +1,15 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, JsonRpcResponse, RawBalanceData, OneShotOperation } from '../../../../core/index.js';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
+import type {
+  ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
+  JsonRpcResponse,
+  RawBalanceData,
+  OneShotOperation,
+} from '../../../../core/index.js';
+import { BaseApiClient, maskAddress } from '../../../../core/index.js';
 import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.js';
 import { isValidSolanaAddress } from '../../utils.js';
 
@@ -12,7 +19,7 @@ import {
   SolanaRPCTokenAccountsJsonRpcResponseSchema,
 } from './solana-rpc.schemas.js';
 
-@RegisterApiClient({
+export const solanaRpcMetadata: ProviderMetadata = {
   baseUrl: 'https://api.mainnet-beta.solana.com',
   blockchain: 'solana',
   capabilities: {
@@ -31,7 +38,13 @@ import {
   displayName: 'Solana RPC',
   name: 'solana-rpc',
   requiresApiKey: false,
-})
+};
+
+export const solanaRpcFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new SolanaRPCApiClient(config),
+  metadata: solanaRpcMetadata,
+};
+
 export class SolanaRPCApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);

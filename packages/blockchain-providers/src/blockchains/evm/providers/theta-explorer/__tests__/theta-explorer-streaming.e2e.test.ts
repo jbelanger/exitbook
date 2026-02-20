@@ -1,13 +1,15 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { StreamingBatchResult } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { EvmTransaction } from '../../../types.js';
 import { ThetaExplorerApiClient } from '../theta-explorer.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('ThetaExplorerApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('theta', 'theta-explorer');
+  const config = providerRegistry.createDefaultConfig('theta', 'theta-explorer');
   const provider = new ThetaExplorerApiClient(config);
   // Theta Labs deployer address - known to have transactions
   const testAddress = '0x2E833968E5bB786Ae419c4d13189fB081Cc43bab';

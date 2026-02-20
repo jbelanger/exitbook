@@ -11,8 +11,8 @@ import type { HttpClientHooks, InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 
 import { buildProviderNotFoundError, validateProviderApiKey } from '../manager/provider-manager-utils.js';
-import { ProviderRegistry } from '../registry/provider-registry.js';
-import type { IBlockchainProvider, ProviderConfig, ProviderMetadata } from '../types/index.js';
+import type { ProviderRegistry } from '../registry/provider-registry.js';
+import type { IBlockchainProvider, ProviderCreateConfig, ProviderMetadata } from '../types/index.js';
 import type { BlockchainExplorersConfig, ProviderOverride } from '../utils/config-utils.js';
 
 const logger = getLogger('ProviderInstanceFactory');
@@ -37,7 +37,10 @@ export interface ProviderSetResult {
 export class ProviderInstanceFactory {
   private context: ProviderCreationContext = {};
 
-  constructor(private readonly explorerConfig?: BlockchainExplorersConfig | undefined) {}
+  constructor(
+    private readonly registry: ProviderRegistry,
+    private readonly explorerConfig?: BlockchainExplorersConfig | undefined
+  ) {}
 
   /**
    * Update runtime context (instrumentation, hooks).
@@ -97,31 +100,17 @@ export class ProviderInstanceFactory {
    * Create providers from registry (no config file or no blockchain entry)
    */
   private createFromRegistry(blockchain: string, preferredProvider?: string): ProviderSetResult {
-    const registeredProviders = ProviderRegistry.getAvailable(blockchain);
+    const registeredProviders = this.registry.getAvailable(blockchain);
+    const availableProviderNames = registeredProviders.map((provider) => provider.name);
 
-    if (preferredProvider) {
-      if (!registeredProviders.some((p) => p.name === preferredProvider)) {
-        throw new Error(
-          buildProviderNotFoundError(
-            blockchain,
-            preferredProvider,
-            registeredProviders.map((p) => p.name)
-          )
-        );
-      }
-      logger.info(
-        `Preferred provider: ${preferredProvider} for ${blockchain} (will be used exclusively if it supports the operation, otherwise failover to others)`
-      );
-    }
+    this.validatePreferredProvider(blockchain, preferredProvider, availableProviderNames);
 
     const providers: IBlockchainProvider[] = [];
-    let priority = 1;
 
-    for (const providerInfo of registeredProviders) {
-      const instance = this.createInstance(blockchain, providerInfo.name, priority);
+    for (const [index, providerInfo] of registeredProviders.entries()) {
+      const instance = this.createInstance(blockchain, providerInfo.name, index + 1);
       if (instance) {
         providers.push(instance);
-        priority++;
       }
     }
 
@@ -147,55 +136,49 @@ export class ProviderInstanceFactory {
       overrides?: Record<string, ProviderOverride> | undefined;
     }
   ): ProviderSetResult {
-    const allRegistered = ProviderRegistry.getAvailable(blockchain);
+    const registeredProviders = this.registry.getAvailable(blockchain);
+    const availableProviderNames = registeredProviders.map((provider) => provider.name);
+    const availableProviderNameSet = new Set(availableProviderNames);
 
-    if (preferredProvider) {
-      if (!allRegistered.some((p) => p.name === preferredProvider)) {
-        throw new Error(
-          buildProviderNotFoundError(
-            blockchain,
-            preferredProvider,
-            allRegistered.map((p) => p.name)
-          )
-        );
-      }
-      logger.info(
-        `Preferred provider: ${preferredProvider} for ${blockchain} (will be used exclusively if it supports the operation, otherwise failover to others)`
-      );
-    }
+    this.validatePreferredProvider(blockchain, preferredProvider, availableProviderNames);
 
-    const defaultEnabled = config.defaultEnabled || allRegistered.map((p) => p.name);
-    const overrides = config.overrides || {};
+    const defaultEnabled = config.defaultEnabled ?? availableProviderNames;
+    const overrides = config.overrides ?? {};
 
     // Build ordered list of providers to create
-    const toCreate: { name: string; override: ProviderOverride; priority: number }[] = [];
+    const providerCreationPlan: { name: string; override: ProviderOverride; priority: number }[] = [];
 
     for (const name of defaultEnabled) {
-      if (!allRegistered.some((p) => p.name === name)) {
+      if (!availableProviderNameSet.has(name)) {
         logger.warn(`Default provider '${name}' not registered for ${blockchain}. Skipping.`);
         continue;
       }
 
-      const override = overrides[name] || {};
+      const override = overrides[name] ?? {};
 
       if (override.enabled === false) {
         logger.debug(`Provider '${name}' disabled via config override for ${blockchain}`);
         continue;
       }
 
-      toCreate.push({
+      providerCreationPlan.push({
         name,
         override,
-        priority: override.priority || toCreate.length + 1,
+        priority: override.priority ?? providerCreationPlan.length + 1,
       });
     }
 
-    toCreate.sort((a, b) => a.priority - b.priority);
+    providerCreationPlan.sort((a, b) => a.priority - b.priority);
 
     const providers: IBlockchainProvider[] = [];
 
-    for (const entry of toCreate) {
-      const instance = this.createInstance(blockchain, entry.name, entry.priority, entry.override);
+    for (const providerPlanEntry of providerCreationPlan) {
+      const instance = this.createInstance(
+        blockchain,
+        providerPlanEntry.name,
+        providerPlanEntry.priority,
+        providerPlanEntry.override
+      );
       if (instance) {
         providers.push(instance);
       }
@@ -229,7 +212,7 @@ export class ProviderInstanceFactory {
     override?: ProviderOverride
   ): IBlockchainProvider | undefined {
     try {
-      const metadata = ProviderRegistry.getMetadata(blockchain, providerName);
+      const metadata = this.registry.getMetadata(blockchain, providerName);
       if (!metadata) {
         logger.warn(`No metadata found for provider ${providerName}. Skipping.`);
         return undefined;
@@ -247,7 +230,7 @@ export class ProviderInstanceFactory {
 
       const baseUrl = this.resolveBaseUrl(metadata, blockchain);
       const config = this.buildConfig(metadata, blockchain, baseUrl, priority, override);
-      const provider = ProviderRegistry.createProvider(blockchain, providerName, config);
+      const provider = this.registry.createProvider(blockchain, providerName, config);
 
       logger.debug(
         `Created provider ${providerName} for ${blockchain} - Priority: ${priority}, BaseUrl: ${baseUrl}, RequiresApiKey: ${metadata.requiresApiKey}`
@@ -275,7 +258,7 @@ export class ProviderInstanceFactory {
   }
 
   /**
-   * Build ProviderConfig from metadata, priority, and optional overrides.
+   * Build provider creation config from metadata, priority, and optional overrides.
    */
   private buildConfig(
     metadata: ProviderMetadata,
@@ -283,7 +266,7 @@ export class ProviderInstanceFactory {
     baseUrl: string,
     priority: number,
     override?: ProviderOverride
-  ): ProviderConfig {
+  ): ProviderCreateConfig {
     const overrideRateLimit = override?.rateLimit;
 
     return {
@@ -305,5 +288,23 @@ export class ProviderInstanceFactory {
       retries: override?.retries ?? metadata.defaultConfig.retries,
       timeout: override?.timeout ?? metadata.defaultConfig.timeout,
     };
+  }
+
+  private validatePreferredProvider(
+    blockchain: string,
+    preferredProvider: string | undefined,
+    availableProviderNames: string[]
+  ): void {
+    if (!preferredProvider) {
+      return;
+    }
+
+    if (!availableProviderNames.includes(preferredProvider)) {
+      throw new Error(buildProviderNotFoundError(blockchain, preferredProvider, availableProviderNames));
+    }
+
+    logger.info(
+      `Preferred provider: ${preferredProvider} for ${blockchain} (will be used exclusively if it supports the operation, otherwise failover to others)`
+    );
   }
 }

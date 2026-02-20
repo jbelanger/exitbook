@@ -8,7 +8,7 @@ import { type RateLimitConfig } from '@exitbook/http';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { initializeProviders } from '../../../initialize.js';
+import { createProviderRegistry } from '../../../initialize.js';
 import type { NormalizedTransactionBase } from '../../schemas/normalized-transaction.js';
 import type { OneShotOperation, StreamingBatchResult, StreamingOperation } from '../../types/index.js';
 import { ProviderError, type IBlockchainProvider, type ProviderCapabilities } from '../../types/index.js';
@@ -16,6 +16,7 @@ import { BlockchainProviderManager } from '../provider-manager.js';
 
 // Mock explorer config for tests
 const mockExplorerConfig = {};
+const providerRegistry = createProviderRegistry();
 
 class MockProvider implements IBlockchainProvider {
   public readonly blockchain: string;
@@ -34,7 +35,6 @@ class MockProvider implements IBlockchainProvider {
       supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
     };
     this.rateLimit = { requestsPerSecond: 1 };
-    initializeProviders();
   }
 
   async execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
@@ -109,7 +109,7 @@ describe('BlockchainProviderManager', () => {
   let fallbackProvider: MockProvider;
 
   beforeEach(() => {
-    manager = new BlockchainProviderManager(mockExplorerConfig);
+    manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
     primaryProvider = new MockProvider('primary', 'ethereum');
     fallbackProvider = new MockProvider('fallback', 'ethereum');
     manager.registerProviders('ethereum', [primaryProvider, fallbackProvider]);
@@ -298,7 +298,7 @@ describe('BlockchainProviderManager', () => {
 describe('BlockchainProviderManager lifecycle', () => {
   test('does not start background timers in constructor', async () => {
     const setIntervalSpy = vi.spyOn(global, 'setInterval');
-    const manager = new BlockchainProviderManager(mockExplorerConfig);
+    const manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
 
     try {
       expect(setIntervalSpy).not.toHaveBeenCalled();
@@ -310,7 +310,7 @@ describe('BlockchainProviderManager lifecycle', () => {
 
   test('starts background timers only once when called repeatedly', async () => {
     const setIntervalSpy = vi.spyOn(global, 'setInterval');
-    const manager = new BlockchainProviderManager(mockExplorerConfig);
+    const manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
 
     try {
       manager.startBackgroundTasks();
@@ -323,7 +323,7 @@ describe('BlockchainProviderManager lifecycle', () => {
   });
 
   test('uses registration blockchain for provider health lookup', async () => {
-    const manager = new BlockchainProviderManager(mockExplorerConfig);
+    const manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
     const mismatchedProvider = new MockProvider('mismatch', 'base');
 
     try {
@@ -347,7 +347,7 @@ describe('BlockchainProviderManager lifecycle', () => {
 
 describe('Provider System Integration', () => {
   test('should handle complete provider lifecycle', async () => {
-    const manager = new BlockchainProviderManager(mockExplorerConfig);
+    const manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
     const provider = new MockProvider('test', 'bitcoin');
 
     try {
@@ -377,21 +377,11 @@ describe('Provider System Integration', () => {
   });
 
   test('should auto-register providers from configuration', async () => {
-    const { ProviderRegistry } = await import('../../registry/provider-registry.js');
-    const manager = new BlockchainProviderManager(mockExplorerConfig);
+    const manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
 
     try {
-      const metadata = ProviderRegistry.getMetadata('ethereum', 'moralis')!;
-      const testConfig = {
-        ...metadata.defaultConfig,
-        baseUrl: metadata.baseUrl,
-        blockchain: 'ethereum',
-        displayName: metadata.displayName,
-        name: metadata.name,
-        requiresApiKey: metadata.requiresApiKey,
-      };
-
-      const provider = ProviderRegistry.createProvider('ethereum', 'moralis', testConfig);
+      const testConfig = providerRegistry.createDefaultConfig('ethereum', 'moralis');
+      const provider = providerRegistry.createProvider('ethereum', 'moralis', testConfig);
       manager.registerProviders('ethereum', [provider]);
 
       const registeredProviders = manager.getProviders('ethereum');
@@ -409,7 +399,7 @@ describe('Preferred Provider Behavior', () => {
   let moralisProvider: MockProvider;
 
   beforeEach(() => {
-    manager = new BlockchainProviderManager(mockExplorerConfig);
+    manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
 
     routescanProvider = new MockProvider('routescan', 'ethereum');
     routescanProvider.capabilities.supportedOperations = ['getAddressTransactions', 'getAddressBalances'];

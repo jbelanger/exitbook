@@ -1,13 +1,15 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { BitcoinTransaction } from '../../../schemas.js';
 import { TatumLitecoinApiClient } from '../tatum-litecoin.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('TatumLitecoinApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('litecoin', 'tatum');
+  const config = providerRegistry.createDefaultConfig('litecoin', 'tatum');
   const provider = new TatumLitecoinApiClient(config);
   // Litecoin address (may have no transactions, tests handle this gracefully)
   const testAddress = 'ltc1qum2k5q3zqc8wl4etdwl52s08s6gwh5dj7s0hw5';

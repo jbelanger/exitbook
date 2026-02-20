@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { RawBalanceData } from '../../../../../core/index.js';
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('TatumBitcoinApiClient E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'tatum');
+  const config = providerRegistry.createDefaultConfig('bitcoin', 'tatum');
   const provider = new TatumBitcoinApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
   const emptyAddress = 'bc1qeppvcnauqak9xn7mmekw4crr79tl9c8lnxpp2k'; // Address with no transactions

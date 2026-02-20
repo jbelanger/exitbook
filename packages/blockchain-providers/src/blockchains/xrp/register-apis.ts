@@ -1,2 +1,5 @@
-// Import all XRP API clients to trigger their registration
-import './providers/xrpl-rpc/xrpl-rpc.api-client.js';
+import type { ProviderFactory } from '../../core/types/index.js';
+
+import { xrplRpcFactory } from './providers/xrpl-rpc/xrpl-rpc.api-client.js';
+
+export const xrpProviderFactories: ProviderFactory[] = [xrplRpcFactory];

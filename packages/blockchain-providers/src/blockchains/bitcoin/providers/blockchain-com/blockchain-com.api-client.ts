@@ -6,12 +6,14 @@ import type {
   NormalizedTransactionBase,
   OneShotOperation,
   ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
 } from '../../../../core/index.js';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
+import { BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -31,7 +33,7 @@ import {
 import { mapBlockchainComTransaction } from './mapper-utils.js';
 import { calculateSimpleBalance } from './utils.js';
 
-@RegisterApiClient({
+export const blockchainComMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'BLOCKCHAIN_COM_API_KEY',
   baseUrl: 'https://blockchain.info',
   blockchain: 'bitcoin',
@@ -56,7 +58,13 @@ import { calculateSimpleBalance } from './utils.js';
   displayName: 'Blockchain.com API',
   name: 'blockchain.com',
   requiresApiKey: false,
-})
+};
+
+export const blockchainComFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new BlockchainComApiClient(config),
+  metadata: blockchainComMetadata,
+};
+
 export class BlockchainComApiClient extends BaseApiClient {
   private readonly chainConfig: BitcoinChainConfig;
 

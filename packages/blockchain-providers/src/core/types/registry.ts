@@ -12,6 +12,7 @@ export interface ProviderConfig {
   displayName: string;
   enabled?: boolean | undefined;
   instrumentation?: InstrumentationCollector | undefined;
+  metadata: ProviderMetadata;
   name: string;
   priority?: number | undefined;
   rateLimit: RateLimitConfig;
@@ -20,6 +21,15 @@ export interface ProviderConfig {
   retries: number;
   timeout: number;
 }
+
+/**
+ * Input accepted when creating a provider through ProviderRegistry.
+ * Metadata is optional at callsites because the registry injects canonical
+ * metadata from the selected factory.
+ */
+export type ProviderCreateConfig = Omit<ProviderConfig, 'metadata'> & {
+  metadata?: ProviderMetadata | undefined;
+};
 
 /**
  * Provider metadata that's embedded in the provider class

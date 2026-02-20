@@ -6,12 +6,14 @@ import type {
   NormalizedTransactionBase,
   OneShotOperation,
   ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
 } from '../../../../core/index.js';
-import { RegisterApiClient, BaseApiClient, maskAddress, validateOutput } from '../../../../core/index.js';
+import { BaseApiClient, maskAddress, validateOutput } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -73,7 +75,7 @@ const NEARBLOCKS_DEDUP_WINDOW_SIZE = 200;
  * - Two-hop correlation via receipts (transactions → receipts → balance changes)
  * - Each type independently resumable
  */
-@RegisterApiClient({
+export const nearblocksMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'NEARBLOCKS_API_KEY',
   baseUrl: 'https://api.nearblocks.io',
   blockchain: 'near',
@@ -98,7 +100,13 @@ const NEARBLOCKS_DEDUP_WINDOW_SIZE = 200;
   displayName: 'NearBlocks',
   name: 'nearblocks',
   requiresApiKey: false,
-})
+};
+
+export const nearblocksFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new NearBlocksApiClient(config),
+  metadata: nearblocksMetadata,
+};
+
 export class NearBlocksApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);

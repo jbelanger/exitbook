@@ -1,8 +1,5 @@
-/**
- * Registers all Cardano API client providers
- * This file must be imported to trigger the decorator registration
- */
+import type { ProviderFactory } from '../../core/types/index.js';
 
-import './blockfrost/blockfrost-api-client.js';
+import { blockfrostFactory } from './blockfrost/blockfrost-api-client.js';
 
-// Additional Cardano providers (e.g., Koios, Maestro) will be imported here in future phases
+export const cardanoProviderFactories: ProviderFactory[] = [blockfrostFactory];

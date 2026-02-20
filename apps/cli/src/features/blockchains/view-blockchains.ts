@@ -1,6 +1,5 @@
 // Command registration for view blockchains subcommand
 
-import { ProviderRegistry } from '@exitbook/blockchain-providers';
 import type { ProviderInfo } from '@exitbook/blockchain-providers';
 import { getAllBlockchains } from '@exitbook/ingestion';
 import type { Command } from 'commander';
@@ -11,6 +10,7 @@ import { displayCliError } from '../shared/cli-error.js';
 import { renderApp } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
+import { providerRegistry } from '../shared/provider-registry.js';
 import { BlockchainsViewCommandOptionsSchema } from '../shared/schemas.js';
 
 import { BlockchainsViewApp, computeCategoryCounts, createBlockchainsViewState } from './components/index.js';
@@ -107,11 +107,11 @@ function loadBlockchainData(options: CommandOptions): {
 
   // Get supported blockchains from registry
   const supportedBlockchains = getAllBlockchains();
-  const allProviders = ProviderRegistry.getAllProviders();
+  const allProviders = providerRegistry.getAllProviders();
 
   // Build blockchain info
   let blockchains = supportedBlockchains.map((blockchain: string) => {
-    const providers = ProviderRegistry.getAvailable(blockchain);
+    const providers = providerRegistry.getAvailable(blockchain);
     return buildBlockchainInfo(blockchain, providers);
   });
 

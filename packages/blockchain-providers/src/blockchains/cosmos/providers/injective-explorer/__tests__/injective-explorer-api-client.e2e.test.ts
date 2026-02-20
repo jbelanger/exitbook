@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { RawBalanceData } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import { InjectiveExplorerApiClient } from '../injective-explorer.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('InjectiveExplorerApiClient Integration', () => {
-  const config = ProviderRegistry.createDefaultConfig('injective', 'injective-explorer');
+  const config = providerRegistry.createDefaultConfig('injective', 'injective-explorer');
   const provider = new InjectiveExplorerApiClient(config);
   // Test address with some activity (from the user's test)
   const testAddress = 'inj1zk3259rhsxcg5qg96eursm4x8ek2qc5pty4rau';

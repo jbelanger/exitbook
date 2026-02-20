@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { RawBalanceData } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import { SubscanApiClient } from '../subscan.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('SubscanApiClient Integration', () => {
-  const config = ProviderRegistry.createDefaultConfig('polkadot', 'subscan');
+  const config = providerRegistry.createDefaultConfig('polkadot', 'subscan');
   const provider = new SubscanApiClient(config);
   // Test address with some activity but not too much (to avoid rate limiting)
   // This is a known address from Polkadot Wiki with limited transactions

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { RawBalanceData } from '../../../../../core/index.js';
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import { XrplRpcApiClient } from '../xrpl-rpc.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('XrplRpcApiClient Integration', () => {
-  const config = ProviderRegistry.createDefaultConfig('xrp', 'xrpl-rpc');
+  const config = providerRegistry.createDefaultConfig('xrp', 'xrpl-rpc');
   const provider = new XrplRpcApiClient(config);
   // Ripple's donation address - a well-known address with activity
   const testAddress = 'rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY';
@@ -136,7 +138,7 @@ describe('XrplRpcApiClient Integration', () => {
 
   describe('Multi-Chain Support', () => {
     it('should support XRP mainnet with correct configuration', () => {
-      const xrpConfig = ProviderRegistry.createDefaultConfig('xrp', 'xrpl-rpc');
+      const xrpConfig = providerRegistry.createDefaultConfig('xrp', 'xrpl-rpc');
       const xrpProvider = new XrplRpcApiClient(xrpConfig);
 
       expect(xrpProvider).toBeDefined();

@@ -5,10 +5,12 @@ import { err, ok, type Result } from 'neverthrow';
 import type {
   NormalizedTransactionBase,
   ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
   ProviderOperation,
   StreamingBatchResult,
 } from '../../../../core/index.js';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import { BaseApiClient } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -120,7 +122,7 @@ const CHAIN_SUBDOMAIN_MAP: Record<string, string> = {
   zkverify: 'zkverify',
 };
 
-@RegisterApiClient({
+export const subscanMetadata: ProviderMetadata = {
   baseUrl: 'https://polkadot.api.subscan.io',
   blockchain: 'polkadot',
   capabilities: {
@@ -144,7 +146,13 @@ const CHAIN_SUBDOMAIN_MAP: Record<string, string> = {
   name: 'subscan',
   requiresApiKey: false,
   supportedChains: Object.keys(CHAIN_SUBDOMAIN_MAP),
-})
+};
+
+export const subscanFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new SubscanApiClient(config),
+  metadata: subscanMetadata,
+};
+
 export class SubscanApiClient extends BaseApiClient {
   private readonly chainConfig: SubstrateChainConfig;
   private readonly subscanSubdomain: string;

@@ -6,12 +6,10 @@
 import { getErrorMessage } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/http';
 
-import { ProviderRegistry } from '../core/index.js';
 import type { ProviderCapabilities } from '../core/types/index.js';
-import { initializeProviders } from '../initialize.js';
+import { createProviderRegistry } from '../initialize.js';
 
-// Initialize all providers
-initializeProviders();
+const registry = createProviderRegistry();
 
 function formatRateLimit(rateLimit: RateLimitConfig): string {
   const parts: string[] = [];
@@ -31,14 +29,13 @@ function formatRateLimit(rateLimit: RateLimitConfig): string {
 }
 
 function formatCapabilities(_capabilities: ProviderCapabilities): string {
-  const features: string[] = [];
-  return features.join(', ') || 'Basic';
+  return 'Basic';
 }
 
 function listProviders(): void {
   console.log('🔍 Registered Blockchain Providers\n');
 
-  const allProviders = ProviderRegistry.getAllProviders();
+  const allProviders = registry.getAllProviders();
 
   if (allProviders.length === 0) {
     console.log('❌ No providers found. Ensure provider files are imported.');
@@ -66,7 +63,7 @@ function listProviders(): void {
       console.log(`    API Key Required: ${provider.requiresApiKey ? 'Yes' : 'No'}`);
 
       // Show API key environment variable if available
-      const metadata = ProviderRegistry.getMetadata(blockchain, provider.name);
+      const metadata = registry.getMetadata(blockchain, provider.name);
       if (metadata?.apiKeyEnvVar && provider.requiresApiKey) {
         console.log(`    Environment Variable: ${metadata.apiKeyEnvVar}`);
       }

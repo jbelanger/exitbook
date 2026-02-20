@@ -1,13 +1,15 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { BitcoinTransaction } from '../../../schemas.js';
 import { TatumBCashApiClient } from '../tatum-bcash.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('TatumBCashApiClient Streaming E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('bitcoin-cash', 'tatum');
+  const config = providerRegistry.createDefaultConfig('bitcoin-cash', 'tatum');
   const provider = new TatumBCashApiClient(config);
   // Known Bitcoin Cash address with transactions (without prefix)
   const testAddress = 'qqqmuwfhm5arf9vlujftyxddngqfm0ckeuhdzmedl2';

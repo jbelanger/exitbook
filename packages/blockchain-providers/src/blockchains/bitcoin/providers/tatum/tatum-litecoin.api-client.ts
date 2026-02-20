@@ -1,12 +1,11 @@
-import type { ProviderConfig } from '../../../../core/index.js';
-import { RegisterApiClient } from '../../../../core/index.js';
+import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../core/index.js';
 
 import { mapTatumLitecoinTransaction } from './mapper-utils.js';
 import { TatumLitecoinBalanceSchema, TatumLitecoinTransactionSchema } from './tatum-litecoin.schemas.js';
 import type { TatumLitecoinTransaction, TatumLitecoinBalance } from './tatum-litecoin.schemas.js';
 import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
 
-@RegisterApiClient({
+export const tatumLitecoinMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'TATUM_API_KEY',
   baseUrl: 'https://api.tatum.io/v3/litecoin',
   blockchain: 'litecoin',
@@ -32,7 +31,13 @@ import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
   name: 'tatum',
   requiresApiKey: true,
   supportedChains: ['litecoin'],
-})
+};
+
+export const tatumLitecoinFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new TatumLitecoinApiClient(config),
+  metadata: tatumLitecoinMetadata,
+};
+
 export class TatumLitecoinApiClient extends TatumUtxoBaseApiClient<TatumLitecoinTransaction, TatumLitecoinBalance> {
   constructor(config: ProviderConfig) {
     super(config, {

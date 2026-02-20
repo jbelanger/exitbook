@@ -1,7 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../core/index.js';
+import { createProviderRegistry } from '../../../../initialize.js';
 import { BlockfrostApiClient } from '../blockfrost-api-client.js';
+
+const providerRegistry = createProviderRegistry();
 
 describe('BlockfrostApiClient E2E', () => {
   let client: BlockfrostApiClient;
@@ -15,7 +17,7 @@ describe('BlockfrostApiClient E2E', () => {
     if (!process.env['BLOCKFROST_API_KEY']) {
       process.env['BLOCKFROST_API_KEY'] = 'mainnetQwP2Nb7Y47Zn5Cl73a5V9okE2nvmyDoZ';
     }
-    const config = ProviderRegistry.createDefaultConfig('cardano', 'blockfrost');
+    const config = providerRegistry.createDefaultConfig('cardano', 'blockfrost');
     client = new BlockfrostApiClient(config);
   });
 

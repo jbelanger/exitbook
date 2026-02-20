@@ -9,6 +9,7 @@ import { err, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { BlockchainProviderManager } from '../../manager/provider-manager.js';
+import { ProviderRegistry } from '../../registry/provider-registry.js';
 import type { NormalizedTransactionBase } from '../../schemas/normalized-transaction.js';
 import type {
   FailoverStreamingExecutionResult,
@@ -107,7 +108,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
   let provider3: MockProvider;
 
   beforeEach(() => {
-    manager = new BlockchainProviderManager(undefined);
+    manager = new BlockchainProviderManager(new ProviderRegistry(), undefined);
 
     provider1 = new MockProvider('provider-1', ['blockNumber', 'timestamp'], 'blockNumber');
     provider2 = new MockProvider('provider-2', ['blockNumber', 'timestamp'], 'blockNumber');

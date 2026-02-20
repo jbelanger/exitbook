@@ -1,12 +1,11 @@
-import type { ProviderConfig } from '../../../../core/index.js';
-import { RegisterApiClient } from '../../../../core/index.js';
+import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../core/index.js';
 
 import { mapTatumDogecoinTransaction } from './mapper-utils.js';
 import { TatumDogecoinBalanceSchema, TatumDogecoinTransactionSchema } from './tatum-dogecoin.schemas.js';
 import type { TatumDogecoinTransaction, TatumDogecoinBalance } from './tatum-dogecoin.schemas.js';
 import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
 
-@RegisterApiClient({
+export const tatumDogecoinMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'TATUM_API_KEY',
   baseUrl: 'https://api.tatum.io/v3/dogecoin',
   blockchain: 'dogecoin',
@@ -32,7 +31,13 @@ import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
   name: 'tatum',
   requiresApiKey: true,
   supportedChains: ['dogecoin'],
-})
+};
+
+export const tatumDogecoinFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new TatumDogecoinApiClient(config),
+  metadata: tatumDogecoinMetadata,
+};
+
 export class TatumDogecoinApiClient extends TatumUtxoBaseApiClient<TatumDogecoinTransaction, TatumDogecoinBalance> {
   constructor(config: ProviderConfig) {
     super(config, {

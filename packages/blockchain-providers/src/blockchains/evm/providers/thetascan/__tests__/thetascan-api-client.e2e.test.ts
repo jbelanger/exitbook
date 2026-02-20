@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/index.js';
 import type { RawBalanceData, StreamingBatchResult } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import type { EvmTransaction } from '../../../types.js';
 import { ThetaScanApiClient } from '../thetascan.api-client.js';
 
+const providerRegistry = createProviderRegistry();
+
 describe('ThetaScanApiClient Integration', () => {
-  const config = ProviderRegistry.createDefaultConfig('theta', 'thetascan');
+  const config = providerRegistry.createDefaultConfig('theta', 'thetascan');
   const provider = new ThetaScanApiClient(config);
   // Example Theta address - you can replace with a known address
   const testAddress = '0x2E833968E5bB786Ae419c4d13189fB081Cc43bab';

@@ -1,12 +1,11 @@
-import type { ProviderConfig } from '../../../../core/index.js';
-import { RegisterApiClient } from '../../../../core/index.js';
+import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../core/index.js';
 
 import { mapTatumBCashTransaction } from './mapper-utils.js';
 import { TatumBCashBalanceSchema, TatumBCashTransactionSchema } from './tatum-bcash.schemas.js';
 import type { TatumBCashTransaction, TatumBCashBalance } from './tatum-bcash.schemas.js';
 import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
 
-@RegisterApiClient({
+export const tatumBcashMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'TATUM_API_KEY',
   baseUrl: 'https://api.tatum.io/v3/bcash',
   blockchain: 'bitcoin-cash',
@@ -32,7 +31,13 @@ import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
   name: 'tatum',
   requiresApiKey: true,
   supportedChains: ['bitcoin-cash'],
-})
+};
+
+export const tatumBcashFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new TatumBCashApiClient(config),
+  metadata: tatumBcashMetadata,
+};
+
 export class TatumBCashApiClient extends TatumUtxoBaseApiClient<TatumBCashTransaction, TatumBCashBalance> {
   constructor(config: ProviderConfig) {
     super(config, {

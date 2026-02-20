@@ -3,7 +3,7 @@ import { ok, err } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { OneShotOperation } from '../../../../../core/index.js';
-import { ProviderRegistry } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
 import type { TatumBitcoinTransaction, TatumBitcoinBalance } from '../tatum.schemas.js';
 
@@ -33,6 +33,7 @@ vi.mock('@exitbook/logger', () => ({
 vi.stubEnv('TATUM_API_KEY', 'test-api-key');
 
 describe('TatumBitcoinApiClient', () => {
+  const providerRegistry = createProviderRegistry();
   let client: TatumBitcoinApiClient;
   let mockHttpGet: ReturnType<typeof vi.fn>;
 
@@ -44,7 +45,7 @@ describe('TatumBitcoinApiClient', () => {
       remainingRequests: 10,
       resetTime: Date.now() + 60000,
     }));
-    const config = ProviderRegistry.createDefaultConfig('bitcoin', 'tatum');
+    const config = providerRegistry.createDefaultConfig('bitcoin', 'tatum');
     client = new TatumBitcoinApiClient(config);
     Object.defineProperty(client, 'httpClient', {
       configurable: true,

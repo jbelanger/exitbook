@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { initializeProviders } from '@exitbook/blockchain-providers';
 import { registerAllBlockchains, registerAllExchanges } from '@exitbook/ingestion';
 import { flushLoggers, getLogger, initLogger, type LogLevel } from '@exitbook/logger';
 import { FileSink } from '@exitbook/logger/file';
@@ -43,9 +42,6 @@ import { registerPricesCommand } from './features/prices/prices.js';
 import { registerReprocessCommand } from './features/process/process.js';
 import { registerProvidersCommand } from './features/providers/providers.js';
 import { registerTransactionsCommand } from './features/transactions/transactions.js';
-
-// Initialize all providers at startup
-initializeProviders();
 
 // Initialize blockchain and exchange adapters
 registerAllBlockchains();

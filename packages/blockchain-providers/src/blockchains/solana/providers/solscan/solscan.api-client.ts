@@ -6,12 +6,14 @@ import type {
   NormalizedTransactionBase,
   OneShotOperation,
   ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
 } from '../../../../core/index.js';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
+import { BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -33,7 +35,7 @@ export interface SolscanRawBalanceData {
   lamports: string;
 }
 
-@RegisterApiClient({
+export const solscanMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'SOLSCAN_API_KEY',
   baseUrl: 'https://pro-api.solscan.io/v2.0',
   blockchain: 'solana',
@@ -56,7 +58,13 @@ export interface SolscanRawBalanceData {
   displayName: 'Solscan API',
   name: 'solscan',
   requiresApiKey: true,
-})
+};
+
+export const solscanFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new SolscanApiClient(config),
+  metadata: solscanMetadata,
+};
+
 export class SolscanApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);

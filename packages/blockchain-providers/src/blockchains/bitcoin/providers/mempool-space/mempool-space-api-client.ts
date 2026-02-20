@@ -7,12 +7,14 @@ import type {
   NormalizedTransactionBase,
   OneShotOperation,
   ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
 } from '../../../../core/index.js';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
+import { BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -33,7 +35,7 @@ import {
 } from './mempool-space.schemas.js';
 import { calculateMempoolSpaceBalance } from './utils.js';
 
-@RegisterApiClient({
+export const mempoolSpaceMetadata: ProviderMetadata = {
   baseUrl: 'https://mempool.space/api',
   blockchain: 'bitcoin',
   capabilities: {
@@ -57,7 +59,13 @@ import { calculateMempoolSpaceBalance } from './utils.js';
   displayName: 'Mempool.space API',
   name: 'mempool.space',
   requiresApiKey: false,
-})
+};
+
+export const mempoolSpaceFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new MempoolSpaceApiClient(config),
+  metadata: mempoolSpaceMetadata,
+};
+
 export class MempoolSpaceApiClient extends BaseApiClient {
   private readonly chainConfig: BitcoinChainConfig;
 

@@ -2,8 +2,14 @@ import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { NormalizedTransactionBase, ProviderConfig, ProviderOperation } from '../../../../core/index.js';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
+  ProviderOperation,
+} from '../../../../core/index.js';
+import { BaseApiClient } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -33,7 +39,7 @@ import {
 } from './akash-console.schemas.js';
 import { mapAkashConsoleTransaction } from './mapper-utils.js';
 
-@RegisterApiClient({
+export const akashConsoleMetadata: ProviderMetadata = {
   baseUrl: 'https://console-api.akash.network/v1',
   blockchain: 'akash',
   capabilities: {
@@ -60,7 +66,13 @@ import { mapAkashConsoleTransaction } from './mapper-utils.js';
   name: 'akash-console',
   requiresApiKey: false,
   supportedChains: ['akash'],
-})
+};
+
+export const akashConsoleFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new AkashConsoleApiClient(config),
+  metadata: akashConsoleMetadata,
+};
+
 export class AkashConsoleApiClient extends BaseApiClient {
   private chainConfig: CosmosChainConfig;
 

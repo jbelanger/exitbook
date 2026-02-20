@@ -9,7 +9,7 @@ vi.mock('@exitbook/blockchain-providers', () => ({
   BlockchainProviderManager: vi.fn().mockImplementation(() => ({
     destroy: vi.fn(),
   })),
-  initializeProviders: vi.fn(),
+  createProviderRegistry: vi.fn(),
   loadExplorerConfig: vi.fn(),
 }));
 

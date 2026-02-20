@@ -22,12 +22,14 @@ import type {
   NormalizedTransactionBase,
   OneShotOperation,
   ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
 } from '../../../../core/index.js';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
+import { BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -50,7 +52,7 @@ import {
 import { mapBlockCypherTransaction } from './mapper-utils.js';
 import { calculateSimpleBalance } from './utils.js';
 
-@RegisterApiClient({
+export const blockcypherMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'BLOCKCYPHER_API_KEY',
   baseUrl: 'https://api.blockcypher.com/v1/btc/main',
   blockchain: 'bitcoin',
@@ -76,7 +78,13 @@ import { calculateSimpleBalance } from './utils.js';
   displayName: 'BlockCypher API',
   name: 'blockcypher',
   requiresApiKey: false,
-})
+};
+
+export const blockcypherFactory: ProviderFactory = {
+  create: (config: ProviderConfig) => new BlockCypherApiClient(config),
+  metadata: blockcypherMetadata,
+};
+
 export class BlockCypherApiClient extends BaseApiClient {
   private readonly chainConfig: BitcoinChainConfig;
 

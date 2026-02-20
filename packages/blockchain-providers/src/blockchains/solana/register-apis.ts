@@ -1,4 +1,7 @@
-// Import all API clients to trigger their registration
-import './providers/helius/helius.api-client.js';
-import './providers/solana-rpc/solana-rpc.api-client.js';
-import './providers/solscan/solscan.api-client.js';
+import type { ProviderFactory } from '../../core/types/index.js';
+
+import { heliusFactory } from './providers/helius/helius.api-client.js';
+import { solanaRpcFactory } from './providers/solana-rpc/solana-rpc.api-client.js';
+import { solscanFactory } from './providers/solscan/solscan.api-client.js';
+
+export const solanaProviderFactories: ProviderFactory[] = [heliusFactory, solanaRpcFactory, solscanFactory];

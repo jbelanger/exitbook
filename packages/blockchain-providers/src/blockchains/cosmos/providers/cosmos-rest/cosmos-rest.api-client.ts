@@ -2,9 +2,13 @@ import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { NormalizedTransactionBase, ProviderConfig, ProviderOperation } from '../../../../core/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderOperation,
+} from '../../../../core/index.js';
 import { BaseApiClient } from '../../../../core/index.js';
-import { ProviderRegistry } from '../../../../core/registry/provider-registry.js';
 import {
   createStreamingIterator,
   type StreamingPage,
@@ -33,8 +37,7 @@ export interface CosmosRestProviderConfig extends ProviderConfig {
   chainName?: string;
 }
 
-// Note: This class is not decorated with @RegisterApiClient because it needs to be
-// registered separately for each Cosmos chain. See the registration logic at the bottom of this file.
+// This class is instantiated via per-chain factories exported at the bottom of this file.
 export class CosmosRestApiClient extends BaseApiClient {
   private chainConfig: CosmosChainConfig;
   private chainName: string;
@@ -440,12 +443,9 @@ export class CosmosRestApiClient extends BaseApiClient {
   }
 }
 
-// Register the Cosmos REST provider for each Cosmos chain
-for (const [chainName, chainConfig] of Object.entries(COSMOS_CHAINS)) {
-  if (chainConfig.restTxSearchEnabled === false) {
-    continue;
-  }
-  ProviderRegistry.register({
+export const cosmosRestFactories: ProviderFactory[] = Object.entries(COSMOS_CHAINS)
+  .filter(([, chainConfig]) => chainConfig.restTxSearchEnabled !== false)
+  .map(([chainName, chainConfig]) => ({
     create: (config: ProviderConfig) =>
       new CosmosRestApiClient({
         ...config,
@@ -477,5 +477,4 @@ for (const [chainName, chainConfig] of Object.entries(COSMOS_CHAINS)) {
       requiresApiKey: false,
       supportedChains: [chainName],
     },
-  });
-}
+  }));

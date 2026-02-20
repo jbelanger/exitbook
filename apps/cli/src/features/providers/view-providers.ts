@@ -7,7 +7,6 @@ import {
   createProviderStatsDatabase,
   initializeProviderStatsDatabase,
   loadExplorerConfig,
-  ProviderRegistry,
   createProviderStatsQueries,
   type ProviderStatsRow,
 } from '@exitbook/blockchain-providers';
@@ -22,6 +21,7 @@ import { renderApp } from '../shared/command-runtime.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
+import { providerRegistry } from '../shared/provider-registry.js';
 import { ProvidersViewCommandOptionsSchema } from '../shared/schemas.js';
 
 import { ProvidersViewApp, computeHealthCounts, createProvidersViewState } from './components/index.js';
@@ -119,7 +119,7 @@ async function loadProviderData(
 ): Promise<ProviderViewItem[]> {
   // Get all blockchains and build provider map
   const allBlockchains = getAllBlockchains();
-  const providerMap = buildProviderMap(allBlockchains, (blockchain) => ProviderRegistry.getAvailable(blockchain));
+  const providerMap = buildProviderMap(allBlockchains, (blockchain) => providerRegistry.getAvailable(blockchain));
 
   // Load explorer config (graceful if missing)
   const explorerConfig = loadExplorerConfig();
