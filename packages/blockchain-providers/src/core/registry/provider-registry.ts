@@ -41,6 +41,7 @@ function getSupportedChains(metadata: ProviderMetadata): string[] {
  */
 export class ProviderRegistry {
   private providers = new Map<string, ProviderFactory>();
+  private providersByBlockchain = new Map<string, ProviderFactory[]>();
 
   // ---------------------------------------------------------------------------
   // Instance methods (the real implementation)
@@ -104,9 +105,7 @@ export class ProviderRegistry {
    * Supports multi-chain providers via supportedChains metadata.
    */
   getAvailable(blockchain: string): ProviderInfo[] {
-    return Array.from(this.providers.values())
-      .filter((factory) => getSupportedChains(factory.metadata).includes(blockchain))
-      .map((factory) => toProviderInfo(factory.metadata));
+    return (this.providersByBlockchain.get(blockchain) ?? []).map((factory) => toProviderInfo(factory.metadata));
   }
 
   /**
@@ -136,6 +135,15 @@ export class ProviderRegistry {
     }
 
     this.providers.set(key, factory);
+
+    for (const chain of new Set(getSupportedChains(factory.metadata))) {
+      const factories = this.providersByBlockchain.get(chain);
+      if (factories) {
+        factories.push(factory);
+      } else {
+        this.providersByBlockchain.set(chain, [factory]);
+      }
+    }
   }
 
   /**
@@ -248,9 +256,6 @@ export class ProviderRegistry {
     const factory = this.providers.get(exactKey);
     if (factory) return factory;
 
-    return Array.from(this.providers.values()).find((f) => {
-      const chains = getSupportedChains(f.metadata);
-      return f.metadata.name === name && chains.includes(blockchain);
-    });
+    return this.providersByBlockchain.get(blockchain)?.find((f) => f.metadata.name === name);
   }
 }

@@ -152,6 +152,19 @@ describe('ProviderRegistry', () => {
     expect(moralis?.defaultConfig.rateLimit.requestsPerSecond).toBe(2);
     expect(moralis?.defaultConfig.rateLimit.burstLimit).toBe(5);
   });
+
+  test('should resolve multi-chain providers via supportedChains index', () => {
+    expect(providerRegistry.isRegistered('avalanche', 'moralis')).toBe(true);
+
+    const metadata = providerRegistry.getMetadata('avalanche', 'moralis');
+    expect(metadata?.name).toBe('moralis');
+    expect(providerRegistry.getAvailable('avalanche').some((provider) => provider.name === 'moralis')).toBe(true);
+  });
+
+  test('should apply chain-specific baseUrl for object-format supportedChains', () => {
+    const baseConfig = providerRegistry.createDefaultConfig('base', 'alchemy');
+    expect(baseConfig.baseUrl).toBe('https://base-mainnet.g.alchemy.com/v2');
+  });
 });
 
 describe('ProviderRegistry — instance isolation', () => {

@@ -128,4 +128,74 @@ describe('ProviderHealthMonitor', () => {
     expect(blockchains).toContain('ethereum');
     expect(blockchains).toContain('bitcoin');
   });
+
+  test('runs provider checks in parallel within a tick', async () => {
+    vi.useFakeTimers();
+    const onResult = vi.fn();
+
+    let resolveFirstProvider: (() => void) | undefined;
+    const firstProviderIsHealthy = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveFirstProvider = () => resolve(ok(true));
+        })
+    );
+    const firstProvider = {
+      name: 'slow-provider',
+      blockchain: 'ethereum',
+      isHealthy: firstProviderIsHealthy,
+    } as unknown as IBlockchainProvider;
+
+    const secondProviderIsHealthy = vi.fn().mockResolvedValue(ok(true));
+    const secondProvider = {
+      name: 'fast-provider',
+      blockchain: 'ethereum',
+      isHealthy: secondProviderIsHealthy,
+    } as unknown as IBlockchainProvider;
+    const monitor = new ProviderHealthMonitor(
+      () => new Map([['ethereum', [firstProvider, secondProvider]]]),
+      onResult,
+      100
+    );
+
+    monitor.start();
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(firstProviderIsHealthy).toHaveBeenCalledTimes(1);
+    expect(secondProviderIsHealthy).toHaveBeenCalledTimes(1);
+
+    resolveFirstProvider?.();
+    await vi.advanceTimersByTimeAsync(0);
+    monitor.stop();
+  });
+
+  test('skips overlapping ticks while a previous health-check cycle is still running', async () => {
+    vi.useFakeTimers();
+    const onResult = vi.fn();
+
+    let resolveHealthCheck: (() => void) | undefined;
+    const providerIsHealthy = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveHealthCheck = () => resolve(ok(true));
+        })
+    );
+    const provider = {
+      name: 'slow-provider',
+      blockchain: 'ethereum',
+      isHealthy: providerIsHealthy,
+    } as unknown as IBlockchainProvider;
+
+    const monitor = new ProviderHealthMonitor(() => new Map([['ethereum', [provider]]]), onResult, 100);
+
+    monitor.start();
+    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(providerIsHealthy).toHaveBeenCalledTimes(1);
+
+    resolveHealthCheck?.();
+    await vi.advanceTimersByTimeAsync(0);
+    monitor.stop();
+  });
 });
