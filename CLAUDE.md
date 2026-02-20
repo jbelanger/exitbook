@@ -24,8 +24,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Import (on-chain): `pnpm run dev import --blockchain bitcoin --address bc1q...`
   - Reprocess: `pnpm run dev reprocess` (clears derived data, reprocesses all raw data)
   - Prices enrich: `pnpm run dev prices enrich` (4-stage pipeline; use flags to slice)
-  - Export: `pnpm run dev export --exchange kraken --format csv --output ./reports/kraken.csv`
   - Discover: `pnpm run dev blockchains view`
+- Other commands: `links`, `accounts`, `transactions`, `clear`, `cost-basis`, `balance`, `providers`, `portfolio`
 - For full command list: `pnpm run dev --help`
 
 ### Provider Management
@@ -39,7 +39,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Monorepo Structure (pnpm workspaces)
 
 - **apps/cli/** - Commander CLI (`src/features/`)
-- **packages/** - blockchain/exchange/price providers, ingestion, accounting, data, core, http, env, logger, tsconfig
+- **packages/** - blockchain/exchange/price providers, ingestion, accounting, data, core, http, env, events, logger, resilience, sqlite, tsconfig
 
 ### Blockchain Provider System
 
