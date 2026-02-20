@@ -755,23 +755,23 @@ describe('provider-manager-utils', () => {
       const error = buildProviderNotFoundError('ethereum', 'invalid-provider', ['alchemy', 'moralis', 'infura']);
 
       expect(error).toContain("Preferred provider 'invalid-provider' not found for ethereum");
-      expect(error).toContain('💡 Available providers for ethereum: alchemy, moralis, infura');
-      expect(error).toContain("💡 Run 'pnpm run providers:list --blockchain ethereum' to see all options");
-      expect(error).toContain("💡 Check for typos in provider name: 'invalid-provider'");
-      expect(error).toContain("💡 Use 'pnpm run providers:sync --fix' to sync configuration");
+      expect(error).toContain('Available providers for ethereum: alchemy, moralis, infura');
+      expect(error).toContain("Run 'pnpm run providers:list --blockchain ethereum' to see all options");
+      expect(error).toContain("Check for typos in provider name: 'invalid-provider'");
+      expect(error).toContain("Use 'pnpm run providers:sync --fix' to sync configuration");
     });
 
     it('should handle empty available providers list', () => {
       const error = buildProviderNotFoundError('solana', 'helius', []);
 
       expect(error).toContain("Preferred provider 'helius' not found for solana");
-      expect(error).toContain('💡 Available providers for solana: ');
+      expect(error).toContain('Available providers for solana: ');
     });
 
     it('should handle single provider in list', () => {
       const error = buildProviderNotFoundError('bitcoin', 'invalid', ['blockstream']);
 
-      expect(error).toContain('💡 Available providers for bitcoin: blockstream');
+      expect(error).toContain('Available providers for bitcoin: blockstream');
     });
   });
 

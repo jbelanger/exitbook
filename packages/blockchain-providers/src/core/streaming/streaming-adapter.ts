@@ -129,7 +129,7 @@ export function createStreamingIterator<Raw, Tx extends NormalizedTransactionBas
         replayedCursor,
         resumeCursor,
         pageNumber,
-        ...(derivedParams || {}),
+        ...(derivedParams ?? {}),
       };
 
       const pageResult = await fetchPage(pageCtx);
@@ -139,7 +139,7 @@ export function createStreamingIterator<Raw, Tx extends NormalizedTransactionBas
       }
 
       const page = pageResult.value;
-      const rawItems = page.items || [];
+      const rawItems = page.items;
 
       if (rawItems.length === 0) {
         if (page.isComplete) {

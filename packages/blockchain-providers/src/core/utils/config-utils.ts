@@ -33,33 +33,25 @@ export type ProviderOverride = z.infer<typeof ProviderOverrideSchema>;
 export type BlockchainExplorersConfig = z.infer<typeof BlockchainExplorersConfigSchema>;
 
 /**
- * Configuration utilities for dependency injection
+ * Load blockchain explorer configuration.
+ * Returns undefined if the configuration file doesn't exist (optional config).
  */
-export class ConfigUtils {
-  /**
-   * Load blockchain explorer configuration
-   * Returns undefined if configuration file doesn't exist (for optional config)
-   */
-  static loadExplorerConfig(configPath?: string): BlockchainExplorersConfig | undefined {
-    const finalPath = configPath
-      ? path.resolve(process.cwd(), configPath)
-      : process.env['BLOCKCHAIN_EXPLORERS_CONFIG']
-        ? path.resolve(process.cwd(), process.env['BLOCKCHAIN_EXPLORERS_CONFIG'])
-        : path.join(process.cwd(), 'config/blockchain-explorers.json');
+export function loadExplorerConfig(configPath?: string): BlockchainExplorersConfig | undefined {
+  const finalPath = configPath
+    ? path.resolve(process.cwd(), configPath)
+    : process.env['BLOCKCHAIN_EXPLORERS_CONFIG']
+      ? path.resolve(process.cwd(), process.env['BLOCKCHAIN_EXPLORERS_CONFIG'])
+      : path.join(process.cwd(), 'config/blockchain-explorers.json');
 
-    try {
-      const configData = fs.readFileSync(finalPath, 'utf-8');
-      const parsed = JSON.parse(configData) as unknown;
-      return BlockchainExplorersConfigSchema.parse(parsed);
-    } catch (error) {
-      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
-        // File doesn't exist - this is OK, we'll use registry defaults
-        return undefined;
-      }
-      throw new Error(`Failed to load blockchain explorer configuration from ${finalPath}: ${getErrorMessage(error)}`);
+  try {
+    const configData = fs.readFileSync(finalPath, 'utf-8');
+    const parsed = JSON.parse(configData) as unknown;
+    return BlockchainExplorersConfigSchema.parse(parsed);
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      // File doesn't exist - this is OK, we'll use registry defaults
+      return undefined;
     }
+    throw new Error(`Failed to load blockchain explorer configuration from ${finalPath}: ${getErrorMessage(error)}`);
   }
 }
-
-// Convenience exports for direct function access
-export const loadExplorerConfig = (configPath?: string) => ConfigUtils.loadExplorerConfig(configPath);

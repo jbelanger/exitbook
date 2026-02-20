@@ -72,10 +72,5 @@ export function generateUniqueTransactionEventId(tx: TransactionIdFields): strin
     parts.push(tx.logIndex.toString());
   }
 
-  const dataString = parts.join('|');
-
-  // Generate SHA-256 hash
-  const hash = createHash('sha256').update(dataString).digest('hex');
-
-  return hash;
+  return createHash('sha256').update(parts.join('|')).digest('hex');
 }

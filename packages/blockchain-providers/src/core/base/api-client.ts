@@ -35,13 +35,8 @@ export abstract class BaseApiClient implements IBlockchainProvider {
 
     this.logger = getLogger(`${this.metadata.displayName.replace(/\s+/g, '')}`);
 
-    // Use config values (which may override metadata defaults)
     this.baseUrl = config.baseUrl;
-
-    // Get API key from environment if required
     this.apiKey = this.getApiKey();
-
-    // Initialize HTTP client
     this.httpClient = new HttpClient({
       baseUrl: this.baseUrl,
       instrumentation: config.instrumentation,
@@ -110,19 +105,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
    * Check if the provider's API is healthy and responding correctly
    */
   async isHealthy(): Promise<Result<boolean, Error>> {
-    const config = this.getHealthCheckConfig();
-    const method = config.method || 'GET';
-
-    const result =
-      method === 'POST'
-        ? await this.httpClient.post(config.endpoint, config.body)
-        : await this.httpClient.get(config.endpoint);
-
-    if (result.isErr()) {
-      return err(result.error);
-    }
-
-    return ok(config.validate(result.value));
+    return this.runHealthCheck(this.httpClient);
   }
 
   /**
@@ -147,20 +130,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
       timeout: 5000,
     });
 
-    const checkHealth = async (): Promise<Result<boolean, Error>> => {
-      const config = this.getHealthCheckConfig();
-      const method = config.method || 'GET';
-      const result =
-        method === 'POST' ? await client.post(config.endpoint, config.body) : await client.get(config.endpoint);
-
-      if (result.isErr()) {
-        return err(result.error);
-      }
-
-      return ok(config.validate(result.value));
-    };
-
-    return { checkHealth, destroy: () => client.close() };
+    return { checkHealth: () => this.runHealthCheck(client), destroy: () => client.close() };
   }
 
   // Provider interface properties from metadata
@@ -276,5 +246,18 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     }
 
     return apiKey;
+  }
+
+  private async runHealthCheck(client: HttpClient): Promise<Result<boolean, Error>> {
+    const config = this.getHealthCheckConfig();
+    const method = config.method ?? 'GET';
+    const result =
+      method === 'POST' ? await client.post(config.endpoint, config.body) : await client.get(config.endpoint);
+
+    if (result.isErr()) {
+      return err(result.error);
+    }
+
+    return ok(config.validate(result.value));
   }
 }

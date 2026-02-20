@@ -155,33 +155,23 @@ export function updateHealthMetrics(
   now: number,
   errorMessage?: string
 ): ProviderHealth {
-  const newHealth: ProviderHealth = {
+  const averageResponseTime = success
+    ? currentHealth.averageResponseTime === 0
+      ? responseTime
+      : currentHealth.averageResponseTime * 0.8 + responseTime * 0.2
+    : currentHealth.averageResponseTime;
+
+  const errorWeight = success ? 0 : 1;
+
+  return {
     ...currentHealth,
     isHealthy: success,
     lastChecked: now,
+    averageResponseTime,
+    consecutiveFailures: success ? 0 : currentHealth.consecutiveFailures + 1,
+    lastError: success ? currentHealth.lastError : errorMessage,
+    errorRate: currentHealth.errorRate * 0.9 + errorWeight * 0.1,
   };
-
-  // Update response time (exponential moving average)
-  if (success) {
-    newHealth.averageResponseTime =
-      currentHealth.averageResponseTime === 0
-        ? responseTime
-        : currentHealth.averageResponseTime * 0.8 + responseTime * 0.2;
-  }
-
-  // Update failure tracking
-  if (success) {
-    newHealth.consecutiveFailures = 0;
-  } else {
-    newHealth.consecutiveFailures = currentHealth.consecutiveFailures + 1;
-    newHealth.lastError = errorMessage;
-  }
-
-  // Update error rate (exponential moving average)
-  const errorWeight = success ? 0 : 1;
-  newHealth.errorRate = currentHealth.errorRate * 0.9 + errorWeight * 0.1;
-
-  return newHealth;
 }
 
 /**
@@ -509,10 +499,10 @@ export function buildProviderNotFoundError(
 ): string {
   const providersList = availableProviders.join(', ');
   const suggestions = [
-    `💡 Available providers for ${blockchain}: ${providersList}`,
-    `💡 Run 'pnpm run providers:list --blockchain ${blockchain}' to see all options`,
-    `💡 Check for typos in provider name: '${preferredProvider}'`,
-    `💡 Use 'pnpm run providers:sync --fix' to sync configuration`,
+    `Available providers for ${blockchain}: ${providersList}`,
+    `Run 'pnpm run providers:list --blockchain ${blockchain}' to see all options`,
+    `Check for typos in provider name: '${preferredProvider}'`,
+    `Use 'pnpm run providers:sync --fix' to sync configuration`,
   ];
 
   return `Preferred provider '${preferredProvider}' not found for ${blockchain}.\n${suggestions.join('\n')}`;

@@ -245,7 +245,7 @@ export class BlockchainProviderManager {
    * Get registered providers for a blockchain
    */
   getProviders(blockchain: string): IBlockchainProvider[] {
-    return this.providers.get(blockchain) || [];
+    return this.providers.get(blockchain) ?? [];
   }
 
   /**
@@ -383,9 +383,18 @@ export class BlockchainProviderManager {
         type: 'provider.circuit_open',
         blockchain,
         provider: providerName,
-        reason: reason || 'failure_threshold_reached',
+        reason: reason ?? 'failure_threshold_reached',
       });
     }
+  }
+
+  private recordProviderFailure(blockchain: string, providerName: string, errorMessage: string): void {
+    const providerKey = getProviderKey(blockchain, providerName);
+    const circuitState = this.circuitBreakers.getOrCreate(providerKey);
+    const now = Date.now();
+    const newCircuitState = this.circuitBreakers.recordFailure(providerKey, now);
+    this.emitCircuitOpenIfTriggered(blockchain, providerName, circuitState, newCircuitState, errorMessage);
+    this.statsStore.updateHealth(providerKey, false, 0, errorMessage);
   }
 
   /**
@@ -485,15 +494,7 @@ export class BlockchainProviderManager {
             lastErrorMessage = getErrorMessage(batchResult.error);
             lastFailedProvider = provider.name;
             logger.error(`Provider ${provider.name} batch failed: ${lastErrorMessage}`);
-
-            // Record failure and try next provider
-            const providerKey = getProviderKey(blockchain, provider.name);
-            const circuitState = this.circuitBreakers.getOrCreate(providerKey);
-            const now = Date.now();
-            const newCircuitState = this.circuitBreakers.recordFailure(providerKey, now);
-            this.emitCircuitOpenIfTriggered(blockchain, provider.name, circuitState, newCircuitState, lastErrorMessage);
-            this.statsStore.updateHealth(providerKey, false, 0, getErrorMessage(batchResult.error));
-
+            this.recordProviderFailure(blockchain, provider.name, lastErrorMessage);
             providerIndex++;
             providerFailed = true;
             break;
@@ -533,9 +534,7 @@ export class BlockchainProviderManager {
 
           currentCursor = batch.cursor;
 
-          // Record success for circuit breaker
-          const providerKey = getProviderKey(blockchain, provider.name);
-          this.circuitBreakers.recordSuccess(providerKey, Date.now());
+          this.circuitBreakers.recordSuccess(getProviderKey(blockchain, provider.name), Date.now());
         }
 
         // If provider failed during streaming, continue to next provider
@@ -550,15 +549,7 @@ export class BlockchainProviderManager {
         lastErrorMessage = errorMessage;
         lastFailedProvider = provider.name;
         logger.error(`Provider ${provider.name} failed with unexpected error: ${errorMessage}`);
-
-        // Record failure
-        const providerKey = getProviderKey(blockchain, provider.name);
-        const circuitState = this.circuitBreakers.getOrCreate(providerKey);
-        const now = Date.now();
-        const newCircuitState = this.circuitBreakers.recordFailure(providerKey, now);
-        this.emitCircuitOpenIfTriggered(blockchain, provider.name, circuitState, newCircuitState, errorMessage);
-        this.statsStore.updateHealth(providerKey, false, 0, errorMessage);
-
+        this.recordProviderFailure(blockchain, provider.name, errorMessage);
         providerIndex++;
 
         if (providerIndex < providers.length) {
@@ -656,8 +647,9 @@ export class BlockchainProviderManager {
       if (attemptNumber === 1) {
         logger.debug(`Using provider ${provider.name} for ${operation.type}`);
       } else {
+        const reason = attemptNumber === 2 ? 'primary_failed' : 'multiple_failures';
         logger.info(
-          `Switching to provider ${provider.name} for ${operation.type} - Reason: ${attemptNumber === 2 ? 'primary_failed' : 'multiple_failures'}, AttemptNumber: ${attemptNumber}, PreviousError: ${lastError?.message}`
+          `Switching to provider ${provider.name} for ${operation.type} - Reason: ${reason}, AttemptNumber: ${attemptNumber}, PreviousError: ${lastError?.message}`
         );
       }
 
@@ -688,7 +680,6 @@ export class BlockchainProviderManager {
 
       const startTime = Date.now();
       try {
-        // Execute operation - rate limiting handled by provider's HttpClient
         const result = await provider.execute<T>(operation);
 
         // Unwrap Result type - throw error to trigger failover
@@ -697,8 +688,6 @@ export class BlockchainProviderManager {
         }
 
         const responseTime = Date.now() - startTime;
-
-        // Record success
         this.circuitBreakers.recordSuccess(providerKey, Date.now());
         this.statsStore.updateHealth(providerKey, true, responseTime);
 
@@ -716,9 +705,7 @@ export class BlockchainProviderManager {
           logger.error(`All providers failed for ${operation.type}: ${getErrorMessage(error)}`);
         }
 
-        // Record failure
-        const failNow = Date.now();
-        const newCircuitState = this.circuitBreakers.recordFailure(providerKey, failNow);
+        const newCircuitState = this.circuitBreakers.recordFailure(providerKey, Date.now());
         this.emitCircuitOpenIfTriggered(blockchain, provider.name, circuitState, newCircuitState, lastError.message);
         this.statsStore.updateHealth(providerKey, false, responseTime, lastError.message);
 

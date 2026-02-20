@@ -69,27 +69,7 @@ export class ProviderInstanceFactory {
       return this.createFromRegistry(blockchain, preferredProvider);
     }
 
-    if (
-      typeof blockchainConfig === 'object' &&
-      blockchainConfig !== null &&
-      (blockchainConfig.defaultEnabled === undefined || Array.isArray(blockchainConfig.defaultEnabled)) &&
-      (blockchainConfig.overrides === undefined ||
-        (typeof blockchainConfig.overrides === 'object' && blockchainConfig.overrides !== null))
-    ) {
-      return this.createFromOverrideConfig(
-        blockchain,
-        preferredProvider,
-        blockchainConfig as {
-          defaultEnabled?: string[] | undefined;
-          overrides?: Record<string, ProviderOverride> | undefined;
-        }
-      );
-    }
-
-    logger.error(
-      `Invalid blockchain config format for ${blockchain}. Expected an object with optional defaultEnabled (string[]) and overrides (Record<string, ProviderOverride>).`
-    );
-    return { providers: [] };
+    return this.createFromOverrideConfig(blockchain, preferredProvider, blockchainConfig);
   }
 
   // ---------------------------------------------------------------------------
