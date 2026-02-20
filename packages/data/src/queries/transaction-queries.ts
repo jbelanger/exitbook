@@ -18,7 +18,7 @@ import { err, ok } from 'neverthrow';
 import { z } from 'zod';
 
 import type { TransactionMovementsTable, TransactionsTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/database.js';
+import type { KyselyDB } from '../storage/db-types.js';
 
 import { parseWithSchema, serializeToJson, withControlledTransaction } from './query-utils.js';
 import { generateDeterministicTransactionHash } from './transaction-id-utils.js';

@@ -43,7 +43,11 @@ export class CommandContext {
       throw new Error('Database already closed');
     }
     if (!this._database) {
-      this._database = await initializeDatabase(path.join(this.dataDir, 'transactions.db'));
+      const initResult = await initializeDatabase(path.join(this.dataDir, 'transactions.db'));
+      if (initResult.isErr()) {
+        throw initResult.error;
+      }
+      this._database = initResult.value;
     }
     return this._database;
   }
@@ -54,7 +58,10 @@ export class CommandContext {
    */
   async closeDatabase(): Promise<void> {
     if (this._database && !this._databaseClosed) {
-      await closeDatabase(this._database);
+      const closeResult = await closeDatabase(this._database);
+      if (closeResult.isErr()) {
+        throw closeResult.error;
+      }
       this._databaseClosed = true;
     }
   }
@@ -132,7 +139,10 @@ export class CommandContext {
     // Close DB last (if still open)
     if (this._database && !this._databaseClosed) {
       try {
-        await closeDatabase(this._database);
+        const closeResult = await closeDatabase(this._database);
+        if (closeResult.isErr()) {
+          throw closeResult.error;
+        }
         this._databaseClosed = true;
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));

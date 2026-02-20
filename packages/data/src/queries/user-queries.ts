@@ -5,7 +5,7 @@ import type { Selectable } from '@exitbook/sqlite';
 import { err, ok } from 'neverthrow';
 
 import type { UsersTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/database.js';
+import type { KyselyDB } from '../storage/db-types.js';
 
 export function createUserQueries(db: KyselyDB) {
   const logger = getLogger('user-queries');

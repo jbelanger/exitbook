@@ -1,4 +1,4 @@
-import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
+import { createTestDatabase, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createUserQueries, type UserQueries } from '../user-queries.js';
@@ -8,8 +8,7 @@ describe('UserQueries', () => {
   let queries: UserQueries;
 
   beforeEach(async () => {
-    db = createDatabase(':memory:');
-    await runMigrations(db);
+    db = await createTestDatabase();
     queries = createUserQueries(db);
   });
 

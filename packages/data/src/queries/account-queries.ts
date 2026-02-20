@@ -13,7 +13,7 @@ import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
 import type { AccountsTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/database.js';
+import type { KyselyDB } from '../storage/db-types.js';
 
 import { parseWithSchema, serializeToJson } from './query-utils.js';
 

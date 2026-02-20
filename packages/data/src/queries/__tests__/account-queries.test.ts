@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null --- null needed for db */
 import type { Account, CursorState } from '@exitbook/core';
-import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
+import { createTestDatabase, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createAccountQueries } from '../account-queries.js';
@@ -10,8 +10,7 @@ describe('AccountQueries', () => {
   let queries: ReturnType<typeof createAccountQueries>;
 
   beforeEach(async () => {
-    db = createDatabase(':memory:');
-    await runMigrations(db);
+    db = await createTestDatabase();
     queries = createAccountQueries(db);
 
     // Create default user for tests

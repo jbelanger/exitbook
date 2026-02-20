@@ -6,7 +6,7 @@ import type { Selectable, Updateable } from '@exitbook/sqlite';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ImportSessionsTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/database.js';
+import type { KyselyDB } from '../storage/db-types.js';
 import type { ImportSessionUpdate } from '../types/data-types.js';
 
 import { parseJson, serializeToJson } from './query-utils.js';

@@ -1,11 +1,5 @@
 /* eslint-disable unicorn/no-null -- needed for db */
-import {
-  createDatabase,
-  createRawDataQueries,
-  runMigrations,
-  type KyselyDB,
-  type RawDataQueries,
-} from '@exitbook/data';
+import { createRawDataQueries, createTestDatabase, type KyselyDB, type RawDataQueries } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('RawDataQueries', () => {
@@ -13,8 +7,7 @@ describe('RawDataQueries', () => {
   let queries: RawDataQueries;
 
   beforeEach(async () => {
-    db = createDatabase(':memory:');
-    await runMigrations(db);
+    db = await createTestDatabase();
     queries = createRawDataQueries(db);
 
     // Create default user

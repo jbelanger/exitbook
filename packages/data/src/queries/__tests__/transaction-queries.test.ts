@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-null -- acceptable for tests */
 import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency, parseDecimal } from '@exitbook/core';
-import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
+import { createTestDatabase, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createTransactionQueries, type TransactionQueries } from '../transaction-queries.js';
@@ -11,8 +11,7 @@ describe('TransactionQueries - delete methods', () => {
   let queries: TransactionQueries;
 
   beforeEach(async () => {
-    db = createDatabase(':memory:');
-    await runMigrations(db);
+    db = await createTestDatabase();
     queries = createTransactionQueries(db);
 
     // Create default user
@@ -164,8 +163,7 @@ describe('TransactionQueries - scam token filtering', () => {
   let queries: TransactionQueries;
 
   beforeEach(async () => {
-    db = createDatabase(':memory:');
-    await runMigrations(db);
+    db = await createTestDatabase();
     queries = createTransactionQueries(db);
 
     // Create default user and account
@@ -356,8 +354,7 @@ describe('TransactionQueries - isSpam field', () => {
   let queries: TransactionQueries;
 
   beforeEach(async () => {
-    db = createDatabase(':memory:');
-    await runMigrations(db);
+    db = await createTestDatabase();
     queries = createTransactionQueries(db);
 
     // Create default user and account
@@ -602,8 +599,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
   let queries: TransactionQueries;
 
   beforeEach(async () => {
-    db = createDatabase(':memory:');
-    await runMigrations(db);
+    db = await createTestDatabase();
     queries = createTransactionQueries(db);
 
     // Create default user and account

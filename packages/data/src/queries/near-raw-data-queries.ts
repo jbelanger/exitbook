@@ -5,7 +5,7 @@ import { sql, type Selectable } from '@exitbook/sqlite';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { RawTransactionTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/database.js';
+import type { KyselyDB } from '../storage/db-types.js';
 
 import { mapRawTransactionRow } from './query-utils.js';
 

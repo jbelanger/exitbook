@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- null needed by db */
 import { parseDecimal } from '@exitbook/core';
-import { closeDatabase, createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
+import { closeDatabase, createTestDatabase, type KyselyDB } from '@exitbook/data';
 import { v4 as uuidv4 } from 'uuid';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -13,9 +13,7 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
 
   beforeEach(async () => {
     // Create in-memory database
-    db = createDatabase(':memory:');
-    // Run migrations to create schema
-    await runMigrations(db);
+    db = await createTestDatabase();
 
     // Clear all data before each test to avoid constraint violations
     await db.deleteFrom('transaction_links').execute();
@@ -77,7 +75,10 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
   });
 
   afterEach(async () => {
-    await closeDatabase(db);
+    const closeResult = await closeDatabase(db);
+    if (closeResult.isErr()) {
+      throw closeResult.error;
+    }
   });
 
   describe('create', () => {

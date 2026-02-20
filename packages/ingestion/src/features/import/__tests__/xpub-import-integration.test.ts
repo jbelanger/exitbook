@@ -12,17 +12,16 @@ import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
 import {
   createAccountQueries,
-  createDatabase,
   createImportSessionQueries,
   createRawDataQueries,
+  createTestDatabase,
   createUserQueries,
+  type AccountQueries,
   type ImportSessionQueries,
+  type KyselyDB,
   type RawDataQueries,
   type UserQueries,
-  runMigrations,
-  type KyselyDB,
 } from '@exitbook/data';
-import { type AccountQueries } from '@exitbook/data';
 import { ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -114,8 +113,7 @@ describe('xpub import integration tests', () => {
     mockImportStreamingFn.mockReset();
 
     // Create in-memory database
-    db = createDatabase(':memory:');
-    await runMigrations(db);
+    db = await createTestDatabase();
 
     // Create repositories
     userQueries = createUserQueries(db);

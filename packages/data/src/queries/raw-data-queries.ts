@@ -4,7 +4,7 @@ import { RawTransactionInputSchema, wrapError, type RawTransactionInput, type Ra
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { KyselyDB } from '../storage/database.js';
+import type { KyselyDB } from '../storage/db-types.js';
 
 import { mapRawTransactionRow, parseJson, withControlledTransaction } from './query-utils.js';
 

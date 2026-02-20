@@ -12,7 +12,7 @@ import type { Selectable } from '@exitbook/sqlite';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { TransactionLinksTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/database.js';
+import type { KyselyDB } from '../storage/db-types.js';
 
 import { parseWithSchema, serializeToJson } from './query-utils.js';
 

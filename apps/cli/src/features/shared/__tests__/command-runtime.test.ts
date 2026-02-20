@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/require-await -- Acceptable for tests */
 import type { KyselyDB } from '@exitbook/data';
 import * as dataModule from '@exitbook/data';
+import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CommandContext, runCommand } from '../command-runtime.js';
@@ -22,8 +23,8 @@ describe('CommandContext', () => {
   const mockDatabase = { mock: 'database' } as unknown as KyselyDB;
 
   beforeEach(() => {
-    vi.mocked(dataModule.initializeDatabase).mockResolvedValue(mockDatabase);
-    vi.mocked(dataModule.closeDatabase).mockResolvedValue();
+    vi.mocked(dataModule.initializeDatabase).mockResolvedValue(ok(mockDatabase));
+    vi.mocked(dataModule.closeDatabase).mockResolvedValue(ok(undefined));
   });
 
   afterEach(() => {
@@ -162,7 +163,7 @@ describe('CommandContext', () => {
     });
 
     it('should throw when database close fails', async () => {
-      vi.mocked(dataModule.closeDatabase).mockRejectedValue(new Error('close failed'));
+      vi.mocked(dataModule.closeDatabase).mockResolvedValue(err(new Error('close failed')));
 
       const ctx = new CommandContext();
       await ctx.database();
@@ -176,8 +177,8 @@ describe('runCommand', () => {
   const mockDatabase = { mock: 'database' } as unknown as KyselyDB;
 
   beforeEach(() => {
-    vi.mocked(dataModule.initializeDatabase).mockResolvedValue(mockDatabase);
-    vi.mocked(dataModule.closeDatabase).mockResolvedValue();
+    vi.mocked(dataModule.initializeDatabase).mockResolvedValue(ok(mockDatabase));
+    vi.mocked(dataModule.closeDatabase).mockResolvedValue(ok(undefined));
   });
 
   afterEach(() => {
@@ -225,7 +226,7 @@ describe('runCommand', () => {
   });
 
   it('should propagate dispose error when fn succeeds', async () => {
-    vi.mocked(dataModule.closeDatabase).mockRejectedValue(new Error('close failed'));
+    vi.mocked(dataModule.closeDatabase).mockResolvedValue(err(new Error('close failed')));
 
     await expect(
       runCommand(async (ctx) => {
@@ -235,7 +236,7 @@ describe('runCommand', () => {
   });
 
   it('should prioritize fn error over dispose error', async () => {
-    vi.mocked(dataModule.closeDatabase).mockRejectedValue(new Error('close failed'));
+    vi.mocked(dataModule.closeDatabase).mockResolvedValue(err(new Error('close failed')));
 
     await expect(
       runCommand(async (ctx) => {

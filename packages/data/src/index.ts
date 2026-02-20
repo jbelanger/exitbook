@@ -1,6 +1,5 @@
-export { createDatabase, closeDatabase, type KyselyDB } from './storage/database.js';
+export { createDatabase, closeDatabase, initializeDatabase, type KyselyDB } from './storage/initialization.js';
 export { runMigrations, getMigrationStatus } from './storage/migrations.js';
-export { initializeDatabase } from './storage/initialization.js';
 export { createUserQueries, type UserQueries } from './queries/user-queries.js';
 export { createAccountQueries } from './queries/account-queries.js';
 export type { AccountQueries, FindOrCreateAccountParams, UpdateAccountParams } from './queries/account-queries.js';
@@ -26,3 +25,4 @@ export {
   type TransactionLinkRow,
 } from './queries/transaction-link-queries.js';
 export * from './overrides/index.js';
+export { createTestDatabase } from './test-utils.js';
