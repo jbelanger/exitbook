@@ -5,13 +5,7 @@
 
 import { Currency } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import {
-  createInitialCircuitState,
-  recordFailure,
-  recordSuccess,
-  resetCircuit,
-  type CircuitState,
-} from '@exitbook/utils/circuit-breaker';
+import { CircuitBreakerRegistry } from '@exitbook/utils/circuit-breaker';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -44,7 +38,7 @@ export class PriceProviderManager {
   // Mutable state (only place side effects live)
   private providers: IPriceProvider[] = [];
   private healthStatus = new Map<string, ProviderHealth>();
-  private circuitStates = new Map<string, CircuitState>();
+  private readonly circuitBreakers = new CircuitBreakerRegistry();
   private requestCache = new Map<string, CacheEntry>();
 
   private cacheCleanupTimer?: NodeJS.Timeout | undefined;
@@ -72,7 +66,7 @@ export class PriceProviderManager {
     for (const provider of providers) {
       const metadata = provider.getMetadata();
       this.healthStatus.set(metadata.name, ProviderManagerUtils.createInitialHealth());
-      this.circuitStates.set(metadata.name, createInitialCircuitState());
+      this.circuitBreakers.getOrCreate(metadata.name);
     }
 
     logger.info(
@@ -124,7 +118,7 @@ export class PriceProviderManager {
     for (const provider of this.providers) {
       const metadata = provider.getMetadata();
       const health = this.healthStatus.get(metadata.name);
-      const circuitState = this.circuitStates.get(metadata.name);
+      const circuitState = this.circuitBreakers.get(metadata.name);
 
       if (health && circuitState) {
         result.set(metadata.name, ProviderManagerUtils.getProviderHealthWithCircuit(health, circuitState, now));
@@ -138,9 +132,8 @@ export class PriceProviderManager {
    * Reset circuit breaker for a specific provider
    */
   resetCircuitBreaker(providerName: string): void {
-    const circuitState = this.circuitStates.get(providerName);
-    if (circuitState) {
-      this.circuitStates.set(providerName, resetCircuit(circuitState));
+    if (this.circuitBreakers.has(providerName)) {
+      this.circuitBreakers.reset(providerName);
       logger.info(`Reset circuit breaker for provider: ${providerName}`);
     }
   }
@@ -166,7 +159,7 @@ export class PriceProviderManager {
 
     this.providers = [];
     this.healthStatus.clear();
-    this.circuitStates.clear();
+    this.circuitBreakers.clear();
     this.requestCache.clear();
 
     logger.debug('PriceProviderManager destroyed');
@@ -192,7 +185,7 @@ export class PriceProviderManager {
     const scoredProviders = ProviderManagerUtils.selectProvidersForOperation(
       this.providers,
       this.healthStatus,
-      this.circuitStates,
+      this.circuitBreakers.asReadonlyMap(),
       operationType,
       now,
       timestamp,
@@ -217,12 +210,12 @@ export class PriceProviderManager {
     // Try each provider in order
     for (const { provider, metadata, health } of scoredProviders) {
       attemptNumber++;
-      const circuitState = this.getOrCreateCircuitState(metadata.name);
+      const circuitState = this.circuitBreakers.getOrCreate(metadata.name);
 
       // Check circuit breaker
       const hasOthers = ProviderManagerUtils.hasAvailableProviders(
         scoredProviders.slice(attemptNumber).map((sp) => sp.provider),
-        this.circuitStates,
+        this.circuitBreakers.asReadonlyMap(),
         now
       );
 
@@ -252,7 +245,7 @@ export class PriceProviderManager {
         }
 
         // Record success - update circuit and health (pure functions produce new state)
-        this.circuitStates.set(metadata.name, recordSuccess(circuitState, Date.now()));
+        this.circuitBreakers.recordSuccess(metadata.name, Date.now());
         this.healthStatus.set(
           metadata.name,
           ProviderManagerUtils.updateHealthMetrics(health, true, responseTime, Date.now())
@@ -320,7 +313,7 @@ export class PriceProviderManager {
         // Record failure - update circuit and health (pure functions produce new state)
         // Only count as circuit breaker failure if it's NOT a recoverable error
         if (!isRecoverableError) {
-          this.circuitStates.set(metadata.name, recordFailure(circuitState, Date.now()));
+          this.circuitBreakers.recordFailure(metadata.name, Date.now());
         }
         this.healthStatus.set(
           metadata.name,
@@ -361,18 +354,6 @@ export class PriceProviderManager {
       : `All ${scoredProviders.length} provider(s) failed for ${operationType} (tried: ${providerNames})`;
 
     return err(lastError ? new Error(errorMsg) : new Error(`All price providers failed for ${operationType}`));
-  }
-
-  /**
-   * Get or create circuit state for provider
-   */
-  private getOrCreateCircuitState(providerName: string): CircuitState {
-    let circuitState = this.circuitStates.get(providerName);
-    if (!circuitState) {
-      circuitState = createInitialCircuitState();
-      this.circuitStates.set(providerName, circuitState);
-    }
-    return circuitState;
   }
 
   /**

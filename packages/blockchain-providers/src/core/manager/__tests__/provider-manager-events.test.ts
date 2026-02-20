@@ -13,14 +13,14 @@ async function flushMicrotasks(): Promise<void> {
   await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
 }
 
-import type { ProviderEvent } from '../../events.js';
+import type { ProviderEvent } from '../../../events.js';
+import type { IBlockchainProvider, StreamingOperation } from '../../types/index.js';
 import {
   CURSOR_ADJUSTMENT_REASON,
   emitProviderTransition,
   type ProviderTransitionContext,
   SELECTION_REASON,
 } from '../provider-manager-events.js';
-import type { IBlockchainProvider, StreamingOperation } from '../types/index.js';
 
 // Mock provider helper
 function createMockProvider(name: string): IBlockchainProvider {

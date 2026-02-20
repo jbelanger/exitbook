@@ -2,7 +2,7 @@ import { HDKey } from '@scure/bip32';
 import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { BlockchainProviderManager } from '../../../core/provider-manager.js';
+import type { BlockchainProviderManager } from '../../../core/manager/provider-manager.js';
 import type { BitcoinWalletAddress } from '../types.js';
 import {
   deriveBitcoinAddressesFromXpub,

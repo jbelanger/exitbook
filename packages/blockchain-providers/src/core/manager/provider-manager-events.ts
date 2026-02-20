@@ -6,9 +6,9 @@
 import type { CursorState } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 
-import type { ProviderEvent } from '../events.js';
-
-import type { IBlockchainProvider, StreamingOperation } from './types/index.js';
+import type { ProviderEvent } from '../../events.js';
+import type { StreamingOperation } from '../types/operations.js';
+import type { IBlockchainProvider } from '../types/provider.js';
 
 // Event reason constants
 export const SELECTION_REASON = {

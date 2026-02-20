@@ -8,8 +8,8 @@ import type { Result } from 'neverthrow';
 import { err, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { BlockchainProviderManager } from '../provider-manager.js';
-import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
+import { BlockchainProviderManager } from '../../manager/provider-manager.js';
+import type { NormalizedTransactionBase } from '../../schemas/normalized-transaction.js';
 import type {
   FailoverStreamingExecutionResult,
   IBlockchainProvider,
@@ -17,7 +17,7 @@ import type {
   StreamingBatchResult,
   StreamingOperation,
   TransactionWithRawData,
-} from '../types/index.js';
+} from '../../types/index.js';
 
 // Mock provider for testing
 class MockProvider implements Partial<IBlockchainProvider> {

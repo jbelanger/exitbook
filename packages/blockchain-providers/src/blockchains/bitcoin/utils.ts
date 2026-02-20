@@ -5,7 +5,7 @@ import * as bitcoin from 'bitcoinjs-lib';
 import { err, ok, type Result } from 'neverthrow';
 
 import { generateUniqueTransactionEventId } from '../../core/index.js';
-import type { BlockchainProviderManager } from '../../core/provider-manager.js';
+import type { BlockchainProviderManager } from '../../core/manager/provider-manager.js';
 
 import { getNetworkForChain } from './network-registry.js';
 import type { AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from './types.js';

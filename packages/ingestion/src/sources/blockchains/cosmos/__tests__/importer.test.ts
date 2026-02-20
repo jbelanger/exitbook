@@ -4,8 +4,12 @@
  */
 
 import type { CosmosTransaction } from '@exitbook/blockchain-providers';
-import { type BlockchainProviderManager, type CosmosChainConfig, ProviderError } from '@exitbook/blockchain-providers';
-import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
+import {
+  assertOperationType,
+  type BlockchainProviderManager,
+  type CosmosChainConfig,
+  ProviderError,
+} from '@exitbook/blockchain-providers';
 import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 

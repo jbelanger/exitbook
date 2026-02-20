@@ -4,7 +4,7 @@
  */
 
 import { type BlockchainProviderManager, type EvmChainConfig, ProviderError } from '@exitbook/blockchain-providers';
-import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
+import { assertOperationType } from '@exitbook/blockchain-providers';
 import type { PaginationCursor } from '@exitbook/core';
 import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';

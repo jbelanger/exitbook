@@ -1,7 +1,3 @@
-// export * from './provider-manager.js';
-// export * from './normalizer.js';
-// export * from './registry/index.js';
-
 // Base classes (foundation)
 export * from './base/api-client.js';
 export * from './base/mapper.js';
@@ -17,7 +13,12 @@ export * from './registry/decorators.js';
 export * from './registry/provider-registry.js';
 
 // Provider management
-export * from './provider-manager.js';
+export { CircuitBreakerRegistry } from '@exitbook/utils/circuit-breaker';
+export * from './health/provider-health-monitor.js';
+export * from './factory/provider-instance-factory.js';
+export * from './manager/provider-manager.js';
+export * from './cache/provider-response-cache.js';
+export { getProviderKey, parseProviderKey, ProviderStatsStore } from './health/provider-stats-store.js';
 
 // Utilities (if public)
 export * from './utils/index.js';

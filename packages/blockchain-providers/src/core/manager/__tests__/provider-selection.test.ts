@@ -11,7 +11,7 @@ import {
 } from '@exitbook/utils/circuit-breaker';
 import { describe, expect, it } from 'vitest';
 
-import type { OneShotOperation, ProviderCapabilities } from '../types/index.js';
+import type { OneShotOperation, ProviderCapabilities } from '../../types/index.js';
 
 // Pure types for provider info
 interface ProviderInfo {

@@ -3,7 +3,7 @@ import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { RawBalanceData } from '../../core/index.js';
-import type { BlockchainProviderManager } from '../../core/provider-manager.js';
+import type { BlockchainProviderManager } from '../../core/manager/provider-manager.js';
 
 import type { CardanoAddressEra, CardanoWalletAddress, DerivedCardanoAddress } from './types.js';
 

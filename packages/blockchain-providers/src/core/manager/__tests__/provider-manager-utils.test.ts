@@ -8,6 +8,7 @@ import { getLogger } from '@exitbook/logger';
 import { createInitialCircuitState, recordFailure, type CircuitState } from '@exitbook/utils/circuit-breaker';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { IBlockchainProvider, ProviderCapabilities, ProviderHealth } from '../../types/index.js';
 import type { CursorResolutionConfig } from '../provider-manager-utils.js';
 import {
   addToDeduplicationWindow,
@@ -28,7 +29,6 @@ import {
   updateHealthMetrics,
   validateProviderApiKey,
 } from '../provider-manager-utils.js';
-import type { IBlockchainProvider, ProviderCapabilities, ProviderHealth } from '../types/index.js';
 
 const logger = getLogger('test');
 

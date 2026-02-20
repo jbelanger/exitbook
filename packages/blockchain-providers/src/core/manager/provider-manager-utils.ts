@@ -15,14 +15,13 @@ import {
 } from '@exitbook/utils/circuit-breaker';
 
 import type { NormalizedTransactionBase } from '../index.js';
-
 import type {
   IBlockchainProvider,
   ProviderCapabilities,
   ProviderHealth,
   ProviderOperation,
   ProviderOperationType,
-} from './types/index.js';
+} from '../types/index.js';
 
 // Deduplication window size: Used for in-memory dedup during streaming and loading recent transaction IDs
 // Sized to cover typical replay overlap (5 blocks × ~200 txs/block = ~1000 items max)

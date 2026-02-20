@@ -149,7 +149,7 @@ export function supportsAsset(metadata: ProviderMetadata, assetSymbol: string, i
 export function selectProvidersForOperation(
   providers: IPriceProvider[],
   healthMap: Map<string, ProviderHealth>,
-  circuitMap: Map<string, CircuitState>,
+  circuitMap: ReadonlyMap<string, CircuitState>,
   operationType: string,
   now: number,
   timestamp?: Date,
@@ -200,7 +200,7 @@ export function selectProvidersForOperation(
  */
 export function hasAvailableProviders(
   providers: IPriceProvider[],
-  circuitMap: Map<string, CircuitState>,
+  circuitMap: ReadonlyMap<string, CircuitState>,
   now: number
 ): boolean {
   return providers.some((p) => {
