@@ -4,6 +4,7 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { RawBalanceData } from '../../core/index.js';
 import type { BlockchainProviderManager } from '../../core/manager/provider-manager.js';
+import { performAddressGapScanning } from '../../core/utils/gap-scan-utils.js';
 
 import type { CardanoAddressEra, CardanoWalletAddress, DerivedCardanoAddress } from './types.js';
 
@@ -313,27 +314,7 @@ export class CardanoUtils {
 
   /**
    * Perform BIP44-compliant gap scanning to determine derived address set.
-   *
-   * Creates child accounts for ALL derived addresses up to the gap limit after the last used address.
-   * This ensures that fresh change addresses are tracked, enabling accurate multi-address fund flow analysis.
-   *
-   * Algorithm:
-   * 1. Scan addresses in interleaved order (already arranged by derivation)
-   * 2. Track highest index with activity
-   * 3. Stop scanning after finding gap limit consecutive unused addresses
-   * 4. Include ALL addresses up to highestUsedIndex + gapLimit
-   *
-   * @param walletAddress - The wallet address object with derived addresses
-   * @param providerManager - Provider manager for blockchain queries
-   * @returns Result indicating success or failure
-   *
-   * @example
-   * ```typescript
-   * const result = await CardanoUtils.performAddressGapScanning(
-   *   walletAddress,
-   *   providerManager
-   * );
-   * ```
+   * Delegates to the shared gap scanning utility.
    */
   static async performAddressGapScanning(
     walletAddress: CardanoWalletAddress,
@@ -345,75 +326,15 @@ export class CardanoUtils {
     }
 
     const gapLimit = walletAddress.addressGap || 10;
-    logger.info(`Performing gap scan for ${walletAddress.address.substring(0, 20)}... (gap limit: ${gapLimit})`);
 
-    let consecutiveUnusedCount = 0;
-    let highestUsedIndex = -1;
-    let errorCount = 0;
-    const MAX_ERRORS = 3; // Fail if we can't check multiple addresses
-
-    for (let i = 0; i < allDerived.length; i++) {
-      const address = allDerived[i];
-      if (!address) continue; // Skip invalid addresses
-
-      // Check if address has transactions using provider manager
-      const result = await providerManager.executeWithFailoverOnce('cardano', {
-        address,
-        getCacheKey: (params) => `cardano:has-txs:${(params as { address: string }).address}`,
-        type: 'hasAddressTransactions',
-      });
-
-      if (result.isErr()) {
-        errorCount++;
-        logger.warn(`Could not check activity for address ${address} - Error: ${result.error.message}`);
-
-        // If we hit too many consecutive API errors, fail the scan
-        if (errorCount >= MAX_ERRORS) {
-          return err(new Error(`Failed to scan addresses: ${result.error.message}`));
-        }
-
-        consecutiveUnusedCount++;
-        continue;
-      }
-
-      // Reset error count on successful API call
-      errorCount = 0;
-
-      const hasActivity = result.value.data as boolean;
-      if (hasActivity) {
-        // Found an active address - track highest index
-        highestUsedIndex = i;
-        consecutiveUnusedCount = 0; // Reset the counter
-        logger.debug(`Found activity at index ${i}: ${address}`);
-      } else {
-        // Unused address
-        consecutiveUnusedCount++;
-        logger.debug(`No activity at index ${i}, consecutive unused: ${consecutiveUnusedCount}`);
-
-        // Stop scanning beyond the gap limit
-        if (consecutiveUnusedCount >= gapLimit) {
-          logger.info(`Reached gap limit of ${gapLimit} unused addresses, stopping scan at index ${i}`);
-          break;
-        }
-      }
-    }
-
-    // Include ALL addresses up to highestUsedIndex + gapLimit
-    // This ensures fresh change addresses are tracked for accurate fund flow analysis
-    const lastIndex = Math.min(
-      highestUsedIndex >= 0 ? highestUsedIndex + gapLimit : gapLimit - 1,
-      allDerived.length - 1
-    );
-    walletAddress.derivedAddresses = allDerived.slice(0, lastIndex + 1);
-
-    const addressesWithActivity = highestUsedIndex + 1;
-    const addressesForFutureUse = walletAddress.derivedAddresses.length - addressesWithActivity;
-
-    logger.info(
-      `Derived address set: ${walletAddress.derivedAddresses.length} addresses ` +
-        `(${addressesWithActivity} with activity, ${addressesForFutureUse} for future use)`
+    const result = await performAddressGapScanning(
+      { blockchain: 'cardano', derivedAddresses: allDerived, gapLimit },
+      providerManager
     );
 
+    if (result.isErr()) return err(result.error);
+
+    walletAddress.derivedAddresses = result.value.addresses;
     return ok();
   }
 }

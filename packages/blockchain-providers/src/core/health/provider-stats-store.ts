@@ -39,11 +39,24 @@ export function parseProviderKey(key: string): { blockchain: string; providerNam
   return { blockchain, providerName };
 }
 
+export interface ProviderStatsStoreOptions {
+  /** Recovery timeout for stale circuit breaker state on load (default: 30s for CLI-style fresh starts) */
+  circuitRecoveryTimeoutMs?: number | undefined;
+}
+
+/** CLI-friendly default: circuits from prior runs recover quickly */
+const DEFAULT_CIRCUIT_RECOVERY_TIMEOUT_MS = 30_000;
+
 export class ProviderStatsStore {
   private healthStatus = new Map<string, ProviderHealth>();
   private totalSuccesses = new Map<string, number>();
   private totalFailures = new Map<string, number>();
   private statsQueries?: ProviderStatsQueries | undefined;
+  private readonly circuitRecoveryTimeoutMs: number;
+
+  constructor(options?: ProviderStatsStoreOptions) {
+    this.circuitRecoveryTimeoutMs = options?.circuitRecoveryTimeoutMs ?? DEFAULT_CIRCUIT_RECOVERY_TIMEOUT_MS;
+  }
 
   initializeProvider(key: string): void {
     if (!this.healthStatus.has(key)) {
@@ -121,7 +134,7 @@ export class ProviderStatsStore {
     const now = Date.now();
 
     for (const row of rows) {
-      const hydrated = hydrateProviderStats(row, now);
+      const hydrated = hydrateProviderStats(row, now, this.circuitRecoveryTimeoutMs);
       const providerKey = getProviderKey(hydrated.blockchain, hydrated.providerName);
       this.healthStatus.set(providerKey, hydrated.health);
       circuitRegistry.set(providerKey, hydrated.circuitState);

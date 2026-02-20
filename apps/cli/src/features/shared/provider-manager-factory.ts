@@ -40,7 +40,7 @@ export async function createProviderManagerWithStats(
   config?: BlockchainExplorersConfig
 ): Promise<ProviderManagerWithStats> {
   const explorerConfig = config ?? loadExplorerConfig();
-  const providerManager = new BlockchainProviderManager(providerRegistry, explorerConfig);
+  const providerManager = new BlockchainProviderManager(providerRegistry, { explorerConfig });
   providerManager.startBackgroundTasks();
 
   let providerStatsDb: ProviderStatsDB | undefined;

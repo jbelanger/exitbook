@@ -16,8 +16,7 @@ import type { ProviderStatsQueries } from '../../persistence/queries/provider-st
 import { ProviderResponseCache } from '../cache/provider-response-cache.js';
 import { ProviderInstanceFactory } from '../factory/provider-instance-factory.js';
 import { ProviderHealthMonitor } from '../health/provider-health-monitor.js';
-import { getProviderKey } from '../health/provider-stats-store.js';
-import { ProviderStatsStore } from '../health/provider-stats-store.js';
+import { getProviderKey, ProviderStatsStore, type ProviderStatsStoreOptions } from '../health/provider-stats-store.js';
 import type { NormalizedTransactionBase } from '../index.js';
 import type { ProviderRegistry } from '../registry/provider-registry.js';
 import { ProviderError } from '../types/errors.js';
@@ -46,9 +45,14 @@ import {
 
 const logger = getLogger('BlockchainProviderManager');
 
+export interface BlockchainProviderManagerOptions {
+  explorerConfig?: BlockchainExplorersConfig | undefined;
+  statsStore?: ProviderStatsStoreOptions | undefined;
+}
+
 export class BlockchainProviderManager {
   private readonly circuitBreakers = new CircuitBreakerRegistry();
-  private readonly statsStore = new ProviderStatsStore();
+  private readonly statsStore: ProviderStatsStore;
   private readonly responseCache = new ProviderResponseCache();
   private readonly healthMonitor: ProviderHealthMonitor;
   private readonly instanceFactory: ProviderInstanceFactory;
@@ -58,8 +62,9 @@ export class BlockchainProviderManager {
   private providers = new Map<string, IBlockchainProvider[]>();
   private preferredProviders = new Map<string, string>(); // blockchain -> preferred provider name
 
-  constructor(registry: ProviderRegistry, explorerConfig?: BlockchainExplorersConfig) {
-    this.instanceFactory = new ProviderInstanceFactory(registry, explorerConfig);
+  constructor(registry: ProviderRegistry, options?: BlockchainProviderManagerOptions) {
+    this.statsStore = new ProviderStatsStore(options?.statsStore);
+    this.instanceFactory = new ProviderInstanceFactory(registry, options?.explorerConfig);
     this.healthMonitor = new ProviderHealthMonitor(
       () => this.providers,
       (blockchain, providerName, success, responseTime, error) => {

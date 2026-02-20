@@ -109,7 +109,7 @@ describe('BlockchainProviderManager', () => {
   let fallbackProvider: MockProvider;
 
   beforeEach(() => {
-    manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
+    manager = new BlockchainProviderManager(providerRegistry, { explorerConfig: mockExplorerConfig });
     primaryProvider = new MockProvider('primary', 'ethereum');
     fallbackProvider = new MockProvider('fallback', 'ethereum');
     manager.registerProviders('ethereum', [primaryProvider, fallbackProvider]);
@@ -298,7 +298,7 @@ describe('BlockchainProviderManager', () => {
 describe('BlockchainProviderManager lifecycle', () => {
   test('does not start background timers in constructor', async () => {
     const setIntervalSpy = vi.spyOn(global, 'setInterval');
-    const manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
+    const manager = new BlockchainProviderManager(providerRegistry, { explorerConfig: mockExplorerConfig });
 
     try {
       expect(setIntervalSpy).not.toHaveBeenCalled();
@@ -310,7 +310,7 @@ describe('BlockchainProviderManager lifecycle', () => {
 
   test('starts background timers only once when called repeatedly', async () => {
     const setIntervalSpy = vi.spyOn(global, 'setInterval');
-    const manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
+    const manager = new BlockchainProviderManager(providerRegistry, { explorerConfig: mockExplorerConfig });
 
     try {
       manager.startBackgroundTasks();
@@ -323,7 +323,7 @@ describe('BlockchainProviderManager lifecycle', () => {
   });
 
   test('uses registration blockchain for provider health lookup', async () => {
-    const manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
+    const manager = new BlockchainProviderManager(providerRegistry, { explorerConfig: mockExplorerConfig });
     const mismatchedProvider = new MockProvider('mismatch', 'base');
 
     try {
@@ -347,7 +347,7 @@ describe('BlockchainProviderManager lifecycle', () => {
 
 describe('Provider System Integration', () => {
   test('should handle complete provider lifecycle', async () => {
-    const manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
+    const manager = new BlockchainProviderManager(providerRegistry, { explorerConfig: mockExplorerConfig });
     const provider = new MockProvider('test', 'bitcoin');
 
     try {
@@ -377,7 +377,7 @@ describe('Provider System Integration', () => {
   });
 
   test('should auto-register providers from configuration', async () => {
-    const manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
+    const manager = new BlockchainProviderManager(providerRegistry, { explorerConfig: mockExplorerConfig });
 
     try {
       const testConfig = providerRegistry.createDefaultConfig('ethereum', 'moralis');
@@ -399,7 +399,7 @@ describe('Preferred Provider Behavior', () => {
   let moralisProvider: MockProvider;
 
   beforeEach(() => {
-    manager = new BlockchainProviderManager(providerRegistry, mockExplorerConfig);
+    manager = new BlockchainProviderManager(providerRegistry, { explorerConfig: mockExplorerConfig });
 
     routescanProvider = new MockProvider('routescan', 'ethereum');
     routescanProvider.capabilities.supportedOperations = ['getAddressTransactions', 'getAddressBalances'];

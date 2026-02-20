@@ -108,7 +108,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
   let provider3: MockProvider;
 
   beforeEach(() => {
-    manager = new BlockchainProviderManager(new ProviderRegistry(), undefined);
+    manager = new BlockchainProviderManager(new ProviderRegistry());
 
     provider1 = new MockProvider('provider-1', ['blockNumber', 'timestamp'], 'blockNumber');
     provider2 = new MockProvider('provider-2', ['blockNumber', 'timestamp'], 'blockNumber');
