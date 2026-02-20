@@ -98,14 +98,6 @@ class MockProvider implements Partial<IBlockchainProvider> {
   applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
     return cursor;
   }
-
-  async benchmarkRateLimit() {
-    return Promise.resolve({
-      maxSafeRate: 5,
-      recommended: this.rateLimit,
-      testResults: [],
-    });
-  }
 }
 
 describe('BlockchainProviderManager - Streaming with Failover', () => {

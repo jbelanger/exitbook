@@ -118,11 +118,6 @@ describe('SubstrateImporter', () => {
     mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
     mockProviderManager.getProviders.mockReturnValue([
       {
-        benchmarkRateLimit: vi.fn().mockResolvedValue({
-          maxSafeRate: 1,
-          recommended: { maxRequestsPerSecond: 1 },
-          testResults: [],
-        }),
         blockchain: 'polkadot',
         capabilities: { supportedOperations: [] },
         execute: vi.fn(),

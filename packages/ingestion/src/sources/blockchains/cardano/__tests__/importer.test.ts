@@ -70,11 +70,6 @@ describe('CardanoTransactionImporter', () => {
       {
         name: 'mock-provider',
         blockchain: 'cardano',
-        benchmarkRateLimit: vi.fn().mockResolvedValue({
-          maxSafeRate: 1,
-          recommended: { maxRequestsPerSecond: 1 },
-          testResults: [],
-        }),
         capabilities: { supportedOperations: [] },
         execute: vi.fn(),
         isHealthy: vi.fn().mockResolvedValue(true),

@@ -2,10 +2,9 @@
  * State management for benchmark TUI
  */
 
-import type { BenchmarkProgressEvent } from '@exitbook/blockchain-providers';
-
 import type { BenchmarkParams } from '../../benchmark-rate-limit/benchmark-rate-limit-utils.js';
 import { buildConfigOverride } from '../../benchmark-rate-limit/benchmark-rate-limit-utils.js';
+import type { BenchmarkProgressEvent } from '../../benchmark-rate-limit/benchmark-tool.js';
 
 export interface SustainedTest {
   rate: number;

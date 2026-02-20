@@ -55,30 +55,7 @@ export interface StreamingBatchResult<T extends NormalizedTransactionBase = Norm
   isComplete: boolean;
 }
 
-/**
- * Progress events emitted during rate limit benchmarking.
- * Passed via optional `onProgress` callback for live TUI updates.
- */
-export type BenchmarkProgressEvent =
-  | { rate: number; type: 'sustained-start' }
-  | { rate: number; responseTimeMs?: number | undefined; success: boolean; type: 'sustained-complete' }
-  | { limit: number; type: 'burst-start' }
-  | { limit: number; success: boolean; type: 'burst-complete' };
-
 export interface IBlockchainProvider {
-  // Rate limit benchmarking
-  benchmarkRateLimit(
-    maxRequestsPerSecond: number,
-    numRequestsPerTest: number,
-    testBurstLimits?: boolean,
-    customRates?: number[],
-    onProgress?: (event: BenchmarkProgressEvent) => void
-  ): Promise<{
-    burstLimits?: { limit: number; success: boolean }[];
-    maxSafeRate: number;
-    recommended: RateLimitConfig;
-    testResults: { rate: number; responseTimeMs?: number; success: boolean }[];
-  }>;
   readonly blockchain: string;
   readonly capabilities: ProviderCapabilities;
   // Universal execution method - all operations go through this

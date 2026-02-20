@@ -2,10 +2,11 @@
  * Benchmark TUI components
  */
 
-import type { BenchmarkProgressEvent } from '@exitbook/blockchain-providers';
 import { Box, Text, useApp } from 'ink';
 import Spinner from 'ink-spinner';
 import { useEffect, useReducer, type FC } from 'react';
+
+import type { BenchmarkProgressEvent } from '../../benchmark-rate-limit/benchmark-tool.js';
 
 import type { BenchmarkState, BurstTest, SustainedTest } from './benchmark-state.js';
 import { benchmarkReducer } from './benchmark-state.js';

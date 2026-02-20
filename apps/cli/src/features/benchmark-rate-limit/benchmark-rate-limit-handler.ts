@@ -1,44 +1,59 @@
-import type {
-  BlockchainProviderManager,
-  BenchmarkProgressEvent,
-  IBlockchainProvider,
-} from '@exitbook/blockchain-providers';
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { loadExplorerConfig, ProviderRegistry } from '@exitbook/blockchain-providers';
+import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import type { BenchmarkParams } from './benchmark-rate-limit-utils.js';
 import { buildBenchmarkParams } from './benchmark-rate-limit-utils.js';
+import type { BenchmarkProgressEvent, BenchmarkResult } from './benchmark-tool.js';
+import { benchmarkRateLimit } from './benchmark-tool.js';
 
-interface BenchmarkTestResult {
-  rate: number;
-  success: boolean;
-  responseTimeMs?: number | undefined;
-}
-
-interface BurstLimitResult {
-  limit: number;
-  success: boolean;
-}
-
-interface BenchmarkResult {
-  testResults: BenchmarkTestResult[];
-  burstLimits?: BurstLimitResult[] | undefined;
-  maxSafeRate: number;
-  recommended: {
-    burstLimit?: number | undefined;
-    requestsPerSecond: number;
+interface BenchmarkableProvider {
+  blockchain: string;
+  createUnboundedHealthCheck(): {
+    checkHealth: () => Promise<Result<boolean, Error>>;
+    destroy: () => Promise<void>;
   };
+  name: string;
+  rateLimit: unknown;
 }
 
 interface SetupResult {
   params: BenchmarkParams;
-  provider: IBlockchainProvider;
+  provider: BenchmarkableProvider;
   providerInfo: {
     blockchain: string;
     name: string;
     rateLimit: unknown;
   };
+}
+
+function getProviderName(provider: unknown): string {
+  if (!provider || typeof provider !== 'object') {
+    return 'unknown';
+  }
+
+  const candidate = provider as { name?: unknown };
+  if (typeof candidate.name !== 'string') {
+    return 'unknown';
+  }
+
+  return candidate.name;
+}
+
+function isBenchmarkableProvider(provider: unknown): provider is BenchmarkableProvider {
+  if (!provider || typeof provider !== 'object') {
+    return false;
+  }
+
+  const candidate = provider as Partial<BenchmarkableProvider>;
+  return (
+    typeof candidate.blockchain === 'string' &&
+    typeof candidate.createUnboundedHealthCheck === 'function' &&
+    typeof candidate.name === 'string' &&
+    'rateLimit' in candidate
+  );
 }
 
 /**
@@ -96,6 +111,14 @@ export class BenchmarkRateLimitHandler {
 
     const provider = providers[0]!;
 
+    if (!isBenchmarkableProvider(provider)) {
+      return err(
+        new Error(
+          `Provider '${getProviderName(provider)}' does not support benchmarking (missing createUnboundedHealthCheck)`
+        )
+      );
+    }
+
     return ok({
       params,
       provider,
@@ -112,23 +135,30 @@ export class BenchmarkRateLimitHandler {
    * Used by both JSON and TUI modes.
    */
   async runBenchmark(
-    provider: IBlockchainProvider,
+    provider: BenchmarkableProvider,
     params: BenchmarkParams,
     onProgress?: (event: BenchmarkProgressEvent) => void
   ): Promise<BenchmarkResult> {
-    const result = await provider.benchmarkRateLimit(
-      params.maxRate,
-      params.numRequests,
-      !params.skipBurst,
-      params.customRates,
-      onProgress
-    );
+    const { checkHealth, destroy } = provider.createUnboundedHealthCheck();
 
-    return result;
+    try {
+      return await benchmarkRateLimit({
+        checkHealth,
+        customRates: params.customRates,
+        logger: getLogger(`${provider.name}-benchmark`),
+        maxRequestsPerSecond: params.maxRate,
+        numRequestsPerTest: params.numRequests,
+        onProgress,
+        providerDisplayName: provider.name,
+        testBurstLimits: !params.skipBurst,
+      });
+    } finally {
+      await destroy();
+    }
   }
 
   /**
-   * Execute benchmark-rate-limit command (JSON mode, backward compat).
+   * Execute benchmark-rate-limit command (JSON mode).
    */
   async execute(
     options: Parameters<typeof buildBenchmarkParams>[0],

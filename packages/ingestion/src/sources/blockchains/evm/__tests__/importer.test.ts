@@ -129,11 +129,6 @@ describe('EvmImporter', () => {
       {
         name: 'mock-provider',
         blockchain: 'ethereum',
-        benchmarkRateLimit: vi.fn().mockResolvedValue({
-          maxSafeRate: 1,
-          recommended: { maxRequestsPerSecond: 1 },
-          testResults: [],
-        }),
         capabilities: {
           supportedOperations: ['getAddressTransactions'],
           supportedTransactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],

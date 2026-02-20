@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 import { loadExplorerConfig, ProviderRegistry } from '@exitbook/blockchain-providers';
+import { ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BenchmarkRateLimitHandler } from '../benchmark-rate-limit-handler.js';
+import { benchmarkRateLimit } from '../benchmark-tool.js';
 
 // Mock dependencies
 vi.mock('@exitbook/blockchain-providers', async () => {
@@ -16,6 +18,35 @@ vi.mock('@exitbook/blockchain-providers', async () => {
   };
 });
 
+vi.mock('../benchmark-tool.js', () => ({
+  benchmarkRateLimit: vi.fn(),
+}));
+
+vi.mock('@exitbook/logger', () => ({
+  getLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    trace: vi.fn(),
+  })),
+}));
+
+/**
+ * Creates a mock provider that supports benchmark capability.
+ */
+function createMockBenchmarkableProvider(overrides: { blockchain?: string; name: string; rateLimit: unknown }) {
+  return {
+    name: overrides.name,
+    rateLimit: overrides.rateLimit,
+    blockchain: overrides.blockchain ?? 'bitcoin',
+    createUnboundedHealthCheck: vi.fn().mockReturnValue({
+      checkHealth: vi.fn().mockResolvedValue(ok(true)),
+      destroy: vi.fn().mockResolvedValue(undefined),
+    }),
+  };
+}
+
 describe('BenchmarkRateLimitHandler', () => {
   let handler: BenchmarkRateLimitHandler;
   let mockLoadExplorerConfig: ReturnType<typeof vi.fn>;
@@ -26,25 +57,20 @@ describe('BenchmarkRateLimitHandler', () => {
   };
 
   beforeEach(() => {
-    // Reset mocks
     vi.clearAllMocks();
 
-    // Mock loadExplorerConfig
     mockLoadExplorerConfig = vi.mocked(loadExplorerConfig);
     mockLoadExplorerConfig.mockReturnValue({} as ReturnType<typeof loadExplorerConfig>);
 
-    // Mock provider manager instance
     mockProviderManager = {
       autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn(),
     };
 
-    // Mock provider manager constructor
     MockProviderManagerConstructor = vi.fn().mockImplementation(function () {
       return mockProviderManager;
     });
 
-    // Create handler
     handler = new BenchmarkRateLimitHandler();
   });
 
@@ -54,31 +80,31 @@ describe('BenchmarkRateLimitHandler', () => {
 
   describe('execute', () => {
     it('should successfully benchmark a provider', async () => {
-      // Setup mock provider with benchmark capability
-      const mockProvider = {
+      const mockProvider = createMockBenchmarkableProvider({
         name: 'blockstream.info',
         rateLimit: { requestsPerSecond: 5, burstLimit: 10 },
-        benchmarkRateLimit: vi.fn().mockResolvedValue({
-          testResults: [
-            { rate: 1, success: true, responseTimeMs: 200 },
-            { rate: 2, success: true, responseTimeMs: 210 },
-            { rate: 5, success: false, responseTimeMs: 500 },
-          ],
-          burstLimits: [
-            { limit: 5, success: true },
-            { limit: 10, success: false },
-          ],
-          maxSafeRate: 2,
-          recommended: {
-            requestsPerSecond: 1.6,
-            burstLimit: 4,
-          },
-        }),
-      };
+      });
 
       mockProviderManager.autoRegisterFromConfig.mockReturnValue([mockProvider]);
 
-      // Execute
+      const benchmarkResult = {
+        testResults: [
+          { rate: 1, success: true, responseTimeMs: 200 },
+          { rate: 2, success: true, responseTimeMs: 210 },
+          { rate: 5, success: false, responseTimeMs: 500 },
+        ],
+        burstLimits: [
+          { limit: 5, success: true },
+          { limit: 10, success: false },
+        ],
+        maxSafeRate: 2,
+        recommended: {
+          requestsPerSecond: 1.6,
+          burstLimit: 4,
+        },
+      };
+      vi.mocked(benchmarkRateLimit).mockResolvedValue(benchmarkResult);
+
       const result = await handler.execute(
         {
           blockchain: 'bitcoin',
@@ -89,7 +115,6 @@ describe('BenchmarkRateLimitHandler', () => {
         MockProviderManagerConstructor as never
       );
 
-      // Verify
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.params.blockchain).toBe('bitcoin');
@@ -101,24 +126,29 @@ describe('BenchmarkRateLimitHandler', () => {
         expect(result.value.result.recommended.requestsPerSecond).toBe(1.6);
       }
 
-      // Verify benchmark was called with correct params
-      expect(mockProvider.benchmarkRateLimit).toHaveBeenCalledWith(5, 10, true, undefined, undefined);
+      // Verify standalone benchmark was called with correct options
+      expect(benchmarkRateLimit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          maxRequestsPerSecond: 5,
+          numRequestsPerTest: 10,
+          testBurstLimits: true,
+        })
+      );
     });
 
     it('should pass custom rates to benchmark', async () => {
-      const mockProvider = {
+      const mockProvider = createMockBenchmarkableProvider({
         name: 'blockstream.info',
         rateLimit: { requestsPerSecond: 5 },
-        benchmarkRateLimit: vi.fn().mockResolvedValue({
-          testResults: [{ rate: 1, success: true }],
-          maxSafeRate: 1,
-          recommended: { requestsPerSecond: 0.8 },
-        }),
-      };
+      });
 
       mockProviderManager.autoRegisterFromConfig.mockReturnValue([mockProvider]);
+      vi.mocked(benchmarkRateLimit).mockResolvedValue({
+        testResults: [{ rate: 1, success: true }],
+        maxSafeRate: 1,
+        recommended: { requestsPerSecond: 0.8 },
+      });
 
-      // Execute with custom rates
       const result = await handler.execute(
         {
           blockchain: 'bitcoin',
@@ -128,25 +158,27 @@ describe('BenchmarkRateLimitHandler', () => {
         MockProviderManagerConstructor as never
       );
 
-      // Verify custom rates were passed
       expect(result.isOk()).toBe(true);
-      expect(mockProvider.benchmarkRateLimit).toHaveBeenCalledWith(5, 10, true, [0.5, 1, 2], undefined);
+      expect(benchmarkRateLimit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customRates: [0.5, 1, 2],
+        })
+      );
     });
 
     it('should skip burst tests when skipBurst is true', async () => {
-      const mockProvider = {
+      const mockProvider = createMockBenchmarkableProvider({
         name: 'blockstream.info',
         rateLimit: { requestsPerSecond: 5 },
-        benchmarkRateLimit: vi.fn().mockResolvedValue({
-          testResults: [{ rate: 1, success: true }],
-          maxSafeRate: 1,
-          recommended: { requestsPerSecond: 0.8 },
-        }),
-      };
+      });
 
       mockProviderManager.autoRegisterFromConfig.mockReturnValue([mockProvider]);
+      vi.mocked(benchmarkRateLimit).mockResolvedValue({
+        testResults: [{ rate: 1, success: true }],
+        maxSafeRate: 1,
+        recommended: { requestsPerSecond: 0.8 },
+      });
 
-      // Execute with skipBurst
       const result = await handler.execute(
         {
           blockchain: 'bitcoin',
@@ -156,16 +188,17 @@ describe('BenchmarkRateLimitHandler', () => {
         MockProviderManagerConstructor as never
       );
 
-      // Verify burst testing was disabled (3rd param should be false)
       expect(result.isOk()).toBe(true);
-      expect(mockProvider.benchmarkRateLimit).toHaveBeenCalledWith(5, 10, false, undefined, undefined);
+      expect(benchmarkRateLimit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          testBurstLimits: false,
+        })
+      );
     });
 
     it('should return error when provider is not found for blockchain', async () => {
-      // Mock empty provider list
       mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
 
-      // Mock available providers for helpful error message
       vi.mocked(ProviderRegistry.getAllProviders).mockReturnValue([
         {
           blockchain: 'bitcoin',
@@ -173,83 +206,18 @@ describe('BenchmarkRateLimitHandler', () => {
           displayName: '',
           requiresApiKey: false,
           defaultConfig: {
-            rateLimit: {
-              requestsPerSecond: 0,
-            },
+            rateLimit: { requestsPerSecond: 0 },
             retries: 0,
             timeout: 0,
           },
-          capabilities: {
-            supportedOperations: [],
-          },
+          capabilities: { supportedOperations: [] },
         },
         {
           blockchain: 'bitcoin',
           name: 'mempool.space',
           displayName: '',
           requiresApiKey: false,
-          capabilities: {
-            supportedOperations: [],
-          },
-          defaultConfig: {
-            rateLimit: {
-              requestsPerSecond: 0,
-            },
-            retries: 0,
-            timeout: 0,
-          },
-        },
-        {
-          blockchain: 'ethereum',
-          name: 'etherscan',
-          displayName: '',
-          requiresApiKey: false,
-          capabilities: {
-            supportedOperations: [],
-          },
-          defaultConfig: {
-            rateLimit: {
-              requestsPerSecond: 0,
-            },
-            retries: 0,
-            timeout: 0,
-          },
-        },
-      ]);
-
-      // Execute
-      const result = await handler.execute(
-        {
-          blockchain: 'bitcoin',
-          provider: 'invalid-provider',
-        },
-        MockProviderManagerConstructor as never
-      );
-
-      // Verify error with helpful message
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain("Provider 'invalid-provider' not found");
-        expect(result.error.message).toContain('bitcoin');
-        expect(result.error.message).toContain('blockstream.info');
-        expect(result.error.message).toContain('mempool.space');
-      }
-    });
-
-    it('should return error when blockchain is not supported', async () => {
-      // Mock empty provider list
-      mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
-
-      // Mock available blockchains for helpful error message
-      vi.mocked(ProviderRegistry.getAllProviders).mockReturnValue([
-        {
-          blockchain: 'bitcoin',
-          name: 'blockstream.info',
-          displayName: '',
-          requiresApiKey: false,
-          capabilities: {
-            supportedOperations: [],
-          },
+          capabilities: { supportedOperations: [] },
           defaultConfig: {
             rateLimit: { requestsPerSecond: 0 },
             retries: 0,
@@ -261,9 +229,54 @@ describe('BenchmarkRateLimitHandler', () => {
           name: 'etherscan',
           displayName: '',
           requiresApiKey: false,
-          capabilities: {
-            supportedOperations: [],
+          capabilities: { supportedOperations: [] },
+          defaultConfig: {
+            rateLimit: { requestsPerSecond: 0 },
+            retries: 0,
+            timeout: 0,
           },
+        },
+      ]);
+
+      const result = await handler.execute(
+        {
+          blockchain: 'bitcoin',
+          provider: 'invalid-provider',
+        },
+        MockProviderManagerConstructor as never
+      );
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain("Provider 'invalid-provider' not found");
+        expect(result.error.message).toContain('bitcoin');
+        expect(result.error.message).toContain('blockstream.info');
+        expect(result.error.message).toContain('mempool.space');
+      }
+    });
+
+    it('should return error when blockchain is not supported', async () => {
+      mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
+
+      vi.mocked(ProviderRegistry.getAllProviders).mockReturnValue([
+        {
+          blockchain: 'bitcoin',
+          name: 'blockstream.info',
+          displayName: '',
+          requiresApiKey: false,
+          capabilities: { supportedOperations: [] },
+          defaultConfig: {
+            rateLimit: { requestsPerSecond: 0 },
+            retries: 0,
+            timeout: 0,
+          },
+        },
+        {
+          blockchain: 'ethereum',
+          name: 'etherscan',
+          displayName: '',
+          requiresApiKey: false,
+          capabilities: { supportedOperations: [] },
           defaultConfig: {
             rateLimit: { requestsPerSecond: 0 },
             retries: 0,
@@ -275,9 +288,7 @@ describe('BenchmarkRateLimitHandler', () => {
           name: 'helius',
           displayName: '',
           requiresApiKey: false,
-          capabilities: {
-            supportedOperations: [],
-          },
+          capabilities: { supportedOperations: [] },
           defaultConfig: {
             rateLimit: { requestsPerSecond: 0 },
             retries: 0,
@@ -286,7 +297,6 @@ describe('BenchmarkRateLimitHandler', () => {
         },
       ]);
 
-      // Execute
       const result = await handler.execute(
         {
           blockchain: 'invalid-blockchain',
@@ -295,7 +305,6 @@ describe('BenchmarkRateLimitHandler', () => {
         MockProviderManagerConstructor as never
       );
 
-      // Verify error with helpful message
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toContain("No providers registered for blockchain 'invalid-blockchain'");
@@ -384,15 +393,14 @@ describe('BenchmarkRateLimitHandler', () => {
     });
 
     it('should handle benchmark errors gracefully', async () => {
-      const mockProvider = {
+      const mockProvider = createMockBenchmarkableProvider({
         name: 'blockstream.info',
         rateLimit: { requestsPerSecond: 5 },
-        benchmarkRateLimit: vi.fn().mockRejectedValue(new Error('Network timeout during benchmark')),
-      };
+      });
 
       mockProviderManager.autoRegisterFromConfig.mockReturnValue([mockProvider]);
+      vi.mocked(benchmarkRateLimit).mockRejectedValue(new Error('Network timeout during benchmark'));
 
-      // Execute
       const result = await handler.execute(
         {
           blockchain: 'bitcoin',
@@ -401,7 +409,6 @@ describe('BenchmarkRateLimitHandler', () => {
         MockProviderManagerConstructor as never
       );
 
-      // Verify error is propagated
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toContain('Network timeout during benchmark');
@@ -409,19 +416,18 @@ describe('BenchmarkRateLimitHandler', () => {
     });
 
     it('should use default values for optional parameters', async () => {
-      const mockProvider = {
+      const mockProvider = createMockBenchmarkableProvider({
         name: 'blockstream.info',
         rateLimit: { requestsPerSecond: 5 },
-        benchmarkRateLimit: vi.fn().mockResolvedValue({
-          testResults: [{ rate: 1, success: true }],
-          maxSafeRate: 1,
-          recommended: { requestsPerSecond: 0.8 },
-        }),
-      };
+      });
 
       mockProviderManager.autoRegisterFromConfig.mockReturnValue([mockProvider]);
+      vi.mocked(benchmarkRateLimit).mockResolvedValue({
+        testResults: [{ rate: 1, success: true }],
+        maxSafeRate: 1,
+        recommended: { requestsPerSecond: 0.8 },
+      });
 
-      // Execute with minimal options
       const result = await handler.execute(
         {
           blockchain: 'bitcoin',
@@ -430,31 +436,52 @@ describe('BenchmarkRateLimitHandler', () => {
         MockProviderManagerConstructor as never
       );
 
-      // Verify defaults were used
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.params.maxRate).toBe(5); // default
-        expect(result.value.params.numRequests).toBe(10); // default
-        expect(result.value.params.skipBurst).toBe(false); // default
+        expect(result.value.params.maxRate).toBe(5);
+        expect(result.value.params.numRequests).toBe(10);
+        expect(result.value.params.skipBurst).toBe(false);
+      }
+    });
+
+    it('should return error when provider does not expose benchmark capability', async () => {
+      const plainProvider = {
+        name: 'plain-provider',
+        blockchain: 'bitcoin',
+        rateLimit: { requestsPerSecond: 5 },
+      };
+
+      mockProviderManager.autoRegisterFromConfig.mockReturnValue([plainProvider]);
+
+      const result = await handler.execute(
+        {
+          blockchain: 'bitcoin',
+          provider: 'plain-provider',
+        },
+        MockProviderManagerConstructor as never
+      );
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('does not support benchmarking');
       }
     });
   });
 
   describe('destroy', () => {
     it('should cleanup provider manager', async () => {
-      const mockProvider = {
+      const mockProvider = createMockBenchmarkableProvider({
         name: 'blockstream.info',
         rateLimit: { requestsPerSecond: 5 },
-        benchmarkRateLimit: vi.fn().mockResolvedValue({
-          testResults: [],
-          maxSafeRate: 1,
-          recommended: { requestsPerSecond: 0.8 },
-        }),
-      };
+      });
 
       mockProviderManager.autoRegisterFromConfig.mockReturnValue([mockProvider]);
+      vi.mocked(benchmarkRateLimit).mockResolvedValue({
+        testResults: [],
+        maxSafeRate: 1,
+        recommended: { requestsPerSecond: 0.8 },
+      });
 
-      // Execute to initialize provider manager
       await handler.execute(
         {
           blockchain: 'bitcoin',
@@ -463,10 +490,8 @@ describe('BenchmarkRateLimitHandler', () => {
         MockProviderManagerConstructor as never
       );
 
-      // Destroy
       await handler.destroy();
 
-      // Verify provider manager was destroyed
       expect(mockProviderManager.destroy).toHaveBeenCalled();
     });
 

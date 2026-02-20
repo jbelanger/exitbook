@@ -55,19 +55,6 @@ class MockProvider implements IBlockchainProvider {
     return okAsync(true);
   }
 
-  async benchmarkRateLimit(): Promise<{
-    burstLimits?: { limit: number; success: boolean }[];
-    maxSafeRate: number;
-    recommended: RateLimitConfig;
-    testResults: { rate: number; responseTimeMs?: number; success: boolean }[];
-  }> {
-    return Promise.resolve({
-      maxSafeRate: 1,
-      recommended: { requestsPerSecond: 1 },
-      testResults: [{ rate: 1, success: true }],
-    });
-  }
-
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
     operation: StreamingOperation,
     _cursor?: CursorState

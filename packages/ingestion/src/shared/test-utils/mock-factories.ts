@@ -90,11 +90,6 @@ export function createMockProviderManager(
     {
       name: 'mock-provider',
       blockchain,
-      benchmarkRateLimit: vi.fn().mockResolvedValue({
-        maxSafeRate: 1,
-        recommended: { maxRequestsPerSecond: 1 },
-        testResults: [],
-      }),
       capabilities: { supportedOperations: [] },
       execute: vi.fn(),
       isHealthy: vi.fn().mockResolvedValue(true),
