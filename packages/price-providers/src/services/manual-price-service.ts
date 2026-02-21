@@ -5,7 +5,7 @@
  * Handles all database initialization internally.
  */
 
-import { type Currency, parseDecimal, parseCurrency } from '@exitbook/core';
+import { type Currency } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -176,74 +176,4 @@ export class ManualPriceService {
       return err(new Error(`Failed to initialize manual price service: ${errorMessage}`));
     }
   }
-}
-
-/**
- * Helper function to save a manual price
- *
- * Convenience wrapper that creates a service instance, saves the price, and cleans up.
- *
- * @param assetSymbol - Asset symbol (e.g., 'BTC', 'ETH')
- * @param date - Date/time for the price
- * @param price - Price value as Decimal or string
- * @param currency - Currency code (default: 'USD')
- * @param source - Source attribution (default: 'manual')
- * @param databasePath - Path to the database file
- * @returns Result indicating success or failure
- */
-export async function saveManualPrice(
-  assetSymbol: string,
-  date: Date,
-  price: Decimal | string,
-  currency = 'USD',
-  source = 'manual',
-  databasePath: string
-): Promise<Result<void, Error>> {
-  const assetResult = parseCurrency(assetSymbol);
-  if (assetResult.isErr()) return err(assetResult.error);
-  const currencyResult = parseCurrency(currency);
-  if (currencyResult.isErr()) return err(currencyResult.error);
-  const service = new ManualPriceService(databasePath);
-  return service.savePrice({
-    assetSymbol: assetResult.value,
-    date,
-    price: typeof price === 'string' ? parseDecimal(price) : price,
-    currency: currencyResult.value,
-    source,
-  });
-}
-
-/**
- * Helper function to save a manual FX rate
- *
- * Convenience wrapper that creates a service instance, saves the rate, and cleans up.
- *
- * @param from - Source currency (e.g., 'EUR', 'CAD')
- * @param to - Target currency (e.g., 'USD')
- * @param date - Date/time for the rate
- * @param rate - FX rate value as Decimal or string
- * @param source - Source attribution (default: 'user-provided')
- * @param databasePath - Path to the database file
- * @returns Result indicating success or failure
- */
-export async function saveManualFxRate(
-  from: string,
-  to: string,
-  date: Date,
-  rate: Decimal | string,
-  source = 'user-provided',
-  databasePath: string
-): Promise<Result<void, Error>> {
-  const fromResult = parseCurrency(from);
-  if (fromResult.isErr()) return err(fromResult.error);
-  const toResult = parseCurrency(to);
-  if (toResult.isErr()) return err(toResult.error);
-  const service = new ManualPriceService(databasePath);
-  return service.saveFxRate({
-    from: fromResult.value,
-    to: toResult.value,
-    date,
-    rate: typeof rate === 'string' ? parseDecimal(rate) : rate,
-    source,
-  });
 }

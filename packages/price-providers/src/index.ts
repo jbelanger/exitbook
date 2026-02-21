@@ -29,5 +29,5 @@ export type { PriceProviderEvent } from './events.js';
 export { CoinNotFoundError, PriceDataUnavailableError } from './core/errors.js';
 
 // Manual price entry service
-export { ManualPriceService, saveManualPrice, saveManualFxRate } from './services/manual-price-service.js';
+export { ManualPriceService } from './services/manual-price-service.js';
 export type { ManualPriceEntry, ManualFxRateEntry } from './services/manual-price-service.js';

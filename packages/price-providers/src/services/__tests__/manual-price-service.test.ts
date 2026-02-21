@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../persistence/database.js';
 import { createPriceQueries, type PriceQueries } from '../../persistence/queries/price-queries.js';
-import { ManualPriceService, saveManualFxRate, saveManualPrice } from '../manual-price-service.js';
+import { ManualPriceService } from '../manual-price-service.js';
 
 describe('ManualPriceService', () => {
   let db: PricesDB;
@@ -310,87 +310,5 @@ describe('Helper functions', () => {
     } catch (_error) {
       // Ignore cleanup errors
     }
-  });
-
-  describe('saveManualPrice', () => {
-    it('should save price using string value', async () => {
-      const result = await saveManualPrice(
-        'BTC',
-        new Date('2024-01-15T10:30:00Z'),
-        '45000',
-        'USD',
-        'manual',
-        testDbPath
-      );
-
-      expect(result.isOk()).toBe(true);
-    });
-
-    it('should save price using Decimal value', async () => {
-      const result = await saveManualPrice(
-        'BTC',
-        new Date('2024-01-15T10:30:00Z'),
-        parseDecimal('45000'),
-        'USD',
-        'manual',
-        testDbPath
-      );
-
-      expect(result.isOk()).toBe(true);
-    });
-
-    it('should use custom currency and source', async () => {
-      const result = await saveManualPrice(
-        'BTC',
-        new Date('2024-01-15T10:30:00Z'),
-        '42000',
-        'EUR',
-        'manual-cli',
-        testDbPath
-      );
-
-      expect(result.isOk()).toBe(true);
-    });
-  });
-
-  describe('saveManualFxRate', () => {
-    it('should save FX rate using string value', async () => {
-      const result = await saveManualFxRate(
-        'EUR',
-        'USD',
-        new Date('2024-01-15T00:00:00Z'),
-        '1.08',
-        'user-provided',
-        testDbPath
-      );
-
-      expect(result.isOk()).toBe(true);
-    });
-
-    it('should save FX rate using Decimal value', async () => {
-      const result = await saveManualFxRate(
-        'EUR',
-        'USD',
-        new Date('2024-01-15T00:00:00Z'),
-        parseDecimal('1.08'),
-        'user-provided',
-        testDbPath
-      );
-
-      expect(result.isOk()).toBe(true);
-    });
-
-    it('should use custom source', async () => {
-      const result = await saveManualFxRate(
-        'CAD',
-        'USD',
-        new Date('2024-06-20T00:00:00Z'),
-        '0.73',
-        'bank-statement',
-        testDbPath
-      );
-
-      expect(result.isOk()).toBe(true);
-    });
   });
 });
