@@ -575,19 +575,7 @@ V2 Architecture Audit
 
      Leverage: Low
 
-     ---
-     7c. Observability: Provider Event Bus Provides Adequate Tracing
 
-     What exists:
-     The EventBus<ProviderEvent> emits structured events for all provider operations: request start, success, failure, rate limiting, backoff, circuit breaker open. The CLI
-     subscribes and renders these in real-time during import operations.
-
-     The logger package supports structured context objects with all log calls.
-
-     Why it's a problem:
-     Not a problem for a local CLI tool. OpenTelemetry would be overkill. The current event + log approach is proportional.
-
-     What V2 should do: Keep current approach. Add OpenTelemetry only if the project moves to a server deployment model.
 
      ---
      V2 Decision Summary

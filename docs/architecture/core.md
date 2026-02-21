@@ -51,50 +51,6 @@ V2 Architecture Audit — packages/core
      Leverage: High (correctness in a financial domain — the silent zero can corrupt calculations)
 
      ---
-     [3c] Finding: wrapError discards the context string when the input is already an Error
-
-     What exists:
-     /Users/joel/Dev/exitbook/packages/core/src/utils/type-guard-utils.ts:33-36:
-     export function wrapError<T = never>(error: unknown, context: string): Result<T, Error> {
-       const message = getErrorMessage(error);
-       return err(error instanceof Error ? error : new Error(`${context}: ${message}`));
-     }
-
-     When called with an existing Error instance, it returns that error unchanged — the context string is lost. This means:
-
-     wrapError(new Error('DB constraint violated'), 'Failed to save transaction')
-     // Returns: Error('DB constraint violated')  -- context is dropped
-
-     This is used 159 times across the codebase.
-
-     Why it's a problem:
-     The caller-supplied context is the whole point of wrapError. Dropping it for Error inputs means the error message hitting logs lacks the callsite's framing. When the error
-     originates deep in Kysely or a network library, the original message alone is insufficient to diagnose which operation failed. The test file (type-guard-utils.test.ts:103-111)
-     explicitly documents and asserts this "preserve original error" behavior, indicating it was intentional — but in practice it removes debugging context.
-
-     What V2 should do:
-     Use Error.cause (Node.js 16.9+, TypeScript 4.6+) to wrap:
-     return err(new Error(context, { cause: error instanceof Error ? error : new Error(String(error)) }));
-     This preserves both the context and the causal chain. Pino's logger will serialize cause in structured output. All 159 call-sites are already calling wrapError with a meaningful
-      context string — the fix is purely in the implementation.
-
-     Needs coverage:
-
-     ┌─────────────────────────────┬─────────────────────────┬──────────────────────────────────────┐
-     │     Current capability      │ Covered by Error.cause? │                Notes                 │
-     ├─────────────────────────────┼─────────────────────────┼──────────────────────────────────────┤
-     │ Returns Result<T, Error>    │ Yes                     │ Same return type                     │
-     ├─────────────────────────────┼─────────────────────────┼──────────────────────────────────────┤
-     │ Preserves original error    │ Yes                     │ As .cause                            │
-     ├─────────────────────────────┼─────────────────────────┼──────────────────────────────────────┤
-     │ Includes context in message │ Yes                     │ Context is now the top-level message │
-     ├─────────────────────────────┼─────────────────────────┼──────────────────────────────────────┤
-     │ Pino log serialization      │ Yes                     │ Pino serializes cause by default     │
-     └─────────────────────────────┴─────────────────────────┴──────────────────────────────────────┘
-
-     Surface: 1 function definition. 159 call-sites unaffected at the call level; logging output changes.
-
-     Leverage: High (observability — all errors lose diagnostic context today)
 
      ---
      [3d] Finding: Currency class throws in create() instead of returning a Result
@@ -144,51 +100,12 @@ V2 Architecture Audit — packages/core
 
      Leverage: Medium (correctness; aligns with project error pattern)
 
-     ---
-     4. Data Layer
-
-     Not applicable to packages/core. Core contains no database access, no ORM usage, and no migration code. It is a pure domain-types package.
 
      ---
      5. Toolchain & Infrastructure
-
-     [5a] Finding: Core has no build output — it ships raw TypeScript source
-
-     What exists:
-     package.json:
-     "main": "src/index.ts",
-     "types": "src/index.ts"
-     tsconfig.json:
-     "allowImportingTsExtensions": true,
-     "noEmit": true
-
-     Core is a pure TypeScript source package consumed by tsx at runtime. There is no compiled output. Import paths within core use .js extensions (NodeNext module resolution
-     convention), which is correct for the workspace setup.
-
-     Why this is not a problem (for now):
-     The workspace uses tsx --env-file-if-exists which handles .ts → runtime execution without a build step. The noEmit: true + source distribution approach works because all
-     consumers are in the same monorepo and also run under tsx. This is a conscious DX choice documented in the project structure.
-
-     What changes if the project grows:
-     If core is ever published or consumed outside this monorepo, the noEmit + source-ship pattern breaks immediately. V2 should keep this in mind but it is not a problem today.
-
-     No material issues found for the current scope.
-
-     ---
-     [5b] No CI/toolchain issues specific to core
-
-     The tsconfig.json extends the shared base with exactOptionalPropertyTypes, strict, noUncheckedIndexedAccess, and noPropertyAccessFromIndexSignature. These are all active and
-     appropriate.
-
      ---
      6. File & Code Organization
 
-     [6a] Finding: The schemas/ and types/ split creates a misleading two-layer directory structure
-
-     This is addressed in Finding 3a above. The structural recommendation is the same: collapse the pure re-export shims, making schemas/ the canonical home for both Zod schemas and
-     their inferred types.
-
-     ---
      [6b] Finding: schemas/import-session.ts is a conceptual catch-all for unrelated concerns
 
      What exists:

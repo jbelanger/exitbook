@@ -1,15 +1,14 @@
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
+
 /**
- * Currency value object
- *
- * Represents a currency code (fiat or crypto)
- * Ensures consistent normalization and provides type safety
- *
- * Examples: USD, EUR, BTC, ETH
+ * Branded string type for currency codes (e.g. 'USD', 'BTC', 'ETH')
+ * Normalized to uppercase; created via parseCurrency() or cast with `'USD' as Currency`
  */
+export type Currency = string & { readonly _brand: 'Currency' };
 
 /**
  * Common fiat currencies
- * Includes major currencies from around the world
  */
 const FIAT_CURRENCIES = new Set([
   // Major currencies
@@ -105,74 +104,23 @@ const STABLECOINS = new Set([
   'USDS', // USDS (Spark Protocol)
 ]);
 
-export class Currency {
-  /**
-   * Create a Currency from a raw string
-   * Normalizes to uppercase and trims whitespace
-   */
-  static create(code: string): Currency {
-    const normalized = code.toUpperCase().trim();
-
-    if (normalized.length === 0) {
-      throw new Error('Currency code cannot be empty');
-    }
-
-    return new Currency(normalized);
+/**
+ * Parse a raw string into a Currency, normalizing to uppercase.
+ * Returns Err for empty or whitespace-only strings.
+ */
+export function parseCurrency(code: string): Result<Currency, Error> {
+  const normalized = code.toUpperCase().trim();
+  if (normalized.length === 0) {
+    return err(new Error('Currency code cannot be empty'));
   }
-
-  private readonly code: string;
-
-  private constructor(code: string) {
-    this.code = code;
-  }
-
-  /**
-   * Get the normalized uppercase currency code
-   */
-  toString(): string {
-    return this.code;
-  }
-
-  /**
-   * Get lowercase version for APIs that require it (e.g., CoinGecko)
-   */
-  toLowerCase(): string {
-    return this.code.toLowerCase();
-  }
-
-  /**
-   * Check equality with another Currency
-   */
-  equals(other: Currency): boolean {
-    return this.code === other.code;
-  }
-
-  /**
-   * Check if this currency is a fiat currency
-   */
-  isFiat(): boolean {
-    return FIAT_CURRENCIES.has(this.code);
-  }
-
-  /**
-   * Check if this currency is a stablecoin
-   */
-  isStablecoin(): boolean {
-    return STABLECOINS.has(this.code);
-  }
-
-  /**
-   * Check if this currency is either fiat or a stablecoin
-   * Useful for determining if a price can be derived from trade data
-   */
-  isFiatOrStablecoin(): boolean {
-    return this.isFiat() || this.isStablecoin();
-  }
-
-  /**
-   * For JSON serialization
-   */
-  toJSON(): string {
-    return this.code;
-  }
+  return ok(normalized as Currency);
 }
+
+/** True if the currency is a known fiat currency */
+export const isFiat = (c: Currency): boolean => FIAT_CURRENCIES.has(c);
+
+/** True if the currency is a known USD-pegged stablecoin */
+export const isStablecoin = (c: Currency): boolean => STABLECOINS.has(c);
+
+/** True if the currency is fiat or a stablecoin */
+export const isFiatOrStablecoin = (c: Currency): boolean => isFiat(c) || isStablecoin(c);

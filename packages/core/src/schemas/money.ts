@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
-import { Currency } from '../currency.js';
+import type { Currency } from '../currency.js';
 import { parseDecimal, tryParseDecimal } from '../utils/decimal-utils.js';
 
 // Decimal schema - accepts string, number, or Decimal instance, transforms to Decimal
@@ -30,12 +30,18 @@ export const DecimalStringSchema = z
     return parseDecimal(val).toFixed();
   });
 
-// Currency schema - transforms string to Currency instance
-export const CurrencySchema = z
-  .string()
-  .min(1, 'Currency must not be empty')
-  .transform((val) => Currency.create(val))
-  .or(z.custom<Currency>((val) => val instanceof Currency, { message: 'Expected Currency instance' }));
+// Normalizes and validates a currency code string inside a Zod transform.
+// Throws on invalid input (Zod catches and converts to a ZodError).
+function normalizeCurrencyCode(code: string): Currency {
+  const normalized = code.toUpperCase().trim();
+  if (normalized.length === 0) {
+    throw new Error('Currency code cannot be empty');
+  }
+  return normalized as Currency;
+}
+
+// Currency schema - normalizes string to uppercase Currency branded type
+export const CurrencySchema = z.string().min(1, 'Currency must not be empty').transform(normalizeCurrencyCode);
 
 // Money schema for consistent amount and currency structure
 export const MoneySchema = z.object({
