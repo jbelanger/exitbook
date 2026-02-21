@@ -4,7 +4,7 @@
  * Stateless transformations and mappings for CoinGecko data
  */
 
-import { Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { PriceData } from '../../core/types.js';
@@ -25,7 +25,7 @@ export function buildSymbolToCoinIdMap(coinList: CoinGeckoCoinListItem[]): Map<s
   const map = new Map<string, string>();
 
   for (const coin of coinList) {
-    const symbol = Currency.create(coin.symbol).toString();
+    const symbol = coin.symbol.toUpperCase();
 
     // If symbol already exists, prefer coins with shorter/simpler IDs
     // (usually the more popular coin)
@@ -78,7 +78,7 @@ export function transformHistoricalResponse(
   const roundedTimestamp = roundTimestampByGranularity(timestamp, granularity);
 
   return ok({
-    assetSymbol: assetSymbol,
+    assetSymbol: assetSymbol.toUpperCase() as Currency,
     timestamp: roundedTimestamp,
     price: priceResult.value,
     currency: currency,
@@ -101,16 +101,17 @@ export function transformSimplePriceResponse(
   currency: Currency,
   fetchedAt: Date
 ): Result<PriceData, Error> {
+  const normalizedSymbol = assetSymbol.toUpperCase() as Currency;
   const coinData = response[coinId];
   if (!coinData) {
-    return err(new Error(`Coin ID ${coinId} for asset ${assetSymbol.toString()} not found in response`));
+    return err(new Error(`Coin ID ${coinId} for asset ${normalizedSymbol} not found in response`));
   }
 
   const rawPrice = coinData[currency.toLowerCase()];
 
   // Validate price using shared helper
   const context = `CoinGecko (coin: ${coinId})`;
-  const priceResult = validateRawPrice(rawPrice, assetSymbol, context);
+  const priceResult = validateRawPrice(rawPrice, normalizedSymbol, context);
   if (priceResult.isErr()) {
     return err(priceResult.error);
   }
@@ -119,7 +120,7 @@ export function transformSimplePriceResponse(
   const roundedTimestamp = roundTimestampByGranularity(timestamp, granularity);
 
   return ok({
-    assetSymbol,
+    assetSymbol: normalizedSymbol,
     timestamp: roundedTimestamp,
     price: priceResult.value,
     currency: currency,

@@ -4,7 +4,7 @@
  * Pure function tests - no mocks needed
  */
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { buildECBFlowRef, formatECBDate, transformECBResponse } from '../ecb-utils.js';
@@ -61,9 +61,9 @@ describe('buildECBFlowRef', () => {
 });
 
 describe('transformECBResponse', () => {
-  const asset = Currency.create('EUR');
+  const asset = 'EUR' as Currency;
   const timestamp = new Date('2024-01-15T00:00:00Z');
-  const currency = Currency.create('USD');
+  const currency = 'USD' as Currency;
   const fetchedAt = new Date('2024-01-15T12:00:00Z');
 
   it('transforms valid ECB response to PriceData', () => {

@@ -1,4 +1,4 @@
-import { Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../../persistence/database.js';
@@ -38,8 +38,8 @@ describe('Binance Provider E2E', () => {
 
   it('should fetch current Bitcoin price in USDT', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USDT'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USDT' as Currency,
       timestamp: new Date(), // Current time - uses minute data
     });
 
@@ -61,8 +61,8 @@ describe('Binance Provider E2E', () => {
     oneWeekAgo.setDate(oneWeekAgo.getUTCDate() - 7);
 
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USDT'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USDT' as Currency,
       timestamp: oneWeekAgo,
     });
 
@@ -80,8 +80,8 @@ describe('Binance Provider E2E', () => {
 
   it('should fetch Ethereum price in USD', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('ETH'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'ETH' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date(),
     });
 
@@ -100,8 +100,8 @@ describe('Binance Provider E2E', () => {
 
   it('should fetch BNB price in USDT', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('BNB'),
-      currency: Currency.create('USDT'),
+      assetSymbol: 'BNB' as Currency,
+      currency: 'USDT' as Currency,
       timestamp: new Date(),
     });
 
@@ -121,8 +121,8 @@ describe('Binance Provider E2E', () => {
 
     // First request - should fetch from API
     const firstResult = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USDT'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USDT' as Currency,
       timestamp,
     });
 
@@ -130,8 +130,8 @@ describe('Binance Provider E2E', () => {
 
     // Second request - should use cache
     const secondResult = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USDT'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USDT' as Currency,
       timestamp,
     });
 
@@ -145,8 +145,8 @@ describe('Binance Provider E2E', () => {
 
   it('should return CoinNotFoundError for invalid symbol', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('INVALIDCOIN123'),
-      currency: Currency.create('USDT'),
+      assetSymbol: 'INVALIDCOIN123' as Currency,
+      currency: 'USDT' as Currency,
       timestamp: new Date(),
     });
 
@@ -162,8 +162,8 @@ describe('Binance Provider E2E', () => {
     const oldDate = new Date('2020-01-01T00:00:00Z');
 
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USDT'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USDT' as Currency,
       timestamp: oldDate,
     });
 
@@ -179,8 +179,8 @@ describe('Binance Provider E2E', () => {
 
   it('should fetch price for altcoin with lower market cap', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('POL'), // POL (Polygon) - replaced MATIC which was rebranded
-      currency: Currency.create('USDT'),
+      assetSymbol: 'POL' as Currency, // POL (Polygon) - replaced MATIC which was rebranded
+      currency: 'USDT' as Currency,
       timestamp: new Date(),
     });
 

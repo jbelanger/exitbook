@@ -1,4 +1,11 @@
-import { Currency, parseDecimal, type AssetMovement, type UniversalTransactionData, wrapError } from '@exitbook/core';
+import {
+  isFiat,
+  parseDecimal,
+  wrapError,
+  type AssetMovement,
+  type Currency,
+  type UniversalTransactionData,
+} from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -186,7 +193,7 @@ export class LotMatcher {
         // Phase 1: Process outflows (disposals and transfer sources)
         const outflows = tx.movements.outflows || [];
         for (const outflow of outflows) {
-          if (Currency.create(outflow.assetSymbol).isFiat()) continue;
+          if (isFiat(outflow.assetSymbol as Currency)) continue;
           if (failedAssetIds.has(outflow.assetId)) continue;
 
           const assetState = this.getOrInitAssetState(outflow.assetId, outflow.assetSymbol, lotStateByAssetId);
@@ -254,7 +261,7 @@ export class LotMatcher {
         // Group inflows by assetId within this transaction
         const inflowsByAsset = new Map<string, AssetMovement[]>();
         for (const inflow of inflows) {
-          if (Currency.create(inflow.assetSymbol).isFiat()) continue;
+          if (isFiat(inflow.assetSymbol as Currency)) continue;
           const existing = inflowsByAsset.get(inflow.assetId) ?? [];
           existing.push(inflow);
           inflowsByAsset.set(inflow.assetId, existing);

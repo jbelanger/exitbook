@@ -2,7 +2,7 @@
  * Transactions view TUI components
  */
 
-import { Currency } from '@exitbook/core';
+import { isFiat, type Currency } from '@exitbook/core';
 import { Box, Text, useInput, useStdout } from 'ink';
 import Spinner from 'ink-spinner';
 import { useMemo, useReducer, type FC } from 'react';
@@ -337,7 +337,7 @@ const MovementLine: FC<{ amountColor: string; movement: MovementDisplayItem; sig
 }) => {
   const amount = `${sign}${movement.amount}`;
   const hasPrice = movement.priceAtTxTime !== undefined;
-  const isFiat = Currency.create(movement.assetSymbol).isFiat();
+  const isFiatValue = isFiat(movement.assetSymbol as Currency);
 
   return (
     <Text>
@@ -351,7 +351,7 @@ const MovementLine: FC<{ amountColor: string; movement: MovementDisplayItem; sig
           {'  '}
           <Text color="green">✓</Text> <Text dimColor>{movement.priceAtTxTime!.source}</Text>
         </>
-      ) : isFiat ? (
+      ) : isFiatValue ? (
         <>
           {'    '}
           <Text dimColor>—</Text>

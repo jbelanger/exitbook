@@ -1,4 +1,4 @@
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { createTestPriceData } from '../../__tests__/test-helpers.js';
@@ -50,10 +50,10 @@ describe('isSameDay', () => {
 
 describe('validatePriceData', () => {
   const validData: PriceData = createTestPriceData({
-    assetSymbol: Currency.create('BTC'),
+    assetSymbol: 'BTC' as Currency,
     timestamp: new Date('2024-01-15T00:00:00.000Z'),
     price: 43000,
-    currency: Currency.create('USD'),
+    currency: 'USD' as Currency,
     source: 'test',
     fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
   });
@@ -96,9 +96,9 @@ describe('validatePriceData', () => {
 describe('createCacheKey', () => {
   it('should create consistent cache keys', () => {
     const query: PriceQuery = {
-      assetSymbol: Currency.create('BTC'),
+      assetSymbol: 'BTC' as Currency,
       timestamp: new Date('2024-01-15T14:30:00.000Z'),
-      currency: Currency.create('USD'),
+      currency: 'USD' as Currency,
     };
 
     const key = createCacheKey(query);
@@ -107,9 +107,9 @@ describe('createCacheKey', () => {
 
   it('should normalize asset and currency', () => {
     const query: PriceQuery = {
-      assetSymbol: Currency.create('btc'),
+      assetSymbol: 'btc' as Currency,
       timestamp: new Date('2024-01-15T00:00:00.000Z'),
-      currency: Currency.create('usd'),
+      currency: 'usd' as Currency,
     };
 
     expect(createCacheKey(query)).toBe('BTC:USD:1705276800000');
@@ -117,9 +117,9 @@ describe('createCacheKey', () => {
 
   it('should default to USD if currency not specified', () => {
     const query: PriceQuery = {
-      assetSymbol: Currency.create('ETH'),
+      assetSymbol: 'ETH' as Currency,
       timestamp: new Date('2024-01-15T00:00:00.000Z'),
-      currency: Currency.create('USD'),
+      currency: 'USD' as Currency,
     };
 
     expect(createCacheKey(query)).toBe('ETH:USD:1705276800000');
@@ -130,26 +130,26 @@ describe('sortByTimestamp', () => {
   it('should sort prices by timestamp ascending', () => {
     const prices: PriceData[] = [
       createTestPriceData({
-        assetSymbol: Currency.create('BTC'),
+        assetSymbol: 'BTC' as Currency,
         timestamp: new Date('2024-01-17T00:00:00.000Z'),
         price: 45000,
-        currency: Currency.create('USD'),
+        currency: 'USD' as Currency,
         source: 'test',
         fetchedAt: new Date(),
       }),
       createTestPriceData({
-        assetSymbol: Currency.create('BTC'),
+        assetSymbol: 'BTC' as Currency,
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: 43000,
-        currency: Currency.create('USD'),
+        currency: 'USD' as Currency,
         source: 'test',
         fetchedAt: new Date(),
       }),
       createTestPriceData({
-        assetSymbol: Currency.create('BTC'),
+        assetSymbol: 'BTC' as Currency,
         timestamp: new Date('2024-01-16T00:00:00.000Z'),
         price: 44000,
-        currency: Currency.create('USD'),
+        currency: 'USD' as Currency,
         source: 'test',
         fetchedAt: new Date(),
       }),
@@ -166,10 +166,10 @@ describe('sortByTimestamp', () => {
   it('should not mutate original array', () => {
     const prices: PriceData[] = [
       createTestPriceData({
-        assetSymbol: Currency.create('BTC'),
+        assetSymbol: 'BTC' as Currency,
         timestamp: new Date('2024-01-17T00:00:00.000Z'),
         price: 45000,
-        currency: Currency.create('USD'),
+        currency: 'USD' as Currency,
         source: 'test',
         fetchedAt: new Date(),
       }),
@@ -188,18 +188,18 @@ describe('deduplicatePrices', () => {
 
     const prices: PriceData[] = [
       createTestPriceData({
-        assetSymbol: Currency.create('BTC'),
+        assetSymbol: 'BTC' as Currency,
         timestamp,
         price: 43000,
-        currency: Currency.create('USD'),
+        currency: 'USD' as Currency,
         source: 'provider1',
         fetchedAt: oldFetch,
       }),
       createTestPriceData({
-        assetSymbol: Currency.create('BTC'),
+        assetSymbol: 'BTC' as Currency,
         timestamp,
         price: 43100,
-        currency: Currency.create('USD'),
+        currency: 'USD' as Currency,
         source: 'provider2',
         fetchedAt: newFetch,
       }),

@@ -2,8 +2,8 @@
  * Price queries - manages cached price data
  */
 
-import { Currency, parseDecimal } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
+import type { Currency } from '@exitbook/core';
+import { parseDecimal, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
@@ -57,8 +57,8 @@ export function createPriceQueries(db: PricesDB) {
     const granularity = normalizeGranularity(record.granularity, record);
 
     return {
-      assetSymbol: Currency.create(record.asset_symbol),
-      currency: Currency.create(record.currency),
+      assetSymbol: record.asset_symbol as Currency,
+      currency: record.currency as Currency,
       timestamp: new Date(record.timestamp),
       price: parseDecimal(record.price),
       source: record.source_provider,
@@ -91,8 +91,8 @@ export function createPriceQueries(db: PricesDB) {
       const records = await db
         .selectFrom('prices')
         .selectAll()
-        .where('asset_symbol', '=', assetSymbol.toString())
-        .where('currency', '=', currency.toString())
+        .where('asset_symbol', '=', assetSymbol)
+        .where('currency', '=', currency)
         .where('timestamp', '>=', startOfDay.toISOString())
         .where('timestamp', '<=', endOfDay.toISOString())
         .execute();
@@ -148,8 +148,8 @@ export function createPriceQueries(db: PricesDB) {
       await db
         .insertInto('prices')
         .values({
-          asset_symbol: priceData.assetSymbol.toString(),
-          currency: priceData.currency.toString(),
+          asset_symbol: priceData.assetSymbol,
+          currency: priceData.currency,
           timestamp: timestampStr,
           price: priceData.price.toFixed(),
           source_provider: priceData.source,
@@ -186,7 +186,7 @@ export function createPriceQueries(db: PricesDB) {
         const batch = prices.slice(i, i + batchSize);
 
         for (const priceData of batch) {
-          const coinId = providerCoinIds?.get(priceData.assetSymbol.toString());
+          const coinId = providerCoinIds?.get(priceData.assetSymbol);
           const result = await savePrice(priceData, coinId);
 
           if (result.isErr()) {

@@ -1,5 +1,5 @@
 import type { UniversalTransactionData } from '@exitbook/core';
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { PriceValidationResult } from '../cost-basis-validation-utils.js';
@@ -36,7 +36,7 @@ describe('cost-basis-validation-utils', () => {
               grossAmount: parseDecimal('1.0'),
               netAmount: parseDecimal('1.0'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+                price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
                 source: 'test-provider',
                 fetchedAt: new Date('2024-01-15T10:00:00Z'),
               },
@@ -49,7 +49,7 @@ describe('cost-basis-validation-utils', () => {
               grossAmount: parseDecimal('50000'),
               netAmount: parseDecimal('50000'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('1'), currency: Currency.create('USD') },
+                price: { amount: parseDecimal('1'), currency: 'USD' as Currency },
                 source: 'test-provider',
                 fetchedAt: new Date('2024-01-15T10:00:00Z'),
               },
@@ -64,7 +64,7 @@ describe('cost-basis-validation-utils', () => {
             scope: 'platform',
             settlement: 'balance',
             priceAtTxTime: {
-              price: { amount: parseDecimal('1'), currency: Currency.create('USD') },
+              price: { amount: parseDecimal('1'), currency: 'USD' as Currency },
               source: 'test-provider',
               fetchedAt: new Date('2024-01-15T10:00:00Z'),
             },
@@ -158,7 +158,7 @@ describe('cost-basis-validation-utils', () => {
               grossAmount: parseDecimal('1.0'),
               netAmount: parseDecimal('1.0'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+                price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
                 source: 'test-provider',
                 fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 fxRateToUSD: parseDecimal('1.35'),
@@ -251,7 +251,7 @@ describe('cost-basis-validation-utils', () => {
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -292,7 +292,7 @@ describe('cost-basis-validation-utils', () => {
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('45000'), currency: Currency.create('EUR') },
+                  price: { amount: parseDecimal('45000'), currency: 'EUR' as Currency },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -335,7 +335,7 @@ describe('cost-basis-validation-utils', () => {
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -374,7 +374,7 @@ describe('cost-basis-validation-utils', () => {
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: Currency.create('usd') },
+                  price: { amount: parseDecimal('50000'), currency: 'usd' as Currency },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -415,7 +415,7 @@ describe('cost-basis-validation-utils', () => {
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                   fxRateToUSD: parseDecimal('1.35'),
@@ -461,7 +461,7 @@ describe('cost-basis-validation-utils', () => {
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                   fxRateToUSD: parseDecimal('1.35'),
@@ -503,7 +503,7 @@ describe('cost-basis-validation-utils', () => {
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                   // No fx fields at all - this is fine for native USD prices
@@ -643,7 +643,7 @@ describe('cost-basis-validation-utils', () => {
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -656,7 +656,7 @@ describe('cost-basis-validation-utils', () => {
                 grossAmount: parseDecimal('50000'),
                 netAmount: parseDecimal('50000'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('1'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('1'), currency: 'USD' as Currency },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -734,7 +734,7 @@ describe('cost-basis-validation-utils', () => {
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('45000'), currency: Currency.create('EUR') },
+                  price: { amount: parseDecimal('45000'), currency: 'EUR' as Currency },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -777,7 +777,7 @@ describe('cost-basis-validation-utils', () => {
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                   fxRateToUSD: parseDecimal('1.35'),
@@ -832,7 +832,7 @@ describe('cost-basis-validation-utils', () => {
                 grossAmount: parseDecimal('10.0'),
                 netAmount: parseDecimal('10.0'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('3000'), currency: Currency.create('EUR') },
+                  price: { amount: parseDecimal('3000'), currency: 'EUR' as Currency },
                   source: 'test-provider',
                   fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 },
@@ -847,7 +847,7 @@ describe('cost-basis-validation-utils', () => {
               scope: 'platform',
               settlement: 'balance',
               priceAtTxTime: {
-                price: { amount: parseDecimal('1'), currency: Currency.create('USD') },
+                price: { amount: parseDecimal('1'), currency: 'USD' as Currency },
                 source: 'test-provider',
                 fetchedAt: new Date('2024-01-15T10:00:00Z'),
                 fxRateToUSD: parseDecimal('1.35'),

@@ -1,4 +1,4 @@
-import { Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -123,7 +123,7 @@ describe('ProviderQueries', () => {
       ])
     );
 
-    const value = okValue(await queries.getCoinIdForSymbol(providerId, Currency.create('USDT')));
+    const value = okValue(await queries.getCoinIdForSymbol(providerId, 'USDT' as Currency));
     expect(value).toBe('tether');
   });
 

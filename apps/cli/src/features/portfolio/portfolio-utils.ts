@@ -3,7 +3,7 @@
  */
 
 import type { AcquisitionLot } from '@exitbook/accounting';
-import { Currency, type UniversalTransactionData } from '@exitbook/core';
+import { isFiat, parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { PriceProviderManager, PriceQuery } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
@@ -18,7 +18,7 @@ import type {
 } from './portfolio-types.js';
 
 const logger = getLogger('portfolio-utils');
-const USD_CURRENCY = Currency.create('USD');
+const USD_CURRENCY = 'USD' as Currency;
 
 interface AccountMetadata {
   accountType: AccountBreakdownItem['accountType'];
@@ -39,7 +39,7 @@ export async function fetchSpotPrices(
   const results = new Map<string, SpotPriceResult>();
 
   // Build queries (always fetch in USD first)
-  const usdCurrency = Currency.create('USD');
+  const usdCurrency = 'USD' as Currency;
   const queries: { assetId: string; query: PriceQuery }[] = [];
 
   for (const [assetId, assetSymbol] of assetSymbols.entries()) {
@@ -790,7 +790,7 @@ function toUsdAmount(assetSymbol: string, amount: Decimal, priceAmountUsd: Decim
   }
 
   const currency = tryCreateCurrency(assetSymbol);
-  if (currency && currency.equals(USD_CURRENCY)) {
+  if (currency && currency === USD_CURRENCY) {
     return amount;
   }
 
@@ -798,15 +798,12 @@ function toUsdAmount(assetSymbol: string, amount: Decimal, priceAmountUsd: Decim
 }
 
 function isFiatSymbol(assetSymbol: string): boolean {
-  return tryCreateCurrency(assetSymbol)?.isFiat() ?? false;
+  return isFiat(assetSymbol as Currency);
 }
 
 function tryCreateCurrency(assetSymbol: string): Currency | undefined {
-  try {
-    return Currency.create(assetSymbol);
-  } catch {
-    return undefined;
-  }
+  const result = parseCurrency(assetSymbol);
+  return result.isOk() ? result.value : undefined;
 }
 
 /**

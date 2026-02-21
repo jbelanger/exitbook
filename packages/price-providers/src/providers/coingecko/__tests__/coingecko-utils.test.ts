@@ -1,4 +1,4 @@
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -55,21 +55,15 @@ describe('transformHistoricalResponse', () => {
     const timestamp = new Date('2024-01-01T14:30:00Z');
     const fetchedAt = new Date('2024-01-01T15:05:00Z');
 
-    const result = transformHistoricalResponse(
-      response,
-      Currency.create('btc'),
-      timestamp,
-      Currency.create('USD'),
-      fetchedAt
-    );
+    const result = transformHistoricalResponse(response, 'btc' as Currency, timestamp, 'USD' as Currency, fetchedAt);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toEqual({
-        assetSymbol: Currency.create('BTC'),
+        assetSymbol: 'BTC' as Currency,
         timestamp: new Date('2024-01-01T00:00:00Z'), // Rounded to day
         price: parseDecimal('30123.45'),
-        currency: Currency.create('USD'),
+        currency: 'USD' as Currency,
         source: 'coingecko',
         fetchedAt,
         granularity: 'day',
@@ -89,13 +83,7 @@ describe('transformHistoricalResponse', () => {
       },
     };
 
-    const result = transformHistoricalResponse(
-      response,
-      Currency.create('btc'),
-      new Date(),
-      Currency.create('USD'),
-      new Date()
-    );
+    const result = transformHistoricalResponse(response, 'btc' as Currency, new Date(), 'USD' as Currency, new Date());
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -118,13 +106,7 @@ describe('transformHistoricalResponse', () => {
 
     const timestamp = new Date('2024-01-01T00:00:00Z');
 
-    const result = transformHistoricalResponse(
-      response,
-      Currency.create('DEL'),
-      timestamp,
-      Currency.create('USD'),
-      new Date()
-    );
+    const result = transformHistoricalResponse(response, 'DEL' as Currency, timestamp, 'USD' as Currency, new Date());
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -146,13 +128,7 @@ describe('transformHistoricalResponse', () => {
       },
     };
 
-    const result = transformHistoricalResponse(
-      response,
-      Currency.create('BTC'),
-      new Date(),
-      Currency.create('USD'),
-      new Date()
-    );
+    const result = transformHistoricalResponse(response, 'BTC' as Currency, new Date(), 'USD' as Currency, new Date());
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -177,19 +153,19 @@ describe('transformSimplePriceResponse', () => {
     const result = transformSimplePriceResponse(
       response,
       'bitcoin',
-      Currency.create('btc'),
+      'btc' as Currency,
       timestamp,
-      Currency.create('USD'),
+      'USD' as Currency,
       fetchedAt
     );
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toEqual({
-        assetSymbol: Currency.create('BTC'),
+        assetSymbol: 'BTC' as Currency,
         timestamp,
         price: parseDecimal('30123.45'),
-        currency: Currency.create('USD'),
+        currency: 'USD' as Currency,
         source: 'coingecko',
         fetchedAt,
         granularity: undefined,
@@ -201,9 +177,9 @@ describe('transformSimplePriceResponse', () => {
     const result = transformSimplePriceResponse(
       {},
       'bitcoin',
-      Currency.create('btc'),
+      'btc' as Currency,
       new Date(),
-      Currency.create('USD'),
+      'USD' as Currency,
       new Date()
     );
 
@@ -223,9 +199,9 @@ describe('transformSimplePriceResponse', () => {
     const result = transformSimplePriceResponse(
       response,
       'bitcoin',
-      Currency.create('btc'),
+      'btc' as Currency,
       new Date(),
-      Currency.create('USD'),
+      'USD' as Currency,
       new Date()
     );
 
@@ -246,9 +222,9 @@ describe('transformSimplePriceResponse', () => {
     const result = transformSimplePriceResponse(
       response,
       'delisted-coin',
-      Currency.create('DEL'),
+      'DEL' as Currency,
       new Date(),
-      Currency.create('USD'),
+      'USD' as Currency,
       new Date()
     );
 
@@ -270,9 +246,9 @@ describe('transformSimplePriceResponse', () => {
     const result = transformSimplePriceResponse(
       response,
       'bitcoin',
-      Currency.create('BTC'),
+      'BTC' as Currency,
       new Date(),
-      Currency.create('USD'),
+      'USD' as Currency,
       new Date()
     );
 
@@ -313,7 +289,7 @@ describe('canUseSimplePrice', () => {
 
 describe('buildBatchSimplePriceParams', () => {
   it('constructs the expected query parameter object', () => {
-    const params = buildBatchSimplePriceParams(['bitcoin', 'ethereum'], Currency.create('USD'));
+    const params = buildBatchSimplePriceParams(['bitcoin', 'ethereum'], 'USD' as Currency);
 
     expect(params).toEqual({
       ids: 'bitcoin,ethereum',

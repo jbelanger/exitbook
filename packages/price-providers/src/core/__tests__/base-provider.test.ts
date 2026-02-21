@@ -1,4 +1,4 @@
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -81,8 +81,8 @@ describe('BasePriceProvider', () => {
 
       const futureDate = new Date(Date.now() + 86400000); // Tomorrow
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         timestamp: futureDate,
       });
 
@@ -99,8 +99,8 @@ describe('BasePriceProvider', () => {
 
       const oldDate = new Date('2008-01-01T00:00:00.000Z');
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         timestamp: oldDate,
       });
 
@@ -114,8 +114,8 @@ describe('BasePriceProvider', () => {
     it('should normalize currency to USD when not specified', async () => {
       const fetchImpl = vi.fn().mockResolvedValue(
         ok({
-          assetSymbol: Currency.create('BTC'),
-          currency: Currency.create('USD'),
+          assetSymbol: 'BTC' as Currency,
+          currency: 'USD' as Currency,
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
           price: parseDecimal('43000'),
           source: 'test-provider',
@@ -126,15 +126,15 @@ describe('BasePriceProvider', () => {
 
       // Query without currency - should be normalized to USD
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('BTC'),
+        assetSymbol: 'BTC' as Currency,
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        currency: Currency.create('USD'), // Base provider normalizes to USD internally
+        currency: 'USD' as Currency, // Base provider normalizes to USD internally
       });
 
       expect(result.isOk()).toBe(true);
       expect(fetchImpl).toHaveBeenCalledWith(
         expect.objectContaining({
-          currency: Currency.create('USD'),
+          currency: 'USD' as Currency,
         })
       );
     });
@@ -142,8 +142,8 @@ describe('BasePriceProvider', () => {
     it('should validate price data from implementation', async () => {
       const fetchImpl = vi.fn().mockResolvedValue(
         ok({
-          assetSymbol: Currency.create('BTC'),
-          currency: Currency.create('USD'),
+          assetSymbol: 'BTC' as Currency,
+          currency: 'USD' as Currency,
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
           price: parseDecimal('-100'), // Invalid negative price
           source: 'test-provider',
@@ -153,8 +153,8 @@ describe('BasePriceProvider', () => {
       const provider = new TestPriceProvider(priceRepo, fetchImpl);
 
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
       });
 
@@ -166,8 +166,8 @@ describe('BasePriceProvider', () => {
 
     it('should accept valid price data', async () => {
       const validPriceData: PriceData = {
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: parseDecimal('43000'),
         source: 'test-provider',
@@ -178,8 +178,8 @@ describe('BasePriceProvider', () => {
       const provider = new TestPriceProvider(priceRepo, fetchImpl);
 
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
       });
 
@@ -195,8 +195,8 @@ describe('BasePriceProvider', () => {
       const provider = new TestPriceProvider(priceRepo, fetchImpl);
 
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
       });
 
@@ -235,8 +235,8 @@ describe('BasePriceProvider', () => {
   describe('checkCache', () => {
     it('should return cached price when available', async () => {
       const cachedPrice: PriceData = {
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: parseDecimal('43000'),
         source: 'test-provider',
@@ -250,11 +250,11 @@ describe('BasePriceProvider', () => {
 
       const result = await provider.testCheckCache(
         {
-          assetSymbol: Currency.create('BTC'),
-          currency: Currency.create('USD'),
+          assetSymbol: 'BTC' as Currency,
+          currency: 'USD' as Currency,
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
         },
-        Currency.create('USD')
+        'USD' as Currency
       );
 
       expect(result.isOk()).toBe(true);
@@ -272,11 +272,11 @@ describe('BasePriceProvider', () => {
 
       const result = await provider.testCheckCache(
         {
-          assetSymbol: Currency.create('BTC'),
-          currency: Currency.create('USD'),
+          assetSymbol: 'BTC' as Currency,
+          currency: 'USD' as Currency,
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
         },
-        Currency.create('USD')
+        'USD' as Currency
       );
 
       expect(result.isOk()).toBe(true);
@@ -293,11 +293,11 @@ describe('BasePriceProvider', () => {
 
       const result = await provider.testCheckCache(
         {
-          assetSymbol: Currency.create('BTC'),
-          currency: Currency.create('USD'),
+          assetSymbol: 'BTC' as Currency,
+          currency: 'USD' as Currency,
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
         },
-        Currency.create('USD')
+        'USD' as Currency
       );
 
       expect(result.isErr()).toBe(true);
@@ -315,8 +315,8 @@ describe('BasePriceProvider', () => {
       const provider = new TestPriceProvider(priceRepo, fetchImpl);
 
       const priceData: PriceData = {
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: parseDecimal('43000'),
         source: 'test-provider',
@@ -335,8 +335,8 @@ describe('BasePriceProvider', () => {
       const provider = new TestPriceProvider(priceRepo, fetchImpl);
 
       const priceData: PriceData = {
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: parseDecimal('43000'),
         source: 'test-provider',

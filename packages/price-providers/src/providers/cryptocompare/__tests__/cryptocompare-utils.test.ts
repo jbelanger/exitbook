@@ -4,7 +4,7 @@
  * Pure function tests - no mocks needed
  */
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -22,9 +22,9 @@ import type { CryptoCompareHistoricalResponse, CryptoCompareOHLCV } from '../sch
 describe('transformPriceResponse', () => {
   it('transforms price response to PriceData', () => {
     const response = { USD: 30000, EUR: 27000 };
-    const asset = Currency.create('BTC');
+    const asset = 'BTC' as Currency;
     const timestamp = new Date('2024-01-01T00:00:00Z');
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
     const result = transformPriceResponse(response, asset, timestamp, currency, fetchedAt);
@@ -45,9 +45,9 @@ describe('transformPriceResponse', () => {
 
   it('returns error when currency not found in response', () => {
     const response = { EUR: 27000 };
-    const asset = Currency.create('BTC');
+    const asset = 'BTC' as Currency;
     const timestamp = new Date('2024-01-01T00:00:00Z');
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
     const result = transformPriceResponse(response, asset, timestamp, currency, fetchedAt);
@@ -60,9 +60,9 @@ describe('transformPriceResponse', () => {
 
   it('returns error when price is zero', () => {
     const response = { USD: 0 };
-    const asset = Currency.create('CFG');
+    const asset = 'CFG' as Currency;
     const timestamp = new Date('2024-01-01T00:00:00Z');
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
     const result = transformPriceResponse(response, asset, timestamp, currency, fetchedAt);
@@ -75,9 +75,9 @@ describe('transformPriceResponse', () => {
 
   it('returns error when price is negative', () => {
     const response = { USD: -100 };
-    const asset = Currency.create('BTC');
+    const asset = 'BTC' as Currency;
     const timestamp = new Date('2024-01-01T00:00:00Z');
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
     const result = transformPriceResponse(response, asset, timestamp, currency, fetchedAt);
@@ -201,9 +201,9 @@ describe('transformHistoricalResponse', () => {
       },
     };
 
-    const asset = Currency.create('BTC');
+    const asset = 'BTC' as Currency;
     const timestamp = new Date(2000 * 1000); // Unix timestamp 2000 (1970-01-01T00:33:20Z)
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
     const result = transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt, 'minute');
@@ -236,9 +236,9 @@ describe('transformHistoricalResponse', () => {
       },
     };
 
-    const asset = Currency.create('BTC');
+    const asset = 'BTC' as Currency;
     const timestamp = new Date(2000 * 1000);
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
     const result = transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt, 'minute');
@@ -263,9 +263,9 @@ describe('transformHistoricalResponse', () => {
       },
     };
 
-    const asset = Currency.create('BTC');
+    const asset = 'BTC' as Currency;
     const timestamp = new Date(2000 * 1000);
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
     const result = transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt, 'day');
@@ -285,9 +285,9 @@ describe('transformHistoricalResponse', () => {
       Data: undefined,
     };
 
-    const asset = Currency.create('CFG');
+    const asset = 'CFG' as Currency;
     const timestamp = new Date(2000 * 1000);
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
     const result = transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt, 'hour');
@@ -324,9 +324,9 @@ describe('transformHistoricalResponse', () => {
       },
     };
 
-    const asset = Currency.create('BTC');
+    const asset = 'BTC' as Currency;
     const timestamp = new Date(2000 * 1000);
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
     const result = transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt, 'hour');
@@ -363,9 +363,9 @@ describe('transformHistoricalResponse', () => {
       },
     };
 
-    const asset = Currency.create('BTC');
+    const asset = 'BTC' as Currency;
     const timestamp = new Date(2000 * 1000);
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
     const result = transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt, 'day');
@@ -439,8 +439,8 @@ describe('getHistoricalGranularity', () => {
 
 describe('buildPriceParams', () => {
   it('builds params without API key', () => {
-    const asset = Currency.create('BTC');
-    const currency = Currency.create('USD');
+    const asset = 'BTC' as Currency;
+    const currency = 'USD' as Currency;
 
     const params = buildPriceParams(asset, currency);
 
@@ -451,8 +451,8 @@ describe('buildPriceParams', () => {
   });
 
   it('builds params with API key', () => {
-    const asset = Currency.create('BTC');
-    const currency = Currency.create('USD');
+    const asset = 'BTC' as Currency;
+    const currency = 'USD' as Currency;
     const apiKey = 'test-api-key';
 
     const params = buildPriceParams(asset, currency, apiKey);
@@ -467,8 +467,8 @@ describe('buildPriceParams', () => {
 
 describe('buildPriceMultiParams', () => {
   it('builds params for multiple assets without API key', () => {
-    const assets = [Currency.create('BTC'), Currency.create('ETH'), Currency.create('SOL')];
-    const currency = Currency.create('USD');
+    const assets = ['BTC' as Currency, 'ETH' as Currency, 'SOL' as Currency];
+    const currency = 'USD' as Currency;
 
     const params = buildPriceMultiParams(assets, currency);
 
@@ -479,8 +479,8 @@ describe('buildPriceMultiParams', () => {
   });
 
   it('builds params for multiple assets with API key', () => {
-    const assets = [Currency.create('BTC'), Currency.create('ETH')];
-    const currency = Currency.create('USD');
+    const assets = ['BTC' as Currency, 'ETH' as Currency];
+    const currency = 'USD' as Currency;
     const apiKey = 'test-api-key';
 
     const params = buildPriceMultiParams(assets, currency, apiKey);
@@ -493,8 +493,8 @@ describe('buildPriceMultiParams', () => {
   });
 
   it('builds params for single asset', () => {
-    const assets = [Currency.create('BTC')];
-    const currency = Currency.create('EUR');
+    const assets = ['BTC' as Currency];
+    const currency = 'EUR' as Currency;
 
     const params = buildPriceMultiParams(assets, currency);
 
@@ -507,8 +507,8 @@ describe('buildPriceMultiParams', () => {
 
 describe('buildHistoricalParams', () => {
   it('builds params without API key', () => {
-    const asset = Currency.create('BTC');
-    const currency = Currency.create('USD');
+    const asset = 'BTC' as Currency;
+    const currency = 'USD' as Currency;
     const timestamp = new Date('2024-01-01T00:00:00Z');
 
     const params = buildHistoricalParams(asset, currency, timestamp);
@@ -522,8 +522,8 @@ describe('buildHistoricalParams', () => {
   });
 
   it('builds params with API key', () => {
-    const asset = Currency.create('ETH');
-    const currency = Currency.create('EUR');
+    const asset = 'ETH' as Currency;
+    const currency = 'EUR' as Currency;
     const timestamp = new Date('2023-06-15T12:30:00Z');
     const apiKey = 'test-api-key';
 
@@ -539,8 +539,8 @@ describe('buildHistoricalParams', () => {
   });
 
   it('correctly converts timestamp to Unix seconds', () => {
-    const asset = Currency.create('BTC');
-    const currency = Currency.create('USD');
+    const asset = 'BTC' as Currency;
+    const currency = 'USD' as Currency;
     const timestamp = new Date(1234567890000); // 2009-02-13T23:31:30.000Z
 
     const params = buildHistoricalParams(asset, currency, timestamp);

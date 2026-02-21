@@ -1,7 +1,7 @@
 // Utilities and types for view transactions command
 
 import type { AssetMovement, FeeMovement, UniversalTransactionData } from '@exitbook/core';
-import { computePrimaryMovement, Currency } from '@exitbook/core';
+import { computePrimaryMovement, isFiat, type Currency } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { parseDate } from '../shared/view-utils.js';
@@ -98,7 +98,7 @@ export function applyTransactionFilters(
  * Check if an asset is fiat (no pricing needed).
  */
 function isFiatAsset(assetSymbol: string): boolean {
-  return Currency.create(assetSymbol).isFiat();
+  return isFiat(assetSymbol as Currency);
 }
 
 /**

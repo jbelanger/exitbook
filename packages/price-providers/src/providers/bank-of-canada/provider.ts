@@ -5,8 +5,7 @@
  * API Documentation: https://www.bankofcanada.ca/valet/docs
  */
 
-import type { Currency } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
+import { isFiat, type Currency, wrapError } from '@exitbook/core';
 import type { HttpClient, InstrumentationCollector } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -120,13 +119,13 @@ export class BankOfCanadaProvider extends BasePriceProvider {
       const { assetSymbol: asset, currency, timestamp } = query;
 
       // Validate: asset must be CAD
-      if (!asset.isFiat() || asset.toString() !== 'CAD') {
-        return err(new Error(`Bank of Canada only supports CAD currency, got ${asset.toString()}`));
+      if (!isFiat(asset) || asset !== 'CAD') {
+        return err(new Error(`Bank of Canada only supports CAD currency, got ${asset}`));
       }
 
       // Validate: currency must be USD
-      if (currency.toString() !== 'USD') {
-        return err(new Error(`Bank of Canada only supports USD as target currency, got ${currency.toString()}`));
+      if (currency !== 'USD') {
+        return err(new Error(`Bank of Canada only supports USD as target currency, got ${currency}`));
       }
 
       // 1. Check cache using shared helper
@@ -180,8 +179,8 @@ export class BankOfCanadaProvider extends BasePriceProvider {
       const isOriginalDate = attempt === 0;
       this.logger.debug(
         {
-          assetSymbol: assetSymbol.toString(),
-          currency: currency.toString(),
+          assetSymbol,
+          currency,
           requestedDate: formatBoCDate(timestamp),
           attemptDate: dateStr,
           attempt: attempt + 1,
@@ -246,7 +245,7 @@ export class BankOfCanadaProvider extends BasePriceProvider {
     // Exhausted all attempts
     return err(
       new Error(
-        `No FX rate found for ${assetSymbol.toString()} within ${maxAttempts} days of ${formatBoCDate(timestamp)}. ` +
+        `No FX rate found for ${assetSymbol} within ${maxAttempts} days of ${formatBoCDate(timestamp)}. ` +
           `Last error: ${lastError?.message || 'unknown'}`
       )
     );

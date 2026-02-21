@@ -166,7 +166,7 @@ export class BinanceProvider extends BasePriceProvider {
       }
 
       // 3. Cache the result using shared helper (use asset symbol as identifier)
-      await this.saveToCache(priceData.value, query.assetSymbol.toString());
+      await this.saveToCache(priceData.value, query.assetSymbol);
 
       return ok(priceData.value);
     } catch (error) {
@@ -188,7 +188,7 @@ export class BinanceProvider extends BasePriceProvider {
 
     // Determine interval and granularity based on timestamp age
     const { interval, granularity } = selectBinanceInterval(timestamp);
-    this.logger.debug({ assetSymbol: assetSymbol.toString(), interval, granularity }, 'Selected Binance interval');
+    this.logger.debug({ assetSymbol, interval, granularity }, 'Selected Binance interval');
 
     // Get possible quote assets for the target currency
     const quoteAssets = mapCurrencyToBinanceQuote(currency);
@@ -222,15 +222,15 @@ export class BinanceProvider extends BasePriceProvider {
     if (lastError) {
       return err(
         new CoinNotFoundError(
-          `Binance does not have data for ${assetSymbol.toString()} (tried: ${attemptedSymbols.join(', ')})`,
-          assetSymbol.toString(),
+          `Binance does not have data for ${assetSymbol} (tried: ${attemptedSymbols.join(', ')})`,
+          assetSymbol,
           'binance',
-          { currency: currency.toString() }
+          { currency }
         )
       );
     }
 
-    return err(new Error(`Failed to fetch price for ${assetSymbol.toString()}`));
+    return err(new Error(`Failed to fetch price for ${assetSymbol}`));
   }
 
   /**
@@ -267,10 +267,10 @@ export class BinanceProvider extends BasePriceProvider {
             if (isBinanceCoinNotFoundError(errorCode)) {
               return err(
                 new CoinNotFoundError(
-                  `Binance does not have data for ${assetSymbol.toString()} with symbol ${symbol}: ${errorMsg}`,
-                  assetSymbol.toString(),
+                  `Binance does not have data for ${assetSymbol} with symbol ${symbol}: ${errorMsg}`,
+                  assetSymbol,
                   'binance',
-                  { currency: currency.toString() }
+                  { currency }
                 )
               );
             }
@@ -296,10 +296,10 @@ export class BinanceProvider extends BasePriceProvider {
       if (isBinanceCoinNotFoundError(errorCode)) {
         return err(
           new CoinNotFoundError(
-            `Binance does not have data for ${assetSymbol.toString()} with symbol ${symbol}: ${errorMsg}`,
-            assetSymbol.toString(),
+            `Binance does not have data for ${assetSymbol} with symbol ${symbol}: ${errorMsg}`,
+            assetSymbol,
             'binance',
-            { currency: currency.toString() }
+            { currency }
           )
         );
       }
@@ -319,10 +319,10 @@ export class BinanceProvider extends BasePriceProvider {
     if (klines.length === 0) {
       return err(
         new CoinNotFoundError(
-          `Binance returned no data for ${assetSymbol.toString()} with symbol ${symbol}`,
-          assetSymbol.toString(),
+          `Binance returned no data for ${assetSymbol} with symbol ${symbol}`,
+          assetSymbol,
           'binance',
-          { currency: currency.toString() }
+          { currency }
         )
       );
     }

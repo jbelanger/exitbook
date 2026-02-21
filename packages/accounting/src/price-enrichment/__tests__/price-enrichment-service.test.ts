@@ -1,5 +1,5 @@
 import type { SourceType, UniversalTransactionData } from '@exitbook/core';
-import { Currency, parseDecimal, type AssetMovement } from '@exitbook/core';
+import { type Currency, parseDecimal, type AssetMovement } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { ok, err } from 'neverthrow';
@@ -289,7 +289,7 @@ describe('PriceEnrichmentService', () => {
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             priceAtTxTime: {
-              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
               source: 'derived-history',
               fetchedAt: new Date(baseTime.getTime()),
               granularity: 'exact',

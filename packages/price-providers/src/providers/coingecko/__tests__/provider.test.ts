@@ -28,7 +28,7 @@ vi.mock('../coingecko-utils.js', async () => {
   };
 });
 
-import { Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/core';
 
 import { createTestPriceData } from '../../../__tests__/test-helpers.js';
 import type { PriceData } from '../../../core/types.js';
@@ -96,8 +96,8 @@ describe('CoinGeckoProvider', () => {
 
   it('returns cached price without hitting the API', async () => {
     const cachedPrice: PriceData = createTestPriceData({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       price: 30123.45,
       timestamp: defaultTimestamp,
       source: 'coingecko',
@@ -107,8 +107,8 @@ describe('CoinGeckoProvider', () => {
     priceRepoMocks.getPrice.mockResolvedValueOnce(ok(cachedPrice));
 
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('btc'),
-      currency: Currency.create('usd'),
+      assetSymbol: 'btc' as Currency,
+      currency: 'usd' as Currency,
       timestamp: defaultTimestamp,
     });
 
@@ -130,8 +130,8 @@ describe('CoinGeckoProvider', () => {
     };
 
     const expectedPrice: PriceData = createTestPriceData({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       price: 30200,
       timestamp: defaultTimestamp,
       source: 'coingecko',
@@ -142,8 +142,8 @@ describe('CoinGeckoProvider', () => {
     mockTransformSimplePriceResponse.mockReturnValueOnce(ok(expectedPrice));
 
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('btc'),
-      currency: Currency.create('usd'),
+      assetSymbol: 'btc' as Currency,
+      currency: 'usd' as Currency,
       timestamp: defaultTimestamp,
     });
 
@@ -160,9 +160,9 @@ describe('CoinGeckoProvider', () => {
     expect(mockTransformSimplePriceResponse).toHaveBeenCalledWith(
       apiResponse,
       'bitcoin',
-      Currency.create('BTC'),
+      'BTC' as Currency,
       defaultTimestamp,
-      Currency.create('USD'),
+      'USD' as Currency,
       expect.any(Date)
     );
     expect(priceRepoMocks.savePrice).toHaveBeenCalledWith(expectedPrice, 'bitcoin');
@@ -184,8 +184,8 @@ describe('CoinGeckoProvider', () => {
     };
 
     const expectedPrice: PriceData = createTestPriceData({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       price: 9000,
       timestamp: historicalTimestamp,
       source: 'coingecko',
@@ -196,8 +196,8 @@ describe('CoinGeckoProvider', () => {
     mockTransformHistoricalResponse.mockReturnValueOnce(ok(expectedPrice));
 
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('btc'),
-      currency: Currency.create('usd'),
+      assetSymbol: 'btc' as Currency,
+      currency: 'usd' as Currency,
       timestamp: historicalTimestamp,
     });
 
@@ -213,9 +213,9 @@ describe('CoinGeckoProvider', () => {
     });
     expect(mockTransformHistoricalResponse).toHaveBeenCalledWith(
       apiResponse,
-      Currency.create('BTC'),
+      'BTC' as Currency,
       historicalTimestamp,
-      Currency.create('USD'),
+      'USD' as Currency,
       expect.any(Date)
     );
     expect(priceRepoMocks.savePrice).toHaveBeenCalledWith(expectedPrice, 'bitcoin');
@@ -227,8 +227,8 @@ describe('CoinGeckoProvider', () => {
     mockCanUseSimplePrice.mockReturnValue(true);
 
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('unknown'),
-      currency: Currency.create('usd'),
+      assetSymbol: 'unknown' as Currency,
+      currency: 'usd' as Currency,
       timestamp: defaultTimestamp,
     });
 

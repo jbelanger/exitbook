@@ -3,7 +3,7 @@
  *
  */
 
-import { Currency } from '@exitbook/core';
+import { isFiat, isStablecoin, type Currency } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { CircuitBreakerRegistry } from '@exitbook/resilience/circuit-breaker';
 import type { Result } from 'neverthrow';
@@ -101,7 +101,7 @@ export class PriceProviderManager {
 
     // Convert stablecoin-denominated prices to USD
     // Skip if we're pricing a stablecoin itself (avoid recursion)
-    if (result.value.data.currency.isStablecoin() && !query.assetSymbol.isStablecoin()) {
+    if (isStablecoin(result.value.data.currency) && !isStablecoin(query.assetSymbol)) {
       return await this.convertStablecoinPriceToUSD(result.value, query.timestamp);
     }
 
@@ -178,8 +178,8 @@ export class PriceProviderManager {
 
     // Extract timestamp and asset info from query for provider selection
     const timestamp = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.timestamp;
-    const assetSymbol = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.assetSymbol.toString();
-    const isFiat = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.assetSymbol.isFiat();
+    const assetSymbol = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.assetSymbol;
+    const isFiatValue = Array.isArray(queryOrQueries) ? undefined : isFiat(queryOrQueries.assetSymbol);
 
     // Select providers
     const scoredProviders = ProviderManagerUtils.selectProvidersForOperation(
@@ -190,7 +190,7 @@ export class PriceProviderManager {
       now,
       timestamp,
       assetSymbol,
-      isFiat
+      isFiatValue
     );
 
     if (scoredProviders.length === 0) {
@@ -255,7 +255,7 @@ export class PriceProviderManager {
         logger.debug(
           {
             provider: metadata.name,
-            assetSymbol: assetSymbol,
+            assetSymbol,
             responseTime,
             attemptNumber,
             totalProviders: scoredProviders.length,
@@ -294,8 +294,7 @@ export class PriceProviderManager {
         logger.info(
           {
             provider: metadata.name,
-            assetSymbol: assetSymbol,
-            attemptNumber,
+            assetSymbol,
             totalProviders: scoredProviders.length,
             errorType: lastError.name,
           },
@@ -305,7 +304,7 @@ export class PriceProviderManager {
         // If this was the last provider, log a summary
         if (isLastProvider) {
           logger.warn(
-            { assetSymbol: assetSymbol, totalProviders: scoredProviders.length },
+            { assetSymbol, totalProviders: scoredProviders.length },
             `All ${scoredProviders.length} provider(s) failed for ${assetSymbol || 'asset'}`
           );
         }
@@ -395,8 +394,8 @@ export class PriceProviderManager {
 
     logger.debug(
       {
-        assetSymbol: priceData.assetSymbol.toString(),
-        stablecoin: stablecoin.toString(),
+        assetSymbol: priceData.assetSymbol,
+        stablecoin,
         originalPrice: priceData.price.toFixed(),
         originalProvider: providerName,
       },
@@ -408,7 +407,7 @@ export class PriceProviderManager {
     // Safe because we check !query.asset.isStablecoin() before calling this method
     const stablecoinPriceResult = await this.fetchPrice({
       assetSymbol: stablecoin,
-      currency: Currency.create('USD'),
+      currency: 'USD' as Currency,
       timestamp,
     });
 
@@ -422,7 +421,7 @@ export class PriceProviderManager {
 
       logger.debug(
         {
-          stablecoin: stablecoin.toString(),
+          stablecoin,
           stablecoinRate: stablecoinPriceResult.value.data.price.toFixed(),
           stablecoinProvider: stablecoinPriceResult.value.providerName,
           convertedPrice: conversionRate.toFixed(),
@@ -433,8 +432,8 @@ export class PriceProviderManager {
       // Failed to fetch stablecoin rate - assume 1:1 parity
       logger.warn(
         {
-          stablecoin: stablecoin.toString(),
-          assetSymbol: priceData.assetSymbol.toString(),
+          stablecoin,
+          assetSymbol: priceData.assetSymbol,
           error: stablecoinPriceResult.error.message,
         },
         'Failed to fetch stablecoin rate, assuming 1:1 parity with USD'
@@ -447,7 +446,7 @@ export class PriceProviderManager {
       data: {
         ...priceData,
         price: conversionRate,
-        currency: Currency.create('USD'),
+        currency: 'USD' as Currency,
         source: conversionSource,
       },
       providerName,

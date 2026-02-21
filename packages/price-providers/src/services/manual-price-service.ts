@@ -5,7 +5,7 @@
  * Handles all database initialization internally.
  */
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -74,8 +74,8 @@ export class ManualPriceService {
       }
 
       // Parse currencies
-      const asset = Currency.create(entry.assetSymbol);
-      const currency = Currency.create(entry.currency || 'USD');
+      const asset = entry.assetSymbol as Currency;
+      const currency = (entry.currency || 'USD') as Currency;
 
       // Save to cache
       const saveResult = await this.queries!.savePrice({
@@ -125,11 +125,11 @@ export class ManualPriceService {
       }
 
       // Parse currencies
-      const fromCurrency = Currency.create(entry.from);
-      const toCurrency = Currency.create(entry.to);
+      const fromCurrency = entry.from as Currency;
+      const toCurrency = entry.to as Currency;
 
       // Validate currencies are different
-      if (fromCurrency.toString() === toCurrency.toString()) {
+      if (fromCurrency === toCurrency) {
         return err(new Error('Source and target currencies must be different'));
       }
 

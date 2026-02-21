@@ -6,7 +6,7 @@
  */
 
 import type { Currency } from '@exitbook/core';
-import { Currency as CurrencyClass, parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { PriceProviderManager } from '@exitbook/price-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -25,7 +25,7 @@ export class StandardFxRateProvider implements IFxRateProvider {
     // so EUR typically hits ECB first, CAD hits Bank of Canada, with Frankfurter as fallback.
     const fxRateResult = await this.priceManager.fetchPrice({
       assetSymbol: sourceCurrency,
-      currency: CurrencyClass.create('USD'),
+      currency: 'USD' as Currency,
       timestamp,
     });
 
@@ -49,7 +49,7 @@ export class StandardFxRateProvider implements IFxRateProvider {
     // Example: CAD → USD = 0.74, so USD → CAD = 1/0.74 = 1.35
     const fxRateResult = await this.priceManager.fetchPrice({
       assetSymbol: targetCurrency,
-      currency: CurrencyClass.create('USD'),
+      currency: 'USD' as Currency,
       timestamp,
     });
 

@@ -243,9 +243,9 @@ export interface PriceProviderManagerFactoryConfig {
  *
  * // Use the manager
  * const result = await manager.fetchPrice({
- *   asset: Currency.create('BTC'),
+ *   asset: 'BTC' as Currency,
  *   timestamp: new Date(),
- *   currency: Currency.create('USD')
+ *   currency: 'USD' as Currency
  * });
  * ```
  */

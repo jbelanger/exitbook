@@ -5,7 +5,7 @@ import type {
   PriceAtTxTime,
   UniversalTransactionData,
 } from '@exitbook/core';
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 
 import type { AcquisitionLot } from '../src/domain/types.js';
 
@@ -24,7 +24,7 @@ export function createPriceAtTxTime(
   return {
     price: {
       amount: parseDecimal(amount),
-      currency: Currency.create(currency),
+      currency: currency as Currency,
     },
     source: options?.source ?? 'manual',
     fetchedAt: options?.fetchedAt ?? new Date('2024-01-01'),

@@ -1,5 +1,5 @@
-import type { AssetMovement, PriceAtTxTime } from '@exitbook/core';
-import { Currency, parseDecimal } from '@exitbook/core';
+import type { AssetMovement, Currency, PriceAtTxTime } from '@exitbook/core';
+import { isFiat, parseDecimal } from '@exitbook/core';
 
 /**
  * Detected trade pattern with both sides of the trade
@@ -65,13 +65,13 @@ export function calculatePriceFromTrade(
 ): { assetSymbol: string; priceAtTxTime: PriceAtTxTime }[] {
   const { inflow, outflow, timestamp } = movements;
 
-  const inflowCurrency = Currency.create(inflow.assetSymbol);
-  const outflowCurrency = Currency.create(outflow.assetSymbol);
+  const inflowCurrency = inflow.assetSymbol as Currency;
+  const outflowCurrency = outflow.assetSymbol as Currency;
 
-  const inflowIsUSD = inflowCurrency.toString() === 'USD';
-  const outflowIsUSD = outflowCurrency.toString() === 'USD';
-  const inflowIsFiat = inflowCurrency.isFiat();
-  const outflowIsFiat = outflowCurrency.isFiat();
+  const inflowIsUSD = inflowCurrency === 'USD';
+  const outflowIsUSD = outflowCurrency === 'USD';
+  const inflowIsFiat = isFiat(inflowCurrency);
+  const outflowIsFiat = isFiat(outflowCurrency);
 
   const results: { assetSymbol: string; priceAtTxTime: PriceAtTxTime }[] = [];
 
@@ -228,14 +228,14 @@ export function stampFiatIdentityPrices(
       continue;
     }
 
-    const currency = Currency.create(movement.assetSymbol);
+    const currency = movement.assetSymbol as Currency;
 
     // Only stamp prices on fiat currencies
-    if (!currency.isFiat()) {
+    if (!isFiat(currency)) {
       continue;
     }
 
-    const isUSD = currency.toString() === 'USD';
+    const isUSD = currency === 'USD';
 
     results.push({
       assetSymbol: movement.assetSymbol,

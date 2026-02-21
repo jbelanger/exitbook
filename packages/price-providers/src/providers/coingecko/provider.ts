@@ -2,7 +2,7 @@
  * CoinGecko price provider implementation
  */
 
-import { Currency, wrapError } from '@exitbook/core';
+import { type Currency, wrapError } from '@exitbook/core';
 import type { HttpClient, InstrumentationCollector } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -222,14 +222,14 @@ export class CoinGeckoProvider extends BasePriceProvider {
       if (!coinId) {
         return err(
           new CoinNotFoundError(
-            `No CoinGecko coin ID found for symbol: ${query.assetSymbol.toString()}. ` +
+            `No CoinGecko coin ID found for symbol: ${query.assetSymbol}. ` +
               `The asset may not be in the top 5000 coins by market cap, or the coin list may need to be synced.`,
-            query.assetSymbol.toString(),
+            query.assetSymbol,
             'coingecko',
             {
               suggestion: 'Try deleting ./data/prices.db to force a fresh sync, or provide the price manually.',
               timestamp: query.timestamp,
-              currency: query.currency.toString(),
+              currency: query.currency,
             }
           )
         );
@@ -326,7 +326,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
     const symbolMap = new Map<string, { coinId: string; marketCapRank: number; name: string }>();
 
     for (const coin of allMarketCoins) {
-      const symbol = Currency.create(coin.symbol).toString();
+      const symbol = coin.symbol.toUpperCase() as Currency;
       const marketCapRank = coin.market_cap_rank || 999999;
 
       // If symbol exists, keep the one with better (lower) market cap rank
@@ -423,9 +423,9 @@ export class CoinGeckoProvider extends BasePriceProvider {
                 return err(
                   new CoinNotFoundError(
                     `CoinGecko does not have data for coin ID: ${coinId}`,
-                    assetSymbol.toString(),
+                    assetSymbol,
                     'coingecko',
-                    { currency: currency.toString() }
+                    { currency }
                   )
                 );
               }
@@ -467,7 +467,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
       timestamp.getUTCHours() !== 0 || timestamp.getUTCMinutes() !== 0 || timestamp.getUTCSeconds() !== 0;
     if (isIntradayRequest) {
       this.logger.debug(
-        { assetSymbol: assetSymbol.toString(), timestamp },
+        { assetSymbol, timestamp },
         'CoinGecko historical API only provides daily prices - intraday granularity not available'
       );
     }
@@ -505,11 +505,11 @@ export class CoinGeckoProvider extends BasePriceProvider {
               return err(
                 new PriceDataUnavailableError(
                   `CoinGecko free tier limitation: ${errorMsg}`,
-                  assetSymbol.toString(),
+                  assetSymbol,
                   'coingecko',
                   'tier-limitation',
                   {
-                    currency: currency.toString(),
+                    currency,
                     timestamp,
                     suggestion: 'Upgrade to paid plan or use another provider for historical data > 365 days',
                   }
@@ -520,12 +520,9 @@ export class CoinGeckoProvider extends BasePriceProvider {
             // Check for coin not found errors
             if (errorString.includes('not found') || statusObj?.error_code === 404) {
               return err(
-                new CoinNotFoundError(
-                  `CoinGecko does not have data for coin ID: ${coinId}`,
-                  assetSymbol.toString(),
-                  'coingecko',
-                  { currency: currency.toString() }
-                )
+                new CoinNotFoundError(`CoinGecko does not have data for coin ID: ${coinId}`, assetSymbol, 'coingecko', {
+                  currency,
+                })
               );
             }
           }

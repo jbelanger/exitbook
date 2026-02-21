@@ -6,7 +6,7 @@
  * Uses mocked dependencies for repositories and FX provider
  */
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import type { FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
@@ -75,7 +75,7 @@ describe('PriceNormalizationService', () => {
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
+                price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
                 source: 'exchange-execution',
                 fetchedAt: new Date('2023-01-15T10:00:00Z'),
                 granularity: 'exact',
@@ -111,10 +111,7 @@ describe('PriceNormalizationService', () => {
       }
 
       // Verify FX provider was called correctly
-      expect(mockFxProvider.getRateToUSD).toHaveBeenCalledWith(
-        Currency.create('EUR'),
-        new Date('2023-01-15T10:00:00Z')
-      );
+      expect(mockFxProvider.getRateToUSD).toHaveBeenCalledWith('EUR' as Currency, new Date('2023-01-15T10:00:00Z'));
 
       // Verify transaction was updated
       expect(mockTransactionRepo.updateMovementsWithPrices).toHaveBeenCalledTimes(1);
@@ -138,7 +135,7 @@ describe('PriceNormalizationService', () => {
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+                price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
                 source: 'exchange-execution',
                 fetchedAt: new Date('2023-01-15T10:00:00Z'),
                 granularity: 'exact',
@@ -189,7 +186,7 @@ describe('PriceNormalizationService', () => {
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('15'), currency: Currency.create('ETH') },
+                price: { amount: parseDecimal('15'), currency: 'ETH' as Currency },
                 source: 'exchange-execution',
                 fetchedAt: new Date('2023-01-15T10:00:00Z'),
                 granularity: 'exact',
@@ -237,7 +234,7 @@ describe('PriceNormalizationService', () => {
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
+                price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
                 source: 'exchange-execution',
                 fetchedAt: new Date('2023-01-15T10:00:00Z'),
                 granularity: 'exact',
@@ -288,7 +285,7 @@ describe('PriceNormalizationService', () => {
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
+                price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
                 source: 'exchange-execution',
                 fetchedAt: new Date('2023-01-15T10:00:00Z'),
                 granularity: 'exact',
@@ -299,7 +296,7 @@ describe('PriceNormalizationService', () => {
               assetSymbol: 'ETH',
               grossAmount: parseDecimal('10.0'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('2500'), currency: Currency.create('CAD') },
+                price: { amount: parseDecimal('2500'), currency: 'CAD' as Currency },
                 source: 'exchange-execution',
                 fetchedAt: new Date('2023-01-15T10:00:00Z'),
                 granularity: 'exact',
@@ -342,14 +339,8 @@ describe('PriceNormalizationService', () => {
 
       // Verify FX provider called for both currencies
       expect(mockFxProvider.getRateToUSD).toHaveBeenCalledTimes(2);
-      expect(mockFxProvider.getRateToUSD).toHaveBeenCalledWith(
-        Currency.create('EUR'),
-        new Date('2023-01-15T10:00:00Z')
-      );
-      expect(mockFxProvider.getRateToUSD).toHaveBeenCalledWith(
-        Currency.create('CAD'),
-        new Date('2023-01-15T10:00:00Z')
-      );
+      expect(mockFxProvider.getRateToUSD).toHaveBeenCalledWith('EUR' as Currency, new Date('2023-01-15T10:00:00Z'));
+      expect(mockFxProvider.getRateToUSD).toHaveBeenCalledWith('CAD' as Currency, new Date('2023-01-15T10:00:00Z'));
     });
 
     it('should normalize platform fees with non-USD fiat prices', async () => {
@@ -369,7 +360,7 @@ describe('PriceNormalizationService', () => {
         },
         fees: [
           createFeeMovement('platform', 'balance', 'EUR', '100', {
-            price: { amount: parseDecimal('100'), currency: Currency.create('EUR') },
+            price: { amount: parseDecimal('100'), currency: 'EUR' as Currency },
             source: 'exchange-execution',
             fetchedAt: new Date('2023-01-15T10:00:00Z'),
             granularity: 'exact',
@@ -416,7 +407,7 @@ describe('PriceNormalizationService', () => {
         },
         fees: [
           createFeeMovement('platform', 'balance', 'GBP', '50', {
-            price: { amount: parseDecimal('50'), currency: Currency.create('GBP') },
+            price: { amount: parseDecimal('50'), currency: 'GBP' as Currency },
             source: 'exchange-execution',
             fetchedAt: new Date('2023-01-15T10:00:00Z'),
             granularity: 'exact',
@@ -521,7 +512,7 @@ describe('PriceNormalizationService', () => {
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
+                price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
                 source: 'exchange-execution',
                 fetchedAt: new Date('2023-01-15T10:00:00Z'),
                 granularity: 'exact',
@@ -577,7 +568,7 @@ describe('PriceNormalizationService', () => {
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
+                price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
                 source: 'exchange-execution',
                 fetchedAt: new Date('2023-01-15T10:00:00Z'),
                 granularity: 'exact',
@@ -606,7 +597,7 @@ describe('PriceNormalizationService', () => {
               assetSymbol: 'ETH',
               grossAmount: parseDecimal('10.0'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+                price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
                 source: 'exchange-execution',
                 fetchedAt: new Date('2023-01-16T10:00:00Z'),
                 granularity: 'exact',

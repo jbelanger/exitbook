@@ -3,7 +3,7 @@
  *
  */
 
-import { Currency } from '@exitbook/core';
+import { isFiat, type Currency } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
@@ -40,15 +40,16 @@ export abstract class BasePriceProvider implements IPriceProvider {
 
     // Validate time range (pure function - pass now explicitly)
     // Pass isFiat flag to allow historical dates for fiat currencies
-    const timeError = validateQueryTimeRange(query.timestamp, now, query.assetSymbol.isFiat());
+    const timeError = validateQueryTimeRange(query.timestamp, now, isFiat(query.assetSymbol));
     if (timeError) {
       return err(new Error(timeError));
     }
 
-    // Normalize currency to USD if not specified (addresses recommendation #6)
+    // Normalize assetSymbol and currency to uppercase; default currency to USD
     const normalizedQuery: PriceQuery = {
       ...query,
-      currency: query.currency || Currency.create('USD'),
+      assetSymbol: query.assetSymbol.toUpperCase() as Currency,
+      currency: (query.currency ?? ('USD' as Currency)).toUpperCase() as Currency,
     };
 
     // Delegate to implementation
@@ -92,7 +93,7 @@ export abstract class BasePriceProvider implements IPriceProvider {
 
     if (cachedResult.value) {
       this.logger.debug(
-        { assetSymbol: query.assetSymbol.toString(), currency: currency.toString(), timestamp: query.timestamp },
+        { assetSymbol: query.assetSymbol, currency, timestamp: query.timestamp },
         'Price found in cache'
       );
       return ok(cachedResult.value);
@@ -110,7 +111,7 @@ export abstract class BasePriceProvider implements IPriceProvider {
     const validationError = validatePriceData(priceData, new Date());
     if (validationError) {
       this.logger.warn(
-        { error: validationError, assetSymbol: priceData.assetSymbol.toString(), price: priceData.price.toFixed() },
+        { error: validationError, assetSymbol: priceData.assetSymbol, price: priceData.price.toFixed() },
         'Refusing to cache invalid price data'
       );
       return;

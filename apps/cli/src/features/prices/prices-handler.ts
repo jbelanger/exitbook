@@ -3,7 +3,7 @@
 
 import { enrichMovementsWithPrices } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
-import { Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector } from '@exitbook/http';

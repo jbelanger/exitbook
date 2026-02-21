@@ -5,7 +5,8 @@
  * Uses historical FX rates at transaction time (not current rates) for accuracy.
  */
 
-import { Currency, parseDecimal, wrapError } from '@exitbook/core';
+import type { Currency } from '@exitbook/core';
+import { parseDecimal, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -239,7 +240,7 @@ export class CostBasisReportGenerator {
       // Fetch FX rate for this date
       this.logger.debug({ date: dateKey, displayCurrency }, 'Fetching FX rate');
 
-      const fxRateResult = await this.fxProvider.getRateFromUSD(Currency.create(displayCurrency), date);
+      const fxRateResult = await this.fxProvider.getRateFromUSD(displayCurrency as Currency, date);
 
       if (fxRateResult.isErr()) {
         return err(

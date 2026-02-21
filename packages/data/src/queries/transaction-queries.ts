@@ -1,11 +1,11 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
 import {
   AssetMovementSchema,
-  Currency,
   FeeMovementSchema,
   TransactionNoteSchema,
   parseDecimal,
   type AssetMovement,
+  type Currency,
   type FeeMovement,
   type TransactionStatus,
   type UniversalTransactionData,
@@ -122,7 +122,7 @@ function assetMovementToRow(
     fee_scope: null,
     fee_settlement: null,
     price_amount: movement.priceAtTxTime?.price.amount.toFixed() ?? null,
-    price_currency: movement.priceAtTxTime?.price.currency.toString() ?? null,
+    price_currency: movement.priceAtTxTime?.price.currency ?? null,
     price_source: movement.priceAtTxTime?.source ?? null,
     price_fetched_at: movement.priceAtTxTime?.fetchedAt
       ? new Date(movement.priceAtTxTime.fetchedAt).toISOString()
@@ -155,7 +155,7 @@ function feeMovementToRow(
     fee_scope: fee.scope,
     fee_settlement: fee.settlement,
     price_amount: fee.priceAtTxTime?.price.amount.toFixed() ?? null,
-    price_currency: fee.priceAtTxTime?.price.currency.toString() ?? null,
+    price_currency: fee.priceAtTxTime?.price.currency ?? null,
     price_source: fee.priceAtTxTime?.source ?? null,
     price_fetched_at: fee.priceAtTxTime?.fetchedAt ? new Date(fee.priceAtTxTime.fetchedAt).toISOString() : null,
     price_granularity: fee.priceAtTxTime?.granularity ?? null,
@@ -187,7 +187,7 @@ function rowToAssetMovement(row: MovementRow): Result<AssetMovement, Error> {
     movement.priceAtTxTime = {
       price: {
         amount: parseDecimal(row.price_amount),
-        currency: Currency.create(row.price_currency),
+        currency: row.price_currency as Currency,
       },
       source: row.price_source,
       fetchedAt: new Date(row.price_fetched_at),
@@ -227,7 +227,7 @@ function rowToFeeMovement(row: MovementRow): Result<FeeMovement, Error> {
     fee.priceAtTxTime = {
       price: {
         amount: parseDecimal(row.price_amount),
-        currency: Currency.create(row.price_currency),
+        currency: row.price_currency as Currency,
       },
       source: row.price_source,
       fetchedAt: new Date(row.price_fetched_at),

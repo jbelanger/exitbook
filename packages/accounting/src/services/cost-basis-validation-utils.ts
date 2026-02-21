@@ -1,5 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
-import { Currency } from '@exitbook/core';
+import { isFiat, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -73,14 +72,14 @@ export function collectPricedEntities(transactions: UniversalTransactionData[]):
         transactionId: txId,
         datetime,
         assetSymbol: movement.assetSymbol,
-        currency: priceData?.price?.currency?.toString(),
+        currency: priceData?.price?.currency,
         kind: 'inflow',
         hasPrice,
         hasFxMetadata,
         fxMetadata:
           priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
             ? {
-                rate: priceData.fxRateToUSD?.toString() ?? '',
+                rate: priceData.fxRateToUSD?.toFixed() ?? '',
                 source: priceData.fxSource ?? '',
                 timestamp: priceData.fxTimestamp?.toISOString() ?? '',
               }
@@ -100,14 +99,14 @@ export function collectPricedEntities(transactions: UniversalTransactionData[]):
         transactionId: txId,
         datetime,
         assetSymbol: movement.assetSymbol,
-        currency: priceData?.price?.currency?.toString(),
+        currency: priceData?.price?.currency,
         kind: 'outflow',
         hasPrice,
         hasFxMetadata,
         fxMetadata:
           priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
             ? {
-                rate: priceData.fxRateToUSD?.toString() ?? '',
+                rate: priceData.fxRateToUSD?.toFixed() ?? '',
                 source: priceData.fxSource ?? '',
                 timestamp: priceData.fxTimestamp?.toISOString() ?? '',
               }
@@ -127,14 +126,14 @@ export function collectPricedEntities(transactions: UniversalTransactionData[]):
         transactionId: txId,
         datetime,
         assetSymbol: fee.assetSymbol,
-        currency: priceData?.price?.currency?.toString(),
+        currency: priceData?.price?.currency,
         kind: 'fee',
         hasPrice,
         hasFxMetadata,
         fxMetadata:
           priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
             ? {
-                rate: priceData.fxRateToUSD?.toString() ?? '',
+                rate: priceData.fxRateToUSD?.toFixed() ?? '',
                 source: priceData.fxSource ?? '',
                 timestamp: priceData.fxTimestamp?.toISOString() ?? '',
               }
@@ -163,8 +162,8 @@ export function validatePriceCompleteness(entities: PricedEntity[]): PriceValida
 
       // Skip fiat currencies - they don't need prices for cost basis calculation
       try {
-        const currency = Currency.create(e.assetSymbol);
-        if (currency.isFiat()) {
+        const currency = e.assetSymbol as Currency;
+        if (isFiat(currency)) {
           return false;
         }
       } catch (error) {

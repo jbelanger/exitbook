@@ -65,7 +65,7 @@ export function transformECBResponse(
   // Get observations (time series data)
   const observations = series.observations;
   if (!observations || Object.keys(observations).length === 0) {
-    return err(new Error(`No exchange rate data found for ${assetSymbol.toString()} on ${formatECBDate(timestamp)}`));
+    return err(new Error(`No exchange rate data found for ${assetSymbol} on ${formatECBDate(timestamp)}`));
   }
 
   // ECB typically returns one observation for a specific date

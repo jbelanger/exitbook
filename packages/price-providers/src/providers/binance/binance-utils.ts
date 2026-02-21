@@ -46,7 +46,7 @@ export function mapCurrencyToBinanceQuote(currency: Currency): string[] {
  * No separator between base and quote
  */
 export function buildBinanceSymbol(assetSymbol: Currency, quoteAsset: string): string {
-  return `${assetSymbol.toString()}${quoteAsset}`;
+  return `${assetSymbol.toUpperCase()}${quoteAsset}`;
 }
 
 /**

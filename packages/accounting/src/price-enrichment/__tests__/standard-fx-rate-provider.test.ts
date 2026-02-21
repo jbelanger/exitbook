@@ -6,7 +6,7 @@
  * and handles rate inversion for getRateFromUSD
  */
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import type { PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
@@ -36,9 +36,9 @@ describe('StandardFxRateProvider', () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
-            assetSymbol: Currency.create('EUR'),
+            assetSymbol: 'EUR' as Currency,
             timestamp,
-            currency: Currency.create('USD'),
+            currency: 'USD' as Currency,
             price: mockRate,
             source: 'ecb',
             fetchedAt: mockFetchedAt,
@@ -48,7 +48,7 @@ describe('StandardFxRateProvider', () => {
         })
       );
 
-      const result = await provider.getRateToUSD(Currency.create('EUR'), new Date('2023-01-15T10:00:00Z'));
+      const result = await provider.getRateToUSD('EUR' as Currency, new Date('2023-01-15T10:00:00Z'));
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -58,8 +58,8 @@ describe('StandardFxRateProvider', () => {
       }
 
       expect(mockPriceManager.fetchPrice).toHaveBeenCalledWith({
-        assetSymbol: Currency.create('EUR'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'EUR' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2023-01-15T10:00:00Z'),
       });
     });
@@ -72,9 +72,9 @@ describe('StandardFxRateProvider', () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
-            assetSymbol: Currency.create('CAD'),
+            assetSymbol: 'CAD' as Currency,
             timestamp,
-            currency: Currency.create('USD'),
+            currency: 'USD' as Currency,
             price: mockRate,
             source: 'bank-of-canada',
             fetchedAt: mockFetchedAt,
@@ -84,7 +84,7 @@ describe('StandardFxRateProvider', () => {
         })
       );
 
-      const result = await provider.getRateToUSD(Currency.create('CAD'), new Date('2023-06-20T00:00:00Z'));
+      const result = await provider.getRateToUSD('CAD' as Currency, new Date('2023-06-20T00:00:00Z'));
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -97,7 +97,7 @@ describe('StandardFxRateProvider', () => {
     it('returns error when price manager fails', async () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(err(new Error('Provider unavailable')));
 
-      const result = await provider.getRateToUSD(Currency.create('EUR'), new Date('2023-01-15T10:00:00Z'));
+      const result = await provider.getRateToUSD('EUR' as Currency, new Date('2023-01-15T10:00:00Z'));
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -117,9 +117,9 @@ describe('StandardFxRateProvider', () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
-            assetSymbol: Currency.create('CAD'),
+            assetSymbol: 'CAD' as Currency,
             timestamp,
-            currency: Currency.create('USD'),
+            currency: 'USD' as Currency,
             price: mockRate,
             source: 'bank-of-canada',
             fetchedAt: mockFetchedAt,
@@ -129,7 +129,7 @@ describe('StandardFxRateProvider', () => {
         })
       );
 
-      const result = await provider.getRateFromUSD(Currency.create('CAD'), new Date('2023-06-20T00:00:00Z'));
+      const result = await provider.getRateFromUSD('CAD' as Currency, new Date('2023-06-20T00:00:00Z'));
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -142,8 +142,8 @@ describe('StandardFxRateProvider', () => {
 
       // Should fetch CAD → USD and then invert
       expect(mockPriceManager.fetchPrice).toHaveBeenCalledWith({
-        assetSymbol: Currency.create('CAD'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'CAD' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2023-06-20T00:00:00Z'),
       });
     });
@@ -157,9 +157,9 @@ describe('StandardFxRateProvider', () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
-            assetSymbol: Currency.create('EUR'),
+            assetSymbol: 'EUR' as Currency,
             timestamp,
-            currency: Currency.create('USD'),
+            currency: 'USD' as Currency,
             price: mockRate,
             source: 'ecb',
             fetchedAt: mockFetchedAt,
@@ -169,7 +169,7 @@ describe('StandardFxRateProvider', () => {
         })
       );
 
-      const result = await provider.getRateFromUSD(Currency.create('EUR'), new Date('2023-01-15T10:00:00Z'));
+      const result = await provider.getRateFromUSD('EUR' as Currency, new Date('2023-01-15T10:00:00Z'));
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -183,7 +183,7 @@ describe('StandardFxRateProvider', () => {
     it('returns error when price manager fails', async () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(err(new Error('No providers available')));
 
-      const result = await provider.getRateFromUSD(Currency.create('CAD'), new Date('2023-06-20T00:00:00Z'));
+      const result = await provider.getRateFromUSD('CAD' as Currency, new Date('2023-06-20T00:00:00Z'));
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -200,9 +200,9 @@ describe('StandardFxRateProvider', () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
-            assetSymbol: Currency.create('CAD'),
+            assetSymbol: 'CAD' as Currency,
             timestamp,
-            currency: Currency.create('USD'),
+            currency: 'USD' as Currency,
             price: mockRate,
             source: 'test-provider',
             fetchedAt: mockFetchedAt,
@@ -212,7 +212,7 @@ describe('StandardFxRateProvider', () => {
         })
       );
 
-      const result = await provider.getRateFromUSD(Currency.create('CAD'), new Date('2023-06-20T00:00:00Z'));
+      const result = await provider.getRateFromUSD('CAD' as Currency, new Date('2023-06-20T00:00:00Z'));
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -230,9 +230,9 @@ describe('StandardFxRateProvider', () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
-            assetSymbol: Currency.create('CAD'),
+            assetSymbol: 'CAD' as Currency,
             timestamp,
-            currency: Currency.create('USD'),
+            currency: 'USD' as Currency,
             price: mockRate,
             source: 'bank-of-canada',
             fetchedAt: mockFetchedAt,
@@ -242,7 +242,7 @@ describe('StandardFxRateProvider', () => {
         })
       );
 
-      const result = await provider.getRateFromUSD(Currency.create('CAD'), new Date('2023-06-20T00:00:00Z'));
+      const result = await provider.getRateFromUSD('CAD' as Currency, new Date('2023-06-20T00:00:00Z'));
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -261,14 +261,14 @@ describe('StandardFxRateProvider', () => {
       const cadToUsdRate = parseDecimal('0.74');
       const mockFetchedAt = new Date('2023-06-20T00:00:00Z');
       const timestamp = new Date('2023-06-20T00:00:00Z');
-      const cad = Currency.create('CAD');
+      const cad = 'CAD' as Currency;
 
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
             assetSymbol: cad,
             timestamp,
-            currency: Currency.create('USD'),
+            currency: 'USD' as Currency,
             price: cadToUsdRate,
             source: 'bank-of-canada',
             fetchedAt: mockFetchedAt,

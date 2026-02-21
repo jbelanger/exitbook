@@ -1,4 +1,4 @@
-import { Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../../persistence/database.js';
@@ -47,8 +47,8 @@ describe('CoinGecko Provider E2E', () => {
   it('should have synced coin list from CoinGecko API', async () => {
     // Verify sync happened in beforeAll by checking we can fetch BTC
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date(),
     });
 
@@ -57,8 +57,8 @@ describe('CoinGecko Provider E2E', () => {
 
   it('should fetch current Bitcoin price in USD', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date(), // Current time - uses simple price API
     });
 
@@ -82,8 +82,8 @@ describe('CoinGecko Provider E2E', () => {
     historicalDate.setUTCHours(0, 0, 0, 0); // Reset to start of day (UTC)
 
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       timestamp: historicalDate,
     });
 
@@ -107,8 +107,8 @@ describe('CoinGecko Provider E2E', () => {
 
   it('should fetch current Ethereum price in EUR', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('ETH'),
-      currency: Currency.create('EUR'),
+      assetSymbol: 'ETH' as Currency,
+      currency: 'EUR' as Currency,
       timestamp: new Date(),
     });
 
@@ -131,8 +131,8 @@ describe('CoinGecko Provider E2E', () => {
     queryDate.setUTCHours(0, 0, 0, 0); // Use UTC to match cache rounding
 
     const query = {
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       timestamp: queryDate,
     };
 
@@ -166,8 +166,8 @@ describe('CoinGecko Provider E2E', () => {
 
   it('should return error for unknown asset', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('NOTAREALCOIN123'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'NOTAREALCOIN123' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date(),
     });
 
@@ -186,8 +186,8 @@ describe('CoinGecko Provider E2E', () => {
 
     // Should still be able to fetch prices
     const priceResult = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date(),
     });
 

@@ -1,5 +1,5 @@
 import type { FeeMovement } from '@exitbook/core';
-import { Currency, parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
+import { type Currency, parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
@@ -12,7 +12,7 @@ import { FifoStrategy } from '../strategies/fifo-strategy.js';
 
 describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () => {
   const createPriceAtTxTime = (amount: string, currency = 'USD') => ({
-    price: { amount: parseDecimal(amount), currency: Currency.create(currency) },
+    price: { amount: parseDecimal(amount), currency: currency as Currency },
     source: 'manual' as const,
     fetchedAt: new Date('2024-01-01'),
   });
@@ -90,7 +90,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       movement.priceAtTxTime = {
         price: {
           amount: new Decimal(priceAmount),
-          currency: Currency.create(priceCurrency),
+          currency: priceCurrency as Currency,
         },
         source: 'test',
         fetchedAt: new Date(),

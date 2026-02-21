@@ -1,5 +1,5 @@
 import type { UniversalTransactionData } from '@exitbook/core';
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { buildViewMeta, getAllMovements, parseDate } from '../view-utils.js';
@@ -391,7 +391,7 @@ describe('getAllMovements', () => {
           priceAtTxTime: {
             price: {
               amount: parseDecimal('40500.5'),
-              currency: Currency.create('USD'),
+              currency: 'USD' as Currency,
             },
             source: 'test-provider',
             fetchedAt: new Date('2024-01-01'),

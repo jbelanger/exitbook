@@ -10,7 +10,7 @@ import {
   type FiatCurrency as AccountingFiatCurrency,
   type TransactionLinkQueries,
 } from '@exitbook/accounting';
-import { Currency, type UniversalTransactionData } from '@exitbook/core';
+import { parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import type { AccountQueries, TransactionQueries } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
@@ -218,10 +218,11 @@ export class PortfolioHandler {
       const symbolsToPrice = new Map<string, Currency>();
       for (const assetId of Object.keys(holdings)) {
         const symbol = assetMetadata[assetId] ?? assetId;
-        try {
-          symbolsToPrice.set(assetId, Currency.create(symbol));
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+        const currResult = parseCurrency(symbol);
+        if (currResult.isOk()) {
+          symbolsToPrice.set(assetId, currResult.value);
+        } else {
+          const message = currResult.error.message;
           logger.warn({ assetId, symbol, message }, 'Invalid asset symbol; skipping spot price fetch');
           invalidSymbolPrices.set(assetId, { error: message });
         }
@@ -234,9 +235,9 @@ export class PortfolioHandler {
       let fxRate: Decimal | undefined;
       if (displayCurrency !== 'USD') {
         const fxResult = await priceManager.fetchPrice({
-          assetSymbol: Currency.create(displayCurrency),
+          assetSymbol: parseCurrency(displayCurrency)._unsafeUnwrap(),
           timestamp: asOf,
-          currency: Currency.create('USD'),
+          currency: 'USD' as Currency,
         });
 
         if (fxResult.isErr()) {

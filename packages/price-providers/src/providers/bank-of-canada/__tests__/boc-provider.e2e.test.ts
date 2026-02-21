@@ -1,4 +1,4 @@
-import { Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -39,8 +39,8 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should fetch CAD/USD exchange rate for recent date', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('CAD'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'CAD' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
 
@@ -60,8 +60,8 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should fetch historical CAD/USD exchange rate from 2023', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('CAD'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'CAD' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date('2023-06-15T00:00:00Z'),
     });
 
@@ -79,8 +79,8 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should fetch historical CAD/USD exchange rate from 2020', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('CAD'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'CAD' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date('2020-01-15T00:00:00Z'),
     });
 
@@ -100,8 +100,8 @@ describe('Bank of Canada Provider E2E', () => {
 
     // First request - should fetch from API
     const firstResult = await provider.fetchPrice({
-      assetSymbol: Currency.create('CAD'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'CAD' as Currency,
+      currency: 'USD' as Currency,
       timestamp,
     });
 
@@ -109,8 +109,8 @@ describe('Bank of Canada Provider E2E', () => {
 
     // Second request - should use cache
     const secondResult = await provider.fetchPrice({
-      assetSymbol: Currency.create('CAD'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'CAD' as Currency,
+      currency: 'USD' as Currency,
       timestamp,
     });
 
@@ -124,8 +124,8 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should return error for non-CAD asset', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('EUR'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'EUR' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
 
@@ -138,8 +138,8 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should return error for cryptocurrency (not CAD)', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
 
@@ -152,8 +152,8 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should return error for non-USD target currency', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('CAD'),
-      currency: Currency.create('EUR'),
+      assetSymbol: 'CAD' as Currency,
+      currency: 'EUR' as Currency,
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
 
@@ -186,8 +186,8 @@ describe('Bank of Canada Provider E2E', () => {
     // Bank of Canada doesn't publish rates on weekends
     // Saturday, January 13, 2024
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('CAD'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'CAD' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date('2024-01-13T00:00:00Z'),
     });
 
@@ -198,8 +198,8 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should correctly invert USD/CAD to CAD/USD', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('CAD'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'CAD' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
 

@@ -1,4 +1,4 @@
-import { Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
@@ -290,7 +290,7 @@ describe('applyTransactionFilters', () => {
                 grossAmount: parseDecimal('0.5'),
                 assetId: '',
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
                   source: 'kraken',
                   fetchedAt: new Date(),
                 },

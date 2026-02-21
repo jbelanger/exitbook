@@ -1,5 +1,5 @@
 import type { UniversalTransactionData } from '@exitbook/core';
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -201,7 +201,7 @@ describe('CostBasisCalculator', () => {
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('1'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('30000'), currency: Currency.create('USD') },
+                price: { amount: parseDecimal('30000'), currency: 'USD' as Currency },
                 source: 'test',
                 fetchedAt: new Date('2023-01-01'),
                 granularity: 'exact',
@@ -451,7 +451,7 @@ describe('CostBasisCalculator', () => {
                 assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.5'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('35000'), currency: Currency.create('EUR') },
+                  price: { amount: parseDecimal('35000'), currency: 'EUR' as Currency },
                   source: 'test',
                   fetchedAt: new Date('2023-06-01'),
                   granularity: 'exact',
@@ -501,7 +501,7 @@ describe('CostBasisCalculator', () => {
               assetSymbol: 'BTC',
               grossAmount: parseDecimal('1'),
               priceAtTxTime: {
-                price: { amount: parseDecimal('30000'), currency: Currency.create('USD') },
+                price: { amount: parseDecimal('30000'), currency: 'USD' as Currency },
                 source: 'test',
                 fetchedAt: new Date('2023-01-01'),
                 granularity: 'exact',
@@ -519,7 +519,7 @@ describe('CostBasisCalculator', () => {
             assetSymbol: 'EUR',
             amount: parseDecimal('10'),
             priceAtTxTime: {
-              price: { amount: parseDecimal('10'), currency: Currency.create('EUR') },
+              price: { amount: parseDecimal('10'), currency: 'EUR' as Currency },
               source: 'test',
               fetchedAt: new Date('2023-01-01'),
               granularity: 'exact',
@@ -563,7 +563,7 @@ describe('CostBasisCalculator', () => {
                 assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('30000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('30000'), currency: 'USD' as Currency },
                   source: 'test',
                   fetchedAt: new Date('2023-01-01'),
                   granularity: 'exact',
@@ -592,7 +592,7 @@ describe('CostBasisCalculator', () => {
                 assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.5'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('40000'), currency: Currency.create('USD') },
+                  price: { amount: parseDecimal('40000'), currency: 'USD' as Currency },
                   source: 'test',
                   fetchedAt: new Date('2023-06-01'),
                   granularity: 'exact',
@@ -641,7 +641,7 @@ describe('CostBasisCalculator', () => {
                 assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: {
-                  price: { amount: parseDecimal('30000'), currency: Currency.create('EUR') },
+                  price: { amount: parseDecimal('30000'), currency: 'EUR' as Currency },
                   source: 'test',
                   fetchedAt: new Date('2023-01-01'),
                   granularity: 'exact',

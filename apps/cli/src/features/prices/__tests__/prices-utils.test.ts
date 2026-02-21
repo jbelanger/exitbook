@@ -1,4 +1,4 @@
-import { Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -162,7 +162,7 @@ describe('extractAssetsNeedingPrices', () => {
             assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             priceAtTxTime: {
-              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
               source: 'coingecko',
               fetchedAt: new Date(),
             },

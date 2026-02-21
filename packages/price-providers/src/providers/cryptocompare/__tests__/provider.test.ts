@@ -28,7 +28,7 @@ vi.mock('../cryptocompare-utils.js', async () => {
   };
 });
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 
 import type { PriceData } from '../../../core/types.js';
 import type { PriceQueries } from '../../../persistence/queries/price-queries.js';
@@ -78,8 +78,8 @@ describe('CryptoCompareProvider', () => {
   describe('fetchPrice', () => {
     it('returns cached price without hitting the API', async () => {
       const cachedPrice: PriceData = {
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         price: parseDecimal('30123.45'),
         timestamp: defaultTimestamp,
         source: 'cryptocompare',
@@ -89,8 +89,8 @@ describe('CryptoCompareProvider', () => {
       priceRepoMocks.getPrice.mockResolvedValueOnce(ok(cachedPrice));
 
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('btc'),
-        currency: Currency.create('usd'),
+        assetSymbol: 'btc' as Currency,
+        currency: 'usd' as Currency,
         timestamp: defaultTimestamp,
       });
 
@@ -110,8 +110,8 @@ describe('CryptoCompareProvider', () => {
       };
 
       const expectedPrice: PriceData = {
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         price: parseDecimal('30200'),
         timestamp: defaultTimestamp,
         source: 'cryptocompare',
@@ -122,8 +122,8 @@ describe('CryptoCompareProvider', () => {
       mockTransformPriceResponse.mockReturnValueOnce(ok(expectedPrice));
 
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('btc'),
-        currency: Currency.create('usd'),
+        assetSymbol: 'btc' as Currency,
+        currency: 'usd' as Currency,
         timestamp: defaultTimestamp,
       });
 
@@ -135,9 +135,9 @@ describe('CryptoCompareProvider', () => {
       expect(httpClientGet).toHaveBeenCalledWith('/data/price?fsym=BTC&tsyms=USD');
       expect(mockTransformPriceResponse).toHaveBeenCalledWith(
         apiResponse,
-        Currency.create('BTC'),
+        'BTC' as Currency,
         defaultTimestamp,
-        Currency.create('USD'),
+        'USD' as Currency,
         expect.any(Date)
       );
       expect(priceRepoMocks.savePrice).toHaveBeenCalledWith(expectedPrice, 'BTC');
@@ -173,8 +173,8 @@ describe('CryptoCompareProvider', () => {
       };
 
       const expectedPrice: PriceData = {
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         price: parseDecimal('9000'),
         timestamp: historicalTimestamp,
         source: 'cryptocompare',
@@ -185,8 +185,8 @@ describe('CryptoCompareProvider', () => {
       mockTransformHistoricalResponse.mockReturnValueOnce(ok(expectedPrice));
 
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('btc'),
-        currency: Currency.create('usd'),
+        assetSymbol: 'btc' as Currency,
+        currency: 'usd' as Currency,
         timestamp: historicalTimestamp,
       });
 
@@ -201,9 +201,9 @@ describe('CryptoCompareProvider', () => {
       );
       expect(mockTransformHistoricalResponse).toHaveBeenCalledWith(
         apiResponse,
-        Currency.create('BTC'),
+        'BTC' as Currency,
         historicalTimestamp,
-        Currency.create('USD'),
+        'USD' as Currency,
         expect.any(Date),
         'day' // Old timestamp uses day granularity
       );
@@ -218,8 +218,8 @@ describe('CryptoCompareProvider', () => {
       };
 
       const expectedPrice: PriceData = {
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         price: parseDecimal('30200'),
         timestamp: defaultTimestamp,
         source: 'cryptocompare',
@@ -230,9 +230,9 @@ describe('CryptoCompareProvider', () => {
       mockTransformPriceResponse.mockReturnValueOnce(ok(expectedPrice));
 
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('btc'),
+        assetSymbol: 'btc' as Currency,
         timestamp: defaultTimestamp,
-        currency: Currency.create('USD'),
+        currency: 'USD' as Currency,
       });
 
       expect(result.isOk()).toBe(true);

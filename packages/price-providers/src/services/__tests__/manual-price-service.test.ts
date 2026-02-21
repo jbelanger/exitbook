@@ -8,7 +8,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../persistence/database.js';
@@ -72,8 +72,8 @@ describe('ManualPriceService', () => {
 
       // Verify the price was saved
       const priceResult = await queries.getPrice(
-        Currency.create('BTC'),
-        Currency.create('USD'),
+        'BTC' as Currency,
+        'USD' as Currency,
         new Date('2024-01-15T10:30:00Z')
       );
 
@@ -102,8 +102,8 @@ describe('ManualPriceService', () => {
 
       // Verify the price was saved with EUR currency
       const priceResult = await queries.getPrice(
-        Currency.create('BTC'),
-        Currency.create('EUR'),
+        'BTC' as Currency,
+        'EUR' as Currency,
         new Date('2024-01-15T10:30:00Z')
       );
 
@@ -128,8 +128,8 @@ describe('ManualPriceService', () => {
 
       // Verify the source was saved
       const priceResult = await queries.getPrice(
-        Currency.create('ETH'),
-        Currency.create('USD'),
+        'ETH' as Currency,
+        'USD' as Currency,
         new Date('2024-01-15T10:30:00Z')
       );
 
@@ -170,11 +170,7 @@ describe('ManualPriceService', () => {
       expect(result.isOk()).toBe(true);
 
       // Verify the FX rate was saved (stored as asset=EUR, currency=USD)
-      const rateResult = await queries.getPrice(
-        Currency.create('EUR'),
-        Currency.create('USD'),
-        new Date('2024-01-15T00:00:00Z')
-      );
+      const rateResult = await queries.getPrice('EUR' as Currency, 'USD' as Currency, new Date('2024-01-15T00:00:00Z'));
 
       expect(rateResult.isOk()).toBe(true);
       if (rateResult.isOk()) {
@@ -201,11 +197,7 @@ describe('ManualPriceService', () => {
       expect(result.isOk()).toBe(true);
 
       // Verify the source was saved
-      const rateResult = await queries.getPrice(
-        Currency.create('CAD'),
-        Currency.create('USD'),
-        new Date('2024-06-20T00:00:00Z')
-      );
+      const rateResult = await queries.getPrice('CAD' as Currency, 'USD' as Currency, new Date('2024-06-20T00:00:00Z'));
 
       expect(rateResult.isOk()).toBe(true);
       if (rateResult.isOk()) {
@@ -270,17 +262,9 @@ describe('ManualPriceService', () => {
       expect(result2.isOk()).toBe(true);
 
       // Verify both were saved
-      const btcResult = await queries.getPrice(
-        Currency.create('BTC'),
-        Currency.create('USD'),
-        new Date('2024-01-15T10:30:00Z')
-      );
+      const btcResult = await queries.getPrice('BTC' as Currency, 'USD' as Currency, new Date('2024-01-15T10:30:00Z'));
 
-      const ethResult = await queries.getPrice(
-        Currency.create('ETH'),
-        Currency.create('USD'),
-        new Date('2024-01-15T10:30:00Z')
-      );
+      const ethResult = await queries.getPrice('ETH' as Currency, 'USD' as Currency, new Date('2024-01-15T10:30:00Z'));
 
       expect(btcResult.isOk()).toBe(true);
       expect(ethResult.isOk()).toBe(true);

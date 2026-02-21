@@ -35,7 +35,7 @@ export function validateRawPrice(
 
   if (decimal.lessThanOrEqualTo(0)) {
     const reason = price === undefined ? 'not found' : `invalid (${price}, must be positive)`;
-    return err(new Error(`${context} price for ${assetSymbol.toString()}: ${reason}`));
+    return err(new Error(`${context} price for ${assetSymbol}: ${reason}`));
   }
 
   return ok(decimal);
@@ -140,7 +140,7 @@ export function createCacheKey(query: PriceQuery, defaultCurrency = 'USD'): stri
   const roundedDate = roundToDay(query.timestamp);
   const currency = query.currency ?? defaultCurrency;
 
-  return `${query.assetSymbol.toString()}:${currency.toString()}:${roundedDate.getTime()}`;
+  return `${query.assetSymbol.toUpperCase()}:${currency.toUpperCase()}:${roundedDate.getTime()}`;
 }
 
 /**
@@ -157,7 +157,7 @@ export function deduplicatePrices(prices: PriceData[]): PriceData[] {
   const map = new Map<string, PriceData>();
 
   for (const price of prices) {
-    const key = `${price.assetSymbol.toString()}:${price.currency.toString()}:${price.timestamp.getTime()}`;
+    const key = `${price.assetSymbol}:${price.currency}:${price.timestamp.getTime()}`;
     const existing = map.get(key);
 
     if (!existing || price.fetchedAt > existing.fetchedAt) {

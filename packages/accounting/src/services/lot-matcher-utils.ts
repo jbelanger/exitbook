@@ -1,11 +1,12 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import {
-  Currency,
+  isFiat,
   parseDecimal,
+  wrapError,
   type AssetMovement,
+  type Currency,
   type FeeMovement,
   type PriceAtTxTime,
-  wrapError,
 } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -363,8 +364,8 @@ export function collectFiatFees(
 
   for (const tx of [sourceTx, targetTx]) {
     for (const fee of tx.fees) {
-      const currency = Currency.create(fee.assetSymbol);
-      if (currency.isFiat()) {
+      const currency = fee.assetSymbol as Currency;
+      if (isFiat(currency)) {
         fiatFees.push({
           assetSymbol: fee.assetSymbol,
           amount: fee.amount,
@@ -392,7 +393,7 @@ export function filterTransactionsWithoutPrices(transactions: UniversalTransacti
     // Filter out fiat currencies - we only care about crypto asset prices
     const nonFiatInflows = inflows.filter((m) => {
       try {
-        return !Currency.create(m.assetSymbol).isFiat();
+        return !isFiat(m.assetSymbol as Currency);
       } catch {
         // If we can't create a Currency, assume it's crypto
         return true;
@@ -401,7 +402,7 @@ export function filterTransactionsWithoutPrices(transactions: UniversalTransacti
 
     const nonFiatOutflows = outflows.filter((m) => {
       try {
-        return !Currency.create(m.assetSymbol).isFiat();
+        return !isFiat(m.assetSymbol as Currency);
       } catch {
         // If we can't create a Currency, assume it's crypto
         return true;
@@ -434,17 +435,17 @@ function calculateTotalFeeValueInFiat(
       totalFeeValue = totalFeeValue.plus(feeValue);
     } else {
       // Fee has no price - try fallback conversion
-      const feeCurrency = Currency.create(fee.assetSymbol);
-      if (feeCurrency.isFiat() && targetMovement.priceAtTxTime) {
+      const feeCurrency = fee.assetSymbol as Currency;
+      if (isFiat(feeCurrency) && targetMovement.priceAtTxTime) {
         const targetPriceCurrency = targetMovement.priceAtTxTime.price.currency;
-        if (feeCurrency.equals(targetPriceCurrency)) {
+        if (feeCurrency === targetPriceCurrency) {
           // Same fiat currency - use 1:1 conversion
           totalFeeValue = totalFeeValue.plus(fee.amount);
         } else {
           // Different fiat currencies - need FX rate
           return err(
             new Error(
-              `Fee in ${fee.assetSymbol} cannot be converted to ${targetPriceCurrency.toString()} without exchange rate. ` +
+              `Fee in ${fee.assetSymbol} cannot be converted to ${targetPriceCurrency} without exchange rate. ` +
                 `Transaction: ${transactionId}, Fee amount: ${fee.amount.toFixed()}`
             )
           );
@@ -487,7 +488,7 @@ function calculateMovementValues(
   // Filter to non-fiat movements only (we track cost basis for crypto, not fiat)
   const nonFiatMovements = allMovements.filter((m) => {
     try {
-      return !Currency.create(m.assetSymbol).isFiat();
+      return !isFiat(m.assetSymbol as Currency);
     } catch {
       return true; // If we can't determine, assume crypto
     }

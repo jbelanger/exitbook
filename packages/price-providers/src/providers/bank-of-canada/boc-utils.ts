@@ -38,7 +38,7 @@ export function transformBoCResponse(
 ): Result<PriceData, Error> {
   const observations = response.observations;
   if (!observations || observations.length === 0) {
-    return err(new Error(`No exchange rate data found for ${String(assetSymbol)} on ${formatBoCDate(timestamp)}`));
+    return err(new Error(`No exchange rate data found for ${assetSymbol} on ${formatBoCDate(timestamp)}`));
   }
 
   // Bank of Canada returns observations in date order

@@ -1,6 +1,12 @@
 import type { CostBasisConfig, FiatCurrency, IJurisdictionRules } from '@exitbook/accounting';
 import { CanadaRules, getDefaultDateRange, USRules } from '@exitbook/accounting';
-import { Currency, type AssetMovement, type FeeMovement, type UniversalTransactionData } from '@exitbook/core';
+import {
+  isFiat,
+  parseCurrency,
+  type AssetMovement,
+  type FeeMovement,
+  type UniversalTransactionData,
+} from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -292,18 +298,23 @@ function movementHasPrice(movement: AssetMovement | FeeMovement): Result<boolean
     logger.warn({ assetSymbol: rawSymbol }, 'Unknown currency symbol');
     return err(new Error("Unknown currency symbol ''"));
   }
-  try {
-    const currency = Currency.create(trimmedSymbol);
+
+  const currencyResult = parseCurrency(trimmedSymbol);
+  if (currencyResult.isOk()) {
+    const currency = currencyResult.value;
     // Fiat currencies don't need prices
-    if (currency.isFiat()) {
+    if (isFiat(currency)) {
       return ok(true);
     }
-    // Non-fiat currencies (crypto) need prices
-    return ok(!!movement.priceAtTxTime);
-  } catch (error) {
-    logger.warn({ error, assetSymbol: trimmedSymbol }, 'Unknown currency symbol, treating as crypto');
-    return ok(!!movement.priceAtTxTime);
+  } else {
+    logger.warn(
+      { error: currencyResult.error, assetSymbol: trimmedSymbol },
+      'Unknown currency symbol, treating as crypto'
+    );
   }
+
+  // Non-fiat currencies (crypto) need prices
+  return ok(!!movement.priceAtTxTime);
 }
 
 /**

@@ -9,8 +9,8 @@
  * All functions are pure (no side effects, no DB access, no logging).
  */
 
-import type { AssetMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
-import { Currency, parseDecimal } from '@exitbook/core';
+import type { AssetMovement, Currency, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
+import { isFiat, isFiatOrStablecoin, parseDecimal } from '@exitbook/core';
 
 import { enrichMovementsWithPrices } from './movement-enrichment-utils.js';
 import { calculatePriceFromTrade, extractTradeMovements, stampFiatIdentityPrices } from './price-calculation-utils.js';
@@ -209,10 +209,10 @@ function recalculateCryptoSwapRatios(
     }
 
     // Check if this is a crypto-crypto swap (neither side is fiat/stable)
-    const inflowCurrency = Currency.create(trade.inflow.assetSymbol);
-    const outflowCurrency = Currency.create(trade.outflow.assetSymbol);
+    const inflowCurrency = trade.inflow.assetSymbol as Currency;
+    const outflowCurrency = trade.outflow.assetSymbol as Currency;
 
-    if (inflowCurrency.isFiatOrStablecoin() || outflowCurrency.isFiatOrStablecoin()) {
+    if (isFiatOrStablecoin(inflowCurrency) || isFiatOrStablecoin(outflowCurrency)) {
       continue; // Keep fiat-based prices (they're already execution prices)
     }
 
@@ -469,29 +469,26 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransactionD
       }
 
       // Check if this is a fiat currency
-      try {
-        const currency = Currency.create(fee.assetSymbol);
-        if (!currency.isFiat()) {
-          return fee;
-        }
+      const currency = fee.assetSymbol as Currency;
 
-        const isUSD = currency.toString() === 'USD';
-        feesModified = true;
-
-        return {
-          ...fee,
-          priceAtTxTime: {
-            price: { amount: parseDecimal('1'), currency },
-            // USD gets 'exchange-execution' (final), non-USD gets 'fiat-execution-tentative' (will be normalized)
-            source: isUSD ? 'exchange-execution' : 'fiat-execution-tentative',
-            fetchedAt: new Date(timestamp),
-            granularity: 'exact' as const,
-          },
-        };
-      } catch {
-        // Not a valid currency, skip
+      // Only stamp prices on fiat currencies
+      if (!isFiat(currency)) {
         return fee;
       }
+
+      const isUSD = currency === 'USD';
+      feesModified = true;
+
+      return {
+        ...fee,
+        priceAtTxTime: {
+          price: { amount: parseDecimal('1'), currency },
+          // USD gets 'exchange-execution' (final), non-USD gets 'fiat-execution-tentative' (will be normalized)
+          source: isUSD ? ('exchange-execution' as const) : ('fiat-execution-tentative' as const),
+          fetchedAt: new Date(timestamp),
+          granularity: 'exact' as const,
+        },
+      };
     });
 
     // Return transaction with enriched fees if any changed

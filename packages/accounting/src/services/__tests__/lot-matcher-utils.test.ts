@@ -1,6 +1,6 @@
 import type { FeeMovement } from '@exitbook/core';
 import {
-  Currency,
+  type Currency,
   parseDecimal,
   type AssetMovement,
   type PriceAtTxTime,
@@ -70,7 +70,7 @@ function createMovement(
     movement.priceAtTxTime = {
       price: {
         amount: new Decimal(priceAmount),
-        currency: Currency.create(priceCurrency),
+        currency: priceCurrency as Currency,
       },
       source: 'test',
       fetchedAt: new Date(),
@@ -100,7 +100,7 @@ function createFeeMovement(
     movement.priceAtTxTime = {
       price: {
         amount: new Decimal(priceAmount),
-        currency: Currency.create(priceCurrency),
+        currency: priceCurrency as Currency,
       },
       source: 'test',
       fetchedAt: new Date(),
@@ -114,7 +114,7 @@ function createPriceAtTxTime(amount: string, currency = 'USD'): PriceAtTxTime {
   return {
     price: {
       amount: new Decimal(amount),
-      currency: Currency.create(currency),
+      currency: currency as Currency,
     },
     source: 'test',
     fetchedAt: new Date(),

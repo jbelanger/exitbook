@@ -1,4 +1,4 @@
-import { Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../../persistence/database.js';
@@ -38,8 +38,8 @@ describe('CryptoCompare Provider E2E', () => {
 
   it('should fetch current Bitcoin price in USD', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date(), // Current time - uses current price API
     });
 
@@ -58,8 +58,8 @@ describe('CryptoCompare Provider E2E', () => {
 
   it('should fetch current Ethereum price in EUR', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('ETH'),
-      currency: Currency.create('EUR'),
+      assetSymbol: 'ETH' as Currency,
+      currency: 'EUR' as Currency,
       timestamp: new Date(),
     });
 
@@ -82,8 +82,8 @@ describe('CryptoCompare Provider E2E', () => {
     historicalDate.setUTCHours(12, 0, 0, 0); // Noon UTC
 
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       timestamp: historicalDate,
     });
 
@@ -110,8 +110,8 @@ describe('CryptoCompare Provider E2E', () => {
     historicalDate.setUTCHours(12, 0, 0, 0); // Noon UTC
 
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       timestamp: historicalDate,
     });
 
@@ -138,8 +138,8 @@ describe('CryptoCompare Provider E2E', () => {
     historicalDate.setUTCHours(0, 0, 0, 0); // Start of day UTC
 
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       timestamp: historicalDate,
     });
 
@@ -166,8 +166,8 @@ describe('CryptoCompare Provider E2E', () => {
     queryDate.setUTCHours(12, 0, 0, 0); // Noon UTC
 
     const query = {
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       timestamp: queryDate,
     };
 
@@ -205,8 +205,8 @@ describe('CryptoCompare Provider E2E', () => {
 
     for (const symbol of currencies) {
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create(symbol),
-        currency: Currency.create('USD'),
+        assetSymbol: symbol as Currency,
+        currency: 'USD' as Currency,
         timestamp: now,
       });
 

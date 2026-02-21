@@ -4,7 +4,7 @@
  * Pure function tests - no mocks needed
  */
 
-import { Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { formatBoCDate, transformBoCResponse } from '../boc-utils.js';
@@ -41,9 +41,9 @@ describe('formatBoCDate', () => {
 });
 
 describe('transformBoCResponse', () => {
-  const asset = Currency.create('CAD');
+  const asset = 'CAD' as Currency;
   const timestamp = new Date('2024-01-15T00:00:00Z');
-  const currency = Currency.create('USD');
+  const currency = 'USD' as Currency;
   const fetchedAt = new Date('2024-01-15T12:00:00Z');
 
   it('transforms valid Bank of Canada response to PriceData', () => {

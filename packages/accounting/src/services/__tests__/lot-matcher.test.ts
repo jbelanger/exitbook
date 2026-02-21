@@ -1,4 +1,4 @@
-import { Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -25,7 +25,7 @@ describe('LotMatcher - Fee Handling', () => {
   const fifoStrategy = new FifoStrategy();
 
   const createPriceAtTxTime = (amount: string, currency = 'USD') => ({
-    price: { amount: parseDecimal(amount), currency: Currency.create(currency) },
+    price: { amount: parseDecimal(amount), currency: currency as Currency },
     source: 'manual' as const,
     fetchedAt: new Date('2024-01-01'),
   });

@@ -4,7 +4,7 @@
  * Pure function tests - no mocks needed
  */
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -96,8 +96,8 @@ describe('FRANKFURTER_SUPPORTED_CURRENCIES', () => {
 });
 
 describe('transformFrankfurterResponse', () => {
-  const asset = Currency.create('EUR');
-  const targetCurrency = Currency.create('USD');
+  const asset = 'EUR' as Currency;
+  const targetCurrency = 'USD' as Currency;
   const timestamp = new Date('2024-01-15T00:00:00Z');
   const fetchedAt = new Date('2024-01-15T12:00:00Z');
 
@@ -150,7 +150,7 @@ describe('transformFrankfurterResponse', () => {
   });
 
   it('handles CAD to USD conversion', () => {
-    const cadAsset = Currency.create('CAD');
+    const cadAsset = 'CAD' as Currency;
     const response: FrankfurterSingleDateResponse = {
       amount: 1.0,
       base: 'CAD',
@@ -170,7 +170,7 @@ describe('transformFrankfurterResponse', () => {
   });
 
   it('handles GBP to USD conversion', () => {
-    const gbpAsset = Currency.create('GBP');
+    const gbpAsset = 'GBP' as Currency;
     const response: FrankfurterSingleDateResponse = {
       amount: 1.0,
       base: 'GBP',

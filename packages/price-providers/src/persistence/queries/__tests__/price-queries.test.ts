@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- explicit null assertions for sqlite rows */
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -17,8 +17,8 @@ function okValue<T>(result: Result<T, Error>): T {
 
 function makePrice(overrides: Partial<PriceData> = {}): PriceData {
   return {
-    assetSymbol: Currency.create('BTC'),
-    currency: Currency.create('USD'),
+    assetSymbol: 'BTC' as Currency,
+    currency: 'USD' as Currency,
     timestamp: new Date('2024-01-15T00:00:00.000Z'),
     price: parseDecimal('43000'),
     source: 'test-provider',
@@ -52,7 +52,7 @@ describe('PriceQueries', () => {
 
   it('returns undefined when cache is empty', async () => {
     const value = okValue(
-      await queries.getPrice(Currency.create('BTC'), Currency.create('USD'), new Date('2024-01-15T12:00:00.000Z'))
+      await queries.getPrice('BTC' as Currency, 'USD' as Currency, new Date('2024-01-15T12:00:00.000Z'))
     );
 
     expect(value).toBeUndefined();
@@ -62,7 +62,7 @@ describe('PriceQueries', () => {
     okValue(await queries.savePrice(makePrice()));
 
     const value = okValue(
-      await queries.getPrice(Currency.create('BTC'), Currency.create('USD'), new Date('2024-01-15T14:30:00.000Z'))
+      await queries.getPrice('BTC' as Currency, 'USD' as Currency, new Date('2024-01-15T14:30:00.000Z'))
     );
 
     expect(value?.price).toEqual(parseDecimal('43000'));
@@ -100,7 +100,7 @@ describe('PriceQueries', () => {
     );
 
     const value = okValue(
-      await queries.getPrice(Currency.create('BTC'), Currency.create('USD'), new Date('2024-01-15T14:30:45.123Z'))
+      await queries.getPrice('BTC' as Currency, 'USD' as Currency, new Date('2024-01-15T14:30:45.123Z'))
     );
 
     expect(value?.price).toEqual(parseDecimal('3'));
@@ -120,7 +120,7 @@ describe('PriceQueries', () => {
     );
 
     const value = okValue(
-      await queries.getPrice(Currency.create('BTC'), Currency.create('USD'), new Date('2024-01-15T11:00:00.000Z'))
+      await queries.getPrice('BTC' as Currency, 'USD' as Currency, new Date('2024-01-15T11:00:00.000Z'))
     );
 
     expect(value?.price).toEqual(parseDecimal('100'));
@@ -131,7 +131,7 @@ describe('PriceQueries', () => {
     okValue(await queries.savePrice(makePrice({ price: parseDecimal('43500'), source: 'provider-b' })));
 
     const value = okValue(
-      await queries.getPrice(Currency.create('BTC'), Currency.create('USD'), new Date('2024-01-15T00:00:00.000Z'))
+      await queries.getPrice('BTC' as Currency, 'USD' as Currency, new Date('2024-01-15T00:00:00.000Z'))
     );
 
     expect(value?.price).toEqual(parseDecimal('43500'));
@@ -140,8 +140,8 @@ describe('PriceQueries', () => {
 
   it('batch-saves prices and provider coin ids', async () => {
     const prices: PriceData[] = [
-      makePrice({ assetSymbol: Currency.create('BTC') }),
-      makePrice({ assetSymbol: Currency.create('ETH'), price: parseDecimal('2500') }),
+      makePrice({ assetSymbol: 'BTC' as Currency }),
+      makePrice({ assetSymbol: 'ETH' as Currency, price: parseDecimal('2500') }),
     ];
     const coinIds = new Map<string, string>([
       ['BTC', 'bitcoin'],
@@ -210,7 +210,7 @@ describe('PriceQueries', () => {
       .execute();
 
     const value = okValue(
-      await queries.getPrice(Currency.create('BTC'), Currency.create('USD'), new Date('2024-01-15T08:30:00.000Z'))
+      await queries.getPrice('BTC' as Currency, 'USD' as Currency, new Date('2024-01-15T08:30:00.000Z'))
     );
 
     expect(value?.granularity).toBeUndefined();

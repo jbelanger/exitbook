@@ -7,7 +7,7 @@
  * 3. provider prices (lowest priority)
  */
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import type { AssetMovement, PriceAtTxTime } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
@@ -24,7 +24,7 @@ describe('enrichMovementWithPrice', () => {
   const createPrice = (source: string, amount = '50000'): PriceAtTxTime => ({
     price: {
       amount: parseDecimal(amount),
-      currency: Currency.create('USD'),
+      currency: 'USD' as Currency,
     },
     source,
     fetchedAt: new Date(),
@@ -162,7 +162,7 @@ describe('enrichMovementsWithPrices', () => {
       [
         'BTC',
         {
-          price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+          price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
           source: 'coingecko',
           fetchedAt: new Date(),
           granularity: 'hour' as const,
@@ -171,7 +171,7 @@ describe('enrichMovementsWithPrices', () => {
       [
         'ETH',
         {
-          price: { amount: parseDecimal('3000'), currency: Currency.create('USD') },
+          price: { amount: parseDecimal('3000'), currency: 'USD' as Currency },
           source: 'binance',
           fetchedAt: new Date(),
           granularity: 'minute' as const,
@@ -196,7 +196,7 @@ describe('enrichMovementsWithPrices', () => {
         assetId: 'test:btc',
         grossAmount: parseDecimal('1.0'),
         priceAtTxTime: {
-          price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+          price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
           source: 'exchange-execution',
           fetchedAt: new Date(),
           granularity: 'exact' as const,
@@ -207,7 +207,7 @@ describe('enrichMovementsWithPrices', () => {
         assetSymbol: 'ETH',
         grossAmount: parseDecimal('10.0'),
         priceAtTxTime: {
-          price: { amount: parseDecimal('3000'), currency: Currency.create('USD') },
+          price: { amount: parseDecimal('3000'), currency: 'USD' as Currency },
           source: 'coingecko',
           fetchedAt: new Date(),
           granularity: 'hour' as const,
@@ -219,7 +219,7 @@ describe('enrichMovementsWithPrices', () => {
       [
         'BTC',
         {
-          price: { amount: parseDecimal('48000'), currency: Currency.create('USD') },
+          price: { amount: parseDecimal('48000'), currency: 'USD' as Currency },
           source: 'derived-ratio', // Shouldn't overwrite exchange-execution
           fetchedAt: new Date(),
           granularity: 'exact' as const,
@@ -228,7 +228,7 @@ describe('enrichMovementsWithPrices', () => {
       [
         'ETH',
         {
-          price: { amount: parseDecimal('3100'), currency: Currency.create('USD') },
+          price: { amount: parseDecimal('3100'), currency: 'USD' as Currency },
           source: 'link-propagated', // Should overwrite coingecko
           fetchedAt: new Date(),
           granularity: 'exact' as const,

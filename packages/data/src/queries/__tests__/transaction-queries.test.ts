@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- acceptable for tests */
 import type { UniversalTransactionData } from '@exitbook/core';
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { createTestDatabase, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -727,7 +727,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
             priceAtTxTime: {
-              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
               source: 'coingecko',
               fetchedAt: new Date(),
               granularity: 'hour' as const,
@@ -744,7 +744,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
           scope: 'network',
           settlement: 'on-chain',
           priceAtTxTime: {
-            price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+            price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
             source: 'coingecko',
             fetchedAt: new Date(),
             granularity: 'hour' as const,
@@ -838,7 +838,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
             priceAtTxTime: {
-              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
               source: 'coingecko',
               fetchedAt: new Date(),
               granularity: 'hour' as const,
@@ -852,7 +852,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
             grossAmount: parseDecimal('50000'),
             netAmount: parseDecimal('50000'),
             priceAtTxTime: {
-              price: { amount: parseDecimal('1'), currency: Currency.create('USD') },
+              price: { amount: parseDecimal('1'), currency: 'USD' as Currency },
               source: 'coingecko',
               fetchedAt: new Date(),
               granularity: 'hour' as const,
@@ -868,7 +868,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
           scope: 'network',
           settlement: 'on-chain',
           priceAtTxTime: {
-            price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+            price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
             source: 'coingecko',
             fetchedAt: new Date(),
             granularity: 'hour' as const,
@@ -955,7 +955,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
             priceAtTxTime: {
-              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
               source: 'coingecko',
               fetchedAt: new Date(),
               granularity: 'invalid-granularity' as unknown as 'hour',
@@ -1054,7 +1054,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
             priceAtTxTime: {
-              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
               source: 'coingecko',
               fetchedAt: new Date(),
               granularity: 'hour' as const,

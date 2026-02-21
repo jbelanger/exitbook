@@ -5,7 +5,7 @@
  * No API key required
  */
 
-import { Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../../persistence/database.js';
@@ -40,8 +40,8 @@ describe('Frankfurter Provider E2E', () => {
   describe('EUR conversions', () => {
     it('should fetch EUR/USD exchange rate for recent date', async () => {
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('EUR'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'EUR' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
 
@@ -63,8 +63,8 @@ describe('Frankfurter Provider E2E', () => {
   describe('CAD conversions', () => {
     it('should fetch CAD/USD exchange rate for recent date', async () => {
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('CAD'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'CAD' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
 
@@ -86,8 +86,8 @@ describe('Frankfurter Provider E2E', () => {
   describe('GBP conversions', () => {
     it('should fetch GBP/USD exchange rate for recent date', async () => {
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('GBP'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'GBP' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
 
@@ -108,8 +108,8 @@ describe('Frankfurter Provider E2E', () => {
   describe('JPY conversions', () => {
     it('should fetch JPY/USD exchange rate for recent date', async () => {
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('JPY'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'JPY' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
 
@@ -130,8 +130,8 @@ describe('Frankfurter Provider E2E', () => {
   describe('CHF conversions', () => {
     it('should fetch CHF/USD exchange rate for recent date', async () => {
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('CHF'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'CHF' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
 
@@ -152,8 +152,8 @@ describe('Frankfurter Provider E2E', () => {
   describe('Special cases', () => {
     it('should handle USD/USD as 1.0', async () => {
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('USD'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'USD' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
 
@@ -171,8 +171,8 @@ describe('Frankfurter Provider E2E', () => {
     it('should handle weekend dates (use previous business day)', async () => {
       // Saturday, January 13, 2024
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('EUR'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'EUR' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-13T00:00:00Z'),
       });
 
@@ -192,8 +192,8 @@ describe('Frankfurter Provider E2E', () => {
     it('should fetch historical rates from early 2000s', async () => {
       // Frankfurter has data back to 1999, but using 2000 for more reliable test
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('EUR'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'EUR' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2000-01-03T00:00:00Z'), // First business day of 2000
       });
 
@@ -210,8 +210,8 @@ describe('Frankfurter Provider E2E', () => {
 
     it('should fetch rates from 2020 (COVID period)', async () => {
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('CAD'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'CAD' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2020-06-30T00:00:00Z'),
       });
 
@@ -229,8 +229,8 @@ describe('Frankfurter Provider E2E', () => {
   describe('Error handling', () => {
     it('should return error for unsupported crypto currency', async () => {
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('BTC'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'BTC' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
 
@@ -243,8 +243,8 @@ describe('Frankfurter Provider E2E', () => {
 
     it('should return error for non-USD target currency', async () => {
       const result = await provider.fetchPrice({
-        assetSymbol: Currency.create('EUR'),
-        currency: Currency.create('CAD'),
+        assetSymbol: 'EUR' as Currency,
+        currency: 'CAD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
 
@@ -259,8 +259,8 @@ describe('Frankfurter Provider E2E', () => {
   describe('Caching', () => {
     it('should cache results and return from cache on second request', async () => {
       const query = {
-        assetSymbol: Currency.create('EUR'),
-        currency: Currency.create('USD'),
+        assetSymbol: 'EUR' as Currency,
+        currency: 'USD' as Currency,
         timestamp: new Date('2024-01-15T00:00:00Z'),
       };
 

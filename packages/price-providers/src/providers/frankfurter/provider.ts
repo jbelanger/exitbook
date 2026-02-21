@@ -12,8 +12,7 @@
  * - More comprehensive currency support (31 currencies)
  */
 
-import type { Currency } from '@exitbook/core';
-import { parseDecimal, wrapError } from '@exitbook/core';
+import { isFiat, parseDecimal, wrapError, type Currency } from '@exitbook/core';
 import type { HttpClient, InstrumentationCollector } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -133,21 +132,21 @@ export class FrankfurterProvider extends BasePriceProvider {
       const { assetSymbol: assetSymbol, currency, timestamp } = query;
 
       // Validate: asset must be a supported fiat currency
-      if (!assetSymbol.isFiat() || !isSupportedCurrency(assetSymbol.toString())) {
+      if (!isFiat(assetSymbol) || !isSupportedCurrency(assetSymbol)) {
         return err(
           new Error(
-            `Frankfurter only supports fiat currencies: ${FRANKFURTER_SUPPORTED_CURRENCIES.join(', ')}, got ${assetSymbol.toString()}`
+            `Frankfurter only supports fiat currencies: ${FRANKFURTER_SUPPORTED_CURRENCIES.join(', ')}, got ${assetSymbol}`
           )
         );
       }
 
       // Validate: currency must be USD
-      if (currency.toString() !== 'USD') {
-        return err(new Error(`Frankfurter provider only supports USD as target currency, got ${currency.toString()}`));
+      if (currency !== 'USD') {
+        return err(new Error(`Frankfurter provider only supports USD as target currency, got ${currency}`));
       }
 
       // Special case: USD to USD
-      if (assetSymbol.toString() === 'USD') {
+      if (assetSymbol === 'USD') {
         return ok({
           assetSymbol: assetSymbol,
           timestamp,
@@ -175,7 +174,7 @@ export class FrankfurterProvider extends BasePriceProvider {
       }
 
       // 3. Cache the result using shared helper
-      await this.saveToCache(priceData.value, `${assetSymbol.toString()}_USD`);
+      await this.saveToCache(priceData.value, `${assetSymbol}_USD`);
 
       return ok(priceData.value);
     } catch (error) {
@@ -203,15 +202,15 @@ export class FrankfurterProvider extends BasePriceProvider {
 
       // Build query parameters
       const params = new URLSearchParams({
-        from: assetSymbol.toString(),
-        to: currency.toString(),
+        from: assetSymbol,
+        to: currency,
       });
 
       const isOriginalDate = attempt === 0;
       this.logger.debug(
         {
-          assetSymbol: assetSymbol.toString(),
-          currency: currency.toString(),
+          assetSymbol,
+          currency,
           requestedDate: formatFrankfurterDate(timestamp),
           attemptDate: dateStr,
           attempt: attempt + 1,
@@ -256,7 +255,7 @@ export class FrankfurterProvider extends BasePriceProvider {
         if (!isOriginalDate) {
           this.logger.info(
             {
-              assetSymbol: assetSymbol.toString(),
+              assetSymbol,
               requestedDate: formatFrankfurterDate(timestamp),
               actualDate: dateStr,
               daysBack: attempt,
@@ -283,7 +282,7 @@ export class FrankfurterProvider extends BasePriceProvider {
     // Exhausted all attempts
     return err(
       new Error(
-        `No FX rate found for ${assetSymbol.toString()} within ${maxAttempts} days of ${formatFrankfurterDate(timestamp)}. ` +
+        `No FX rate found for ${assetSymbol} within ${maxAttempts} days of ${formatFrankfurterDate(timestamp)}. ` +
           `Last error: ${lastError?.message || 'unknown'}`
       )
     );

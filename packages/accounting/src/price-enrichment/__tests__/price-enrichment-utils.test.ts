@@ -7,7 +7,7 @@
  * - Fee price enrichment from movement prices
  */
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import type { AssetMovement, FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
@@ -37,7 +37,7 @@ describe('inferMultiPass', () => {
   const createPrice = (source: string, amount: string): PriceAtTxTime => ({
     price: {
       amount: parseDecimal(amount),
-      currency: Currency.create('USD'),
+      currency: 'USD' as Currency,
     },
     source,
     fetchedAt: new Date(),
@@ -325,7 +325,7 @@ describe('propagatePricesAcrossLinks', () => {
   const createPrice = (source: string, amount: string): PriceAtTxTime => ({
     price: {
       amount: parseDecimal(amount),
-      currency: Currency.create('USD'),
+      currency: 'USD' as Currency,
     },
     source,
     fetchedAt: new Date(),
@@ -722,7 +722,7 @@ describe('enrichFeePricesFromMovements', () => {
   const createPrice = (source: string, amount: string): PriceAtTxTime => ({
     price: {
       amount: parseDecimal(amount),
-      currency: Currency.create('USD'),
+      currency: 'USD' as Currency,
     },
     source,
     fetchedAt: new Date(),

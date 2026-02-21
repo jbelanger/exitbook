@@ -1,4 +1,4 @@
-import { Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../../persistence/database.js';
@@ -38,8 +38,8 @@ describe('ECB Provider E2E', () => {
 
   it('should fetch EUR/USD exchange rate for recent date', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('EUR'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'EUR' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
 
@@ -59,8 +59,8 @@ describe('ECB Provider E2E', () => {
 
   it('should return error for non-EUR fiat currency (GBP)', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('GBP'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'GBP' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
 
@@ -73,8 +73,8 @@ describe('ECB Provider E2E', () => {
 
   it('should return error for non-EUR fiat currency (JPY)', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('JPY'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'JPY' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
 
@@ -87,8 +87,8 @@ describe('ECB Provider E2E', () => {
 
   it('should fetch historical data from several years ago', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('EUR'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'EUR' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date('2020-01-15T00:00:00Z'),
     });
 
@@ -109,8 +109,8 @@ describe('ECB Provider E2E', () => {
 
     // First request - should fetch from API
     const firstResult = await provider.fetchPrice({
-      assetSymbol: Currency.create('EUR'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'EUR' as Currency,
+      currency: 'USD' as Currency,
       timestamp,
     });
 
@@ -118,8 +118,8 @@ describe('ECB Provider E2E', () => {
 
     // Second request - should use cache
     const secondResult = await provider.fetchPrice({
-      assetSymbol: Currency.create('EUR'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'EUR' as Currency,
+      currency: 'USD' as Currency,
       timestamp,
     });
 
@@ -133,8 +133,8 @@ describe('ECB Provider E2E', () => {
 
   it('should return error for cryptocurrency (not EUR)', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('BTC'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
 
@@ -147,8 +147,8 @@ describe('ECB Provider E2E', () => {
 
   it('should return error for non-USD target currency', async () => {
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('EUR'),
-      currency: Currency.create('GBP'),
+      assetSymbol: 'EUR' as Currency,
+      currency: 'GBP' as Currency,
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
 
@@ -181,8 +181,8 @@ describe('ECB Provider E2E', () => {
     // ECB doesn't publish rates on weekends
     // Saturday, January 13, 2024
     const result = await provider.fetchPrice({
-      assetSymbol: Currency.create('EUR'),
-      currency: Currency.create('USD'),
+      assetSymbol: 'EUR' as Currency,
+      currency: 'USD' as Currency,
       timestamp: new Date('2024-01-13T00:00:00Z'),
     });
 

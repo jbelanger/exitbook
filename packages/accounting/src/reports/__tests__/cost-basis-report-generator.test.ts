@@ -3,7 +3,7 @@
  * Tests for CostBasisReportGenerator
  */
 
-import { Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { err, okAsync } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
@@ -245,8 +245,8 @@ describe('CostBasisReportGenerator', () => {
       expect(fxProvider.getRateFromUSD).toHaveBeenCalledTimes(2);
 
       // Verify it was called with correct dates
-      expect(fxProvider.getRateFromUSD).toHaveBeenCalledWith(expect.any(Currency), new Date('2024-03-15'));
-      expect(fxProvider.getRateFromUSD).toHaveBeenCalledWith(expect.any(Currency), new Date('2024-06-20'));
+      expect(fxProvider.getRateFromUSD).toHaveBeenCalledWith(expect.any(String), new Date('2024-03-15'));
+      expect(fxProvider.getRateFromUSD).toHaveBeenCalledWith(expect.any(String), new Date('2024-06-20'));
     });
 
     it('should return error if FX rate is unavailable', async () => {

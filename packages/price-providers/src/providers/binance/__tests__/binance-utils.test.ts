@@ -4,7 +4,7 @@
  * Pure function tests - no mocks needed
  */
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -21,28 +21,28 @@ import type { BinanceKline } from '../schemas.js';
 
 describe('mapCurrencyToBinanceQuote', () => {
   it('maps USD to USDT, BUSD, USD', () => {
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const result = mapCurrencyToBinanceQuote(currency);
 
     expect(result).toEqual(['USDT', 'BUSD', 'USD']);
   });
 
   it('maps EUR to EUR', () => {
-    const currency = Currency.create('EUR');
+    const currency = 'EUR' as Currency;
     const result = mapCurrencyToBinanceQuote(currency);
 
     expect(result).toEqual(['EUR']);
   });
 
   it('maps GBP to GBP', () => {
-    const currency = Currency.create('GBP');
+    const currency = 'GBP' as Currency;
     const result = mapCurrencyToBinanceQuote(currency);
 
     expect(result).toEqual(['GBP']);
   });
 
   it('maps other currencies as-is', () => {
-    const currency = Currency.create('JPY');
+    const currency = 'JPY' as Currency;
     const result = mapCurrencyToBinanceQuote(currency);
 
     expect(result).toEqual(['JPY']);
@@ -51,21 +51,21 @@ describe('mapCurrencyToBinanceQuote', () => {
 
 describe('buildBinanceSymbol', () => {
   it('builds BTCUSDT symbol', () => {
-    const asset = Currency.create('BTC');
+    const asset = 'BTC' as Currency;
     const result = buildBinanceSymbol(asset, 'USDT');
 
     expect(result).toBe('BTCUSDT');
   });
 
   it('builds ETHBUSD symbol', () => {
-    const asset = Currency.create('ETH');
+    const asset = 'ETH' as Currency;
     const result = buildBinanceSymbol(asset, 'BUSD');
 
     expect(result).toBe('ETHBUSD');
   });
 
   it('builds symbol with lowercase asset', () => {
-    const asset = Currency.create('sol');
+    const asset = 'sol' as Currency;
     const result = buildBinanceSymbol(asset, 'USDT');
 
     expect(result).toBe('SOLUSDT');
@@ -204,9 +204,9 @@ describe('transformBinanceKlineResponse', () => {
       '0', // Unused
     ];
 
-    const asset = Currency.create('BTC');
+    const asset = 'BTC' as Currency;
     const timestamp = new Date('2024-01-01T12:34:56Z');
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const fetchedAt = new Date('2024-01-01T13:00:00Z');
 
     const result = transformBinanceKlineResponse(kline, asset, timestamp, currency, fetchedAt, 'minute');
@@ -241,9 +241,9 @@ describe('transformBinanceKlineResponse', () => {
       '0', // Unused
     ];
 
-    const asset = Currency.create('ETH');
+    const asset = 'ETH' as Currency;
     const timestamp = new Date('2024-01-15T12:34:56Z');
-    const currency = Currency.create('EUR');
+    const currency = 'EUR' as Currency;
     const fetchedAt = new Date('2024-01-15T13:00:00Z');
 
     const result = transformBinanceKlineResponse(kline, asset, timestamp, currency, fetchedAt, 'day');
@@ -278,9 +278,9 @@ describe('transformBinanceKlineResponse', () => {
       '0', // Unused
     ];
 
-    const asset = Currency.create('BTC');
+    const asset = 'BTC' as Currency;
     const timestamp = new Date('2024-01-01T12:00:00Z');
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const fetchedAt = new Date('2024-01-01T13:00:00Z');
 
     const result = transformBinanceKlineResponse(kline, asset, timestamp, currency, fetchedAt, 'minute');
@@ -309,9 +309,9 @@ describe('transformBinanceKlineResponse', () => {
       '0', // Unused
     ];
 
-    const asset = Currency.create('BTC');
+    const asset = 'BTC' as Currency;
     const timestamp = new Date('2024-01-01T12:00:00Z');
-    const currency = Currency.create('USD');
+    const currency = 'USD' as Currency;
     const fetchedAt = new Date('2024-01-01T13:00:00Z');
 
     const result = transformBinanceKlineResponse(kline, asset, timestamp, currency, fetchedAt, 'minute');

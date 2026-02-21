@@ -180,7 +180,7 @@ export class CryptoCompareProvider extends BasePriceProvider {
       }
 
       // 3. Cache the result using shared helper (use asset symbol as "coin ID" for CryptoCompare)
-      await this.saveToCache(priceData.value, query.assetSymbol.toString());
+      await this.saveToCache(priceData.value, query.assetSymbol);
 
       return ok(priceData.value);
     } catch (error) {
@@ -200,7 +200,7 @@ export class CryptoCompareProvider extends BasePriceProvider {
 
     // Use current price API for very recent data
     if (canUseCurrentPrice(timestamp)) {
-      this.logger.debug({ assetSymbol: assetSymbol.toString() }, 'Using current price API');
+      this.logger.debug({ assetSymbol }, 'Using current price API');
 
       const params = buildPriceParams(assetSymbol, currency, this.config.apiKey);
       const searchParams = new URLSearchParams(params);
@@ -225,7 +225,7 @@ export class CryptoCompareProvider extends BasePriceProvider {
     }
 
     // Use historical API for older data
-    this.logger.debug({ assetSymbol: assetSymbol.toString(), timestamp }, 'Using historical price API');
+    this.logger.debug({ assetSymbol, timestamp }, 'Using historical price API');
 
     const granularity = getHistoricalGranularity(timestamp);
     const endpoint = `/data/v2/histo${granularity}`;
@@ -256,10 +256,10 @@ export class CryptoCompareProvider extends BasePriceProvider {
       if (errorMessage.includes('market does not exist')) {
         return err(
           new CoinNotFoundError(
-            `CryptoCompare does not have data for ${assetSymbol.toString()}: ${errorMessage}`,
-            assetSymbol.toString(),
+            `CryptoCompare does not have data for ${assetSymbol}: ${errorMessage}`,
+            assetSymbol,
             'cryptocompare',
-            { currency: currency.toString() }
+            { currency }
           )
         );
       }

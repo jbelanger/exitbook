@@ -9,8 +9,8 @@
  * Following "Functional Core, Imperative Shell" pattern from CLAUDE.md
  */
 
-import type { AssetMovement, FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
-import { Currency, parseDecimal } from '@exitbook/core';
+import type { AssetMovement, Currency, FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
+import { isFiat, parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -54,13 +54,13 @@ export function extractMovementsNeedingNormalization(tx: UniversalTransactionDat
     const priceCurrency = movement.priceAtTxTime.price.currency;
 
     // Already USD - skip
-    if (priceCurrency.toString() === 'USD') {
+    if (priceCurrency === 'USD') {
       skipped.push(movement);
       continue;
     }
 
     // Non-USD fiat - needs normalization
-    if (priceCurrency.isFiat()) {
+    if (isFiat(priceCurrency)) {
       needsNormalization.push(movement);
       continue;
     }
@@ -136,7 +136,7 @@ export function createNormalizedPrice(
     ...original,
     price: {
       amount: usdAmount,
-      currency: Currency.create('USD'),
+      currency: 'USD' as Currency,
     },
     source: upgradedSource,
     // FX metadata for audit trail
@@ -160,12 +160,12 @@ export function movementNeedsNormalization(movement: AssetMovement): boolean {
   const priceCurrency = movement.priceAtTxTime.price.currency;
 
   // Skip if already USD
-  if (priceCurrency.toString() === 'USD') {
+  if (priceCurrency === 'USD') {
     return false;
   }
 
   // Only normalize fiat currencies (EUR, CAD, GBP, etc.)
-  return priceCurrency.isFiat();
+  return isFiat(priceCurrency);
 }
 
 /**
@@ -183,11 +183,11 @@ export function classifyMovementPrice(
 
   const priceCurrency = movement.priceAtTxTime.price.currency;
 
-  if (priceCurrency.toString() === 'USD') {
+  if (priceCurrency === 'USD') {
     return 'already-usd';
   }
 
-  if (priceCurrency.isFiat()) {
+  if (isFiat(priceCurrency)) {
     return 'needs-normalization';
   }
 
@@ -258,7 +258,7 @@ export async function normalizePriceToUSD(
   if (validationResult.isErr()) {
     return err(
       new Error(
-        `Invalid FX rate for ${sourceCurrency.toString()} → USD: ${validationResult.error.message} (rate: ${fxRate.toString()}, source: ${fxData.source})`
+        `Invalid FX rate for ${sourceCurrency} → USD: ${validationResult.error.message} (rate: ${fxRate.toString()}, source: ${fxData.source})`
       )
     );
   }
@@ -305,7 +305,7 @@ export async function normalizeMovementArray(
       results.push({
         item: movement,
         wasNormalized: false,
-        error: `Asset ${movement.assetSymbol} (${priceCurrency.toString()} → USD): ${normalizedPrice.error.message}`,
+        error: `Asset ${movement.assetSymbol} (${priceCurrency} → USD): ${normalizedPrice.error.message}`,
       });
       continue;
     }
@@ -337,12 +337,12 @@ export function feeNeedsNormalization(fee: FeeMovement): boolean {
   const priceCurrency = fee.priceAtTxTime.price.currency;
 
   // Skip if already USD
-  if (priceCurrency.toString() === 'USD') {
+  if (priceCurrency === 'USD') {
     return false;
   }
 
   // Only normalize fiat currencies (EUR, CAD, GBP, etc.)
-  return priceCurrency.isFiat();
+  return isFiat(priceCurrency);
 }
 
 /**
@@ -381,7 +381,7 @@ export async function normalizeFeeArray(
       results.push({
         item: fee,
         wasNormalized: false,
-        error: `Fee ${fee.assetSymbol} (${priceCurrency.toString()} → USD): ${normalizedPrice.error.message}`,
+        error: `Fee ${fee.assetSymbol} (${priceCurrency} → USD): ${normalizedPrice.error.message}`,
       });
       continue;
     }

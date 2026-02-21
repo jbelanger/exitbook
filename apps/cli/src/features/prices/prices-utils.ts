@@ -3,7 +3,7 @@
 
 import path from 'node:path';
 
-import { Currency, type UniversalTransactionData } from '@exitbook/core';
+import { isFiat, parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/http';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
@@ -74,7 +74,13 @@ export function validateAssetFilter(asset: string | string[] | undefined): Resul
     }
   }
 
-  return ok(assets.map((a) => Currency.create(a)));
+  const results: Currency[] = [];
+  for (const a of assets) {
+    const result = parseCurrency(a);
+    if (result.isErr()) return err(result.error);
+    results.push(result.value);
+  }
+  return ok(results);
 }
 
 /**
@@ -105,8 +111,7 @@ export function extractAssetsNeedingPrices(tx: UniversalTransactionData): Result
 
     if (needsPrice) {
       // Skip fiat currencies - they don't need price fetching
-      const currency = Currency.create(movement.assetSymbol);
-      if (!currency.isFiat()) {
+      if (!isFiat(movement.assetSymbol as Currency)) {
         assetsNeedingPrices.add(movement.assetSymbol);
       }
     }
@@ -118,8 +123,7 @@ export function extractAssetsNeedingPrices(tx: UniversalTransactionData): Result
 
     if (needsPrice) {
       // Skip fiat currencies - they don't need price fetching
-      const currency = Currency.create(fee.assetSymbol);
-      if (!currency.isFiat()) {
+      if (!isFiat(fee.assetSymbol as Currency)) {
         assetsNeedingPrices.add(fee.assetSymbol);
       }
     }
@@ -147,10 +151,16 @@ export function createPriceQuery(
     return err(new Error(`Transaction ${tx.id} has invalid datetime: ${tx.datetime}`));
   }
 
+  const assetResult = parseCurrency(assetSymbol);
+  if (assetResult.isErr()) return err(assetResult.error);
+
+  const currencyResult = parseCurrency(targetCurrency);
+  if (currencyResult.isErr()) return err(currencyResult.error);
+
   return ok({
-    assetSymbol: Currency.create(assetSymbol),
+    assetSymbol: assetResult.value,
     timestamp,
-    currency: Currency.create(targetCurrency),
+    currency: currencyResult.value,
   });
 }
 
