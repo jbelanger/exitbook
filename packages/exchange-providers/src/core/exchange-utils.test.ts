@@ -1,3 +1,4 @@
+import type { Currency } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
@@ -242,7 +243,7 @@ describe('processItems', () => {
       correlationId: parsed.id,
       timestamp: parsed.time,
       type: 'trade',
-      assetSymbol: 'BTC',
+      assetSymbol: 'BTC' as Currency,
       amount: parsed.amount,
       status: 'success' as const,
     },

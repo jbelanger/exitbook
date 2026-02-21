@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- null needed by Kysely */
 import {
+  CurrencySchema,
   DecimalSchema,
   MatchCriteriaSchema,
   TransactionLinkMetadataSchema,
@@ -48,7 +49,7 @@ export function createTransactionLinkQueries(db: KyselyDB) {
       id: row.id,
       sourceTransactionId: row.source_transaction_id,
       targetTransactionId: row.target_transaction_id,
-      assetSymbol: row.asset,
+      assetSymbol: CurrencySchema.parse(row.asset),
       sourceAssetId: row.source_asset_id,
       targetAssetId: row.target_asset_id,
       sourceAmount: DecimalSchema.parse(row.source_amount),

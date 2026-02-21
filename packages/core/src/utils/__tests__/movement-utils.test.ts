@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { Currency } from '../../currency.js';
 import type { AssetMovement } from '../../schemas/universal-transaction.js';
 import { parseDecimal } from '../decimal-utils.js';
 import { computePrimaryMovement } from '../movement-utils.js';
@@ -14,7 +15,7 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.5'),
       },
     ];
@@ -32,7 +33,7 @@ describe('computePrimaryMovement', () => {
     const outflows: AssetMovement[] = [
       {
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         grossAmount: parseDecimal('2.5'),
       },
     ];
@@ -50,17 +51,17 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('0.5'),
       },
       {
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         grossAmount: parseDecimal('10'),
       },
       {
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         grossAmount: parseDecimal('1000'),
       },
     ];
@@ -78,17 +79,17 @@ describe('computePrimaryMovement', () => {
     const outflows: AssetMovement[] = [
       {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('0.1'),
       },
       {
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         grossAmount: parseDecimal('5'),
       },
       {
         assetId: 'test:usdc',
-        assetSymbol: 'USDC',
+        assetSymbol: 'USDC' as Currency,
         grossAmount: parseDecimal('100'),
       },
     ];
@@ -106,14 +107,14 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         grossAmount: parseDecimal('1000'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('0.5'),
       },
     ];
@@ -131,14 +132,14 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         grossAmount: parseDecimal('100'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('500'),
       },
     ];
@@ -156,14 +157,14 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         grossAmount: parseDecimal('1'),
       },
     ];
@@ -182,14 +183,14 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         grossAmount: parseDecimal('50000'),
       },
     ];
@@ -209,24 +210,24 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         grossAmount: parseDecimal('10'),
       },
       {
         assetId: 'test:usdc',
-        assetSymbol: 'USDC',
+        assetSymbol: 'USDC' as Currency,
         grossAmount: parseDecimal('100'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('0.5'),
       },
       {
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         grossAmount: parseDecimal('5000'),
       },
     ];
@@ -245,7 +246,7 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('0.00000001'), // 1 satoshi
       },
     ];
@@ -263,7 +264,7 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         assetId: 'test:shib',
-        assetSymbol: 'SHIB',
+        assetSymbol: 'SHIB' as Currency,
         grossAmount: parseDecimal('1000000000000'),
       },
     ];

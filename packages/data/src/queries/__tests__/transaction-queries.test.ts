@@ -407,7 +407,7 @@ describe('TransactionQueries - isSpam field', () => {
         inflows: [
           {
             assetId: 'test:scam',
-            assetSymbol: 'SCAM',
+            assetSymbol: 'SCAM' as Currency,
             grossAmount: parseDecimal('1000'),
             netAmount: parseDecimal('1000'),
           },
@@ -454,7 +454,7 @@ describe('TransactionQueries - isSpam field', () => {
         inflows: [
           {
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('1'),
           },
@@ -494,7 +494,7 @@ describe('TransactionQueries - isSpam field', () => {
         inflows: [
           {
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('1'),
           },
@@ -723,7 +723,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
         inflows: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
             priceAtTxTime: {
@@ -739,7 +739,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
       fees: [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.0001'),
           scope: 'network',
           settlement: 'on-chain',
@@ -834,7 +834,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
         inflows: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
             priceAtTxTime: {
@@ -848,7 +848,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
         outflows: [
           {
             assetId: 'test:usdt',
-            assetSymbol: 'USDT',
+            assetSymbol: 'USDT' as Currency,
             grossAmount: parseDecimal('50000'),
             netAmount: parseDecimal('50000'),
             priceAtTxTime: {
@@ -863,7 +863,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
       fees: [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.0001'),
           scope: 'network',
           settlement: 'on-chain',
@@ -951,7 +951,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
         inflows: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
             priceAtTxTime: {
@@ -1050,7 +1050,7 @@ describe('TransactionQueries - updateMovementsWithPrices', () => {
         inflows: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
             priceAtTxTime: {

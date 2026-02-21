@@ -1,12 +1,11 @@
 import type { ExchangeCredentials, TransactionStatus } from '@exitbook/core';
-import { parseDecimal, wrapError } from '@exitbook/core';
+import { parseDecimal, parseCurrency, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import * as ExchangeUtils from '../../core/exchange-utils.js';
-import type { ExchangeLedgerEntry } from '../../core/schemas.js';
 import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../core/types.js';
 
 import {
@@ -330,15 +329,15 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
 
                     // Extract blockchain metadata from Coinbase API v2 network field
                     // The network field contains hash, network_name, and status for on-chain transactions
-                    const normalizedData: ExchangeLedgerEntry = {
+                    const normalizedData: import('../../core/schemas.js').ExchangeLedgerEntry = {
                       id: validatedData.id,
                       correlationId,
                       timestamp,
                       type: validatedData.type,
-                      assetSymbol: validatedData.currency,
+                      assetSymbol: parseCurrency(validatedData.currency)._unsafeUnwrap(),
                       amount: signedAmount,
                       fee: feeAmount,
-                      feeCurrency,
+                      feeCurrency: feeCurrency !== undefined ? parseCurrency(feeCurrency)._unsafeUnwrap() : undefined,
                       status: mapCoinbaseStatus(validatedData.status),
                       hash: typeof rawInfo.network?.hash === 'string' ? rawInfo.network.hash : undefined,
                       address: typeof rawInfo.to?.address === 'string' ? rawInfo.to.address : undefined,

@@ -1,11 +1,11 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
 import {
   AssetMovementSchema,
+  CurrencySchema,
   FeeMovementSchema,
   TransactionNoteSchema,
   parseDecimal,
   type AssetMovement,
-  type Currency,
   type FeeMovement,
   type TransactionStatus,
   type UniversalTransactionData,
@@ -178,7 +178,7 @@ function rowToAssetMovement(row: MovementRow): Result<AssetMovement, Error> {
 
   const movement: AssetMovement = {
     assetId: row.asset_id,
-    assetSymbol: row.asset_symbol,
+    assetSymbol: CurrencySchema.parse(row.asset_symbol),
     grossAmount: parseDecimal(row.gross_amount),
     netAmount: row.net_amount ? parseDecimal(row.net_amount) : parseDecimal(row.gross_amount),
   };
@@ -187,7 +187,7 @@ function rowToAssetMovement(row: MovementRow): Result<AssetMovement, Error> {
     movement.priceAtTxTime = {
       price: {
         amount: parseDecimal(row.price_amount),
-        currency: row.price_currency as Currency,
+        currency: CurrencySchema.parse(row.price_currency),
       },
       source: row.price_source,
       fetchedAt: new Date(row.price_fetched_at),
@@ -217,7 +217,7 @@ function rowToFeeMovement(row: MovementRow): Result<FeeMovement, Error> {
 
   const fee: FeeMovement = {
     assetId: row.asset_id,
-    assetSymbol: row.asset_symbol,
+    assetSymbol: CurrencySchema.parse(row.asset_symbol),
     amount: parseDecimal(row.fee_amount),
     scope: row.fee_scope,
     settlement: row.fee_settlement,
@@ -227,7 +227,7 @@ function rowToFeeMovement(row: MovementRow): Result<FeeMovement, Error> {
     fee.priceAtTxTime = {
       price: {
         amount: parseDecimal(row.price_amount),
-        currency: row.price_currency as Currency,
+        currency: CurrencySchema.parse(row.price_currency),
       },
       source: row.price_source,
       fetchedAt: new Date(row.price_fetched_at),

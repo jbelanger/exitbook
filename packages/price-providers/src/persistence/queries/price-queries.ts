@@ -3,7 +3,7 @@
  */
 
 import type { Currency } from '@exitbook/core';
-import { parseDecimal, wrapError } from '@exitbook/core';
+import { CurrencySchema, parseDecimal, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
@@ -57,8 +57,8 @@ export function createPriceQueries(db: PricesDB) {
     const granularity = normalizeGranularity(record.granularity, record);
 
     return {
-      assetSymbol: record.asset_symbol as Currency,
-      currency: record.currency as Currency,
+      assetSymbol: CurrencySchema.parse(record.asset_symbol),
+      currency: CurrencySchema.parse(record.currency),
       timestamp: new Date(record.timestamp),
       price: parseDecimal(record.price),
       source: record.source_provider,

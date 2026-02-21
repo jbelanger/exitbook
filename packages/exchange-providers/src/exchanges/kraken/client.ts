@@ -6,7 +6,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import * as ExchangeUtils from '../../core/exchange-utils.js';
-import { ExchangeLedgerEntrySchema, type ExchangeLedgerEntry } from '../../core/schemas.js';
+import { ExchangeLedgerEntrySchema } from '../../core/schemas.js';
 import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../core/types.js';
 
 import { KrakenCredentialsSchema, KrakenLedgerEntrySchema } from './schemas.js';
@@ -142,7 +142,8 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
                 const normalizedAsset = normalizeKrakenAsset(validatedData.asset);
 
                 // Map KrakenLedgerEntry to ExchangeLedgerEntry with Kraken-specific normalization
-                const normalizedData: ExchangeLedgerEntry = {
+                // Raw strings passed here — ExchangeLedgerEntrySchema.safeParse below normalizes (uppercases) currencies
+                const normalizedData = {
                   id: validatedData.id,
                   correlationId: validatedData.refid,
                   timestamp: Math.floor(validatedData.time * 1000),

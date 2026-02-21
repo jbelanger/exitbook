@@ -1,4 +1,4 @@
-import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -15,12 +15,17 @@ describe('generateDeterministicTransactionHash', () => {
       status: 'closed',
       movements: {
         inflows: [
-          { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.5'), netAmount: new Decimal('0.5') },
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.5'),
+            netAmount: new Decimal('0.5'),
+          },
         ],
         outflows: [
           {
             assetId: 'test:usdt',
-            assetSymbol: 'USDT',
+            assetSymbol: 'USDT' as Currency,
             grossAmount: parseDecimal('20000'),
             netAmount: parseDecimal('20000'),
           },
@@ -29,7 +34,7 @@ describe('generateDeterministicTransactionHash', () => {
       fees: [
         {
           assetId: 'test:usdt',
-          assetSymbol: 'USDT',
+          assetSymbol: 'USDT' as Currency,
           amount: parseDecimal('10'),
           scope: 'platform',
           settlement: 'balance',
@@ -55,12 +60,17 @@ describe('generateDeterministicTransactionHash', () => {
       status: 'closed',
       movements: {
         inflows: [
-          { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.5'), netAmount: new Decimal('0.5') },
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.5'),
+            netAmount: new Decimal('0.5'),
+          },
         ],
         outflows: [
           {
             assetId: 'test:usdt',
-            assetSymbol: 'USDT',
+            assetSymbol: 'USDT' as Currency,
             grossAmount: parseDecimal('20000'),
             netAmount: parseDecimal('20000'),
           },
@@ -91,7 +101,12 @@ describe('generateDeterministicTransactionHash', () => {
       status: 'closed',
       movements: {
         inflows: [
-          { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.5'), netAmount: new Decimal('0.5') },
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.5'),
+            netAmount: new Decimal('0.5'),
+          },
         ],
         outflows: [],
       },
@@ -103,7 +118,12 @@ describe('generateDeterministicTransactionHash', () => {
       ...tx1,
       movements: {
         inflows: [
-          { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.6'), netAmount: new Decimal('0.6') },
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.6'),
+            netAmount: new Decimal('0.6'),
+          },
         ],
         outflows: [],
       },
@@ -125,8 +145,18 @@ describe('generateDeterministicTransactionHash', () => {
       status: 'closed',
       movements: {
         inflows: [
-          { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.5'), netAmount: new Decimal('0.5') },
-          { assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('2'), netAmount: new Decimal('2') },
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.5'),
+            netAmount: new Decimal('0.5'),
+          },
+          {
+            assetId: 'test:eth',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('2'),
+            netAmount: new Decimal('2'),
+          },
         ],
         outflows: [],
       },
@@ -138,8 +168,18 @@ describe('generateDeterministicTransactionHash', () => {
       ...tx1,
       movements: {
         inflows: [
-          { assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('2'), netAmount: new Decimal('2') },
-          { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.5'), netAmount: new Decimal('0.5') },
+          {
+            assetId: 'test:eth',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('2'),
+            netAmount: new Decimal('2'),
+          },
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.5'),
+            netAmount: new Decimal('0.5'),
+          },
         ],
         outflows: [],
       },
@@ -161,7 +201,12 @@ describe('generateDeterministicTransactionHash', () => {
       status: 'closed',
       movements: {
         inflows: [
-          { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.5'), netAmount: new Decimal('0.5') },
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.5'),
+            netAmount: new Decimal('0.5'),
+          },
         ],
         outflows: [],
       },
@@ -174,7 +219,7 @@ describe('generateDeterministicTransactionHash', () => {
       fees: [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.001'),
           scope: 'network',
           settlement: 'balance',
@@ -200,7 +245,12 @@ describe('generateDeterministicTransactionHash', () => {
       to: 'bc1qaddress2',
       movements: {
         inflows: [
-          { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.5'), netAmount: new Decimal('0.5') },
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.5'),
+            netAmount: new Decimal('0.5'),
+          },
         ],
         outflows: [],
       },
@@ -250,7 +300,12 @@ describe('generateDeterministicTransactionHash', () => {
       status: 'closed',
       movements: {
         inflows: [
-          { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.5'), netAmount: new Decimal('0.5') },
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.5'),
+            netAmount: new Decimal('0.5'),
+          },
         ],
         outflows: [],
       },
@@ -282,7 +337,7 @@ describe('generateDeterministicTransactionHash', () => {
         outflows: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1.0'),
             netAmount: new Decimal('0.999'),
           },
@@ -296,7 +351,7 @@ describe('generateDeterministicTransactionHash', () => {
       ...tx1,
       movements: {
         inflows: [],
-        outflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }], // No netAmount
+        outflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }], // No netAmount
       },
     };
 

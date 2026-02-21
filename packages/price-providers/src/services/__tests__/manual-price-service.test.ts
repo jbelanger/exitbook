@@ -63,7 +63,7 @@ describe('ManualPriceService', () => {
       const service = new ManualPriceService(testDbPath);
 
       const result = await service.savePrice({
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         date: new Date('2024-01-15T10:30:00Z'),
         price: parseDecimal('45000'),
       });
@@ -92,10 +92,10 @@ describe('ManualPriceService', () => {
       const service = new ManualPriceService(testDbPath);
 
       const result = await service.savePrice({
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         date: new Date('2024-01-15T10:30:00Z'),
         price: parseDecimal('42000'),
-        currency: 'EUR',
+        currency: 'EUR' as Currency,
       });
 
       expect(result.isOk()).toBe(true);
@@ -118,7 +118,7 @@ describe('ManualPriceService', () => {
       const service = new ManualPriceService(testDbPath);
 
       const result = await service.savePrice({
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         date: new Date('2024-01-15T10:30:00Z'),
         price: parseDecimal('2500'),
         source: 'manual-cli',
@@ -143,7 +143,7 @@ describe('ManualPriceService', () => {
       const service = new ManualPriceService('/invalid/path/that/does/not/exist/db.sqlite');
 
       const result = await service.savePrice({
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         date: new Date('2024-01-15T10:30:00Z'),
         price: parseDecimal('45000'),
       });
@@ -161,8 +161,8 @@ describe('ManualPriceService', () => {
       const service = new ManualPriceService(testDbPath);
 
       const result = await service.saveFxRate({
-        from: 'EUR',
-        to: 'USD',
+        from: 'EUR' as Currency,
+        to: 'USD' as Currency,
         date: new Date('2024-01-15T00:00:00Z'),
         rate: parseDecimal('1.08'),
       });
@@ -187,8 +187,8 @@ describe('ManualPriceService', () => {
       const service = new ManualPriceService(testDbPath);
 
       const result = await service.saveFxRate({
-        from: 'CAD',
-        to: 'USD',
+        from: 'CAD' as Currency,
+        to: 'USD' as Currency,
         date: new Date('2024-06-20T00:00:00Z'),
         rate: parseDecimal('0.73'),
         source: 'bank-statement',
@@ -209,8 +209,8 @@ describe('ManualPriceService', () => {
       const service = new ManualPriceService(testDbPath);
 
       const result = await service.saveFxRate({
-        from: 'USD',
-        to: 'USD',
+        from: 'USD' as Currency,
+        to: 'USD' as Currency,
         date: new Date('2024-01-15T00:00:00Z'),
         rate: parseDecimal('1.0'),
       });
@@ -225,8 +225,8 @@ describe('ManualPriceService', () => {
       const service = new ManualPriceService('/invalid/path/that/does/not/exist/db.sqlite');
 
       const result = await service.saveFxRate({
-        from: 'EUR',
-        to: 'USD',
+        from: 'EUR' as Currency,
+        to: 'USD' as Currency,
         date: new Date('2024-01-15T00:00:00Z'),
         rate: parseDecimal('1.08'),
       });
@@ -245,7 +245,7 @@ describe('ManualPriceService', () => {
 
       // First call
       const result1 = await service.savePrice({
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         date: new Date('2024-01-15T10:30:00Z'),
         price: parseDecimal('45000'),
       });
@@ -254,7 +254,7 @@ describe('ManualPriceService', () => {
 
       // Second call should reuse connection
       const result2 = await service.savePrice({
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         date: new Date('2024-01-15T10:30:00Z'),
         price: parseDecimal('2500'),
       });
