@@ -86,7 +86,11 @@ export class PriceProviderManager {
     }
 
     // Execute with failover
-    const result = await this.runWithFailover(async (provider) => provider.fetchPrice(query), 'fetchPrice', query);
+    const result = await this.executeWithCircuitBreaker(
+      async (provider) => provider.fetchPrice(query),
+      'fetchPrice',
+      query
+    );
 
     if (result.isErr()) {
       return result;
@@ -160,7 +164,7 @@ export class PriceProviderManager {
    * Execute operation with circuit breaker and failover
    * Delegates to generic executeWithFailover from @exitbook/resilience
    */
-  private async runWithFailover<T>(
+  private async executeWithCircuitBreaker<T>(
     operation: (provider: IPriceProvider) => Promise<Result<T, Error>>,
     operationType: string,
     query: PriceQuery
