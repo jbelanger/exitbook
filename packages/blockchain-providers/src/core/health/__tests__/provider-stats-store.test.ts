@@ -5,7 +5,7 @@
 import { createInitialCircuitState } from '@exitbook/resilience/circuit-breaker';
 import { describe, expect, test } from 'vitest';
 
-import { getProviderKey, parseProviderKey, ProviderStatsStore } from '../provider-stats-store.js';
+import { getProviderKey, parseProviderKey, ProviderStatsStore, type ProviderKey } from '../provider-stats-store.js';
 
 describe('getProviderKey / parseProviderKey', () => {
   test('encodes blockchain and provider name into a composite key', () => {
@@ -18,7 +18,7 @@ describe('getProviderKey / parseProviderKey', () => {
   });
 
   test('parseProviderKey throws on keys without a slash', () => {
-    expect(() => parseProviderKey('no-slash')).toThrow('Invalid provider key format');
+    expect(() => parseProviderKey('no-slash' as ProviderKey)).toThrow('Invalid provider key format');
   });
 });
 
@@ -51,7 +51,7 @@ describe('ProviderStatsStore', () => {
 
   test('hasHealth returns false for unknown key', () => {
     const store = new ProviderStatsStore();
-    expect(store.hasHealth('ethereum/unknown')).toBe(false);
+    expect(store.hasHealth('ethereum/unknown' as ProviderKey)).toBe(false);
   });
 
   test('updateHealth tracks consecutive failures and error message', () => {
@@ -96,7 +96,7 @@ describe('ProviderStatsStore', () => {
   test('getProviderHealthWithCircuit returns undefined for unknown key', () => {
     const store = new ProviderStatsStore();
     expect(
-      store.getProviderHealthWithCircuit('ethereum/unknown', createInitialCircuitState(), Date.now())
+      store.getProviderHealthWithCircuit('ethereum/unknown' as ProviderKey, createInitialCircuitState(), Date.now())
     ).toBeUndefined();
   });
 

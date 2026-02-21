@@ -19,6 +19,7 @@ export {
   getProviderKey,
   parseProviderKey,
   ProviderStatsStore,
+  type ProviderKey,
   type ProviderStatsStoreOptions,
 } from './health/provider-stats-store.js';
 

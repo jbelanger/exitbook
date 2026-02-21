@@ -15,18 +15,21 @@ import type { ProviderStatsQueries } from '../../persistence/queries/provider-st
 
 const logger = getLogger('ProviderStatsStore');
 
+/** Branded composite key (`blockchain/providerName`) produced by {@link getProviderKey}. */
+export type ProviderKey = string & { readonly __brand: 'ProviderKey' };
+
 /**
  * Create composite key for provider stats to prevent collisions when same provider
  * name is used across multiple blockchains (e.g., tatum for bitcoin, litecoin, etc.)
  */
-export function getProviderKey(blockchain: string, providerName: string): string {
-  return `${blockchain}/${providerName}`;
+export function getProviderKey(blockchain: string, providerName: string): ProviderKey {
+  return `${blockchain}/${providerName}` as ProviderKey;
 }
 
 /**
  * Parse composite key back into blockchain and provider name
  */
-export function parseProviderKey(key: string): { blockchain: string; providerName: string } {
+export function parseProviderKey(key: ProviderKey): { blockchain: string; providerName: string } {
   const [blockchain, providerName] = key.split('/');
   if (!blockchain || !providerName) {
     throw new Error(`Invalid provider key format: ${key}`);
@@ -51,24 +54,24 @@ export class ProviderStatsStore {
     this.circuitRecoveryTimeoutMs = options?.circuitRecoveryTimeoutMs ?? DEFAULT_CIRCUIT_RECOVERY_TIMEOUT_MS;
   }
 
-  initializeProvider(key: string): void {
+  initializeProvider(key: ProviderKey): void {
     this.store.initializeProvider(key);
   }
 
-  getHealth(key: string): ProviderHealth | undefined {
+  getHealth(key: ProviderKey): ProviderHealth | undefined {
     return this.store.getHealth(key);
   }
 
-  hasHealth(key: string): boolean {
+  hasHealth(key: ProviderKey): boolean {
     return this.store.hasHealth(key);
   }
 
-  updateHealth(key: string, success: boolean, responseTime: number, errorMessage?: string): void {
+  updateHealth(key: ProviderKey, success: boolean, responseTime: number, errorMessage?: string): void {
     this.store.updateHealth(key, success, responseTime, errorMessage);
   }
 
   getProviderHealthWithCircuit(
-    key: string,
+    key: ProviderKey,
     circuitState: CircuitState,
     now: number
   ): (ProviderHealth & { circuitState: CircuitStatus }) | undefined {
@@ -114,7 +117,7 @@ export class ProviderStatsStore {
     if (!this.statsQueries) return;
 
     for (const snapshot of this.store.getSnapshots()) {
-      const { blockchain, providerName } = parseProviderKey(snapshot.key);
+      const { blockchain, providerName } = parseProviderKey(snapshot.key as ProviderKey);
 
       const circuitState = circuitRegistry.get(snapshot.key);
       if (!circuitState) continue;

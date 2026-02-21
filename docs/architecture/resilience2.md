@@ -201,26 +201,6 @@ V2 Architecture Audit: @exitbook/resilience
      Surface: ~4 files in resilience, ~4 files in blockchain-providers
      Leverage: Medium
 
-
-     ---
-     5. Toolchain and Infrastructure
-
-     ---
-     6. File and Code Organization
-
-     [6b] Naming Conventions
-
-     One naming concern: ProviderHealthStore.export() in /Users/joel/Dev/exitbook/packages/resilience/src/provider-stats/provider-health-store.ts:102 uses
-     a JavaScript reserved word as a method name. While not technically a keyword in property position, it creates confusion in imports and code
-     navigation. Rename to toSnapshots() or getSnapshots().
-
-     [6c] Module Size
-
-     All files are well within reasonable bounds. The largest source file is failover.ts at 155 LOC. The largest test file is circuit-breaker.test.ts at
-     305 LOC. No files have multiple concerns.
-
-     No material issues found beyond the naming item above.
-
      ---
      7. Error Handling and Observability
 
