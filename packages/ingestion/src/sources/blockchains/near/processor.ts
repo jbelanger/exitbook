@@ -14,6 +14,7 @@ import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,
   parseDecimal,
+  type OperationClassification,
   type TokenMetadataRecord,
 } from '@exitbook/core';
 import type { NearRawDataQueries } from '@exitbook/data';
@@ -511,8 +512,13 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
     }
 
     // Classify operation
-    const classification = isFeeOnlyCandidate
-      ? { category: 'fee' as const, type: 'fee' as const }
+    const classification: OperationClassification = isFeeOnlyCandidate
+      ? {
+          operation: {
+            category: 'fee',
+            type: 'fee',
+          },
+        }
       : classifyOperation(correlated, allInflows, allOutflows);
 
     // Determine from/to addresses
@@ -546,10 +552,8 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
 
       fees: feeMovements,
 
-      operation: {
-        category: classification.category,
-        type: classification.type,
-      },
+      operation: classification.operation,
+      notes: classification.notes,
 
       blockchain: {
         name: 'near',

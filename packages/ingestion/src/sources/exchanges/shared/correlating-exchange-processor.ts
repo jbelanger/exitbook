@@ -1,4 +1,4 @@
-import { parseDecimal, type TransactionNote } from '@exitbook/core';
+import { parseDecimal, type OperationClassification } from '@exitbook/core';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -208,13 +208,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
    * Determine operation type and category from fund flow analysis.
    * Can be overridden by subclasses for exchange-specific logic.
    */
-  protected determineOperationFromFundFlow(fundFlow: ExchangeFundFlow): {
-    notes?: TransactionNote[] | undefined;
-    operation: {
-      category: 'trade' | 'transfer' | 'fee' | 'staking';
-      type: 'swap' | 'deposit' | 'withdrawal' | 'transfer' | 'fee' | 'refund' | 'reward';
-    };
-  } {
+  protected determineOperationFromFundFlow(fundFlow: ExchangeFundFlow): OperationClassification {
     return classifyExchangeOperationFromFundFlow(fundFlow);
   }
 

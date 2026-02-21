@@ -11,16 +11,6 @@ export const SourceTypeSchema = z.enum(['blockchain', 'exchange']);
 export const ImportSessionStatusSchema = z.enum(['started', 'completed', 'failed', 'cancelled']);
 
 /**
- * Schema for import parameters stored in source metadata
- */
-export const DataImportParamsSchema = z.object({
-  address: z.string().optional(),
-  csvDirectories: z.array(z.string()).optional(),
-  exchangeCredentials: z.record(z.string(), z.unknown()).optional(),
-  providerName: z.string().optional(),
-});
-
-/**
  * Schema for source parameters identifying the wallet/account
  */
 export const SourceParamsSchema = z.union([
@@ -48,11 +38,6 @@ export const BalanceDiscrepancySchema = z.object({
  * Balance verification status schema - match/mismatch/unavailable states
  */
 export const BalanceVerificationStatusSchema = z.enum(['match', 'mismatch', 'unavailable']);
-
-/**
- * Balance command status schema - overall command result status
- */
-export const BalanceCommandStatusSchema = z.enum(['success', 'warning', 'failed']);
 
 /**
  * Schema for balance verification result
@@ -100,11 +85,9 @@ export const ImportSessionSchema = z.object({
  */
 export type SourceType = z.infer<typeof SourceTypeSchema>;
 export type ImportSessionStatus = z.infer<typeof ImportSessionStatusSchema>;
-export type DataImportParams = z.infer<typeof DataImportParamsSchema>;
 export type SourceParams = z.infer<typeof SourceParamsSchema>;
 export type BalanceDiscrepancy = z.infer<typeof BalanceDiscrepancySchema>;
 export type BalanceVerificationStatus = z.infer<typeof BalanceVerificationStatusSchema>;
-export type BalanceCommandStatus = z.infer<typeof BalanceCommandStatusSchema>;
 export type BalanceVerification = z.infer<typeof BalanceVerificationSchema>;
 export type VerificationMetadata = z.infer<typeof VerificationMetadataSchema>;
 export type ImportSession = z.infer<typeof ImportSessionSchema>;

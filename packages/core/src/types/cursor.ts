@@ -8,13 +8,6 @@ import type { CursorStateSchema, PaginationCursorSchema } from '../schemas/curso
 export type CursorType = 'blockNumber' | 'timestamp' | 'txHash' | 'slot' | 'signature' | 'pageToken';
 
 /**
- * Base interface for transactions that support cursor extraction
- */
-export interface TransactionWithId {
-  id: string;
-}
-
-/**
  * Typed pagination cursor - inferred from Zod schema
  */
 export type PaginationCursor = z.infer<typeof PaginationCursorSchema>;

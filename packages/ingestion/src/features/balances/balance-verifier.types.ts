@@ -1,4 +1,6 @@
-import type { Account, BalanceCommandStatus } from '@exitbook/core';
+import type { Account } from '@exitbook/core';
+
+import type { BalanceCommandStatus } from './balance-command-status.js';
 
 /**
  * Comparison result for a single asset balance

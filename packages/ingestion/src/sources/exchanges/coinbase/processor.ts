@@ -1,11 +1,9 @@
+import type { OperationClassification } from '@exitbook/core';
 import type { CoinbaseLedgerEntry } from '@exitbook/exchanges-providers';
 import type { Result } from 'neverthrow';
 
 import type { ProcessedTransaction } from '../../../shared/types/processors.js';
-import {
-  classifyExchangeOperationFromFundFlow,
-  type OperationClassification,
-} from '../shared/correlating-exchange-processor-utils.js';
+import { classifyExchangeOperationFromFundFlow } from '../shared/correlating-exchange-processor-utils.js';
 import { CorrelatingExchangeProcessor } from '../shared/correlating-exchange-processor.js';
 import { byCorrelationId, coinbaseGrossAmounts, type RawTransactionWithMetadata } from '../shared/strategies/index.js';
 import type { ExchangeFundFlow } from '../shared/types.js';

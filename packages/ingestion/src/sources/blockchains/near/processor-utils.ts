@@ -17,7 +17,7 @@ import type {
   NearBalanceChangeCause,
   NearActionType,
 } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type OperationClassification } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -198,29 +198,6 @@ export interface FeeExtractionResult {
   movements: Movement[];
   warning?: string | undefined;
   source?: 'receipt' | 'balance-change' | undefined;
-}
-
-/**
- * Operation classification result
- */
-export interface OperationClassification {
-  category: 'transfer' | 'trade' | 'staking' | 'defi' | 'governance' | 'fee';
-  type:
-    | 'transfer'
-    | 'deposit'
-    | 'withdrawal'
-    | 'swap'
-    | 'buy'
-    | 'sell'
-    | 'stake'
-    | 'unstake'
-    | 'reward'
-    | 'batch'
-    | 'refund'
-    | 'vote'
-    | 'proposal'
-    | 'airdrop'
-    | 'fee';
 }
 
 /**
@@ -881,70 +858,88 @@ export function classifyOperation(
   // Staking operations
   if (hasActionType(actionTypes, 'stake')) {
     return {
-      category: 'staking',
-      type: 'stake',
+      operation: {
+        category: 'staking',
+        type: 'stake',
+      },
     };
   }
 
   // Staking rewards (inflow with reward cause)
   if (hasInflows && !hasOutflows && hasRewards) {
     return {
-      category: 'staking',
-      type: 'reward',
+      operation: {
+        category: 'staking',
+        type: 'reward',
+      },
     };
   }
 
   // Refunds (inflow with refund cause)
   if (hasInflows && !hasOutflows && hasRefunds) {
     return {
-      category: 'transfer',
-      type: 'refund',
+      operation: {
+        category: 'transfer',
+        type: 'refund',
+      },
     };
   }
 
   // Account creation
   if (hasActionType(actionTypes, 'create_account')) {
     return {
-      category: 'defi',
-      type: 'batch',
+      operation: {
+        category: 'defi',
+        type: 'batch',
+      },
     };
   }
 
   // Inflows only (deposits)
   if (hasInflows && !hasOutflows) {
     return {
-      category: 'transfer',
-      type: 'deposit',
+      operation: {
+        category: 'transfer',
+        type: 'deposit',
+      },
     };
   }
 
   // Outflows only (withdrawals)
   if (hasOutflows && !hasInflows) {
     return {
-      category: 'transfer',
-      type: 'withdrawal',
+      operation: {
+        category: 'transfer',
+        type: 'withdrawal',
+      },
     };
   }
 
   // Both flows with tokens (swap/trade)
   if (hasInflows && hasOutflows && hasTokenTransfers) {
     return {
-      category: 'trade',
-      type: 'swap',
+      operation: {
+        category: 'trade',
+        type: 'swap',
+      },
     };
   }
 
   // Both flows without tokens (transfer)
   if (hasInflows && hasOutflows) {
     return {
-      category: 'transfer',
-      type: 'transfer',
+      operation: {
+        category: 'transfer',
+        type: 'transfer',
+      },
     };
   }
 
   // No flows (fee-only transaction or contract interaction)
   return {
-    category: 'defi',
-    type: 'batch',
+    operation: {
+      category: 'defi',
+      type: 'batch',
+    },
   };
 }

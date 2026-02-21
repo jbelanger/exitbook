@@ -1059,8 +1059,8 @@ describe('NEAR Processor Utils - classifyOperation', () => {
 
     const classification = classifyOperation(createCorrelated(), inflows, []);
 
-    expect(classification.category).toBe('transfer');
-    expect(classification.type).toBe('deposit');
+    expect(classification.operation.category).toBe('transfer');
+    expect(classification.operation.type).toBe('deposit');
   });
 
   test('should classify deposit with token transfers', () => {
@@ -1076,8 +1076,8 @@ describe('NEAR Processor Utils - classifyOperation', () => {
 
     const classification = classifyOperation(createCorrelated(), inflows, []);
 
-    expect(classification.category).toBe('transfer');
-    expect(classification.type).toBe('deposit');
+    expect(classification.operation.category).toBe('transfer');
+    expect(classification.operation.type).toBe('deposit');
   });
 
   test('should classify withdrawal (outflows only, no tokens)', () => {
@@ -1092,8 +1092,8 @@ describe('NEAR Processor Utils - classifyOperation', () => {
 
     const classification = classifyOperation(createCorrelated(), [], outflows);
 
-    expect(classification.category).toBe('transfer');
-    expect(classification.type).toBe('withdrawal');
+    expect(classification.operation.category).toBe('transfer');
+    expect(classification.operation.type).toBe('withdrawal');
   });
 
   test('should classify withdrawal with token transfers', () => {
@@ -1109,8 +1109,8 @@ describe('NEAR Processor Utils - classifyOperation', () => {
 
     const classification = classifyOperation(createCorrelated(), [], outflows);
 
-    expect(classification.category).toBe('transfer');
-    expect(classification.type).toBe('withdrawal');
+    expect(classification.operation.category).toBe('transfer');
+    expect(classification.operation.type).toBe('withdrawal');
   });
 
   test('should classify swap (both flows with tokens)', () => {
@@ -1135,8 +1135,8 @@ describe('NEAR Processor Utils - classifyOperation', () => {
 
     const classification = classifyOperation(createCorrelated(), inflows, outflows);
 
-    expect(classification.category).toBe('trade');
-    expect(classification.type).toBe('swap');
+    expect(classification.operation.category).toBe('trade');
+    expect(classification.operation.type).toBe('swap');
   });
 
   test('should classify transfer (both flows, no tokens)', () => {
@@ -1159,22 +1159,22 @@ describe('NEAR Processor Utils - classifyOperation', () => {
 
     const classification = classifyOperation(createCorrelated(), inflows, outflows);
 
-    expect(classification.category).toBe('transfer');
-    expect(classification.type).toBe('transfer');
+    expect(classification.operation.category).toBe('transfer');
+    expect(classification.operation.type).toBe('transfer');
   });
 
   test('should classify fee-only transaction (no flows)', () => {
     const classification = classifyOperation(createCorrelated(), [], []);
 
-    expect(classification.category).toBe('defi');
-    expect(classification.type).toBe('batch');
+    expect(classification.operation.category).toBe('defi');
+    expect(classification.operation.type).toBe('batch');
   });
 
   test('should classify contract interaction as batch (no flows)', () => {
     const classification = classifyOperation(createCorrelated(), [], []);
 
-    expect(classification.category).toBe('defi');
-    expect(classification.type).toBe('batch');
+    expect(classification.operation.category).toBe('defi');
+    expect(classification.operation.type).toBe('batch');
   });
 
   test('should classify staking operation (stake action)', () => {
@@ -1200,8 +1200,8 @@ describe('NEAR Processor Utils - classifyOperation', () => {
 
     const classification = classifyOperation(createCorrelated({ receipts }), [], outflows);
 
-    expect(classification.category).toBe('staking');
-    expect(classification.type).toBe('stake');
+    expect(classification.operation.category).toBe('staking');
+    expect(classification.operation.type).toBe('stake');
   });
 
   test('should classify staking reward (inflow with contract reward cause)', () => {
@@ -1229,8 +1229,8 @@ describe('NEAR Processor Utils - classifyOperation', () => {
 
     const classification = classifyOperation(createCorrelated({ receipts }), inflows, []);
 
-    expect(classification.category).toBe('staking');
-    expect(classification.type).toBe('reward');
+    expect(classification.operation.category).toBe('staking');
+    expect(classification.operation.type).toBe('reward');
   });
 
   test('should classify refund (inflow with gas refund cause)', () => {
@@ -1258,8 +1258,8 @@ describe('NEAR Processor Utils - classifyOperation', () => {
 
     const classification = classifyOperation(createCorrelated({ receipts }), inflows, []);
 
-    expect(classification.category).toBe('transfer');
-    expect(classification.type).toBe('refund');
+    expect(classification.operation.category).toBe('transfer');
+    expect(classification.operation.type).toBe('refund');
   });
 
   test('should classify account creation (create_account action)', () => {
@@ -1276,8 +1276,8 @@ describe('NEAR Processor Utils - classifyOperation', () => {
 
     const classification = classifyOperation(createCorrelated({ receipts }), [], []);
 
-    expect(classification.category).toBe('defi');
-    expect(classification.type).toBe('batch');
+    expect(classification.operation.category).toBe('defi');
+    expect(classification.operation.type).toBe('batch');
   });
 
   test('should prioritize staking over regular deposit (stake action with outflow)', () => {
@@ -1303,8 +1303,8 @@ describe('NEAR Processor Utils - classifyOperation', () => {
 
     const classification = classifyOperation(createCorrelated({ receipts }), [], outflows);
 
-    expect(classification.category).toBe('staking');
-    expect(classification.type).toBe('stake');
+    expect(classification.operation.category).toBe('staking');
+    expect(classification.operation.type).toBe('stake');
   });
 
   test('should prioritize rewards over regular deposit (contract reward cause with inflow)', () => {
@@ -1332,7 +1332,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
 
     const classification = classifyOperation(createCorrelated({ receipts }), inflows, []);
 
-    expect(classification.category).toBe('staking');
-    expect(classification.type).toBe('reward');
+    expect(classification.operation.category).toBe('staking');
+    expect(classification.operation.type).toBe('reward');
   });
 });

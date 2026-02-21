@@ -5,27 +5,6 @@ import { parseDecimal } from '../utils/decimal-utils.js';
 import { SourceTypeSchema } from './import-session.js';
 import { DateSchema, DecimalSchema, MoneySchema } from './money.js';
 
-// Transaction type schema
-export const TransactionTypeSchema = z.enum([
-  'trade',
-  'deposit',
-  'withdrawal',
-  'order',
-  'ledger',
-  'transfer',
-  'fee',
-  'staking_deposit',
-  'staking_withdrawal',
-  'staking_reward',
-  'governance_deposit',
-  'governance_refund',
-  'internal_transfer',
-  'proxy',
-  'multisig',
-  'utility_batch',
-  'unknown',
-]);
-
 // Transaction status schema
 export const TransactionStatusSchema = z.enum(['pending', 'open', 'closed', 'canceled', 'failed', 'success']);
 
@@ -281,18 +260,3 @@ export const UniversalTransactionSchema = BaseUniversalTransactionObjectSchema.e
 
 // Export base schema for use in processors (ProcessedTransaction type)
 export { BaseUniversalTransactionSchema };
-
-// Universal Balance schema
-export const UniversalBalanceSchema = z
-  .object({
-    contractAddress: z.string().optional(),
-    currency: z.string().min(1, 'Currency must not be empty'),
-    free: z.number().min(0, 'Free balance must be non-negative'),
-    total: z.number().min(0, 'Total balance must be non-negative'),
-    used: z.number().min(0, 'Used balance must be non-negative'),
-  })
-  .strict()
-  .refine((data) => data.total >= data.free + data.used, {
-    message: 'Total balance must be >= free + used',
-    path: ['total'],
-  });

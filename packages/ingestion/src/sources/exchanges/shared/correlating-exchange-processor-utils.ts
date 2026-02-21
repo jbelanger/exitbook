@@ -1,4 +1,4 @@
-import { parseDecimal, type TransactionNote } from '@exitbook/core';
+import { parseDecimal, type OperationClassification } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
@@ -6,17 +6,6 @@ import type { FeeInput, MovementInput } from './strategies/index.js';
 import type { ExchangeFundFlow } from './types.js';
 
 const logger = getLogger('correlating-exchange-processor-utils');
-
-/**
- * Result of operation classification
- */
-export interface OperationClassification {
-  operation: {
-    category: 'trade' | 'transfer' | 'fee' | 'staking';
-    type: 'swap' | 'deposit' | 'withdrawal' | 'transfer' | 'fee' | 'refund' | 'reward';
-  };
-  notes?: TransactionNote[] | undefined;
-}
 
 /**
  * Select primary movement (largest inflow, or largest outflow if no inflows).
