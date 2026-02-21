@@ -1,6 +1,6 @@
 import type { Decimal } from 'decimal.js';
 
-import type { AssetMovement, MovementDirection } from '../types/universal-transaction.js';
+import type { AssetMovement, MovementDirection } from '../schemas/universal-transaction.js';
 
 import { parseDecimal } from './decimal-utils.js';
 

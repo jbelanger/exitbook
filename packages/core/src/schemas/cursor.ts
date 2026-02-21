@@ -48,3 +48,18 @@ export const CursorStateSchema = z.object({
     .passthrough() // Allow additional provider-specific metadata fields
     .optional(),
 });
+
+/**
+ * Cursor type classification for cross-provider compatibility
+ */
+export type CursorType = z.infer<typeof PaginationCursorSchema>['type'];
+
+/**
+ * Typed pagination cursor - inferred from Zod schema
+ */
+export type PaginationCursor = z.infer<typeof PaginationCursorSchema>;
+
+/**
+ * Complete cursor state for a pagination point - inferred from Zod schema
+ */
+export type CursorState = z.infer<typeof CursorStateSchema>;

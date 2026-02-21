@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AssetMovement } from '../../types/universal-transaction.js';
+import type { AssetMovement } from '../../schemas/universal-transaction.js';
 import { parseDecimal } from '../decimal-utils.js';
 import { computePrimaryMovement } from '../movement-utils.js';
 

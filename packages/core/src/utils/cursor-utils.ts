@@ -1,21 +1,4 @@
-import type { z } from 'zod';
-
-import type { CursorStateSchema, PaginationCursorSchema } from '../schemas/cursor.js';
-
-/**
- * Cursor type classification for cross-provider compatibility
- */
-export type CursorType = 'blockNumber' | 'timestamp' | 'txHash' | 'slot' | 'signature' | 'pageToken';
-
-/**
- * Typed pagination cursor - inferred from Zod schema
- */
-export type PaginationCursor = z.infer<typeof PaginationCursorSchema>;
-
-/**
- * Complete cursor state for a pagination point - inferred from Zod schema
- */
-export type CursorState = z.infer<typeof CursorStateSchema>;
+import type { CursorState } from '../schemas/cursor.js';
 
 /**
  * Type guard to check if a cursor is a CursorState (blockchain provider format)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Currency } from '../currency.js';
+import { Currency } from './currency.js';
 
 describe('Currency', () => {
   describe('create', () => {

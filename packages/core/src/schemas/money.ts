@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
-import { Currency } from '../types/currency.js';
+import { Currency } from '../currency.js';
 import { parseDecimal, tryParseDecimal } from '../utils/decimal-utils.js';
 
 /**
