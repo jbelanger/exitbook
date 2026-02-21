@@ -6,6 +6,9 @@ import type { Result } from 'neverthrow';
 /**
  * Query for fetching price data
  */
+/** Max recursion depth for stablecoin conversion (fetchPrice → stablecoin rate lookup) */
+export const MAX_PRICE_QUERY_DEPTH = 1;
+
 export interface PriceQuery {
   /** Asset symbol (e.g., 'BTC', 'ETH') */
   assetSymbol: Currency;
@@ -13,6 +16,8 @@ export interface PriceQuery {
   timestamp: Date;
   /** Target currency (default: 'USD') */
   currency: Currency;
+  /** @internal Recursion depth for stablecoin conversion */
+  _depth?: number | undefined;
 }
 
 /**

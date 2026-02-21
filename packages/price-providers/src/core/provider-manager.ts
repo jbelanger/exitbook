@@ -22,6 +22,7 @@ import type {
   ProviderHealthWithCircuit,
   ProviderManagerConfig,
 } from './types.js';
+import { MAX_PRICE_QUERY_DEPTH } from './types.js';
 import { createCacheKey } from './utils.js';
 
 const logger = getLogger('PriceProviderManager');
@@ -48,8 +49,14 @@ export class PriceProviderManager {
       maxConsecutiveFailures: 5,
       ...config,
     };
-
     this.requestCache = new TtlCache(this.config.cacheTtlSeconds * 1000);
+  }
+
+  /**
+   * Start background tasks (cache cleanup).
+   * Must be called explicitly; constructor does not start timers.
+   */
+  startBackgroundTasks(): void {
     this.requestCache.startAutoCleanup();
   }
 
@@ -100,9 +107,10 @@ export class PriceProviderManager {
     this.requestCache.set(cacheKey, result.value.data);
 
     // Convert stablecoin-denominated prices to USD
-    // Skip if we're pricing a stablecoin itself (avoid recursion)
-    if (isStablecoin(result.value.data.currency) && !isStablecoin(query.assetSymbol)) {
-      return await this.convertStablecoinPriceToUSD(result.value, query.timestamp);
+    // Depth guard prevents infinite recursion (stablecoin rate lookup is depth 1)
+    const depth = query._depth ?? 0;
+    if (isStablecoin(result.value.data.currency) && depth < MAX_PRICE_QUERY_DEPTH) {
+      return await this.convertStablecoinPriceToUSD(result.value, query.timestamp, depth);
     }
 
     return result;
@@ -260,7 +268,8 @@ export class PriceProviderManager {
    */
   private async convertStablecoinPriceToUSD(
     result: FailoverResult<PriceData>,
-    timestamp: Date
+    timestamp: Date,
+    depth: number
   ): Promise<Result<FailoverResult<PriceData>, Error>> {
     const { data: priceData, providerName } = result;
     const stablecoin = priceData.currency;
@@ -283,6 +292,7 @@ export class PriceProviderManager {
       assetSymbol: stablecoin,
       currency: 'USD' as Currency,
       timestamp,
+      _depth: depth + 1,
     });
 
     let conversionRate = priceData.price;

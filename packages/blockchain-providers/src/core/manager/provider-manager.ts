@@ -48,6 +48,9 @@ const logger = getLogger('BlockchainProviderManager');
 export interface BlockchainProviderManagerOptions {
   explorerConfig?: BlockchainExplorersConfig | undefined;
   statsStore?: ProviderStatsStoreOptions | undefined;
+  instrumentation?: InstrumentationCollector | undefined;
+  eventBus?: EventBus<ProviderEvent> | undefined;
+  statsQueries?: ProviderStatsQueries | undefined;
 }
 
 export class BlockchainProviderManager {
@@ -71,8 +74,13 @@ export class BlockchainProviderManager {
         this.statsStore.updateHealth(getProviderKey(blockchain, providerName), success, responseTime, error);
       }
     );
-    // Wire factory context immediately so providers created before setEventBus/setInstrumentation
-    // still get request hooks (handlers close over this.eventBus / this.instrumentation at call time).
+
+    this.instrumentation = options?.instrumentation;
+    this.eventBus = options?.eventBus;
+    if (options?.statsQueries) {
+      this.statsStore.setQueries(options.statsQueries);
+    }
+
     this.syncFactoryContext();
   }
 
@@ -274,33 +282,8 @@ export class BlockchainProviderManager {
   }
 
   /**
-   * Set instrumentation collector for tracking API calls.
-   * This will be passed to all providers for HTTP request tracking.
-   */
-  setInstrumentation(collector: InstrumentationCollector): void {
-    this.instrumentation = collector;
-    this.syncFactoryContext();
-  }
-
-  /**
-   * Set event bus for emitting provider events.
-   * Used for CLI progress display and observability.
-   */
-  setEventBus(eventBus: EventBus<ProviderEvent>): void {
-    this.eventBus = eventBus;
-    this.syncFactoryContext();
-  }
-
-  /**
-   * Set stats queries for persisting provider health across runs
-   */
-  setStatsQueries(queries: ProviderStatsQueries): void {
-    this.statsStore.setQueries(queries);
-  }
-
-  /**
    * Load persisted provider stats from the database.
-   * Must be called after setStatsQueries() and before providers are registered
+   * Must be called after construction (with statsQueries) and before providers are registered
    * so that registerProviders() sees existing health/circuit data and skips re-initialization.
    */
   async loadPersistedStats(): Promise<void> {
@@ -309,7 +292,7 @@ export class BlockchainProviderManager {
 
   /**
    * Rebuild the factory context from current manager state.
-   * Called whenever instrumentation or eventBus changes.
+   * Called once at end of constructor.
    */
   private syncFactoryContext(): void {
     this.instanceFactory.setContext({

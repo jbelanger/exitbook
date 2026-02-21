@@ -10,7 +10,7 @@ import { createInitialHealth } from '@exitbook/resilience/provider-health';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IBlockchainProvider, ProviderCapabilities, ProviderHealth } from '../../types/index.js';
-import type { CursorResolutionConfig } from '../provider-manager-utils.js';
+import type { CursorResolutionConfig, DeduplicationWindow } from '../provider-manager-utils.js';
 import {
   addToDeduplicationWindow,
   buildProviderNotFoundError,
@@ -25,6 +25,10 @@ import {
 } from '../provider-manager-utils.js';
 
 const logger = getLogger('test');
+
+function getActiveDedupQueue(dedupWindow: DeduplicationWindow): string[] {
+  return dedupWindow.queue.slice(dedupWindow.head);
+}
 
 // Helper to create mock provider
 function createMockProvider(
@@ -277,13 +281,15 @@ describe('provider-manager-utils', () => {
     describe('createDeduplicationWindow', () => {
       it('should create empty window', () => {
         const window = createDeduplicationWindow();
-        expect(window.queue).toEqual([]);
+        expect(getActiveDedupQueue(window)).toEqual([]);
+        expect(window.head).toBe(0);
         expect(window.set.size).toBe(0);
       });
 
       it('should create window with initial IDs', () => {
         const window = createDeduplicationWindow(['tx-1', 'tx-2']);
-        expect(window.queue).toEqual(['tx-1', 'tx-2']);
+        expect(getActiveDedupQueue(window)).toEqual(['tx-1', 'tx-2']);
+        expect(window.head).toBe(0);
         expect(window.set.has('tx-1')).toBe(true);
         expect(window.set.has('tx-2')).toBe(true);
       });
@@ -293,14 +299,14 @@ describe('provider-manager-utils', () => {
       it('should add ID to window', () => {
         const window = createDeduplicationWindow();
         addToDeduplicationWindow(window, 'tx-1', 10);
-        expect(window.queue).toEqual(['tx-1']);
+        expect(getActiveDedupQueue(window)).toEqual(['tx-1']);
         expect(window.set.has('tx-1')).toBe(true);
       });
 
       it('should evict oldest when exceeding max size', () => {
         const window = createDeduplicationWindow(['tx-1', 'tx-2']);
         addToDeduplicationWindow(window, 'tx-3', 2);
-        expect(window.queue).toEqual(['tx-2', 'tx-3']);
+        expect(getActiveDedupQueue(window)).toEqual(['tx-2', 'tx-3']);
         expect(window.set.has('tx-1')).toBe(false);
         expect(window.set.has('tx-2')).toBe(true);
         expect(window.set.has('tx-3')).toBe(true);
@@ -310,7 +316,7 @@ describe('provider-manager-utils', () => {
         const window = createDeduplicationWindow(['tx-1']);
         addToDeduplicationWindow(window, 'tx-2', 10);
         // Verify mutation happened
-        expect(window.queue).toEqual(['tx-1', 'tx-2']);
+        expect(getActiveDedupQueue(window)).toEqual(['tx-1', 'tx-2']);
         expect(window.set.has('tx-2')).toBe(true);
       });
     });
@@ -365,7 +371,7 @@ describe('provider-manager-utils', () => {
 
         deduplicateTransactions(transactions, window, 3);
         // Window is mutated in place
-        expect(window.queue).toHaveLength(3);
+        expect(getActiveDedupQueue(window)).toHaveLength(3);
         expect(window.set.has('event-1')).toBe(false); // Evicted
         expect(window.set.has('event-2')).toBe(true);
         expect(window.set.has('event-3')).toBe(true);
@@ -378,7 +384,7 @@ describe('provider-manager-utils', () => {
 
         deduplicateTransactions(transactions, window, 10);
         // Verify mutation happened
-        expect(window.queue).toEqual(['event-1', 'event-2']);
+        expect(getActiveDedupQueue(window)).toEqual(['event-1', 'event-2']);
         expect(window.set.has('event-2')).toBe(true);
       });
     });

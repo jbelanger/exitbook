@@ -18,8 +18,7 @@ import type { BlockchainExplorersConfig, ProviderOverride } from '../utils/confi
 const logger = getLogger('ProviderInstanceFactory');
 
 /**
- * Runtime context injected after construction (instrumentation, event bus hooks).
- * These are set via manager setters, so the factory receives them as callbacks.
+ * Runtime context injected during manager construction (instrumentation, event bus hooks).
  */
 export interface ProviderCreationContext {
   instrumentation?: InstrumentationCollector | undefined;
@@ -44,7 +43,7 @@ export class ProviderInstanceFactory {
 
   /**
    * Update runtime context (instrumentation, hooks).
-   * Called when manager's setInstrumentation/setEventBus are invoked.
+   * Called by the manager during construction.
    */
   setContext(context: ProviderCreationContext): void {
     this.context = context;

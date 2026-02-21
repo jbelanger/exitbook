@@ -59,17 +59,18 @@ export async function createImportServices(database: KyselyDB): Promise<ImportSe
 
   let providerManagerCleanup: (() => Promise<void>) | undefined;
   try {
-    const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-    providerManagerCleanup = cleanupProviderManager;
     const instrumentation = new InstrumentationCollector();
-    providerManager.setInstrumentation(instrumentation);
-
     const eventBus = new EventBus<IngestionMonitorEvent>({
       onError: (err) => {
         logger.error({ err }, 'EventBus error');
       },
     });
-    providerManager.setEventBus(eventBus as EventBus<ProviderEvent>);
+
+    const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats(undefined, {
+      instrumentation,
+      eventBus: eventBus as EventBus<ProviderEvent>,
+    });
+    providerManagerCleanup = cleanupProviderManager;
 
     const tokenMetadataService = new TokenMetadataService(
       tokenMetadataQueries,

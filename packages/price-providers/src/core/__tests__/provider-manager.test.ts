@@ -29,7 +29,6 @@ describe('PriceProviderManager', () => {
   let manager: PriceProviderManager;
 
   beforeEach(() => {
-    vi.useFakeTimers();
     manager = new PriceProviderManager({
       cacheTtlSeconds: 300,
       defaultCurrency: 'USD',
@@ -37,10 +36,8 @@ describe('PriceProviderManager', () => {
     });
   });
 
-  afterEach(() => {
-    Promise.resolve(manager.destroy()).catch(() => {
-      /* ignore errors during destroy */
-    });
+  afterEach(async () => {
+    await manager.destroy();
     vi.useRealTimers();
   });
 
@@ -87,6 +84,25 @@ describe('PriceProviderManager', () => {
       },
     };
   }
+
+  describe('background task lifecycle', () => {
+    it('should not start cache cleanup until explicitly requested', async () => {
+      vi.useFakeTimers();
+
+      const localManager = new PriceProviderManager({ cacheTtlSeconds: 300 });
+      expect(vi.getTimerCount()).toBe(0);
+
+      localManager.startBackgroundTasks();
+      expect(vi.getTimerCount()).toBe(1);
+
+      // startBackgroundTasks is idempotent via TtlCache.startAutoCleanup
+      localManager.startBackgroundTasks();
+      expect(vi.getTimerCount()).toBe(1);
+
+      await localManager.destroy();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+  });
 
   describe('registerProviders', () => {
     it('should register providers and initialize health/circuit state', () => {
@@ -156,6 +172,8 @@ describe('PriceProviderManager', () => {
     });
 
     it('should not use expired cache', async () => {
+      vi.useFakeTimers();
+
       const provider = createMockProvider('test');
       manager.registerProviders([provider]);
 

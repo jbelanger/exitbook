@@ -15,8 +15,11 @@ import {
   loadExplorerConfig,
   createProviderStatsQueries,
   type BlockchainExplorersConfig,
+  type ProviderEvent,
   type ProviderStatsDB,
 } from '@exitbook/blockchain-providers';
+import type { EventBus } from '@exitbook/events';
+import type { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 
 import { getDataDir } from './data-dir.js';
@@ -37,15 +40,19 @@ export interface ProviderManagerWithStats {
  * (graceful degradation).
  */
 export async function createProviderManagerWithStats(
-  config?: BlockchainExplorersConfig
+  config?: BlockchainExplorersConfig,
+  options?: {
+    eventBus?: EventBus<ProviderEvent> | undefined;
+    instrumentation?: InstrumentationCollector | undefined;
+  }
 ): Promise<ProviderManagerWithStats> {
   const explorerConfig = config ?? loadExplorerConfig();
-  const providerManager = new BlockchainProviderManager(providerRegistry, { explorerConfig });
-  providerManager.startBackgroundTasks();
 
+  // Resolve stats persistence before constructing the manager so statsQueries
+  // can be passed via constructor options (no post-construction setter needed).
   let providerStatsDb: ProviderStatsDB | undefined;
+  let statsQueries;
 
-  // Try to set up persistence — graceful degradation on failure
   const dataDir = getDataDir();
   const dbResult = createProviderStatsDatabase(path.join(dataDir, 'providers.db'));
   if (dbResult.isOk()) {
@@ -53,9 +60,7 @@ export async function createProviderManagerWithStats(
     const migrationResult = await initializeProviderStatsDatabase(providerStatsDb);
 
     if (migrationResult.isOk()) {
-      const statsQueries = createProviderStatsQueries(providerStatsDb);
-      providerManager.setStatsQueries(statsQueries);
-      await providerManager.loadPersistedStats();
+      statsQueries = createProviderStatsQueries(providerStatsDb);
     } else {
       logger.warn(`Provider stats migration failed: ${migrationResult.error.message}. Running without persistence.`);
       const closeResult = await closeProviderStatsDatabase(providerStatsDb);
@@ -66,6 +71,17 @@ export async function createProviderManagerWithStats(
     }
   } else {
     logger.warn(`Failed to create provider stats database: ${dbResult.error.message}. Running without persistence.`);
+  }
+
+  const providerManager = new BlockchainProviderManager(providerRegistry, {
+    explorerConfig,
+    statsQueries,
+    instrumentation: options?.instrumentation,
+    eventBus: options?.eventBus,
+  });
+  providerManager.startBackgroundTasks();
+  if (statsQueries) {
+    await providerManager.loadPersistedStats();
   }
 
   const cleanup = async () => {

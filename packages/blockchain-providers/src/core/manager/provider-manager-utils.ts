@@ -105,6 +105,27 @@ export function canProviderResume(provider: IBlockchainProvider, cursor: CursorS
 export interface DeduplicationWindow {
   queue: string[];
   set: Set<string>;
+  head: number;
+}
+
+const DEDUP_WINDOW_COMPACTION_THRESHOLD = 1024;
+
+function getActiveDeduplicationWindowSize(dedupWindow: DeduplicationWindow): number {
+  return dedupWindow.queue.length - dedupWindow.head;
+}
+
+function compactDeduplicationWindowIfNeeded(dedupWindow: DeduplicationWindow): void {
+  if (dedupWindow.head === 0) {
+    return;
+  }
+
+  // Compact after enough evictions or when stale entries dominate.
+  if (dedupWindow.head < DEDUP_WINDOW_COMPACTION_THRESHOLD && dedupWindow.head * 2 < dedupWindow.queue.length) {
+    return;
+  }
+
+  dedupWindow.queue = dedupWindow.queue.slice(dedupWindow.head);
+  dedupWindow.head = 0;
 }
 
 /**
@@ -114,6 +135,7 @@ export function createDeduplicationWindow(initialIds: string[] = []): Deduplicat
   return {
     queue: [...initialIds],
     set: new Set(initialIds),
+    head: 0,
   };
 }
 
@@ -121,22 +143,28 @@ export function createDeduplicationWindow(initialIds: string[] = []): Deduplicat
  * Add ID to deduplication window, evicting oldest if necessary
  * Mutates the window in place for performance (avoids O(n) array/set copies)
  */
-export function addToDeduplicationWindow(window: DeduplicationWindow, id: string, maxSize: number): void {
-  window.queue.push(id);
-  window.set.add(id);
+export function addToDeduplicationWindow(dedupWindow: DeduplicationWindow, id: string, maxSize: number): void {
+  dedupWindow.queue.push(id);
+  dedupWindow.set.add(id);
 
   // Evict oldest if over limit
-  if (window.queue.length > maxSize) {
-    const oldest = window.queue.shift()!;
-    window.set.delete(oldest);
+  if (getActiveDeduplicationWindowSize(dedupWindow) > maxSize) {
+    const oldest = dedupWindow.queue[dedupWindow.head];
+    dedupWindow.head += 1;
+
+    if (oldest !== undefined) {
+      dedupWindow.set.delete(oldest);
+    }
+
+    compactDeduplicationWindowIfNeeded(dedupWindow);
   }
 }
 
 /**
  * Check if ID is in deduplication window
  */
-export function isInDeduplicationWindow(window: DeduplicationWindow, id: string): boolean {
-  return window.set.has(id);
+export function isInDeduplicationWindow(dedupWindow: DeduplicationWindow, id: string): boolean {
+  return dedupWindow.set.has(id);
 }
 
 /**
@@ -145,7 +173,7 @@ export function isInDeduplicationWindow(window: DeduplicationWindow, id: string)
  */
 export function deduplicateTransactions<T extends { normalized: NormalizedTransactionBase }>(
   transactions: T[],
-  window: DeduplicationWindow,
+  dedupWindow: DeduplicationWindow,
   maxWindowSize: number
 ): T[] {
   const deduplicated: T[] = [];
@@ -154,14 +182,14 @@ export function deduplicateTransactions<T extends { normalized: NormalizedTransa
     // Use eventId computed by provider during normalization
     const key = tx.normalized.eventId;
 
-    if (isInDeduplicationWindow(window, key)) {
+    if (isInDeduplicationWindow(dedupWindow, key)) {
       // Skip duplicate
       continue;
     }
 
     // Add to results and update window
     deduplicated.push(tx);
-    addToDeduplicationWindow(window, key, maxWindowSize);
+    addToDeduplicationWindow(dedupWindow, key, maxWindowSize);
   }
 
   return deduplicated;

@@ -68,17 +68,18 @@ export async function createProcessServices(database: KyselyDB): Promise<Process
 
   let providerManagerCleanup: (() => Promise<void>) | undefined;
   try {
-    const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-    providerManagerCleanup = cleanupProviderManager;
     const instrumentation = new InstrumentationCollector();
-    providerManager.setInstrumentation(instrumentation);
-
     const eventBus = new EventBus<CliEvent>({
       onError: (err) => {
         logger.error({ err }, 'EventBus error');
       },
     });
-    providerManager.setEventBus(eventBus as EventBus<ProviderEvent>);
+
+    const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats(undefined, {
+      instrumentation,
+      eventBus: eventBus as EventBus<ProviderEvent>,
+    });
+    providerManagerCleanup = cleanupProviderManager;
 
     const tokenMetadataService = new TokenMetadataService(
       tokenMetadata,

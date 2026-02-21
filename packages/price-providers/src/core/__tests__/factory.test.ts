@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createPriceProviders, getAvailableProviderNames, createPriceProviderManager } from '../factory.js';
+import type { PriceProviderManager } from '../provider-manager.js';
 
 // Mock database initialization
 vi.mock('../../persistence/database.js', () => ({
@@ -49,6 +50,7 @@ vi.mock('../../providers/coingecko/provider.js', () => ({
           value: undefined,
         })
       ),
+      destroy: vi.fn(() => Promise.resolve()),
     },
   })),
 }));
@@ -74,6 +76,7 @@ vi.mock('../../providers/cryptocompare/provider.js', () => ({
         name: 'cryptocompare',
         requiresApiKey: false,
       }),
+      destroy: vi.fn(() => Promise.resolve()),
     },
   })),
 }));
@@ -99,6 +102,7 @@ vi.mock('../../providers/binance/provider.js', () => ({
         name: 'binance',
         requiresApiKey: false,
       }),
+      destroy: vi.fn(() => Promise.resolve()),
     },
   })),
 }));
@@ -125,6 +129,7 @@ vi.mock('../../providers/ecb/provider.js', () => ({
         name: 'ecb',
         requiresApiKey: false,
       }),
+      destroy: vi.fn(() => Promise.resolve()),
     },
   })),
 }));
@@ -151,6 +156,7 @@ vi.mock('../../providers/bank-of-canada/provider.js', () => ({
         name: 'bank-of-canada',
         requiresApiKey: false,
       }),
+      destroy: vi.fn(() => Promise.resolve()),
     },
   })),
 }));
@@ -176,6 +182,7 @@ vi.mock('../../providers/frankfurter/provider.js', () => ({
         name: 'frankfurter',
         requiresApiKey: false,
       }),
+      destroy: vi.fn(() => Promise.resolve()),
     },
   })),
 }));
@@ -378,9 +385,16 @@ describe('getAvailableProviderNames', () => {
 });
 
 describe('createPriceProviderManager', () => {
+  let createdManagers: PriceProviderManager[] = [];
+
   beforeEach(() => {
     vi.clearAllMocks();
     process.env = { ...process.env };
+    createdManagers = [];
+  });
+
+  afterEach(async () => {
+    await Promise.all(createdManagers.map(async (manager) => manager.destroy()));
   });
 
   it('should create manager with providers registered', async () => {
@@ -389,6 +403,7 @@ describe('createPriceProviderManager', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       const manager = result.value;
+      createdManagers.push(manager);
       expect(manager).toBeDefined();
       // Manager should have providers registered
       const health = manager.getProviderHealth();
@@ -405,6 +420,9 @@ describe('createPriceProviderManager', () => {
     });
 
     expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      createdManagers.push(result.value);
+    }
     // Defaults: defaultCurrency='USD', maxConsecutiveFailures=5, cacheTtlSeconds=300
   });
 
@@ -418,17 +436,23 @@ describe('createPriceProviderManager', () => {
     });
 
     expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      createdManagers.push(result.value);
+    }
   });
 
   it('should pass provider config to createPriceProviders', async () => {
     const { createCoinGeckoProvider } = await import('../../providers/coingecko/provider.js');
 
-    await createPriceProviderManager({
+    const result = await createPriceProviderManager({
       providers: {
         databasePath: ':memory:',
         coingecko: { apiKey: 'manager-key', useProApi: true },
       },
     });
+    if (result.isOk()) {
+      createdManagers.push(result.value);
+    }
 
     expect(createCoinGeckoProvider).toHaveBeenCalledWith(
       expect.anything(),
@@ -456,6 +480,8 @@ describe('createPriceProviderManager', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error.message).toContain('No price providers were successfully created');
+    } else {
+      createdManagers.push(result.value);
     }
   });
 });

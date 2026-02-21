@@ -270,6 +270,9 @@ export async function createPriceProviderManager(
   // Register providers
   manager.registerProviders(providers);
 
+  // Start background tasks (cache cleanup) explicitly
+  manager.startBackgroundTasks();
+
   logger.info('PriceProviderManager created and initialized successfully');
 
   return ok(manager);
