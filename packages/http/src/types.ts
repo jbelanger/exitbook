@@ -68,26 +68,23 @@ export interface HttpClientHooks {
 }
 
 // HTTP-related error classes
-export class ServiceError extends Error {
+export class HttpError extends Error {
   constructor(
     message: string,
-    public service: string,
-    public operation: string,
-    public originalError?: Error
+    public statusCode: number,
+    public responseBody: string
   ) {
     super(message);
-    this.name = 'ServiceError';
+    this.name = 'HttpError';
   }
 }
 
-export class RateLimitError extends ServiceError {
+export class RateLimitError extends Error {
   constructor(
     message: string,
-    service: string,
-    operation: string,
     public retryAfter?: number
   ) {
-    super(message, service, operation);
+    super(message);
     this.name = 'RateLimitError';
   }
 }

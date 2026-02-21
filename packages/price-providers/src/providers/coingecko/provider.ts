@@ -4,6 +4,7 @@
 
 import { type Currency, wrapError } from '@exitbook/core';
 import type { HttpClient, InstrumentationCollector } from '@exitbook/http';
+import { HttpError } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -406,15 +407,11 @@ export class CoinGeckoProvider extends BasePriceProvider {
         },
       });
       if (httpResult.isErr()) {
-        // Parse CoinGecko error responses
-        const errorMatch = httpResult.error.message.match(/HTTP \d+: (\{.+\})/);
-        if (errorMatch && errorMatch[1]) {
+        if (httpResult.error instanceof HttpError) {
           try {
-            const parsedError = JSON.parse(errorMatch[1]) as unknown;
+            const parsedError = JSON.parse(httpResult.error.responseBody) as unknown;
             const errorParse = CoinGeckoErrorResponseSchema.safeParse(parsedError);
-
             if (errorParse.success) {
-              // Check for coin not found errors
               const errorMessage = typeof errorParse.data.error === 'string' ? errorParse.data.error : '';
               if (errorMessage.includes('not found') || errorParse.data.status?.error_code === 404) {
                 return err(
@@ -481,12 +478,9 @@ export class CoinGeckoProvider extends BasePriceProvider {
       },
     });
     if (httpResult.isErr()) {
-      // Parse CoinGecko error responses for better error messages
-      // HTTP client returns errors as: "HTTP 401: {json body}"
-      const errorMatch = httpResult.error.message.match(/HTTP \d+: (\{.+\})/);
-      if (errorMatch && errorMatch[1]) {
+      if (httpResult.error instanceof HttpError) {
         try {
-          const parsedError = JSON.parse(errorMatch[1]) as unknown;
+          const parsedError = JSON.parse(httpResult.error.responseBody) as unknown;
           const errorParse = CoinGeckoErrorResponseSchema.safeParse(parsedError);
 
           if (errorParse.success) {

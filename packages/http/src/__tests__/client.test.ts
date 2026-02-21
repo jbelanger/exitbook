@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { HttpClient } from '../client.js';
 import type { HttpEffects } from '../core/types.js';
 import { InstrumentationCollector } from '../instrumentation.js';
-import { ServiceError, RateLimitError, ResponseValidationError } from '../types.js';
+import { HttpError, RateLimitError, ResponseValidationError } from '../types.js';
 
 describe('HttpClient - Result Type Implementation', () => {
   it('should return ok result for successful GET request', async () => {
@@ -73,8 +73,8 @@ describe('HttpClient - Result Type Implementation', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error).toBeInstanceOf(ServiceError);
-      expect(result.error.message).toContain('service error');
+      expect(result.error).toBeInstanceOf(HttpError);
+      expect(result.error.message).toContain('HTTP 500');
     }
   });
 
@@ -1083,7 +1083,7 @@ describe('HttpClient - Hook Event Pairing', () => {
     const detectEtherscanRateLimit = (data: unknown): RateLimitError | void => {
       const response = data as { result?: string; status?: string };
       if (response.status === '0' && response.result?.includes('rate limit')) {
-        return new RateLimitError('Rate limit detected', 'test-provider', 'api_request', 1000);
+        return new RateLimitError('Rate limit detected', 1000);
       }
     };
 

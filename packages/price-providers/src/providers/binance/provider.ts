@@ -5,6 +5,7 @@
 import type { Currency } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { HttpClient, InstrumentationCollector } from '@exitbook/http';
+import { HttpError } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -249,18 +250,14 @@ export class BinanceProvider extends BasePriceProvider {
     // Fetch from API
     const httpResult = await this.httpClient.get<unknown>(`/api/v3/klines?${searchParams.toString()}`);
     if (httpResult.isErr()) {
-      // Check if error message contains Binance error response
-      // HTTP client returns errors as: "HTTP 400: {json body}"
-      const errorMatch = httpResult.error.message.match(/HTTP \d+: (\{.+\})/);
-      if (errorMatch && errorMatch[1]) {
+      if (httpResult.error instanceof HttpError) {
         try {
-          const parsedError = JSON.parse(errorMatch[1]) as unknown;
+          const parsedError = JSON.parse(httpResult.error.responseBody) as unknown;
           const errorParse = BinanceErrorResponseSchema.safeParse(parsedError);
           if (errorParse.success) {
             const errorCode = errorParse.data.code;
             const errorMsg = errorParse.data.msg;
 
-            // Check for specific error types
             if (isBinanceCoinNotFoundError(errorCode)) {
               return err(
                 new CoinNotFoundError(

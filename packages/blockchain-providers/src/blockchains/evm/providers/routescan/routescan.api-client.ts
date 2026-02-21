@@ -1,6 +1,5 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
-import { ServiceError } from '@exitbook/http';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../../core/base/api-client.js';
@@ -290,13 +289,7 @@ export class RoutescanApiClient extends BaseApiClient {
     const res = result.value;
 
     if (res.status !== '1') {
-      return err(
-        new ServiceError(
-          `Failed to fetch ${this.chainConfig.nativeCurrency} balance: ${res.message}`,
-          this.name,
-          'getAddressBalances'
-        )
-      );
+      return err(new Error(`Failed to fetch ${this.chainConfig.nativeCurrency} balance: ${res.message}`));
     }
 
     // Convert from wei to native currency
@@ -370,12 +363,12 @@ export class RoutescanApiClient extends BaseApiClient {
             isComplete: true,
           });
         }
-        return err(new ServiceError(`Routescan API error: ${res.message}`, this.name, 'streamAddressTransactions'));
+        return err(new Error(`Routescan API error: ${res.message}`));
       }
 
       // Handle case where result is a string (error message) instead of array
       if (typeof res.result === 'string') {
-        return err(new ServiceError(`Routescan API error: ${res.result}`, this.name, 'streamAddressTransactions'));
+        return err(new Error(`Routescan API error: ${res.result}`));
       }
 
       const transactions = res.result || [];
@@ -473,16 +466,12 @@ export class RoutescanApiClient extends BaseApiClient {
             isComplete: true,
           });
         }
-        return err(
-          new ServiceError(`Routescan API error: ${res.message}`, this.name, 'streamAddressInternalTransactions')
-        );
+        return err(new Error(`Routescan API error: ${res.message}`));
       }
 
       // Handle case where result is a string (error message) instead of array
       if (typeof res.result === 'string') {
-        return err(
-          new ServiceError(`Routescan API error: ${res.result}`, this.name, 'streamAddressInternalTransactions')
-        );
+        return err(new Error(`Routescan API error: ${res.result}`));
       }
 
       const transactions = res.result || [];
@@ -596,14 +585,12 @@ export class RoutescanApiClient extends BaseApiClient {
             isComplete: true,
           });
         }
-        return err(
-          new ServiceError(`Routescan API error: ${res.message}`, this.name, 'streamAddressTokenTransactions')
-        );
+        return err(new Error(`Routescan API error: ${res.message}`));
       }
 
       // Handle case where result is a string (error message) instead of array
       if (typeof res.result === 'string') {
-        return err(new ServiceError(`Routescan API error: ${res.result}`, this.name, 'streamAddressTokenTransactions'));
+        return err(new Error(`Routescan API error: ${res.result}`));
       }
 
       const transactions = res.result || [];

@@ -55,11 +55,7 @@ export function detectEtherscanRateLimit(response: unknown): RateLimitError | vo
   if (data.status !== '0') return;
   const result = typeof data.result === 'string' ? data.result.toLowerCase() : '';
   if (result.includes('rate limit')) {
-    return new RateLimitError(
-      typeof data.result === 'string' ? data.result : 'Etherscan rate limit',
-      'etherscan',
-      'api_request'
-    );
+    return new RateLimitError(typeof data.result === 'string' ? data.result : 'Etherscan rate limit');
   }
 }
 

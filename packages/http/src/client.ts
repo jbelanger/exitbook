@@ -9,7 +9,7 @@ import type { HttpEffects, RateLimitState } from './core/types.js';
 import { createInitialRateLimitState } from './core/types.js';
 import { sanitizeEndpoint } from './instrumentation.js';
 import type { HttpClientConfig, HttpClientHooks, HttpRequestOptions } from './types.js';
-import { RateLimitError, ResponseValidationError, ServiceError } from './types.js';
+import { HttpError, RateLimitError, ResponseValidationError } from './types.js';
 
 export class HttpClient {
   private readonly config: HttpClientConfig;
@@ -200,18 +200,10 @@ export class HttpClient {
               outcomeError = undefined;
               continue;
             }
-            throw new RateLimitError(`${this.config.providerName} rate limit exceeded`, 'unknown', 'api_request');
+            throw new RateLimitError(`${this.config.providerName} rate limit exceeded`);
           }
 
-          if (response.status >= 500) {
-            throw new ServiceError(
-              `${this.config.providerName} service error: ${response.status} ${errorText}`,
-              'unknown',
-              'api_request'
-            );
-          }
-
-          throw new Error(`HTTP ${response.status}: ${errorText}`);
+          throw new HttpError(`HTTP ${response.status}: ${errorText}`, response.status, errorText);
         }
 
         // Handle 204 No Content and empty responses
@@ -301,15 +293,7 @@ export class HttpClient {
         outcomeStatus = response?.status;
         outcomeError = lastError.message;
 
-        if (
-          error instanceof RateLimitError ||
-          error instanceof ServiceError ||
-          error instanceof ResponseValidationError
-        ) {
-          return err(lastError);
-        }
-
-        if (lastError.message.includes('HTTP 4')) {
+        if (error instanceof RateLimitError || error instanceof HttpError || error instanceof ResponseValidationError) {
           return err(lastError);
         }
 

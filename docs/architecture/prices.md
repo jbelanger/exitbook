@@ -71,100 +71,7 @@ V2 Architecture Audit: @exitbook/price-providers
 
 
 
-     3a-2 Finding: Error parsing from HTTP responses uses fragile regex matching
-
-     What exists:
-     Both CoinGecko (/Users/joel/Dev/exitbook/packages/price-providers/src/providers/coingecko/provider.ts, lines 412-436 and 487-532) and
-     Binance (/Users/joel/Dev/exitbook/packages/price-providers/src/providers/binance/provider.ts, lines 257-285) parse error responses by
-     regex-matching the HttpClient's error message string:
-
-     const errorMatch = httpResult.error.message.match(/HTTP \d+: (\{.+\})/);
-     if (errorMatch && errorMatch[1]) {
-       const parsedError = JSON.parse(errorMatch[1]) as unknown;
-       // ...
-     }
-
-     This pattern appears 3 times across these two providers.
-
-     Why it's a problem:
-     The error message format ("HTTP {status}: {body}") is an implementation detail of @exitbook/http. If the HTTP client changes its error
-     message format, all 3 regex extractions silently fail and fall through to generic error handling. This is a coupling to a string format
-      rather than a structured API. CryptoCompare avoids this because CryptoCompare returns 200 OK with error payloads in the body (noted in
-      a code comment at line 252 of cryptocompare provider).
-
-     What V2 should do:
-     Modify @exitbook/http's HttpClient to expose structured error information. Either:
-     1. Return a typed error object with statusCode and body fields (preferred for neverthrow flows), or
-     2. Attach structured metadata to the Error instance (e.g., HttpError subclass with .statusCode and .responseBody properties).
-
-     Then providers can inspect error.statusCode and error.responseBody instead of regex-matching message strings.
-
-     Needs coverage:
-
-     ┌───────────────────────────────────────────────┬──────────────────────────────────┬─────────────────────────────────────────────────┐
-     │              Current capability               │ Covered by structured HttpError? │                      Notes                      │
-     ├───────────────────────────────────────────────┼──────────────────────────────────┼─────────────────────────────────────────────────┤
-     │ Extract HTTP status code                      │ Yes                              │ Direct property access                          │
-     ├───────────────────────────────────────────────┼──────────────────────────────────┼─────────────────────────────────────────────────┤
-     │ Extract JSON error body                       │ Yes                              │ Parsed once, available as property              │
-     ├───────────────────────────────────────────────┼──────────────────────────────────┼─────────────────────────────────────────────────┤
-     │ Provider-specific error classification        │ Yes                              │ Providers inspect typed fields instead of regex │
-     ├───────────────────────────────────────────────┼──────────────────────────────────┼─────────────────────────────────────────────────┤
-     │ Fallthrough to generic error on parse failure │ Yes                              │ Still possible with .message                    │
-     └───────────────────────────────────────────────┴──────────────────────────────────┴─────────────────────────────────────────────────┘
-
-     Surface: 2 provider files (~3 regex sites), 1 HTTP package change
-
-     Leverage: High -- this is a correctness risk in a financial system where distinguishing "coin not found" from "rate limit exceeded"
-     from "network error" determines whether data is silently skipped or retried.
-
      3b. Pattern uniformity
-
-     3b-1 Finding: Inconsistent factory function signatures
-
-     What exists:
-     Provider factory functions have inconsistent signatures:
-     - createECBProvider(db, _config: unknown, instrumentation?) -- ignores config
-     - createFrankfurterProvider(db, _config: unknown, instrumentation?) -- ignores config
-     - createBankOfCanadaProvider(db, _config: unknown, instrumentation?) -- ignores config
-     - createBinanceProvider(db, config: BinanceProviderConfig, instrumentation?) -- typed but empty config
-     - createCoinGeckoProvider(db, config: CoinGeckoProviderConfig, instrumentation?) -- meaningful config
-     - createCryptoCompareProvider(db, config: CryptoCompareProviderConfig, instrumentation?) -- meaningful config
-
-     The PROVIDER_FACTORIES registry in /Users/joel/Dev/exitbook/packages/price-providers/src/core/factory.ts casts all configs to unknown
-     to satisfy a uniform signature, then re-casts them in the lambda wrappers (lines 38-52).
-
-     Why it's a problem:
-     Type safety is lost at the registry boundary. If someone passes { apiKey: 'x' } for the ECB provider, TypeScript cannot catch it. The
-     unknown casts in the registry are noise.
-
-     What V2 should do:
-     Define a discriminated union of provider configs or a config map type:
-     interface ProviderConfigs {
-       'bank-of-canada': Record<string, never>;
-       binance: BinanceProviderConfig;
-       coingecko: CoinGeckoProviderConfig;
-       // ...
-     }
-     The factory iterates over entries and passes correctly-typed configs. Eliminates all unknown casts.
-
-     Needs coverage:
-
-     ┌───────────────────────────────┬──────────────────────────────┬────────────────────────────────┐
-     │      Current capability       │ Covered by typed config map? │             Notes              │
-     ├───────────────────────────────┼──────────────────────────────┼────────────────────────────────┤
-     │ Dynamic provider creation     │ Yes                          │ Same iteration pattern         │
-     ├───────────────────────────────┼──────────────────────────────┼────────────────────────────────┤
-     │ Type-safe config per provider │ Yes (improvement)            │ Currently lost to unknown      │
-     ├───────────────────────────────┼──────────────────────────────┼────────────────────────────────┤
-     │ Enable/disable per provider   │ Yes                          │ Config still has enabled field │
-     └───────────────────────────────┴──────────────────────────────┴────────────────────────────────┘
-
-     Surface: 1 file (factory.ts), 6 factory function signatures
-
-     Leverage: Low -- this is DX/safety improvement, not a bug risk.
-
-     3c. Pattern interactions
 
      3c-1 Finding: Two-layer caching creates confusion
 
@@ -266,21 +173,6 @@ V2 Architecture Audit: @exitbook/price-providers
 
      ---
      7. Error Handling & Observability
-
-     7a. Error strategy fitness
-
-     What exists:
-     All fallible functions return Result<T, Error> via neverthrow. Two custom error classes (CoinNotFoundError, PriceDataUnavailableError)
-     carry structured metadata (asset symbol, provider name, reason, suggestions). The PriceProviderManager.executeWithFailover method
-     tracks whether all errors were "recoverable" types and preserves the error class when propagating.
-
-     Assessment: The error strategy is well-fitted to this package. The distinction between "coin not found" (prompt user) vs "API error"
-     (retry/failover) vs "rate limit" (back off) is correctly modeled and preserved through the failover chain. The neverthrow Result type
-     forces callers to handle both paths.
-
-     One concern: the executeWithFailover method at /Users/joel/Dev/exitbook/packages/price-providers/src/core/provider-manager.ts (lines
-     172-356) is 184 lines long and mixes provider iteration, circuit breaker coordination, error classification, cache writing, and
-     logging. It works correctly but is the most complex method in the package.
 
      7a-1 Finding: executeWithFailover is a 184-line monolith
 
