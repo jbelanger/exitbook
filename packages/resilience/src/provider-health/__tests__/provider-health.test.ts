@@ -165,12 +165,7 @@ describe('shouldBlockDueToCircuit', () => {
 });
 
 describe('hasAvailableProviders', () => {
-  const stubProvider = (name: string) => ({
-    name,
-    destroy: async () => {
-      /* empty */
-    },
-  });
+  const stubProvider = (name: string) => ({ name });
 
   it('should return true when at least one provider has closed circuit', () => {
     const circuitMap = new Map<string, CircuitState>([

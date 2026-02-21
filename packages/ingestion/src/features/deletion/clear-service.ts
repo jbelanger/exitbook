@@ -1,9 +1,9 @@
-import type { TransactionLinkQueries } from '@exitbook/accounting';
 import { type Account, wrapError } from '@exitbook/core';
 import type {
   AccountQueries,
   ImportSessionQueries,
   RawDataQueries,
+  TransactionLinkQueries,
   TransactionQueries,
   UserQueries,
 } from '@exitbook/data';

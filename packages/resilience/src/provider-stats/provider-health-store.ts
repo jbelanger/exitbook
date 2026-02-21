@@ -99,7 +99,7 @@ export class ProviderHealthStore {
   }
 
   /** Export current state for persistence layers to save */
-  export(): ProviderHealthSnapshot[] {
+  getSnapshots(): ProviderHealthSnapshot[] {
     const snapshots: ProviderHealthSnapshot[] = [];
     for (const [key, health] of this.healthStatus) {
       snapshots.push({

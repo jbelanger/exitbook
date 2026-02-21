@@ -125,7 +125,7 @@ describe('ProviderHealthStore', () => {
     store.initializeProvider('b');
     store.updateHealth('a', true, 100);
 
-    const snapshots = store.export();
+    const snapshots = store.getSnapshots();
     expect(snapshots).toHaveLength(2);
 
     const snapshotA = snapshots.find((s) => s.key === 'a');

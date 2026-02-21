@@ -7,12 +7,7 @@ import type { IProvider, ProviderHealth } from '../../provider-health/types.js';
 import { buildProviderSelectionDebugInfo, selectProviders } from '../provider-selection.js';
 
 function createProvider(name: string): IProvider {
-  return {
-    name,
-    destroy: async () => {
-      /* empty */
-    },
-  };
+  return { name };
 }
 
 function setupMaps(

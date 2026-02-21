@@ -113,7 +113,7 @@ export class ProviderStatsStore {
   async save(circuitRegistry: CircuitBreakerRegistry): Promise<void> {
     if (!this.statsQueries) return;
 
-    for (const snapshot of this.store.export()) {
+    for (const snapshot of this.store.getSnapshots()) {
       const { blockchain, providerName } = parseProviderKey(snapshot.key);
 
       const circuitState = circuitRegistry.get(snapshot.key);

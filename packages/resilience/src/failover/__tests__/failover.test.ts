@@ -18,9 +18,6 @@ function createProvider(
 ): IProvider & { exec: typeof result } {
   return {
     name,
-    destroy: async () => {
-      /* empty */
-    },
     exec: result,
   };
 }

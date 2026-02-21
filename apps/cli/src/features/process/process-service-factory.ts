@@ -1,10 +1,10 @@
-import { createTransactionLinkQueries } from '@exitbook/accounting';
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
   createAccountQueries,
   createImportSessionQueries,
   createRawDataQueries,
   createTokenMetadataPersistence,
+  createTransactionLinkQueries,
   createUserQueries,
   // eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
   type KyselyDB,

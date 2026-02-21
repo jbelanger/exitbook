@@ -9,7 +9,6 @@ import type { CircuitStatus } from '../circuit-breaker/types.js';
  */
 export interface IProvider {
   readonly name: string;
-  destroy(): Promise<void>;
 }
 
 /**

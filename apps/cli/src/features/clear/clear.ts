@@ -1,9 +1,9 @@
-import { createTransactionLinkQueries } from '@exitbook/accounting';
 import {
   type AccountQueries,
   createAccountQueries,
   createImportSessionQueries,
   createRawDataQueries,
+  createTransactionLinkQueries,
   createUserQueries,
   createTransactionQueries,
 } from '@exitbook/data';

@@ -8,7 +8,7 @@
 import { getCircuitStatus, isCircuitHalfOpen, isCircuitOpen } from '../circuit-breaker/circuit-breaker.js';
 import type { CircuitState } from '../circuit-breaker/types.js';
 
-import type { IProvider, ProviderHealth, ProviderHealthWithCircuit } from './types.js';
+import type { ProviderHealth, ProviderHealthWithCircuit } from './types.js';
 
 /**
  * Create initial health state for a new provider
@@ -98,7 +98,7 @@ export function shouldBlockDueToCircuit(
  * Check if any providers have healthy (non-open) circuits
  */
 export function hasAvailableProviders(
-  providers: readonly IProvider[],
+  providers: readonly { readonly name: string }[],
   circuitMap: ReadonlyMap<string, CircuitState>,
   now: number
 ): boolean {
