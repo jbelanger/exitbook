@@ -6,12 +6,20 @@
 import { isFiat, isStablecoin, type Currency } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { CircuitBreakerRegistry } from '@exitbook/resilience/circuit-breaker';
+import { executeWithFailover, type FailoverResult } from '@exitbook/resilience/failover';
 import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import { ok } from 'neverthrow';
 
 import { CoinNotFoundError, PriceDataUnavailableError } from './errors.js';
 import * as ProviderManagerUtils from './provider-manager-utils.js';
-import type { IPriceProvider, PriceData, PriceQuery, ProviderHealth, ProviderManagerConfig } from './types.js';
+import type {
+  IPriceProvider,
+  PriceData,
+  PriceQuery,
+  ProviderHealth,
+  ProviderHealthWithCircuit,
+  ProviderManagerConfig,
+} from './types.js';
 import { createCacheKey } from './utils.js';
 
 const logger = getLogger('PriceProviderManager');
@@ -19,11 +27,6 @@ const logger = getLogger('PriceProviderManager');
 interface CacheEntry {
   data: PriceData;
   expiry: number;
-}
-
-interface FailoverResult<T> {
-  data: T;
-  providerName: string;
 }
 
 /**
@@ -64,14 +67,11 @@ export class PriceProviderManager {
 
     // Initialize health status and circuit breaker for each provider
     for (const provider of providers) {
-      const metadata = provider.getMetadata();
-      this.healthStatus.set(metadata.name, ProviderManagerUtils.createInitialHealth());
-      this.circuitBreakers.getOrCreate(metadata.name);
+      this.healthStatus.set(provider.name, ProviderManagerUtils.createInitialHealth());
+      this.circuitBreakers.getOrCreate(provider.name);
     }
 
-    logger.info(
-      `Registered ${providers.length} price providers: ${providers.map((p) => p.getMetadata().name).join(', ')}`
-    );
+    logger.info(`Registered ${providers.length} price providers: ${providers.map((p) => p.name).join(', ')}`);
   }
 
   /**
@@ -93,11 +93,17 @@ export class PriceProviderManager {
     }
 
     // Execute with failover
-    const result = await this.executeWithFailover(async (provider) => provider.fetchPrice(query), 'fetchPrice', query);
+    const result = await this.runWithFailover(async (provider) => provider.fetchPrice(query), 'fetchPrice', query);
 
     if (result.isErr()) {
       return result;
     }
+
+    // Cache the result
+    this.requestCache.set(cacheKey, {
+      data: result.value.data,
+      expiry: Date.now() + this.config.cacheTtlSeconds * 1000,
+    });
 
     // Convert stablecoin-denominated prices to USD
     // Skip if we're pricing a stablecoin itself (avoid recursion)
@@ -111,17 +117,16 @@ export class PriceProviderManager {
   /**
    * Get provider health status (uses pure function for formatting)
    */
-  getProviderHealth(): Map<string, ProviderHealth & { circuitState: string }> {
-    const result = new Map<string, ProviderHealth & { circuitState: string }>();
+  getProviderHealth(): Map<string, ProviderHealthWithCircuit> {
+    const result = new Map<string, ProviderHealthWithCircuit>();
     const now = Date.now();
 
     for (const provider of this.providers) {
-      const metadata = provider.getMetadata();
-      const health = this.healthStatus.get(metadata.name);
-      const circuitState = this.circuitBreakers.get(metadata.name);
+      const health = this.healthStatus.get(provider.name);
+      const circuitState = this.circuitBreakers.get(provider.name);
 
       if (health && circuitState) {
-        result.set(metadata.name, ProviderManagerUtils.getProviderHealthWithCircuit(health, circuitState, now));
+        result.set(provider.name, ProviderManagerUtils.getProviderHealthWithCircuit(health, circuitState, now));
       }
     }
 
@@ -167,192 +172,92 @@ export class PriceProviderManager {
 
   /**
    * Execute operation with circuit breaker and failover
-   * Orchestrates side effects, uses pure functions for decisions
+   * Delegates to generic executeWithFailover from @exitbook/resilience
    */
-  private async executeWithFailover<T>(
+  private async runWithFailover<T>(
     operation: (provider: IPriceProvider) => Promise<Result<T, Error>>,
     operationType: string,
-    queryOrQueries: PriceQuery | PriceQuery[]
+    query: PriceQuery
   ): Promise<Result<FailoverResult<T>, Error>> {
     const now = Date.now();
+    const assetSymbol = query.assetSymbol;
 
-    // Extract timestamp and asset info from query for provider selection
-    const timestamp = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.timestamp;
-    const assetSymbol = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.assetSymbol;
-    const isFiatValue = Array.isArray(queryOrQueries) ? undefined : isFiat(queryOrQueries.assetSymbol);
-
-    // Select providers
+    // Select providers (pure)
     const scoredProviders = ProviderManagerUtils.selectProvidersForOperation(
       this.providers,
       this.healthStatus,
       this.circuitBreakers.asReadonlyMap(),
       operationType,
       now,
-      timestamp,
+      query.timestamp,
       assetSymbol,
-      isFiatValue
+      isFiat(assetSymbol)
     );
 
-    if (scoredProviders.length === 0) {
-      return err(new Error(`No providers available for operation: ${operationType}`));
-    }
-
-    // Log selection info (uses pure function for formatting)
+    // Log selection info
     if (scoredProviders.length > 1) {
-      const debugInfo = ProviderManagerUtils.buildProviderSelectionDebugInfo(scoredProviders);
-      logger.debug(`Provider selection for ${operationType} - Providers: ${debugInfo}`);
+      logger.debug(
+        `Provider selection for ${operationType} - Providers: ${ProviderManagerUtils.buildProviderSelectionDebugInfo(scoredProviders)}`
+      );
     }
 
-    let lastError: Error | undefined;
-    let attemptNumber = 0;
-    let allErrorsAreRecoverable = true; // CoinNotFoundError or PriceDataUnavailableError
+    return executeWithFailover<IPriceProvider, T, Error>({
+      providers: scoredProviders.map((sp) => sp.provider),
+      execute: operation,
+      circuitBreakers: this.circuitBreakers,
+      operationLabel: operationType,
+      logger,
 
-    // Try each provider in order
-    for (const { provider, metadata, health } of scoredProviders) {
-      attemptNumber++;
-      const circuitState = this.circuitBreakers.getOrCreate(metadata.name);
+      isRecoverableError: (error) => error instanceof CoinNotFoundError || error instanceof PriceDataUnavailableError,
 
-      // Check circuit breaker
-      const hasOthers = ProviderManagerUtils.hasAvailableProviders(
-        scoredProviders.slice(attemptNumber).map((sp) => sp.provider),
-        this.circuitBreakers.asReadonlyMap(),
-        now
-      );
-
-      const blockReason = ProviderManagerUtils.shouldBlockDueToCircuit(circuitState, hasOthers, now);
-
-      if (blockReason === 'circuit_open') {
-        logger.debug(`Skipping provider ${metadata.name} - circuit breaker is open`);
-        continue;
-      }
-
-      if (blockReason === 'circuit_open_no_alternatives') {
-        logger.warn(`Using provider ${metadata.name} despite open circuit breaker - all providers unavailable`);
-      }
-
-      if (blockReason === 'circuit_half_open') {
-        logger.debug(`Testing provider ${metadata.name} in half-open state`);
-      }
-
-      // Execute operation (side effect)
-      const startTime = Date.now();
-      try {
-        const result = await operation(provider);
-        const responseTime = Date.now() - startTime;
-
-        if (result.isErr()) {
-          throw result.error;
-        }
-
-        // Record success - update circuit and health (pure functions produce new state)
-        this.circuitBreakers.recordSuccess(metadata.name, Date.now());
-        this.healthStatus.set(
-          metadata.name,
-          ProviderManagerUtils.updateHealthMetrics(health, true, responseTime, Date.now())
-        );
-
-        // Log success at debug level (successes are expected, only failures need visibility)
-        logger.debug(
-          {
-            provider: metadata.name,
-            assetSymbol,
-            responseTime,
-            attemptNumber,
-            totalProviders: scoredProviders.length,
-          },
-          `✓ Provider ${metadata.name} (${attemptNumber}/${scoredProviders.length})`
-        );
-
-        // Cache single query results
-        if (!Array.isArray(queryOrQueries) && !Array.isArray(result.value)) {
-          const cacheKey = createCacheKey(queryOrQueries, this.config.defaultCurrency);
-          this.requestCache.set(cacheKey, {
-            data: result.value as PriceData,
-            expiry: Date.now() + this.config.cacheTtlSeconds * 1000,
-          });
-        }
-
-        return ok({
-          data: result.value,
-          providerName: metadata.name,
-        });
-      } catch (error) {
-        lastError = error as Error;
-        const responseTime = Date.now() - startTime;
-
-        // Distinguish between recoverable failures and actual failures
-        const isRecoverableError =
-          lastError instanceof CoinNotFoundError || lastError instanceof PriceDataUnavailableError;
-        const isLastProvider = attemptNumber === scoredProviders.length;
-
-        // Track if all errors are recoverable (can prompt user in interactive mode)
-        if (!isRecoverableError) {
-          allErrorsAreRecoverable = false;
-        }
-
-        // Log the outcome of this provider
-        logger.info(
-          {
-            provider: metadata.name,
-            assetSymbol,
-            totalProviders: scoredProviders.length,
-            errorType: lastError.name,
-          },
-          `✗ Provider ${metadata.name} (${attemptNumber}/${scoredProviders.length}): ${lastError.message}`
-        );
-
-        // If this was the last provider, log a summary
-        if (isLastProvider) {
-          logger.warn(
-            { assetSymbol, totalProviders: scoredProviders.length },
-            `All ${scoredProviders.length} provider(s) failed for ${assetSymbol || 'asset'}`
+      onSuccess: (provider, responseTime) => {
+        const health = this.healthStatus.get(provider.name);
+        if (health) {
+          this.healthStatus.set(
+            provider.name,
+            ProviderManagerUtils.updateHealthMetrics(health, true, responseTime, Date.now())
           );
         }
+      },
 
-        // Record failure - update circuit and health (pure functions produce new state)
-        // Only count as circuit breaker failure if it's NOT a recoverable error
-        if (!isRecoverableError) {
-          this.circuitBreakers.recordFailure(metadata.name, Date.now());
+      onFailure: (provider, error, responseTime) => {
+        const health = this.healthStatus.get(provider.name);
+        if (health) {
+          this.healthStatus.set(
+            provider.name,
+            ProviderManagerUtils.updateHealthMetrics(health, false, responseTime, Date.now(), error.message)
+          );
         }
-        this.healthStatus.set(
-          metadata.name,
-          ProviderManagerUtils.updateHealthMetrics(health, false, responseTime, Date.now(), lastError.message)
-        );
+      },
 
-        continue;
-      }
-    }
+      buildFinalError: (lastError, attemptedProviders, allRecoverable) => {
+        const providerNames = attemptedProviders.join(', ');
 
-    // All providers failed - preserve recoverable error types if all failures were recoverable
-    const providerNames = scoredProviders.map((sp) => sp.metadata.name).join(', ');
+        if (allRecoverable && lastError) {
+          if (lastError instanceof CoinNotFoundError) {
+            return new CoinNotFoundError(
+              `All ${attemptedProviders.length} provider(s) failed for ${assetSymbol} (tried: ${providerNames})`,
+              assetSymbol || 'unknown',
+              providerNames
+            );
+          } else if (lastError instanceof PriceDataUnavailableError) {
+            return new PriceDataUnavailableError(
+              `All ${attemptedProviders.length} provider(s) failed for ${assetSymbol} (tried: ${providerNames})`,
+              assetSymbol || 'unknown',
+              providerNames,
+              lastError.reason,
+              lastError.details
+            );
+          }
+        }
 
-    if (allErrorsAreRecoverable) {
-      if (lastError instanceof CoinNotFoundError) {
-        return err(
-          new CoinNotFoundError(
-            `All ${scoredProviders.length} provider(s) failed for ${assetSymbol || 'asset'} (tried: ${providerNames})`,
-            assetSymbol || 'unknown',
-            providerNames
-          )
-        );
-      } else if (lastError instanceof PriceDataUnavailableError) {
-        return err(
-          new PriceDataUnavailableError(
-            `All ${scoredProviders.length} provider(s) failed for ${assetSymbol || 'asset'} (tried: ${providerNames})`,
-            assetSymbol || 'unknown',
-            providerNames,
-            lastError.reason,
-            lastError.details
-          )
-        );
-      }
-    }
+        const errorMsg = assetSymbol
+          ? `All ${attemptedProviders.length} provider(s) failed for ${assetSymbol} (tried: ${providerNames})`
+          : `All ${attemptedProviders.length} provider(s) failed for ${operationType} (tried: ${providerNames})`;
 
-    const errorMsg = assetSymbol
-      ? `All ${scoredProviders.length} provider(s) failed for ${assetSymbol} (tried: ${providerNames})`
-      : `All ${scoredProviders.length} provider(s) failed for ${operationType} (tried: ${providerNames})`;
-
-    return err(lastError ? new Error(errorMsg) : new Error(`All price providers failed for ${operationType}`));
+        return lastError ? new Error(errorMsg) : new Error(`All price providers failed for ${operationType}`);
+      },
+    });
   }
 
   /**

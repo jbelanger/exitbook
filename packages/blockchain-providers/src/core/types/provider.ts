@@ -1,5 +1,6 @@
 import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/http';
+import type { IProvider } from '@exitbook/resilience/provider-health';
 import type { Result } from 'neverthrow';
 
 import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
@@ -60,7 +61,7 @@ export interface StreamingBatchResult<T extends NormalizedTransactionBase = Norm
   isComplete: boolean;
 }
 
-export interface IBlockchainProvider {
+export interface IBlockchainProvider extends IProvider {
   readonly blockchain: string;
   readonly capabilities: ProviderCapabilities;
   // Universal execution method - all operations go through this

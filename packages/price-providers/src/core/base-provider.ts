@@ -27,6 +27,10 @@ export abstract class BasePriceProvider implements IPriceProvider {
     protected readonly priceQueries: PriceQueries
   ) {}
 
+  get name(): string {
+    return this.metadata.name;
+  }
+
   /**
    * Subclasses must implement the core fetch logic
    * Query is already validated and currency is normalized at this point

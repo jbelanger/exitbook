@@ -6,13 +6,7 @@
  */
 
 import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
-import {
-  getCircuitStatus,
-  isCircuitHalfOpen,
-  isCircuitOpen,
-  type CircuitState,
-  type CircuitStatus,
-} from '@exitbook/resilience/circuit-breaker';
+import { isCircuitHalfOpen, isCircuitOpen, type CircuitState } from '@exitbook/resilience/circuit-breaker';
 
 import type { NormalizedTransactionBase } from '../index.js';
 import type {
@@ -23,6 +17,15 @@ import type {
   ProviderOperationType,
 } from '../types/index.js';
 import type { ProviderMetadata } from '../types/registry.js';
+
+// Re-export shared provider health utilities so existing consumers keep working
+export {
+  createInitialHealth,
+  getProviderHealthWithCircuit,
+  hasAvailableProviders,
+  shouldBlockDueToCircuit,
+  updateHealthMetrics,
+} from '@exitbook/resilience/provider-health';
 
 // Deduplication window size: Used for in-memory dedup during streaming and loading recent transaction IDs
 // Sized to cover typical replay overlap (5 blocks × ~200 txs/block = ~1000 items max)
@@ -128,104 +131,6 @@ export function selectProvidersForOperation(
     })
     .filter((item): item is NonNullable<typeof item> => item !== undefined)
     .sort((a, b) => b.score - a.score); // Higher score = better
-}
-
-/**
- * Check if any providers have healthy (non-open) circuits
- */
-export function hasAvailableProviders(
-  providers: IBlockchainProvider[],
-  circuitMap: Map<string, CircuitState>,
-  now: number
-): boolean {
-  return providers.some((p) => {
-    const circuitState = circuitMap.get(p.name);
-    return !circuitState || !isCircuitOpen(circuitState, now);
-  });
-}
-
-/**
- * Update health metrics based on request outcome
- * Pure function - returns new health state without mutating input
- */
-export function updateHealthMetrics(
-  currentHealth: ProviderHealth,
-  success: boolean,
-  responseTime: number,
-  now: number,
-  errorMessage?: string
-): ProviderHealth {
-  const averageResponseTime = success
-    ? currentHealth.averageResponseTime === 0
-      ? responseTime
-      : currentHealth.averageResponseTime * 0.8 + responseTime * 0.2
-    : currentHealth.averageResponseTime;
-
-  const errorWeight = success ? 0 : 1;
-
-  return {
-    ...currentHealth,
-    isHealthy: success,
-    lastChecked: now,
-    averageResponseTime,
-    consecutiveFailures: success ? 0 : currentHealth.consecutiveFailures + 1,
-    lastError: success ? currentHealth.lastError : errorMessage,
-    errorRate: currentHealth.errorRate * 0.9 + errorWeight * 0.1,
-  };
-}
-
-/**
- * Create initial health state for a provider
- */
-export function createInitialHealth(): ProviderHealth {
-  return {
-    averageResponseTime: 0,
-    consecutiveFailures: 0,
-    errorRate: 0,
-    isHealthy: true,
-    lastChecked: 0,
-  };
-}
-
-/**
- * Get provider health with circuit state for monitoring
- */
-export function getProviderHealthWithCircuit(
-  health: ProviderHealth,
-  circuitState: CircuitState,
-  now: number
-): ProviderHealth & { circuitState: CircuitStatus } {
-  return {
-    ...health,
-    circuitState: getCircuitStatus(circuitState, now),
-  };
-}
-
-/**
- * Determine if circuit should block request
- * Returns reason if should block, undefined if should allow
- */
-export function shouldBlockDueToCircuit(
-  circuitState: CircuitState,
-  hasOtherProviders: boolean,
-  now: number
-): string | undefined {
-  const isOpen = isCircuitOpen(circuitState, now);
-  const isHalfOpen = isCircuitHalfOpen(circuitState, now);
-
-  if (isOpen && hasOtherProviders) {
-    return 'circuit_open';
-  }
-
-  if (isOpen && !hasOtherProviders) {
-    return 'circuit_open_no_alternatives';
-  }
-
-  if (isHalfOpen) {
-    return 'circuit_half_open';
-  }
-
-  return undefined;
 }
 
 /**

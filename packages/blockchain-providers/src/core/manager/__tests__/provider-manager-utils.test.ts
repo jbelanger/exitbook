@@ -6,6 +6,7 @@
 import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { createInitialCircuitState, recordFailure, type CircuitState } from '@exitbook/resilience/circuit-breaker';
+import { createInitialHealth } from '@exitbook/resilience/provider-health';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IBlockchainProvider, ProviderCapabilities, ProviderHealth } from '../../types/index.js';
@@ -16,17 +17,13 @@ import {
   buildProviderSelectionDebugInfo,
   canProviderResume,
   createDeduplicationWindow,
-  createInitialHealth,
   deduplicateTransactions,
-  getProviderHealthWithCircuit,
-  hasAvailableProviders,
   isCacheValid,
   isInDeduplicationWindow,
   resolveCursorForResumption,
   scoreProvider,
   selectProvidersForOperation,
   supportsOperation,
-  updateHealthMetrics,
   validateProviderApiKey,
 } from '../provider-manager-utils.js';
 
@@ -309,142 +306,6 @@ describe('provider-manager-utils', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0]!.provider.name).toBe('provider-1');
-    });
-  });
-
-  describe('hasAvailableProviders', () => {
-    it('should return true if at least one provider has closed circuit', () => {
-      const provider1 = createMockProvider('provider-1');
-      const provider2 = createMockProvider('provider-2');
-
-      const circuitMap = new Map<string, CircuitState>([
-        ['provider-1', createInitialCircuitState()],
-        ['provider-2', createInitialCircuitState()],
-      ]);
-
-      expect(hasAvailableProviders([provider1, provider2], circuitMap, Date.now())).toBe(true);
-    });
-
-    it('should return false if all providers have open circuits', () => {
-      const provider1 = createMockProvider('provider-1');
-      const provider2 = createMockProvider('provider-2');
-
-      const now = Date.now();
-      let state1 = createInitialCircuitState();
-      let state2 = createInitialCircuitState();
-      for (let i = 0; i < 10; i++) {
-        state1 = recordFailure(state1, now);
-        state2 = recordFailure(state2, now);
-      }
-
-      const circuitMap = new Map<string, CircuitState>([
-        ['provider-1', state1],
-        ['provider-2', state2],
-      ]);
-
-      expect(hasAvailableProviders([provider1, provider2], circuitMap, now)).toBe(false);
-    });
-  });
-
-  describe('updateHealthMetrics', () => {
-    let health: ProviderHealth;
-    const now = Date.now();
-
-    beforeEach(() => {
-      health = createInitialHealth();
-    });
-
-    it('should update health to healthy on success', () => {
-      const updated = updateHealthMetrics(health, true, 1000, now);
-      expect(updated.isHealthy).toBe(true);
-      expect(updated.consecutiveFailures).toBe(0);
-      expect(updated.lastChecked).toBe(now);
-    });
-
-    it('should update response time on success', () => {
-      health.averageResponseTime = 1000;
-      const updated = updateHealthMetrics(health, true, 500, now);
-      expect(updated.averageResponseTime).toBe(900); // 1000 * 0.8 + 500 * 0.2
-    });
-
-    it('should initialize response time on first success', () => {
-      const updated = updateHealthMetrics(health, true, 1000, now);
-      expect(updated.averageResponseTime).toBe(1000);
-    });
-
-    it('should mark unhealthy on failure', () => {
-      const updated = updateHealthMetrics(health, false, 0, now, 'Test error');
-      expect(updated.isHealthy).toBe(false);
-      expect(updated.lastError).toBe('Test error');
-    });
-
-    it('should increment consecutive failures on failure', () => {
-      let updated = updateHealthMetrics(health, false, 0, now);
-      expect(updated.consecutiveFailures).toBe(1);
-
-      updated = updateHealthMetrics(updated, false, 0, now);
-      expect(updated.consecutiveFailures).toBe(2);
-    });
-
-    it('should reset consecutive failures on success', () => {
-      health.consecutiveFailures = 5;
-      const updated = updateHealthMetrics(health, true, 1000, now);
-      expect(updated.consecutiveFailures).toBe(0);
-    });
-
-    it('should update error rate (exponential moving average)', () => {
-      health.errorRate = 0;
-      let updated = updateHealthMetrics(health, false, 0, now); // First failure
-      expect(updated.errorRate).toBe(0.1); // 0 * 0.9 + 1 * 0.1
-
-      updated = updateHealthMetrics(updated, false, 0, now); // Second failure
-      expect(updated.errorRate).toBeCloseTo(0.19); // 0.1 * 0.9 + 1 * 0.1
-
-      updated = updateHealthMetrics(updated, true, 1000, now); // Success
-      expect(updated.errorRate).toBeCloseTo(0.171); // 0.19 * 0.9 + 0 * 0.1
-    });
-
-    it('should not mutate original health object', () => {
-      const original = { ...health };
-      updateHealthMetrics(health, false, 0, now, 'Error');
-      expect(health).toEqual(original);
-    });
-  });
-
-  describe('createInitialHealth', () => {
-    it('should create health with defaults', () => {
-      const health = createInitialHealth();
-      expect(health.isHealthy).toBe(true);
-      expect(health.averageResponseTime).toBe(0);
-      expect(health.errorRate).toBe(0);
-      expect(health.consecutiveFailures).toBe(0);
-      expect(health.lastChecked).toBe(0);
-      expect(health.lastError).toBeUndefined();
-    });
-  });
-
-  describe('getProviderHealthWithCircuit', () => {
-    it('should combine health and circuit status', () => {
-      const health = createInitialHealth();
-      const circuit = createInitialCircuitState();
-      const now = Date.now();
-
-      const result = getProviderHealthWithCircuit(health, circuit, now);
-      expect(result.circuitState).toBe('closed');
-      expect(result.isHealthy).toBe(true);
-    });
-
-    it('should show open circuit state', () => {
-      const health = createInitialHealth();
-      let circuit = createInitialCircuitState();
-      const now = Date.now();
-
-      for (let i = 0; i < 10; i++) {
-        circuit = recordFailure(circuit, now);
-      }
-
-      const result = getProviderHealthWithCircuit(health, circuit, now);
-      expect(result.circuitState).toBe('open');
     });
   });
 

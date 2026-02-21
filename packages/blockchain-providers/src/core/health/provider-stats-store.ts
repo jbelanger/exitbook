@@ -8,15 +8,15 @@
 
 import { getLogger } from '@exitbook/logger';
 import type { CircuitBreakerRegistry, CircuitState, CircuitStatus } from '@exitbook/resilience/circuit-breaker';
-
-import { hydrateProviderStats } from '../../persistence/provider-stats-utils.js';
-import type { ProviderStatsQueries } from '../../persistence/queries/provider-stats-queries.js';
 import {
   createInitialHealth,
   getProviderHealthWithCircuit,
   updateHealthMetrics,
-} from '../manager/provider-manager-utils.js';
-import type { ProviderHealth } from '../types/index.js';
+  type ProviderHealth,
+} from '@exitbook/resilience/provider-health';
+
+import { hydrateProviderStats } from '../../persistence/provider-stats-utils.js';
+import type { ProviderStatsQueries } from '../../persistence/queries/provider-stats-queries.js';
 
 const logger = getLogger('ProviderStatsStore');
 

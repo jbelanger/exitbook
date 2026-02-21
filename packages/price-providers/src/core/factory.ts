@@ -187,9 +187,7 @@ export async function createPriceProviders(
 
   eventBus?.emit({ type: 'providers.ready', providerCount: providers.length });
 
-  logger.info(
-    `Successfully created ${providers.length} price provider(s): ${providers.map((p) => p.getMetadata().name).join(', ')}`
-  );
+  logger.info(`Successfully created ${providers.length} price provider(s): ${providers.map((p) => p.name).join(', ')}`);
 
   return ok(providers);
 }

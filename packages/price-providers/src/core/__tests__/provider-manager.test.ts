@@ -68,6 +68,7 @@ describe('PriceProviderManager', () => {
     };
 
     return {
+      name,
       fetchPrice: vi.fn(async () =>
         Promise.resolve(options.fetchPriceResult || (ok(defaultPrice) as Result<PriceData, Error>))
       ),
@@ -308,6 +309,7 @@ describe('PriceProviderManager', () => {
       };
 
       const provider = {
+        name: 'test',
         fetchPrice: vi.fn(async (query: PriceQuery) => {
           if (query.assetSymbol.toString() === 'BTC') {
             return ok(btcInUsdt);
@@ -403,6 +405,7 @@ describe('PriceProviderManager', () => {
       };
 
       const provider = {
+        name: 'test',
         fetchPrice: vi.fn(async (query: PriceQuery) => {
           if (query.assetSymbol.toString() === 'BTC') {
             return okAsync(btcInUsdc);

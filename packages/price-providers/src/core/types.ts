@@ -1,4 +1,5 @@
 import type { Currency } from '@exitbook/core';
+import type { IProvider } from '@exitbook/resilience/provider-health';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 
@@ -138,21 +139,14 @@ export interface ProviderMetadata {
 }
 
 /**
- * Provider health tracking
+ * Provider health tracking (re-exported from shared resilience package)
  */
-export interface ProviderHealth {
-  isHealthy: boolean;
-  consecutiveFailures: number;
-  lastChecked: number;
-  lastError?: string | undefined;
-  averageResponseTime: number;
-  errorRate: number;
-}
+export type { IProvider, ProviderHealth, ProviderHealthWithCircuit } from '@exitbook/resilience/provider-health';
 
 /**
  * Core interface that all price providers must implement
  */
-export interface IPriceProvider {
+export interface IPriceProvider extends IProvider {
   /**
    * Fetch price for a single asset at a specific timestamp
    */

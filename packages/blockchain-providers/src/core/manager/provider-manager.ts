@@ -4,11 +4,11 @@ import type { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import {
   CircuitBreakerRegistry,
-  isCircuitHalfOpen,
   isCircuitOpen,
   type CircuitState,
   type CircuitStatus,
 } from '@exitbook/resilience/circuit-breaker';
+import { executeWithFailover } from '@exitbook/resilience/failover';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderEvent } from '../../events.js';
@@ -39,7 +39,6 @@ import {
   createDeduplicationWindow,
   DEFAULT_DEDUP_WINDOW_SIZE,
   deduplicateTransactions,
-  hasAvailableProviders,
   resolveCursorStateForProvider,
   selectProvidersForOperation,
 } from './provider-manager-utils.js';
@@ -618,117 +617,6 @@ export class BlockchainProviderManager {
   }
 
   /**
-   * Execute with circuit breaker protection and automatic failover
-   */
-  private async executeWithCircuitBreaker<TOperation extends OneShotOperation>(
-    blockchain: string,
-    operation: TOperation
-  ): Promise<Result<FailoverExecutionResult<OneShotOperationResult<TOperation>>, ProviderError>> {
-    const providers = this.getProvidersInOrder(blockchain, operation);
-
-    if (providers.length === 0) {
-      return err(
-        new ProviderError(`No providers available for ${blockchain} operation: ${operation.type}`, 'NO_PROVIDERS', {
-          blockchain,
-          operation: operation.type,
-        })
-      );
-    }
-
-    let lastError: Error | undefined = undefined;
-    let attemptNumber = 0;
-    const now = Date.now();
-
-    for (const provider of providers) {
-      attemptNumber++;
-      const providerKey = getProviderKey(blockchain, provider.name);
-      const circuitState = this.circuitBreakers.getOrCreate(providerKey);
-
-      // Log provider attempt with reason
-      if (attemptNumber === 1) {
-        logger.debug(`Using provider ${provider.name} for ${operation.type}`);
-      } else {
-        const reason = attemptNumber === 2 ? 'primary_failed' : 'multiple_failures';
-        logger.info(
-          `Switching to provider ${provider.name} for ${operation.type} - Reason: ${reason}, AttemptNumber: ${attemptNumber}, PreviousError: ${lastError?.message}`
-        );
-      }
-
-      const circuitIsOpen = isCircuitOpen(circuitState, now);
-      const circuitIsHalfOpen = isCircuitHalfOpen(circuitState, now);
-
-      // Skip providers with open circuit breakers (unless all are open)
-      if (circuitIsOpen) {
-        const circuitMapForBlockchain = new Map<string, CircuitState>();
-        for (const p of providers) {
-          const pKey = getProviderKey(blockchain, p.name);
-          const circuit = this.circuitBreakers.get(pKey);
-          if (circuit) circuitMapForBlockchain.set(p.name, circuit);
-        }
-
-        if (hasAvailableProviders(providers, circuitMapForBlockchain, now)) {
-          logger.debug(`Skipping provider ${provider.name} - circuit breaker is open`);
-          continue;
-        }
-      }
-
-      // Log when using a provider with open circuit breaker (all providers are failing)
-      if (circuitIsOpen) {
-        logger.warn(`Using provider ${provider.name} despite open circuit breaker - all providers unavailable`);
-      } else if (circuitIsHalfOpen) {
-        logger.debug(`Testing provider ${provider.name} in half-open state`);
-      }
-
-      const startTime = Date.now();
-      try {
-        const result = await provider.execute(operation);
-
-        // Unwrap Result type - throw error to trigger failover
-        if (result.isErr()) {
-          throw result.error;
-        }
-
-        const responseTime = Date.now() - startTime;
-        this.circuitBreakers.recordSuccess(providerKey, Date.now());
-        this.statsStore.updateHealth(providerKey, true, responseTime);
-
-        return ok({
-          data: result.value,
-          providerName: provider.name,
-        });
-      } catch (error) {
-        lastError = error as Error;
-        const responseTime = Date.now() - startTime;
-
-        if (attemptNumber < providers.length) {
-          logger.warn(`Provider ${provider.name} failed, trying next provider: ${getErrorMessage(error)}`);
-        } else {
-          logger.error(`All providers failed for ${operation.type}: ${getErrorMessage(error)}`);
-        }
-
-        const newCircuitState = this.circuitBreakers.recordFailure(providerKey, Date.now());
-        this.emitCircuitOpenIfTriggered(blockchain, provider.name, circuitState, newCircuitState, lastError.message);
-        this.statsStore.updateHealth(providerKey, false, responseTime, lastError.message);
-
-        continue;
-      }
-    }
-
-    // All providers failed
-    return err(
-      new ProviderError(
-        `All providers failed for ${blockchain} operation: ${operation.type}. Last error: ${lastError?.message}`,
-        'ALL_PROVIDERS_FAILED',
-        {
-          blockchain,
-          ...(lastError?.message && { lastError: lastError.message }),
-          operation: operation.type,
-        }
-      )
-    );
-  }
-
-  /**
    * Get providers ordered by preference for the given operation
    */
   private getProvidersInOrder(blockchain: string, operation: ProviderOperation): IBlockchainProvider[] {
@@ -777,5 +665,55 @@ export class BlockchainProviderManager {
     }
 
     return scoredProviders.map((item) => item.provider);
+  }
+
+  /**
+   * Execute with circuit breaker protection and automatic failover
+   * Delegates to generic executeWithFailover from @exitbook/resilience
+   */
+  private async executeWithCircuitBreaker<TOperation extends OneShotOperation>(
+    blockchain: string,
+    operation: TOperation
+  ): Promise<Result<FailoverExecutionResult<OneShotOperationResult<TOperation>>, ProviderError>> {
+    const providers = this.getProvidersInOrder(blockchain, operation);
+
+    return executeWithFailover<IBlockchainProvider, OneShotOperationResult<TOperation>, ProviderError>({
+      providers,
+      execute: (provider) => provider.execute(operation),
+      circuitBreakers: this.circuitBreakers,
+      operationLabel: `${blockchain}/${operation.type}`,
+      logger,
+
+      getCircuitKey: (provider) => getProviderKey(blockchain, provider.name),
+
+      onSuccess: (provider, responseTime) => {
+        this.statsStore.updateHealth(getProviderKey(blockchain, provider.name), true, responseTime);
+      },
+
+      onFailure: (provider, error, responseTime, previousCircuitState, newCircuitState) => {
+        const providerKey = getProviderKey(blockchain, provider.name);
+        this.emitCircuitOpenIfTriggered(
+          blockchain,
+          provider.name,
+          previousCircuitState,
+          newCircuitState,
+          error.message
+        );
+        this.statsStore.updateHealth(providerKey, false, responseTime, error.message);
+      },
+
+      buildFinalError: (lastError, attemptedProviders) =>
+        new ProviderError(
+          attemptedProviders.length === 0
+            ? `No providers available for ${blockchain} operation: ${operation.type}`
+            : `All providers failed for ${blockchain} operation: ${operation.type}. Last error: ${lastError?.message}`,
+          attemptedProviders.length === 0 ? 'NO_PROVIDERS' : 'ALL_PROVIDERS_FAILED',
+          {
+            blockchain,
+            ...(lastError?.message && { lastError: lastError.message }),
+            operation: operation.type,
+          }
+        ),
+    });
   }
 }
