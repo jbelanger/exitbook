@@ -65,6 +65,19 @@ export const PriceAtTxTimeSchema = z.object({
   fxTimestamp: DateSchema.optional(), // When FX rate was fetched
 });
 
+// Blockchain assetId validation predicates (shared by AssetMovementSchema and FeeMovementSchema)
+
+function hasNoUnknownTokenRef(assetId: string): boolean {
+  const parts = assetId.split(':');
+  return !(parts.length >= 3 && parts[0] === 'blockchain' && parts[2] === 'unknown');
+}
+
+function hasValidBlockchainAssetIdFormat(assetId: string): boolean {
+  const parts = assetId.split(':');
+  if (parts[0] !== 'blockchain') return true;
+  return parts.length >= 3 && !!parts[2] && parts[2].trim() !== '';
+}
+
 // Asset movement schema
 export const AssetMovementSchema = z
   .object({
@@ -81,7 +94,6 @@ export const AssetMovementSchema = z
   })
   .refine(
     (data) => {
-      // Validation: netAmount cannot exceed grossAmount
       if (data.netAmount && data.grossAmount) {
         return parseDecimal(data.netAmount).lte(parseDecimal(data.grossAmount));
       }
@@ -89,45 +101,17 @@ export const AssetMovementSchema = z
     },
     { message: 'netAmount cannot exceed grossAmount' }
   )
-  .refine(
-    (data) => {
-      // Validation: Reject unknown assetId pattern (blockchain:*:unknown:*)
-      // This pattern should never be used - processors must fail-fast when token reference is missing
-      const parts = data.assetId.split(':');
-      if (parts.length >= 3 && parts[0] === 'blockchain' && parts[2] === 'unknown') {
-        return false;
-      }
-      return true;
-    },
-    {
-      message:
-        'Invalid assetId format: blockchain assets with unknown token reference are not allowed. ' +
-        'Token movements must have contract address, mint address, policyId, or denom. ' +
-        'Import should fail if this data is missing.',
-    }
-  )
-  .refine(
-    (data) => {
-      // Validation: Blockchain assetId must have proper format
-      const parts = data.assetId.split(':');
-      if (parts[0] === 'blockchain') {
-        // Must have at least namespace:chain:ref
-        if (parts.length < 3) {
-          return false;
-        }
-        // Ref (parts[2]) must not be empty
-        if (!parts[2] || parts[2].trim() === '') {
-          return false;
-        }
-      }
-      return true;
-    },
-    {
-      message:
-        'Invalid blockchain assetId format: must be blockchain:<chain>:native or blockchain:<chain>:<tokenRef>. ' +
-        'Token reference (contract/mint/denom) must not be empty.',
-    }
-  );
+  .refine((data) => hasNoUnknownTokenRef(data.assetId), {
+    message:
+      'Invalid assetId format: blockchain assets with unknown token reference are not allowed. ' +
+      'Token movements must have contract address, mint address, policyId, or denom. ' +
+      'Import should fail if this data is missing.',
+  })
+  .refine((data) => hasValidBlockchainAssetIdFormat(data.assetId), {
+    message:
+      'Invalid blockchain assetId format: must be blockchain:<chain>:native or blockchain:<chain>:<tokenRef>. ' +
+      'Token reference (contract/mint/denom) must not be empty.',
+  });
 
 /**
  * Fee Movement Schema
@@ -199,44 +183,17 @@ export const FeeMovementSchema = z
     // Price metadata
     priceAtTxTime: PriceAtTxTimeSchema.optional(),
   })
-  .refine(
-    (data) => {
-      // Validation: Reject unknown assetId pattern (blockchain:*:unknown:*)
-      const parts = data.assetId.split(':');
-      if (parts.length >= 3 && parts[0] === 'blockchain' && parts[2] === 'unknown') {
-        return false;
-      }
-      return true;
-    },
-    {
-      message:
-        'Invalid assetId format: blockchain assets with unknown token reference are not allowed. ' +
-        'Fee movements must have contract address, mint address, policyId, or denom. ' +
-        'Import should fail if this data is missing.',
-    }
-  )
-  .refine(
-    (data) => {
-      // Validation: Blockchain assetId must have proper format
-      const parts = data.assetId.split(':');
-      if (parts[0] === 'blockchain') {
-        // Must have at least namespace:chain:ref
-        if (parts.length < 3) {
-          return false;
-        }
-        // Ref (parts[2]) must not be empty
-        if (!parts[2] || parts[2].trim() === '') {
-          return false;
-        }
-      }
-      return true;
-    },
-    {
-      message:
-        'Invalid blockchain assetId format: must be blockchain:<chain>:native or blockchain:<chain>:<tokenRef>. ' +
-        'Token reference (contract/mint/denom) must not be empty.',
-    }
-  );
+  .refine((data) => hasNoUnknownTokenRef(data.assetId), {
+    message:
+      'Invalid assetId format: blockchain assets with unknown token reference are not allowed. ' +
+      'Fee movements must have contract address, mint address, policyId, or denom. ' +
+      'Import should fail if this data is missing.',
+  })
+  .refine((data) => hasValidBlockchainAssetIdFormat(data.assetId), {
+    message:
+      'Invalid blockchain assetId format: must be blockchain:<chain>:native or blockchain:<chain>:<tokenRef>. ' +
+      'Token reference (contract/mint/denom) must not be empty.',
+  });
 
 // Transaction note schema - allows additional properties for flexible metadata
 export const TransactionNoteSchema = z.object({

@@ -17,12 +17,10 @@ export interface PrimaryMovement {
  * Compute the primary movement from inflows and outflows.
  *
  * Priority:
- * 1. If single inflow and no outflows -> primary is the inflow (direction: 'in')
- * 2. If single outflow and no inflows -> primary is the outflow (direction: 'out')
- * 3. If multiple inflows but no outflows -> primary is largest inflow (direction: 'in')
- * 4. If multiple outflows but no inflows -> primary is largest outflow (direction: 'out')
- * 5. If both inflows and outflows exist -> primary is largest by value (direction based on which side)
- * 6. If empty -> undefined
+ * 1. If inflows only -> primary is the largest inflow (direction: 'in')
+ * 2. If outflows only -> primary is the largest outflow (direction: 'out')
+ * 3. If both -> primary is the largest across all movements (inflow wins on tie)
+ * 4. If empty -> undefined
  *
  * @param inflows - Array of asset inflows
  * @param outflows - Array of asset outflows
@@ -40,25 +38,7 @@ export function computePrimaryMovement(
     return undefined;
   }
 
-  // Case 1: Single inflow, no outflows
-  if (hasInflows && !hasOutflows && inflows.length === 1) {
-    return {
-      assetSymbol: inflows[0]!.assetSymbol,
-      amount: inflows[0]!.grossAmount,
-      direction: 'in',
-    };
-  }
-
-  // Case 2: Single outflow, no inflows
-  if (hasOutflows && !hasInflows && outflows.length === 1) {
-    return {
-      assetSymbol: outflows[0]!.assetSymbol,
-      amount: outflows[0]!.grossAmount,
-      direction: 'out',
-    };
-  }
-
-  // Case 3: Multiple inflows, no outflows
+  // Single-side cases: return the largest (handles both single and multiple)
   if (hasInflows && !hasOutflows) {
     const largestInflow = findLargestMovement(inflows);
     return {
@@ -68,7 +48,6 @@ export function computePrimaryMovement(
     };
   }
 
-  // Case 4: Multiple outflows, no inflows
   if (hasOutflows && !hasInflows) {
     const largestOutflow = findLargestMovement(outflows);
     return {
@@ -78,27 +57,17 @@ export function computePrimaryMovement(
     };
   }
 
-  // Case 5: Both inflows and outflows exist
+  // Both inflows and outflows exist: return the largest by amount
   const largestInflow = findLargestMovement(inflows);
   const largestOutflow = findLargestMovement(outflows);
 
   const inflowValue = largestInflow.grossAmount;
   const outflowValue = largestOutflow.grossAmount;
 
-  // Compare by absolute value to determine which is primary
   if (inflowValue.greaterThanOrEqualTo(outflowValue)) {
-    return {
-      assetSymbol: largestInflow.assetSymbol,
-      amount: inflowValue,
-      direction: 'in',
-    };
-  } else {
-    return {
-      assetSymbol: largestOutflow.assetSymbol,
-      amount: outflowValue,
-      direction: 'out',
-    };
+    return { assetSymbol: largestInflow.assetSymbol, amount: inflowValue, direction: 'in' };
   }
+  return { assetSymbol: largestOutflow.assetSymbol, amount: outflowValue, direction: 'out' };
 }
 
 /**

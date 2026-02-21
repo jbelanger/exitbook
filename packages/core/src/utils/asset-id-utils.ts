@@ -156,9 +156,6 @@ export function parseAssetId(assetId: string): Result<
   }
 
   if (namespace === 'fiat') {
-    if (parts.length < 2) {
-      return err(new Error(`Invalid fiat assetId format: ${assetId}`));
-    }
     return ok({
       namespace: 'fiat',
       currencyCode: parts[1],
