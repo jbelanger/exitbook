@@ -1,3 +1,4 @@
+import type { Currency } from '@exitbook/core';
 import type { ExchangeLedgerEntry } from '@exitbook/exchanges-providers';
 import { describe, expect, test } from 'vitest';
 
@@ -6,7 +7,7 @@ import { byCorrelationId, byTimestamp, noGrouping, type RawTransactionWithMetada
 function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
   return {
     amount: '0',
-    assetSymbol: 'USD',
+    assetSymbol: 'USD' as Currency,
     correlationId: 'REF001',
     id: 'ENTRY001',
     timestamp: 1704067200000,
@@ -57,8 +58,12 @@ describe('GroupingStrategy - byCorrelationId', () => {
 
   test('handles entries with same correlationId but different assets (swap)', () => {
     const entries = [
-      wrapEntry(createTestEntry({ id: 'E1', correlationId: 'SWAP001', assetSymbol: 'USD', amount: '-100' })),
-      wrapEntry(createTestEntry({ id: 'E2', correlationId: 'SWAP001', assetSymbol: 'BTC', amount: '0.001' })),
+      wrapEntry(
+        createTestEntry({ id: 'E1', correlationId: 'SWAP001', assetSymbol: 'USD' as Currency, amount: '-100' })
+      ),
+      wrapEntry(
+        createTestEntry({ id: 'E2', correlationId: 'SWAP001', assetSymbol: 'BTC' as Currency, amount: '0.001' })
+      ),
     ];
 
     const groups = byCorrelationId.group(entries);
@@ -151,8 +156,8 @@ describe('GroupingStrategy - byTimestamp', () => {
     const timestamp = 1704067200000;
 
     const entries = [
-      wrapEntry(createTestEntry({ id: 'E1', timestamp, assetSymbol: 'USD', amount: '-100' })),
-      wrapEntry(createTestEntry({ id: 'E2', timestamp, assetSymbol: 'BTC', amount: '0.001' })),
+      wrapEntry(createTestEntry({ id: 'E1', timestamp, assetSymbol: 'USD' as Currency, amount: '-100' })),
+      wrapEntry(createTestEntry({ id: 'E2', timestamp, assetSymbol: 'BTC' as Currency, amount: '0.001' })),
     ];
 
     const groups = byTimestamp.group(entries);

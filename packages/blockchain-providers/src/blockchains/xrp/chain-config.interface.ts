@@ -1,3 +1,5 @@
+import type { Currency } from '@exitbook/core';
+
 /**
  * Configuration interface for XRP Ledger
  *
@@ -24,7 +26,7 @@ export interface XrpChainConfig {
   /**
    * Symbol for the native currency (always 'XRP')
    */
-  nativeCurrency: string;
+  nativeCurrency: Currency;
 
   /**
    * Number of decimals for the native currency (always 6 for XRP)

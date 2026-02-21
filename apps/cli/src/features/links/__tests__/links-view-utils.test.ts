@@ -1,5 +1,5 @@
 import type { TransactionLink } from '@exitbook/accounting';
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
@@ -14,7 +14,7 @@ describe('links-view-utils', () => {
     id,
     sourceTransactionId: 1,
     targetTransactionId: 2,
-    assetSymbol: 'BTC',
+    assetSymbol: 'BTC' as Currency,
     sourceAssetId: 'test:btc',
     targetAssetId: 'test:btc',
     sourceAmount: parseDecimal('1.0'),
@@ -51,7 +51,7 @@ describe('links-view-utils', () => {
       inflows: [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1.0'),
           netAmount: parseDecimal('0.999'),
         },

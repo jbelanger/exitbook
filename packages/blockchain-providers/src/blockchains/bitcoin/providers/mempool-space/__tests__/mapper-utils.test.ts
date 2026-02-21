@@ -1,3 +1,4 @@
+import type { Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
@@ -8,7 +9,7 @@ import type { MempoolTransaction } from '../mempool-space.schemas.js';
 const mockBitcoinChainConfig: BitcoinChainConfig = {
   chainName: 'bitcoin',
   displayName: 'Bitcoin',
-  nativeCurrency: 'BTC',
+  nativeCurrency: 'BTC' as Currency,
   nativeDecimals: 8,
 };
 

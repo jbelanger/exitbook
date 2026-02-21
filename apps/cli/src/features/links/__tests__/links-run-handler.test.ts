@@ -1,5 +1,5 @@
 import type { TransactionLink, TransactionLinkQueries } from '@exitbook/accounting';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type Currency } from '@exitbook/core';
 import type { OverrideEvent, OverrideStore, TransactionQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { err, ok } from 'neverthrow';
@@ -34,7 +34,7 @@ describe('LinksRunHandler', () => {
       id: 'internal-link-1',
       sourceTransactionId: 1,
       targetTransactionId: 2,
-      assetSymbol: 'ETH',
+      assetSymbol: 'ETH' as Currency,
       sourceAssetId: 'test:eth',
       targetAssetId: 'test:eth',
       sourceAmount: parseDecimal('1'),
@@ -142,7 +142,7 @@ describe('LinksRunHandler', () => {
       id: 'link-1',
       sourceTransactionId: 1,
       targetTransactionId: 2,
-      assetSymbol: 'BTC',
+      assetSymbol: 'BTC' as Currency,
       sourceAssetId: 'test:btc',
       targetAssetId: 'test:btc',
       sourceAmount: parseDecimal('1'),

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import { XrplRpcApiClient } from '../xrpl-rpc.api-client.js';
 
@@ -24,7 +23,7 @@ describe('XrplRpcApiClient Integration', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance in normalized format', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -55,7 +54,7 @@ describe('XrplRpcApiClient Integration', () => {
     }, 30000);
 
     it('should handle invalid address gracefully', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: 'invalid-address',
         type: 'getAddressBalances',
       });
@@ -73,7 +72,7 @@ describe('XrplRpcApiClient Integration', () => {
       // This is Bitstamp's cold wallet address
       const addressWithTokens = 'rrpNnNLKrartuEqfJGpqyDwPj1AFPg9vn1';
 
-      const result = await provider.execute<RawBalanceData[]>({
+      const result = await provider.execute({
         address: addressWithTokens,
         type: 'getAddressTokenBalances',
       });
@@ -108,7 +107,7 @@ describe('XrplRpcApiClient Integration', () => {
     }, 30000);
 
     it('should return empty array for address with no trust lines', async () => {
-      const result = await provider.execute<RawBalanceData[]>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -124,7 +123,7 @@ describe('XrplRpcApiClient Integration', () => {
 
   describe('Error Handling', () => {
     it('should handle unsupported operations gracefully', async () => {
-      const result = await provider.execute<unknown>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'non-existent' as never,
       });
@@ -153,7 +152,7 @@ describe('XrplRpcApiClient Integration', () => {
 
   describe('Data Format Validation', () => {
     it('should return XRP amounts in correct decimal format', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });

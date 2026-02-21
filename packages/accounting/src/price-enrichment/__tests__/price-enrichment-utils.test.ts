@@ -48,8 +48,8 @@ describe('inferMultiPass', () => {
     it('should extract execution price from USD trade', () => {
       const tx = createTransaction(
         1,
-        [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
-        [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('50000') }]
+        [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
+        [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -63,8 +63,8 @@ describe('inferMultiPass', () => {
     it('should extract execution price from EUR trade (in native EUR, normalized to USD later)', () => {
       const tx = createTransaction(
         1,
-        [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
-        [{ assetId: 'test:eur', assetSymbol: 'EUR', grossAmount: parseDecimal('40000') }]
+        [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
+        [{ assetId: 'test:eur', assetSymbol: 'EUR' as Currency, grossAmount: parseDecimal('40000') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -86,8 +86,8 @@ describe('inferMultiPass', () => {
     it('should NOT extract price from USDC trade (fetched separately)', () => {
       const tx = createTransaction(
         1,
-        [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
-        [{ assetId: 'test:usdc', assetSymbol: 'USDC', grossAmount: parseDecimal('50000') }]
+        [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
+        [{ assetId: 'test:usdc', assetSymbol: 'USDC' as Currency, grossAmount: parseDecimal('50000') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -101,11 +101,11 @@ describe('inferMultiPass', () => {
     it('should derive inflow price when only outflow has price', () => {
       const tx = createTransaction(
         1,
-        [{ assetId: 'test:rare_token', assetSymbol: 'RARE_TOKEN', grossAmount: parseDecimal('1000') }],
+        [{ assetId: 'test:rare_token', assetSymbol: 'RARE_TOKEN' as Currency, grossAmount: parseDecimal('1000') }],
         [
           {
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             grossAmount: parseDecimal('10'),
             priceAtTxTime: createPrice('coingecko', '3000'),
           },
@@ -126,7 +126,7 @@ describe('inferMultiPass', () => {
         [
           {
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             grossAmount: parseDecimal('10'),
             priceAtTxTime: createPrice('binance', '3000'),
           },
@@ -134,7 +134,7 @@ describe('inferMultiPass', () => {
         [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1'),
             priceAtTxTime: createPrice('coingecko', '50000'),
           },
@@ -153,8 +153,8 @@ describe('inferMultiPass', () => {
     it('should NOT derive when neither has prices', () => {
       const tx = createTransaction(
         1,
-        [{ assetId: 'test:token_a', assetSymbol: 'TOKEN_A', grossAmount: parseDecimal('100') }],
-        [{ assetId: 'test:token_b', assetSymbol: 'TOKEN_B', grossAmount: parseDecimal('50') }]
+        [{ assetId: 'test:token_a', assetSymbol: 'TOKEN_A' as Currency, grossAmount: parseDecimal('100') }],
+        [{ assetId: 'test:token_b', assetSymbol: 'TOKEN_B' as Currency, grossAmount: parseDecimal('50') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -171,7 +171,7 @@ describe('inferMultiPass', () => {
         [
           {
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             grossAmount: parseDecimal('10'),
             priceAtTxTime: createPrice('coingecko', '2900'),
           },
@@ -179,7 +179,7 @@ describe('inferMultiPass', () => {
         [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1'),
             priceAtTxTime: createPrice('binance', '50000'),
           },
@@ -201,7 +201,7 @@ describe('inferMultiPass', () => {
         [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1'),
             priceAtTxTime: createPrice('exchange-execution', '50000'),
           },
@@ -209,7 +209,7 @@ describe('inferMultiPass', () => {
         [
           {
             assetId: 'test:usd',
-            assetSymbol: 'USD',
+            assetSymbol: 'USD' as Currency,
             grossAmount: parseDecimal('50000'),
             priceAtTxTime: createPrice('exchange-execution', '1'),
           },
@@ -230,7 +230,7 @@ describe('inferMultiPass', () => {
         [
           {
             assetId: 'test:usdc',
-            assetSymbol: 'USDC',
+            assetSymbol: 'USDC' as Currency,
             grossAmount: parseDecimal('50000'),
             priceAtTxTime: createPrice('coingecko', '1'),
           },
@@ -238,7 +238,7 @@ describe('inferMultiPass', () => {
         [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1'),
             priceAtTxTime: createPrice('binance', '50000'),
           },
@@ -258,7 +258,7 @@ describe('inferMultiPass', () => {
         [
           {
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             grossAmount: parseDecimal('10'),
             priceAtTxTime: createPrice('coingecko', '2900'),
           },
@@ -266,7 +266,7 @@ describe('inferMultiPass', () => {
         [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1'),
             priceAtTxTime: createPrice('binance', '50000'),
           },
@@ -284,13 +284,13 @@ describe('inferMultiPass', () => {
       const transactions = [
         createTransaction(
           1,
-          [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1') }],
-          [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('50000') }]
+          [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
+          [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }]
         ),
         createTransaction(
           2,
-          [{ assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('10') }],
-          [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('30000') }]
+          [{ assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('10') }],
+          [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('30000') }]
         ),
       ];
 
@@ -339,7 +339,7 @@ describe('propagatePricesAcrossLinks', () => {
       [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           priceAtTxTime: createPrice('exchange-execution', '50000'),
         },
@@ -348,7 +348,7 @@ describe('propagatePricesAcrossLinks', () => {
 
     const targetTx = createTransaction(
       2,
-      [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1') }],
+      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
       []
     );
 
@@ -361,7 +361,7 @@ describe('propagatePricesAcrossLinks', () => {
           id: 'link-1',
           sourceTransactionId: 1,
           targetTransactionId: 2,
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           sourceAssetId: 'test:btc',
           targetAssetId: 'test:btc',
           sourceAmount: parseDecimal('1'),
@@ -395,7 +395,7 @@ describe('propagatePricesAcrossLinks', () => {
       [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1.0'),
           priceAtTxTime: createPrice('exchange-execution', '50000'),
         },
@@ -405,7 +405,7 @@ describe('propagatePricesAcrossLinks', () => {
     // Target has slightly less due to network fee
     const targetTx = createTransaction(
       2,
-      [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.9999') }],
+      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('0.9999') }],
       []
     );
 
@@ -418,7 +418,7 @@ describe('propagatePricesAcrossLinks', () => {
           id: '1',
           sourceTransactionId: 1,
           targetTransactionId: 2,
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           sourceAssetId: 'test:btc',
           targetAssetId: 'test:btc',
           sourceAmount: parseDecimal('1.0'),
@@ -451,7 +451,7 @@ describe('propagatePricesAcrossLinks', () => {
       [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1.0'),
           priceAtTxTime: createPrice('exchange-execution', '50000'),
         },
@@ -461,7 +461,7 @@ describe('propagatePricesAcrossLinks', () => {
     // Target has significantly different amount
     const targetTx = createTransaction(
       2,
-      [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.8') }],
+      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('0.8') }],
       []
     );
 
@@ -474,7 +474,7 @@ describe('propagatePricesAcrossLinks', () => {
           id: 'link-1',
           sourceTransactionId: 1,
           targetTransactionId: 2,
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           sourceAssetId: 'test:btc',
           targetAssetId: 'test:btc',
           sourceAmount: parseDecimal('1.0'),
@@ -504,12 +504,12 @@ describe('propagatePricesAcrossLinks', () => {
     const sourceTx = createTransaction(
       1,
       [],
-      [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }]
+      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }]
     );
 
     const targetTx = createTransaction(
       2,
-      [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
+      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
       []
     );
 
@@ -522,7 +522,7 @@ describe('propagatePricesAcrossLinks', () => {
           id: 'link-1',
           sourceTransactionId: 1,
           targetTransactionId: 2,
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           sourceAssetId: 'test:btc',
           targetAssetId: 'test:btc',
           sourceAmount: parseDecimal('1.0'),
@@ -555,7 +555,7 @@ describe('propagatePricesAcrossLinks', () => {
       [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           priceAtTxTime: createPrice('exchange-execution', '50000'),
         },
@@ -564,7 +564,7 @@ describe('propagatePricesAcrossLinks', () => {
 
     const targetTx = createTransaction(
       2,
-      [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1') }],
+      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
       []
     );
 
@@ -577,7 +577,7 @@ describe('propagatePricesAcrossLinks', () => {
           id: 'link-1',
           sourceTransactionId: 1,
           targetTransactionId: 2,
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           sourceAssetId: 'test:btc',
           targetAssetId: 'test:btc',
           sourceAmount: parseDecimal('1'),
@@ -610,7 +610,7 @@ describe('propagatePricesAcrossLinks', () => {
       [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           priceAtTxTime: createPrice('exchange-execution', '50000'),
         },
@@ -623,7 +623,7 @@ describe('propagatePricesAcrossLinks', () => {
       [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           priceAtTxTime: createPrice('link-propagated', '50000'),
         },
@@ -631,14 +631,18 @@ describe('propagatePricesAcrossLinks', () => {
       [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           priceAtTxTime: createPrice('link-propagated', '50000'),
         },
       ]
     );
 
-    const tx3 = createTransaction(3, [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1') }], []);
+    const tx3 = createTransaction(
+      3,
+      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
+      []
+    );
 
     const group: TransactionGroup = {
       groupId: 'group-1',
@@ -649,7 +653,7 @@ describe('propagatePricesAcrossLinks', () => {
           id: 'link-1',
           sourceTransactionId: 1,
           targetTransactionId: 2,
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           sourceAssetId: 'test:btc',
           targetAssetId: 'test:btc',
           sourceAmount: parseDecimal('1'),
@@ -670,7 +674,7 @@ describe('propagatePricesAcrossLinks', () => {
           id: 'link-2',
           sourceTransactionId: 2,
           targetTransactionId: 3,
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           sourceAssetId: 'test:btc',
           targetAssetId: 'test:btc',
           sourceAmount: parseDecimal('1'),
@@ -735,13 +739,13 @@ describe('enrichFeePricesFromMovements', () => {
       [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           priceAtTxTime: createPrice('exchange-execution', '50000'),
         },
       ],
-      [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('50000') }],
-      { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.001') }
+      [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
+      { assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('0.001') }
     );
 
     const result = enrichFeePricesFromMovements([tx]);
@@ -756,18 +760,18 @@ describe('enrichFeePricesFromMovements', () => {
       [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           priceAtTxTime: createPrice('exchange-execution', '50000'),
         },
       ],
-      [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('50000') }],
+      [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
       undefined,
       {
         scope: 'platform',
         settlement: 'balance',
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.0001'),
       }
     );
@@ -784,15 +788,15 @@ describe('enrichFeePricesFromMovements', () => {
       [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           priceAtTxTime: createPrice('exchange-execution', '50000'),
         },
       ],
-      [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('50000') }],
+      [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
       {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('0.001'),
         priceAtTxTime: createPrice('coingecko', '49000'),
       }
@@ -808,9 +812,9 @@ describe('enrichFeePricesFromMovements', () => {
   it('should NOT enrich fee when no matching movement price', () => {
     const tx = createTransaction(
       1,
-      [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1') }],
-      [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('50000') }],
-      { assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('0.01') }
+      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
+      [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
+      { assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('0.01') }
     );
 
     const result = enrichFeePricesFromMovements([tx]);
@@ -824,19 +828,19 @@ describe('enrichFeePricesFromMovements', () => {
       [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           priceAtTxTime: createPrice('exchange-execution', '50000'),
         },
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('0.5'),
           priceAtTxTime: createPrice('coingecko', '49000'),
         },
       ],
-      [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('75000') }],
-      { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.001') }
+      [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('75000') }],
+      { assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('0.001') }
     );
 
     const result = enrichFeePricesFromMovements([tx]);
@@ -852,26 +856,26 @@ describe('enrichFeePricesFromMovements', () => {
         [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1'),
             priceAtTxTime: createPrice('exchange-execution', '50000'),
           },
         ],
-        [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('50000') }],
-        { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.001') }
+        [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
+        { assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('0.001') }
       ),
       createTransaction(
         2,
         [
           {
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             grossAmount: parseDecimal('10'),
             priceAtTxTime: createPrice('exchange-execution', '3000'),
           },
         ],
-        [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('30000') }],
-        { assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('0.01') }
+        [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('30000') }],
+        { assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('0.01') }
       ),
     ];
 

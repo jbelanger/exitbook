@@ -1,3 +1,4 @@
+import type { Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { SubstrateChainConfig } from './chain-config.interface.js';
@@ -9,7 +10,7 @@ describe('transaction-utils', () => {
       const chainConfig: SubstrateChainConfig = {
         chainName: 'polkadot',
         displayName: 'Polkadot Relay Chain',
-        nativeCurrency: 'DOT',
+        nativeCurrency: 'DOT' as Currency,
         nativeDecimals: 10,
         ss58Format: 0,
       };
@@ -44,7 +45,7 @@ describe('transaction-utils', () => {
       const chainConfig: SubstrateChainConfig = {
         chainName: 'polkadot',
         displayName: 'Polkadot Relay Chain',
-        nativeCurrency: 'DOT',
+        nativeCurrency: 'DOT' as Currency,
         nativeDecimals: 10,
         ss58Format: 0,
       };

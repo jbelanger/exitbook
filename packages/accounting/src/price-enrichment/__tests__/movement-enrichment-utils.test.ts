@@ -16,7 +16,7 @@ import { enrichMovementWithPrice, enrichMovementsWithPrices } from '../movement-
 describe('enrichMovementWithPrice', () => {
   const createMovement = (price?: PriceAtTxTime): AssetMovement => ({
     assetId: 'test:btc',
-    assetSymbol: 'BTC',
+    assetSymbol: 'BTC' as Currency,
     grossAmount: parseDecimal('1.0'),
     priceAtTxTime: price,
   });
@@ -153,9 +153,9 @@ describe('enrichMovementWithPrice', () => {
 describe('enrichMovementsWithPrices', () => {
   it('should enrich multiple movements using price map', () => {
     const movements: AssetMovement[] = [
-      { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') },
-      { assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('10.0') },
-      { assetId: 'test:sol', assetSymbol: 'SOL', grossAmount: parseDecimal('100.0') },
+      { assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') },
+      { assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('10.0') },
+      { assetId: 'test:sol', assetSymbol: 'SOL' as Currency, grossAmount: parseDecimal('100.0') },
     ];
 
     const pricesMap = new Map<string, PriceAtTxTime>([
@@ -192,7 +192,7 @@ describe('enrichMovementsWithPrices', () => {
   it('should respect priority rules when enriching multiple movements', () => {
     const movements: AssetMovement[] = [
       {
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         assetId: 'test:btc',
         grossAmount: parseDecimal('1.0'),
         priceAtTxTime: {
@@ -204,7 +204,7 @@ describe('enrichMovementsWithPrices', () => {
       },
       {
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         grossAmount: parseDecimal('10.0'),
         priceAtTxTime: {
           price: { amount: parseDecimal('3000'), currency: 'USD' as Currency },

@@ -15,7 +15,12 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import type { OneShotOperation, StreamingBatchResult, StreamingOperation } from '../../../../core/types/index.js';
+import type {
+  OneShotOperation,
+  OneShotOperationResult,
+  StreamingBatchResult,
+  StreamingOperation,
+} from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import type { EvmTransaction } from '../../types.js';
 
@@ -86,7 +91,9 @@ export class ThetaExplorerApiClient extends BaseApiClient {
     };
   }
 
-  execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
+  execute<TOperation extends OneShotOperation>(
+    operation: TOperation
+  ): Promise<Result<OneShotOperationResult<TOperation>, Error>> {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {

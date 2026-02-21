@@ -9,7 +9,7 @@ import {
   type SubstrateChainConfig,
 } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers';
-import type { PaginationCursor } from '@exitbook/core';
+import type { Currency, PaginationCursor } from '@exitbook/core';
 import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -20,7 +20,7 @@ const POLKADOT_CONFIG: SubstrateChainConfig = {
   chainName: 'polkadot',
   displayName: 'Polkadot Relay Chain',
   explorerUrls: ['https://polkadot.subscan.io'],
-  nativeCurrency: 'DOT',
+  nativeCurrency: 'DOT' as Currency,
   nativeDecimals: 10,
   ss58Format: 0,
 };
@@ -29,7 +29,7 @@ const BITTENSOR_CONFIG: SubstrateChainConfig = {
   chainName: 'bittensor',
   displayName: 'Bittensor Network',
   explorerUrls: ['https://taostats.io'],
-  nativeCurrency: 'TAO',
+  nativeCurrency: 'TAO' as Currency,
   nativeDecimals: 9,
   ss58Format: 42,
 };
@@ -38,7 +38,7 @@ const KUSAMA_CONFIG: SubstrateChainConfig = {
   chainName: 'kusama',
   displayName: 'Kusama Network',
   explorerUrls: ['https://kusama.subscan.io'],
-  nativeCurrency: 'KSM',
+  nativeCurrency: 'KSM' as Currency,
   nativeDecimals: 12,
   ss58Format: 2,
 };
@@ -52,7 +52,7 @@ const mockSubstrateTx1 = {
   currency: 'DOT',
   events: [{ module: 'balances', call: 'Transfer' }],
   feeAmount: '156000000',
-  feeCurrency: 'DOT',
+  feeCurrency: 'DOT' as Currency,
   from: '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg',
   id: '12345-2',
   eventId: '0'.repeat(64),
@@ -71,7 +71,7 @@ const mockSubstrateTx2 = {
   currency: 'DOT',
   events: [{ module: 'staking', call: 'Bonded' }],
   feeAmount: '200000000',
-  feeCurrency: 'DOT',
+  feeCurrency: 'DOT' as Currency,
   from: '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg',
   id: '12346-1',
   eventId: '1'.repeat(64),
@@ -461,7 +461,7 @@ describe('SubstrateImporter', () => {
         ...mockSubstrateTx1,
         chainName: 'bittensor',
         currency: 'TAO',
-        feeCurrency: 'TAO',
+        feeCurrency: 'TAO' as Currency,
       };
 
       setupMockData([{ raw: { original: 'tao-data' }, normalized: bittensorTx }], 'taostats');
@@ -499,7 +499,7 @@ describe('SubstrateImporter', () => {
         ...mockSubstrateTx1,
         chainName: 'kusama',
         currency: 'KSM',
-        feeCurrency: 'KSM',
+        feeCurrency: 'KSM' as Currency,
       };
 
       setupMockData([{ raw: { original: 'ksm-data' }, normalized: kusamaTx }]);

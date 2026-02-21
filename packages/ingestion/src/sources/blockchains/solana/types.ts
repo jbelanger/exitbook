@@ -1,9 +1,11 @@
+import type { Currency } from '@exitbook/core';
+
 /**
  * Solana movement object (inflow/outflow/primary)
  */
 export interface SolanaMovement {
   amount: string;
-  asset: string;
+  asset: Currency;
   decimals?: number | undefined;
   tokenAddress?: string | undefined; // Mint address for SPL tokens
 }
@@ -39,7 +41,7 @@ export interface SolanaFundFlow {
 
   // Fee information (always in SOL)
   feeAmount: string;
-  feeCurrency: string;
+  feeCurrency: Currency;
   feePaidByUser: boolean; // Whether the user paid the transaction fee
   feeAbsorbedByMovement: boolean; // Whether the fee was fully absorbed by movement adjustment
 

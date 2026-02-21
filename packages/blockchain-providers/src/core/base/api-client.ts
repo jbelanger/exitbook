@@ -10,6 +10,7 @@ import { createStreamingIterator, type StreamingAdapterOptions } from '../stream
 import type {
   IBlockchainProvider,
   OneShotOperation,
+  OneShotOperationResult,
   ProviderCapabilities,
   ProviderConfig,
   ProviderMetadata,
@@ -59,7 +60,9 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     return this.metadata.capabilities;
   }
 
-  abstract execute<T>(operation: OneShotOperation): Promise<Result<T, Error>>;
+  abstract execute<TOperation extends OneShotOperation>(
+    operation: TOperation
+  ): Promise<Result<OneShotOperationResult<TOperation>, Error>>;
 
   /**
    * Provide health check configuration for this provider

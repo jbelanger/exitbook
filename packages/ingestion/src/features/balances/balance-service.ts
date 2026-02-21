@@ -7,7 +7,7 @@ import type {
   UniversalTransactionData,
   VerificationMetadata,
 } from '@exitbook/core';
-import { parseAssetId, wrapError } from '@exitbook/core';
+import { parseAssetId, wrapError, type Currency } from '@exitbook/core';
 import type { AccountQueries, ImportSessionQueries, TokenMetadataQueries, TransactionQueries } from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchanges-providers';
 import { getLogger } from '@exitbook/logger';
@@ -429,7 +429,7 @@ export class BalanceService {
         .filter((c) => c.status !== 'match')
         .map((c) => ({
           assetId: c.assetId,
-          assetSymbol: c.assetSymbol,
+          assetSymbol: c.assetSymbol as Currency,
           calculated: c.calculatedBalance,
           live: c.liveBalance,
           difference: c.difference,

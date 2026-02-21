@@ -81,7 +81,7 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 assetId: '',
               },
@@ -94,7 +94,7 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 grossAmount: parseDecimal('10.0'),
                 assetId: '',
               },
@@ -107,7 +107,7 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('0.5'),
                 assetId: '',
               },
@@ -135,7 +135,7 @@ describe('applyTransactionFilters', () => {
             inflows: [],
             outflows: [
               {
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('1000.0'),
                 assetId: '',
               },
@@ -148,7 +148,7 @@ describe('applyTransactionFilters', () => {
             inflows: [],
             outflows: [
               {
-                assetSymbol: 'EUR',
+                assetSymbol: 'EUR' as Currency,
                 grossAmount: parseDecimal('900.0'),
                 assetId: '',
               },
@@ -174,14 +174,14 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 assetId: '',
               },
             ],
             outflows: [
               {
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('50000.0'),
                 assetId: '',
               },
@@ -193,14 +193,14 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 grossAmount: parseDecimal('10.0'),
                 assetId: '',
               },
             ],
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('0.5'),
                 assetId: '',
               },
@@ -273,7 +273,7 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 assetId: '',
               },
@@ -286,7 +286,7 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('0.5'),
                 assetId: '',
                 priceAtTxTime: {
@@ -319,7 +319,7 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('100.0'),
                 assetId: '',
               },
@@ -332,7 +332,7 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 assetId: '',
               },
@@ -360,7 +360,7 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 assetId: '',
               },
@@ -373,7 +373,7 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 grossAmount: parseDecimal('5.0'),
                 assetId: '',
               },
@@ -401,14 +401,14 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 assetId: '',
               },
             ],
             outflows: [
               {
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('50000.0'),
                 assetId: '',
               },
@@ -422,14 +422,14 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 grossAmount: parseDecimal('10.0'),
                 assetId: '',
               },
             ],
             outflows: [
               {
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('30000.0'),
                 assetId: '',
               },
@@ -443,14 +443,14 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('0.5'),
                 assetId: '',
               },
             ],
             outflows: [
               {
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('25000.0'),
                 assetId: '',
               },
@@ -464,14 +464,14 @@ describe('applyTransactionFilters', () => {
           movements: {
             inflows: [
               {
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('55000.0'),
                 assetId: '',
               },
             ],
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 assetId: '',
               },

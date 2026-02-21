@@ -10,7 +10,10 @@ import { normalizeBitcoinAddress } from './utils.js';
  * Dynamically derived list of supported Bitcoin-like currencies
  * Extracted from the chain registry to ensure schemas stay in sync
  */
-const SUPPORTED_CURRENCIES = Object.values(BITCOIN_CHAINS).map((c) => c.nativeCurrency) as [string, ...string[]];
+const SUPPORTED_CURRENCIES = Object.values(BITCOIN_CHAINS).map((c) => c.nativeCurrency) as unknown as [
+  string,
+  ...string[],
+];
 
 /**
  * Schema for Bitcoin-like currency symbols (BTC, DOGE, LTC, BCH, etc.)

@@ -1,9 +1,11 @@
+import type { Currency } from '@exitbook/core';
+
 /**
  * Substrate movement object (inflow/outflow/primary)
  */
 export interface SubstrateMovement {
   amount: string; // Normalized amount
-  asset: string; // Symbol (DOT, KSM, TAO, etc.)
+  asset: Currency; // Symbol (DOT, KSM, TAO, etc.)
 }
 
 /**
@@ -21,7 +23,7 @@ export interface SubstrateFundFlow {
 
   // Fee information (always in native currency)
   feeAmount: string;
-  feeCurrency: string;
+  feeCurrency: Currency;
 
   fromAddress: string;
   toAddress: string;

@@ -14,6 +14,7 @@ import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,
   parseDecimal,
+  type Currency,
   type OperationClassification,
   type TokenMetadataRecord,
 } from '@exitbook/core';
@@ -487,7 +488,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
 
     let feeMovements = consolidatedFees.map((fee) => ({
       assetId: feeAssetIdResult.value,
-      assetSymbol: 'NEAR',
+      assetSymbol: 'NEAR' as Currency,
       amount: fee.amount,
       scope: 'network' as const,
       settlement: 'balance' as const,
@@ -502,7 +503,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
         : [
             {
               assetId: feeAssetIdResult.value,
-              assetSymbol: 'NEAR',
+              assetSymbol: 'NEAR' as Currency,
               amount: totalFee,
               scope: 'network' as const,
               settlement: 'balance' as const,

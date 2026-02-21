@@ -1,7 +1,7 @@
 // Handler for prices set command
 // Uses ManualPriceService to save manual price entries
 
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type Currency } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { ManualPriceService } from '@exitbook/price-providers';
@@ -121,8 +121,8 @@ export class PricesSetHandler {
    */
   private validateInputs(options: PricesSetOptions): Result<
     {
-      asset: string;
-      currency: string;
+      asset: Currency;
+      currency: Currency;
       priceValue: Decimal;
       source: string;
       timestamp: Date;
@@ -134,7 +134,7 @@ export class PricesSetHandler {
       if (!options.asset || typeof options.asset !== 'string') {
         return err(new Error('Asset symbol is required'));
       }
-      const asset = options.asset.toUpperCase();
+      const asset = options.asset.toUpperCase() as Currency;
 
       // Validate timestamp
       if (!options.date || typeof options.date !== 'string') {
@@ -160,7 +160,7 @@ export class PricesSetHandler {
       }
 
       // Validate currency
-      const currency = (options.currency ?? 'USD').toUpperCase();
+      const currency = (options.currency ?? 'USD').toUpperCase() as Currency;
       if (!/^[A-Z]{3,10}$/.test(currency)) {
         return err(new Error('Currency must be 3-10 uppercase letters (e.g., USD, EUR)'));
       }

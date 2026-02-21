@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import { MempoolSpaceApiClient } from '../mempool-space-api-client.js';
 
@@ -24,7 +23,7 @@ describe('MempoolSpaceProvider Integration', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -42,7 +41,7 @@ describe('MempoolSpaceProvider Integration', () => {
 
   describe('Has Address Transactions', () => {
     it('should return true for address with transactions', async () => {
-      const result = await provider.execute<boolean>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'hasAddressTransactions',
       });
@@ -54,7 +53,7 @@ describe('MempoolSpaceProvider Integration', () => {
     }, 30000);
 
     it('should return false for address without transactions', async () => {
-      const result = await provider.execute<boolean>({
+      const result = await provider.execute({
         address: emptyAddress,
         type: 'hasAddressTransactions',
       });

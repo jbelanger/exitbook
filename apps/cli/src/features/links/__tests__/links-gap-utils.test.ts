@@ -1,5 +1,5 @@
 import type { TransactionLink } from '@exitbook/accounting';
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
@@ -41,7 +41,7 @@ describe('analyzeLinkGaps', () => {
         inflows: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('0.8'),
             netAmount: parseDecimal('0.8'),
           },
@@ -70,7 +70,7 @@ describe('analyzeLinkGaps', () => {
         outflows: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('0.5'),
             netAmount: parseDecimal('0.5'),
           },
@@ -93,7 +93,7 @@ describe('analyzeLinkGaps', () => {
         outflows: [
           {
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             grossAmount: parseDecimal('5'),
             netAmount: parseDecimal('5'),
           },
@@ -136,7 +136,7 @@ describe('analyzeLinkGaps', () => {
         id: 'link-1',
         sourceTransactionId: 5,
         targetTransactionId: 11,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         sourceAssetId: 'test:btc',
         targetAssetId: 'test:btc',
         sourceAmount: parseDecimal('0.8'),
@@ -218,7 +218,7 @@ describe('analyzeLinkGaps', () => {
         id: 'link-out-1',
         sourceTransactionId: withdrawal.id ?? 0,
         targetTransactionId: 42,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         sourceAssetId: 'test:btc',
         targetAssetId: 'test:btc',
         sourceAmount: parseDecimal('0.5'),
@@ -280,7 +280,7 @@ describe('analyzeLinkGaps', () => {
         id: 'link-ex-1',
         sourceTransactionId: withdrawal.id ?? 0,
         targetTransactionId: 77,
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         sourceAssetId: 'test:eth',
         targetAssetId: 'test:eth',
         sourceAmount: parseDecimal('5'),

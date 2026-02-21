@@ -1,6 +1,6 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { ProviderError } from '@exitbook/blockchain-providers';
-import type { TokenMetadata, TokenMetadataRecord } from '@exitbook/core';
+import type { TokenMetadataRecord } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { TokenMetadataQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
@@ -138,7 +138,7 @@ async function fetchBatchFromProvider(
     }
 
     // executeWithFailover handles auto-registration and capability checking
-    const result = await providerManager.executeWithFailoverOnce<TokenMetadata[]>(blockchain, {
+    const result = await providerManager.executeWithFailoverOnce(blockchain, {
       type: 'getTokenMetadata',
       contractAddresses,
     });

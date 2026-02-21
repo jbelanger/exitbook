@@ -1,6 +1,6 @@
 import type { TransactionLink, TransactionLinkQueries } from '@exitbook/accounting';
 import { createTransactionLinkQueries } from '@exitbook/accounting';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type Currency } from '@exitbook/core';
 import { createTransactionQueries, type OverrideStore, type TransactionQueries } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
@@ -76,7 +76,7 @@ describe('LinksConfirmHandler', () => {
     id,
     sourceTransactionId: 1,
     targetTransactionId: 2,
-    assetSymbol: 'BTC',
+    assetSymbol: 'BTC' as Currency,
     sourceAssetId: 'test:btc',
     targetAssetId: 'test:btc',
     sourceAmount: parseDecimal('1.0'),

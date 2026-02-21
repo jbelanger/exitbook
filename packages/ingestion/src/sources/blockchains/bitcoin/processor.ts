@@ -1,5 +1,5 @@
 import type { BitcoinChainConfig, BitcoinTransaction } from '@exitbook/blockchain-providers';
-import { buildBlockchainNativeAssetId, parseDecimal } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, parseDecimal, type Currency } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -137,7 +137,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
               ? [
                   {
                     assetId,
-                    assetSymbol: normalizedTx.feeCurrency || this.chainConfig.nativeCurrency,
+                    assetSymbol: (normalizedTx.feeCurrency || this.chainConfig.nativeCurrency) as Currency,
                     amount: feeAmount,
                     scope: 'network',
                     settlement: 'on-chain',

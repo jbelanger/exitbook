@@ -1,7 +1,7 @@
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { OneShotOperation, RawBalanceData } from '../../../../core/index.js';
+import type { OneShotOperation } from '../../../../core/index.js';
 import { createProviderRegistry } from '../../../../initialize.js';
 import { BlockfrostApiClient } from '../blockfrost-api-client.js';
 import type { BlockfrostAddress } from '../blockfrost.schemas.js';
@@ -97,7 +97,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(mockHttpGet).toHaveBeenCalledWith(
         `/addresses/${mockAddress}`,
@@ -131,7 +131,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -160,7 +160,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -185,7 +185,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -209,7 +209,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -232,7 +232,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -256,7 +256,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -280,7 +280,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -300,7 +300,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -317,7 +317,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -340,7 +340,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -360,7 +360,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -386,7 +386,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -412,7 +412,7 @@ describe('BlockfrostApiClient', () => {
         type: 'getAddressBalances' as const,
       };
 
-      const result = await client.execute<RawBalanceData>(operation);
+      const result = await client.execute(operation);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {

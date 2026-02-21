@@ -1,15 +1,15 @@
+import type { CosmosTransaction } from '@exitbook/blockchain-providers';
 /**
  * Unit tests for the generic Cosmos SDK importer
  * Tests the import pattern across multiple Cosmos SDK chains
  */
-
-import type { CosmosTransaction } from '@exitbook/blockchain-providers';
 import {
   assertOperationType,
   type BlockchainProviderManager,
   type CosmosChainConfig,
   ProviderError,
 } from '@exitbook/blockchain-providers';
+import type { Currency } from '@exitbook/core';
 import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -26,7 +26,7 @@ const INJECTIVE_CONFIG: CosmosChainConfig = {
   chainId: 'injective-1',
   chainName: 'injective',
   displayName: 'Injective Protocol',
-  nativeCurrency: 'INJ',
+  nativeCurrency: 'INJ' as Currency,
   nativeDecimals: 18,
   nativeDenom: 'inj',
 };
@@ -36,7 +36,7 @@ const OSMOSIS_CONFIG: CosmosChainConfig = {
   chainId: 'osmosis-1',
   chainName: 'osmosis',
   displayName: 'Osmosis',
-  nativeCurrency: 'OSMO',
+  nativeCurrency: 'OSMO' as Currency,
   nativeDecimals: 6,
   nativeDenom: 'uosmo',
 };

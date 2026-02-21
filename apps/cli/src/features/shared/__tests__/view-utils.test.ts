@@ -236,7 +236,7 @@ describe('getAllMovements', () => {
     const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           assetId: '',
         },
@@ -256,7 +256,7 @@ describe('getAllMovements', () => {
       inflows: [],
       outflows: [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           assetId: '',
         },
@@ -274,14 +274,14 @@ describe('getAllMovements', () => {
     const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           assetId: '',
         },
       ],
       outflows: [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('0.5'),
           assetId: '',
         },
@@ -301,24 +301,24 @@ describe('getAllMovements', () => {
     const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           assetId: '',
         },
         {
-          assetSymbol: 'ETH',
+          assetSymbol: 'ETH' as Currency,
           grossAmount: parseDecimal('10'),
           assetId: '',
         },
       ],
       outflows: [
         {
-          assetSymbol: 'USD',
+          assetSymbol: 'USD' as Currency,
           grossAmount: parseDecimal('80000'),
           assetId: '',
         },
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('0.1'),
           assetId: '',
         },
@@ -339,7 +339,7 @@ describe('getAllMovements', () => {
       inflows: undefined,
       outflows: [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           assetId: '',
         },
@@ -356,7 +356,7 @@ describe('getAllMovements', () => {
     const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1'),
           assetId: '',
         },
@@ -385,7 +385,7 @@ describe('getAllMovements', () => {
     const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           grossAmount: parseDecimal('1.23456789'),
           netAmount: parseDecimal('1.23356789'),
           priceAtTxTime: {
@@ -413,7 +413,7 @@ describe('getAllMovements', () => {
   it('should not modify original movements arrays', () => {
     const inflows = [
       {
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),
         assetId: '',
       },

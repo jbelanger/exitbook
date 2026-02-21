@@ -5,8 +5,7 @@
  * using the Union-Find algorithm according to the "Functional Core, Imperative Shell" pattern
  */
 
-import type { UniversalTransactionData } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { type Currency, type UniversalTransactionData, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { TransactionLink } from '../../linking/types.js';
@@ -29,7 +28,7 @@ function createTx(
     timestamp: Date.parse(options.datetime ?? '2023-01-01T00:00:00Z'),
     status: 'success',
     movements: {
-      inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
+      inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
     },
     fees: [],
     operation: { category: 'transfer', type: 'deposit' },
@@ -59,7 +58,7 @@ function createLink(
     id: `link-${sourceName}-${targetId}`,
     sourceTransactionId: sourceName,
     targetTransactionId: targetId,
-    assetSymbol: 'BTC',
+    assetSymbol: 'BTC' as Currency,
     sourceAssetId: 'test:btc',
     targetAssetId: 'test:btc',
     sourceAmount: parseDecimal('1.0'),

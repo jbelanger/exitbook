@@ -32,6 +32,7 @@ import type {
   RawBalanceData,
   StreamingBatchResult,
   OneShotOperation,
+  OneShotOperationResult,
   StreamingOperation,
 } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
@@ -231,29 +232,34 @@ export class AlchemyApiClient extends BaseApiClient {
     };
   }
 
-  async execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
+  async execute<TOperation extends OneShotOperation>(
+    operation: TOperation
+  ): Promise<Result<OneShotOperationResult<TOperation>, Error>> {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
       case 'getAddressInfo': {
         const { address } = operation;
         this.logger.debug(`Fetching address info - Address: ${maskAddress(address)}`);
-        return (await this.getAddressInfo(address)) as Result<T, Error>;
+        return (await this.getAddressInfo(address)) as Result<OneShotOperationResult<TOperation>, Error>;
       }
       case 'getAddressBalances': {
         const { address } = operation;
         this.logger.debug(`Fetching native balance - Address: ${maskAddress(address)}`);
-        return (await this.getAddressBalances(address)) as Result<T, Error>;
+        return (await this.getAddressBalances(address)) as Result<OneShotOperationResult<TOperation>, Error>;
       }
       case 'getAddressTokenBalances': {
         const { address, contractAddresses } = operation;
         this.logger.debug(`Fetching token balances - Address: ${maskAddress(address)}`);
-        return (await this.getAddressTokenBalances(address, contractAddresses)) as Result<T, Error>;
+        return (await this.getAddressTokenBalances(address, contractAddresses)) as Result<
+          OneShotOperationResult<TOperation>,
+          Error
+        >;
       }
       case 'getTokenMetadata': {
         const { contractAddresses } = operation;
         this.logger.debug(`Fetching token metadata for ${contractAddresses.length} contracts`);
-        return (await this.getTokenMetadata(contractAddresses)) as Result<T, Error>;
+        return (await this.getTokenMetadata(contractAddresses)) as Result<OneShotOperationResult<TOperation>, Error>;
       }
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));

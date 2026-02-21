@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/types/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import { AkashConsoleApiClient } from '../akash-console.api-client.js';
 
@@ -14,7 +13,7 @@ describe('AkashConsoleApiClient E2E', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -41,7 +40,7 @@ describe('AkashConsoleApiClient E2E', () => {
     it('should handle address with minimal or zero balance', async () => {
       // Use a minimal balance address - this might fail if API returns 404 for non-existent addresses
       const minimalAddress = 'akash1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqmhm7dh';
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: minimalAddress,
         type: 'getAddressBalances',
       });

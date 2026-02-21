@@ -1,4 +1,4 @@
-import { buildExchangeAssetId, parseDecimal } from '@exitbook/core';
+import { buildExchangeAssetId, parseDecimal, type Currency } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -88,7 +88,7 @@ export function convertKucoinAccountHistoryConvertToTransaction(
       outflows: [
         {
           assetId: sellAssetIdResult.value,
-          assetSymbol: sellCurrency,
+          assetSymbol: sellCurrency as Currency,
           grossAmount: sellAmount,
           netAmount: sellAmount,
         },
@@ -96,7 +96,7 @@ export function convertKucoinAccountHistoryConvertToTransaction(
       inflows: [
         {
           assetId: buyAssetIdResult.value,
-          assetSymbol: buyCurrency,
+          assetSymbol: buyCurrency as Currency,
           grossAmount: buyAmount,
           netAmount: buyAmount,
         },
@@ -107,7 +107,7 @@ export function convertKucoinAccountHistoryConvertToTransaction(
     fees: [
       {
         assetId: sellAssetIdResult.value,
-        assetSymbol: sellCurrency,
+        assetSymbol: sellCurrency as Currency,
         amount: totalFee,
         scope: 'platform' as const,
         settlement: 'balance' as const,
@@ -163,7 +163,7 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
       inflows: [
         {
           assetId: assetIdResult.value,
-          assetSymbol: row.Coin,
+          assetSymbol: row.Coin as Currency,
           grossAmount: grossAmount,
           netAmount: netAmount,
         },
@@ -176,7 +176,7 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
       ? [
           {
             assetId: assetIdResult.value,
-            assetSymbol: row.Coin,
+            assetSymbol: row.Coin as Currency,
             amount: fee,
             scope: 'platform' as const,
             settlement: 'balance' as const,
@@ -324,7 +324,7 @@ export function convertKucoinOrderSplittingToTransaction(
       outflows: [
         {
           assetId: isBuy ? quoteAssetIdResult.value : baseAssetIdResult.value,
-          assetSymbol: isBuy ? quoteCurrency : baseCurrency,
+          assetSymbol: (isBuy ? quoteCurrency : baseCurrency) as Currency,
           grossAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
           netAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
         },
@@ -332,7 +332,7 @@ export function convertKucoinOrderSplittingToTransaction(
       inflows: [
         {
           assetId: isBuy ? baseAssetIdResult.value : quoteAssetIdResult.value,
-          assetSymbol: isBuy ? baseCurrency : quoteCurrency,
+          assetSymbol: (isBuy ? baseCurrency : quoteCurrency) as Currency,
           grossAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
           netAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
         },
@@ -344,7 +344,7 @@ export function convertKucoinOrderSplittingToTransaction(
       ? [
           {
             assetId: feeAssetId,
-            assetSymbol: row['Fee Currency'],
+            assetSymbol: row['Fee Currency'] as Currency,
             amount: fee,
             scope: 'platform' as const,
             settlement: 'balance' as const,
@@ -482,7 +482,7 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Res
       outflows: [
         {
           assetId: isBuy ? quoteAssetIdResult.value : baseAssetIdResult.value,
-          assetSymbol: isBuy ? quoteCurrency : baseCurrency,
+          assetSymbol: (isBuy ? quoteCurrency : baseCurrency) as Currency,
           grossAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
           netAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
         },
@@ -490,7 +490,7 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Res
       inflows: [
         {
           assetId: isBuy ? baseAssetIdResult.value : quoteAssetIdResult.value,
-          assetSymbol: isBuy ? baseCurrency : quoteCurrency,
+          assetSymbol: (isBuy ? baseCurrency : quoteCurrency) as Currency,
           grossAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
           netAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
         },
@@ -502,7 +502,7 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Res
       ? [
           {
             assetId: feeAssetId,
-            assetSymbol: row['Fee Currency'],
+            assetSymbol: row['Fee Currency'] as Currency,
             amount: fee,
             scope: 'platform' as const,
             settlement: 'balance' as const,
@@ -637,7 +637,7 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Resul
       outflows: [
         {
           assetId: isBuy ? quoteAssetIdResult.value : baseAssetIdResult.value,
-          assetSymbol: isBuy ? quoteCurrency : baseCurrency,
+          assetSymbol: (isBuy ? quoteCurrency : baseCurrency) as Currency,
           grossAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
           netAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
         },
@@ -645,7 +645,7 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Resul
       inflows: [
         {
           assetId: isBuy ? baseAssetIdResult.value : quoteAssetIdResult.value,
-          assetSymbol: isBuy ? baseCurrency : quoteCurrency,
+          assetSymbol: (isBuy ? baseCurrency : quoteCurrency) as Currency,
           grossAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
           netAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
         },
@@ -657,7 +657,7 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Resul
       ? [
           {
             assetId: feeAssetId,
-            assetSymbol: row['Fee Currency'],
+            assetSymbol: row['Fee Currency'] as Currency,
             amount: fee,
             scope: 'platform' as const,
             settlement: 'balance' as const,
@@ -711,7 +711,7 @@ export function convertKucoinWithdrawalToTransaction(
       outflows: [
         {
           assetId: assetIdResult.value,
-          assetSymbol: row.Coin,
+          assetSymbol: row.Coin as Currency,
           grossAmount: grossAmount,
           netAmount: grossAmount,
         },
@@ -723,7 +723,7 @@ export function convertKucoinWithdrawalToTransaction(
       ? [
           {
             assetId: assetIdResult.value,
-            assetSymbol: row.Coin,
+            assetSymbol: row.Coin as Currency,
             amount: fee,
             scope: 'platform' as const,
             settlement: 'balance' as const,

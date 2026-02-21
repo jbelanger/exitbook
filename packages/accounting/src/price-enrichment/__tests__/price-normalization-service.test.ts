@@ -26,7 +26,7 @@ function createFeeMovement(
     scope,
     settlement,
     assetId: `test:${assetSymbol.toLowerCase()}`,
-    assetSymbol: assetSymbol,
+    assetSymbol: assetSymbol as Currency,
     amount: parseDecimal(amount),
   };
 
@@ -72,7 +72,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
@@ -82,7 +82,7 @@ describe('PriceNormalizationService', () => {
               },
             },
           ],
-          outflows: [{ assetId: 'test:eur', assetSymbol: 'EUR', grossAmount: parseDecimal('40000') }],
+          outflows: [{ assetId: 'test:eur', assetSymbol: 'EUR' as Currency, grossAmount: parseDecimal('40000') }],
         },
         fees: [],
         operation: { category: 'trade', type: 'buy' },
@@ -132,7 +132,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
@@ -142,7 +142,7 @@ describe('PriceNormalizationService', () => {
               },
             },
           ],
-          outflows: [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('50000') }],
+          outflows: [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
         },
         fees: [],
         operation: { category: 'trade', type: 'buy' },
@@ -183,7 +183,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('15'), currency: 'ETH' as Currency },
@@ -193,7 +193,7 @@ describe('PriceNormalizationService', () => {
               },
             },
           ],
-          outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('15') }],
+          outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('15') }],
         },
         fees: [],
         operation: { category: 'trade', type: 'swap' },
@@ -231,7 +231,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
@@ -241,7 +241,7 @@ describe('PriceNormalizationService', () => {
               },
             },
           ],
-          outflows: [{ assetId: 'test:eur', assetSymbol: 'EUR', grossAmount: parseDecimal('40000') }],
+          outflows: [{ assetId: 'test:eur', assetSymbol: 'EUR' as Currency, grossAmount: parseDecimal('40000') }],
         },
         fees: [],
         operation: { category: 'trade', type: 'buy' },
@@ -282,7 +282,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
@@ -293,7 +293,7 @@ describe('PriceNormalizationService', () => {
             },
             {
               assetId: 'test:eth',
-              assetSymbol: 'ETH',
+              assetSymbol: 'ETH' as Currency,
               grossAmount: parseDecimal('10.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('2500'), currency: 'CAD' as Currency },
@@ -355,8 +355,8 @@ describe('PriceNormalizationService', () => {
         sourceType: 'exchange',
         status: 'success',
         movements: {
-          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
-          outflows: [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('50000') }],
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
+          outflows: [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
         },
         fees: [
           createFeeMovement('platform', 'balance', 'EUR', '100', {
@@ -402,8 +402,8 @@ describe('PriceNormalizationService', () => {
         sourceType: 'exchange',
         status: 'success',
         movements: {
-          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
-          outflows: [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('50000') }],
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
+          outflows: [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
         },
         fees: [
           createFeeMovement('platform', 'balance', 'GBP', '50', {
@@ -452,7 +452,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('1.0'),
               // No priceAtTxTime
             },
@@ -509,7 +509,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
@@ -565,7 +565,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
@@ -594,7 +594,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               assetId: 'test:eth',
-              assetSymbol: 'ETH',
+              assetSymbol: 'ETH' as Currency,
               grossAmount: parseDecimal('10.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },

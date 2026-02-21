@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import { createLot } from '../../../__tests__/test-utils.js';
@@ -9,7 +9,7 @@ describe('createAcquisitionLot', () => {
     const params = {
       acquisitionTransactionId: 1,
       assetId: 'test:btc',
-      assetSymbol: 'BTC',
+      assetSymbol: 'BTC' as Currency,
       calculationId: 'calc-123',
       costBasisPerUnit: parseDecimal('50000'),
       id: 'lot-123',
@@ -37,7 +37,7 @@ describe('createAcquisitionLot', () => {
     const lot = createAcquisitionLot({
       acquisitionTransactionId: 1,
       assetId: 'test:eth',
-      assetSymbol: 'ETH',
+      assetSymbol: 'ETH' as Currency,
       calculationId: 'calc-123',
       costBasisPerUnit: parseDecimal('3000.50'),
       id: 'lot-123',

@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -19,7 +19,7 @@ describe('AverageCostStrategy', () => {
       // Two lots at different costs
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1.0'),
         date: new Date('2024-03-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -61,7 +61,7 @@ describe('AverageCostStrategy', () => {
     it('should handle single lot (behaves like FIFO/LIFO)', () => {
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('0.5'),
         date: new Date('2024-02-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -85,7 +85,7 @@ describe('AverageCostStrategy', () => {
     it('should handle exact match disposal (all lots fully disposed)', () => {
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('2.0'),
         date: new Date('2024-03-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -112,7 +112,7 @@ describe('AverageCostStrategy', () => {
     it('should distribute pro-rata across multiple lots with different quantities', () => {
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1.5'),
         date: new Date('2024-04-01'),
         proceedsPerUnit: parseDecimal('60000'),
@@ -160,7 +160,7 @@ describe('AverageCostStrategy', () => {
     it('should preserve acquisition dates for holding period calculation', () => {
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1.0'),
         date: new Date('2024-03-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -185,7 +185,7 @@ describe('AverageCostStrategy', () => {
     it('should throw error if insufficient quantity', () => {
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('3.0'),
         date: new Date('2024-03-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -207,7 +207,7 @@ describe('AverageCostStrategy', () => {
     it('should tolerate dust-level shortfall from Decimal drift', () => {
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'ALGO',
+        assetSymbol: 'ALGO' as Currency,
         quantity: parseDecimal('0.00001'),
         date: new Date('2024-03-01'),
         proceedsPerUnit: parseDecimal('0.2'),
@@ -231,7 +231,7 @@ describe('AverageCostStrategy', () => {
     it('should skip fully disposed lots', () => {
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('0.5'),
         date: new Date('2024-03-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -261,7 +261,7 @@ describe('AverageCostStrategy', () => {
     it('should handle dust amounts (very small quantities)', () => {
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('0.00000001'),
         date: new Date('2024-03-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -289,7 +289,7 @@ describe('AverageCostStrategy', () => {
       // Test that remainder absorption handles rounding across many lots
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('10.0'),
         date: new Date('2024-03-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -317,7 +317,7 @@ describe('AverageCostStrategy', () => {
     it('should throw error if all lots are fully disposed', () => {
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1.0'),
         date: new Date('2024-03-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -342,7 +342,7 @@ describe('AverageCostStrategy', () => {
     it('should calculate gain/loss correctly with pooled ACB', () => {
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1.0'),
         date: new Date('2024-03-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -371,7 +371,7 @@ describe('AverageCostStrategy', () => {
     it('should produce deterministic results regardless of input order', () => {
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1.5'),
         date: new Date('2024-04-01'),
         proceedsPerUnit: parseDecimal('60000'),
@@ -425,7 +425,7 @@ describe('AverageCostStrategy', () => {
     it('should sort by id when acquisition dates are identical', () => {
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1.0'),
         date: new Date('2024-02-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -455,7 +455,7 @@ describe('AverageCostStrategy', () => {
       // Test with numbers that could cause rounding in naive implementations
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1.0'),
         date: new Date('2024-04-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -484,7 +484,7 @@ describe('AverageCostStrategy', () => {
       // Test with 7 lots (prime number) and non-round disposal quantity
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('2.7183'), // e (Euler's number)
         date: new Date('2024-04-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -516,7 +516,7 @@ describe('AverageCostStrategy', () => {
       // If disposal quantity is exactly zero, no disposal records should be created
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('0'),
         date: new Date('2024-03-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -541,7 +541,7 @@ describe('AverageCostStrategy', () => {
       // Test with very small disposal that might round to zero on some lots
       const disposal = {
         transactionId: 100,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('0.00000001'), // 1 satoshi
         date: new Date('2024-03-01'),
         proceedsPerUnit: parseDecimal('50000'),
@@ -579,7 +579,7 @@ function createLot(id: string, quantity: string, costBasisPerUnit: string, acqui
     calculationId: 'calc1',
     acquisitionTransactionId: 1,
     assetId: 'test:btc',
-    assetSymbol: 'BTC',
+    assetSymbol: 'BTC' as Currency,
     quantity: qty,
     costBasisPerUnit: cost,
     totalCostBasis: qty.times(cost),

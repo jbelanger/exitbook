@@ -26,6 +26,7 @@ import type {
   IBlockchainProvider,
   ProviderHealth,
   OneShotOperation,
+  OneShotOperationResult,
   ProviderOperation,
   StreamingOperation,
 } from '../types/index.js';
@@ -199,11 +200,11 @@ export class BlockchainProviderManager {
    * Use this for operations that always yield exactly once (getBalance, getTokenMetadata, hasAddressTransactions, etc.).
    * For transaction fetching operations that may yield multiple batches, use executeWithFailover directly.
    */
-  async executeWithFailoverOnce<T>(
+  async executeWithFailoverOnce<TOperation extends OneShotOperation>(
     blockchain: string,
-    operation: OneShotOperation
-  ): Promise<Result<FailoverExecutionResult<T>, Error>> {
-    return this.executeOneShotImpl<T>(blockchain, operation);
+    operation: TOperation
+  ): Promise<Result<FailoverExecutionResult<OneShotOperationResult<TOperation>>, Error>> {
+    return this.executeOneShotImpl(blockchain, operation);
   }
 
   /**
@@ -584,10 +585,10 @@ export class BlockchainProviderManager {
   /**
    * Execute operation with intelligent failover and caching
    */
-  private async executeOneShotImpl<T>(
+  private async executeOneShotImpl<TOperation extends OneShotOperation>(
     blockchain: string,
-    operation: OneShotOperation
-  ): Promise<Result<FailoverExecutionResult<T>, ProviderError>> {
+    operation: TOperation
+  ): Promise<Result<FailoverExecutionResult<OneShotOperationResult<TOperation>>, ProviderError>> {
     // Auto-register providers for this blockchain if not already registered
     const existingProviders = this.providers.get(blockchain);
     if (!existingProviders || existingProviders.length === 0) {
@@ -596,16 +597,16 @@ export class BlockchainProviderManager {
 
     if (operation.getCacheKey) {
       const cacheKey = operation.getCacheKey(operation);
-      const cached = this.responseCache.get<Result<FailoverExecutionResult<T>, ProviderError>>(cacheKey);
+      const cached =
+        this.responseCache.get<Result<FailoverExecutionResult<OneShotOperationResult<TOperation>>, ProviderError>>(
+          cacheKey
+        );
       if (cached) {
         return cached;
       }
     }
 
-    const result = (await this.executeWithCircuitBreaker(blockchain, operation)) as unknown as Result<
-      FailoverExecutionResult<T>,
-      ProviderError
-    >;
+    const result = await this.executeWithCircuitBreaker(blockchain, operation);
 
     // Cache result if cacheable
     if (operation.getCacheKey) {
@@ -619,10 +620,10 @@ export class BlockchainProviderManager {
   /**
    * Execute with circuit breaker protection and automatic failover
    */
-  private async executeWithCircuitBreaker<T>(
+  private async executeWithCircuitBreaker<TOperation extends OneShotOperation>(
     blockchain: string,
-    operation: OneShotOperation
-  ): Promise<Result<FailoverExecutionResult<T>, ProviderError>> {
+    operation: TOperation
+  ): Promise<Result<FailoverExecutionResult<OneShotOperationResult<TOperation>>, ProviderError>> {
     const providers = this.getProvidersInOrder(blockchain, operation);
 
     if (providers.length === 0) {
@@ -680,7 +681,7 @@ export class BlockchainProviderManager {
 
       const startTime = Date.now();
       try {
-        const result = await provider.execute<T>(operation);
+        const result = await provider.execute(operation);
 
         // Unwrap Result type - throw error to trigger failover
         if (result.isErr()) {

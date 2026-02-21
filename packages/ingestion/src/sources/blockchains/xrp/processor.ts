@@ -1,5 +1,5 @@
 import type { XrpChainConfig, XrpTransaction } from '@exitbook/blockchain-providers';
-import { buildBlockchainNativeAssetId, parseDecimal } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, parseDecimal, type Currency } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -149,7 +149,7 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor {
               ? [
                   {
                     assetId,
-                    assetSymbol: normalizedTx.feeCurrency,
+                    assetSymbol: normalizedTx.feeCurrency as Currency,
                     amount: effectiveFeeAmount,
                     scope: 'network',
                     settlement: 'balance',

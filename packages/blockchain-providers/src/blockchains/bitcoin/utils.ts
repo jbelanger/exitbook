@@ -450,5 +450,5 @@ async function checkActivityForHdNode(
     throw result.error;
   }
 
-  return result.value.data as boolean;
+  return result.value.data;
 }

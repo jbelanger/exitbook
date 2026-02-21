@@ -128,8 +128,8 @@ describe('extractAssetsNeedingPrices', () => {
       externalId: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
-        inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1') }],
-        outflows: [{ assetId: 'fiat:usd', assetSymbol: 'USD', grossAmount: parseDecimal('50000') }],
+        inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
+        outflows: [{ assetId: 'fiat:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
       },
       fees: [],
     };
@@ -159,7 +159,7 @@ describe('extractAssetsNeedingPrices', () => {
         inflows: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1'),
             priceAtTxTime: {
               price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
@@ -168,7 +168,7 @@ describe('extractAssetsNeedingPrices', () => {
             },
           },
         ],
-        outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('10') }],
+        outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('10') }],
       },
       fees: [],
     };
@@ -221,8 +221,8 @@ describe('extractAssetsNeedingPrices', () => {
       externalId: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
-        inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1') }],
-        outflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.5') }],
+        inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
+        outflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('0.5') }],
       },
       fees: [],
     };
@@ -249,14 +249,14 @@ describe('extractAssetsNeedingPrices', () => {
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [
-          { assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1') },
-          { assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('10') },
+          { assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') },
+          { assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('10') },
         ],
         outflows: [
-          { assetId: 'fiat:usd', assetSymbol: 'USD', grossAmount: parseDecimal('50000') },
-          { assetId: 'fiat:eur', assetSymbol: 'EUR', grossAmount: parseDecimal('45000') },
-          { assetId: 'fiat:cad', assetSymbol: 'CAD', grossAmount: parseDecimal('65000') },
-          { assetId: 'fiat:gbp', assetSymbol: 'GBP', grossAmount: parseDecimal('40000') },
+          { assetId: 'fiat:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') },
+          { assetId: 'fiat:eur', assetSymbol: 'EUR' as Currency, grossAmount: parseDecimal('45000') },
+          { assetId: 'fiat:cad', assetSymbol: 'CAD' as Currency, grossAmount: parseDecimal('65000') },
+          { assetId: 'fiat:gbp', assetSymbol: 'GBP' as Currency, grossAmount: parseDecimal('40000') },
         ],
       },
       fees: [],
@@ -288,8 +288,8 @@ describe('extractAssetsNeedingPrices', () => {
       externalId: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
-        inflows: [{ assetId: 'fiat:usd', assetSymbol: 'USD', grossAmount: parseDecimal('1000') }],
-        outflows: [{ assetId: 'fiat:eur', assetSymbol: 'EUR', grossAmount: parseDecimal('900') }],
+        inflows: [{ assetId: 'fiat:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('1000') }],
+        outflows: [{ assetId: 'fiat:eur', assetSymbol: 'EUR' as Currency, grossAmount: parseDecimal('900') }],
       },
       fees: [],
     };

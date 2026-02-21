@@ -355,15 +355,12 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       return cached;
     }
 
-    const result = await this.providerManager.executeWithFailoverOnce<{ code: string; isContract: boolean }>(
-      this.chainConfig.chainName,
-      {
-        type: 'getAddressInfo',
-        address,
-        getCacheKey: (params) =>
-          `getAddressInfo:${this.chainConfig.chainName}:${(params as { address: string }).address}`,
-      }
-    );
+    const result = await this.providerManager.executeWithFailoverOnce(this.chainConfig.chainName, {
+      type: 'getAddressInfo',
+      address,
+      getCacheKey: (params) =>
+        `getAddressInfo:${this.chainConfig.chainName}:${(params as { address: string }).address}`,
+    });
 
     if (result.isErr()) {
       const error = result.error;

@@ -1,3 +1,5 @@
+import type { Currency } from '@exitbook/core';
+
 /**
  * Configuration interface for Cosmos SDK-based blockchains
  *
@@ -44,7 +46,7 @@ export interface CosmosChainConfig {
   /**
    * Symbol for the native currency (e.g., 'INJ', 'OSMO', 'ATOM')
    */
-  nativeCurrency: string;
+  nativeCurrency: Currency;
 
   /**
    * Number of decimals for the native currency

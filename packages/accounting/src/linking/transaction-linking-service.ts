@@ -1,5 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
-import { parseDecimal, wrapError } from '@exitbook/core';
+import { type Currency, type UniversalTransactionData, parseDecimal, wrapError } from '@exitbook/core';
 import type { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { ok, type Result } from 'neverthrow';
@@ -532,7 +531,7 @@ export class TransactionLinkingService {
    * Extract primary asset from transaction movements
    * Prefers outflows, then inflows
    */
-  private extractPrimaryAsset(tx: UniversalTransactionData): string | undefined {
+  private extractPrimaryAsset(tx: UniversalTransactionData): Currency | undefined {
     const outflows = tx.movements.outflows ?? [];
     const inflows = tx.movements.inflows ?? [];
 

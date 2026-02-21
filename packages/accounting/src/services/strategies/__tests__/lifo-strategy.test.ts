@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { AcquisitionLot } from '../../../domain/schemas.js';
@@ -14,7 +14,7 @@ describe('LifoStrategy', () => {
   it('should match disposal to newest lot (single lot, full disposal)', () => {
     const disposal = {
       transactionId: 100,
-      assetSymbol: 'BTC',
+      assetSymbol: 'BTC' as Currency,
       quantity: parseDecimal('1'),
       date: new Date('2024-02-01'),
       proceedsPerUnit: parseDecimal('50000'),
@@ -26,7 +26,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('30000'),
         totalCostBasis: parseDecimal('30000'),
@@ -54,7 +54,7 @@ describe('LifoStrategy', () => {
   it('should match disposal to newest lot first (multiple lots)', () => {
     const disposal = {
       transactionId: 100,
-      assetSymbol: 'BTC',
+      assetSymbol: 'BTC' as Currency,
       quantity: parseDecimal('0.5'),
       date: new Date('2024-03-01'),
       proceedsPerUnit: parseDecimal('60000'),
@@ -66,7 +66,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('30000'),
         totalCostBasis: parseDecimal('30000'),
@@ -82,7 +82,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 2,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('35000'),
         totalCostBasis: parseDecimal('35000'),
@@ -112,7 +112,7 @@ describe('LifoStrategy', () => {
   it('should match disposal across multiple lots (LIFO order)', () => {
     const disposal = {
       transactionId: 100,
-      assetSymbol: 'BTC',
+      assetSymbol: 'BTC' as Currency,
       quantity: parseDecimal('1.5'),
       date: new Date('2024-03-01'),
       proceedsPerUnit: parseDecimal('60000'),
@@ -124,7 +124,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('30000'),
         totalCostBasis: parseDecimal('30000'),
@@ -140,7 +140,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 2,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('35000'),
         totalCostBasis: parseDecimal('35000'),
@@ -156,7 +156,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 3,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('40000'),
         totalCostBasis: parseDecimal('40000'),
@@ -195,7 +195,7 @@ describe('LifoStrategy', () => {
   it('should demonstrate LIFO vs FIFO difference (higher cost basis with LIFO in rising market)', () => {
     const disposal = {
       transactionId: 100,
-      assetSymbol: 'BTC',
+      assetSymbol: 'BTC' as Currency,
       quantity: parseDecimal('1'),
       date: new Date('2024-03-01'),
       proceedsPerUnit: parseDecimal('60000'),
@@ -207,7 +207,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('30000'),
         totalCostBasis: parseDecimal('30000'),
@@ -223,7 +223,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 2,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('50000'),
         totalCostBasis: parseDecimal('50000'),
@@ -251,7 +251,7 @@ describe('LifoStrategy', () => {
   it('should sort lots by acquisition date even if provided out of order', () => {
     const disposal = {
       transactionId: 100,
-      assetSymbol: 'BTC',
+      assetSymbol: 'BTC' as Currency,
       quantity: parseDecimal('1.5'),
       date: new Date('2024-03-01'),
       proceedsPerUnit: parseDecimal('60000'),
@@ -264,7 +264,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('30000'),
         totalCostBasis: parseDecimal('30000'),
@@ -280,7 +280,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 2,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('35000'),
         totalCostBasis: parseDecimal('35000'),
@@ -296,7 +296,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 3,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('40000'),
         totalCostBasis: parseDecimal('40000'),
@@ -323,7 +323,7 @@ describe('LifoStrategy', () => {
   it('should skip fully disposed lots', () => {
     const disposal = {
       transactionId: 100,
-      assetSymbol: 'BTC',
+      assetSymbol: 'BTC' as Currency,
       quantity: parseDecimal('0.5'),
       date: new Date('2024-03-01'),
       proceedsPerUnit: parseDecimal('60000'),
@@ -335,7 +335,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('30000'),
         totalCostBasis: parseDecimal('30000'),
@@ -351,7 +351,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 2,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('35000'),
         totalCostBasis: parseDecimal('35000'),
@@ -377,7 +377,7 @@ describe('LifoStrategy', () => {
   it('should return error if insufficient lots', () => {
     const disposal = {
       transactionId: 100,
-      assetSymbol: 'BTC',
+      assetSymbol: 'BTC' as Currency,
       quantity: parseDecimal('2'),
       date: new Date('2024-03-01'),
       proceedsPerUnit: parseDecimal('60000'),
@@ -389,7 +389,7 @@ describe('LifoStrategy', () => {
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         quantity: parseDecimal('1'),
         costBasisPerUnit: parseDecimal('30000'),
         totalCostBasis: parseDecimal('30000'),

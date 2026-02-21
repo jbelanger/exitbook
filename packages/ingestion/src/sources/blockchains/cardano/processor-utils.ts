@@ -1,5 +1,5 @@
 import type { CardanoTransaction } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type Currency } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
@@ -64,7 +64,7 @@ export function consolidateCardanoMovements(movements: CardanoMovement[]): Carda
       assetName?: string | undefined;
       decimals?: number | undefined;
       policyId?: string | undefined;
-      symbol?: string | undefined;
+      symbol?: Currency | undefined;
     }
   >();
 
@@ -78,7 +78,7 @@ export function consolidateCardanoMovements(movements: CardanoMovement[]): Carda
         assetName?: string | undefined;
         decimals?: number | undefined;
         policyId?: string | undefined;
-        symbol?: string | undefined;
+        symbol?: Currency | undefined;
       } = {
         amount: parseDecimal(movement.amount),
         decimals: movement.decimals,
@@ -92,7 +92,7 @@ export function consolidateCardanoMovements(movements: CardanoMovement[]): Carda
 
   return Array.from(assetMap.entries()).map(([unit, data]) => ({
     amount: data.amount.toFixed(),
-    asset: data.symbol || unit,
+    asset: (data.symbol || unit) as Currency,
     assetName: data.assetName,
     decimals: data.decimals,
     policyId: data.policyId,
@@ -170,7 +170,7 @@ export function analyzeCardanoFundFlow(
 
         outflows.push({
           amount: normalizedAmount,
-          asset: isAda ? 'ADA' : assetAmount.symbol || assetAmount.unit,
+          asset: (isAda ? 'ADA' : assetAmount.symbol || assetAmount.unit) as Currency,
           assetName,
           decimals,
           policyId,
@@ -201,7 +201,7 @@ export function analyzeCardanoFundFlow(
 
         inflows.push({
           amount: normalizedAmount,
-          asset: isAda ? 'ADA' : assetAmount.symbol || assetAmount.unit,
+          asset: (isAda ? 'ADA' : assetAmount.symbol || assetAmount.unit) as Currency,
           assetName,
           decimals,
           policyId,
@@ -242,7 +242,7 @@ export function analyzeCardanoFundFlow(
   // Select primary asset (largest movement)
   let primary: CardanoMovement = {
     amount: '0',
-    asset: 'ADA',
+    asset: 'ADA' as Currency,
     unit: 'lovelace',
   };
 
@@ -290,7 +290,7 @@ export function analyzeCardanoFundFlow(
   const fundFlow: CardanoFundFlow = {
     classificationUncertainty,
     feeAmount,
-    feeCurrency: 'ADA',
+    feeCurrency: 'ADA' as Currency,
     feePaidByUser,
     fromAddress,
     inflows: consolidatedInflows,

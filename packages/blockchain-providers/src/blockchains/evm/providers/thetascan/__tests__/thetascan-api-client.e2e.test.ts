@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData, StreamingBatchResult } from '../../../../../core/types/index.js';
+import type { StreamingBatchResult } from '../../../../../core/types/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { EvmTransaction } from '../../../types.js';
 import { ThetaScanApiClient } from '../thetascan.api-client.js';
@@ -25,7 +25,7 @@ describe('ThetaScanApiClient Integration', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -43,7 +43,7 @@ describe('ThetaScanApiClient Integration', () => {
 
   describe('Token Balances', () => {
     it('should return empty array when no contract addresses provided', async () => {
-      const result = await provider.execute<RawBalanceData[]>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -60,7 +60,7 @@ describe('ThetaScanApiClient Integration', () => {
       // Example Theta token contract - replace with actual contract if known
       const contractAddresses = ['0x4dc08b15ea0e10b96c41aec22fab934ba15c983e'];
 
-      const result = await provider.execute<RawBalanceData[]>({
+      const result = await provider.execute({
         address: testAddress,
         contractAddresses,
         type: 'getAddressTokenBalances',

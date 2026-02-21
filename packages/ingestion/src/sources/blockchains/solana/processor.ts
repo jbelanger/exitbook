@@ -3,6 +3,7 @@ import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,
   parseDecimal,
+  type Currency,
   type TokenMetadataRecord,
 } from '@exitbook/core';
 import { type Result, err, ok, okAsync } from 'neverthrow';
@@ -142,7 +143,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
             ? [
                 {
                   assetId: feeAssetId,
-                  assetSymbol: normalizedTx.feeCurrency || 'SOL',
+                  assetSymbol: (normalizedTx.feeCurrency || 'SOL') as Currency,
                   amount: parseDecimal(normalizedTx.feeAmount || '0'),
                   scope: 'network' as const,
                   settlement: 'balance' as const,

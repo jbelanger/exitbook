@@ -43,7 +43,7 @@ export function createMovement(
 ): AssetMovement {
   return {
     assetId: `test:${assetSymbol.toLowerCase()}`,
-    assetSymbol,
+    assetSymbol: assetSymbol as Currency,
     grossAmount: parseDecimal(amount),
     priceAtTxTime: createPriceAtTxTime(priceAmount, currency),
   };
@@ -64,7 +64,7 @@ export function createFee(
 ): FeeMovement {
   return {
     assetId: `test:${assetSymbol.toLowerCase()}`,
-    assetSymbol: assetSymbol,
+    assetSymbol: assetSymbol as Currency,
     amount: parseDecimal(amount),
     scope: options?.scope ?? 'platform',
     settlement: options?.settlement ?? 'balance',
@@ -159,7 +159,7 @@ export function createLot(
     calculationId: options?.calculationId ?? 'calc1',
     acquisitionTransactionId: options?.acquisitionTransactionId ?? 1,
     assetId: `test:${assetSymbol.toLowerCase()}`,
-    assetSymbol: assetSymbol,
+    assetSymbol: assetSymbol as Currency,
     quantity: qty,
     costBasisPerUnit: costBasis,
     totalCostBasis: qty.mul(costBasis),

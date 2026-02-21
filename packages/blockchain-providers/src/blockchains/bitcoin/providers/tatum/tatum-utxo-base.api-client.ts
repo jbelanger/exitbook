@@ -6,6 +6,7 @@ import { z, type ZodType } from 'zod';
 import type {
   NormalizedTransactionBase,
   OneShotOperation,
+  OneShotOperationResult,
   ProviderConfig,
   ProviderOperation,
   RawBalanceData,
@@ -102,16 +103,21 @@ export abstract class TatumUtxoBaseApiClient<
     };
   }
 
-  async execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
+  async execute<TOperation extends OneShotOperation>(
+    operation: TOperation
+  ): Promise<Result<OneShotOperationResult<TOperation>, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
     );
 
     switch (operation.type) {
       case 'getAddressBalances':
-        return (await this.getAddressBalances(operation.address)) as Result<T, Error>;
+        return (await this.getAddressBalances(operation.address)) as Result<OneShotOperationResult<TOperation>, Error>;
       case 'hasAddressTransactions':
-        return (await this.hasAddressTransactions(operation.address)) as Result<T, Error>;
+        return (await this.hasAddressTransactions(operation.address)) as Result<
+          OneShotOperationResult<TOperation>,
+          Error
+        >;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
     }

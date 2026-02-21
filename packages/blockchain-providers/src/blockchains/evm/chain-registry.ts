@@ -11,7 +11,7 @@ import evmChainsData from './evm-chains.json' with { type: 'json' };
  * const processor = new EvmProcessor(EVM_CHAINS.avalanche);
  * ```
  */
-export const EVM_CHAINS = evmChainsData as Record<string, EvmChainConfig>;
+export const EVM_CHAINS = evmChainsData as unknown as Record<string, EvmChainConfig>;
 
 /**
  * Type-safe chain names

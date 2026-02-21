@@ -11,7 +11,7 @@ import xrpChainsData from './xrp-chains.json' with { type: 'json' };
  * const processor = new XrpProcessor(XRP_CHAINS.xrp);
  * ```
  */
-export const XRP_CHAINS = xrpChainsData as Record<string, XrpChainConfig>;
+export const XRP_CHAINS = xrpChainsData as unknown as Record<string, XrpChainConfig>;
 
 /**
  * Type-safe chain names for all supported XRP networks

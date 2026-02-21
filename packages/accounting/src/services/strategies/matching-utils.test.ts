@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -63,7 +63,7 @@ describe('sortLotsFifo', () => {
     calculationId: 'calc1',
     acquisitionTransactionId: 1,
     assetId: 'test:btc',
-    assetSymbol: 'BTC',
+    assetSymbol: 'BTC' as Currency,
     quantity: parseDecimal('1'),
     costBasisPerUnit: parseDecimal('30000'),
     totalCostBasis: parseDecimal('30000'),
@@ -137,7 +137,7 @@ describe('sortLotsLifo', () => {
     calculationId: 'calc1',
     acquisitionTransactionId: 1,
     assetId: 'test:btc',
-    assetSymbol: 'BTC',
+    assetSymbol: 'BTC' as Currency,
     quantity: parseDecimal('1'),
     costBasisPerUnit: parseDecimal('30000'),
     totalCostBasis: parseDecimal('30000'),
@@ -211,7 +211,7 @@ describe('matchDisposalToSortedLots', () => {
     calculationId: 'calc1',
     acquisitionTransactionId: 1,
     assetId: 'test:btc',
-    assetSymbol: 'BTC',
+    assetSymbol: 'BTC' as Currency,
     quantity: new Decimal(quantity),
     costBasisPerUnit: parseDecimal('30000'),
     totalCostBasis: parseDecimal('30000'),
@@ -225,7 +225,7 @@ describe('matchDisposalToSortedLots', () => {
 
   const createDisposal = (quantity: string, date = '2024-02-01'): DisposalRequest => ({
     transactionId: 100,
-    assetSymbol: 'BTC',
+    assetSymbol: 'BTC' as Currency,
     quantity: new Decimal(quantity),
     date: new Date(date),
     proceedsPerUnit: parseDecimal('50000'),
@@ -495,7 +495,7 @@ describe('matchDisposalToSortedLots', () => {
   it('should calculate negative gain/loss when disposal at a loss', () => {
     const disposal: DisposalRequest = {
       transactionId: 100,
-      assetSymbol: 'BTC',
+      assetSymbol: 'BTC' as Currency,
       quantity: parseDecimal('1'),
       date: new Date('2024-02-01'),
       proceedsPerUnit: parseDecimal('20000'), // Less than cost basis
@@ -514,7 +514,7 @@ describe('matchDisposalToSortedLots', () => {
   it('should handle zero proceeds', () => {
     const disposal: DisposalRequest = {
       transactionId: 100,
-      assetSymbol: 'BTC',
+      assetSymbol: 'BTC' as Currency,
       quantity: parseDecimal('1'),
       date: new Date('2024-02-01'),
       proceedsPerUnit: parseDecimal('0'),

@@ -106,11 +106,11 @@ export function createCoinGeckoProvider(
     });
 
     // Create queries
-    const priceRepo = createPriceQueries(db);
+    const priceQueries = createPriceQueries(db);
     const providerRepo = createProviderQueries(db);
 
     // Create provider
-    const provider = new CoinGeckoProvider(httpClient, priceRepo, providerRepo, { apiKey, useProApi }, rateLimit);
+    const provider = new CoinGeckoProvider(httpClient, priceQueries, providerRepo, { apiKey, useProApi }, rateLimit);
 
     return ok(provider);
   } catch (error) {
@@ -137,15 +137,12 @@ export class CoinGeckoProvider extends BasePriceProvider {
 
   constructor(
     httpClient: HttpClient,
-    priceRepo: PriceQueries,
+    priceQueries: PriceQueries,
     providerRepo: ProviderQueries,
     config: CoinGeckoProviderConfig = {},
     rateLimit: ProviderRateLimitConfig
   ) {
-    super();
-
-    this.httpClient = httpClient;
-    this.priceQueries = priceRepo;
+    super(httpClient, priceQueries);
     this.providerRepo = providerRepo;
     this.config = config;
 

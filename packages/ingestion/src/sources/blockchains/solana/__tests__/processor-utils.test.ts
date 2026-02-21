@@ -1,4 +1,5 @@
 import type { SolanaTransaction } from '@exitbook/blockchain-providers';
+import type { Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -228,7 +229,7 @@ describe('Solana Processor Utils', () => {
       const movements: SolanaMovement[] = [
         {
           amount: '100',
-          asset: 'SOL',
+          asset: 'SOL' as Currency,
         },
       ];
       expect(consolidateSolanaMovements(movements)).toEqual(movements);
@@ -238,11 +239,11 @@ describe('Solana Processor Utils', () => {
       const movements: SolanaMovement[] = [
         {
           amount: '100',
-          asset: 'SOL',
+          asset: 'SOL' as Currency,
         },
         {
           amount: '50',
-          asset: 'SOL',
+          asset: 'SOL' as Currency,
         },
       ];
       const result = consolidateSolanaMovements(movements);
@@ -255,13 +256,13 @@ describe('Solana Processor Utils', () => {
       const movements: SolanaMovement[] = [
         {
           amount: '100',
-          asset: 'USDC',
+          asset: 'USDC' as Currency,
           decimals: 6,
           tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         },
         {
           amount: '50',
-          asset: 'USDC',
+          asset: 'USDC' as Currency,
           decimals: 6,
           tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         },
@@ -278,11 +279,11 @@ describe('Solana Processor Utils', () => {
       const movements: SolanaMovement[] = [
         {
           amount: '100',
-          asset: 'SOL',
+          asset: 'SOL' as Currency,
         },
         {
           amount: '50',
-          asset: 'USDC',
+          asset: 'USDC' as Currency,
           decimals: 6,
           tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         },
@@ -295,11 +296,11 @@ describe('Solana Processor Utils', () => {
 
     it('should handle multiple consolidations correctly', () => {
       const movements: SolanaMovement[] = [
-        { amount: '100', asset: 'SOL' },
-        { amount: '50', asset: 'USDC', decimals: 6 },
-        { amount: '25', asset: 'SOL' },
-        { amount: '75', asset: 'USDC', decimals: 6 },
-        { amount: '10', asset: 'BONK', decimals: 5 },
+        { amount: '100', asset: 'SOL' as Currency },
+        { amount: '50', asset: 'USDC' as Currency, decimals: 6 },
+        { amount: '25', asset: 'SOL' as Currency },
+        { amount: '75', asset: 'USDC' as Currency, decimals: 6 },
+        { amount: '10', asset: 'BONK' as Currency, decimals: 5 },
       ];
       const result = consolidateSolanaMovements(movements);
       expect(result).toHaveLength(3);
@@ -310,9 +311,9 @@ describe('Solana Processor Utils', () => {
 
     it('should handle decimal amounts correctly', () => {
       const movements: SolanaMovement[] = [
-        { amount: '0.1', asset: 'SOL' },
-        { amount: '0.2', asset: 'SOL' },
-        { amount: '0.3', asset: 'SOL' },
+        { amount: '0.1', asset: 'SOL' as Currency },
+        { amount: '0.2', asset: 'SOL' as Currency },
+        { amount: '0.3', asset: 'SOL' as Currency },
       ];
       const result = consolidateSolanaMovements(movements);
       expect(result).toHaveLength(1);
@@ -327,7 +328,7 @@ describe('Solana Processor Utils', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           feePaidByUser: true,
           feeAbsorbedByMovement: false,
           fromAddress: 'user123',
@@ -339,8 +340,8 @@ describe('Solana Processor Utils', () => {
           instructionCount: 2,
           transactionCount: 1,
           inflows: [],
-          outflows: [{ amount: '10', asset: 'SOL' }],
-          primary: { amount: '10', asset: 'SOL' },
+          outflows: [{ amount: '10', asset: 'SOL' as Currency }],
+          primary: { amount: '10', asset: 'SOL' as Currency },
         };
 
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
@@ -352,7 +353,7 @@ describe('Solana Processor Utils', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           feePaidByUser: true,
           feeAbsorbedByMovement: false,
           fromAddress: 'stake456',
@@ -363,9 +364,9 @@ describe('Solana Processor Utils', () => {
           hasTokenTransfers: false,
           instructionCount: 2,
           transactionCount: 1,
-          inflows: [{ amount: '0.5', asset: 'SOL' }],
+          inflows: [{ amount: '0.5', asset: 'SOL' as Currency }],
           outflows: [],
-          primary: { amount: '0.5', asset: 'SOL' },
+          primary: { amount: '0.5', asset: 'SOL' as Currency },
         };
 
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
@@ -377,7 +378,7 @@ describe('Solana Processor Utils', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           feePaidByUser: true,
           feeAbsorbedByMovement: false,
           fromAddress: 'stake456',
@@ -388,9 +389,9 @@ describe('Solana Processor Utils', () => {
           hasTokenTransfers: false,
           instructionCount: 2,
           transactionCount: 1,
-          inflows: [{ amount: '10', asset: 'SOL' }],
+          inflows: [{ amount: '10', asset: 'SOL' as Currency }],
           outflows: [],
-          primary: { amount: '10', asset: 'SOL' },
+          primary: { amount: '10', asset: 'SOL' as Currency },
         };
 
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
@@ -402,7 +403,7 @@ describe('Solana Processor Utils', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           feePaidByUser: true,
           feeAbsorbedByMovement: false,
           fromAddress: 'user123',
@@ -413,9 +414,9 @@ describe('Solana Processor Utils', () => {
           hasTokenTransfers: false,
           instructionCount: 2,
           transactionCount: 1,
-          inflows: [{ amount: '5', asset: 'SOL' }],
-          outflows: [{ amount: '10', asset: 'SOL' }],
-          primary: { amount: '10', asset: 'SOL' },
+          inflows: [{ amount: '5', asset: 'SOL' as Currency }],
+          outflows: [{ amount: '10', asset: 'SOL' as Currency }],
+          primary: { amount: '10', asset: 'SOL' as Currency },
         };
 
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
@@ -430,7 +431,7 @@ describe('Solana Processor Utils', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           feePaidByUser: true,
           feeAbsorbedByMovement: false,
           fromAddress: 'user123',
@@ -443,7 +444,7 @@ describe('Solana Processor Utils', () => {
           transactionCount: 1,
           inflows: [],
           outflows: [],
-          primary: { amount: '0', asset: 'SOL' },
+          primary: { amount: '0', asset: 'SOL' as Currency },
         };
 
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
@@ -457,7 +458,7 @@ describe('Solana Processor Utils', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           feePaidByUser: true,
           feeAbsorbedByMovement: false,
           fromAddress: 'user123',
@@ -468,9 +469,9 @@ describe('Solana Processor Utils', () => {
           hasTokenTransfers: true,
           instructionCount: 3,
           transactionCount: 1,
-          inflows: [{ amount: '1000', asset: 'USDC' }],
-          outflows: [{ amount: '5', asset: 'SOL' }],
-          primary: { amount: '1000', asset: 'USDC' },
+          inflows: [{ amount: '1000', asset: 'USDC' as Currency }],
+          outflows: [{ amount: '5', asset: 'SOL' as Currency }],
+          primary: { amount: '1000', asset: 'USDC' as Currency },
         };
 
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
@@ -484,7 +485,7 @@ describe('Solana Processor Utils', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           feePaidByUser: true,
           feeAbsorbedByMovement: false,
           fromAddress: 'user123',
@@ -496,11 +497,11 @@ describe('Solana Processor Utils', () => {
           instructionCount: 5,
           transactionCount: 1,
           inflows: [
-            { amount: '1000', asset: 'USDC' },
-            { amount: '0.1', asset: 'SOL' },
+            { amount: '1000', asset: 'USDC' as Currency },
+            { amount: '0.1', asset: 'SOL' as Currency },
           ],
-          outflows: [{ amount: '5', asset: 'SOL' }],
-          primary: { amount: '1000', asset: 'USDC' },
+          outflows: [{ amount: '5', asset: 'SOL' as Currency }],
+          primary: { amount: '1000', asset: 'USDC' as Currency },
         };
 
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
@@ -515,7 +516,7 @@ describe('Solana Processor Utils', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           feePaidByUser: false,
           feeAbsorbedByMovement: false,
           fromAddress: 'sender123',
@@ -526,9 +527,9 @@ describe('Solana Processor Utils', () => {
           hasTokenTransfers: true,
           instructionCount: 1,
           transactionCount: 1,
-          inflows: [{ amount: '100', asset: 'USDC' }],
+          inflows: [{ amount: '100', asset: 'USDC' as Currency }],
           outflows: [],
-          primary: { amount: '100', asset: 'USDC' },
+          primary: { amount: '100', asset: 'USDC' as Currency },
         };
 
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
@@ -542,7 +543,7 @@ describe('Solana Processor Utils', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           feePaidByUser: true,
           feeAbsorbedByMovement: false,
           fromAddress: 'user123',
@@ -554,8 +555,8 @@ describe('Solana Processor Utils', () => {
           instructionCount: 1,
           transactionCount: 1,
           inflows: [],
-          outflows: [{ amount: '100', asset: 'USDC' }],
-          primary: { amount: '100', asset: 'USDC' },
+          outflows: [{ amount: '100', asset: 'USDC' as Currency }],
+          primary: { amount: '100', asset: 'USDC' as Currency },
         };
 
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
@@ -569,7 +570,7 @@ describe('Solana Processor Utils', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           feePaidByUser: true,
           feeAbsorbedByMovement: false,
           fromAddress: 'user123',
@@ -580,9 +581,9 @@ describe('Solana Processor Utils', () => {
           hasTokenTransfers: true,
           instructionCount: 1,
           transactionCount: 1,
-          inflows: [{ amount: '100', asset: 'USDC' }],
-          outflows: [{ amount: '100', asset: 'USDC' }],
-          primary: { amount: '100', asset: 'USDC' },
+          inflows: [{ amount: '100', asset: 'USDC' as Currency }],
+          outflows: [{ amount: '100', asset: 'USDC' as Currency }],
+          primary: { amount: '100', asset: 'USDC' as Currency },
         };
 
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
@@ -596,7 +597,7 @@ describe('Solana Processor Utils', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           feePaidByUser: true,
           feeAbsorbedByMovement: false,
           fromAddress: 'user123',
@@ -608,14 +609,14 @@ describe('Solana Processor Utils', () => {
           instructionCount: 10,
           transactionCount: 1,
           inflows: [
-            { amount: '100', asset: 'USDC' },
-            { amount: '50', asset: 'USDT' },
+            { amount: '100', asset: 'USDC' as Currency },
+            { amount: '50', asset: 'USDT' as Currency },
           ],
           outflows: [
-            { amount: '5', asset: 'SOL' },
-            { amount: '1000', asset: 'BONK' },
+            { amount: '5', asset: 'SOL' as Currency },
+            { amount: '1000', asset: 'BONK' as Currency },
           ],
-          primary: { amount: '100', asset: 'USDC' },
+          primary: { amount: '100', asset: 'USDC' as Currency },
           classificationUncertainty:
             'Complex transaction with 2 outflow(s) and 2 inflow(s). May be liquidity provision, batch operation, or multi-asset swap.',
         };
@@ -633,7 +634,7 @@ describe('Solana Processor Utils', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           feePaidByUser: true,
           feeAbsorbedByMovement: false,
           fromAddress: 'user123',
@@ -645,14 +646,14 @@ describe('Solana Processor Utils', () => {
           instructionCount: 5,
           transactionCount: 1,
           inflows: [
-            { amount: '100', asset: 'USDC' },
-            { amount: '50', asset: 'SOL' },
+            { amount: '100', asset: 'USDC' as Currency },
+            { amount: '50', asset: 'SOL' as Currency },
           ],
           outflows: [
-            { amount: '100', asset: 'USDC' },
-            { amount: '25', asset: 'SOL' },
+            { amount: '100', asset: 'USDC' as Currency },
+            { amount: '25', asset: 'SOL' as Currency },
           ],
-          primary: { amount: '100', asset: 'USDC' },
+          primary: { amount: '100', asset: 'USDC' as Currency },
         };
 
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
@@ -668,7 +669,7 @@ describe('Solana Processor Utils', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           feePaidByUser: true,
           feeAbsorbedByMovement: false,
           fromAddress: 'user123',
@@ -680,14 +681,14 @@ describe('Solana Processor Utils', () => {
           instructionCount: 1,
           transactionCount: 1,
           inflows: [
-            { amount: '100', asset: 'USDC' },
-            { amount: '50', asset: 'USDT' },
+            { amount: '100', asset: 'USDC' as Currency },
+            { amount: '50', asset: 'USDT' as Currency },
           ],
           outflows: [
-            { amount: '75', asset: 'SOL' },
-            { amount: '25', asset: 'BONK' },
+            { amount: '75', asset: 'SOL' as Currency },
+            { amount: '25', asset: 'BONK' as Currency },
           ],
-          primary: { amount: '100', asset: 'USDC' },
+          primary: { amount: '100', asset: 'USDC' as Currency },
         };
 
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
@@ -719,7 +720,7 @@ describe('Solana Processor Utils', () => {
     it('should collect SOL outflows from account changes', () => {
       const tx = createTx({
         feeAmount: '0.000005', // 0.000005 SOL
-        feeCurrency: 'SOL',
+        feeCurrency: 'SOL' as Currency,
         accountChanges: [
           {
             account: userAddress,
@@ -741,7 +742,7 @@ describe('Solana Processor Utils', () => {
       const tx = createTx({
         feePayer: otherAddress,
         feeAmount: '0.000005', // 0.000005 SOL
-        feeCurrency: 'SOL',
+        feeCurrency: 'SOL' as Currency,
         accountChanges: [
           {
             account: userAddress,
@@ -762,7 +763,7 @@ describe('Solana Processor Utils', () => {
     it('should collect token outflows from token changes', () => {
       const tx = createTx({
         feeAmount: '0.000005', // 0.000005 SOL
-        feeCurrency: 'SOL',
+        feeCurrency: 'SOL' as Currency,
         tokenChanges: [
           {
             account: 'tokenAccount123',
@@ -790,7 +791,7 @@ describe('Solana Processor Utils', () => {
       const tx = createTx({
         feePayer: otherAddress,
         feeAmount: '0.000005', // 0.000005 SOL
-        feeCurrency: 'SOL',
+        feeCurrency: 'SOL' as Currency,
         tokenChanges: [
           {
             account: 'tokenAccount123',
@@ -815,7 +816,7 @@ describe('Solana Processor Utils', () => {
     it('should determine feePaidByUser when user has outflows', () => {
       const tx = createTx({
         feeAmount: '0.000005', // 0.000005 SOL
-        feeCurrency: 'SOL',
+        feeCurrency: 'SOL' as Currency,
         accountChanges: [
           {
             account: userAddress,
@@ -834,7 +835,7 @@ describe('Solana Processor Utils', () => {
       const tx = createTx({
         feePayer: otherAddress,
         feeAmount: '0.000005', // 0.000005 SOL
-        feeCurrency: 'SOL',
+        feeCurrency: 'SOL' as Currency,
         accountChanges: [
           {
             account: userAddress,
@@ -853,7 +854,7 @@ describe('Solana Processor Utils', () => {
       const tx = createTx({
         feePayer: userAddress,
         feeAmount: '0.000005', // 0.000005 SOL
-        feeCurrency: 'SOL',
+        feeCurrency: 'SOL' as Currency,
         accountChanges: [
           {
             account: userAddress,
@@ -873,7 +874,7 @@ describe('Solana Processor Utils', () => {
       it('should deduct fee from SOL outflow', () => {
         const tx = createTx({
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           accountChanges: [
             {
               account: userAddress,
@@ -895,7 +896,7 @@ describe('Solana Processor Utils', () => {
         const tx = createTx({
           feePayer: userAddress,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           accountChanges: [
             {
               account: userAddress,
@@ -916,7 +917,7 @@ describe('Solana Processor Utils', () => {
         const tx = createTx({
           feePayer: userAddress,
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           accountChanges: [
             {
               account: userAddress,
@@ -934,7 +935,7 @@ describe('Solana Processor Utils', () => {
       it('should not set feeAbsorbedByMovement when outflows remain after fee deduction', () => {
         const tx = createTx({
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           accountChanges: [
             {
               account: userAddress,
@@ -953,7 +954,7 @@ describe('Solana Processor Utils', () => {
       it('should not deduct fee from token outflows, only SOL', () => {
         const tx = createTx({
           feeAmount: '0.000005', // 0.000005 SOL
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           tokenChanges: [
             {
               account: 'tokenAccount123',
@@ -988,7 +989,7 @@ describe('Solana Processor Utils', () => {
       it('should handle multiple SOL outflows with fee deduction', () => {
         const tx = createTx({
           feeAmount: '10000', // 0.000010 SOL in lamports
-          feeCurrency: 'SOL',
+          feeCurrency: 'SOL' as Currency,
           accountChanges: [
             {
               account: userAddress,
@@ -1009,7 +1010,7 @@ describe('Solana Processor Utils', () => {
     it('should skip zero balance changes', () => {
       const tx = createTx({
         feeAmount: '0.000005', // 0.000005 SOL
-        feeCurrency: 'SOL',
+        feeCurrency: 'SOL' as Currency,
         accountChanges: [
           {
             account: userAddress,
@@ -1029,7 +1030,7 @@ describe('Solana Processor Utils', () => {
       const tx = createTx({
         feePayer: otherAddress,
         feeAmount: '0.000005', // 0.000005 SOL
-        feeCurrency: 'SOL',
+        feeCurrency: 'SOL' as Currency,
         accountChanges: [
           {
             account: otherAddress,
@@ -1048,7 +1049,7 @@ describe('Solana Processor Utils', () => {
     it('should set classification uncertainty for multi-asset transactions', () => {
       const tx = createTx({
         feeAmount: '0.000005', // 0.000005 SOL
-        feeCurrency: 'SOL',
+        feeCurrency: 'SOL' as Currency,
         tokenChanges: [
           {
             account: 'tokenAccount123',
@@ -1091,7 +1092,7 @@ describe('Solana Processor Utils', () => {
       const tx = createTx({
         feePayer: otherAddress,
         feeAmount: '0.000005', // 0.000005 SOL
-        feeCurrency: 'SOL',
+        feeCurrency: 'SOL' as Currency,
         tokenChanges: [
           {
             account: 'tokenAccount123',
@@ -1123,7 +1124,7 @@ describe('Solana Processor Utils', () => {
     it('should select largest outflow as primary when no inflows', () => {
       const tx = createTx({
         feeAmount: '0.000005', // 0.000005 SOL
-        feeCurrency: 'SOL',
+        feeCurrency: 'SOL' as Currency,
         accountChanges: [
           {
             account: userAddress,

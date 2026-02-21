@@ -10,7 +10,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { createProviderRegistry } from '../../../initialize.js';
 import type { NormalizedTransactionBase } from '../../schemas/normalized-transaction.js';
-import type { OneShotOperation, StreamingBatchResult, StreamingOperation } from '../../types/index.js';
+import type {
+  OneShotOperation,
+  OneShotOperationResult,
+  StreamingBatchResult,
+  StreamingOperation,
+} from '../../types/index.js';
 import { ProviderError, type IBlockchainProvider, type ProviderCapabilities } from '../../types/index.js';
 import { BlockchainProviderManager } from '../provider-manager.js';
 
@@ -37,16 +42,21 @@ class MockProvider implements IBlockchainProvider {
     this.rateLimit = { requestsPerSecond: 1 };
   }
 
-  async execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
+  async execute<TOperation extends OneShotOperation>(
+    operation: TOperation
+  ): Promise<Result<OneShotOperationResult<TOperation>, Error>> {
     if (this.responseDelay > 0) {
       await new Promise((resolve) => setTimeout(resolve, this.responseDelay));
     }
     if (this.shouldFail) return err(new Error(`${this.name} provider failed`));
     switch (operation.type) {
       case 'getAddressBalances':
-        return ok({ balance: 100, currency: 'ETH' } as T);
+        return ok({ rawAmount: '100', symbol: 'ETH' } as unknown as OneShotOperationResult<TOperation>);
+      case 'getAddressTokenBalances':
+      case 'getTokenMetadata':
+        return ok([] as unknown as OneShotOperationResult<TOperation>);
       default:
-        return ok({ success: true } as T);
+        return err(new Error(`Unsupported operation: ${operation.type}`));
     }
   }
 
@@ -139,21 +149,21 @@ describe('BlockchainProviderManager', () => {
 
   test('should execute operations with primary provider', async () => {
     const operation: OneShotOperation = { address: '0x123', type: 'getAddressBalances' };
-    const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
+    const result = await manager.executeWithFailoverOnce('ethereum', operation);
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.data.balance).toBe(100);
-      expect(result.value.data.currency).toBe('ETH');
+      expect(result.value.data.rawAmount).toBe('100');
+      expect(result.value.data.symbol).toBe('ETH');
     }
   });
 
   test('should failover to secondary provider', async () => {
     primaryProvider.setFailureMode(true);
     const operation: OneShotOperation = { address: '0x123', type: 'getAddressBalances' };
-    const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
+    const result = await manager.executeWithFailoverOnce('ethereum', operation);
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.data.balance).toBe(100);
+      expect(result.value.data.rawAmount).toBe('100');
     }
   });
 
@@ -161,7 +171,7 @@ describe('BlockchainProviderManager', () => {
     primaryProvider.setFailureMode(true);
     fallbackProvider.setFailureMode(true);
     const operation: OneShotOperation = { address: '0x123', type: 'getAddressBalances' };
-    const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
+    const result = await manager.executeWithFailoverOnce('ethereum', operation);
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error).toBeInstanceOf(ProviderError);
@@ -177,14 +187,14 @@ describe('BlockchainProviderManager', () => {
       type: 'getAddressBalances',
     };
 
-    const result1 = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
+    const initialResult = await manager.executeWithFailoverOnce('ethereum', operation);
 
     // Kill both providers — should still return cached result
     primaryProvider.setFailureMode(true);
     fallbackProvider.setFailureMode(true);
 
-    const result2 = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
-    expect(result2).toEqual(result1);
+    const postFailoverResult = await manager.executeWithFailoverOnce('ethereum', operation);
+    expect(postFailoverResult).toEqual(initialResult);
   });
 
   test('should provide health status', () => {
@@ -197,10 +207,7 @@ describe('BlockchainProviderManager', () => {
 
   test('should handle unsupported operations', async () => {
     const operation: OneShotOperation = { address: '0x123', type: 'getAddressTokenBalances' };
-    const result = await manager.executeWithFailoverOnce<{ success: boolean }>(
-      'ethereum',
-      operation as OneShotOperation
-    );
+    const result = await manager.executeWithFailoverOnce('ethereum', operation as OneShotOperation);
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error).toBeInstanceOf(ProviderError);
@@ -217,20 +224,17 @@ describe('BlockchainProviderManager', () => {
       const operation: OneShotOperation = { address: '0x123', type: 'getAddressBalances' };
 
       primaryProvider.setFailureMode(true);
-      await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
-      await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
-      await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
+      await manager.executeWithFailoverOnce('ethereum', operation);
+      await manager.executeWithFailoverOnce('ethereum', operation);
+      await manager.executeWithFailoverOnce('ethereum', operation);
 
       executeSpyPrimary.mockClear();
       executeSpyFallback.mockClear();
       primaryProvider.setFailureMode(false);
 
-      const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>(
-        'ethereum',
-        operation
-      );
+      const result = await manager.executeWithFailoverOnce('ethereum', operation);
       expect(result.isOk()).toBe(true);
-      if (result.isOk()) expect(result.value.data.balance).toBe(100);
+      if (result.isOk()) expect(result.value.data.rawAmount).toBe('100');
       expect(executeSpyPrimary).not.toHaveBeenCalled();
       expect(executeSpyFallback).toHaveBeenCalledTimes(1);
     } finally {
@@ -280,16 +284,16 @@ describe('BlockchainProviderManager', () => {
       type: 'getAddressBalances',
     };
 
-    const result1 = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
+    const result1 = await manager.executeWithFailoverOnce('ethereum', operation);
     expect(result1.isOk()).toBe(true);
 
     vi.advanceTimersByTime(35000); // advance past 30s cache TTL
 
     primaryProvider.setFailureMode(true);
 
-    const result2 = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
+    const result2 = await manager.executeWithFailoverOnce('ethereum', operation);
     expect(result2.isOk()).toBe(true);
-    if (result2.isOk()) expect(result2.value.data.balance).toBe(100); // from fallback, not stale cache
+    if (result2.isOk()) expect(result2.value.data.rawAmount).toBe('100'); // from fallback, not stale cache
 
     vi.useRealTimers();
   });
@@ -330,10 +334,7 @@ describe('BlockchainProviderManager lifecycle', () => {
       manager.registerProviders('ethereum', [mismatchedProvider]);
 
       const operation: OneShotOperation = { address: '0x123', type: 'getAddressBalances' };
-      const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>(
-        'ethereum',
-        operation
-      );
+      const result = await manager.executeWithFailoverOnce('ethereum', operation);
       expect(result.isOk()).toBe(true);
 
       const health = manager.getProviderHealth('ethereum');
@@ -424,7 +425,7 @@ describe('Preferred Provider Behavior', () => {
     const executeSpyRoutescan = vi.spyOn(routescanProvider, 'execute');
     const executeSpyMoralis = vi.spyOn(moralisProvider, 'execute');
 
-    const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', {
+    const result = await manager.executeWithFailoverOnce('ethereum', {
       address: '0x123',
       type: 'getAddressBalances',
     });
@@ -444,7 +445,7 @@ describe('Preferred Provider Behavior', () => {
     const executeSpyRoutescan = vi.spyOn(routescanProvider, 'execute');
     const executeSpyMoralis = vi.spyOn(moralisProvider, 'execute');
 
-    const result = await manager.executeWithFailoverOnce<{ success: boolean }>('ethereum', {
+    const result = await manager.executeWithFailoverOnce('ethereum', {
       type: 'getTokenMetadata',
       contractAddresses: ['0xabc'],
     });
@@ -466,7 +467,7 @@ describe('Preferred Provider Behavior', () => {
     const executeSpyRoutescan = vi.spyOn(routescanProvider, 'execute');
     const executeSpyMoralis = vi.spyOn(moralisProvider, 'execute');
 
-    const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', {
+    const result = await manager.executeWithFailoverOnce('ethereum', {
       address: '0x123',
       type: 'getAddressBalances',
     });
@@ -484,7 +485,7 @@ describe('Preferred Provider Behavior', () => {
 
     const executeSpyRoutescan = vi.spyOn(routescanProvider, 'execute');
 
-    const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', {
+    const result = await manager.executeWithFailoverOnce('ethereum', {
       address: '0x123',
       type: 'getAddressBalances',
     });

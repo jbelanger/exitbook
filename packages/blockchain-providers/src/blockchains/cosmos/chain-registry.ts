@@ -11,7 +11,7 @@ import cosmosChainsData from './cosmos-chains.json' with { type: 'json' };
  * const processor = new CosmosProcessor(COSMOS_CHAINS.osmosis);
  * ```
  */
-export const COSMOS_CHAINS = cosmosChainsData as Record<string, CosmosChainConfig>;
+export const COSMOS_CHAINS = cosmosChainsData as unknown as Record<string, CosmosChainConfig>;
 
 /**
  * Type-safe chain names for all supported Cosmos SDK chains

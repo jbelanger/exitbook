@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -860,7 +860,7 @@ function createLink(params: {
     id: params.id,
     sourceTransactionId: params.sourceTransactionId,
     targetTransactionId: params.targetTransactionId,
-    assetSymbol: params.assetSymbol,
+    assetSymbol: params.assetSymbol as Currency,
     sourceAssetId: params.assetSymbol,
     targetAssetId: params.assetSymbol,
     sourceAmount: params.sourceAmount,

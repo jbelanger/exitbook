@@ -5,7 +5,12 @@ import type { Result } from 'neverthrow';
 import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
 
 import type { TransactionWithRawData } from './common.js';
-import type { OneShotOperation, ProviderOperationType, StreamingOperation } from './operations.js';
+import type {
+  OneShotOperation,
+  OneShotOperationResult,
+  ProviderOperationType,
+  StreamingOperation,
+} from './operations.js';
 
 export interface ProviderCapabilities {
   /**
@@ -59,7 +64,9 @@ export interface IBlockchainProvider {
   readonly blockchain: string;
   readonly capabilities: ProviderCapabilities;
   // Universal execution method - all operations go through this
-  execute<T>(operation: OneShotOperation): Promise<Result<T, Error>>;
+  execute<TOperation extends OneShotOperation>(
+    operation: TOperation
+  ): Promise<Result<OneShotOperationResult<TOperation>, Error>>;
   // Health and connectivity - returns Result to allow special error handling (e.g., RateLimitError)
   isHealthy(): Promise<Result<boolean, Error>>;
 

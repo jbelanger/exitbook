@@ -1,3 +1,5 @@
+import type { Currency } from '@exitbook/core';
+
 /**
  * Configuration interface for EVM-compatible blockchains
  *
@@ -23,7 +25,7 @@ export interface EvmChainConfig {
   /**
    * Symbol for the native currency (e.g., 'ETH', 'AVAX')
    */
-  nativeCurrency: string;
+  nativeCurrency: Currency;
 
   /**
    * Number of decimals for the native currency (typically 18 for EVM chains)
@@ -38,7 +40,7 @@ export interface EvmChainConfig {
    * // Theta has two native currencies: TFUEL (gas) and THETA (staking/governance)
    * additionalNativeCurrencies: ['THETA']
    */
-  additionalNativeCurrencies?: string[] | undefined;
+  additionalNativeCurrencies?: Currency[] | undefined;
 
   /**
    * Transaction types supported by this chain.

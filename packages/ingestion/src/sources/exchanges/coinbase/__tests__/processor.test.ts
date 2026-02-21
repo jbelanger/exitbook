@@ -1,3 +1,4 @@
+import type { Currency } from '@exitbook/core';
 import type { CoinbaseLedgerEntry } from '@exitbook/exchanges-providers';
 import { describe, expect, test } from 'vitest';
 
@@ -20,7 +21,7 @@ function buildEntry(
       correlationId: 'corr-1',
       timestamp,
       type: 'advanced_trade_fill',
-      assetSymbol: 'USDC',
+      assetSymbol: 'USDC' as Currency,
       amount: '100.00',
       status: 'success',
     },
@@ -68,7 +69,7 @@ describe('CoinbaseProcessor - Interest/Staking Rewards', () => {
         id: 'interest-1',
         correlationId: 'interest-corr-1',
         type: 'interest',
-        assetSymbol: 'USDC',
+        assetSymbol: 'USDC' as Currency,
         amount: '0.000798',
       },
       raw: {
@@ -108,7 +109,7 @@ describe('CoinbaseProcessor - Interest/Staking Rewards', () => {
           id: 'interest-1',
           correlationId: 'interest-corr-1',
           type: 'interest',
-          assetSymbol: 'USDC',
+          assetSymbol: 'USDC' as Currency,
           amount: '0.000798',
         },
         raw: {
@@ -123,7 +124,7 @@ describe('CoinbaseProcessor - Interest/Staking Rewards', () => {
           id: 'interest-2',
           correlationId: 'interest-corr-2',
           type: 'interest',
-          assetSymbol: 'ETH',
+          assetSymbol: 'ETH' as Currency,
           amount: '0.0001',
         },
         raw: {
@@ -160,7 +161,7 @@ describe('CoinbaseProcessor - Regular Deposits', () => {
         id: 'deposit-1',
         correlationId: 'deposit-corr-1',
         type: 'fiat_deposit',
-        assetSymbol: 'USD',
+        assetSymbol: 'USD' as Currency,
         amount: '100.00',
       },
       raw: {
@@ -197,7 +198,7 @@ describe('CoinbaseProcessor - Regular Deposits', () => {
         id: 'deposit-2',
         correlationId: 'deposit-corr-2',
         type: 'send',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: '0.01',
       },
       raw: {
@@ -232,10 +233,10 @@ describe('CoinbaseProcessor - Withdrawals', () => {
         id: 'withdrawal-1',
         correlationId: 'withdrawal-corr-1',
         type: 'fiat_withdrawal',
-        assetSymbol: 'USD',
+        assetSymbol: 'USD' as Currency,
         amount: '-50.00',
         fee: '1.00',
-        feeCurrency: 'USD',
+        feeCurrency: 'USD' as Currency,
       },
       raw: {
         id: 'withdrawal-1',
@@ -275,10 +276,10 @@ describe('CoinbaseProcessor - Withdrawals', () => {
         id: 'withdrawal-2',
         correlationId: 'withdrawal-corr-2',
         type: 'transaction',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         amount: '-1.5',
         fee: '0.001',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
       },
       raw: {
         id: 'withdrawal-2',
@@ -322,10 +323,10 @@ describe('CoinbaseProcessor - Swaps/Trades', () => {
           id: 'trade-1-out',
           correlationId: 'trade-corr-1',
           type: 'advanced_trade_fill',
-          assetSymbol: 'USDC',
+          assetSymbol: 'USDC' as Currency,
           amount: '-100.00',
           fee: '0.05',
-          feeCurrency: 'USDC',
+          feeCurrency: 'USDC' as Currency,
         },
         raw: {
           id: 'trade-1-out',
@@ -340,10 +341,10 @@ describe('CoinbaseProcessor - Swaps/Trades', () => {
           id: 'trade-1-in',
           correlationId: 'trade-corr-1',
           type: 'advanced_trade_fill',
-          assetSymbol: 'ETH',
+          assetSymbol: 'ETH' as Currency,
           amount: '0.04',
           fee: '0.05',
-          feeCurrency: 'USDC',
+          feeCurrency: 'USDC' as Currency,
         },
         raw: {
           id: 'trade-1-in',
@@ -387,7 +388,7 @@ describe('CoinbaseProcessor - Mixed Transaction Batch', () => {
           id: 'interest-1',
           correlationId: 'interest-corr-1',
           type: 'interest',
-          assetSymbol: 'USDC',
+          assetSymbol: 'USDC' as Currency,
           amount: '0.5',
         },
         raw: {
@@ -402,7 +403,7 @@ describe('CoinbaseProcessor - Mixed Transaction Batch', () => {
           id: 'deposit-1',
           correlationId: 'deposit-corr-1',
           type: 'fiat_deposit',
-          assetSymbol: 'USD',
+          assetSymbol: 'USD' as Currency,
           amount: '100',
         },
         raw: {
@@ -417,7 +418,7 @@ describe('CoinbaseProcessor - Mixed Transaction Batch', () => {
           id: 'withdrawal-1',
           correlationId: 'withdrawal-corr-1',
           type: 'fiat_withdrawal',
-          assetSymbol: 'USD',
+          assetSymbol: 'USD' as Currency,
           amount: '-50',
         },
         raw: {
@@ -453,7 +454,7 @@ describe('CoinbaseProcessor - Blockchain Hash Extraction', () => {
         id: 'deposit-with-hash',
         correlationId: 'deposit-corr-1',
         type: 'send',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: '0.01',
         hash: '0xabc123def456',
         network: 'bitcoin',
@@ -492,7 +493,7 @@ describe('CoinbaseProcessor - Blockchain Hash Extraction', () => {
         id: 'pending-deposit',
         correlationId: 'deposit-corr-2',
         type: 'send',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         amount: '1.5',
         status: 'pending',
         hash: '0xpending123',
@@ -530,7 +531,7 @@ describe('CoinbaseProcessor - Blockchain Hash Extraction', () => {
         id: 'deposit-no-network',
         correlationId: 'deposit-corr-3',
         type: 'send',
-        assetSymbol: 'USDC',
+        assetSymbol: 'USDC' as Currency,
         amount: '100',
         hash: '0xhash456',
       },
@@ -565,7 +566,7 @@ describe('CoinbaseProcessor - Blockchain Hash Extraction', () => {
         id: 'deposit-no-hash',
         correlationId: 'deposit-corr-4',
         type: 'send',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: '0.01',
         hash: '',
       },
@@ -598,7 +599,7 @@ describe('CoinbaseProcessor - Blockchain Hash Extraction', () => {
         id: 'fiat-deposit',
         correlationId: 'deposit-corr-5',
         type: 'fiat_deposit',
-        assetSymbol: 'USD',
+        assetSymbol: 'USD' as Currency,
         amount: '100',
       },
       raw: {

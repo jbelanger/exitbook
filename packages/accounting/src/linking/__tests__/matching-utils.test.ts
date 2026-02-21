@@ -1,5 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { type Currency, type UniversalTransactionData, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -136,7 +135,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date(),
         assetId: 'test:sol',
-        assetSymbol: 'SOL',
+        assetSymbol: 'SOL' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -150,7 +149,7 @@ describe('matching-utils', () => {
         externalId: 'D123',
         timestamp: new Date(),
         assetId: 'test:sol',
-        assetSymbol: 'SOL',
+        assetSymbol: 'SOL' as Currency,
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: undefined,
@@ -169,7 +168,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date(),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -183,7 +182,7 @@ describe('matching-utils', () => {
         externalId: 'txabc',
         timestamp: new Date(),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qxyz123',
@@ -202,7 +201,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date(),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -216,7 +215,7 @@ describe('matching-utils', () => {
         externalId: 'txabc',
         timestamp: new Date(),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qdifferent',
@@ -235,7 +234,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date(),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -249,7 +248,7 @@ describe('matching-utils', () => {
         externalId: 'txabc',
         timestamp: new Date(),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: undefined,
@@ -268,7 +267,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date(),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -282,7 +281,7 @@ describe('matching-utils', () => {
         externalId: 'txabc',
         timestamp: new Date(),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qxyz123',
@@ -376,7 +375,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -390,7 +389,7 @@ describe('matching-utils', () => {
         externalId: 'txabc',
         timestamp: new Date('2024-01-01T13:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qxyz123',
@@ -416,7 +415,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -431,7 +430,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.99'),
           direction: 'in',
           fromAddress: 'bc1qxyz123',
@@ -444,7 +443,7 @@ describe('matching-utils', () => {
           externalId: 'txdef',
           timestamp: new Date('2024-01-01T14:00:00Z'),
           assetId: 'test:eth',
-          assetSymbol: 'ETH', // Different asset
+          assetSymbol: 'ETH' as Currency, // Different asset
           amount: parseDecimal('0.99'),
           direction: 'in',
           fromAddress: undefined,
@@ -467,7 +466,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -482,7 +481,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.3'), // Very different amount
           direction: 'in',
           fromAddress: undefined,
@@ -504,7 +503,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -519,7 +518,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T20:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.95'), // Good match but later
           direction: 'in',
           fromAddress: undefined,
@@ -532,7 +531,7 @@ describe('matching-utils', () => {
           externalId: 'txdef',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.99'), // Better match, sooner
           direction: 'in',
           fromAddress: undefined,
@@ -596,7 +595,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T14:00:00Z'), // Withdrawal at 14:00
         assetId: 'exchange:kraken:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -611,7 +610,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T12:00:00Z'), // Deposit at 12:00 (BEFORE withdrawal)
           assetId: 'blockchain:bitcoin:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('1.0'), // Perfect amount match
           direction: 'in',
           fromAddress: undefined,
@@ -633,7 +632,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -648,7 +647,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-04T12:00:00Z'), // 72 hours later (outside 48h window)
           assetId: 'blockchain:bitcoin:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('1.0'),
           direction: 'in',
           fromAddress: undefined,
@@ -672,7 +671,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -687,7 +686,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.90'), // 90% similarity (below 95% threshold)
           direction: 'in',
           fromAddress: undefined,
@@ -709,7 +708,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -724,7 +723,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.95'), // Exactly 95% (meets threshold)
           direction: 'in',
           fromAddress: undefined,
@@ -952,8 +951,8 @@ describe('matching-utils', () => {
           from: undefined,
           to: undefined,
           movements: {
-            inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
-            outflows: [{ assetSymbol: 'USD', grossAmount: parseDecimal('50000') }],
+            inflows: [{ assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
+            outflows: [{ assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
           },
         },
       ] as UniversalTransactionData[]; // Updated type assertion
@@ -966,7 +965,7 @@ describe('matching-utils', () => {
         externalId: 'tx-1',
         sourceName: 'kraken',
         sourceType: 'exchange',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         direction: 'in',
       });
       expect(candidates[1]).toMatchObject({
@@ -974,7 +973,7 @@ describe('matching-utils', () => {
         externalId: 'tx-1',
         sourceName: 'kraken',
         sourceType: 'exchange',
-        assetSymbol: 'USD',
+        assetSymbol: 'USD' as Currency,
         direction: 'out',
       });
     });
@@ -1004,7 +1003,7 @@ describe('matching-utils', () => {
             type: 'transfer',
           },
           movements: {
-            inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('0.5') }],
+            inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('0.5') }],
             outflows: [],
           },
         },
@@ -1031,10 +1030,10 @@ describe('matching-utils', () => {
           datetime: '2024-01-01T12:00:00Z',
           movements: {
             inflows: [
-              { assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') },
-              { assetSymbol: 'ETH', grossAmount: parseDecimal('10.0') },
+              { assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') },
+              { assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('10.0') },
             ],
-            outflows: [{ assetSymbol: 'USD', grossAmount: parseDecimal('60000') }],
+            outflows: [{ assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('60000') }],
           },
         },
       ] as UniversalTransactionData[];
@@ -1076,7 +1075,7 @@ describe('matching-utils', () => {
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1086,7 +1085,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.9995'),
           direction: 'in',
         },
@@ -1096,7 +1095,7 @@ describe('matching-utils', () => {
           sourceType: 'exchange',
           timestamp: new Date('2024-01-02T12:00:00Z'),
           assetId: 'test:eth',
-          assetSymbol: 'ETH',
+          assetSymbol: 'ETH' as Currency,
           amount: parseDecimal('10.0'),
           direction: 'out',
         },
@@ -1118,7 +1117,7 @@ describe('matching-utils', () => {
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('1.0'),
           direction: 'neutral',
         },
@@ -1128,7 +1127,7 @@ describe('matching-utils', () => {
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1155,13 +1154,13 @@ describe('matching-utils', () => {
           sourceTransaction: {
             id: 1,
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             amount: parseDecimal('1.0'),
           } as TransactionCandidate,
           targetTransaction: {
             id: 2,
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             amount: parseDecimal('0.9995'),
           } as TransactionCandidate,
           confidenceScore: parseDecimal('0.98'),
@@ -1177,13 +1176,13 @@ describe('matching-utils', () => {
           sourceTransaction: {
             id: 3,
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             amount: parseDecimal('1.0'),
           } as TransactionCandidate,
           targetTransaction: {
             id: 2,
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             amount: parseDecimal('0.9995'),
           } as TransactionCandidate,
           confidenceScore: parseDecimal('0.85'),
@@ -1210,13 +1209,13 @@ describe('matching-utils', () => {
           sourceTransaction: {
             id: 1,
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             amount: parseDecimal('1.0'),
           } as TransactionCandidate,
           targetTransaction: {
             id: 2,
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             amount: parseDecimal('0.9995'),
           } as TransactionCandidate,
           confidenceScore: parseDecimal('0.98'),
@@ -1245,13 +1244,13 @@ describe('matching-utils', () => {
           sourceTransaction: {
             id: 1,
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             amount: parseDecimal('1.0'),
           } as TransactionCandidate,
           targetTransaction: {
             id: 2,
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             amount: parseDecimal('0.95'),
           } as TransactionCandidate,
           confidenceScore: parseDecimal('0.85'),
@@ -1277,13 +1276,13 @@ describe('matching-utils', () => {
           sourceTransaction: {
             id: 1,
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             amount: parseDecimal('1.0'),
           } as TransactionCandidate,
           targetTransaction: {
             id: 2,
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             amount: parseDecimal('0.9995'),
           } as TransactionCandidate,
           confidenceScore: parseDecimal('0.98'),
@@ -1299,13 +1298,13 @@ describe('matching-utils', () => {
           sourceTransaction: {
             id: 3,
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             amount: parseDecimal('10.0'),
           } as TransactionCandidate,
           targetTransaction: {
             id: 4,
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             amount: parseDecimal('9.98'),
           } as TransactionCandidate,
           confidenceScore: parseDecimal('0.97'),
@@ -1338,7 +1337,7 @@ describe('matching-utils', () => {
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1348,7 +1347,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.9995'),
           direction: 'in',
         },
@@ -1393,7 +1392,7 @@ describe('matching-utils', () => {
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1403,7 +1402,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.95'),
           direction: 'in',
         },
@@ -1436,7 +1435,7 @@ describe('matching-utils', () => {
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1446,7 +1445,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('1.5'),
           direction: 'in',
         },
@@ -1476,7 +1475,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-07-25T20:32:02.000Z'),
           assetId: 'test:ada',
-          assetSymbol: 'ADA',
+          assetSymbol: 'ADA' as Currency,
           amount: parseDecimal('2669.193991'),
           direction: 'out',
           blockchainTransactionHash: '0c62fbdfe97c5e94346f0976114b769b45080dc5d9e0c03ca33ad112dc8f25cf',
@@ -1487,7 +1486,7 @@ describe('matching-utils', () => {
           sourceType: 'exchange',
           timestamp: new Date('2024-07-25T20:35:47.000Z'),
           assetId: 'test:ada',
-          assetSymbol: 'ADA',
+          assetSymbol: 'ADA' as Currency,
           amount: parseDecimal('2679.718442'), // ~0.39% higher
           direction: 'in',
           blockchainTransactionHash: '0c62fbdfe97c5e94346f0976114b769b45080dc5d9e0c03ca33ad112dc8f25cf',
@@ -1520,7 +1519,7 @@ describe('matching-utils', () => {
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1530,7 +1529,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.85'),
           direction: 'in',
         },
@@ -1560,7 +1559,7 @@ describe('matching-utils', () => {
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1570,7 +1569,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.95'),
           direction: 'in',
         },
@@ -1632,7 +1631,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -1643,7 +1642,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: '0xabc123',
@@ -1660,7 +1659,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: '0xdef456',
@@ -1671,7 +1670,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: '0xdef456-819', // With log index
@@ -1688,7 +1687,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: '0xABC123',
@@ -1699,7 +1698,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: '0xabc123',
@@ -1716,7 +1715,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:sol',
-        assetSymbol: 'SOL',
+        assetSymbol: 'SOL' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: 'AbC123DeFg456', // Solana base58 hash
@@ -1727,7 +1726,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetId: 'test:sol',
-        assetSymbol: 'SOL',
+        assetSymbol: 'SOL' as Currency,
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: 'abc123defg456', // Different case
@@ -1744,7 +1743,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:sol',
-        assetSymbol: 'SOL',
+        assetSymbol: 'SOL' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: 'AbC123DeFg456',
@@ -1755,7 +1754,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetId: 'test:sol',
-        assetSymbol: 'SOL',
+        assetSymbol: 'SOL' as Currency,
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: 'AbC123DeFg456', // Exact case match
@@ -1772,7 +1771,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -1783,7 +1782,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: '0xdef456',
@@ -1800,7 +1799,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
       };
@@ -1810,7 +1809,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: '0xabc123',
@@ -1827,7 +1826,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -1838,7 +1837,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.999'),
         direction: 'in',
       };
@@ -1854,7 +1853,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123-819',
@@ -1865,7 +1864,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('99.5'),
         direction: 'in',
         blockchainTransactionHash: '0xabc123-819', // Same log index
@@ -1882,7 +1881,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123-819',
@@ -1893,7 +1892,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('50.0'),
         direction: 'in',
         blockchainTransactionHash: '0xabc123-820', // Different log index
@@ -1912,7 +1911,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123-819',
@@ -1923,7 +1922,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('50.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123-820',
@@ -1934,7 +1933,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('149.5'),
         direction: 'in',
         blockchainTransactionHash: '0xabc123',
@@ -1961,7 +1960,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -1973,7 +1972,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.999'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
@@ -1994,7 +1993,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -2007,7 +2006,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('1.0'), // Exact amount match
           direction: 'in',
           blockchainTransactionHash: '0xdifferent',
@@ -2019,7 +2018,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:10:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.95'), // 5% fee
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
@@ -2043,7 +2042,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: '0xdef456',
@@ -2055,7 +2054,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:eth',
-          assetSymbol: 'ETH',
+          assetSymbol: 'ETH' as Currency,
           amount: parseDecimal('0.999'),
           direction: 'in',
           blockchainTransactionHash: '0xdef456-819', // With log index
@@ -2075,7 +2074,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -2087,7 +2086,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.999'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123', // Same hash
@@ -2112,7 +2111,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -2124,7 +2123,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-03T14:00:00Z'), // 50 hours later (outside default 48h window)
           assetId: 'blockchain:bitcoin:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.999'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
@@ -2146,7 +2145,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -2159,7 +2158,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:usdt',
-          assetSymbol: 'USDT',
+          assetSymbol: 'USDT' as Currency,
           amount: parseDecimal('99.5'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123-819',
@@ -2170,7 +2169,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           assetId: 'test:usdt',
-          assetSymbol: 'USDT',
+          assetSymbol: 'USDT' as Currency,
           amount: parseDecimal('50.0'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123-820',
@@ -2194,7 +2193,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -2207,7 +2206,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:usdt',
-          assetSymbol: 'USDT',
+          assetSymbol: 'USDT' as Currency,
           amount: parseDecimal('99.5'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123-819',
@@ -2219,7 +2218,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           assetId: 'test:usdt',
-          assetSymbol: 'USDT',
+          assetSymbol: 'USDT' as Currency,
           amount: parseDecimal('50.0'),
           direction: 'in',
           blockchainTransactionHash: '0xdef456-820',
@@ -2242,7 +2241,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -2255,7 +2254,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:usdt',
-          assetSymbol: 'USDT',
+          assetSymbol: 'USDT' as Currency,
           amount: parseDecimal('99.5'),
           direction: 'in',
           blockchainTransactionHash: '0xABC123',
@@ -2267,7 +2266,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           assetId: 'test:usdt',
-          assetSymbol: 'USDT',
+          assetSymbol: 'USDT' as Currency,
           amount: parseDecimal('50.0'),
           direction: 'in',
           blockchainTransactionHash: '0xAbC123',
@@ -2291,7 +2290,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:sol',
-        assetSymbol: 'SOL',
+        assetSymbol: 'SOL' as Currency,
         amount: parseDecimal('10.0'),
         direction: 'out',
         blockchainTransactionHash: 'AbC123DeFg456',
@@ -2304,7 +2303,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:sol',
-          assetSymbol: 'SOL',
+          assetSymbol: 'SOL' as Currency,
           amount: parseDecimal('9.95'),
           direction: 'in',
           blockchainTransactionHash: 'AbC123DeFg456',
@@ -2316,7 +2315,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           assetId: 'test:sol',
-          assetSymbol: 'SOL',
+          assetSymbol: 'SOL' as Currency,
           amount: parseDecimal('5.0'),
           direction: 'in',
           blockchainTransactionHash: 'abc123defg456',
@@ -2341,7 +2340,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'), // Source has 1.0
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -2353,7 +2352,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.6'), // Target 1: 0.6
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
@@ -2364,7 +2363,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.39'), // Target 2: 0.39, total = 0.99 (valid)
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
@@ -2386,7 +2385,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'), // Source has 1.0
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -2398,7 +2397,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.7'), // Target 1: 0.7
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
@@ -2409,7 +2408,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.5'), // Target 2: 0.5, total = 1.2 > 1.0 (invalid!)
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
@@ -2436,7 +2435,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -2449,7 +2448,7 @@ describe('matching-utils', () => {
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('10.0'), // Large amount but same tx
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
@@ -2461,7 +2460,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.99'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
@@ -2484,7 +2483,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -2497,7 +2496,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('10.0'), // Large amount
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
@@ -2519,7 +2518,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123',
@@ -2531,7 +2530,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.99'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
@@ -2553,7 +2552,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         direction: 'out',
         blockchainTransactionHash: '0xabc123-100',
@@ -2566,7 +2565,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetId: 'test:usdt',
-          assetSymbol: 'USDT',
+          assetSymbol: 'USDT' as Currency,
           amount: parseDecimal('50.0'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123-100',
@@ -2578,7 +2577,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           assetId: 'test:usdt',
-          assetSymbol: 'USDT',
+          assetSymbol: 'USDT' as Currency,
           amount: parseDecimal('49.0'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123-101',
@@ -2607,7 +2606,7 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
@@ -2627,7 +2626,7 @@ describe('matching-utils', () => {
             outflows: [],
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('0.3'),
                 netAmount: parseDecimal('0.3'),
@@ -2660,7 +2659,7 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('0.5'),
                 netAmount: parseDecimal('0.5'),
@@ -2679,7 +2678,7 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
@@ -2699,7 +2698,7 @@ describe('matching-utils', () => {
             outflows: [],
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('0.3'),
                 netAmount: parseDecimal('0.3'),
@@ -2732,7 +2731,7 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
@@ -2764,7 +2763,7 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('0.4'),
                 netAmount: parseDecimal('0.4'),
@@ -2783,7 +2782,7 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('0.6'),
                 netAmount: parseDecimal('0.6'),
@@ -2817,7 +2816,7 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('0.5'),
                 netAmount: parseDecimal('0.5'),
@@ -2837,7 +2836,7 @@ describe('matching-utils', () => {
             outflows: [],
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
@@ -2868,7 +2867,7 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
@@ -2876,7 +2875,7 @@ describe('matching-utils', () => {
             ],
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('0.7'),
                 netAmount: parseDecimal('0.7'),
@@ -2895,7 +2894,7 @@ describe('matching-utils', () => {
             outflows: [],
             inflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('0.2'),
                 netAmount: parseDecimal('0.2'),
@@ -2928,7 +2927,7 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('0.7'),
                 netAmount: parseDecimal('0.69'),
@@ -2938,7 +2937,7 @@ describe('matching-utils', () => {
           },
           fees: [
             {
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'blockchain:bitcoin:btc',
               amount: parseDecimal('0.01'),
               scope: 'network',
@@ -2956,7 +2955,7 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('0.5'),
                 netAmount: parseDecimal('0.49'),
@@ -2966,7 +2965,7 @@ describe('matching-utils', () => {
           },
           fees: [
             {
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'blockchain:bitcoin:btc',
               amount: parseDecimal('0.01'),
               scope: 'network',
@@ -3000,13 +2999,13 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 assetId: 'blockchain:ethereum:0xc02...c02',
                 grossAmount: parseDecimal('0.5'),
                 netAmount: parseDecimal('0.5'),
               },
               {
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 assetId: 'blockchain:ethereum:0xc02...c02',
                 grossAmount: parseDecimal('0.3'),
                 netAmount: parseDecimal('0.3'),
@@ -3014,7 +3013,7 @@ describe('matching-utils', () => {
             ],
             inflows: [
               {
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 assetId: 'blockchain:ethereum:0xc02...c02',
                 grossAmount: parseDecimal('0.1'),
                 netAmount: parseDecimal('0.1'),
@@ -3048,7 +3047,7 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 assetId: 'blockchain:ethereum:0xc02...c02',
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
@@ -3056,7 +3055,7 @@ describe('matching-utils', () => {
             ],
             inflows: [
               {
-                assetSymbol: 'USDT',
+                assetSymbol: 'USDT' as Currency,
                 assetId: 'blockchain:ethereum:0xdac...dac',
                 grossAmount: parseDecimal('3000'),
                 netAmount: parseDecimal('3000'),
@@ -3088,7 +3087,7 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'blockchain:bitcoin:btc',
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('0.9995'), // After fees
@@ -3117,7 +3116,7 @@ describe('matching-utils', () => {
           movements: {
             outflows: [
               {
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 assetId: 'exchange:exchange:btc',
                 grossAmount: parseDecimal('1.0'),
                 // netAmount undefined

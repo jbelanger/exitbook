@@ -1,4 +1,5 @@
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
+import type { Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { ProcessingContext } from '../../../../shared/types/processors.js';
@@ -13,30 +14,30 @@ import type { EvmFundFlow, EvmMovement } from '../types.js';
 describe('consolidateEvmMovementsByAsset', () => {
   it('consolidates duplicate assets by summing amounts', () => {
     const movements: EvmMovement[] = [
-      { asset: 'USDC', amount: '100' },
-      { asset: 'ETH', amount: '1.5' },
-      { asset: 'USDC', amount: '50' },
-      { asset: 'ETH', amount: '0.5' },
+      { asset: 'USDC' as Currency, amount: '100' },
+      { asset: 'ETH' as Currency, amount: '1.5' },
+      { asset: 'USDC' as Currency, amount: '50' },
+      { asset: 'ETH' as Currency, amount: '0.5' },
     ];
 
     const result = consolidateEvmMovementsByAsset(movements);
 
     expect(result).toHaveLength(2);
-    expect(result).toContainEqual({ asset: 'USDC', amount: '150' });
-    expect(result).toContainEqual({ asset: 'ETH', amount: '2' });
+    expect(result).toContainEqual({ asset: 'USDC' as Currency, amount: '150' });
+    expect(result).toContainEqual({ asset: 'ETH' as Currency, amount: '2' });
   });
 
   it('preserves token metadata from first occurrence', () => {
     const movements: EvmMovement[] = [
-      { asset: 'USDC', amount: '100', tokenAddress: '0xabc', tokenDecimals: 6 },
-      { asset: 'USDC', amount: '50', tokenAddress: '0xdef', tokenDecimals: 18 },
+      { asset: 'USDC' as Currency, amount: '100', tokenAddress: '0xabc', tokenDecimals: 6 },
+      { asset: 'USDC' as Currency, amount: '50', tokenAddress: '0xdef', tokenDecimals: 18 },
     ];
 
     const result = consolidateEvmMovementsByAsset(movements);
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      asset: 'USDC',
+      asset: 'USDC' as Currency,
       amount: '150',
       tokenAddress: '0xabc',
       tokenDecimals: 6,
@@ -45,15 +46,15 @@ describe('consolidateEvmMovementsByAsset', () => {
 
   it('handles movements without token metadata', () => {
     const movements: EvmMovement[] = [
-      { asset: 'ETH', amount: '1' },
-      { asset: 'ETH', amount: '2' },
+      { asset: 'ETH' as Currency, amount: '1' },
+      { asset: 'ETH' as Currency, amount: '2' },
     ];
 
     const result = consolidateEvmMovementsByAsset(movements);
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      asset: 'ETH',
+      asset: 'ETH' as Currency,
       amount: '3',
     });
   });
@@ -64,7 +65,9 @@ describe('consolidateEvmMovementsByAsset', () => {
   });
 
   it('handles single movement', () => {
-    const movements: EvmMovement[] = [{ asset: 'BTC', amount: '0.5', tokenAddress: '0x123', tokenDecimals: 8 }];
+    const movements: EvmMovement[] = [
+      { asset: 'BTC' as Currency, amount: '0.5', tokenAddress: '0x123', tokenDecimals: 8 },
+    ];
 
     const result = consolidateEvmMovementsByAsset(movements);
 
@@ -73,9 +76,9 @@ describe('consolidateEvmMovementsByAsset', () => {
 
   it('handles decimal precision correctly', () => {
     const movements: EvmMovement[] = [
-      { asset: 'USDC', amount: '0.1' },
-      { asset: 'USDC', amount: '0.2' },
-      { asset: 'USDC', amount: '0.3' },
+      { asset: 'USDC' as Currency, amount: '0.1' },
+      { asset: 'USDC' as Currency, amount: '0.2' },
+      { asset: 'USDC' as Currency, amount: '0.3' },
     ];
 
     const result = consolidateEvmMovementsByAsset(movements);
@@ -88,54 +91,54 @@ describe('consolidateEvmMovementsByAsset', () => {
 describe('selectPrimaryEvmMovement', () => {
   it('selects largest movement by amount', () => {
     const movements: EvmMovement[] = [
-      { asset: 'USDC', amount: '100' },
-      { asset: 'ETH', amount: '2' },
-      { asset: 'BTC', amount: '0.5' },
+      { asset: 'USDC' as Currency, amount: '100' },
+      { asset: 'ETH' as Currency, amount: '2' },
+      { asset: 'BTC' as Currency, amount: '0.5' },
     ];
 
-    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' });
+    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' as Currency });
 
-    expect(result).toEqual({ asset: 'USDC', amount: '100' });
+    expect(result).toEqual({ asset: 'USDC' as Currency, amount: '100' });
   });
 
   it('skips zero amounts when selecting primary', () => {
     const movements: EvmMovement[] = [
-      { asset: 'USDC', amount: '0' },
-      { asset: 'ETH', amount: '1.5' },
+      { asset: 'USDC' as Currency, amount: '0' },
+      { asset: 'ETH' as Currency, amount: '1.5' },
     ];
 
-    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' });
+    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' as Currency });
 
-    expect(result).toEqual({ asset: 'ETH', amount: '1.5' });
+    expect(result).toEqual({ asset: 'ETH' as Currency, amount: '1.5' });
   });
 
   it('returns null when all movements are zero', () => {
     const movements: EvmMovement[] = [
-      { asset: 'USDC', amount: '0' },
-      { asset: 'ETH', amount: '0' },
+      { asset: 'USDC' as Currency, amount: '0' },
+      { asset: 'ETH' as Currency, amount: '0' },
     ];
 
-    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' });
+    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' as Currency });
 
-    expect(result).toEqual({ asset: 'ETH', amount: '0' });
+    expect(result).toEqual({ asset: 'ETH' as Currency, amount: '0' });
   });
 
   it('returns native currency with zero amount for empty movements', () => {
-    const result = selectPrimaryEvmMovement([], { nativeCurrency: 'AVAX' });
+    const result = selectPrimaryEvmMovement([], { nativeCurrency: 'AVAX' as Currency });
 
-    expect(result).toEqual({ asset: 'AVAX', amount: '0' });
+    expect(result).toEqual({ asset: 'AVAX' as Currency, amount: '0' });
   });
 
   it('preserves token metadata from selected movement', () => {
     const movements: EvmMovement[] = [
-      { asset: 'USDC', amount: '1000', tokenAddress: '0xabc', tokenDecimals: 6 },
-      { asset: 'ETH', amount: '2' },
+      { asset: 'USDC' as Currency, amount: '1000', tokenAddress: '0xabc', tokenDecimals: 6 },
+      { asset: 'ETH' as Currency, amount: '2' },
     ];
 
-    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' });
+    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' as Currency });
 
     expect(result).toEqual({
-      asset: 'USDC',
+      asset: 'USDC' as Currency,
       amount: '1000',
       tokenAddress: '0xabc',
       tokenDecimals: 6,
@@ -144,13 +147,13 @@ describe('selectPrimaryEvmMovement', () => {
 
   it('handles invalid amounts gracefully', () => {
     const movements: EvmMovement[] = [
-      { asset: 'INVALID', amount: 'not-a-number' },
-      { asset: 'ETH', amount: '1' },
+      { asset: 'INVALID' as Currency, amount: 'not-a-number' },
+      { asset: 'ETH' as Currency, amount: '1' },
     ];
 
-    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' });
+    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' as Currency });
 
-    expect(result).toEqual({ asset: 'ETH', amount: '1' });
+    expect(result).toEqual({ asset: 'ETH' as Currency, amount: '1' });
   });
 });
 
@@ -159,7 +162,7 @@ describe('analyzeEvmFundFlow', () => {
     const chainConfig: EvmChainConfig = {
       chainId: 1,
       chainName: 'ethereum',
-      nativeCurrency: 'ETH',
+      nativeCurrency: 'ETH' as Currency,
       nativeDecimals: 18,
       transactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],
     };
@@ -174,7 +177,7 @@ describe('analyzeEvmFundFlow', () => {
         currency: 'ETH',
         eventId: 'evt-internal',
         feeAmount: '0',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         from: '0xaaa',
         id: '0xhash',
         providerName: 'routescan',
@@ -189,7 +192,7 @@ describe('analyzeEvmFundFlow', () => {
         currency: 'ETH',
         eventId: 'evt-contract',
         feeAmount: '1000000000000000000',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         from: '0xaaa',
         id: '0xhash',
         methodId: '0x12345678',
@@ -215,11 +218,11 @@ describe('determineEvmOperationFromFundFlow', () => {
   describe('Pattern 0: Beacon withdrawal', () => {
     it('classifies small withdrawal (<32 ETH) as staking reward', () => {
       const fundFlow: EvmFundFlow = {
-        inflows: [{ asset: 'ETH', amount: '0.05' }], // 0.05 ETH withdrawal
+        inflows: [{ asset: 'ETH' as Currency, amount: '0.05' }], // 0.05 ETH withdrawal
         outflows: [],
-        primary: { asset: 'ETH', amount: '0.05' },
+        primary: { asset: 'ETH' as Currency, amount: '0.05' },
         feeAmount: '0',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x0000000000000000000000000000000000000000', // Beacon chain
         toAddress: '0x123',
         transactionCount: 1,
@@ -242,7 +245,7 @@ describe('determineEvmOperationFromFundFlow', () => {
         gasPrice: '0',
         gasUsed: '0',
         feeAmount: '0',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         tokenType: 'native',
       };
 
@@ -259,11 +262,11 @@ describe('determineEvmOperationFromFundFlow', () => {
 
     it('classifies large withdrawal (≥32 ETH) as principal return with warning', () => {
       const fundFlow: EvmFundFlow = {
-        inflows: [{ asset: 'ETH', amount: '32.5' }], // 32.5 ETH withdrawal (full exit)
+        inflows: [{ asset: 'ETH' as Currency, amount: '32.5' }], // 32.5 ETH withdrawal (full exit)
         outflows: [],
-        primary: { asset: 'ETH', amount: '32.5' },
+        primary: { asset: 'ETH' as Currency, amount: '32.5' },
         feeAmount: '0',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x0000000000000000000000000000000000000000',
         toAddress: '0x123',
         transactionCount: 1,
@@ -286,7 +289,7 @@ describe('determineEvmOperationFromFundFlow', () => {
         gasPrice: '0',
         gasUsed: '0',
         feeAmount: '0',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         tokenType: 'native',
       };
 
@@ -304,11 +307,11 @@ describe('determineEvmOperationFromFundFlow', () => {
 
     it('classifies exactly 32 ETH as principal return', () => {
       const fundFlow: EvmFundFlow = {
-        inflows: [{ asset: 'ETH', amount: '32' }],
+        inflows: [{ asset: 'ETH' as Currency, amount: '32' }],
         outflows: [],
-        primary: { asset: 'ETH', amount: '32' },
+        primary: { asset: 'ETH' as Currency, amount: '32' },
         feeAmount: '0',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x0000000000000000000000000000000000000000',
         toAddress: '0x123',
         transactionCount: 1,
@@ -331,7 +334,7 @@ describe('determineEvmOperationFromFundFlow', () => {
         gasPrice: '0',
         gasUsed: '0',
         feeAmount: '0',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         tokenType: 'native',
       };
 
@@ -348,9 +351,9 @@ describe('determineEvmOperationFromFundFlow', () => {
       const fundFlow: EvmFundFlow = {
         inflows: [],
         outflows: [],
-        primary: { asset: 'ETH', amount: '0' },
+        primary: { asset: 'ETH' as Currency, amount: '0' },
         feeAmount: '0.001',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x123',
         toAddress: '0x456',
         transactionCount: 1,
@@ -370,9 +373,9 @@ describe('determineEvmOperationFromFundFlow', () => {
       const fundFlow: EvmFundFlow = {
         inflows: [],
         outflows: [],
-        primary: { asset: 'ETH', amount: '0' },
+        primary: { asset: 'ETH' as Currency, amount: '0' },
         feeAmount: '0.001',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x123',
         toAddress: '0x456',
         transactionCount: 1,
@@ -393,9 +396,9 @@ describe('determineEvmOperationFromFundFlow', () => {
       const fundFlow: EvmFundFlow = {
         inflows: [],
         outflows: [],
-        primary: { asset: 'ETH', amount: '0' },
+        primary: { asset: 'ETH' as Currency, amount: '0' },
         feeAmount: '0.001',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x123',
         toAddress: '0x456',
         transactionCount: 1,
@@ -414,11 +417,11 @@ describe('determineEvmOperationFromFundFlow', () => {
   describe('Pattern 3: Single asset swap', () => {
     it('classifies swap when one asset out and different asset in', () => {
       const fundFlow: EvmFundFlow = {
-        inflows: [{ asset: 'USDC', amount: '1000' }],
-        outflows: [{ asset: 'ETH', amount: '0.5' }],
-        primary: { asset: 'USDC', amount: '1000' },
+        inflows: [{ asset: 'USDC' as Currency, amount: '1000' }],
+        outflows: [{ asset: 'ETH' as Currency, amount: '0.5' }],
+        primary: { asset: 'USDC' as Currency, amount: '1000' },
         feeAmount: '0.001',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x123',
         toAddress: '0x456',
         transactionCount: 2,
@@ -437,11 +440,11 @@ describe('determineEvmOperationFromFundFlow', () => {
   describe('Pattern 4: Simple deposit', () => {
     it('classifies deposit when only inflows present', () => {
       const fundFlow: EvmFundFlow = {
-        inflows: [{ asset: 'ETH', amount: '1.5' }],
+        inflows: [{ asset: 'ETH' as Currency, amount: '1.5' }],
         outflows: [],
-        primary: { asset: 'ETH', amount: '1.5' },
+        primary: { asset: 'ETH' as Currency, amount: '1.5' },
         feeAmount: '0',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x123',
         toAddress: '0x456',
         transactionCount: 1,
@@ -459,13 +462,13 @@ describe('determineEvmOperationFromFundFlow', () => {
     it('classifies multi-asset deposit when multiple inflows present', () => {
       const fundFlow: EvmFundFlow = {
         inflows: [
-          { asset: 'ETH', amount: '1' },
-          { asset: 'USDC', amount: '100' },
+          { asset: 'ETH' as Currency, amount: '1' },
+          { asset: 'USDC' as Currency, amount: '100' },
         ],
         outflows: [],
-        primary: { asset: 'USDC', amount: '100' },
+        primary: { asset: 'USDC' as Currency, amount: '100' },
         feeAmount: '0',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x123',
         toAddress: '0x456',
         transactionCount: 2,
@@ -484,10 +487,10 @@ describe('determineEvmOperationFromFundFlow', () => {
     it('classifies withdrawal when only outflows present', () => {
       const fundFlow: EvmFundFlow = {
         inflows: [],
-        outflows: [{ asset: 'ETH', amount: '1.5' }],
-        primary: { asset: 'ETH', amount: '1.5' },
+        outflows: [{ asset: 'ETH' as Currency, amount: '1.5' }],
+        primary: { asset: 'ETH' as Currency, amount: '1.5' },
         feeAmount: '0.001',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x123',
         toAddress: '0x456',
         transactionCount: 1,
@@ -506,12 +509,12 @@ describe('determineEvmOperationFromFundFlow', () => {
       const fundFlow: EvmFundFlow = {
         inflows: [],
         outflows: [
-          { asset: 'ETH', amount: '1' },
-          { asset: 'USDC', amount: '100' },
+          { asset: 'ETH' as Currency, amount: '1' },
+          { asset: 'USDC' as Currency, amount: '100' },
         ],
-        primary: { asset: 'USDC', amount: '100' },
+        primary: { asset: 'USDC' as Currency, amount: '100' },
         feeAmount: '0.001',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x123',
         toAddress: '0x456',
         transactionCount: 2,
@@ -529,11 +532,11 @@ describe('determineEvmOperationFromFundFlow', () => {
   describe('Pattern 6: Self-transfer', () => {
     it('classifies transfer when same asset in and out', () => {
       const fundFlow: EvmFundFlow = {
-        inflows: [{ asset: 'ETH', amount: '1' }],
-        outflows: [{ asset: 'ETH', amount: '1' }],
-        primary: { asset: 'ETH', amount: '1' },
+        inflows: [{ asset: 'ETH' as Currency, amount: '1' }],
+        outflows: [{ asset: 'ETH' as Currency, amount: '1' }],
+        primary: { asset: 'ETH' as Currency, amount: '1' },
         feeAmount: '0.001',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x123',
         toAddress: '0x123',
         transactionCount: 1,
@@ -553,16 +556,16 @@ describe('determineEvmOperationFromFundFlow', () => {
     it('classifies uncertain transaction with note when multiple assets involved', () => {
       const fundFlow: EvmFundFlow = {
         inflows: [
-          { asset: 'USDC', amount: '1000' },
-          { asset: 'DAI', amount: '500' },
+          { asset: 'USDC' as Currency, amount: '1000' },
+          { asset: 'DAI' as Currency, amount: '500' },
         ],
         outflows: [
-          { asset: 'ETH', amount: '1' },
-          { asset: 'WBTC', amount: '0.05' },
+          { asset: 'ETH' as Currency, amount: '1' },
+          { asset: 'WBTC' as Currency, amount: '0.05' },
         ],
-        primary: { asset: 'USDC', amount: '1000' },
+        primary: { asset: 'USDC' as Currency, amount: '1000' },
         feeAmount: '0.002',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x123',
         toAddress: '0x456',
         transactionCount: 4,
@@ -590,9 +593,9 @@ describe('determineEvmOperationFromFundFlow', () => {
       const fundFlow: EvmFundFlow = {
         inflows: [],
         outflows: [],
-        primary: { asset: 'ETH', amount: '1' },
+        primary: { asset: 'ETH' as Currency, amount: '1' },
         feeAmount: '0.001',
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         fromAddress: '0x123',
         toAddress: '0x456',
         transactionCount: 1,

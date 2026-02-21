@@ -13,7 +13,7 @@ import substrateChainsData from './substrate-chains.json' with { type: 'json' };
  * const processor = new SubstrateProcessor(SUBSTRATE_CHAINS.bittensor);
  * ```
  */
-export const SUBSTRATE_CHAINS = substrateChainsData as Record<string, SubstrateChainConfig>;
+export const SUBSTRATE_CHAINS = substrateChainsData as unknown as Record<string, SubstrateChainConfig>;
 
 /**
  * Helper to get chain config by name

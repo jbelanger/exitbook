@@ -72,10 +72,10 @@ export function createBinanceProvider(
     });
 
     // Create queries
-    const priceRepo = createPriceQueries(db);
+    const priceQueries = createPriceQueries(db);
 
     // Create provider
-    const provider = new BinanceProvider(httpClient, priceRepo, config, rateLimit);
+    const provider = new BinanceProvider(httpClient, priceQueries, config, rateLimit);
 
     return ok(provider);
   } catch (error) {
@@ -101,14 +101,11 @@ export class BinanceProvider extends BasePriceProvider {
 
   constructor(
     httpClient: HttpClient,
-    priceRepo: PriceQueries,
+    priceQueries: PriceQueries,
     _config: BinanceProviderConfig = {},
     rateLimit: ProviderRateLimitConfig
   ) {
-    super();
-
-    this.httpClient = httpClient;
-    this.priceQueries = priceRepo;
+    super(httpClient, priceQueries);
     this.config = _config;
 
     // Provider metadata

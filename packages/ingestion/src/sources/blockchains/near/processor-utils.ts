@@ -17,7 +17,7 @@ import type {
   NearBalanceChangeCause,
   NearActionType,
 } from '@exitbook/blockchain-providers';
-import { parseDecimal, type OperationClassification } from '@exitbook/core';
+import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -77,7 +77,7 @@ function normalizeTokenAmount(rawAmount: Decimal | string, decimals: number): De
  * Movement represents a fund flow (inflow or outflow) in a transaction
  */
 export interface Movement {
-  asset: string;
+  asset: Currency;
   amount: Decimal;
   contractAddress?: string | undefined;
   direction: 'in' | 'out';
@@ -583,7 +583,7 @@ export function extractReceiptFees(receipt: NearReceipt, primaryAddress: string)
     return {
       movements: [
         {
-          asset: 'NEAR',
+          asset: 'NEAR' as Currency,
           amount: receiptFee,
           direction: 'out',
           flowType: 'fee',
@@ -599,7 +599,7 @@ export function extractReceiptFees(receipt: NearReceipt, primaryAddress: string)
     return {
       movements: [
         {
-          asset: 'NEAR',
+          asset: 'NEAR' as Currency,
           amount: balanceChangeFee,
           direction: 'out',
           flowType: 'fee',
@@ -652,7 +652,7 @@ export function extractFlows(receipt: NearReceipt, primaryAddress: string): Move
       const normalizedAmount = normalizeNearAmount(delta.abs());
 
       movements.push({
-        asset: 'NEAR',
+        asset: 'NEAR' as Currency,
         amount: normalizedAmount,
         direction,
         flowType: 'native',
@@ -684,7 +684,7 @@ export function extractTokenTransferFlows(tokenTransfers: NearTokenTransfer[], p
     const normalizedAmount = normalizeTokenAmount(delta.abs(), transfer.decimals);
 
     movements.push({
-      asset: transfer.symbol || 'UNKNOWN',
+      asset: (transfer.symbol || 'UNKNOWN') as Currency,
       amount: normalizedAmount,
       contractAddress: transfer.contractAddress,
       direction,

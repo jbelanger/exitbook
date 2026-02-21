@@ -21,9 +21,11 @@ import { validatePriceData, validateQueryTimeRange } from './utils.js';
  */
 export abstract class BasePriceProvider implements IPriceProvider {
   protected abstract metadata: ProviderMetadata;
-  protected priceQueries!: PriceQueries; // Set by subclass constructor
-  protected httpClient!: HttpClient; // Set by subclass constructor
   protected readonly logger = getLogger('BasePriceProvider');
+  constructor(
+    protected readonly httpClient: HttpClient,
+    protected readonly priceQueries: PriceQueries
+  ) {}
 
   /**
    * Subclasses must implement the core fetch logic

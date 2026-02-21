@@ -1,4 +1,4 @@
-import { parseDecimal, type OperationClassification } from '@exitbook/core';
+import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -93,7 +93,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
 
             return {
               assetId: inflow.assetId,
-              assetSymbol: inflow.assetSymbol,
+              assetSymbol: inflow.assetSymbol as Currency,
               grossAmount: gross,
               netAmount: net,
             };
@@ -105,7 +105,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
 
             return {
               assetId: outflow.assetId,
-              assetSymbol: outflow.assetSymbol,
+              assetSymbol: outflow.assetSymbol as Currency,
               grossAmount: gross,
               netAmount: net,
             };
@@ -114,7 +114,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
 
         fees: fundFlow.fees.map((fee) => ({
           assetId: fee.assetId,
-          assetSymbol: fee.assetSymbol,
+          assetSymbol: fee.assetSymbol as Currency,
           amount: parseDecimal(fee.amount),
           scope: fee.scope,
           settlement: fee.settlement,

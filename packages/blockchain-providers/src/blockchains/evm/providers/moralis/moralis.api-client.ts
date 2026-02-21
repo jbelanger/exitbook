@@ -18,6 +18,7 @@ import {
 } from '../../../../core/streaming/streaming-adapter.js';
 import type {
   OneShotOperation,
+  OneShotOperationResult,
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
@@ -153,24 +154,29 @@ export class MoralisApiClient extends BaseApiClient {
     };
   }
 
-  async execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
+  async execute<TOperation extends OneShotOperation>(
+    operation: TOperation
+  ): Promise<Result<OneShotOperationResult<TOperation>, Error>> {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
       case 'getAddressBalances': {
         const { address } = operation;
         this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
-        return (await this.getAddressBalances(address)) as Result<T, Error>;
+        return (await this.getAddressBalances(address)) as Result<OneShotOperationResult<TOperation>, Error>;
       }
       case 'getAddressTokenBalances': {
         const { address, contractAddresses } = operation;
         this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
-        return (await this.getAddressTokenBalances(address, contractAddresses)) as Result<T, Error>;
+        return (await this.getAddressTokenBalances(address, contractAddresses)) as Result<
+          OneShotOperationResult<TOperation>,
+          Error
+        >;
       }
       case 'getTokenMetadata': {
         const { contractAddresses } = operation;
         this.logger.debug(`Fetching token metadata - Contracts: ${contractAddresses.length} addresses`);
-        return (await this.getTokenMetadata(contractAddresses)) as Result<T, Error>;
+        return (await this.getTokenMetadata(contractAddresses)) as Result<OneShotOperationResult<TOperation>, Error>;
       }
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));

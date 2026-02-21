@@ -54,7 +54,7 @@ describe('CoinGeckoProvider', () => {
     getPrice: ReturnType<typeof vi.fn>;
     savePrice: ReturnType<typeof vi.fn>;
   };
-  let priceRepo: PriceQueries;
+  let priceQueries: PriceQueries;
   let provider: CoinGeckoProvider;
 
   beforeEach(() => {
@@ -78,7 +78,7 @@ describe('CoinGeckoProvider', () => {
       getPrice: vi.fn().mockResolvedValue(ok()),
       savePrice: vi.fn().mockResolvedValue(ok()),
     };
-    priceRepo = priceRepoMocks as unknown as PriceQueries;
+    priceQueries = priceRepoMocks as unknown as PriceQueries;
 
     const mockRateLimit = {
       burstLimit: 1,
@@ -87,7 +87,7 @@ describe('CoinGeckoProvider', () => {
       requestsPerSecond: 0.17,
     };
 
-    provider = new CoinGeckoProvider(httpClient, priceRepo, providerRepo, {}, mockRateLimit);
+    provider = new CoinGeckoProvider(httpClient, priceQueries, providerRepo, {}, mockRateLimit);
   });
 
   afterEach(() => {

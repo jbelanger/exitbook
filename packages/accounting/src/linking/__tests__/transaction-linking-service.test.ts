@@ -1,5 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { type Currency, type UniversalTransactionData, parseDecimal } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
@@ -39,14 +38,14 @@ function createTransaction(params: {
       inflows: params.inflows
         ? params.inflows.map((m) => ({
             assetId: `test:${m.assetSymbol.toLowerCase()}`,
-            assetSymbol: m.assetSymbol,
+            assetSymbol: m.assetSymbol as Currency,
             grossAmount: parseDecimal(m.amount),
           }))
         : [],
       outflows: params.outflows
         ? params.outflows.map((m) => ({
             assetId: `test:${m.assetSymbol.toLowerCase()}`,
-            assetSymbol: m.assetSymbol,
+            assetSymbol: m.assetSymbol as Currency,
             grossAmount: parseDecimal(m.amount),
           }))
         : [],

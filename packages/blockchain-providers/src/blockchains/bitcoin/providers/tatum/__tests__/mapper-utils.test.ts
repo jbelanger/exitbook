@@ -1,3 +1,4 @@
+import type { Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -8,7 +9,7 @@ import type { TatumBitcoinTransaction } from '../tatum.schemas.js';
 const mockBitcoinChainConfig: BitcoinChainConfig = {
   chainName: 'bitcoin',
   displayName: 'Bitcoin',
-  nativeCurrency: 'BTC',
+  nativeCurrency: 'BTC' as Currency,
   nativeDecimals: 8,
 };
 

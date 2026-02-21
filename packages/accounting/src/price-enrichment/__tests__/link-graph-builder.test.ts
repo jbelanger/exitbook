@@ -1,4 +1,4 @@
-import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { TransactionLink } from '../../linking/types.js';
@@ -27,14 +27,14 @@ function createTransaction(params: {
       inflows: params.inflows
         ? params.inflows.map((m) => ({
             assetId: `test:${m.assetSymbol.toLowerCase()}`,
-            assetSymbol: m.assetSymbol,
+            assetSymbol: m.assetSymbol as Currency,
             grossAmount: parseDecimal(m.amount),
           }))
         : [],
       outflows: params.outflows
         ? params.outflows.map((m) => ({
             assetId: `test:${m.assetSymbol.toLowerCase()}`,
-            assetSymbol: m.assetSymbol,
+            assetSymbol: m.assetSymbol as Currency,
             grossAmount: parseDecimal(m.amount),
           }))
         : [],
@@ -75,7 +75,7 @@ function createTransactionLink(params: {
     id: params.id,
     sourceTransactionId: params.sourceTransactionId,
     targetTransactionId: params.targetTransactionId,
-    assetSymbol: asset,
+    assetSymbol: asset as Currency,
     sourceAssetId: `test:${asset.toLowerCase()}`,
     targetAssetId: `test:${asset.toLowerCase()}`,
     sourceAmount: parseDecimal(params.sourceAmount ?? '1.0'),

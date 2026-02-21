@@ -1,4 +1,5 @@
 import type { SubstrateChainConfig, SubstrateTransaction } from '@exitbook/blockchain-providers';
+import type { Currency } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import {
@@ -20,7 +21,7 @@ const EXTERNAL_ADDRESS = '16ZL8yLyXv3V3L3z9ofR1ovFLziyXaN1DPq4yffMAZ9czzBD';
 const POLKADOT_CONFIG: SubstrateChainConfig = {
   chainName: 'polkadot',
   displayName: 'Polkadot Relay Chain',
-  nativeCurrency: 'DOT',
+  nativeCurrency: 'DOT' as Currency,
   nativeDecimals: 10,
   ss58Format: 0,
 };
@@ -36,7 +37,7 @@ function createTransaction(overrides: Partial<SubstrateTransaction> = {}): Subst
     currency: 'DOT',
     eventId: 'default_event_id',
     feeAmount: '156250000',
-    feeCurrency: 'DOT',
+    feeCurrency: 'DOT' as Currency,
     from: POLKADOT_ADDRESS,
     id: '0x123abc',
     module: 'balances',
@@ -65,7 +66,7 @@ function createFundFlow(overrides: Partial<SubstrateFundFlow> = {}): SubstrateFu
     eventCount: 1,
     extrinsicCount: 1,
     feeAmount: '0.015625',
-    feeCurrency: 'DOT',
+    feeCurrency: 'DOT' as Currency,
     fromAddress: POLKADOT_ADDRESS,
     hasGovernance: false,
     hasMultisig: false,
@@ -75,7 +76,7 @@ function createFundFlow(overrides: Partial<SubstrateFundFlow> = {}): SubstrateFu
     inflows: [],
     module: 'balances',
     outflows: [],
-    primary: { amount: '0', asset: 'DOT' },
+    primary: { amount: '0', asset: 'DOT' as Currency },
     toAddress: EXTERNAL_ADDRESS,
     ...overrides,
   };
@@ -328,8 +329,8 @@ describe('determineOperationFromFundFlow', () => {
       call: 'bond',
       hasStaking: true,
       module: 'staking',
-      outflows: [{ amount: '10', asset: 'DOT' }],
-      primary: { amount: '10', asset: 'DOT' },
+      outflows: [{ amount: '10', asset: 'DOT' as Currency }],
+      primary: { amount: '10', asset: 'DOT' as Currency },
       toAddress: POLKADOT_ADDRESS,
     });
 
@@ -371,9 +372,9 @@ describe('determineOperationFromFundFlow', () => {
     const fundFlow = createFundFlow({
       call: 'withdraw_unbonded',
       hasStaking: true,
-      inflows: [{ amount: '10', asset: 'DOT' }],
+      inflows: [{ amount: '10', asset: 'DOT' as Currency }],
       module: 'staking',
-      primary: { amount: '10', asset: 'DOT' },
+      primary: { amount: '10', asset: 'DOT' as Currency },
       toAddress: POLKADOT_ADDRESS,
     });
 
@@ -396,10 +397,10 @@ describe('determineOperationFromFundFlow', () => {
       feeAmount: '0',
       fromAddress: EXTERNAL_ADDRESS,
       hasStaking: true,
-      inflows: [{ amount: '0.5', asset: 'DOT' }],
+      inflows: [{ amount: '0.5', asset: 'DOT' as Currency }],
       module: 'staking',
       outflows: [],
-      primary: { amount: '0.5', asset: 'DOT' },
+      primary: { amount: '0.5', asset: 'DOT' as Currency },
       toAddress: POLKADOT_ADDRESS,
     });
 
@@ -449,8 +450,8 @@ describe('determineOperationFromFundFlow', () => {
       call: 'propose',
       hasGovernance: true,
       module: 'democracy',
-      outflows: [{ amount: '100', asset: 'DOT' }],
-      primary: { amount: '100', asset: 'DOT' },
+      outflows: [{ amount: '100', asset: 'DOT' as Currency }],
+      primary: { amount: '100', asset: 'DOT' as Currency },
     });
 
     const transaction = createTransaction({
@@ -470,8 +471,8 @@ describe('determineOperationFromFundFlow', () => {
       call: 'vote',
       hasGovernance: true,
       module: 'democracy',
-      outflows: [{ amount: '10', asset: 'DOT' }],
-      primary: { amount: '10', asset: 'DOT' },
+      outflows: [{ amount: '10', asset: 'DOT' as Currency }],
+      primary: { amount: '10', asset: 'DOT' as Currency },
     });
 
     const transaction = createTransaction({
@@ -492,9 +493,9 @@ describe('determineOperationFromFundFlow', () => {
       feeAmount: '0',
       fromAddress: EXTERNAL_ADDRESS,
       hasGovernance: true,
-      inflows: [{ amount: '10', asset: 'DOT' }],
+      inflows: [{ amount: '10', asset: 'DOT' as Currency }],
       module: 'democracy',
-      primary: { amount: '10', asset: 'DOT' },
+      primary: { amount: '10', asset: 'DOT' as Currency },
       toAddress: POLKADOT_ADDRESS,
     });
 
@@ -521,10 +522,10 @@ describe('determineOperationFromFundFlow', () => {
       eventCount: 6,
       feeAmount: '0.03125',
       hasUtilityBatch: true,
-      inflows: [{ amount: '2', asset: 'DOT' }],
+      inflows: [{ amount: '2', asset: 'DOT' as Currency }],
       module: 'utility',
-      outflows: [{ amount: '5', asset: 'DOT' }],
-      primary: { amount: '5', asset: 'DOT' },
+      outflows: [{ amount: '5', asset: 'DOT' as Currency }],
+      primary: { amount: '5', asset: 'DOT' as Currency },
     });
 
     const transaction = createTransaction({
@@ -576,8 +577,8 @@ describe('determineOperationFromFundFlow', () => {
       call: 'as_multi',
       hasMultisig: true,
       module: 'multisig',
-      outflows: [{ amount: '1', asset: 'DOT' }],
-      primary: { amount: '1', asset: 'DOT' },
+      outflows: [{ amount: '1', asset: 'DOT' as Currency }],
+      primary: { amount: '1', asset: 'DOT' as Currency },
     });
 
     const transaction = createTransaction({
@@ -618,8 +619,8 @@ describe('determineOperationFromFundFlow', () => {
   test('classifies simple deposit', () => {
     const fundFlow = createFundFlow({
       fromAddress: EXTERNAL_ADDRESS,
-      inflows: [{ amount: '5', asset: 'DOT' }],
-      primary: { amount: '5', asset: 'DOT' },
+      inflows: [{ amount: '5', asset: 'DOT' as Currency }],
+      primary: { amount: '5', asset: 'DOT' as Currency },
       toAddress: POLKADOT_ADDRESS,
     });
 
@@ -637,8 +638,8 @@ describe('determineOperationFromFundFlow', () => {
 
   test('classifies simple withdrawal', () => {
     const fundFlow = createFundFlow({
-      outflows: [{ amount: '3', asset: 'DOT' }],
-      primary: { amount: '3', asset: 'DOT' },
+      outflows: [{ amount: '3', asset: 'DOT' as Currency }],
+      primary: { amount: '3', asset: 'DOT' as Currency },
     });
 
     const transaction = createTransaction({
@@ -653,9 +654,9 @@ describe('determineOperationFromFundFlow', () => {
 
   test('classifies self-transfer', () => {
     const fundFlow = createFundFlow({
-      inflows: [{ amount: '1', asset: 'DOT' }],
-      outflows: [{ amount: '1', asset: 'DOT' }],
-      primary: { amount: '1', asset: 'DOT' },
+      inflows: [{ amount: '1', asset: 'DOT' as Currency }],
+      outflows: [{ amount: '1', asset: 'DOT' as Currency }],
+      primary: { amount: '1', asset: 'DOT' as Currency },
       toAddress: POLKADOT_ADDRESS,
     });
 
@@ -674,12 +675,12 @@ describe('determineOperationFromFundFlow', () => {
     const fundFlow = createFundFlow({
       call: 'unknown_call',
       inflows: [
-        { amount: '2', asset: 'DOT' },
-        { amount: '1', asset: 'KSM' },
+        { amount: '2', asset: 'DOT' as Currency },
+        { amount: '1', asset: 'KSM' as Currency },
       ],
       module: 'unknown_module',
-      outflows: [{ amount: '3', asset: 'DOT' }],
-      primary: { amount: '3', asset: 'DOT' },
+      outflows: [{ amount: '3', asset: 'DOT' as Currency }],
+      primary: { amount: '3', asset: 'DOT' as Currency },
     });
 
     const transaction = createTransaction({
@@ -705,8 +706,8 @@ describe('shouldRecordFeeEntry', () => {
     });
 
     const fundFlow = createFundFlow({
-      outflows: [{ amount: '1', asset: 'DOT' }],
-      primary: { amount: '1', asset: 'DOT' },
+      outflows: [{ amount: '1', asset: 'DOT' as Currency }],
+      primary: { amount: '1', asset: 'DOT' as Currency },
     });
 
     const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
@@ -745,9 +746,9 @@ describe('shouldRecordFeeEntry', () => {
     const fundFlow = createFundFlow({
       call: 'withdraw_unbonded',
       hasStaking: true,
-      inflows: [{ amount: '1', asset: 'DOT' }],
+      inflows: [{ amount: '1', asset: 'DOT' as Currency }],
       module: 'staking',
-      primary: { amount: '1', asset: 'DOT' },
+      primary: { amount: '1', asset: 'DOT' as Currency },
       toAddress: POLKADOT_ADDRESS,
     });
 
@@ -824,8 +825,8 @@ describe('shouldRecordFeeEntry', () => {
 
     const fundFlow = createFundFlow({
       fromAddress: EXTERNAL_ADDRESS,
-      inflows: [{ amount: '1', asset: 'DOT' }],
-      primary: { amount: '1', asset: 'DOT' },
+      inflows: [{ amount: '1', asset: 'DOT' as Currency }],
+      primary: { amount: '1', asset: 'DOT' as Currency },
       toAddress: POLKADOT_ADDRESS,
     });
 
@@ -849,9 +850,9 @@ describe('shouldRecordFeeEntry', () => {
       feeAmount: '0',
       fromAddress: EXTERNAL_ADDRESS,
       hasStaking: true,
-      inflows: [{ amount: '0.5', asset: 'DOT' }],
+      inflows: [{ amount: '0.5', asset: 'DOT' as Currency }],
       module: 'staking',
-      primary: { amount: '0.5', asset: 'DOT' },
+      primary: { amount: '0.5', asset: 'DOT' as Currency },
       toAddress: POLKADOT_ADDRESS,
     });
 

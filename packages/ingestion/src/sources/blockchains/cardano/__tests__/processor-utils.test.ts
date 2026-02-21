@@ -1,4 +1,5 @@
 import type { CardanoTransaction } from '@exitbook/blockchain-providers';
+import type { Currency } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import {
@@ -19,7 +20,7 @@ function createTransaction(overrides: Partial<CardanoTransaction> = {}): Cardano
     blockHeight: 9000000,
     currency: 'ADA',
     feeAmount: '0.17',
-    feeCurrency: 'ADA',
+    feeCurrency: 'ADA' as Currency,
     id: 'tx-default',
     eventId: '0xdefaultevent',
     inputs: [],
@@ -34,14 +35,14 @@ function createTransaction(overrides: Partial<CardanoTransaction> = {}): Cardano
 function createFundFlow(overrides: Partial<CardanoFundFlow> = {}): CardanoFundFlow {
   const defaultMovement: CardanoMovement = {
     amount: '0',
-    asset: 'ADA',
+    asset: 'ADA' as Currency,
     unit: 'lovelace',
   };
 
   return {
     classificationUncertainty: undefined,
     feeAmount: '0.17',
-    feeCurrency: 'ADA',
+    feeCurrency: 'ADA' as Currency,
     feePaidByUser: false,
     fromAddress: EXTERNAL_ADDRESS,
     inflows: [],
@@ -120,9 +121,9 @@ describe('normalizeCardanoAmount', () => {
 describe('consolidateCardanoMovements', () => {
   test('consolidates duplicate ADA movements', () => {
     const movements = [
-      { amount: '1', asset: 'ADA', unit: 'lovelace' },
-      { amount: '2', asset: 'ADA', unit: 'lovelace' },
-      { amount: '0.5', asset: 'ADA', unit: 'lovelace' },
+      { amount: '1', asset: 'ADA' as Currency, unit: 'lovelace' },
+      { amount: '2', asset: 'ADA' as Currency, unit: 'lovelace' },
+      { amount: '0.5', asset: 'ADA' as Currency, unit: 'lovelace' },
     ];
 
     const result = consolidateCardanoMovements(movements);
@@ -135,8 +136,8 @@ describe('consolidateCardanoMovements', () => {
     const policyId = '1234567890abcdef1234567890abcdef1234567890abcdef12345678';
     const unit = policyId + '4d494c4b';
     const movements = [
-      { amount: '100', asset: 'MILK', policyId, unit },
-      { amount: '50', asset: 'MILK', policyId, unit },
+      { amount: '100', asset: 'MILK' as Currency, policyId, unit },
+      { amount: '50', asset: 'MILK' as Currency, policyId, unit },
     ];
 
     const result = consolidateCardanoMovements(movements);
@@ -147,8 +148,8 @@ describe('consolidateCardanoMovements', () => {
 
   test('keeps different assets separate', () => {
     const movements = [
-      { amount: '1', asset: 'ADA', unit: 'lovelace' },
-      { amount: '100', asset: 'MILK', unit: 'policyId123' },
+      { amount: '1', asset: 'ADA' as Currency, unit: 'lovelace' },
+      { amount: '100', asset: 'MILK' as Currency, unit: 'policyId123' },
     ];
 
     const result = consolidateCardanoMovements(movements);
@@ -440,9 +441,9 @@ describe('analyzeCardanoFundFlow', () => {
 describe('determineCardanoTransactionType', () => {
   test('classifies incoming-only as deposit', () => {
     const fundFlow = createFundFlow({
-      inflows: [{ amount: '2', asset: 'ADA', unit: 'lovelace' }],
+      inflows: [{ amount: '2', asset: 'ADA' as Currency, unit: 'lovelace' }],
       isIncoming: true,
-      primary: { amount: '2', asset: 'ADA', unit: 'lovelace' },
+      primary: { amount: '2', asset: 'ADA' as Currency, unit: 'lovelace' },
     });
 
     const type = determineCardanoTransactionType(fundFlow);
@@ -454,8 +455,8 @@ describe('determineCardanoTransactionType', () => {
       feePaidByUser: true,
       fromAddress: USER_ADDRESS,
       isOutgoing: true,
-      outflows: [{ amount: '2.17', asset: 'ADA', unit: 'lovelace' }],
-      primary: { amount: '2.17', asset: 'ADA', unit: 'lovelace' },
+      outflows: [{ amount: '2.17', asset: 'ADA' as Currency, unit: 'lovelace' }],
+      primary: { amount: '2.17', asset: 'ADA' as Currency, unit: 'lovelace' },
       toAddress: EXTERNAL_ADDRESS,
     });
 
@@ -467,12 +468,12 @@ describe('determineCardanoTransactionType', () => {
     const fundFlow = createFundFlow({
       feePaidByUser: true,
       fromAddress: USER_ADDRESS,
-      inflows: [{ amount: '3', asset: 'ADA', unit: 'lovelace' }],
+      inflows: [{ amount: '3', asset: 'ADA' as Currency, unit: 'lovelace' }],
       isIncoming: true,
       isOutgoing: true,
-      outflows: [{ amount: '5.17', asset: 'ADA', unit: 'lovelace' }],
+      outflows: [{ amount: '5.17', asset: 'ADA' as Currency, unit: 'lovelace' }],
       outputCount: 2,
-      primary: { amount: '5.17', asset: 'ADA', unit: 'lovelace' },
+      primary: { amount: '5.17', asset: 'ADA' as Currency, unit: 'lovelace' },
       toAddress: EXTERNAL_ADDRESS,
     });
 

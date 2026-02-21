@@ -1,3 +1,5 @@
+import type { Currency } from '@exitbook/core';
+
 /**
  * Cosmos fund flow analysis result - multi-asset tracking
  *
@@ -7,26 +9,26 @@ export interface CosmosFundFlow {
   // Multi-asset tracking with Cosmos-specific terminology
   inflows: {
     amount: string;
-    asset: string;
+    asset: Currency;
     denom?: string | undefined; // Denomination (e.g., uatom, ibc/..., factory/...)
     tokenDecimals?: number | undefined;
   }[];
   outflows: {
     amount: string;
-    asset: string;
+    asset: Currency;
     denom?: string | undefined; // Denomination (e.g., uatom, ibc/..., factory/...)
     tokenDecimals?: number | undefined;
   }[];
   primary: {
     amount: string;
-    asset: string;
+    asset: Currency;
     denom?: string | undefined; // Denomination (e.g., uatom, ibc/..., factory/...)
     tokenDecimals?: number | undefined;
   };
 
   // Fee information (always in native currency)
   feeAmount: string;
-  feeCurrency: string;
+  feeCurrency: Currency;
 
   fromAddress: string;
   toAddress: string;

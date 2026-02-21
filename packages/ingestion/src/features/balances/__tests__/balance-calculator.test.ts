@@ -1,4 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
@@ -38,7 +38,7 @@ describe('calculateBalances', () => {
         inflows: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1.5'),
             netAmount: parseDecimal('1.5'),
           },
@@ -63,7 +63,7 @@ describe('calculateBalances', () => {
         outflows: [
           {
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             grossAmount: parseDecimal('2.0'),
             netAmount: parseDecimal('2.0'),
           },
@@ -89,7 +89,7 @@ describe('calculateBalances', () => {
         outflows: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('0.5001'), // Includes the 0.0001 fee
             netAmount: parseDecimal('0.5'), // What actually transferred
           },
@@ -98,7 +98,7 @@ describe('calculateBalances', () => {
       fees: [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.0001'),
           scope: 'network',
           settlement: 'on-chain',
@@ -120,7 +120,7 @@ describe('calculateBalances', () => {
         inflows: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
           },
@@ -128,7 +128,7 @@ describe('calculateBalances', () => {
         outflows: [
           {
             assetId: 'test:usdt',
-            assetSymbol: 'USDT',
+            assetSymbol: 'USDT' as Currency,
             grossAmount: parseDecimal('50000'),
             netAmount: parseDecimal('50000'),
           },
@@ -137,7 +137,7 @@ describe('calculateBalances', () => {
       fees: [
         {
           assetId: 'test:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.001'),
           scope: 'platform',
           settlement: 'balance',
@@ -165,7 +165,7 @@ describe('calculateBalances', () => {
         outflows: [
           {
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             grossAmount: parseDecimal('5.0'), // Recipient receives full amount
             netAmount: parseDecimal('5.0'), // Same as gross for account-based chains
           },
@@ -174,14 +174,14 @@ describe('calculateBalances', () => {
       fees: [
         {
           assetId: 'test:eth',
-          assetSymbol: 'ETH',
+          assetSymbol: 'ETH' as Currency,
           amount: parseDecimal('0.005'),
           scope: 'network',
           settlement: 'balance',
         },
         {
           assetId: 'test:eth',
-          assetSymbol: 'ETH',
+          assetSymbol: 'ETH' as Currency,
           amount: parseDecimal('0.001'),
           scope: 'platform',
           settlement: 'balance',
@@ -205,7 +205,7 @@ describe('calculateBalances', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('1.0'),
               netAmount: parseDecimal('1.0'),
             },
@@ -220,7 +220,7 @@ describe('calculateBalances', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('0.5'),
               netAmount: parseDecimal('0.5'),
             },
@@ -235,7 +235,7 @@ describe('calculateBalances', () => {
           outflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('0.3'),
               netAmount: parseDecimal('0.3'),
             },
@@ -244,7 +244,7 @@ describe('calculateBalances', () => {
         fees: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             amount: parseDecimal('0.001'),
             scope: 'platform',
             settlement: 'balance',
@@ -267,7 +267,7 @@ describe('calculateBalances', () => {
         inflows: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('0.5'),
             netAmount: parseDecimal('0.5'),
           },
@@ -275,7 +275,7 @@ describe('calculateBalances', () => {
         outflows: [
           {
             assetId: 'test:usdt',
-            assetSymbol: 'USDT',
+            assetSymbol: 'USDT' as Currency,
             grossAmount: parseDecimal('25000'),
             netAmount: parseDecimal('25000'),
           },
@@ -284,7 +284,7 @@ describe('calculateBalances', () => {
       fees: [
         {
           assetId: 'test:usdt',
-          assetSymbol: 'USDT',
+          assetSymbol: 'USDT' as Currency,
           amount: parseDecimal('10'),
           scope: 'platform',
           settlement: 'balance',
@@ -322,7 +322,7 @@ describe('calculateBalances', () => {
         inflows: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('0.00000001'),
             netAmount: parseDecimal('0.00000001'),
           },
@@ -344,7 +344,7 @@ describe('calculateBalances', () => {
         inflows: [
           {
             assetId: 'test:shib',
-            assetSymbol: 'SHIB',
+            assetSymbol: 'SHIB' as Currency,
             grossAmount: parseDecimal('1000000000000'),
             netAmount: parseDecimal('1000000000000'),
           },
@@ -366,13 +366,13 @@ describe('calculateBalances', () => {
         inflows: [
           {
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
           },
           {
             assetId: 'test:eth',
-            assetSymbol: 'ETH',
+            assetSymbol: 'ETH' as Currency,
             grossAmount: parseDecimal('2.5'),
             netAmount: parseDecimal('2.5'),
           },
@@ -396,7 +396,7 @@ describe('calculateBalances', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('1.0'),
               netAmount: parseDecimal('1.0'),
             },
@@ -411,7 +411,7 @@ describe('calculateBalances', () => {
           outflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('0.999'),
               netAmount: parseDecimal('0.999'),
             },
@@ -420,7 +420,7 @@ describe('calculateBalances', () => {
         fees: [
           {
             assetId: 'test:btc',
-            assetSymbol: 'BTC',
+            assetSymbol: 'BTC' as Currency,
             amount: parseDecimal('0.001'),
             scope: 'platform',
             settlement: 'balance',

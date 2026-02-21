@@ -1,4 +1,5 @@
 import type { EvmChainConfig, CosmosChainConfig } from '@exitbook/blockchain-providers';
+import type { Currency } from '@exitbook/core';
 
 /**
  * Test addresses for Bitcoin blockchain tests
@@ -55,7 +56,7 @@ export const EVM_CHAIN_CONFIGS = {
   ethereum: {
     chainId: 1,
     chainName: 'ethereum',
-    nativeCurrency: 'ETH',
+    nativeCurrency: 'ETH' as Currency,
     nativeDecimals: 18,
     transactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],
   } satisfies EvmChainConfig,
@@ -63,7 +64,7 @@ export const EVM_CHAIN_CONFIGS = {
   avalanche: {
     chainId: 43114,
     chainName: 'avalanche',
-    nativeCurrency: 'AVAX',
+    nativeCurrency: 'AVAX' as Currency,
     nativeDecimals: 18,
     transactionTypes: ['normal', 'token'],
   } satisfies EvmChainConfig,
@@ -71,7 +72,7 @@ export const EVM_CHAIN_CONFIGS = {
   polygon: {
     chainId: 137,
     chainName: 'polygon',
-    nativeCurrency: 'MATIC',
+    nativeCurrency: 'MATIC' as Currency,
     nativeDecimals: 18,
     transactionTypes: ['normal', 'internal', 'token'],
   } satisfies EvmChainConfig,
@@ -79,7 +80,7 @@ export const EVM_CHAIN_CONFIGS = {
   base: {
     chainId: 8453,
     chainName: 'base',
-    nativeCurrency: 'ETH',
+    nativeCurrency: 'ETH' as Currency,
     nativeDecimals: 18,
     transactionTypes: ['normal', 'token'],
   } satisfies EvmChainConfig,
@@ -94,7 +95,7 @@ export const COSMOS_CHAIN_CONFIGS = {
     chainId: 'injective-1',
     chainName: 'injective',
     displayName: 'Injective Protocol',
-    nativeCurrency: 'INJ',
+    nativeCurrency: 'INJ' as Currency,
     nativeDecimals: 18,
     nativeDenom: 'inj',
   } satisfies CosmosChainConfig,
@@ -104,7 +105,7 @@ export const COSMOS_CHAIN_CONFIGS = {
     chainId: 'osmosis-1',
     chainName: 'osmosis',
     displayName: 'Osmosis',
-    nativeCurrency: 'OSMO',
+    nativeCurrency: 'OSMO' as Currency,
     nativeDecimals: 6,
     nativeDenom: 'uosmo',
   } satisfies CosmosChainConfig,

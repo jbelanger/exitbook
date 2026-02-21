@@ -3,7 +3,7 @@
  */
 
 import type { TransactionLink } from '@exitbook/accounting';
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
@@ -377,7 +377,7 @@ function createMockLink(
     sourceTransactionId: sourceTxId,
     targetTransactionId: targetTxId,
     linkType: 'exchange_to_blockchain',
-    assetSymbol: asset,
+    assetSymbol: asset as Currency,
     sourceAssetId: `test:${asset.toLowerCase()}`,
     targetAssetId: `test:${asset.toLowerCase()}`,
     sourceAmount: new Decimal(sourceAmount),

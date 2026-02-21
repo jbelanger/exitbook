@@ -1,3 +1,5 @@
+import type { Currency } from '@exitbook/core';
+
 /**
  * Configuration interface for Bitcoin-like UTXO blockchains
  *
@@ -24,7 +26,7 @@ export interface BitcoinChainConfig {
   /**
    * Symbol for the native currency (e.g., 'BTC', 'DOGE', 'LTC')
    */
-  nativeCurrency: string;
+  nativeCurrency: Currency;
 
   /**
    * Number of decimals for the native currency (always 8 for Bitcoin-like chains)

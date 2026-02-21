@@ -1,6 +1,6 @@
 import type { SolanaTransaction } from '@exitbook/blockchain-providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type Currency } from '@exitbook/core';
 import type { OperationClassification, TransactionNote } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -147,7 +147,7 @@ export function consolidateSolanaMovements(movements: SolanaMovement[]): SolanaM
   return Array.from(assetMap.entries()).map(([asset, data]) => {
     const result: SolanaMovement = {
       amount: data.amount.toFixed(),
-      asset,
+      asset: asset as Currency,
       decimals: data.decimals,
       tokenAddress: data.tokenAddress,
     };
@@ -443,7 +443,7 @@ export function analyzeSolanaBalanceChanges(
 
       const movement: SolanaMovement = {
         amount: normalizedAmountResult.value,
-        asset: change.symbol || change.mint,
+        asset: (change.symbol || change.mint) as Currency,
         decimals: change.decimals,
         tokenAddress: change.mint,
       };
@@ -483,7 +483,7 @@ export function analyzeSolanaBalanceChanges(
 
       const movement = {
         amount: normalizedSolAmountResult.value,
-        asset: 'SOL',
+        asset: 'SOL' as Currency,
       };
 
       if (solDeltaLamports > 0n) {
@@ -730,7 +730,7 @@ export function analyzeSolanaBalanceChanges(
   // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions
   let primary: SolanaMovement = {
     amount: '0',
-    asset: 'SOL',
+    asset: 'SOL' as Currency,
   };
 
   // Use largest inflow as primary (prefer tokens with more decimals)
@@ -820,7 +820,7 @@ export function analyzeSolanaFundFlow(
   const fundFlow: SolanaFundFlow = {
     computeUnitsUsed: tx.computeUnitsConsumed,
     feeAmount: tx.feeAmount || '0',
-    feeCurrency: tx.feeCurrency || 'SOL',
+    feeCurrency: (tx.feeCurrency || 'SOL') as Currency,
     feePaidByUser: flowAnalysis.feePaidByUser,
     feeAbsorbedByMovement: flowAnalysis.feeAbsorbedByMovement,
     fromAddress: flowAnalysis.fromAddress,

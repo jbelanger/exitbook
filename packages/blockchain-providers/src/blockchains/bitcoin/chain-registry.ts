@@ -11,7 +11,7 @@ import type { BitcoinChainConfig } from './chain-config.interface.js';
  * const processor = new BitcoinProcessor(BITCOIN_CHAINS.dogecoin);
  * ```
  */
-export const BITCOIN_CHAINS = bitcoinChainsData as Record<string, BitcoinChainConfig>;
+export const BITCOIN_CHAINS = bitcoinChainsData as unknown as Record<string, BitcoinChainConfig>;
 
 /**
  * Type-safe chain names for all supported Bitcoin-like chains

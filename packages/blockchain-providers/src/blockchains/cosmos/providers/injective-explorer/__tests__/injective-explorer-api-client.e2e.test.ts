@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/types/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import { InjectiveExplorerApiClient } from '../injective-explorer.api-client.js';
 
@@ -24,7 +23,7 @@ describe('InjectiveExplorerApiClient Integration', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -51,7 +50,7 @@ describe('InjectiveExplorerApiClient Integration', () => {
     it('should handle address with minimal or zero balance', async () => {
       // Use a different address that might have minimal balance
       const minimalAddress = 'inj1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqe2hm49';
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: minimalAddress,
         type: 'getAddressBalances',
       });

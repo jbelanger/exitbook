@@ -23,6 +23,7 @@ import { createProviderHttpClient } from '../../core/utils.js';
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../index.js';
 import type { PricesDB } from '../../persistence/database.js';
 import { createPriceQueries, type PriceQueries } from '../../persistence/queries/price-queries.js';
+import { BusinessDayFallbackExhaustedError, fetchWithBusinessDayFallback } from '../shared/fx-fallback-utils.js';
 
 import {
   formatFrankfurterDate,
@@ -68,10 +69,10 @@ export function createFrankfurterProvider(
     });
 
     // Create queries
-    const priceRepo = createPriceQueries(db);
+    const priceQueries = createPriceQueries(db);
 
     // Create provider
-    const provider = new FrankfurterProvider(httpClient, priceRepo);
+    const provider = new FrankfurterProvider(httpClient, priceQueries);
 
     return ok(provider);
   } catch (error) {
@@ -91,11 +92,8 @@ export function createFrankfurterProvider(
 export class FrankfurterProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
 
-  constructor(httpClient: HttpClient, priceRepo: PriceQueries) {
-    super();
-
-    this.httpClient = httpClient;
-    this.priceQueries = priceRepo;
+  constructor(httpClient: HttpClient, priceQueries: PriceQueries) {
+    super(httpClient, priceQueries);
 
     // Provider metadata
     this.metadata = {
@@ -193,98 +191,97 @@ export class FrankfurterProvider extends BasePriceProvider {
     timestamp: Date,
     currency: Currency
   ): Promise<Result<PriceData, Error>> {
-    const maxAttempts = 7; // Try up to a week back
-    let attemptDate = new Date(timestamp);
-    let lastError: Error | undefined;
+    const requestedDate = formatFrankfurterDate(timestamp);
+    const fallbackResult = await fetchWithBusinessDayFallback(timestamp, {
+      maxAttempts: 7,
+      fetchForDate: async ({ attemptNumber, candidateDate, isOriginalDate }) => {
+        const dateStr = formatFrankfurterDate(candidateDate);
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const dateStr = formatFrankfurterDate(attemptDate);
+        // Build query parameters
+        const params = new URLSearchParams({
+          from: assetSymbol,
+          to: currency,
+        });
 
-      // Build query parameters
-      const params = new URLSearchParams({
-        from: assetSymbol,
-        to: currency,
-      });
+        this.logger.debug(
+          {
+            assetSymbol,
+            currency,
+            requestedDate,
+            attemptDate: dateStr,
+            attempt: attemptNumber,
+          },
+          isOriginalDate ? 'Fetching Frankfurter FX rate' : 'Retrying Frankfurter FX rate with earlier date'
+        );
 
-      const isOriginalDate = attempt === 0;
-      this.logger.debug(
-        {
+        // Make API request: GET /{date}?from={asset}&to={currency}
+        const httpResult = await this.httpClient.get<unknown>(`/${dateStr}?${params.toString()}`);
+
+        if (httpResult.isErr()) {
+          // For HTTP errors, try earlier date (might be weekend/holiday)
+          // unless it's a 4xx error (client error - likely invalid currency)
+          const errorMsg = httpResult.error.message;
+          if (errorMsg.includes('400') || errorMsg.includes('404')) {
+            return { error: httpResult.error, outcome: 'fail' } as const;
+          }
+          return { error: httpResult.error, outcome: 'retry' } as const;
+        }
+
+        const parseResult = FrankfurterSingleDateResponseSchema.safeParse(httpResult.value);
+        if (!parseResult.success) {
+          return {
+            error: new Error(`Invalid Frankfurter response: ${parseResult.error.message}`),
+            outcome: 'fail',
+          } as const;
+        }
+
+        const now = new Date();
+        const priceDataResult = transformFrankfurterResponse(
+          parseResult.data,
           assetSymbol,
           currency,
-          requestedDate: formatFrankfurterDate(timestamp),
-          attemptDate: dateStr,
-          attempt: attempt + 1,
-        },
-        isOriginalDate ? 'Fetching Frankfurter FX rate' : 'Retrying Frankfurter FX rate with earlier date'
-      );
-
-      // Make API request: GET /{date}?from={asset}&to={currency}
-      const httpResult = await this.httpClient.get<unknown>(`/${dateStr}?${params.toString()}`);
-
-      if (httpResult.isErr()) {
-        lastError = httpResult.error;
-        // For HTTP errors, try earlier date (might be weekend/holiday)
-        // unless it's a 4xx error (client error - likely invalid currency)
-        const errorMsg = httpResult.error.message;
-        if (errorMsg.includes('400') || errorMsg.includes('404')) {
-          // Client error - don't retry
-          return err(httpResult.error);
-        }
-        // Server error or network issue - try earlier date
-        attemptDate = new Date(attemptDate.getTime() - 24 * 60 * 60 * 1000);
-        continue;
-      }
-
-      const rawResponse = httpResult.value;
-
-      // Validate response schema
-      const parseResult = FrankfurterSingleDateResponseSchema.safeParse(rawResponse);
-      if (!parseResult.success) {
-        return err(new Error(`Invalid Frankfurter response: ${parseResult.error.message}`));
-      }
-
-      // Transform response to PriceData
-      const now = new Date();
-      const priceDataResult = transformFrankfurterResponse(parseResult.data, assetSymbol, currency, attemptDate, now);
-
-      if (priceDataResult.isOk()) {
-        // Successfully found a rate
-        const priceData = priceDataResult.value;
-
-        // If we had to use a different date, log it
-        if (!isOriginalDate) {
-          this.logger.info(
-            {
-              assetSymbol,
-              requestedDate: formatFrankfurterDate(timestamp),
-              actualDate: dateStr,
-              daysBack: attempt,
-            },
-            'Using previous business day FX rate (weekend/holiday)'
-          );
-
-          return ok({
-            ...priceData,
-            granularity: 'day', // Still daily, just not exact date
-            timestamp, // Keep original requested timestamp
-          });
+          candidateDate,
+          now
+        );
+        if (priceDataResult.isErr()) {
+          return { error: priceDataResult.error, outcome: 'retry' } as const;
         }
 
-        return ok(priceData);
-      }
+        return { outcome: 'success', value: priceDataResult.value } as const;
+      },
+    });
 
-      // No data for this date - likely weekend/holiday
-      // Walk back one day and try again
-      lastError = priceDataResult.error;
-      attemptDate = new Date(attemptDate.getTime() - 24 * 60 * 60 * 1000);
+    if (fallbackResult.isErr()) {
+      if (fallbackResult.error instanceof BusinessDayFallbackExhaustedError) {
+        return err(
+          new Error(
+            `No FX rate found for ${assetSymbol} within ${fallbackResult.error.maxAttempts} days of ${requestedDate}. ` +
+              `Last error: ${fallbackResult.error.lastError?.message || 'unknown'}`
+          )
+        );
+      }
+      return err(fallbackResult.error);
     }
 
-    // Exhausted all attempts
-    return err(
-      new Error(
-        `No FX rate found for ${assetSymbol} within ${maxAttempts} days of ${formatFrankfurterDate(timestamp)}. ` +
-          `Last error: ${lastError?.message || 'unknown'}`
-      )
-    );
+    const { actualDate, daysBack, value: priceData } = fallbackResult.value;
+    if (daysBack > 0) {
+      this.logger.info(
+        {
+          assetSymbol,
+          requestedDate,
+          actualDate: formatFrankfurterDate(actualDate),
+          daysBack,
+        },
+        'Using previous business day FX rate (weekend/holiday)'
+      );
+
+      return ok({
+        ...priceData,
+        granularity: 'day',
+        timestamp,
+      });
+    }
+
+    return ok(priceData);
   }
 }

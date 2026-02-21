@@ -44,7 +44,7 @@ describe('CryptoCompareProvider', () => {
     getPrice: ReturnType<typeof vi.fn>;
     savePrice: ReturnType<typeof vi.fn>;
   };
-  let priceRepo: PriceQueries;
+  let priceQueries: PriceQueries;
   let provider: CryptoCompareProvider;
 
   beforeEach(() => {
@@ -59,7 +59,7 @@ describe('CryptoCompareProvider', () => {
       getPrice: vi.fn().mockResolvedValue(ok()),
       savePrice: vi.fn().mockResolvedValue(ok()),
     };
-    priceRepo = priceRepoMocks as unknown as PriceQueries;
+    priceQueries = priceRepoMocks as unknown as PriceQueries;
 
     const mockRateLimit = {
       burstLimit: 5,
@@ -68,7 +68,7 @@ describe('CryptoCompareProvider', () => {
       requestsPerSecond: 0.04,
     };
 
-    provider = new CryptoCompareProvider(httpClient, priceRepo, {}, mockRateLimit);
+    provider = new CryptoCompareProvider(httpClient, priceQueries, {}, mockRateLimit);
   });
 
   afterEach(() => {

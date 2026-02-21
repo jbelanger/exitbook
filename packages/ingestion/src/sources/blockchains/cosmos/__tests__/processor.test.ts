@@ -1,4 +1,5 @@
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/blockchain-providers';
+import type { Currency } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import { CosmosProcessor } from '../processor.js';
@@ -8,7 +9,7 @@ const INJECTIVE_CONFIG: CosmosChainConfig = {
   chainId: 'injective-1',
   chainName: 'injective',
   displayName: 'Injective Protocol',
-  nativeCurrency: 'INJ',
+  nativeCurrency: 'INJ' as Currency,
   nativeDecimals: 18,
   nativeDenom: 'inj',
 };
@@ -18,7 +19,7 @@ const OSMOSIS_CONFIG: CosmosChainConfig = {
   chainId: 'osmosis-1',
   chainName: 'osmosis',
   displayName: 'Osmosis',
-  nativeCurrency: 'OSMO',
+  nativeCurrency: 'OSMO' as Currency,
   nativeDecimals: 6,
   nativeDenom: 'uosmo',
 };
@@ -41,7 +42,7 @@ function createTransaction(overrides: Partial<CosmosTransaction> = {}): CosmosTr
     blockHeight: 100,
     currency: 'INJ',
     feeAmount: '500000000000000',
-    feeCurrency: 'INJ',
+    feeCurrency: 'INJ' as Currency,
     from: EXTERNAL_ADDRESS,
     id: 'tx123',
     eventId: '0xdefaulteventid',
@@ -612,7 +613,7 @@ describe('CosmosProcessor - Multi-Chain Support', () => {
         blockHeight: 301,
         currency: 'OSMO',
         feeAmount: '1000',
-        feeCurrency: 'OSMO',
+        feeCurrency: 'OSMO' as Currency,
         from: EXTERNAL_ADDRESS,
         id: 'tx402',
         providerName: 'mintscan',

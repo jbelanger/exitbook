@@ -1,5 +1,4 @@
-import type { AssetMovement } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { type AssetMovement, type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { calculatePriceFromTrade, extractTradeMovements } from '../price-calculation-utils.js';
@@ -9,7 +8,7 @@ describe('extractTradeMovements', () => {
     const inflows: AssetMovement[] = [
       {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),
       },
     ];
@@ -17,7 +16,7 @@ describe('extractTradeMovements', () => {
     const outflows: AssetMovement[] = [
       {
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         grossAmount: parseDecimal('50000'),
       },
     ];
@@ -36,12 +35,12 @@ describe('extractTradeMovements', () => {
     const inflows: AssetMovement[] = [
       {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),
       },
       {
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         grossAmount: parseDecimal('10'),
       },
     ];
@@ -49,7 +48,7 @@ describe('extractTradeMovements', () => {
     const outflows: AssetMovement[] = [
       {
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         grossAmount: parseDecimal('50000'),
       },
     ];
@@ -69,12 +68,12 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),
       },
       outflow: {
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         grossAmount: parseDecimal('50000'),
       },
       timestamp: 1234567890000,
@@ -91,12 +90,12 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         assetId: 'test:usd',
-        assetSymbol: 'USD',
+        assetSymbol: 'USD' as Currency,
         grossAmount: parseDecimal('6000'),
       },
       outflow: {
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         grossAmount: parseDecimal('2'),
       },
       timestamp: 1234567890000,
@@ -122,12 +121,12 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         assetId: 'test:usdc',
-        assetSymbol: 'USDC',
+        assetSymbol: 'USDC' as Currency,
         grossAmount: parseDecimal('999.5'),
       },
       outflow: {
         assetId: 'test:usdt',
-        assetSymbol: 'USDT',
+        assetSymbol: 'USDT' as Currency,
         grossAmount: parseDecimal('1000'),
       },
       timestamp: 1234567890000,
@@ -144,12 +143,12 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         assetId: 'test:eth',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         grossAmount: parseDecimal('20'),
       },
       outflow: {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),
       },
       timestamp: 1234567890000,
@@ -165,12 +164,12 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('0.5'),
       },
       outflow: {
         assetId: 'test:usd',
-        assetSymbol: 'USD',
+        assetSymbol: 'USD' as Currency,
         grossAmount: parseDecimal('25000'),
       },
       timestamp: 1234567890000,
@@ -196,12 +195,12 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),
       },
       outflow: {
         assetId: 'test:eur',
-        assetSymbol: 'EUR',
+        assetSymbol: 'EUR' as Currency,
         grossAmount: parseDecimal('40000'),
       },
       timestamp: 1234567890000,
@@ -235,12 +234,12 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),
       },
       outflow: {
         assetId: 'test:cad',
-        assetSymbol: 'CAD',
+        assetSymbol: 'CAD' as Currency,
         grossAmount: parseDecimal('65000'),
       },
       timestamp: 1234567890000,
@@ -271,12 +270,12 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         assetId: 'test:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),
       },
       outflow: {
         assetId: 'test:usd',
-        assetSymbol: 'USD',
+        assetSymbol: 'USD' as Currency,
         grossAmount: parseDecimal('50000'),
       },
       timestamp: 1234567890000,

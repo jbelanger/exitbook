@@ -48,7 +48,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
@@ -56,7 +56,7 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -65,7 +65,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:usd',
-              assetSymbol: 'USD',
+              assetSymbol: 'USD' as Currency,
               amount: parseDecimal('100'),
               scope: 'platform',
               settlement: 'balance',
@@ -118,7 +118,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:eth',
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('3000'),
               },
@@ -126,7 +126,7 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('3000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -135,7 +135,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:eth',
-              assetSymbol: 'ETH',
+              assetSymbol: 'ETH' as Currency,
               amount: parseDecimal('0.001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -183,7 +183,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
@@ -191,7 +191,7 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -200,7 +200,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:usd',
-              assetSymbol: 'USD',
+              assetSymbol: 'USD' as Currency,
               amount: parseDecimal('100'),
               scope: 'platform',
               settlement: 'balance',
@@ -208,7 +208,7 @@ describe('LotMatcher - Fee Handling', () => {
             },
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               amount: parseDecimal('0.0001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -261,7 +261,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
@@ -269,7 +269,7 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -294,7 +294,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('60000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -302,7 +302,7 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('60000'),
               },
@@ -311,7 +311,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:usd',
-              assetSymbol: 'USD',
+              assetSymbol: 'USD' as Currency,
               amount: parseDecimal('150'),
               scope: 'platform',
               settlement: 'balance',
@@ -364,7 +364,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:eth',
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('3000'),
               },
@@ -372,7 +372,7 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('3000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -397,7 +397,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('3500'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -405,7 +405,7 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'test:eth',
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('3500'),
               },
@@ -414,7 +414,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:eth',
-              assetSymbol: 'ETH',
+              assetSymbol: 'ETH' as Currency,
               amount: parseDecimal('0.002'),
               scope: 'network',
               settlement: 'on-chain',
@@ -469,13 +469,13 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
               {
                 assetId: 'test:eth',
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 grossAmount: parseDecimal('10'),
                 priceAtTxTime: createPriceAtTxTime('2500'),
               },
@@ -483,7 +483,7 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('75000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -492,7 +492,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:usd',
-              assetSymbol: 'USD',
+              assetSymbol: 'USD' as Currency,
               amount: parseDecimal('75'),
               scope: 'platform',
               settlement: 'balance',
@@ -555,13 +555,13 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('0.5'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('0.5'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
@@ -569,7 +569,7 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -578,7 +578,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:usd',
-              assetSymbol: 'USD',
+              assetSymbol: 'USD' as Currency,
               amount: parseDecimal('20'),
               scope: 'platform',
               settlement: 'balance',
@@ -643,7 +643,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1'),
                 netAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
@@ -652,7 +652,7 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('50000'),
                 netAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
@@ -678,7 +678,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('60000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -686,13 +686,13 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('0.6'),
                 priceAtTxTime: createPriceAtTxTime('60000'),
               },
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('0.4'),
                 priceAtTxTime: createPriceAtTxTime('60000'),
               },
@@ -701,7 +701,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:usd',
-              assetSymbol: 'USD',
+              assetSymbol: 'USD' as Currency,
               amount: parseDecimal('30'),
               scope: 'platform',
               settlement: 'balance',
@@ -764,7 +764,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:eth',
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('3000'),
               },
@@ -774,7 +774,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:eth',
-              assetSymbol: 'ETH',
+              assetSymbol: 'ETH' as Currency,
               amount: parseDecimal('0.001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -816,7 +816,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000', 'USD'),
               },
@@ -826,7 +826,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:usd',
-              assetSymbol: 'USD',
+              assetSymbol: 'USD' as Currency,
               amount: parseDecimal('100'),
               scope: 'platform',
               settlement: 'balance',
@@ -872,7 +872,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000', 'USD'),
               },
@@ -882,7 +882,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:cad',
-              assetSymbol: 'CAD',
+              assetSymbol: 'CAD' as Currency,
               amount: parseDecimal('100'),
               scope: 'platform',
               settlement: 'balance',
@@ -928,7 +928,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:xyz',
-                assetSymbol: 'XYZ',
+                assetSymbol: 'XYZ' as Currency,
                 grossAmount: parseDecimal('100'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value airdrop
               },
@@ -938,7 +938,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:eth',
-              assetSymbol: 'ETH',
+              assetSymbol: 'ETH' as Currency,
               amount: parseDecimal('0.001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -988,13 +988,13 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:token_a',
-                assetSymbol: 'TOKEN_A',
+                assetSymbol: 'TOKEN_A' as Currency,
                 grossAmount: parseDecimal('100'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
               {
                 assetId: 'test:token_b',
-                assetSymbol: 'TOKEN_B',
+                assetSymbol: 'TOKEN_B' as Currency,
                 grossAmount: parseDecimal('50'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
@@ -1004,7 +1004,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:usd',
-              assetSymbol: 'USD',
+              assetSymbol: 'USD' as Currency,
               amount: parseDecimal('10'),
               scope: 'platform',
               settlement: 'balance',
@@ -1062,7 +1062,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:xyz',
-                assetSymbol: 'XYZ',
+                assetSymbol: 'XYZ' as Currency,
                 grossAmount: parseDecimal('100'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
@@ -1070,7 +1070,7 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('0'), // Zero-value fiat
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -1079,7 +1079,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:usd',
-              assetSymbol: 'USD',
+              assetSymbol: 'USD' as Currency,
               amount: parseDecimal('5'),
               scope: 'platform',
               settlement: 'balance',
@@ -1129,7 +1129,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('1000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -1137,7 +1137,7 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'test:cad',
-                assetSymbol: 'CAD',
+                assetSymbol: 'CAD' as Currency,
                 grossAmount: parseDecimal('1350'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -1146,7 +1146,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:usd',
-              assetSymbol: 'USD',
+              assetSymbol: 'USD' as Currency,
               amount: parseDecimal('5'),
               scope: 'platform',
               settlement: 'balance',
@@ -1192,13 +1192,13 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
               {
                 assetId: 'test:xyz',
-                assetSymbol: 'XYZ',
+                assetSymbol: 'XYZ' as Currency,
                 grossAmount: parseDecimal('100'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
@@ -1208,7 +1208,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [
             {
               assetId: 'test:usd',
-              assetSymbol: 'USD',
+              assetSymbol: 'USD' as Currency,
               amount: parseDecimal('100'),
               scope: 'platform',
               settlement: 'balance',
@@ -1265,7 +1265,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
@@ -1292,7 +1292,7 @@ describe('LotMatcher - Fee Handling', () => {
             outflows: [
               {
                 assetId: 'bitcoin:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('0.5'), // Change output
                 priceAtTxTime: createPriceAtTxTime('55000'),
               },
@@ -1319,7 +1319,7 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 assetId: 'bitcoin:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('0.5'), // Change input
                 priceAtTxTime: createPriceAtTxTime('55000'),
               },
@@ -1339,7 +1339,7 @@ describe('LotMatcher - Fee Handling', () => {
         id: 'link1',
         sourceTransactionId: 2,
         targetTransactionId: 3,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         sourceAssetId: 'bitcoin:btc',
         targetAssetId: 'bitcoin:btc',
         sourceAmount: parseDecimal('0.5'),

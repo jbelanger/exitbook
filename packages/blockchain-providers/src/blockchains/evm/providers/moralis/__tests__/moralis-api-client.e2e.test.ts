@@ -1,7 +1,5 @@
-import type { TokenMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/types/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import { MoralisApiClient } from '../moralis.api-client.js';
 
@@ -25,7 +23,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
 
     describe('Raw Address Balance', () => {
       it('should fetch address balance successfully', async () => {
-        const result = await provider.execute<RawBalanceData>({
+        const result = await provider.execute({
           address: testAddress,
           type: 'getAddressBalances',
         });
@@ -46,7 +44,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         // Use a different address with fewer tokens to avoid Moralis's 2000 token limit
         const smallerAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4';
 
-        const result = await provider.execute<RawBalanceData[]>({
+        const result = await provider.execute({
           address: smallerAddress,
           type: 'getAddressTokenBalances',
         });
@@ -74,7 +72,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
       it('should convert balances from smallest units to decimal', async () => {
         const smallerAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4';
 
-        const result = await provider.execute<RawBalanceData[]>({
+        const result = await provider.execute({
           address: smallerAddress,
           type: 'getAddressTokenBalances',
         });
@@ -180,7 +178,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         // DAI on Ethereum
         const daiAddress = '0x6B175474E89094C44Da98b954EedeAC495271d0F';
 
-        const result = await provider.execute<TokenMetadata[]>({
+        const result = await provider.execute({
           contractAddresses: [daiAddress],
           type: 'getTokenMetadata',
         });

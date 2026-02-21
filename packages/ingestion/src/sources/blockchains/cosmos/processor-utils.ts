@@ -1,6 +1,5 @@
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/blockchain-providers';
-import type { OperationClassification } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
@@ -81,20 +80,20 @@ export function analyzeFundFlowFromNormalized(
   const hasIbcTransfer = transaction.bridgeType === 'ibc';
   const hasContractInteraction = Boolean(
     transaction.tokenAddress ||
-      transaction.messageType?.includes('wasm') ||
-      transaction.messageType?.includes('contract')
+    transaction.messageType?.includes('wasm') ||
+    transaction.messageType?.includes('contract')
   );
 
   // Collect ALL assets that flow in/out (using Cosmos-specific 'denom' terminology)
   const inflows: {
     amount: string;
-    asset: string;
+    asset: Currency;
     denom?: string;
     tokenDecimals?: number;
   }[] = [];
   const outflows: {
     amount: string;
-    asset: string;
+    asset: Currency;
     denom?: string;
     tokenDecimals?: number;
   }[] = [];
@@ -108,10 +107,10 @@ export function analyzeFundFlowFromNormalized(
   const isAmountZero = isZero(amount);
 
   if (!isAmountZero) {
-    const asset = transaction.currency || chainConfig.nativeCurrency;
+    const asset = (transaction.currency || chainConfig.nativeCurrency) as Currency;
     const movement: {
       amount: string;
-      asset: string;
+      asset: Currency;
       denom?: string;
       tokenDecimals?: number;
     } = {
@@ -146,12 +145,12 @@ export function analyzeFundFlowFromNormalized(
   // Use the transferred asset as primary
   const primary: {
     amount: string;
-    asset: string;
+    asset: Currency;
     denom?: string;
     tokenDecimals?: number;
   } = {
     amount: transaction.amount,
-    asset: transaction.currency || chainConfig.nativeCurrency,
+    asset: (transaction.currency || chainConfig.nativeCurrency) as Currency,
   };
 
   // Only add optional fields if they have values
@@ -165,7 +164,7 @@ export function analyzeFundFlowFromNormalized(
 
   // Fee information (always in native currency for Cosmos SDK chains)
   const feeAmount = transaction.feeAmount || '0';
-  const feeCurrency = transaction.feeCurrency || chainConfig.nativeCurrency;
+  const feeCurrency = (transaction.feeCurrency || chainConfig.nativeCurrency) as Currency;
 
   // Track uncertainty for complex transactions
   let classificationUncertainty: string | undefined;

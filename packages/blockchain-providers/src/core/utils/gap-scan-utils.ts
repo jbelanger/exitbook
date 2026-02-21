@@ -77,7 +77,7 @@ export async function performAddressGapScanning(
     // Reset error count on successful API call
     errorCount = 0;
 
-    const hasActivity = result.value.data as boolean;
+    const hasActivity = result.value.data;
     if (hasActivity) {
       highestUsedIndex = i;
       consecutiveUnusedCount = 0;

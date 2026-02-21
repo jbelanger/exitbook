@@ -1,5 +1,5 @@
 import type { AcquisitionLot } from '@exitbook/accounting';
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -30,7 +30,7 @@ function createLot(params: {
     calculationId: '11111111-1111-4111-8111-111111111111',
     acquisitionTransactionId: 1,
     assetId: params.assetId ?? 'blockchain:ethereum:native',
-    assetSymbol: params.assetSymbol ?? 'ETH',
+    assetSymbol: (params.assetSymbol as Currency) ?? ('ETH' as Currency),
     quantity: new Decimal(params.quantity),
     costBasisPerUnit: new Decimal(params.costBasisPerUnit),
     totalCostBasis: new Decimal(params.costBasisPerUnit).times(params.quantity),

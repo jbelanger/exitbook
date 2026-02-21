@@ -1,5 +1,5 @@
 import type { TransactionLinkQueries } from '@exitbook/accounting';
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
@@ -55,7 +55,11 @@ describe('ExportHandler', () => {
     status: 'success',
     movements: {
       inflows: [
-        { assetId: `test:${assetSymbol.toLowerCase()}`, assetSymbol: assetSymbol, grossAmount: parseDecimal('1.0') },
+        {
+          assetId: `test:${assetSymbol.toLowerCase()}`,
+          assetSymbol: assetSymbol as Currency,
+          grossAmount: parseDecimal('1.0'),
+        },
       ],
       outflows: [],
     },

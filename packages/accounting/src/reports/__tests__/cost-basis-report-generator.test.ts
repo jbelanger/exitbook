@@ -120,7 +120,7 @@ describe('CostBasisReportGenerator', () => {
         disposals: mockDisposals,
         lots: [],
         lotTransfers: [],
-        displayCurrency: 'USD',
+        displayCurrency: 'USD' as Currency,
       });
 
       expect(result.isOk()).toBe(true);
@@ -161,7 +161,7 @@ describe('CostBasisReportGenerator', () => {
         disposals: mockDisposals,
         lots: [],
         lotTransfers: [],
-        displayCurrency: 'CAD',
+        displayCurrency: 'CAD' as Currency,
       });
 
       expect(result.isOk()).toBe(true);
@@ -237,7 +237,7 @@ describe('CostBasisReportGenerator', () => {
         disposals: mockDisposals,
         lots: [],
         lotTransfers: [],
-        displayCurrency: 'CAD',
+        displayCurrency: 'CAD' as Currency,
       });
 
       // Verify FX provider was called only twice (once per unique date)
@@ -263,7 +263,7 @@ describe('CostBasisReportGenerator', () => {
         disposals: mockDisposals,
         lots: [],
         lotTransfers: [],
-        displayCurrency: 'CAD',
+        displayCurrency: 'CAD' as Currency,
       });
 
       expect(result.isErr()).toBe(true);
@@ -283,7 +283,7 @@ describe('CostBasisReportGenerator', () => {
         disposals: [],
         lots: [],
         lotTransfers: [],
-        displayCurrency: 'CAD',
+        displayCurrency: 'CAD' as Currency,
       });
 
       expect(result.isOk()).toBe(true);
@@ -314,7 +314,7 @@ describe('CostBasisReportGenerator', () => {
           calculationId: mockCalculationId,
           acquisitionTransactionId: 201,
           assetId: 'btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           quantity: new Decimal(1.0),
           costBasisPerUnit: new Decimal(40000),
           totalCostBasis: new Decimal(40000),
@@ -348,7 +348,7 @@ describe('CostBasisReportGenerator', () => {
         disposals: mockDisposals,
         lots: mockLots,
         lotTransfers: mockTransfers,
-        displayCurrency: 'CAD',
+        displayCurrency: 'CAD' as Currency,
       });
 
       expect(result.isOk()).toBe(true);
@@ -393,7 +393,7 @@ describe('CostBasisReportGenerator', () => {
           calculationId: mockCalculationId,
           acquisitionTransactionId: 201,
           assetId: 'btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           quantity: new Decimal(1.0),
           costBasisPerUnit: new Decimal(40000),
           totalCostBasis: new Decimal(40000),
@@ -426,7 +426,7 @@ describe('CostBasisReportGenerator', () => {
         disposals: mockDisposals,
         lots: mockLots,
         lotTransfers: mockTransfers,
-        displayCurrency: 'CAD',
+        displayCurrency: 'CAD' as Currency,
       });
 
       // Should succeed despite FX failures for lots/transfers (soft-fail)

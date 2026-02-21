@@ -1,4 +1,5 @@
 import { type Currency, parseDecimal } from '@exitbook/core';
+import type { HttpClient } from '@exitbook/http';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -39,9 +40,11 @@ class TestPriceProvider extends BasePriceProvider {
 
   private fetchImpl: (query: PriceQuery) => Promise<Result<PriceData, Error>>;
 
-  constructor(priceRepo: PriceQueries, fetchImpl: (query: PriceQuery) => Promise<Result<PriceData, Error>>) {
-    super();
-    this.priceQueries = priceRepo;
+  constructor(priceQueries: PriceQueries, fetchImpl: (query: PriceQuery) => Promise<Result<PriceData, Error>>) {
+    const httpClient = {
+      close: vi.fn().mockResolvedValue(undefined),
+    } as unknown as HttpClient;
+    super(httpClient, priceQueries);
     this.fetchImpl = fetchImpl;
   }
 
@@ -64,20 +67,20 @@ describe('BasePriceProvider', () => {
     getPrice: ReturnType<typeof vi.fn>;
     savePrice: ReturnType<typeof vi.fn>;
   };
-  let priceRepo: PriceQueries;
+  let priceQueries: PriceQueries;
 
   beforeEach(() => {
     priceQueriesMocks = {
       getPrice: vi.fn(),
       savePrice: vi.fn(),
     };
-    priceRepo = priceQueriesMocks as unknown as PriceQueries;
+    priceQueries = priceQueriesMocks as unknown as PriceQueries;
   });
 
   describe('fetchPrice', () => {
     it('should reject future timestamps', async () => {
       const fetchImpl = vi.fn();
-      const provider = new TestPriceProvider(priceRepo, fetchImpl);
+      const provider = new TestPriceProvider(priceQueries, fetchImpl);
 
       const futureDate = new Date(Date.now() + 86400000); // Tomorrow
       const result = await provider.fetchPrice({
@@ -95,7 +98,7 @@ describe('BasePriceProvider', () => {
 
     it('should reject timestamps before crypto era', async () => {
       const fetchImpl = vi.fn();
-      const provider = new TestPriceProvider(priceRepo, fetchImpl);
+      const provider = new TestPriceProvider(priceQueries, fetchImpl);
 
       const oldDate = new Date('2008-01-01T00:00:00.000Z');
       const result = await provider.fetchPrice({
@@ -122,7 +125,7 @@ describe('BasePriceProvider', () => {
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         })
       );
-      const provider = new TestPriceProvider(priceRepo, fetchImpl);
+      const provider = new TestPriceProvider(priceQueries, fetchImpl);
 
       // Query without currency - should be normalized to USD
       const result = await provider.fetchPrice({
@@ -150,7 +153,7 @@ describe('BasePriceProvider', () => {
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         })
       );
-      const provider = new TestPriceProvider(priceRepo, fetchImpl);
+      const provider = new TestPriceProvider(priceQueries, fetchImpl);
 
       const result = await provider.fetchPrice({
         assetSymbol: 'BTC' as Currency,
@@ -175,7 +178,7 @@ describe('BasePriceProvider', () => {
       };
 
       const fetchImpl = vi.fn().mockResolvedValue(ok(validPriceData));
-      const provider = new TestPriceProvider(priceRepo, fetchImpl);
+      const provider = new TestPriceProvider(priceQueries, fetchImpl);
 
       const result = await provider.fetchPrice({
         assetSymbol: 'BTC' as Currency,
@@ -192,7 +195,7 @@ describe('BasePriceProvider', () => {
     it('should propagate errors from implementation', async () => {
       const errorMessage = 'API request failed';
       const fetchImpl = vi.fn().mockResolvedValue(err(new Error(errorMessage)));
-      const provider = new TestPriceProvider(priceRepo, fetchImpl);
+      const provider = new TestPriceProvider(priceQueries, fetchImpl);
 
       const result = await provider.fetchPrice({
         assetSymbol: 'BTC' as Currency,
@@ -210,7 +213,7 @@ describe('BasePriceProvider', () => {
   describe('getMetadata', () => {
     it('should return provider metadata', () => {
       const fetchImpl = vi.fn();
-      const provider = new TestPriceProvider(priceRepo, fetchImpl);
+      const provider = new TestPriceProvider(priceQueries, fetchImpl);
 
       const metadata = provider.getMetadata();
 
@@ -246,7 +249,7 @@ describe('BasePriceProvider', () => {
       priceQueriesMocks.getPrice.mockResolvedValue(ok(cachedPrice));
 
       const fetchImpl = vi.fn();
-      const provider = new TestPriceProvider(priceRepo, fetchImpl);
+      const provider = new TestPriceProvider(priceQueries, fetchImpl);
 
       const result = await provider.testCheckCache(
         {
@@ -268,7 +271,7 @@ describe('BasePriceProvider', () => {
       priceQueriesMocks.getPrice.mockResolvedValue(ok());
 
       const fetchImpl = vi.fn();
-      const provider = new TestPriceProvider(priceRepo, fetchImpl);
+      const provider = new TestPriceProvider(priceQueries, fetchImpl);
 
       const result = await provider.testCheckCache(
         {
@@ -289,7 +292,7 @@ describe('BasePriceProvider', () => {
       priceQueriesMocks.getPrice.mockResolvedValue(err(new Error('Database error')));
 
       const fetchImpl = vi.fn();
-      const provider = new TestPriceProvider(priceRepo, fetchImpl);
+      const provider = new TestPriceProvider(priceQueries, fetchImpl);
 
       const result = await provider.testCheckCache(
         {
@@ -312,7 +315,7 @@ describe('BasePriceProvider', () => {
       priceQueriesMocks.savePrice.mockResolvedValue(ok());
 
       const fetchImpl = vi.fn();
-      const provider = new TestPriceProvider(priceRepo, fetchImpl);
+      const provider = new TestPriceProvider(priceQueries, fetchImpl);
 
       const priceData: PriceData = {
         assetSymbol: 'BTC' as Currency,
@@ -332,7 +335,7 @@ describe('BasePriceProvider', () => {
       priceQueriesMocks.savePrice.mockResolvedValue(err(new Error('Database error')));
 
       const fetchImpl = vi.fn();
-      const provider = new TestPriceProvider(priceRepo, fetchImpl);
+      const provider = new TestPriceProvider(priceQueries, fetchImpl);
 
       const priceData: PriceData = {
         assetSymbol: 'BTC' as Currency,

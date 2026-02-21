@@ -1,7 +1,6 @@
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/blockchain-providers';
-import type { OperationClassification } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -26,7 +25,7 @@ const logger = getLogger('evm-processor-utils');
 const BEACON_WITHDRAWAL_PRINCIPAL_THRESHOLD = parseDecimal('32');
 
 export interface SelectionCriteria {
-  nativeCurrency: string;
+  nativeCurrency: Currency;
 }
 
 /**
@@ -63,7 +62,7 @@ export function consolidateEvmMovementsByAsset(movements: EvmMovement[]): EvmMov
   return Array.from(assetMap.entries()).map(([asset, data]) => {
     const result: EvmMovement = {
       amount: data.amount.toFixed(),
-      asset,
+      asset: asset as Currency,
       tokenAddress: data.tokenAddress,
       tokenDecimals: data.tokenDecimals,
     };
@@ -387,7 +386,7 @@ export function analyzeEvmFundFlow(
   // Process all token transfers involving the user
   for (const tx of txGroup) {
     if (tx.type === 'token_transfer' && isEvmUserParticipant(tx, userAddress)) {
-      const tokenSymbol = tx.tokenSymbol || tx.currency || 'UNKNOWN';
+      const tokenSymbol = (tx.tokenSymbol || tx.currency || 'UNKNOWN') as Currency;
       const rawAmount = tx.amount ?? '0';
 
       // Normalize token amount using decimals metadata

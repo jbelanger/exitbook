@@ -58,7 +58,7 @@ describe('BinanceProvider', () => {
     getPrice: ReturnType<typeof vi.fn>;
     savePrice: ReturnType<typeof vi.fn>;
   };
-  let priceRepo: PriceQueries;
+  let priceQueries: PriceQueries;
   let provider: BinanceProvider;
 
   beforeEach(() => {
@@ -76,7 +76,7 @@ describe('BinanceProvider', () => {
       getPrice: vi.fn().mockResolvedValue(ok()),
       savePrice: vi.fn().mockResolvedValue(ok()),
     };
-    priceRepo = priceRepoMocks as unknown as PriceQueries;
+    priceQueries = priceRepoMocks as unknown as PriceQueries;
 
     const mockRateLimit = {
       burstLimit: 50,
@@ -85,7 +85,7 @@ describe('BinanceProvider', () => {
       requestsPerSecond: 20,
     };
 
-    provider = new BinanceProvider(httpClient, priceRepo, {}, mockRateLimit);
+    provider = new BinanceProvider(httpClient, priceQueries, {}, mockRateLimit);
   });
 
   afterEach(() => {

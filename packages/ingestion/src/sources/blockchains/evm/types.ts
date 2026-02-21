@@ -1,9 +1,11 @@
+import type { Currency } from '@exitbook/core';
+
 /**
  * EVM movement object (inflow/outflow/primary)
  */
 export interface EvmMovement {
   amount: string; // Normalized amount
-  asset: string; // Symbol (ETH, USDC, etc.)
+  asset: Currency; // Symbol (ETH, USDC, etc.)
   tokenAddress?: string | undefined; // Contract address for tokens
   tokenDecimals?: number | undefined; // Decimals for tokens
 }
@@ -25,7 +27,7 @@ export interface EvmFundFlow {
 
   // Fee information (always in native currency)
   feeAmount: string; // Total fee in native currency
-  feeCurrency: string; // Native currency symbol (ETH, AVAX, etc.)
+  feeCurrency: Currency; // Native currency symbol (ETH, AVAX, etc.)
   feePayerAddress?: string | undefined; // Address that paid the network fee (parent tx sender)
 
   // Address information (always present in fund flow)

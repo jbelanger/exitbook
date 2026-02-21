@@ -5,7 +5,7 @@ import {
   type TransactionLink,
   type TransactionLinkQueries,
 } from '@exitbook/accounting';
-import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { parseDecimal, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { applyLinkOverrides, type OrphanedLinkOverride, type OverrideStore } from '@exitbook/data';
 import type { TransactionQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
@@ -394,7 +394,7 @@ export class LinksRunHandler {
       id: uuidv4(),
       sourceTransactionId: entry.sourceTransactionId,
       targetTransactionId: entry.targetTransactionId,
-      assetSymbol: entry.assetSymbol,
+      assetSymbol: entry.assetSymbol as Currency,
       sourceAssetId,
       targetAssetId,
       sourceAmount: zero, // Sentinel: unknown (user override, not algorithm match)

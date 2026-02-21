@@ -1,3 +1,4 @@
+import type { Currency } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -9,7 +10,7 @@ import type { AcquisitionLot, LotStatus } from './types.js';
 export function createAcquisitionLot(params: {
   acquisitionTransactionId: number;
   assetId: string;
-  assetSymbol: string;
+  assetSymbol: Currency;
   calculationId: string;
   costBasisPerUnit: Decimal;
   id: string;

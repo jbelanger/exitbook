@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import { SolanaRPCApiClient } from '../solana-rpc.api-client.js';
 
@@ -23,7 +22,7 @@ describe('SolanaRPCApiClient Integration', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance in normalized format', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -48,7 +47,7 @@ describe('SolanaRPCApiClient Integration', () => {
   describe('Token Balances', () => {
     it.skip('should fetch token balances in normalized format', async () => {
       // Skipping: Public Solana RPC is extremely slow and unreliable for E2E tests
-      const result = await provider.execute<RawBalanceData[]>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -80,7 +79,7 @@ describe('SolanaRPCApiClient Integration', () => {
 
     it.skip('should return token balances with UI amount strings', async () => {
       // Skipping: Public Solana RPC is extremely slow and unreliable for E2E tests
-      const result = await provider.execute<RawBalanceData[]>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -106,7 +105,7 @@ describe('SolanaRPCApiClient Integration', () => {
 
   describe('Error Handling', () => {
     it('should handle unsupported operations gracefully', async () => {
-      const result = await provider.execute<unknown>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'non-existent' as never,
       });

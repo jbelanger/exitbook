@@ -2,6 +2,7 @@
  * Tests for links view controller
  */
 
+import type { Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -611,7 +612,7 @@ function createMockLinks(): LinkWithTransactions[] {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         linkType: 'exchange_to_blockchain',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         sourceAssetId: 'test:eth',
         targetAssetId: 'test:eth',
         sourceAmount: new Decimal('1.5'),
@@ -639,7 +640,7 @@ function createMockLinks(): LinkWithTransactions[] {
         sourceTransactionId: 3,
         targetTransactionId: 4,
         linkType: 'exchange_to_blockchain',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         sourceAssetId: 'test:btc',
         targetAssetId: 'test:btc',
         sourceAmount: new Decimal('0.5'),
@@ -667,7 +668,7 @@ function createMockLinks(): LinkWithTransactions[] {
         sourceTransactionId: 5,
         targetTransactionId: 6,
         linkType: 'exchange_to_blockchain',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         sourceAssetId: 'test:eth',
         targetAssetId: 'test:eth',
         sourceAmount: new Decimal('2.0'),
@@ -695,7 +696,7 @@ function createMockLinks(): LinkWithTransactions[] {
         sourceTransactionId: 7,
         targetTransactionId: 8,
         linkType: 'exchange_to_blockchain',
-        assetSymbol: 'ETH',
+        assetSymbol: 'ETH' as Currency,
         sourceAssetId: 'test:eth',
         targetAssetId: 'test:eth',
         sourceAmount: new Decimal('3.0'),

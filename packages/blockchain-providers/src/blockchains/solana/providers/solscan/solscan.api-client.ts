@@ -5,6 +5,7 @@ import { err, ok, type Result } from 'neverthrow';
 import type {
   NormalizedTransactionBase,
   OneShotOperation,
+  OneShotOperationResult,
   ProviderConfig,
   ProviderFactory,
   ProviderMetadata,
@@ -112,7 +113,9 @@ export class SolscanApiClient extends BaseApiClient {
     return cursor;
   }
 
-  async execute<T>(operation: OneShotOperation): Promise<Result<T, Error>> {
+  async execute<TOperation extends OneShotOperation>(
+    operation: TOperation
+  ): Promise<Result<OneShotOperationResult<TOperation>, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
     );
@@ -121,7 +124,7 @@ export class SolscanApiClient extends BaseApiClient {
       case 'getAddressBalances':
         return (await this.getAddressBalances({
           address: operation.address,
-        })) as Result<T, Error>;
+        })) as Result<OneShotOperationResult<TOperation>, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
     }

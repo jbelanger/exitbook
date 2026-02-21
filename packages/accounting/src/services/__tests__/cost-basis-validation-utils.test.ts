@@ -32,7 +32,7 @@ describe('cost-basis-validation-utils', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('1.0'),
               netAmount: parseDecimal('1.0'),
               priceAtTxTime: {
@@ -45,7 +45,7 @@ describe('cost-basis-validation-utils', () => {
           outflows: [
             {
               assetId: 'test:usd',
-              assetSymbol: 'USD',
+              assetSymbol: 'USD' as Currency,
               grossAmount: parseDecimal('50000'),
               netAmount: parseDecimal('50000'),
               priceAtTxTime: {
@@ -59,7 +59,7 @@ describe('cost-basis-validation-utils', () => {
         fees: [
           {
             assetId: 'test:usd',
-            assetSymbol: 'USD',
+            assetSymbol: 'USD' as Currency,
             amount: parseDecimal('10'),
             scope: 'platform',
             settlement: 'balance',
@@ -77,21 +77,21 @@ describe('cost-basis-validation-utils', () => {
       expect(entities).toHaveLength(3);
       expect(entities[0]).toMatchObject({
         transactionId: '1',
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         kind: 'inflow',
         hasPrice: true,
         currency: 'USD',
       });
       expect(entities[1]).toMatchObject({
         transactionId: '1',
-        assetSymbol: 'USD',
+        assetSymbol: 'USD' as Currency,
         kind: 'outflow',
         hasPrice: true,
         currency: 'USD',
       });
       expect(entities[2]).toMatchObject({
         transactionId: '1',
-        assetSymbol: 'USD',
+        assetSymbol: 'USD' as Currency,
         kind: 'fee',
         hasPrice: true,
         currency: 'USD',
@@ -116,7 +116,7 @@ describe('cost-basis-validation-utils', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('1.0'),
               netAmount: parseDecimal('1.0'),
               // No priceAtTxTime
@@ -154,7 +154,7 @@ describe('cost-basis-validation-utils', () => {
           inflows: [
             {
               assetId: 'test:btc',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               grossAmount: parseDecimal('1.0'),
               netAmount: parseDecimal('1.0'),
               priceAtTxTime: {
@@ -208,7 +208,7 @@ describe('cost-basis-validation-utils', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 // No price
@@ -224,7 +224,7 @@ describe('cost-basis-validation-utils', () => {
       expect(issues).toHaveLength(1);
       expect(issues[0]).toMatchObject({
         issueType: 'missing_price',
-        entity: { assetSymbol: 'BTC', kind: 'inflow' },
+        entity: { assetSymbol: 'BTC' as Currency, kind: 'inflow' },
       });
     });
 
@@ -247,7 +247,7 @@ describe('cost-basis-validation-utils', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
@@ -288,7 +288,7 @@ describe('cost-basis-validation-utils', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
@@ -308,7 +308,7 @@ describe('cost-basis-validation-utils', () => {
       expect(issues).toHaveLength(1);
       expect(issues[0]).toMatchObject({
         issueType: 'non_usd_currency',
-        entity: { assetSymbol: 'BTC', currency: 'EUR', kind: 'inflow' },
+        entity: { assetSymbol: 'BTC' as Currency, currency: 'EUR', kind: 'inflow' },
       });
     });
 
@@ -331,7 +331,7 @@ describe('cost-basis-validation-utils', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
@@ -370,7 +370,7 @@ describe('cost-basis-validation-utils', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
@@ -411,7 +411,7 @@ describe('cost-basis-validation-utils', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
@@ -434,7 +434,7 @@ describe('cost-basis-validation-utils', () => {
       expect(issues).toHaveLength(1);
       expect(issues[0]).toMatchObject({
         issueType: 'missing_fx_trail',
-        entity: { assetSymbol: 'BTC', kind: 'inflow' },
+        entity: { assetSymbol: 'BTC' as Currency, kind: 'inflow' },
       });
     });
 
@@ -457,7 +457,7 @@ describe('cost-basis-validation-utils', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
@@ -499,7 +499,7 @@ describe('cost-basis-validation-utils', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
@@ -530,7 +530,7 @@ describe('cost-basis-validation-utils', () => {
             entity: {
               transactionId: '1',
               datetime: '2024-01-15T10:00:00Z',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               currency: undefined,
               kind: 'inflow',
               hasPrice: false,
@@ -543,7 +543,7 @@ describe('cost-basis-validation-utils', () => {
             entity: {
               transactionId: '2',
               datetime: '2024-01-16T10:00:00Z',
-              assetSymbol: 'ETH',
+              assetSymbol: 'ETH' as Currency,
               currency: 'EUR',
               kind: 'outflow',
               hasPrice: true,
@@ -588,7 +588,7 @@ describe('cost-basis-validation-utils', () => {
             entity: {
               transactionId: '1',
               datetime: '2024-01-15T10:00:00Z',
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               currency: 'USD',
               kind: 'inflow',
               hasPrice: true,
@@ -639,7 +639,7 @@ describe('cost-basis-validation-utils', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
@@ -652,7 +652,7 @@ describe('cost-basis-validation-utils', () => {
             outflows: [
               {
                 assetId: 'test:usd',
-                assetSymbol: 'USD',
+                assetSymbol: 'USD' as Currency,
                 grossAmount: parseDecimal('50000'),
                 netAmount: parseDecimal('50000'),
                 priceAtTxTime: {
@@ -691,7 +691,7 @@ describe('cost-basis-validation-utils', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 // No price
@@ -730,7 +730,7 @@ describe('cost-basis-validation-utils', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
@@ -773,7 +773,7 @@ describe('cost-basis-validation-utils', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 priceAtTxTime: {
@@ -819,7 +819,7 @@ describe('cost-basis-validation-utils', () => {
             inflows: [
               {
                 assetId: 'test:btc',
-                assetSymbol: 'BTC',
+                assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('1.0'),
                 netAmount: parseDecimal('1.0'),
                 // Missing price
@@ -828,7 +828,7 @@ describe('cost-basis-validation-utils', () => {
             outflows: [
               {
                 assetId: 'test:eth',
-                assetSymbol: 'ETH',
+                assetSymbol: 'ETH' as Currency,
                 grossAmount: parseDecimal('10.0'),
                 netAmount: parseDecimal('10.0'),
                 priceAtTxTime: {
@@ -842,7 +842,7 @@ describe('cost-basis-validation-utils', () => {
           fees: [
             {
               assetId: 'test:usd',
-              assetSymbol: 'USD',
+              assetSymbol: 'USD' as Currency,
               amount: parseDecimal('10'),
               scope: 'platform',
               settlement: 'balance',

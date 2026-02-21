@@ -1,5 +1,6 @@
-/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 import type { BlockchainProviderManager, EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
+/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
+import type { Currency } from '@exitbook/core';
 import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -9,7 +10,7 @@ import { EvmTransactionProcessor } from '../processor.js';
 const ETHEREUM_CONFIG: EvmChainConfig = {
   chainId: 1,
   chainName: 'ethereum',
-  nativeCurrency: 'ETH',
+  nativeCurrency: 'ETH' as Currency,
   nativeDecimals: 18,
   transactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],
 };
@@ -17,7 +18,7 @@ const ETHEREUM_CONFIG: EvmChainConfig = {
 const AVALANCHE_CONFIG: EvmChainConfig = {
   chainId: 43114,
   chainName: 'avalanche',
-  nativeCurrency: 'AVAX',
+  nativeCurrency: 'AVAX' as Currency,
   nativeDecimals: 18,
   transactionTypes: ['normal', 'token'],
 };
@@ -87,7 +88,7 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     const normalizedData: EvmTransaction[] = [
       createTransaction({
         blockHeight: 100,
-        feeCurrency: 'ETH',
+        feeCurrency: 'ETH' as Currency,
         from: CONTRACT_ADDRESS,
         id: '0xhash1',
         timestamp: baseTimestamp,

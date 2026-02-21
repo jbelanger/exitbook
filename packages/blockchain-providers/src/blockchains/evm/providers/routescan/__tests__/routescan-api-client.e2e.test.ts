@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/types/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import { RoutescanApiClient } from '../routescan.api-client.js';
 
@@ -23,7 +22,7 @@ describe('RoutescanApiClient Integration - Ethereum', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -60,7 +59,7 @@ describe('RoutescanApiClient Integration - Optimism', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -94,7 +93,7 @@ describe('RoutescanApiClient Integration - BSC', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -133,7 +132,7 @@ describe('RoutescanApiClient Integration - Mantle', () => {
   describe('Address Balance', () => {
     it.skip('should fetch address balance successfully', async () => {
       // Skipping: Mantle API endpoint may not be available or configured correctly
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });

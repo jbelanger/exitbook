@@ -1,3 +1,5 @@
+import type { Currency } from '@exitbook/core';
+
 /**
  * Configuration interface for Substrate-based blockchains
  *
@@ -18,7 +20,7 @@ export interface SubstrateChainConfig {
   /**
    * Symbol for the native currency (e.g., 'DOT', 'TAO', 'KSM')
    */
-  nativeCurrency: string;
+  nativeCurrency: Currency;
 
   /**
    * Number of decimals for the native currency (DOT: 10, TAO: 9, KSM: 12)

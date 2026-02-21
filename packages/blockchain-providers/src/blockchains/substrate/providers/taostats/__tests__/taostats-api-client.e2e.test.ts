@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/types/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import { TaostatsApiClient } from '../taostats.api-client.js';
 
@@ -29,7 +28,7 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
 
     describe('Address Balance', () => {
       it('should fetch address balance successfully', async () => {
-        const result = await provider.execute<RawBalanceData>({
+        const result = await provider.execute({
           address: testAddress,
           type: 'getAddressBalances',
         });

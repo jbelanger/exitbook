@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { RawBalanceData, StreamingOperation } from '../../../../../core/index.js';
+import type { StreamingOperation } from '../../../../../core/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { NearBalanceChange, NearReceipt, NearTokenTransfer, NearTransaction } from '../../../schemas.js';
 import { sortKeys } from '../mapper-utils.js';
@@ -822,7 +822,7 @@ describe('NearBlocksApiClient', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const value = result.value as RawBalanceData;
+        const value = result.value;
         // Should return available balance (amount - locked)
         expect(value.rawAmount).toBe('750000000000000000000000');
         expect(value.decimalAmount).toBe('0.75');

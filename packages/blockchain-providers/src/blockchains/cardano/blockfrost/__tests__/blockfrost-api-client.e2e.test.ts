@@ -37,12 +37,7 @@ describe('BlockfrostApiClient E2E', () => {
   }, 60000);
 
   it('should fetch address balance', async () => {
-    const result = await client.execute<{
-      decimalAmount?: string;
-      decimals?: number;
-      rawAmount?: string;
-      symbol?: string;
-    }>({
+    const result = await client.execute({
       address: testAddress,
       type: 'getAddressBalances',
     });
@@ -85,7 +80,7 @@ describe('BlockfrostApiClient E2E', () => {
   }, 60000);
 
   it('should handle unsupported operations gracefully', async () => {
-    const result = await client.execute<unknown>({
+    const result = await client.execute({
       address: testAddress,
       type: 'nonExistent' as never,
     });

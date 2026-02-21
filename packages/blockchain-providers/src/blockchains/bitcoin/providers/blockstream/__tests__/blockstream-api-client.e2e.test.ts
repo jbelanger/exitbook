@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import { BlockstreamApiClient } from '../blockstream-api-client.js';
 
@@ -21,7 +20,7 @@ describe('BlockstreamApiClient E2E', () => {
   }, 60000);
 
   it('should get address balance for known address', async () => {
-    const result = await client.execute<RawBalanceData>({
+    const result = await client.execute({
       address: testAddress,
       type: 'getAddressBalances',
     });
@@ -40,7 +39,7 @@ describe('BlockstreamApiClient E2E', () => {
   }, 60000);
 
   it('should return true for address with transactions', async () => {
-    const result = await client.execute<boolean>({
+    const result = await client.execute({
       address: testAddress,
       type: 'hasAddressTransactions',
     });
@@ -52,7 +51,7 @@ describe('BlockstreamApiClient E2E', () => {
   }, 60000);
 
   it('should return false for address without transactions', async () => {
-    const result = await client.execute<boolean>({
+    const result = await client.execute({
       address: emptyAddress,
       type: 'hasAddressTransactions',
     });

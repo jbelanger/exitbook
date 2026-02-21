@@ -1,9 +1,11 @@
+import type { Currency } from '@exitbook/core';
+
 /**
  * Cardano movement object representing a single asset transfer
  */
 export interface CardanoMovement {
   amount: string;
-  asset: string;
+  asset: Currency;
   decimals?: number | undefined;
   policyId?: string | undefined; // Policy ID for native tokens
   assetName?: string | undefined; // Asset name for native tokens
@@ -23,7 +25,7 @@ export interface CardanoFundFlow {
 
   // Fee information (always in ADA)
   feeAmount: string;
-  feeCurrency: string;
+  feeCurrency: Currency;
   feePaidByUser: boolean;
 
   // Addresses involved

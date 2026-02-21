@@ -16,6 +16,7 @@ import { createProviderHttpClient } from '../../core/utils.js';
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../index.js';
 import type { PricesDB } from '../../persistence/database.js';
 import { createPriceQueries, type PriceQueries } from '../../persistence/queries/price-queries.js';
+import { BusinessDayFallbackExhaustedError, fetchWithBusinessDayFallback } from '../shared/fx-fallback-utils.js';
 
 import { formatBoCDate, transformBoCResponse } from './boc-utils.js';
 import { BankOfCanadaResponseSchema } from './schemas.js';
@@ -55,10 +56,10 @@ export function createBankOfCanadaProvider(
     });
 
     // Create queries
-    const priceRepo = createPriceQueries(db);
+    const priceQueries = createPriceQueries(db);
 
     // Create provider
-    const provider = new BankOfCanadaProvider(httpClient, priceRepo);
+    const provider = new BankOfCanadaProvider(httpClient, priceQueries);
 
     return ok(provider);
   } catch (error) {
@@ -78,11 +79,8 @@ export function createBankOfCanadaProvider(
 export class BankOfCanadaProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
 
-  constructor(httpClient: HttpClient, priceRepo: PriceQueries) {
-    super();
-
-    this.httpClient = httpClient;
-    this.priceQueries = priceRepo;
+  constructor(httpClient: HttpClient, priceQueries: PriceQueries) {
+    super(httpClient, priceQueries);
 
     // Provider metadata
     this.metadata = {
@@ -163,91 +161,87 @@ export class BankOfCanadaProvider extends BasePriceProvider {
     timestamp: Date,
     currency: Currency
   ): Promise<Result<PriceData, Error>> {
-    const maxAttempts = 7; // Try up to a week back
-    let attemptDate = new Date(timestamp);
-    let lastError: Error | undefined;
+    const requestedDate = formatBoCDate(timestamp);
+    const fallbackResult = await fetchWithBusinessDayFallback(timestamp, {
+      maxAttempts: 7,
+      fetchForDate: async ({ attemptNumber, candidateDate, isOriginalDate }) => {
+        const dateStr = formatBoCDate(candidateDate);
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const dateStr = formatBoCDate(attemptDate);
+        // Build query parameters
+        const params = new URLSearchParams({
+          start_date: dateStr,
+          end_date: dateStr,
+        });
 
-      // Build query parameters
-      const params = new URLSearchParams({
-        start_date: dateStr,
-        end_date: dateStr,
-      });
+        this.logger.debug(
+          {
+            assetSymbol,
+            currency,
+            requestedDate,
+            attemptDate: dateStr,
+            attempt: attemptNumber,
+          },
+          isOriginalDate ? 'Fetching BoC FX rate' : 'Retrying BoC FX rate with earlier date'
+        );
 
-      const isOriginalDate = attempt === 0;
-      this.logger.debug(
-        {
-          assetSymbol,
-          currency,
-          requestedDate: formatBoCDate(timestamp),
-          attemptDate: dateStr,
-          attempt: attempt + 1,
-        },
-        isOriginalDate ? 'Fetching BoC FX rate' : 'Retrying BoC FX rate with earlier date'
-      );
-
-      // Make API request
-      // Full endpoint: https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?start_date=2024-01-01&end_date=2024-01-01
-      // Note: BoC provides USD/CAD (how many CAD per USD), we convert to CAD/USD (how many USD per CAD)
-      const httpResult = await this.httpClient.get<unknown>(`/observations/FXUSDCAD/json?${params.toString()}`);
-
-      if (httpResult.isErr()) {
-        // For HTTP errors, don't retry - fail immediately
-        return err(httpResult.error);
-      }
-
-      const rawResponse = httpResult.value;
-
-      // Validate response schema
-      const parseResult = BankOfCanadaResponseSchema.safeParse(rawResponse);
-      if (!parseResult.success) {
-        return err(new Error(`Invalid Bank of Canada response: ${parseResult.error.message}`));
-      }
-
-      // Transform response to PriceData
-      const now = new Date();
-      const priceDataResult = transformBoCResponse(parseResult.data, assetSymbol, attemptDate, currency, now);
-
-      if (priceDataResult.isOk()) {
-        // Successfully found a rate
-        const priceData = priceDataResult.value;
-
-        // If we had to use a different date, update granularity and log
-        if (!isOriginalDate) {
-          this.logger.info(
-            {
-              assetSymbol: assetSymbol.toString(),
-              requestedDate: formatBoCDate(timestamp),
-              actualDate: dateStr,
-              daysBack: attempt,
-            },
-            'Using previous business day FX rate (weekend/holiday)'
-          );
-
-          return ok({
-            ...priceData,
-            granularity: 'day', // Still daily, just not exact date
-            timestamp, // Keep original requested timestamp
-          });
+        // Make API request
+        // Full endpoint: https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?start_date=2024-01-01&end_date=2024-01-01
+        // Note: BoC provides USD/CAD (how many CAD per USD), we convert to CAD/USD (how many USD per CAD)
+        const httpResult = await this.httpClient.get<unknown>(`/observations/FXUSDCAD/json?${params.toString()}`);
+        if (httpResult.isErr()) {
+          // For HTTP errors, don't retry - fail immediately
+          return { error: httpResult.error, outcome: 'fail' } as const;
         }
 
-        return ok(priceData);
-      }
+        const parseResult = BankOfCanadaResponseSchema.safeParse(httpResult.value);
+        if (!parseResult.success) {
+          return {
+            error: new Error(`Invalid Bank of Canada response: ${parseResult.error.message}`),
+            outcome: 'fail',
+          } as const;
+        }
 
-      // No data for this date - likely weekend/holiday
-      // Walk back one day and try again
-      lastError = priceDataResult.error;
-      attemptDate = new Date(attemptDate.getTime() - 24 * 60 * 60 * 1000);
+        const now = new Date();
+        const priceDataResult = transformBoCResponse(parseResult.data, assetSymbol, candidateDate, currency, now);
+        if (priceDataResult.isErr()) {
+          return { error: priceDataResult.error, outcome: 'retry' } as const;
+        }
+
+        return { outcome: 'success', value: priceDataResult.value } as const;
+      },
+    });
+
+    if (fallbackResult.isErr()) {
+      if (fallbackResult.error instanceof BusinessDayFallbackExhaustedError) {
+        return err(
+          new Error(
+            `No FX rate found for ${assetSymbol} within ${fallbackResult.error.maxAttempts} days of ${requestedDate}. ` +
+              `Last error: ${fallbackResult.error.lastError?.message || 'unknown'}`
+          )
+        );
+      }
+      return err(fallbackResult.error);
     }
 
-    // Exhausted all attempts
-    return err(
-      new Error(
-        `No FX rate found for ${assetSymbol} within ${maxAttempts} days of ${formatBoCDate(timestamp)}. ` +
-          `Last error: ${lastError?.message || 'unknown'}`
-      )
-    );
+    const { actualDate, daysBack, value: priceData } = fallbackResult.value;
+    if (daysBack > 0) {
+      this.logger.info(
+        {
+          assetSymbol: assetSymbol.toString(),
+          requestedDate,
+          actualDate: formatBoCDate(actualDate),
+          daysBack,
+        },
+        'Using previous business day FX rate (weekend/holiday)'
+      );
+
+      return ok({
+        ...priceData,
+        granularity: 'day',
+        timestamp,
+      });
+    }
+
+    return ok(priceData);
   }
 }

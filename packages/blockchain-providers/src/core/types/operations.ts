@@ -1,4 +1,6 @@
-import type { CursorState } from '@exitbook/core';
+import type { CursorState, TokenMetadata } from '@exitbook/core';
+
+import type { RawBalanceData } from './common.js';
 
 export type ProviderOperationParams =
   | {
@@ -26,6 +28,21 @@ export type StreamingOperation = {
   getCacheKey?: (params: ProviderOperationParams) => string;
 } & StreamingOperationParams;
 export type OneShotOperation = { getCacheKey?: (params: ProviderOperationParams) => string } & OneShotOperationParams;
+
+export interface AddressInfoData {
+  code: string;
+  isContract: boolean;
+}
+
+export interface OneShotOperationResultByType {
+  getAddressBalances: RawBalanceData;
+  hasAddressTransactions: boolean;
+  getAddressTokenBalances: RawBalanceData[];
+  getTokenMetadata: TokenMetadata[];
+  getAddressInfo: AddressInfoData;
+}
+
+export type OneShotOperationResult<T extends OneShotOperation> = OneShotOperationResultByType[T['type']];
 
 export type ProviderOperationType =
   | 'getAddressTransactions'

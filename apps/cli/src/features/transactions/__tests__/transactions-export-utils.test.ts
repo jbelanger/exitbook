@@ -1,5 +1,5 @@
 import type { TransactionLink } from '@exitbook/accounting';
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, it, expect } from 'vitest';
 
@@ -163,7 +163,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -192,7 +192,7 @@ describe('export-utils', () => {
           timestamp: Date.parse('2024-01-01T12:00:00Z'),
           status: 'success',
           movements: {
-            inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+            inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
             outflows: [],
           },
           fees: [],
@@ -212,7 +212,7 @@ describe('export-utils', () => {
           status: 'success',
           movements: {
             inflows: [],
-            outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('10.0') }],
+            outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('10.0') }],
           },
           fees: [],
           operation: {
@@ -242,7 +242,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -268,8 +268,8 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-03T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ assetId: 'test:stx', assetSymbol: 'STX', grossAmount: parseDecimal('59.289') }],
-          outflows: [{ assetId: 'test:cad', assetSymbol: 'CAD', grossAmount: parseDecimal('98.52') }],
+          inflows: [{ assetId: 'test:stx', assetSymbol: 'STX' as Currency, grossAmount: parseDecimal('59.289') }],
+          outflows: [{ assetId: 'test:cad', assetSymbol: 'CAD' as Currency, grossAmount: parseDecimal('98.52') }],
         },
         fees: [],
         operation: {
@@ -308,7 +308,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -348,7 +348,7 @@ describe('export-utils', () => {
           timestamp: Date.parse('2024-01-01T12:00:00Z'),
           status: 'success',
           movements: {
-            inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+            inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
             outflows: [],
           },
           fees: [],
@@ -368,7 +368,7 @@ describe('export-utils', () => {
           status: 'success',
           movements: {
             inflows: [],
-            outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('10.0') }],
+            outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('10.0') }],
           },
           fees: [],
           operation: {
@@ -397,7 +397,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -442,7 +442,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -473,13 +473,13 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
-          outflows: [{ assetId: 'test:usd', assetSymbol: 'USD', grossAmount: parseDecimal('30000') }],
+          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
+          outflows: [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('30000') }],
         },
         fees: [
           {
             assetId: 'test:usd',
-            assetSymbol: 'USD',
+            assetSymbol: 'USD' as Currency,
             amount: parseDecimal('10'),
             scope: 'platform',
             settlement: 'balance',
@@ -495,7 +495,7 @@ describe('export-utils', () => {
         id: 'link-1',
         sourceTransactionId: 1,
         targetTransactionId: 2,
-        assetSymbol: 'BTC',
+        assetSymbol: 'BTC' as Currency,
         sourceAssetId: 'test:btc',
         targetAssetId: 'test:btc',
         sourceAmount: parseDecimal('1.5'),

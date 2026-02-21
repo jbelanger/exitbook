@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { CanadaRules } from '../../jurisdictions/canada-rules.js';
@@ -11,14 +11,14 @@ describe('calculateGainLoss', () => {
     it('should calculate basic capital gains', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('30000'),
@@ -70,14 +70,14 @@ describe('calculateGainLoss', () => {
     it('should apply Canada 50% inclusion rate', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
-          assetSymbol: 'ETH',
+          assetSymbol: 'ETH' as Currency,
           assetId: 'test:eth',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
-              assetSymbol: 'ETH',
+              assetSymbol: 'ETH' as Currency,
               assetId: 'test:eth',
               quantity: parseDecimal('10'),
               costBasisPerUnit: parseDecimal('2000'),
@@ -123,14 +123,14 @@ describe('calculateGainLoss', () => {
     it('should classify short-term vs long-term gains for US', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('30000'),
@@ -146,7 +146,7 @@ describe('calculateGainLoss', () => {
               id: 'lot-2',
               calculationId: 'calc-1',
               acquisitionTransactionId: 3,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('35000'),
@@ -216,14 +216,14 @@ describe('calculateGainLoss', () => {
     it('should handle capital losses', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('50000'),
@@ -273,14 +273,14 @@ describe('calculateGainLoss', () => {
 
       const assetResults: AssetLotMatchResult[] = [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('50000'),
@@ -296,7 +296,7 @@ describe('calculateGainLoss', () => {
               id: 'lot-2',
               calculationId: 'calc-1',
               acquisitionTransactionId: 3,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('32000'),
@@ -346,14 +346,14 @@ describe('calculateGainLoss', () => {
     it('should handle multiple assets', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('30000'),
@@ -385,14 +385,14 @@ describe('calculateGainLoss', () => {
           ],
         },
         {
-          assetSymbol: 'ETH',
+          assetSymbol: 'ETH' as Currency,
           assetId: 'test:eth',
           lots: [
             {
               id: 'lot-2',
               calculationId: 'calc-1',
               acquisitionTransactionId: 3,
-              assetSymbol: 'ETH',
+              assetSymbol: 'ETH' as Currency,
               assetId: 'test:eth',
               quantity: parseDecimal('10'),
               costBasisPerUnit: parseDecimal('2000'),
@@ -445,14 +445,14 @@ describe('calculateGainLoss', () => {
     it('should handle assets with only acquisitions (no disposals)', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('30000'),
@@ -513,14 +513,14 @@ describe('calculateGainLoss', () => {
 
       const assetResults: AssetLotMatchResult[] = [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('30000'),
@@ -579,14 +579,14 @@ describe('calculateGainLoss', () => {
 
       const assetResults: AssetLotMatchResult[] = [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           assetId: 'test:btc',
           lots: [
             {
               id: 'lot-old',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('10000'),
@@ -602,7 +602,7 @@ describe('calculateGainLoss', () => {
               id: 'lot-reacquire',
               calculationId: 'calc-1',
               acquisitionTransactionId: 3,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('32000'),
@@ -656,14 +656,14 @@ describe('calculateGainLoss', () => {
 
       const assetResults: AssetLotMatchResult[] = [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('50000'),
@@ -679,7 +679,7 @@ describe('calculateGainLoss', () => {
               id: 'lot-2',
               calculationId: 'calc-1',
               acquisitionTransactionId: 3,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('32000'),
@@ -737,14 +737,14 @@ describe('calculateGainLoss', () => {
 
       const assetResults: AssetLotMatchResult[] = [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('50000'),
@@ -760,7 +760,7 @@ describe('calculateGainLoss', () => {
               id: 'lot-2',
               calculationId: 'calc-1',
               acquisitionTransactionId: 2,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('48000'),
@@ -818,14 +818,14 @@ describe('calculateGainLoss', () => {
 
       const assetResults: AssetLotMatchResult[] = [
         {
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           assetId: 'test:btc',
           lots: [
             {
               id: 'lot-1',
               calculationId: 'calc-1',
               acquisitionTransactionId: 1,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('50000'),
@@ -841,7 +841,7 @@ describe('calculateGainLoss', () => {
               id: 'lot-2',
               calculationId: 'calc-1',
               acquisitionTransactionId: 3,
-              assetSymbol: 'BTC',
+              assetSymbol: 'BTC' as Currency,
               assetId: 'test:btc',
               quantity: parseDecimal('1'),
               costBasisPerUnit: parseDecimal('32000'),

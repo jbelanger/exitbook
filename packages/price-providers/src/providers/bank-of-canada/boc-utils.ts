@@ -11,6 +11,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import type { PriceData } from '../../core/types.js';
+import { formatUtcDateYyyyMmDd } from '../shared/date-format-utils.js';
 
 import type { BankOfCanadaResponse } from './schemas.js';
 
@@ -18,10 +19,7 @@ import type { BankOfCanadaResponse } from './schemas.js';
  * Format date for Bank of Canada API (YYYY-MM-DD)
  */
 export function formatBoCDate(date: Date): string {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return formatUtcDateYyyyMmDd(date);
 }
 
 /**

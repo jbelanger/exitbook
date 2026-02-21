@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/types/index.js';
+import type { TransactionWithRawData } from '../../../../../core/types/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { CosmosTransaction } from '../../../types.js';
 import { CosmosRestApiClient } from '../cosmos-rest.api-client.js';
@@ -30,7 +30,7 @@ describe('CosmosRestApiClient Integration - Fetch.ai', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -57,7 +57,7 @@ describe('CosmosRestApiClient Integration - Fetch.ai', () => {
     it('should handle address with zero or minimal balance', async () => {
       // Another valid address for testing
       const minimalAddress = 'fetch1aatyrgyv0dcjna072fdaadsx6sennxlws3gp4w';
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: minimalAddress,
         type: 'getAddressBalances',
       });
@@ -170,7 +170,7 @@ describe('CosmosRestApiClient Integration - Osmosis', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });

@@ -9,6 +9,7 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { PriceData } from '../../core/types.js';
 import { validateRawPrice, roundTimestampByGranularity } from '../../core/utils.js';
+import { formatUtcDateDdMmYyyy, formatUtcDateYyyyMmDd } from '../shared/date-format-utils.js';
 
 import type {
   CoinGeckoCoinListItem,
@@ -46,11 +47,7 @@ export function buildSymbolToCoinIdMap(coinList: CoinGeckoCoinListItem[]): Map<s
  * Format date for CoinGecko API (DD-MM-YYYY format)
  */
 export function formatCoinGeckoDate(date: Date): string {
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const year = date.getUTCFullYear();
-
-  return `${day}-${month}-${year}`;
+  return formatUtcDateDdMmYyyy(date);
 }
 
 /**
@@ -68,7 +65,7 @@ export function transformHistoricalResponse(
   const rawPrice = response.market_data.current_price[currency.toLowerCase()];
 
   // Validate price using shared helper
-  const context = `CoinGecko (coin: ${response.id}) on ${timestamp.toISOString().split('T')[0]}`;
+  const context = `CoinGecko (coin: ${response.id}) on ${formatUtcDateYyyyMmDd(timestamp)}`;
   const priceResult = validateRawPrice(rawPrice, assetSymbol, context);
   if (priceResult.isErr()) {
     return err(priceResult.error);

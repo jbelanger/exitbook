@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/types/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import { SubscanApiClient } from '../subscan.api-client.js';
 
@@ -25,7 +24,7 @@ describe('SubscanApiClient Integration', () => {
 
   describe('Raw Address Balance', () => {
     it('should fetch raw address balance successfully', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });

@@ -84,10 +84,10 @@ export function createCryptoCompareProvider(
     });
 
     // Create queries
-    const priceRepo = createPriceQueries(db);
+    const priceQueries = createPriceQueries(db);
 
     // Create provider
-    const provider = new CryptoCompareProvider(httpClient, priceRepo, { apiKey }, rateLimit);
+    const provider = new CryptoCompareProvider(httpClient, priceQueries, { apiKey }, rateLimit);
 
     return ok(provider);
   } catch (error) {
@@ -114,10 +114,7 @@ export class CryptoCompareProvider extends BasePriceProvider {
     config: CryptoCompareProviderConfig = {},
     rateLimit: ProviderRateLimitConfig
   ) {
-    super();
-
-    this.httpClient = httpClient;
-    this.priceQueries = priceQueries;
+    super(httpClient, priceQueries);
     this.config = config;
 
     // Provider metadata

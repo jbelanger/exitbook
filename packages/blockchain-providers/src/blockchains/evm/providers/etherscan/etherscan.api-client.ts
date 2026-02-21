@@ -17,6 +17,7 @@ import {
 } from '../../../../core/streaming/streaming-adapter.js';
 import type {
   OneShotOperation,
+  OneShotOperationResult,
   StreamingBatchResult,
   StreamingOperation,
   TransactionWithRawData,
@@ -249,7 +250,9 @@ export class EtherscanApiClient extends BaseApiClient {
     };
   }
 
-  async execute<T>(_operation: OneShotOperation): Promise<Result<T, Error>> {
+  async execute<TOperation extends OneShotOperation>(
+    _operation: TOperation
+  ): Promise<Result<OneShotOperationResult<TOperation>, Error>> {
     return errAsync(
       new Error('Etherscan provider only supports streaming operations. Use executeStreaming() instead of execute().')
     );

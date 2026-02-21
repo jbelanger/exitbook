@@ -1,7 +1,7 @@
 // Handler for prices set-fx command
 // Uses ManualPriceService to save manual FX rate entries
 
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type Currency } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { ManualPriceService } from '@exitbook/price-providers';
@@ -119,11 +119,11 @@ export class PricesSetFxHandler {
    */
   private validateInputs(options: PricesSetFxOptions): Result<
     {
-      from: string;
+      from: Currency;
       rateValue: Decimal;
       source: string;
       timestamp: Date;
-      to: string;
+      to: Currency;
     },
     Error
   > {
@@ -132,7 +132,7 @@ export class PricesSetFxHandler {
       if (!options.from || typeof options.from !== 'string') {
         return err(new Error('Source currency is required'));
       }
-      const from = options.from.toUpperCase();
+      const from = options.from.toUpperCase() as Currency;
       if (!/^[A-Z]{3,10}$/.test(from)) {
         return err(new Error('Source currency must be 3-10 uppercase letters (e.g., EUR, CAD)'));
       }
@@ -141,7 +141,7 @@ export class PricesSetFxHandler {
       if (!options.to || typeof options.to !== 'string') {
         return err(new Error('Target currency is required'));
       }
-      const to = options.to.toUpperCase();
+      const to = options.to.toUpperCase() as Currency;
       if (!/^[A-Z]{3,10}$/.test(to)) {
         return err(new Error('Target currency must be 3-10 uppercase letters (e.g., USD)'));
       }

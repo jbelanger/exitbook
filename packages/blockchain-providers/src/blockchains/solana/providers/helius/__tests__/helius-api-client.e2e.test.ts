@@ -1,7 +1,5 @@
-import type { TokenMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import { HeliusApiClient } from '../helius.api-client.js';
 
@@ -24,7 +22,7 @@ describe('HeliusApiClient Integration', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance in normalized format', async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -48,7 +46,7 @@ describe('HeliusApiClient Integration', () => {
 
   describe('Token Balances', () => {
     it('should fetch token balances in normalized format', async () => {
-      const result = await provider.execute<RawBalanceData[]>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -78,7 +76,7 @@ describe('HeliusApiClient Integration', () => {
     }, 30000);
 
     it('should return token balances with UI amount strings', async () => {
-      const result = await provider.execute<RawBalanceData[]>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -104,7 +102,7 @@ describe('HeliusApiClient Integration', () => {
 
   describe('Error Handling', () => {
     it('should handle unsupported operations gracefully', async () => {
-      const result = await provider.execute<unknown>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'non-existent' as never,
       });
@@ -189,7 +187,7 @@ describe('HeliusApiClient Integration', () => {
       // USDT on Solana
       const usdtMintAddress = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 
-      const result = await provider.execute<TokenMetadata[]>({
+      const result = await provider.execute({
         contractAddresses: [usdtMintAddress],
         type: 'getTokenMetadata',
       });

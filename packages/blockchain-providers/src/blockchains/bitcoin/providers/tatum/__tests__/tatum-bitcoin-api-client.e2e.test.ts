@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
 
@@ -27,7 +26,7 @@ describe('TatumBitcoinApiClient E2E', () => {
   it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should fetch address balance successfully',
     async () => {
-      const result = await provider.execute<RawBalanceData>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -47,7 +46,7 @@ describe('TatumBitcoinApiClient E2E', () => {
   it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should return true for address with transactions',
     async () => {
-      const result = await provider.execute<boolean>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'hasAddressTransactions',
       });
@@ -63,7 +62,7 @@ describe('TatumBitcoinApiClient E2E', () => {
   it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should return false for address without transactions',
     async () => {
-      const result = await provider.execute<boolean>({
+      const result = await provider.execute({
         address: emptyAddress,
         type: 'hasAddressTransactions',
       });

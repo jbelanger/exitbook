@@ -4,7 +4,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData } from '../../../../../core/types/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import { AlchemyApiClient } from '../alchemy.api-client.js';
 
@@ -161,7 +160,7 @@ describe('AlchemyApiClient Integration', () => {
 
   describe('Token Balances', () => {
     it('should fetch token balances in normalized format with symbols', async () => {
-      const result = await provider.execute<RawBalanceData[]>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -188,7 +187,7 @@ describe('AlchemyApiClient Integration', () => {
     }, 30000);
 
     it('should filter out balances with errors', async () => {
-      const result = await provider.execute<RawBalanceData[]>({
+      const result = await provider.execute({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -209,7 +208,7 @@ describe('AlchemyApiClient Integration', () => {
       // USDC contract address on Ethereum
       const usdcContract = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 
-      const result = await provider.execute<RawBalanceData[]>({
+      const result = await provider.execute({
         address: testAddress,
         contractAddresses: [usdcContract],
         type: 'getAddressTokenBalances',

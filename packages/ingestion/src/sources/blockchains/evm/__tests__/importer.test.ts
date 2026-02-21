@@ -5,7 +5,7 @@
 
 import { type BlockchainProviderManager, type EvmChainConfig, ProviderError } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers';
-import type { PaginationCursor } from '@exitbook/core';
+import type { Currency, PaginationCursor } from '@exitbook/core';
 import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -15,7 +15,7 @@ import { EvmImporter } from '../importer.js';
 const ETHEREUM_CONFIG: EvmChainConfig = {
   chainId: 1,
   chainName: 'ethereum',
-  nativeCurrency: 'ETH',
+  nativeCurrency: 'ETH' as Currency,
   nativeDecimals: 18,
   transactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],
 };
@@ -23,7 +23,7 @@ const ETHEREUM_CONFIG: EvmChainConfig = {
 const AVALANCHE_CONFIG: EvmChainConfig = {
   chainId: 43114,
   chainName: 'avalanche',
-  nativeCurrency: 'AVAX',
+  nativeCurrency: 'AVAX' as Currency,
   nativeDecimals: 18,
   transactionTypes: ['normal', 'token'],
 };

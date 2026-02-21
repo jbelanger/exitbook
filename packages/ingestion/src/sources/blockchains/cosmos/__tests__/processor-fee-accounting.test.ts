@@ -1,4 +1,5 @@
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/blockchain-providers';
+import type { Currency } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import { CosmosProcessor } from '../processor.js';
@@ -8,7 +9,7 @@ const INJECTIVE_CONFIG: CosmosChainConfig = {
   chainId: 'injective-1',
   chainName: 'injective',
   displayName: 'Injective Protocol',
-  nativeCurrency: 'INJ',
+  nativeCurrency: 'INJ' as Currency,
   nativeDecimals: 18,
   nativeDenom: 'inj',
 };
@@ -28,7 +29,7 @@ function createTransaction(overrides: Partial<CosmosTransaction>): CosmosTransac
     blockHeight: 100,
     currency: 'INJ',
     feeAmount: '500000000000000',
-    feeCurrency: 'INJ',
+    feeCurrency: 'INJ' as Currency,
     from: USER_ADDRESS,
     id: 'tx-default',
     eventId: '0xtxdefaultevent',

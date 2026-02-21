@@ -1,7 +1,6 @@
 import type { SubstrateChainConfig, SubstrateTransaction } from '@exitbook/blockchain-providers';
 import { derivePolkadotAddressVariants, normalizeNativeAmount } from '@exitbook/blockchain-providers';
-import type { OperationClassification } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ProcessingContext } from '../../../shared/types/processors.js';
@@ -89,7 +88,7 @@ export function analyzeFundFlowFromNormalized(
 
   const amount = parseDecimal(transaction.amount);
   const normalizedAmountResult = normalizeNativeAmount(transaction.amount, chainConfig.nativeDecimals);
-  const currency = transaction.currency;
+  const currency = transaction.currency as Currency;
 
   // Skip zero amounts (but NOT fees)
   const isZeroAmount = amount.isZero();
@@ -123,7 +122,7 @@ export function analyzeFundFlowFromNormalized(
 
   // Determine primary asset (for simplified consumption and single-asset display)
   let primaryAmount: string;
-  let primaryAsset: string;
+  let primaryAsset: Currency;
 
   if (outflows.length > 0) {
     // Primary is what user sent
@@ -164,7 +163,7 @@ export function analyzeFundFlowFromNormalized(
     eventCount: transaction.events?.length || 0,
     extrinsicCount: hasUtilityBatch ? 1 : 1, // TODO: Parse batch details if needed
     feeAmount,
-    feeCurrency: transaction.feeCurrency || transaction.currency,
+    feeCurrency: (transaction.feeCurrency || transaction.currency) as Currency,
     fromAddress: transaction.from,
     hasGovernance: hasGovernance || false,
     hasMultisig: hasMultisig || false,
