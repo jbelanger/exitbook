@@ -5,6 +5,7 @@
  */
 
 import { createInitialCircuitState, type CircuitState } from '@exitbook/resilience/circuit-breaker';
+import { createInitialHealth } from '@exitbook/resilience/provider-health';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
@@ -17,164 +18,6 @@ import type {
   PriceData,
   PriceProviderOperation,
 } from '../types.js';
-
-describe('isCacheValid', () => {
-  it('should return true when cache has not expired', () => {
-    const now = 1000;
-    const expiry = 2000;
-
-    expect(ProviderManagerUtils.isCacheValid(expiry, now)).toBe(true);
-  });
-
-  it('should return false when cache has expired', () => {
-    const now = 2000;
-    const expiry = 1000;
-
-    expect(ProviderManagerUtils.isCacheValid(expiry, now)).toBe(false);
-  });
-
-  it('should return false when cache expires exactly now', () => {
-    const now = 1000;
-    const expiry = 1000;
-
-    expect(ProviderManagerUtils.isCacheValid(expiry, now)).toBe(false);
-  });
-});
-
-describe('scoreProvider', () => {
-  const mockRateLimit = {
-    burstLimit: 1,
-    requestsPerHour: 600,
-    requestsPerMinute: 10,
-    requestsPerSecond: 0.17,
-  };
-
-  const createMockMetadata = (overrides?: Partial<ProviderMetadata>): ProviderMetadata => ({
-    capabilities: {
-      supportedAssetTypes: ['crypto'],
-      supportedOperations: ['fetchPrice'],
-      rateLimit: mockRateLimit,
-    },
-    displayName: 'Test Provider',
-    name: 'test',
-    requiresApiKey: false,
-    ...overrides,
-  });
-
-  const createMockHealth = (overrides?: Partial<ProviderHealth>): ProviderHealth => ({
-    averageResponseTime: 500,
-    consecutiveFailures: 0,
-    errorRate: 0,
-    isHealthy: true,
-    lastChecked: 0,
-    ...overrides,
-  });
-
-  it('should return base score of 100 for healthy provider', () => {
-    const metadata = createMockMetadata();
-    const health = createMockHealth();
-    const circuit = createInitialCircuitState();
-    const now = Date.now();
-
-    const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
-
-    // Base 100 + fast response bonus (20) = 120
-    expect(score).toBe(120);
-  });
-
-  it('should penalize open circuit breaker', () => {
-    const metadata = createMockMetadata();
-    const health = createMockHealth();
-    const now = Date.now();
-    const circuit = {
-      ...createInitialCircuitState(),
-      failureCount: 5, // Exceeds maxFailures (default 3)
-      lastFailureTime: now - 1000, // Recent failure, within recovery timeout
-    };
-
-    const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
-
-    // Base 100 - open circuit (100) + fast bonus (20) = 20
-    expect(score).toBe(20);
-  });
-
-  it('should penalize half-open circuit breaker', () => {
-    const metadata = createMockMetadata();
-    const health = createMockHealth();
-    const now = Date.now();
-    const circuit = {
-      ...createInitialCircuitState(),
-      failureCount: 5, // Exceeds maxFailures
-      lastFailureTime: now - 70000, // 70s ago, past recovery timeout (60s default)
-      recoveryTimeoutMs: 60000,
-    };
-
-    const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
-
-    // Base 100 - half-open (25) + fast bonus (20) = 95
-    expect(score).toBe(95);
-  });
-
-  it('should penalize unhealthy provider', () => {
-    const metadata = createMockMetadata();
-    const health = createMockHealth({ isHealthy: false });
-    const circuit = createInitialCircuitState();
-    const now = Date.now();
-
-    const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
-
-    // Base 100 - unhealthy (50) + fast bonus (20) = 70
-    expect(score).toBe(70);
-  });
-
-  it('should bonus for fast response time', () => {
-    const metadata = createMockMetadata();
-    const health = createMockHealth({ averageResponseTime: 500 });
-    const circuit = createInitialCircuitState();
-    const now = Date.now();
-
-    const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
-
-    // Should include +20 bonus for < 1000ms
-    expect(score).toBeGreaterThan(100);
-  });
-
-  it('should penalize slow response time', () => {
-    const metadata = createMockMetadata();
-    const health = createMockHealth({ averageResponseTime: 6000 });
-    const circuit = createInitialCircuitState();
-    const now = Date.now();
-
-    const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
-
-    // Base 100 - slow penalty (30) = 70
-    expect(score).toBe(70);
-  });
-
-  it('should penalize based on error rate', () => {
-    const metadata = createMockMetadata();
-    const health = createMockHealth({ errorRate: 0.5, averageResponseTime: 1500 }); // 50% errors
-    const circuit = createInitialCircuitState();
-    const now = Date.now();
-
-    const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
-
-    // Base 100 - error rate penalty (25) = 75
-    expect(score).toBe(75);
-  });
-
-  it('should penalize consecutive failures', () => {
-    const metadata = createMockMetadata();
-    const health = createMockHealth({ consecutiveFailures: 3 });
-    const circuit = createInitialCircuitState();
-    const now = Date.now();
-
-    const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
-
-    // Base 100 - failures (30) + fast bonus (20) = 90
-    expect(score).toBe(90);
-  });
-});
 
 describe('calculateGranularityBonus', () => {
   const mockRateLimit = {
@@ -449,8 +292,8 @@ describe('selectProvidersForOperation', () => {
     const providers = [provider1, provider2];
 
     const healthMap = new Map<string, ProviderHealth>([
-      ['provider1', ProviderManagerUtils.createInitialHealth()],
-      ['provider2', ProviderManagerUtils.createInitialHealth()],
+      ['provider1', createInitialHealth()],
+      ['provider2', createInitialHealth()],
     ]);
 
     const circuitMap = new Map([
@@ -476,8 +319,8 @@ describe('selectProvidersForOperation', () => {
     const providers = [slowProvider, fastProvider];
 
     const healthMap = new Map<string, ProviderHealth>([
-      ['fast', { ...ProviderManagerUtils.createInitialHealth(), averageResponseTime: 100 }],
-      ['slow', { ...ProviderManagerUtils.createInitialHealth(), averageResponseTime: 10000 }],
+      ['fast', { ...createInitialHealth(), averageResponseTime: 100 }],
+      ['slow', { ...createInitialHealth(), averageResponseTime: 10000 }],
     ]);
 
     const circuitMap = new Map([
@@ -539,8 +382,8 @@ describe('selectProvidersForOperation', () => {
       const providers = [coinGecko, cryptoCompare]; // Order shouldn't matter
 
       const healthMap = new Map<string, ProviderHealth>([
-        ['cryptocompare', ProviderManagerUtils.createInitialHealth()],
-        ['coingecko', ProviderManagerUtils.createInitialHealth()],
+        ['cryptocompare', createInitialHealth()],
+        ['coingecko', createInitialHealth()],
       ]);
 
       const circuitMap = new Map([
@@ -590,8 +433,8 @@ describe('selectProvidersForOperation', () => {
       const providers = [coinGecko, cryptoCompare];
 
       const healthMap = new Map<string, ProviderHealth>([
-        ['cryptocompare', ProviderManagerUtils.createInitialHealth()],
-        ['coingecko', ProviderManagerUtils.createInitialHealth()],
+        ['cryptocompare', createInitialHealth()],
+        ['coingecko', createInitialHealth()],
       ]);
 
       const circuitMap = new Map([
@@ -643,8 +486,8 @@ describe('selectProvidersForOperation', () => {
       const providers = [cryptoCompare, binance];
 
       const healthMap = new Map<string, ProviderHealth>([
-        ['binance', ProviderManagerUtils.createInitialHealth()],
-        ['cryptocompare', ProviderManagerUtils.createInitialHealth()],
+        ['binance', createInitialHealth()],
+        ['cryptocompare', createInitialHealth()],
       ]);
 
       const circuitMap = new Map([
@@ -689,8 +532,8 @@ describe('selectProvidersForOperation', () => {
       const providers = [coinGecko, cryptoCompare];
 
       const healthMap = new Map<string, ProviderHealth>([
-        ['cryptocompare', ProviderManagerUtils.createInitialHealth()],
-        ['coingecko', ProviderManagerUtils.createInitialHealth()],
+        ['cryptocompare', createInitialHealth()],
+        ['coingecko', createInitialHealth()],
       ]);
 
       const circuitMap = new Map([
@@ -738,8 +581,8 @@ describe('selectProvidersForOperation', () => {
       const providers = [cryptoCompare, coinGecko];
 
       const healthMap = new Map<string, ProviderHealth>([
-        ['cryptocompare', ProviderManagerUtils.createInitialHealth()],
-        ['coingecko', ProviderManagerUtils.createInitialHealth()],
+        ['cryptocompare', createInitialHealth()],
+        ['coingecko', createInitialHealth()],
       ]);
 
       const circuitMap = new Map([
@@ -805,8 +648,8 @@ describe('selectProvidersForOperation', () => {
       const providers = [binance, ecb];
 
       const healthMap = new Map<string, ProviderHealth>([
-        ['binance', ProviderManagerUtils.createInitialHealth()],
-        ['ecb', ProviderManagerUtils.createInitialHealth()],
+        ['binance', createInitialHealth()],
+        ['ecb', createInitialHealth()],
       ]);
 
       const circuitMap = new Map([
@@ -836,8 +679,8 @@ describe('selectProvidersForOperation', () => {
       const providers = [binance, ecb];
 
       const healthMap = new Map<string, ProviderHealth>([
-        ['binance', ProviderManagerUtils.createInitialHealth()],
-        ['ecb', ProviderManagerUtils.createInitialHealth()],
+        ['binance', createInitialHealth()],
+        ['ecb', createInitialHealth()],
       ]);
 
       const circuitMap = new Map([
@@ -867,8 +710,8 @@ describe('selectProvidersForOperation', () => {
       const providers = [ecb, boc];
 
       const healthMap = new Map<string, ProviderHealth>([
-        ['ecb', ProviderManagerUtils.createInitialHealth()],
-        ['bank-of-canada', ProviderManagerUtils.createInitialHealth()],
+        ['ecb', createInitialHealth()],
+        ['bank-of-canada', createInitialHealth()],
       ]);
 
       const circuitMap = new Map([
@@ -913,8 +756,8 @@ describe('selectProvidersForOperation', () => {
       const providers = [binance, coingecko];
 
       const healthMap = new Map<string, ProviderHealth>([
-        ['binance', ProviderManagerUtils.createInitialHealth()],
-        ['coingecko', ProviderManagerUtils.createInitialHealth()],
+        ['binance', createInitialHealth()],
+        ['coingecko', createInitialHealth()],
       ]);
 
       const circuitMap = new Map([
@@ -943,8 +786,8 @@ describe('selectProvidersForOperation', () => {
       const providers = [binance, ecb];
 
       const healthMap = new Map<string, ProviderHealth>([
-        ['binance', ProviderManagerUtils.createInitialHealth()],
-        ['ecb', ProviderManagerUtils.createInitialHealth()],
+        ['binance', createInitialHealth()],
+        ['ecb', createInitialHealth()],
       ]);
 
       const circuitMap = new Map([
@@ -999,8 +842,8 @@ describe('selectProvidersForOperation', () => {
       const providers = [binance, ecb];
 
       const healthMap = new Map<string, ProviderHealth>([
-        ['binance', ProviderManagerUtils.createInitialHealth()],
-        ['ecb', ProviderManagerUtils.createInitialHealth()],
+        ['binance', createInitialHealth()],
+        ['ecb', createInitialHealth()],
       ]);
 
       const circuitMap = new Map([
@@ -1027,61 +870,6 @@ describe('selectProvidersForOperation', () => {
       expect(selected).toHaveLength(1);
       expect(selected[0]?.metadata.name).toBe('binance');
       expect(selected[0]?.score).toBeGreaterThan(120); // Has minute granularity bonus
-    });
-  });
-});
-
-describe('buildProviderSelectionDebugInfo', () => {
-  it('should build JSON debug string from scored providers', () => {
-    const mockRateLimit = {
-      burstLimit: 1,
-      requestsPerHour: 600,
-      requestsPerMinute: 10,
-      requestsPerSecond: 0.17,
-    };
-
-    const scoredProviders = [
-      {
-        health: {
-          averageResponseTime: 123.456,
-          consecutiveFailures: 0,
-          errorRate: 0.123,
-          isHealthy: true,
-          lastChecked: 1000,
-        },
-        metadata: {
-          capabilities: {
-            supportedAssetTypes: ['crypto'] as AssetType[],
-            supportedOperations: ['fetchPrice'] as PriceProviderOperation[],
-            rateLimit: mockRateLimit,
-          },
-          displayName: 'Test',
-          name: 'test',
-          requiresApiKey: false,
-        },
-        provider: {} as IPriceProvider,
-        score: 150,
-      },
-    ];
-
-    const debugInfo = ProviderManagerUtils.buildProviderSelectionDebugInfo(scoredProviders);
-
-    const parsed = JSON.parse(debugInfo) as {
-      avgResponseTime: number;
-      consecutiveFailures: number;
-      errorRate: number;
-      isHealthy: boolean;
-      name: string;
-      score: number;
-    }[];
-    expect(parsed).toHaveLength(1);
-    expect(parsed[0]).toEqual({
-      avgResponseTime: 123,
-      consecutiveFailures: 0,
-      errorRate: 12,
-      isHealthy: true,
-      name: 'test',
-      score: 150,
     });
   });
 });

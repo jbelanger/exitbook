@@ -3,6 +3,9 @@
  *
  * Timer-based cleanup is opt-in via startAutoCleanup()/stopAutoCleanup()
  * to avoid timer leaks in tests and short-lived processes.
+ *
+ * Uses ReturnType<typeof setInterval> instead of NodeJS.Timeout
+ * for runtime portability (Node, Bun, browsers).
  */
 
 interface CacheEntry {
@@ -10,15 +13,13 @@ interface CacheEntry {
   result: unknown;
 }
 
-// Provider request cache timeout: Balance between fresh data and API rate limits
-// 30 seconds allows rapid successive calls to use cached results while ensuring reasonable freshness
-const DEFAULT_CACHE_TIMEOUT_MS = 30_000;
+const DEFAULT_TTL_MS = 30_000;
 
-export class ProviderResponseCache {
+export class TtlCache {
   private cache = new Map<string, CacheEntry>();
-  private cleanupTimer?: NodeJS.Timeout | undefined;
+  private cleanupTimer?: ReturnType<typeof setInterval> | undefined;
 
-  constructor(private readonly timeoutMs = DEFAULT_CACHE_TIMEOUT_MS) {}
+  constructor(private readonly ttlMs = DEFAULT_TTL_MS) {}
 
   get<T>(key: string): T | undefined {
     const entry = this.cache.get(key);
@@ -26,7 +27,6 @@ export class ProviderResponseCache {
       return undefined;
     }
     if (entry.expiry <= Date.now()) {
-      // Eager eviction on read prevents stale-entry buildup when auto-cleanup is not running.
       this.cache.delete(key);
       return undefined;
     }
@@ -35,7 +35,7 @@ export class ProviderResponseCache {
 
   set(key: string, value: unknown): void {
     this.cache.set(key, {
-      expiry: Date.now() + this.timeoutMs,
+      expiry: Date.now() + this.ttlMs,
       result: value,
     });
   }
@@ -51,7 +51,7 @@ export class ProviderResponseCache {
 
   startAutoCleanup(): void {
     if (this.cleanupTimer) return;
-    this.cleanupTimer = setInterval(() => this.cleanup(), this.timeoutMs);
+    this.cleanupTimer = setInterval(() => this.cleanup(), this.ttlMs);
   }
 
   stopAutoCleanup(): void {

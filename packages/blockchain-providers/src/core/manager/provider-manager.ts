@@ -2,6 +2,7 @@ import { getErrorMessage, type CursorState } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
+import { TtlCache } from '@exitbook/resilience/cache';
 import {
   CircuitBreakerRegistry,
   isCircuitOpen,
@@ -9,11 +10,11 @@ import {
   type CircuitStatus,
 } from '@exitbook/resilience/circuit-breaker';
 import { executeWithFailover } from '@exitbook/resilience/failover';
+import { buildProviderSelectionDebugInfo } from '@exitbook/resilience/provider-selection';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderEvent } from '../../events.js';
 import type { ProviderStatsQueries } from '../../persistence/queries/provider-stats-queries.js';
-import { ProviderResponseCache } from '../cache/provider-response-cache.js';
 import { ProviderInstanceFactory } from '../factory/provider-instance-factory.js';
 import { ProviderHealthMonitor } from '../health/provider-health-monitor.js';
 import { getProviderKey, ProviderStatsStore, type ProviderStatsStoreOptions } from '../health/provider-stats-store.js';
@@ -34,7 +35,6 @@ import type { BlockchainExplorersConfig } from '../utils/config-utils.js';
 
 import { emitProviderTransition } from './provider-manager-events.js';
 import {
-  buildProviderSelectionDebugInfo,
   canProviderResume,
   createDeduplicationWindow,
   DEFAULT_DEDUP_WINDOW_SIZE,
@@ -53,7 +53,7 @@ export interface BlockchainProviderManagerOptions {
 export class BlockchainProviderManager {
   private readonly circuitBreakers = new CircuitBreakerRegistry();
   private readonly statsStore: ProviderStatsStore;
-  private readonly responseCache = new ProviderResponseCache();
+  private readonly responseCache = new TtlCache();
   private readonly healthMonitor: ProviderHealthMonitor;
   private readonly instanceFactory: ProviderInstanceFactory;
 

@@ -6,7 +6,8 @@
  */
 
 import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
-import { isCircuitHalfOpen, isCircuitOpen, type CircuitState } from '@exitbook/resilience/circuit-breaker';
+import type { CircuitState } from '@exitbook/resilience/circuit-breaker';
+import { selectProviders } from '@exitbook/resilience/provider-selection';
 
 import type { NormalizedTransactionBase } from '../index.js';
 import type {
@@ -18,63 +19,9 @@ import type {
 } from '../types/index.js';
 import type { ProviderMetadata } from '../types/registry.js';
 
-// Re-export shared provider health utilities so existing consumers keep working
-export {
-  createInitialHealth,
-  getProviderHealthWithCircuit,
-  hasAvailableProviders,
-  shouldBlockDueToCircuit,
-  updateHealthMetrics,
-} from '@exitbook/resilience/provider-health';
-
 // Deduplication window size: Used for in-memory dedup during streaming and loading recent transaction IDs
 // Sized to cover typical replay overlap (5 blocks × ~200 txs/block = ~1000 items max)
 export const DEFAULT_DEDUP_WINDOW_SIZE = 1000;
-
-/**
- * Check if cache entry is still valid
- */
-export function isCacheValid(expiry: number, now: number): boolean {
-  return expiry > now;
-}
-
-/**
- * Score a provider based on health, performance, and rate limits
- * Pure function - takes all context as parameters
- */
-export function scoreProvider(
-  provider: IBlockchainProvider,
-  health: ProviderHealth,
-  circuitState: CircuitState,
-  now: number
-): number {
-  let score = 100; // Base score
-
-  // Health penalties
-  if (!health.isHealthy) score -= 50;
-  if (isCircuitOpen(circuitState, now)) score -= 100; // Severe penalty for open circuit
-  if (isCircuitHalfOpen(circuitState, now)) score -= 25; // Moderate penalty for half-open
-
-  // Rate limit penalties - both configured limits and actual rate limiting events
-  const rateLimit = provider.rateLimit.requestsPerSecond;
-  if (rateLimit <= 0.5)
-    score -= 40; // Very restrictive (like mempool.space 0.25/sec)
-  else if (rateLimit <= 1.0)
-    score -= 20; // Moderately restrictive
-  else if (rateLimit >= 3.0) score += 10; // Generous rate limits get bonus
-
-  // Performance bonuses/penalties
-  if (health.averageResponseTime < 1000) score += 20; // Fast response bonus
-  if (health.averageResponseTime > 5000) score -= 30; // Slow response penalty
-
-  // Error rate penalties
-  score -= health.errorRate * 50; // Up to 50 point penalty for 100% error rate
-
-  // Consecutive failure penalties
-  score -= health.consecutiveFailures * 10;
-
-  return Math.max(0, score); // Never go below 0
-}
 
 /**
  * Check if provider supports the requested operation
@@ -112,48 +59,16 @@ export function selectProvidersForOperation(
   provider: IBlockchainProvider;
   score: number;
 }[] {
-  return providers
-    .filter((p) => supportsOperation(p.capabilities, operation))
-    .map((provider) => {
-      const health = healthMap.get(provider.name);
-      const circuitState = circuitMap.get(provider.name);
-
-      // Skip if missing health or circuit state
-      if (!health || !circuitState) {
-        return;
-      }
-
-      return {
-        health,
-        provider,
-        score: scoreProvider(provider, health, circuitState, now),
-      };
-    })
-    .filter((item): item is NonNullable<typeof item> => item !== undefined)
-    .sort((a, b) => b.score - a.score); // Higher score = better
-}
-
-/**
- * Build debug info for provider selection
- */
-export function buildProviderSelectionDebugInfo(
-  scoredProviders: {
-    health: ProviderHealth;
-    provider: IBlockchainProvider;
-    score: number;
-  }[]
-): string {
-  const providerInfo = scoredProviders.map((item) => ({
-    avgResponseTime: Math.round(item.health.averageResponseTime),
-    consecutiveFailures: item.health.consecutiveFailures,
-    errorRate: Math.round(item.health.errorRate * 100),
-    isHealthy: item.health.isHealthy,
-    name: item.provider.name,
-    rateLimitPerSec: item.provider.rateLimit.requestsPerSecond,
-    score: item.score,
-  }));
-
-  return JSON.stringify(providerInfo);
+  return selectProviders(providers, healthMap, circuitMap, now, {
+    filter: (p) => supportsOperation(p.capabilities, operation),
+    bonusScore: (p) => {
+      const rps = p.rateLimit.requestsPerSecond;
+      if (rps <= 0.5) return -40;
+      if (rps <= 1.0) return -20;
+      if (rps >= 3.0) return 10;
+      return 0;
+    },
+  });
 }
 
 /**

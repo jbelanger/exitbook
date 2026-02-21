@@ -4,25 +4,10 @@
  * Functional core - all decision logic without side effects
  */
 
-import { isCircuitHalfOpen, isCircuitOpen, type CircuitState } from '@exitbook/resilience/circuit-breaker';
+import type { CircuitState } from '@exitbook/resilience/circuit-breaker';
+import { selectProviders } from '@exitbook/resilience/provider-selection';
 
 import type { IPriceProvider, ProviderHealth, ProviderMetadata } from './types.js';
-
-// Re-export shared provider health utilities so existing `* as ProviderManagerUtils` consumers keep working
-export {
-  createInitialHealth,
-  getProviderHealthWithCircuit,
-  hasAvailableProviders,
-  shouldBlockDueToCircuit,
-  updateHealthMetrics,
-} from '@exitbook/resilience/provider-health';
-
-/**
- * Check if cache entry is still valid
- */
-export function isCacheValid(expiry: number, now: number): boolean {
-  return expiry > now;
-}
 
 /**
  * Calculate granularity bonus for a provider based on timestamp and capabilities
@@ -82,44 +67,6 @@ export function calculateGranularityBonus(metadata: ProviderMetadata, timestamp:
 }
 
 /**
- * Score a provider based on health, performance, and priority
- * Pure function - takes all context as parameters
- */
-export function scoreProvider(
-  metadata: ProviderMetadata,
-  health: ProviderHealth,
-  circuitState: CircuitState,
-  now: number,
-  timestamp?: Date
-): number {
-  let score = 100; // Base score
-
-  // Circuit breaker penalties
-  if (isCircuitOpen(circuitState, now)) score -= 100;
-  if (isCircuitHalfOpen(circuitState, now)) score -= 25;
-
-  // Health penalties
-  if (!health.isHealthy) score -= 50;
-
-  // Performance bonuses/penalties
-  if (health.averageResponseTime < 1000) score += 20; // Fast response
-  if (health.averageResponseTime > 5000) score -= 30; // Slow response
-
-  // Error rate penalties (0-50 points)
-  score -= health.errorRate * 50;
-
-  // Consecutive failure penalties
-  score -= health.consecutiveFailures * 10;
-
-  // Granularity bonus (if timestamp provided)
-  if (timestamp) {
-    score += calculateGranularityBonus(metadata, timestamp, now);
-  }
-
-  return Math.max(0, score);
-}
-
-/**
  * Check if provider supports the requested operation
  */
 export function supportsOperation(metadata: ProviderMetadata, operationType: string): boolean {
@@ -170,59 +117,30 @@ export function selectProvidersForOperation(
   provider: IPriceProvider;
   score: number;
 }[] {
-  return providers
-    .map((provider) => {
-      const metadata = provider.getMetadata();
-      const health = healthMap.get(provider.name);
-      const circuitState = circuitMap.get(provider.name);
+  // Build a metadata cache to avoid calling getMetadata() twice per provider
+  const metadataCache = new Map<string, ProviderMetadata>();
+  for (const p of providers) {
+    metadataCache.set(p.name, p.getMetadata());
+  }
 
-      // Skip if missing health or circuit state
-      if (!health || !circuitState) {
-        return;
-      }
-
-      // Skip if doesn't support operation
-      if (!supportsOperation(metadata, operationType)) {
-        return;
-      }
-
-      // Skip if doesn't support the requested asset
+  const scored = selectProviders(providers, healthMap, circuitMap, now, {
+    filter: (p) => {
+      const metadata = metadataCache.get(p.name)!;
+      if (!supportsOperation(metadata, operationType)) return false;
       if (assetSymbol !== undefined && isFiat !== undefined) {
-        if (!supportsAsset(metadata, assetSymbol, isFiat)) {
-          return;
-        }
+        if (!supportsAsset(metadata, assetSymbol, isFiat)) return false;
       }
+      return true;
+    },
+    bonusScore: (p) => {
+      const metadata = metadataCache.get(p.name)!;
+      return timestamp ? calculateGranularityBonus(metadata, timestamp, now) : 0;
+    },
+  });
 
-      return {
-        health,
-        metadata,
-        provider,
-        score: scoreProvider(metadata, health, circuitState, now, timestamp),
-      };
-    })
-    .filter((item): item is NonNullable<typeof item> => item !== undefined)
-    .sort((a, b) => b.score - a.score); // Higher score first
-}
-
-/**
- * Build debug info for provider selection
- */
-export function buildProviderSelectionDebugInfo(
-  scoredProviders: {
-    health: ProviderHealth;
-    metadata: ProviderMetadata;
-    provider: IPriceProvider;
-    score: number;
-  }[]
-): string {
-  const providerInfo = scoredProviders.map((item) => ({
-    avgResponseTime: Math.round(item.health.averageResponseTime),
-    consecutiveFailures: item.health.consecutiveFailures,
-    errorRate: Math.round(item.health.errorRate * 100),
-    isHealthy: item.health.isHealthy,
-    name: item.metadata.name,
-    score: item.score,
+  // Augment with metadata for callers that need it
+  return scored.map((item) => ({
+    ...item,
+    metadata: metadataCache.get(item.provider.name)!,
   }));
-
-  return JSON.stringify(providerInfo);
 }

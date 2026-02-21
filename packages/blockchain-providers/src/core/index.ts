@@ -15,7 +15,6 @@ export { CircuitBreakerRegistry } from '@exitbook/resilience/circuit-breaker';
 export * from './health/provider-health-monitor.js';
 export * from './factory/provider-instance-factory.js';
 export * from './manager/provider-manager.js';
-export * from './cache/provider-response-cache.js';
 export {
   getProviderKey,
   parseProviderKey,

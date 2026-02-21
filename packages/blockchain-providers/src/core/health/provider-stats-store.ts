@@ -1,19 +1,14 @@
 /**
- * Store for provider health metrics and lifetime counters
+ * Store for provider health metrics and lifetime counters with SQLite persistence
  *
- * Owns the healthStatus, totalSuccesses, and totalFailures maps that were
- * previously embedded in BlockchainProviderManager. Also handles SQLite
- * persistence via ProviderStatsQueries.
+ * Wraps ProviderHealthStore from @exitbook/resilience for in-memory state,
+ * adding blockchain-specific composite keys and SQLite load/save.
  */
 
 import { getLogger } from '@exitbook/logger';
 import type { CircuitBreakerRegistry, CircuitState, CircuitStatus } from '@exitbook/resilience/circuit-breaker';
-import {
-  createInitialHealth,
-  getProviderHealthWithCircuit,
-  updateHealthMetrics,
-  type ProviderHealth,
-} from '@exitbook/resilience/provider-health';
+import type { ProviderHealth } from '@exitbook/resilience/provider-health';
+import { ProviderHealthStore } from '@exitbook/resilience/provider-stats';
 
 import { hydrateProviderStats } from '../../persistence/provider-stats-utils.js';
 import type { ProviderStatsQueries } from '../../persistence/queries/provider-stats-queries.js';
@@ -48,9 +43,7 @@ export interface ProviderStatsStoreOptions {
 const DEFAULT_CIRCUIT_RECOVERY_TIMEOUT_MS = 30_000;
 
 export class ProviderStatsStore {
-  private healthStatus = new Map<string, ProviderHealth>();
-  private totalSuccesses = new Map<string, number>();
-  private totalFailures = new Map<string, number>();
+  private readonly store = new ProviderHealthStore();
   private statsQueries?: ProviderStatsQueries | undefined;
   private readonly circuitRecoveryTimeoutMs: number;
 
@@ -59,39 +52,19 @@ export class ProviderStatsStore {
   }
 
   initializeProvider(key: string): void {
-    if (!this.healthStatus.has(key)) {
-      this.healthStatus.set(key, createInitialHealth());
-    }
-    if (!this.totalSuccesses.has(key)) {
-      this.totalSuccesses.set(key, 0);
-    }
-    if (!this.totalFailures.has(key)) {
-      this.totalFailures.set(key, 0);
-    }
+    this.store.initializeProvider(key);
   }
 
   getHealth(key: string): ProviderHealth | undefined {
-    return this.healthStatus.get(key);
+    return this.store.getHealth(key);
   }
 
   hasHealth(key: string): boolean {
-    return this.healthStatus.has(key);
+    return this.store.hasHealth(key);
   }
 
   updateHealth(key: string, success: boolean, responseTime: number, errorMessage?: string): void {
-    const currentHealth = this.healthStatus.get(key);
-    if (currentHealth) {
-      const updatedHealth = updateHealthMetrics(currentHealth, success, responseTime, Date.now(), errorMessage);
-      this.healthStatus.set(key, updatedHealth);
-    } else {
-      logger.warn(`updateHealth called for uninitialized provider key: ${key} — call initializeProvider first`);
-    }
-
-    if (success) {
-      this.totalSuccesses.set(key, (this.totalSuccesses.get(key) ?? 0) + 1);
-    } else {
-      this.totalFailures.set(key, (this.totalFailures.get(key) ?? 0) + 1);
-    }
+    this.store.updateHealth(key, success, responseTime, errorMessage);
   }
 
   getProviderHealthWithCircuit(
@@ -99,20 +72,14 @@ export class ProviderStatsStore {
     circuitState: CircuitState,
     now: number
   ): (ProviderHealth & { circuitState: CircuitStatus }) | undefined {
-    const health = this.healthStatus.get(key);
-    if (!health) return undefined;
-    return getProviderHealthWithCircuit(health, circuitState, now);
+    return this.store.getProviderHealthWithCircuit(key, circuitState, now);
   }
 
   /** Build blockchain-specific health map keyed by provider.name (not composite key) */
   getHealthMapForProviders(blockchain: string, providers: { name: string }[]): Map<string, ProviderHealth> {
-    const map = new Map<string, ProviderHealth>();
-    for (const provider of providers) {
-      const key = getProviderKey(blockchain, provider.name);
-      const health = this.healthStatus.get(key);
-      if (health) map.set(provider.name, health);
-    }
-    return map;
+    return this.store.getHealthMapForKeys(
+      providers.map((p) => ({ key: getProviderKey(blockchain, p.name), mapAs: p.name }))
+    );
   }
 
   setQueries(queries: ProviderStatsQueries): void {
@@ -136,10 +103,8 @@ export class ProviderStatsStore {
     for (const row of rows) {
       const hydrated = hydrateProviderStats(row, now, this.circuitRecoveryTimeoutMs);
       const providerKey = getProviderKey(hydrated.blockchain, hydrated.providerName);
-      this.healthStatus.set(providerKey, hydrated.health);
+      this.store.load(providerKey, hydrated.health, hydrated.totalSuccesses, hydrated.totalFailures);
       circuitRegistry.set(providerKey, hydrated.circuitState);
-      this.totalSuccesses.set(providerKey, hydrated.totalSuccesses);
-      this.totalFailures.set(providerKey, hydrated.totalFailures);
     }
 
     logger.info(`Loaded persisted stats for ${rows.length} provider(s)`);
@@ -148,26 +113,26 @@ export class ProviderStatsStore {
   async save(circuitRegistry: CircuitBreakerRegistry): Promise<void> {
     if (!this.statsQueries) return;
 
-    for (const [providerKey, health] of this.healthStatus) {
-      const { blockchain, providerName } = parseProviderKey(providerKey);
+    for (const snapshot of this.store.export()) {
+      const { blockchain, providerName } = parseProviderKey(snapshot.key);
 
-      const circuitState = circuitRegistry.get(providerKey);
+      const circuitState = circuitRegistry.get(snapshot.key);
       if (!circuitState) continue;
 
       const result = await this.statsQueries.upsert({
         blockchain,
         providerName,
-        avgResponseTime: health.averageResponseTime,
-        errorRate: health.errorRate,
-        consecutiveFailures: health.consecutiveFailures,
-        isHealthy: health.isHealthy,
-        lastError: health.lastError,
-        lastChecked: health.lastChecked,
+        avgResponseTime: snapshot.health.averageResponseTime,
+        errorRate: snapshot.health.errorRate,
+        consecutiveFailures: snapshot.health.consecutiveFailures,
+        isHealthy: snapshot.health.isHealthy,
+        lastError: snapshot.health.lastError,
+        lastChecked: snapshot.health.lastChecked,
         failureCount: circuitState.failureCount,
         lastFailureTime: circuitState.lastFailureTime,
         lastSuccessTime: circuitState.lastSuccessTime,
-        totalSuccesses: this.totalSuccesses.get(providerKey) ?? 0,
-        totalFailures: this.totalFailures.get(providerKey) ?? 0,
+        totalSuccesses: snapshot.totalSuccesses,
+        totalFailures: snapshot.totalFailures,
       });
 
       if (result.isErr()) {
@@ -177,8 +142,6 @@ export class ProviderStatsStore {
   }
 
   clear(): void {
-    this.healthStatus.clear();
-    this.totalSuccesses.clear();
-    this.totalFailures.clear();
+    this.store.clear();
   }
 }

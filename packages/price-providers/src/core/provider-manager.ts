@@ -5,8 +5,11 @@
 
 import { isFiat, isStablecoin, type Currency } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
+import { TtlCache } from '@exitbook/resilience/cache';
 import { CircuitBreakerRegistry } from '@exitbook/resilience/circuit-breaker';
 import { executeWithFailover, type FailoverResult } from '@exitbook/resilience/failover';
+import { buildProviderSelectionDebugInfo } from '@exitbook/resilience/provider-selection';
+import { ProviderHealthStore } from '@exitbook/resilience/provider-stats';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
@@ -16,18 +19,12 @@ import type {
   IPriceProvider,
   PriceData,
   PriceQuery,
-  ProviderHealth,
   ProviderHealthWithCircuit,
   ProviderManagerConfig,
 } from './types.js';
 import { createCacheKey } from './utils.js';
 
 const logger = getLogger('PriceProviderManager');
-
-interface CacheEntry {
-  data: PriceData;
-  expiry: number;
-}
 
 /**
  * Manages price providers with automatic failover, circuit breakers, and health tracking
@@ -40,11 +37,9 @@ export class PriceProviderManager {
 
   // Mutable state (only place side effects live)
   private providers: IPriceProvider[] = [];
-  private healthStatus = new Map<string, ProviderHealth>();
+  private readonly healthStore = new ProviderHealthStore();
   private readonly circuitBreakers = new CircuitBreakerRegistry();
-  private requestCache = new Map<string, CacheEntry>();
-
-  private cacheCleanupTimer?: NodeJS.Timeout | undefined;
+  private readonly requestCache: TtlCache;
 
   constructor(config: Partial<ProviderManagerConfig> = {}) {
     this.config = {
@@ -54,8 +49,8 @@ export class PriceProviderManager {
       ...config,
     };
 
-    // Start cache cleanup
-    this.cacheCleanupTimer = setInterval(() => this.cleanupCache(), this.config.cacheTtlSeconds * 1000);
+    this.requestCache = new TtlCache(this.config.cacheTtlSeconds * 1000);
+    this.requestCache.startAutoCleanup();
   }
 
   /**
@@ -67,7 +62,7 @@ export class PriceProviderManager {
 
     // Initialize health status and circuit breaker for each provider
     for (const provider of providers) {
-      this.healthStatus.set(provider.name, ProviderManagerUtils.createInitialHealth());
+      this.healthStore.initializeProvider(provider.name);
       this.circuitBreakers.getOrCreate(provider.name);
     }
 
@@ -78,17 +73,15 @@ export class PriceProviderManager {
    * Fetch price with automatic failover
    */
   async fetchPrice(query: PriceQuery): Promise<Result<FailoverResult<PriceData>, Error>> {
-    const now = Date.now();
-
     // Check cache first (uses pure function for key generation)
     const cacheKey = createCacheKey(query, this.config.defaultCurrency);
-    const cached = this.requestCache.get(cacheKey);
+    const cached = this.requestCache.get<PriceData>(cacheKey);
 
-    if (cached && ProviderManagerUtils.isCacheValid(cached.expiry, now)) {
+    if (cached) {
       logger.debug({ assetSymbol: query.assetSymbol, currency: query.currency }, 'Price found in cache');
       return ok({
-        data: cached.data,
-        providerName: cached.data.source,
+        data: cached,
+        providerName: cached.source,
       });
     }
 
@@ -100,10 +93,7 @@ export class PriceProviderManager {
     }
 
     // Cache the result
-    this.requestCache.set(cacheKey, {
-      data: result.value.data,
-      expiry: Date.now() + this.config.cacheTtlSeconds * 1000,
-    });
+    this.requestCache.set(cacheKey, result.value.data);
 
     // Convert stablecoin-denominated prices to USD
     // Skip if we're pricing a stablecoin itself (avoid recursion)
@@ -122,11 +112,12 @@ export class PriceProviderManager {
     const now = Date.now();
 
     for (const provider of this.providers) {
-      const health = this.healthStatus.get(provider.name);
       const circuitState = this.circuitBreakers.get(provider.name);
+      if (!circuitState) continue;
 
-      if (health && circuitState) {
-        result.set(provider.name, ProviderManagerUtils.getProviderHealthWithCircuit(health, circuitState, now));
+      const combined = this.healthStore.getProviderHealthWithCircuit(provider.name, circuitState, now);
+      if (combined) {
+        result.set(provider.name, combined);
       }
     }
 
@@ -147,11 +138,6 @@ export class PriceProviderManager {
    * Cleanup resources
    */
   async destroy(): Promise<void> {
-    if (this.cacheCleanupTimer) {
-      clearInterval(this.cacheCleanupTimer);
-      this.cacheCleanupTimer = undefined;
-    }
-
     // Close all provider HTTP clients
     const closePromises = this.providers.map((provider) =>
       provider.destroy().catch((error: unknown) => {
@@ -163,7 +149,7 @@ export class PriceProviderManager {
     await Promise.all(closePromises);
 
     this.providers = [];
-    this.healthStatus.clear();
+    this.healthStore.clear();
     this.circuitBreakers.clear();
     this.requestCache.clear();
 
@@ -182,10 +168,13 @@ export class PriceProviderManager {
     const now = Date.now();
     const assetSymbol = query.assetSymbol;
 
+    // Build health map for selection (providers are keyed by name directly in price context)
+    const healthMap = this.healthStore.getHealthMapForKeys(this.providers.map((p) => ({ key: p.name, mapAs: p.name })));
+
     // Select providers (pure)
     const scoredProviders = ProviderManagerUtils.selectProvidersForOperation(
       this.providers,
-      this.healthStatus,
+      healthMap,
       this.circuitBreakers.asReadonlyMap(),
       operationType,
       now,
@@ -197,7 +186,7 @@ export class PriceProviderManager {
     // Log selection info
     if (scoredProviders.length > 1) {
       logger.debug(
-        `Provider selection for ${operationType} - Providers: ${ProviderManagerUtils.buildProviderSelectionDebugInfo(scoredProviders)}`
+        `Provider selection for ${operationType} - Providers: ${buildProviderSelectionDebugInfo(scoredProviders)}`
       );
     }
 
@@ -211,23 +200,11 @@ export class PriceProviderManager {
       isRecoverableError: (error) => error instanceof CoinNotFoundError || error instanceof PriceDataUnavailableError,
 
       onSuccess: (provider, responseTime) => {
-        const health = this.healthStatus.get(provider.name);
-        if (health) {
-          this.healthStatus.set(
-            provider.name,
-            ProviderManagerUtils.updateHealthMetrics(health, true, responseTime, Date.now())
-          );
-        }
+        this.healthStore.updateHealth(provider.name, true, responseTime);
       },
 
       onFailure: (provider, error, responseTime) => {
-        const health = this.healthStatus.get(provider.name);
-        if (health) {
-          this.healthStatus.set(
-            provider.name,
-            ProviderManagerUtils.updateHealthMetrics(health, false, responseTime, Date.now(), error.message)
-          );
-        }
+        this.healthStore.updateHealth(provider.name, false, responseTime, error.message);
       },
 
       buildFinalError: (lastError, attemptedProviders, allRecoverable) => {
@@ -258,18 +235,6 @@ export class PriceProviderManager {
         return lastError ? new Error(errorMsg) : new Error(`All price providers failed for ${operationType}`);
       },
     });
-  }
-
-  /**
-   * Cleanup expired cache entries
-   */
-  private cleanupCache(): void {
-    const now = Date.now();
-    for (const [key, entry] of this.requestCache.entries()) {
-      if (!ProviderManagerUtils.isCacheValid(entry.expiry, now)) {
-        this.requestCache.delete(key);
-      }
-    }
   }
 
   /**

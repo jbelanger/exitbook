@@ -9,7 +9,11 @@
     ".": "./src/index.ts",
     "./circuit-breaker": "./src/circuit-breaker/index.ts",
     "./provider-health": "./src/provider-health/index.ts",
-    "./failover": "./src/failover/index.ts"
+    "./failover": "./src/failover/index.ts",
+    "./provider-scoring": "./src/provider-scoring/index.ts",
+    "./provider-selection": "./src/provider-selection/index.ts",
+    "./cache": "./src/cache/index.ts",
+    "./provider-stats": "./src/provider-stats/index.ts"
   },
   "main": "src/index.ts",
   "types": "src/index.ts",

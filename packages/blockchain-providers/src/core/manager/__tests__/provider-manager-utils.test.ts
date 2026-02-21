@@ -5,7 +5,7 @@
 
 import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { createInitialCircuitState, recordFailure, type CircuitState } from '@exitbook/resilience/circuit-breaker';
+import { createInitialCircuitState, type CircuitState } from '@exitbook/resilience/circuit-breaker';
 import { createInitialHealth } from '@exitbook/resilience/provider-health';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -14,14 +14,11 @@ import type { CursorResolutionConfig } from '../provider-manager-utils.js';
 import {
   addToDeduplicationWindow,
   buildProviderNotFoundError,
-  buildProviderSelectionDebugInfo,
   canProviderResume,
   createDeduplicationWindow,
   deduplicateTransactions,
-  isCacheValid,
   isInDeduplicationWindow,
   resolveCursorForResumption,
-  scoreProvider,
   selectProvidersForOperation,
   supportsOperation,
   validateProviderApiKey,
@@ -54,114 +51,6 @@ function createMockProvider(
 }
 
 describe('provider-manager-utils', () => {
-  describe('isCacheValid', () => {
-    it('should return true if cache has not expired', () => {
-      const now = 1000;
-      const expiry = 2000;
-      expect(isCacheValid(expiry, now)).toBe(true);
-    });
-
-    it('should return false if cache has expired', () => {
-      const now = 2000;
-      const expiry = 1000;
-      expect(isCacheValid(expiry, now)).toBe(false);
-    });
-
-    it('should return false if cache expiry equals now', () => {
-      const now = 1000;
-      const expiry = 1000;
-      expect(isCacheValid(expiry, now)).toBe(false);
-    });
-  });
-
-  describe('scoreProvider', () => {
-    let provider: IBlockchainProvider;
-    let health: ProviderHealth;
-    let circuitState: CircuitState;
-    const now = Date.now();
-
-    beforeEach(() => {
-      provider = createMockProvider('test-provider');
-      health = createInitialHealth();
-      circuitState = createInitialCircuitState();
-    });
-
-    it('should return base score of 100 for healthy provider', () => {
-      const score = scoreProvider(provider, health, circuitState, now);
-      expect(score).toBe(130); // Base 100 + 10 (generous rate) + 20 (fast response 0ms < 1000)
-    });
-
-    it('should penalize unhealthy provider', () => {
-      health.isHealthy = false;
-      const score = scoreProvider(provider, health, circuitState, now);
-      expect(score).toBe(80); // 100 - 50 (unhealthy) + 10 (rate) + 20 (fast)
-    });
-
-    it('should heavily penalize open circuit', () => {
-      // Record enough failures to open circuit
-      let state = circuitState;
-      for (let i = 0; i < 10; i++) {
-        state = recordFailure(state, now);
-      }
-      const score = scoreProvider(provider, health, state, now);
-      expect(score).toBe(30); // 100 - 100 (open circuit) + 10 (rate) + 20 (fast)
-    });
-
-    it('should moderately penalize half-open circuit', () => {
-      // Open circuit then wait for half-open
-      let state = circuitState;
-      for (let i = 0; i < 10; i++) {
-        state = recordFailure(state, now);
-      }
-      const laterTime = now + 60000; // After recovery timeout
-      const score = scoreProvider(provider, health, state, laterTime);
-      expect(score).toBe(30); // Still open after only 1 minute (needs more time)
-    });
-
-    it('should penalize restrictive rate limits', () => {
-      const slowProvider = createMockProvider('slow-provider', ['getAddressTransactions'], ['blockNumber'], 0.25);
-      const score = scoreProvider(slowProvider, health, circuitState, now);
-      expect(score).toBe(80); // 100 - 40 (very restrictive) + 20 (fast response)
-    });
-
-    it('should bonus fast response time', () => {
-      health.averageResponseTime = 500;
-      const score = scoreProvider(provider, health, circuitState, now);
-      expect(score).toBe(130); // 100 + 20 (fast) + 10 (rate limit)
-    });
-
-    it('should penalize slow response time', () => {
-      health.averageResponseTime = 6000;
-      const score = scoreProvider(provider, health, circuitState, now);
-      expect(score).toBe(80); // 100 - 30 (slow) + 10 (rate limit)
-    });
-
-    it('should penalize high error rate', () => {
-      health.errorRate = 0.5; // 50% error rate
-      const score = scoreProvider(provider, health, circuitState, now);
-      expect(score).toBe(105); // 100 - 25 (50% error rate) + 10 (rate) + 20 (fast)
-    });
-
-    it('should penalize consecutive failures', () => {
-      health.consecutiveFailures = 3;
-      const score = scoreProvider(provider, health, circuitState, now);
-      expect(score).toBe(100); // 100 - 30 (3 failures × 10) + 10 (rate) + 20 (fast)
-    });
-
-    it('should never return negative score', () => {
-      health.isHealthy = false;
-      health.errorRate = 1.0;
-      health.consecutiveFailures = 10;
-      health.averageResponseTime = 10000;
-      let state = circuitState;
-      for (let i = 0; i < 10; i++) {
-        state = recordFailure(state, now);
-      }
-      const score = scoreProvider(provider, health, state, now);
-      expect(score).toBe(0);
-    });
-  });
-
   describe('supportsOperation', () => {
     it('should return true for supported operation', () => {
       const capabilities = {
@@ -491,48 +380,6 @@ describe('provider-manager-utils', () => {
         // Verify mutation happened
         expect(window.queue).toEqual(['event-1', 'event-2']);
         expect(window.set.has('event-2')).toBe(true);
-      });
-    });
-  });
-
-  describe('buildProviderSelectionDebugInfo', () => {
-    it('should build JSON string with provider info', () => {
-      const provider1 = createMockProvider('provider-1');
-      const health1: ProviderHealth = {
-        ...createInitialHealth(),
-        averageResponseTime: 1234.56,
-        errorRate: 0.123,
-        consecutiveFailures: 2,
-      };
-
-      const scoredProviders = [
-        {
-          provider: provider1,
-          health: health1,
-          score: 85.5,
-        },
-      ];
-
-      const result = buildProviderSelectionDebugInfo(scoredProviders);
-      const parsed = JSON.parse(result) as {
-        avgResponseTime: number;
-        consecutiveFailures: number;
-        errorRate: number;
-        isHealthy: boolean;
-        name: string;
-        rateLimitPerSec: number;
-        score: number;
-      }[];
-
-      expect(parsed).toHaveLength(1);
-      expect(parsed[0]).toEqual({
-        name: 'provider-1',
-        score: 85.5,
-        avgResponseTime: 1235, // Rounded
-        errorRate: 12, // Rounded percentage
-        consecutiveFailures: 2,
-        isHealthy: true,
-        rateLimitPerSec: 5,
       });
     });
   });
