@@ -11,56 +11,6 @@ export const SourceTypeSchema = z.enum(['blockchain', 'exchange']);
 export const ImportSessionStatusSchema = z.enum(['started', 'completed', 'failed', 'cancelled']);
 
 /**
- * Schema for source parameters identifying the wallet/account
- */
-export const SourceParamsSchema = z.union([
-  z.object({
-    exchange: z.string(),
-  }),
-  z.object({
-    blockchain: z.string(),
-    address: z.string(),
-  }),
-]);
-
-/**
- * Schema for balance discrepancy details
- */
-export const BalanceDiscrepancySchema = z.object({
-  assetId: z.string().optional(),
-  assetSymbol: z.string(),
-  calculated: z.string(),
-  difference: z.string(),
-  live: z.string(),
-});
-
-/**
- * Balance verification status schema - match/mismatch/unavailable states
- */
-export const BalanceVerificationStatusSchema = z.enum(['match', 'mismatch', 'unavailable']);
-
-/**
- * Schema for balance verification result
- */
-export const BalanceVerificationSchema = z.object({
-  calculated_balance: z.record(z.string(), z.string()),
-  discrepancies: z.array(BalanceDiscrepancySchema).optional(),
-  live_balance: z.record(z.string(), z.string()).optional(),
-  status: BalanceVerificationStatusSchema,
-  suggestions: z.array(z.string()).optional(),
-  verified_at: z.string(),
-});
-
-/**
- * Schema for verification metadata stored in session
- */
-export const VerificationMetadataSchema = z.object({
-  current_balance: z.record(z.string(), z.string()),
-  last_verification: BalanceVerificationSchema,
-  source_params: SourceParamsSchema,
-});
-
-/**
  * Schema for import session domain model
  * Represents a single import session execution (import_sessions table)
  * Links to accounts table via accountId - source info lives in the account
@@ -85,9 +35,4 @@ export const ImportSessionSchema = z.object({
  */
 export type SourceType = z.infer<typeof SourceTypeSchema>;
 export type ImportSessionStatus = z.infer<typeof ImportSessionStatusSchema>;
-export type SourceParams = z.infer<typeof SourceParamsSchema>;
-export type BalanceDiscrepancy = z.infer<typeof BalanceDiscrepancySchema>;
-export type BalanceVerificationStatus = z.infer<typeof BalanceVerificationStatusSchema>;
-export type BalanceVerification = z.infer<typeof BalanceVerificationSchema>;
-export type VerificationMetadata = z.infer<typeof VerificationMetadataSchema>;
 export type ImportSession = z.infer<typeof ImportSessionSchema>;

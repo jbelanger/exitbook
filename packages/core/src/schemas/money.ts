@@ -4,14 +4,6 @@ import { z } from 'zod';
 import { Currency } from '../currency.js';
 import { parseDecimal, tryParseDecimal } from '../utils/decimal-utils.js';
 
-/**
- * Schema for integer fields that may be returned as numbers or strings.
- * Accepts both formats and converts to numeric string.
- */
-export const IntegerStringSchema = z
-  .union([z.number().int().nonnegative(), z.string().regex(/^\d+$/, 'Must be a non-negative integer string')])
-  .transform((val) => (typeof val === 'number' ? String(val) : val));
-
 // Decimal schema - accepts string, number, or Decimal instance, transforms to Decimal
 // Used for parsing from DB (strings), API responses (numbers with scientific notation), or validating in-memory objects (Decimal instances)
 export const DecimalSchema = z.union([z.string(), z.number(), z.instanceof(Decimal)]).transform((val) => {
@@ -36,24 +28,6 @@ export const DecimalStringSchema = z
   .transform((val) => {
     if (val instanceof Decimal) return val.toFixed();
     return parseDecimal(val).toFixed();
-  });
-
-// Date schema - accepts Unix timestamp (number), ISO 8601 string, or Date instance, transforms to Date
-// Used for parsing from DB (timestamps/strings) or validating in-memory objects (Date instances)
-export const DateSchema = z
-  .union([
-    z.number().int().positive(),
-    z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'Invalid date string' }),
-    z.date(),
-  ])
-  .transform((val) => {
-    if (typeof val === 'number') {
-      return new Date(val);
-    }
-    if (typeof val === 'string') {
-      return new Date(val);
-    }
-    return val;
   });
 
 // Currency schema - transforms string to Currency instance

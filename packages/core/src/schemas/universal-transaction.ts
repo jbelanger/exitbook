@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { parseDecimal } from '../utils/decimal-utils.js';
 
 import { SourceTypeSchema } from './import-session.js';
-import { DateSchema, DecimalSchema, MoneySchema } from './money.js';
+import { DecimalSchema, MoneySchema } from './money.js';
+import { DateSchema } from './primitives.js';
 
 // Transaction status schema
 export const TransactionStatusSchema = z.enum(['pending', 'open', 'closed', 'canceled', 'failed', 'success']);
