@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, wrapError } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -95,7 +95,7 @@ export function calculateGainLoss(
 
     return ok(result.value);
   } catch (error) {
-    return err(error instanceof Error ? error : new Error(String(error)));
+    return wrapError(error, 'Failed to calculate gain/loss');
   }
 }
 

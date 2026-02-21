@@ -1,4 +1,4 @@
-import { type UniversalTransactionData } from '@exitbook/core';
+import { type UniversalTransactionData, wrapError } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -176,7 +176,7 @@ export class CostBasisCalculator {
         errors: lotMatchResult.errors,
       });
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to calculate cost basis');
     }
   }
 }

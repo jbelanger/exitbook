@@ -5,7 +5,7 @@ import type {
   TransactionWithRawData,
 } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, wrapError } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -103,7 +103,7 @@ export class EvmImporter implements IImporter {
       this.logger.info(`${this.chainConfig.chainName} streaming import completed`);
     } catch (error) {
       this.logger.error(`Failed to stream transactions for address ${address}: ${getErrorMessage(error)}`);
-      yield err(error instanceof Error ? error : new Error(String(error)));
+      yield wrapError(error, `Failed to stream ${this.chainConfig.chainName} transactions for ${address}`);
     }
   }
 

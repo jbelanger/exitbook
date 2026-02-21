@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { Account, ExchangeCredentials, ImportSession } from '@exitbook/core';
+import { type Account, type ExchangeCredentials, type ImportSession, wrapError } from '@exitbook/core';
 import type { AccountQueries, ImportSessionQueries, RawDataQueries, UserQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
@@ -314,7 +314,7 @@ export class ImportOrchestrator {
           error: error instanceof Error ? error.message : String(error),
           durationMs,
         });
-        return err(error instanceof Error ? error : new Error(String(error)));
+        return wrapError(error, 'Failed to derive addresses from xpub');
       }
 
       derivedCount = derivedAddresses.length;

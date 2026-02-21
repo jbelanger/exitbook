@@ -1,4 +1,4 @@
-import type { Account } from '@exitbook/core';
+import { type Account, wrapError } from '@exitbook/core';
 import type { AccountQueries, ImportSessionQueries, UserQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -85,7 +85,7 @@ export class AccountService {
       return ok(result);
     } catch (error) {
       logger.error({ error }, 'Failed to query accounts');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to query accounts');
     }
   }
 

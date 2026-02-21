@@ -31,8 +31,8 @@ export function getErrorMessage(error: unknown, defaultMessage?: string): string
  * Uses core getErrorMessage utility for safe error extraction
  */
 export function wrapError<T = never>(error: unknown, context: string): Result<T, Error> {
-  const message = getErrorMessage(error);
-  return err(error instanceof Error ? error : new Error(`${context}: ${message}`));
+  const cause = error instanceof Error ? error : new Error(getErrorMessage(error));
+  return err(new Error(`${context}: ${cause.message}`, { cause }));
 }
 
 /**

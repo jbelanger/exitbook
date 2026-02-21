@@ -1,5 +1,5 @@
 import type { CursorState, ExchangeCredentials, RawTransactionInput } from '@exitbook/core';
-import { getErrorMessage, wrapError } from '@exitbook/core';
+import { wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
@@ -260,7 +260,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
             }
           } catch (error) {
             // Network/API error during fetch - yield error
-            yield err(error instanceof Error ? error : new Error(`Kraken API error: ${getErrorMessage(error)}`));
+            yield wrapError(error, 'Kraken API error');
           }
         },
 

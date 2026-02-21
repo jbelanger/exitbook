@@ -1,4 +1,4 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -308,7 +308,7 @@ export class CardanoUtils {
       logger.error(
         `Failed to initialize xpub wallet - Error: ${errorMessage}, Xpub: ${walletAddress.address.substring(0, 20)}...`
       );
-      return err(error instanceof Error ? error : new Error(errorMessage));
+      return wrapError(error, 'Failed to initialize xpub wallet');
     }
   }
 

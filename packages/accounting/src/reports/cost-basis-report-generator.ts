@@ -5,7 +5,7 @@
  * Uses historical FX rates at transaction time (not current rates) for accuracy.
  */
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { Currency, parseDecimal, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -135,7 +135,7 @@ export class CostBasisReportGenerator {
       return ok(report);
     } catch (error) {
       this.logger.error({ error, calculationId: calculation.id }, 'Failed to generate report');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to generate report');
     }
   }
 

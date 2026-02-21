@@ -106,8 +106,9 @@ describe('Type Guard Utilities', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toBe(error);
-        expect(result.error.message).toBe('Original error');
+        expect(result.error).not.toBe(error);
+        expect(result.error.message).toBe('Context: Original error');
+        expect(result.error.cause).toBe(error);
       }
     });
 
@@ -154,8 +155,10 @@ describe('Type Guard Utilities', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toBe(typeError);
-        expect(result.error).toBeInstanceOf(TypeError);
+        expect(result.error).toBeInstanceOf(Error);
+        expect(result.error.message).toBe('Validation failed: Type mismatch');
+        expect(result.error.cause).toBe(typeError);
+        expect(result.error.cause).toBeInstanceOf(TypeError);
       }
     });
 

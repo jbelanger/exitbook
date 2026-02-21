@@ -1,4 +1,4 @@
-import { getErrorMessage, parseDecimal } from '@exitbook/core';
+import { getErrorMessage, parseDecimal, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
@@ -287,7 +287,7 @@ export async function initializeBitcoinXpubWallet(
     logger.error(
       `Failed to initialize xpub wallet - Error: ${errorMessage}, Xpub: ${walletAddress.address.substring(0, 20) + '...'}`
     );
-    return err(error instanceof Error ? error : new Error(errorMessage));
+    return wrapError(error, 'Failed to initialize xpub wallet');
   }
 }
 

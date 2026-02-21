@@ -328,7 +328,7 @@ describe('createKrakenClient - fetchTransactionDataStreaming', () => {
 
     expect(batches).toHaveLength(0);
     expect(errors).toHaveLength(1);
-    expect(errors[0]?.message).toBe('Network timeout');
+    expect(errors[0]?.message).toBe('Kraken API error: Network timeout');
   });
 
   test('handles network error after successful batch', async () => {
@@ -379,9 +379,9 @@ describe('createKrakenClient - fetchTransactionDataStreaming', () => {
     expect(batches[0]?.cursor.totalFetched).toBe(50);
     expect((batches[0]?.cursor.metadata as KrakenCursorMetadata)?.offset).toBe(50);
 
-    // Streaming yields the raw error without wrapping
+    // Streaming wraps the error with operation context
     expect(errors).toHaveLength(1);
-    expect(errors[0]?.message).toBe('Network timeout');
+    expect(errors[0]?.message).toBe('Kraken API error: Network timeout');
   });
 
   test('handles validation error mid-batch', async () => {

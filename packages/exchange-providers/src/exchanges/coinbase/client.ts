@@ -1,5 +1,5 @@
 import type { ExchangeCredentials, TransactionStatus } from '@exitbook/core';
-import { getErrorMessage, parseDecimal, wrapError } from '@exitbook/core';
+import { parseDecimal, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
@@ -476,7 +476,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
             }
           } catch (error) {
             // Network/API error during fetch - yield error
-            yield err(error instanceof Error ? error : new Error(`Coinbase API error: ${getErrorMessage(error)}`));
+            yield wrapError(error, 'Coinbase API error');
           }
         },
 

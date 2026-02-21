@@ -1,5 +1,5 @@
 import type { TransactionLinkQueries } from '@exitbook/accounting';
-import type { Account } from '@exitbook/core';
+import { type Account, wrapError } from '@exitbook/core';
 import type {
   AccountQueries,
   ImportSessionQueries,
@@ -159,7 +159,7 @@ export class ClearService {
         });
       }
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to preview clear operation');
     }
   }
 
@@ -241,7 +241,7 @@ export class ClearService {
 
       return ok({ deleted: preview.value });
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to execute clear operation');
     }
   }
 

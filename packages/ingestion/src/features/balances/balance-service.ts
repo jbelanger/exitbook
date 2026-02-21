@@ -7,7 +7,7 @@ import type {
   UniversalTransactionData,
   VerificationMetadata,
 } from '@exitbook/core';
-import { parseAssetId } from '@exitbook/core';
+import { parseAssetId, wrapError } from '@exitbook/core';
 import type { AccountQueries, ImportSessionQueries, TokenMetadataQueries, TransactionQueries } from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchanges-providers';
 import { getLogger } from '@exitbook/logger';
@@ -168,7 +168,7 @@ export class BalanceService {
 
       return ok(verificationResult);
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to verify balance');
     }
   }
 
@@ -284,7 +284,7 @@ export class BalanceService {
 
       return ok(calculationResult);
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to calculate balances from transactions');
     }
   }
 
@@ -401,7 +401,7 @@ export class BalanceService {
       const excludedInfo = this.collectExcludedAssetInfo(allExcludedTransactions);
       return ok(excludedInfo);
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to collect excluded asset info');
     }
   }
 
@@ -460,7 +460,7 @@ export class BalanceService {
       logger.info(`Verification results persisted to account ${account.id}`);
       return ok();
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to persist verification results');
     }
   }
 

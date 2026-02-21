@@ -1,4 +1,4 @@
-import { Currency, parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
+import { Currency, parseDecimal, type AssetMovement, type UniversalTransactionData, wrapError } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -354,7 +354,7 @@ export class LotMatcher {
         errors,
       });
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to match lots');
     }
   }
 

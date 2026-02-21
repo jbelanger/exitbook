@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null required for db */
-import type { TokenMetadataRecord } from '@exitbook/core';
+import { type TokenMetadataRecord, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Kysely, Selectable } from '@exitbook/sqlite';
 import type { Result } from 'neverthrow';
@@ -73,7 +73,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
       return ok();
     } catch (error) {
       logger.error({ error }, 'Failed to upsert symbol index');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to upsert symbol index');
     }
   }
 
@@ -96,7 +96,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
       return ok();
     } catch (error) {
       logger.error({ error }, 'Failed to delete symbol index');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to delete symbol index');
     }
   }
 
@@ -128,7 +128,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
       return ok(metadata);
     } catch (error) {
       logger.error({ error }, 'Failed to get token metadata by contract');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to get token metadata by contract');
     }
   }
 
@@ -173,7 +173,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
       return ok(metadataMap);
     } catch (error) {
       logger.error({ error }, 'Failed to get token metadata by contracts (batch)');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to get token metadata by contracts (batch)');
     }
   }
 
@@ -208,7 +208,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
       return ok(results);
     } catch (error) {
       logger.error({ error }, 'Failed to get token metadata by symbol');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to get token metadata by symbol');
     }
   }
 
@@ -322,7 +322,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
       return ok();
     } catch (error) {
       logger.error({ error }, 'Failed to save token metadata');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to save token metadata');
     }
   }
 

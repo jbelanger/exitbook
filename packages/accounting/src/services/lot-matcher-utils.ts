@@ -1,5 +1,12 @@
 import type { UniversalTransactionData } from '@exitbook/core';
-import { Currency, parseDecimal, type AssetMovement, type FeeMovement, type PriceAtTxTime } from '@exitbook/core';
+import {
+  Currency,
+  parseDecimal,
+  type AssetMovement,
+  type FeeMovement,
+  type PriceAtTxTime,
+  wrapError,
+} from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -892,7 +899,7 @@ export function matchOutflowDisposal(
 
     return ok({ disposals: lotDisposals, updatedLots });
   } catch (error) {
-    return err(error instanceof Error ? error : new Error(String(error)));
+    return wrapError(error, 'Failed to match outflow disposal');
   }
 }
 
