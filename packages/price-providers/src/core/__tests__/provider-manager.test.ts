@@ -377,11 +377,11 @@ describe('PriceProviderManager', () => {
       expect(provider.fetchPrice).toHaveBeenCalledTimes(2);
     });
 
-    it('should not convert when pricing a stablecoin itself', async () => {
-      // Pricing USDT directly in USD
+    it('should normalize stablecoin self-pricing to USD using depth guard', async () => {
+      // Provider returns USDT-denominated self-price for USDT
       const usdtInUsd: PriceData = {
         assetSymbol: 'USDT' as Currency,
-        currency: 'USDT' as Currency, // Same as asset
+        currency: 'USDT' as Currency,
         fetchedAt: new Date('2024-01-15T12:00:00Z'),
         price: parseDecimal('1.0'),
         source: 'coingecko',
@@ -402,12 +402,13 @@ describe('PriceProviderManager', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        // Should NOT convert (would cause infinite recursion)
-        // Returns as-is with USDT currency
-        expect(result.value.data.currency.toString()).toBe('USDT');
+        // First call converts to USD, recursive depth call stops further conversion
+        expect(result.value.data.currency.toString()).toBe('USD');
+        expect(result.value.data.price.toFixed()).toBe('1');
+        expect(result.value.data.source).toBe('coingecko+usdt-rate');
       }
 
-      // Should only fetch once (no recursive call)
+      // Recursive stablecoin-rate lookup reuses request cache, so provider is called once
       expect(provider.fetchPrice).toHaveBeenCalledTimes(1);
     });
 

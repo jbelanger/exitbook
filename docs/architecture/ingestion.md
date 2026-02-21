@@ -1,31 +1,5 @@
 Applied the V2 Architecture Audit rubric to `@exitbook/ingestion` (scope: package-level, all dimensions).
 
-### [1] CSV Ingestion Utilities Re-Implement Commodity Tooling
-
-**What exists:**
-`/Users/joel/Dev/exitbook/packages/ingestion/src/sources/exchanges/kucoin/importer-csv.ts:591` hand-rolls recursive CSV discovery and sorting.  
-`/Users/joel/Dev/exitbook/packages/ingestion/src/sources/exchanges/shared/csv-parser.ts:8` and `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/exchanges/shared/csv-parser-utils.ts:13` duplicate parser/header logic.  
-`/Users/joel/Dev/exitbook/packages/ingestion/src/sources/exchanges/shared/csv-filters.ts:4` and `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/exchanges/shared/csv-filters-utils.ts:8` duplicate filtering/grouping logic.
-
-**Why it's a problem:**
-The package is maintaining file-walking, header sniffing, and helper duplication instead of domain logic. This increases bug surface and test maintenance for non-differentiating infrastructure.
-
-**What V2 should do:**
-Use `fast-glob` for discovery and keep one CSV adapter module on top of `csv-parse`; delete dead/duplicate utility classes.
-
-**Needs coverage:**
-| Current capability | Covered by replacement? | Notes |
-|--------------------|------------------------|-------|
-| Recursive CSV discovery | Yes | `fast-glob` handles recursive patterns directly. |
-| Deterministic order | Yes | Keep explicit sort after glob results. |
-| Symlink safety | Yes | Configure glob options to avoid following symlink dirs. |
-| BOM handling/header detection | Yes | Keep in single adapter function. |
-| Typed row parsing | Yes | Continue using `csv-parse` + Zod validation. |
-| CSV row filtering/grouping helpers | Yes | Keep one utility module only. |
-
-**Surface:** ~8 files, ~20 call-sites affected  
-**Leverage:** Medium
-
 ### [2] Ingestion Package Boundary Is Too Broad (Single-Consumer Monolith)
 
 **What exists:**
