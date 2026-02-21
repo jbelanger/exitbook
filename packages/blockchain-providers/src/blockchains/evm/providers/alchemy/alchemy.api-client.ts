@@ -719,8 +719,7 @@ export class AlchemyApiClient extends BaseApiClient {
             );
           }
 
-          // Return empty array to skip this transaction instead of failing entire stream
-          return ok([]);
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 
         return ok([
