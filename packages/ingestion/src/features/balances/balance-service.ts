@@ -9,7 +9,7 @@ import type {
 } from '@exitbook/core';
 import { parseAssetId, wrapError, type Currency } from '@exitbook/core';
 import type { AccountQueries, ImportSessionQueries, TokenMetadataQueries, TransactionQueries } from '@exitbook/data';
-import { createExchangeClient } from '@exitbook/exchanges-providers';
+import { createExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';

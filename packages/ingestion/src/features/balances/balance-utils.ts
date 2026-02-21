@@ -8,7 +8,7 @@ import {
   wrapError,
 } from '@exitbook/core';
 import type { TokenMetadataQueries } from '@exitbook/data';
-import type { IExchangeClient } from '@exitbook/exchanges-providers';
+import type { IExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';

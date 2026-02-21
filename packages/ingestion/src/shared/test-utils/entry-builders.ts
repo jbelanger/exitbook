@@ -5,7 +5,7 @@ import type {
   SolanaTransaction,
 } from '@exitbook/blockchain-providers';
 import type { Currency } from '@exitbook/core';
-import type { ExchangeLedgerEntry } from '@exitbook/exchanges-providers';
+import type { ExchangeLedgerEntry } from '@exitbook/exchange-providers';
 
 import type { RawTransactionWithMetadata } from '../../sources/exchanges/shared/strategies/grouping.js';
 

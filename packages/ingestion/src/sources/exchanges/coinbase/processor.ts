@@ -1,5 +1,5 @@
 import type { OperationClassification } from '@exitbook/core';
-import type { CoinbaseLedgerEntry } from '@exitbook/exchanges-providers';
+import type { CoinbaseLedgerEntry } from '@exitbook/exchange-providers';
 import type { Result } from 'neverthrow';
 
 import type { ProcessedTransaction } from '../../../shared/types/processors.js';

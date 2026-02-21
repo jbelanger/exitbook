@@ -1,6 +1,6 @@
 import js from '@eslint/js';
-import eslintComments from 'eslint-plugin-eslint-comments';
-import importPlugin from 'eslint-plugin-import';
+import eslintComments from '@eslint-community/eslint-plugin-eslint-comments';
+import importPlugin from 'eslint-plugin-import-x';
 import perfectionist from 'eslint-plugin-perfectionist';
 import unicorn from 'eslint-plugin-unicorn';
 import globals from 'globals';
@@ -125,6 +125,11 @@ export default [
               group: ['@exitbook/*/src/**'],
               message:
                 'Use barrel imports instead of direct src imports. Import from @exitbook/package-name instead of @exitbook/package-name/src/...',
+            },
+            {
+              group: ['@exitbook/blockchain-providers/*', '@exitbook/ingestion/*'],
+              message:
+                'Do not import package internals via sub-path exports. Import from the package root barrel instead.',
             },
             {
               group: [

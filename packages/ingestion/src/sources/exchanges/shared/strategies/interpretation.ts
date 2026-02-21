@@ -1,5 +1,5 @@
 import { buildExchangeAssetId, parseDecimal } from '@exitbook/core';
-import type { CoinbaseLedgerEntry } from '@exitbook/exchanges-providers';
+import type { CoinbaseLedgerEntry } from '@exitbook/exchange-providers';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { RawTransactionWithMetadata } from './grouping.js';

@@ -1,5 +1,5 @@
 import type { Currency } from '@exitbook/core';
-import type { ExchangeLedgerEntry } from '@exitbook/exchanges-providers';
+import type { ExchangeLedgerEntry } from '@exitbook/exchange-providers';
 import { describe, expect, test } from 'vitest';
 
 import { byCorrelationId, byTimestamp, noGrouping, type RawTransactionWithMetadata } from '../grouping.js';

@@ -1,7 +1,7 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { PaginationCursor } from '@exitbook/core';
 import type { ImportSessionQueries, RawDataQueries } from '@exitbook/data';
-import type { IExchangeClient, BalanceSnapshot } from '@exitbook/exchanges-providers';
+import type { IExchangeClient, BalanceSnapshot } from '@exitbook/exchange-providers';
 import { errAsync, ok } from 'neverthrow';
 import { vi, type Mocked } from 'vitest';
 

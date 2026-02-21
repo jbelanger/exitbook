@@ -29,7 +29,7 @@
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
     "@exitbook/events": "workspace:*",
-    "@exitbook/exchanges-providers": "workspace:*",
+    "@exitbook/exchange-providers": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/ingestion": "workspace:*",
     "@exitbook/logger": "workspace:*",

@@ -46,12 +46,12 @@ export class ProviderHealthStore {
 
   updateHealth(key: string, success: boolean, responseTime: number, errorMessage?: string): void {
     const currentHealth = this.healthStatus.get(key);
-    if (currentHealth) {
-      const updatedHealth = updateHealthMetrics(currentHealth, success, responseTime, Date.now(), errorMessage);
-      this.healthStatus.set(key, updatedHealth);
-    } else {
+    if (!currentHealth) {
       logger.warn(`updateHealth called for uninitialized provider key: ${key} — call initializeProvider first`);
+      return;
     }
+
+    this.healthStatus.set(key, updateHealthMetrics(currentHealth, success, responseTime, Date.now(), errorMessage));
 
     if (success) {
       this.totalSuccesses.set(key, (this.totalSuccesses.get(key) ?? 0) + 1);

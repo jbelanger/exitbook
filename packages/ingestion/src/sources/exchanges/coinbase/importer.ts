@@ -1,4 +1,4 @@
-import { createCoinbaseClient } from '@exitbook/exchanges-providers';
+import { createCoinbaseClient } from '@exitbook/exchange-providers';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -6,7 +6,7 @@ import type { IImporter, ImportBatchResult, ImportParams } from '../../../shared
 
 /**
  * API-based importer for Coinbase exchange.
- * Uses createCoinbaseClient from @exitbook/exchanges-providers to fetch and validate transaction data.
+ * Uses createCoinbaseClient from @exitbook/exchange-providers to fetch and validate transaction data.
  * The client handles validation, timestamp extraction, and external ID extraction.
  */
 export class CoinbaseApiImporter implements IImporter {

@@ -4,7 +4,7 @@ import type {
   RawBalanceData,
 } from '@exitbook/blockchain-providers';
 import type { TokenMetadataQueries } from '@exitbook/data';
-import type { BalanceSnapshot, IExchangeClient } from '@exitbook/exchanges-providers';
+import type { BalanceSnapshot, IExchangeClient } from '@exitbook/exchange-providers';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
@@ -58,6 +58,7 @@ describe('fetchExchangeBalance', () => {
         sourceName: 'kraken',
       });
     }
+
     // eslint-disable-next-line @typescript-eslint/unbound-method -- vitest mock assertion
     expect(mockClient.fetchBalance).toHaveBeenCalledTimes(1);
   });

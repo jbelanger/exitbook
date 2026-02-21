@@ -1,7 +1,17 @@
 import type { Logger } from '@exitbook/logger';
+import type { Result } from 'neverthrow';
 
-import type { CircuitState } from '../circuit-breaker/types.js';
+import type { CircuitState, CircuitStatus } from '../circuit-breaker/types.js';
 import type { IProvider } from '../provider-health/types.js';
+
+/** Structured record of a single failover attempt for diagnostics */
+export interface FailoverAttempt {
+  providerName: string;
+  durationMs: number;
+  error?: string | undefined;
+  circuitTransition?: { from: CircuitStatus; to: CircuitStatus } | undefined;
+  blockReason?: 'circuit_open' | undefined;
+}
 
 /**
  * Configuration for the generic failover executor
@@ -13,8 +23,8 @@ export interface FailoverOptions<TProvider extends IProvider, TResult, TError ex
   /** Ordered providers to attempt (highest-priority first) */
   providers: readonly TProvider[];
 
-  /** Execute the operation against a single provider */
-  execute: (provider: TProvider) => Promise<import('neverthrow').Result<TResult, Error>>;
+  /** Execute the operation against a single provider. Signal is provided when timeout/cancellation is configured. */
+  execute: (provider: TProvider, signal?: AbortSignal) => Promise<Result<TResult, Error>>;
 
   /** Circuit breaker registry for state lookups and recording */
   circuitBreakers: import('../circuit-breaker/registry.js').CircuitBreakerRegistry;
@@ -58,8 +68,22 @@ export interface FailoverOptions<TProvider extends IProvider, TResult, TError ex
    * Default: plain `Error` with a summary message.
    */
   buildFinalError?:
-    | ((lastError: Error | undefined, attemptedProviders: string[], allRecoverable: boolean) => TError)
+    | ((
+        lastError: Error | undefined,
+        attemptedProviders: string[],
+        allRecoverable: boolean,
+        attempts: FailoverAttempt[]
+      ) => TError)
     | undefined;
+
+  /** Caller-driven cancellation signal. Checked before each attempt. */
+  signal?: AbortSignal | undefined;
+
+  /** Per-provider attempt timeout in milliseconds. Wraps execute() with AbortSignal.timeout(). */
+  perAttemptTimeoutMs?: number | undefined;
+
+  /** Total wall-clock timeout across all attempts in milliseconds. */
+  totalTimeoutMs?: number | undefined;
 }
 
 /**

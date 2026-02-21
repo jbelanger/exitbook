@@ -1,5 +1,5 @@
 {
-  "name": "@exitbook/exchanges-providers",
+  "name": "@exitbook/exchange-providers",
   "version": "0.1.0",
   "private": true,
   "description": "Exchange provider integrations using ccxt for raw data fetching",

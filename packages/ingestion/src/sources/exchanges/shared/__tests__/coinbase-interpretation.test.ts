@@ -1,5 +1,5 @@
 import type { Currency } from '@exitbook/core';
-import type { CoinbaseLedgerEntry } from '@exitbook/exchanges-providers';
+import type { CoinbaseLedgerEntry } from '@exitbook/exchange-providers';
 import { describe, expect, test } from 'vitest';
 
 import { coinbaseGrossAmounts, type RawTransactionWithMetadata } from '../strategies/index.js';

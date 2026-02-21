@@ -221,6 +221,97 @@ describe('executeWithFailover', () => {
     expect(resultError.code).toBe('ALL_FAILED:p1');
   });
 
+  it('should pass structured attempts to buildFinalError', async () => {
+    const p1 = createProvider('p1', () => Promise.resolve(err(new Error('p1 boom'))));
+    const p2 = createProvider('p2', () => Promise.resolve(err(new Error('p2 boom'))));
+
+    let capturedAttempts: import('../types.js').FailoverAttempt[] = [];
+    const buildFinalError = vi.fn(
+      (
+        _lastError: Error | undefined,
+        _attempted: string[],
+        _allRecoverable: boolean,
+        attempts: import('../types.js').FailoverAttempt[]
+      ) => {
+        capturedAttempts = attempts;
+        return new Error('all failed');
+      }
+    );
+
+    await executeWithFailover(baseOptions([p1, p2], { buildFinalError }));
+
+    expect(capturedAttempts).toHaveLength(2);
+    expect(capturedAttempts[0]!.providerName).toBe('p1');
+    expect(capturedAttempts[0]!.error).toBe('p1 boom');
+    expect(capturedAttempts[0]!.durationMs).toBeGreaterThanOrEqual(0);
+    expect(capturedAttempts[1]!.providerName).toBe('p2');
+    expect(capturedAttempts[1]!.error).toBe('p2 boom');
+  });
+
+  it('should include blockReason for circuit-blocked providers in attempts', async () => {
+    const p1 = createProvider('p1', () => Promise.resolve(ok('data-1')));
+    const p2 = createProvider('p2', () => Promise.resolve(err(new Error('p2 fail'))));
+    const registry = new CircuitBreakerRegistry();
+
+    // Open p1's circuit breaker
+    registry.getOrCreate('p1');
+    const now = Date.now();
+    for (let i = 0; i < 5; i++) {
+      registry.recordFailure('p1', now);
+    }
+    registry.getOrCreate('p2');
+
+    let capturedAttempts: import('../types.js').FailoverAttempt[] = [];
+    const buildFinalError = vi.fn(
+      (
+        _lastError: Error | undefined,
+        _attempted: string[],
+        _allRecoverable: boolean,
+        attempts: import('../types.js').FailoverAttempt[]
+      ) => {
+        capturedAttempts = attempts;
+        return new Error('all failed');
+      }
+    );
+
+    await executeWithFailover(baseOptions([p1, p2], { circuitBreakers: registry, buildFinalError }));
+
+    // p1 was skipped (circuit open, p2 available), p2 failed
+    expect(capturedAttempts).toHaveLength(2);
+    expect(capturedAttempts[0]!.providerName).toBe('p1');
+    expect(capturedAttempts[0]!.blockReason).toBe('circuit_open');
+    expect(capturedAttempts[1]!.providerName).toBe('p2');
+    expect(capturedAttempts[1]!.error).toBe('p2 fail');
+  });
+
+  it('should include circuit transition in attempts when circuit state changes', async () => {
+    const p1 = createProvider('p1', () => Promise.resolve(err(new Error('fail'))));
+    const registry = new CircuitBreakerRegistry();
+    registry.getOrCreate('p1');
+    // Pre-load with failures so the next one trips the circuit (default maxFailures=3)
+    const now = Date.now();
+    registry.recordFailure('p1', now);
+    registry.recordFailure('p1', now);
+
+    let capturedAttempts: import('../types.js').FailoverAttempt[] = [];
+    const buildFinalError = vi.fn(
+      (
+        _lastError: Error | undefined,
+        _attempted: string[],
+        _allRecoverable: boolean,
+        attempts: import('../types.js').FailoverAttempt[]
+      ) => {
+        capturedAttempts = attempts;
+        return new Error('all failed');
+      }
+    );
+
+    await executeWithFailover(baseOptions([p1], { circuitBreakers: registry, buildFinalError }));
+
+    expect(capturedAttempts).toHaveLength(1);
+    expect(capturedAttempts[0]!.circuitTransition).toEqual({ from: 'closed', to: 'open' });
+  });
+
   it('should track allRecoverable correctly in buildFinalError', async () => {
     class RecoverableError extends Error {}
 
@@ -238,7 +329,7 @@ describe('executeWithFailover', () => {
       })
     );
 
-    expect(buildFinalError).toHaveBeenCalledWith(expect.any(RecoverableError), ['p1', 'p2'], true);
+    expect(buildFinalError).toHaveBeenCalledWith(expect.any(RecoverableError), ['p1', 'p2'], true, expect.any(Array));
   });
 
   it('should set allRecoverable to false when mixed errors occur', async () => {
@@ -258,7 +349,7 @@ describe('executeWithFailover', () => {
       })
     );
 
-    expect(buildFinalError).toHaveBeenCalledWith(expect.any(Error), ['p1', 'p2'], false);
+    expect(buildFinalError).toHaveBeenCalledWith(expect.any(Error), ['p1', 'p2'], false, expect.any(Array));
   });
 
   it('should record circuit success on provider success', async () => {
@@ -271,5 +362,134 @@ describe('executeWithFailover', () => {
     const state = registry.get('p1')!;
     expect(state.failureCount).toBe(0);
     expect(state.lastSuccessTime).toBeGreaterThan(0);
+  });
+
+  describe('timeout and cancellation', () => {
+    it('should abort immediately when signal is already aborted', async () => {
+      const p1 = createProvider('p1', () => Promise.resolve(ok('data')));
+      const controller = new AbortController();
+      controller.abort(new Error('cancelled'));
+
+      const result = await executeWithFailover(baseOptions([p1], { signal: controller.signal }));
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toContain('cancelled');
+    });
+
+    it('should pass signal to execute callback', async () => {
+      const executeSpy = vi.fn((_p: ReturnType<typeof createProvider>, _signal?: AbortSignal) =>
+        Promise.resolve(ok('data'))
+      );
+      const p1 = createProvider('p1', () => Promise.resolve(ok('unused')));
+
+      await executeWithFailover(
+        baseOptions([p1], {
+          execute: executeSpy,
+          perAttemptTimeoutMs: 5000,
+        })
+      );
+
+      expect(executeSpy).toHaveBeenCalledTimes(1);
+      expect(executeSpy.mock.calls[0]![1]).toBeInstanceOf(AbortSignal);
+    });
+
+    it('should fail when per-attempt timeout expires', async () => {
+      const p1 = createProvider('p1', () => new Promise((resolve) => setTimeout(() => resolve(ok('too late')), 500)));
+
+      const result = await executeWithFailover(baseOptions([p1], { perAttemptTimeoutMs: 10 }));
+
+      // Provider times out, treated as error, all providers exhausted
+      expect(result.isErr()).toBe(true);
+    });
+
+    it('should fail when total timeout expires between attempts', async () => {
+      const p1 = createProvider(
+        'p1',
+        () => new Promise((resolve) => setTimeout(() => resolve(err(new Error('slow'))), 50))
+      );
+      const p2 = createProvider('p2', () => Promise.resolve(ok('data-2')));
+
+      const result = await executeWithFailover(baseOptions([p1, p2], { totalTimeoutMs: 10 }));
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toContain('Total timeout exceeded');
+    });
+
+    it('should not record circuit failure when caller signal aborts mid-attempt', async () => {
+      const controller = new AbortController();
+      const registry = new CircuitBreakerRegistry();
+      registry.getOrCreate('p1');
+
+      const p1 = createProvider('p1', () => {
+        // Abort after execute starts, before it completes
+        setTimeout(() => controller.abort(new Error('user cancelled')), 10);
+        return new Promise((resolve) => setTimeout(() => resolve(ok('too late')), 500));
+      });
+
+      const result = await executeWithFailover(
+        baseOptions([p1], { signal: controller.signal, circuitBreakers: registry })
+      );
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toContain('user cancelled');
+      // Provider was not at fault — circuit must not be penalised
+      const state = registry.get('p1')!;
+      expect(state.failureCount).toBe(0);
+    });
+
+    it('should record circuit failure when per-attempt timeout fires', async () => {
+      const registry = new CircuitBreakerRegistry();
+      registry.getOrCreate('p1');
+
+      const p1 = createProvider('p1', () => new Promise((resolve) => setTimeout(() => resolve(ok('too late')), 500)));
+
+      await executeWithFailover(baseOptions([p1], { perAttemptTimeoutMs: 10, circuitBreakers: registry }));
+
+      const state = registry.get('p1')!;
+      expect(state.failureCount).toBe(1);
+    });
+
+    it('should handle non-Error signal.reason without throwing', async () => {
+      const p1 = createProvider('p1', () => Promise.resolve(ok('data')));
+      const controller = new AbortController();
+      controller.abort('string-reason'); // string, not Error
+
+      const result = await executeWithFailover(baseOptions([p1], { signal: controller.signal }));
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toBe('string-reason');
+    });
+
+    it('should pass timeout error to buildFinalError on total timeout expiry', async () => {
+      const p1 = createProvider(
+        'p1',
+        () => new Promise((resolve) => setTimeout(() => resolve(err(new Error('slow'))), 100))
+      );
+      const p2 = createProvider('p2', () => Promise.resolve(ok('data-2')));
+
+      let capturedLastError: Error | undefined;
+      const buildFinalError = vi.fn((lastError: Error | undefined) => {
+        capturedLastError = lastError;
+        return new Error('custom timeout');
+      });
+
+      await executeWithFailover(baseOptions([p1, p2], { totalTimeoutMs: 10, buildFinalError }));
+
+      expect(buildFinalError).toHaveBeenCalled();
+      expect(capturedLastError).toBeInstanceOf(Error);
+      expect(capturedLastError!.message).toContain('Total timeout exceeded');
+    });
+
+    it('should not pass signal when no timeout or cancellation configured', async () => {
+      const executeSpy = vi.fn((_p: ReturnType<typeof createProvider>, signal?: AbortSignal) => {
+        expect(signal).toBeUndefined();
+        return Promise.resolve(ok('data'));
+      });
+      const p1 = createProvider('p1', () => Promise.resolve(ok('unused')));
+
+      await executeWithFailover(baseOptions([p1], { execute: executeSpy }));
+
+      expect(executeSpy).toHaveBeenCalledTimes(1);
+    });
   });
 });

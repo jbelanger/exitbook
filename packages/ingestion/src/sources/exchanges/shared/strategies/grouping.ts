@@ -1,4 +1,4 @@
-import type { ExchangeLedgerEntry } from '@exitbook/exchanges-providers';
+import type { ExchangeLedgerEntry } from '@exitbook/exchange-providers';
 
 /**
  * Represents a transaction with both raw exchange-specific data and normalized common data.
