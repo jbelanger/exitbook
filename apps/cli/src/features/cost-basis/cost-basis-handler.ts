@@ -7,7 +7,7 @@ import {
   StandardFxRateProvider,
   type TransactionLinkQueries,
 } from '@exitbook/accounting';
-import type { UniversalTransactionData } from '@exitbook/core';
+import { type Currency, type UniversalTransactionData } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager } from '@exitbook/price-providers';
@@ -107,7 +107,7 @@ export class CostBasisHandler {
           disposals,
           lots,
           lotTransfers,
-          config.currency
+          config.currency as Currency
         );
         if (reportResult.isErr()) {
           return err(reportResult.error);
@@ -195,7 +195,7 @@ export class CostBasisHandler {
     disposals: import('@exitbook/accounting').LotDisposal[],
     lots: import('@exitbook/accounting').AcquisitionLot[],
     lotTransfers: import('@exitbook/accounting').LotTransfer[],
-    displayCurrency: string
+    displayCurrency: Currency
   ): Promise<Result<CostBasisReport, Error>> {
     logger.info({ displayCurrency }, 'Generating report with currency conversion');
 

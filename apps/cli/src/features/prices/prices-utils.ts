@@ -111,7 +111,7 @@ export function extractAssetsNeedingPrices(tx: UniversalTransactionData): Result
 
     if (needsPrice) {
       // Skip fiat currencies - they don't need price fetching
-      if (!isFiat(movement.assetSymbol as Currency)) {
+      if (!isFiat(movement.assetSymbol)) {
         assetsNeedingPrices.add(movement.assetSymbol);
       }
     }
@@ -123,7 +123,7 @@ export function extractAssetsNeedingPrices(tx: UniversalTransactionData): Result
 
     if (needsPrice) {
       // Skip fiat currencies - they don't need price fetching
-      if (!isFiat(fee.assetSymbol as Currency)) {
+      if (!isFiat(fee.assetSymbol)) {
         assetsNeedingPrices.add(fee.assetSymbol);
       }
     }

@@ -5,7 +5,7 @@
  * Handles all database initialization internally.
  */
 
-import { type Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal, parseCurrency } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -17,10 +17,10 @@ import { createPriceQueries, type PriceQueries } from '../persistence/queries/pr
  * Manual price entry data
  */
 export interface ManualPriceEntry {
-  assetSymbol: string;
+  assetSymbol: Currency;
   date: Date;
   price: Decimal;
-  currency?: string | undefined;
+  currency?: Currency | undefined;
   source?: string | undefined;
 }
 
@@ -28,8 +28,8 @@ export interface ManualPriceEntry {
  * Manual FX rate entry data
  */
 export interface ManualFxRateEntry {
-  from: string;
-  to: string;
+  from: Currency;
+  to: Currency;
   date: Date;
   rate: Decimal;
   source?: string | undefined;
@@ -73,14 +73,10 @@ export class ManualPriceService {
         return err(initResult.error);
       }
 
-      // Parse currencies
-      const asset = entry.assetSymbol as Currency;
-      const currency = (entry.currency || 'USD') as Currency;
-
       // Save to cache
       const saveResult = await this.queries!.savePrice({
-        assetSymbol: asset,
-        currency,
+        assetSymbol: entry.assetSymbol,
+        currency: entry.currency ?? ('USD' as Currency),
         timestamp: entry.date,
         price: entry.price,
         source: entry.source || 'manual',
@@ -124,19 +120,15 @@ export class ManualPriceService {
         return err(initResult.error);
       }
 
-      // Parse currencies
-      const fromCurrency = entry.from as Currency;
-      const toCurrency = entry.to as Currency;
-
       // Validate currencies are different
-      if (fromCurrency === toCurrency) {
+      if (entry.from === entry.to) {
         return err(new Error('Source and target currencies must be different'));
       }
 
       // Save to cache (asset=from, currency=to)
       const saveResult = await this.queries!.savePrice({
-        assetSymbol: fromCurrency,
-        currency: toCurrency,
+        assetSymbol: entry.from,
+        currency: entry.to,
         timestamp: entry.date,
         price: entry.rate,
         source: entry.source || 'user-provided',
@@ -207,12 +199,16 @@ export async function saveManualPrice(
   source = 'manual',
   databasePath: string
 ): Promise<Result<void, Error>> {
+  const assetResult = parseCurrency(assetSymbol);
+  if (assetResult.isErr()) return err(assetResult.error);
+  const currencyResult = parseCurrency(currency);
+  if (currencyResult.isErr()) return err(currencyResult.error);
   const service = new ManualPriceService(databasePath);
   return service.savePrice({
-    assetSymbol: assetSymbol,
+    assetSymbol: assetResult.value,
     date,
     price: typeof price === 'string' ? parseDecimal(price) : price,
-    currency,
+    currency: currencyResult.value,
     source,
   });
 }
@@ -238,10 +234,14 @@ export async function saveManualFxRate(
   source = 'user-provided',
   databasePath: string
 ): Promise<Result<void, Error>> {
+  const fromResult = parseCurrency(from);
+  if (fromResult.isErr()) return err(fromResult.error);
+  const toResult = parseCurrency(to);
+  if (toResult.isErr()) return err(toResult.error);
   const service = new ManualPriceService(databasePath);
   return service.saveFxRate({
-    from,
-    to,
+    from: fromResult.value,
+    to: toResult.value,
     date,
     rate: typeof rate === 'string' ? parseDecimal(rate) : rate,
     source,

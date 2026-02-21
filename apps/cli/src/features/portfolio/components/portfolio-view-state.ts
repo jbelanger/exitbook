@@ -2,6 +2,8 @@
  * Portfolio view TUI state types and factory functions.
  */
 
+import type { Currency } from '@exitbook/core';
+
 import type { SortMode, PortfolioPositionItem, PortfolioTransactionItem } from '../portfolio-types.js';
 
 export type PortfolioPnlMode = 'unrealized' | 'realized' | 'both';
@@ -12,7 +14,7 @@ export interface PortfolioAssetsState {
   asOf: string;
   method: string;
   jurisdiction: string;
-  displayCurrency: string;
+  displayCurrency: Currency;
 
   positions: PortfolioPositionItem[];
   closedPositions: PortfolioPositionItem[];
@@ -41,7 +43,7 @@ export interface PortfolioHistoryState {
   assetId: string;
   assetSymbol: string;
   assetQuantity: string;
-  displayCurrency: string;
+  displayCurrency: Currency;
   transactions: PortfolioTransactionItem[];
 
   selectedIndex: number;
@@ -71,7 +73,7 @@ export interface CreatePortfolioAssetsStateParams {
   asOf: string;
   method: string;
   jurisdiction: string;
-  displayCurrency: string;
+  displayCurrency: Currency;
   positions: PortfolioPositionItem[];
   closedPositions?: PortfolioPositionItem[] | undefined;
   transactionsByAssetId: Map<string, PortfolioTransactionItem[]>;

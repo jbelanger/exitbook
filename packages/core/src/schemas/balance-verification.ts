@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { CurrencySchema } from './money.js';
+
 /**
  * Schema for source parameters identifying the wallet/account
  */
@@ -18,7 +20,7 @@ export const SourceParamsSchema = z.union([
  */
 export const BalanceDiscrepancySchema = z.object({
   assetId: z.string().optional(),
-  assetSymbol: z.string(),
+  assetSymbol: CurrencySchema,
   calculated: z.string(),
   difference: z.string(),
   live: z.string(),

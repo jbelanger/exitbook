@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { parseDecimal } from '../utils/decimal-utils.js';
 
 import { SourceTypeSchema } from './import-session.js';
-import { DecimalSchema, MoneySchema } from './money.js';
+import { CurrencySchema, DecimalSchema, MoneySchema } from './money.js';
 import { DateSchema } from './primitives.js';
 
 // Transaction status schema
@@ -63,7 +63,7 @@ export const AssetMovementSchema = z
   .object({
     // Asset identity (required)
     assetId: z.string().min(1, 'Asset ID must not be empty'), // Unique key for math & storage (e.g., blockchain:ethereum:0xa0b8...)
-    assetSymbol: z.string().min(1, 'Asset symbol must not be empty'), // Display symbol (e.g., USDC, ETH)
+    assetSymbol: CurrencySchema, // Display symbol (e.g., USDC, ETH)
 
     // Amount fields
     grossAmount: DecimalSchema, // Amount venue debited/credited (REQUIRED)
@@ -153,7 +153,7 @@ export const FeeMovementSchema = z
   .object({
     // Asset identity (required)
     assetId: z.string().min(1, 'Asset ID must not be empty'), // Unique key for math & storage (e.g., blockchain:ethereum:0xa0b8...)
-    assetSymbol: z.string().min(1, 'Asset symbol must not be empty'), // Display symbol (e.g., USDC, ETH)
+    assetSymbol: CurrencySchema, // Display symbol (e.g., USDC, ETH)
     amount: DecimalSchema,
 
     // Fee semantics (required)

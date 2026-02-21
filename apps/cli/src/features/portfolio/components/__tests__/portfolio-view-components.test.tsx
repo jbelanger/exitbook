@@ -1,3 +1,4 @@
+import type { Currency } from '@exitbook/core';
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
@@ -9,7 +10,7 @@ function createBaseState() {
     asOf: '2026-01-01T00:00:00.000Z',
     method: 'fifo',
     jurisdiction: 'US',
-    displayCurrency: 'USD',
+    displayCurrency: 'USD' as Currency,
     positions: [
       {
         assetId: 'asset:btc',

@@ -1,4 +1,5 @@
 import {
+  CurrencySchema,
   DateSchema,
   DecimalSchema,
   LinkStatusSchema,
@@ -29,7 +30,7 @@ export const TransactionCandidateSchema = z.object({
   externalId: z.string().optional(),
   timestamp: DateSchema,
   assetId: z.string(),
-  assetSymbol: z.string(),
+  assetSymbol: CurrencySchema,
   amount: DecimalSchema,
   direction: z.enum(['in', 'out', 'neutral']),
   fromAddress: z.string().optional(),

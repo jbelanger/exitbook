@@ -1,4 +1,4 @@
-import type { AssetMovement, Currency, PriceAtTxTime } from '@exitbook/core';
+import type { AssetMovement, PriceAtTxTime } from '@exitbook/core';
 import { isFiat, parseDecimal } from '@exitbook/core';
 
 /**
@@ -65,8 +65,8 @@ export function calculatePriceFromTrade(
 ): { assetSymbol: string; priceAtTxTime: PriceAtTxTime }[] {
   const { inflow, outflow, timestamp } = movements;
 
-  const inflowCurrency = inflow.assetSymbol as Currency;
-  const outflowCurrency = outflow.assetSymbol as Currency;
+  const inflowCurrency = inflow.assetSymbol;
+  const outflowCurrency = outflow.assetSymbol;
 
   const inflowIsUSD = inflowCurrency === 'USD';
   const outflowIsUSD = outflowCurrency === 'USD';
@@ -228,7 +228,7 @@ export function stampFiatIdentityPrices(
       continue;
     }
 
-    const currency = movement.assetSymbol as Currency;
+    const currency = movement.assetSymbol;
 
     // Only stamp prices on fiat currencies
     if (!isFiat(currency)) {

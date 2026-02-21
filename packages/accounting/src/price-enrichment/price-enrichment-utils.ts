@@ -9,7 +9,7 @@
  * All functions are pure (no side effects, no DB access, no logging).
  */
 
-import type { AssetMovement, Currency, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
+import type { AssetMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import { isFiat, isFiatOrStablecoin, parseDecimal } from '@exitbook/core';
 
 import { enrichMovementsWithPrices } from './movement-enrichment-utils.js';
@@ -209,8 +209,8 @@ function recalculateCryptoSwapRatios(
     }
 
     // Check if this is a crypto-crypto swap (neither side is fiat/stable)
-    const inflowCurrency = trade.inflow.assetSymbol as Currency;
-    const outflowCurrency = trade.outflow.assetSymbol as Currency;
+    const inflowCurrency = trade.inflow.assetSymbol;
+    const outflowCurrency = trade.outflow.assetSymbol;
 
     if (isFiatOrStablecoin(inflowCurrency) || isFiatOrStablecoin(outflowCurrency)) {
       continue; // Keep fiat-based prices (they're already execution prices)
@@ -469,7 +469,7 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransactionD
       }
 
       // Check if this is a fiat currency
-      const currency = fee.assetSymbol as Currency;
+      const currency = fee.assetSymbol;
 
       // Only stamp prices on fiat currencies
       if (!isFiat(currency)) {

@@ -30,7 +30,7 @@ import type {
  */
 export interface ReportGeneratorConfig {
   /** Display currency for the report */
-  displayCurrency: string;
+  displayCurrency: Currency;
   /** Calculation record */
   calculation: CostBasisCalculation;
   /** Disposals to convert */
@@ -227,7 +227,7 @@ export class CostBasisReportGenerator {
    */
   private async getOrFetchFxRate(
     date: Date,
-    displayCurrency: string,
+    displayCurrency: Currency,
     cache: Map<string, FxConversionMetadata>
   ): Promise<Result<FxConversionMetadata, Error>> {
     // Get date key for caching (YYYY-MM-DD)
@@ -240,7 +240,7 @@ export class CostBasisReportGenerator {
       // Fetch FX rate for this date
       this.logger.debug({ date: dateKey, displayCurrency }, 'Fetching FX rate');
 
-      const fxRateResult = await this.fxProvider.getRateFromUSD(displayCurrency as Currency, date);
+      const fxRateResult = await this.fxProvider.getRateFromUSD(displayCurrency, date);
 
       if (fxRateResult.isErr()) {
         return err(
@@ -274,7 +274,7 @@ export class CostBasisReportGenerator {
    */
   private async convertDisposals(
     disposals: LotDisposal[],
-    displayCurrency: string,
+    displayCurrency: Currency,
     cache: Map<string, FxConversionMetadata>
   ): Promise<Result<ConvertedLotDisposal[], Error>> {
     const converted: ConvertedLotDisposal[] = [];
@@ -319,7 +319,7 @@ export class CostBasisReportGenerator {
    */
   private async convertLots(
     lots: AcquisitionLot[],
-    displayCurrency: string,
+    displayCurrency: Currency,
     cache: Map<string, FxConversionMetadata>
   ): Promise<ConvertedAcquisitionLot[]> {
     const converted: ConvertedAcquisitionLot[] = [];
@@ -387,7 +387,7 @@ export class CostBasisReportGenerator {
    */
   private async convertTransfers(
     transfers: LotTransfer[],
-    displayCurrency: string,
+    displayCurrency: Currency,
     cache: Map<string, FxConversionMetadata>
   ): Promise<ConvertedLotTransfer[]> {
     const converted: ConvertedLotTransfer[] = [];

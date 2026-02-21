@@ -1,4 +1,4 @@
-import { DateSchema, DecimalSchema } from '@exitbook/core';
+import { CurrencySchema, DateSchema, DecimalSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -43,7 +43,7 @@ export const AcquisitionLotSchema = z.object({
   calculationId: z.string().uuid(),
   acquisitionTransactionId: z.number().int().positive(),
   assetId: z.string().min(1),
-  assetSymbol: z.string().min(1),
+  assetSymbol: CurrencySchema,
   quantity: DecimalSchema,
   costBasisPerUnit: DecimalSchema,
   totalCostBasis: DecimalSchema,

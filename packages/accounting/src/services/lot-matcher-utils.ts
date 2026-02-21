@@ -4,7 +4,6 @@ import {
   parseDecimal,
   wrapError,
   type AssetMovement,
-  type Currency,
   type FeeMovement,
   type PriceAtTxTime,
 } from '@exitbook/core';
@@ -364,7 +363,7 @@ export function collectFiatFees(
 
   for (const tx of [sourceTx, targetTx]) {
     for (const fee of tx.fees) {
-      const currency = fee.assetSymbol as Currency;
+      const currency = fee.assetSymbol;
       if (isFiat(currency)) {
         fiatFees.push({
           assetSymbol: fee.assetSymbol,
@@ -393,7 +392,7 @@ export function filterTransactionsWithoutPrices(transactions: UniversalTransacti
     // Filter out fiat currencies - we only care about crypto asset prices
     const nonFiatInflows = inflows.filter((m) => {
       try {
-        return !isFiat(m.assetSymbol as Currency);
+        return !isFiat(m.assetSymbol);
       } catch {
         // If we can't create a Currency, assume it's crypto
         return true;
@@ -402,7 +401,7 @@ export function filterTransactionsWithoutPrices(transactions: UniversalTransacti
 
     const nonFiatOutflows = outflows.filter((m) => {
       try {
-        return !isFiat(m.assetSymbol as Currency);
+        return !isFiat(m.assetSymbol);
       } catch {
         // If we can't create a Currency, assume it's crypto
         return true;
@@ -435,7 +434,7 @@ function calculateTotalFeeValueInFiat(
       totalFeeValue = totalFeeValue.plus(feeValue);
     } else {
       // Fee has no price - try fallback conversion
-      const feeCurrency = fee.assetSymbol as Currency;
+      const feeCurrency = fee.assetSymbol;
       if (isFiat(feeCurrency) && targetMovement.priceAtTxTime) {
         const targetPriceCurrency = targetMovement.priceAtTxTime.price.currency;
         if (feeCurrency === targetPriceCurrency) {
@@ -488,7 +487,7 @@ function calculateMovementValues(
   // Filter to non-fiat movements only (we track cost basis for crypto, not fiat)
   const nonFiatMovements = allMovements.filter((m) => {
     try {
-      return !isFiat(m.assetSymbol as Currency);
+      return !isFiat(m.assetSymbol);
     } catch {
       return true; // If we can't determine, assume crypto
     }

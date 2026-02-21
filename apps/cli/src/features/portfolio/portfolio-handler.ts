@@ -74,7 +74,7 @@ export interface PortfolioResult {
   asOf: string;
   method: string;
   jurisdiction: string;
-  displayCurrency: string;
+  displayCurrency: Currency;
   meta: {
     pricedAssets: number;
     timestamp: string;
@@ -235,7 +235,7 @@ export class PortfolioHandler {
       let fxRate: Decimal | undefined;
       if (displayCurrency !== 'USD') {
         const fxResult = await priceManager.fetchPrice({
-          assetSymbol: parseCurrency(displayCurrency)._unsafeUnwrap(),
+          assetSymbol: displayCurrency,
           timestamp: asOf,
           currency: 'USD' as Currency,
         });
@@ -491,7 +491,7 @@ function buildClosedPositionsByAssetId(
 function validatePortfolioParams(params: PortfolioHandlerParams): Result<
   {
     asOf: Date;
-    displayCurrency: PortfolioDisplayCurrency;
+    displayCurrency: Currency;
     jurisdiction: PortfolioJurisdiction;
     method: PortfolioMethod;
   },
@@ -527,7 +527,11 @@ function validatePortfolioParams(params: PortfolioHandlerParams): Result<
       )
     );
   }
-  const displayCurrency = params.displayCurrency as PortfolioDisplayCurrency;
+  const displayCurrencyResult = parseCurrency(params.displayCurrency);
+  if (displayCurrencyResult.isErr()) {
+    return err(displayCurrencyResult.error);
+  }
+  const displayCurrency = displayCurrencyResult.value;
 
   return ok({
     method,

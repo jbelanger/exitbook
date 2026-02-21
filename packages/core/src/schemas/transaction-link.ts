@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { DecimalSchema } from './money.js';
+import { CurrencySchema, DecimalSchema } from './money.js';
 import { DateSchema } from './primitives.js';
 
 const UnitIntervalDecimalSchema = DecimalSchema.refine(
@@ -47,7 +47,7 @@ export const TransactionLinkSchema = z.object({
   id: z.string(),
   sourceTransactionId: z.number(),
   targetTransactionId: z.number(),
-  assetSymbol: z.string(),
+  assetSymbol: CurrencySchema,
   sourceAssetId: z.string(),
   targetAssetId: z.string(),
   sourceAmount: DecimalSchema,
