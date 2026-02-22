@@ -1,9 +1,9 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { COSMOS_CHAINS, getCosmosChainConfig } from '@exitbook/blockchain-providers';
-import { err, ok } from 'neverthrow';
 
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
+import { normalizeCosmosAddress } from './address-utils.js';
 import { CosmosImporter } from './importer.js';
 import { CosmosProcessor } from './processor.js';
 
@@ -15,14 +15,7 @@ export function registerCosmosChains(): void {
     registerBlockchain({
       blockchain: chainName,
 
-      normalizeAddress: (address: string) => {
-        // Cosmos addresses use bech32 format - case-sensitive
-        // Format: <prefix>1<data> (e.g., inj1..., cosmos1..., osmo1...)
-        if (!/^[a-z]+1[a-z0-9]{38,58}$/.test(address)) {
-          return err(new Error(`Invalid Cosmos address format for ${chainName}: ${address}`));
-        }
-        return ok(address);
-      },
+      normalizeAddress: (address: string) => normalizeCosmosAddress(address, chainName),
 
       createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
         new CosmosImporter(config, providerManager, {

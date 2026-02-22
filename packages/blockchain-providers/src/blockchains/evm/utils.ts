@@ -19,6 +19,16 @@ export function normalizeEvmAddress(address: string | null | undefined): string 
 }
 
 /**
+ * Validate EVM address format (0x + 40 hex characters, case-insensitive).
+ *
+ * @param address - The EVM address to validate
+ * @returns True if address is valid
+ */
+export function isValidEvmAddress(address: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
+}
+
+/**
  * Minimum fields required for generating unique beacon withdrawal event IDs.
  * All fields are mandatory to ensure uniqueness across all withdrawals.
  */

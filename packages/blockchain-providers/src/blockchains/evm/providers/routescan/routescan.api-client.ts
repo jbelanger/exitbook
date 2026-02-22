@@ -26,6 +26,7 @@ import { maskAddress } from '../../../../core/utils/address-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
 import type { EvmTransaction } from '../../types.js';
+import { isValidEvmAddress } from '../../utils.js';
 
 import { mapRoutescanTransaction } from './routescan.mapper-utils.js';
 import {
@@ -258,7 +259,7 @@ export class RoutescanApiClient extends BaseApiClient {
   private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
-    if (!this.isValidEvmAddress(address)) {
+    if (!isValidEvmAddress(address)) {
       return err(new Error(`Invalid EVM address: ${address}`));
     }
 
@@ -308,12 +309,6 @@ export class RoutescanApiClient extends BaseApiClient {
       decimals: this.chainConfig.nativeDecimals,
       decimalAmount: balanceDecimal,
     } as RawBalanceData);
-  }
-
-  private isValidEvmAddress(address: string): boolean {
-    // EVM addresses are 42 characters (0x + 40 hex characters)
-    const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
-    return ethAddressRegex.test(address);
   }
 
   private streamAddressTransactions(

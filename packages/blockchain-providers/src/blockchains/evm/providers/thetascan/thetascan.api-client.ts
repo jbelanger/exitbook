@@ -24,6 +24,7 @@ import type {
 } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import type { EvmTransaction } from '../../types.js';
+import { isValidEvmAddress } from '../../utils.js';
 
 import { mapThetaScanTransaction } from './thetascan.mapper-utils.js';
 import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBalance } from './thetascan.schemas.js';
@@ -150,7 +151,7 @@ export class ThetaScanApiClient extends BaseApiClient {
   private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
-    if (!this.isValidEthAddress(address)) {
+    if (!isValidEvmAddress(address)) {
       return err(new Error(`Invalid Theta address: ${address}`));
     }
 
@@ -189,7 +190,7 @@ export class ThetaScanApiClient extends BaseApiClient {
   }): Promise<Result<RawBalanceData[], Error>> {
     const { address, contractAddresses } = params;
 
-    if (!this.isValidEthAddress(address)) {
+    if (!isValidEvmAddress(address)) {
       return err(new Error(`Invalid Theta address: ${address}`));
     }
 
@@ -247,12 +248,6 @@ export class ThetaScanApiClient extends BaseApiClient {
 
     this.logger.debug(`Retrieved ${balances.length} token balances for ${maskAddress(address)}`);
     return ok(balances);
-  }
-
-  // Theta uses Ethereum-style addresses
-  private isValidEthAddress(address: string): boolean {
-    const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
-    return ethAddressRegex.test(address);
   }
 
   private streamAddressTransactions(

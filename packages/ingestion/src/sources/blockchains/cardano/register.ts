@@ -1,6 +1,5 @@
 import {
   CardanoUtils,
-  normalizeCardanoAddress,
   type BlockchainProviderManager,
   type CardanoWalletAddress,
 } from '@exitbook/blockchain-providers';
@@ -9,6 +8,7 @@ import { err, ok, type Result } from 'neverthrow';
 import type { DerivedAddress } from '../../../shared/types/blockchain-adapter.js';
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
+import { normalizeCardanoAddress } from './address-utils.js';
 import { CardanoTransactionImporter } from './importer.js';
 import { CardanoTransactionProcessor } from './processor.js';
 
@@ -17,23 +17,7 @@ export function registerCardanoChain(): void {
     blockchain: 'cardano',
     isUTXOChain: true,
 
-    normalizeAddress: (address: string) => {
-      // Use centralized normalization logic
-      const normalized = normalizeCardanoAddress(address);
-
-      // Validation for extended public keys
-      if (/^[0-9a-fA-F]{128}$/.test(normalized)) {
-        return ok(normalized);
-      }
-
-      // Validation for Cardano addresses
-      // Shelley: addr1..., stake1... (Bech32 - normalized to lowercase)
-      // Byron: Ae2..., DdzFF... (Base58 - case-sensitive)
-      if (!/^(addr1|addr_test1|stake1|stake_test1|Ae2|DdzFF)[A-Za-z0-9]+$/.test(normalized)) {
-        return err(new Error(`Invalid Cardano address format: ${address}`));
-      }
-      return ok(normalized);
-    },
+    normalizeAddress: (address: string) => normalizeCardanoAddress(address),
 
     isExtendedPublicKey: (address: string) => CardanoUtils.isExtendedPublicKey(address),
 

@@ -34,6 +34,3 @@ export * from './providers/nearblocks/nearblocks.schemas.js';
 
 // Mapper utilities (used by processor)
 export * from './providers/nearblocks/mapper-utils.js';
-
-// Additional utility functions (balance transformations)
-export { formatNearAccountId, isValidNearAccountId, nearToYoctoNear, yoctoNearToNear } from './utils.js';

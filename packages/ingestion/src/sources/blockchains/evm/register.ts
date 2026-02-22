@@ -1,9 +1,9 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import { EVM_CHAINS, getEvmChainConfig, normalizeEvmAddress } from '@exitbook/blockchain-providers';
-import { err, ok } from 'neverthrow';
+import { EVM_CHAINS, getEvmChainConfig } from '@exitbook/blockchain-providers';
 
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
+import { normalizeEvmAddress } from './address-utils.js';
 import { EvmImporter } from './importer.js';
 import { EvmTransactionProcessor } from './processor.js';
 
@@ -15,14 +15,7 @@ export function registerEvmChains(): void {
     registerBlockchain({
       blockchain: chainName,
 
-      normalizeAddress: (address: string) => {
-        // Use centralized normalization logic
-        const normalized = normalizeEvmAddress(address);
-        if (!/^0x[0-9a-f]{40}$/.test(normalized)) {
-          return err(new Error(`Invalid EVM address format for ${chainName}: ${address}`));
-        }
-        return ok(normalized);
-      },
+      normalizeAddress: (address: string) => normalizeEvmAddress(address, chainName),
 
       createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
         new EvmImporter(config, providerManager, {

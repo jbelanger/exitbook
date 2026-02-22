@@ -26,6 +26,7 @@ import { convertBalance, createZeroBalance, findNativeBalance } from '../../bala
 import type { CosmosChainConfig } from '../../chain-config.interface.js';
 import { COSMOS_CHAINS } from '../../chain-registry.js';
 import type { CosmosTransaction } from '../../types.js';
+import { validateBech32Address } from '../../utils.js';
 
 import type { CosmosRestApiResponse, CosmosBalanceResponse, CosmosTxResponse } from './cosmos-rest.schemas.js';
 import { CosmosRestApiResponseSchema, CosmosBalanceResponseSchema } from './cosmos-rest.schemas.js';
@@ -155,7 +156,7 @@ export class CosmosRestApiClient extends BaseApiClient {
   private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
-    if (!this.validateAddress(address)) {
+    if (!validateBech32Address(address, this.chainConfig.bech32Prefix)) {
       return err(new Error(`Invalid ${this.chainConfig.displayName} address: ${address}`));
     }
 
@@ -200,12 +201,6 @@ export class CosmosRestApiClient extends BaseApiClient {
     );
 
     return ok(balanceResult as RawBalanceData);
-  }
-
-  private validateAddress(address: string): boolean {
-    // Use bech32Prefix from chainConfig for validation
-    const addressRegex = new RegExp(`^${this.chainConfig.bech32Prefix}1[a-z0-9]{38}$`);
-    return addressRegex.test(address);
   }
 
   private streamAddressTransactions(

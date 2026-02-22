@@ -27,6 +27,7 @@ import { convertBalance, createZeroBalance } from '../../balance-utils.js';
 import type { CosmosChainConfig } from '../../chain-config.interface.js';
 import { COSMOS_CHAINS } from '../../chain-registry.js';
 import type { CosmosTransaction } from '../../types.js';
+import { validateBech32Address } from '../../utils.js';
 
 import type {
   AkashBalanceResponse,
@@ -167,7 +168,7 @@ export class AkashConsoleApiClient extends BaseApiClient {
   private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
-    if (!this.validateAddress(address)) {
+    if (!validateBech32Address(address, this.chainConfig.bech32Prefix)) {
       return err(new Error(`Invalid ${this.chainConfig.displayName} address: ${address}`));
     }
 
@@ -217,12 +218,6 @@ export class AkashConsoleApiClient extends BaseApiClient {
     );
 
     return ok(balanceResult as RawBalanceData);
-  }
-
-  private validateAddress(address: string): boolean {
-    // Use bech32Prefix from chainConfig for validation
-    const addressRegex = new RegExp(`^${this.chainConfig.bech32Prefix}1[a-z0-9]{38}$`);
-    return addressRegex.test(address);
   }
 
   private streamAddressTransactions(

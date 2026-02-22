@@ -5,35 +5,37 @@ import { describe, expect, it, vi } from 'vitest';
 import type { BlockchainProviderManager } from '../../../core/manager/provider-manager.js';
 import type { BitcoinWalletAddress } from '../types.js';
 import {
+  canonicalizeBitcoinAddress,
   deriveBitcoinAddressesFromXpub,
   getBitcoinAddressType,
   isBitcoinXpub,
-  normalizeBitcoinAddress,
   performBitcoinAddressGapScanning,
   satoshisToBtcString,
 } from '../utils.js';
 
 describe('Bitcoin Utils', () => {
-  describe('normalizeBitcoinAddress', () => {
+  describe('canonicalizeBitcoinAddress', () => {
     it('should normalize Bech32 addresses to lowercase', () => {
-      expect(normalizeBitcoinAddress('BC1QXY2KGDYGJRSQTZQ2N0YRF2493P83KKWZJAQ87E')).toBe(
+      expect(canonicalizeBitcoinAddress('BC1QXY2KGDYGJRSQTZQ2N0YRF2493P83KKWZJAQ87E')).toBe(
         'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkwzjaq87e'
       );
-      expect(normalizeBitcoinAddress('LTC1q56p0q654321')).toBe('ltc1q56p0q654321');
+      expect(canonicalizeBitcoinAddress('LTC1q56p0q654321')).toBe('ltc1q56p0q654321');
     });
 
     it('should normalize CashAddr to lowercase', () => {
-      expect(normalizeBitcoinAddress('BITCOINCASH:QP3WJQZ')).toBe('bitcoincash:qp3wjqz');
-      expect(normalizeBitcoinAddress('QP3WJQZ')).toBe('qp3wjqz');
+      expect(canonicalizeBitcoinAddress('BITCOINCASH:QP3WJQZ')).toBe('bitcoincash:qp3wjqz');
+      expect(canonicalizeBitcoinAddress('QP3WJQZ')).toBe('qp3wjqz');
     });
 
     it('should preserve checks in Legacy (Base58) addresses', () => {
-      expect(normalizeBitcoinAddress('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')).toBe('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
+      expect(canonicalizeBitcoinAddress('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')).toBe(
+        '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'
+      );
     });
 
     it('should preserve checks in xpub/ypub/zpub', () => {
       expect(
-        normalizeBitcoinAddress(
+        canonicalizeBitcoinAddress(
           'xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8'
         )
       ).toBe(

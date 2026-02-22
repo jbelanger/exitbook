@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.js';
 
 import { BITCOIN_CHAINS } from './chain-registry.js';
-import { normalizeBitcoinAddress } from './utils.js';
+import { canonicalizeBitcoinAddress } from './utils.js';
 
 /**
  * Dynamically derived list of supported Bitcoin-like currencies
@@ -32,7 +32,7 @@ const BitcoinCurrencySchema = z.enum(SUPPORTED_CURRENCIES);
 export const BitcoinAddressSchema = z
   .string()
   .min(1, 'Address must not be empty')
-  .transform((val) => normalizeBitcoinAddress(val));
+  .transform((val) => canonicalizeBitcoinAddress(val));
 
 /**
  * Schema for Bitcoin transaction input

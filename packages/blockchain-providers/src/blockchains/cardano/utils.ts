@@ -42,6 +42,26 @@ export function normalizeCardanoAddress(address: string): string {
 }
 
 /**
+ * Validate a normalized Cardano address.
+ *
+ * Accepts:
+ * - Shelley mainnet/testnet (addr1..., stake1..., addr_test1..., stake_test1...)
+ * - Byron era (Ae2..., DdzFF...)
+ * - Extended public keys (128 hex characters)
+ *
+ * Call normalizeCardanoAddress before this function for Shelley addresses.
+ *
+ * @param address - The Cardano address to validate (normalized)
+ * @returns True if address is valid
+ */
+export function isValidCardanoAddress(address: string): boolean {
+  if (/^[0-9a-fA-F]{128}$/.test(address)) {
+    return true;
+  }
+  return /^(addr1|addr_test1|stake1|stake_test1|Ae2|DdzFF)[A-Za-z0-9]+$/.test(address);
+}
+
+/**
  * Convert lovelace (smallest unit) to ADA
  * 1 ADA = 1,000,000 lovelace
  */

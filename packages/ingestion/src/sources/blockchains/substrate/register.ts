@@ -1,9 +1,9 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getSubstrateChainConfig, SUBSTRATE_CHAINS } from '@exitbook/blockchain-providers';
-import { err, ok } from 'neverthrow';
 
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
+import { normalizeSubstrateAddress } from './address-utils.js';
 import { SubstrateImporter } from './importer.js';
 import { SubstrateProcessor } from './processor.js';
 
@@ -15,13 +15,7 @@ export function registerSubstrateChains(): void {
     registerBlockchain({
       blockchain: chainName,
 
-      normalizeAddress: (address: string) => {
-        // Substrate addresses use SS58 format - case-sensitive
-        if (!/^[1-9A-HJ-NP-Za-km-z]{46,48}$/.test(address)) {
-          return err(new Error(`Invalid Substrate address format for ${chainName}: ${address}`));
-        }
-        return ok(address);
-      },
+      normalizeAddress: (address: string) => normalizeSubstrateAddress(address, chainName),
 
       createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
         new SubstrateImporter(config, providerManager, {

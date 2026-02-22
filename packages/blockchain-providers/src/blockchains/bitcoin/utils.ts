@@ -61,16 +61,16 @@ export function generateBitcoinTransactionEventId(params: { currency: string; tx
 /**
  * Normalize Bitcoin address based on address type.
  *
- * Normalization rules:
+ * Canonicalization rules (casing only — no format validation):
  * - xpub/ypub/zpub: Case-sensitive, return as-is
  * - Bech32 (bc1/ltc1): Lowercase (case-insensitive encoding)
  * - CashAddr (bitcoincash:): Lowercase (case-insensitive encoding)
  * - Legacy (Base58): Case-sensitive, return as-is
  *
- * @param address - Bitcoin address to normalize
- * @returns Normalized address
+ * @param address - Bitcoin address to canonicalize
+ * @returns Canonicalized address
  */
-export function normalizeBitcoinAddress(address: string): string {
+export function canonicalizeBitcoinAddress(address: string): string {
   // Handle xpub/ypub/zpub formats (case-sensitive)
   if (/^[xyz]pub/i.test(address)) {
     return address;
