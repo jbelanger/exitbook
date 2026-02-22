@@ -1,8 +1,6 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
-import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
 import { SolanaTransactionImporter } from './importer.js';
@@ -25,17 +23,7 @@ export function registerSolanaChain(): void {
         preferredProvider: providerName,
       }),
 
-    createProcessor: (
-      _providerManager,
-      tokenMetadataService?: ITokenMetadataService,
-      scamDetectionService?: IScamDetectionService,
-      _rawDataQueries?,
-      _accountId?
-    ) => {
-      if (!tokenMetadataService) {
-        return err(new Error('TokenMetadataService is required for Solana processor'));
-      }
-      return ok(new SolanaTransactionProcessor(tokenMetadataService, scamDetectionService));
-    },
+    createProcessor: ({ tokenMetadataService, scamDetectionService }) =>
+      ok(new SolanaTransactionProcessor(tokenMetadataService, scamDetectionService)),
   });
 }

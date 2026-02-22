@@ -6,10 +6,8 @@ import {
   normalizeBitcoinAddress,
   type BitcoinWalletAddress,
 } from '@exitbook/blockchain-providers';
-import { err, ok } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 
-import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import type { DerivedAddress } from '../../../shared/types/blockchain-adapter.js';
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
@@ -26,13 +24,7 @@ export function registerBitcoinChains(): void {
       isUTXOChain: true,
       createImporter: (providerManager, preferredProvider) =>
         new BitcoinTransactionImporter(config, providerManager, { preferredProvider }),
-      createProcessor: (
-        _providerManager,
-        _tokenMetadataService?: ITokenMetadataService,
-        scamDetectionService?: IScamDetectionService,
-        _rawDataQueries?,
-        _accountId?
-      ) => ok(new BitcoinTransactionProcessor(config, scamDetectionService)),
+      createProcessor: ({ scamDetectionService }) => ok(new BitcoinTransactionProcessor(config, scamDetectionService)),
 
       isExtendedPublicKey: (address: string) => isBitcoinXpub(address),
 
@@ -41,7 +33,7 @@ export function registerBitcoinChains(): void {
         providerManager,
         blockchain: string,
         gap?: number
-      ): Promise<DerivedAddress[]> => {
+      ): Promise<Result<DerivedAddress[], Error>> => {
         // Use the proper wallet initialization that includes provider manager for smart detection and gap scanning
         const walletAddress: BitcoinWalletAddress = {
           address: xpub,
@@ -51,15 +43,17 @@ export function registerBitcoinChains(): void {
         const initResult = await initializeBitcoinXpubWallet(walletAddress, blockchain, providerManager, gap ?? 20);
 
         if (initResult.isErr()) {
-          throw initResult.error;
+          return err(initResult.error);
         }
 
         // Return the derived addresses with derivation paths
         const derivedAddresses = walletAddress.derivedAddresses || [];
-        return derivedAddresses.map((address: string, index: number) => ({
-          address,
-          derivationPath: `m/${Math.floor(index / 2) % 2}/${Math.floor(index / 2)}`,
-        }));
+        return ok(
+          derivedAddresses.map((address: string, index: number) => ({
+            address,
+            derivationPath: `m/${Math.floor(index / 2) % 2}/${Math.floor(index / 2)}`,
+          }))
+        );
       },
 
       normalizeAddress: (address: string) => {

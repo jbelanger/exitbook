@@ -458,25 +458,13 @@ export class TransactionProcessService {
         return err(new Error(`Unknown blockchain: ${sourceName}`));
       }
 
-      // NEAR requires NearRawDataQueries instead of shared RawDataQueries
-      if (sourceName.toLowerCase() === 'near') {
-        const nearRawDataQueries = createNearRawDataQueries(this.db);
-        return adapter.createProcessor(
-          this.providerManager,
-          this.tokenMetadataService,
-          this.scamDetectionService,
-          nearRawDataQueries as unknown as RawDataQueries,
-          accountId
-        );
-      }
-
-      return adapter.createProcessor(
-        this.providerManager,
-        this.tokenMetadataService,
-        this.scamDetectionService,
-        this.rawDataQueries,
-        accountId
-      );
+      return adapter.createProcessor({
+        providerManager: this.providerManager,
+        tokenMetadataService: this.tokenMetadataService,
+        scamDetectionService: this.scamDetectionService,
+        db: this.db,
+        accountId,
+      });
     } else {
       const adapter = getExchangeAdapter(sourceName);
       if (!adapter) {

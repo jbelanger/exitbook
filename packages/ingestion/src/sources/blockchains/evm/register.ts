@@ -2,8 +2,6 @@ import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { EVM_CHAINS, getEvmChainConfig, normalizeEvmAddress } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
-import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
 import { EvmImporter } from './importer.js';
@@ -31,18 +29,8 @@ export function registerEvmChains(): void {
           preferredProvider: providerName,
         }),
 
-      createProcessor: (
-        providerManager: BlockchainProviderManager,
-        tokenMetadataService?: ITokenMetadataService,
-        scamDetectionService?: IScamDetectionService,
-        _rawDataQueries?,
-        _accountId?
-      ) => {
-        if (!tokenMetadataService) {
-          return err(new Error('TokenMetadataService is required for EVM processor'));
-        }
-        return ok(new EvmTransactionProcessor(config, providerManager, tokenMetadataService, scamDetectionService));
-      },
+      createProcessor: ({ providerManager, tokenMetadataService, scamDetectionService }) =>
+        ok(new EvmTransactionProcessor(config, providerManager, tokenMetadataService, scamDetectionService)),
     });
   }
 }

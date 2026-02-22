@@ -41,7 +41,19 @@ vi.mock('@exitbook/logger', () => ({
 const mockProviderManager = {} as BlockchainProviderManager;
 
 // Mock derive addresses function
-const mockDeriveAddresses = vi.fn();
+interface DerivedAddressMock { address: string; derivationPath: string }
+type DeriveAddressesFn = (
+  xpub: string,
+  providerManager: BlockchainProviderManager,
+  blockchain: string,
+  gap?: number
+) => Promise<DerivedAddressMock[]>;
+
+const mockDeriveAddresses = vi.fn<DeriveAddressesFn>();
+const mockDeriveAddressesResult = vi.fn(async (...args: Parameters<DeriveAddressesFn>) => {
+  const derivedAddresses = await mockDeriveAddresses(...args);
+  return ok(derivedAddresses);
+});
 
 // Mock import streaming function
 const mockImportStreamingFn = vi.fn();
@@ -91,7 +103,7 @@ describe('xpub import integration tests', () => {
       blockchain: 'bitcoin',
       normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
       isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
-      deriveAddressesFromXpub: mockDeriveAddresses,
+      deriveAddressesFromXpub: mockDeriveAddressesResult,
       createImporter: () => ({
         importStreaming: mockImportStreamingFn,
       }),
@@ -102,7 +114,7 @@ describe('xpub import integration tests', () => {
       blockchain: 'cardano',
       normalizeAddress: (addr: string) => ok(addr),
       isExtendedPublicKey: (addr: string) => addr.startsWith('stake') || addr.startsWith('addr_xvk'),
-      deriveAddressesFromXpub: mockDeriveAddresses,
+      deriveAddressesFromXpub: mockDeriveAddressesResult,
       createImporter: () => ({
         importStreaming: mockImportStreamingFn,
       }),
@@ -110,6 +122,7 @@ describe('xpub import integration tests', () => {
     });
     // Reset mocks
     mockDeriveAddresses.mockReset();
+    mockDeriveAddressesResult.mockClear();
     mockImportStreamingFn.mockReset();
 
     // Create in-memory database
@@ -132,6 +145,7 @@ describe('xpub import integration tests', () => {
 
     // Reset mocks
     mockDeriveAddresses.mockReset();
+    mockDeriveAddressesResult.mockClear();
     mockImportStreamingFn.mockReset();
   });
 

@@ -120,42 +120,7 @@ V2 Architecture Audit: @exitbook/ingestion
      Leverage: High -- affects test isolation, initialization safety, and the growing createProcessor parameter list.
 
      ---
-     2.2 NEAR Special-Casing in TransactionProcessService
 
-     What exists:
-     /Users/joel/Dev/exitbook/packages/ingestion/src/features/process/process-service.ts contains two NEAR-specific if branches (lines 242-244 and 462-469)
-      that create NearRawDataQueries and NearStreamBatchProvider. The NEAR queries object is cast via as unknown as RawDataQueries (line 468).
-
-     Why it's a problem:
-     1. The as unknown as RawDataQueries cast discards type safety in a financial data path. If NearRawDataQueries diverges from RawDataQueries, data
-     corruption happens silently.
-     2. Process service contains knowledge of specific blockchain implementations. Adding another blockchain with special storage needs requires modifying
-     the service directly (shotgun surgery).
-     3. The batch provider selection (createBatchProvider) and processor selection (getProcessor) both branch on source name, creating parallel conditional
-      trees.
-
-     What V2 should do:
-     Move batch provider selection and query specialization into the BlockchainAdapter interface. Each blockchain adapter would expose a
-     createBatchProvider(rawDataQueries, db, accountId) method (or return a typed queries interface that satisfies a common contract). The process service
-     would call adapter.createBatchProvider() without knowing which blockchain it is.
-
-     Needs coverage:
-
-     ┌───────────────────────────────────────┬─────────────────────────┬──────────────────────────┐
-     │          Current capability           │ Covered by replacement? │          Notes           │
-     ├───────────────────────────────────────┼─────────────────────────┼──────────────────────────┤
-     │ Hash-grouped batching for blockchains │ Yes                     │ Default in base adapter  │
-     ├───────────────────────────────────────┼─────────────────────────┼──────────────────────────┤
-     │ All-at-once for exchanges             │ Yes                     │ Exchange adapter default │
-     ├───────────────────────────────────────┼─────────────────────────┼──────────────────────────┤
-     │ NEAR multi-stream batching            │ Yes                     │ NEAR adapter override    │
-     ├───────────────────────────────────────┼─────────────────────────┼──────────────────────────┤
-     │ NearRawDataQueries injection          │ Yes                     │ Adapter receives db      │
-     └───────────────────────────────────────┴─────────────────────────┴──────────────────────────┘
-
-     Surface: 1 file (process-service.ts), ~30 lines affected. Adapter interface changes touch all 8 register files.
-
-     Leverage: High -- eliminates unsafe cast, prevents shotgun surgery for future blockchain-specific storage patterns.
 
      ---
      2.3 Balance Service Does Not Belong in Ingestion
@@ -257,24 +222,6 @@ V2 Architecture Audit: @exitbook/ingestion
      ---
      3. Pattern Re-evaluation
 
-     3.1 neverthrow Result Types: Earned Their Place
-
-     What exists:
-     78 files import neverthrow. Every fallible operation returns Result<T, Error>. The pattern is applied uniformly across importers, processors,
-     services, and queries.
-
-     Assessment:
-     The Result type pattern is well-suited for a financial system where silent failure means data corruption. The codebase applies it consistently. Error
-     messages are detailed and include context ("This would corrupt portfolio calculations"). The pattern composes well with the async streaming import
-     flow.
-
-     One friction point: okAsync is used in correlating-exchange-processor.ts line 151 (return okAsync(transactions)) where plain ok() would suffice
-     (already in an async function). This is harmless but slightly misleading.
-
-     What V2 should do:
-     Keep neverthrow. No change.
-
-     Leverage: No issue.
 
      ---
      3.2 Strategy Pattern for Exchange Processing: Well-Designed
@@ -401,54 +348,6 @@ V2 Architecture Audit: @exitbook/ingestion
 
      ---
      6. File & Code Organization
-
-     6.1 Large processor-utils Files
-
-     What exists:
-     Five processor-utils.ts files exceed 400 LOC:
-     - near/processor-utils.ts: 945 LOC
-     - solana/processor-utils.ts: 845 LOC
-     - kucoin/processor-utils.ts: 844 LOC
-     - evm/processor-utils.ts: 664 LOC
-     - substrate/processor-utils.ts: 503 LOC
-
-     Why it's a problem:
-     These files serve as the functional core for each blockchain/exchange processor. The size is proportional to the complexity of each chain's
-     transaction model (NEAR has receipts + function calls + staking; Solana has instruction parsing). Each file is internally cohesive -- the functions
-     are related and compose together.
-
-     The real question is whether 945 LOC of pure functions in a single file is a problem. For pure functions with extensive test coverage, it's
-     acceptable. The alternative (splitting into multiple files per blockchain) would scatter related logic without clear benefit.
-
-     What V2 should do:
-     No change required. These files are large because the domain is complex, not because they lack cohesion. If any single file grows past ~1,200 LOC,
-     split along natural function groupings (e.g., separate staking utils from transfer utils in NEAR).
-
-     Leverage: No issue.
-
-     ---
-     6.2 Consistent Vertical Slice Organization
-
-     What exists:
-     Each blockchain is organized as:
-     sources/blockchains/<chain>/
-       register.ts          -- adapter registration
-       importer.ts          -- IImporter implementation
-       processor.ts         -- BaseTransactionProcessor subclass
-       processor-utils.ts   -- pure processing functions
-       types.ts             -- chain-specific types
-       __tests__/           -- tests
-
-     Each exchange follows a similar pattern with register.ts, importers, processors, schemas, and tests.
-
-     Assessment:
-     This organization is exemplary. Adding a new blockchain or exchange requires creating a self-contained directory with predictable file names. The
-     pattern makes it immediately obvious where code belongs.
-
-     What V2 should do:
-     Keep this pattern. No change.
-
-     Leverage: No issue.
 
      ---
      7. Error Handling & Observability

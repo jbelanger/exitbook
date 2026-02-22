@@ -298,24 +298,23 @@ export class ImportOrchestrator {
       });
 
       // 2b. Derive addresses (opaque operation - may emit provider events)
-      let derivedAddresses;
-      try {
-        derivedAddresses = await blockchainAdapter.deriveAddressesFromXpub(
-          xpub,
-          this.providerManager,
-          blockchain,
-          requestedGap
-        );
-      } catch (error) {
+      const derivedAddressesResult = await blockchainAdapter.deriveAddressesFromXpub(
+        xpub,
+        this.providerManager,
+        blockchain,
+        requestedGap
+      );
+      if (derivedAddressesResult.isErr()) {
         const durationMs = Date.now() - startTime;
         this.eventBus?.emit({
           type: 'xpub.derivation.failed',
           parentAccountId: parentAccount.id,
-          error: error instanceof Error ? error.message : String(error),
+          error: derivedAddressesResult.error.message,
           durationMs,
         });
-        return wrapError(error, 'Failed to derive addresses from xpub');
+        return wrapError(derivedAddressesResult.error, 'Failed to derive addresses from xpub');
       }
+      const derivedAddresses = derivedAddressesResult.value;
 
       derivedCount = derivedAddresses.length;
       const derivationDuration = Date.now() - startTime;

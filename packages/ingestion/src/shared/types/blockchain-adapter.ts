@@ -1,5 +1,5 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { RawDataQueries } from '@exitbook/data';
+import type { KyselyDB } from '@exitbook/data';
 import { type Result } from 'neverthrow';
 
 import type { IScamDetectionService } from '../../features/scam-detection/scam-detection-service.interface.js';
@@ -13,17 +13,19 @@ export interface DerivedAddress {
   derivationPath: string;
 }
 
+export interface ProcessorDeps {
+  providerManager: BlockchainProviderManager;
+  tokenMetadataService: ITokenMetadataService;
+  scamDetectionService: IScamDetectionService | undefined;
+  db: KyselyDB;
+  accountId: number;
+}
+
 export interface BlockchainAdapter {
   blockchain: string;
   normalizeAddress: (address: string) => Result<string, Error>;
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) => IImporter;
-  createProcessor: (
-    providerManager: BlockchainProviderManager,
-    tokenMetadataService?: ITokenMetadataService,
-    scamDetectionService?: IScamDetectionService,
-    rawDataQueries?: RawDataQueries,
-    accountId?: number
-  ) => Result<ITransactionProcessor, Error>;
+  createProcessor: (deps: ProcessorDeps) => Result<ITransactionProcessor, Error>;
 
   /**
    * Indicates whether this blockchain uses the UTXO model (Bitcoin, Cardano).
@@ -47,7 +49,7 @@ export interface BlockchainAdapter {
     providerManager: BlockchainProviderManager,
     blockchain: string,
     gap?: number
-  ) => Promise<DerivedAddress[]>;
+  ) => Promise<Result<DerivedAddress[], Error>>;
 }
 
 const adapters = new Map<string, BlockchainAdapter>();

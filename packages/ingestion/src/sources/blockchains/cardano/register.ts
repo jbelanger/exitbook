@@ -4,10 +4,8 @@ import {
   type BlockchainProviderManager,
   type CardanoWalletAddress,
 } from '@exitbook/blockchain-providers';
-import { err, ok } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 
-import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import type { DerivedAddress } from '../../../shared/types/blockchain-adapter.js';
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
@@ -44,7 +42,7 @@ export function registerCardanoChain(): void {
       providerManager: BlockchainProviderManager,
       _blockchain: string,
       gap?: number
-    ): Promise<DerivedAddress[]> => {
+    ): Promise<Result<DerivedAddress[], Error>> => {
       // Use the proper wallet initialization that includes provider manager for gap scanning
       const walletAddress: CardanoWalletAddress = {
         address: xpub,
@@ -54,7 +52,7 @@ export function registerCardanoChain(): void {
       const initResult = await CardanoUtils.initializeXpubWallet(walletAddress, providerManager, gap ?? 10);
 
       if (initResult.isErr()) {
-        throw initResult.error;
+        return err(initResult.error);
       }
 
       // Return the optimized addresses (filtered by gap scanning)
@@ -62,25 +60,21 @@ export function registerCardanoChain(): void {
       // Pattern: [0/0 (external), 1/0 (internal), 0/1 (external), 1/1 (internal), ...]
       const optimizedAddresses = walletAddress.derivedAddresses || [];
 
-      return optimizedAddresses.map((address: string, index: number) => {
-        const role = index % 2; // 0 = external, 1 = internal
-        const addressIndex = Math.floor(index / 2);
-        return {
-          address,
-          derivationPath: `${role}/${addressIndex}`,
-        };
-      });
+      return ok(
+        optimizedAddresses.map((address: string, index: number) => {
+          const role = index % 2; // 0 = external, 1 = internal
+          const addressIndex = Math.floor(index / 2);
+          return {
+            address,
+            derivationPath: `${role}/${addressIndex}`,
+          };
+        })
+      );
     },
 
     createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
       new CardanoTransactionImporter(providerManager, { preferredProvider: providerName }),
 
-    createProcessor: (
-      _providerManager,
-      _tokenMetadataService?: ITokenMetadataService,
-      scamDetectionService?: IScamDetectionService,
-      _rawDataQueries?,
-      _accountId?
-    ) => ok(new CardanoTransactionProcessor(scamDetectionService)),
+    createProcessor: ({ scamDetectionService }) => ok(new CardanoTransactionProcessor(scamDetectionService)),
   });
 }

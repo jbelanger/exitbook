@@ -44,13 +44,28 @@ vi.mock('../import-service.js', () => ({
 }));
 
 // Mock blockchain configs - shared state for the mock
-const mockDeriveAddresses = vi.fn();
+interface DerivedAddressMock {
+  address: string;
+  derivationPath: string;
+}
+type DeriveAddressesFn = (
+  xpub: string,
+  providerManager: BlockchainProviderManager,
+  blockchain: string,
+  gap?: number
+) => Promise<DerivedAddressMock[]>;
+
+const mockDeriveAddresses = vi.fn<DeriveAddressesFn>();
+const mockDeriveAddressesResult = vi.fn(async (...args: Parameters<DeriveAddressesFn>) => {
+  const derivedAddresses = await mockDeriveAddresses(...args);
+  return ok(derivedAddresses);
+});
 
 interface MockBlockchainConfig {
   blockchain: string;
   createImporter: ReturnType<typeof vi.fn>;
   createProcessor: ReturnType<typeof vi.fn>;
-  deriveAddressesFromXpub?: typeof mockDeriveAddresses;
+  deriveAddressesFromXpub?: typeof mockDeriveAddressesResult;
   isExtendedPublicKey?: (addr: string) => boolean;
   normalizeAddress: (addr: string) => unknown;
 }
@@ -88,7 +103,7 @@ describe('ImportOrchestrator', () => {
       blockchain: 'bitcoin',
       normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
       isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
-      deriveAddressesFromXpub: mockDeriveAddresses,
+      deriveAddressesFromXpub: mockDeriveAddressesResult,
       createImporter: vi.fn(),
       createProcessor: vi.fn(),
     });
@@ -98,7 +113,7 @@ describe('ImportOrchestrator', () => {
       normalizeAddress: (addr: string) => ok(addr),
       isExtendedPublicKey: (addr: string) =>
         addr.startsWith('stake') || addr.startsWith('xpub') || addr.startsWith('addr_xvk'),
-      deriveAddressesFromXpub: mockDeriveAddresses,
+      deriveAddressesFromXpub: mockDeriveAddressesResult,
       createImporter: vi.fn(),
       createProcessor: vi.fn(),
     });
@@ -135,6 +150,7 @@ describe('ImportOrchestrator', () => {
 
     // Reset derive addresses mock
     mockDeriveAddresses.mockReset();
+    mockDeriveAddressesResult.mockClear();
   });
 
   describe('importBlockchain - regular address', () => {
