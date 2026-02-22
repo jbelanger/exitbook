@@ -1,3 +1,78 @@
+V2 Architecture Audit: @exitbook/ingestion
+
+     Package scope: packages/ingestion/ -- 153 TypeScript files, ~19,800 LOC (production + test).
+
+     ---
+     1. Dependency Audit
+
+     1.1 csv-filters-utils: Hand-Rolled Array Utilities
+
+     What exists:
+     /Users/joel/Dev/exitbook/packages/ingestion/src/sources/exchanges/shared/csv-filters-utils.ts (80 LOC) implements filterCsvByField, filterCsvByFields,
+      filterCsvByTimestamp, filterCsvByUid, and groupCsvByField. These are generic array filter/group functions with no CSV-specific logic.
+
+     Why it's a problem:
+     These are standard Array.prototype.filter and Map grouping patterns -- four one-liner wrappers over native JS. They add a module, its test file, and
+     an import chain for zero type-safety or correctness benefit. A grep for csv-filters-utils shows zero import sites in production code (only the test
+     file imports it). The code is dead.
+
+     What V2 should do:
+     Delete the module entirely. If needed, inline native array methods at call sites. Node 21+ has Object.groupBy / Map.groupBy natively.
+
+     Needs coverage:
+
+     ┌───────────────────────────┬─────────────────────────────┬───────┐
+     │    Current capability     │   Covered by replacement?   │ Notes │
+     ├───────────────────────────┼─────────────────────────────┼───────┤
+     │ Filter by single field    │ Yes (native .filter)        │       │
+     ├───────────────────────────┼─────────────────────────────┼───────┤
+     │ Filter by multiple fields │ Yes (native .filter)        │       │
+     ├───────────────────────────┼─────────────────────────────┼───────┤
+     │ Filter by timestamp range │ Yes (native .filter)        │       │
+     ├───────────────────────────┼─────────────────────────────┼───────┤
+     │ Group by field            │ Yes (Map.groupBy or manual) │       │
+     └───────────────────────────┴─────────────────────────────┴───────┘
+
+     Surface: 2 files (utils + test), 0 production call-sites (dead code).
+
+     Leverage: Low (dead code removal, but signals cleanup debt).
+
+     ---
+     1.2 csv-parse: Right-Sized Dependency
+
+     What exists:
+     csv-parse (sync mode) is imported in exactly one file: /Users/joel/Dev/exitbook/packages/ingestion/src/sources/exchanges/shared/csv-parser-utils.ts.
+     It is used only by the KuCoin CSV importer (importer-csv.ts).
+
+     Why it's a problem:
+     Not a significant problem. The package is well-maintained and the sync API is appropriate for the small CSV files expected from exchange exports.
+     However, the entire file is read into memory (fs.readFile) before parsing, which would fail on multi-GB CSV exports. This is fine for current use
+     (exchange CSVs are typically <100MB).
+
+     What V2 should do:
+     Keep csv-parse. If large CSV support becomes needed, switch from csv-parse/sync to the streaming csv-parse API. No action required today.
+
+     Leverage: No issue.
+
+     ---
+     1.3 Zod Usage: Minimal Within Ingestion
+
+     What exists:
+     Zod is a direct dependency in package.json, but within ingestion itself, only 4 files import it:
+     - processors.ts (schema definition for ProcessedTransactionSchema)
+     - balance-command-status.ts (schema)
+     - kucoin/utils.ts and kucoin/schemas.ts (KuCoin CSV validation)
+
+     Most Zod usage comes transitively through @exitbook/core schemas.
+
+     Why it's a problem:
+     Not a significant problem. Zod is a reasonable choice for runtime validation in a financial system. The dependency is proportional to usage.
+
+     What V2 should do:
+     Keep Zod. No change.
+
+     Leverage: No issue.
+
      ---
      2. Architectural Seams
 

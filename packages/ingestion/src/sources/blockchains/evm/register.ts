@@ -2,7 +2,6 @@ import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { EVM_CHAINS, getEvmChainConfig, normalizeEvmAddress } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
-import { HashGroupedBatchProvider } from '../../../features/process/batch-providers/hash-grouped-batch-provider.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
@@ -32,14 +31,11 @@ export function registerEvmChains(): void {
           preferredProvider: providerName,
         }),
 
-      createBatchProvider: (rawDataQueries, _db, accountId, batchSize) =>
-        new HashGroupedBatchProvider(rawDataQueries, accountId, batchSize),
-
       createProcessor: (
         providerManager: BlockchainProviderManager,
         tokenMetadataService?: ITokenMetadataService,
         scamDetectionService?: IScamDetectionService,
-        _db?,
+        _rawDataQueries?,
         _accountId?
       ) => {
         if (!tokenMetadataService) {

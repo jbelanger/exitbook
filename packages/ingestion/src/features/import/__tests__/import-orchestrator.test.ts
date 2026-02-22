@@ -48,7 +48,6 @@ const mockDeriveAddresses = vi.fn();
 
 interface MockBlockchainConfig {
   blockchain: string;
-  createBatchProvider: ReturnType<typeof vi.fn>;
   createImporter: ReturnType<typeof vi.fn>;
   createProcessor: ReturnType<typeof vi.fn>;
   deriveAddressesFromXpub?: typeof mockDeriveAddresses;
@@ -90,7 +89,6 @@ describe('ImportOrchestrator', () => {
       normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
       isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
       deriveAddressesFromXpub: mockDeriveAddresses,
-      createBatchProvider: vi.fn(),
       createImporter: vi.fn(),
       createProcessor: vi.fn(),
     });
@@ -101,7 +99,6 @@ describe('ImportOrchestrator', () => {
       isExtendedPublicKey: (addr: string) =>
         addr.startsWith('stake') || addr.startsWith('xpub') || addr.startsWith('addr_xvk'),
       deriveAddressesFromXpub: mockDeriveAddresses,
-      createBatchProvider: vi.fn(),
       createImporter: vi.fn(),
       createProcessor: vi.fn(),
     });
@@ -109,7 +106,6 @@ describe('ImportOrchestrator', () => {
     registerBlockchain({
       blockchain: 'ethereum',
       normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
-      createBatchProvider: vi.fn(),
       createImporter: vi.fn(),
       createProcessor: vi.fn(),
     });

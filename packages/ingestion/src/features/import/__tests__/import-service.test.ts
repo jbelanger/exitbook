@@ -133,7 +133,6 @@ describe('ImportExecutor', () => {
     registerBlockchain({
       blockchain: 'bitcoin',
       normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
-      createBatchProvider: vi.fn(),
       createImporter: () => ({
         import: mockImportFn,
         importStreaming: mockImportStreamingFn,
@@ -144,7 +143,6 @@ describe('ImportExecutor', () => {
     registerBlockchain({
       blockchain: 'ethereum',
       normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
-      createBatchProvider: vi.fn(),
       createImporter: () => ({
         import: mockImportFn,
         importStreaming: mockImportStreamingFn,

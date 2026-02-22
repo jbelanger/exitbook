@@ -7,6 +7,7 @@ import type {
   RawDataQueries,
   TransactionQueries,
 } from '@exitbook/data';
+import { createNearRawDataQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -26,7 +27,12 @@ import type { IScamDetectionService } from '../scam-detection/scam-detection-ser
 import { ScamDetectionService } from '../scam-detection/scam-detection-service.js';
 import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.js';
 
-import { AllAtOnceBatchProvider, type IRawDataBatchProvider } from './batch-providers/index.js';
+import {
+  AllAtOnceBatchProvider,
+  HashGroupedBatchProvider,
+  NearStreamBatchProvider,
+  type IRawDataBatchProvider,
+} from './batch-providers/index.js';
 
 const TRANSACTION_SAVE_BATCH_SIZE = 500;
 const RAW_DATA_MARK_BATCH_SIZE = 500;
@@ -214,19 +220,10 @@ export class TransactionProcessService {
 
       const account = accountResult.value;
       const sourceType = account.accountType;
-      const sourceName = account.sourceName.toLowerCase();
+      const sourceName = account.sourceName;
 
-      // Choose batch provider: delegate to blockchain adapter, or all-at-once for exchanges
-      let batchProvider: IRawDataBatchProvider;
-      if (sourceType === 'blockchain') {
-        const adapter = getBlockchainAdapter(sourceName);
-        if (!adapter) {
-          return err(new Error(`Unknown blockchain: ${sourceName}`));
-        }
-        batchProvider = adapter.createBatchProvider(this.rawDataQueries, this.db, accountId, RAW_DATA_HASH_BATCH_SIZE);
-      } else {
-        batchProvider = new AllAtOnceBatchProvider(this.rawDataQueries, accountId);
-      }
+      // Choose batch provider based on source type
+      const batchProvider = this.createBatchProvider(sourceType, sourceName, accountId);
 
       // Process using batch provider
       return this.processAccountWithBatchProvider(accountId, account, batchProvider);
@@ -234,6 +231,25 @@ export class TransactionProcessService {
       const errorMessage = getErrorMessage(error);
       this.logger.error(`CRITICAL: Unexpected processing failure for account ${accountId}: ${errorMessage}`);
       return err(new Error(`Unexpected processing failure for account ${accountId}: ${errorMessage}`));
+    }
+  }
+
+  /**
+   * Create appropriate batch provider based on source type and name.
+   */
+  private createBatchProvider(sourceType: string, sourceName: string, accountId: number): IRawDataBatchProvider {
+    // NEAR requires special multi-stream batch provider
+    if (sourceType === 'blockchain' && sourceName.toLowerCase() === 'near') {
+      const nearRawDataQueries = createNearRawDataQueries(this.db);
+      return new NearStreamBatchProvider(nearRawDataQueries, accountId, RAW_DATA_HASH_BATCH_SIZE);
+    }
+
+    if (sourceType === 'blockchain') {
+      // Hash-grouped batching for blockchains to ensure correlation integrity
+      return new HashGroupedBatchProvider(this.rawDataQueries, accountId, RAW_DATA_HASH_BATCH_SIZE);
+    } else {
+      // All-at-once batching for exchanges (manageable data volumes)
+      return new AllAtOnceBatchProvider(this.rawDataQueries, accountId);
     }
   }
 
@@ -441,11 +457,24 @@ export class TransactionProcessService {
       if (!adapter) {
         return err(new Error(`Unknown blockchain: ${sourceName}`));
       }
+
+      // NEAR requires NearRawDataQueries instead of shared RawDataQueries
+      if (sourceName.toLowerCase() === 'near') {
+        const nearRawDataQueries = createNearRawDataQueries(this.db);
+        return adapter.createProcessor(
+          this.providerManager,
+          this.tokenMetadataService,
+          this.scamDetectionService,
+          nearRawDataQueries as unknown as RawDataQueries,
+          accountId
+        );
+      }
+
       return adapter.createProcessor(
         this.providerManager,
         this.tokenMetadataService,
         this.scamDetectionService,
-        this.db,
+        this.rawDataQueries,
         accountId
       );
     } else {

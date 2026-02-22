@@ -1,8 +1,7 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { KyselyDB, RawDataQueries } from '@exitbook/data';
+import type { RawDataQueries } from '@exitbook/data';
 import { type Result } from 'neverthrow';
 
-import type { IRawDataBatchProvider } from '../../features/process/batch-providers/raw-data-batch-provider.interface.js';
 import type { IScamDetectionService } from '../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../features/token-metadata/token-metadata-service.interface.js';
 
@@ -18,17 +17,11 @@ export interface BlockchainAdapter {
   blockchain: string;
   normalizeAddress: (address: string) => Result<string, Error>;
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) => IImporter;
-  createBatchProvider: (
-    rawDataQueries: RawDataQueries,
-    db: KyselyDB,
-    accountId: number,
-    batchSize: number
-  ) => IRawDataBatchProvider;
   createProcessor: (
     providerManager: BlockchainProviderManager,
     tokenMetadataService?: ITokenMetadataService,
     scamDetectionService?: IScamDetectionService,
-    db?: KyselyDB,
+    rawDataQueries?: RawDataQueries,
     accountId?: number
   ) => Result<ITransactionProcessor, Error>;
 

@@ -8,7 +8,6 @@ import {
 } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
-import { HashGroupedBatchProvider } from '../../../features/process/batch-providers/hash-grouped-batch-provider.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import type { DerivedAddress } from '../../../shared/types/blockchain-adapter.js';
@@ -27,14 +26,11 @@ export function registerBitcoinChains(): void {
       isUTXOChain: true,
       createImporter: (providerManager, preferredProvider) =>
         new BitcoinTransactionImporter(config, providerManager, { preferredProvider }),
-      createBatchProvider: (rawDataQueries, _db, accountId, batchSize) =>
-        new HashGroupedBatchProvider(rawDataQueries, accountId, batchSize),
-
       createProcessor: (
         _providerManager,
         _tokenMetadataService?: ITokenMetadataService,
         scamDetectionService?: IScamDetectionService,
-        _db?,
+        _rawDataQueries?,
         _accountId?
       ) => ok(new BitcoinTransactionProcessor(config, scamDetectionService)),
 
