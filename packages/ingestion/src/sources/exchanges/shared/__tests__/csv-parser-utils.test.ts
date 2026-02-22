@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { getCsvHeaders, parseCsvFile, validateCsvHeaders } from './csv-parser-utils.js';
+import { getCsvHeaders, parseCsvFile, validateCsvHeaders } from '../csv-parser-utils.js';
 
 describe('csv-parser-utils', () => {
   let tmpDir: string;
