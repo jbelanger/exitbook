@@ -178,7 +178,10 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
               };
             }
 
-            const result = await balanceService.verifyBalance({ accountId: options.accountId, credentials });
+            const result = await balanceService.verifyBalance({
+              accountId: options.accountId,
+              credentials,
+            });
             if (result.isErr()) {
               outputError('balance', result.error, ExitCodes.GENERAL_ERROR);
               return;
@@ -212,6 +215,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
               status: vr.status,
               balances,
               summary: vr.summary,
+              coverage: vr.coverage,
               source: {
                 type: (account.accountType === 'blockchain' ? 'blockchain' : 'exchange') as string,
                 name: account.sourceName,
@@ -229,6 +233,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
                 ...(streamMetadata && { streams: streamMetadata }),
               },
               suggestion: vr.suggestion,
+              partialFailures: vr.partialFailures,
               warnings: vr.warnings,
             });
           } finally {
@@ -279,7 +284,10 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
                 continue;
               }
 
-              const result = await balanceService.verifyBalance({ accountId: account.id, credentials });
+              const result = await balanceService.verifyBalance({
+                accountId: account.id,
+                credentials,
+              });
               if (result.isErr()) {
                 accountResults.push({
                   accountId: account.id,
@@ -294,7 +302,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
               const vr = result.value;
               verified++;
               matchTotal += vr.summary.matches;
-              mismatchTotal += vr.summary.mismatches + vr.summary.warnings;
+              mismatchTotal += vr.summary.mismatches + vr.summary.warnings + (vr.coverage.status === 'partial' ? 1 : 0);
 
               // Build diagnostics for each asset
               const transactions = await loadAccountTransactions(account, accountRepo, transactionRepo);
@@ -316,25 +324,15 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
                 };
               });
 
-              // Derive account status from asset comparisons
-              const hasMismatch = comparisons.some((c) => c.status === 'mismatch');
-              const hasWarning = comparisons.some((c) => c.status === 'warning');
-
-              let accountStatus: 'failed' | 'warning' | 'success';
-              if (hasMismatch) {
-                accountStatus = 'failed';
-              } else if (hasWarning) {
-                accountStatus = 'warning';
-              } else {
-                accountStatus = 'success';
-              }
-
               accountResults.push({
                 accountId: account.id,
                 sourceName: account.sourceName,
                 accountType: account.accountType,
-                status: accountStatus,
+                status: vr.status,
                 summary: vr.summary,
+                coverage: vr.coverage,
+                partialFailures: vr.partialFailures,
+                warnings: vr.warnings,
                 comparisons,
               });
             }
@@ -490,7 +488,10 @@ async function runVerificationLoop(
     relay.push({ type: 'VERIFICATION_STARTED', accountId: account.id });
 
     try {
-      const result = await balanceService.verifyBalance({ accountId: account.id, credentials });
+      const result = await balanceService.verifyBalance({
+        accountId: account.id,
+        credentials,
+      });
 
       if (result.isErr()) {
         relay.push({ type: 'VERIFICATION_ERROR', accountId: account.id, error: result.error.message });
@@ -533,28 +534,16 @@ async function runVerificationLoop(
         };
       });
 
-      // Determine account-level status
-      const hasMismatch = comparisons.some((c) => c.status === 'mismatch');
-      const hasWarning = comparisons.some((c) => c.status === 'warning');
-
-      let accountStatus: AccountVerificationItem['status'];
-      if (hasMismatch) {
-        accountStatus = 'failed';
-      } else if (hasWarning) {
-        accountStatus = 'warning';
-      } else {
-        accountStatus = 'success';
-      }
-
       const item: AccountVerificationItem = {
         accountId: account.id,
         sourceName: account.sourceName,
         accountType: account.accountType,
-        status: accountStatus,
+        status: vr.status,
         assetCount: comparisons.length,
         matchCount: comparisons.filter((c) => c.status === 'match').length,
         mismatchCount: comparisons.filter((c) => c.status === 'mismatch').length,
-        warningCount: comparisons.filter((c) => c.status === 'warning').length,
+        warningCount:
+          comparisons.filter((c) => c.status === 'warning').length + (vr.coverage.status === 'partial' ? 1 : 0),
         comparisons: sortAssetsByStatus(comparisons),
       };
 
@@ -616,7 +605,10 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
 
       const spinner = createSpinner(`Verifying balance for ${account.sourceName} (account #${account.id})...`, false);
 
-      const result = await balanceService.verifyBalance({ accountId: account.id, credentials });
+      const result = await balanceService.verifyBalance({
+        accountId: account.id,
+        credentials,
+      });
       stopSpinner(spinner);
 
       if (result.isErr()) {

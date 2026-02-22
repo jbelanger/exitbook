@@ -5,6 +5,7 @@ import {
   buildBlockchainTokenAssetId,
   buildExchangeAssetId,
   parseDecimal,
+  tryParseDecimal,
   wrapError,
 } from '@exitbook/core';
 import type { TokenMetadataQueries } from '@exitbook/data';
@@ -17,6 +18,37 @@ import { err, ok } from 'neverthrow';
 import { getOrFetchTokenMetadata } from '../token-metadata/token-metadata-utils.js';
 
 const logger = getLogger('balance-utils');
+
+export type BalancePartialFailureCode = 'child-account-fetch-failed' | 'balance-parse-failed';
+export type BalancePartialFailureScope = 'address' | 'asset';
+
+export interface BalancePartialFailure {
+  code: BalancePartialFailureCode;
+  message: string;
+  scope: BalancePartialFailureScope;
+  accountAddress?: string | undefined;
+  assetId?: string | undefined;
+  rawAmount?: string | undefined;
+}
+
+export interface BalanceCoverageSnapshot {
+  failedAddressCount?: number | undefined;
+  parsedAssetCount?: number | undefined;
+  requestedAddressCount?: number | undefined;
+  successfulAddressCount?: number | undefined;
+  totalAssetCount?: number | undefined;
+  failedAssetCount?: number | undefined;
+}
+
+export interface ConvertBalancesToDecimalsResult {
+  balances: Record<string, Decimal>;
+  coverage: {
+    failedAssetCount: number;
+    parsedAssetCount: number;
+    totalAssetCount: number;
+  };
+  partialFailures: BalancePartialFailure[];
+}
 
 /**
  * Unified balance snapshot format for both exchanges and blockchains
@@ -32,6 +64,10 @@ export interface UnifiedBalanceSnapshot {
   sourceType: SourceType;
   /** Source identifier (exchange name or blockchain + address) */
   sourceName: string;
+  /** Coverage metadata for this snapshot */
+  coverage?: BalanceCoverageSnapshot | undefined;
+  /** Recoverable partial failures observed while building this snapshot */
+  partialFailures?: BalancePartialFailure[] | undefined;
 }
 
 /**
@@ -200,6 +236,11 @@ export async function fetchBlockchainBalance(
       timestamp: Date.now(),
       sourceType: 'blockchain',
       sourceName: `${blockchain}:${address}`,
+      coverage: {
+        failedAddressCount: 0,
+        requestedAddressCount: 1,
+        successfulAddressCount: 1,
+      },
     });
   } catch (error) {
     return wrapError(error, `Failed to fetch blockchain balance for ${blockchain}:${address}`);
@@ -231,6 +272,8 @@ export async function fetchChildAccountsBalance(
 
     const aggregatedBalances: Record<string, ReturnType<typeof parseDecimal>> = {};
     const aggregatedMetadata: Record<string, string> = {};
+    const partialFailures: BalancePartialFailure[] = [];
+    let successfulAddressCount = 0;
 
     for (const childAccount of childAccounts) {
       const address = childAccount.identifier;
@@ -243,9 +286,20 @@ export async function fetchChildAccountsBalance(
       );
 
       if (balanceResult.isErr()) {
-        // Skip addresses we fail to fetch but continue aggregating others
+        const message = `Failed to fetch child account balance for ${blockchain}:${address}: ${balanceResult.error.message}`;
+        logger.warn(
+          { address, blockchain, error: balanceResult.error, parentAddress },
+          'Failed to fetch child account balance; continuing with partial coverage'
+        );
+        partialFailures.push({
+          code: 'child-account-fetch-failed',
+          message,
+          scope: 'address',
+          accountAddress: address,
+        });
         continue;
       }
+      successfulAddressCount++;
 
       for (const [assetId, amount] of Object.entries(balanceResult.value.balances)) {
         const current = aggregatedBalances[assetId] || parseDecimal('0');
@@ -269,6 +323,12 @@ export async function fetchChildAccountsBalance(
       timestamp: Date.now(),
       sourceType: 'blockchain',
       sourceName: `${blockchain}:${parentAddress}`,
+      coverage: {
+        failedAddressCount: partialFailures.length,
+        requestedAddressCount: childAccounts.length,
+        successfulAddressCount,
+      },
+      partialFailures: partialFailures.length > 0 ? partialFailures : undefined,
     });
   } catch (error) {
     return wrapError(error, `Failed to fetch ${blockchain} parent account balance for ${parentAddress}`);
@@ -276,22 +336,63 @@ export async function fetchChildAccountsBalance(
 }
 
 /**
- * Convert balances from Record<string, string> to Record<string, Decimal>.
- * Pure function with no side effects.
+ * Convert balances from Record<string, string> to Record<string, Decimal> with explicit
+ * structured partial-failure details. Invalid balances are excluded and reported.
  */
-export function convertBalancesToDecimals(balances: Record<string, string>): Record<string, Decimal> {
+export function convertBalancesToDecimals(balances: Record<string, string>): ConvertBalancesToDecimalsResult {
   const decimalBalances: Record<string, Decimal> = {};
+  const partialFailures: BalancePartialFailure[] = [];
+  let parsedAssetCount = 0;
 
   for (const [assetId, amount] of Object.entries(balances)) {
-    try {
-      decimalBalances[assetId] = parseDecimal(amount);
-    } catch (error) {
-      logger.warn({ error, assetId, amount }, 'Failed to parse balance amount, defaulting to zero');
-      decimalBalances[assetId] = parseDecimal('0');
+    if (amount.trim().length === 0) {
+      const message = `Failed to parse balance amount for ${assetId}: empty string is not a valid balance`;
+
+      logger.warn({ assetId, amount }, 'Failed to parse balance amount; recording partial-failure metadata');
+
+      partialFailures.push({
+        code: 'balance-parse-failed',
+        message,
+        scope: 'asset',
+        assetId,
+        rawAmount: amount,
+      });
+
+      continue;
+    }
+
+    const parsed = { value: parseDecimal('0') };
+    if (tryParseDecimal(amount, parsed)) {
+      decimalBalances[assetId] = parsed.value;
+      parsedAssetCount++;
+    } else {
+      const parseError = new Error(`Invalid decimal: ${amount}`);
+      const message = `Failed to parse balance amount for ${assetId}: ${parseError.message}`;
+
+      logger.warn(
+        { error: parseError, assetId, amount },
+        'Failed to parse balance amount; recording partial-failure metadata'
+      );
+
+      partialFailures.push({
+        code: 'balance-parse-failed',
+        message,
+        scope: 'asset',
+        assetId,
+        rawAmount: amount,
+      });
     }
   }
 
-  return decimalBalances;
+  return {
+    balances: decimalBalances,
+    coverage: {
+      totalAssetCount: Object.keys(balances).length,
+      parsedAssetCount,
+      failedAssetCount: partialFailures.length,
+    },
+    partialFailures,
+  };
 }
 
 /**

@@ -708,6 +708,63 @@ describe('ImportExecutor', () => {
         { warnings: ['Test warning: partial data'] }
       );
     });
+
+    it('should emit warning when stream count metadata lookup fails but continue import', async () => {
+      const account = createMockAccount('exchange-api', 'kraken', 'test-api-key', {
+        credentials: {
+          apiKey: 'test-key',
+          apiSecret: 'test-secret',
+        },
+        lastCursor: {
+          ledger: {
+            primary: { type: 'timestamp', value: 1 },
+            lastTransactionId: 'kraken-1',
+            totalFetched: 20,
+          },
+        },
+      });
+
+      const mockEventBus = { emit: vi.fn() };
+      const serviceWithEvents = new ImportExecutor(
+        mockRawDataQueries,
+        mockImportSessionQueries,
+        mockAccountQueries,
+        mockProviderManager,
+        mockEventBus as never
+      );
+
+      const mockSession: ImportSession = {
+        id: 1,
+        accountId: 1,
+        status: 'completed',
+        startedAt: new Date(),
+        completedAt: new Date(),
+        transactionsImported: 2,
+        transactionsSkipped: 0,
+        createdAt: new Date(),
+      };
+
+      vi.mocked(mockImportSessionQueries.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionQueries.create).mockResolvedValue(ok(1));
+      vi.mocked(mockRawDataQueries.countByStreamType).mockResolvedValue(err(new Error('metrics unavailable')));
+      vi.mocked(mockRawDataQueries.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockImportSessionQueries.finalize).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionQueries.findById).mockResolvedValue(ok(mockSession));
+      vi.mocked(mockAccountQueries.updateCursor).mockResolvedValue(ok());
+
+      const result = await serviceWithEvents.importFromSource(account);
+
+      expect(result.isOk()).toBe(true);
+      expect(mockEventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'import.warning',
+          sourceName: 'kraken',
+          accountId: 1,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- acceptable for tests
+          warning: expect.stringContaining('Failed to fetch import stream counts'),
+        })
+      );
+    });
   });
 
   describe('importFromSource - blockchain - additional error cases', () => {

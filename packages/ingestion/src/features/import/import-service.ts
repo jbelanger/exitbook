@@ -145,10 +145,17 @@ export class ImportExecutor {
 
     // Fetch transaction counts by stream type for existing accounts
     let transactionCounts: Map<string, number> | undefined;
+    let transactionCountWarning: string | undefined;
     if (!isNewAccount) {
       const countsResult = await this.rawDataQueries.countByStreamType(account.id);
       if (countsResult.isOk()) {
         transactionCounts = countsResult.value;
+      } else {
+        transactionCountWarning = `Failed to fetch import stream counts for account ${account.id}: ${countsResult.error.message}`;
+        this.logger.warn(
+          { accountId: account.id, error: countsResult.error },
+          'Failed to fetch import stream counts; continuing without transaction count metadata'
+        );
       }
     }
 
@@ -162,6 +169,15 @@ export class ImportExecutor {
       address: account.accountType === 'blockchain' ? account.identifier : undefined,
       transactionCounts,
     });
+
+    if (transactionCountWarning) {
+      this.eventBus?.emit({
+        type: 'import.warning',
+        sourceName,
+        accountId: account.id,
+        warning: transactionCountWarning,
+      });
+    }
 
     const startTime = Date.now();
     const allWarnings: string[] = [];

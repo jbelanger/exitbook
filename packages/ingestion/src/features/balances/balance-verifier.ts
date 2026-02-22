@@ -2,6 +2,7 @@ import type { Account } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
+import type { BalancePartialFailure } from './balance-utils.js';
 import type { BalanceComparison, BalanceVerificationResult } from './balance-verifier.types.js';
 
 /**
@@ -82,7 +83,9 @@ export function createVerificationResult(
   comparisons: BalanceComparison[],
   lastImportTimestamp?: number,
   hasTransactions = true,
-  warnings?: string[]
+  warnings?: string[],
+  coverage?: BalanceVerificationResult['coverage'],
+  partialFailures?: BalancePartialFailure[]
 ): BalanceVerificationResult {
   const summary = {
     totalCurrencies: comparisons.length,
@@ -91,12 +94,30 @@ export function createVerificationResult(
     mismatches: comparisons.filter((c) => c.status === 'mismatch').length,
   };
 
+  const effectiveCoverage: BalanceVerificationResult['coverage'] = coverage ?? {
+    status: 'complete',
+    confidence: 'high',
+    requestedAddresses: 1,
+    successfulAddresses: 1,
+    failedAddresses: 0,
+    totalAssets: comparisons.length,
+    parsedAssets: comparisons.length,
+    failedAssets: 0,
+    overallCoverageRatio: 1,
+  };
+
   // Determine overall status
   // If no transactions exist in DB, treat mismatches as warnings (not failures)
   let status: 'success' | 'warning' | 'failed';
   if (summary.mismatches > 0 && hasTransactions) {
     status = 'failed';
-  } else if (summary.warnings > 0 || summary.mismatches > 0) {
+  } else if (
+    summary.warnings > 0 ||
+    summary.mismatches > 0 ||
+    (warnings?.length ?? 0) > 0 ||
+    effectiveCoverage.status === 'partial' ||
+    (partialFailures?.length ?? 0) > 0
+  ) {
     status = 'warning';
   } else {
     status = 'success';
@@ -127,7 +148,9 @@ export function createVerificationResult(
     timestamp: Date.now(),
     status,
     comparisons,
+    coverage: effectiveCoverage,
     summary,
+    partialFailures: partialFailures && partialFailures.length > 0 ? partialFailures : undefined,
     suggestion,
     warnings,
   };

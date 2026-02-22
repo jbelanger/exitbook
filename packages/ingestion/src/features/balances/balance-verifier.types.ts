@@ -1,6 +1,7 @@
 import type { Account } from '@exitbook/core';
 
 import type { BalanceCommandStatus } from './balance-command-status.js';
+import type { BalancePartialFailure } from './balance-utils.js';
 
 /**
  * Comparison result for a single asset balance
@@ -24,12 +25,24 @@ export interface BalanceVerificationResult {
   timestamp: number;
   status: BalanceCommandStatus;
   comparisons: BalanceComparison[];
+  coverage: {
+    confidence: 'high' | 'medium' | 'low';
+    failedAddresses: number;
+    failedAssets: number;
+    overallCoverageRatio: number;
+    parsedAssets: number;
+    requestedAddresses: number;
+    status: 'complete' | 'partial';
+    successfulAddresses: number;
+    totalAssets: number;
+  };
   summary: {
     matches: number;
     mismatches: number;
     totalCurrencies: number;
     warnings: number;
   };
+  partialFailures?: BalancePartialFailure[] | undefined;
   suggestion?: string | undefined;
   warnings?: string[] | undefined;
 }

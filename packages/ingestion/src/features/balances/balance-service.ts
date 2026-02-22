@@ -16,6 +16,7 @@ import { err, ok, type Result } from 'neverthrow';
 
 import { calculateBalances } from './balance-calculator.js';
 import {
+  type BalancePartialFailure,
   convertBalancesToDecimals,
   fetchBlockchainBalance,
   fetchChildAccountsBalance,
@@ -78,7 +79,14 @@ export class BalanceService {
       }
 
       const liveSnapshot = liveBalanceResult.value;
-      let liveBalances = convertBalancesToDecimals(liveSnapshot.balances);
+      const parseResult = convertBalancesToDecimals(liveSnapshot.balances);
+      const partialFailures: BalancePartialFailure[] = [
+        ...(liveSnapshot.partialFailures ?? []),
+        ...parseResult.partialFailures,
+      ];
+      const coverage = this.buildVerificationCoverage(liveSnapshot, parseResult.coverage);
+
+      let liveBalances = parseResult.balances;
       let liveAssetMetadata = liveSnapshot.assetMetadata;
 
       // 3. Fetch and calculate balance from transactions
@@ -117,6 +125,8 @@ export class BalanceService {
       const comparisons = compareBalances(calculatedBalances, liveBalances, mergedAssetMetadata);
 
       const warnings: string[] = [];
+      this.appendPartialCoverageWarnings(warnings, coverage);
+
       if (!isExchange) {
         const providers = this.providerManager.getProviders(account.sourceName);
         const supportsTokenBalances = providers.some((provider) =>
@@ -146,7 +156,9 @@ export class BalanceService {
         comparisons,
         lastImportTimestamp,
         hasTransactions,
-        warnings.length > 0 ? warnings : undefined
+        warnings.length > 0 ? warnings : undefined,
+        coverage,
+        partialFailures.length > 0 ? partialFailures : undefined
       );
 
       // 8. Persist verification results to the account with adjusted live balances
@@ -179,6 +191,64 @@ export class BalanceService {
    */
   async destroy(): Promise<void> {
     await this.providerManager.destroy();
+  }
+
+  private buildVerificationCoverage(
+    liveSnapshot: UnifiedBalanceSnapshot,
+    parseCoverage: {
+      failedAssetCount: number;
+      parsedAssetCount: number;
+      totalAssetCount: number;
+    }
+  ): BalanceVerificationResult['coverage'] {
+    const requestedAddresses = liveSnapshot.coverage?.requestedAddressCount ?? 1;
+    const successfulAddresses = liveSnapshot.coverage?.successfulAddressCount ?? requestedAddresses;
+    const failedAddresses =
+      liveSnapshot.coverage?.failedAddressCount ?? Math.max(0, requestedAddresses - successfulAddresses);
+
+    const totalAssets = parseCoverage.totalAssetCount;
+    const parsedAssets = parseCoverage.parsedAssetCount;
+    const failedAssets = parseCoverage.failedAssetCount;
+
+    const addressCoverageRatio = requestedAddresses > 0 ? successfulAddresses / requestedAddresses : 1;
+    const assetCoverageRatio = totalAssets > 0 ? parsedAssets / totalAssets : 1;
+    const overallCoverageRatio = Math.min(addressCoverageRatio, assetCoverageRatio);
+
+    const status: 'complete' | 'partial' = failedAddresses > 0 || failedAssets > 0 ? 'partial' : 'complete';
+    let confidence: 'high' | 'medium' | 'low';
+    if (status === 'complete' && overallCoverageRatio >= 0.99) {
+      confidence = 'high';
+    } else if (overallCoverageRatio >= 0.8) {
+      confidence = 'medium';
+    } else {
+      confidence = 'low';
+    }
+
+    return {
+      status,
+      confidence,
+      requestedAddresses,
+      successfulAddresses,
+      failedAddresses,
+      totalAssets,
+      parsedAssets,
+      failedAssets,
+      overallCoverageRatio,
+    };
+  }
+
+  private appendPartialCoverageWarnings(warnings: string[], coverage: BalanceVerificationResult['coverage']): void {
+    if (coverage.failedAddresses > 0) {
+      warnings.push(
+        `Live balance verification is partial: ${coverage.failedAddresses}/${coverage.requestedAddresses} addresses failed to fetch.`
+      );
+    }
+
+    if (coverage.failedAssets > 0) {
+      warnings.push(
+        `Live balance verification is partial: ${coverage.failedAssets}/${coverage.totalAssets} assets failed to parse. Invalid assets were excluded from live comparison.`
+      );
+    }
   }
 
   /**

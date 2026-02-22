@@ -6,10 +6,15 @@ import type {
 import type { TokenMetadataQueries } from '@exitbook/data';
 import type { BalanceSnapshot, IExchangeClient } from '@exitbook/exchange-providers';
 import { Decimal } from 'decimal.js';
-import { err, ok } from 'neverthrow';
+import { err, ok, okAsync } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import { convertBalancesToDecimals, fetchBlockchainBalance, fetchExchangeBalance } from '../balance-utils.js';
+import {
+  convertBalancesToDecimals,
+  fetchBlockchainBalance,
+  fetchChildAccountsBalance,
+  fetchExchangeBalance,
+} from '../balance-utils.js';
 
 // Helper to create mock TokenMetadataQueries
 function createMockTokenMetadataQueries(): TokenMetadataQueries {
@@ -299,6 +304,67 @@ describe('fetchBlockchainBalance', () => {
   });
 });
 
+describe('fetchChildAccountsBalance', () => {
+  it('should return partial coverage metadata when child fetches fail', async () => {
+    const mockProviderManager = {
+      autoRegisterFromConfig: vi.fn(),
+      destroy: vi.fn(),
+      executeWithFailover: vi.fn(),
+      executeWithFailoverOnce: vi
+        .fn()
+        .mockImplementation(async (_blockchain: string, operation: { address: string }) => {
+          if (operation.address === 'bc1-child-success') {
+            return okAsync({
+              data: {
+                rawAmount: '100000000',
+                symbol: 'BTC',
+                decimals: 8,
+                decimalAmount: '1',
+              },
+              providerName: 'blockstream',
+            });
+          }
+
+          return err(new Error('RPC timeout'));
+        }),
+      getProviders: vi.fn().mockReturnValue([
+        {
+          capabilities: {
+            supportedOperations: ['getAddressBalances'],
+          },
+        },
+      ]),
+    } as unknown as BlockchainProviderManager;
+
+    const result = await fetchChildAccountsBalance(
+      mockProviderManager,
+      createMockTokenMetadataQueries(),
+      'bitcoin',
+      'xpub-parent',
+      [{ identifier: 'bc1-child-success' }, { identifier: 'bc1-child-fail' }]
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.balances).toEqual({
+        'blockchain:bitcoin:native': '1',
+      });
+      expect(result.value.coverage).toEqual({
+        requestedAddressCount: 2,
+        successfulAddressCount: 1,
+        failedAddressCount: 1,
+      });
+      expect(result.value.partialFailures).toEqual([
+        expect.objectContaining({
+          code: 'child-account-fetch-failed',
+          scope: 'address',
+          accountAddress: 'bc1-child-fail',
+        }),
+      ]);
+    }
+  });
+});
+
 describe('convertBalancesToDecimals', () => {
   it('should convert string balances to Decimal objects', () => {
     const balances = {
@@ -309,16 +375,28 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result['BTC']).toBeInstanceOf(Decimal);
-    expect(result['BTC']?.toString()).toBe('1.23456789');
-    expect(result['ETH']?.toString()).toBe('10.5');
-    expect(result['USDT']?.toString()).toBe('1000');
+    expect(result.balances['BTC']).toBeInstanceOf(Decimal);
+    expect(result.balances['BTC']?.toString()).toBe('1.23456789');
+    expect(result.balances['ETH']?.toString()).toBe('10.5');
+    expect(result.balances['USDT']?.toString()).toBe('1000');
+    expect(result.coverage).toEqual({
+      totalAssetCount: 3,
+      parsedAssetCount: 3,
+      failedAssetCount: 0,
+    });
+    expect(result.partialFailures).toEqual([]);
   });
 
   it('should handle empty balances object', () => {
     const result = convertBalancesToDecimals({});
 
-    expect(result).toEqual({});
+    expect(result.balances).toEqual({});
+    expect(result.coverage).toEqual({
+      totalAssetCount: 0,
+      parsedAssetCount: 0,
+      failedAssetCount: 0,
+    });
+    expect(result.partialFailures).toEqual([]);
   });
 
   it('should handle zero balances', () => {
@@ -329,8 +407,8 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result['BTC']?.toString()).toBe('0');
-    expect(result['ETH']?.toString()).toBe('0');
+    expect(result.balances['BTC']?.toString()).toBe('0');
+    expect(result.balances['ETH']?.toString()).toBe('0');
   });
 
   it('should handle very small decimal values', () => {
@@ -340,7 +418,7 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result['BTC']?.toString()).toBe('1e-8');
+    expect(result.balances['BTC']?.toString()).toBe('1e-8');
   });
 
   it('should handle very large decimal values', () => {
@@ -351,11 +429,11 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result['SHIB']?.toString()).toBe('1000000000000');
-    expect(result['WEI']?.toString()).toBe('999999999999999999');
+    expect(result.balances['SHIB']?.toString()).toBe('1000000000000');
+    expect(result.balances['WEI']?.toString()).toBe('999999999999999999');
   });
 
-  it('should default to zero for invalid decimal strings', () => {
+  it('should surface invalid decimal strings as parse failures by default', () => {
     const balances = {
       VALID: '100',
       INVALID: 'not-a-number',
@@ -364,9 +442,28 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result['VALID']?.toString()).toBe('100');
-    expect(result['INVALID']?.toString()).toBe('0');
-    expect(result['EMPTY']?.toString()).toBe('0');
+    expect(result.balances['VALID']?.toString()).toBe('100');
+    expect(result.balances['INVALID']).toBeUndefined();
+    expect(result.balances['EMPTY']).toBeUndefined();
+    expect(result.coverage).toEqual({
+      totalAssetCount: 3,
+      parsedAssetCount: 1,
+      failedAssetCount: 2,
+    });
+    expect(result.partialFailures).toEqual([
+      expect.objectContaining({
+        code: 'balance-parse-failed',
+        scope: 'asset',
+        assetId: 'INVALID',
+        rawAmount: 'not-a-number',
+      }),
+      expect.objectContaining({
+        code: 'balance-parse-failed',
+        scope: 'asset',
+        assetId: 'EMPTY',
+        rawAmount: '',
+      }),
+    ]);
   });
 
   it('should handle negative balances', () => {
@@ -377,8 +474,8 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result['BTC']?.toString()).toBe('-0.5');
-    expect(result['ETH']?.toString()).toBe('-10');
+    expect(result.balances['BTC']?.toString()).toBe('-0.5');
+    expect(result.balances['ETH']?.toString()).toBe('-10');
   });
 
   it('should handle scientific notation strings', () => {
@@ -389,8 +486,8 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result['MICRO']?.toString()).toBe('0.000001');
-    expect(result['MEGA']?.toString()).toBe('1000000');
+    expect(result.balances['MICRO']?.toString()).toBe('0.000001');
+    expect(result.balances['MEGA']?.toString()).toBe('1000000');
   });
 
   it('should preserve precision for many decimal places', () => {
@@ -400,6 +497,6 @@ describe('convertBalancesToDecimals', () => {
 
     const result = convertBalancesToDecimals(balances);
 
-    expect(result['PRECISE']?.toString()).toBe('1.12345678901234567890123456789');
+    expect(result.balances['PRECISE']?.toString()).toBe('1.12345678901234567890123456789');
   });
 });
