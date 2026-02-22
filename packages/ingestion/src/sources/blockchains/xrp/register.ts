@@ -1,6 +1,7 @@
 import { XRP_CHAINS, getXrpChainConfig, normalizeXrpAddress } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
+import { HashGroupedBatchProvider } from '../../../features/process/batch-providers/hash-grouped-batch-provider.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
@@ -18,11 +19,14 @@ export function registerXrpChains(): void {
       isUTXOChain: false,
       createImporter: (providerManager, preferredProvider) =>
         new XrpTransactionImporter(config, providerManager, { preferredProvider }),
+      createBatchProvider: (rawDataQueries, _db, accountId, batchSize) =>
+        new HashGroupedBatchProvider(rawDataQueries, accountId, batchSize),
+
       createProcessor: (
         _providerManager,
         _tokenMetadataService?: ITokenMetadataService,
         scamDetectionService?: IScamDetectionService,
-        _rawDataQueries?,
+        _db?,
         _accountId?
       ) => ok(new XrpTransactionProcessor(config, scamDetectionService)),
 

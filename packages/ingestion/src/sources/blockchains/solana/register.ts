@@ -1,6 +1,7 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
+import { HashGroupedBatchProvider } from '../../../features/process/batch-providers/hash-grouped-batch-provider.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
@@ -25,11 +26,14 @@ export function registerSolanaChain(): void {
         preferredProvider: providerName,
       }),
 
+    createBatchProvider: (rawDataQueries, _db, accountId, batchSize) =>
+      new HashGroupedBatchProvider(rawDataQueries, accountId, batchSize),
+
     createProcessor: (
       _providerManager,
       tokenMetadataService?: ITokenMetadataService,
       scamDetectionService?: IScamDetectionService,
-      _rawDataQueries?,
+      _db?,
       _accountId?
     ) => {
       if (!tokenMetadataService) {

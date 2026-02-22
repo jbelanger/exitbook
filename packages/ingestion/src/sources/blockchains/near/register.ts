@@ -1,8 +1,10 @@
 import { isValidNearAccountId } from '@exitbook/blockchain-providers';
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { NearRawDataQueries } from '@exitbook/data';
+import { createNearRawDataQueries } from '@exitbook/data';
+import type { KyselyDB } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 
+import { NearStreamBatchProvider } from '../../../features/process/batch-providers/near-stream-batch-provider.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
@@ -28,18 +30,22 @@ export function registerNearChain(): void {
         preferredProvider: providerName,
       }),
 
+    createBatchProvider: (_rawDataQueries, db, accountId, batchSize) => {
+      const nearRawDataQueries = createNearRawDataQueries(db);
+      return new NearStreamBatchProvider(nearRawDataQueries, accountId, batchSize);
+    },
+
     createProcessor: (
       _providerManager,
       tokenMetadataService?: ITokenMetadataService,
       scamDetectionService?: IScamDetectionService,
-      rawDataQueries?,
+      db?: KyselyDB,
       accountId?
     ) => {
       if (!tokenMetadataService) {
         return err(new Error('TokenMetadataService is required for NEAR processor'));
       }
-      // rawDataQueries is actually NearRawDataQueries for NEAR blockchain
-      const nearRawDataQueries = rawDataQueries as NearRawDataQueries | undefined;
+      const nearRawDataQueries = db ? createNearRawDataQueries(db) : undefined;
       return ok(
         new NearTransactionProcessor(tokenMetadataService, scamDetectionService, nearRawDataQueries, accountId)
       );

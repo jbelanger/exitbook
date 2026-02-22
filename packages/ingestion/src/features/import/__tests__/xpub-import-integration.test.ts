@@ -92,6 +92,7 @@ describe('xpub import integration tests', () => {
       normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
       isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
       deriveAddressesFromXpub: mockDeriveAddresses,
+      createBatchProvider: vi.fn(),
       createImporter: () => ({
         importStreaming: mockImportStreamingFn,
       }),
@@ -103,6 +104,7 @@ describe('xpub import integration tests', () => {
       normalizeAddress: (addr: string) => ok(addr),
       isExtendedPublicKey: (addr: string) => addr.startsWith('stake') || addr.startsWith('addr_xvk'),
       deriveAddressesFromXpub: mockDeriveAddresses,
+      createBatchProvider: vi.fn(),
       createImporter: () => ({
         importStreaming: mockImportStreamingFn,
       }),
