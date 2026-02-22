@@ -137,7 +137,7 @@ describe('ImportExecutor', () => {
         import: mockImportFn,
         importStreaming: mockImportStreamingFn,
       }),
-      createProcessor: vi.fn().mockReturnValue(ok({} as ITransactionProcessor)),
+      createProcessor: vi.fn().mockReturnValue({} as ITransactionProcessor),
     });
 
     registerBlockchain({
@@ -147,7 +147,7 @@ describe('ImportExecutor', () => {
         import: mockImportFn,
         importStreaming: mockImportStreamingFn,
       }),
-      createProcessor: vi.fn().mockReturnValue(ok({} as ITransactionProcessor)),
+      createProcessor: vi.fn().mockReturnValue({} as ITransactionProcessor),
     });
     // Reset the mock import streaming function to default behavior
     mockImportStreamingFn.mockReset().mockImplementation(async function* () {

@@ -110,11 +110,6 @@ describe('NearTransactionImporter', () => {
       expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('near', 'nearblocks');
       expect(importer).toBeDefined();
     });
-    test('should throw error if provider manager is not provided', () => {
-      expect(() => new NearTransactionImporter(undefined as unknown as BlockchainProviderManager)).toThrow(
-        'Provider manager required for NEAR importer'
-      );
-    });
   });
   describe('Import - Success Cases', () => {
     test('should successfully fetch transactions', async () => {

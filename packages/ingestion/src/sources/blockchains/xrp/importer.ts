@@ -26,11 +26,6 @@ export class XrpTransactionImporter implements IImporter {
   ) {
     this.chainConfig = chainConfig;
     this.logger = getLogger(`${this.chainConfig.chainName}Importer`);
-
-    if (!blockchainProviderManager) {
-      throw new Error(`Provider manager required for ${this.chainConfig.chainName} importer`);
-    }
-
     this.providerManager = blockchainProviderManager;
 
     this.providerManager.autoRegisterFromConfig(this.chainConfig.chainName, options?.preferredProvider);

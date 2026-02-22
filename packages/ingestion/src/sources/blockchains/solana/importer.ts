@@ -26,10 +26,6 @@ export class SolanaTransactionImporter implements IImporter {
 
     this.providerManager = blockchainProviderManager;
 
-    if (!this.providerManager) {
-      throw new Error('Provider manager required for Solana importer');
-    }
-
     this.providerManager.autoRegisterFromConfig('solana', options?.preferredProvider);
 
     this.logger.info(

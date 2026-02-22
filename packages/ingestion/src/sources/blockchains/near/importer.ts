@@ -38,10 +38,6 @@ export class NearTransactionImporter implements IImporter {
 
     this.providerManager = blockchainProviderManager;
 
-    if (!this.providerManager) {
-      throw new Error('Provider manager required for NEAR importer');
-    }
-
     this.providerManager.autoRegisterFromConfig('near', options?.preferredProvider);
 
     this.logger.info(

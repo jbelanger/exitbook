@@ -43,11 +43,6 @@ export class EvmImporter implements IImporter {
   ) {
     this.chainConfig = chainConfig;
     this.logger = getLogger(`evmImporter:${chainConfig.chainName}`);
-
-    if (!blockchainProviderManager) {
-      throw new Error(`Provider manager required for ${chainConfig.chainName} importer`);
-    }
-
     this.providerManager = blockchainProviderManager;
 
     this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);

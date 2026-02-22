@@ -28,9 +28,7 @@ export function registerNearChain(): void {
 
     createProcessor: ({ tokenMetadataService, scamDetectionService, db, accountId }) => {
       const nearRawDataQueries = createNearRawDataQueries(db);
-      return ok(
-        new NearTransactionProcessor(tokenMetadataService, scamDetectionService, nearRawDataQueries, accountId)
-      );
+      return new NearTransactionProcessor(tokenMetadataService, scamDetectionService, nearRawDataQueries, accountId);
     },
   });
 }

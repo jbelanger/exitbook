@@ -28,7 +28,7 @@ export function registerSubstrateChains(): void {
           preferredProvider: providerName,
         }),
 
-      createProcessor: ({ scamDetectionService }) => ok(new SubstrateProcessor(config, scamDetectionService)),
+      createProcessor: ({ scamDetectionService }) => new SubstrateProcessor(config, scamDetectionService),
     });
   }
 }

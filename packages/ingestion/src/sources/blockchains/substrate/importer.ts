@@ -28,11 +28,6 @@ export class SubstrateImporter implements IImporter {
   ) {
     this.chainConfig = chainConfig;
     this.logger = getLogger(`substrateImporter:${chainConfig.chainName}`);
-
-    if (!blockchainProviderManager) {
-      throw new Error(`Provider manager required for ${chainConfig.chainName} importer`);
-    }
-
     this.providerManager = blockchainProviderManager;
 
     this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);

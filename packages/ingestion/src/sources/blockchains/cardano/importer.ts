@@ -22,11 +22,6 @@ export class CardanoTransactionImporter implements IImporter {
     options?: { preferredProvider?: string | undefined }
   ) {
     this.logger = getLogger('cardanoImporter');
-
-    if (!blockchainProviderManager) {
-      throw new Error('Provider manager required for Cardano importer');
-    }
-
     this.providerManager = blockchainProviderManager;
 
     this.providerManager.autoRegisterFromConfig('cardano', options?.preferredProvider);

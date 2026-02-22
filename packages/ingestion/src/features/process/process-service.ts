@@ -458,13 +458,15 @@ export class TransactionProcessService {
         return err(new Error(`Unknown blockchain: ${sourceName}`));
       }
 
-      return adapter.createProcessor({
-        providerManager: this.providerManager,
-        tokenMetadataService: this.tokenMetadataService,
-        scamDetectionService: this.scamDetectionService,
-        db: this.db,
-        accountId,
-      });
+      return ok(
+        adapter.createProcessor({
+          providerManager: this.providerManager,
+          tokenMetadataService: this.tokenMetadataService,
+          scamDetectionService: this.scamDetectionService,
+          db: this.db,
+          accountId,
+        })
+      );
     } else {
       const adapter = getExchangeAdapter(sourceName);
       if (!adapter) {

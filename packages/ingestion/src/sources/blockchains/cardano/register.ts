@@ -75,6 +75,6 @@ export function registerCardanoChain(): void {
     createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
       new CardanoTransactionImporter(providerManager, { preferredProvider: providerName }),
 
-    createProcessor: ({ scamDetectionService }) => ok(new CardanoTransactionProcessor(scamDetectionService)),
+    createProcessor: ({ scamDetectionService }) => new CardanoTransactionProcessor(scamDetectionService),
   });
 }

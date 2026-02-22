@@ -24,6 +24,6 @@ export function registerSolanaChain(): void {
       }),
 
     createProcessor: ({ tokenMetadataService, scamDetectionService }) =>
-      ok(new SolanaTransactionProcessor(tokenMetadataService, scamDetectionService)),
+      new SolanaTransactionProcessor(tokenMetadataService, scamDetectionService),
   });
 }

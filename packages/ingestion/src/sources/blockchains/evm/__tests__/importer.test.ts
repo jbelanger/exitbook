@@ -180,12 +180,6 @@ describe('EvmImporter', () => {
       expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('ethereum', 'alchemy');
       expect(importer).toBeDefined();
     });
-
-    test('should throw error if provider manager is not provided', () => {
-      expect(() => new EvmImporter(ETHEREUM_CONFIG, undefined as unknown as BlockchainProviderManager)).toThrow(
-        'Provider manager required for ethereum importer'
-      );
-    });
   });
 
   describe('Import - Success Cases', () => {

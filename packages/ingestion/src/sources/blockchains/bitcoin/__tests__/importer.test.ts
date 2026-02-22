@@ -107,17 +107,6 @@ describe('BitcoinTransactionImporter', () => {
       expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('bitcoin', 'blockstream.info');
       expect(importer).toBeDefined();
     });
-
-    test('should throw error if provider manager is not provided', () => {
-      const chainConfig = getBitcoinChainConfig('bitcoin');
-      if (!chainConfig) {
-        throw new Error('Bitcoin chain config not found');
-      }
-
-      expect(
-        () => new BitcoinTransactionImporter(chainConfig, undefined as unknown as BlockchainProviderManager)
-      ).toThrow('Provider manager required for bitcoin importer');
-    });
   });
 
   describe('Import - Success Cases', () => {

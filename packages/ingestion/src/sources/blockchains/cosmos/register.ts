@@ -29,7 +29,7 @@ export function registerCosmosChains(): void {
           preferredProvider: providerName,
         }),
 
-      createProcessor: ({ scamDetectionService }) => ok(new CosmosProcessor(config, scamDetectionService)),
+      createProcessor: ({ scamDetectionService }) => new CosmosProcessor(config, scamDetectionService),
     });
   }
 }

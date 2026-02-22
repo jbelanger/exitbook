@@ -30,7 +30,7 @@ export function registerEvmChains(): void {
         }),
 
       createProcessor: ({ providerManager, tokenMetadataService, scamDetectionService }) =>
-        ok(new EvmTransactionProcessor(config, providerManager, tokenMetadataService, scamDetectionService)),
+        new EvmTransactionProcessor(config, providerManager, tokenMetadataService, scamDetectionService),
     });
   }
 }

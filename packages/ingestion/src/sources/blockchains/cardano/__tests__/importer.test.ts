@@ -108,12 +108,6 @@ describe('CardanoTransactionImporter', () => {
       expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('cardano', 'blockfrost');
       expect(importer).toBeDefined();
     });
-
-    test('should throw error if provider manager is not provided', () => {
-      expect(() => new CardanoTransactionImporter(undefined as unknown as BlockchainProviderManager)).toThrow(
-        'Provider manager required for Cardano importer'
-      );
-    });
   });
 
   describe('Import - Success Cases', () => {

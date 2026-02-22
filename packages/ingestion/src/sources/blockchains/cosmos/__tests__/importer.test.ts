@@ -135,12 +135,6 @@ describe('CosmosImporter', () => {
       expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('injective', 'injective-explorer');
       expect(importer).toBeDefined();
     });
-
-    test('should throw error if provider manager is not provided', () => {
-      expect(() => new CosmosImporter(INJECTIVE_CONFIG, undefined as unknown as BlockchainProviderManager)).toThrow(
-        'Provider manager required for Injective Protocol importer'
-      );
-    });
   });
 
   describe('Import - Success Cases', () => {

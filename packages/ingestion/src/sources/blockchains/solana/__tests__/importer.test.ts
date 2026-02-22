@@ -87,12 +87,6 @@ describe('SolanaTransactionImporter', () => {
       expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('solana', 'helius');
       expect(importer).toBeDefined();
     });
-
-    test('should throw error if provider manager is not provided', () => {
-      expect(() => new SolanaTransactionImporter(undefined as unknown as BlockchainProviderManager)).toThrow(
-        'Provider manager required for Solana importer'
-      );
-    });
   });
 
   describe('Import - Success Cases', () => {

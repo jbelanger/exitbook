@@ -177,18 +177,6 @@ describe('SubstrateImporter', () => {
       expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('polkadot', 'subscan');
       expect(importer).toBeDefined();
     });
-
-    test('should throw error if provider manager is not provided', () => {
-      expect(() => new SubstrateImporter(POLKADOT_CONFIG, undefined as unknown as BlockchainProviderManager)).toThrow(
-        'Provider manager required for polkadot importer'
-      );
-    });
-
-    test('should throw error for Bittensor if provider manager is not provided', () => {
-      expect(() => new SubstrateImporter(BITTENSOR_CONFIG, undefined as unknown as BlockchainProviderManager)).toThrow(
-        'Provider manager required for bittensor importer'
-      );
-    });
   });
 
   describe('Import - Success Cases', () => {

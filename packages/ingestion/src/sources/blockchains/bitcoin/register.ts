@@ -24,7 +24,7 @@ export function registerBitcoinChains(): void {
       isUTXOChain: true,
       createImporter: (providerManager, preferredProvider) =>
         new BitcoinTransactionImporter(config, providerManager, { preferredProvider }),
-      createProcessor: ({ scamDetectionService }) => ok(new BitcoinTransactionProcessor(config, scamDetectionService)),
+      createProcessor: ({ scamDetectionService }) => new BitcoinTransactionProcessor(config, scamDetectionService),
 
       isExtendedPublicKey: (address: string) => isBitcoinXpub(address),
 

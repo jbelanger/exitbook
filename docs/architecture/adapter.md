@@ -241,66 +241,6 @@ V2 Architecture Audit — Ingestion Package: Adapter Concerns
 
      Leverage: Medium — the Cosmos split is a latent correctness issue; the rest is a maintainability concern.
 
-     ---
-     3.3 Finding: createBatchProvider on BlockchainAdapter is over-abstracted — only NEAR deviates from the standard HashGroupedBatchProvider
-
-     What exists:
-
-     BlockchainAdapter.createBatchProvider has this signature (line 21-26):
-
-     createBatchProvider: (
-       rawDataQueries: RawDataQueries,
-       db: KyselyDB,
-       accountId: number,
-       batchSize: number
-     ) => IRawDataBatchProvider;
-
-     Seven of the eight blockchain register.ts files return new HashGroupedBatchProvider(rawDataQueries, accountId, batchSize) and pass _db with an
-     underscore because they don't use it.
-
-     NEAR's register.ts:33-35 uses createNearRawDataQueries(db) to produce NearStreamBatchProvider.
-
-     The process-service.ts:221-228 then calls adapter.createBatchProvider(this.rawDataQueries, this.db, accountId, RAW_DATA_HASH_BATCH_SIZE) for all
-     blockchains, always passing db regardless.
-
-     Why it's a problem:
-
-     The db parameter exists on the interface solely for NEAR. Seven chains carry a dead _db? parameter in their factory closures. The abstraction hides
-     the fact that "NEAR uses a different batch provider" behind a generic factory signature rather than making NEAR's special needs explicit.
-
-     The AllAtOnceBatchProvider for exchanges is not on the ExchangeAdapter interface at all — it is constructed directly in process-service.ts:228. So the
-      adapter-based batch provider abstraction is incomplete: blockchains go through the adapter, exchanges bypass it.
-
-     What V2 should do:
-
-     Remove createBatchProvider from BlockchainAdapter. In process-service.ts, choose the batch provider based on chain name or a simpler batchStrategy:
-     'hash-grouped' | 'near-stream' property on the adapter:
-
-     // V2 concept
-     const batchProvider = adapter.batchStrategy === 'near-stream'
-       ? new NearStreamBatchProvider(createNearRawDataQueries(this.db), accountId, batchSize)
-       : new HashGroupedBatchProvider(this.rawDataQueries, accountId, batchSize);
-
-     This removes the factory method from the interface, removes 7 identical factory closures, and makes NEAR's deviation explicit.
-
-     Needs coverage:
-
-     ┌──────────────────────────┬─────────────────────────┬─────────────────────────────────────────┐
-     │    Current capability    │ Covered by replacement? │                  Notes                  │
-     ├──────────────────────────┼─────────────────────────┼─────────────────────────────────────────┤
-     │ HashGrouped for 7 chains │ Yes                     │ Direct construction, no factory         │
-     ├──────────────────────────┼─────────────────────────┼─────────────────────────────────────────┤
-     │ NearStream for NEAR      │ Yes                     │ Chosen by strategy flag                 │
-     ├──────────────────────────┼─────────────────────────┼─────────────────────────────────────────┤
-     │ Exchanges use AllAtOnce  │ Yes                     │ Already constructed directly; no change │
-     ├──────────────────────────┼─────────────────────────┼─────────────────────────────────────────┤
-     │ Testability              │ Yes / improved          │ Batch providers tested independently    │
-     └──────────────────────────┴─────────────────────────┴─────────────────────────────────────────┘
-
-     Surface: 8 register.ts factory closures eliminated, BlockchainAdapter interface simplified, process-service.ts gains ~5 lines of explicit strategy
-     selection.
-
-     Leverage: Medium — reduces interface surface, eliminates _db dead params in 7 files, makes NEAR's specialness visible.
 
      ---
      4. Data Layer
@@ -351,46 +291,6 @@ V2 Architecture Audit — Ingestion Package: Adapter Concerns
 
      Leverage: High — this is a correctness gap, not just a style issue. Malformed normalized data that passes the base schema produces unchecked casts.
 
-     ---
-     4.2 Finding: deriveAddressesFromXpub throws errors instead of returning Result
-
-     What exists:
-
-     bitcoin/register.ts:55-57 and cardano/register.ts:55-58:
-
-     if (initResult.isErr()) {
-       throw initResult.error;
-     }
-
-     The deriveAddressesFromXpub method on BlockchainAdapter is typed as Promise<DerivedAddress[]> — it can only signal failure by throwing, not by
-     returning a Result.
-
-     Why it's a problem:
-
-     Every other operation in the ingestion layer uses Result<T, Error> for error propagation. Mixing throw into an otherwise throw-free codebase means the
-      caller of deriveAddressesFromXpub must either wrap in try/catch or rely on an uncaught rejection. The import orchestrator (import-orchestrator.ts) or
-      wherever xpub derivation is called must either know to try/catch this specific method or accept uncaught rejection propagation.
-
-     CLAUDE.md states: "Never catch and suppress errors without logging" — but the converse is also true: using throws in an otherwise Result-typed
-     codebase creates an inconsistent error contract.
-
-     What V2 should do:
-
-     Change deriveAddressesFromXpub to Promise<Result<DerivedAddress[], Error>> and convert the internal throw to return err(initResult.error).
-
-     Needs coverage:
-
-     ┌──────────────────────────────────────────┬─────────────────────────┬─────────────────────────────────────────────────┐
-     │            Current capability            │ Covered by replacement? │                      Notes                      │
-     ├──────────────────────────────────────────┼─────────────────────────┼─────────────────────────────────────────────────┤
-     │ Error propagation on wallet init failure │ Yes                     │ err() returned, caller handles via Result chain │
-     ├──────────────────────────────────────────┼─────────────────────────┼─────────────────────────────────────────────────┤
-     │ Caller compatibility                     │ Yes                     │ Caller awaits and checks .isErr() as normal     │
-     └──────────────────────────────────────────┴─────────────────────────┴─────────────────────────────────────────────────┘
-
-     Surface: 2 register.ts files, BlockchainAdapter interface definition, xpub import code in import-orchestrator.ts.
-
-     Leverage: High — correctness issue. A throw in a Result-typed codebase breaks the error model contract for a financial system.
 
      ---
      5. Toolchain & Infrastructure

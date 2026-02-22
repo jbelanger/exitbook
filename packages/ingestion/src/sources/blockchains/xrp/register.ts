@@ -16,7 +16,7 @@ export function registerXrpChains(): void {
       isUTXOChain: false,
       createImporter: (providerManager, preferredProvider) =>
         new XrpTransactionImporter(config, providerManager, { preferredProvider }),
-      createProcessor: ({ scamDetectionService }) => ok(new XrpTransactionProcessor(config, scamDetectionService)),
+      createProcessor: ({ scamDetectionService }) => new XrpTransactionProcessor(config, scamDetectionService),
 
       normalizeAddress: (address: string) => {
         // Use centralized normalization logic

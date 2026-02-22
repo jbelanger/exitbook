@@ -30,10 +30,6 @@ export class CosmosImporter implements IImporter {
 
     this.providerManager = blockchainProviderManager;
 
-    if (!this.providerManager) {
-      throw new Error(`Provider manager required for ${chainConfig.displayName} importer`);
-    }
-
     this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);
 
     this.logger.info(
