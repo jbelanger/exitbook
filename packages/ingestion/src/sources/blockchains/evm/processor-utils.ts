@@ -1,6 +1,6 @@
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/blockchain-providers';
-import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
+import { isZeroDecimal, parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -549,21 +549,6 @@ export function isEvmUserParticipant(tx: EvmTransaction, userAddress: string): b
 export function isEvmNativeMovement(tx: EvmTransaction, chainConfig: EvmChainConfig): boolean {
   const native = chainConfig.nativeCurrency.toLowerCase();
   return tx.currency.toLowerCase() === native || tx.tokenSymbol?.toLowerCase() === native;
-}
-
-/**
- * Checks if a decimal value is zero.
- *
- * Pure function that safely parses and checks for zero values.
- * Returns true if the value is zero, empty, or cannot be parsed.
- */
-export function isZeroDecimal(value: string): boolean {
-  try {
-    return parseDecimal(value || '0').isZero();
-  } catch (error) {
-    logger.warn({ error, value }, 'Failed to parse decimal value, treating as zero');
-    return true;
-  }
 }
 
 /**

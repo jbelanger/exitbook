@@ -1,6 +1,6 @@
 import type { SolanaTransaction } from '@exitbook/blockchain-providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/blockchain-providers';
-import { parseDecimal, type Currency } from '@exitbook/core';
+import { isZeroDecimal, parseDecimal, type Currency } from '@exitbook/core';
 import type { OperationClassification, TransactionNote } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -357,18 +357,6 @@ export function classifySolanaOperationFromFundFlow(
       type: 'transfer',
     },
   });
-}
-
-/**
- * Check if a decimal string value is zero
- */
-export function isZeroDecimal(value: string): boolean {
-  try {
-    return parseDecimal(value || '0').isZero();
-  } catch (error) {
-    logger.warn({ error, value }, 'Failed to parse decimal value, treating as zero');
-    return true;
-  }
 }
 
 /**

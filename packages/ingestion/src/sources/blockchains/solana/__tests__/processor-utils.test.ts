@@ -1,5 +1,5 @@
 import type { SolanaTransaction } from '@exitbook/blockchain-providers';
-import type { Currency } from '@exitbook/core';
+import { isZeroDecimal, type Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -10,7 +10,6 @@ import {
   detectSolanaStakingInstructions,
   detectSolanaSwapInstructions,
   detectSolanaTokenTransferInstructions,
-  isZeroDecimal,
 } from '../processor-utils.js';
 import type { SolanaFundFlow, SolanaMovement } from '../types.js';
 

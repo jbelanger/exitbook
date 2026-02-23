@@ -1,5 +1,5 @@
 import type { CardanoTransaction } from '@exitbook/blockchain-providers';
-import { parseDecimal, type Currency } from '@exitbook/core';
+import { isZeroDecimal, parseDecimal, type Currency } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
@@ -107,18 +107,6 @@ export function normalizeCardanoAmount(quantity: string, decimals: number | unde
 
   const divisor = parseDecimal('10').pow(decimals);
   return quantityDecimal.dividedBy(divisor).toFixed();
-}
-
-/**
- * Check if a decimal string value is zero
- */
-export function isZeroDecimal(value: string): boolean {
-  try {
-    return parseDecimal(value || '0').isZero();
-  } catch (error) {
-    logger.warn({ error, value }, 'Failed to parse decimal value, treating as zero');
-    return true;
-  }
 }
 
 /**

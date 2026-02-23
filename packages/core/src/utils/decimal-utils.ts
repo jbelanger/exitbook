@@ -43,3 +43,11 @@ export function parseDecimal(value: string | number | Decimal | undefined | null
   tryParseDecimal(value, result);
   return result.value;
 }
+
+/**
+ * Returns true if value parses to zero (or is empty/unparseable).
+ * Uses parseDecimal which defaults to zero for invalid input.
+ */
+export function isZeroDecimal(value: string): boolean {
+  return parseDecimal(value || '0').isZero();
+}
