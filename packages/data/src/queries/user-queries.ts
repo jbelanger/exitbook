@@ -52,7 +52,7 @@ export function createUserQueries(db: KyselyDB) {
     }
   }
 
-  async function ensureDefaultUser() {
+  async function getOrCreateDefaultUser() {
     try {
       const existingResult = await findById(1);
       if (existingResult.isErr()) {
@@ -83,7 +83,7 @@ export function createUserQueries(db: KyselyDB) {
   return {
     create,
     findById,
-    ensureDefaultUser,
+    getOrCreateDefaultUser,
   };
 }
 

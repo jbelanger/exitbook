@@ -90,7 +90,7 @@ export class AccountService {
    */
   private async fetchAccounts(params: AccountQueryParams): Promise<Result<Account[], Error>> {
     // Get the default user to scope queries
-    const userResult = await this.userQueries.ensureDefaultUser();
+    const userResult = await this.userQueries.getOrCreateDefaultUser();
     if (userResult.isErr()) {
       return err(userResult.error);
     }

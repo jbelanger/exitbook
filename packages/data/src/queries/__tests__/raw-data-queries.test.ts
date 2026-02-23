@@ -298,7 +298,7 @@ describe('RawDataQueries', () => {
     });
   });
 
-  describe('loadPendingByHashBatch', () => {
+  describe('getPendingByHashBatch', () => {
     beforeEach(async () => {
       // Clear existing test data
       await db.deleteFrom('raw_transactions').execute();
@@ -434,7 +434,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should load all events for the first N distinct hashes', async () => {
-      const result = await queries.loadPendingByHashBatch(2, 2);
+      const result = await queries.getPendingByHashBatch(2, 2);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -451,7 +451,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should group all events for the same hash together', async () => {
-      const result = await queries.loadPendingByHashBatch(2, 1);
+      const result = await queries.getPendingByHashBatch(2, 1);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -469,7 +469,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should respect hash limit', async () => {
-      const result = await queries.loadPendingByHashBatch(2, 10);
+      const result = await queries.getPendingByHashBatch(2, 10);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -484,7 +484,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should order by hash then by id', async () => {
-      const result = await queries.loadPendingByHashBatch(2, 10);
+      const result = await queries.getPendingByHashBatch(2, 10);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -510,7 +510,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should filter by account_id', async () => {
-      const result = await queries.loadPendingByHashBatch(1, 10);
+      const result = await queries.getPendingByHashBatch(1, 10);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -524,7 +524,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should only load pending events', async () => {
-      const result = await queries.loadPendingByHashBatch(2, 10);
+      const result = await queries.getPendingByHashBatch(2, 10);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -542,7 +542,7 @@ describe('RawDataQueries', () => {
         .set({ processing_status: 'processed', processed_at: new Date().toISOString() })
         .execute();
 
-      const result = await queries.loadPendingByHashBatch(2, 10);
+      const result = await queries.getPendingByHashBatch(2, 10);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -551,7 +551,7 @@ describe('RawDataQueries', () => {
     });
 
     it('should return empty array for non-existent account', async () => {
-      const result = await queries.loadPendingByHashBatch(999, 10);
+      const result = await queries.getPendingByHashBatch(999, 10);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -562,7 +562,7 @@ describe('RawDataQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await queries.loadPendingByHashBatch(2, 10);
+      const result = await queries.getPendingByHashBatch(2, 10);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

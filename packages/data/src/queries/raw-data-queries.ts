@@ -6,13 +6,13 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { KyselyDB } from '../storage/db-types.js';
 
-import { mapRawTransactionRow, parseJson, withControlledTransaction } from './query-utils.js';
+import { toRawTransaction, parseJson, withControlledTransaction } from './query-utils.js';
 
 /**
  * Filter options for loading raw data from storage.
  * Raw data is scoped by account - each account owns its transaction data.
  */
-export interface LoadRawDataFilters {
+export interface RawDataQueryParams {
   accountId?: number | undefined;
   processingStatus?: ProcessingStatus | undefined;
   providerName?: string | undefined;
@@ -24,7 +24,7 @@ export interface LoadRawDataFilters {
 export function createRawDataQueries(db: KyselyDB) {
   const logger = getLogger('raw-data-queries');
 
-  async function load(filters?: LoadRawDataFilters): Promise<Result<RawTransaction[], Error>> {
+  async function find(filters?: RawDataQueryParams): Promise<Result<RawTransaction[], Error>> {
     try {
       let query = db.selectFrom('raw_transactions').selectAll();
 
@@ -59,7 +59,7 @@ export function createRawDataQueries(db: KyselyDB) {
 
       const transactions: RawTransaction[] = [];
       for (const row of rows) {
-        const result = mapRawTransactionRow(row);
+        const result = toRawTransaction(row);
         if (result.isErr()) {
           return err(result.error);
         }
@@ -288,10 +288,7 @@ export function createRawDataQueries(db: KyselyDB) {
     }
   }
 
-  async function loadPendingByHashBatch(
-    accountId: number,
-    hashLimit: number
-  ): Promise<Result<RawTransaction[], Error>> {
+  async function getPendingByHashBatch(accountId: number, hashLimit: number): Promise<Result<RawTransaction[], Error>> {
     try {
       const hashesSubquery = db
         .selectFrom('raw_transactions')
@@ -316,7 +313,7 @@ export function createRawDataQueries(db: KyselyDB) {
 
       const transactions: RawTransaction[] = [];
       for (const row of rows) {
-        const result = mapRawTransactionRow(row);
+        const result = toRawTransaction(row);
         if (result.isErr()) {
           return err(result.error);
         }
@@ -422,7 +419,7 @@ export function createRawDataQueries(db: KyselyDB) {
   }
 
   return {
-    load,
+    find,
     markAsProcessed,
     saveBatch,
     resetProcessingStatusByAccount,
@@ -433,7 +430,7 @@ export function createRawDataQueries(db: KyselyDB) {
     deleteByAccount,
     deleteAll,
     getAccountsWithPendingData,
-    loadPendingByHashBatch,
+    getPendingByHashBatch,
   };
 }
 

@@ -26,7 +26,7 @@ export class HashGroupedBatchProvider implements IRawDataBatchProvider {
       return ok([]);
     }
 
-    const result = await this.rawDataQueries.loadPendingByHashBatch(this.accountId, this.hashBatchSize);
+    const result = await this.rawDataQueries.getPendingByHashBatch(this.accountId, this.hashBatchSize);
 
     if (result.isErr()) {
       return result;

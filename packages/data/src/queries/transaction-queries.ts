@@ -26,7 +26,7 @@ import { generateDeterministicTransactionHash } from './transaction-id-utils.js'
 /**
  * Filters for querying transactions.
  */
-export interface TransactionFilters {
+export interface TransactionQueryParams {
   sourceName?: string | undefined;
   since?: number | undefined;
   accountId?: number | undefined;
@@ -37,14 +37,14 @@ export interface TransactionFilters {
 /**
  * Full transaction projection filters.
  */
-export interface FullTransactionFilters extends TransactionFilters {
+export interface FullTransactionQueryParams extends TransactionQueryParams {
   projection?: 'full' | undefined;
 }
 
 /**
  * Summary transaction projection filters.
  */
-export interface SummaryTransactionFilters extends TransactionFilters {
+export interface SummaryTransactionQueryParams extends TransactionQueryParams {
   projection: 'summary';
 }
 
@@ -420,10 +420,10 @@ export function createTransactionQueries(db: KyselyDB) {
     );
   }
 
-  function getTransactions(filters: SummaryTransactionFilters): Promise<Result<TransactionSummary[], Error>>;
-  function getTransactions(filters?: FullTransactionFilters): Promise<Result<UniversalTransactionData[], Error>>;
+  function getTransactions(filters: SummaryTransactionQueryParams): Promise<Result<TransactionSummary[], Error>>;
+  function getTransactions(filters?: FullTransactionQueryParams): Promise<Result<UniversalTransactionData[], Error>>;
   async function getTransactions(
-    filters?: FullTransactionFilters | SummaryTransactionFilters
+    filters?: FullTransactionQueryParams | SummaryTransactionQueryParams
   ): Promise<Result<UniversalTransactionData[] | TransactionSummary[], Error>> {
     try {
       const projection = filters?.projection ?? 'full';
@@ -621,7 +621,7 @@ export function createTransactionQueries(db: KyselyDB) {
    * Count transactions with optional filtering.
    * Reuses TransactionFilters type for consistent filtering logic.
    */
-  async function countTransactions(filters?: TransactionFilters): Promise<Result<number, Error>> {
+  async function countTransactions(filters?: TransactionQueryParams): Promise<Result<number, Error>> {
     try {
       let query = db.selectFrom('transactions').select(({ fn }) => [fn.count<number>('id').as('count')]);
 

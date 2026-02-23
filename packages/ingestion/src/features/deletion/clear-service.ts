@@ -341,7 +341,7 @@ export class ClearService {
    */
   private async resolveAccounts(params: ClearServiceParams): Promise<Result<ResolvedAccount[], Error>> {
     // 1. Ensure default user exists (id=1)
-    const userResult = await this.userQueries.ensureDefaultUser();
+    const userResult = await this.userQueries.getOrCreateDefaultUser();
     if (userResult.isErr()) {
       return err(userResult.error);
     }

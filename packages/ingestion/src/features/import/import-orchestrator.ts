@@ -69,7 +69,7 @@ export class ImportOrchestrator {
     this.logger.debug(`Starting blockchain import for ${blockchain} (${addressOrXpub.substring(0, 20)}...)`);
 
     // 1. Ensure default CLI user exists (id=1)
-    const userResult = await this.userQueries.ensureDefaultUser();
+    const userResult = await this.userQueries.getOrCreateDefaultUser();
     if (userResult.isErr()) {
       return err(userResult.error);
     }
@@ -133,7 +133,7 @@ export class ImportOrchestrator {
     }
 
     // 1. Ensure default CLI user exists (id=1)
-    const userResult = await this.userQueries.ensureDefaultUser();
+    const userResult = await this.userQueries.getOrCreateDefaultUser();
     if (userResult.isErr()) {
       return err(userResult.error);
     }
@@ -175,7 +175,7 @@ export class ImportOrchestrator {
     const normalizedPath = path.normalize(csvDirectory).replace(/[/\\]+$/, '');
 
     // 1. Ensure default CLI user exists (id=1)
-    const userResult = await this.userQueries.ensureDefaultUser();
+    const userResult = await this.userQueries.getOrCreateDefaultUser();
     if (userResult.isErr()) {
       return err(userResult.error);
     }

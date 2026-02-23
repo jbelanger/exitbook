@@ -24,7 +24,7 @@ export class AllAtOnceBatchProvider implements IRawDataBatchProvider {
 
     this.fetched = true;
 
-    const result = await this.rawDataQueries.load({
+    const result = await this.rawDataQueries.find({
       processingStatus: 'pending',
       accountId: this.accountId,
     });

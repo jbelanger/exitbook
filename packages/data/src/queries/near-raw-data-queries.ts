@@ -1,13 +1,12 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
 import type { RawTransaction } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import { sql, type Selectable } from '@exitbook/sqlite';
+import { sql } from '@exitbook/sqlite';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { RawTransactionTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/db-types.js';
 
-import { mapRawTransactionRow } from './query-utils.js';
+import { toRawTransaction } from './query-utils.js';
 
 /**
  * NEAR-specific raw data queries.
@@ -45,14 +44,6 @@ export function createNearRawDataQueries(db: KyselyDB) {
 
       return err(new Error(`Failed to verify JSON1 availability: ${errorMessage}`));
     }
-  }
-
-  /**
-   * Convert database row to RawTransaction domain model.
-   * Handles JSON parsing and camelCase conversion.
-   */
-  function toRawTransaction(row: Selectable<RawTransactionTable>): Result<RawTransaction, Error> {
-    return mapRawTransactionRow(row);
   }
 
   /**

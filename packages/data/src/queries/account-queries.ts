@@ -91,7 +91,7 @@ export function createAccountQueries(db: KyselyDB) {
     return ok(parseResult.data);
   }
 
-  async function findByUniqueConstraint(
+  async function findByAccountKey(
     accountType: AccountType,
     sourceName: string,
     identifier: string,
@@ -192,7 +192,7 @@ export function createAccountQueries(db: KyselyDB) {
         return err(new Error('Account source name must not be empty'));
       }
 
-      const existingResult = await findByUniqueConstraint(
+      const existingResult = await findByAccountKey(
         params.accountType,
         params.sourceName,
         params.identifier,
@@ -368,7 +368,7 @@ export function createAccountQueries(db: KyselyDB) {
   return {
     findOrCreate,
     findById,
-    findByUniqueConstraint,
+    findByAccountKey,
     findAll,
     update,
     updateCursor,

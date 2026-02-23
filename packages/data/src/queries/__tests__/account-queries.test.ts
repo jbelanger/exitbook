@@ -295,7 +295,7 @@ describe('AccountQueries', () => {
     });
   });
 
-  describe('findByUniqueConstraint', () => {
+  describe('findByAccountKey', () => {
     it('should find account by unique constraint fields', async () => {
       await queries.findOrCreate({
         userId: 1,
@@ -304,7 +304,7 @@ describe('AccountQueries', () => {
         identifier: 'bc1q...',
       });
 
-      const result = await queries.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1q...', 1);
+      const result = await queries.findByAccountKey('blockchain', 'bitcoin', 'bc1q...', 1);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -315,7 +315,7 @@ describe('AccountQueries', () => {
     });
 
     it('should return undefined for non-matching account', async () => {
-      const result = await queries.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1qnone...', 1);
+      const result = await queries.findByAccountKey('blockchain', 'bitcoin', 'bc1qnone...', 1);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -332,7 +332,7 @@ describe('AccountQueries', () => {
         identifier: 'bc1q...',
       });
 
-      const result = await queries.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1q...', undefined);
+      const result = await queries.findByAccountKey('blockchain', 'bitcoin', 'bc1q...', undefined);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -344,7 +344,7 @@ describe('AccountQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await queries.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1q...', 1);
+      const result = await queries.findByAccountKey('blockchain', 'bitcoin', 'bc1q...', 1);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

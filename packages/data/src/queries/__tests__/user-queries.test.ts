@@ -94,9 +94,9 @@ describe('UserQueries', () => {
     });
   });
 
-  describe('ensureDefaultUser', () => {
+  describe('getOrCreateDefaultUser', () => {
     it('should create default user (id=1) if not exists', async () => {
-      const result = await queries.ensureDefaultUser();
+      const result = await queries.getOrCreateDefaultUser();
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -112,14 +112,14 @@ describe('UserQueries', () => {
 
     it('should return existing default user if already exists', async () => {
       // Create default user first
-      const firstResult = await queries.ensureDefaultUser();
+      const firstResult = await queries.getOrCreateDefaultUser();
       expect(firstResult.isOk()).toBe(true);
 
       if (firstResult.isOk()) {
         const firstCreatedAt = firstResult.value.createdAt;
 
         // Call again - should return same user
-        const secondResult = await queries.ensureDefaultUser();
+        const secondResult = await queries.getOrCreateDefaultUser();
         expect(secondResult.isOk()).toBe(true);
 
         if (secondResult.isOk()) {
@@ -135,9 +135,9 @@ describe('UserQueries', () => {
 
     it('should be idempotent and safe to call multiple times', async () => {
       // Call sequentially (concurrent calls may have race conditions)
-      const result1 = await queries.ensureDefaultUser();
-      const result2 = await queries.ensureDefaultUser();
-      const result3 = await queries.ensureDefaultUser();
+      const result1 = await queries.getOrCreateDefaultUser();
+      const result2 = await queries.getOrCreateDefaultUser();
+      const result3 = await queries.getOrCreateDefaultUser();
 
       // All should succeed
       expect(result1.isOk()).toBe(true);
@@ -160,7 +160,7 @@ describe('UserQueries', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await queries.ensureDefaultUser();
+      const result = await queries.getOrCreateDefaultUser();
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

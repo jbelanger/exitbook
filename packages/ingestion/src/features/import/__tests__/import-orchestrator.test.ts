@@ -108,12 +108,12 @@ describe('ImportOrchestrator', () => {
 
   beforeEach(() => {
     mockUserQueries = {
-      ensureDefaultUser: vi.fn().mockResolvedValue(ok(mockUser)),
+      getOrCreateDefaultUser: vi.fn().mockResolvedValue(ok(mockUser)),
     } as unknown as UserQueries;
 
     mockAccountQueries = {
       findOrCreate: vi.fn(),
-      findByUniqueConstraint: vi.fn().mockResolvedValue(ok(undefined)),
+      findByAccountKey: vi.fn().mockResolvedValue(ok(undefined)),
       findAll: vi.fn().mockResolvedValue(ok([])),
       update: vi.fn().mockResolvedValue(ok(undefined)),
     } as unknown as AccountQueries;
@@ -531,7 +531,7 @@ describe('ImportOrchestrator', () => {
     });
 
     it('should handle user creation failure', async () => {
-      vi.mocked(mockUserQueries.ensureDefaultUser).mockResolvedValue(err(new Error('User creation failed')));
+      vi.mocked(mockUserQueries.getOrCreateDefaultUser).mockResolvedValue(err(new Error('User creation failed')));
 
       const result = await orchestrator.importBlockchain('bitcoin', 'bc1q...');
 

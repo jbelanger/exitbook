@@ -115,7 +115,7 @@ export function parseJson<T = unknown>(value: unknown): Result<T | undefined, Er
 /**
  * Convert raw_transactions row to RawTransaction domain model.
  */
-export function mapRawTransactionRow(row: Selectable<RawTransactionTable>): Result<RawTransaction, Error> {
+export function toRawTransaction(row: Selectable<RawTransactionTable>): Result<RawTransaction, Error> {
   const rawDataResult = parseJson<unknown>(row.provider_data);
   const normalizedDataResult = parseJson<unknown>(row.normalized_data);
 
