@@ -6,7 +6,7 @@ import {
   isZero,
   toDecimal,
   deduplicateByEventId,
-  analyzeСosmosFundFlow,
+  analyzeCosmosFundFlow,
   determineOperationFromFundFlow,
 } from '../processor-utils.js';
 import type { CosmosFundFlow } from '../types.js';
@@ -154,7 +154,7 @@ describe('Cosmos Processor Utils', () => {
     });
   });
 
-  describe('analyzeСosmosFundFlow', () => {
+  describe('analyzeCosmosFundFlow', () => {
     it('should analyze incoming native transfer', () => {
       const transaction = createTransaction({
         amount: '1500000000000000000', // 1.5 INJ
@@ -168,7 +168,7 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'native',
       });
 
-      const fundFlow = analyzeСosmosFundFlow(
+      const fundFlow = analyzeCosmosFundFlow(
         transaction,
         { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
         INJECTIVE_CONFIG
@@ -201,7 +201,7 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'native',
       });
 
-      const fundFlow = analyzeСosmosFundFlow(
+      const fundFlow = analyzeCosmosFundFlow(
         transaction,
         { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
         INJECTIVE_CONFIG
@@ -227,7 +227,7 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'native',
       });
 
-      const fundFlow = analyzeСosmosFundFlow(
+      const fundFlow = analyzeCosmosFundFlow(
         transaction,
         { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
         INJECTIVE_CONFIG
@@ -258,7 +258,7 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'cw20',
       });
 
-      const fundFlow = analyzeСosmosFundFlow(
+      const fundFlow = analyzeCosmosFundFlow(
         transaction,
         { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
         INJECTIVE_CONFIG
@@ -288,7 +288,7 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'native',
       });
 
-      const fundFlow = analyzeСosmosFundFlow(
+      const fundFlow = analyzeCosmosFundFlow(
         transaction,
         { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
         INJECTIVE_CONFIG
@@ -316,7 +316,7 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'ibc',
       });
 
-      const fundFlow = analyzeСosmosFundFlow(
+      const fundFlow = analyzeCosmosFundFlow(
         transaction,
         { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
         INJECTIVE_CONFIG
@@ -341,7 +341,7 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'native',
       });
 
-      const fundFlow = analyzeСosmosFundFlow(
+      const fundFlow = analyzeCosmosFundFlow(
         transaction,
         { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
         INJECTIVE_CONFIG
@@ -367,7 +367,7 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'native',
       });
 
-      const fundFlow = analyzeСosmosFundFlow(
+      const fundFlow = analyzeCosmosFundFlow(
         transaction,
         {
           primaryAddress: 'osmo1user000000000000000000000000000000000',
@@ -392,7 +392,7 @@ describe('Cosmos Processor Utils', () => {
         tokenAddress: 'inj1contract0000000000000000000000000000',
       });
 
-      const fundFlow = analyzeСosmosFundFlow(
+      const fundFlow = analyzeCosmosFundFlow(
         transaction,
         { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
         INJECTIVE_CONFIG
@@ -413,7 +413,7 @@ describe('Cosmos Processor Utils', () => {
         // No feeAmount field
       });
 
-      const fundFlow = analyzeСosmosFundFlow(
+      const fundFlow = analyzeCosmosFundFlow(
         transaction,
         { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
         INJECTIVE_CONFIG

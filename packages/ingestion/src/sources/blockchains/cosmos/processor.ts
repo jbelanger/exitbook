@@ -13,13 +13,11 @@ import type {
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
 
-import { analyzeСosmosFundFlow, deduplicateByEventId, determineOperationFromFundFlow } from './processor-utils.js';
+import { analyzeCosmosFundFlow, deduplicateByEventId, determineOperationFromFundFlow } from './processor-utils.js';
 
 /**
  * Generic Cosmos SDK transaction processor that converts raw blockchain transaction data
  * into ProcessedTransaction format. Works with any Cosmos SDK-based chain (Injective, Osmosis, etc.)
- * Uses ProcessorFactory to dispatch to provider-specific processors based on data provenance.
- * Enhanced with sophisticated fund flow analysis.
  */
 export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction> {
   private chainConfig: CosmosChainConfig;
@@ -33,9 +31,6 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
     return CosmosTransactionSchema;
   }
 
-  /**
-   * Process normalized CosmosTransaction data with sophisticated fund flow analysis
-   */
   protected async transformNormalizedData(
     normalizedData: CosmosTransaction[],
     context: AddressContext
@@ -54,33 +49,27 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
     const movementsForScamDetection: MovementWithContext[] = [];
 
     for (const transaction of deduplicatedData) {
-      const normalizedTx = transaction;
       try {
-        // Analyze fund flow for sophisticated transaction classification
-        const fundFlow = analyzeСosmosFundFlow(normalizedTx, context, this.chainConfig);
+        const fundFlow = analyzeCosmosFundFlow(transaction, context, this.chainConfig);
 
-        // Determine operation classification based on fund flow
         const classification = determineOperationFromFundFlow(fundFlow);
 
-        // Only include fees if user was the sender (they paid the fee)
-        // For incoming transactions (deposits, received transfers), the sender/validator paid the fee
-        // Record fee entry if:
-        // 1. They have ANY outflows (sent funds, delegated, swapped, etc.) OR
-        // 2. They initiated a transaction with no outflows (governance votes, contract calls, etc.)
-        // Note: Addresses are already normalized to lowercase via CosmosAddressSchema
-        const userInitiatedTransaction = normalizedTx.from === context.primaryAddress;
+        // Record fee only if user was the sender (they paid it). This covers:
+        // 1. Any outflows (sent funds, delegated, swapped, etc.)
+        // 2. User-initiated transactions with no outflows (governance votes, contract calls, etc.)
+        // Addresses are normalized to lowercase via CosmosAddressSchema.
+        const userInitiatedTransaction = transaction.from === context.primaryAddress;
         const shouldRecordFeeEntry = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
-        // Build movements with assetId
         let hasAssetIdError = false;
         const inflows = [];
         for (const inflow of fundFlow.inflows) {
-          const assetIdResult = this.buildCosmosAssetId(inflow, normalizedTx.id);
+          const assetIdResult = this.buildCosmosAssetId(inflow, transaction.id);
           if (assetIdResult.isErr()) {
             const errorMsg = `Failed to build assetId for inflow: ${assetIdResult.error.message}`;
-            processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+            processingErrors.push({ error: errorMsg, txId: transaction.id });
             this.logger.error(
-              `${errorMsg} for ${this.chainConfig.chainName} transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`
+              `${errorMsg} for ${this.chainConfig.chainName} transaction ${transaction.id} - THIS TRANSACTION WILL BE LOST`
             );
             hasAssetIdError = true;
             break;
@@ -101,12 +90,12 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
 
         const outflows = [];
         for (const outflow of fundFlow.outflows) {
-          const assetIdResult = this.buildCosmosAssetId(outflow, normalizedTx.id);
+          const assetIdResult = this.buildCosmosAssetId(outflow, transaction.id);
           if (assetIdResult.isErr()) {
             const errorMsg = `Failed to build assetId for outflow: ${assetIdResult.error.message}`;
-            processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+            processingErrors.push({ error: errorMsg, txId: transaction.id });
             this.logger.error(
-              `${errorMsg} for ${this.chainConfig.chainName} transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`
+              `${errorMsg} for ${this.chainConfig.chainName} transaction ${transaction.id} - THIS TRANSACTION WILL BE LOST`
             );
             hasAssetIdError = true;
             break;
@@ -129,32 +118,29 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
         const feeAssetIdResult = buildBlockchainNativeAssetId(this.chainConfig.chainName);
         if (feeAssetIdResult.isErr()) {
           const errorMsg = `Failed to build fee assetId: ${feeAssetIdResult.error.message}`;
-          processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+          processingErrors.push({ error: errorMsg, txId: transaction.id });
           this.logger.error(
-            `${errorMsg} for ${this.chainConfig.chainName} transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`
+            `${errorMsg} for ${this.chainConfig.chainName} transaction ${transaction.id} - THIS TRANSACTION WILL BE LOST`
           );
           continue;
         }
         const feeAssetId = feeAssetIdResult.value;
 
-        // Convert to ProcessedTransaction with enhanced metadata
         const processedTransaction: ProcessedTransaction = {
-          externalId: normalizedTx.id,
-          datetime: new Date(normalizedTx.timestamp).toISOString(),
-          timestamp: normalizedTx.timestamp,
+          externalId: transaction.id,
+          datetime: new Date(transaction.timestamp).toISOString(),
+          timestamp: transaction.timestamp,
           source: this.chainConfig.chainName,
           sourceType: 'blockchain',
-          status: normalizedTx.status,
+          status: transaction.status,
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,
 
-          // Structured movements from fund flow analysis
           movements: {
             inflows,
             outflows,
           },
 
-          // Structured fees - only deduct from balance if user paid them
           fees:
             shouldRecordFeeEntry && !parseDecimal(fundFlow.feeAmount).isZero()
               ? [
@@ -174,51 +160,43 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
 
           blockchain: {
             name: this.chainConfig.chainName,
-            block_height: normalizedTx.blockHeight,
-            transaction_hash: normalizedTx.id,
-            is_confirmed: normalizedTx.status === 'success',
+            block_height: transaction.blockHeight,
+            transaction_hash: transaction.id,
+            is_confirmed: transaction.status === 'success',
           },
         };
 
-        // Collect token movements for batch scam detection later
-        const allMovements = [...fundFlow.inflows, ...fundFlow.outflows];
+        // Collect token movements (with denom) for batch scam detection
         const isAirdrop = fundFlow.outflows.length === 0 && !userInitiatedTransaction;
-
-        for (const movement of allMovements) {
-          if (!movement.denom) {
-            continue;
-          }
+        for (const movement of [...fundFlow.inflows, ...fundFlow.outflows]) {
+          if (!movement.denom) continue;
           movementsForScamDetection.push({
-            contractAddress: movement.denom, // Cosmos uses denom as identifier
+            contractAddress: movement.denom, // Cosmos uses denom as the token identifier
             asset: movement.asset,
             amount: parseDecimal(movement.amount),
             isAirdrop,
-            transactionIndex: universalTransactions.length, // Index of transaction we're about to push
+            transactionIndex: universalTransactions.length,
           });
         }
 
         universalTransactions.push(processedTransaction);
       } catch (error) {
         const errorMsg = `Error processing normalized transaction: ${String(error)}`;
-        processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
-        this.logger.error(`${errorMsg} for ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
+        processingErrors.push({ error: errorMsg, txId: transaction.id });
+        this.logger.error(`${errorMsg} for ${transaction.id} - THIS TRANSACTION WILL BE LOST`);
         continue;
       }
     }
 
-    // Batch scam detection: Cosmos has no metadata service, so detection is symbol-only
-    // Token movements only (skip native denom)
+    // Cosmos has no metadata service, so scam detection is symbol-only
     if (movementsForScamDetection.length > 0 && this.scamDetectionService) {
       this.markScamTransactions(universalTransactions, movementsForScamDetection, new Map());
       this.logger.debug(`Applied symbol-only scam detection to ${universalTransactions.length} transactions`);
     }
 
-    // Log processing summary
+    // Fail if ANY transactions could not be processed - silently dropping txs corrupts portfolio accuracy
     const totalInputTransactions = deduplicatedData.length;
     const failedTransactions = processingErrors.length;
-
-    // STRICT MODE: Fail if ANY transactions could not be processed
-    // This is critical for portfolio accuracy - we cannot afford to silently drop transactions
     if (processingErrors.length > 0) {
       this.logger.error(
         `CRITICAL PROCESSING FAILURE for ${this.chainConfig.chainName}:\n${processingErrors

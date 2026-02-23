@@ -1,30 +1,23 @@
 import type { Currency } from '@exitbook/core';
 
+/** A single asset movement with Cosmos-specific denomination metadata. */
+export interface CosmosAssetMovement {
+  amount: string;
+  asset: Currency;
+  /** Denomination (e.g., uatom, ibc/..., factory/...) */
+  denom?: string | undefined;
+  tokenDecimals?: number | undefined;
+}
+
 /**
  * Cosmos fund flow analysis result - multi-asset tracking
  *
  * Supports Cosmos-specific features like IBC and bridge transfers.
  */
 export interface CosmosFundFlow {
-  // Multi-asset tracking with Cosmos-specific terminology
-  inflows: {
-    amount: string;
-    asset: Currency;
-    denom?: string | undefined; // Denomination (e.g., uatom, ibc/..., factory/...)
-    tokenDecimals?: number | undefined;
-  }[];
-  outflows: {
-    amount: string;
-    asset: Currency;
-    denom?: string | undefined; // Denomination (e.g., uatom, ibc/..., factory/...)
-    tokenDecimals?: number | undefined;
-  }[];
-  primary: {
-    amount: string;
-    asset: Currency;
-    denom?: string | undefined; // Denomination (e.g., uatom, ibc/..., factory/...)
-    tokenDecimals?: number | undefined;
-  };
+  inflows: CosmosAssetMovement[];
+  outflows: CosmosAssetMovement[];
+  primary: CosmosAssetMovement;
 
   // Fee information (always in native currency)
   feeAmount: string;
@@ -40,8 +33,8 @@ export interface CosmosFundFlow {
 
   // Bridge/IBC specific metadata
   bridgeType?: 'peggy' | 'gravity' | 'ibc' | 'native' | undefined;
-  sourceChain?: string | undefined; // For IBC transfers
-  destinationChain?: string | undefined; // For IBC transfers
+  sourceChain?: string | undefined;
+  destinationChain?: string | undefined;
 
   // Classification uncertainty tracking
   classificationUncertainty?: string | undefined;
