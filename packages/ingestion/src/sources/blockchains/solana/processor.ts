@@ -1,11 +1,5 @@
 import { type SolanaTransaction, SolanaTransactionSchema } from '@exitbook/blockchain-providers';
-import {
-  buildBlockchainNativeAssetId,
-  buildBlockchainTokenAssetId,
-  parseDecimal,
-  type Currency,
-  type TokenMetadataRecord,
-} from '@exitbook/core';
+import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal, type Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
@@ -201,27 +195,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor<SolanaT
     }
 
     // Batch scam detection: token movements only (skip native SOL)
-    if (tokenMovementsForScamDetection.length > 0) {
-      const uniqueContracts = Array.from(new Set(tokenMovementsForScamDetection.map((m) => m.contractAddress)));
-      let metadataMap = new Map<string, TokenMetadataRecord | undefined>();
-      let detectionUsedMetadata = false;
-
-      const metadataResult = await this.tokenMetadataService.getOrFetchBatch('solana', uniqueContracts);
-      if (metadataResult.isOk()) {
-        metadataMap = metadataResult.value;
-        detectionUsedMetadata = true;
-      } else {
-        this.logger.warn(
-          { error: metadataResult.error.message },
-          'Metadata fetch failed for scam detection (falling back to symbol-only)'
-        );
-      }
-
-      this.markScamTransactions(transactions, tokenMovementsForScamDetection, metadataMap);
-      this.logger.debug(
-        `Applied ${detectionUsedMetadata ? 'metadata' : 'symbol-only'} scam detection to ${transactions.length} transactions (${uniqueContracts.length} tokens)`
-      );
-    }
+    await this.runScamDetection(transactions, tokenMovementsForScamDetection, 'solana');
 
     // Log processing summary
     const totalInputTransactions = normalizedData.length;

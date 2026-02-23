@@ -6,13 +6,7 @@ import {
   type EvmTransaction,
   EvmTransactionSchema,
 } from '@exitbook/blockchain-providers';
-import {
-  buildBlockchainNativeAssetId,
-  buildBlockchainTokenAssetId,
-  parseDecimal,
-  type Currency,
-  type TokenMetadataRecord,
-} from '@exitbook/core';
+import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal, type Currency } from '@exitbook/core';
 import { err, okAsync, ok, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -224,33 +218,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
     }
 
     // Batch scam detection: token movements only (skip native)
-    if (tokenMovementsForScamDetection.length > 0) {
-      const uniqueContracts = Array.from(new Set(tokenMovementsForScamDetection.map((m) => m.contractAddress)));
-      let metadataMap = new Map<string, TokenMetadataRecord | undefined>();
-      let detectionMode: 'metadata' | 'symbol-only' = 'symbol-only';
-
-      if (this.tokenMetadataService && uniqueContracts.length > 0) {
-        const metadataResult = await this.tokenMetadataService.getOrFetchBatch(
-          this.chainConfig.chainName,
-          uniqueContracts
-        );
-
-        if (metadataResult.isOk()) {
-          metadataMap = metadataResult.value;
-          detectionMode = 'metadata';
-        } else {
-          this.logger.warn(
-            { error: metadataResult.error.message },
-            'Metadata fetch failed for scam detection (falling back to symbol-only)'
-          );
-        }
-      }
-
-      this.markScamTransactions(transactions, tokenMovementsForScamDetection, metadataMap);
-      this.logger.debug(
-        `Applied ${detectionMode} scam detection to ${transactions.length} transactions (${uniqueContracts.length} tokens)`
-      );
-    }
+    await this.runScamDetection(transactions, tokenMovementsForScamDetection, this.chainConfig.chainName);
 
     // Log processing summary
     const failedGroups = processingErrors.length;

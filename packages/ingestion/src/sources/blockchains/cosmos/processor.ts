@@ -188,11 +188,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
       }
     }
 
-    // Cosmos has no metadata service, so scam detection is symbol-only
-    if (movementsForScamDetection.length > 0 && this.scamDetectionService) {
-      this.markScamTransactions(universalTransactions, movementsForScamDetection, new Map());
-      this.logger.debug(`Applied symbol-only scam detection to ${universalTransactions.length} transactions`);
-    }
+    await this.runScamDetection(universalTransactions, movementsForScamDetection, this.chainConfig.chainName);
 
     // Fail if ANY transactions could not be processed - silently dropping txs corrupts portfolio accuracy
     const totalInputTransactions = deduplicatedData.length;

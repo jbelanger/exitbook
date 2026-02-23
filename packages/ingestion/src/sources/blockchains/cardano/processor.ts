@@ -220,12 +220,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
       }
     }
 
-    // Batch scam detection: Cardano has no metadata service, so detection is symbol-only
-    // Token movements only (skip ADA)
-    if (movementsForScamDetection.length > 0 && this.scamDetectionService) {
-      this.markScamTransactions(transactions, movementsForScamDetection, new Map());
-      this.logger.debug(`Applied symbol-only scam detection to ${transactions.length} transactions`);
-    }
+    await this.runScamDetection(transactions, movementsForScamDetection, 'cardano');
 
     // STRICT MODE: Fail if ANY transactions could not be processed
     if (processingErrors.length > 0) {

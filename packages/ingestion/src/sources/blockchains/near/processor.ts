@@ -21,7 +21,6 @@ import {
   parseDecimal,
   type Currency,
   type OperationClassification,
-  type TokenMetadataRecord,
 } from '@exitbook/core';
 import type { NearRawDataQueries } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
@@ -201,9 +200,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
     }
 
     // Batch scam detection
-    if (tokenMovementsForScamDetection.length > 0) {
-      await this.performScamDetection(transactions, tokenMovementsForScamDetection);
-    }
+    await this.runScamDetection(transactions, tokenMovementsForScamDetection, 'near');
 
     // Fail-fast if processing errors occurred
     if (processingErrors.length > 0) {
@@ -584,40 +581,5 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
 
     // Token with contract address
     return buildBlockchainTokenAssetId('near', movement.contractAddress);
-  }
-
-  /**
-   * Perform batch scam detection on token movements
-   */
-  private async performScamDetection(
-    transactions: ProcessedTransaction[],
-    tokenMovementsForScamDetection: MovementWithContext[]
-  ): Promise<void> {
-    if (!this.scamDetectionService || tokenMovementsForScamDetection.length === 0) {
-      return;
-    }
-
-    const uniqueContracts = Array.from(new Set(tokenMovementsForScamDetection.map((m) => m.contractAddress)));
-    let metadataMap = new Map<string, TokenMetadataRecord | undefined>();
-    let detectionMode: 'metadata' | 'symbol-only' = 'symbol-only';
-
-    if (this.tokenMetadataService && uniqueContracts.length > 0) {
-      const metadataResult = await this.tokenMetadataService.getOrFetchBatch('near', uniqueContracts);
-
-      if (metadataResult.isOk()) {
-        metadataMap = metadataResult.value;
-        detectionMode = 'metadata';
-      } else {
-        this.logger.warn(
-          { error: metadataResult.error.message },
-          'Metadata fetch failed for scam detection (falling back to symbol-only)'
-        );
-      }
-    }
-
-    this.markScamTransactions(transactions, tokenMovementsForScamDetection, metadataMap);
-    this.logger.debug(
-      `Applied ${detectionMode} scam detection to ${transactions.length} transactions (${uniqueContracts.length} tokens)`
-    );
   }
 }

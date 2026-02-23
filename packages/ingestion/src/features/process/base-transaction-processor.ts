@@ -71,6 +71,43 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
   }
 
   /**
+   * Orchestrate scam detection: fetch token metadata in a single batch, then mark transactions.
+   * Safe to call unconditionally — returns early when there are no movements or no scam
+   * detection service. Falls back to symbol-only detection if the metadata fetch fails.
+   */
+  protected async runScamDetection(
+    transactions: ProcessedTransaction[],
+    movements: MovementWithContext[],
+    chainName: string
+  ): Promise<void> {
+    if (movements.length === 0 || !this.scamDetectionService) {
+      return;
+    }
+
+    const uniqueContracts = Array.from(new Set(movements.map((m) => m.contractAddress)));
+    let metadataMap = new Map<string, TokenMetadataRecord | undefined>();
+    let detectionMode: 'metadata' | 'symbol-only' = 'symbol-only';
+
+    if (this.tokenMetadataService && uniqueContracts.length > 0) {
+      const metadataResult = await this.tokenMetadataService.getOrFetchBatch(chainName, uniqueContracts);
+      if (metadataResult.isOk()) {
+        metadataMap = metadataResult.value;
+        detectionMode = 'metadata';
+      } else {
+        this.logger.warn(
+          { error: metadataResult.error.message },
+          'Metadata fetch failed for scam detection (falling back to symbol-only)'
+        );
+      }
+    }
+
+    this.markScamTransactions(transactions, movements, metadataMap);
+    this.logger.debug(
+      `Applied ${detectionMode} scam detection to ${transactions.length} transactions (${uniqueContracts.length} tokens)`
+    );
+  }
+
+  /**
    * Apply scam detection to transactions using pre-fetched metadata.
    * Call AFTER building all transactions but BEFORE returning from transformNormalizedData().
    *
