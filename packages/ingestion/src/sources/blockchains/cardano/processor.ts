@@ -239,9 +239,11 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
       );
 
       return err(
-        `Cannot proceed: ${failedCount}/${totalCount} transactions failed to process. ` +
-          `Lost ${failedCount} transactions which would corrupt portfolio calculations. ` +
-          `Errors: ${processingErrors.map((e) => `[${e.txHash.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+        this.buildProcessingFailureError(
+          failedCount,
+          totalCount,
+          processingErrors.map((e) => ({ id: e.txHash, error: e.error }))
+        )
       );
     }
 

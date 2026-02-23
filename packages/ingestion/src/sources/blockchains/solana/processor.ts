@@ -237,9 +237,11 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor<SolanaT
       );
 
       return err(
-        `Cannot proceed: ${failedTransactions}/${totalInputTransactions} transactions failed to process. ` +
-          `Lost ${failedTransactions} transactions which would corrupt portfolio calculations. ` +
-          `Errors: ${processingErrors.map((e) => `[${e.signature.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+        this.buildProcessingFailureError(
+          failedTransactions,
+          totalInputTransactions,
+          processingErrors.map((e) => ({ id: e.signature, error: e.error }))
+        )
       );
     }
 

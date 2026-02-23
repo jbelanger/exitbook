@@ -217,9 +217,11 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
       );
 
       return err(
-        `Cannot proceed: ${failed}/${totalInput} transactions failed to process. ` +
-          `Lost ${failed} transactions which would corrupt portfolio calculations. ` +
-          `Errors: ${processingErrors.map((e) => `[${e.txHash.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+        this.buildProcessingFailureError(
+          failed,
+          totalInput,
+          processingErrors.map((e) => ({ id: e.txHash, error: e.error }))
+        )
       );
     }
 

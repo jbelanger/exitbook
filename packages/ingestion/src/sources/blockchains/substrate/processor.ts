@@ -156,9 +156,11 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
       );
 
       return err(
-        `Cannot proceed: ${failedCount}/${totalCount} transactions failed to process. ` +
-          `Lost ${failedCount} transactions which would corrupt portfolio calculations. ` +
-          `Errors: ${processingErrors.map((e) => `[${e.txId.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+        this.buildProcessingFailureError(
+          failedCount,
+          totalCount,
+          processingErrors.map((e) => ({ id: e.txId, error: e.error }))
+        )
       );
     }
 

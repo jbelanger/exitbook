@@ -136,6 +136,18 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
     return ok();
   }
 
+  protected buildProcessingFailureError(
+    failed: number,
+    total: number,
+    errors: { error: string; id: string }[]
+  ): string {
+    return (
+      `Cannot proceed: ${failed}/${total} transactions failed to process. ` +
+      `Lost ${failed} transactions which would corrupt portfolio calculations. ` +
+      `Errors: ${errors.map((e) => `[${e.id.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+    );
+  }
+
   /**
    * Apply common post-processing to transactions including validation.
    * Fails if any transactions are invalid to ensure atomicity.

@@ -139,7 +139,6 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     }
 
     const failedGroups = processingErrors.length;
-    const lostEntryCount = processingErrors.reduce((sum, e) => sum + e.entryCount, 0);
 
     if (processingErrors.length > 0) {
       this.logger.error(
@@ -149,9 +148,11 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
       );
 
       return err(
-        `Cannot proceed: ${failedGroups}/${entryGroups.size} entry groups failed to process. ` +
-          `Lost ${lostEntryCount} entries which would corrupt portfolio calculations. ` +
-          `Errors: ${processingErrors.map((e) => `[${e.correlationId}]: ${e.error}`).join('; ')}`
+        this.buildProcessingFailureError(
+          failedGroups,
+          entryGroups.size,
+          processingErrors.map((e) => ({ id: e.correlationId, error: e.error }))
+        )
       );
     }
 

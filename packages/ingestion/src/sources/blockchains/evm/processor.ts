@@ -254,7 +254,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
 
     // Log processing summary
     const failedGroups = processingErrors.length;
-    const lostTransactionCount = processingErrors.reduce((sum, e) => sum + e.txCount, 0);
 
     // STRICT MODE: Fail if ANY transaction groups could not be processed
     // This is critical for portfolio accuracy - we cannot afford to silently drop transactions
@@ -266,9 +265,11 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
       );
 
       return err(
-        `Cannot proceed: ${failedGroups}/${transactionGroups.size} transaction groups failed to process. ` +
-          `Lost ${lostTransactionCount} transactions which would corrupt portfolio calculations. ` +
-          `Errors: ${processingErrors.map((e) => `[${e.hash.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+        this.buildProcessingFailureError(
+          failedGroups,
+          transactionGroups.size,
+          processingErrors.map((e) => ({ id: e.hash, error: e.error }))
+        )
       );
     }
 

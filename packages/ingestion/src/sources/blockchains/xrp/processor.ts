@@ -158,9 +158,11 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
 
       return Promise.resolve(
         err(
-          `Cannot proceed: ${failedTransactions}/${totalInputTransactions} transactions failed to process. ` +
-            `Lost ${failedTransactions} transactions which would corrupt portfolio calculations. ` +
-            `Errors: ${processingErrors.map((e) => `[${e.txId.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+          this.buildProcessingFailureError(
+            failedTransactions,
+            totalInputTransactions,
+            processingErrors.map((e) => ({ id: e.txId, error: e.error }))
+          )
         )
       );
     }
