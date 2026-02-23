@@ -280,23 +280,13 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
    * Fetches metadata upfront in batch to populate cache for later use (asset ID building, scam detection).
    */
   private async enrichTokenMetadata(transactions: EvmTransaction[]): Promise<Result<void, Error>> {
-    // Collect all token transfers with contract addresses
-    // We enrich ALL of them upfront (not just those with missing/incomplete metadata) because:
+    // We enrich ALL token transfers upfront (not just those with missing metadata) because:
     // 1. Scam detection needs metadata for all tokens with contract addresses
     // 2. Batching all fetches upfront is more efficient than separate calls later
-    const transactionsToEnrich = transactions.filter((tx) => {
-      return tx.type === 'token_transfer' && !!tx.tokenAddress;
-    });
+    const tokenTransfers = transactions.filter((tx) => tx.type === 'token_transfer' && !!tx.tokenAddress);
 
-    if (transactionsToEnrich.length === 0) {
-      return ok();
-    }
-
-    this.logger.debug(`Enriching token metadata for ${transactionsToEnrich.length} token transfers`);
-
-    // Use the token metadata service to enrich with caching and provider fetching
-    const enrichResult = await this.tokenMetadataService.enrichBatch(
-      transactionsToEnrich,
+    return this.enrichWithTokenMetadata(
+      tokenTransfers,
       this.chainConfig.chainName,
       (tx) => tx.tokenAddress,
       (tx, metadata) => {
@@ -314,13 +304,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
       },
       (tx) => tx.tokenDecimals !== undefined // Enrichment failure OK if decimals already present
     );
-
-    if (enrichResult.isErr()) {
-      return err(enrichResult.error);
-    }
-
-    this.logger.debug('Successfully enriched token metadata from cache/provider');
-    return ok();
   }
 
   private async resolveIsContract(address: string): Promise<boolean | undefined> {

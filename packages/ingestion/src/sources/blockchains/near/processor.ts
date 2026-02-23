@@ -546,13 +546,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
   private async enrichTokenMetadata(events: NearStreamEvent[]): Promise<Result<void, Error>> {
     const ftTransferEvents = events.filter((e): e is NearTokenTransfer => e.streamType === 'token-transfers');
 
-    if (ftTransferEvents.length === 0) {
-      return ok(undefined);
-    }
-
-    this.logger.debug(`Enriching token metadata for ${ftTransferEvents.length} FT transfers`);
-
-    const enrichResult = await this.tokenMetadataService.enrichBatch(
+    return this.enrichWithTokenMetadata(
       ftTransferEvents,
       'near',
       (event) => event.contractAddress,
@@ -566,13 +560,6 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
       },
       (event) => event.decimals !== undefined
     );
-
-    if (enrichResult.isErr()) {
-      return err(new Error(`Failed to enrich token metadata: ${enrichResult.error.message}`));
-    }
-
-    this.logger.debug('Successfully enriched token metadata');
-    return ok(undefined);
   }
 
   /**

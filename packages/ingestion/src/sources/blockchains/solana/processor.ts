@@ -251,24 +251,13 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor<SolanaT
    * Fetches metadata upfront in batch to populate cache for later use (asset ID building, scam detection).
    */
   private async enrichTokenMetadata(transactions: SolanaTransaction[]): Promise<Result<void, Error>> {
-    // Collect all token changes with mint addresses for batch enrichment
-    // We enrich ALL of them upfront (not just those with missing/incomplete metadata) because:
+    // We enrich ALL token changes upfront (not just those with missing metadata) because:
     // 1. Scam detection needs metadata for all tokens with contract addresses
     // 2. Batching all fetches upfront is more efficient than separate calls later
-    const tokenChangesToEnrich = transactions.flatMap((tx) => {
-      if (!tx.tokenChanges) return [];
-      return tx.tokenChanges.filter((change) => !!change.mint);
-    });
+    const tokenChanges = transactions.flatMap((tx) => tx.tokenChanges?.filter((c) => !!c.mint) ?? []);
 
-    if (tokenChangesToEnrich.length === 0) {
-      return ok(undefined);
-    }
-
-    this.logger.debug(`Enriching token metadata for ${tokenChangesToEnrich.length} token changes`);
-
-    // Use the token metadata service to enrich with caching and provider fetching
-    const enrichResult = await this.tokenMetadataService.enrichBatch(
-      tokenChangesToEnrich,
+    return this.enrichWithTokenMetadata(
+      tokenChanges,
       'solana',
       (change) => change.mint,
       (change, metadata) => {
@@ -283,13 +272,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor<SolanaT
       },
       (change) => change.decimals !== undefined // Enrichment failure OK if decimals already present
     );
-
-    if (enrichResult.isErr()) {
-      return err(new Error(`Failed to enrich token metadata: ${enrichResult.error.message}`));
-    }
-
-    this.logger.debug('Successfully enriched token metadata from cache/provider');
-    return ok(undefined);
   }
 
   /**

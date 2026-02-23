@@ -105,6 +105,38 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
   }
 
   /**
+   * Enrich a pre-filtered list of items with token metadata via a single batch call.
+   * Handles the empty-list early-return and delegates to tokenMetadataService.enrichBatch.
+   * Subclasses are responsible for collecting the items to enrich before calling this.
+   */
+  protected async enrichWithTokenMetadata<TItem>(
+    items: TItem[],
+    chainName: string,
+    extractAddress: (item: TItem) => string | undefined,
+    applyMetadata: (item: TItem, metadata: TokenMetadataRecord) => void,
+    canSkip?: (item: TItem) => boolean
+  ): Promise<Result<void, Error>> {
+    if (items.length === 0) return ok();
+
+    this.logger.debug(`Enriching token metadata for ${items.length} items`);
+
+    const result = await this.tokenMetadataService!.enrichBatch(
+      items,
+      chainName,
+      extractAddress,
+      applyMetadata,
+      canSkip
+    );
+
+    if (result.isErr()) {
+      return err(result.error);
+    }
+
+    this.logger.debug('Successfully enriched token metadata');
+    return ok();
+  }
+
+  /**
    * Apply common post-processing to transactions including validation.
    * Fails if any transactions are invalid to ensure atomicity.
    *
