@@ -13,14 +13,14 @@ import type { XrpFundFlow } from './types.js';
 export function analyzeXrpFundFlow(normalizedTx: XrpTransaction, context: AddressContext): Result<XrpFundFlow, string> {
   const walletAddress = context.primaryAddress;
 
-  // Find balance change for the wallet address (XRP native currency only)
+  // Only consider XRP native currency balance changes for the wallet
   const walletBalanceChange = normalizedTx.balanceChanges?.find(
     (change: XrpBalanceChange) => change.account === walletAddress && change.currency === 'XRP'
   );
 
   if (!walletBalanceChange) {
-    // If the wallet initiated the transaction (is the sender), there MUST be a balance change
-    // because XRP fees are always charged. Missing balance change indicates data extraction failure.
+    // The sender always has a balance change because XRP fees are always charged.
+    // A missing balance change for the sender indicates a data extraction bug in the mapper.
     const feeAmount = parseDecimal(normalizedTx.feeAmount);
     if (normalizedTx.account === walletAddress && !feeAmount.isZero()) {
       return err(
@@ -29,8 +29,6 @@ export function analyzeXrpFundFlow(normalizedTx: XrpTransaction, context: Addres
       );
     }
 
-    // No balance change for this address - transaction doesn't affect this wallet
-    // This could happen if tracking an address that appears in the transaction but has no balance impact
     return ok({
       fromAddress: normalizedTx.account,
       toAddress: normalizedTx.destination,
@@ -41,28 +39,21 @@ export function analyzeXrpFundFlow(normalizedTx: XrpTransaction, context: Addres
     });
   }
 
-  // Calculate net balance change
   const currentBalance = parseDecimal(walletBalanceChange.balance);
-  const previousBalance = parseDecimal(walletBalanceChange.previousBalance || '0');
+  const previousBalance = parseDecimal(walletBalanceChange.previousBalance ?? '0');
   const balanceChange = currentBalance.minus(previousBalance);
 
-  // Determine direction
   const isIncoming = balanceChange.greaterThan('0');
   const isOutgoing = balanceChange.lessThan('0');
-
-  // Net amount is the absolute value of the balance change
   const netAmount = balanceChange.abs().toFixed();
 
-  // Determine from/to addresses
   let fromAddress: string | undefined;
   let toAddress: string | undefined;
 
   if (isOutgoing) {
-    // For outgoing: from = wallet, to = destination
     fromAddress = walletAddress;
     toAddress = normalizedTx.destination;
   } else if (isIncoming) {
-    // For incoming: from = account (sender), to = wallet
     fromAddress = normalizedTx.account;
     toAddress = walletAddress;
   } else {
@@ -82,14 +73,10 @@ export function analyzeXrpFundFlow(normalizedTx: XrpTransaction, context: Addres
 }
 
 /**
- * Determine transaction type from XRP transaction.
- * XRP Ledger has various transaction types, but for simplicity we classify most as transfers.
- *
- * Note: operation_type is display metadata only - doesn't affect balance/cost basis calculations.
+ * Classify XRP transaction type for display metadata.
+ * All XRP transactions are currently treated as transfers.
+ * Future: differentiate based on normalizedTx.transactionType (Payment, OfferCreate, TrustSet, etc.)
  */
-export function determineXrpTransactionType(_normalizedTx: XrpTransaction, _context: AddressContext): 'transfer' {
-  // For now, treat all XRP transactions as transfers
-  // In the future, we could add more sophisticated type detection based on normalizedTx.transactionType
-  // (Payment, OfferCreate, TrustSet, etc.)
+export function determineXrpTransactionType(_normalizedTx: XrpTransaction): 'transfer' {
   return 'transfer';
 }

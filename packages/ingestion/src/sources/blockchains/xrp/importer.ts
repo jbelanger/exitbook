@@ -35,10 +35,6 @@ export class XrpTransactionImporter implements IImporter {
     );
   }
 
-  /**
-   * Streaming import implementation
-   * Streams transaction batches without accumulating everything in memory
-   */
   async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address) {
       yield err(new Error('Address required for XRP transaction import'));
@@ -47,19 +43,14 @@ export class XrpTransactionImporter implements IImporter {
 
     this.logger.debug(`Starting XRP streaming import for address: ${params.address.substring(0, 20)}...`);
 
-    // Stream transactions for the address
     const normalCursor = params.cursor?.['normal'];
     for await (const batchResult of this.streamTransactionsForAddress(params.address, normalCursor)) {
       yield batchResult;
     }
 
-    this.logger.info(`XRP streaming import completed`);
+    this.logger.debug(`XRP streaming import completed`);
   }
 
-  /**
-   * Stream transactions for a single address with resume support
-   * Uses provider manager's streaming failover to handle pagination and provider switching
-   */
   private async *streamTransactionsForAddress(
     address: string,
     resumeCursor?: CursorState
@@ -69,8 +60,7 @@ export class XrpTransactionImporter implements IImporter {
       {
         type: 'getAddressTransactions',
         address,
-        getCacheKey: (params) =>
-          `${this.chainConfig.chainName}:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:all`,
+        getCacheKey: () => `${this.chainConfig.chainName}:raw-txs:${address}:all`,
       },
       resumeCursor
     );
@@ -84,14 +74,12 @@ export class XrpTransactionImporter implements IImporter {
       const providerBatch = providerBatchResult.value;
       const transactionsWithRaw = providerBatch.data;
 
-      // Log batch stats including in-memory deduplication
       if (providerBatch.stats.deduplicated > 0) {
         this.logger.info(
           `Provider batch stats: ${providerBatch.stats.fetched} fetched, ${providerBatch.stats.deduplicated} deduplicated by provider, ${providerBatch.stats.yielded} yielded`
         );
       }
 
-      // Map to raw transactions
       const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
         eventId: txWithRaw.normalized.eventId,
         blockchainTransactionHash: txWithRaw.normalized.id,
@@ -103,7 +91,7 @@ export class XrpTransactionImporter implements IImporter {
       }));
 
       yield ok({
-        rawTransactions: rawTransactions,
+        rawTransactions,
         streamType: 'normal',
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,

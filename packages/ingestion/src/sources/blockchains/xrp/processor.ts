@@ -1,6 +1,6 @@
 import { type XrpChainConfig, type XrpTransaction, XrpTransactionSchema } from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, parseDecimal, type Currency } from '@exitbook/core';
-import { type Result, err, okAsync } from 'neverthrow';
+import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
@@ -25,11 +25,7 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
     return XrpTransactionSchema;
   }
 
-  /**
-   * Process normalized XRP transactions with balance change analysis.
-   * Handles XrpTransaction objects with balance change metadata.
-   */
-  protected async transformNormalizedData(
+  protected transformNormalizedData(
     normalizedData: XrpTransaction[],
     context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {
@@ -38,7 +34,6 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
 
     for (const normalizedTx of normalizedData) {
       try {
-        // Perform fund flow analysis using balance changes
         const fundFlowResult = analyzeXrpFundFlow(normalizedTx, context);
 
         if (fundFlowResult.isErr()) {
@@ -50,12 +45,9 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
 
         const fundFlow = fundFlowResult.value;
 
-        // Parse amounts
         const netAmount = parseDecimal(fundFlow.netAmount);
         const feeAmount = parseDecimal(normalizedTx.feeAmount);
-        const zeroDecimal = parseDecimal('0');
 
-        // Build assetId for XRP native asset
         const assetIdResult = buildBlockchainNativeAssetId(this.chainConfig.chainName);
         if (assetIdResult.isErr()) {
           const errorMsg = `Failed to build assetId: ${assetIdResult.error.message}`;
@@ -65,44 +57,29 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
         }
         const assetId = assetIdResult.value;
 
-        // For XRP (account-based), fees are paid separately from the balance
-        // This is different from Bitcoin (UTXO-based) where fees are carved from inputs
+        // For account-based XRP, balance changes already include the fee.
+        // When recording a fee entry separately, subtract it from the transfer amount to avoid double-counting.
         const shouldRecordFeeEntry = fundFlow.isOutgoing && !netAmount.isZero();
-        const effectiveFeeAmount = shouldRecordFeeEntry ? feeAmount : zeroDecimal;
 
-        // Net amount is derived from balance changes and already includes fees.
-        // To avoid double-counting, subtract the fee from the transfer amount when we record a fee entry.
         let transferAmount = netAmount;
-        if (shouldRecordFeeEntry && !effectiveFeeAmount.isZero()) {
-          transferAmount = netAmount.minus(effectiveFeeAmount);
+        if (shouldRecordFeeEntry && !feeAmount.isZero()) {
+          transferAmount = netAmount.minus(feeAmount);
           if (transferAmount.isNegative()) {
             this.logger.warn(
-              {
-                txId: normalizedTx.id,
-                netAmount: netAmount.toFixed(),
-                feeAmount: effectiveFeeAmount.toFixed(),
-              },
+              { txId: normalizedTx.id, netAmount: netAmount.toFixed(), feeAmount: feeAmount.toFixed() },
               'XRP fee exceeds net balance change; treating as fee-only transaction'
             );
-            transferAmount = zeroDecimal;
+            transferAmount = parseDecimal('0');
           }
         }
 
-        // Calculate movement amounts
-        // For account-based chains, the net amount is the balance change
-        // Fees are recorded separately with settlement='balance'
         const hasOutflow = fundFlow.isOutgoing && !transferAmount.isZero();
         const hasInflow = fundFlow.isIncoming && !netAmount.isZero();
 
-        // Skip transactions with no accounting impact (no movements and no fees)
-        // These are either external transactions that don't affect the wallet,
-        // or failed transactions with no balance change
+        // Skip transactions with no accounting impact (external txs or failed txs with no balance change)
         if (!hasOutflow && !hasInflow && !shouldRecordFeeEntry) {
           this.logger.debug(
-            {
-              txId: normalizedTx.id,
-              status: normalizedTx.status,
-            },
+            { txId: normalizedTx.id, status: normalizedTx.status },
             'Skipping transaction with no accounting impact'
           );
           continue;
@@ -111,17 +88,13 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
         const processedTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
-          timestamp: normalizedTx.timestamp, // Already in milliseconds from mapper
+          timestamp: normalizedTx.timestamp,
           source: this.chainConfig.chainName,
           sourceType: 'blockchain',
           status: normalizedTx.status,
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,
 
-          // Structured movements from balance change analysis
-          // For account-based chains:
-          // - Incoming: grossAmount/netAmount are the balance change
-          // - Outgoing: transfer amount excludes the fee (fee recorded separately)
           movements: {
             outflows: hasOutflow
               ? [
@@ -134,25 +107,18 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
                 ]
               : [],
             inflows: hasInflow
-              ? [
-                  {
-                    assetId,
-                    assetSymbol: this.chainConfig.nativeCurrency,
-                    grossAmount: netAmount,
-                    netAmount: netAmount,
-                  },
-                ]
+              ? [{ assetId, assetSymbol: this.chainConfig.nativeCurrency, grossAmount: netAmount, netAmount }]
               : [],
           },
 
-          // Fees are paid separately from the account balance (settlement='balance')
+          // XRP fees are settled from account balance, not carved from the transfer amount
           fees:
-            shouldRecordFeeEntry && !effectiveFeeAmount.isZero()
+            shouldRecordFeeEntry && !feeAmount.isZero()
               ? [
                   {
                     assetId,
                     assetSymbol: normalizedTx.feeCurrency as Currency,
-                    amount: effectiveFeeAmount,
+                    amount: feeAmount,
                     scope: 'network',
                     settlement: 'balance',
                   },
@@ -161,7 +127,7 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
 
           operation: {
             category: 'transfer',
-            type: determineXrpTransactionType(normalizedTx, context),
+            type: determineXrpTransactionType(normalizedTx),
           },
 
           blockchain: {
@@ -177,16 +143,12 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
         const errorMsg = `Error processing normalized transaction: ${String(error)}`;
         processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
         this.logger.error(`${errorMsg} for ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
-        continue;
       }
     }
 
-    // Log processing summary
     const totalInputTransactions = normalizedData.length;
     const failedTransactions = processingErrors.length;
 
-    // STRICT MODE: Fail if ANY transactions could not be processed
-    // This is critical for portfolio accuracy - we cannot afford to silently drop transactions
     if (processingErrors.length > 0) {
       this.logger.error(
         `CRITICAL PROCESSING FAILURE for XRP:\n${processingErrors
@@ -194,13 +156,15 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
           .join('\n')}`
       );
 
-      return err(
-        `Cannot proceed: ${failedTransactions}/${totalInputTransactions} transactions failed to process. ` +
-          `Lost ${failedTransactions} transactions which would corrupt portfolio calculations. ` +
-          `Errors: ${processingErrors.map((e) => `[${e.txId.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+      return Promise.resolve(
+        err(
+          `Cannot proceed: ${failedTransactions}/${totalInputTransactions} transactions failed to process. ` +
+            `Lost ${failedTransactions} transactions which would corrupt portfolio calculations. ` +
+            `Errors: ${processingErrors.map((e) => `[${e.txId.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+        )
       );
     }
 
-    return okAsync(transactions);
+    return Promise.resolve(ok(transactions));
   }
 }
