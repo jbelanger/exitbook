@@ -1097,7 +1097,7 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
       userAddresses: [USER_ADDRESS],
     });
 
-    // Schema validation catches malformed data before processInternal runs
+    // Schema validation catches malformed data before transformNormalizedData runs
     expect(result.isErr()).toBe(true);
     if (!result.isErr()) return;
 

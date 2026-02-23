@@ -14,7 +14,7 @@ import type { ITokenMetadataService } from '../token-metadata/token-metadata-ser
  *
  * @template T - The normalized input type expected by this processor.
  *   Each item in `normalizedData` is validated against `inputSchema` before
- *   `processInternal` is called, eliminating unsafe casts.
+ *   `transformNormalizedData` is called, eliminating unsafe casts.
  */
 export abstract class BaseTransactionProcessor<T = unknown> implements ITransactionProcessor {
   protected logger: Logger;
@@ -35,7 +35,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
    * This is the primary processing method that converts normalized blockchain/exchange data
    * into ProcessedTransaction objects.
    */
-  protected abstract processInternal(
+  protected abstract transformNormalizedData(
     normalizedData: T[],
     context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>>;
@@ -53,7 +53,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
       validated.push(result.data);
     }
 
-    const result = await this.processInternal(validated, context || { primaryAddress: '', userAddresses: [] });
+    const result = await this.transformNormalizedData(validated, context || { primaryAddress: '', userAddresses: [] });
 
     if (result.isErr()) {
       this.logger.error(`Processing failed for ${this.sourceName}: ${result.error}`);
@@ -72,7 +72,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
 
   /**
    * Apply scam detection to transactions using pre-fetched metadata.
-   * Call AFTER building all transactions but BEFORE returning from processInternal().
+   * Call AFTER building all transactions but BEFORE returning from transformNormalizedData().
    *
    * @param transactions - All processed transactions
    * @param movements - Token movements with context from fund flow

@@ -39,7 +39,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor<SolanaT
    * Process normalized data (structured SolanaTransaction objects)
    * with sophisticated fund flow analysis
    */
-  protected async processInternal(
+  protected async transformNormalizedData(
     normalizedData: SolanaTransaction[],
     context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {

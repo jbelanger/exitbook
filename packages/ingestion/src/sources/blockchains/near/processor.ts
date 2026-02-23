@@ -70,7 +70,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
   /**
    * Process normalized data
    */
-  protected async processInternal(
+  protected async transformNormalizedData(
     normalizedData: NearStreamEvent[],
     context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {

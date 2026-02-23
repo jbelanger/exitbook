@@ -1,5 +1,5 @@
 /**
- * Tests for ImportExecutor (internal import execution service)
+ * Tests for StreamingImportRunner (internal import execution service)
  *
  * Tests orchestration, database interactions, and error handling
  * This service coordinates importing from exchanges and blockchains
@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdapterRegistry } from '../../../shared/types/adapter-registry.js';
 import type { ITransactionProcessor } from '../../../shared/types/processors.js';
-import { ImportExecutor } from '../import-service.js';
+import { StreamingImportRunner } from '../streaming-import-runner.js';
 
 // Helper to create mock accounts
 function createMockAccount(
@@ -126,8 +126,8 @@ function createTestRegistry() {
   );
 }
 
-describe('ImportExecutor', () => {
-  let service: ImportExecutor;
+describe('StreamingImportRunner', () => {
+  let service: StreamingImportRunner;
   let mockRawDataQueries: RawDataQueries;
   let mockImportSessionQueries: ImportSessionQueries;
   let mockAccountQueries: AccountQueries;
@@ -198,7 +198,7 @@ describe('ImportExecutor', () => {
     mockProviderManager = {} as BlockchainProviderManager;
 
     const registry = createTestRegistry();
-    service = new ImportExecutor(
+    service = new StreamingImportRunner(
       mockRawDataQueries,
       mockImportSessionQueries,
       mockAccountQueries,
@@ -718,7 +718,7 @@ describe('ImportExecutor', () => {
 
       const mockEventBus = { emit: vi.fn() };
       const registry = createTestRegistry();
-      const serviceWithEvents = new ImportExecutor(
+      const serviceWithEvents = new StreamingImportRunner(
         mockRawDataQueries,
         mockImportSessionQueries,
         mockAccountQueries,

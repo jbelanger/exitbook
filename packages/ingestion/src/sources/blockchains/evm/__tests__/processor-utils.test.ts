@@ -96,7 +96,7 @@ describe('selectPrimaryEvmMovement', () => {
       { asset: 'BTC' as Currency, amount: '0.5' },
     ];
 
-    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' as Currency });
+    const result = selectPrimaryEvmMovement(movements, 'ETH' as Currency);
 
     expect(result).toEqual({ asset: 'USDC' as Currency, amount: '100' });
   });
@@ -107,7 +107,7 @@ describe('selectPrimaryEvmMovement', () => {
       { asset: 'ETH' as Currency, amount: '1.5' },
     ];
 
-    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' as Currency });
+    const result = selectPrimaryEvmMovement(movements, 'ETH' as Currency);
 
     expect(result).toEqual({ asset: 'ETH' as Currency, amount: '1.5' });
   });
@@ -118,13 +118,13 @@ describe('selectPrimaryEvmMovement', () => {
       { asset: 'ETH' as Currency, amount: '0' },
     ];
 
-    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' as Currency });
+    const result = selectPrimaryEvmMovement(movements, 'ETH' as Currency);
 
     expect(result).toEqual({ asset: 'ETH' as Currency, amount: '0' });
   });
 
   it('returns native currency with zero amount for empty movements', () => {
-    const result = selectPrimaryEvmMovement([], { nativeCurrency: 'AVAX' as Currency });
+    const result = selectPrimaryEvmMovement([], 'AVAX' as Currency);
 
     expect(result).toEqual({ asset: 'AVAX' as Currency, amount: '0' });
   });
@@ -135,7 +135,7 @@ describe('selectPrimaryEvmMovement', () => {
       { asset: 'ETH' as Currency, amount: '2' },
     ];
 
-    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' as Currency });
+    const result = selectPrimaryEvmMovement(movements, 'ETH' as Currency);
 
     expect(result).toEqual({
       asset: 'USDC' as Currency,
@@ -151,7 +151,7 @@ describe('selectPrimaryEvmMovement', () => {
       { asset: 'ETH' as Currency, amount: '1' },
     ];
 
-    const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' as Currency });
+    const result = selectPrimaryEvmMovement(movements, 'ETH' as Currency);
 
     expect(result).toEqual({ asset: 'ETH' as Currency, amount: '1' });
   });

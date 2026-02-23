@@ -38,7 +38,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
   /**
    * Process normalized Cardano transactions with multi-asset UTXO analysis
    */
-  protected async processInternal(
+  protected async transformNormalizedData(
     normalizedData: CardanoTransaction[],
     context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {

@@ -37,7 +37,7 @@ import {
 export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransaction> {
   // Override to make tokenMetadataService required (guaranteed by factory)
   declare protected readonly tokenMetadataService: ITokenMetadataService;
-  private readonly addressInfoCache = new Map<string, boolean>();
+  private readonly contractAddressCache = new Map<string, boolean>();
 
   constructor(
     private readonly chainConfig: EvmChainConfig,
@@ -52,7 +52,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
     return EvmTransactionSchema;
   }
 
-  protected async processInternal(
+  protected async transformNormalizedData(
     normalizedData: EvmTransaction[],
     context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {
@@ -355,7 +355,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
   }
 
   private async resolveIsContract(address: string): Promise<boolean | undefined> {
-    const cached = this.addressInfoCache.get(address);
+    const cached = this.contractAddressCache.get(address);
     if (cached !== undefined) {
       return cached;
     }
@@ -384,7 +384,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
     }
 
     const isContract = result.value.data.isContract;
-    this.addressInfoCache.set(address, isContract);
+    this.contractAddressCache.set(address, isContract);
     return isContract;
   }
 

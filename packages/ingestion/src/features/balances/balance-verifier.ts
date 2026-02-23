@@ -57,7 +57,6 @@ export function compareBalances(
     comparisons.push({
       assetId,
       assetSymbol,
-      currency: assetSymbol, // Deprecated field, kept for backwards compatibility
       calculatedBalance: calcBalance.toFixed(),
       liveBalance: liveBalance.toFixed(),
       difference: difference.toFixed(),
@@ -182,7 +181,7 @@ export function generateVerificationReport(results: BalanceVerificationResult[])
     if (issues.length > 0) {
       report += `### Issues Found:\n`;
       for (const issue of issues) {
-        report += `- **${issue.currency}**: `;
+        report += `- **${issue.assetSymbol}**: `;
         report += `Live: ${issue.liveBalance}, `;
         report += `Calculated: ${issue.calculatedBalance}, `;
         report += `Diff: ${issue.difference} (${issue.percentageDiff.toFixed(2)}%)\n`;

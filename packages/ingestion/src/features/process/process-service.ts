@@ -164,9 +164,9 @@ export class TransactionProcessingService {
       this.logger.debug(`Found pending records across ${accountIds.length} accounts`);
 
       // CRITICAL: Check for active imports before processing to prevent data corruption
-      const activeImportsCheck = await this.checkForIncompleteImports(accountIds);
-      if (activeImportsCheck.isErr()) {
-        return err(activeImportsCheck.error);
+      const incompleteImportsGuard = await this.assertNoIncompleteImports(accountIds);
+      if (incompleteImportsGuard.isErr()) {
+        return err(incompleteImportsGuard.error);
       }
 
       // Process each account
@@ -207,7 +207,7 @@ export class TransactionProcessingService {
   async processAccountTransactions(accountId: number): Promise<Result<BatchProcessSummary, Error>> {
     try {
       // CRITICAL: Check for active import before processing to prevent data corruption
-      const activeImportsCheck = await this.checkForIncompleteImports([accountId]);
+      const activeImportsCheck = await this.assertNoIncompleteImports([accountId]);
       if (activeImportsCheck.isErr()) {
         return err(activeImportsCheck.error);
       }
@@ -489,12 +489,11 @@ export class TransactionProcessingService {
           normalizedData = item.providerData;
         }
 
-        const dataPackage = {
+        processorInputs.push({
           raw: item.providerData,
           normalized: normalizedData,
           eventId: item.eventId || '',
-        };
-        processorInputs.push(dataPackage);
+        });
       } else {
         const normalizedData: unknown = item.normalizedData;
         const isEmpty = !normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0;
@@ -567,7 +566,7 @@ export class TransactionProcessingService {
    * @param accountIds - Account IDs to check for active imports
    * @returns Error if any active imports found, ok otherwise
    */
-  private async checkForIncompleteImports(accountIds: number[]): Promise<Result<void, Error>> {
+  private async assertNoIncompleteImports(accountIds: number[]): Promise<Result<void, Error>> {
     if (accountIds.length === 0) {
       return ok(undefined);
     }

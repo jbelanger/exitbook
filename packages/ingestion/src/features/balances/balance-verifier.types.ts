@@ -9,7 +9,6 @@ import type { BalancePartialFailure } from './balance-utils.js';
 export interface BalanceComparison {
   assetId: string; // Unique asset identity (e.g., blockchain:ethereum:0xa0b8...)
   assetSymbol: string; // Display symbol (e.g., USDC, ETH)
-  currency: string; // Deprecated: use assetSymbol for display, assetId for identity
   calculatedBalance: string;
   liveBalance: string;
   difference: string;

@@ -33,7 +33,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor<Bitcoi
    * Process normalized Bitcoin transactions with enhanced fund flow analysis.
    * Handles NormalizedBitcoinTransaction objects with structured input/output data.
    */
-  protected async processInternal(
+  protected async transformNormalizedData(
     normalizedData: BitcoinTransaction[],
     context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {

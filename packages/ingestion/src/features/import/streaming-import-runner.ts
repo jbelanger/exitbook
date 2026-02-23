@@ -16,7 +16,7 @@ import type { IImporter, ImportParams } from '../../shared/types/importers.js';
  * Handles importer creation, streaming, crash recovery, and database persistence.
  * Not exported - use ImportOrchestrator as the public API.
  */
-export class ImportExecutor {
+export class StreamingImportRunner {
   private logger: Logger;
 
   constructor(
@@ -27,7 +27,7 @@ export class ImportExecutor {
     private registry: AdapterRegistry,
     private eventBus?: EventBus<ImportEvent> | undefined
   ) {
-    this.logger = getLogger('ImportExecutor');
+    this.logger = getLogger('StreamingImportRunner');
   }
 
   /**

@@ -14,21 +14,21 @@ import { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import type { UtxoBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
 import { isUtxoAdapter } from '../../shared/types/blockchain-adapter.js';
 
-import { ImportExecutor } from './import-service.js';
+import { StreamingImportRunner } from './streaming-import-runner.js';
 
 /**
  * Public API for importing transactions from blockchains and exchanges.
  * Orchestrates the import process by coordinating user/account management
- * and delegating to ImportExecutor for the actual import work.
+ * and delegating to StreamingImportRunner for the actual import work.
  *
  * Responsibilities:
  * - Ensure default CLI user exists (id=1)
  * - Find or create account for the import
- * - Delegate to ImportExecutor for streaming import execution
+ * - Delegate to StreamingImportRunner for streaming import execution
  */
 export class ImportOrchestrator {
   private logger: Logger;
-  private importExecutor: ImportExecutor;
+  private importExecutor: StreamingImportRunner;
   private providerManager: BlockchainProviderManager;
   private registry: AdapterRegistry;
   private eventBus?: EventBus<ImportEvent> | undefined;
@@ -46,7 +46,7 @@ export class ImportOrchestrator {
     this.providerManager = providerManager;
     this.registry = registry;
     this.eventBus = eventBus;
-    this.importExecutor = new ImportExecutor(
+    this.importExecutor = new StreamingImportRunner(
       rawDataQueries,
       importSessionQueries,
       accountQueries,

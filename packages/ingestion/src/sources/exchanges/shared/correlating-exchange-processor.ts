@@ -45,7 +45,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     return RawTransactionWithMetadataSchema as z.ZodType<LedgerEntryWithRaw<TRaw>>;
   }
 
-  protected async processInternal(
+  protected async transformNormalizedData(
     normalizedData: LedgerEntryWithRaw<TRaw>[]
   ): Promise<Result<ProcessedTransaction[], string>> {
     const entries = normalizedData;

@@ -24,10 +24,6 @@ const logger = getLogger('evm-processor-utils');
  */
 const BEACON_WITHDRAWAL_PRINCIPAL_THRESHOLD = parseDecimal('32');
 
-export interface SelectionCriteria {
-  nativeCurrency: Currency;
-}
-
 /**
  * Consolidates duplicate assets by summing amounts for the same asset.
  *
@@ -70,7 +66,7 @@ export function consolidateEvmMovementsByAsset(movements: EvmMovement[]): EvmMov
  *
  * Returns null if no non-zero movements are found.
  */
-export function selectPrimaryEvmMovement(movements: EvmMovement[], criteria: SelectionCriteria): EvmMovement | null {
+export function selectPrimaryEvmMovement(movements: EvmMovement[], nativeCurrency: Currency): EvmMovement | null {
   // Find largest non-zero movement
   const largestMovement = movements
     .sort((a, b) => {
@@ -91,7 +87,7 @@ export function selectPrimaryEvmMovement(movements: EvmMovement[], criteria: Sel
     });
 
   // Fallback to native currency with zero amount if no non-zero movements found
-  return largestMovement ?? { asset: criteria.nativeCurrency, amount: '0' };
+  return largestMovement ?? { asset: nativeCurrency, amount: '0' };
 }
 
 /**
@@ -517,16 +513,12 @@ export function analyzeEvmFundFlow(
 
   // Select primary asset for simplified consumption and single-asset display
   // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions
-  const primaryFromInflows = selectPrimaryEvmMovement(consolidatedInflows, {
-    nativeCurrency: chainConfig.nativeCurrency,
-  });
+  const primaryFromInflows = selectPrimaryEvmMovement(consolidatedInflows, chainConfig.nativeCurrency);
 
   const primary: EvmMovement =
     primaryFromInflows && !isZeroDecimal(primaryFromInflows.amount)
       ? primaryFromInflows
-      : selectPrimaryEvmMovement(consolidatedOutflows, {
-          nativeCurrency: chainConfig.nativeCurrency,
-        }) || {
+      : selectPrimaryEvmMovement(consolidatedOutflows, chainConfig.nativeCurrency) || {
           asset: chainConfig.nativeCurrency,
           amount: '0',
         };

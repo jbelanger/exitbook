@@ -33,7 +33,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
   /**
    * Process normalized SubstrateTransaction data with sophisticated fund flow analysis
    */
-  protected async processInternal(
+  protected async transformNormalizedData(
     normalizedData: SubstrateTransaction[],
     context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {

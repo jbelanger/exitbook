@@ -36,7 +36,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
   /**
    * Process normalized CosmosTransaction data with sophisticated fund flow analysis
    */
-  protected async processInternal(
+  protected async transformNormalizedData(
     normalizedData: CosmosTransaction[],
     context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {

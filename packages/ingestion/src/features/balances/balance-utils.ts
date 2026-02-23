@@ -31,7 +31,7 @@ export interface BalancePartialFailure {
   rawAmount?: string | undefined;
 }
 
-export interface BalanceCoverageSnapshot {
+export interface BalanceCoverageStats {
   failedAddressCount?: number | undefined;
   parsedAssetCount?: number | undefined;
   requestedAddressCount?: number | undefined;
@@ -65,7 +65,7 @@ export interface UnifiedBalanceSnapshot {
   /** Source identifier (exchange name or blockchain + address) */
   sourceName: string;
   /** Coverage metadata for this snapshot */
-  coverage?: BalanceCoverageSnapshot | undefined;
+  coverage?: BalanceCoverageStats | undefined;
   /** Recoverable partial failures observed while building this snapshot */
   partialFailures?: BalancePartialFailure[] | undefined;
 }

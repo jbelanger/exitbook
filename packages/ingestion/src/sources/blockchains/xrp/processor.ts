@@ -29,7 +29,7 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
    * Process normalized XRP transactions with balance change analysis.
    * Handles XrpTransaction objects with balance change metadata.
    */
-  protected async processInternal(
+  protected async transformNormalizedData(
     normalizedData: XrpTransaction[],
     context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {

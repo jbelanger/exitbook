@@ -33,12 +33,12 @@ export class KucoinProcessor extends BaseTransactionProcessor {
   }
 
   // KuCoin CSV rows are a heterogeneous union dispatched at runtime via _rowType.
-  // No single Zod schema covers all variants; input is validated per-row in processInternal.
+  // No single Zod schema covers all variants; input is validated per-row in transformNormalizedData.
   protected get inputSchema() {
     return z.unknown();
   }
 
-  protected async processInternal(rawDataItems: unknown[]): Promise<Result<ProcessedTransaction[], string>> {
+  protected async transformNormalizedData(rawDataItems: unknown[]): Promise<Result<ProcessedTransaction[], string>> {
     const allTransactions: ProcessedTransaction[] = [];
     const accountHistoryRows: CsvAccountHistoryRow[] = [];
     const failures: { error: string; rowType: string }[] = [];
