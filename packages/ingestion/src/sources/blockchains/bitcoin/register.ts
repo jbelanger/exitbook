@@ -24,7 +24,7 @@ export const bitcoinAdapters: BlockchainAdapter[] = Object.keys(BITCOIN_CHAINS).
       new BitcoinTransactionImporter(config, providerManager, { preferredProvider }),
     createProcessor: ({ scamDetectionService }) => new BitcoinTransactionProcessor(config, scamDetectionService),
 
-    isExtendedPublicKey: (address: string) => isBitcoinXpub(address),
+    isExtendedPublicKey: isBitcoinXpub,
 
     deriveAddressesFromXpub: async (
       xpub: string,
@@ -43,7 +43,7 @@ export const bitcoinAdapters: BlockchainAdapter[] = Object.keys(BITCOIN_CHAINS).
         return err(initResult.error);
       }
 
-      const derivedAddresses = walletAddress.derivedAddresses || [];
+      const derivedAddresses = walletAddress.derivedAddresses ?? [];
       return ok(
         derivedAddresses.map((address: string, index: number) => ({
           address,

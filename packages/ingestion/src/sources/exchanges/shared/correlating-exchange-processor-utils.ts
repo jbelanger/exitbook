@@ -19,7 +19,7 @@ export function selectPrimaryMovement(
     assetSymbol: consolidatedInflows[0]?.assetSymbol || consolidatedOutflows[0]?.assetSymbol || 'UNKNOWN',
   };
 
-  const largestInflow = consolidatedInflows
+  const largestInflow = [...consolidatedInflows]
     .sort((a, b) => {
       try {
         return parseDecimal(b.grossAmount).comparedTo(parseDecimal(a.grossAmount));
@@ -39,7 +39,7 @@ export function selectPrimaryMovement(
       assetSymbol: largestInflow.assetSymbol,
     };
   } else {
-    const largestOutflow = consolidatedOutflows
+    const largestOutflow = [...consolidatedOutflows]
       .sort((a, b) => {
         try {
           return parseDecimal(b.grossAmount).comparedTo(parseDecimal(a.grossAmount));
@@ -157,19 +157,15 @@ export function consolidateExchangeFees(fees: FeeInput[]): FeeInput[] {
 export function classifyExchangeOperationFromFundFlow(fundFlow: ExchangeFundFlow): OperationClassification {
   const { inflows, outflows } = fundFlow;
 
-  // Pattern 1: Single asset swap
+  // Pattern 1: Single inflow + single outflow (swap or self-transfer)
   if (outflows.length === 1 && inflows.length === 1) {
-    const outAssetId = outflows[0]?.assetId;
-    const inAssetId = inflows[0]?.assetId;
-
-    if (outAssetId !== inAssetId) {
-      return {
-        operation: {
-          category: 'trade',
-          type: 'swap',
-        },
-      };
-    }
+    const isSameAsset = outflows[0]?.assetId === inflows[0]?.assetId;
+    return {
+      operation: {
+        category: isSameAsset ? 'transfer' : 'trade',
+        type: isSameAsset ? 'transfer' : 'swap',
+      },
+    };
   }
 
   // Pattern 2: Simple deposit
@@ -192,22 +188,7 @@ export function classifyExchangeOperationFromFundFlow(fundFlow: ExchangeFundFlow
     };
   }
 
-  // Pattern 4: Self-transfer (same asset in and out)
-  if (outflows.length === 1 && inflows.length === 1) {
-    const outAssetId = outflows[0]?.assetId;
-    const inAssetId = inflows[0]?.assetId;
-
-    if (outAssetId === inAssetId) {
-      return {
-        operation: {
-          category: 'transfer',
-          type: 'transfer',
-        },
-      };
-    }
-  }
-
-  // Pattern 5: Fee-only entry
+  // Pattern 4: Fee-only entry
   if (inflows.length === 0 && outflows.length === 0 && fundFlow.fees.length > 0) {
     return {
       operation: {
@@ -217,7 +198,7 @@ export function classifyExchangeOperationFromFundFlow(fundFlow: ExchangeFundFlow
     };
   }
 
-  // Pattern 6: Complex multi-asset transaction
+  // Pattern 5: Complex multi-asset transaction
   if (fundFlow.classificationUncertainty) {
     return {
       notes: [

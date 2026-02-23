@@ -36,7 +36,7 @@ const mockImportSession: ImportSession = {
   createdAt: new Date(),
 };
 
-vi.mock('../import-service.js', () => ({
+vi.mock('../streaming-import-runner.js', () => ({
   StreamingImportRunner: vi.fn().mockImplementation(function () {
     return {
       importFromSource: vi.fn().mockResolvedValue(ok(mockImportSession)),
@@ -118,8 +118,20 @@ describe('ImportOrchestrator', () => {
       update: vi.fn().mockResolvedValue(ok(undefined)),
     } as unknown as AccountQueries;
 
-    mockRawDataQueries = {} as RawDataQueries;
-    mockImportSessionQueries = {} as ImportSessionQueries;
+    mockRawDataQueries = {
+      saveBatch: vi.fn(),
+      load: vi.fn(),
+      countByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
+    } as unknown as RawDataQueries;
+    mockImportSessionQueries = {
+      create: vi.fn().mockResolvedValue(ok(mockImportSession)),
+      finalize: vi.fn().mockResolvedValue(ok(undefined)),
+      findByAccount: vi.fn().mockResolvedValue(ok([])),
+      findById: vi.fn().mockResolvedValue(ok(undefined)),
+      findCompletedWithMatchingParams: vi.fn().mockResolvedValue(ok(undefined)),
+      findLatestIncomplete: vi.fn().mockResolvedValue(ok(undefined)),
+      update: vi.fn().mockResolvedValue(ok(undefined)),
+    } as unknown as ImportSessionQueries;
     mockProviderManager = {} as BlockchainProviderManager;
 
     const registry = createTestRegistry();

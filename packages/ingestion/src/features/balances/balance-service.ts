@@ -116,8 +116,8 @@ export class BalanceService {
         logger.info(`Filtering ${spamAssetIds.size} scam assets from balance comparison`);
         liveBalances = this.removeAssetsById(liveBalances, spamAssetIds);
         calculatedBalances = this.removeAssetsById(calculatedBalances, spamAssetIds);
-        liveAssetMetadata = this.removeAssetMetadata(liveAssetMetadata, spamAssetIds);
-        calculatedAssetMetadata = this.removeAssetMetadata(calculatedAssetMetadata, spamAssetIds);
+        liveAssetMetadata = this.removeAssetsById(liveAssetMetadata, spamAssetIds);
+        calculatedAssetMetadata = this.removeAssetsById(calculatedAssetMetadata, spamAssetIds);
       }
 
       // 5. Compare balances (merge metadata from both calculated and live)
@@ -299,14 +299,9 @@ export class BalanceService {
     account: Account
   ): Promise<Result<{ assetMetadata: Record<string, string>; balances: Record<string, Decimal> }, Error>> {
     try {
-      // Get child accounts if this is a parent account (e.g., xpub)
-      const childAccountsResult = await this.accountQueries.findAll({ parentAccountId: account.id });
-      if (childAccountsResult.isErr()) {
-        return err(childAccountsResult.error);
-      }
-
-      const childAccounts = childAccountsResult.value;
-      const accountIds = [account.id, ...childAccounts.map((child) => child.id)];
+      const accountIdsResult = await this.resolveAccountScope(account);
+      if (accountIdsResult.isErr()) return err(accountIdsResult.error);
+      const accountIds = accountIdsResult.value;
 
       // Find sessions for all accounts in one query (avoids N+1)
       const sessionsResult: Result<ImportSession[], Error> = await this.sessionQueries.findByAccounts(accountIds);
@@ -343,9 +338,10 @@ export class BalanceService {
         return ok({ balances: {}, assetMetadata: {} });
       }
 
+      const childAccountCount = accountIds.length - 1;
       const accountInfo =
-        childAccounts.length > 0
-          ? `${account.sourceName} (parent + ${childAccounts.length} child accounts)`
+        childAccountCount > 0
+          ? `${account.sourceName} (parent + ${childAccountCount} child accounts)`
           : account.sourceName;
       logger.info(
         `Calculating balances from ${allTransactions.length} transactions across all completed sessions for ${accountInfo}`
@@ -427,14 +423,9 @@ export class BalanceService {
     account: Account
   ): Promise<Result<{ amounts: Record<string, Decimal>; spamAssetIds: Set<string> }, Error>> {
     try {
-      // Get child accounts if this is a parent account (e.g., xpub)
-      const childAccountsResult = await this.accountQueries.findAll({ parentAccountId: account.id });
-      if (childAccountsResult.isErr()) {
-        return err(childAccountsResult.error);
-      }
-
-      const childAccounts = childAccountsResult.value;
-      const accountIds = [account.id, ...childAccounts.map((child) => child.id)];
+      const accountIdsResult = await this.resolveAccountScope(account);
+      if (accountIdsResult.isErr()) return err(accountIdsResult.error);
+      const accountIds = accountIdsResult.value;
 
       // Find sessions for all accounts in one query (avoids N+1)
       const sessionsResult: Result<ImportSession[], Error> = await this.sessionQueries.findByAccounts(accountIds);
@@ -650,16 +641,12 @@ export class BalanceService {
   }
 
   /**
-   * Remove assets from metadata map.
+   * Resolve the full set of account IDs for an account (itself + child accounts).
    */
-  private removeAssetMetadata(assetMetadata: Record<string, string>, assetIds: Set<string>): Record<string, string> {
-    const filtered: Record<string, string> = {};
-    for (const [assetId, symbol] of Object.entries(assetMetadata)) {
-      if (!assetIds.has(assetId)) {
-        filtered[assetId] = symbol;
-      }
-    }
-    return filtered;
+  private async resolveAccountScope(account: Account): Promise<Result<number[], Error>> {
+    const childAccountsResult = await this.accountQueries.findAll({ parentAccountId: account.id });
+    if (childAccountsResult.isErr()) return err(childAccountsResult.error);
+    return ok([account.id, ...childAccountsResult.value.map((child) => child.id)]);
   }
 
   /**

@@ -12,11 +12,6 @@ import type { ProcessedTransaction, AddressContext } from '../../../shared/types
 
 import { analyzeBitcoinFundFlow } from './processor-utils.js';
 
-/**
- * Bitcoin transaction processor that converts raw blockchain transaction data
- * into ProcessedTransaction format. Uses ProcessorFactory to dispatch to provider-specific
- * processors based on data provenance. Optimized for multi-address processing using session context.
- */
 export class BitcoinTransactionProcessor extends BaseTransactionProcessor<BitcoinTransaction> {
   private readonly chainConfig: BitcoinChainConfig;
 
@@ -29,10 +24,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor<Bitcoi
     return BitcoinTransactionSchema;
   }
 
-  /**
-   * Process normalized Bitcoin transactions with enhanced fund flow analysis.
-   * Handles NormalizedBitcoinTransaction objects with structured input/output data.
-   */
   protected async transformNormalizedData(
     normalizedData: BitcoinTransaction[],
     context: AddressContext
@@ -42,7 +33,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor<Bitcoi
 
     for (const normalizedTx of normalizedData) {
       try {
-        // Perform enhanced fund flow analysis with structured input/output data
         const fundFlowResult = analyzeBitcoinFundFlow(normalizedTx, context);
 
         if (fundFlowResult.isErr()) {
@@ -54,9 +44,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor<Bitcoi
 
         const fundFlow = fundFlowResult.value;
 
-        // Store actual network fees for reporting
-        // For consistency with account-based blockchains, we record fees separately
-        // and subtract them from outflows to avoid double-counting
         const walletInputAmount = parseDecimal(fundFlow.walletInput);
         const walletOutputAmount = parseDecimal(fundFlow.walletOutput);
         const feeAmount = parseDecimal(normalizedTx.feeAmount || '0');
@@ -65,7 +52,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor<Bitcoi
         const shouldRecordFeeEntry = fundFlow.isOutgoing && !walletInputAmount.isZero();
         const effectiveFeeAmount = shouldRecordFeeEntry ? feeAmount : zeroDecimal;
 
-        // Build assetId for native asset
         const assetIdResult = buildBlockchainNativeAssetId(this.chainConfig.chainName);
         if (assetIdResult.isErr()) {
           const errorMsg = `Failed to build assetId: ${assetIdResult.error.message}`;
@@ -75,9 +61,8 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor<Bitcoi
         }
         const assetId = assetIdResult.value;
 
-        // Measure wallet spend in two views:
-        // - grossOutflow: balance impact (amount removed from wallet after accounting for change)
-        // - netOutflow: amount that actually left to external parties (excludes change, still excludes fees)
+        // grossOutflow: balance impact (amount removed from wallet after accounting for change)
+        // netOutflow: amount that actually left to external parties (excludes change and fees)
         let grossOutflowAmount = zeroDecimal;
         let netOutflowAmount = zeroDecimal;
 
@@ -96,11 +81,10 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor<Bitcoi
           }
         }
 
-        // Per-address model: include outputs to this address as inflows
         const includeWalletOutputAsInflow = !walletOutputAmount.isZero();
         const hasOutflow = !grossOutflowAmount.isZero();
 
-        const universalTransaction: ProcessedTransaction = {
+        const processedTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
@@ -110,11 +94,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor<Bitcoi
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,
 
-          // Structured movements from UTXO analysis
-          // - Outflow grossAmount captures the BTC removed from wallet balance (after removing change)
-          // - Outflow netAmount captures what actually left the wallet after on-chain fees
-          // - Inflows are only recorded for bona fide incoming funds (deposits / true transfers)
-          // Network fees remain explicit in the fees array
           movements: {
             outflows: hasOutflow
               ? [
@@ -164,7 +143,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor<Bitcoi
           },
         };
 
-        transactions.push(universalTransaction);
+        transactions.push(processedTransaction);
       } catch (error) {
         const errorMsg = `Error processing normalized transaction: ${String(error)}`;
         processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
@@ -173,12 +152,10 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor<Bitcoi
       }
     }
 
-    // Log processing summary
     const totalInputTransactions = normalizedData.length;
     const failedTransactions = processingErrors.length;
 
-    // STRICT MODE: Fail if ANY transactions could not be processed
-    // This is critical for portfolio accuracy - we cannot afford to silently drop transactions
+    // Fail hard if any transactions could not be processed - silently dropping would corrupt portfolio calculations
     if (processingErrors.length > 0) {
       this.logger.error(
         `CRITICAL PROCESSING FAILURE for Bitcoin:\n${processingErrors
