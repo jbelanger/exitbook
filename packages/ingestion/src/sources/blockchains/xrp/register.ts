@@ -13,7 +13,7 @@ export function registerXrpChains(): void {
 
     registerBlockchain({
       blockchain: chainName,
-      isUTXOChain: false,
+      chainModel: 'account-based',
       createImporter: (providerManager, preferredProvider) =>
         new XrpTransactionImporter(config, providerManager, { preferredProvider }),
       createProcessor: ({ scamDetectionService }) => new XrpTransactionProcessor(config, scamDetectionService),

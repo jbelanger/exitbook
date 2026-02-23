@@ -47,6 +47,7 @@ function createTransaction(overrides: Partial<CardanoTransaction> = {}): Cardano
   return {
     blockHeight: 9000000,
     currency: 'ADA',
+    eventId: '0xevent',
     feeAmount: '0.17',
     feeCurrency: 'ADA',
     id: 'tx-default',

@@ -9,6 +9,7 @@ import { SolanaTransactionProcessor } from './processor.js';
 export function registerSolanaChain(): void {
   registerBlockchain({
     blockchain: 'solana',
+    chainModel: 'account-based',
 
     normalizeAddress: (address: string) => normalizeSolanaAddress(address),
 

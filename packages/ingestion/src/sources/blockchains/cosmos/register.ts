@@ -14,6 +14,7 @@ export function registerCosmosChains(): void {
 
     registerBlockchain({
       blockchain: chainName,
+      chainModel: 'account-based',
 
       normalizeAddress: (address: string) => normalizeCosmosAddress(address, chainName),
 

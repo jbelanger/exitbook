@@ -10,6 +10,7 @@ import { NearTransactionProcessor } from './processor.js';
 export function registerNearChain(): void {
   registerBlockchain({
     blockchain: 'near',
+    chainModel: 'account-based',
 
     normalizeAddress: (address: string) => normalizeNearAddress(address),
 

@@ -15,7 +15,7 @@ import { CardanoTransactionProcessor } from './processor.js';
 export function registerCardanoChain(): void {
   registerBlockchain({
     blockchain: 'cardano',
-    isUTXOChain: true,
+    chainModel: 'utxo',
 
     normalizeAddress: (address: string) => normalizeCardanoAddress(address),
 

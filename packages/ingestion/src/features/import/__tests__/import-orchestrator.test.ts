@@ -63,6 +63,7 @@ const mockDeriveAddressesResult = vi.fn(async (...args: Parameters<DeriveAddress
 
 interface MockBlockchainConfig {
   blockchain: string;
+  chainModel: 'account-based' | 'utxo';
   createImporter: ReturnType<typeof vi.fn>;
   createProcessor: ReturnType<typeof vi.fn>;
   deriveAddressesFromXpub?: typeof mockDeriveAddressesResult;
@@ -82,6 +83,8 @@ vi.mock('../../../shared/types/blockchain-adapter.js', () => ({
   getAllBlockchains: () => Array.from(mockAdaptersRegistry.keys()),
   hasBlockchainAdapter: (id: string) => mockAdaptersRegistry.has(id),
   clearBlockchainAdapters: () => mockAdaptersRegistry.clear(),
+  isUtxoAdapter: (adapter: { blockchain: string }) =>
+    adapter.blockchain === 'bitcoin' || adapter.blockchain === 'cardano',
 }));
 
 describe('ImportOrchestrator', () => {
@@ -101,6 +104,7 @@ describe('ImportOrchestrator', () => {
 
     registerBlockchain({
       blockchain: 'bitcoin',
+      chainModel: 'utxo',
       normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
       isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
       deriveAddressesFromXpub: mockDeriveAddressesResult,
@@ -110,6 +114,7 @@ describe('ImportOrchestrator', () => {
 
     registerBlockchain({
       blockchain: 'cardano',
+      chainModel: 'utxo',
       normalizeAddress: (addr: string) => ok(addr),
       isExtendedPublicKey: (addr: string) =>
         addr.startsWith('stake') || addr.startsWith('xpub') || addr.startsWith('addr_xvk'),
@@ -120,6 +125,7 @@ describe('ImportOrchestrator', () => {
 
     registerBlockchain({
       blockchain: 'ethereum',
+      chainModel: 'account-based',
       normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
       createImporter: vi.fn(),
       createProcessor: vi.fn(),

@@ -14,6 +14,7 @@ export function registerSubstrateChains(): void {
 
     registerBlockchain({
       blockchain: chainName,
+      chainModel: 'account-based',
 
       normalizeAddress: (address: string) => normalizeSubstrateAddress(address, chainName),
 

@@ -646,6 +646,7 @@ describe('NearTransactionProcessor', () => {
         absoluteStakedAmount: '0',
         timestamp: 1640000000,
         blockHeight: '12345',
+        transactionHash: 'tx1',
       };
 
       const events: NearStreamEvent[] = [

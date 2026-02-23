@@ -10,8 +10,8 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import type { ImportEvent } from '../../events.js';
-import type { BlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
-import { getBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
+import type { UtxoBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
+import { getBlockchainAdapter, isUtxoAdapter } from '../../shared/types/blockchain-adapter.js';
 
 import { ImportExecutor } from './import-service.js';
 
@@ -84,15 +84,12 @@ export class ImportOrchestrator {
     const normalizedAddress = normalizedAddressResult.value;
 
     // 3. Check if address is an extended public key (xpub)
-    const isXpub = blockchainAdapter.isExtendedPublicKey?.(normalizedAddress) ?? false;
-
-    if (isXpub && blockchainAdapter.deriveAddressesFromXpub) {
-      // Handle xpub: create parent account + child accounts for derived addresses
+    if (isUtxoAdapter(blockchainAdapter) && blockchainAdapter.isExtendedPublicKey(normalizedAddress)) {
       return this.importFromXpub(user.id, blockchain, normalizedAddress, blockchainAdapter, providerName, xpubGap);
     }
 
     // Warn if xpubGap was provided but address is not an xpub
-    if (xpubGap !== undefined && !isXpub) {
+    if (xpubGap !== undefined) {
       this.logger.warn(
         `--xpub-gap was provided but address is not an extended public key (xpub). The flag will be ignored.`
       );
@@ -238,16 +235,12 @@ export class ImportOrchestrator {
     userId: number,
     blockchain: string,
     xpub: string,
-    blockchainAdapter: BlockchainAdapter | undefined,
+    blockchainAdapter: UtxoBlockchainAdapter,
     providerName?: string,
     xpubGap?: number
   ): Promise<Result<ImportSession[], Error>> {
     const startTime = Date.now();
     const requestedGap = xpubGap ?? 20; // Default gap limit
-
-    if (!blockchainAdapter?.deriveAddressesFromXpub) {
-      return err(new Error(`Blockchain ${blockchain} does not support xpub derivation`));
-    }
 
     this.logger.debug(`Processing xpub import for ${blockchain}`);
 

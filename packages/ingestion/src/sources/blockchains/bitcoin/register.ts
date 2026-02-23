@@ -21,7 +21,7 @@ export function registerBitcoinChains(): void {
 
     registerBlockchain({
       blockchain: chainName,
-      isUTXOChain: true,
+      chainModel: 'utxo',
       createImporter: (providerManager, preferredProvider) =>
         new BitcoinTransactionImporter(config, providerManager, { preferredProvider }),
       createProcessor: ({ scamDetectionService }) => new BitcoinTransactionProcessor(config, scamDetectionService),

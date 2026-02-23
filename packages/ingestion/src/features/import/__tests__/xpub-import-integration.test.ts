@@ -41,7 +41,10 @@ vi.mock('@exitbook/logger', () => ({
 const mockProviderManager = {} as BlockchainProviderManager;
 
 // Mock derive addresses function
-interface DerivedAddressMock { address: string; derivationPath: string }
+interface DerivedAddressMock {
+  address: string;
+  derivationPath: string;
+}
 type DeriveAddressesFn = (
   xpub: string,
   providerManager: BlockchainProviderManager,
@@ -76,6 +79,8 @@ vi.mock('../../../shared/types/blockchain-adapter.js', () => ({
   getAllBlockchains: () => Array.from(mockAdaptersRegistry.keys()),
   hasBlockchainAdapter: (id: string) => mockAdaptersRegistry.has(id),
   clearBlockchainAdapters: () => mockAdaptersRegistry.clear(),
+  isUtxoAdapter: (adapter: { blockchain: string }) =>
+    adapter.blockchain === 'bitcoin' || adapter.blockchain === 'cardano',
 }));
 
 vi.mock('../../../shared/types/exchange-adapter.js', () => ({
@@ -101,6 +106,7 @@ describe('xpub import integration tests', () => {
 
     registerBlockchain({
       blockchain: 'bitcoin',
+      chainModel: 'utxo',
       normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
       isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
       deriveAddressesFromXpub: mockDeriveAddressesResult,
@@ -112,6 +118,7 @@ describe('xpub import integration tests', () => {
 
     registerBlockchain({
       blockchain: 'cardano',
+      chainModel: 'utxo',
       normalizeAddress: (addr: string) => ok(addr),
       isExtendedPublicKey: (addr: string) => addr.startsWith('stake') || addr.startsWith('addr_xvk'),
       deriveAddressesFromXpub: mockDeriveAddressesResult,

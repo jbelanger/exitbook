@@ -51,7 +51,9 @@ export {
   getAllBlockchains,
   hasBlockchainAdapter as hasBlockchainConfig,
   clearBlockchainAdapters,
+  isUtxoAdapter,
   type BlockchainAdapter as BlockchainConfig,
+  type UtxoBlockchainAdapter,
 } from './shared/types/blockchain-adapter.js';
 
 // Exchange configuration

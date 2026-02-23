@@ -14,6 +14,7 @@ export function registerEvmChains(): void {
 
     registerBlockchain({
       blockchain: chainName,
+      chainModel: 'account-based',
 
       normalizeAddress: (address: string) => normalizeEvmAddress(address, chainName),
 

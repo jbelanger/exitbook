@@ -21,35 +21,32 @@ export interface ProcessorDeps {
   accountId: number;
 }
 
-export interface BlockchainAdapter {
+interface BlockchainAdapterBase {
   blockchain: string;
   normalizeAddress: (address: string) => Result<string, Error>;
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) => IImporter;
   createProcessor: (deps: ProcessorDeps) => ITransactionProcessor;
+}
 
-  /**
-   * Indicates whether this blockchain uses the UTXO model (Bitcoin, Cardano).
-   * UTXO chains store one transaction record per (address, tx_hash) without deduplication.
-   * Account-based chains (Solana, NEAR, Substrate) require deduplication and use derivedAddresses.
-   */
-  isUTXOChain?: boolean;
+export interface AccountBasedBlockchainAdapter extends BlockchainAdapterBase {
+  chainModel: 'account-based';
+}
 
-  /**
-   * Check if an address is an extended public key (xpub/ypub/zpub for Bitcoin, xpub for Cardano)
-   * Optional - only implemented for blockchains that support xpub
-   */
-  isExtendedPublicKey?: (address: string) => boolean;
-
-  /**
-   * Derive child addresses from an extended public key
-   * Optional - only implemented for blockchains that support xpub
-   */
-  deriveAddressesFromXpub?: (
+export interface UtxoBlockchainAdapter extends BlockchainAdapterBase {
+  chainModel: 'utxo';
+  isExtendedPublicKey: (address: string) => boolean;
+  deriveAddressesFromXpub: (
     xpub: string,
     providerManager: BlockchainProviderManager,
     blockchain: string,
     gap?: number
   ) => Promise<Result<DerivedAddress[], Error>>;
+}
+
+export type BlockchainAdapter = AccountBasedBlockchainAdapter | UtxoBlockchainAdapter;
+
+export function isUtxoAdapter(adapter: BlockchainAdapter): adapter is UtxoBlockchainAdapter {
+  return adapter.chainModel === 'utxo';
 }
 
 const adapters = new Map<string, BlockchainAdapter>();

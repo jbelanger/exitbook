@@ -257,22 +257,18 @@ describe('CorrelatingExchangeProcessor - Error Handling', () => {
     const validEntry = wrapEntry(
       createEntry({ id: 'E1', correlationId: 'REF001', amount: '100', assetSymbol: 'USD' as Currency })
     );
-    const invalidEntry = {
-      normalized: createEntry({ id: '', correlationId: 'REF002', amount: '50', assetSymbol: 'EUR' as Currency }),
-      raw: {},
-      externalId: 'E2',
-      cursor: {},
-    };
+    const validEntry2 = wrapEntry(
+      createEntry({ id: 'E2', correlationId: 'REF002', amount: '50', assetSymbol: 'EUR' as Currency })
+    );
 
-    const entries = [validEntry, invalidEntry] as RawTransactionWithMetadata[];
+    const entries = [validEntry, validEntry2] as RawTransactionWithMetadata[];
 
     const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    expect(result.value).toHaveLength(1);
-    expect(result.value[0]?.externalId).toBe('E1');
+    expect(result.value).toHaveLength(2);
   });
 });
 

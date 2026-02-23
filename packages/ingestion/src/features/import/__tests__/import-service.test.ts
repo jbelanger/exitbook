@@ -132,6 +132,7 @@ describe('ImportExecutor', () => {
 
     registerBlockchain({
       blockchain: 'bitcoin',
+      chainModel: 'account-based',
       normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
       createImporter: () => ({
         import: mockImportFn,
@@ -142,6 +143,7 @@ describe('ImportExecutor', () => {
 
     registerBlockchain({
       blockchain: 'ethereum',
+      chainModel: 'account-based',
       normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
       createImporter: () => ({
         import: mockImportFn,
