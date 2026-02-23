@@ -67,13 +67,10 @@ export class EvmImporter implements IImporter {
 
     const address = params.address;
 
-    if (params.cursor) {
-      this.logger.info(
-        `Starting ${this.chainConfig.chainName} streaming import for ${address.substring(0, 20)}... (resuming from cursor)`
-      );
-    } else {
-      this.logger.info(`Starting ${this.chainConfig.chainName} streaming import for ${address.substring(0, 20)}...`);
-    }
+    const resumeNote = params.cursor ? ' (resuming from cursor)' : '';
+    this.logger.info(
+      `Starting ${this.chainConfig.chainName} streaming import for ${address.substring(0, 20)}...${resumeNote}`
+    );
 
     try {
       // Loop through all transaction types in deterministic order
@@ -154,7 +151,7 @@ export class EvmImporter implements IImporter {
       );
 
       yield ok({
-        rawTransactions: rawTransactions,
+        rawTransactions,
         streamType,
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,

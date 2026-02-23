@@ -64,7 +64,7 @@ export function consolidateEvmMovementsByAsset(movements: EvmMovement[]): EvmMov
  * Pure function that prioritizes the largest non-zero movement. Used to provide a simplified
  * summary of complex multi-asset transactions by identifying the most significant asset flow.
  *
- * Returns null if no non-zero movements are found.
+ * Returns a zero-amount native currency movement if no non-zero movements are found.
  */
 export function selectPrimaryEvmMovement(movements: EvmMovement[], nativeCurrency: Currency): EvmMovement | null {
   // Find largest non-zero movement
@@ -116,13 +116,10 @@ export function determineEvmOperationFromFundFlow(
 
   // Pattern 0: Beacon withdrawal (Ethereum post-Shanghai consensus layer withdrawals)
   // Apply smart tax classification based on 32 ETH threshold (Product Decision #1)
-  const hasBeaconWithdrawal = txGroup.some((tx) => tx.type === 'beacon_withdrawal');
-  if (hasBeaconWithdrawal) {
+  const beaconTx = txGroup.find((tx) => tx.type === 'beacon_withdrawal');
+  if (beaconTx) {
     // Check if withdrawal amount exceeds the principal threshold
     const isPrincipalReturn = amount.gte(BEACON_WITHDRAWAL_PRINCIPAL_THRESHOLD);
-
-    // Extract withdrawal metadata from the beacon withdrawal transaction
-    const beaconTx = txGroup.find((tx) => tx.type === 'beacon_withdrawal');
     const withdrawalMetadata: Record<string, unknown> = {
       amount: amount.toFixed(),
       needsReview: isPrincipalReturn,
@@ -130,16 +127,14 @@ export function determineEvmOperationFromFundFlow(
     };
 
     // Include withdrawal-specific metadata if available
-    if (beaconTx) {
-      if (beaconTx.withdrawalIndex !== undefined) {
-        withdrawalMetadata['withdrawalIndex'] = beaconTx.withdrawalIndex;
-      }
-      if (beaconTx.validatorIndex !== undefined) {
-        withdrawalMetadata['validatorIndex'] = beaconTx.validatorIndex;
-      }
-      if (beaconTx.blockHeight !== undefined) {
-        withdrawalMetadata['blockHeight'] = beaconTx.blockHeight;
-      }
+    if (beaconTx.withdrawalIndex !== undefined) {
+      withdrawalMetadata['withdrawalIndex'] = beaconTx.withdrawalIndex;
+    }
+    if (beaconTx.validatorIndex !== undefined) {
+      withdrawalMetadata['validatorIndex'] = beaconTx.validatorIndex;
+    }
+    if (beaconTx.blockHeight !== undefined) {
+      withdrawalMetadata['blockHeight'] = beaconTx.blockHeight;
     }
 
     return {
@@ -356,8 +351,7 @@ export function analyzeEvmFundFlow(
   const inflows: EvmMovement[] = [];
   const outflows: EvmMovement[] = [];
 
-  let fromAddress = '';
-  let toAddress: string | undefined = '';
+  const addressState = { fromAddress: '', toAddress: undefined as string | undefined };
 
   // Process all token transfers involving the user
   for (const tx of txGroup) {
@@ -376,61 +370,29 @@ export function analyzeEvmFundFlow(
       }
       const amount = amountResult.value;
 
-      // Skip zero amounts
       if (isZeroDecimal(amount)) {
         continue;
       }
 
       const fromMatches = matchesEvmAddress(tx.from, userAddress);
       const toMatches = matchesEvmAddress(tx.to, userAddress);
+      const movement: EvmMovement = {
+        amount,
+        asset: tokenSymbol,
+        tokenAddress: tx.tokenAddress,
+        tokenDecimals: tx.tokenDecimals,
+      };
 
       // For self-transfers (user -> user), track both inflow and outflow
       if (fromMatches && toMatches) {
-        const movement: EvmMovement = {
-          amount,
-          asset: tokenSymbol,
-          tokenAddress: tx.tokenAddress,
-          tokenDecimals: tx.tokenDecimals,
-        };
         inflows.push(movement);
         outflows.push({ ...movement });
       } else {
-        if (toMatches) {
-          // User received this token
-          const inflow: EvmMovement = {
-            amount,
-            asset: tokenSymbol,
-            tokenAddress: tx.tokenAddress,
-            tokenDecimals: tx.tokenDecimals,
-          };
-          inflows.push(inflow);
-        }
-
-        if (fromMatches) {
-          // User sent this token
-          const outflow: EvmMovement = {
-            amount,
-            asset: tokenSymbol,
-            tokenAddress: tx.tokenAddress,
-            tokenDecimals: tx.tokenDecimals,
-          };
-          outflows.push(outflow);
-        }
+        if (toMatches) inflows.push(movement);
+        if (fromMatches) outflows.push(movement);
       }
 
-      // Track addresses
-      if (!fromAddress && fromMatches) {
-        fromAddress = tx.from;
-      }
-      if (!toAddress && toMatches) {
-        toAddress = tx.to;
-      }
-      if (!fromAddress) {
-        fromAddress = tx.from;
-      }
-      if (!toAddress) {
-        toAddress = tx.to;
-      }
+      updateAddressTracking(tx, fromMatches, toMatches, addressState);
     }
   }
 
@@ -446,66 +408,35 @@ export function analyzeEvmFundFlow(
       }
       const normalizedAmount = normalizedAmountResult.value;
 
-      // Skip zero amounts
       if (isZeroDecimal(normalizedAmount)) {
         continue;
       }
 
       const fromMatches = matchesEvmAddress(tx.from, userAddress);
       const toMatches = matchesEvmAddress(tx.to, userAddress);
+      const movement: EvmMovement = { amount: normalizedAmount, asset: chainConfig.nativeCurrency };
 
       // For self-transfers (user -> user), track both inflow and outflow
       if (fromMatches && toMatches) {
-        const movement = {
-          amount: normalizedAmount,
-          asset: chainConfig.nativeCurrency,
-        };
         inflows.push(movement);
         outflows.push({ ...movement });
       } else {
-        if (toMatches) {
-          // User received native currency
-          inflows.push({
-            amount: normalizedAmount,
-            asset: chainConfig.nativeCurrency,
-          });
-        }
-
-        if (fromMatches) {
-          // User sent native currency
-          outflows.push({
-            amount: normalizedAmount,
-            asset: chainConfig.nativeCurrency,
-          });
-        }
+        if (toMatches) inflows.push(movement);
+        if (fromMatches) outflows.push(movement);
       }
 
-      // Track addresses
-      if (!fromAddress && fromMatches) {
-        fromAddress = tx.from;
-      }
-      if (!toAddress && toMatches) {
-        toAddress = tx.to;
-      }
-      if (!fromAddress) {
-        fromAddress = tx.from;
-      }
-      if (!toAddress) {
-        toAddress = tx.to;
-      }
+      updateAddressTracking(tx, fromMatches, toMatches, addressState);
     }
   }
 
   // Final fallback: use first transaction to populate addresses
   const primaryTx = txGroup[0];
   if (primaryTx) {
-    if (!fromAddress) {
-      fromAddress = primaryTx.from;
-    }
-    if (!toAddress) {
-      toAddress = primaryTx.to;
-    }
+    if (!addressState.fromAddress) addressState.fromAddress = primaryTx.from;
+    if (!addressState.toAddress) addressState.toAddress = primaryTx.to;
   }
+
+  const { fromAddress, toAddress } = addressState;
 
   // Consolidate duplicate assets (sum amounts for same asset)
   const consolidatedInflows = consolidateEvmMovementsByAsset(inflows);
@@ -617,14 +548,14 @@ export function isEvmUserParticipant(tx: EvmTransaction, userAddress: string): b
  */
 export function isEvmNativeMovement(tx: EvmTransaction, chainConfig: EvmChainConfig): boolean {
   const native = chainConfig.nativeCurrency.toLowerCase();
-  return tx.currency.toLowerCase() === native || (tx.tokenSymbol ? tx.tokenSymbol.toLowerCase() === native : false);
+  return tx.currency.toLowerCase() === native || tx.tokenSymbol?.toLowerCase() === native;
 }
 
 /**
  * Checks if a decimal value is zero.
  *
  * Pure function that safely parses and checks for zero values.
- * Returns true if the value is zero, undefined, or cannot be parsed.
+ * Returns true if the value is zero, empty, or cannot be parsed.
  */
 export function isZeroDecimal(value: string): boolean {
   try {
@@ -633,4 +564,20 @@ export function isZeroDecimal(value: string): boolean {
     logger.warn({ error, value }, 'Failed to parse decimal value, treating as zero');
     return true;
   }
+}
+
+/**
+ * Updates address tracking variables based on transaction participants.
+ * Prefers setting fromAddress/toAddress when the user is the matching party.
+ */
+function updateAddressTracking(
+  tx: { from: string; to?: string | undefined },
+  fromMatches: boolean,
+  toMatches: boolean,
+  state: { fromAddress: string; toAddress: string | undefined }
+): void {
+  if (!state.fromAddress && fromMatches) state.fromAddress = tx.from;
+  if (!state.toAddress && toMatches) state.toAddress = tx.to;
+  if (!state.fromAddress) state.fromAddress = tx.from;
+  if (!state.toAddress) state.toAddress = tx.to;
 }

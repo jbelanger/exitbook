@@ -10,6 +10,7 @@ import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,
   parseDecimal,
+  type Currency,
   type TokenMetadataRecord,
 } from '@exitbook/core';
 import { err, okAsync, ok, type Result } from 'neverthrow';
@@ -115,58 +116,26 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
       }
 
       // Build movements with assetId
-      let hasAssetIdError = false;
-      const inflows = [];
-      for (const inflow of fundFlow.inflows) {
-        const assetIdResult = this.buildEvmAssetId(inflow, hash);
-        if (assetIdResult.isErr()) {
-          const errorMsg = `Failed to build assetId for inflow: ${assetIdResult.error.message}`;
-          processingErrors.push({ error: errorMsg, hash, txCount: txGroup.length });
-          this.logger.error(
-            `${errorMsg} for ${this.chainConfig.chainName} transaction ${hash} - THIS TRANSACTION GROUP WILL BE LOST`
-          );
-          hasAssetIdError = true;
-          break;
-        }
-
-        const amount = parseDecimal(inflow.amount);
-        inflows.push({
-          assetId: assetIdResult.value,
-          assetSymbol: inflow.asset,
-          grossAmount: amount,
-          netAmount: amount,
-        });
-      }
-
-      if (hasAssetIdError) {
+      const inflowsResult = this.buildMovements(fundFlow.inflows, hash, 'inflow');
+      if (inflowsResult.isErr()) {
+        processingErrors.push({ error: inflowsResult.error, hash, txCount: txGroup.length });
+        this.logger.error(
+          `${inflowsResult.error} for ${this.chainConfig.chainName} transaction ${hash} - THIS TRANSACTION GROUP WILL BE LOST`
+        );
         continue;
       }
 
-      const outflows = [];
-      for (const outflow of fundFlow.outflows) {
-        const assetIdResult = this.buildEvmAssetId(outflow, hash);
-        if (assetIdResult.isErr()) {
-          const errorMsg = `Failed to build assetId for outflow: ${assetIdResult.error.message}`;
-          processingErrors.push({ error: errorMsg, hash, txCount: txGroup.length });
-          this.logger.error(
-            `${errorMsg} for ${this.chainConfig.chainName} transaction ${hash} - THIS TRANSACTION GROUP WILL BE LOST`
-          );
-          hasAssetIdError = true;
-          break;
-        }
-
-        const amount = parseDecimal(outflow.amount);
-        outflows.push({
-          assetId: assetIdResult.value,
-          assetSymbol: outflow.asset,
-          grossAmount: amount,
-          netAmount: amount,
-        });
-      }
-
-      if (hasAssetIdError) {
+      const outflowsResult = this.buildMovements(fundFlow.outflows, hash, 'outflow');
+      if (outflowsResult.isErr()) {
+        processingErrors.push({ error: outflowsResult.error, hash, txCount: txGroup.length });
+        this.logger.error(
+          `${outflowsResult.error} for ${this.chainConfig.chainName} transaction ${hash} - THIS TRANSACTION GROUP WILL BE LOST`
+        );
         continue;
       }
+
+      const inflows = inflowsResult.value;
+      const outflows = outflowsResult.value;
 
       // Build fee assetId (always native asset for EVM)
       const feeAssetIdResult = buildBlockchainNativeAssetId(this.chainConfig.chainName);
@@ -386,6 +355,40 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
     const isContract = result.value.data.isContract;
     this.contractAddressCache.set(address, isContract);
     return isContract;
+  }
+
+  /**
+   * Build a list of asset movements from fund flow movements, resolving each assetId.
+   * Returns an error string if any movement fails assetId resolution.
+   */
+  private buildMovements(
+    movements: { amount: string; asset: Currency; tokenAddress?: string | undefined }[],
+    hash: string,
+    direction: 'inflow' | 'outflow'
+  ): Result<
+    {
+      assetId: string;
+      assetSymbol: Currency;
+      grossAmount: ReturnType<typeof parseDecimal>;
+      netAmount: ReturnType<typeof parseDecimal>;
+    }[],
+    string
+  > {
+    const built: {
+      assetId: string;
+      assetSymbol: Currency;
+      grossAmount: ReturnType<typeof parseDecimal>;
+      netAmount: ReturnType<typeof parseDecimal>;
+    }[] = [];
+    for (const movement of movements) {
+      const assetIdResult = this.buildEvmAssetId(movement, hash);
+      if (assetIdResult.isErr()) {
+        return err(`Failed to build assetId for ${direction}: ${assetIdResult.error.message}`);
+      }
+      const amount = parseDecimal(movement.amount);
+      built.push({ assetId: assetIdResult.value, assetSymbol: movement.asset, grossAmount: amount, netAmount: amount });
+    }
+    return ok(built);
   }
 
   /**
