@@ -1,4 +1,5 @@
-import type { ExchangeLedgerEntry } from '@exitbook/exchange-providers';
+import { ExchangeLedgerEntrySchema, type ExchangeLedgerEntry } from '@exitbook/exchange-providers';
+import { z } from 'zod';
 
 /**
  * Represents a transaction with both raw exchange-specific data and normalized common data.
@@ -15,6 +16,13 @@ export interface RawTransactionWithMetadata<TRaw = unknown> {
   /** Cursor for resuming imports */
   cursor: Record<string, number>;
 }
+
+export const RawTransactionWithMetadataSchema = z.object({
+  raw: z.unknown(),
+  normalized: ExchangeLedgerEntrySchema,
+  eventId: z.string(),
+  cursor: z.record(z.string(), z.number()),
+});
 
 /**
  * Strategy for grouping ledger entries into atomic transactions.

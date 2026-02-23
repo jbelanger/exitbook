@@ -2,6 +2,7 @@ export {
   byCorrelationId,
   byTimestamp,
   noGrouping,
+  RawTransactionWithMetadataSchema,
   type GroupingStrategy,
   type RawTransactionWithMetadata,
 } from './grouping.js';

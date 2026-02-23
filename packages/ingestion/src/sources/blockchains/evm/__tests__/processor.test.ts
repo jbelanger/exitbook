@@ -1082,7 +1082,7 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
     expect(result.value[0].operation.type).toBe('deposit');
   });
 
-  test('skips transactions without valid id', async () => {
+  test('rejects transactions with invalid (empty) id', async () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
@@ -1097,11 +1097,11 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
       userAddresses: [USER_ADDRESS],
     });
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    // Schema validation catches malformed data before processInternal runs
+    expect(result.isErr()).toBe(true);
+    if (!result.isErr()) return;
 
-    // Should skip transaction with invalid ID
-    expect(result.value).toHaveLength(0);
+    expect(result.error).toContain('Input validation failed');
   });
 });
 

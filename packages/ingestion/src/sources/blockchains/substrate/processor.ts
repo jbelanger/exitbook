@@ -1,4 +1,8 @@
-import type { SubstrateTransaction, SubstrateChainConfig } from '@exitbook/blockchain-providers';
+import {
+  type SubstrateTransaction,
+  type SubstrateChainConfig,
+  SubstrateTransactionSchema,
+} from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
@@ -18,7 +22,7 @@ import {
  * Substrate-based chains. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance.
  */
-export class SubstrateProcessor extends BaseTransactionProcessor {
+export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransaction> {
   private chainConfig: SubstrateChainConfig;
 
   constructor(chainConfig: SubstrateChainConfig, scamDetectionService?: IScamDetectionService) {
@@ -26,18 +30,21 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     this.chainConfig = chainConfig;
   }
 
+  protected get inputSchema() {
+    return SubstrateTransactionSchema;
+  }
+
   /**
    * Process normalized SubstrateTransaction data with sophisticated fund flow analysis
    */
   protected async processInternal(
-    normalizedData: unknown[],
+    normalizedData: SubstrateTransaction[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
-    for (const item of normalizedData) {
-      const normalizedTx = item as SubstrateTransaction;
+    for (const normalizedTx of normalizedData) {
       try {
         const fundFlowResult = analyzeFundFlowFromNormalized(normalizedTx, context, this.chainConfig);
         if (fundFlowResult.isErr()) {

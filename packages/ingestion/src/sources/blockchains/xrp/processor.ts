@@ -1,4 +1,4 @@
-import type { XrpChainConfig, XrpTransaction } from '@exitbook/blockchain-providers';
+import { type XrpChainConfig, type XrpTransaction, XrpTransactionSchema } from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, parseDecimal, type Currency } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
@@ -13,7 +13,7 @@ import { analyzeXrpFundFlow, determineXrpTransactionType } from './processor-uti
  * into ProcessedTransaction format. Uses balance changes from transaction metadata
  * to determine fund flow and net effect on wallet balance.
  */
-export class XrpTransactionProcessor extends BaseTransactionProcessor {
+export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransaction> {
   private readonly chainConfig: XrpChainConfig;
 
   constructor(chainConfig: XrpChainConfig, scamDetectionService?: IScamDetectionService) {
@@ -21,20 +21,22 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor {
     this.chainConfig = chainConfig;
   }
 
+  protected get inputSchema() {
+    return XrpTransactionSchema;
+  }
+
   /**
    * Process normalized XRP transactions with balance change analysis.
    * Handles XrpTransaction objects with balance change metadata.
    */
   protected async processInternal(
-    normalizedData: unknown[],
+    normalizedData: XrpTransaction[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
-    for (const item of normalizedData) {
-      const normalizedTx = item as XrpTransaction;
-
+    for (const normalizedTx of normalizedData) {
       try {
         // Perform fund flow analysis using balance changes
         const fundFlowResult = analyzeXrpFundFlow(normalizedTx, context);

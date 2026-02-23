@@ -1,4 +1,8 @@
-import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/blockchain-providers';
+import {
+  type CosmosChainConfig,
+  type CosmosTransaction,
+  CosmosTransactionSchema,
+} from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
@@ -21,7 +25,7 @@ import {
  * Uses ProcessorFactory to dispatch to provider-specific processors based on data provenance.
  * Enhanced with sophisticated fund flow analysis.
  */
-export class CosmosProcessor extends BaseTransactionProcessor {
+export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction> {
   private chainConfig: CosmosChainConfig;
 
   constructor(chainConfig: CosmosChainConfig, scamDetectionService?: IScamDetectionService) {
@@ -29,16 +33,20 @@ export class CosmosProcessor extends BaseTransactionProcessor {
     this.chainConfig = chainConfig;
   }
 
+  protected get inputSchema() {
+    return CosmosTransactionSchema;
+  }
+
   /**
    * Process normalized CosmosTransaction data with sophisticated fund flow analysis
    */
   protected async processInternal(
-    normalizedData: unknown[],
+    normalizedData: CosmosTransaction[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     // Deduplicate by eventId (handles cases like Peggy deposits where multiple validators
     // submit the same deposit claim as different tx hashes but represent the same logical event)
-    const deduplicatedData = deduplicateByEventId(normalizedData as CosmosTransaction[]);
+    const deduplicatedData = deduplicateByEventId(normalizedData);
     if (deduplicatedData.length < normalizedData.length) {
       this.logger.info(
         `Deduplicated ${normalizedData.length - deduplicatedData.length} transactions by eventId (${normalizedData.length} → ${deduplicatedData.length})`

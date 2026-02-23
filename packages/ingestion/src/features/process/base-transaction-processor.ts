@@ -2,6 +2,7 @@ import type { TokenMetadataRecord } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import { type Result, err, ok } from 'neverthrow';
+import type { z } from 'zod';
 
 import type { ITransactionProcessor, ProcessingContext, ProcessedTransaction } from '../../shared/types/processors.js';
 import { ProcessedTransactionSchema } from '../../shared/types/processors.js';
@@ -10,8 +11,12 @@ import type { ITokenMetadataService } from '../token-metadata/token-metadata-ser
 
 /**
  * Base class providing common functionality for all processors.
+ *
+ * @template T - The normalized input type expected by this processor.
+ *   Each item in `normalizedData` is validated against `inputSchema` before
+ *   `processInternal` is called, eliminating unsafe casts.
  */
-export abstract class BaseTransactionProcessor implements ITransactionProcessor {
+export abstract class BaseTransactionProcessor<T = unknown> implements ITransactionProcessor {
   protected logger: Logger;
 
   constructor(
@@ -22,13 +27,16 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
     this.logger = getLogger(`${sourceName}Processor`);
   }
 
+  /** Zod schema used to validate and type each item before processing. */
+  protected abstract get inputSchema(): z.ZodType<T>;
+
   /**
    * Subclasses must implement this method to handle normalized data.
    * This is the primary processing method that converts normalized blockchain/exchange data
    * into ProcessedTransaction objects.
    */
   protected abstract processInternal(
-    normalizedData: unknown[],
+    normalizedData: T[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>>;
 
@@ -38,7 +46,18 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
   ): Promise<Result<ProcessedTransaction[], string>> {
     this.logger.debug(`Processing ${normalizedData.length} items for ${this.sourceName}`);
 
-    const result = await this.processInternal(normalizedData, context || { primaryAddress: '', userAddresses: [] });
+    const validated: T[] = [];
+    for (let i = 0; i < normalizedData.length; i++) {
+      const result = this.inputSchema.safeParse(normalizedData[i]);
+      if (!result.success) {
+        const errorDetail = result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+        return err(`Input validation failed for ${this.sourceName} item at index ${i}: ${errorDetail}`);
+      }
+      validated.push(result.data);
+    }
+    const typedData = validated;
+
+    const result = await this.processInternal(typedData, context || { primaryAddress: '', userAddresses: [] });
 
     if (result.isErr()) {
       this.logger.error(`Processing failed for ${this.sourceName}: ${result.error}`);

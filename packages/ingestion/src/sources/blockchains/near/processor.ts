@@ -9,7 +9,7 @@
  * 5. Fail-fast on missing deltas or incomplete data
  */
 
-import type { NearBalanceChange, NearStreamEvent } from '@exitbook/blockchain-providers';
+import { type NearBalanceChange, type NearStreamEvent, NearStreamEventSchema } from '@exitbook/blockchain-providers';
 import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,
@@ -50,7 +50,7 @@ import type { CorrelatedTransaction } from './types.js';
  * NEAR transaction processor that converts raw multi-stream data
  * into ProcessedTransaction format
  */
-export class NearTransactionProcessor extends BaseTransactionProcessor {
+export class NearTransactionProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   // Override to make tokenMetadataService required (guaranteed by factory)
   declare protected readonly tokenMetadataService: ITokenMetadataService;
 
@@ -63,21 +63,25 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
     super('near', tokenMetadataService, scamDetectionService);
   }
 
+  protected get inputSchema() {
+    return NearStreamEventSchema;
+  }
+
   /**
    * Process normalized data
    */
   protected async processInternal(
-    normalizedData: unknown[],
+    normalizedData: NearStreamEvent[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     // Derive missing balance deltas from absolute amounts
     // Single source of truth for delta computation
     const balanceChanges = normalizedData.filter(
-      (event): event is NearBalanceChange => (event as NearStreamEvent).streamType === 'balance-changes'
+      (event): event is NearBalanceChange => event.streamType === 'balance-changes'
     );
 
     // Create enriched data with derived deltas (immutable - no mutation)
-    let normalizedWithDerivedDeltas = normalizedData;
+    let normalizedWithDerivedDeltas: NearStreamEvent[] = normalizedData;
 
     if (balanceChanges.length > 0) {
       const missingDeltas = balanceChanges.some((change) => !change.deltaAmountYocto);
@@ -95,8 +99,8 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
 
       if (derivedResult.derivedDeltas.size > 0) {
         normalizedWithDerivedDeltas = normalizedData.map((event) => {
-          if ((event as NearStreamEvent).streamType === 'balance-changes') {
-            const change = event as NearBalanceChange;
+          if (event.streamType === 'balance-changes') {
+            const change = event;
             if (!change.deltaAmountYocto) {
               const derivedDelta = derivedResult.derivedDeltas.get(change.eventId);
               if (derivedDelta) {
@@ -123,13 +127,13 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
     }
 
     // Enrich token metadata for all token transfers
-    const enrichResult = await this.enrichTokenMetadata(normalizedWithDerivedDeltas as NearStreamEvent[]);
+    const enrichResult = await this.enrichTokenMetadata(normalizedWithDerivedDeltas);
     if (enrichResult.isErr()) {
       return err(`Token metadata enrichment failed: ${enrichResult.error.message}`);
     }
 
     // Group enriched normalized data by transaction hash
-    const groupingResult = groupNearEventsByTransaction(normalizedWithDerivedDeltas as NearStreamEvent[]);
+    const groupingResult = groupNearEventsByTransaction(normalizedWithDerivedDeltas);
     if (groupingResult.isErr()) {
       return err(`Failed to group transaction data: ${groupingResult.error.message}`);
     }

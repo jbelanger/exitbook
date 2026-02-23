@@ -1,4 +1,4 @@
-import type { SolanaTransaction } from '@exitbook/blockchain-providers';
+import { type SolanaTransaction, SolanaTransactionSchema } from '@exitbook/blockchain-providers';
 import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,
@@ -23,7 +23,7 @@ import { analyzeSolanaFundFlow, classifySolanaOperationFromFundFlow } from './pr
  * into ProcessedTransaction format. Features sophisticated fund flow analysis
  * and historical context for accurate transaction classification.
  */
-export class SolanaTransactionProcessor extends BaseTransactionProcessor {
+export class SolanaTransactionProcessor extends BaseTransactionProcessor<SolanaTransaction> {
   // Override to make tokenMetadataService required (guaranteed by factory)
   declare protected readonly tokenMetadataService: ITokenMetadataService;
 
@@ -31,16 +31,20 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     super('solana', tokenMetadataService, scamDetectionService);
   }
 
+  protected get inputSchema() {
+    return SolanaTransactionSchema;
+  }
+
   /**
    * Process normalized data (structured SolanaTransaction objects)
    * with sophisticated fund flow analysis
    */
   protected async processInternal(
-    normalizedData: unknown[],
+    normalizedData: SolanaTransaction[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     // Enrich all transactions with token metadata (required)
-    const enrichResult = await this.enrichTokenMetadata(normalizedData as SolanaTransaction[]);
+    const enrichResult = await this.enrichTokenMetadata(normalizedData);
     if (enrichResult.isErr()) {
       return err(`Token metadata enrichment failed: ${enrichResult.error.message}`);
     }
@@ -49,9 +53,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     const processingErrors: { error: string; signature: string }[] = [];
     const tokenMovementsForScamDetection: MovementWithContext[] = [];
 
-    for (const item of normalizedData) {
-      const normalizedTx = item as SolanaTransaction;
-
+    for (const normalizedTx of normalizedData) {
       try {
         // Perform enhanced fund flow analysis
         const fundFlowResult = analyzeSolanaFundFlow(normalizedTx, context);

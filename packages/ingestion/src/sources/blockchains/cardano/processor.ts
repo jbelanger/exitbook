@@ -1,4 +1,4 @@
-import type { CardanoTransaction } from '@exitbook/blockchain-providers';
+import { type CardanoTransaction, CardanoTransactionSchema } from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
@@ -26,25 +26,27 @@ import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './proce
  * 3. Consolidate duplicate assets by summing amounts
  * 4. Determine transaction type based on fund flow direction
  */
-export class CardanoTransactionProcessor extends BaseTransactionProcessor {
+export class CardanoTransactionProcessor extends BaseTransactionProcessor<CardanoTransaction> {
   constructor(scamDetectionService?: IScamDetectionService) {
     super('cardano', undefined, scamDetectionService);
+  }
+
+  protected get inputSchema() {
+    return CardanoTransactionSchema;
   }
 
   /**
    * Process normalized Cardano transactions with multi-asset UTXO analysis
    */
   protected async processInternal(
-    normalizedData: unknown[],
+    normalizedData: CardanoTransaction[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txHash: string }[] = [];
     const movementsForScamDetection: MovementWithContext[] = [];
 
-    for (const item of normalizedData) {
-      const normalizedTx = item as CardanoTransaction;
-
+    for (const normalizedTx of normalizedData) {
       try {
         // Perform fund flow analysis with multi-asset tracking
         const fundFlowResult = analyzeCardanoFundFlow(normalizedTx, context);

@@ -1,4 +1,5 @@
 import { type Result, errAsync, okAsync } from 'neverthrow';
+import { z } from 'zod';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { ProcessedTransaction } from '../../../shared/types/processors.js';
@@ -29,6 +30,12 @@ import type {
 export class KucoinProcessor extends BaseTransactionProcessor {
   constructor() {
     super('kucoin');
+  }
+
+  // KuCoin CSV rows are a heterogeneous union dispatched at runtime via _rowType.
+  // No single Zod schema covers all variants; input is validated per-row in processInternal.
+  protected get inputSchema() {
+    return z.unknown();
   }
 
   protected async processInternal(rawDataItems: unknown[]): Promise<Result<ProcessedTransaction[], string>> {

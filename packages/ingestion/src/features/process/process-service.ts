@@ -1,4 +1,4 @@
-import { NormalizedTransactionBaseSchema, type BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getErrorMessage, type RawTransaction } from '@exitbook/core';
 import type {
   AccountQueries,
@@ -508,16 +508,7 @@ export class TransactionProcessService {
           );
         }
 
-        const validationResult = NormalizedTransactionBaseSchema.safeParse(normalizedData);
-        if (!validationResult.success) {
-          return err(
-            new Error(
-              `Invalid normalized_data for blockchain raw transaction ${item.id} (eventId: ${item.eventId}). ` +
-                `Error: ${validationResult.error.message}`
-            )
-          );
-        }
-
+        // Chain-specific schema validation happens inside each processor via BaseTransactionProcessor.
         normalizedRawDataItems.push(normalizedData);
       }
     }

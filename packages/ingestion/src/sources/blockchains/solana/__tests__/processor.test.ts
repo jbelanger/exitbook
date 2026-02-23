@@ -1158,8 +1158,13 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    // Check that the token change symbol was enriched
-    expect(normalizedData[0]?.tokenChanges?.[0]?.symbol).toBe('USDC');
+    // Check that the enriched token symbol propagated to the processed transaction inflows
+    // (Zod validation creates new objects during parsing, so we verify the end-to-end result
+    // rather than checking mutation of the original input data)
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+    expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('USDC');
   });
 
   test('skips enrichment when repository returns no metadata', async () => {

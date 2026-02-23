@@ -1,5 +1,6 @@
 import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
 import { err, ok, okAsync, type Result } from 'neverthrow';
+import type { z } from 'zod';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { ProcessedTransaction } from '../../../shared/types/processors.js';
@@ -11,12 +12,13 @@ import {
   detectExchangeClassificationUncertainty,
   selectPrimaryMovement,
 } from './correlating-exchange-processor-utils.js';
-import type {
-  FeeInput,
-  GroupingStrategy,
-  InterpretationStrategy,
-  MovementInput,
-  RawTransactionWithMetadata,
+import {
+  RawTransactionWithMetadataSchema,
+  type FeeInput,
+  type GroupingStrategy,
+  type InterpretationStrategy,
+  type MovementInput,
+  type RawTransactionWithMetadata,
 } from './strategies/index.js';
 import type { ExchangeFundFlow } from './types.js';
 
@@ -30,7 +32,9 @@ import type { ExchangeFundFlow } from './types.js';
  *
  * @template TRaw - The raw exchange-specific type (e.g., CoinbaseLedgerEntry, KrakenLedgerEntry)
  */
-export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactionProcessor {
+export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactionProcessor<
+  RawTransactionWithMetadata<TRaw>
+> {
   constructor(
     sourceName: string,
     private grouping: GroupingStrategy,
@@ -39,9 +43,14 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     super(sourceName);
   }
 
-  protected async processInternal(normalizedData: unknown[]): Promise<Result<ProcessedTransaction[], string>> {
-    // Cast to RawTransactionWithMetadata (contains both raw + normalized)
-    const entries = normalizedData as RawTransactionWithMetadata<TRaw>[];
+  protected get inputSchema(): z.ZodType<RawTransactionWithMetadata<TRaw>> {
+    return RawTransactionWithMetadataSchema as z.ZodType<RawTransactionWithMetadata<TRaw>>;
+  }
+
+  protected async processInternal(
+    normalizedData: RawTransactionWithMetadata<TRaw>[]
+  ): Promise<Result<ProcessedTransaction[], string>> {
+    const entries = normalizedData;
 
     // Group using strategy (e.g., by correlationId, timestamp, or no grouping)
     const entryGroups = this.grouping.group(entries);

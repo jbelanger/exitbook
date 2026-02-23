@@ -4,6 +4,7 @@ import {
   type BlockchainProviderManager,
   type EvmChainConfig,
   type EvmTransaction,
+  EvmTransactionSchema,
 } from '@exitbook/blockchain-providers';
 import {
   buildBlockchainNativeAssetId,
@@ -33,7 +34,7 @@ import {
  * Unified EVM transaction processor that applies Avalanche-style transaction correlation
  * to every EVM-compatible chain.
  */
-export class EvmTransactionProcessor extends BaseTransactionProcessor {
+export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransaction> {
   // Override to make tokenMetadataService required (guaranteed by factory)
   declare protected readonly tokenMetadataService: ITokenMetadataService;
   private readonly addressInfoCache = new Map<string, boolean>();
@@ -47,17 +48,21 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     super(chainConfig.chainName, tokenMetadataService, scamDetectionService);
   }
 
+  protected get inputSchema() {
+    return EvmTransactionSchema;
+  }
+
   protected async processInternal(
-    normalizedData: unknown[],
+    normalizedData: EvmTransaction[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     // Enrich token metadata before processing (required for proper decimal normalization)
-    const enrichResult = await this.enrichTokenMetadata(normalizedData as EvmTransaction[]);
+    const enrichResult = await this.enrichTokenMetadata(normalizedData);
     if (enrichResult.isErr()) {
       return err(`Token metadata enrichment failed: ${enrichResult.error.message}`);
     }
 
-    const transactionGroups = groupEvmTransactionsByHash(normalizedData as EvmTransaction[]);
+    const transactionGroups = groupEvmTransactionsByHash(normalizedData);
 
     const accountIsContract = context.primaryAddress ? await this.resolveIsContract(context.primaryAddress) : undefined;
 

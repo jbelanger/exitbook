@@ -1,4 +1,8 @@
-import type { BitcoinChainConfig, BitcoinTransaction } from '@exitbook/blockchain-providers';
+import {
+  type BitcoinChainConfig,
+  type BitcoinTransaction,
+  BitcoinTransactionSchema,
+} from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, parseDecimal, type Currency } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
@@ -13,7 +17,7 @@ import { analyzeBitcoinFundFlow } from './processor-utils.js';
  * into ProcessedTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance. Optimized for multi-address processing using session context.
  */
-export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
+export class BitcoinTransactionProcessor extends BaseTransactionProcessor<BitcoinTransaction> {
   private readonly chainConfig: BitcoinChainConfig;
 
   constructor(chainConfig: BitcoinChainConfig, scamDetectionService?: IScamDetectionService) {
@@ -21,20 +25,22 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
     this.chainConfig = chainConfig;
   }
 
+  protected get inputSchema() {
+    return BitcoinTransactionSchema;
+  }
+
   /**
    * Process normalized Bitcoin transactions with enhanced fund flow analysis.
    * Handles NormalizedBitcoinTransaction objects with structured input/output data.
    */
   protected async processInternal(
-    normalizedData: unknown[],
+    normalizedData: BitcoinTransaction[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
-    for (const item of normalizedData) {
-      const normalizedTx = item as BitcoinTransaction;
-
+    for (const normalizedTx of normalizedData) {
       try {
         // Perform enhanced fund flow analysis with structured input/output data
         const fundFlowResult = analyzeBitcoinFundFlow(normalizedTx, context);

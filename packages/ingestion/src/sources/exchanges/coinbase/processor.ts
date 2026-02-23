@@ -67,7 +67,9 @@ export class CoinbaseProcessor extends CorrelatingExchangeProcessor<CoinbaseLedg
   /**
    * Override to add blockchain metadata when hash is present in Coinbase data.
    */
-  protected override async processInternal(normalizedData: unknown[]): Promise<Result<ProcessedTransaction[], string>> {
+  protected override async processInternal(
+    normalizedData: RawTransactionWithMetadata<CoinbaseLedgerEntry>[]
+  ): Promise<Result<ProcessedTransaction[], string>> {
     // Call parent to get processed transactions
     const result = await super.processInternal(normalizedData);
 
@@ -76,7 +78,7 @@ export class CoinbaseProcessor extends CorrelatingExchangeProcessor<CoinbaseLedg
     }
 
     const transactions = result.value;
-    const entries = normalizedData as RawTransactionWithMetadata<CoinbaseLedgerEntry>[];
+    const entries = normalizedData;
 
     // Enhance transactions with blockchain metadata from entries
     const enhanced = transactions.map((tx) => {
