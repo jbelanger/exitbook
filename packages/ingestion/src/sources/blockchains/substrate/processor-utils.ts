@@ -24,16 +24,10 @@ export function expandSourceContext(address: string): Result<Record<string, unkn
     return err('Missing address for Substrate session context enrichment');
   }
 
-  // Generate SS58 address variants for all addresses
-  const allDerivedAddresses: string[] = [];
-
-  const variants = derivePolkadotAddressVariants(address);
-  allDerivedAddresses.push(...variants);
-
-  const uniqueDerivedAddresses = Array.from(new Set(allDerivedAddresses));
+  const uniqueDerivedAddresses = Array.from(new Set(derivePolkadotAddressVariants(address)));
 
   return ok({
-    address: address,
+    address,
     derivedAddresses: uniqueDerivedAddresses,
   });
 }
@@ -65,12 +59,13 @@ export function analyzeSubstrateFundFlow(
   const isToUser = userAddresses.has(transaction.to);
 
   // Analyze transaction characteristics
-  const hasStaking =
+  const hasStaking = Boolean(
     transaction.module === 'staking' ||
     transaction.call?.includes('bond') ||
     transaction.call?.includes('nominate') ||
     transaction.call?.includes('unbond') ||
-    transaction.call?.includes('withdraw');
+    transaction.call?.includes('withdraw')
+  );
 
   const hasGovernance =
     transaction.module === 'democracy' ||
@@ -78,7 +73,7 @@ export function analyzeSubstrateFundFlow(
     transaction.module === 'treasury' ||
     transaction.module === 'phragmenElection';
 
-  const hasUtilityBatch = transaction.module === 'utility' && transaction.call?.includes('batch');
+  const hasUtilityBatch = Boolean(transaction.module === 'utility' && transaction.call?.includes('batch'));
   const hasProxy = transaction.module === 'proxy';
   const hasMultisig = transaction.module === 'multisig';
 
@@ -157,21 +152,21 @@ export function analyzeSubstrateFundFlow(
   const feeAmount = feeAmountResult.value;
 
   return ok({
-    call: transaction.call || 'unknown',
-    chainName: transaction.chainName || 'unknown',
+    call: transaction.call ?? 'unknown',
+    chainName: transaction.chainName ?? 'unknown',
     classificationUncertainty,
-    eventCount: transaction.events?.length || 0,
-    extrinsicCount: hasUtilityBatch ? 1 : 1, // TODO: Parse batch details if needed
+    eventCount: transaction.events?.length ?? 0,
+    extrinsicCount: 1,
     feeAmount,
-    feeCurrency: (transaction.feeCurrency || transaction.currency) as Currency,
+    feeCurrency: (transaction.feeCurrency ?? transaction.currency) as Currency,
     fromAddress: transaction.from,
-    hasGovernance: hasGovernance || false,
-    hasMultisig: hasMultisig || false,
-    hasProxy: hasProxy || false,
-    hasStaking: hasStaking || false,
-    hasUtilityBatch: hasUtilityBatch || false,
+    hasGovernance,
+    hasMultisig,
+    hasProxy,
+    hasStaking,
+    hasUtilityBatch,
     inflows,
-    module: transaction.module || 'unknown',
+    module: transaction.module ?? 'unknown',
     outflows,
     primary: {
       amount: primaryAmount,

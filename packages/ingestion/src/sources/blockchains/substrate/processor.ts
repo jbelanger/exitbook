@@ -3,14 +3,15 @@ import {
   type SubstrateChainConfig,
   SubstrateTransactionSchema,
 } from '@exitbook/blockchain-providers';
-import { buildBlockchainNativeAssetId, parseDecimal } from '@exitbook/core';
-import { type Result, err, okAsync } from 'neverthrow';
+import { type AssetMovement, buildBlockchainNativeAssetId, parseDecimal } from '@exitbook/core';
+import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeSubstrateFundFlow, determineOperationFromFundFlow, shouldRecordFeeEntry } from './processor-utils.js';
+import type { SubstrateMovement } from './types.js';
 
 /**
  * Generic Substrate transaction processor that converts raw blockchain transaction data
@@ -59,56 +60,23 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
         const shouldRecordFee = shouldRecordFeeEntry(normalizedTx, fundFlow, context.primaryAddress);
 
         // Build movements with assetId (per-movement to support future multi-asset Substrate chains)
-        let hasAssetIdError = false;
-        const inflows = [];
-        for (const inflow of fundFlow.inflows) {
-          const assetIdResult = this.buildSubstrateAssetId(inflow.asset, normalizedTx.id);
-          if (assetIdResult.isErr()) {
-            const errorMsg = `Failed to build assetId for inflow: ${assetIdResult.error.message}`;
-            processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
-            this.logger.error(
-              `${errorMsg} for ${this.chainConfig.chainName} transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`
-            );
-            hasAssetIdError = true;
-            break;
-          }
-
-          const amount = parseDecimal(inflow.amount);
-          inflows.push({
-            assetId: assetIdResult.value,
-            assetSymbol: inflow.asset,
-            grossAmount: amount,
-            netAmount: amount,
-          });
-        }
-
-        if (hasAssetIdError) {
+        const inflowsResult = this.buildMovements(fundFlow.inflows, normalizedTx.id);
+        if (inflowsResult.isErr()) {
+          const errorMsg = `Failed to build assetId for inflow: ${inflowsResult.error.message}`;
+          processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+          this.logger.error(
+            `${errorMsg} for ${this.chainConfig.chainName} transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`
+          );
           continue;
         }
 
-        const outflows = [];
-        for (const outflow of fundFlow.outflows) {
-          const assetIdResult = this.buildSubstrateAssetId(outflow.asset, normalizedTx.id);
-          if (assetIdResult.isErr()) {
-            const errorMsg = `Failed to build assetId for outflow: ${assetIdResult.error.message}`;
-            processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
-            this.logger.error(
-              `${errorMsg} for ${this.chainConfig.chainName} transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`
-            );
-            hasAssetIdError = true;
-            break;
-          }
-
-          const amount = parseDecimal(outflow.amount);
-          outflows.push({
-            assetId: assetIdResult.value,
-            assetSymbol: outflow.asset,
-            grossAmount: amount,
-            netAmount: amount,
-          });
-        }
-
-        if (hasAssetIdError) {
+        const outflowsResult = this.buildMovements(fundFlow.outflows, normalizedTx.id);
+        if (outflowsResult.isErr()) {
+          const errorMsg = `Failed to build assetId for outflow: ${outflowsResult.error.message}`;
+          processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+          this.logger.error(
+            `${errorMsg} for ${this.chainConfig.chainName} transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`
+          );
           continue;
         }
 
@@ -126,8 +94,8 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
 
         const processedTransaction: ProcessedTransaction = {
           movements: {
-            inflows,
-            outflows,
+            inflows: inflowsResult.value,
+            outflows: outflowsResult.value,
           },
           fees:
             shouldRecordFee && !parseDecimal(fundFlow.feeAmount).isZero()
@@ -176,13 +144,11 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
       }
     }
 
-    // Log processing summary
-    const totalInputTransactions = normalizedData.length;
-    const failedTransactions = processingErrors.length;
-
     // STRICT MODE: Fail if ANY transactions could not be processed
     // This is critical for portfolio accuracy - we cannot afford to silently drop transactions
     if (processingErrors.length > 0) {
+      const failedCount = processingErrors.length;
+      const totalCount = normalizedData.length;
       this.logger.error(
         `CRITICAL PROCESSING FAILURE for ${this.chainConfig.chainName}:\n${processingErrors
           .map((e, i) => `  ${i + 1}. [${e.txId.substring(0, 10)}...] ${e.error}`)
@@ -190,8 +156,8 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
       );
 
       return err(
-        `Cannot proceed: ${failedTransactions}/${totalInputTransactions} transactions failed to process. ` +
-          `Lost ${failedTransactions} transactions which would corrupt portfolio calculations. ` +
+        `Cannot proceed: ${failedCount}/${totalCount} transactions failed to process. ` +
+          `Lost ${failedCount} transactions which would corrupt portfolio calculations. ` +
           `Errors: ${processingErrors.map((e) => `[${e.txId.substring(0, 10)}...]: ${e.error}`).join('; ')}`
       );
     }
@@ -200,15 +166,36 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
   }
 
   /**
-   * Build assetId for a Substrate movement
+   * Build typed movement objects for a list of fund flow movements.
+   * Fails fast if any movement uses an unsupported non-native asset.
+   */
+  private buildMovements(movements: SubstrateMovement[], transactionId: string): Result<AssetMovement[], Error> {
+    const result: AssetMovement[] = [];
+    for (const movement of movements) {
+      const assetIdResult = this.buildSubstrateAssetId(movement.asset, transactionId);
+      if (assetIdResult.isErr()) {
+        return err(assetIdResult.error);
+      }
+      const amount = parseDecimal(movement.amount);
+      result.push({
+        assetId: assetIdResult.value,
+        assetSymbol: movement.asset,
+        grossAmount: amount,
+        netAmount: amount,
+      });
+    }
+    return ok(result);
+  }
+
+  /**
+   * Build assetId for a Substrate movement.
    * - Native asset: blockchain:<chain>:native
    * - Non-native asset: fail-fast (not yet supported)
    *
-   * Per Asset Identity Specification, current Substrate ingestion only supports native assets.
-   * Modern Substrate chains (Asset Hub, parachains) support multi-asset via pallet-assets,
-   * but SubstrateMovement lacks tokenAddress/assetRef fields. This method validates that
-   * the asset symbol matches the native currency and fails-fast if not, preventing silent
-   * data corruption until proper multi-asset support is added.
+   * Current Substrate ingestion only supports native assets. Modern Substrate chains
+   * (Asset Hub, parachains) support multi-asset via pallet-assets, but SubstrateMovement
+   * lacks tokenAddress/assetRef fields. Fails fast to prevent silent data corruption until
+   * proper multi-asset support is added.
    */
   private buildSubstrateAssetId(assetSymbol: string, transactionId: string): Result<string, Error> {
     const normalizedSymbol = assetSymbol.trim().toUpperCase();
