@@ -1,5 +1,6 @@
 import type { BitcoinTransaction } from '@exitbook/blockchain-providers';
 import { satoshisToBtcString } from '@exitbook/blockchain-providers';
+import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import type { AddressContext } from '../../../shared/types/processors.js';
@@ -16,30 +17,30 @@ export function analyzeBitcoinFundFlow(
 ): Result<BitcoinFundFlow, string> {
   const walletAddress = context.primaryAddress;
 
-  let totalInput = 0;
-  let totalOutput = 0;
-  let walletInput = 0;
-  let walletOutput = 0;
+  let totalInput = new Decimal(0);
+  let totalOutput = new Decimal(0);
+  let walletInput = new Decimal(0);
+  let walletOutput = new Decimal(0);
 
   for (const input of normalizedTx.inputs) {
-    const value = parseFloat(input.value);
-    totalInput += value;
+    const value = new Decimal(input.value);
+    totalInput = totalInput.plus(value);
     if (input.address === walletAddress) {
-      walletInput += value;
+      walletInput = walletInput.plus(value);
     }
   }
 
   for (const output of normalizedTx.outputs) {
-    const value = parseFloat(output.value);
-    totalOutput += value;
+    const value = new Decimal(output.value);
+    totalOutput = totalOutput.plus(value);
     if (output.address === walletAddress) {
-      walletOutput += value;
+      walletOutput = walletOutput.plus(value);
     }
   }
 
-  const netAmount = satoshisToBtcString(Math.abs(walletOutput - walletInput));
-  const isIncoming = walletOutput > walletInput;
-  const isOutgoing = walletInput > walletOutput;
+  const netAmount = satoshisToBtcString(walletOutput.minus(walletInput).abs().toNumber());
+  const isIncoming = walletOutput.greaterThan(walletInput);
+  const isOutgoing = walletInput.greaterThan(walletOutput);
 
   // Use wallet's own input/output address for from/to when we are the initiator/recipient
   const fromAddress = isOutgoing
@@ -56,9 +57,9 @@ export function analyzeBitcoinFundFlow(
     isOutgoing,
     netAmount,
     toAddress,
-    totalInput: satoshisToBtcString(totalInput),
-    totalOutput: satoshisToBtcString(totalOutput),
-    walletInput: satoshisToBtcString(walletInput),
-    walletOutput: satoshisToBtcString(walletOutput),
+    totalInput: satoshisToBtcString(totalInput.toNumber()),
+    totalOutput: satoshisToBtcString(totalOutput.toNumber()),
+    walletInput: satoshisToBtcString(walletInput.toNumber()),
+    walletOutput: satoshisToBtcString(walletOutput.toNumber()),
   });
 }
