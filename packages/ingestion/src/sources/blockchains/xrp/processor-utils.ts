@@ -2,7 +2,7 @@ import type { XrpBalanceChange, XrpTransaction } from '@exitbook/blockchain-prov
 import { parseDecimal } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ProcessingContext } from '../../../shared/types/processors.js';
+import type { FundFlowContext } from '../../../shared/types/processors.js';
 
 import type { XrpFundFlow } from './types.js';
 
@@ -12,7 +12,7 @@ import type { XrpFundFlow } from './types.js';
  */
 export function analyzeXrpFundFlow(
   normalizedTx: XrpTransaction,
-  context: ProcessingContext
+  context: FundFlowContext
 ): Result<XrpFundFlow, string> {
   const walletAddress = context.primaryAddress;
 
@@ -90,7 +90,7 @@ export function analyzeXrpFundFlow(
  *
  * Note: operation_type is display metadata only - doesn't affect balance/cost basis calculations.
  */
-export function determineXrpTransactionType(_normalizedTx: XrpTransaction, _context: ProcessingContext): 'transfer' {
+export function determineXrpTransactionType(_normalizedTx: XrpTransaction, _context: FundFlowContext): 'transfer' {
   // For now, treat all XRP transactions as transfers
   // In the future, we could add more sophisticated type detection based on normalizedTx.transactionType
   // (Payment, OfferCreate, TrustSet, etc.)

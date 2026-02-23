@@ -22,7 +22,7 @@ import { describe, expect, test, vi, type Mock } from 'vitest';
 
 import type { IScamDetectionService } from '../../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
-import type { ProcessingContext } from '../../../../shared/types/processors.js';
+import type { FundFlowContext } from '../../../../shared/types/processors.js';
 import { NearTransactionProcessor } from '../processor.js';
 
 // Test data factories for normalized types
@@ -107,7 +107,7 @@ function createMockScamDetectionService(): IScamDetectionService {
   } as unknown as IScamDetectionService;
 }
 
-const createProcessingContext = (overrides: Partial<ProcessingContext> = {}): ProcessingContext => ({
+const createFundFlowContext = (overrides: Partial<FundFlowContext> = {}): FundFlowContext => ({
   primaryAddress: 'alice.near',
   userAddresses: ['alice.near'],
   ...overrides,
@@ -140,7 +140,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -193,7 +193,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -227,7 +227,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -253,7 +253,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -286,7 +286,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       // Should call enrichBatch
       expect(mockTokenMetadataService.enrichBatch).toHaveBeenCalledOnce();
@@ -320,7 +320,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -354,7 +354,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -385,7 +385,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -429,7 +429,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -474,7 +474,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -515,7 +515,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -552,7 +552,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -580,7 +580,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -618,7 +618,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -659,7 +659,7 @@ describe('NearTransactionProcessor', () => {
         orphanBalanceChange,
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -688,7 +688,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -711,7 +711,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -731,7 +731,7 @@ describe('NearTransactionProcessor', () => {
       ];
 
       // Should return error during grouping
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toMatch(/Duplicate transaction record/);
     });
@@ -759,7 +759,7 @@ describe('NearTransactionProcessor', () => {
         },
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -788,7 +788,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       // Should still process successfully
       expect(result.isOk()).toBe(true);
@@ -814,7 +814,7 @@ describe('NearTransactionProcessor', () => {
         // No balance changes or token transfers (fee-only)
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -845,7 +845,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -874,7 +874,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
 
@@ -903,7 +903,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
 
@@ -926,7 +926,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       // Should not fail when scam detection service is missing
@@ -963,7 +963,7 @@ describe('NearTransactionProcessor', () => {
         },
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -1015,7 +1015,7 @@ describe('NearTransactionProcessor', () => {
         },
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       // Transaction 2's missing delta can be derived from absolute amounts when
       // grouped with transaction 1's balance changes for the same account,
@@ -1032,7 +1032,7 @@ describe('NearTransactionProcessor', () => {
       const mockTokenMetadataService = createMockTokenMetadataService();
       const processor = new NearTransactionProcessor(mockTokenMetadataService);
 
-      const result = await processor.process([], createProcessingContext());
+      const result = await processor.process([], createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -1059,7 +1059,7 @@ describe('NearTransactionProcessor', () => {
         },
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       // Should fail fast due to invalid receipt_id for RECEIPT-level cause
       expect(result.isErr()).toBe(true);
@@ -1087,7 +1087,7 @@ describe('NearTransactionProcessor', () => {
         },
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -1116,7 +1116,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -1144,7 +1144,7 @@ describe('NearTransactionProcessor', () => {
         // No balance changes or token transfers
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -1173,7 +1173,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -1199,7 +1199,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -1230,7 +1230,7 @@ describe('NearTransactionProcessor', () => {
         }),
       ];
 
-      const result = await processor.process(events, createProcessingContext());
+      const result = await processor.process(events, createFundFlowContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;

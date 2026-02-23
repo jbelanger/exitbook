@@ -3,7 +3,7 @@ import { parseDecimal, type Currency, type OperationClassification } from '@exit
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
-import type { ProcessingContext } from '../../../shared/types/processors.js';
+import type { FundFlowContext } from '../../../shared/types/processors.js';
 
 import type { CosmosFundFlow } from './types.js';
 
@@ -71,7 +71,7 @@ export function deduplicateByEventId(transactions: CosmosTransaction[]): CosmosT
  */
 export function analyzeFundFlowFromNormalized(
   transaction: CosmosTransaction,
-  context: ProcessingContext,
+  context: FundFlowContext,
   chainConfig: CosmosChainConfig
 ): CosmosFundFlow {
   const userAddress = context.primaryAddress;

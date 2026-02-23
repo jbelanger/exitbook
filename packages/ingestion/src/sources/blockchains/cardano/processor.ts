@@ -7,7 +7,7 @@ import type {
   IScamDetectionService,
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
+import type { ProcessedTransaction, FundFlowContext } from '../../../shared/types/processors.js';
 
 import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './processor-utils.js';
 
@@ -40,7 +40,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
    */
   protected async processInternal(
     normalizedData: CardanoTransaction[],
-    context: ProcessingContext
+    context: FundFlowContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txHash: string }[] = [];

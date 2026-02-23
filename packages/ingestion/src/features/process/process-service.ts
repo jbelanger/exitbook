@@ -18,7 +18,7 @@ import type { IngestionEvent } from '../../events.js';
 import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import type {
   ProcessResult,
-  ProcessingContext,
+  FundFlowContext,
   ProcessedTransaction,
   ITransactionProcessor,
 } from '../../shared/types/processors.js';
@@ -280,7 +280,7 @@ export class TransactionProcessService {
     }
 
     // Build processing context once (used for all batches)
-    const processingContext = await this.getProcessingContext(account, accountId);
+    const processingContext = await this.getFundFlowContext(account, accountId);
 
     // Create processor once (reused for all batches)
     const processorResult = this.getProcessor(sourceName, account.accountType, accountId);
@@ -415,11 +415,11 @@ export class TransactionProcessService {
     });
   }
 
-  private async getProcessingContext(
+  private async getFundFlowContext(
     account: { accountType: string; identifier: string; sourceName: string; userId?: number | undefined },
     accountId: number
-  ): Promise<ProcessingContext> {
-    const processingContext: ProcessingContext = {
+  ): Promise<FundFlowContext> {
+    const processingContext: FundFlowContext = {
       primaryAddress: '',
       userAddresses: [],
     };

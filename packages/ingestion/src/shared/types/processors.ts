@@ -15,7 +15,7 @@ export interface ProcessResult {
  * Note: All addresses are already normalized (lowercased for case-insensitive blockchains)
  * by blockchain-specific schemas before reaching the processor.
  */
-export interface ProcessingContext {
+export interface FundFlowContext {
   /** Primary address being analyzed (the account's address) - already normalized */
   primaryAddress: string;
   /** All user addresses on this blockchain (for detecting internal transfers) - already normalized */
@@ -36,5 +36,5 @@ export interface ITransactionProcessor {
   /**
    * Process normalized data with explicit typed context into ProcessedTransaction objects.
    */
-  process(normalizedData: unknown[], context: ProcessingContext): Promise<Result<ProcessedTransaction[], string>>;
+  process(normalizedData: unknown[], context: FundFlowContext): Promise<Result<ProcessedTransaction[], string>>;
 }

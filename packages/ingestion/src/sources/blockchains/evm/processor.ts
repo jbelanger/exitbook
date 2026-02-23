@@ -21,7 +21,7 @@ import type {
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { looksLikeContractAddress } from '../../../features/token-metadata/token-metadata-utils.js';
-import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
+import type { ProcessedTransaction, FundFlowContext } from '../../../shared/types/processors.js';
 
 import {
   determineEvmOperationFromFundFlow,
@@ -54,7 +54,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
 
   protected async processInternal(
     normalizedData: EvmTransaction[],
-    context: ProcessingContext
+    context: FundFlowContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     // Enrich token metadata before processing (required for proper decimal normalization)
     const enrichResult = await this.enrichTokenMetadata(normalizedData);

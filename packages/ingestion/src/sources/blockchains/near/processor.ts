@@ -28,7 +28,7 @@ import type {
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
-import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
+import type { ProcessedTransaction, FundFlowContext } from '../../../shared/types/processors.js';
 
 import {
   classifyOperation,
@@ -72,7 +72,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
    */
   protected async processInternal(
     normalizedData: NearStreamEvent[],
-    context: ProcessingContext
+    context: FundFlowContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     // Derive missing balance deltas from absolute amounts
     // Single source of truth for delta computation
@@ -337,7 +337,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
    */
   private async aggregateToUniversalTransaction(
     correlated: CorrelatedTransaction,
-    context: ProcessingContext,
+    context: FundFlowContext,
     tokenMovementsForScamDetection: MovementWithContext[],
     transactionIndex: number
   ): Promise<Result<ProcessedTransaction, Error>> {

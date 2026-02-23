@@ -8,7 +8,7 @@ import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
+import type { ProcessedTransaction, FundFlowContext } from '../../../shared/types/processors.js';
 
 import { analyzeBitcoinFundFlow } from './processor-utils.js';
 
@@ -35,7 +35,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor<Bitcoi
    */
   protected async processInternal(
     normalizedData: BitcoinTransaction[],
-    context: ProcessingContext
+    context: FundFlowContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];

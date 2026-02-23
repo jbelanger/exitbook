@@ -2,7 +2,7 @@ import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-provid
 import type { Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { ProcessingContext } from '../../../../shared/types/processors.js';
+import type { FundFlowContext } from '../../../../shared/types/processors.js';
 import {
   analyzeEvmFundFlow,
   consolidateEvmMovementsByAsset,
@@ -166,7 +166,7 @@ describe('analyzeEvmFundFlow', () => {
       nativeDecimals: 18,
       transactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],
     };
-    const context: ProcessingContext = {
+    const context: FundFlowContext = {
       primaryAddress: '0xaaa',
       userAddresses: ['0xaaa'],
     };

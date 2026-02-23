@@ -5,7 +5,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProcessingContext } from '../../../shared/types/processors.js';
+import type { FundFlowContext } from '../../../shared/types/processors.js';
 
 import type { EvmFundFlow, EvmMovement } from './types.js';
 
@@ -356,7 +356,7 @@ export function groupEvmTransactionsByHash(transactions: EvmTransaction[]): Map<
  */
 export function analyzeEvmFundFlow(
   txGroup: EvmTransaction[],
-  context: ProcessingContext,
+  context: FundFlowContext,
   chainConfig: EvmChainConfig
 ): Result<EvmFundFlow, string> {
   if (txGroup.length === 0) {

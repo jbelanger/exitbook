@@ -4,7 +4,7 @@ import { getLogger } from '@exitbook/logger';
 import { type Result, err, ok } from 'neverthrow';
 import type { z } from 'zod';
 
-import type { ITransactionProcessor, ProcessingContext, ProcessedTransaction } from '../../shared/types/processors.js';
+import type { ITransactionProcessor, FundFlowContext, ProcessedTransaction } from '../../shared/types/processors.js';
 import { ProcessedTransactionSchema } from '../../shared/types/processors.js';
 import type { IScamDetectionService, MovementWithContext } from '../scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.js';
@@ -37,13 +37,10 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
    */
   protected abstract processInternal(
     normalizedData: T[],
-    context: ProcessingContext
+    context: FundFlowContext
   ): Promise<Result<ProcessedTransaction[], string>>;
 
-  async process(
-    normalizedData: unknown[],
-    context?: ProcessingContext
-  ): Promise<Result<ProcessedTransaction[], string>> {
+  async process(normalizedData: unknown[], context?: FundFlowContext): Promise<Result<ProcessedTransaction[], string>> {
     this.logger.debug(`Processing ${normalizedData.length} items for ${this.sourceName}`);
 
     const validated: T[] = [];

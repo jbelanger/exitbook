@@ -2,7 +2,7 @@ import type { BitcoinTransaction } from '@exitbook/blockchain-providers';
 import { satoshisToBtcString } from '@exitbook/blockchain-providers';
 import { type Result, ok } from 'neverthrow';
 
-import type { ProcessingContext } from '../../../shared/types/processors.js';
+import type { FundFlowContext } from '../../../shared/types/processors.js';
 
 import type { BitcoinFundFlow } from './types.js';
 
@@ -12,7 +12,7 @@ import type { BitcoinFundFlow } from './types.js';
  */
 export function analyzeBitcoinFundFlow(
   normalizedTx: BitcoinTransaction,
-  context: ProcessingContext
+  context: FundFlowContext
 ): Result<BitcoinFundFlow, string> {
   // Per-address mode: only check this single address
   const walletAddress = context.primaryAddress;
@@ -86,6 +86,6 @@ export function analyzeBitcoinFundFlow(
  *
  * Note: operation_type is display metadata only - doesn't affect balance/cost basis calculations.
  */
-export function determineBitcoinTransactionType(_fundFlow: BitcoinFundFlow, _context: ProcessingContext): 'transfer' {
+export function determineBitcoinTransactionType(_fundFlow: BitcoinFundFlow, _context: FundFlowContext): 'transfer' {
   return 'transfer';
 }

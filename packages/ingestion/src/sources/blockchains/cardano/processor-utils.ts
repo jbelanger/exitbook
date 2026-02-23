@@ -4,7 +4,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
-import type { ProcessingContext } from '../../../shared/types/processors.js';
+import type { FundFlowContext } from '../../../shared/types/processors.js';
 
 import type { CardanoFundFlow, CardanoMovement } from './types.js';
 
@@ -135,7 +135,7 @@ export function isZeroDecimal(value: string): boolean {
  */
 export function analyzeCardanoFundFlow(
   tx: CardanoTransaction,
-  context: ProcessingContext
+  context: FundFlowContext
 ): Result<CardanoFundFlow, string> {
   const userAddress = context.primaryAddress;
   // Per-address mode: only check this single address

@@ -11,7 +11,7 @@ import type {
   IScamDetectionService,
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
+import type { ProcessedTransaction, FundFlowContext } from '../../../shared/types/processors.js';
 
 import {
   analyzeFundFlowFromNormalized,
@@ -42,7 +42,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
    */
   protected async processInternal(
     normalizedData: CosmosTransaction[],
-    context: ProcessingContext
+    context: FundFlowContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     // Deduplicate by eventId (handles cases like Peggy deposits where multiple validators
     // submit the same deposit claim as different tx hashes but represent the same logical event)

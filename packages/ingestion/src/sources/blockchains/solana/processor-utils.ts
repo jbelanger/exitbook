@@ -6,7 +6,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ProcessingContext } from '../../../shared/types/processors.js';
+import type { FundFlowContext } from '../../../shared/types/processors.js';
 
 import type { SolanaBalanceChangeAnalysis, SolanaFundFlow, SolanaMovement } from './types.js';
 
@@ -794,10 +794,7 @@ export function analyzeSolanaBalanceChanges(
 /**
  * Analyze fund flow from normalized SolanaTransaction data
  */
-export function analyzeSolanaFundFlow(
-  tx: SolanaTransaction,
-  context: ProcessingContext
-): Result<SolanaFundFlow, string> {
+export function analyzeSolanaFundFlow(tx: SolanaTransaction, context: FundFlowContext): Result<SolanaFundFlow, string> {
   // Use all user addresses for multi-address fund-flow analysis
   const allWalletAddresses = new Set<string>(context.userAddresses);
 
