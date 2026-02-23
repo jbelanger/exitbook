@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
-import type { ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
+import type { AdapterRegistry, ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -20,7 +20,7 @@ vi.mock('@exitbook/ingestion', () => ({
   TokenMetadataService: vi.fn(),
   TransactionProcessService: vi.fn(),
   createTransactionQueries: vi.fn(),
-  getBlockchainAdapter: vi.fn(),
+  isUtxoAdapter: vi.fn(),
 }));
 
 vi.mock('@exitbook/data', async (importOriginal) => {
@@ -36,6 +36,7 @@ vi.mock('@exitbook/data', async (importOriginal) => {
 describe('ImportHandler', () => {
   let mockImportOrchestrator: Partial<ImportOrchestrator>;
   let mockProcessService: Partial<TransactionProcessService>;
+  let mockRegistry: { getBlockchain: Mock };
   let handler: ImportHandler;
 
   beforeEach(() => {
@@ -52,9 +53,15 @@ describe('ImportHandler', () => {
       processImportedSessions: vi.fn(),
     };
 
+    // Registry returns Err for all lookups — xpub warning path is skipped
+    mockRegistry = {
+      getBlockchain: vi.fn().mockReturnValue({ isOk: () => false, isErr: () => true }),
+    };
+
     handler = new ImportHandler(
       mockImportOrchestrator as ImportOrchestrator,
-      mockProcessService as TransactionProcessService
+      mockProcessService as TransactionProcessService,
+      mockRegistry as unknown as AdapterRegistry
     );
   });
 

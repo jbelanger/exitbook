@@ -19,16 +19,14 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/http": "workspace:*",
+    "@exitbook/logger": "workspace:*",
     "ccxt": "^4.5.36",
     "neverthrow": "^8.2.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "tsconfig": "workspace:*"
-  },
-  "peerDependencies": {
-    "@exitbook/core": "workspace:*",
-    "@exitbook/http": "workspace:*",
-    "@exitbook/logger": "workspace:*"
   }
 }

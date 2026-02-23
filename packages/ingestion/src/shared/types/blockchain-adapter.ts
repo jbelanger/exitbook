@@ -48,29 +48,3 @@ export type BlockchainAdapter = AccountBasedBlockchainAdapter | UtxoBlockchainAd
 export function isUtxoAdapter(adapter: BlockchainAdapter): adapter is UtxoBlockchainAdapter {
   return adapter.chainModel === 'utxo';
 }
-
-const adapters = new Map<string, BlockchainAdapter>();
-
-export function registerBlockchain(config: BlockchainAdapter): void {
-  adapters.set(config.blockchain, config);
-}
-
-export function getBlockchainAdapter(blockchain: string): BlockchainAdapter | undefined {
-  return adapters.get(blockchain);
-}
-
-export function getAllBlockchains(): string[] {
-  return Array.from(adapters.keys()).sort();
-}
-
-export function hasBlockchainAdapter(blockchain: string): boolean {
-  return adapters.has(blockchain);
-}
-
-/**
- * Clear all registered blockchain adapters.
- * Used for testing to avoid state leaking between test suites.
- */
-export function clearBlockchainAdapters(): void {
-  adapters.clear();
-}

@@ -1,7 +1,7 @@
 // Command registration for view blockchains subcommand
 
 import type { ProviderInfo } from '@exitbook/blockchain-providers';
-import { getAllBlockchains } from '@exitbook/ingestion';
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -32,7 +32,7 @@ export type CommandOptions = z.infer<typeof BlockchainsViewCommandOptionsSchema>
 /**
  * Register the blockchains view subcommand.
  */
-export function registerBlockchainsViewCommand(blockchainsCommand: Command): void {
+export function registerBlockchainsViewCommand(blockchainsCommand: Command, registry: AdapterRegistry): void {
   blockchainsCommand
     .command('view')
     .description('View supported blockchains and provider configuration')
@@ -58,14 +58,14 @@ Categories:
     .option('--requires-api-key', 'Show only blockchains that require API keys')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
-      await executeBlockchainsViewCommand(rawOptions);
+      await executeBlockchainsViewCommand(rawOptions, registry);
     });
 }
 
 /**
  * Execute the blockchains view command.
  */
-async function executeBlockchainsViewCommand(rawOptions: unknown): Promise<void> {
+async function executeBlockchainsViewCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
   // Validate options at CLI boundary
   const parseResult = BlockchainsViewCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
@@ -81,16 +81,19 @@ async function executeBlockchainsViewCommand(rawOptions: unknown): Promise<void>
   const isJsonMode = options.json ?? false;
 
   if (isJsonMode) {
-    executeBlockchainsViewJSON(options);
+    executeBlockchainsViewJSON(options, registry);
   } else {
-    await executeBlockchainsViewTUI(options);
+    await executeBlockchainsViewTUI(options, registry);
   }
 }
 
 /**
  * Load and prepare blockchain data with filters applied.
  */
-function loadBlockchainData(options: CommandOptions): {
+function loadBlockchainData(
+  options: CommandOptions,
+  registry: AdapterRegistry
+): {
   allProviders: ProviderInfo[];
   blockchains: ReturnType<typeof buildBlockchainInfo>[];
   validatedCategory: BlockchainCategory | undefined;
@@ -106,7 +109,7 @@ function loadBlockchainData(options: CommandOptions): {
   }
 
   // Get supported blockchains from registry
-  const supportedBlockchains = getAllBlockchains();
+  const supportedBlockchains = registry.getAllBlockchains();
   const allProviders = providerRegistry.getAllProviders();
 
   // Build blockchain info
@@ -133,8 +136,8 @@ function loadBlockchainData(options: CommandOptions): {
 /**
  * Execute blockchains view in TUI mode
  */
-async function executeBlockchainsViewTUI(options: CommandOptions): Promise<void> {
-  const data = loadBlockchainData(options);
+async function executeBlockchainsViewTUI(options: CommandOptions, registry: AdapterRegistry): Promise<void> {
+  const data = loadBlockchainData(options, registry);
   if (!data) return;
 
   const { blockchains, allProviders, validatedCategory } = data;
@@ -164,8 +167,8 @@ async function executeBlockchainsViewTUI(options: CommandOptions): Promise<void>
 /**
  * Execute blockchains view in JSON mode
  */
-function executeBlockchainsViewJSON(options: CommandOptions): void {
-  const data = loadBlockchainData(options);
+function executeBlockchainsViewJSON(options: CommandOptions, registry: AdapterRegistry): void {
+  const data = loadBlockchainData(options, registry);
   if (!data) return;
 
   const { blockchains, allProviders, validatedCategory } = data;

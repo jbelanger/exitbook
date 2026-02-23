@@ -19,13 +19,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@exitbook/logger": "workspace:*",
     "undici": "^7.6.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "tsconfig": "workspace:*"
-  },
-  "peerDependencies": {
-    "@exitbook/logger": "workspace:*"
   }
 }

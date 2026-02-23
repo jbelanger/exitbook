@@ -13,6 +13,7 @@ import {
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
 import {
+  type AdapterRegistry,
   ClearService,
   type IngestionEvent,
   TokenMetadataService,
@@ -48,7 +49,7 @@ export interface ProcessServices {
  * Create all services needed for process command.
  * Caller owns the database lifecycle (via CommandContext).
  */
-export async function createProcessServices(database: KyselyDB): Promise<ProcessServices> {
+export async function createProcessServices(database: KyselyDB, registry: AdapterRegistry): Promise<ProcessServices> {
   // Create repositories
   const userQueries = createUserQueries(database);
   const account = createAccountQueries(database);
@@ -95,7 +96,8 @@ export async function createProcessServices(database: KyselyDB): Promise<Process
       tokenMetadataService,
       importSession,
       eventBus as EventBus<IngestionEvent>,
-      database
+      database,
+      registry
     );
 
     const clearService = new ClearService(

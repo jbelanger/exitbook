@@ -1,9 +1,5 @@
-import { registerCoinbaseExchange } from './coinbase/register.js';
-import { registerKrakenExchange } from './kraken/register.js';
-import { registerKucoinExchange } from './kucoin/register.js';
+import { coinbaseAdapter } from './coinbase/register.js';
+import { krakenAdapter } from './kraken/register.js';
+import { kucoinAdapter } from './kucoin/register.js';
 
-export function registerAllExchanges(): void {
-  registerKrakenExchange();
-  registerCoinbaseExchange();
-  registerKucoinExchange();
-}
+export const allExchangeAdapters = [krakenAdapter, coinbaseAdapter, kucoinAdapter];

@@ -5,60 +5,53 @@ import {
 } from '@exitbook/blockchain-providers';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { DerivedAddress } from '../../../shared/types/blockchain-adapter.js';
-import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
+import type { BlockchainAdapter, DerivedAddress } from '../../../shared/types/blockchain-adapter.js';
 
 import { normalizeCardanoAddress } from './address-utils.js';
 import { CardanoTransactionImporter } from './importer.js';
 import { CardanoTransactionProcessor } from './processor.js';
 
-export function registerCardanoChain(): void {
-  registerBlockchain({
-    blockchain: 'cardano',
-    chainModel: 'utxo',
+export const cardanoAdapter: BlockchainAdapter = {
+  blockchain: 'cardano',
+  chainModel: 'utxo',
 
-    normalizeAddress: (address: string) => normalizeCardanoAddress(address),
+  normalizeAddress: (address: string) => normalizeCardanoAddress(address),
 
-    isExtendedPublicKey: (address: string) => CardanoUtils.isExtendedPublicKey(address),
+  isExtendedPublicKey: (address: string) => CardanoUtils.isExtendedPublicKey(address),
 
-    deriveAddressesFromXpub: async (
-      xpub: string,
-      providerManager: BlockchainProviderManager,
-      _blockchain: string,
-      gap?: number
-    ): Promise<Result<DerivedAddress[], Error>> => {
-      // Use the proper wallet initialization that includes provider manager for gap scanning
-      const walletAddress: CardanoWalletAddress = {
-        address: xpub,
-        type: 'xpub',
-      };
+  deriveAddressesFromXpub: async (
+    xpub: string,
+    providerManager: BlockchainProviderManager,
+    _blockchain: string,
+    gap?: number
+  ): Promise<Result<DerivedAddress[], Error>> => {
+    const walletAddress: CardanoWalletAddress = {
+      address: xpub,
+      type: 'xpub',
+    };
 
-      const initResult = await CardanoUtils.initializeXpubWallet(walletAddress, providerManager, gap ?? 10);
+    const initResult = await CardanoUtils.initializeXpubWallet(walletAddress, providerManager, gap ?? 10);
 
-      if (initResult.isErr()) {
-        return err(initResult.error);
-      }
+    if (initResult.isErr()) {
+      return err(initResult.error);
+    }
 
-      // Return the optimized addresses (filtered by gap scanning)
-      // Reconstruct derivation paths from interleaved index
-      // Pattern: [0/0 (external), 1/0 (internal), 0/1 (external), 1/1 (internal), ...]
-      const optimizedAddresses = walletAddress.derivedAddresses || [];
+    const optimizedAddresses = walletAddress.derivedAddresses || [];
 
-      return ok(
-        optimizedAddresses.map((address: string, index: number) => {
-          const role = index % 2; // 0 = external, 1 = internal
-          const addressIndex = Math.floor(index / 2);
-          return {
-            address,
-            derivationPath: `${role}/${addressIndex}`,
-          };
-        })
-      );
-    },
+    return ok(
+      optimizedAddresses.map((address: string, index: number) => {
+        const role = index % 2; // 0 = external, 1 = internal
+        const addressIndex = Math.floor(index / 2);
+        return {
+          address,
+          derivationPath: `${role}/${addressIndex}`,
+        };
+      })
+    );
+  },
 
-    createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
-      new CardanoTransactionImporter(providerManager, { preferredProvider: providerName }),
+  createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
+    new CardanoTransactionImporter(providerManager, { preferredProvider: providerName }),
 
-    createProcessor: ({ scamDetectionService }) => new CardanoTransactionProcessor(scamDetectionService),
-  });
-}
+  createProcessor: ({ scamDetectionService }) => new CardanoTransactionProcessor(scamDetectionService),
+};

@@ -1,12 +1,10 @@
-import { registerExchange } from '../../../shared/types/exchange-adapter.js';
+import type { ExchangeAdapter } from '../../../shared/types/exchange-adapter.js';
 import { DefaultExchangeProcessor } from '../shared/default-exchange-processor.js';
 
 import { KrakenApiImporter } from './importer.js';
 
-export function registerKrakenExchange(): void {
-  registerExchange({
-    exchange: 'kraken',
-    createImporter: () => new KrakenApiImporter(),
-    createProcessor: () => new DefaultExchangeProcessor('kraken'),
-  });
-}
+export const krakenAdapter: ExchangeAdapter = {
+  exchange: 'kraken',
+  createImporter: () => new KrakenApiImporter(),
+  createProcessor: () => new DefaultExchangeProcessor('kraken'),
+};

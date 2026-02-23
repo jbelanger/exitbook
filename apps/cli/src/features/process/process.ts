@@ -1,4 +1,5 @@
 import type { MetricsSummary } from '@exitbook/http';
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
@@ -38,17 +39,17 @@ interface ProcessCommandResult {
   };
 }
 
-export function registerReprocessCommand(program: Command): void {
+export function registerReprocessCommand(program: Command, registry: AdapterRegistry): void {
   program
     .command('reprocess')
     .description('Clear all derived data and reprocess from raw data')
     .option('--account-id <id>', 'Reprocess only a specific account ID')
     .option('--json', 'Output results in JSON format')
     .option('--verbose', 'Show verbose logging output')
-    .action(executeReprocessCommand);
+    .action((rawOptions: unknown) => executeReprocessCommand(rawOptions, registry));
 }
 
-async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
+async function executeReprocessCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
   // Check for --json flag early (even before validation) to determine output format
   const isJson = isJsonMode(rawOptions);
 
@@ -70,7 +71,7 @@ async function executeReprocessCommand(rawOptions: unknown): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const services = await createProcessServices(database);
+      const services = await createProcessServices(database, registry);
       ctx.onCleanup(async () => services.cleanup());
 
       if (isTuiMode) {

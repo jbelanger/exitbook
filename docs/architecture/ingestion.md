@@ -37,41 +37,6 @@ V2 Architecture Audit: @exitbook/ingestion
 
      Leverage: Low (dead code removal, but signals cleanup debt).
 
-     ---
-     1.2 csv-parse: Right-Sized Dependency
-
-     What exists:
-     csv-parse (sync mode) is imported in exactly one file: /Users/joel/Dev/exitbook/packages/ingestion/src/sources/exchanges/shared/csv-parser-utils.ts.
-     It is used only by the KuCoin CSV importer (importer-csv.ts).
-
-     Why it's a problem:
-     Not a significant problem. The package is well-maintained and the sync API is appropriate for the small CSV files expected from exchange exports.
-     However, the entire file is read into memory (fs.readFile) before parsing, which would fail on multi-GB CSV exports. This is fine for current use
-     (exchange CSVs are typically <100MB).
-
-     What V2 should do:
-     Keep csv-parse. If large CSV support becomes needed, switch from csv-parse/sync to the streaming csv-parse API. No action required today.
-
-     Leverage: No issue.
-
-     ---
-     1.3 Zod Usage: Minimal Within Ingestion
-
-     What exists:
-     Zod is a direct dependency in package.json, but within ingestion itself, only 4 files import it:
-     - processors.ts (schema definition for ProcessedTransactionSchema)
-     - balance-command-status.ts (schema)
-     - kucoin/utils.ts and kucoin/schemas.ts (KuCoin CSV validation)
-
-     Most Zod usage comes transitively through @exitbook/core schemas.
-
-     Why it's a problem:
-     Not a significant problem. Zod is a reasonable choice for runtime validation in a financial system. The dependency is proportional to usage.
-
-     What V2 should do:
-     Keep Zod. No change.
-
-     Leverage: No issue.
 
      ---
      2. Architectural Seams
@@ -328,23 +293,7 @@ V2 Architecture Audit: @exitbook/ingestion
 
      Leverage: No issue.
 
-     ---
-     5.2 Peer Dependencies as De Facto Hard Dependencies
 
-     What exists:
-     package.json declares @exitbook/blockchain-providers, @exitbook/core, @exitbook/data, @exitbook/exchange-providers, and @exitbook/logger as
-     peerDependencies. In practice, these are always present (this is a private monorepo package, not published to npm).
-
-     Why it's a problem (mild):
-     Using peerDependencies for internal monorepo packages is unconventional. It works because pnpm resolves workspace dependencies, but it means:
-     1. The package's actual dependency graph is invisible to tools that analyze dependencies.
-     2. pnpm install won't error if a peer is missing -- the error surfaces only at build/runtime.
-
-     What V2 should do:
-     Move workspace peers to dependencies for internal packages. Keep peerDependencies only for packages intended for external consumption. This is a
-     monorepo-wide decision, not ingestion-specific.
-
-     Leverage: Low.
 
      ---
      6. File & Code Organization

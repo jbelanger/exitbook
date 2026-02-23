@@ -2,8 +2,7 @@
 // All functions are pure - no side effects
 
 import type { AccountType, ExchangeCredentials } from '@exitbook/core';
-import { getBlockchainAdapter } from '@exitbook/ingestion';
-import type { ImportParams } from '@exitbook/ingestion';
+import type { AdapterRegistry, ImportParams } from '@exitbook/ingestion';
 import { err, ok, type Result } from 'neverthrow';
 import type { z } from 'zod';
 
@@ -19,7 +18,10 @@ export type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
  * Performs normalization (e.g., address normalization for blockchains).
  * This is the single transformation point - all downstream code uses ImportParams as-is.
  */
-export function buildImportParams(options: ImportCommandOptions): Result<ImportParams, Error> {
+export function buildImportParams(
+  options: ImportCommandOptions,
+  registry: AdapterRegistry
+): Result<ImportParams, Error> {
   const sourceName = (options.exchange || options.blockchain)!;
   const isBlockchain = !!options.blockchain;
 
@@ -40,12 +42,12 @@ export function buildImportParams(options: ImportCommandOptions): Result<ImportP
       return err(new Error('Address is required for blockchain imports'));
     }
 
-    const blockchainAdapter = getBlockchainAdapter(sourceName.toLowerCase());
-    if (!blockchainAdapter) {
-      return err(new Error(`Unknown blockchain: ${sourceName}`));
+    const adapterResult = registry.getBlockchain(sourceName.toLowerCase());
+    if (adapterResult.isErr()) {
+      return err(adapterResult.error);
     }
 
-    const normalizedAddressResult = blockchainAdapter.normalizeAddress(options.address);
+    const normalizedAddressResult = adapterResult.value.normalizeAddress(options.address);
     if (normalizedAddressResult.isErr()) {
       return err(normalizedAddressResult.error);
     }

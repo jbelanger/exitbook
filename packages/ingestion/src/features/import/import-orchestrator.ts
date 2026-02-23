@@ -10,8 +10,9 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import type { ImportEvent } from '../../events.js';
+import { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import type { UtxoBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
-import { getBlockchainAdapter, isUtxoAdapter } from '../../shared/types/blockchain-adapter.js';
+import { isUtxoAdapter } from '../../shared/types/blockchain-adapter.js';
 
 import { ImportExecutor } from './import-service.js';
 
@@ -29,6 +30,7 @@ export class ImportOrchestrator {
   private logger: Logger;
   private importExecutor: ImportExecutor;
   private providerManager: BlockchainProviderManager;
+  private registry: AdapterRegistry;
   private eventBus?: EventBus<ImportEvent> | undefined;
 
   constructor(
@@ -37,16 +39,19 @@ export class ImportOrchestrator {
     rawDataQueries: RawDataQueries,
     importSessionQueries: ImportSessionQueries,
     providerManager: BlockchainProviderManager,
+    registry: AdapterRegistry,
     eventBus?: EventBus<ImportEvent>
   ) {
     this.logger = getLogger('ImportOrchestrator');
     this.providerManager = providerManager;
+    this.registry = registry;
     this.eventBus = eventBus;
     this.importExecutor = new ImportExecutor(
       rawDataQueries,
       importSessionQueries,
       accountQueries,
       providerManager,
+      registry,
       eventBus
     );
   }
@@ -72,10 +77,11 @@ export class ImportOrchestrator {
 
     // 2. Normalize address using blockchain-specific logic
     const normalizedBlockchain = blockchain.toLowerCase();
-    const blockchainAdapter = getBlockchainAdapter(normalizedBlockchain);
-    if (!blockchainAdapter) {
-      return err(new Error(`Unknown blockchain: ${blockchain}`));
+    const adapterResult = this.registry.getBlockchain(normalizedBlockchain);
+    if (adapterResult.isErr()) {
+      return err(adapterResult.error);
     }
+    const blockchainAdapter = adapterResult.value;
 
     const normalizedAddressResult = blockchainAdapter.normalizeAddress(addressOrXpub);
     if (normalizedAddressResult.isErr()) {

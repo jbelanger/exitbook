@@ -15,8 +15,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { IngestionEvent } from '../../events.js';
-import { getBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
-import { getExchangeAdapter } from '../../shared/types/exchange-adapter.js';
+import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import type {
   ProcessResult,
   ProcessingContext,
@@ -50,7 +49,8 @@ export class TransactionProcessService {
     private tokenMetadataService: ITokenMetadataService,
     private importSessionQueries: ImportSessionQueries,
     private eventBus: EventBus<IngestionEvent>,
-    private db: KyselyDB
+    private db: KyselyDB,
+    private registry: AdapterRegistry
   ) {
     this.logger = getLogger('TransactionProcessService');
     this.scamDetectionService = new ScamDetectionService(eventBus);
@@ -453,13 +453,13 @@ export class TransactionProcessService {
     accountId: number
   ): Result<ITransactionProcessor, Error> {
     if (sourceType === 'blockchain') {
-      const adapter = getBlockchainAdapter(sourceName);
-      if (!adapter) {
-        return err(new Error(`Unknown blockchain: ${sourceName}`));
+      const adapterResult = this.registry.getBlockchain(sourceName);
+      if (adapterResult.isErr()) {
+        return err(adapterResult.error);
       }
 
       return ok(
-        adapter.createProcessor({
+        adapterResult.value.createProcessor({
           providerManager: this.providerManager,
           tokenMetadataService: this.tokenMetadataService,
           scamDetectionService: this.scamDetectionService,
@@ -468,11 +468,11 @@ export class TransactionProcessService {
         })
       );
     } else {
-      const adapter = getExchangeAdapter(sourceName);
-      if (!adapter) {
-        return err(new Error(`Unknown exchange: ${sourceName}`));
+      const adapterResult = this.registry.getExchange(sourceName);
+      if (adapterResult.isErr()) {
+        return err(adapterResult.error);
       }
-      return ok(adapter.createProcessor());
+      return ok(adapterResult.value.createProcessor());
     }
   }
 

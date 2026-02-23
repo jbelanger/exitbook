@@ -33,6 +33,12 @@
   "dependencies": {
     "@cardano-sdk/core": "^0.46.12",
     "@cardano-sdk/crypto": "^0.4.5",
+    "@exitbook/core": "workspace:*",
+    "@exitbook/events": "workspace:*",
+    "@exitbook/http": "workspace:*",
+    "@exitbook/logger": "workspace:*",
+    "@exitbook/resilience": "workspace:*",
+    "@exitbook/sqlite": "workspace:*",
     "@polkadot/util-crypto": "^14.0.1",
     "@scure/bip32": "^2.0.0",
     "bech32": "^2.0.0",
@@ -44,13 +50,5 @@
   "devDependencies": {
     "tsconfig": "workspace:*",
     "tsx": "^4.21.0"
-  },
-  "peerDependencies": {
-    "@exitbook/core": "workspace:*",
-    "@exitbook/events": "workspace:*",
-    "@exitbook/http": "workspace:*",
-    "@exitbook/logger": "workspace:*",
-    "@exitbook/resilience": "workspace:*",
-    "@exitbook/sqlite": "workspace:*"
   }
 }

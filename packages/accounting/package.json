@@ -15,18 +15,17 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "decimal.js": "^10.6.0",
-    "neverthrow": "^8.2.0",
-    "uuid": "^13.0.0",
-    "zod": "^4.3.6"
-  },
-  "devDependencies": {},
-  "peerDependencies": {
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/price-providers": "workspace:*",
+    "decimal.js": "^10.6.0",
+    "neverthrow": "^8.2.0",
+    "uuid": "^13.0.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
     "tsconfig": "workspace:*"
   }
 }

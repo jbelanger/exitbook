@@ -11,6 +11,7 @@ import {
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
 import {
+  type AdapterRegistry,
   ImportOrchestrator,
   type ImportEvent,
   type IngestionEvent,
@@ -45,7 +46,7 @@ export interface ImportServices {
  * Create all services needed for import command.
  * Caller owns the database lifecycle (via CommandContext).
  */
-export async function createImportServices(database: KyselyDB): Promise<ImportServices> {
+export async function createImportServices(database: KyselyDB, registry: AdapterRegistry): Promise<ImportServices> {
   const repositories = createRepositories(database);
 
   const dataDir = getDataDir();
@@ -84,6 +85,7 @@ export async function createImportServices(database: KyselyDB): Promise<ImportSe
       repositories.rawData,
       repositories.importSession,
       providerManager,
+      registry,
       eventBus as EventBus<ImportEvent>
     );
 
@@ -95,10 +97,11 @@ export async function createImportServices(database: KyselyDB): Promise<ImportSe
       tokenMetadataService,
       repositories.importSession,
       eventBus as EventBus<IngestionEvent>,
-      database
+      database,
+      registry
     );
 
-    const handler = new ImportHandler(importOrchestrator, transactionProcessService);
+    const handler = new ImportHandler(importOrchestrator, transactionProcessService, registry);
 
     const ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {
       instrumentation,

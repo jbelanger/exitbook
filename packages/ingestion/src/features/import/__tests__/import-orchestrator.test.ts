@@ -11,6 +11,7 @@ import type { AccountQueries, ImportSessionQueries, RawDataQueries, UserQueries 
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AdapterRegistry } from '../../../shared/types/adapter-registry.js';
 import { ImportOrchestrator } from '../import-orchestrator.js';
 
 // Mock logger
@@ -43,7 +44,7 @@ vi.mock('../import-service.js', () => ({
   }),
 }));
 
-// Mock blockchain configs - shared state for the mock
+// Mock derive addresses function
 interface DerivedAddressMock {
   address: string;
   derivationPath: string;
@@ -61,31 +62,39 @@ const mockDeriveAddressesResult = vi.fn(async (...args: Parameters<DeriveAddress
   return ok(derivedAddresses);
 });
 
-interface MockBlockchainConfig {
-  blockchain: string;
-  chainModel: 'account-based' | 'utxo';
-  createImporter: ReturnType<typeof vi.fn>;
-  createProcessor: ReturnType<typeof vi.fn>;
-  deriveAddressesFromXpub?: typeof mockDeriveAddressesResult;
-  isExtendedPublicKey?: (addr: string) => boolean;
-  normalizeAddress: (addr: string) => unknown;
+function createTestRegistry() {
+  return new AdapterRegistry(
+    [
+      {
+        blockchain: 'bitcoin',
+        chainModel: 'utxo',
+        normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
+        isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
+        deriveAddressesFromXpub: mockDeriveAddressesResult,
+        createImporter: vi.fn(),
+        createProcessor: vi.fn(),
+      },
+      {
+        blockchain: 'cardano',
+        chainModel: 'utxo',
+        normalizeAddress: (addr: string) => ok(addr),
+        isExtendedPublicKey: (addr: string) =>
+          addr.startsWith('stake') || addr.startsWith('xpub') || addr.startsWith('addr_xvk'),
+        deriveAddressesFromXpub: mockDeriveAddressesResult,
+        createImporter: vi.fn(),
+        createProcessor: vi.fn(),
+      },
+      {
+        blockchain: 'ethereum',
+        chainModel: 'account-based',
+        normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
+        createImporter: vi.fn(),
+        createProcessor: vi.fn(),
+      },
+    ],
+    []
+  );
 }
-
-const mockAdaptersRegistry = new Map<string, MockBlockchainConfig>();
-
-vi.mock('../../../shared/types/blockchain-adapter.js', () => ({
-  registerBlockchain: (config: MockBlockchainConfig) => {
-    mockAdaptersRegistry.set(config.blockchain, config);
-  },
-  getBlockchainAdapter: (id: string) => {
-    return mockAdaptersRegistry.get(id);
-  },
-  getAllBlockchains: () => Array.from(mockAdaptersRegistry.keys()),
-  hasBlockchainAdapter: (id: string) => mockAdaptersRegistry.has(id),
-  clearBlockchainAdapters: () => mockAdaptersRegistry.clear(),
-  isUtxoAdapter: (adapter: { blockchain: string }) =>
-    adapter.blockchain === 'bitcoin' || adapter.blockchain === 'cardano',
-}));
 
 describe('ImportOrchestrator', () => {
   let orchestrator: ImportOrchestrator;
@@ -97,40 +106,7 @@ describe('ImportOrchestrator', () => {
 
   const mockUser = { id: 1, createdAt: new Date() };
 
-  beforeEach(async () => {
-    // Clear and register mock blockchain adapters
-    mockAdaptersRegistry.clear();
-    const { registerBlockchain } = await import('../../../shared/types/blockchain-adapter.js');
-
-    registerBlockchain({
-      blockchain: 'bitcoin',
-      chainModel: 'utxo',
-      normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
-      isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
-      deriveAddressesFromXpub: mockDeriveAddressesResult,
-      createImporter: vi.fn(),
-      createProcessor: vi.fn(),
-    });
-
-    registerBlockchain({
-      blockchain: 'cardano',
-      chainModel: 'utxo',
-      normalizeAddress: (addr: string) => ok(addr),
-      isExtendedPublicKey: (addr: string) =>
-        addr.startsWith('stake') || addr.startsWith('xpub') || addr.startsWith('addr_xvk'),
-      deriveAddressesFromXpub: mockDeriveAddressesResult,
-      createImporter: vi.fn(),
-      createProcessor: vi.fn(),
-    });
-
-    registerBlockchain({
-      blockchain: 'ethereum',
-      chainModel: 'account-based',
-      normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
-      createImporter: vi.fn(),
-      createProcessor: vi.fn(),
-    });
-
+  beforeEach(() => {
     mockUserQueries = {
       ensureDefaultUser: vi.fn().mockResolvedValue(ok(mockUser)),
     } as unknown as UserQueries;
@@ -146,12 +122,14 @@ describe('ImportOrchestrator', () => {
     mockImportSessionQueries = {} as ImportSessionQueries;
     mockProviderManager = {} as BlockchainProviderManager;
 
+    const registry = createTestRegistry();
     orchestrator = new ImportOrchestrator(
       mockUserQueries,
       mockAccountQueries,
       mockRawDataQueries,
       mockImportSessionQueries,
-      mockProviderManager
+      mockProviderManager,
+      registry
     );
 
     // Reset derive addresses mock

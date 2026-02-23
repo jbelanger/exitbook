@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { registerAllBlockchains, registerAllExchanges } from '@exitbook/ingestion';
+import { AdapterRegistry, allBlockchainAdapters, allExchangeAdapters } from '@exitbook/ingestion';
 import { flushLoggers, getLogger, initLogger, type LogLevel } from '@exitbook/logger';
 import { FileSink } from '@exitbook/logger/file';
 import { Command } from 'commander';
@@ -43,9 +43,8 @@ import { registerReprocessCommand } from './features/process/process.js';
 import { registerProvidersCommand } from './features/providers/providers.js';
 import { registerTransactionsCommand } from './features/transactions/transactions.js';
 
-// Initialize blockchain and exchange adapters
-registerAllBlockchains();
-registerAllExchanges();
+// Construct registry once at startup — duplicate registrations throw at construction time
+const adapterRegistry = new AdapterRegistry(allBlockchainAdapters, allExchangeAdapters);
 
 const logger = getLogger('CLI');
 const program = new Command();
@@ -53,8 +52,8 @@ const program = new Command();
 async function main() {
   program.name('exitbook').description('Crypto transaction reconciliation and reports').version(CLI_VERSION);
 
-  registerImportCommand(program);
-  registerReprocessCommand(program);
+  registerImportCommand(program, adapterRegistry);
+  registerReprocessCommand(program, adapterRegistry);
   registerLinksCommand(program);
   registerAccountsCommand(program);
   registerTransactionsCommand(program);
@@ -62,8 +61,8 @@ async function main() {
   registerClearCommand(program);
   registerCostBasisCommand(program);
   registerBalanceCommand(program);
-  registerBlockchainsCommand(program);
-  registerProvidersCommand(program);
+  registerBlockchainsCommand(program, adapterRegistry);
+  registerProvidersCommand(program, adapterRegistry);
   registerPortfolioCommand(program);
 
   await program.parseAsync();

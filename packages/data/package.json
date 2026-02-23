@@ -19,16 +19,14 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/logger": "workspace:*",
+    "@exitbook/sqlite": "workspace:*",
     "decimal.js": "^10.6.0",
     "neverthrow": "^8.2.0"
   },
   "devDependencies": {
     "tsconfig": "workspace:*",
     "tsx": "^4.21.0"
-  },
-  "peerDependencies": {
-    "@exitbook/core": "workspace:*",
-    "@exitbook/logger": "workspace:*",
-    "@exitbook/sqlite": "workspace:*"
   }
 }

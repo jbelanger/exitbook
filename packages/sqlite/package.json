@@ -19,6 +19,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/logger": "workspace:*",
     "better-sqlite3": "^12.6.2",
     "kysely": "^0.28.11",
     "neverthrow": "^8.2.0"
@@ -27,9 +29,5 @@
     "@types/better-sqlite3": "^7.6.13",
     "tsconfig": "workspace:*",
     "tsx": "^4.21.0"
-  },
-  "peerDependencies": {
-    "@exitbook/core": "workspace:*",
-    "@exitbook/logger": "workspace:*"
   }
 }

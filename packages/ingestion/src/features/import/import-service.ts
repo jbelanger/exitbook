@@ -8,8 +8,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import type { ImportEvent } from '../../events.js';
-import { getBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
-import { getExchangeAdapter } from '../../shared/types/exchange-adapter.js';
+import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import type { IImporter, ImportParams } from '../../shared/types/importers.js';
 
 /**
@@ -25,6 +24,7 @@ export class ImportExecutor {
     private importSessionQueries: ImportSessionQueries,
     private accountQueries: AccountQueries,
     private providerManager: BlockchainProviderManager,
+    private registry: AdapterRegistry,
     private eventBus?: EventBus<ImportEvent> | undefined
   ) {
     this.logger = getLogger('ImportExecutor');
@@ -75,17 +75,17 @@ export class ImportExecutor {
     let importer: IImporter;
 
     if (sourceType === 'blockchain') {
-      const adapter = getBlockchainAdapter(normalizedSourceName);
-      if (!adapter) {
-        return err(new Error(`Unknown blockchain: ${sourceName}`));
+      const adapterResult = this.registry.getBlockchain(normalizedSourceName);
+      if (adapterResult.isErr()) {
+        return err(adapterResult.error);
       }
-      importer = adapter.createImporter(this.providerManager, params.providerName);
+      importer = adapterResult.value.createImporter(this.providerManager, params.providerName);
     } else {
-      const adapter = getExchangeAdapter(normalizedSourceName);
-      if (!adapter) {
-        return err(new Error(`Unknown exchange: ${sourceName}`));
+      const adapterResult = this.registry.getExchange(normalizedSourceName);
+      if (adapterResult.isErr()) {
+        return err(adapterResult.error);
       }
-      importer = adapter.createImporter();
+      importer = adapterResult.value.createImporter();
     }
 
     this.logger.debug(`Importer for ${sourceName} created successfully`);

@@ -23,21 +23,15 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@exitbook/blockchain-providers": "workspace:*",
+    "@exitbook/core": "workspace:*",
+    "@exitbook/data": "workspace:*",
     "@exitbook/events": "workspace:*",
+    "@exitbook/exchange-providers": "workspace:*",
+    "@exitbook/logger": "workspace:*",
     "csv-parse": "^6.1.0",
     "decimal.js": "^10.6.0",
     "neverthrow": "^8.2.0",
     "zod": "^4.3.6"
-  },
-  "devDependencies": {
-    "tsconfig": "workspace:*",
-    "tsx": "^4.21.0"
-  },
-  "peerDependencies": {
-    "@exitbook/blockchain-providers": "workspace:*",
-    "@exitbook/core": "workspace:*",
-    "@exitbook/data": "workspace:*",
-    "@exitbook/exchange-providers": "workspace:*",
-    "@exitbook/logger": "workspace:*"
   }
 }

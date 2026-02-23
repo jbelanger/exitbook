@@ -10,7 +10,7 @@ import {
   createProviderStatsQueries,
   type ProviderStatsRow,
 } from '@exitbook/blockchain-providers';
-import { getAllBlockchains } from '@exitbook/ingestion';
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import React from 'react';
@@ -45,7 +45,7 @@ export type CommandOptions = z.infer<typeof ProvidersViewCommandOptionsSchema>;
 /**
  * Register the providers view subcommand.
  */
-export function registerProvidersViewCommand(providersCommand: Command): void {
+export function registerProvidersViewCommand(providersCommand: Command, registry: AdapterRegistry): void {
   providersCommand
     .command('view')
     .description('View blockchain API providers, their health, and configuration')
@@ -70,14 +70,14 @@ Common Usage:
     .option('--missing-api-key', 'Show only providers with missing API keys')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
-      await executeProvidersViewCommand(rawOptions);
+      await executeProvidersViewCommand(rawOptions, registry);
     });
 }
 
 /**
  * Execute the providers view command.
  */
-async function executeProvidersViewCommand(rawOptions: unknown): Promise<void> {
+async function executeProvidersViewCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
   // Validate options at CLI boundary
   const parseResult = ProvidersViewCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
@@ -103,9 +103,9 @@ async function executeProvidersViewCommand(rawOptions: unknown): Promise<void> {
   }
 
   if (isJsonMode) {
-    await executeProvidersViewJSON(options, validatedHealth);
+    await executeProvidersViewJSON(options, validatedHealth, registry);
   } else {
-    await executeProvidersViewTUI(options, validatedHealth);
+    await executeProvidersViewTUI(options, validatedHealth, registry);
   }
 }
 
@@ -115,10 +115,11 @@ async function executeProvidersViewCommand(rawOptions: unknown): Promise<void> {
  */
 async function loadProviderData(
   options: CommandOptions,
-  validatedHealth: HealthFilter | undefined
+  validatedHealth: HealthFilter | undefined,
+  registry: AdapterRegistry
 ): Promise<ProviderViewItem[]> {
   // Get all blockchains and build provider map
-  const allBlockchains = getAllBlockchains();
+  const allBlockchains = registry.getAllBlockchains();
   const providerMap = buildProviderMap(allBlockchains, (blockchain) => providerRegistry.getAvailable(blockchain));
 
   // Load explorer config (graceful if missing)
@@ -174,10 +175,11 @@ async function loadProviderData(
  */
 async function executeProvidersViewTUI(
   options: CommandOptions,
-  validatedHealth: HealthFilter | undefined
+  validatedHealth: HealthFilter | undefined,
+  registry: AdapterRegistry
 ): Promise<void> {
   try {
-    const viewItems = await loadProviderData(options, validatedHealth);
+    const viewItems = await loadProviderData(options, validatedHealth, registry);
 
     const healthCounts = computeHealthCounts(viewItems);
 
@@ -212,10 +214,11 @@ async function executeProvidersViewTUI(
  */
 async function executeProvidersViewJSON(
   options: CommandOptions,
-  validatedHealth: HealthFilter | undefined
+  validatedHealth: HealthFilter | undefined,
+  registry: AdapterRegistry
 ): Promise<void> {
   try {
-    const viewItems = await loadProviderData(options, validatedHealth);
+    const viewItems = await loadProviderData(options, validatedHealth, registry);
     const healthCounts = computeHealthCounts(viewItems);
 
     // Build filters record

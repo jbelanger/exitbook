@@ -180,15 +180,16 @@ importers:
       neverthrow:
         specifier: ^8.2.0
         version: 8.2.0
-      tsconfig:
-        specifier: workspace:*
-        version: link:../tsconfig
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
       zod:
         specifier: ^4.3.6
         version: 4.3.6
+    devDependencies:
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
 
   packages/blockchain-providers:
     dependencies:
@@ -368,13 +369,6 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.3.6
-    devDependencies:
-      tsconfig:
-        specifier: workspace:*
-        version: link:../tsconfig
-      tsx:
-        specifier: ^4.21.0
-        version: 4.21.0
 
   packages/logger:
     devDependencies:

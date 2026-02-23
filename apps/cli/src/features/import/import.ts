@@ -1,5 +1,5 @@
 import type { MetricsSummary } from '@exitbook/http';
-import type { ImportParams } from '@exitbook/ingestion';
+import type { AdapterRegistry, ImportParams } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
@@ -65,7 +65,7 @@ interface ImportCommandResult {
   };
 }
 
-export function registerImportCommand(program: Command): void {
+export function registerImportCommand(program: Command, registry: AdapterRegistry): void {
   program
     .command('import')
     .description('Import raw data from external sources (blockchain or exchange)')
@@ -84,10 +84,10 @@ export function registerImportCommand(program: Command): void {
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange API access (if required)')
     .option('--json', 'Output results in JSON format')
     .option('--verbose', 'Show verbose logging output')
-    .action(executeImportCommand);
+    .action((rawOptions: unknown) => executeImportCommand(rawOptions, registry));
 }
 
-async function executeImportCommand(rawOptions: unknown): Promise<void> {
+async function executeImportCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
   // Check for --json flag early (even before validation) to determine output format
   const isJson = isJsonMode(rawOptions);
 
@@ -109,7 +109,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const services = await createImportServices(database);
+      const services = await createImportServices(database, registry);
       ctx.onCleanup(async () => services.cleanup());
 
       if (isTuiMode) {
@@ -122,7 +122,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       }
 
       // Resolve import parameters
-      const params = unwrapResult(buildImportParams(options));
+      const params = unwrapResult(buildImportParams(options, registry));
 
       // Add warning callback for single address imports (only in non-JSON mode)
       let onSingleAddressWarning: (() => Promise<boolean>) | undefined;

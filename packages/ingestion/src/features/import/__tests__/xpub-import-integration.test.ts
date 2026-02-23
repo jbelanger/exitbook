@@ -25,6 +25,8 @@ import {
 import { ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AdapterRegistry } from '../../../shared/types/adapter-registry.js';
+import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter.js';
 import { ImportOrchestrator } from '../import-orchestrator.js';
 
 // Mock logger
@@ -61,36 +63,6 @@ const mockDeriveAddressesResult = vi.fn(async (...args: Parameters<DeriveAddress
 // Mock import streaming function
 const mockImportStreamingFn = vi.fn();
 
-// Mock blockchain configs - shared state for the mock
-interface MockBlockchainConfig {
-  blockchain: string;
-  [key: string]: unknown;
-}
-
-const mockAdaptersRegistry = new Map<string, MockBlockchainConfig>();
-
-vi.mock('../../../shared/types/blockchain-adapter.js', () => ({
-  registerBlockchain: (config: MockBlockchainConfig) => {
-    mockAdaptersRegistry.set(config.blockchain, config);
-  },
-  getBlockchainAdapter: (id: string) => {
-    return mockAdaptersRegistry.get(id);
-  },
-  getAllBlockchains: () => Array.from(mockAdaptersRegistry.keys()),
-  hasBlockchainAdapter: (id: string) => mockAdaptersRegistry.has(id),
-  clearBlockchainAdapters: () => mockAdaptersRegistry.clear(),
-  isUtxoAdapter: (adapter: { blockchain: string }) =>
-    adapter.blockchain === 'bitcoin' || adapter.blockchain === 'cardano',
-}));
-
-vi.mock('../../../shared/types/exchange-adapter.js', () => ({
-  registerExchange: vi.fn(),
-  getExchangeAdapter: vi.fn(),
-  getAllExchanges: () => [],
-  hasExchangeAdapter: () => false,
-  clearExchangeAdapters: vi.fn(),
-}));
-
 describe('xpub import integration tests', () => {
   let db: KyselyDB;
   let orchestrator: ImportOrchestrator;
@@ -100,33 +72,6 @@ describe('xpub import integration tests', () => {
   let sessionQueries: ImportSessionQueries;
 
   beforeEach(async () => {
-    // Clear and register mock blockchain adapters
-    mockAdaptersRegistry.clear();
-    const { registerBlockchain } = await import('../../../shared/types/blockchain-adapter.js');
-
-    registerBlockchain({
-      blockchain: 'bitcoin',
-      chainModel: 'utxo',
-      normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
-      isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
-      deriveAddressesFromXpub: mockDeriveAddressesResult,
-      createImporter: () => ({
-        importStreaming: mockImportStreamingFn,
-      }),
-      createProcessor: vi.fn(),
-    });
-
-    registerBlockchain({
-      blockchain: 'cardano',
-      chainModel: 'utxo',
-      normalizeAddress: (addr: string) => ok(addr),
-      isExtendedPublicKey: (addr: string) => addr.startsWith('stake') || addr.startsWith('addr_xvk'),
-      deriveAddressesFromXpub: mockDeriveAddressesResult,
-      createImporter: () => ({
-        importStreaming: mockImportStreamingFn,
-      }),
-      createProcessor: vi.fn(),
-    });
     // Reset mocks
     mockDeriveAddresses.mockReset();
     mockDeriveAddressesResult.mockClear();
@@ -141,16 +86,40 @@ describe('xpub import integration tests', () => {
     rawDataQueries = createRawDataQueries(db);
     sessionQueries = createImportSessionQueries(db);
 
+    // Create adapter registry with bitcoin and cardano UTXO adapters
+    const bitcoinAdapter: BlockchainAdapter = {
+      blockchain: 'bitcoin',
+      chainModel: 'utxo',
+      normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
+      isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
+      deriveAddressesFromXpub: mockDeriveAddressesResult,
+      createImporter: () => ({ importStreaming: mockImportStreamingFn }),
+      createProcessor: vi.fn(),
+    };
+
+    const cardanoAdapter: BlockchainAdapter = {
+      blockchain: 'cardano',
+      chainModel: 'utxo',
+      normalizeAddress: (addr: string) => ok(addr),
+      isExtendedPublicKey: (addr: string) => addr.startsWith('stake') || addr.startsWith('addr_xvk'),
+      deriveAddressesFromXpub: mockDeriveAddressesResult,
+      createImporter: () => ({ importStreaming: mockImportStreamingFn }),
+      createProcessor: vi.fn(),
+    };
+
+    const registry = new AdapterRegistry([bitcoinAdapter, cardanoAdapter], []);
+
     // Create orchestrator
     orchestrator = new ImportOrchestrator(
       userQueries,
       accountQueries,
       rawDataQueries,
       sessionQueries,
-      mockProviderManager
+      mockProviderManager,
+      registry
     );
 
-    // Reset mocks
+    // Reset mocks after orchestrator setup
     mockDeriveAddresses.mockReset();
     mockDeriveAddressesResult.mockClear();
     mockImportStreamingFn.mockReset();

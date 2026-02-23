@@ -1,6 +1,6 @@
 import type { ImportSession } from '@exitbook/core';
-import type { ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
-import { getBlockchainAdapter, isUtxoAdapter } from '@exitbook/ingestion';
+import type { AdapterRegistry, ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
+import { isUtxoAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -30,7 +30,8 @@ export class ImportHandler {
 
   constructor(
     private importOrchestrator: ImportOrchestrator,
-    private transactionProcessService: TransactionProcessService
+    private transactionProcessService: TransactionProcessService,
+    private registry: AdapterRegistry
   ) {}
 
   /**
@@ -60,8 +61,9 @@ export class ImportHandler {
         }
 
         // Check if this is a single address (not xpub) and warn user
-        const blockchainAdapter = getBlockchainAdapter(params.sourceName.toLowerCase());
-        if (blockchainAdapter && isUtxoAdapter(blockchainAdapter)) {
+        const adapterResult = this.registry.getBlockchain(params.sourceName.toLowerCase());
+        if (adapterResult.isOk() && isUtxoAdapter(adapterResult.value)) {
+          const blockchainAdapter = adapterResult.value;
           const isXpub = blockchainAdapter.isExtendedPublicKey(params.address);
           if (!isXpub && params.onSingleAddressWarning) {
             const shouldContinue = await params.onSingleAddressWarning();

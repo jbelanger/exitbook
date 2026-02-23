@@ -1,15 +1,15 @@
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ImportCommandOptionsSchema } from '../../shared/schemas.js';
 import { buildImportParams, type ImportCommandOptions } from '../import-utils.js';
 
-// Mock the getBlockchainAdapter function
-vi.mock('@exitbook/ingestion', () => ({
-  getBlockchainAdapter: vi.fn((_blockchain: string) => ({
-    normalizeAddress: vi.fn((address: string) => ok(address)),
-  })),
-}));
+function createTestRegistry(): AdapterRegistry {
+  return {
+    getBlockchain: vi.fn((_blockchain: string) => ok({ normalizeAddress: (address: string) => ok(address) })),
+  } as unknown as AdapterRegistry;
+}
 
 describe('ImportCommandOptionsSchema', () => {
   describe('source selection', () => {
@@ -201,7 +201,7 @@ describe('buildImportParams', () => {
         csvDir: '/path/to/csv',
       };
 
-      const result = buildImportParams(options);
+      const result = buildImportParams(options, createTestRegistry());
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
@@ -217,7 +217,7 @@ describe('buildImportParams', () => {
         apiSecret: 'test-secret',
       };
 
-      const result = buildImportParams(options);
+      const result = buildImportParams(options, createTestRegistry());
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
@@ -237,7 +237,7 @@ describe('buildImportParams', () => {
         apiPassphrase: 'test-passphrase',
       };
 
-      const result = buildImportParams(options);
+      const result = buildImportParams(options, createTestRegistry());
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
@@ -256,7 +256,7 @@ describe('buildImportParams', () => {
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       };
 
-      const result = buildImportParams(options);
+      const result = buildImportParams(options, createTestRegistry());
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
@@ -272,7 +272,7 @@ describe('buildImportParams', () => {
         provider: 'blockstream',
       };
 
-      const result = buildImportParams(options);
+      const result = buildImportParams(options, createTestRegistry());
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();

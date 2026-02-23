@@ -1,19 +1,19 @@
-import { registerBitcoinChains } from './bitcoin/register.js';
-import { registerCardanoChain } from './cardano/register.js';
-import { registerCosmosChains } from './cosmos/register.js';
-import { registerEvmChains } from './evm/register.js';
-import { registerNearChain } from './near/register.js';
-import { registerSolanaChain } from './solana/register.js';
-import { registerSubstrateChains } from './substrate/register.js';
-import { registerXrpChains } from './xrp/register.js';
+import { bitcoinAdapters } from './bitcoin/register.js';
+import { cardanoAdapter } from './cardano/register.js';
+import { cosmosAdapters } from './cosmos/register.js';
+import { evmAdapters } from './evm/register.js';
+import { nearAdapter } from './near/register.js';
+import { solanaAdapter } from './solana/register.js';
+import { substrateAdapters } from './substrate/register.js';
+import { xrpAdapters } from './xrp/register.js';
 
-export function registerAllBlockchains(): void {
-  registerEvmChains();
-  registerBitcoinChains();
-  registerCosmosChains();
-  registerSubstrateChains();
-  registerSolanaChain();
-  registerNearChain();
-  registerCardanoChain();
-  registerXrpChains();
-}
+export const allBlockchainAdapters = [
+  ...evmAdapters,
+  ...bitcoinAdapters,
+  ...cosmosAdapters,
+  ...substrateAdapters,
+  solanaAdapter,
+  nearAdapter,
+  cardanoAdapter,
+  ...xrpAdapters,
+];

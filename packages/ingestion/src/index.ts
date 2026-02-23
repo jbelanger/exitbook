@@ -1,6 +1,7 @@
-// Export registration functions for explicit initialization
-export { registerAllBlockchains } from './sources/blockchains/index.js';
-export { registerAllExchanges } from './sources/exchanges/index.js';
+// Adapter registry and all registered adapters
+export { AdapterRegistry } from './shared/types/adapter-registry.js';
+export { allBlockchainAdapters } from './sources/blockchains/index.js';
+export { allExchangeAdapters } from './sources/exchanges/index.js';
 
 export { ImportOrchestrator } from './features/import/import-orchestrator.js';
 export { TransactionProcessService } from './features/process/process-service.js';
@@ -43,24 +44,12 @@ export type { ImportParams } from './shared/types/importers.js';
 // Events
 export type { ImportEvent, ProcessEvent, IngestionEvent } from './events.js';
 
-// Concrete implementations
-
-// Blockchain configuration
+// Blockchain adapter types
 export {
-  getBlockchainAdapter,
-  getAllBlockchains,
-  hasBlockchainAdapter as hasBlockchainConfig,
-  clearBlockchainAdapters,
   isUtxoAdapter,
   type BlockchainAdapter as BlockchainConfig,
   type UtxoBlockchainAdapter,
 } from './shared/types/blockchain-adapter.js';
 
-// Exchange configuration
-export {
-  getExchangeAdapter,
-  getAllExchanges,
-  hasExchangeAdapter,
-  clearExchangeAdapters,
-  type ExchangeAdapter,
-} from './shared/types/exchange-adapter.js';
+// Exchange adapter types
+export { type ExchangeAdapter } from './shared/types/exchange-adapter.js';
