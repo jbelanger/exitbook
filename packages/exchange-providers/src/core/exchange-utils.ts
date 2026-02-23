@@ -1,13 +1,10 @@
 // Pure exchange utility functions
 // All functions are pure - no side effects
 
-import { wrapError, type CursorState, type RawTransactionInput } from '@exitbook/core';
+import { wrapError } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { type ZodType } from 'zod';
-
-import { PartialImportError } from './errors.js';
-import { ExchangeLedgerEntrySchema, type ExchangeLedgerEntry } from './schemas.js';
 
 /**
  * Validate credentials against a Zod schema
@@ -30,88 +27,6 @@ export function validateRawData<T>(schema: ZodType<T>, rawData: unknown, exchang
   } catch (error) {
     return wrapError(error, `${exchangeId} data validation failed`);
   }
-}
-
-/**
- * Process a batch of items with validation and metadata extraction
- * This is the pure functional core of ledger/transaction processing
- *
- * @deprecated INTERNAL USE ONLY - Used by Coinbase client until refactored to inline loop pattern.
- * See packages/exchange-providers/src/exchanges/kraken/client.ts for the preferred pattern.
- *
- * This function uses PartialImportError to carry successful items through the error channel,
- * which is an architectural inconsistency. New code should inline the validation loop instead.
- *
- * @param items - Raw items to process
- * @param extractor - Function to extract raw data from each item
- * @param validator - Function to validate extracted data
- * @param metadataMapper - Function to extract cursor, eventId, and rawData from validated item and original item
- * @param exchangeId - Exchange identifier for metadata
- * @returns Result with processed transactions and updated cursor, or PartialImportError
- */
-export function processItems<TRaw, TValidated>(
-  items: TRaw[],
-  extractor: (item: TRaw) => unknown,
-  validator: (raw: unknown) => Result<TValidated, Error>,
-  metadataMapper: (
-    parsed: TValidated,
-    item: TRaw
-  ) => {
-    cursorUpdates: Record<string, CursorState>;
-    eventId: string;
-    normalizedData: ExchangeLedgerEntry;
-    providerData?: unknown;
-    timestamp: number;
-  },
-  exchangeId: string
-): Result<{ cursorUpdates: Record<string, CursorState>; transactions: RawTransactionInput[] }, PartialImportError> {
-  const transactions: RawTransactionInput[] = [];
-  const lastSuccessfulCursorUpdates: Record<string, CursorState> = {};
-
-  for (const item of items) {
-    const rawItem = extractor(item);
-    const validationResult = validator(rawItem);
-
-    if (validationResult.isErr()) {
-      return err(
-        new PartialImportError(
-          `Validation failed for item: ${validationResult.error.message}`,
-          transactions,
-          rawItem,
-          lastSuccessfulCursorUpdates
-        )
-      );
-    }
-
-    const validatedData = validationResult.value;
-    const { cursorUpdates, eventId, timestamp, normalizedData, providerData } = metadataMapper(validatedData, item);
-
-    // Validate normalized data conforms to ExchangeLedgerEntry schema
-    const normalizedValidation = ExchangeLedgerEntrySchema.safeParse(normalizedData);
-    if (!normalizedValidation.success) {
-      return err(
-        new PartialImportError(
-          `Normalized data validation failed: ${normalizedValidation.error.message}`,
-          transactions,
-          normalizedData,
-          lastSuccessfulCursorUpdates
-        )
-      );
-    }
-
-    transactions.push({
-      eventId: eventId,
-      timestamp,
-      providerName: exchangeId,
-      providerData: providerData ?? (validatedData as unknown),
-      normalizedData: normalizedValidation.data as unknown,
-    });
-
-    // Merge cursor updates
-    Object.assign(lastSuccessfulCursorUpdates, cursorUpdates);
-  }
-
-  return ok({ transactions, cursorUpdates: lastSuccessfulCursorUpdates });
 }
 
 /**

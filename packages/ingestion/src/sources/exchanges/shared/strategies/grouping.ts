@@ -13,15 +13,15 @@ export interface LedgerEntryWithRaw<TRaw = unknown> {
   normalized: ExchangeLedgerEntry;
   /** Unique transaction ID from source */
   eventId: string;
-  /** Cursor for resuming imports */
-  cursor: Record<string, number>;
+  /** Cursor for resuming imports (only present during streaming import, not during reprocessing) */
+  cursor?: Record<string, number> | undefined;
 }
 
 export const RawTransactionWithMetadataSchema = z.object({
   raw: z.unknown(),
   normalized: ExchangeLedgerEntrySchema,
   eventId: z.string(),
-  cursor: z.record(z.string(), z.number()),
+  cursor: z.record(z.string(), z.number()).optional(),
 });
 
 /**

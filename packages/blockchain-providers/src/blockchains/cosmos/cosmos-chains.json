@@ -126,10 +126,10 @@
     "restEndpoints": ["https://rest.evmos.org"],
     "nativeDenom": "aevmos"
   },
-  "cronos": {
+  "crypto-org": {
     "chainId": "crypto-org-chain-mainnet-1",
-    "chainName": "cronos",
-    "displayName": "Cronos",
+    "chainName": "crypto-org",
+    "displayName": "Crypto.org Chain",
     "nativeCurrency": "CRO",
     "nativeDecimals": 8,
     "bech32Prefix": "cro",
@@ -330,10 +330,10 @@
     "restEndpoints": ["https://api-crescent.pupmos.network"],
     "nativeDenom": "ucre"
   },
-  "canto": {
+  "canto-cosmos": {
     "chainId": "canto_7700-1",
-    "chainName": "canto",
-    "displayName": "Canto",
+    "chainName": "canto-cosmos",
+    "displayName": "Canto (Cosmos)",
     "nativeCurrency": "CANTO",
     "nativeDecimals": 18,
     "bech32Prefix": "canto",
@@ -618,10 +618,10 @@
     "restEndpoints": ["https://dydx-api.polkachu.com"],
     "nativeDenom": "adydx"
   },
-  "sei": {
+  "sei-cosmos": {
     "chainId": "pacific-1",
-    "chainName": "sei",
-    "displayName": "Sei",
+    "chainName": "sei-cosmos",
+    "displayName": "Sei (Cosmos)",
     "nativeCurrency": "SEI",
     "nativeDecimals": 6,
     "bech32Prefix": "sei",
@@ -666,10 +666,10 @@
     "restEndpoints": ["https://pirin-cl.nolus.network:1317"],
     "nativeDenom": "unls"
   },
-  "composable": {
+  "composable-cosmos": {
     "chainId": "centauri-1",
-    "chainName": "composable",
-    "displayName": "Composable Finance",
+    "chainName": "composable-cosmos",
+    "displayName": "Composable Finance (Cosmos)",
     "nativeCurrency": "PICA",
     "nativeDecimals": 12,
     "bech32Prefix": "centauri",

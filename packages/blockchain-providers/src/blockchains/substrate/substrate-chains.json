@@ -47,9 +47,9 @@
     "nativeDecimals": 18,
     "ss58Format": 1284
   },
-  "astar": {
-    "chainName": "astar",
-    "displayName": "Astar Network",
+  "astar-substrate": {
+    "chainName": "astar-substrate",
+    "displayName": "Astar Network (Substrate)",
     "explorerUrls": ["https://astar.subscan.io"],
     "nativeCurrency": "ASTR",
     "nativeDecimals": 18,
@@ -407,9 +407,9 @@
     "nativeDecimals": 18,
     "ss58Format": 42
   },
-  "manta": {
-    "chainName": "manta",
-    "displayName": "Manta Network",
+  "manta-substrate": {
+    "chainName": "manta-substrate",
+    "displayName": "Manta Network (Substrate)",
     "explorerUrls": ["https://manta.subscan.io"],
     "nativeCurrency": "MANTA",
     "nativeDecimals": 18,
