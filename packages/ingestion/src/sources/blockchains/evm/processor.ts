@@ -180,7 +180,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
       }
       const feeAssetId = feeAssetIdResult.value;
 
-      const universalTransaction: ProcessedTransaction = {
+      const processedTransaction: ProcessedTransaction = {
         externalId: primaryTx.id,
         datetime: new Date(primaryTx.timestamp).toISOString(),
         timestamp: primaryTx.timestamp,
@@ -224,7 +224,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
       // Drop zero-impact transactions: no movements and no fees means nothing to record.
       // Common case: zero-value incoming ETH transfers (spam/dust) where user didn't initiate.
       const hasMovements = inflows.length > 0 || outflows.length > 0;
-      if (!hasMovements && universalTransaction.fees.length === 0) {
+      if (!hasMovements && processedTransaction.fees.length === 0) {
         this.logger.debug(
           `Dropping zero-impact transaction ${hash} on ${this.chainConfig.chainName} (no movements, no fees)`
         );
@@ -248,9 +248,9 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransac
         });
       }
 
-      transactions.push(universalTransaction);
+      transactions.push(processedTransaction);
       this.logger.debug(
-        `Successfully processed correlated transaction group ${universalTransaction.externalId} (${fundFlow.transactionCount} items)`
+        `Successfully processed correlated transaction group ${processedTransaction.externalId} (${fundFlow.transactionCount} items)`
       );
     }
 

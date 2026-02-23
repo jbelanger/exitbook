@@ -77,9 +77,9 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
         }
         const feeAssetId = feeAssetIdResult.value;
 
-        // Build movements with assetId
-        let hasAssetIdError = false;
+        // Build inflow movements with assetId resolution
         const inflows = [];
+        let hasAssetIdError = false;
         for (const inflow of fundFlow.inflows) {
           const assetIdResult = this.buildCardanoAssetId(inflow);
           if (assetIdResult.isErr()) {
@@ -95,7 +95,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
             assetId: assetIdResult.value,
             assetSymbol: inflow.asset,
             grossAmount: amount,
-            netAmount: amount, // Inflows: no fee adjustment needed
+            netAmount: amount,
           });
         }
 
@@ -103,6 +103,8 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
           continue;
         }
 
+        // Build outflow movements with assetId resolution
+        // ADR-005: For UTXO chains, grossAmount includes fees, netAmount is the actual transfer amount
         const outflows = [];
         for (const outflow of fundFlow.outflows) {
           const assetIdResult = this.buildCardanoAssetId(outflow);
@@ -123,8 +125,8 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
           outflows.push({
             assetId: assetIdResult.value,
             assetSymbol: outflow.asset,
-            grossAmount, // Includes fee (total that left wallet)
-            netAmount, // Actual transfer amount (excludes fee)
+            grossAmount,
+            netAmount,
           });
         }
 
@@ -132,10 +134,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
           continue;
         }
 
-        // Build movements from fund flow
-        // Convert to ProcessedTransaction format
-        // ADR-005: For UTXO chains, grossAmount includes fees, netAmount is the actual transfer amount
-        const universalTransaction: ProcessedTransaction = {
+        const processedTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
@@ -208,10 +207,10 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
           });
         }
 
-        transactions.push(universalTransaction);
+        transactions.push(processedTransaction);
 
         this.logger.debug(
-          `Successfully processed transaction ${universalTransaction.externalId} - Type: ${transactionType}, Primary: ${fundFlow.primary.amount} ${fundFlow.primary.asset}`
+          `Successfully processed transaction ${processedTransaction.externalId} - Type: ${transactionType}, Primary: ${fundFlow.primary.amount} ${fundFlow.primary.asset}`
         );
       } catch (error) {
         const errorMsg = `Error processing normalized transaction: ${String(error)}`;
@@ -228,12 +227,11 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
       this.logger.debug(`Applied symbol-only scam detection to ${transactions.length} transactions`);
     }
 
-    // Log processing summary
-    const totalInputTransactions = normalizedData.length;
-    const failedTransactions = processingErrors.length;
-
     // STRICT MODE: Fail if ANY transactions could not be processed
     if (processingErrors.length > 0) {
+      const failedCount = processingErrors.length;
+      const totalCount = normalizedData.length;
+
       this.logger.error(
         `CRITICAL PROCESSING FAILURE for Cardano:\n${processingErrors
           .map((e, i) => `  ${i + 1}. [${e.txHash.substring(0, 10)}...] ${e.error}`)
@@ -241,8 +239,8 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
       );
 
       return err(
-        `Cannot proceed: ${failedTransactions}/${totalInputTransactions} transactions failed to process. ` +
-          `Lost ${failedTransactions} transactions which would corrupt portfolio calculations. ` +
+        `Cannot proceed: ${failedCount}/${totalCount} transactions failed to process. ` +
+          `Lost ${failedCount} transactions which would corrupt portfolio calculations. ` +
           `Errors: ${processingErrors.map((e) => `[${e.txHash.substring(0, 10)}...]: ${e.error}`).join('; ')}`
       );
     }

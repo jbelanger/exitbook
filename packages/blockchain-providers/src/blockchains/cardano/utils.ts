@@ -82,279 +82,171 @@ export function createRawBalanceData(lovelace: string, ada: string): RawBalanceD
   };
 }
 
+// Cardano xpubs are 64 bytes (128 hex characters): public_key (32 bytes) + chain_code (32 bytes)
+const CARDANO_XPUB_PATTERN = /^[0-9a-fA-F]{128}$/;
+
+export function isCardanoXpub(address: string): boolean {
+  return CARDANO_XPUB_PATTERN.test(address);
+}
+
+export function getCardanoAddressEra(address: string): CardanoAddressEra | 'unknown' {
+  if (
+    address.startsWith('addr1') ||
+    address.startsWith('addr_test1') ||
+    address.startsWith('stake1') ||
+    address.startsWith('stake_test1')
+  ) {
+    return 'shelley';
+  }
+  if (address.startsWith('Ae2') || address.startsWith('DdzFF')) {
+    return 'byron';
+  }
+  return 'unknown';
+}
+
 /**
- * Cardano HD wallet utilities for extended public key management and address derivation
+ * Derive addresses from a Cardano xpub following CIP-1852.
  *
- * Implements CIP-1852 (Cardano Improvement Proposal 1852) hierarchical deterministic wallets.
- * Extended public keys are exported at account level (m/1852'/1815'/0'), allowing derivation
- * of both external (receiving) and internal (change) addresses without exposing private keys.
+ * Derives in INTERLEAVED order (external[0], internal[0], external[1], ...) for proper
+ * BIP44 gap-limit checking across both chains.
+ *
+ * @throws Error if xpub format is invalid or derivation fails
  */
-export class CardanoUtils {
-  /**
-   * Check if the provided address is a Cardano extended public key (xpub)
-   *
-   * Cardano extended public keys are typically 128 hex characters (64 bytes):
-   * - 32 bytes: Public key
-   * - 32 bytes: Chain code
-   *
-   * @param address - The address string to check
-   * @returns True if the address is an extended public key, false otherwise
-   *
-   * @example
-   * ```typescript
-   * const isXpub = CardanoUtils.isExtendedPublicKey('a0b1c2d3...');
-   * ```
-   */
-  static isExtendedPublicKey(address: string): boolean {
-    // Cardano xpubs are 64 bytes (128 hex characters)
-    // Format: public_key (32 bytes) + chain_code (32 bytes)
-    const hexPattern = /^[0-9a-fA-F]{128}$/;
-    return hexPattern.test(address);
+export async function deriveCardanoAddressesFromXpub(xpub: string, addressGap = 10): Promise<DerivedCardanoAddress[]> {
+  if (!isCardanoXpub(xpub)) {
+    throw new Error('Invalid Cardano extended public key format');
   }
 
-  /**
-   * Detect the era/format of a Cardano address
-   *
-   * @param address - The Cardano address to analyze
-   * @returns The detected era: 'byron' for legacy addresses, 'shelley' for modern addresses, 'unknown' if invalid
-   *
-   * Address formats:
-   * - Byron (legacy): Base58 encoding, starts with 'Ae2' or 'DdzFF'
-   * - Shelley (modern): Bech32 encoding, starts with 'addr1' or 'stake1'
-   *
-   * @example
-   * ```typescript
-   * const era = CardanoUtils.getAddressEra('addr1qxy...');
-   * // Returns: 'shelley'
-   *
-   * const byronEra = CardanoUtils.getAddressEra('DdzFFzCqrht...');
-   * // Returns: 'byron'
-   * ```
-   */
-  static getAddressEra(address: string): CardanoAddressEra | 'unknown' {
-    // Shelley-era addresses (Bech32 format)
-    if (
-      address.startsWith('addr1') ||
-      address.startsWith('addr_test1') ||
-      address.startsWith('stake1') ||
-      address.startsWith('stake_test1')
-    ) {
-      return 'shelley';
-    }
+  try {
+    // Dynamically import Cardano SDK modules to avoid loading at startup
+    const { Bip32PublicKey } = await import('@cardano-sdk/crypto');
+    const { Cardano } = await import('@cardano-sdk/core');
 
-    // Byron-era addresses (Base58 format)
-    if (address.startsWith('Ae2') || address.startsWith('DdzFF')) {
-      return 'byron';
-    }
+    // Parse the extended public key from hex
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- hard to import Bip32PublicKeyHex
+    const accountPublicKey = Bip32PublicKey.fromHex(xpub as any);
 
-    return 'unknown';
-  }
+    const derivedAddresses: DerivedCardanoAddress[] = [];
 
-  /**
-   * Derive addresses from a Cardano extended public key (xpub) following CIP-1852
-   *
-   * Derivation follows CIP-1852 standard (based on BIP44):
-   * - Path: m/1852'/1815'/account'/role/index
-   * - The xpub is at account level (hardened derivation already complete)
-   * - Only role and index use soft derivation
-   * - role=0: External/receiving addresses
-   * - role=1: Internal/change addresses
-   *
-   * BIP44 gap limit applies to consecutive unused addresses in INTERLEAVED order:
-   * - Derives in order: 0/0, 1/0, 0/1, 1/1, 0/2, 1/2, ...
-   * - Gap limit checks happen during scanning in this interleaved sequence
-   *
-   * @param xpub - The account-level extended public key (128 hex characters)
-   * @param addressGap - Address gap limit for BIP44 scanning (default: 10)
-   * @returns Promise resolving to array of derived addresses with metadata
-   *
-   * @throws Error if xpub format is invalid or derivation fails
-   *
-   * @example
-   * ```typescript
-   * const addresses = await CardanoUtils.deriveAddressesFromXpub(xpub, 10);
-   * // Returns in interleaved order: [
-   * //   { address: 'addr1...', derivationPath: '0/0', role: 'external' },
-   * //   { address: 'addr1...', derivationPath: '1/0', role: 'internal' },
-   * //   { address: 'addr1...', derivationPath: '0/1', role: 'external' },
-   * //   { address: 'addr1...', derivationPath: '1/1', role: 'internal' },
-   * //   ...
-   * // ]
-   * ```
-   */
-  static async deriveAddressesFromXpub(xpub: string, addressGap = 10): Promise<DerivedCardanoAddress[]> {
-    if (!CardanoUtils.isExtendedPublicKey(xpub)) {
-      throw new Error('Invalid Cardano extended public key format');
-    }
+    // Derive the stake key at CIP-1852 path: account'/2/0
+    // This single stake key is used for all addresses in the account
+    const stakeKey = accountPublicKey.derive([2, 0]);
+    const stakeCredential = stakeKey.toRawKey().hash().hex() as string;
 
-    try {
-      // Dynamically import Cardano SDK modules to avoid loading at startup
-      const { Bip32PublicKey } = await import('@cardano-sdk/crypto');
-      const { Cardano } = await import('@cardano-sdk/core');
+    // Pre-derive role keys for both external (0) and internal (1)
+    const externalRoleKey = accountPublicKey.derive([0]);
+    const internalRoleKey = accountPublicKey.derive([1]);
 
-      // Parse the extended public key from hex
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- hard to import Bip32PublicKeyHex
-      const accountPublicKey = Bip32PublicKey.fromHex(xpub as any);
-
-      const derivedAddresses: DerivedCardanoAddress[] = [];
-
-      // Derive the stake key at CIP-1852 path: account'/2/0
-      // This single stake key is used for all addresses in the account
-      const stakeKey = accountPublicKey.derive([2, 0]);
-      const stakeCredential = stakeKey.toRawKey().hash().hex() as string;
-
-      // Pre-derive role keys for both external (0) and internal (1)
-      const externalRoleKey = accountPublicKey.derive([0]);
-      const internalRoleKey = accountPublicKey.derive([1]);
-
-      // Derive addresses in INTERLEAVED order: external[0], internal[0], external[1], internal[1], ...
-      // This ensures proper gap limit checking across both chains per BIP44 standard
-      // Derive exactly addressGap addresses per chain (external + internal)
-      for (let i = 0; i < addressGap; i++) {
-        // Derive external address (role=0)
-        const externalAddressKey = externalRoleKey.derive([i]);
-        const externalPaymentCredential = externalAddressKey.toRawKey().hash().hex() as string;
-        /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- Cardano SDK credential types */
-        const externalBaseAddress = Cardano.BaseAddress.fromCredentials(
-          Cardano.NetworkId.Mainnet,
-          { hash: externalPaymentCredential as any, type: Cardano.CredentialType.KeyHash },
-          { hash: stakeCredential as any, type: Cardano.CredentialType.KeyHash }
-        );
-        /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- Cardano SDK credential types */
-        derivedAddresses.push({
-          address: externalBaseAddress.toAddress().toBech32() as string,
-          derivationPath: `0/${i}`,
-          role: 'external',
-        });
-
-        // Derive internal address (role=1)
-        const internalAddressKey = internalRoleKey.derive([i]);
-        const internalPaymentCredential = internalAddressKey.toRawKey().hash().hex() as string;
-        /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- Cardano SDK credential types */
-        const internalBaseAddress = Cardano.BaseAddress.fromCredentials(
-          Cardano.NetworkId.Mainnet,
-          { hash: internalPaymentCredential as any, type: Cardano.CredentialType.KeyHash },
-          { hash: stakeCredential as any, type: Cardano.CredentialType.KeyHash }
-        );
-        /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- Cardano SDK credential types */
-        derivedAddresses.push({
-          address: internalBaseAddress.toAddress().toBech32() as string,
-          derivationPath: `1/${i}`,
-          role: 'internal',
-        });
-      }
-
-      logger.debug(
-        `Derived ${derivedAddresses.length} addresses (interleaved) from xpub - Xpub: ${xpub.substring(0, 20)}..., Gap: ${addressGap}`
+    for (let i = 0; i < addressGap; i++) {
+      const externalAddressKey = externalRoleKey.derive([i]);
+      const externalPaymentCredential = externalAddressKey.toRawKey().hash().hex() as string;
+      /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- Cardano SDK credential types */
+      const externalBaseAddress = Cardano.BaseAddress.fromCredentials(
+        Cardano.NetworkId.Mainnet,
+        { hash: externalPaymentCredential as any, type: Cardano.CredentialType.KeyHash },
+        { hash: stakeCredential as any, type: Cardano.CredentialType.KeyHash }
       );
+      /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- Cardano SDK credential types */
+      derivedAddresses.push({
+        address: externalBaseAddress.toAddress().toBech32() as string,
+        derivationPath: `0/${i}`,
+        role: 'external',
+      });
 
-      return derivedAddresses;
-    } catch (error) {
-      logger.error(`Failed to derive addresses from xpub - Error: ${String(error)}, Xpub: ${xpub.substring(0, 20)}...`);
-      throw error;
-    }
-  }
-
-  /**
-   * Initialize a Cardano xpub wallet with address derivation and gap scanning
-   *
-   * This method:
-   * 1. Derives addresses from the extended public key
-   * 2. Performs BIP44-compliant gap scanning to detect used addresses
-   * 3. Optimizes the address set based on actual usage
-   * 4. Updates the walletAddress object in-place with derived addresses
-   *
-   * @param walletAddress - The wallet address object to initialize (modified in-place)
-   * @param providerManager - Provider manager for blockchain queries
-   * @param addressGap - Address gap limit (default: 10, reduced for API efficiency)
-   * @returns Result indicating success or failure
-   *
-   * @example
-   * ```typescript
-   * const walletAddress: CardanoWalletAddress = {
-   *   address: xpub,
-   *   type: 'xpub',
-   * };
-   *
-   * const result = await CardanoUtils.initializeXpubWallet(
-   *   walletAddress,
-   *   providerManager,
-   *   10
-   * );
-   *
-   * if (result.isOk()) {
-   *   console.log('Derived addresses:', walletAddress.derivedAddresses);
-   * }
-   * ```
-   */
-  static async initializeXpubWallet(
-    walletAddress: CardanoWalletAddress,
-    providerManager: BlockchainProviderManager,
-    addressGap = 10
-  ): Promise<Result<void, Error>> {
-    try {
-      logger.info(
-        `Initializing Cardano xpub wallet - Xpub: ${walletAddress.address.substring(0, 20)}..., Gap: ${addressGap}`
+      const internalAddressKey = internalRoleKey.derive([i]);
+      const internalPaymentCredential = internalAddressKey.toRawKey().hash().hex() as string;
+      /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- Cardano SDK credential types */
+      const internalBaseAddress = Cardano.BaseAddress.fromCredentials(
+        Cardano.NetworkId.Mainnet,
+        { hash: internalPaymentCredential as any, type: Cardano.CredentialType.KeyHash },
+        { hash: stakeCredential as any, type: Cardano.CredentialType.KeyHash }
       );
-
-      // Set metadata
-      walletAddress.era = 'shelley'; // Derived addresses are always Shelley-era
-      walletAddress.derivationPath = "m/1852'/1815'/0'"; // CIP-1852 account level
-      walletAddress.addressGap = addressGap;
-
-      // Derive addresses from xpub with buffer for gap scanning
-      // Use 2x buffer for sparse wallets, minimum 40 addresses per chain
-      const scanDepth = Math.max(addressGap * 2, 40);
-      const derivedAddressData = await CardanoUtils.deriveAddressesFromXpub(walletAddress.address, scanDepth);
-
-      // Extract just the address strings for storage
-      const derivedAddresses = derivedAddressData.map((d) => d.address);
-      walletAddress.derivedAddresses = derivedAddresses;
-
-      logger.info(
-        `Successfully derived ${derivedAddresses.length} addresses - Xpub: ${walletAddress.address.substring(0, 20)}..., Era: shelley, DerivationPath: ${walletAddress.derivationPath}, TotalAddresses: ${derivedAddresses.length}`
-      );
-
-      // Perform BIP44-compliant intelligent gap scanning
-      const scanResult = await CardanoUtils.performAddressGapScanning(walletAddress, providerManager);
-
-      if (scanResult.isErr()) {
-        return err(scanResult.error);
-      }
-
-      return ok();
-    } catch (error) {
-      const errorMessage = getErrorMessage(error, 'Unknown error');
-      logger.error(
-        `Failed to initialize xpub wallet - Error: ${errorMessage}, Xpub: ${walletAddress.address.substring(0, 20)}...`
-      );
-      return wrapError(error, 'Failed to initialize xpub wallet');
-    }
-  }
-
-  /**
-   * Perform BIP44-compliant gap scanning to determine derived address set.
-   * Delegates to the shared gap scanning utility.
-   */
-  static async performAddressGapScanning(
-    walletAddress: CardanoWalletAddress,
-    providerManager: BlockchainProviderManager
-  ): Promise<Result<void, Error>> {
-    const allDerived = walletAddress.derivedAddresses || [];
-    if (allDerived.length === 0) {
-      return ok();
+      /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- Cardano SDK credential types */
+      derivedAddresses.push({
+        address: internalBaseAddress.toAddress().toBech32() as string,
+        derivationPath: `1/${i}`,
+        role: 'internal',
+      });
     }
 
-    const gapLimit = walletAddress.addressGap || 10;
-
-    const result = await performAddressGapScanning(
-      { blockchain: 'cardano', derivedAddresses: allDerived, gapLimit },
-      providerManager
+    logger.debug(
+      `Derived ${derivedAddresses.length} addresses (interleaved) from xpub - Xpub: ${xpub.substring(0, 20)}..., Gap: ${addressGap}`
     );
 
-    if (result.isErr()) return err(result.error);
+    return derivedAddresses;
+  } catch (error) {
+    logger.error(`Failed to derive addresses from xpub - Error: ${String(error)}, Xpub: ${xpub.substring(0, 20)}...`);
+    throw error;
+  }
+}
 
-    walletAddress.derivedAddresses = result.value.addresses;
+/**
+ * Initialize a Cardano xpub wallet with address derivation and BIP44 gap scanning.
+ * Updates the walletAddress object in-place with derived addresses.
+ */
+export async function initializeCardanoXpubWallet(
+  walletAddress: CardanoWalletAddress,
+  providerManager: BlockchainProviderManager,
+  addressGap = 10
+): Promise<Result<void, Error>> {
+  try {
+    logger.info(
+      `Initializing Cardano xpub wallet - Xpub: ${walletAddress.address.substring(0, 20)}..., Gap: ${addressGap}`
+    );
+
+    walletAddress.era = 'shelley'; // Derived addresses are always Shelley-era
+    walletAddress.derivationPath = "m/1852'/1815'/0'"; // CIP-1852 account level
+    walletAddress.addressGap = addressGap;
+
+    // Use 2x buffer for sparse wallets, minimum 40 addresses per chain
+    const scanDepth = Math.max(addressGap * 2, 40);
+    const derivedAddressData = await deriveCardanoAddressesFromXpub(walletAddress.address, scanDepth);
+
+    const derivedAddresses = derivedAddressData.map((d) => d.address);
+    walletAddress.derivedAddresses = derivedAddresses;
+
+    logger.info(
+      `Successfully derived ${derivedAddresses.length} addresses - Xpub: ${walletAddress.address.substring(0, 20)}..., Era: shelley, DerivationPath: ${walletAddress.derivationPath}, TotalAddresses: ${derivedAddresses.length}`
+    );
+
+    const scanResult = await performCardanoAddressGapScanning(walletAddress, providerManager);
+
+    if (scanResult.isErr()) {
+      return err(scanResult.error);
+    }
+
+    return ok();
+  } catch (error) {
+    const errorMessage = getErrorMessage(error, 'Unknown error');
+    logger.error(
+      `Failed to initialize xpub wallet - Error: ${errorMessage}, Xpub: ${walletAddress.address.substring(0, 20)}...`
+    );
+    return wrapError(error, 'Failed to initialize xpub wallet');
+  }
+}
+
+/**
+ * Perform BIP44-compliant gap scanning to determine the active derived address set.
+ * Delegates to the shared gap scanning utility.
+ */
+export async function performCardanoAddressGapScanning(
+  walletAddress: CardanoWalletAddress,
+  providerManager: BlockchainProviderManager
+): Promise<Result<void, Error>> {
+  const allDerived = walletAddress.derivedAddresses ?? [];
+  if (allDerived.length === 0) {
     return ok();
   }
+
+  const gapLimit = walletAddress.addressGap ?? 10;
+
+  const result = await performAddressGapScanning(
+    { blockchain: 'cardano', derivedAddresses: allDerived, gapLimit },
+    providerManager
+  );
+
+  if (result.isErr()) return err(result.error);
+
+  walletAddress.derivedAddresses = result.value.addresses;
+  return ok();
 }

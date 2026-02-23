@@ -124,7 +124,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
         }
         const feeAssetId = feeAssetIdResult.value;
 
-        const universalTransaction: ProcessedTransaction = {
+        const processedTransaction: ProcessedTransaction = {
           movements: {
             inflows,
             outflows,
@@ -160,7 +160,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
           to: fundFlow.toAddress,
         };
 
-        transactions.push(universalTransaction);
+        transactions.push(processedTransaction);
 
         this.logger.debug(
           `Processed Substrate transaction ${normalizedTx.id} - ` +

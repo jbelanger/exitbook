@@ -10,6 +10,14 @@ import type { CardanoFundFlow, CardanoMovement } from './types.js';
 
 const logger = getLogger('cardano-processor-utils');
 
+interface AssetAccumulator {
+  amount: Decimal;
+  assetName?: string | undefined;
+  decimals?: number | undefined;
+  policyId?: string | undefined;
+  symbol?: Currency | undefined;
+}
+
 /**
  * Convert lovelace (smallest unit) to ADA
  * 1 ADA = 1,000,000 lovelace
@@ -56,37 +64,22 @@ export function parseCardanoAssetUnit(unit: string): {
 /**
  * Consolidate duplicate assets by summing amounts
  */
+
 export function consolidateCardanoMovements(movements: CardanoMovement[]): CardanoMovement[] {
-  const assetMap = new Map<
-    string,
-    {
-      amount: Decimal;
-      assetName?: string | undefined;
-      decimals?: number | undefined;
-      policyId?: string | undefined;
-      symbol?: Currency | undefined;
-    }
-  >();
+  const assetMap = new Map<string, AssetAccumulator>();
 
   for (const movement of movements) {
     const existing = assetMap.get(movement.unit);
     if (existing) {
       existing.amount = existing.amount.plus(parseDecimal(movement.amount));
     } else {
-      const entry: {
-        amount: Decimal;
-        assetName?: string | undefined;
-        decimals?: number | undefined;
-        policyId?: string | undefined;
-        symbol?: Currency | undefined;
-      } = {
+      assetMap.set(movement.unit, {
         amount: parseDecimal(movement.amount),
         decimals: movement.decimals,
         policyId: movement.policyId,
         assetName: movement.assetName,
         symbol: movement.asset,
-      };
-      assetMap.set(movement.unit, entry);
+      });
     }
   }
 
@@ -138,8 +131,6 @@ export function analyzeCardanoFundFlow(
   context: AddressContext
 ): Result<CardanoFundFlow, string> {
   const userAddress = context.primaryAddress;
-  // Per-address mode: only check this single address
-  const addressSet = new Set<string>([userAddress]);
 
   const inflows: CardanoMovement[] = [];
   const outflows: CardanoMovement[] = [];
@@ -150,64 +141,57 @@ export function analyzeCardanoFundFlow(
 
   // Analyze inputs (assets being spent)
   for (const input of tx.inputs) {
-    const isUserInput = addressSet.has(input.address);
+    if (input.address !== userAddress) {
+      continue;
+    }
 
-    if (isUserInput) {
-      userOwnsInput = true;
+    userOwnsInput = true;
 
-      // Track all assets in this input as outflows
-      for (const assetAmount of input.amounts) {
-        const { isAda, policyId, assetName } = parseCardanoAssetUnit(assetAmount.unit);
+    for (const assetAmount of input.amounts) {
+      const { isAda, policyId, assetName } = parseCardanoAssetUnit(assetAmount.unit);
+      const decimals = isAda ? 6 : assetAmount.decimals;
+      const normalizedAmount = normalizeCardanoAmount(assetAmount.quantity, decimals);
 
-        // Normalize amount using decimals
-        // For ADA (lovelace), we use 6 decimals
-        const decimals = isAda ? 6 : assetAmount.decimals;
-        const normalizedAmount = normalizeCardanoAmount(assetAmount.quantity, decimals);
-
-        if (isZeroDecimal(normalizedAmount)) {
-          continue;
-        }
-
-        outflows.push({
-          amount: normalizedAmount,
-          asset: (isAda ? 'ADA' : assetAmount.symbol || assetAmount.unit) as Currency,
-          assetName,
-          decimals,
-          policyId,
-          unit: assetAmount.unit,
-        });
+      if (isZeroDecimal(normalizedAmount)) {
+        continue;
       }
+
+      outflows.push({
+        amount: normalizedAmount,
+        asset: (isAda ? 'ADA' : assetAmount.symbol || assetAmount.unit) as Currency,
+        assetName,
+        decimals,
+        policyId,
+        unit: assetAmount.unit,
+      });
     }
   }
 
   // Analyze outputs (assets being received)
   for (const output of tx.outputs) {
-    const isUserOutput = addressSet.has(output.address);
+    if (output.address !== userAddress) {
+      continue;
+    }
 
-    if (isUserOutput) {
-      userReceivesOutput = true;
+    userReceivesOutput = true;
 
-      // Track all assets in this output as inflows
-      for (const assetAmount of output.amounts) {
-        const { isAda, policyId, assetName } = parseCardanoAssetUnit(assetAmount.unit);
+    for (const assetAmount of output.amounts) {
+      const { isAda, policyId, assetName } = parseCardanoAssetUnit(assetAmount.unit);
+      const decimals = isAda ? 6 : assetAmount.decimals;
+      const normalizedAmount = normalizeCardanoAmount(assetAmount.quantity, decimals);
 
-        // Normalize amount using decimals
-        const decimals = isAda ? 6 : assetAmount.decimals;
-        const normalizedAmount = normalizeCardanoAmount(assetAmount.quantity, decimals);
-
-        if (isZeroDecimal(normalizedAmount)) {
-          continue;
-        }
-
-        inflows.push({
-          amount: normalizedAmount,
-          asset: (isAda ? 'ADA' : assetAmount.symbol || assetAmount.unit) as Currency,
-          assetName,
-          decimals,
-          policyId,
-          unit: assetAmount.unit,
-        });
+      if (isZeroDecimal(normalizedAmount)) {
+        continue;
       }
+
+      inflows.push({
+        amount: normalizedAmount,
+        asset: (isAda ? 'ADA' : assetAmount.symbol || assetAmount.unit) as Currency,
+        assetName,
+        decimals,
+        policyId,
+        unit: assetAmount.unit,
+      });
     }
   }
 
@@ -232,54 +216,35 @@ export function analyzeCardanoFundFlow(
 
   // Determine primary addresses
   const fromAddress = isOutgoing
-    ? tx.inputs.find((input) => addressSet.has(input.address))?.address
+    ? tx.inputs.find((input) => input.address === userAddress)?.address
     : tx.inputs[0]?.address;
 
   const toAddress = isIncoming
-    ? tx.outputs.find((output) => addressSet.has(output.address))?.address
+    ? tx.outputs.find((output) => output.address === userAddress)?.address
     : tx.outputs[0]?.address;
 
-  // Select primary asset (largest movement)
-  let primary: CardanoMovement = {
-    amount: '0',
-    asset: 'ADA' as Currency,
-    unit: 'lovelace',
+  // Select primary asset (largest movement by amount, prioritizing inflows)
+  const compareByAmountDescending = (a: CardanoMovement, b: CardanoMovement): number => {
+    try {
+      return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
+    } catch (error) {
+      logger.warn({ error, itemA: a, itemB: b }, 'Failed to parse amount during sort comparison, treating as equal');
+      return 0;
+    }
   };
 
-  // Prioritize largest inflow
   const largestInflow = consolidatedInflows
-    .sort((a, b) => {
-      try {
-        return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-      } catch (error) {
-        logger.warn({ error, itemA: a, itemB: b }, 'Failed to parse amount during sort comparison, treating as equal');
-        return 0;
-      }
-    })
+    .sort(compareByAmountDescending)
     .find((inflow) => !isZeroDecimal(inflow.amount));
 
-  if (largestInflow) {
-    primary = { ...largestInflow };
-  } else {
-    // If no inflows, use largest outflow
-    const largestOutflow = consolidatedOutflows
-      .sort((a, b) => {
-        try {
-          return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-        } catch (error) {
-          logger.warn(
-            { error, itemA: a, itemB: b },
-            'Failed to parse amount during sort comparison, treating as equal'
-          );
-          return 0;
-        }
-      })
-      .find((outflow) => !isZeroDecimal(outflow.amount));
+  const largestOutflow = consolidatedOutflows
+    .sort(compareByAmountDescending)
+    .find((outflow) => !isZeroDecimal(outflow.amount));
 
-    if (largestOutflow) {
-      primary = { ...largestOutflow };
-    }
-  }
+  const primaryMovement = largestInflow ?? largestOutflow;
+  const primary: CardanoMovement = primaryMovement
+    ? { ...primaryMovement }
+    : { amount: '0', asset: 'ADA' as Currency, unit: 'lovelace' };
 
   // Track uncertainty for complex transactions
   let classificationUncertainty: string | undefined;

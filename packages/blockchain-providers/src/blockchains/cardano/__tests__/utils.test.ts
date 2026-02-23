@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CardanoUtils, createRawBalanceData, lovelaceToAda } from '../utils.js';
+import {
+  createRawBalanceData,
+  deriveCardanoAddressesFromXpub,
+  getCardanoAddressEra,
+  isCardanoXpub,
+  lovelaceToAda,
+} from '../utils.js';
 
 // Mock Cardano SDK modules (must be at the top level before imports)
 const mockDeriveFunction = vi.fn();
@@ -168,89 +174,89 @@ describe('Cardano balance-utils', () => {
   });
 });
 
-describe('CardanoUtils', () => {
+describe('Cardano utils', () => {
   describe('isExtendedPublicKey', () => {
     it('should return true for valid 128-character hex xpub', () => {
       // 128 hex characters (64 bytes: 32 bytes public key + 32 bytes chain code)
       const validXpub =
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-      expect(CardanoUtils.isExtendedPublicKey(validXpub)).toBe(true);
+      expect(isCardanoXpub(validXpub)).toBe(true);
     });
 
     it('should return true for valid uppercase hex xpub', () => {
       const validXpub =
         '0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF';
-      expect(CardanoUtils.isExtendedPublicKey(validXpub)).toBe(true);
+      expect(isCardanoXpub(validXpub)).toBe(true);
     });
 
     it('should return true for valid mixed-case hex xpub', () => {
       const validXpub =
         '0123456789aBcDeF0123456789aBcDeF0123456789aBcDeF0123456789aBcDeF0123456789aBcDeF0123456789aBcDeF0123456789aBcDeF0123456789aBcDeF';
-      expect(CardanoUtils.isExtendedPublicKey(validXpub)).toBe(true);
+      expect(isCardanoXpub(validXpub)).toBe(true);
     });
 
     it('should return false for regular Shelley mainnet payment address', () => {
       const shelleyAddress = 'addr1qxy48p57n5ezq8fjr6jd2mf3gfy9s6zj53d9q8mxp6fvhpr6h20c2';
-      expect(CardanoUtils.isExtendedPublicKey(shelleyAddress)).toBe(false);
+      expect(isCardanoXpub(shelleyAddress)).toBe(false);
     });
 
     it('should return false for regular Shelley testnet payment address', () => {
       const testnetAddress =
         'addr_test1qz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq2ytjqp';
-      expect(CardanoUtils.isExtendedPublicKey(testnetAddress)).toBe(false);
+      expect(isCardanoXpub(testnetAddress)).toBe(false);
     });
 
     it('should return false for Shelley mainnet stake address', () => {
       const stakeAddress = 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha';
-      expect(CardanoUtils.isExtendedPublicKey(stakeAddress)).toBe(false);
+      expect(isCardanoXpub(stakeAddress)).toBe(false);
     });
 
     it('should return false for Byron address (DdzFF prefix)', () => {
       const byronAddress = 'DdzFFzCqrhsyLWVXEd1gB3UgcPMFrN7e7rZgFpZ1V2EYdqPwXU';
-      expect(CardanoUtils.isExtendedPublicKey(byronAddress)).toBe(false);
+      expect(isCardanoXpub(byronAddress)).toBe(false);
     });
 
     it('should return false for Byron address (Ae2 prefix)', () => {
       const byronAddress = 'Ae2tdPwUPEZCanmBz5g2GEwFqKTKpNJcGYPKfDxoNeKZ8bRHr8366kseiK2';
-      expect(CardanoUtils.isExtendedPublicKey(byronAddress)).toBe(false);
+      expect(isCardanoXpub(byronAddress)).toBe(false);
     });
 
     it('should return false for hex string shorter than 128 characters', () => {
       const shortHex = 'a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5';
-      expect(CardanoUtils.isExtendedPublicKey(shortHex)).toBe(false);
+      expect(isCardanoXpub(shortHex)).toBe(false);
     });
 
     it('should return false for hex string longer than 128 characters', () => {
       const longHex =
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdefaa';
-      expect(CardanoUtils.isExtendedPublicKey(longHex)).toBe(false);
+      expect(isCardanoXpub(longHex)).toBe(false);
     });
 
     it('should return false for non-hex characters', () => {
       const invalidHex =
         'g123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-      expect(CardanoUtils.isExtendedPublicKey(invalidHex)).toBe(false);
+      expect(isCardanoXpub(invalidHex)).toBe(false);
     });
 
     it('should return false for empty string', () => {
-      expect(CardanoUtils.isExtendedPublicKey('')).toBe(false);
+      expect(isCardanoXpub('')).toBe(false);
     });
 
     it('should return false for string with spaces', () => {
       const hexWithSpaces =
         '0123456789abcdef 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-      expect(CardanoUtils.isExtendedPublicKey(hexWithSpaces)).toBe(false);
+      expect(isCardanoXpub(hexWithSpaces)).toBe(false);
     });
 
     it('should return false for string with hyphens', () => {
       const hexWithHyphens =
         '0123456789abcdef-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-      expect(CardanoUtils.isExtendedPublicKey(hexWithHyphens)).toBe(false);
+      expect(isCardanoXpub(hexWithHyphens)).toBe(false);
     });
 
     it('should return false for special characters', () => {
       const invalidString = '!@#$%^&*()_+{}[]|\\:";\'<>?,./';
-      expect(CardanoUtils.isExtendedPublicKey(invalidString)).toBe(false);
+      expect(isCardanoXpub(invalidString)).toBe(false);
     });
   });
 
@@ -258,45 +264,45 @@ describe('CardanoUtils', () => {
     describe('Shelley era addresses', () => {
       it('should detect Shelley mainnet payment address (addr1)', () => {
         const address = 'addr1qxy48p57n5ezq8fjr6jd2mf3gfy9s6zj53d9q8mxp6fvhpr6h20c2';
-        expect(CardanoUtils.getAddressEra(address)).toBe('shelley');
+        expect(getCardanoAddressEra(address)).toBe('shelley');
       });
 
       it('should detect Shelley testnet payment address (addr_test1)', () => {
         const address =
           'addr_test1qz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq2ytjqp';
-        expect(CardanoUtils.getAddressEra(address)).toBe('shelley');
+        expect(getCardanoAddressEra(address)).toBe('shelley');
       });
 
       it('should detect Shelley mainnet stake address (stake1)', () => {
         const address = 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha';
-        expect(CardanoUtils.getAddressEra(address)).toBe('shelley');
+        expect(getCardanoAddressEra(address)).toBe('shelley');
       });
 
       it('should detect Shelley testnet stake address (stake_test1)', () => {
         const address = 'stake_test1uz8kw0l83y40w5ewfrlqazl4j3znaqkz3c6x0k5y64f9kfcv2mfek';
-        expect(CardanoUtils.getAddressEra(address)).toBe('shelley');
+        expect(getCardanoAddressEra(address)).toBe('shelley');
       });
 
       it('should detect Shelley mainnet enterprise address (addr1v)', () => {
         const address = 'addr1vxy48p57n5ezq8fjr6jd2mf3gfy9s6zj53d9q8mxp6fvhpc94aen7';
-        expect(CardanoUtils.getAddressEra(address)).toBe('shelley');
+        expect(getCardanoAddressEra(address)).toBe('shelley');
       });
 
       it('should detect Shelley mainnet reward address (addr1w)', () => {
         const address = 'addr1wxy48p57n5ezq8fjr6jd2mf3gfy9s6zj53d9q8mxp6fvhpcm3kwlh';
-        expect(CardanoUtils.getAddressEra(address)).toBe('shelley');
+        expect(getCardanoAddressEra(address)).toBe('shelley');
       });
     });
 
     describe('Byron era addresses', () => {
       it('should detect Byron address with DdzFF prefix', () => {
         const address = 'DdzFFzCqrhsyLWVXEd1gB3UgcPMFrN7e7rZgFpZ1V2EYdqPwXU';
-        expect(CardanoUtils.getAddressEra(address)).toBe('byron');
+        expect(getCardanoAddressEra(address)).toBe('byron');
       });
 
       it('should detect Byron address with Ae2 prefix', () => {
         const address = 'Ae2tdPwUPEZCanmBz5g2GEwFqKTKpNJcGYPKfDxoNeKZ8bRHr8366kseiK2';
-        expect(CardanoUtils.getAddressEra(address)).toBe('byron');
+        expect(getCardanoAddressEra(address)).toBe('byron');
       });
 
       it('should detect different Byron DdzFF addresses', () => {
@@ -304,53 +310,53 @@ describe('CardanoUtils', () => {
           'DdzFFzCqrhtCNjPk5Lei7E1FxnoqMoAYtJ8VjAWbFmDb614nNBWBwv3kt6QHJa59cGezzf6piMWsbK7sWRB5sv325QqWdRuusMqqLte';
         const address2 =
           'DdzFFzCqrhsjZHKn4pvjA8dqYKHgL8qhp7sY6c5zBT3U5YrBF8QRiCT4Rd9cSWx4nVRNqPPfYv5rHcHJZX8Jh1q4H3t5Q7Q3G8k3';
-        expect(CardanoUtils.getAddressEra(address1)).toBe('byron');
-        expect(CardanoUtils.getAddressEra(address2)).toBe('byron');
+        expect(getCardanoAddressEra(address1)).toBe('byron');
+        expect(getCardanoAddressEra(address2)).toBe('byron');
       });
 
       it('should detect different Byron Ae2 addresses', () => {
         const address1 = 'Ae2tdPwUPEZHu3NZa6kCwet2msq4xrBXKHBDvogFKwMsF18Jca8JHLRBas7';
         const address2 = 'Ae2tdPwUPEZ8LAVy21zj4BF97iL5EjrGvmH3nKhFbTqLsM8rqF9uYsKWN7P';
-        expect(CardanoUtils.getAddressEra(address1)).toBe('byron');
-        expect(CardanoUtils.getAddressEra(address2)).toBe('byron');
+        expect(getCardanoAddressEra(address1)).toBe('byron');
+        expect(getCardanoAddressEra(address2)).toBe('byron');
       });
     });
 
     describe('Invalid/unknown addresses', () => {
       it('should return unknown for invalid address format', () => {
         const address = 'invalid_address_123';
-        expect(CardanoUtils.getAddressEra(address)).toBe('unknown');
+        expect(getCardanoAddressEra(address)).toBe('unknown');
       });
 
       it('should return unknown for empty string', () => {
-        expect(CardanoUtils.getAddressEra('')).toBe('unknown');
+        expect(getCardanoAddressEra('')).toBe('unknown');
       });
 
       it('should return unknown for Bitcoin address', () => {
         const address = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
-        expect(CardanoUtils.getAddressEra(address)).toBe('unknown');
+        expect(getCardanoAddressEra(address)).toBe('unknown');
       });
 
       it('should return unknown for Ethereum address', () => {
         const address = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb';
-        expect(CardanoUtils.getAddressEra(address)).toBe('unknown');
+        expect(getCardanoAddressEra(address)).toBe('unknown');
       });
 
       it('should return unknown for Solana address', () => {
         const address = 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK';
-        expect(CardanoUtils.getAddressEra(address)).toBe('unknown');
+        expect(getCardanoAddressEra(address)).toBe('unknown');
       });
 
       it('should return unknown for random strings', () => {
-        expect(CardanoUtils.getAddressEra('abc123')).toBe('unknown');
-        expect(CardanoUtils.getAddressEra('test')).toBe('unknown');
-        expect(CardanoUtils.getAddressEra('12345')).toBe('unknown');
+        expect(getCardanoAddressEra('abc123')).toBe('unknown');
+        expect(getCardanoAddressEra('test')).toBe('unknown');
+        expect(getCardanoAddressEra('12345')).toBe('unknown');
       });
 
       it('should return unknown for xpub (extended public key)', () => {
         const xpub =
           '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-        expect(CardanoUtils.getAddressEra(xpub)).toBe('unknown');
+        expect(getCardanoAddressEra(xpub)).toBe('unknown');
       });
     });
   });
@@ -378,7 +384,7 @@ describe('CardanoUtils', () => {
       let addressCounter = 0;
       mockToBech32Function.mockImplementation(() => `addr1_mock_${addressCounter++}`);
 
-      const result = await CardanoUtils.deriveAddressesFromXpub(validXpub, gap);
+      const result = await deriveCardanoAddressesFromXpub(validXpub, gap);
 
       // Should derive gap * 2 addresses (external + internal chains)
       expect(result).toHaveLength(gap * 2);
@@ -396,7 +402,7 @@ describe('CardanoUtils', () => {
       });
       mockToBech32Function.mockReturnValue('addr1qxy48p57n5ezq8fjr6jd2mf3gfy9s6zj53d9q8mxp6fvhpr6h20c2');
 
-      const result = await CardanoUtils.deriveAddressesFromXpub(validXpub, 2);
+      const result = await deriveCardanoAddressesFromXpub(validXpub, 2);
 
       // Check that all addresses have required fields
       for (const addr of result) {
@@ -421,7 +427,7 @@ describe('CardanoUtils', () => {
       });
       mockToBech32Function.mockReturnValue('addr1qxy48p57n5ezq8fjr6jd2mf3gfy9s6zj53d9q8mxp6fvhpr6h20c2');
 
-      const result = await CardanoUtils.deriveAddressesFromXpub(validXpub, 3);
+      const result = await deriveCardanoAddressesFromXpub(validXpub, 3);
 
       // Check external addresses (role=0)
       const externalAddresses = result.filter((addr) => addr.role === 'external');
@@ -453,7 +459,7 @@ describe('CardanoUtils', () => {
       mockToBech32Function.mockImplementation(() => `addr1_mock_${addressCounter++}`);
 
       // Call without gap parameter (should default to 10)
-      const result = await CardanoUtils.deriveAddressesFromXpub(validXpub);
+      const result = await deriveCardanoAddressesFromXpub(validXpub);
 
       // Should derive 10 * 2 = 20 addresses
       expect(result).toHaveLength(20);
@@ -462,21 +468,19 @@ describe('CardanoUtils', () => {
     it('should throw error for invalid xpub format', async () => {
       const invalidXpub = 'not-a-valid-xpub';
 
-      await expect(CardanoUtils.deriveAddressesFromXpub(invalidXpub)).rejects.toThrow(
+      await expect(deriveCardanoAddressesFromXpub(invalidXpub)).rejects.toThrow(
         'Invalid Cardano extended public key format'
       );
     });
 
     it('should throw error for empty xpub', async () => {
-      await expect(CardanoUtils.deriveAddressesFromXpub('')).rejects.toThrow(
-        'Invalid Cardano extended public key format'
-      );
+      await expect(deriveCardanoAddressesFromXpub('')).rejects.toThrow('Invalid Cardano extended public key format');
     });
 
     it('should throw error for xpub that is too short', async () => {
       const shortXpub = 'a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5';
 
-      await expect(CardanoUtils.deriveAddressesFromXpub(shortXpub)).rejects.toThrow(
+      await expect(deriveCardanoAddressesFromXpub(shortXpub)).rejects.toThrow(
         'Invalid Cardano extended public key format'
       );
     });
@@ -485,7 +489,7 @@ describe('CardanoUtils', () => {
       const longXpub =
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdefaa';
 
-      await expect(CardanoUtils.deriveAddressesFromXpub(longXpub)).rejects.toThrow(
+      await expect(deriveCardanoAddressesFromXpub(longXpub)).rejects.toThrow(
         'Invalid Cardano extended public key format'
       );
     });
@@ -494,7 +498,7 @@ describe('CardanoUtils', () => {
       const nonHexXpub =
         'g123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
-      await expect(CardanoUtils.deriveAddressesFromXpub(nonHexXpub)).rejects.toThrow(
+      await expect(deriveCardanoAddressesFromXpub(nonHexXpub)).rejects.toThrow(
         'Invalid Cardano extended public key format'
       );
     });
@@ -502,7 +506,7 @@ describe('CardanoUtils', () => {
     it('should throw error for regular Shelley address', async () => {
       const shelleyAddress = 'addr1qxy48p57n5ezq8fjr6jd2mf3gfy9s6zj53d9q8mxp6fvhpr6h20c2';
 
-      await expect(CardanoUtils.deriveAddressesFromXpub(shelleyAddress)).rejects.toThrow(
+      await expect(deriveCardanoAddressesFromXpub(shelleyAddress)).rejects.toThrow(
         'Invalid Cardano extended public key format'
       );
     });
@@ -510,7 +514,7 @@ describe('CardanoUtils', () => {
     it('should throw error for Byron address', async () => {
       const byronAddress = 'DdzFFzCqrhsyLWVXEd1gB3UgcPMFrN7e7rZgFpZ1V2EYdqPwXU';
 
-      await expect(CardanoUtils.deriveAddressesFromXpub(byronAddress)).rejects.toThrow(
+      await expect(deriveCardanoAddressesFromXpub(byronAddress)).rejects.toThrow(
         'Invalid Cardano extended public key format'
       );
     });
@@ -529,7 +533,7 @@ describe('CardanoUtils', () => {
       let addressCounter = 0;
       mockToBech32Function.mockImplementation(() => `addr1_mock_${addressCounter++}`);
 
-      const result = await CardanoUtils.deriveAddressesFromXpub(validXpub, 2);
+      const result = await deriveCardanoAddressesFromXpub(validXpub, 2);
 
       // Should have interleaved pattern: external (0/0), internal (1/0), external (0/1), internal (1/1)
       expect(result[0]?.role).toBe('external');
@@ -554,7 +558,7 @@ describe('CardanoUtils', () => {
       });
       mockToBech32Function.mockReturnValue('addr1qxy48p57n5ezq8fjr6jd2mf3gfy9s6zj53d9q8mxp6fvhpr6h20c2');
 
-      const result = await CardanoUtils.deriveAddressesFromXpub(validXpub, 1);
+      const result = await deriveCardanoAddressesFromXpub(validXpub, 1);
 
       expect(result).toHaveLength(2); // 1 external + 1 internal
       expect(result[0]?.role).toBe('external');
@@ -576,7 +580,7 @@ describe('CardanoUtils', () => {
       let addressCounter = 0;
       mockToBech32Function.mockImplementation(() => `addr1_mock_${addressCounter++}`);
 
-      const result = await CardanoUtils.deriveAddressesFromXpub(validXpub, largeGap);
+      const result = await deriveCardanoAddressesFromXpub(validXpub, largeGap);
 
       expect(result).toHaveLength(largeGap * 2);
       expect(result.filter((a) => a.role === 'external')).toHaveLength(largeGap);

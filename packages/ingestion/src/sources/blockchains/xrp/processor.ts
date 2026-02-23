@@ -108,7 +108,7 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
           continue;
         }
 
-        const universalTransaction: ProcessedTransaction = {
+        const processedTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp, // Already in milliseconds from mapper
@@ -172,7 +172,7 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
           },
         };
 
-        transactions.push(universalTransaction);
+        transactions.push(processedTransaction);
       } catch (error) {
         const errorMsg = `Error processing normalized transaction: ${String(error)}`;
         processingErrors.push({ error: errorMsg, txId: normalizedTx.id });

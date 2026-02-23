@@ -1,5 +1,6 @@
 import {
-  CardanoUtils,
+  initializeCardanoXpubWallet,
+  isCardanoXpub,
   type BlockchainProviderManager,
   type CardanoWalletAddress,
 } from '@exitbook/blockchain-providers';
@@ -15,9 +16,9 @@ export const cardanoAdapter: BlockchainAdapter = {
   blockchain: 'cardano',
   chainModel: 'utxo',
 
-  normalizeAddress: (address: string) => normalizeCardanoAddress(address),
+  normalizeAddress: normalizeCardanoAddress,
 
-  isExtendedPublicKey: (address: string) => CardanoUtils.isExtendedPublicKey(address),
+  isExtendedPublicKey: isCardanoXpub,
 
   deriveAddressesFromXpub: async (
     xpub: string,
@@ -30,13 +31,13 @@ export const cardanoAdapter: BlockchainAdapter = {
       type: 'xpub',
     };
 
-    const initResult = await CardanoUtils.initializeXpubWallet(walletAddress, providerManager, gap ?? 10);
+    const initResult = await initializeCardanoXpubWallet(walletAddress, providerManager, gap ?? 10);
 
     if (initResult.isErr()) {
       return err(initResult.error);
     }
 
-    const optimizedAddresses = walletAddress.derivedAddresses || [];
+    const optimizedAddresses = walletAddress.derivedAddresses ?? [];
 
     return ok(
       optimizedAddresses.map((address: string, index: number) => {

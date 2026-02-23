@@ -138,7 +138,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
         const feeAssetId = feeAssetIdResult.value;
 
         // Convert to ProcessedTransaction with enhanced metadata
-        const universalTransaction: ProcessedTransaction = {
+        const processedTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
@@ -197,7 +197,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
           });
         }
 
-        universalTransactions.push(universalTransaction);
+        universalTransactions.push(processedTransaction);
       } catch (error) {
         const errorMsg = `Error processing normalized transaction: ${String(error)}`;
         processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
