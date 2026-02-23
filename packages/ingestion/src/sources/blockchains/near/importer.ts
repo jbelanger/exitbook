@@ -26,7 +26,7 @@ import type { IImporter, ImportParams, ImportBatchResult } from '../../../shared
  * - All 4 phases must complete before processing can begin
  * - Each raw record is saved with a transaction_type_hint for later correlation
  */
-export class NearTransactionImporter implements IImporter {
+export class NearImporter implements IImporter {
   private readonly logger: Logger;
   private providerManager: BlockchainProviderManager;
 

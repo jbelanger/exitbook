@@ -5,13 +5,13 @@ import type {
 } from '@exitbook/blockchain-providers';
 import { describe, expect, test } from 'vitest';
 
-import { CardanoTransactionProcessor } from '../processor.js';
+import { CardanoProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'addr1quser1111111111111111111111111111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'addr1qexternal11111111111111111111111111111111111111111111111';
 
 function createProcessor() {
-  return new CardanoTransactionProcessor();
+  return new CardanoProcessor();
 }
 
 function createInput(
@@ -60,7 +60,7 @@ function createTransaction(overrides: Partial<CardanoTransaction> = {}): Cardano
   } as CardanoTransaction;
 }
 
-describe('CardanoTransactionProcessor', () => {
+describe('CardanoProcessor', () => {
   test('incoming transfer - user receives ADA, does NOT pay fee', async () => {
     const processor = createProcessor();
 

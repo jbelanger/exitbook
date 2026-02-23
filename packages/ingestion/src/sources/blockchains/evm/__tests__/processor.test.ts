@@ -5,7 +5,7 @@ import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
-import { EvmTransactionProcessor } from '../processor.js';
+import { EvmProcessor } from '../processor.js';
 
 const ETHEREUM_CONFIG: EvmChainConfig = {
   chainId: 1,
@@ -47,7 +47,7 @@ function createMockTokenMetadataService(): ITokenMetadataService {
 }
 
 function createEthereumProcessor(providerManager?: BlockchainProviderManager) {
-  return new EvmTransactionProcessor(
+  return new EvmProcessor(
     ETHEREUM_CONFIG,
     providerManager ?? createMockProviderManager(),
     createMockTokenMetadataService()
@@ -55,7 +55,7 @@ function createEthereumProcessor(providerManager?: BlockchainProviderManager) {
 }
 
 function createAvalancheProcessor(providerManager?: BlockchainProviderManager) {
-  return new EvmTransactionProcessor(
+  return new EvmProcessor(
     AVALANCHE_CONFIG,
     providerManager ?? createMockProviderManager(),
     createMockTokenMetadataService()
@@ -80,7 +80,7 @@ function createTransaction(overrides: Partial<EvmTransaction> = {}): EvmTransact
   };
 }
 
-describe('EvmTransactionProcessor - Transaction Correlation', () => {
+describe('EvmProcessor - Transaction Correlation', () => {
   test('correlates multiple transactions with same hash into single output', async () => {
     const processor = createEthereumProcessor();
 
@@ -222,7 +222,7 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
   });
 });
 
-describe('EvmTransactionProcessor - Fee Accounting', () => {
+describe('EvmProcessor - Fee Accounting', () => {
   test('deducts fee when user sends tokens (outgoing transfer)', async () => {
     const processor = createEthereumProcessor();
 
@@ -526,7 +526,7 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
   });
 });
 
-describe('EvmTransactionProcessor - Fund Flow Direction', () => {
+describe('EvmProcessor - Fund Flow Direction', () => {
   test('classifies incoming native transfer as deposit', async () => {
     const processor = createEthereumProcessor();
 
@@ -703,7 +703,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
   });
 });
 
-describe('EvmTransactionProcessor - Transaction Type Classification', () => {
+describe('EvmProcessor - Transaction Type Classification', () => {
   test('marks zero-amount transactions as fee', async () => {
     const processor = createEthereumProcessor();
 
@@ -830,7 +830,7 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
   });
 });
 
-describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
+describe('EvmProcessor - Contract Interaction Detection', () => {
   test('detects contract interaction via type', async () => {
     const processor = createEthereumProcessor();
 
@@ -912,7 +912,7 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
   });
 });
 
-describe('EvmTransactionProcessor - Multi-Chain Support', () => {
+describe('EvmProcessor - Multi-Chain Support', () => {
   test('uses chain-specific native currency for Ethereum', async () => {
     const processor = createEthereumProcessor();
 
@@ -997,7 +997,7 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
   });
 });
 
-describe('EvmTransactionProcessor - Edge Cases', () => {
+describe('EvmProcessor - Edge Cases', () => {
   test('handles case-insensitive address matching', async () => {
     const processor = createEthereumProcessor();
 
@@ -1105,7 +1105,7 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
   });
 });
 
-describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
+describe('EvmProcessor - Primary Transaction Selection', () => {
   test('prefers token_transfer as primary when multiple types present', async () => {
     const processor = createEthereumProcessor();
 
@@ -1184,7 +1184,7 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
   });
 });
 
-describe('EvmTransactionProcessor - Swap Detection', () => {
+describe('EvmProcessor - Swap Detection', () => {
   test('detects single-asset swap (ETH -> USDC)', async () => {
     const processor = createEthereumProcessor();
 
@@ -1286,7 +1286,7 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
   });
 });
 
-describe('EvmTransactionProcessor - Classification Uncertainty', () => {
+describe('EvmProcessor - Classification Uncertainty', () => {
   test('adds note for complex multi-asset transaction', async () => {
     const processor = createEthereumProcessor();
 
@@ -1422,7 +1422,7 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
   });
 });
 
-describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
+describe('EvmProcessor - Token Metadata Enrichment', () => {
   let mockTokenMetadataService: ITokenMetadataService;
 
   beforeEach(() => {
@@ -1458,11 +1458,7 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
   });
 
   test('enriches token metadata when symbol looks like contract address', async () => {
-    const processor = new EvmTransactionProcessor(
-      ETHEREUM_CONFIG,
-      createMockProviderManager(),
-      mockTokenMetadataService
-    );
+    const processor = new EvmProcessor(ETHEREUM_CONFIG, createMockProviderManager(), mockTokenMetadataService);
 
     const normalizedData: EvmTransaction[] = [
       createTransaction({
@@ -1509,11 +1505,7 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
   });
 
   test('enriches all token transfers to populate cache for scam detection', async () => {
-    const processor = new EvmTransactionProcessor(
-      ETHEREUM_CONFIG,
-      createMockProviderManager(),
-      mockTokenMetadataService
-    );
+    const processor = new EvmProcessor(ETHEREUM_CONFIG, createMockProviderManager(), mockTokenMetadataService);
 
     const normalizedData: EvmTransaction[] = [
       createTransaction({
@@ -1542,11 +1534,7 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
   });
 
   test('enriches decimals when missing from transaction', async () => {
-    const processor = new EvmTransactionProcessor(
-      ETHEREUM_CONFIG,
-      createMockProviderManager(),
-      mockTokenMetadataService
-    );
+    const processor = new EvmProcessor(ETHEREUM_CONFIG, createMockProviderManager(), mockTokenMetadataService);
 
     const normalizedData: EvmTransaction[] = [
       createTransaction({
@@ -1582,11 +1570,7 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
   });
 
   test('handles multiple token transfers with enrichment', async () => {
-    const processor = new EvmTransactionProcessor(
-      ETHEREUM_CONFIG,
-      createMockProviderManager(),
-      mockTokenMetadataService
-    );
+    const processor = new EvmProcessor(ETHEREUM_CONFIG, createMockProviderManager(), mockTokenMetadataService);
 
     const normalizedData: EvmTransaction[] = [
       createTransaction({

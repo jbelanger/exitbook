@@ -14,7 +14,7 @@ import type { IImporter, ImportParams, ImportBatchResult } from '../../../shared
  * Supports Solana addresses using multiple providers (Helius, Solscan, SolanaRPC).
  * Uses provider manager for failover between multiple blockchain API providers.
  */
-export class SolanaTransactionImporter implements IImporter {
+export class SolanaImporter implements IImporter {
   private readonly logger: Logger;
   private providerManager: BlockchainProviderManager;
 

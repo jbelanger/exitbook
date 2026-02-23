@@ -5,7 +5,7 @@ import { describe, expect, test, vi } from 'vitest';
 
 import type { IngestionEvent } from '../../../../events.js';
 import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
-import { SolanaTransactionProcessor } from '../processor.js';
+import { SolanaProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'user1111111111111111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'external222222222222222222222222222222222222';
@@ -21,7 +21,7 @@ function createProcessor(customMetadataService?: ITokenMetadataService) {
     getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
   } as unknown as ITokenMetadataService;
 
-  return new SolanaTransactionProcessor(customMetadataService || defaultMockService);
+  return new SolanaProcessor(customMetadataService || defaultMockService);
 }
 
 function createTransaction(overrides: Partial<SolanaTransaction> = {}): SolanaTransaction[] {
@@ -46,7 +46,7 @@ function createTransaction(overrides: Partial<SolanaTransaction> = {}): SolanaTr
   return [{ ...base, ...overrides }];
 }
 
-describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
+describe('SolanaProcessor - Fund Flow Direction', () => {
   test('classifies incoming SOL transfer as deposit', async () => {
     const processor = createProcessor();
 
@@ -263,7 +263,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
   });
 });
 
-describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
+describe('SolanaProcessor - Transaction Type Classification', () => {
   test('marks zero-amount transactions as fee', async () => {
     const processor = createProcessor();
 
@@ -374,7 +374,7 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
   });
 });
 
-describe('SolanaTransactionProcessor - Swap Detection', () => {
+describe('SolanaProcessor - Swap Detection', () => {
   test('detects single-asset swap (SOL -> USDC)', async () => {
     const processor = createProcessor();
 
@@ -490,7 +490,7 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
   });
 });
 
-describe('SolanaTransactionProcessor - Staking Detection', () => {
+describe('SolanaProcessor - Staking Detection', () => {
   test('detects stake operation', async () => {
     const processor = createProcessor();
 
@@ -608,7 +608,7 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
   });
 });
 
-describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
+describe('SolanaProcessor - Multi-Asset Tracking', () => {
   test('tracks multiple assets in complex transaction', async () => {
     const processor = createProcessor();
 
@@ -737,7 +737,7 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
   });
 });
 
-describe('SolanaTransactionProcessor - Edge Cases', () => {
+describe('SolanaProcessor - Edge Cases', () => {
   test('handles matching address correctly', async () => {
     const processor = createProcessor();
 
@@ -947,7 +947,7 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
   });
 });
 
-describe('SolanaTransactionProcessor - Classification Uncertainty', () => {
+describe('SolanaProcessor - Classification Uncertainty', () => {
   test('adds note for complex multi-asset transaction', async () => {
     const processor = createProcessor();
 
@@ -1048,7 +1048,7 @@ describe('SolanaTransactionProcessor - Classification Uncertainty', () => {
   });
 });
 
-describe('SolanaTransactionProcessor - Blockchain Metadata', () => {
+describe('SolanaProcessor - Blockchain Metadata', () => {
   test('includes Solana-specific metadata', async () => {
     const processor = createProcessor();
 
@@ -1095,7 +1095,7 @@ describe('SolanaTransactionProcessor - Blockchain Metadata', () => {
   });
 });
 
-describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
+describe('SolanaProcessor - Token Metadata Enrichment', () => {
   test('enriches token symbols from mint addresses when service is provided', async () => {
     // Mock TokenMetadataService that actually enriches the data
     const mockTokenMetadataService = {
@@ -1122,7 +1122,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
       getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
     } as unknown as ITokenMetadataService;
 
-    const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
+    const processor = new SolanaProcessor(mockTokenMetadataService);
 
     const normalizedData = createTransaction({
       id: 'sigEnrich1',
@@ -1214,7 +1214,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
       getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
     } as unknown as ITokenMetadataService;
 
-    const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
+    const processor = new SolanaProcessor(mockTokenMetadataService);
 
     const normalizedData = createTransaction({
       id: 'sigHumanReadable1',
@@ -1261,7 +1261,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
       getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
     } as unknown as ITokenMetadataService;
 
-    const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
+    const processor = new SolanaProcessor(mockTokenMetadataService);
 
     const normalizedData = createTransaction({
       id: 'sigRepoError1',
@@ -1301,7 +1301,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
   });
 });
 
-describe('SolanaTransactionProcessor - Scam Detection', () => {
+describe('SolanaProcessor - Scam Detection', () => {
   test('detects scam token in airdrop', async () => {
     // Mock metadata service to return a scam token
     const mockMetadataService = {
@@ -1345,7 +1345,7 @@ describe('SolanaTransactionProcessor - Scam Detection', () => {
     const mockEventBus = new EventBus<IngestionEvent>({ onError: () => {} });
     const scamDetectionService = new ScamDetectionService(mockEventBus);
 
-    const processor = new SolanaTransactionProcessor(mockMetadataService, scamDetectionService);
+    const processor = new SolanaProcessor(mockMetadataService, scamDetectionService);
 
     const normalizedData = createTransaction({
       id: 'sigScam1',

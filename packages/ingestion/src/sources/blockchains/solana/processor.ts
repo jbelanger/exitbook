@@ -18,7 +18,7 @@ import { analyzeSolanaFundFlow, classifySolanaOperationFromFundFlow } from './pr
  * into ProcessedTransaction format. Features sophisticated fund flow analysis
  * and historical context for accurate transaction classification.
  */
-export class SolanaTransactionProcessor extends BaseTransactionProcessor<SolanaTransaction> {
+export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction> {
   // Override to make tokenMetadataService required (guaranteed by factory)
   declare protected readonly tokenMetadataService: ITokenMetadataService;
 

@@ -12,7 +12,7 @@ import type { ProcessedTransaction, AddressContext } from '../../../shared/types
 
 import { analyzeBitcoinFundFlow } from './processor-utils.js';
 
-export class BitcoinTransactionProcessor extends BaseTransactionProcessor<BitcoinTransaction> {
+export class BitcoinProcessor extends BaseTransactionProcessor<BitcoinTransaction> {
   private readonly chainConfig: BitcoinChainConfig;
 
   constructor(chainConfig: BitcoinChainConfig, scamDetectionService?: IScamDetectionService) {

@@ -9,8 +9,8 @@ import { err, ok, type Result } from 'neverthrow';
 import type { BlockchainAdapter, DerivedAddress } from '../../../shared/types/blockchain-adapter.js';
 
 import { normalizeCardanoAddress } from './address-utils.js';
-import { CardanoTransactionImporter } from './importer.js';
-import { CardanoTransactionProcessor } from './processor.js';
+import { CardanoImporter } from './importer.js';
+import { CardanoProcessor } from './processor.js';
 
 export const cardanoAdapter: BlockchainAdapter = {
   blockchain: 'cardano',
@@ -52,7 +52,7 @@ export const cardanoAdapter: BlockchainAdapter = {
   },
 
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
-    new CardanoTransactionImporter(providerManager, { preferredProvider: providerName }),
+    new CardanoImporter(providerManager, { preferredProvider: providerName }),
 
-  createProcessor: ({ scamDetectionService }) => new CardanoTransactionProcessor(scamDetectionService),
+  createProcessor: ({ scamDetectionService }) => new CardanoProcessor(scamDetectionService),
 };

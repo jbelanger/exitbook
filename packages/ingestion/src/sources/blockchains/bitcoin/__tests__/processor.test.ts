@@ -2,7 +2,7 @@ import type { BitcoinTransaction } from '@exitbook/blockchain-providers';
 import { getBitcoinChainConfig } from '@exitbook/blockchain-providers';
 import { describe, expect, test } from 'vitest';
 
-import { BitcoinTransactionProcessor } from '../processor.js';
+import { BitcoinProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'bc1quser1111111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'bc1qexternal111111111111111111111111111';
@@ -13,7 +13,7 @@ function createProcessor() {
   if (!chainConfig) {
     throw new Error('Bitcoin chain config not found');
   }
-  return new BitcoinTransactionProcessor(chainConfig);
+  return new BitcoinProcessor(chainConfig);
 }
 
 function createTransaction(overrides: Partial<BitcoinTransaction> = {}): BitcoinTransaction {
@@ -33,7 +33,7 @@ function createTransaction(overrides: Partial<BitcoinTransaction> = {}): Bitcoin
   };
 }
 
-describe('BitcoinTransactionProcessor', () => {
+describe('BitcoinProcessor', () => {
   test('incoming transfer - user receives BTC, does NOT pay fee', async () => {
     const processor = createProcessor();
 

@@ -26,7 +26,7 @@ import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './proce
  * 3. Consolidate duplicate assets by summing amounts
  * 4. Determine transaction type based on fund flow direction
  */
-export class CardanoTransactionProcessor extends BaseTransactionProcessor<CardanoTransaction> {
+export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransaction> {
   constructor(scamDetectionService?: IScamDetectionService) {
     super('cardano', undefined, scamDetectionService);
   }

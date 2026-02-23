@@ -2,7 +2,7 @@ import type { XrpTransaction } from '@exitbook/blockchain-providers';
 import { getXrpChainConfig } from '@exitbook/blockchain-providers';
 import { describe, expect, test } from 'vitest';
 
-import { XrpTransactionProcessor } from '../processor.js';
+import { XrpProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'rN7n7otQDd6FczFgLdhmKRAWNZDy7g4EAZ';
 const EXTERNAL_ADDRESS = 'rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY';
@@ -13,7 +13,7 @@ function createProcessor() {
   if (!chainConfig) {
     throw new Error('XRP chain config not found');
   }
-  return new XrpTransactionProcessor(chainConfig);
+  return new XrpProcessor(chainConfig);
 }
 
 function createTransaction(overrides: Partial<XrpTransaction> = {}): XrpTransaction {
@@ -34,7 +34,7 @@ function createTransaction(overrides: Partial<XrpTransaction> = {}): XrpTransact
   };
 }
 
-describe('XrpTransactionProcessor', () => {
+describe('XrpProcessor', () => {
   test('incoming transfer - user receives XRP, does NOT pay fee', async () => {
     const processor = createProcessor();
 

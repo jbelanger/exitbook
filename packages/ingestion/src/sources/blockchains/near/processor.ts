@@ -55,7 +55,7 @@ import type { NearCorrelatedTransaction } from './types.js';
  * NEAR transaction processor that converts raw multi-stream data
  * into ProcessedTransaction format
  */
-export class NearTransactionProcessor extends BaseTransactionProcessor<NearStreamEvent> {
+export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   // Override to make tokenMetadataService required (guaranteed by factory)
   declare protected readonly tokenMetadataService: ITokenMetadataService;
 

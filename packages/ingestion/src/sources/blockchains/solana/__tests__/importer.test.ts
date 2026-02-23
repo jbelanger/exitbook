@@ -14,7 +14,7 @@ import {
   createMockProviderManager,
   type ProviderManagerMock,
 } from '../../../../shared/test-utils/importer-test-utils.js';
-import { SolanaTransactionImporter } from '../importer.js';
+import { SolanaImporter } from '../importer.js';
 
 const mockSolTx = {
   signature: 'sig123abc',
@@ -34,7 +34,7 @@ const mockTokenTx = {
   amount: '1000000', // 1 USDC (6 decimals)
 };
 
-describe('SolanaTransactionImporter', () => {
+describe('SolanaImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   /**
@@ -63,8 +63,8 @@ describe('SolanaTransactionImporter', () => {
     mockProviderManager = createMockProviderManager('solana');
   });
 
-  const createImporter = (options?: { preferredProvider?: string | undefined }): SolanaTransactionImporter =>
-    new SolanaTransactionImporter(mockProviderManager as unknown as BlockchainProviderManager, options);
+  const createImporter = (options?: { preferredProvider?: string | undefined }): SolanaImporter =>
+    new SolanaImporter(mockProviderManager as unknown as BlockchainProviderManager, options);
 
   afterEach(() => {
     vi.clearAllMocks();

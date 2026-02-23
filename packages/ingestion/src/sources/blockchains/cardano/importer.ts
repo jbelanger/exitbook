@@ -13,7 +13,7 @@ import type { ImportParams, IImporter, ImportBatchResult } from '../../../shared
  * Cardano transaction importer that fetches raw transaction data from blockchain APIs.
  * Uses provider manager for failover between multiple blockchain API providers.
  */
-export class CardanoTransactionImporter implements IImporter {
+export class CardanoImporter implements IImporter {
   private readonly logger: Logger;
   private providerManager: BlockchainProviderManager;
 

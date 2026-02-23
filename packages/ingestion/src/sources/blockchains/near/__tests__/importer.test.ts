@@ -13,7 +13,7 @@ import {
   createMockProviderManager,
   type ProviderManagerMock,
 } from '../../../../shared/test-utils/importer-test-utils.js';
-import { NearTransactionImporter } from '../importer.js';
+import { NearImporter } from '../importer.js';
 
 const mockNearTx = {
   id: 'AbCdEf123456',
@@ -49,7 +49,7 @@ const mockNearFunctionCallTx = {
   ],
 };
 
-describe('NearTransactionImporter', () => {
+describe('NearImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   /**
@@ -91,8 +91,8 @@ describe('NearTransactionImporter', () => {
       });
     });
   });
-  const createImporter = (options?: { preferredProvider?: string | undefined }): NearTransactionImporter =>
-    new NearTransactionImporter(mockProviderManager as unknown as BlockchainProviderManager, options);
+  const createImporter = (options?: { preferredProvider?: string | undefined }): NearImporter =>
+    new NearImporter(mockProviderManager as unknown as BlockchainProviderManager, options);
   afterEach(() => {
     vi.clearAllMocks();
   });

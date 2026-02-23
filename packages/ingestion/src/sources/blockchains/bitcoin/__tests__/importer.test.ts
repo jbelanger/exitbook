@@ -10,7 +10,7 @@ import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
 import { consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
-import { BitcoinTransactionImporter } from '../importer.js';
+import { BitcoinImporter } from '../importer.js';
 
 const USER_ADDRESS = 'bc1quser1111111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'bc1qexternal111111111111111111111111111';
@@ -45,7 +45,7 @@ type ProviderManagerMock = Mocked<
   Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'executeWithFailover' | 'getProviders'>
 >;
 
-describe('BitcoinTransactionImporter', () => {
+describe('BitcoinImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   beforeEach(() => {
@@ -74,16 +74,12 @@ describe('BitcoinTransactionImporter', () => {
     ]);
   });
 
-  const createImporter = (options?: { preferredProvider?: string | undefined }): BitcoinTransactionImporter => {
+  const createImporter = (options?: { preferredProvider?: string | undefined }): BitcoinImporter => {
     const chainConfig = getBitcoinChainConfig('bitcoin');
     if (!chainConfig) {
       throw new Error('Bitcoin chain config not found');
     }
-    return new BitcoinTransactionImporter(
-      chainConfig,
-      mockProviderManager as unknown as BlockchainProviderManager,
-      options
-    );
+    return new BitcoinImporter(chainConfig, mockProviderManager as unknown as BlockchainProviderManager, options);
   };
 
   afterEach(() => {

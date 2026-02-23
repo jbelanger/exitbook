@@ -29,7 +29,7 @@ import {
  * Unified EVM transaction processor that applies Avalanche-style transaction correlation
  * to every EVM-compatible chain.
  */
-export class EvmTransactionProcessor extends BaseTransactionProcessor<EvmTransaction> {
+export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
   // Override to make tokenMetadataService required (guaranteed by factory)
   declare protected readonly tokenMetadataService: ITokenMetadataService;
   private readonly contractAddressCache = new Map<string, boolean>();

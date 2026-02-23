@@ -14,7 +14,7 @@ import type { ImportParams, IImporter, ImportBatchResult } from '../../../shared
  * Bitcoin transaction importer that fetches raw transaction data from blockchain APIs.
  * Uses provider manager for failover between multiple blockchain API providers.
  */
-export class BitcoinTransactionImporter implements IImporter {
+export class BitcoinImporter implements IImporter {
   private readonly chainConfig: BitcoinChainConfig;
   private readonly logger: Logger;
   private providerManager: BlockchainProviderManager;

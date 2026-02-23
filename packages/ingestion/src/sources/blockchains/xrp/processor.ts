@@ -13,7 +13,7 @@ import { analyzeXrpFundFlow, determineXrpTransactionType } from './processor-uti
  * into ProcessedTransaction format. Uses balance changes from transaction metadata
  * to determine fund flow and net effect on wallet balance.
  */
-export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransaction> {
+export class XrpProcessor extends BaseTransactionProcessor<XrpTransaction> {
   private readonly chainConfig: XrpChainConfig;
 
   constructor(chainConfig: XrpChainConfig, scamDetectionService?: IScamDetectionService) {

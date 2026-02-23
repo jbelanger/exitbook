@@ -9,7 +9,7 @@ import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
 import { consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
-import { CardanoTransactionImporter } from '../importer.js';
+import { CardanoImporter } from '../importer.js';
 
 const USER_ADDRESS = 'addr1qyuser111111111111111111111111111111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'addr1qyexternal11111111111111111111111111111111111111111111111111';
@@ -55,7 +55,7 @@ type ProviderManagerMock = Mocked<
   Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'executeWithFailover' | 'getProviders'>
 >;
 
-describe('CardanoTransactionImporter', () => {
+describe('CardanoImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   beforeEach(() => {
@@ -84,8 +84,8 @@ describe('CardanoTransactionImporter', () => {
     ]);
   });
 
-  const createImporter = (options?: { preferredProvider?: string | undefined }): CardanoTransactionImporter =>
-    new CardanoTransactionImporter(mockProviderManager as unknown as BlockchainProviderManager, options);
+  const createImporter = (options?: { preferredProvider?: string | undefined }): CardanoImporter =>
+    new CardanoImporter(mockProviderManager as unknown as BlockchainProviderManager, options);
 
   afterEach(() => {
     vi.clearAllMocks();

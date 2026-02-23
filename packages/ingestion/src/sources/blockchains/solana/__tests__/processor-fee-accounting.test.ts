@@ -3,7 +3,7 @@ import { ok } from 'neverthrow';
 import { describe, expect, test, vi } from 'vitest';
 
 import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
-import { SolanaTransactionProcessor } from '../processor.js';
+import { SolanaProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'user1111111111111111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'external222222222222222222222222222222222222';
@@ -18,7 +18,7 @@ function createProcessor() {
     getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
   } as unknown as ITokenMetadataService;
 
-  return new SolanaTransactionProcessor(mockTokenMetadataService);
+  return new SolanaProcessor(mockTokenMetadataService);
 }
 
 function createTransaction(overrides: Partial<SolanaTransaction>): SolanaTransaction {
@@ -43,7 +43,7 @@ function createTransaction(overrides: Partial<SolanaTransaction>): SolanaTransac
   };
 }
 
-describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
+describe('SolanaProcessor - Fee Accounting (Issue #78)', () => {
   test('deducts fee when user sends SOL (outgoing transfer)', async () => {
     const processor = createProcessor();
 

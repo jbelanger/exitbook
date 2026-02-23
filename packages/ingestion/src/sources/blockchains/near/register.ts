@@ -4,8 +4,8 @@ import { createNearRawDataQueries } from '@exitbook/data';
 import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter.js';
 
 import { normalizeNearAddress } from './address-utils.js';
-import { NearTransactionImporter } from './importer.js';
-import { NearTransactionProcessor } from './processor.js';
+import { NearImporter } from './importer.js';
+import { NearProcessor } from './processor.js';
 
 export const nearAdapter: BlockchainAdapter = {
   blockchain: 'near',
@@ -14,12 +14,12 @@ export const nearAdapter: BlockchainAdapter = {
   normalizeAddress: normalizeNearAddress,
 
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
-    new NearTransactionImporter(providerManager, {
+    new NearImporter(providerManager, {
       preferredProvider: providerName,
     }),
 
   createProcessor: ({ tokenMetadataService, scamDetectionService, db, accountId }) => {
     const nearRawDataQueries = createNearRawDataQueries(db);
-    return new NearTransactionProcessor(tokenMetadataService, scamDetectionService, nearRawDataQueries, accountId);
+    return new NearProcessor(tokenMetadataService, scamDetectionService, nearRawDataQueries, accountId);
   },
 };

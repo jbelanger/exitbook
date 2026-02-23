@@ -14,7 +14,7 @@ import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { consumeImportStream, type ProviderManagerMock } from '../../../../shared/test-utils/importer-test-utils.js';
-import { XrpTransactionImporter } from '../importer.js';
+import { XrpImporter } from '../importer.js';
 
 const USER_ADDRESS = 'rN7n7otQDd6FczFgLdhmKRAWNZDy7g4EAZ';
 const EXTERNAL_ADDRESS = 'rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY';
@@ -43,9 +43,9 @@ const mockXrpTx = {
   ],
 };
 
-describe('XrpTransactionImporter', () => {
+describe('XrpImporter', () => {
   let mockProviderManager: ProviderManagerMock;
-  let importer: XrpTransactionImporter;
+  let importer: XrpImporter;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -64,7 +64,7 @@ describe('XrpTransactionImporter', () => {
     if (!chainConfig) {
       throw new Error('XRP chain config not found');
     }
-    importer = new XrpTransactionImporter(chainConfig, mockProviderManager as unknown as BlockchainProviderManager);
+    importer = new XrpImporter(chainConfig, mockProviderManager as unknown as BlockchainProviderManager);
   });
 
   afterEach(() => {

@@ -14,7 +14,7 @@ import type { ImportBatchResult, ImportParams, IImporter } from '../../../shared
  * XRP transaction importer that fetches raw transaction data from XRPL RPC APIs.
  * Uses provider manager for failover between multiple XRPL RPC providers.
  */
-export class XrpTransactionImporter implements IImporter {
+export class XrpImporter implements IImporter {
   private readonly chainConfig: XrpChainConfig;
   private readonly logger: Logger;
   private providerManager: BlockchainProviderManager;

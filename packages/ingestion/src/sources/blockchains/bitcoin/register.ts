@@ -10,8 +10,8 @@ import { err, ok, type Result } from 'neverthrow';
 import type { BlockchainAdapter, DerivedAddress } from '../../../shared/types/blockchain-adapter.js';
 
 import { normalizeBitcoinAddress } from './address-utils.js';
-import { BitcoinTransactionImporter } from './importer.js';
-import { BitcoinTransactionProcessor } from './processor.js';
+import { BitcoinImporter } from './importer.js';
+import { BitcoinProcessor } from './processor.js';
 
 export const bitcoinAdapters: BlockchainAdapter[] = Object.keys(BITCOIN_CHAINS).flatMap((chainName) => {
   const config = getBitcoinChainConfig(chainName);
@@ -21,8 +21,8 @@ export const bitcoinAdapters: BlockchainAdapter[] = Object.keys(BITCOIN_CHAINS).
     blockchain: chainName,
     chainModel: 'utxo',
     createImporter: (providerManager, preferredProvider) =>
-      new BitcoinTransactionImporter(config, providerManager, { preferredProvider }),
-    createProcessor: ({ scamDetectionService }) => new BitcoinTransactionProcessor(config, scamDetectionService),
+      new BitcoinImporter(config, providerManager, { preferredProvider }),
+    createProcessor: ({ scamDetectionService }) => new BitcoinProcessor(config, scamDetectionService),
 
     isExtendedPublicKey: isBitcoinXpub,
 
