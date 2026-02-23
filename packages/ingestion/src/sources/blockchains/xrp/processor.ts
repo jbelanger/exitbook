@@ -1,6 +1,6 @@
 import { type XrpChainConfig, type XrpTransaction, XrpTransactionSchema } from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, parseDecimal, type Currency } from '@exitbook/core';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
@@ -25,7 +25,7 @@ export class XrpProcessor extends BaseTransactionProcessor<XrpTransaction> {
     return XrpTransactionSchema;
   }
 
-  protected transformNormalizedData(
+  protected async transformNormalizedData(
     normalizedData: XrpTransaction[],
     context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {
@@ -156,17 +156,15 @@ export class XrpProcessor extends BaseTransactionProcessor<XrpTransaction> {
           .join('\n')}`
       );
 
-      return Promise.resolve(
-        err(
-          this.buildProcessingFailureError(
-            failedTransactions,
-            totalInputTransactions,
-            processingErrors.map((e) => ({ id: e.txId, error: e.error }))
-          )
+      return err(
+        this.buildProcessingFailureError(
+          failedTransactions,
+          totalInputTransactions,
+          processingErrors.map((e) => ({ id: e.txId, error: e.error }))
         )
       );
     }
 
-    return Promise.resolve(ok(transactions));
+    return okAsync(transactions);
   }
 }
