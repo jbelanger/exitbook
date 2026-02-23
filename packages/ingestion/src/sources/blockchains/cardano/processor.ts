@@ -7,7 +7,7 @@ import type {
   IScamDetectionService,
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ProcessedTransaction, FundFlowContext } from '../../../shared/types/processors.js';
+import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './processor-utils.js';
 
@@ -40,7 +40,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
    */
   protected async processInternal(
     normalizedData: CardanoTransaction[],
-    context: FundFlowContext
+    context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txHash: string }[] = [];
@@ -224,7 +224,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor<Cardan
     // Batch scam detection: Cardano has no metadata service, so detection is symbol-only
     // Token movements only (skip ADA)
     if (movementsForScamDetection.length > 0 && this.scamDetectionService) {
-      this.applyScamDetection(transactions, movementsForScamDetection, new Map());
+      this.markScamTransactions(transactions, movementsForScamDetection, new Map());
       this.logger.debug(`Applied symbol-only scam detection to ${transactions.length} transactions`);
     }
 

@@ -7,7 +7,7 @@ import type {
 import type { Currency } from '@exitbook/core';
 import type { ExchangeLedgerEntry } from '@exitbook/exchange-providers';
 
-import type { RawTransactionWithMetadata } from '../../sources/exchanges/shared/strategies/grouping.js';
+import type { LedgerEntryWithRaw } from '../../sources/exchanges/shared/strategies/grouping.js';
 
 import { TEST_TIMESTAMPS } from './test-constants.js';
 
@@ -85,10 +85,10 @@ export class ExchangeEntryBuilder {
 }
 
 /**
- * Wraps an ExchangeLedgerEntry in RawTransactionWithMetadata format.
+ * Wraps an ExchangeLedgerEntry in LedgerEntryWithRaw format.
  * Useful for exchange processor tests that expect this wrapper format.
  */
-export function wrapEntry(entry: ExchangeLedgerEntry): RawTransactionWithMetadata<ExchangeLedgerEntry> {
+export function wrapEntry(entry: ExchangeLedgerEntry): LedgerEntryWithRaw<ExchangeLedgerEntry> {
   return {
     raw: entry,
     normalized: entry,
@@ -98,7 +98,7 @@ export function wrapEntry(entry: ExchangeLedgerEntry): RawTransactionWithMetadat
 }
 
 /**
- * Creates a RawTransactionWithMetadata wrapper for any type of data.
+ * Creates a LedgerEntryWithRaw wrapper for any type of data.
  * Generic version for custom test data types.
  */
 export function createRawTransactionWithMetadata<T>(
@@ -106,7 +106,7 @@ export function createRawTransactionWithMetadata<T>(
   normalized: ExchangeLedgerEntry,
   eventId?: string,
   cursor?: Record<string, number>
-): RawTransactionWithMetadata<T> {
+): LedgerEntryWithRaw<T> {
   return {
     raw,
     normalized,

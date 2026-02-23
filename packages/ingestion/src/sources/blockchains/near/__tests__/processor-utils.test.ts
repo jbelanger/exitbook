@@ -31,7 +31,7 @@ import {
   type Movement,
   validateTransactionGroup,
 } from '../processor-utils.js';
-import type { NearReceipt, RawTransactionGroup } from '../types.js';
+import type { NearReceipt, NearTransactionBundle } from '../types.js';
 
 // Test data factories
 const createTransaction = (overrides: Partial<NearTransaction> = {}): NearTransaction => ({
@@ -195,7 +195,7 @@ describe('NEAR Processor Utils - groupByTransactionHash', () => {
 
 describe('NEAR Processor Utils - validateTransactionGroup', () => {
   test('should validate group with transaction present', () => {
-    const group: RawTransactionGroup = {
+    const group: NearTransactionBundle = {
       transaction: createTransaction(),
       receipts: [],
       balanceChanges: [],
@@ -208,7 +208,7 @@ describe('NEAR Processor Utils - validateTransactionGroup', () => {
   });
 
   test('should fail validation when transaction is missing', () => {
-    const group: RawTransactionGroup = {
+    const group: NearTransactionBundle = {
       transaction: undefined,
       receipts: [],
       balanceChanges: [],
@@ -224,7 +224,7 @@ describe('NEAR Processor Utils - validateTransactionGroup', () => {
   });
 
   test('should allow empty receipts, balance changes, and token transfers', () => {
-    const group: RawTransactionGroup = {
+    const group: NearTransactionBundle = {
       transaction: createTransaction(),
       receipts: [],
       balanceChanges: [],
@@ -239,7 +239,7 @@ describe('NEAR Processor Utils - validateTransactionGroup', () => {
 
 describe('NEAR Processor Utils - correlateTransactionData', () => {
   test('should correlate activities and transfers to receipts', () => {
-    const group: RawTransactionGroup = {
+    const group: NearTransactionBundle = {
       transaction: createTransaction({ transactionHash: 'tx1' }),
       receipts: [
         createReceipt({ receiptId: 'receipt1', transactionHash: 'tx1' }),
@@ -274,7 +274,7 @@ describe('NEAR Processor Utils - correlateTransactionData', () => {
   });
 
   test('should fail-fast when activity missing deltaAmount', () => {
-    const group: RawTransactionGroup = {
+    const group: NearTransactionBundle = {
       transaction: createTransaction(),
       receipts: [createReceipt({ receiptId: 'receipt1' })],
       balanceChanges: [
@@ -298,7 +298,7 @@ describe('NEAR Processor Utils - correlateTransactionData', () => {
   });
 
   test('should fail when transaction is missing', () => {
-    const group: RawTransactionGroup = {
+    const group: NearTransactionBundle = {
       transaction: undefined,
       receipts: [],
       balanceChanges: [],
@@ -316,7 +316,7 @@ describe('NEAR Processor Utils - correlateTransactionData', () => {
   test('should fail fast for RECEIPT-cause balance changes with invalid receipt_id', () => {
     // Balance changes with cause: RECEIPT that reference unknown receipt_ids
     // This indicates incomplete data from the provider or cross-contract receipts not fetched
-    const group: RawTransactionGroup = {
+    const group: NearTransactionBundle = {
       transaction: createTransaction(),
       receipts: [createReceipt({ receiptId: 'receipt1' })],
       balanceChanges: [
@@ -342,7 +342,7 @@ describe('NEAR Processor Utils - correlateTransactionData', () => {
   test('should attach TRANSACTION-cause balance changes to transaction-level synthetic receipt', () => {
     // Balance changes with cause: TRANSACTION represent transaction acceptance costs (gas prepayment, deposits)
     // These SHOULD NOT have receipt_id (correct NEAR semantics)
-    const group: RawTransactionGroup = {
+    const group: NearTransactionBundle = {
       transaction: createTransaction(),
       receipts: [createReceipt({ receiptId: 'receipt1' })],
       balanceChanges: [
@@ -381,7 +381,7 @@ describe('NEAR Processor Utils - correlateTransactionData', () => {
 
   test('should fail fast for unknown balance change causes', () => {
     // Unknown causes should fail fast to force proper categorization
-    const group: RawTransactionGroup = {
+    const group: NearTransactionBundle = {
       transaction: createTransaction(),
       receipts: [createReceipt({ receiptId: 'receipt1' })],
       balanceChanges: [
@@ -406,7 +406,7 @@ describe('NEAR Processor Utils - correlateTransactionData', () => {
   test('should attach ambiguous-cause balance changes to transaction-level when receipt_id missing', () => {
     // Ambiguous causes (FEE, GAS, GAS_REFUND, etc.) can appear at either level
     // Gracefully fall back to transaction-level when no valid receipt_id
-    const group: RawTransactionGroup = {
+    const group: NearTransactionBundle = {
       transaction: createTransaction(),
       receipts: [createReceipt({ receiptId: 'receipt1' })],
       balanceChanges: [
@@ -437,7 +437,7 @@ describe('NEAR Processor Utils - correlateTransactionData', () => {
   test('should fail fast for RECEIPT-cause balance changes without receipt_id', () => {
     // Balance changes with cause: RECEIPT represent execution outcomes and MUST have receipt_id
     // Missing receipt_id indicates data quality issues with the provider
-    const group: RawTransactionGroup = {
+    const group: NearTransactionBundle = {
       transaction: createTransaction(),
       receipts: [createReceipt({ receiptId: 'receipt1' })],
       balanceChanges: [
@@ -460,7 +460,7 @@ describe('NEAR Processor Utils - correlateTransactionData', () => {
   });
 
   test('should handle receipts with no activities or transfers', () => {
-    const group: RawTransactionGroup = {
+    const group: NearTransactionBundle = {
       transaction: createTransaction(),
       receipts: [createReceipt({ receiptId: 'receipt1' })],
       balanceChanges: [],
@@ -478,7 +478,7 @@ describe('NEAR Processor Utils - correlateTransactionData', () => {
   });
 
   test('should handle multiple activities per receipt', () => {
-    const group: RawTransactionGroup = {
+    const group: NearTransactionBundle = {
       transaction: createTransaction(),
       receipts: [createReceipt({ receiptId: 'receipt1' })],
       balanceChanges: [

@@ -28,7 +28,7 @@ import type {
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
-import type { ProcessedTransaction, FundFlowContext } from '../../../shared/types/processors.js';
+import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
 
 import {
   classifyOperation,
@@ -44,7 +44,7 @@ import {
   validateTransactionGroup,
   type Movement,
 } from './processor-utils.js';
-import type { CorrelatedTransaction } from './types.js';
+import type { NearCorrelatedTransaction } from './types.js';
 
 /**
  * NEAR transaction processor that converts raw multi-stream data
@@ -72,7 +72,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
    */
   protected async processInternal(
     normalizedData: NearStreamEvent[],
-    context: FundFlowContext
+    context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     // Derive missing balance deltas from absolute amounts
     // Single source of truth for delta computation
@@ -336,8 +336,8 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
    * Aggregate correlated transaction data into a single ProcessedTransaction
    */
   private async aggregateToUniversalTransaction(
-    correlated: CorrelatedTransaction,
-    context: FundFlowContext,
+    correlated: NearCorrelatedTransaction,
+    context: AddressContext,
     tokenMovementsForScamDetection: MovementWithContext[],
     transactionIndex: number
   ): Promise<Result<ProcessedTransaction, Error>> {
@@ -575,7 +575,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
    * Enrich token metadata for token transfers
    */
   private async enrichTokenMetadata(events: NearStreamEvent[]): Promise<Result<void, Error>> {
-    // Collect token transfer events
+    // Collect token transfer events - all items here are guaranteed to have streamType === 'token-transfers'
     const ftTransferEvents = events.filter((e) => e.streamType === 'token-transfers');
 
     if (ftTransferEvents.length === 0) {
@@ -584,30 +584,12 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
 
     this.logger.debug(`Enriching token metadata for ${ftTransferEvents.length} FT transfers`);
 
-    // Extract contract addresses
-    const contractAddresses = ftTransferEvents
-      .map((e) => {
-        if (e.streamType === 'token-transfers') {
-          return e.contractAddress;
-        }
-        return;
-      })
-      .filter((addr): addr is string => !!addr);
-
-    if (contractAddresses.length === 0) {
-      return ok(undefined);
-    }
-
     // Enrich with token metadata service
+    // Because ftTransferEvents is pre-filtered to 'token-transfers', all events have contractAddress
     const enrichResult = await this.tokenMetadataService.enrichBatch(
       ftTransferEvents,
       'near',
-      (event) => {
-        if (event.streamType === 'token-transfers') {
-          return event.contractAddress;
-        }
-        return;
-      },
+      (event) => (event.streamType === 'token-transfers' ? event.contractAddress : undefined),
       (event, metadata) => {
         if (event.streamType === 'token-transfers') {
           if (metadata.symbol) {
@@ -618,12 +600,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
           }
         }
       },
-      (event) => {
-        if (event.streamType === 'token-transfers') {
-          return event.decimals !== undefined;
-        }
-        return true;
-      }
+      (event) => (event.streamType === 'token-transfers' ? event.decimals !== undefined : true)
     );
 
     if (enrichResult.isErr()) {
@@ -685,7 +662,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
       }
     }
 
-    this.applyScamDetection(transactions, tokenMovementsForScamDetection, metadataMap);
+    this.markScamTransactions(transactions, tokenMovementsForScamDetection, metadataMap);
     this.logger.debug(
       `Applied ${detectionMode} scam detection to ${transactions.length} transactions (${uniqueContracts.length} tokens)`
     );

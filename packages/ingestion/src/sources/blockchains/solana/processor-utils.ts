@@ -6,9 +6,9 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { FundFlowContext } from '../../../shared/types/processors.js';
+import type { AddressContext } from '../../../shared/types/processors.js';
 
-import type { SolanaBalanceChangeAnalysis, SolanaFundFlow, SolanaMovement } from './types.js';
+import type { SolanaFlowAnalysis, SolanaFundFlow, SolanaMovement } from './types.js';
 
 const logger = getLogger('solana-processor-utils');
 
@@ -410,7 +410,7 @@ export function isZeroDecimal(value: string): boolean {
 export function analyzeSolanaBalanceChanges(
   tx: SolanaTransaction,
   allWalletAddresses: Set<string>
-): Result<SolanaBalanceChangeAnalysis, Error> {
+): Result<SolanaFlowAnalysis, Error> {
   const inflows: SolanaMovement[] = [];
   const outflows: SolanaMovement[] = [];
 
@@ -794,7 +794,7 @@ export function analyzeSolanaBalanceChanges(
 /**
  * Analyze fund flow from normalized SolanaTransaction data
  */
-export function analyzeSolanaFundFlow(tx: SolanaTransaction, context: FundFlowContext): Result<SolanaFundFlow, string> {
+export function analyzeSolanaFundFlow(tx: SolanaTransaction, context: AddressContext): Result<SolanaFundFlow, string> {
   // Use all user addresses for multi-address fund-flow analysis
   const allWalletAddresses = new Set<string>(context.userAddresses);
 

@@ -2,7 +2,7 @@ import type { Currency } from '@exitbook/core';
 import type { ExchangeLedgerEntry } from '@exitbook/exchange-providers';
 import { describe, expect, test } from 'vitest';
 
-import { byCorrelationId, byTimestamp, noGrouping, type RawTransactionWithMetadata } from '../grouping.js';
+import { byCorrelationId, byTimestamp, noGrouping, type LedgerEntryWithRaw } from '../grouping.js';
 
 function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
   return {
@@ -17,7 +17,7 @@ function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedge
   };
 }
 
-function wrapEntry(entry: ExchangeLedgerEntry, eventId?: string): RawTransactionWithMetadata {
+function wrapEntry(entry: ExchangeLedgerEntry, eventId?: string): LedgerEntryWithRaw {
   return {
     raw: entry,
     normalized: entry,
@@ -85,7 +85,7 @@ describe('GroupingStrategy - byCorrelationId', () => {
     };
     const validEntry2 = wrapEntry(createTestEntry({ id: 'E3', correlationId: 'REF003' }));
 
-    const entries = [validEntry1, invalidEntry, validEntry2] as RawTransactionWithMetadata[];
+    const entries = [validEntry1, invalidEntry, validEntry2] as LedgerEntryWithRaw[];
 
     const groups = byCorrelationId.group(entries);
 
@@ -96,7 +96,7 @@ describe('GroupingStrategy - byCorrelationId', () => {
   });
 
   test('handles empty input array', () => {
-    const entries: RawTransactionWithMetadata[] = [];
+    const entries: LedgerEntryWithRaw[] = [];
 
     const groups = byCorrelationId.group(entries);
 
@@ -168,7 +168,7 @@ describe('GroupingStrategy - byTimestamp', () => {
   });
 
   test('handles empty input array', () => {
-    const entries: RawTransactionWithMetadata[] = [];
+    const entries: LedgerEntryWithRaw[] = [];
 
     const groups = byTimestamp.group(entries);
 
@@ -224,7 +224,7 @@ describe('GroupingStrategy - noGrouping', () => {
   });
 
   test('handles empty input array', () => {
-    const entries: RawTransactionWithMetadata[] = [];
+    const entries: LedgerEntryWithRaw[] = [];
 
     const groups = noGrouping.group(entries);
 

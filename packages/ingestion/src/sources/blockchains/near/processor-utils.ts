@@ -22,7 +22,7 @@ import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { CorrelatedTransaction, NearReceipt, RawTransactionGroup } from './types.js';
+import type { NearCorrelatedTransaction, NearReceipt, NearTransactionBundle } from './types.js';
 
 const logger = getLogger('near-processor-utils');
 
@@ -209,7 +209,7 @@ export interface FeeExtractionResult {
  */
 export function groupNearEventsByTransaction(
   events: NearStreamEvent[]
-): Result<Map<string, RawTransactionGroup>, Error> {
+): Result<Map<string, NearTransactionBundle>, Error> {
   // First pass: Build receipt_id → transaction_hash map
   const receiptIdToTxHash = new Map<string, string>();
 
@@ -224,10 +224,10 @@ export function groupNearEventsByTransaction(
   }
 
   // Second pass: Group by transaction hash, resolving via receipt_id when needed
-  const groups = new Map<string, RawTransactionGroup>();
+  const groups = new Map<string, NearTransactionBundle>();
   let skippedBalanceChanges = 0;
 
-  const getOrCreateGroup = (txHash: string): RawTransactionGroup => {
+  const getOrCreateGroup = (txHash: string): NearTransactionBundle => {
     let group = groups.get(txHash);
     if (!group) {
       group = {
@@ -323,7 +323,7 @@ export function groupNearEventsByTransaction(
  * @param group - Transaction group to validate
  * @returns Error if validation fails, undefined if valid
  */
-export function validateTransactionGroup(txHash: string, group: RawTransactionGroup): Result<void, Error> {
+export function validateTransactionGroup(txHash: string, group: NearTransactionBundle): Result<void, Error> {
   if (!group.transaction) {
     return err(new Error(`Missing transaction record for hash ${txHash}`));
   }
@@ -344,7 +344,7 @@ export function validateTransactionGroup(txHash: string, group: RawTransactionGr
  *
  * Assumes deltas have been derived before calling this function.
  */
-export function correlateTransactionData(group: RawTransactionGroup): Result<CorrelatedTransaction, Error> {
+export function correlateTransactionData(group: NearTransactionBundle): Result<NearCorrelatedTransaction, Error> {
   if (!group.transaction) {
     return err(new Error('Missing transaction in group'));
   }
@@ -843,7 +843,7 @@ function analyzeBalanceChangeCauses(receipts: NearReceipt[]): {
  * Determines transaction type based on receipts, actions, and fund flows
  */
 export function classifyOperation(
-  correlated: CorrelatedTransaction,
+  correlated: NearCorrelatedTransaction,
   allInflows: Movement[],
   allOutflows: Movement[]
 ): OperationClassification {

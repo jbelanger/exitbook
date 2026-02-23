@@ -22,7 +22,7 @@ export interface SessionSummary {
 /**
  * Formatted account for display
  */
-export interface FormattedAccount {
+export interface AccountView {
   id: number;
   accountType: AccountType;
   sourceName: string;
@@ -32,15 +32,15 @@ export interface FormattedAccount {
   lastBalanceCheckAt?: string | undefined;
   verificationStatus?: 'match' | 'mismatch' | 'never-checked' | undefined;
   sessionCount: number | undefined;
-  childAccounts?: FormattedAccount[] | undefined;
+  childAccounts?: AccountView[] | undefined;
   createdAt: string;
 }
 
 /**
  * Result of account query operation
  */
-export interface AccountQueryResult {
-  accounts: FormattedAccount[];
+export interface AccountListResult {
+  accounts: AccountView[];
   sessions?: Map<number, SessionSummary[]> | undefined;
   count: number;
 }
@@ -66,25 +66,15 @@ export function maskIdentifier(account: Account): string {
  * Determine verification status from account metadata.
  */
 export function getVerificationStatus(account: Account): 'match' | 'mismatch' | 'never-checked' | undefined {
-  if (!account.verificationMetadata) {
+  const lastVerification = account.verificationMetadata?.last_verification;
+
+  if (!lastVerification) {
     return account.lastBalanceCheckAt ? undefined : 'never-checked';
   }
 
-  const metadata = account.verificationMetadata;
-
-  // Guard against missing last_verification (legacy or corrupted data)
-  if (!metadata.last_verification) {
-    return account.lastBalanceCheckAt ? undefined : 'never-checked';
-  }
-
-  const status = metadata.last_verification.status;
-
-  if (status === 'match') {
-    return 'match';
-  }
-
-  if (status === 'mismatch') {
-    return 'mismatch';
+  const { status } = lastVerification;
+  if (status === 'match' || status === 'mismatch') {
+    return status;
   }
 
   return undefined;
@@ -96,8 +86,8 @@ export function getVerificationStatus(account: Account): 'match' | 'mismatch' | 
 export function formatAccount(
   account: Account,
   sessionCount: number | undefined,
-  childAccounts?: FormattedAccount[]
-): FormattedAccount {
+  childAccounts?: AccountView[]
+): AccountView {
   return {
     id: account.id,
     accountType: account.accountType,

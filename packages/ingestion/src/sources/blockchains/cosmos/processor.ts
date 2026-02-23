@@ -11,13 +11,9 @@ import type {
   IScamDetectionService,
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ProcessedTransaction, FundFlowContext } from '../../../shared/types/processors.js';
+import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
 
-import {
-  analyzeFundFlowFromNormalized,
-  deduplicateByEventId,
-  determineOperationFromFundFlow,
-} from './processor-utils.js';
+import { analyzeСosmosFundFlow, deduplicateByEventId, determineOperationFromFundFlow } from './processor-utils.js';
 
 /**
  * Generic Cosmos SDK transaction processor that converts raw blockchain transaction data
@@ -42,7 +38,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
    */
   protected async processInternal(
     normalizedData: CosmosTransaction[],
-    context: FundFlowContext
+    context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     // Deduplicate by eventId (handles cases like Peggy deposits where multiple validators
     // submit the same deposit claim as different tx hashes but represent the same logical event)
@@ -61,7 +57,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
       const normalizedTx = transaction;
       try {
         // Analyze fund flow for sophisticated transaction classification
-        const fundFlow = analyzeFundFlowFromNormalized(normalizedTx, context, this.chainConfig);
+        const fundFlow = analyzeСosmosFundFlow(normalizedTx, context, this.chainConfig);
 
         // Determine operation classification based on fund flow
         const classification = determineOperationFromFundFlow(fundFlow);
@@ -213,7 +209,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
     // Batch scam detection: Cosmos has no metadata service, so detection is symbol-only
     // Token movements only (skip native denom)
     if (movementsForScamDetection.length > 0 && this.scamDetectionService) {
-      this.applyScamDetection(universalTransactions, movementsForScamDetection, new Map());
+      this.markScamTransactions(universalTransactions, movementsForScamDetection, new Map());
       this.logger.debug(`Applied symbol-only scam detection to ${universalTransactions.length} transactions`);
     }
 

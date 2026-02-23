@@ -4,7 +4,7 @@ import { getLogger } from '@exitbook/logger';
 import { type Result, err, ok } from 'neverthrow';
 import type { z } from 'zod';
 
-import type { ITransactionProcessor, FundFlowContext, ProcessedTransaction } from '../../shared/types/processors.js';
+import type { ITransactionProcessor, AddressContext, ProcessedTransaction } from '../../shared/types/processors.js';
 import { ProcessedTransactionSchema } from '../../shared/types/processors.js';
 import type { IScamDetectionService, MovementWithContext } from '../scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.js';
@@ -37,10 +37,10 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
    */
   protected abstract processInternal(
     normalizedData: T[],
-    context: FundFlowContext
+    context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>>;
 
-  async process(normalizedData: unknown[], context?: FundFlowContext): Promise<Result<ProcessedTransaction[], string>> {
+  async process(normalizedData: unknown[], context?: AddressContext): Promise<Result<ProcessedTransaction[], string>> {
     this.logger.debug(`Processing ${normalizedData.length} items for ${this.sourceName}`);
 
     const validated: T[] = [];
@@ -52,16 +52,15 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
       }
       validated.push(result.data);
     }
-    const typedData = validated;
 
-    const result = await this.processInternal(typedData, context || { primaryAddress: '', userAddresses: [] });
+    const result = await this.processInternal(validated, context || { primaryAddress: '', userAddresses: [] });
 
     if (result.isErr()) {
       this.logger.error(`Processing failed for ${this.sourceName}: ${result.error}`);
       return result;
     }
 
-    const postProcessResult = this.postProcessTransactions(result.value);
+    const postProcessResult = this.validateAndFilterTransactions(result.value);
 
     if (postProcessResult.isErr()) {
       this.logger.error(`Post-processing failed for ${this.sourceName}: ${postProcessResult.error}`);
@@ -79,7 +78,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
    * @param movements - Token movements with context from fund flow
    * @param metadataMap - Pre-fetched metadata (from single getOrFetchBatch call, may contain undefined for unfound contracts)
    */
-  protected applyScamDetection(
+  protected markScamTransactions(
     transactions: ProcessedTransaction[],
     movements: MovementWithContext[],
     metadataMap: Map<string, TokenMetadataRecord | undefined>
@@ -113,7 +112,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
    * implementing scam detection during processing with the appropriate context
    * (contract addresses for blockchains, symbol-only for exchanges, etc.)
    */
-  private postProcessTransactions(transactions: ProcessedTransaction[]): Result<ProcessedTransaction[], string> {
+  private validateAndFilterTransactions(transactions: ProcessedTransaction[]): Result<ProcessedTransaction[], string> {
     const filteredTransactions = this.dropZeroValueContractInteractions(transactions);
     const { invalid, valid } = validateProcessedTransactions(filteredTransactions).unwrapOr({
       invalid: [],
@@ -144,15 +143,8 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
       return transactions;
     }
 
-    const kept: ProcessedTransaction[] = [];
-    let droppedCount = 0;
-    for (const transaction of transactions) {
-      if (this.shouldDropZeroValueContractInteraction(transaction)) {
-        droppedCount += 1;
-        continue;
-      }
-      kept.push(transaction);
-    }
+    const kept = transactions.filter((tx) => !this.shouldDropZeroValueContractInteraction(tx));
+    const droppedCount = transactions.length - kept.length;
 
     if (droppedCount > 0) {
       this.logger.warn(

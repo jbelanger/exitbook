@@ -5,7 +5,7 @@ import type { Result } from 'neverthrow';
 import type { ProcessedTransaction } from '../../../shared/types/processors.js';
 import { classifyExchangeOperationFromFundFlow } from '../shared/correlating-exchange-processor-utils.js';
 import { CorrelatingExchangeProcessor } from '../shared/correlating-exchange-processor.js';
-import { byCorrelationId, coinbaseGrossAmounts, type RawTransactionWithMetadata } from '../shared/strategies/index.js';
+import { byCorrelationId, coinbaseGrossAmounts, type LedgerEntryWithRaw } from '../shared/strategies/index.js';
 import type { ExchangeFundFlow } from '../shared/types.js';
 
 /**
@@ -27,7 +27,7 @@ import type { ExchangeFundFlow } from '../shared/types.js';
  */
 export class CoinbaseProcessor extends CorrelatingExchangeProcessor<CoinbaseLedgerEntry> {
   /** Store current entry group for classification (instance state during processing) */
-  private currentEntryGroup: RawTransactionWithMetadata<CoinbaseLedgerEntry>[] = [];
+  private currentEntryGroup: LedgerEntryWithRaw<CoinbaseLedgerEntry>[] = [];
 
   constructor() {
     super('coinbase', byCorrelationId, coinbaseGrossAmounts);
@@ -37,9 +37,9 @@ export class CoinbaseProcessor extends CorrelatingExchangeProcessor<CoinbaseLedg
    * Override to capture entry group for later use in classification.
    */
   protected override selectPrimaryEntry(
-    entryGroup: RawTransactionWithMetadata<CoinbaseLedgerEntry>[],
+    entryGroup: LedgerEntryWithRaw<CoinbaseLedgerEntry>[],
     fundFlow: ExchangeFundFlow
-  ): RawTransactionWithMetadata<CoinbaseLedgerEntry> | undefined {
+  ): LedgerEntryWithRaw<CoinbaseLedgerEntry> | undefined {
     this.currentEntryGroup = entryGroup;
     return super.selectPrimaryEntry(entryGroup, fundFlow);
   }
@@ -68,7 +68,7 @@ export class CoinbaseProcessor extends CorrelatingExchangeProcessor<CoinbaseLedg
    * Override to add blockchain metadata when hash is present in Coinbase data.
    */
   protected override async processInternal(
-    normalizedData: RawTransactionWithMetadata<CoinbaseLedgerEntry>[]
+    normalizedData: LedgerEntryWithRaw<CoinbaseLedgerEntry>[]
   ): Promise<Result<ProcessedTransaction[], string>> {
     // Call parent to get processed transactions
     const result = await super.processInternal(normalizedData);
@@ -78,12 +78,11 @@ export class CoinbaseProcessor extends CorrelatingExchangeProcessor<CoinbaseLedg
     }
 
     const transactions = result.value;
-    const entries = normalizedData;
 
     // Enhance transactions with blockchain metadata from entries
     const enhanced = transactions.map((tx) => {
       // Find the entry group for this transaction by matching externalId
-      const matchingEntry = entries.find((entry) => entry.normalized.id === tx.externalId);
+      const matchingEntry = normalizedData.find((entry) => entry.normalized.id === tx.externalId);
 
       if (!matchingEntry?.normalized.hash) {
         return tx;

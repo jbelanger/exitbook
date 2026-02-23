@@ -2,7 +2,7 @@ import type { Currency } from '@exitbook/core';
 import type { ExchangeLedgerEntry } from '@exitbook/exchange-providers';
 import { describe, expect, test } from 'vitest';
 
-import type { RawTransactionWithMetadata } from '../grouping.js';
+import type { LedgerEntryWithRaw } from '../grouping.js';
 import { standardAmounts } from '../interpretation.js';
 
 function createEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
@@ -18,7 +18,7 @@ function createEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEnt
   };
 }
 
-function wrapEntry(entry: ExchangeLedgerEntry): RawTransactionWithMetadata {
+function wrapEntry(entry: ExchangeLedgerEntry): LedgerEntryWithRaw {
   return {
     raw: entry,
     normalized: entry,

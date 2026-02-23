@@ -1,9 +1,9 @@
 import type { RawDataQueries } from '@exitbook/data';
-import type { ClearService, TransactionProcessService } from '@exitbook/ingestion';
+import type { ClearService, TransactionProcessingService } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-export interface ProcessResult {
+export interface BatchProcessSummary {
   /** Number of transactions processed */
   processed: number;
 
@@ -17,7 +17,7 @@ export interface ProcessHandlerParams {
 }
 
 interface ProcessDependencies {
-  transactionProcessService: TransactionProcessService;
+  transactionProcessService: TransactionProcessingService;
   clearService: ClearService;
   rawDataQueries: RawDataQueries;
 }
@@ -31,7 +31,7 @@ const logger = getLogger('ProcessHandler');
 export async function executeReprocess(
   params: ProcessHandlerParams,
   deps: ProcessDependencies
-): Promise<Result<ProcessResult, Error>> {
+): Promise<Result<BatchProcessSummary, Error>> {
   const { accountId } = params;
   const { transactionProcessService, clearService, rawDataQueries } = deps;
 

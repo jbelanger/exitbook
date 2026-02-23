@@ -6,7 +6,7 @@ import { z } from 'zod';
  *
  * @template TRaw - The raw exchange-specific type (e.g., CoinbaseLedgerEntry, KrakenLedgerEntry)
  */
-export interface RawTransactionWithMetadata<TRaw = unknown> {
+export interface LedgerEntryWithRaw<TRaw = unknown> {
   /** Full exchange-specific data for processor access */
   raw: TRaw;
   /** Validated common contract (invariants enforced) */
@@ -31,7 +31,7 @@ export const RawTransactionWithMetadataSchema = z.object({
  * Uses normalized.correlationId (guaranteed to exist after validation).
  */
 export interface GroupingStrategy {
-  group<TRaw>(entries: RawTransactionWithMetadata<TRaw>[]): Map<string, RawTransactionWithMetadata<TRaw>[]>;
+  group<TRaw>(entries: LedgerEntryWithRaw<TRaw>[]): Map<string, LedgerEntryWithRaw<TRaw>[]>;
 }
 
 /**
@@ -39,8 +39,8 @@ export interface GroupingStrategy {
  * Uses entry.normalized.correlationId (guaranteed to exist after validation).
  */
 export const byCorrelationId: GroupingStrategy = {
-  group<TRaw>(entries: RawTransactionWithMetadata<TRaw>[]): Map<string, RawTransactionWithMetadata<TRaw>[]> {
-    const groups = new Map<string, RawTransactionWithMetadata<TRaw>[]>();
+  group<TRaw>(entries: LedgerEntryWithRaw<TRaw>[]): Map<string, LedgerEntryWithRaw<TRaw>[]> {
+    const groups = new Map<string, LedgerEntryWithRaw<TRaw>[]>();
 
     for (const entry of entries) {
       if (!entry.normalized?.id) continue;
@@ -60,8 +60,8 @@ export const byCorrelationId: GroupingStrategy = {
  * Group entries by timestamp (some exchanges correlate by time).
  */
 export const byTimestamp: GroupingStrategy = {
-  group<TRaw>(entries: RawTransactionWithMetadata<TRaw>[]): Map<string, RawTransactionWithMetadata<TRaw>[]> {
-    const groups = new Map<string, RawTransactionWithMetadata<TRaw>[]>();
+  group<TRaw>(entries: LedgerEntryWithRaw<TRaw>[]): Map<string, LedgerEntryWithRaw<TRaw>[]> {
+    const groups = new Map<string, LedgerEntryWithRaw<TRaw>[]>();
 
     for (const entry of entries) {
       const key = entry.normalized.timestamp.toString();
@@ -79,7 +79,7 @@ export const byTimestamp: GroupingStrategy = {
  * No grouping - each entry is its own transaction (for CSV processors, etc.).
  */
 export const noGrouping: GroupingStrategy = {
-  group<TRaw>(entries: RawTransactionWithMetadata<TRaw>[]): Map<string, RawTransactionWithMetadata<TRaw>[]> {
+  group<TRaw>(entries: LedgerEntryWithRaw<TRaw>[]): Map<string, LedgerEntryWithRaw<TRaw>[]> {
     return new Map(entries.map((e) => [e.normalized.id, [e]]));
   },
 };

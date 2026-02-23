@@ -1,5 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
-import type { AdapterRegistry, ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
+import type {
+  AdapterRegistry,
+  ImportOrchestrator,
+  ImportParams,
+  TransactionProcessingService,
+} from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -18,7 +23,7 @@ vi.mock('@exitbook/ingestion', () => ({
   ImportOrchestrator: vi.fn(),
   RawDataRepository: vi.fn(),
   TokenMetadataService: vi.fn(),
-  TransactionProcessService: vi.fn(),
+  TransactionProcessingService: vi.fn(),
   createTransactionQueries: vi.fn(),
   isUtxoAdapter: vi.fn(),
 }));
@@ -35,7 +40,7 @@ vi.mock('@exitbook/data', async (importOriginal) => {
 
 describe('ImportHandler', () => {
   let mockImportOrchestrator: Partial<ImportOrchestrator>;
-  let mockProcessService: Partial<TransactionProcessService>;
+  let mockProcessService: Partial<TransactionProcessingService>;
   let mockRegistry: { getBlockchain: Mock };
   let handler: ImportHandler;
 
@@ -60,7 +65,7 @@ describe('ImportHandler', () => {
 
     handler = new ImportHandler(
       mockImportOrchestrator as ImportOrchestrator,
-      mockProcessService as TransactionProcessService,
+      mockProcessService as TransactionProcessingService,
       mockRegistry as unknown as AdapterRegistry
     );
   });

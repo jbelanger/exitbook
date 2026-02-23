@@ -12,7 +12,7 @@ import { outputSuccess } from '../shared/json-output.js';
 import { ProcessCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
-import type { ProcessResult } from './process-handler.js';
+import type { BatchProcessSummary } from './process-handler.js';
 import { createProcessServices } from './process-service-factory.js';
 
 const logger = getLogger('process');
@@ -141,7 +141,7 @@ async function handleCommandError(
 /**
  * Process result enhanced with processing metrics
  */
-interface ProcessResultWithMetrics extends ProcessResult {
+interface ProcessResultWithMetrics extends BatchProcessSummary {
   runStats?: MetricsSummary | undefined;
 }
 

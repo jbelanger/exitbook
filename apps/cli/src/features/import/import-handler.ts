@@ -1,5 +1,10 @@
 import type { ImportSession } from '@exitbook/core';
-import type { AdapterRegistry, ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
+import type {
+  AdapterRegistry,
+  ImportOrchestrator,
+  ImportParams,
+  TransactionProcessingService,
+} from '@exitbook/ingestion';
 import { isUtxoAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -13,7 +18,7 @@ export interface ImportResult {
   sessions: ImportSession[];
 }
 
-export interface ProcessResult {
+export interface BatchProcessSummary {
   /** Number of items processed */
   processed: number;
 
@@ -30,7 +35,7 @@ export class ImportHandler {
 
   constructor(
     private importOrchestrator: ImportOrchestrator,
-    private transactionProcessService: TransactionProcessService,
+    private transactionProcessService: TransactionProcessingService,
     private registry: AdapterRegistry
   ) {}
 
@@ -112,7 +117,7 @@ export class ImportHandler {
   /**
    * Execute the processing operation for imported sessions.
    */
-  async processImportedSessions(sessions: ImportSession[]): Promise<Result<ProcessResult, Error>> {
+  async processImportedSessions(sessions: ImportSession[]): Promise<Result<BatchProcessSummary, Error>> {
     try {
       // Always pass account IDs - the service will emit process.completed with totalProcessed: 0 if nothing to process
       const uniqueAccountIds = [...new Set(sessions.map((s) => s.accountId))];

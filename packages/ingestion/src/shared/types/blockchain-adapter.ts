@@ -13,7 +13,7 @@ export interface DerivedAddress {
   derivationPath: string;
 }
 
-export interface ProcessorDeps {
+export interface BlockchainProcessorContext {
   providerManager: BlockchainProviderManager;
   tokenMetadataService: ITokenMetadataService;
   scamDetectionService: IScamDetectionService | undefined;
@@ -25,7 +25,7 @@ interface BlockchainAdapterBase {
   blockchain: string;
   normalizeAddress: (address: string) => Result<string, Error>;
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) => IImporter;
-  createProcessor: (deps: ProcessorDeps) => ITransactionProcessor;
+  createProcessor: (deps: BlockchainProcessorContext) => ITransactionProcessor;
 }
 
 export interface AccountBasedBlockchainAdapter extends BlockchainAdapterBase {

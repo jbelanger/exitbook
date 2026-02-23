@@ -22,7 +22,7 @@ import { describe, expect, test, vi, type Mock } from 'vitest';
 
 import type { IScamDetectionService } from '../../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
-import type { FundFlowContext } from '../../../../shared/types/processors.js';
+import type { AddressContext } from '../../../../shared/types/processors.js';
 import { NearTransactionProcessor } from '../processor.js';
 
 // Test data factories for normalized types
@@ -107,7 +107,7 @@ function createMockScamDetectionService(): IScamDetectionService {
   } as unknown as IScamDetectionService;
 }
 
-const createFundFlowContext = (overrides: Partial<FundFlowContext> = {}): FundFlowContext => ({
+const createFundFlowContext = (overrides: Partial<AddressContext> = {}): AddressContext => ({
   primaryAddress: 'alice.near',
   userAddresses: ['alice.near'],
   ...overrides,

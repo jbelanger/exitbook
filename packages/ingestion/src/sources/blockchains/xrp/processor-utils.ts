@@ -2,7 +2,7 @@ import type { XrpBalanceChange, XrpTransaction } from '@exitbook/blockchain-prov
 import { parseDecimal } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { FundFlowContext } from '../../../shared/types/processors.js';
+import type { AddressContext } from '../../../shared/types/processors.js';
 
 import type { XrpFundFlow } from './types.js';
 
@@ -10,10 +10,7 @@ import type { XrpFundFlow } from './types.js';
  * Analyze fund flow from normalized XRP transaction.
  * Uses balance changes from transaction metadata to determine net effect.
  */
-export function analyzeXrpFundFlow(
-  normalizedTx: XrpTransaction,
-  context: FundFlowContext
-): Result<XrpFundFlow, string> {
+export function analyzeXrpFundFlow(normalizedTx: XrpTransaction, context: AddressContext): Result<XrpFundFlow, string> {
   const walletAddress = context.primaryAddress;
 
   // Find balance change for the wallet address (XRP native currency only)
@@ -90,7 +87,7 @@ export function analyzeXrpFundFlow(
  *
  * Note: operation_type is display metadata only - doesn't affect balance/cost basis calculations.
  */
-export function determineXrpTransactionType(_normalizedTx: XrpTransaction, _context: FundFlowContext): 'transfer' {
+export function determineXrpTransactionType(_normalizedTx: XrpTransaction, _context: AddressContext): 'transfer' {
   // For now, treat all XRP transactions as transfers
   // In the future, we could add more sophisticated type detection based on normalizedTx.transactionType
   // (Payment, OfferCreate, TrustSet, etc.)

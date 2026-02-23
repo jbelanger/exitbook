@@ -50,7 +50,7 @@ export interface NearReceipt {
  * Group of normalized transaction data for a single transaction hash
  * Used by processor to correlate and aggregate all data for one transaction
  */
-export interface RawTransactionGroup {
+export interface NearTransactionBundle {
   /**
    * Base transaction metadata from /txns-only endpoint
    * Should be present for all transactions
@@ -80,7 +80,7 @@ export interface RawTransactionGroup {
  * Correlated transaction data after correlation phase
  * Contains transaction metadata and all correlated receipts
  */
-export interface CorrelatedTransaction {
+export interface NearCorrelatedTransaction {
   /**
    * Base transaction metadata
    */

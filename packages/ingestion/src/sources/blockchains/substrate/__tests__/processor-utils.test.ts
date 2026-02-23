@@ -3,7 +3,7 @@ import type { Currency } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import {
-  analyzeFundFlowFromNormalized,
+  analyzeSubstrateFundFlow,
   determineOperationFromFundFlow,
   shouldRecordFeeEntry,
   expandSourceContext,
@@ -88,7 +88,7 @@ function getFundFlow(
   sessionContext = createSessionContext(),
   config = POLKADOT_CONFIG
 ) {
-  return analyzeFundFlowFromNormalized(transaction, sessionContext, config)._unsafeUnwrap();
+  return analyzeSubstrateFundFlow(transaction, sessionContext, config)._unsafeUnwrap();
 }
 
 describe('expandSourceContext', () => {
@@ -150,7 +150,7 @@ describe('expandSourceContext', () => {
   });
 });
 
-describe('analyzeFundFlowFromNormalized', () => {
+describe('analyzeSubstrateFundFlow', () => {
   test('analyzes outgoing transfer correctly', () => {
     const transaction = createTransaction({
       amount: '10000000000', // 1 DOT in planck

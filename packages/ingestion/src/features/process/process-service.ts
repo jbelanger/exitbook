@@ -17,8 +17,8 @@ import type { Result } from 'neverthrow';
 import type { IngestionEvent } from '../../events.js';
 import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import type {
-  ProcessResult,
-  FundFlowContext,
+  BatchProcessSummary,
+  AddressContext,
   ProcessedTransaction,
   ITransactionProcessor,
 } from '../../shared/types/processors.js';
@@ -37,7 +37,7 @@ const TRANSACTION_SAVE_BATCH_SIZE = 500;
 const RAW_DATA_MARK_BATCH_SIZE = 500;
 const RAW_DATA_HASH_BATCH_SIZE = 100; // For blockchain accounts, process in hash-grouped batches to ensure correlation integrity
 
-export class TransactionProcessService {
+export class TransactionProcessingService {
   private logger: Logger;
   private scamDetectionService: IScamDetectionService;
 
@@ -52,7 +52,7 @@ export class TransactionProcessService {
     private db: KyselyDB,
     private registry: AdapterRegistry
   ) {
-    this.logger = getLogger('TransactionProcessService');
+    this.logger = getLogger('TransactionProcessingService');
     this.scamDetectionService = new ScamDetectionService(eventBus);
   }
 
@@ -60,7 +60,7 @@ export class TransactionProcessService {
    * Process imported sessions from import operation.
    * Emits process.started and process.completed events for dashboard coordination.
    */
-  async processImportedSessions(accountIds: number[]): Promise<Result<ProcessResult, Error>> {
+  async processImportedSessions(accountIds: number[]): Promise<Result<BatchProcessSummary, Error>> {
     if (accountIds.length === 0) {
       return ok({ errors: [], failed: 0, processed: 0 });
     }
@@ -145,7 +145,7 @@ export class TransactionProcessService {
   /**
    * Process all accounts that have pending raw data.
    */
-  async processAllPending(): Promise<Result<ProcessResult, Error>> {
+  async processAllPending(): Promise<Result<BatchProcessSummary, Error>> {
     this.logger.info('Processing all accounts with pending records');
 
     try {
@@ -204,7 +204,7 @@ export class TransactionProcessService {
   /**
    * Process all pending transactions for a specific account.
    */
-  async processAccountTransactions(accountId: number): Promise<Result<ProcessResult, Error>> {
+  async processAccountTransactions(accountId: number): Promise<Result<BatchProcessSummary, Error>> {
     try {
       // CRITICAL: Check for active import before processing to prevent data corruption
       const activeImportsCheck = await this.checkForIncompleteImports([accountId]);
@@ -247,10 +247,10 @@ export class TransactionProcessService {
     if (sourceType === 'blockchain') {
       // Hash-grouped batching for blockchains to ensure correlation integrity
       return new HashGroupedBatchProvider(this.rawDataQueries, accountId, RAW_DATA_HASH_BATCH_SIZE);
-    } else {
-      // All-at-once batching for exchanges (manageable data volumes)
-      return new AllAtOnceBatchProvider(this.rawDataQueries, accountId);
     }
+
+    // All-at-once batching for exchanges (manageable data volumes)
+    return new AllAtOnceBatchProvider(this.rawDataQueries, accountId);
   }
 
   /**
@@ -261,7 +261,7 @@ export class TransactionProcessService {
     accountId: number,
     account: { accountType: string; identifier: string; sourceName: string; userId?: number | undefined },
     batchProvider: IRawDataBatchProvider
-  ): Promise<Result<ProcessResult, Error>> {
+  ): Promise<Result<BatchProcessSummary, Error>> {
     const sourceName = account.sourceName.toLowerCase();
     let totalSaved = 0;
     let totalProcessed = 0;
@@ -280,10 +280,10 @@ export class TransactionProcessService {
     }
 
     // Build processing context once (used for all batches)
-    const processingContext = await this.getFundFlowContext(account, accountId);
+    const addressContext = await this.buildAddressContext(account, accountId);
 
     // Create processor once (reused for all batches)
-    const processorResult = this.getProcessor(sourceName, account.accountType, accountId);
+    const processorResult = this.createProcessor(sourceName, account.accountType, accountId);
     if (processorResult.isErr()) {
       return err(processorResult.error);
     }
@@ -321,22 +321,22 @@ export class TransactionProcessService {
         `Processing batch ${batchNumber}: ${rawDataItems.length} items for account ${accountId} (${sourceName})`
       );
 
-      const normalizedRawDataItemsResult = this.normalizeRawData(rawDataItems, account.accountType);
-      if (normalizedRawDataItemsResult.isErr()) {
+      const processorInputsResult = this.unpackForProcessor(rawDataItems, account.accountType);
+      if (processorInputsResult.isErr()) {
         this.logger.error(
-          `CRITICAL: Failed to normalize raw data for account ${accountId} batch ${batchNumber} - ${normalizedRawDataItemsResult.error.message}`
+          `CRITICAL: Failed to normalize raw data for account ${accountId} batch ${batchNumber} - ${processorInputsResult.error.message}`
         );
         return err(
           new Error(
-            `Cannot proceed: Account ${accountId} processing failed at batch ${batchNumber}. ${normalizedRawDataItemsResult.error.message}. ` +
+            `Cannot proceed: Account ${accountId} processing failed at batch ${batchNumber}. ${processorInputsResult.error.message}. ` +
               `This would corrupt portfolio calculations by losing transactions from this account.`
           )
         );
       }
-      const normalizedRawDataItems = normalizedRawDataItemsResult.value;
+      const processorInputs = processorInputsResult.value;
 
       // Process raw data into universal transactions
-      const transactionsResult = await processor.process(normalizedRawDataItems, processingContext);
+      const transactionsResult = await processor.process(processorInputs, addressContext);
 
       if (transactionsResult.isErr()) {
         this.logger.error(
@@ -415,17 +415,17 @@ export class TransactionProcessService {
     });
   }
 
-  private async getFundFlowContext(
+  private async buildAddressContext(
     account: { accountType: string; identifier: string; sourceName: string; userId?: number | undefined },
     accountId: number
-  ): Promise<FundFlowContext> {
-    const processingContext: FundFlowContext = {
+  ): Promise<AddressContext> {
+    const addressContext: AddressContext = {
       primaryAddress: '',
       userAddresses: [],
     };
 
     if (account.accountType === 'blockchain') {
-      processingContext.primaryAddress = account.identifier;
+      addressContext.primaryAddress = account.identifier;
 
       if (account.userId) {
         const userAccountsResult = await this.accountQueries.findAll({ userId: account.userId });
@@ -436,7 +436,7 @@ export class TransactionProcessService {
             .map((acc) => acc.identifier);
 
           if (userAddresses.length > 0) {
-            processingContext.userAddresses = userAddresses;
+            addressContext.userAddresses = userAddresses;
             this.logger.debug(
               `Account ${accountId}: Augmented context with ${userAddresses.length} user addresses for multi-address fund-flow analysis`
             );
@@ -444,10 +444,10 @@ export class TransactionProcessService {
         }
       }
     }
-    return processingContext;
+    return addressContext;
   }
 
-  private getProcessor(
+  private createProcessor(
     sourceName: string,
     sourceType: string,
     accountId: number
@@ -476,8 +476,8 @@ export class TransactionProcessService {
     }
   }
 
-  private normalizeRawData(rawDataItems: RawTransaction[], sourceType: string): Result<unknown[], Error> {
-    const normalizedRawDataItems: unknown[] = [];
+  private unpackForProcessor(rawDataItems: RawTransaction[], sourceType: string): Result<unknown[], Error> {
+    const processorInputs: unknown[] = [];
     const isExchange = sourceType === 'exchange-api' || sourceType === 'exchange-csv';
 
     for (const item of rawDataItems) {
@@ -494,7 +494,7 @@ export class TransactionProcessService {
           normalized: normalizedData,
           eventId: item.eventId || '',
         };
-        normalizedRawDataItems.push(dataPackage);
+        processorInputs.push(dataPackage);
       } else {
         const normalizedData: unknown = item.normalizedData;
         const isEmpty = !normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0;
@@ -509,11 +509,11 @@ export class TransactionProcessService {
         }
 
         // Chain-specific schema validation happens inside each processor via BaseTransactionProcessor.
-        normalizedRawDataItems.push(normalizedData);
+        processorInputs.push(normalizedData);
       }
     }
 
-    return ok(normalizedRawDataItems);
+    return ok(processorInputs);
   }
 
   private async saveTransactions(

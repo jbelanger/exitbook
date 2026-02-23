@@ -13,7 +13,7 @@ export interface SolanaMovement {
 /**
  * Result of balance change analysis for Solana transactions
  */
-export interface SolanaBalanceChangeAnalysis {
+export interface SolanaFlowAnalysis {
   inflows: SolanaMovement[];
   outflows: SolanaMovement[];
   primary: SolanaMovement;

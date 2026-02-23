@@ -4,7 +4,7 @@ import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ProcessedTransaction, FundFlowContext } from '../../../shared/types/processors.js';
+import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeXrpFundFlow, determineXrpTransactionType } from './processor-utils.js';
 
@@ -31,7 +31,7 @@ export class XrpTransactionProcessor extends BaseTransactionProcessor<XrpTransac
    */
   protected async processInternal(
     normalizedData: XrpTransaction[],
-    context: FundFlowContext
+    context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];

@@ -8,13 +8,9 @@ import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ProcessedTransaction, FundFlowContext } from '../../../shared/types/processors.js';
+import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
 
-import {
-  analyzeFundFlowFromNormalized,
-  determineOperationFromFundFlow,
-  shouldRecordFeeEntry,
-} from './processor-utils.js';
+import { analyzeSubstrateFundFlow, determineOperationFromFundFlow, shouldRecordFeeEntry } from './processor-utils.js';
 
 /**
  * Generic Substrate transaction processor that converts raw blockchain transaction data
@@ -39,14 +35,14 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
    */
   protected async processInternal(
     normalizedData: SubstrateTransaction[],
-    context: FundFlowContext
+    context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
     for (const normalizedTx of normalizedData) {
       try {
-        const fundFlowResult = analyzeFundFlowFromNormalized(normalizedTx, context, this.chainConfig);
+        const fundFlowResult = analyzeSubstrateFundFlow(normalizedTx, context, this.chainConfig);
         if (fundFlowResult.isErr()) {
           const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;
           processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
@@ -57,12 +53,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
         }
         const fundFlow = fundFlowResult.value;
         const classification = determineOperationFromFundFlow(fundFlow, normalizedTx);
-
-        // Calculate direction for primary asset
-        const hasInflow = fundFlow.inflows.some((i) => i.asset === fundFlow.primary.asset);
-        const hasOutflow = fundFlow.outflows.some((o) => o.asset === fundFlow.primary.asset);
-        const direction: 'in' | 'out' | 'neutral' =
-          hasInflow && hasOutflow ? 'neutral' : hasInflow ? 'in' : hasOutflow ? 'out' : 'neutral';
 
         // Only include fees if user was the signer/broadcaster (they paid the fee)
         // For incoming transactions (deposits, received transfers), the sender/protocol paid the fee
@@ -175,7 +165,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
         this.logger.debug(
           `Processed Substrate transaction ${normalizedTx.id} - ` +
             `Operation: ${classification.operation.category}/${classification.operation.type}, ` +
-            `Primary: ${fundFlow.primary.amount} ${fundFlow.primary.asset} (${direction}), ` +
+            `Primary: ${fundFlow.primary.amount} ${fundFlow.primary.asset}, ` +
             `Chain: ${fundFlow.chainName}`
         );
       } catch (error) {

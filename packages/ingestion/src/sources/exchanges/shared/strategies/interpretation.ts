@@ -2,7 +2,7 @@ import { buildExchangeAssetId, parseDecimal } from '@exitbook/core';
 import type { CoinbaseLedgerEntry } from '@exitbook/exchange-providers';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { RawTransactionWithMetadata } from './grouping.js';
+import type { LedgerEntryWithRaw } from './grouping.js';
 
 /**
  * Movement input with amount semantics (used before parsing to Decimal)
@@ -45,8 +45,8 @@ export interface LedgerEntryInterpretation {
  */
 export interface InterpretationStrategy<TRaw = unknown> {
   interpret(
-    entry: RawTransactionWithMetadata<TRaw>,
-    group: RawTransactionWithMetadata<TRaw>[],
+    entry: LedgerEntryWithRaw<TRaw>,
+    group: LedgerEntryWithRaw<TRaw>[],
     exchangeName: string
   ): Result<LedgerEntryInterpretation, Error>;
 }
@@ -60,8 +60,8 @@ export interface InterpretationStrategy<TRaw = unknown> {
  */
 export const standardAmounts: InterpretationStrategy = {
   interpret(
-    entry: RawTransactionWithMetadata,
-    _group: RawTransactionWithMetadata[],
+    entry: LedgerEntryWithRaw,
+    _group: LedgerEntryWithRaw[],
     exchangeName: string
   ): Result<LedgerEntryInterpretation, Error> {
     const amount = parseDecimal(entry.normalized.amount);
@@ -143,28 +143,22 @@ export const standardAmounts: InterpretationStrategy = {
  * Deduplicates fees across correlated entries.
  */
 function shouldIncludeFeeForCoinbaseEntry(
-  entry: RawTransactionWithMetadata<CoinbaseLedgerEntry>,
-  group: RawTransactionWithMetadata<CoinbaseLedgerEntry>[]
+  entry: LedgerEntryWithRaw<CoinbaseLedgerEntry>,
+  group: LedgerEntryWithRaw<CoinbaseLedgerEntry>[]
 ): boolean {
-  if (!entry.normalized.fee || parseDecimal(entry.normalized.fee).isZero()) {
+  const entryFee = entry.normalized.fee;
+  if (!entryFee || parseDecimal(entryFee).isZero()) {
     return false;
   }
 
-  // Use normalized fee for comparison (handles both CCXT fees and extracted commission)
-  const entryFeeCost = entry.normalized.fee;
   const entryFeeCurrency = entry.normalized.feeCurrency;
 
-  if (!entryFeeCost) return false;
-
   // Find all entries in group with identical fee (using normalized data)
+  // Only include fee on first occurrence to avoid duplication across correlated entries
   const entriesWithSameFee = group.filter(
-    (e) =>
-      e.normalized.fee === entryFeeCost &&
-      e.normalized.feeCurrency === entryFeeCurrency &&
-      e.normalized.fee !== undefined
+    (e) => e.normalized.fee === entryFee && e.normalized.feeCurrency === entryFeeCurrency
   );
 
-  // Only include fee on first occurrence
   return entriesWithSameFee.length === 0 || entriesWithSameFee[0]?.normalized.id === entry.normalized.id;
 }
 
@@ -180,8 +174,8 @@ function shouldIncludeFeeForCoinbaseEntry(
  */
 export const coinbaseGrossAmounts: InterpretationStrategy<CoinbaseLedgerEntry> = {
   interpret(
-    entry: RawTransactionWithMetadata<CoinbaseLedgerEntry>,
-    group: RawTransactionWithMetadata<CoinbaseLedgerEntry>[],
+    entry: LedgerEntryWithRaw<CoinbaseLedgerEntry>,
+    group: LedgerEntryWithRaw<CoinbaseLedgerEntry>[],
     exchangeName: string
   ): Result<LedgerEntryInterpretation, Error> {
     const amount = parseDecimal(entry.normalized.amount);

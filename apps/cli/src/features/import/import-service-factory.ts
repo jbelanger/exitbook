@@ -16,7 +16,7 @@ import {
   type ImportEvent,
   type IngestionEvent,
   TokenMetadataService,
-  TransactionProcessService,
+  TransactionProcessingService,
 } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 
@@ -89,7 +89,7 @@ export async function createImportServices(database: KyselyDB, registry: Adapter
       eventBus as EventBus<ImportEvent>
     );
 
-    const transactionProcessService = new TransactionProcessService(
+    const transactionProcessService = new TransactionProcessingService(
       repositories.rawData,
       repositories.account,
       repositories.transaction,

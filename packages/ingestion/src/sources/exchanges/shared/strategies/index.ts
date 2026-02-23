@@ -4,7 +4,7 @@ export {
   noGrouping,
   RawTransactionWithMetadataSchema,
   type GroupingStrategy,
-  type RawTransactionWithMetadata,
+  type LedgerEntryWithRaw,
 } from './grouping.js';
 export {
   coinbaseGrossAmounts,

@@ -1,5 +1,5 @@
 import type { AccountType } from '@exitbook/core';
-import type { FormattedAccount, SessionSummary as IngestionSessionSummary } from '@exitbook/ingestion';
+import type { AccountView, SessionSummary as IngestionSessionSummary } from '@exitbook/ingestion';
 
 import type { CommonViewFilters } from '../shared/view-utils.js';
 
@@ -17,10 +17,10 @@ export interface ViewAccountsParams extends CommonViewFilters {
 // ─── TUI Transformation Utilities ───────────────────────────────────────────
 
 /**
- * Convert a FormattedAccount to an AccountViewItem for TUI display.
+ * Convert a AccountView to an AccountViewItem for TUI display.
  */
 export function toAccountViewItem(
-  account: FormattedAccount,
+  account: AccountView,
   sessions?: Map<number, IngestionSessionSummary[]>
 ): AccountViewItem {
   const childAccounts: ChildAccountViewItem[] | undefined = account.childAccounts?.map((child) => ({

@@ -3,7 +3,7 @@ import { parseDecimal, type Currency, type OperationClassification } from '@exit
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
-import type { FundFlowContext } from '../../../shared/types/processors.js';
+import type { AddressContext } from '../../../shared/types/processors.js';
 
 import type { CosmosFundFlow } from './types.js';
 
@@ -69,9 +69,9 @@ export function deduplicateByEventId(transactions: CosmosTransaction[]): CosmosT
  *
  * Note: Addresses should already be normalized to lowercase via CosmosAddressSchema.
  */
-export function analyzeFundFlowFromNormalized(
+export function analyzeСosmosFundFlow(
   transaction: CosmosTransaction,
-  context: FundFlowContext,
+  context: AddressContext,
   chainConfig: CosmosChainConfig
 ): CosmosFundFlow {
   const userAddress = context.primaryAddress;

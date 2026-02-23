@@ -17,7 +17,7 @@ import {
   ClearService,
   type IngestionEvent,
   TokenMetadataService,
-  TransactionProcessService,
+  TransactionProcessingService,
 } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
@@ -27,7 +27,7 @@ import { IngestionMonitor } from '../import/components/ingestion-monitor-compone
 import { getDataDir } from '../shared/data-dir.js';
 import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
 
-import type { ProcessHandlerParams, ProcessResult } from './process-handler.js';
+import type { ProcessHandlerParams, BatchProcessSummary } from './process-handler.js';
 import { executeReprocess } from './process-handler.js';
 
 const logger = getLogger('process-service-factory');
@@ -39,7 +39,7 @@ type CliEvent = IngestionEvent | ProviderEvent;
  * Encapsulates all dependencies and cleanup logic.
  */
 export interface ProcessServices {
-  execute: (params: ProcessHandlerParams) => Promise<Result<ProcessResult, Error>>;
+  execute: (params: ProcessHandlerParams) => Promise<Result<BatchProcessSummary, Error>>;
   ingestionMonitor: EventDrivenController<CliEvent>;
   instrumentation: InstrumentationCollector;
   cleanup: () => Promise<void>;
@@ -88,7 +88,7 @@ export async function createProcessServices(database: KyselyDB, registry: Adapte
       eventBus as EventBus<IngestionEvent>
     );
 
-    const transactionProcessService = new TransactionProcessService(
+    const transactionProcessService = new TransactionProcessingService(
       rawData,
       account,
       transaction,

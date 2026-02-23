@@ -2,7 +2,7 @@ import type { Currency } from '@exitbook/core';
 import type { CoinbaseLedgerEntry } from '@exitbook/exchange-providers';
 import { describe, expect, test } from 'vitest';
 
-import type { RawTransactionWithMetadata } from '../../shared/strategies/index.js';
+import type { LedgerEntryWithRaw } from '../../shared/strategies/index.js';
 import { CoinbaseProcessor } from '../processor.js';
 
 type DeepPartial<T> = {
@@ -10,10 +10,10 @@ type DeepPartial<T> = {
 };
 
 function buildEntry(
-  overrides?: DeepPartial<RawTransactionWithMetadata<CoinbaseLedgerEntry>>
-): RawTransactionWithMetadata<CoinbaseLedgerEntry> {
+  overrides?: DeepPartial<LedgerEntryWithRaw<CoinbaseLedgerEntry>>
+): LedgerEntryWithRaw<CoinbaseLedgerEntry> {
   const timestamp = 1_767_278_215_000; // 2026-01-01T14:36:55.000Z
-  const base: RawTransactionWithMetadata<CoinbaseLedgerEntry> = {
+  const base: LedgerEntryWithRaw<CoinbaseLedgerEntry> = {
     eventId: 'entry-1',
     cursor: {},
     normalized: {
@@ -53,7 +53,7 @@ function buildEntry(
       ...base.raw,
       ...(overrides?.raw || {}),
     },
-  } as RawTransactionWithMetadata<CoinbaseLedgerEntry>;
+  } as LedgerEntryWithRaw<CoinbaseLedgerEntry>;
 }
 
 function createProcessor() {

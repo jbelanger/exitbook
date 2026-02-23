@@ -4,7 +4,7 @@ export { allBlockchainAdapters } from './sources/blockchains/index.js';
 export { allExchangeAdapters } from './sources/exchanges/index.js';
 
 export { ImportOrchestrator } from './features/import/import-orchestrator.js';
-export { TransactionProcessService } from './features/process/process-service.js';
+export { TransactionProcessingService as TransactionProcessingService } from './features/process/process-service.js';
 export { ClearService } from './features/deletion/clear-service.js';
 export type { ClearResult } from './features/deletion/clear-service.js';
 export type { ClearServiceParams, DeletionPreview } from './features/deletion/clear-service-utils.js';
@@ -12,8 +12,8 @@ export { AccountService } from './features/accounts/account-service.js';
 export type { ViewAccountsParams } from './features/accounts/account-service.js';
 export type {
   AccountQueryParams,
-  AccountQueryResult,
-  FormattedAccount,
+  AccountListResult,
+  AccountView,
   SessionSummary,
 } from './features/accounts/account-service-utils.js';
 
@@ -47,7 +47,7 @@ export type { ImportEvent, ProcessEvent, IngestionEvent } from './events.js';
 // Blockchain adapter types
 export {
   isUtxoAdapter,
-  type BlockchainAdapter as BlockchainConfig,
+  type BlockchainAdapter,
   type UtxoBlockchainAdapter,
 } from './shared/types/blockchain-adapter.js';
 

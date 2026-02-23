@@ -36,7 +36,7 @@ export class ImportExecutor {
    * All parameters are extracted from the account object.
    */
   async importFromSource(account: Account): Promise<Result<ImportSession, Error>> {
-    const setupResult = this.setupImport(account);
+    const setupResult = this.buildImporter(account);
     if (setupResult.isErr()) return err(setupResult.error);
 
     const { importer, params } = setupResult.value;
@@ -47,7 +47,7 @@ export class ImportExecutor {
    * Setup import by creating importer and extracting params from account.
    * No rebuilding or normalization needed - Account stores canonical params.
    */
-  private setupImport(account: Account): Result<{ importer: IImporter; params: ImportParams }, Error> {
+  private buildImporter(account: Account): Result<{ importer: IImporter; params: ImportParams }, Error> {
     const sourceName = account.sourceName;
     const sourceType = account.accountType;
 

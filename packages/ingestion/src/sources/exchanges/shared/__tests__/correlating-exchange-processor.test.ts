@@ -3,7 +3,7 @@ import type { ExchangeLedgerEntry } from '@exitbook/exchange-providers';
 import { describe, expect, test } from 'vitest';
 
 import { CorrelatingExchangeProcessor } from '../correlating-exchange-processor.js';
-import { byCorrelationId, noGrouping, type RawTransactionWithMetadata } from '../strategies/grouping.js';
+import { byCorrelationId, noGrouping, type LedgerEntryWithRaw } from '../strategies/grouping.js';
 import { standardAmounts } from '../strategies/interpretation.js';
 
 function createEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
@@ -19,7 +19,7 @@ function createEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEnt
   };
 }
 
-function wrapEntry(entry: ExchangeLedgerEntry): RawTransactionWithMetadata {
+function wrapEntry(entry: ExchangeLedgerEntry): LedgerEntryWithRaw {
   return {
     raw: entry,
     normalized: entry,
@@ -241,7 +241,7 @@ describe('CorrelatingExchangeProcessor - Error Handling', () => {
   test('returns error when empty entry group is provided', async () => {
     const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
 
-    const entries: RawTransactionWithMetadata[] = [];
+    const entries: LedgerEntryWithRaw[] = [];
 
     const result = await processor.process(entries);
 
@@ -261,7 +261,7 @@ describe('CorrelatingExchangeProcessor - Error Handling', () => {
       createEntry({ id: 'E2', correlationId: 'REF002', amount: '50', assetSymbol: 'EUR' as Currency })
     );
 
-    const entries = [validEntry, validEntry2] as RawTransactionWithMetadata[];
+    const entries = [validEntry, validEntry2] as LedgerEntryWithRaw[];
 
     const result = await processor.process(entries);
 

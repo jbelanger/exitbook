@@ -5,7 +5,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { FundFlowContext } from '../../../shared/types/processors.js';
+import type { AddressContext } from '../../../shared/types/processors.js';
 
 import type { EvmFundFlow, EvmMovement } from './types.js';
 
@@ -46,28 +46,20 @@ export function consolidateEvmMovementsByAsset(movements: EvmMovement[]): EvmMov
     if (existing) {
       existing.amount = existing.amount.plus(parseDecimal(movement.amount));
     } else {
-      const entry: { amount: Decimal; tokenAddress?: string; tokenDecimals?: number } = {
+      assetMap.set(movement.asset, {
         amount: parseDecimal(movement.amount),
-      };
-      if (movement.tokenAddress !== undefined) {
-        entry.tokenAddress = movement.tokenAddress;
-      }
-      if (movement.tokenDecimals !== undefined) {
-        entry.tokenDecimals = movement.tokenDecimals;
-      }
-      assetMap.set(movement.asset, entry);
+        tokenAddress: movement.tokenAddress,
+        tokenDecimals: movement.tokenDecimals,
+      });
     }
   }
 
-  return Array.from(assetMap.entries()).map(([asset, data]) => {
-    const result: EvmMovement = {
-      amount: data.amount.toFixed(),
-      asset: asset as Currency,
-      tokenAddress: data.tokenAddress,
-      tokenDecimals: data.tokenDecimals,
-    };
-    return result;
-  });
+  return Array.from(assetMap.entries()).map(([asset, data]) => ({
+    amount: data.amount.toFixed(),
+    asset: asset as Currency,
+    tokenAddress: data.tokenAddress,
+    tokenDecimals: data.tokenDecimals,
+  }));
 }
 
 /**
@@ -98,20 +90,8 @@ export function selectPrimaryEvmMovement(movements: EvmMovement[], criteria: Sel
       }
     });
 
-  if (largestMovement) {
-    return {
-      asset: largestMovement.asset,
-      amount: largestMovement.amount,
-      tokenAddress: largestMovement.tokenAddress,
-      tokenDecimals: largestMovement.tokenDecimals,
-    };
-  }
-
-  // Fallback to native currency with zero amount if no movements found
-  return {
-    asset: criteria.nativeCurrency,
-    amount: '0',
-  };
+  // Fallback to native currency with zero amount if no non-zero movements found
+  return largestMovement ?? { asset: criteria.nativeCurrency, amount: '0' };
 }
 
 /**
@@ -356,7 +336,7 @@ export function groupEvmTransactionsByHash(transactions: EvmTransaction[]): Map<
  */
 export function analyzeEvmFundFlow(
   txGroup: EvmTransaction[],
-  context: FundFlowContext,
+  context: AddressContext,
   chainConfig: EvmChainConfig
 ): Result<EvmFundFlow, string> {
   if (txGroup.length === 0) {

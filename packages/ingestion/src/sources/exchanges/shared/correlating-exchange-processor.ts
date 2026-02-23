@@ -18,7 +18,7 @@ import {
   type GroupingStrategy,
   type InterpretationStrategy,
   type MovementInput,
-  type RawTransactionWithMetadata,
+  type LedgerEntryWithRaw,
 } from './strategies/index.js';
 import type { ExchangeFundFlow } from './types.js';
 
@@ -32,9 +32,7 @@ import type { ExchangeFundFlow } from './types.js';
  *
  * @template TRaw - The raw exchange-specific type (e.g., CoinbaseLedgerEntry, KrakenLedgerEntry)
  */
-export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactionProcessor<
-  RawTransactionWithMetadata<TRaw>
-> {
+export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactionProcessor<LedgerEntryWithRaw<TRaw>> {
   constructor(
     sourceName: string,
     private grouping: GroupingStrategy,
@@ -43,12 +41,12 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     super(sourceName);
   }
 
-  protected get inputSchema(): z.ZodType<RawTransactionWithMetadata<TRaw>> {
-    return RawTransactionWithMetadataSchema as z.ZodType<RawTransactionWithMetadata<TRaw>>;
+  protected get inputSchema(): z.ZodType<LedgerEntryWithRaw<TRaw>> {
+    return RawTransactionWithMetadataSchema as z.ZodType<LedgerEntryWithRaw<TRaw>>;
   }
 
   protected async processInternal(
-    normalizedData: RawTransactionWithMetadata<TRaw>[]
+    normalizedData: LedgerEntryWithRaw<TRaw>[]
   ): Promise<Result<ProcessedTransaction[], string>> {
     const entries = normalizedData;
 
@@ -164,7 +162,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
    * Analyze fund flow from a group of correlated ledger entries.
    * Uses interpretation strategy to extract amounts/fees from each entry.
    */
-  protected analyzeFundFlow(entryGroup: RawTransactionWithMetadata<TRaw>[]): Result<ExchangeFundFlow, string> {
+  protected analyzeFundFlow(entryGroup: LedgerEntryWithRaw<TRaw>[]): Result<ExchangeFundFlow, string> {
     if (entryGroup.length === 0) {
       return err('Empty entry group');
     }
@@ -226,9 +224,9 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
    * Can be overridden by subclasses if needed.
    */
   protected selectPrimaryEntry(
-    entryGroup: RawTransactionWithMetadata<TRaw>[],
+    entryGroup: LedgerEntryWithRaw<TRaw>[],
     _fundFlow: ExchangeFundFlow
-  ): RawTransactionWithMetadata<TRaw> | undefined {
+  ): LedgerEntryWithRaw<TRaw> | undefined {
     return entryGroup[0];
   }
 }

@@ -3,7 +3,7 @@ import { derivePolkadotAddressVariants, normalizeNativeAmount } from '@exitbook/
 import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { FundFlowContext } from '../../../shared/types/processors.js';
+import type { AddressContext } from '../../../shared/types/processors.js';
 
 import type { SubstrateFundFlow, SubstrateMovement } from './types.js';
 
@@ -54,9 +54,9 @@ export function expandSourceContext(address: string): Result<Record<string, unkn
  * @param chainConfig - Chain-specific configuration (decimals, currency, etc.)
  * @returns Fund flow analysis with all movements and metadata
  */
-export function analyzeFundFlowFromNormalized(
+export function analyzeSubstrateFundFlow(
   transaction: SubstrateTransaction,
-  context: FundFlowContext,
+  context: AddressContext,
   chainConfig: SubstrateChainConfig
 ): Result<SubstrateFundFlow, Error> {
   const userAddresses = new Set(context.userAddresses);

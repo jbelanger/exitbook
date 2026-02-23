@@ -14,7 +14,7 @@ import type {
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
-import type { ProcessedTransaction, FundFlowContext } from '../../../shared/types/processors.js';
+import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeSolanaFundFlow, classifySolanaOperationFromFundFlow } from './processor-utils.js';
 
@@ -41,7 +41,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor<SolanaT
    */
   protected async processInternal(
     normalizedData: SolanaTransaction[],
-    context: FundFlowContext
+    context: AddressContext
   ): Promise<Result<ProcessedTransaction[], string>> {
     // Enrich all transactions with token metadata (required)
     const enrichResult = await this.enrichTokenMetadata(normalizedData);
@@ -247,7 +247,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor<SolanaT
         }
       }
 
-      this.applyScamDetection(transactions, tokenMovementsForScamDetection, metadataMap);
+      this.markScamTransactions(transactions, tokenMovementsForScamDetection, metadataMap);
       this.logger.debug(
         `Applied ${detectionMode} scam detection to ${transactions.length} transactions (${uniqueContracts.length} tokens)`
       );
