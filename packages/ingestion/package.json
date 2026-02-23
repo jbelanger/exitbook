@@ -33,5 +33,8 @@
     "decimal.js": "^10.6.0",
     "neverthrow": "^8.2.0",
     "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "tsconfig": "workspace:*"
   }
 }

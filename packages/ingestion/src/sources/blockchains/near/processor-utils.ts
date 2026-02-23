@@ -89,10 +89,36 @@ export interface DerivedDeltaResult {
   warnings: string[];
 }
 
-function parseBlockHeight(blockHeight: string | undefined): number {
+export function parseBlockHeight(blockHeight: string | undefined): number {
   if (!blockHeight) return 0;
   const parsed = parseInt(blockHeight, 10);
   return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * Compare two balance changes for chronological ordering.
+ * Orders by: timestamp → block height → receipt presence → receipt id → event id
+ */
+export function compareBalanceChanges(a: NearBalanceChange, b: NearBalanceChange): number {
+  if (a.timestamp !== b.timestamp) {
+    return a.timestamp - b.timestamp;
+  }
+  const heightA = parseBlockHeight(a.blockHeight);
+  const heightB = parseBlockHeight(b.blockHeight);
+  if (heightA !== heightB) {
+    return heightA - heightB;
+  }
+  const hasReceiptA = a.receiptId !== undefined;
+  const hasReceiptB = b.receiptId !== undefined;
+  if (hasReceiptA !== hasReceiptB) {
+    return hasReceiptA ? -1 : 1;
+  }
+  const receiptA = a.receiptId ?? '';
+  const receiptB = b.receiptId ?? '';
+  if (receiptA !== receiptB) {
+    return receiptA.localeCompare(receiptB);
+  }
+  return (a.eventId ?? '').localeCompare(b.eventId ?? '');
 }
 
 /**
@@ -115,33 +141,13 @@ export function deriveBalanceChangeDeltasFromAbsolutes(
 
   const byAccount = new Map<string, NearBalanceChange[]>();
   for (const change of balanceChanges) {
-    const existing = byAccount.get(change.affectedAccountId) || [];
+    const existing = byAccount.get(change.affectedAccountId) ?? [];
     existing.push(change);
     byAccount.set(change.affectedAccountId, existing);
   }
 
   for (const [accountId, changes] of byAccount.entries()) {
-    const ordered = [...changes].sort((a, b) => {
-      if (a.timestamp !== b.timestamp) {
-        return a.timestamp - b.timestamp;
-      }
-      const heightA = parseBlockHeight(a.blockHeight);
-      const heightB = parseBlockHeight(b.blockHeight);
-      if (heightA !== heightB) {
-        return heightA - heightB;
-      }
-      const hasReceiptA = a.receiptId !== undefined && a.receiptId !== null;
-      const hasReceiptB = b.receiptId !== undefined && b.receiptId !== null;
-      if (hasReceiptA !== hasReceiptB) {
-        return hasReceiptA ? -1 : 1;
-      }
-      const receiptA = a.receiptId ?? '';
-      const receiptB = b.receiptId ?? '';
-      if (receiptA !== receiptB) {
-        return receiptA.localeCompare(receiptB);
-      }
-      return (a.eventId ?? '').localeCompare(b.eventId ?? '');
-    });
+    const ordered = [...changes].sort(compareBalanceChanges);
 
     let previousBalance: Decimal | undefined;
     const seededBalance = previousBalances.get(accountId);
@@ -469,19 +475,19 @@ export function correlateTransactionData(group: NearTransactionBundle): Result<N
       );
     }
 
-    const existing = balanceChangesByReceipt.get(receiptId) || [];
+    const existing = balanceChangesByReceipt.get(receiptId) ?? [];
     existing.push(balanceChange);
     balanceChangesByReceipt.set(receiptId, existing);
   }
 
   if (hasTransactionLevelItems) {
-    const bcCount = balanceChangesByReceipt.get(txLevelReceiptId)?.length || 0;
+    const bcCount = balanceChangesByReceipt.get(txLevelReceiptId)?.length ?? 0;
 
     // Categorize balance changes by cause for informative logging
-    const balanceChanges = balanceChangesByReceipt.get(txLevelReceiptId) || [];
+    const balanceChanges = balanceChangesByReceipt.get(txLevelReceiptId) ?? [];
     const causeBreakdown = new Map<NearBalanceChangeCause, number>();
     for (const bc of balanceChanges) {
-      causeBreakdown.set(bc.cause, (causeBreakdown.get(bc.cause) || 0) + 1);
+      causeBreakdown.set(bc.cause, (causeBreakdown.get(bc.cause) ?? 0) + 1);
     }
 
     logger.info(
@@ -510,7 +516,7 @@ export function correlateTransactionData(group: NearTransactionBundle): Result<N
 
   // Attach to receipts
   for (const receipt of processedReceipts) {
-    receipt.balanceChanges = balanceChangesByReceipt.get(receipt.receiptId) || [];
+    receipt.balanceChanges = balanceChangesByReceipt.get(receipt.receiptId) ?? [];
   }
 
   return ok({
@@ -544,22 +550,20 @@ export function extractReceiptFees(receipt: NearReceipt, primaryAddress: string)
   }
 
   // Source 2: Balance changes with fee/gas cause
-  if (receipt.balanceChanges && receipt.balanceChanges.length > 0) {
-    const feeActivities = receipt.balanceChanges.filter(
-      (bc) => FEE_CAUSES.has(bc.cause) && bc.affectedAccountId === primaryAddress
-    );
+  const feeActivities = (receipt.balanceChanges ?? []).filter(
+    (bc) => FEE_CAUSES.has(bc.cause) && bc.affectedAccountId === primaryAddress
+  );
 
-    if (feeActivities.length > 0) {
-      let totalFee = parseDecimal('0');
-      for (const activity of feeActivities) {
-        if (activity.deltaAmountYocto) {
-          const delta = new Decimal(activity.deltaAmountYocto);
-          totalFee = totalFee.plus(normalizeNearAmount(delta.abs()));
-        }
+  if (feeActivities.length > 0) {
+    let totalFee = parseDecimal('0');
+    for (const activity of feeActivities) {
+      if (activity.deltaAmountYocto) {
+        const delta = new Decimal(activity.deltaAmountYocto);
+        totalFee = totalFee.plus(normalizeNearAmount(delta.abs()));
       }
-      if (!totalFee.isZero()) {
-        balanceChangeFee = totalFee;
-      }
+    }
+    if (!totalFee.isZero()) {
+      balanceChangeFee = totalFee;
     }
   }
 
@@ -622,42 +626,40 @@ export function extractFlows(receipt: NearReceipt, primaryAddress: string): Move
   const movements: Movement[] = [];
 
   // Process balance changes (NEAR)
-  if (receipt.balanceChanges) {
-    for (const activity of receipt.balanceChanges) {
-      if (activity.affectedAccountId !== primaryAddress) {
-        continue;
-      }
-      // Skip fee-related activities (handled by extractReceiptFees)
-      if (FEE_CAUSES.has(activity.cause)) {
-        continue;
-      }
-
-      if (!activity.deltaAmountYocto) {
-        continue; // Skip if no delta (already validated in correlation)
-      }
-
-      const delta = new Decimal(activity.deltaAmountYocto);
-      if (delta.isZero()) {
-        continue;
-      }
-
-      const direction = delta.isNegative() ? 'out' : 'in';
-      const expectedDirection = activity.direction === 'INBOUND' ? 'in' : 'out';
-      if (direction !== expectedDirection) {
-        logger.warn(
-          `NEAR balance change direction mismatch for ${activity.receiptId ?? 'unknown-receipt'}: ` +
-            `declared=${activity.direction}, derived=${direction}, delta=${delta.toFixed()}`
-        );
-      }
-      const normalizedAmount = normalizeNearAmount(delta.abs());
-
-      movements.push({
-        asset: 'NEAR' as Currency,
-        amount: normalizedAmount,
-        direction,
-        flowType: 'native',
-      });
+  for (const activity of receipt.balanceChanges ?? []) {
+    if (activity.affectedAccountId !== primaryAddress) {
+      continue;
     }
+    // Skip fee-related activities (handled by extractReceiptFees)
+    if (FEE_CAUSES.has(activity.cause)) {
+      continue;
+    }
+
+    if (!activity.deltaAmountYocto) {
+      continue; // Skip if no delta (already validated in correlation)
+    }
+
+    const delta = new Decimal(activity.deltaAmountYocto);
+    if (delta.isZero()) {
+      continue;
+    }
+
+    const direction = delta.isNegative() ? 'out' : 'in';
+    const expectedDirection = activity.direction === 'INBOUND' ? 'in' : 'out';
+    if (direction !== expectedDirection) {
+      logger.warn(
+        `NEAR balance change direction mismatch for ${activity.receiptId ?? 'unknown-receipt'}: ` +
+          `declared=${activity.direction}, derived=${direction}, delta=${delta.toFixed()}`
+      );
+    }
+    const normalizedAmount = normalizeNearAmount(delta.abs());
+
+    movements.push({
+      asset: 'NEAR' as Currency,
+      amount: normalizedAmount,
+      direction,
+      flowType: 'native',
+    });
   }
 
   return movements;
@@ -794,15 +796,7 @@ export function isFeeOnlyTransaction(
  * Extract all action types from receipts
  */
 function getActionTypes(receipts: NearReceipt[]): NearActionType[] {
-  const actionTypes: NearActionType[] = [];
-  for (const receipt of receipts) {
-    if (receipt.actions) {
-      for (const action of receipt.actions) {
-        actionTypes.push(action.actionType);
-      }
-    }
-  }
-  return actionTypes;
+  return receipts.flatMap((receipt) => (receipt.actions ?? []).map((action) => action.actionType));
 }
 
 /**
@@ -819,23 +813,11 @@ function analyzeBalanceChangeCauses(receipts: NearReceipt[]): {
   hasRefunds: boolean;
   hasRewards: boolean;
 } {
-  let hasRewards = false;
-  let hasRefunds = false;
-
-  for (const receipt of receipts) {
-    if (receipt.balanceChanges) {
-      for (const change of receipt.balanceChanges) {
-        if (change.cause === 'CONTRACT_REWARD') {
-          hasRewards = true;
-        }
-        if (change.cause === 'GAS_REFUND') {
-          hasRefunds = true;
-        }
-      }
-    }
-  }
-
-  return { hasRewards, hasRefunds };
+  const allCauses = receipts.flatMap((receipt) => (receipt.balanceChanges ?? []).map((bc) => bc.cause));
+  return {
+    hasRewards: allCauses.includes('CONTRACT_REWARD'),
+    hasRefunds: allCauses.includes('GAS_REFUND'),
+  };
 }
 
 /**

@@ -11,7 +11,7 @@ export const nearAdapter: BlockchainAdapter = {
   blockchain: 'near',
   chainModel: 'account-based',
 
-  normalizeAddress: (address: string) => normalizeNearAddress(address),
+  normalizeAddress: normalizeNearAddress,
 
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
     new NearTransactionImporter(providerManager, {

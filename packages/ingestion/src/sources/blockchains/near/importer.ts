@@ -69,20 +69,21 @@ export class NearTransactionImporter implements IImporter {
     // Derived from NearStreamTypeSchema - single source of truth
     const streamTypes = NearStreamTypeSchema.options;
 
-    // Stream each transaction type sequentially
-    for (let i = 0; i < streamTypes.length; i++) {
+    const total = streamTypes.length;
+
+    for (let i = 0; i < total; i++) {
       const streamType = streamTypes[i]!;
-      this.logger.info(`Streaming ${streamType} (${i + 1}/4)`);
+      this.logger.info(`Streaming ${streamType} (${i + 1}/${total})`);
 
       const cursor = params.cursor?.[streamType];
       for await (const batchResult of this.streamTransactionType(params.address, streamType, cursor)) {
         yield batchResult;
       }
 
-      this.logger.debug(`Completed ${streamType} (${i + 1}/4)`);
+      this.logger.debug(`Completed ${streamType} (${i + 1}/${total})`);
     }
 
-    this.logger.info(`NEAR streaming import completed - all 4 stream types finished`);
+    this.logger.info(`NEAR streaming import completed - all ${total} stream types finished`);
   }
 
   /**
@@ -108,8 +109,7 @@ export class NearTransactionImporter implements IImporter {
         streamType: streamType,
         getCacheKey: (params) => {
           if (params.type !== 'getAddressTransactions') return 'unknown';
-          const txType = params.streamType || 'default';
-          return `near:${txType}:${params.address}:all`;
+          return `near:${params.streamType}:${params.address}:all`;
         },
       },
       resumeCursor
@@ -145,7 +145,7 @@ export class NearTransactionImporter implements IImporter {
       }));
 
       yield ok({
-        rawTransactions: rawTransactions,
+        rawTransactions,
         streamType,
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,

@@ -9,7 +9,12 @@
  * 5. Fail-fast on missing deltas or incomplete data
  */
 
-import { type NearBalanceChange, type NearStreamEvent, NearStreamEventSchema } from '@exitbook/blockchain-providers';
+import {
+  type NearBalanceChange,
+  type NearStreamEvent,
+  type NearTokenTransfer,
+  NearStreamEventSchema,
+} from '@exitbook/blockchain-providers';
 import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,
@@ -32,6 +37,7 @@ import type { ProcessedTransaction, AddressContext } from '../../../shared/types
 
 import {
   classifyOperation,
+  compareBalanceChanges,
   consolidateByAsset,
   correlateTransactionData,
   deriveBalanceChangeDeltasFromAbsolutes,
@@ -99,13 +105,10 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
 
       if (derivedResult.derivedDeltas.size > 0) {
         normalizedWithDerivedDeltas = normalizedData.map((event) => {
-          if (event.streamType === 'balance-changes') {
-            const change = event;
-            if (!change.deltaAmountYocto) {
-              const derivedDelta = derivedResult.derivedDeltas.get(change.eventId);
-              if (derivedDelta) {
-                return { ...change, deltaAmountYocto: derivedDelta };
-              }
+          if (event.streamType === 'balance-changes' && !event.deltaAmountYocto) {
+            const derivedDelta = derivedResult.derivedDeltas.get(event.eventId);
+            if (derivedDelta) {
+              return { ...event, deltaAmountYocto: derivedDelta };
             }
           }
           return event;
@@ -236,7 +239,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
     const earliestByAccount = new Map<string, NearBalanceChange>();
     for (const change of balanceChanges) {
       const existing = earliestByAccount.get(change.affectedAccountId);
-      if (!existing || this.compareBalanceChanges(change, existing) < 0) {
+      if (!existing || compareBalanceChanges(change, existing) < 0) {
         earliestByAccount.set(change.affectedAccountId, change);
       }
     }
@@ -245,12 +248,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
       return ok(new Map());
     }
 
-    let maxTimestamp = 0;
-    for (const change of earliestByAccount.values()) {
-      if (change.timestamp > maxTimestamp) {
-        maxTimestamp = change.timestamp;
-      }
-    }
+    const maxTimestamp = Math.max(...Array.from(earliestByAccount.values(), (c) => c.timestamp));
 
     const affectedAccounts = Array.from(earliestByAccount.keys());
     const processedResult = await this.nearRawDataQueries.loadProcessedNearBalanceChangesByAccounts(
@@ -274,9 +272,8 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
         continue;
       }
 
-      const existing = processedByAccount.get(change.affectedAccountId) || [];
-      existing.push(change);
-      processedByAccount.set(change.affectedAccountId, existing);
+      const existing = processedByAccount.get(change.affectedAccountId) ?? [];
+      processedByAccount.set(change.affectedAccountId, [...existing, change]);
     }
 
     const previousBalances = new Map<string, string>();
@@ -288,10 +285,10 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
 
       let latest: NearBalanceChange | undefined;
       for (const candidate of candidates) {
-        if (this.compareBalanceChanges(candidate, earliest) >= 0) {
+        if (compareBalanceChanges(candidate, earliest) >= 0) {
           continue;
         }
-        if (!latest || this.compareBalanceChanges(candidate, latest) > 0) {
+        if (!latest || compareBalanceChanges(candidate, latest) > 0) {
           latest = candidate;
         }
       }
@@ -302,34 +299,6 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
     }
 
     return ok(previousBalances);
-  }
-
-  private compareBalanceChanges(a: NearBalanceChange, b: NearBalanceChange): number {
-    if (a.timestamp !== b.timestamp) {
-      return a.timestamp - b.timestamp;
-    }
-    const heightA = this.parseBlockHeight(a.blockHeight);
-    const heightB = this.parseBlockHeight(b.blockHeight);
-    if (heightA !== heightB) {
-      return heightA - heightB;
-    }
-    const hasReceiptA = a.receiptId !== undefined && a.receiptId !== null;
-    const hasReceiptB = b.receiptId !== undefined && b.receiptId !== null;
-    if (hasReceiptA !== hasReceiptB) {
-      return hasReceiptA ? -1 : 1;
-    }
-    const receiptA = a.receiptId ?? '';
-    const receiptB = b.receiptId ?? '';
-    if (receiptA !== receiptB) {
-      return receiptA.localeCompare(receiptB);
-    }
-    return (a.eventId ?? '').localeCompare(b.eventId ?? '');
-  }
-
-  private parseBlockHeight(blockHeight: string | undefined): number {
-    if (!blockHeight) return 0;
-    const parsed = Number.parseInt(blockHeight, 10);
-    return Number.isNaN(parsed) ? 0 : parsed;
   }
 
   /**
@@ -363,7 +332,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
       // Extract fees
       const feeResult = extractReceiptFees(receipt, context.primaryAddress);
       allFees.push(...feeResult.movements);
-      if (feeResult.source === 'receipt' && feeResult.movements.length > 0) {
+      if (feeResult.source === 'receipt') {
         for (const fee of feeResult.movements) {
           if (fee.asset === 'NEAR') {
             receiptFeeBurntTotal = receiptFeeBurntTotal.plus(fee.amount);
@@ -575,8 +544,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
    * Enrich token metadata for token transfers
    */
   private async enrichTokenMetadata(events: NearStreamEvent[]): Promise<Result<void, Error>> {
-    // Collect token transfer events - all items here are guaranteed to have streamType === 'token-transfers'
-    const ftTransferEvents = events.filter((e) => e.streamType === 'token-transfers');
+    const ftTransferEvents = events.filter((e): e is NearTokenTransfer => e.streamType === 'token-transfers');
 
     if (ftTransferEvents.length === 0) {
       return ok(undefined);
@@ -584,23 +552,19 @@ export class NearTransactionProcessor extends BaseTransactionProcessor<NearStrea
 
     this.logger.debug(`Enriching token metadata for ${ftTransferEvents.length} FT transfers`);
 
-    // Enrich with token metadata service
-    // Because ftTransferEvents is pre-filtered to 'token-transfers', all events have contractAddress
     const enrichResult = await this.tokenMetadataService.enrichBatch(
       ftTransferEvents,
       'near',
-      (event) => (event.streamType === 'token-transfers' ? event.contractAddress : undefined),
+      (event) => event.contractAddress,
       (event, metadata) => {
-        if (event.streamType === 'token-transfers') {
-          if (metadata.symbol) {
-            event.symbol = metadata.symbol;
-          }
-          if (metadata.decimals !== undefined) {
-            event.decimals = metadata.decimals;
-          }
+        if (metadata.symbol) {
+          event.symbol = metadata.symbol;
+        }
+        if (metadata.decimals !== undefined) {
+          event.decimals = metadata.decimals;
         }
       },
-      (event) => (event.streamType === 'token-transfers' ? event.decimals !== undefined : true)
+      (event) => event.decimals !== undefined
     );
 
     if (enrichResult.isErr()) {
