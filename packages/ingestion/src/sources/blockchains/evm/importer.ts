@@ -143,12 +143,7 @@ export class EvmImporter implements IImporter {
       }
 
       // Use pure function for mapping
-      const rawTransactions = mapToRawTransactions(
-        transactionsWithRaw,
-        providerBatch.providerName,
-        address,
-        streamType
-      );
+      const rawTransactions = mapToRawTransactions(transactionsWithRaw, providerBatch.providerName, address);
 
       yield ok({
         rawTransactions,

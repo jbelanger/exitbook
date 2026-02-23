@@ -44,7 +44,7 @@ describe('evm-importer-utils', () => {
     test('should map normal transactions correctly', () => {
       const transactions = [createTransaction()];
 
-      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
+      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource');
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
@@ -75,7 +75,7 @@ describe('evm-importer-utils', () => {
         ),
       ];
 
-      const result = mapToRawTransactions(transactions, 'moralis', '0xsource', 'internal');
+      const result = mapToRawTransactions(transactions, 'moralis', '0xsource');
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
@@ -103,7 +103,7 @@ describe('evm-importer-utils', () => {
         ),
       ];
 
-      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'token');
+      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource');
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
@@ -116,7 +116,7 @@ describe('evm-importer-utils', () => {
     });
 
     test('should handle empty array', () => {
-      const result = mapToRawTransactions([], 'alchemy', '0xsource', 'normal');
+      const result = mapToRawTransactions([], 'alchemy', '0xsource');
 
       expect(result).toHaveLength(0);
     });
@@ -128,7 +128,7 @@ describe('evm-importer-utils', () => {
         createTransaction({ id: '0x333', blockHeight: 102, amount: '3', timestamp: 3 }),
       ];
 
-      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
+      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource');
 
       expect(result).toHaveLength(3);
       expect((result[0]!.normalizedData as EvmTransaction).id).toBe('0x111');
@@ -145,7 +145,7 @@ describe('evm-importer-utils', () => {
         createTransaction({ id: '0x222', blockHeight: 101, amount: '2', timestamp: 2 }),
       ];
 
-      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
+      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource');
 
       expect(result[0]!.eventId).toBeDefined();
       expect(result[1]!.eventId).toBeDefined();
@@ -166,19 +166,19 @@ describe('evm-importer-utils', () => {
 
       const transactions = [createTransaction({}, rawData)];
 
-      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
+      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource');
 
       expect(result[0]!.providerData).toEqual(rawData);
     });
 
-    test('should use transaction.type instead of operationType parameter for hint', () => {
-      // Moralis includes internal transactions in the normal stream
-      // This test verifies they get the correct 'internal' hint despite operationType='normal'
+    test('should derive hint from transaction.type, not the stream it came from', () => {
+      // Moralis includes internal transactions in the normal stream;
+      // the hint must reflect the actual transaction type, not the stream
       const transactions = [
         createTransaction(
           {
             id: '0xparenthash',
-            type: 'internal', // This is an internal transaction
+            type: 'internal',
             providerName: 'moralis',
             from: '0xcontract1',
             to: '0xcontract2',
@@ -187,12 +187,10 @@ describe('evm-importer-utils', () => {
         ),
       ];
 
-      // Even though we pass 'normal' as operationType (because it came from the normal stream),
-      // the function should use the actual transaction type ('internal') for the hint
-      const result = mapToRawTransactions(transactions, 'moralis', '0xsource', 'normal');
+      const result = mapToRawTransactions(transactions, 'moralis', '0xsource');
 
       expect(result).toHaveLength(1);
-      expect(result[0]!.transactionTypeHint).toBe('internal'); // Should be 'internal', not 'normal'
+      expect(result[0]!.transactionTypeHint).toBe('internal');
     });
 
     test('should map beacon_withdrawal type to beacon_withdrawal hint', () => {
@@ -209,7 +207,7 @@ describe('evm-importer-utils', () => {
         ),
       ];
 
-      const result = mapToRawTransactions(transactions, 'etherscan', '0xrecipient', 'beacon_withdrawal');
+      const result = mapToRawTransactions(transactions, 'etherscan', '0xrecipient');
 
       expect(result).toHaveLength(1);
       expect(result[0]!.transactionTypeHint).toBe('beacon_withdrawal');

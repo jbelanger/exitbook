@@ -38,8 +38,7 @@ function mapTransactionTypeToHint(type: EvmTransaction['type']): 'normal' | 'int
 export function mapToRawTransactions(
   transactions: TransactionWithRawData<EvmTransaction>[],
   providerName: string,
-  sourceAddress: string,
-  _transactionTypeHint: string
+  sourceAddress: string
 ): RawTransactionInput[] {
   return transactions.map((txWithRaw) => ({
     providerName,

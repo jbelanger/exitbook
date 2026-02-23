@@ -8,6 +8,7 @@ import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { IImporter, ImportParams, ImportBatchResult } from '../../../shared/types/importers.js';
+import { mapToRawTransactions } from '../shared/importer-utils.js';
 
 /**
  * Solana transaction importer that fetches raw transaction data from blockchain APIs.
@@ -109,16 +110,7 @@ export class SolanaImporter implements IImporter {
         );
       }
 
-      // Map to raw transactions
-      const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
-        eventId: txWithRaw.normalized.eventId,
-        blockchainTransactionHash: txWithRaw.normalized.id,
-        timestamp: txWithRaw.normalized.timestamp,
-        normalizedData: txWithRaw.normalized,
-        providerName: providerBatch.providerName,
-        providerData: txWithRaw.raw,
-        sourceAddress: address,
-      }));
+      const rawTransactions = mapToRawTransactions(transactionsWithRaw, providerBatch.providerName, address);
 
       yield ok({
         rawTransactions,
