@@ -6,6 +6,7 @@ import {
   type Currency,
   type TokenMetadataRecord,
 } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -68,67 +69,39 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor<SolanaT
         const fundFlow = fundFlowResult.value;
 
         // Determine transaction type and operation classification based on fund flow
-        const classification = classifySolanaOperationFromFundFlow(fundFlow, normalizedTx.instructions || []);
+        const classification = classifySolanaOperationFromFundFlow(fundFlow, normalizedTx.instructions);
 
-        // Fix Issue #78: Determine when to record an explicit fee entry
+        // Determine when to record an explicit fee entry.
         // When feeAbsorbedByMovement is true, the fee was deducted from movements to prevent double-counting.
         // If there are still SOL outflows remaining, the fee is implicitly included in those movements.
         // If all outflows were consumed by the fee (fee-only transaction), we MUST record an explicit fee entry.
         const feeAccountedInMovements =
           fundFlow.feeAbsorbedByMovement &&
-          fundFlow.outflows.some((movement) => movement.asset === (fundFlow.feeCurrency || 'SOL'));
+          fundFlow.outflows.some((movement) => movement.asset === fundFlow.feeCurrency);
 
         const shouldRecordFeeEntry = fundFlow.feePaidByUser && !feeAccountedInMovements;
 
         // Build movements with assetId
-        let hasAssetIdError = false;
-        const inflows = [];
-        for (const inflow of fundFlow.inflows) {
-          const assetIdResult = this.buildSolanaAssetId(inflow, normalizedTx.id);
-          if (assetIdResult.isErr()) {
-            const errorMsg = `Failed to build assetId for inflow: ${assetIdResult.error.message}`;
-            processingErrors.push({ error: errorMsg, signature: normalizedTx.id });
-            this.logger.error(`${errorMsg} for Solana transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
-            hasAssetIdError = true;
-            break;
-          }
-
-          const amount = parseDecimal(inflow.amount);
-          inflows.push({
-            assetId: assetIdResult.value,
-            assetSymbol: inflow.asset,
-            grossAmount: amount,
-            netAmount: amount,
-          });
-        }
-
-        if (hasAssetIdError) {
+        const inflowsResult = this.buildMovementsWithAssetId(fundFlow.inflows, normalizedTx.id);
+        if (inflowsResult.isErr()) {
+          processingErrors.push({ error: inflowsResult.error.message, signature: normalizedTx.id });
+          this.logger.error(
+            `${inflowsResult.error.message} for Solana transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`
+          );
           continue;
         }
 
-        const outflows = [];
-        for (const outflow of fundFlow.outflows) {
-          const assetIdResult = this.buildSolanaAssetId(outflow, normalizedTx.id);
-          if (assetIdResult.isErr()) {
-            const errorMsg = `Failed to build assetId for outflow: ${assetIdResult.error.message}`;
-            processingErrors.push({ error: errorMsg, signature: normalizedTx.id });
-            this.logger.error(`${errorMsg} for Solana transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
-            hasAssetIdError = true;
-            break;
-          }
-
-          const amount = parseDecimal(outflow.amount);
-          outflows.push({
-            assetId: assetIdResult.value,
-            assetSymbol: outflow.asset,
-            grossAmount: amount,
-            netAmount: amount,
-          });
-        }
-
-        if (hasAssetIdError) {
+        const outflowsResult = this.buildMovementsWithAssetId(fundFlow.outflows, normalizedTx.id);
+        if (outflowsResult.isErr()) {
+          processingErrors.push({ error: outflowsResult.error.message, signature: normalizedTx.id });
+          this.logger.error(
+            `${outflowsResult.error.message} for Solana transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`
+          );
           continue;
         }
+
+        const inflows = inflowsResult.value;
+        const outflows = outflowsResult.value;
 
         // Build fee assetId (always SOL for Solana)
         const feeAssetIdResult = buildBlockchainNativeAssetId('solana');
@@ -231,25 +204,22 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor<SolanaT
     if (tokenMovementsForScamDetection.length > 0) {
       const uniqueContracts = Array.from(new Set(tokenMovementsForScamDetection.map((m) => m.contractAddress)));
       let metadataMap = new Map<string, TokenMetadataRecord | undefined>();
-      let detectionMode: 'metadata' | 'symbol-only' = 'symbol-only';
+      let detectionUsedMetadata = false;
 
-      if (this.tokenMetadataService && uniqueContracts.length > 0) {
-        const metadataResult = await this.tokenMetadataService.getOrFetchBatch('solana', uniqueContracts);
-
-        if (metadataResult.isOk()) {
-          metadataMap = metadataResult.value;
-          detectionMode = 'metadata';
-        } else {
-          this.logger.warn(
-            { error: metadataResult.error.message },
-            'Metadata fetch failed for scam detection (falling back to symbol-only)'
-          );
-        }
+      const metadataResult = await this.tokenMetadataService.getOrFetchBatch('solana', uniqueContracts);
+      if (metadataResult.isOk()) {
+        metadataMap = metadataResult.value;
+        detectionUsedMetadata = true;
+      } else {
+        this.logger.warn(
+          { error: metadataResult.error.message },
+          'Metadata fetch failed for scam detection (falling back to symbol-only)'
+        );
       }
 
       this.markScamTransactions(transactions, tokenMovementsForScamDetection, metadataMap);
       this.logger.debug(
-        `Applied ${detectionMode} scam detection to ${transactions.length} transactions (${uniqueContracts.length} tokens)`
+        `Applied ${detectionUsedMetadata ? 'metadata' : 'symbol-only'} scam detection to ${transactions.length} transactions (${uniqueContracts.length} tokens)`
       );
     }
 
@@ -320,6 +290,31 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor<SolanaT
 
     this.logger.debug('Successfully enriched token metadata from cache/provider');
     return ok(undefined);
+  }
+
+  /**
+   * Build processed movements (with assetId resolved) for an array of raw Solana movements.
+   * Returns err if any movement's assetId cannot be resolved.
+   */
+  private buildMovementsWithAssetId(
+    movements: { amount: string; asset: string; tokenAddress?: string | undefined }[],
+    transactionSignature: string
+  ): Result<{ assetId: string; assetSymbol: Currency; grossAmount: Decimal; netAmount: Decimal }[], Error> {
+    const result: { assetId: string; assetSymbol: Currency; grossAmount: Decimal; netAmount: Decimal }[] = [];
+    for (const movement of movements) {
+      const assetIdResult = this.buildSolanaAssetId(movement, transactionSignature);
+      if (assetIdResult.isErr()) {
+        return err(assetIdResult.error);
+      }
+      const amount = parseDecimal(movement.amount);
+      result.push({
+        assetId: assetIdResult.value,
+        assetSymbol: movement.asset as Currency,
+        grossAmount: amount,
+        netAmount: amount,
+      });
+    }
+    return ok(result);
   }
 
   /**

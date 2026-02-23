@@ -121,7 +121,7 @@ export class SolanaTransactionImporter implements IImporter {
       }));
 
       yield ok({
-        rawTransactions: rawTransactions,
+        rawTransactions,
         streamType,
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,

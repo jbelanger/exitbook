@@ -81,40 +81,25 @@ const NFT_PROGRAMS: string[] = [
   'CJsLwbP1iu5DuUikHEJnLfANgKy6stB2uFgvBBHoyxwz', // Coral Cube
 ];
 
-/**
- * Detect staking-related instructions in a Solana transaction
- */
+function hasMatchingProgram(instructions: SolanaTransaction['instructions'], programIds: string[]): boolean {
+  if (!instructions) return false;
+  return instructions.some((instruction) => instruction.programId && programIds.includes(instruction.programId));
+}
+
 export function detectSolanaStakingInstructions(instructions: SolanaTransaction['instructions']): boolean {
-  if (!instructions) return false;
-
-  return instructions.some((instruction) => instruction.programId && STAKING_PROGRAMS.includes(instruction.programId));
+  return hasMatchingProgram(instructions, STAKING_PROGRAMS);
 }
 
-/**
- * Detect swap/DEX instructions in a Solana transaction
- */
 export function detectSolanaSwapInstructions(instructions: SolanaTransaction['instructions']): boolean {
-  if (!instructions) return false;
-
-  return instructions.some((instruction) => instruction.programId && DEX_PROGRAMS.includes(instruction.programId));
+  return hasMatchingProgram(instructions, DEX_PROGRAMS);
 }
 
-/**
- * Detect SPL token transfer instructions in a Solana transaction
- */
 export function detectSolanaTokenTransferInstructions(instructions: SolanaTransaction['instructions']): boolean {
-  if (!instructions) return false;
-
-  return instructions.some((instruction) => instruction.programId && TOKEN_PROGRAMS.includes(instruction.programId));
+  return hasMatchingProgram(instructions, TOKEN_PROGRAMS);
 }
 
-/**
- * Detect NFT-related instructions in a Solana transaction
- */
 export function detectSolanaNFTInstructions(instructions: SolanaTransaction['instructions']): boolean {
-  if (!instructions) return false;
-
-  return instructions.some((instruction) => instruction.programId && NFT_PROGRAMS.includes(instruction.programId));
+  return hasMatchingProgram(instructions, NFT_PROGRAMS);
 }
 
 /**
@@ -131,29 +116,32 @@ export function consolidateSolanaMovements(movements: SolanaMovement[]): SolanaM
     if (existing) {
       existing.amount = existing.amount.plus(parseDecimal(movement.amount));
     } else {
-      const entry: { amount: Decimal; decimals?: number; tokenAddress?: string } = {
+      assetMap.set(movement.asset, {
         amount: parseDecimal(movement.amount),
-      };
-      if (movement.decimals !== undefined) {
-        entry.decimals = movement.decimals;
-      }
-      if (movement.tokenAddress !== undefined) {
-        entry.tokenAddress = movement.tokenAddress;
-      }
-      assetMap.set(movement.asset, entry);
+        decimals: movement.decimals,
+        tokenAddress: movement.tokenAddress,
+      });
     }
   }
 
-  return Array.from(assetMap.entries()).map(([asset, data]) => {
-    const result: SolanaMovement = {
-      amount: data.amount.toFixed(),
-      asset: asset as Currency,
-      decimals: data.decimals,
-      tokenAddress: data.tokenAddress,
-    };
-    return result;
-  });
+  return Array.from(assetMap.entries()).map(([asset, data]) => ({
+    amount: data.amount.toFixed(),
+    asset: asset as Currency,
+    decimals: data.decimals,
+    tokenAddress: data.tokenAddress,
+  }));
 }
+
+/**
+ * Inference failure reasons that represent truly ambiguous cases (multiple candidates).
+ * Expected missing-counterparty cases are excluded - those don't warrant a note.
+ */
+const AMBIGUOUS_INFERENCE_REASONS = new Set([
+  'multiple_non_user_recipients',
+  'multiple_non_user_senders',
+  'multiple_user_accounts',
+  'same_asset_multiple_movements',
+]);
 
 /**
  * Classify operation based on fund flow analysis with conservative pattern matching.
@@ -167,22 +155,8 @@ export function classifySolanaOperationFromFundFlow(
   const primaryAmount = parseDecimal(fundFlow.primary.amount || '0').abs();
   const isZero = primaryAmount.isZero();
 
-  // Helper function to add inference failure note to classification
-  // Only add notes for truly ambiguous cases, not expected cases where counterparty doesn't exist
   const addInferenceFailureNote = (classification: OperationClassification): OperationClassification => {
-    if (!fundFlow.inferenceFailureReason) {
-      return classification;
-    }
-
-    // Only warn on truly ambiguous cases (multiple candidates or multiple user accounts)
-    // Don't warn on expected cases (no counterparty exists in data)
-    const shouldWarn =
-      fundFlow.inferenceFailureReason === 'multiple_non_user_recipients' ||
-      fundFlow.inferenceFailureReason === 'multiple_non_user_senders' ||
-      fundFlow.inferenceFailureReason === 'multiple_user_accounts' ||
-      fundFlow.inferenceFailureReason === 'same_asset_multiple_movements';
-
-    if (!shouldWarn) {
+    if (!fundFlow.inferenceFailureReason || !AMBIGUOUS_INFERENCE_REASONS.has(fundFlow.inferenceFailureReason)) {
       return classification;
     }
 
@@ -256,7 +230,7 @@ export function classifySolanaOperationFromFundFlow(
     });
   }
 
-  // Pattern 3: Single-asset swap (9/10 confident)
+  // Pattern 3: Single one-in one-out - swap or self-transfer based on asset identity
   if (outflows.length === 1 && inflows.length === 1) {
     const outAsset = outflows[0]?.asset;
     const inAsset = inflows[0]?.asset;
@@ -269,6 +243,14 @@ export function classifySolanaOperationFromFundFlow(
         },
       });
     }
+
+    // Same asset in and out - self-transfer
+    return addInferenceFailureNote({
+      operation: {
+        category: 'transfer',
+        type: 'transfer',
+      },
+    });
   }
 
   // Pattern 4: DEX swap detected by program (less confident than single-asset swap)
@@ -311,21 +293,6 @@ export function classifySolanaOperationFromFundFlow(
         type: 'withdrawal',
       },
     });
-  }
-
-  // Pattern 7: Self-transfer (same asset in and out)
-  if (outflows.length === 1 && inflows.length === 1) {
-    const outAsset = outflows[0]?.asset;
-    const inAsset = inflows[0]?.asset;
-
-    if (outAsset === inAsset) {
-      return addInferenceFailureNote({
-        operation: {
-          category: 'transfer',
-          type: 'transfer',
-        },
-      });
-    }
   }
 
   // Pattern 8: Complex multi-asset transaction (UNCERTAIN - add note)
@@ -402,6 +369,23 @@ export function isZeroDecimal(value: string): boolean {
     logger.warn({ error, value }, 'Failed to parse decimal value, treating as zero');
     return true;
   }
+}
+
+/**
+ * Find the largest non-zero movement by amount, or undefined if none found.
+ */
+function findLargestMovement(movements: SolanaMovement[]): SolanaMovement | undefined {
+  return movements
+    .slice()
+    .sort((a, b) => {
+      try {
+        return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
+      } catch (error) {
+        logger.warn({ error, itemA: a, itemB: b }, 'Failed to parse amount during sort comparison, treating as equal');
+        return 0;
+      }
+    })
+    .find((movement) => !isZeroDecimal(movement.amount));
 }
 
 /**
@@ -569,8 +553,7 @@ export function analyzeSolanaBalanceChanges(
         }
       } else if (primaryAsset && tx.tokenChanges) {
         // Analyze token changes using Decimal for precision
-        // Use primaryAsset (which is now tokenAddress) to identify the token mint
-        const primaryTokenAddress = primaryAsset;
+        // primaryAsset holds the mint address (tokenAddress) for SPL tokens
 
         // Aggregate deltas by owner account to handle multiple token accounts per user
         const userAccountDeltas = new Map<string, Decimal>();
@@ -578,7 +561,7 @@ export function analyzeSolanaBalanceChanges(
         const nonUserRecipientDeltas = new Map<string, Decimal>();
 
         for (const change of tx.tokenChanges) {
-          if (change.mint !== primaryTokenAddress) continue; // Only analyze the primary token
+          if (change.mint !== primaryAsset) continue; // Only analyze the primary token
 
           const preAmount = parseDecimal(change.preAmount);
           const postAmount = parseDecimal(change.postAmount);
@@ -666,7 +649,7 @@ export function analyzeSolanaBalanceChanges(
     );
   }
 
-  // Fix Issue #78: Prevent double-counting of fees in SOL balance calculations
+  // Prevent double-counting of fees in SOL balance calculations.
   // Solana accountChanges already include fees (net lamport deltas), so we must
   // deduct fees from SOL outflows to avoid subtracting them twice in accounting.
   // For fee-only transactions, this reduces the outflow to zero, which we track
@@ -726,47 +709,11 @@ export function analyzeSolanaBalanceChanges(
     }
   }
 
-  // Select primary asset for simplified consumption and single-asset display
-  // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions
-  let primary: SolanaMovement = {
-    amount: '0',
-    asset: 'SOL' as Currency,
-  };
-
-  // Use largest inflow as primary (prefer tokens with more decimals)
-  const largestInflow = consolidatedInflows
-    .sort((a, b) => {
-      try {
-        return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-      } catch (error) {
-        logger.warn({ error, itemA: a, itemB: b }, 'Failed to parse amount during sort comparison, treating as equal');
-        return 0;
-      }
-    })
-    .find((inflow) => !isZeroDecimal(inflow.amount));
-
-  if (largestInflow) {
-    primary = { ...largestInflow };
-  } else {
-    // If no inflows, use largest outflow
-    const largestOutflow = consolidatedOutflows
-      .sort((a, b) => {
-        try {
-          return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-        } catch (error) {
-          logger.warn(
-            { error, itemA: a, itemB: b },
-            'Failed to parse amount during sort comparison, treating as equal'
-          );
-          return 0;
-        }
-      })
-      .find((outflow) => !isZeroDecimal(outflow.amount));
-
-    if (largestOutflow) {
-      primary = { ...largestOutflow };
-    }
-  }
+  // Select primary asset: largest inflow, or largest outflow if no inflows.
+  // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions.
+  const primaryFallback: SolanaMovement = { amount: '0', asset: 'SOL' as Currency };
+  const primary =
+    findLargestMovement(consolidatedInflows) ?? findLargestMovement(consolidatedOutflows) ?? primaryFallback;
 
   // Track uncertainty for complex transactions
   let classificationUncertainty: string | undefined;
@@ -803,9 +750,9 @@ export function analyzeSolanaFundFlow(tx: SolanaTransaction, context: AddressCon
   const hasMultipleInstructions = instructionCount > 1;
 
   // Detect transaction types based on instructions
-  const hasStaking = detectSolanaStakingInstructions(tx.instructions || []);
-  const hasSwaps = detectSolanaSwapInstructions(tx.instructions || []);
-  const hasTokenTransfers = detectSolanaTokenTransferInstructions(tx.instructions || []);
+  const hasStaking = detectSolanaStakingInstructions(tx.instructions);
+  const hasSwaps = detectSolanaSwapInstructions(tx.instructions);
+  const hasTokenTransfers = detectSolanaTokenTransferInstructions(tx.instructions);
 
   // Enhanced fund flow analysis using balance changes
   const flowAnalysisResult = analyzeSolanaBalanceChanges(tx, allWalletAddresses);

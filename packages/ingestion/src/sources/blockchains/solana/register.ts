@@ -10,7 +10,7 @@ export const solanaAdapter: BlockchainAdapter = {
   blockchain: 'solana',
   chainModel: 'account-based',
 
-  normalizeAddress: (address: string) => normalizeSolanaAddress(address),
+  normalizeAddress: normalizeSolanaAddress,
 
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
     new SolanaTransactionImporter(providerManager, {
