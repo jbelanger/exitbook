@@ -20,7 +20,7 @@ export const RawTransactionInputSchema = z.object({
   blockchainTransactionHash: z.string().optional(), // On-chain transaction hash for deduplication (blockchain only)
   timestamp: z.number().int().positive(), // Event timestamp in Unix milliseconds
   providerData: z.unknown(),
-  normalizedData: z.unknown(),
+  normalizedData: z.unknown().optional(),
 });
 
 /**

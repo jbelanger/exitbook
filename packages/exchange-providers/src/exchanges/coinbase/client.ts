@@ -1,20 +1,14 @@
-import type { CursorState, ExchangeCredentials, RawTransactionInput, TransactionStatus } from '@exitbook/core';
-import { parseDecimal, parseCurrency, wrapError } from '@exitbook/core';
+import type { CursorState, ExchangeCredentials, RawTransactionInput } from '@exitbook/core';
+import { wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import * as ExchangeUtils from '../../core/exchange-utils.js';
-import { ExchangeLedgerEntrySchema } from '../../core/schemas.js';
 import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../core/types.js';
 
-import {
-  CoinbaseCredentialsSchema,
-  CoinbaseLedgerEntrySchema,
-  RawCoinbaseLedgerEntrySchema,
-  type CoinbaseLedgerEntry,
-} from './schemas.js';
+import { CoinbaseCredentialsSchema, RawCoinbaseLedgerEntrySchema } from './schemas.js';
 
 const logger = getLogger('CoinbaseClient');
 
@@ -22,7 +16,6 @@ const logger = getLogger('CoinbaseClient');
  * Validate Coinbase credentials format and provide helpful error messages
  */
 function validateCoinbaseCredentials(apiKey: string, secret: string): Result<void, Error> {
-  // Validate API key format
   if (!apiKey.includes('/apiKeys/')) {
     return err(
       new Error(
@@ -37,7 +30,6 @@ function validateCoinbaseCredentials(apiKey: string, secret: string): Result<voi
     );
   }
 
-  // Validate private key format (check for PEM header, allowing for escaped newlines)
   if (!secret.includes('-----BEGIN EC PRIVATE KEY-----')) {
     return err(
       new Error(
@@ -57,83 +49,43 @@ function validateCoinbaseCredentials(apiKey: string, secret: string): Result<voi
 
 /**
  * Normalize PEM private key by converting escaped newlines to actual newlines
- * Handles multiple levels of escaping that can occur through CLI argument parsing
  */
 function normalizePemKey(secret: string): string {
-  // Replace literal \n (backslash-n) with actual newlines
-  // This handles keys passed via CLI like: "-----BEGIN EC PRIVATE KEY-----\n..."
   return secret.replace(/\\n/g, '\n');
 }
 
 /**
- * Map Coinbase status to universal status format
- */
-function mapCoinbaseStatus(status: string | undefined): TransactionStatus {
-  if (!status) {
-    logger.warn('Coinbase transaction missing status, defaulting to success');
-    return 'success';
-  }
-
-  switch (status.toLowerCase()) {
-    case 'pending':
-      return 'pending';
-    case 'ok':
-    case 'completed':
-    case 'success':
-      return 'success';
-    case 'canceled':
-    case 'cancelled':
-      return 'canceled';
-    case 'failed':
-      return 'failed';
-    default:
-      logger.warn(`Unknown Coinbase status "${status}", defaulting to success`);
-      return 'success';
-  }
-}
-
-/**
- * Factory function that creates a Coinbase exchange client
- * Returns a Result containing an object that implements IExchangeClient interface
- *
- * Imperative shell pattern: manages side effects (ccxt API calls)
- * and delegates business logic to pure functions
+ * Factory function that creates a Coinbase exchange client.
+ * Returns raw Coinbase API v2 data as providerData — normalization happens in the processor.
  */
 export function createCoinbaseClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
-  // Validate credentials
   return ExchangeUtils.validateCredentials(CoinbaseCredentialsSchema, credentials, 'coinbase').andThen(
     ({ apiKey, apiSecret }) => {
-      // Additional Coinbase-specific validation
       const validationResult = validateCoinbaseCredentials(apiKey, apiSecret);
       if (validationResult.isErr()) {
         return err(validationResult.error);
       }
 
-      // Normalize PEM-formatted private key by replacing literal \n with actual newlines
       const normalizedSecret = normalizePemKey(apiSecret);
 
-      // Create ccxt instance - side effect captured in closure
       const exchange = new ccxt.coinbaseadvanced({
         apiKey,
         password: '',
         secret: normalizedSecret,
       });
 
-      // Return object with methods that close over the exchange instance
       return ok({
         exchangeId: 'coinbase',
 
         async *fetchTransactionDataStreaming(
           params?: FetchParams
         ): AsyncIterableIterator<Result<FetchBatchResult, Error>> {
-          const limit = 100; // Coinbase default limit
+          const limit = 100;
 
           try {
             // Step 1: Fetch all accounts
             const accounts = await exchange.fetchAccounts();
             if (accounts.length === 0) {
-              // No accounts - yield completion batch to mark source as checked
-              // Prevents unnecessary re-checks on subsequent imports
               yield ok({
                 transactions: [],
                 operationType: 'coinbase:no-accounts',
@@ -163,25 +115,17 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                 continue;
               }
 
-              // Extract cursor for this specific account
               const accountCursorState = params?.cursor?.[accountId];
-
               let accountCursor = accountCursorState?.primary.value as number | undefined;
-
-              // Track cumulative count per account starting from previous cursor's totalFetched
               let cumulativeFetched = (accountCursorState?.totalFetched as number) || 0;
-
               let pageCount = 0;
 
               while (true) {
-                // Side effect: Fetch from API (uses exchange from closure)
-                // Pass account_id in params to specify which account to query
                 const ledgerEntries = await exchange.fetchLedger(undefined, accountCursor, limit, {
                   account_id: accountId,
                 });
 
                 if (ledgerEntries.length === 0) {
-                  // No more data for this account - yield completion batch
                   yield ok({
                     transactions: [],
                     operationType: accountId,
@@ -201,7 +145,6 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   break;
                 }
 
-                // Process items inline - validate and transform each ledger entry
                 const transactions: RawTransactionInput[] = [];
                 let lastCursorState: CursorState | undefined;
                 let validationError: Error | undefined;
@@ -209,158 +152,31 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                 for (let i = 0; i < ledgerEntries.length; i++) {
                   const entry = ledgerEntries[i]!;
 
-                  // Validate CCXT ledger entry against Coinbase schema
-                  const rawItem = { ...entry };
-                  const validationResult = ExchangeUtils.validateRawData(
-                    CoinbaseLedgerEntrySchema,
-                    rawItem,
-                    'coinbase'
-                  );
-                  if (validationResult.isErr()) {
+                  // Validate and extract raw Coinbase API v2 data from ccxt's info property
+                  let rawInfo;
+                  try {
+                    rawInfo = RawCoinbaseLedgerEntrySchema.parse(entry.info);
+                  } catch (error) {
                     validationError = new Error(
-                      `Validation failed after ${i} items in batch: ${validationResult.error.message}`
+                      `Raw data validation failed after ${i} items in batch: ${String(error)}`
                     );
                     break;
                   }
 
-                  const validatedData: CoinbaseLedgerEntry = validationResult.value;
-                  const timestamp = Math.floor(validatedData.timestamp); // Ensure integer
+                  const timestamp = new Date(rawInfo.created_at).getTime();
 
-                  // Extract and validate raw Coinbase data from CCXT's info property
-                  // CCXT returns Coinbase Consumer API v2 transactions
-                  const rawInfo = RawCoinbaseLedgerEntrySchema.parse(entry.info);
-
-                  // Extract correlation ID from type-specific nested object
-                  // Different transaction types store correlation IDs in different locations
-                  const extractCorrelationId = (): string => {
-                    // 1. Try CCXT's referenceId first (most reliable if available)
-                    if (validatedData.referenceId) {
-                      return validatedData.referenceId;
-                    }
-
-                    // 2. Check type-specific nested objects for correlation IDs
-                    // Use type assertion since Zod passthrough makes inference difficult
-                    interface TypeSpecific {
-                      id?: string;
-                      order_id?: string;
-                      trade_id?: string;
-                      transfer_id?: string;
-                    }
-
-                    const typeSpecificData: TypeSpecific | undefined =
-                      (rawInfo.advanced_trade_fill as TypeSpecific | undefined) ??
-                      (rawInfo.buy as TypeSpecific | undefined) ??
-                      (rawInfo.sell as TypeSpecific | undefined) ??
-                      (rawInfo.send as TypeSpecific | undefined) ??
-                      (rawInfo.trade as TypeSpecific | undefined);
-
-                    if (typeSpecificData) {
-                      // Priority order for correlation IDs:
-                      // 1. id - Used by buy, sell, trade types to group related entries
-                      // 2. order_id - Used by advanced_trade_fill to group multiple fills
-                      // 3. trade_id - Groups entries from same trade execution
-                      // 4. transfer_id - Groups entries from same transfer
-                      return (
-                        typeSpecificData.id ??
-                        typeSpecificData.order_id ??
-                        typeSpecificData.trade_id ??
-                        typeSpecificData.transfer_id ??
-                        validatedData.id
-                      );
-                    }
-
-                    // 3. Fall back to transaction id for non-correlated entries
-                    return validatedData.id;
-                  };
-
-                  const correlationId = extractCorrelationId();
-
-                  // Map CoinbaseLedgerEntry to ExchangeLedgerEntry with Coinbase-specific normalization
-                  // Additional Coinbase-specific fields (direction, account, referenceAccount, before, after) remain in rawData only
-                  //
-                  // IMPORTANT: ExchangeLedgerEntry requires signed amounts (negative for outflows, positive for inflows)
-                  // CCXT provides direction field ('in' or 'out') with absolute amounts, so we need to apply the sign
-                  // Coinbase's ledger amounts arrive as JavaScript numbers. Using Number#toFixed()
-                  // (our previous implementation) accidentally defaulted to zero decimal places,
-                  // truncating values like 18.1129667 UNI to "18" and throwing balances off.
-                  // Keep everything in Decimal to preserve the exact ledger precision.
-                  const amountDecimal = parseDecimal(validatedData.amount);
-                  const absoluteAmount = amountDecimal.abs();
-                  const signedAmountDecimal =
-                    validatedData.direction === 'out' ? absoluteAmount.negated() : absoluteAmount;
-                  const signedAmount = signedAmountDecimal.toFixed();
-
-                  // Extract fee information
-                  // For advanced_trade_fill: CCXT doesn't map commission to fee, so extract it manually
-                  // For other types: use CCXT's normalized fee field
-                  let feeAmount: string | undefined;
-                  let feeCurrency: string | undefined;
-
-                  if (validatedData.type === 'advanced_trade_fill' && rawInfo.advanced_trade_fill?.commission) {
-                    // Commission is paid in the quote currency (second part of product_id)
-                    // e.g., "BTC-USDC" -> commission paid in USDC
-                    if (rawInfo.advanced_trade_fill.product_id) {
-                      const parts = rawInfo.advanced_trade_fill.product_id.split('-');
-                      feeCurrency = parts[1]; // Quote currency
-
-                      // Only include fee on the entry that matches the fee currency
-                      // This avoids duplicates - each fill creates 2 entries (base + quote)
-                      // but we only want to record the fee once (on the quote currency side)
-                      if (validatedData.currency === feeCurrency) {
-                        feeAmount = rawInfo.advanced_trade_fill.commission;
-                      }
-                    }
-                  } else {
-                    // Use CCXT's normalized fee for other transaction types
-                    feeAmount =
-                      validatedData.fee?.cost !== undefined
-                        ? parseDecimal(validatedData.fee.cost).toFixed()
-                        : undefined;
-                    feeCurrency = validatedData.fee?.currency;
-                  }
-
-                  // Extract blockchain metadata from Coinbase API v2 network field
-                  // The network field contains hash, network_name, and status for on-chain transactions
-                  const normalizedData = {
-                    id: validatedData.id,
-                    correlationId,
-                    timestamp,
-                    type: validatedData.type,
-                    assetSymbol: parseCurrency(validatedData.currency)._unsafeUnwrap(),
-                    amount: signedAmount,
-                    fee: feeAmount,
-                    feeCurrency: feeCurrency !== undefined ? parseCurrency(feeCurrency)._unsafeUnwrap() : undefined,
-                    status: mapCoinbaseStatus(validatedData.status),
-                    hash: typeof rawInfo.network?.hash === 'string' ? rawInfo.network.hash : undefined,
-                    address: typeof rawInfo.to?.address === 'string' ? rawInfo.to.address : undefined,
-                    network:
-                      typeof rawInfo.network?.network_name === 'string' ? rawInfo.network.network_name : undefined,
-                  };
-
-                  // Validate normalized data against schema
-                  const normalizedValidation = ExchangeLedgerEntrySchema.safeParse(normalizedData);
-                  if (!normalizedValidation.success) {
-                    validationError = new Error(
-                      `Normalized data validation failed after ${i} items in batch: ${normalizedValidation.error.message}`
-                    );
-                    break;
-                  }
-
-                  // Add validated transaction to batch
+                  // Store raw Coinbase API data only — processor handles normalization
                   transactions.push({
-                    eventId: validatedData.id,
+                    eventId: rawInfo.id,
                     timestamp,
                     providerName: 'coinbase',
-                    // Preserve full CCXT payload for post-mortem analysis (includes raw v2 info)
-                    providerData: entry,
-                    normalizedData: normalizedValidation.data as unknown,
+                    providerData: rawInfo,
                   });
 
-                  // Track cursor state
                   lastCursorState = {
                     primary: { type: 'timestamp', value: timestamp },
-                    lastTransactionId: validatedData.id,
-                    totalFetched: 1, // Will be overridden with cumulative count
+                    lastTransactionId: rawInfo.id,
+                    totalFetched: 1,
                     metadata: {
                       providerName: 'coinbase',
                       updatedAt: Date.now(),
@@ -369,12 +185,9 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   };
                 }
 
-                // If validation failed partway through
                 if (validationError) {
-                  // If we have successful items, yield them first
                   if (transactions.length > 0 && lastCursorState) {
                     cumulativeFetched += transactions.length;
-
                     yield ok({
                       transactions,
                       operationType: accountId,
@@ -392,7 +205,6 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                     });
                   }
 
-                  // Then yield the error
                   yield err(
                     new Error(
                       `Validation failed for account ${accountId} after ${transactions.length} items in batch: ${validationError.message}`
@@ -401,26 +213,19 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   return;
                 }
 
-                // All items validated successfully
                 cumulativeFetched += transactions.length;
                 pageCount++;
 
-                pageCount++;
-
-                // Report progress
                 logger.info(
                   `Account ${accountIndex + 1}/${accounts.length} (${accountId}): page ${pageCount} - ${cumulativeFetched} transactions`
                 );
 
-                // Check if this is the last page for this account
                 const isComplete = ledgerEntries.length < limit;
 
-                // Update cursor with cumulative totalFetched
                 if (lastCursorState) {
                   lastCursorState.totalFetched = cumulativeFetched;
                   if (lastCursorState.metadata) {
                     lastCursorState.metadata.updatedAt = Date.now();
-                    // CRITICAL: Mark account complete to prevent reprocessing on resume
                     if (isComplete) {
                       lastCursorState.metadata.isComplete = true;
                     }
@@ -444,10 +249,8 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   isComplete,
                 });
 
-                // If we got less than the limit, we've reached the end for this account
                 if (isComplete) break;
 
-                // Update since timestamp for next page (add 1ms to avoid duplicate)
                 if (lastCursorState) {
                   accountCursor = (lastCursorState.primary.value as number) + 1;
                 }
@@ -456,7 +259,6 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
               accountIndex++;
             }
           } catch (error) {
-            // Network/API error during fetch - yield error
             yield wrapError(error, 'Coinbase API error');
           }
         },

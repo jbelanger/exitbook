@@ -3,8 +3,8 @@ import { z } from 'zod';
 
 /**
  * Zod schema for validating normalized exchange ledger entries.
- * This ensures all exchanges conform to the same strict contract after mapping.
- * Additional exchange-specific data should remain in provider_data, not in normalized data.
+ * This is an ingestion-internal contract: processors build ExchangeLedgerEntry
+ * from raw provider data before passing into grouping/interpretation strategies.
  */
 export const ExchangeLedgerEntrySchema = z
   .object({
@@ -50,6 +50,6 @@ export const ExchangeLedgerEntrySchema = z
     /** Network/blockchain name (for deposits/withdrawals) */
     network: z.string().optional(),
   })
-  .strict(); // Reject any additional fields not defined in schema
+  .strict();
 
 export type ExchangeLedgerEntry = z.infer<typeof ExchangeLedgerEntrySchema>;

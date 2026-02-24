@@ -482,16 +482,9 @@ export class TransactionProcessingService {
 
     for (const item of rawDataItems) {
       if (isExchange) {
-        let normalizedData: unknown = item.normalizedData;
-
-        const isEmpty = !normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0;
-        if (isEmpty) {
-          normalizedData = item.providerData;
-        }
-
+        // Exchange processors normalize from raw data via normalizeEntry
         processorInputs.push({
           raw: item.providerData,
-          normalized: normalizedData,
           eventId: item.eventId || '',
         });
       } else {

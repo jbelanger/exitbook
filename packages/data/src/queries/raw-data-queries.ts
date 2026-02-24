@@ -126,7 +126,7 @@ export function createRawDataQueries(db: KyselyDB) {
 
         for (const item of items) {
           try {
-            const normalizedDataJson = JSON.stringify(item.normalizedData);
+            const normalizedDataJson = JSON.stringify(item.normalizedData ?? {});
             const providerDataJson = JSON.stringify(item.providerData);
             const insertResult = await trx
               .insertInto('raw_transactions')

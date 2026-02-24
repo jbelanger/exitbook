@@ -7,21 +7,20 @@
 
 // Core
 export { createExchangeClient } from './core/factory.js';
-export { ExchangeLedgerEntrySchema } from './core/schemas.js';
-export type { ExchangeLedgerEntry } from './core/schemas.js';
 export type { BalanceSnapshot, FetchBatchResult, IExchangeClient } from './core/types.js';
 
 // Coinbase
 export { createCoinbaseClient } from './exchanges/coinbase/client.js';
 export {
   CoinbaseCredentialsSchema,
-  CoinbaseLedgerEntrySchema,
+  RawCoinbaseLedgerEntrySchema,
   type CoinbaseCredentials,
-  type CoinbaseLedgerEntry,
+  type RawCoinbaseLedgerEntry,
 } from './exchanges/coinbase/schemas.js';
 
 // Kraken
 export { createKrakenClient } from './exchanges/kraken/client.js';
+export { normalizeKrakenAsset } from './exchanges/kraken/kraken-utils.js';
 export {
   KrakenCredentialsSchema,
   KrakenLedgerEntrySchema,

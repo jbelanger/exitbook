@@ -12,27 +12,30 @@ import {
   detectExchangeClassificationUncertainty,
   selectPrimaryMovement,
 } from './correlating-exchange-processor-utils.js';
+import { ExchangeLedgerEntrySchema, type ExchangeLedgerEntry } from './schemas.js';
 import {
-  RawTransactionWithMetadataSchema,
+  RawExchangeInputSchema,
   type FeeInput,
   type GroupingStrategy,
   type InterpretationStrategy,
-  type MovementInput,
   type LedgerEntryWithRaw,
+  type MovementInput,
+  type RawExchangeInput,
 } from './strategies/index.js';
 import type { ExchangeFundFlow } from './types.js';
 
 /**
  * Base processor for exchange transactions using strategy composition.
  *
- * Provides infrastructure for:
- * - Grouping related ledger entries (e.g., both sides of a swap)
- * - Analyzing fund flow using interpretation strategies
- * - Creating single atomic ProcessedTransaction records
+ * Subclasses implement normalizeEntry to convert raw exchange data into
+ * ExchangeLedgerEntry. The base class then handles grouping, interpretation,
+ * fund flow analysis, and ProcessedTransaction creation.
  *
- * @template TRaw - The raw exchange-specific type (e.g., CoinbaseLedgerEntry, KrakenLedgerEntry)
+ * @template TRaw - The raw exchange-specific type (e.g., RawCoinbaseLedgerEntry, KrakenLedgerEntry)
  */
-export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactionProcessor<LedgerEntryWithRaw<TRaw>> {
+export abstract class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactionProcessor<
+  RawExchangeInput<TRaw>
+> {
   constructor(
     sourceName: string,
     private grouping: GroupingStrategy,
@@ -41,14 +44,47 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     super(sourceName);
   }
 
-  protected get inputSchema(): z.ZodType<LedgerEntryWithRaw<TRaw>> {
-    return RawTransactionWithMetadataSchema as z.ZodType<LedgerEntryWithRaw<TRaw>>;
+  protected get inputSchema(): z.ZodType<RawExchangeInput<TRaw>> {
+    return RawExchangeInputSchema as z.ZodType<RawExchangeInput<TRaw>>;
+  }
+
+  /**
+   * Convert raw exchange data into the normalized ExchangeLedgerEntry contract.
+   * Each exchange subclass implements this with exchange-specific parsing logic.
+   */
+  protected abstract normalizeEntry(raw: TRaw, eventId: string): Result<ExchangeLedgerEntry, Error>;
+
+  /**
+   * Validate a normalized entry against ExchangeLedgerEntrySchema.
+   * Convenience for subclass normalizeEntry implementations.
+   */
+  protected validateNormalized(data: Record<string, unknown>): Result<ExchangeLedgerEntry, Error> {
+    const result = ExchangeLedgerEntrySchema.safeParse(data);
+    if (!result.success) {
+      const detail = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+      return err(new Error(`Normalized data validation failed: ${detail}`));
+    }
+    return ok(result.data);
   }
 
   protected async transformNormalizedData(
-    normalizedData: LedgerEntryWithRaw<TRaw>[]
+    rawInputs: RawExchangeInput<TRaw>[]
   ): Promise<Result<ProcessedTransaction[], string>> {
-    const entries = normalizedData;
+    // Normalize raw inputs into LedgerEntryWithRaw via subclass normalizeEntry
+    const entries: LedgerEntryWithRaw<TRaw>[] = [];
+    for (const input of rawInputs) {
+      const normalizeResult = this.normalizeEntry(input.raw, input.eventId);
+      if (normalizeResult.isErr()) {
+        return err(
+          `Normalization failed for ${this.sourceName} entry ${input.eventId}: ${normalizeResult.error.message}`
+        );
+      }
+      entries.push({
+        raw: input.raw,
+        normalized: normalizeResult.value,
+        eventId: input.eventId,
+      });
+    }
 
     // Group using strategy (e.g., by correlationId, timestamp, or no grouping)
     const entryGroups = this.grouping.group(entries);
@@ -82,7 +118,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         continue;
       }
 
-      const classification = this.determineOperationFromFundFlow(fundFlow);
+      const classification = this.determineOperationFromFundFlow(fundFlow, entryGroup);
       const normalizedDestinationAddress = primaryEntry.normalized.address?.trim();
 
       const processedTransaction: ProcessedTransaction = {
@@ -130,6 +166,15 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         operation: classification.operation,
         notes: classification.notes,
         ...(normalizedDestinationAddress ? { to: normalizedDestinationAddress } : {}),
+        ...(primaryEntry.normalized.hash?.trim()
+          ? {
+              blockchain: {
+                name: primaryEntry.normalized.network || 'unknown',
+                transaction_hash: primaryEntry.normalized.hash.trim(),
+                is_confirmed: primaryEntry.normalized.status === 'success',
+              },
+            }
+          : {}),
       };
 
       transactions.push(processedTransaction);
@@ -216,7 +261,10 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
    * Determine operation type and category from fund flow analysis.
    * Can be overridden by subclasses for exchange-specific logic.
    */
-  protected determineOperationFromFundFlow(fundFlow: ExchangeFundFlow): OperationClassification {
+  protected determineOperationFromFundFlow(
+    fundFlow: ExchangeFundFlow,
+    _entryGroup: LedgerEntryWithRaw<TRaw>[]
+  ): OperationClassification {
     return classifyExchangeOperationFromFundFlow(fundFlow);
   }
 

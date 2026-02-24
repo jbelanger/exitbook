@@ -1,28 +1,35 @@
-import { ExchangeLedgerEntrySchema, type ExchangeLedgerEntry } from '@exitbook/exchange-providers';
 import { z } from 'zod';
+
+import type { ExchangeLedgerEntry } from '../schemas.js';
+
+/**
+ * Raw input from process-service before normalization.
+ * The processor's normalizeEntry builds ExchangeLedgerEntry from raw data.
+ */
+export interface RawExchangeInput<TRaw = unknown> {
+  raw: TRaw;
+  eventId: string;
+}
+
+export const RawExchangeInputSchema = z.object({
+  raw: z.unknown(),
+  eventId: z.string(),
+});
 
 /**
  * Represents a transaction with both raw exchange-specific data and normalized common data.
+ * Constructed by the processor after calling normalizeEntry on RawExchangeInput.
  *
- * @template TRaw - The raw exchange-specific type (e.g., CoinbaseLedgerEntry, KrakenLedgerEntry)
+ * @template TRaw - The raw exchange-specific type (e.g., RawCoinbaseLedgerEntry, KrakenLedgerEntry)
  */
 export interface LedgerEntryWithRaw<TRaw = unknown> {
   /** Full exchange-specific data for processor access */
   raw: TRaw;
-  /** Validated common contract (invariants enforced) */
+  /** Validated common contract (invariants enforced by processor's normalizeEntry) */
   normalized: ExchangeLedgerEntry;
   /** Unique transaction ID from source */
   eventId: string;
-  /** Cursor for resuming imports (only present during streaming import, not during reprocessing) */
-  cursor?: Record<string, number> | undefined;
 }
-
-export const RawTransactionWithMetadataSchema = z.object({
-  raw: z.unknown(),
-  normalized: ExchangeLedgerEntrySchema,
-  eventId: z.string(),
-  cursor: z.record(z.string(), z.number()).optional(),
-});
 
 /**
  * Strategy for grouping ledger entries into atomic transactions.

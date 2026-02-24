@@ -45,10 +45,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     let unknownRowCount = 0;
 
     for (const rawDataItem of rawDataItems) {
-      // For exchanges, rawDataItem is wrapped in a dataPackage with {raw, normalized, externalId, cursor}
-      // Extract the normalized data which contains the _rowType field
-      const dataPackage = rawDataItem as { normalized?: unknown };
-      const row = (dataPackage.normalized || rawDataItem) as { _rowType?: string };
+      const row = (rawDataItem as { raw: unknown }).raw as { _rowType?: string };
 
       switch (row._rowType) {
         case 'spot_order': {

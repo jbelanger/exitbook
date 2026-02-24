@@ -1,7 +1,6 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { ExchangeLedgerEntry } from '../../../core/schemas.js';
 import type { FetchBatchResult } from '../../../core/types.js';
 import { createKrakenClient } from '../client.js';
 
@@ -66,8 +65,7 @@ describe('Kraken Client Streaming E2E', () => {
         // Verify transaction structure
         const firstTx = firstBatch.transactions[0]!;
         expect(firstTx).toHaveProperty('eventId');
-        expect(firstTx).toHaveProperty('rawData');
-        expect(firstTx).toHaveProperty('normalizedData');
+        expect(firstTx).toHaveProperty('providerData');
         expect(firstTx.providerName).toBe('kraken');
 
         // Verify cursor state structure
@@ -85,25 +83,19 @@ describe('Kraken Client Streaming E2E', () => {
         expect(typeof metadata?.offset).toBe('number');
         expect(metadata?.offset).toBe(firstBatch.cursor.totalFetched);
 
-        // Verify Kraken-specific normalized data structure
-        const normalized = firstTx.normalizedData as ExchangeLedgerEntry;
-        expect(normalized.id).toBeDefined();
-        expect(normalized.correlationId).toBeDefined();
-        expect(normalized.timestamp).toBeDefined();
-        expect(typeof normalized.timestamp).toBe('number');
-        expect(normalized.type).toBeDefined();
-        expect(normalized.assetSymbol).toBeDefined();
-        expect(normalized.amount).toBeDefined();
-        expect(normalized.fee).toBeDefined();
-        expect(normalized.feeCurrency).toBeDefined();
-        expect(normalized.status).toBe('success');
+        // Verify raw Kraken API data in providerData
+        const raw = firstTx.providerData as Record<string, unknown>;
+        expect(raw['id']).toBeDefined();
+        expect(raw['refid']).toBeDefined();
+        expect(raw['time']).toBeDefined();
+        expect(typeof raw['time']).toBe('number');
+        expect(raw['type']).toBeDefined();
+        expect(raw['asset']).toBeDefined();
+        expect(raw['amount']).toBeDefined();
+        expect(raw['fee']).toBeDefined();
 
-        // Verify asset normalization (should not have Kraken prefixes)
-        const asset = normalized.assetSymbol;
-        expect(asset).toBeDefined();
-        expect(typeof asset).toBe('string');
-        expect(asset).not.toMatch(/^Z[A-Z]{3}$/); // e.g., ZUSD
-        expect(asset).not.toMatch(/^X[A-Z]{2,3}$/); // e.g., XXBT, XETH
+        // Verify raw asset field exists (normalization happens in processor)
+        expect(typeof raw['asset']).toBe('string');
       },
       60000
     );

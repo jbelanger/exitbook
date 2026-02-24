@@ -1,59 +1,31 @@
-import type { Currency } from '@exitbook/core';
-import type { CoinbaseLedgerEntry } from '@exitbook/exchange-providers';
+import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers';
 import { describe, expect, test } from 'vitest';
 
-import type { LedgerEntryWithRaw } from '../../shared/strategies/index.js';
+import type { DeepPartial } from '../../../../shared/test-utils/index.js';
+import type { RawExchangeInput } from '../../shared/strategies/index.js';
 import { CoinbaseProcessor } from '../processor.js';
 
-type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
+const CREATED_AT = '2026-01-01T14:36:55.000Z';
 
-function buildEntry(
-  overrides?: DeepPartial<LedgerEntryWithRaw<CoinbaseLedgerEntry>>
-): LedgerEntryWithRaw<CoinbaseLedgerEntry> {
-  const timestamp = 1_767_278_215_000; // 2026-01-01T14:36:55.000Z
-  const base: LedgerEntryWithRaw<CoinbaseLedgerEntry> = {
-    eventId: 'entry-1',
-    cursor: {},
-    normalized: {
-      id: 'entry-1',
-      correlationId: 'corr-1',
-      timestamp,
-      type: 'advanced_trade_fill',
-      assetSymbol: 'USDC' as Currency,
-      amount: '100.00',
-      status: 'success',
-    },
-    raw: {
-      id: 'entry-1',
-      direction: 'in',
-      account: 'account-1',
-      type: 'advanced_trade_fill',
-      currency: 'USDC',
-      amount: '100.00',
-      timestamp,
-      datetime: new Date(timestamp).toISOString(),
-      status: 'ok',
-    },
+function buildEntry(overrides?: DeepPartial<RawCoinbaseLedgerEntry>): RawExchangeInput<RawCoinbaseLedgerEntry> {
+  const base: RawCoinbaseLedgerEntry = {
+    id: 'entry-1',
+    type: 'advanced_trade_fill',
+    created_at: CREATED_AT,
+    status: 'ok',
+    amount: { amount: '100.00', currency: 'USDC' },
   };
 
-  const merged = {
+  const raw = {
     ...base,
     ...(overrides || {}),
-  };
+    amount: {
+      ...base.amount,
+      ...(overrides?.amount || {}),
+    },
+  } as RawCoinbaseLedgerEntry;
 
-  return {
-    ...merged,
-    normalized: {
-      ...base.normalized,
-      ...(overrides?.normalized || {}),
-    },
-    raw: {
-      ...base.raw,
-      ...(overrides?.raw || {}),
-    },
-  } as LedgerEntryWithRaw<CoinbaseLedgerEntry>;
+  return { raw, eventId: raw.id };
 }
 
 function createProcessor() {
@@ -65,20 +37,9 @@ describe('CoinbaseProcessor - Interest/Staking Rewards', () => {
     const processor = createProcessor();
 
     const interestEntry = buildEntry({
-      normalized: {
-        id: 'interest-1',
-        correlationId: 'interest-corr-1',
-        type: 'interest',
-        assetSymbol: 'USDC' as Currency,
-        amount: '0.000798',
-      },
-      raw: {
-        id: 'ce0c0c8a-da45-5570-a7a2-d00a36780c98',
-        type: 'interest',
-        direction: 'in',
-        currency: 'USDC',
-        amount: '0.000798',
-      },
+      id: 'interest-1',
+      type: 'interest',
+      amount: { amount: '0.000798', currency: 'USDC' },
     });
 
     const result = await processor.process([interestEntry]);
@@ -105,34 +66,14 @@ describe('CoinbaseProcessor - Interest/Staking Rewards', () => {
 
     const entries = [
       buildEntry({
-        normalized: {
-          id: 'interest-1',
-          correlationId: 'interest-corr-1',
-          type: 'interest',
-          assetSymbol: 'USDC' as Currency,
-          amount: '0.000798',
-        },
-        raw: {
-          id: 'interest-1',
-          type: 'interest',
-          currency: 'USDC',
-          amount: '0.000798',
-        },
+        id: 'interest-1',
+        type: 'interest',
+        amount: { amount: '0.000798', currency: 'USDC' },
       }),
       buildEntry({
-        normalized: {
-          id: 'interest-2',
-          correlationId: 'interest-corr-2',
-          type: 'interest',
-          assetSymbol: 'ETH' as Currency,
-          amount: '0.0001',
-        },
-        raw: {
-          id: 'interest-2',
-          type: 'interest',
-          currency: 'ETH',
-          amount: '0.0001',
-        },
+        id: 'interest-2',
+        type: 'interest',
+        amount: { amount: '0.0001', currency: 'ETH' },
       }),
     ];
 
@@ -157,20 +98,9 @@ describe('CoinbaseProcessor - Regular Deposits', () => {
     const processor = createProcessor();
 
     const depositEntry = buildEntry({
-      normalized: {
-        id: 'deposit-1',
-        correlationId: 'deposit-corr-1',
-        type: 'fiat_deposit',
-        assetSymbol: 'USD' as Currency,
-        amount: '100.00',
-      },
-      raw: {
-        id: 'deposit-1',
-        type: 'fiat_deposit',
-        direction: 'in',
-        currency: 'USD',
-        amount: '100.00',
-      },
+      id: 'deposit-1',
+      type: 'fiat_deposit',
+      amount: { amount: '100.00', currency: 'USD' },
     });
 
     const result = await processor.process([depositEntry]);
@@ -194,20 +124,9 @@ describe('CoinbaseProcessor - Regular Deposits', () => {
     const processor = createProcessor();
 
     const depositEntry = buildEntry({
-      normalized: {
-        id: 'deposit-2',
-        correlationId: 'deposit-corr-2',
-        type: 'send',
-        assetSymbol: 'BTC' as Currency,
-        amount: '0.01',
-      },
-      raw: {
-        id: 'deposit-2',
-        type: 'send',
-        direction: 'in',
-        currency: 'BTC',
-        amount: '0.01',
-      },
+      id: 'deposit-2',
+      type: 'send',
+      amount: { amount: '0.01', currency: 'BTC' },
     });
 
     const result = await processor.process([depositEntry]);
@@ -229,22 +148,9 @@ describe('CoinbaseProcessor - Withdrawals', () => {
     const processor = createProcessor();
 
     const withdrawalEntry = buildEntry({
-      normalized: {
-        id: 'withdrawal-1',
-        correlationId: 'withdrawal-corr-1',
-        type: 'fiat_withdrawal',
-        assetSymbol: 'USD' as Currency,
-        amount: '-50.00',
-        fee: '1.00',
-        feeCurrency: 'USD' as Currency,
-      },
-      raw: {
-        id: 'withdrawal-1',
-        type: 'fiat_withdrawal',
-        direction: 'out',
-        currency: 'USD',
-        amount: '-50.00',
-      },
+      id: 'withdrawal-1',
+      type: 'fiat_withdrawal',
+      amount: { amount: '-50.00', currency: 'USD' },
     });
 
     const result = await processor.process([withdrawalEntry]);
@@ -265,29 +171,15 @@ describe('CoinbaseProcessor - Withdrawals', () => {
     const outflow = transaction.movements.outflows![0];
     expect(outflow?.assetSymbol).toBe('USD');
     expect(outflow?.grossAmount.toFixed()).toBe('50');
-    expect(outflow?.netAmount!.toFixed()).toBe('49');
   });
 
   test('classifies crypto withdrawals correctly', async () => {
     const processor = createProcessor();
 
     const withdrawalEntry = buildEntry({
-      normalized: {
-        id: 'withdrawal-2',
-        correlationId: 'withdrawal-corr-2',
-        type: 'transaction',
-        assetSymbol: 'ETH' as Currency,
-        amount: '-1.5',
-        fee: '0.001',
-        feeCurrency: 'ETH' as Currency,
-      },
-      raw: {
-        id: 'withdrawal-2',
-        type: 'transaction',
-        direction: 'out',
-        currency: 'ETH',
-        amount: '-1.5',
-      },
+      id: 'withdrawal-2',
+      type: 'transaction',
+      amount: { amount: '-1.5', currency: 'ETH' },
     });
 
     const result = await processor.process([withdrawalEntry]);
@@ -306,10 +198,6 @@ describe('CoinbaseProcessor - Withdrawals', () => {
     const outflow = transaction.movements.outflows![0];
     expect(outflow?.assetSymbol).toBe('ETH');
     expect(outflow?.grossAmount.toFixed()).toBe('1.5');
-    expect(outflow?.netAmount!.toFixed()).toBe('1.499');
-
-    expect(transaction.fees).toHaveLength(1);
-    expect(transaction.fees[0]?.amount.toFixed()).toBe('0.001');
   });
 });
 
@@ -317,42 +205,19 @@ describe('CoinbaseProcessor - Swaps/Trades', () => {
   test('classifies advanced trade fills as swaps', async () => {
     const processor = createProcessor();
 
+    // Both entries must share the same order_id so byCorrelationId groups them together
     const tradeEntries = [
       buildEntry({
-        normalized: {
-          id: 'trade-1-out',
-          correlationId: 'trade-corr-1',
-          type: 'advanced_trade_fill',
-          assetSymbol: 'USDC' as Currency,
-          amount: '-100.00',
-          fee: '0.05',
-          feeCurrency: 'USDC' as Currency,
-        },
-        raw: {
-          id: 'trade-1-out',
-          type: 'advanced_trade_fill',
-          direction: 'out',
-          currency: 'USDC',
-          amount: '-100.00',
-        },
+        id: 'trade-1-out',
+        type: 'advanced_trade_fill',
+        amount: { amount: '-100.00', currency: 'USDC' },
+        advanced_trade_fill: { order_id: 'ORDER-001' } as RawCoinbaseLedgerEntry['advanced_trade_fill'],
       }),
       buildEntry({
-        normalized: {
-          id: 'trade-1-in',
-          correlationId: 'trade-corr-1',
-          type: 'advanced_trade_fill',
-          assetSymbol: 'ETH' as Currency,
-          amount: '0.04',
-          fee: '0.05',
-          feeCurrency: 'USDC' as Currency,
-        },
-        raw: {
-          id: 'trade-1-in',
-          type: 'advanced_trade_fill',
-          direction: 'in',
-          currency: 'ETH',
-          amount: '0.04',
-        },
+        id: 'trade-1-in',
+        type: 'advanced_trade_fill',
+        amount: { amount: '0.04', currency: 'ETH' },
+        advanced_trade_fill: { order_id: 'ORDER-001' } as RawCoinbaseLedgerEntry['advanced_trade_fill'],
       }),
     ];
 
@@ -384,49 +249,19 @@ describe('CoinbaseProcessor - Mixed Transaction Batch', () => {
 
     const mixedEntries = [
       buildEntry({
-        normalized: {
-          id: 'interest-1',
-          correlationId: 'interest-corr-1',
-          type: 'interest',
-          assetSymbol: 'USDC' as Currency,
-          amount: '0.5',
-        },
-        raw: {
-          id: 'interest-1',
-          type: 'interest',
-          currency: 'USDC',
-          amount: '0.5',
-        },
+        id: 'interest-1',
+        type: 'interest',
+        amount: { amount: '0.5', currency: 'USDC' },
       }),
       buildEntry({
-        normalized: {
-          id: 'deposit-1',
-          correlationId: 'deposit-corr-1',
-          type: 'fiat_deposit',
-          assetSymbol: 'USD' as Currency,
-          amount: '100',
-        },
-        raw: {
-          id: 'deposit-1',
-          type: 'fiat_deposit',
-          currency: 'USD',
-          amount: '100',
-        },
+        id: 'deposit-1',
+        type: 'fiat_deposit',
+        amount: { amount: '100', currency: 'USD' },
       }),
       buildEntry({
-        normalized: {
-          id: 'withdrawal-1',
-          correlationId: 'withdrawal-corr-1',
-          type: 'fiat_withdrawal',
-          assetSymbol: 'USD' as Currency,
-          amount: '-50',
-        },
-        raw: {
-          id: 'withdrawal-1',
-          type: 'fiat_withdrawal',
-          currency: 'USD',
-          amount: '-50',
-        },
+        id: 'withdrawal-1',
+        type: 'fiat_withdrawal',
+        amount: { amount: '-50', currency: 'USD' },
       }),
     ];
 
@@ -450,24 +285,12 @@ describe('CoinbaseProcessor - Blockchain Hash Extraction', () => {
     const processor = createProcessor();
 
     const depositEntry = buildEntry({
-      normalized: {
-        id: 'deposit-with-hash',
-        correlationId: 'deposit-corr-1',
-        type: 'send',
-        assetSymbol: 'BTC' as Currency,
-        amount: '0.01',
-        hash: '0xabc123def456',
-        network: 'bitcoin',
-        address: 'bc1q...',
-      },
-      raw: {
-        id: 'deposit-with-hash',
-        type: 'send',
-        direction: 'in',
-        currency: 'BTC',
-        amount: '0.01',
-      },
-    });
+      id: 'deposit-with-hash',
+      type: 'send',
+      amount: { amount: '0.01', currency: 'BTC' },
+      network: { hash: '0xabc123def456', network_name: 'bitcoin', status: 'confirmed' },
+      to: { address: 'bc1q...', resource: 'address' },
+    } as DeepPartial<RawCoinbaseLedgerEntry>);
 
     const result = await processor.process([depositEntry]);
 
@@ -489,25 +312,12 @@ describe('CoinbaseProcessor - Blockchain Hash Extraction', () => {
     const processor = createProcessor();
 
     const depositEntry = buildEntry({
-      normalized: {
-        id: 'pending-deposit',
-        correlationId: 'deposit-corr-2',
-        type: 'send',
-        assetSymbol: 'ETH' as Currency,
-        amount: '1.5',
-        status: 'pending',
-        hash: '0xpending123',
-        network: 'ethereum',
-      },
-      raw: {
-        id: 'pending-deposit',
-        type: 'send',
-        direction: 'in',
-        currency: 'ETH',
-        amount: '1.5',
-        status: 'pending',
-      },
-    });
+      id: 'pending-deposit',
+      type: 'send',
+      status: 'pending',
+      amount: { amount: '1.5', currency: 'ETH' },
+      network: { hash: '0xpending123', network_name: 'ethereum', status: 'pending' },
+    } as DeepPartial<RawCoinbaseLedgerEntry>);
 
     const result = await processor.process([depositEntry]);
 
@@ -523,26 +333,15 @@ describe('CoinbaseProcessor - Blockchain Hash Extraction', () => {
     expect(transaction.blockchain?.is_confirmed).toBe(false);
   });
 
-  test('uses unknown blockchain name when network is not provided', async () => {
+  test('uses unknown blockchain name when network_name is not provided', async () => {
     const processor = createProcessor();
 
     const depositEntry = buildEntry({
-      normalized: {
-        id: 'deposit-no-network',
-        correlationId: 'deposit-corr-3',
-        type: 'send',
-        assetSymbol: 'USDC' as Currency,
-        amount: '100',
-        hash: '0xhash456',
-      },
-      raw: {
-        id: 'deposit-no-network',
-        type: 'send',
-        direction: 'in',
-        currency: 'USDC',
-        amount: '100',
-      },
-    });
+      id: 'deposit-no-network',
+      type: 'send',
+      amount: { amount: '100', currency: 'USDC' },
+      network: { hash: '0xhash456', network_name: '', status: 'confirmed' },
+    } as DeepPartial<RawCoinbaseLedgerEntry>);
 
     const result = await processor.process([depositEntry]);
 
@@ -562,22 +361,11 @@ describe('CoinbaseProcessor - Blockchain Hash Extraction', () => {
     const processor = createProcessor();
 
     const depositEntry = buildEntry({
-      normalized: {
-        id: 'deposit-no-hash',
-        correlationId: 'deposit-corr-4',
-        type: 'send',
-        assetSymbol: 'BTC' as Currency,
-        amount: '0.01',
-        hash: '',
-      },
-      raw: {
-        id: 'deposit-no-hash',
-        type: 'send',
-        direction: 'in',
-        currency: 'BTC',
-        amount: '0.01',
-      },
-    });
+      id: 'deposit-no-hash',
+      type: 'send',
+      amount: { amount: '0.01', currency: 'BTC' },
+      network: { hash: '', network_name: 'bitcoin', status: 'confirmed' },
+    } as DeepPartial<RawCoinbaseLedgerEntry>);
 
     const result = await processor.process([depositEntry]);
 
@@ -595,20 +383,9 @@ describe('CoinbaseProcessor - Blockchain Hash Extraction', () => {
     const processor = createProcessor();
 
     const depositEntry = buildEntry({
-      normalized: {
-        id: 'fiat-deposit',
-        correlationId: 'deposit-corr-5',
-        type: 'fiat_deposit',
-        assetSymbol: 'USD' as Currency,
-        amount: '100',
-      },
-      raw: {
-        id: 'fiat-deposit',
-        type: 'fiat_deposit',
-        direction: 'in',
-        currency: 'USD',
-        amount: '100',
-      },
+      id: 'fiat-deposit',
+      type: 'fiat_deposit',
+      amount: { amount: '100', currency: 'USD' },
     });
 
     const result = await processor.process([depositEntry]);

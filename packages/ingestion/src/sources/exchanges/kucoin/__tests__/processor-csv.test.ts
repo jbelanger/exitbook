@@ -38,7 +38,7 @@ describe('KucoinProcessor (CSV) - Spot Order Handling', () => {
       Status: 'deal',
     };
 
-    const result = await processor.process([spotOrder]);
+    const result = await processor.process([{ raw: spotOrder, eventId: 'test-1' }]);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -90,7 +90,7 @@ describe('KucoinProcessor (CSV) - Spot Order Handling', () => {
       Status: 'deal',
     };
 
-    const result = await processor.process([spotOrder]);
+    const result = await processor.process([{ raw: spotOrder, eventId: 'test-1' }]);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -135,7 +135,7 @@ describe('KucoinProcessor (CSV) - Order Splitting Handling', () => {
       'Maker/Taker': 'taker',
     };
 
-    const result = await processor.process([orderSplitting]);
+    const result = await processor.process([{ raw: orderSplitting, eventId: 'test-1' }]);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -169,7 +169,7 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
       Remarks: '',
     };
 
-    const result = await processor.process([deposit]);
+    const result = await processor.process([{ raw: deposit, eventId: 'test-1' }]);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -214,7 +214,7 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
       Remarks: 'withdrawal to wallet',
     };
 
-    const result = await processor.process([withdrawal]);
+    const result = await processor.process([{ raw: withdrawal, eventId: 'test-1' }]);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -265,7 +265,10 @@ describe('KucoinProcessor (CSV) - Account History Handling', () => {
       Remark: 'Convert Market',
     };
 
-    const result = await processor.process([deposit, withdrawal]);
+    const result = await processor.process([
+      { raw: deposit, eventId: 'test-1' },
+      { raw: withdrawal, eventId: 'test-2' },
+    ]);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -303,7 +306,7 @@ describe('KucoinProcessor (CSV) - Account History Handling', () => {
       Remark: 'Internal transfer',
     };
 
-    const result = await processor.process([transfer]);
+    const result = await processor.process([{ raw: transfer, eventId: 'test-1' }]);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -334,7 +337,7 @@ describe('KucoinProcessor (CSV) - Trading Bot Handling', () => {
       'Fee Currency': 'USDT',
     };
 
-    const result = await processor.process([tradingBot]);
+    const result = await processor.process([{ raw: tradingBot, eventId: 'test-1' }]);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -358,7 +361,7 @@ describe('KucoinProcessor (CSV) - Error Handling', () => {
       Symbol: 'BTC-USDT',
     };
 
-    const result = await processor.process([malformedRow]);
+    const result = await processor.process([{ raw: malformedRow, eventId: 'test-1' }]);
 
     // Should fail in strict mode
     expect(result.isErr()).toBe(true);
@@ -376,7 +379,7 @@ describe('KucoinProcessor (CSV) - Error Handling', () => {
       data: 'test',
     };
 
-    const result = await processor.process([unknownRow]);
+    const result = await processor.process([{ raw: unknownRow, eventId: 'test-1' }]);
 
     // Should fail in strict mode
     expect(result.isErr()).toBe(true);
@@ -427,7 +430,10 @@ describe('KucoinProcessor (CSV) - Mixed Transaction Types', () => {
       Remarks: '',
     };
 
-    const result = await processor.process([deposit, spotOrder]);
+    const result = await processor.process([
+      { raw: deposit, eventId: 'test-1' },
+      { raw: spotOrder, eventId: 'test-2' },
+    ]);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

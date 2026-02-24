@@ -5,8 +5,8 @@ import type {
   SolanaTransaction,
 } from '@exitbook/blockchain-providers';
 import type { Currency } from '@exitbook/core';
-import type { ExchangeLedgerEntry } from '@exitbook/exchange-providers';
 
+import type { ExchangeLedgerEntry } from '../../sources/exchanges/shared/schemas.js';
 import type { LedgerEntryWithRaw } from '../../sources/exchanges/shared/strategies/grouping.js';
 
 import { TEST_TIMESTAMPS } from './test-constants.js';
@@ -23,6 +23,10 @@ import { TEST_TIMESTAMPS } from './test-constants.js';
  *   .withFee('2.5')
  *   .build();
  */
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
 export class ExchangeEntryBuilder {
   private entry: ExchangeLedgerEntry = {
     id: 'ENTRY001',
@@ -93,7 +97,6 @@ export function wrapEntry(entry: ExchangeLedgerEntry): LedgerEntryWithRaw<Exchan
     raw: entry,
     normalized: entry,
     eventId: entry.id,
-    cursor: {},
   };
 }
 
@@ -104,14 +107,12 @@ export function wrapEntry(entry: ExchangeLedgerEntry): LedgerEntryWithRaw<Exchan
 export function createRawTransactionWithMetadata<T>(
   raw: T,
   normalized: ExchangeLedgerEntry,
-  eventId?: string,
-  cursor?: Record<string, number>
+  eventId?: string
 ): LedgerEntryWithRaw<T> {
   return {
     raw,
     normalized,
     eventId: eventId ?? normalized.id,
-    cursor: cursor ?? {},
   };
 }
 

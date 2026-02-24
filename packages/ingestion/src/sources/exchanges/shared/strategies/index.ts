@@ -2,12 +2,12 @@ export {
   byCorrelationId,
   byTimestamp,
   noGrouping,
-  RawTransactionWithMetadataSchema,
+  RawExchangeInputSchema,
   type GroupingStrategy,
   type LedgerEntryWithRaw,
+  type RawExchangeInput,
 } from './grouping.js';
 export {
-  coinbaseGrossAmounts,
   standardAmounts,
   type FeeInput,
   type InterpretationStrategy,

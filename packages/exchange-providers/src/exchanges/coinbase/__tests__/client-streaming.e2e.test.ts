@@ -1,7 +1,6 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { ExchangeLedgerEntry } from '../../../core/schemas.js';
 import type { FetchBatchResult } from '../../../core/types.js';
 import { createCoinbaseClient } from '../client.js';
 
@@ -68,8 +67,7 @@ describe('Coinbase Client Streaming E2E', () => {
         // Verify transaction structure
         const firstTx = firstBatch.transactions[0]!;
         expect(firstTx).toHaveProperty('eventId');
-        expect(firstTx).toHaveProperty('rawData');
-        expect(firstTx).toHaveProperty('normalizedData');
+        expect(firstTx).toHaveProperty('providerData');
         expect(firstTx.providerName).toBe('coinbase');
 
         // Verify cursor state structure
@@ -87,20 +85,14 @@ describe('Coinbase Client Streaming E2E', () => {
         expect(metadata?.accountId).toBeTruthy();
         expect(typeof metadata?.accountId).toBe('string');
 
-        // Verify Coinbase-specific normalized data structure
-        const normalized = firstTx.normalizedData as ExchangeLedgerEntry;
-        expect(normalized.id).toBeDefined();
-        expect(normalized.timestamp).toBeDefined();
-        expect(typeof normalized.timestamp).toBe('number');
-        expect(normalized.type).toBeDefined();
-        expect(normalized.assetSymbol).toBeDefined();
-        expect(normalized.amount).toBeDefined();
-        expect(normalized.fee).toBeDefined();
-        expect(normalized.feeCurrency).toBeDefined();
-        expect(normalized.status).toBe('success');
-
-        // Verify correlation ID exists (for trades) or is defined
-        expect(normalized.correlationId).toBeDefined();
+        // Verify raw Coinbase API v2 data in providerData
+        const raw = firstTx.providerData as Record<string, unknown>;
+        expect(raw['id']).toBeDefined();
+        expect(raw['created_at']).toBeDefined();
+        expect(raw['type']).toBeDefined();
+        expect(raw['amount']).toBeDefined();
+        expect((raw['amount'] as Record<string, unknown>)['amount']).toBeDefined();
+        expect((raw['amount'] as Record<string, unknown>)['currency']).toBeDefined();
       },
       60000
     );

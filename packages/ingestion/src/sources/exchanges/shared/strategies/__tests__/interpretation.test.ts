@@ -1,7 +1,7 @@
 import type { Currency } from '@exitbook/core';
-import type { ExchangeLedgerEntry } from '@exitbook/exchange-providers';
 import { describe, expect, test } from 'vitest';
 
+import type { ExchangeLedgerEntry } from '../../schemas.js';
 import type { LedgerEntryWithRaw } from '../grouping.js';
 import { standardAmounts } from '../interpretation.js';
 
@@ -23,7 +23,6 @@ function wrapEntry(entry: ExchangeLedgerEntry): LedgerEntryWithRaw {
     raw: entry,
     normalized: entry,
     eventId: entry.id,
-    cursor: {},
   };
 }
 

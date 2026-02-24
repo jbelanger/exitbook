@@ -1,10 +1,11 @@
 import type { Currency } from '@exitbook/core';
-import type { ExchangeLedgerEntry } from '@exitbook/exchange-providers';
+import { ok, type Result } from 'neverthrow';
 import { describe, expect, test } from 'vitest';
 
 import { CorrelatingExchangeProcessor } from '../correlating-exchange-processor.js';
-import { byCorrelationId, noGrouping, type LedgerEntryWithRaw } from '../strategies/grouping.js';
-import { standardAmounts } from '../strategies/interpretation.js';
+import type { ExchangeLedgerEntry } from '../schemas.js';
+import { byCorrelationId, noGrouping, type GroupingStrategy, type RawExchangeInput } from '../strategies/grouping.js';
+import { standardAmounts, type InterpretationStrategy } from '../strategies/interpretation.js';
 
 function createEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
   return {
@@ -19,18 +20,31 @@ function createEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEnt
   };
 }
 
-function wrapEntry(entry: ExchangeLedgerEntry): LedgerEntryWithRaw {
-  return {
-    raw: entry,
-    normalized: entry,
-    eventId: entry.id,
-    cursor: {},
-  };
+function wrapEntry(entry: ExchangeLedgerEntry): RawExchangeInput<ExchangeLedgerEntry> {
+  return { raw: entry, eventId: entry.id };
+}
+
+/**
+ * Concrete test subclass that passes raw ExchangeLedgerEntry through as normalized.
+ * Accepts configurable grouping and interpretation strategies to support all test scenarios.
+ */
+class TestCorrelatingProcessor extends CorrelatingExchangeProcessor<ExchangeLedgerEntry> {
+  constructor(
+    sourceName: string,
+    grouping: GroupingStrategy,
+    interpretation: InterpretationStrategy<ExchangeLedgerEntry>
+  ) {
+    super(sourceName, grouping, interpretation);
+  }
+
+  protected normalizeEntry(raw: ExchangeLedgerEntry, _eventId: string): Result<ExchangeLedgerEntry, Error> {
+    return ok(raw);
+  }
 }
 
 describe('CorrelatingExchangeProcessor - Strategy Composition', () => {
   test('uses grouping strategy to organize entries', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
       wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', assetSymbol: 'USD' as Currency })),
@@ -54,7 +68,7 @@ describe('CorrelatingExchangeProcessor - Strategy Composition', () => {
   });
 
   test('noGrouping strategy creates individual transactions', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', noGrouping, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', noGrouping, standardAmounts);
 
     const entries = [
       wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', assetSymbol: 'USD' as Currency })),
@@ -73,7 +87,7 @@ describe('CorrelatingExchangeProcessor - Strategy Composition', () => {
 
 describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
   test('consolidates multiple entries of same asset', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
       wrapEntry(createEntry({ id: 'E1', correlationId: 'MULTI001', amount: '-100', assetSymbol: 'USD' as Currency })),
@@ -99,7 +113,7 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
   });
 
   test('consolidates fees across correlated entries', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
       wrapEntry(
@@ -140,7 +154,7 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
 
 describe('CorrelatingExchangeProcessor - Operation Classification', () => {
   test('classifies swap (different assets)', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
       wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', assetSymbol: 'USD' as Currency })),
@@ -158,7 +172,7 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
   });
 
   test('classifies deposit (inflow only)', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
       wrapEntry(createEntry({ id: 'E1', correlationId: 'DEP001', amount: '700', assetSymbol: 'CAD' as Currency })),
@@ -175,7 +189,7 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
   });
 
   test('classifies withdrawal (outflow only)', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
       wrapEntry(
@@ -194,7 +208,7 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
   });
 
   test('classifies self-transfer (same asset in and out)', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
       wrapEntry(createEntry({ id: 'E1', correlationId: 'TRANS001', amount: '-100', assetSymbol: 'USDT' as Currency })),
@@ -212,7 +226,7 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
   });
 
   test('adds uncertainty note for complex multi-asset transactions', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
       wrapEntry(createEntry({ id: 'E1', correlationId: 'COMPLEX001', amount: '-100', assetSymbol: 'USD' as Currency })),
@@ -239,9 +253,9 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
 
 describe('CorrelatingExchangeProcessor - Error Handling', () => {
   test('returns error when empty entry group is provided', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', byCorrelationId, standardAmounts);
 
-    const entries: LedgerEntryWithRaw[] = [];
+    const entries: RawExchangeInput<ExchangeLedgerEntry>[] = [];
 
     const result = await processor.process(entries);
 
@@ -252,7 +266,7 @@ describe('CorrelatingExchangeProcessor - Error Handling', () => {
   });
 
   test('skips entries without valid id in grouping', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const validEntry = wrapEntry(
       createEntry({ id: 'E1', correlationId: 'REF001', amount: '100', assetSymbol: 'USD' as Currency })
@@ -261,7 +275,7 @@ describe('CorrelatingExchangeProcessor - Error Handling', () => {
       createEntry({ id: 'E2', correlationId: 'REF002', amount: '50', assetSymbol: 'EUR' as Currency })
     );
 
-    const entries = [validEntry, validEntry2] as LedgerEntryWithRaw[];
+    const entries = [validEntry, validEntry2];
 
     const result = await processor.process(entries);
 
@@ -274,7 +288,7 @@ describe('CorrelatingExchangeProcessor - Error Handling', () => {
 
 describe('CorrelatingExchangeProcessor - Metadata', () => {
   test('sets source correctly', async () => {
-    const processor = new CorrelatingExchangeProcessor('kraken', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('kraken', byCorrelationId, standardAmounts);
 
     const entries = [wrapEntry(createEntry({ id: 'E1', amount: '100', assetSymbol: 'USD' as Currency }))];
 
@@ -288,7 +302,7 @@ describe('CorrelatingExchangeProcessor - Metadata', () => {
 
   test('preserves entry timestamp', async () => {
     const timestamp = 1704153600000;
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [wrapEntry(createEntry({ id: 'E1', timestamp, amount: '100', assetSymbol: 'USD' as Currency }))];
 
@@ -302,7 +316,7 @@ describe('CorrelatingExchangeProcessor - Metadata', () => {
   });
 
   test('preserves entry status', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
       wrapEntry(createEntry({ id: 'E1', amount: '100', assetSymbol: 'USD' as Currency, status: 'pending' })),
@@ -317,7 +331,7 @@ describe('CorrelatingExchangeProcessor - Metadata', () => {
   });
 
   test('preserves normalized destination address as to', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+    const processor = new TestCorrelatingProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
       wrapEntry(

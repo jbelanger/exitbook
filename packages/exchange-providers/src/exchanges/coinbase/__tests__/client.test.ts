@@ -657,7 +657,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
       before: 0,
       after: 100,
       currency: 'USD',
-      direction: 'invalid-direction', // Invalid direction
+      direction: 'in',
       fee: { cost: 0, currency: 'USD' },
       status: 'ok',
       timestamp: 1704067201000,
@@ -667,7 +667,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
         id: 'LEDGER2',
         type: 'transaction',
         status: 'ok',
-        amount: { amount: '100', currency: 'USD' },
+        amount: 'not-an-object', // Invalid: amount should be { amount, currency }
         created_at: '2024-01-01T00:00:01.000Z',
       },
     };
@@ -775,7 +775,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     expect(mockFetchLedger).toHaveBeenCalledTimes(1);
   });
 
-  test('preserves Coinbase-specific correlation ID extraction', async () => {
+  test('preserves Coinbase-specific correlation ID in providerData', async () => {
     mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'BTC' }]);
 
     const mockTradeEntry: ccxt.LedgerEntry = {
@@ -822,11 +822,13 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     }
 
     expect(batches).toHaveLength(1);
-    const correlationId = (batches[0]?.transactions[0]?.normalizedData as { correlationId?: string })?.correlationId;
-    expect(correlationId).toBe('ORDER123');
+    const providerData = batches[0]?.transactions[0]?.providerData as {
+      advanced_trade_fill?: { order_id?: string };
+    };
+    expect(providerData.advanced_trade_fill?.order_id).toBe('ORDER123');
   });
 
-  test('preserves Coinbase-specific fee extraction from advanced_trade_fill', async () => {
+  test('preserves Coinbase-specific fee data in providerData from advanced_trade_fill', async () => {
     mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USDC' }]);
 
     const mockTradeEntry: ccxt.LedgerEntry = {
@@ -872,8 +874,11 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     }
 
     expect(batches).toHaveLength(1);
-    const normalizedData = batches[0]?.transactions[0]?.normalizedData as { fee?: string; feeCurrency?: string };
-    expect(normalizedData.fee).toBe('0.5');
-    expect(normalizedData.feeCurrency).toBe('USDC');
+    const providerData = batches[0]?.transactions[0]?.providerData as {
+      advanced_trade_fill?: { commission?: string };
+      amount: { currency: string };
+    };
+    expect(providerData.advanced_trade_fill?.commission).toBe('0.5');
+    expect(providerData.amount.currency).toBe('USDC');
   });
 });

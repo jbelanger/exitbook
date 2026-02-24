@@ -1,18 +1,19 @@
 import type { Currency } from '@exitbook/core';
-import type { ExchangeLedgerEntry } from '@exitbook/exchange-providers';
+import { ok, type Result } from 'neverthrow';
 import { describe, expect, test } from 'vitest';
 
 import {
   ExchangeEntryBuilder,
-  wrapEntry,
   expectOk,
   expectMovement,
   expectFee,
   expectOperation,
 } from '../../../../shared/test-utils/index.js';
-import { DefaultExchangeProcessor } from '../default-exchange-processor.js';
+import { CorrelatingExchangeProcessor } from '../correlating-exchange-processor.js';
+import type { ExchangeLedgerEntry } from '../schemas.js';
+import type { RawExchangeInput } from '../strategies/grouping.js';
+import { byCorrelationId, standardAmounts } from '../strategies/index.js';
 
-// Legacy helper function for tests not yet refactored
 function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
   return {
     amount: '0',
@@ -26,28 +27,20 @@ function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedge
   };
 }
 
+function toRawInput(entry: ExchangeLedgerEntry): RawExchangeInput<ExchangeLedgerEntry> {
+  return { raw: entry, eventId: entry.id };
+}
+
 /**
- * Test implementation of BaseExchangeProcessor
+ * Test implementation of CorrelatingExchangeProcessor with passthrough normalizeEntry.
  */
-class TestExchangeProcessor extends DefaultExchangeProcessor {
+class TestExchangeProcessor extends CorrelatingExchangeProcessor<ExchangeLedgerEntry> {
   constructor() {
-    super('test-exchange');
+    super('test-exchange', byCorrelationId, standardAmounts);
   }
 
-  protected mapStatus(status: string | undefined): 'pending' | 'success' | 'canceled' | 'failed' {
-    if (!status) return 'success';
-
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return 'pending';
-      case 'canceled':
-      case 'cancelled':
-        return 'canceled';
-      case 'failed':
-        return 'failed';
-      default:
-        return 'success';
-    }
+  protected normalizeEntry(raw: ExchangeLedgerEntry, _eventId: string): Result<ExchangeLedgerEntry, Error> {
+    return ok(raw);
   }
 }
 
@@ -74,7 +67,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
         .build(),
     ];
 
-    const [transaction] = expectOk(await processor.process(entries.map(wrapEntry)));
+    const [transaction] = expectOk(await processor.process(entries.map(toRawInput)));
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
@@ -97,7 +90,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
         .build(),
     ];
 
-    const [transaction] = expectOk(await processor.process(entries.map(wrapEntry)));
+    const [transaction] = expectOk(await processor.process(entries.map(toRawInput)));
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
@@ -119,7 +112,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry));
+    const result = await processor.process(entries.map(toRawInput));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -156,7 +149,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry));
+    const result = await processor.process(entries.map(toRawInput));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -181,7 +174,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '0.001', assetSymbol: 'BTC' as Currency, correlationId: 'SWAP001', id: 'E3' }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry));
+    const result = await processor.process(entries.map(toRawInput));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -220,7 +213,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry));
+    const result = await processor.process(entries.map(toRawInput));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -243,7 +236,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '0.01', assetSymbol: 'ETH' as Currency, correlationId: 'COMPLEX001', id: 'E4' }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry));
+    const result = await processor.process(entries.map(toRawInput));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -268,7 +261,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '100', assetSymbol: 'USD' as Currency, correlationId: 'ZERO001', id: 'E2' }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry));
+    const result = await processor.process(entries.map(toRawInput));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -290,7 +283,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '0', assetSymbol: 'USD' as Currency, correlationId: 'BAD001', id: 'E2' }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry));
+    const result = await processor.process(entries.map(toRawInput));
 
     expect(result.isOk()).toBe(true);
   });
@@ -308,7 +301,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry));
+    const result = await processor.process(entries.map(toRawInput));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -334,7 +327,7 @@ describe('BaseExchangeProcessor - Edge Cases', () => {
       },
     ];
 
-    const result = await processor.process(entries.map(wrapEntry));
+    const result = await processor.process(entries.map(toRawInput));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -362,7 +355,7 @@ describe('BaseExchangeProcessor - Edge Cases', () => {
       }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry));
+    const result = await processor.process(entries.map(toRawInput));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

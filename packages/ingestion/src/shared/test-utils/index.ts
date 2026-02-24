@@ -75,6 +75,7 @@ export {
 
 // Entry builders
 export {
+  type DeepPartial,
   ExchangeEntryBuilder,
   wrapEntry,
   createRawTransactionWithMetadata,

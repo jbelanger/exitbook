@@ -1,4 +1,4 @@
-import { DecimalStringSchema, ExchangeCredentialsSchema } from '@exitbook/core';
+import { ExchangeCredentialsSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -6,32 +6,6 @@ import { z } from 'zod';
  */
 export const CoinbaseCredentialsSchema = ExchangeCredentialsSchema.omit({ apiPassphrase: true });
 export type CoinbaseCredentials = z.infer<typeof CoinbaseCredentialsSchema>;
-
-/**
- * Coinbase ledger entry schema (from fetchLedger API via ccxt)
- * Captures all balance changes: trades, deposits, withdrawals, fees, etc.
- */
-export const CoinbaseLedgerEntrySchema = z.object({
-  id: z.string(), // Ledger entry ID
-  direction: z.enum(['in', 'out']), // Direction of the transaction
-  account: z.string().optional(), // Account ID
-  referenceAccount: z.string().optional(), // Related account
-  referenceId: z.string().optional(), // Reference to related transaction
-  type: z.string(), // trade, transaction, fee, rebate, etc.
-  currency: z.string(), // Asset currency code
-  amount: DecimalStringSchema, // Amount (positive or negative)
-  timestamp: z.number(), // Unix timestamp in milliseconds
-  datetime: z.string(), // ISO8601 datetime string
-  before: DecimalStringSchema.optional(), // Balance before
-  after: DecimalStringSchema.optional(), // Balance after
-  status: z.string().optional(), // pending, ok, canceled
-  fee: z
-    .object({
-      currency: z.string(),
-      cost: DecimalStringSchema,
-    })
-    .optional(),
-});
 
 /**
  * Schema for type-specific transaction details from Coinbase Consumer API v2
@@ -159,6 +133,5 @@ export const RawCoinbaseLedgerEntrySchema = z
   })
   .passthrough();
 
-export type CoinbaseLedgerEntry = z.infer<typeof CoinbaseLedgerEntrySchema>;
 export type RawCoinbaseTransactionDetails = z.infer<typeof RawCoinbaseTransactionDetailsSchema>;
 export type RawCoinbaseLedgerEntry = z.infer<typeof RawCoinbaseLedgerEntrySchema>;

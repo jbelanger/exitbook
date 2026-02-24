@@ -1,7 +1,7 @@
 import type { Currency } from '@exitbook/core';
-import type { ExchangeLedgerEntry } from '@exitbook/exchange-providers';
 import { describe, expect, test } from 'vitest';
 
+import type { ExchangeLedgerEntry } from '../../schemas.js';
 import { byCorrelationId, byTimestamp, noGrouping, type LedgerEntryWithRaw } from '../grouping.js';
 
 function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
@@ -22,7 +22,6 @@ function wrapEntry(entry: ExchangeLedgerEntry, eventId?: string): LedgerEntryWit
     raw: entry,
     normalized: entry,
     eventId: eventId || entry.id,
-    cursor: {},
   };
 }
 
@@ -81,7 +80,6 @@ describe('GroupingStrategy - byCorrelationId', () => {
       normalized: createTestEntry({ id: '', correlationId: 'REF002' }),
       raw: {},
       externalId: 'E2',
-      cursor: {},
     };
     const validEntry2 = wrapEntry(createTestEntry({ id: 'E3', correlationId: 'REF003' }));
 
