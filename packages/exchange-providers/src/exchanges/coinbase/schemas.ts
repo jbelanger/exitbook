@@ -90,9 +90,8 @@ export const CoinbaseAddressInfoSchema = z.object({
 
 /**
  * Schema for raw transaction from Coinbase Consumer API v2
- * Used to validate the structure in CCXT's info property for correlation ID extraction
  *
- * Structure: CCXT returns Coinbase v2 API transactions which have:
+ * Structure: Coinbase v2 API transactions have:
  * - Top-level fields: id, type, amount, created_at, status
  * - Type-specific nested object: advanced_trade_fill, buy, sell, send, trade, etc.
  * - Network field: blockchain transaction details (hash, network_name, status)
@@ -135,3 +134,23 @@ export const RawCoinbaseLedgerEntrySchema = z
 
 export type RawCoinbaseTransactionDetails = z.infer<typeof RawCoinbaseTransactionDetailsSchema>;
 export type RawCoinbaseLedgerEntry = z.infer<typeof RawCoinbaseLedgerEntrySchema>;
+
+/**
+ * Schema for a Coinbase v2 account object (from GET /v2/accounts)
+ */
+export const CoinbaseAccountSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.string(),
+  currency: z
+    .object({
+      code: z.string(),
+    })
+    .passthrough(),
+  balance: z.object({
+    amount: z.string(),
+    currency: z.string(),
+  }),
+});
+
+export type CoinbaseAccount = z.infer<typeof CoinbaseAccountSchema>;

@@ -1,14 +1,15 @@
 import type { CursorState, ExchangeCredentials, RawTransactionInput } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import * as ExchangeUtils from '../../core/exchange-utils.js';
 import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../core/types.js';
 
-import { CoinbaseCredentialsSchema, RawCoinbaseLedgerEntrySchema } from './schemas.js';
+import { coinbaseGet } from './coinbase-auth.js';
+import { CoinbaseAccountSchema, CoinbaseCredentialsSchema, RawCoinbaseLedgerEntrySchema } from './schemas.js';
+import type { CoinbaseAccount } from './schemas.js';
 
 const logger = getLogger('CoinbaseClient');
 
@@ -47,17 +48,63 @@ function validateCoinbaseCredentials(apiKey: string, secret: string): Result<voi
   return ok();
 }
 
-/**
- * Normalize PEM private key by converting escaped newlines to actual newlines
- */
 function normalizePemKey(secret: string): string {
   return secret.replace(/\\n/g, '\n');
 }
 
 /**
- * Factory function that creates a Coinbase exchange client.
- * Returns raw Coinbase API v2 data as providerData — normalization happens in the processor.
+ * Fetch all accounts from Coinbase v2 API, handling pagination.
  */
+async function fetchAllAccounts(auth: { apiKey: string; secret: string }): Promise<CoinbaseAccount[]> {
+  const accounts: CoinbaseAccount[] = [];
+  let startingAfter: string | undefined = undefined;
+
+  while (true) {
+    const params = new URLSearchParams({ limit: '100' });
+    if (startingAfter) {
+      params.set('starting_after', startingAfter);
+    }
+
+    const response = await coinbaseGet<unknown>(auth, `/v2/accounts?${params.toString()}`);
+
+    for (const item of response.data) {
+      const parsed = CoinbaseAccountSchema.safeParse(item);
+      if (parsed.success) {
+        accounts.push(parsed.data);
+      } else {
+        logger.warn({ item, error: parsed.error }, 'Skipping account that failed validation');
+      }
+    }
+
+    startingAfter = response.pagination.next_starting_after ?? undefined;
+    if (!startingAfter || response.data.length === 0) break;
+  }
+
+  return accounts;
+}
+
+/**
+ * Fetch a page of transactions for a specific account from Coinbase v2 API.
+ */
+async function fetchTransactionPage(
+  auth: { apiKey: string; secret: string },
+  accountId: string,
+  limit: number,
+  startingAfter?: string
+): Promise<{ entries: unknown[]; nextCursor: string | null }> {
+  const params = new URLSearchParams({ limit: String(limit), order: 'asc' });
+  if (startingAfter) {
+    params.set('starting_after', startingAfter);
+  }
+
+  const response = await coinbaseGet<unknown>(auth, `/v2/accounts/${accountId}/transactions?${params.toString()}`);
+
+  return {
+    entries: response.data,
+    nextCursor: response.pagination.next_starting_after,
+  };
+}
+
 export function createCoinbaseClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
   return ExchangeUtils.validateCredentials(CoinbaseCredentialsSchema, credentials, 'coinbase').andThen(
     ({ apiKey, apiSecret }) => {
@@ -67,12 +114,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
       }
 
       const normalizedSecret = normalizePemKey(apiSecret);
-
-      const exchange = new ccxt.coinbaseadvanced({
-        apiKey,
-        password: '',
-        secret: normalizedSecret,
-      });
+      const auth = { apiKey, secret: normalizedSecret };
 
       return ok({
         exchangeId: 'coinbase',
@@ -84,7 +126,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
 
           try {
             // Step 1: Fetch all accounts
-            const accounts = await exchange.fetchAccounts();
+            const accounts = await fetchAllAccounts(auth);
             if (accounts.length === 0) {
               yield ok({
                 transactions: [],
@@ -104,34 +146,35 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
               return;
             }
 
-            // Step 2: Stream ledger entries for each account
+            // Step 2: Stream transactions for each account
             let accountIndex = 0;
             for (const account of accounts) {
               const accountId = account.id;
-
-              if (!accountId) {
-                logger.warn({ account }, 'Skipping Coinbase account without ID');
-                accountIndex++;
-                continue;
-              }
-
               const accountCursorState = params?.cursor?.[accountId];
-              let accountCursor = accountCursorState?.primary.value as number | undefined;
+              let startingAfter = accountCursorState?.lastTransactionId;
+              // If resuming from a cursor that used the old timestamp-based format, start fresh
+              if (startingAfter?.startsWith('coinbase:')) {
+                startingAfter = undefined;
+              }
               let cumulativeFetched = (accountCursorState?.totalFetched as number) || 0;
               let pageCount = 0;
+              let lastCursorState: CursorState | undefined;
 
               while (true) {
-                const ledgerEntries = await exchange.fetchLedger(undefined, accountCursor, limit, {
-                  account_id: accountId,
-                });
+                const page = await fetchTransactionPage(auth, accountId, limit, startingAfter);
 
-                if (ledgerEntries.length === 0) {
+                if (page.entries.length === 0) {
                   yield ok({
                     transactions: [],
                     operationType: accountId,
                     cursor: {
-                      primary: { type: 'timestamp', value: accountCursor ?? Date.now() },
-                      lastTransactionId: accountCursorState?.lastTransactionId ?? `coinbase:${accountId}:none`,
+                      primary: startingAfter
+                        ? { type: 'pageToken' as const, value: startingAfter, providerName: 'coinbase' }
+                        : { type: 'timestamp' as const, value: Date.now() },
+                      lastTransactionId:
+                        lastCursorState?.lastTransactionId ??
+                        accountCursorState?.lastTransactionId ??
+                        `coinbase:${accountId}:none`,
                       totalFetched: cumulativeFetched,
                       metadata: {
                         providerName: 'coinbase',
@@ -146,16 +189,15 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                 }
 
                 const transactions: RawTransactionInput[] = [];
-                let lastCursorState: CursorState | undefined;
+                lastCursorState = undefined;
                 let validationError: Error | undefined;
 
-                for (let i = 0; i < ledgerEntries.length; i++) {
-                  const entry = ledgerEntries[i]!;
+                for (let i = 0; i < page.entries.length; i++) {
+                  const entry = page.entries[i];
 
-                  // Validate and extract raw Coinbase API v2 data from ccxt's info property
-                  let rawInfo;
+                  let validated;
                   try {
-                    rawInfo = RawCoinbaseLedgerEntrySchema.parse(entry.info);
+                    validated = RawCoinbaseLedgerEntrySchema.parse(entry);
                   } catch (error) {
                     validationError = new Error(
                       `Raw data validation failed after ${i} items in batch: ${String(error)}`
@@ -163,19 +205,18 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                     break;
                   }
 
-                  const timestamp = new Date(rawInfo.created_at).getTime();
+                  const timestamp = new Date(validated.created_at).getTime();
 
-                  // Store raw Coinbase API data only — processor handles normalization
                   transactions.push({
-                    eventId: rawInfo.id,
+                    eventId: validated.id,
                     timestamp,
                     providerName: 'coinbase',
-                    providerData: rawInfo,
+                    providerData: validated,
                   });
 
                   lastCursorState = {
-                    primary: { type: 'timestamp', value: timestamp },
-                    lastTransactionId: rawInfo.id,
+                    primary: { type: 'pageToken', value: validated.id, providerName: 'coinbase' },
+                    lastTransactionId: validated.id,
                     totalFetched: 1,
                     metadata: {
                       providerName: 'coinbase',
@@ -220,7 +261,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   `Account ${accountIndex + 1}/${accounts.length} (${accountId}): page ${pageCount} - ${cumulativeFetched} transactions`
                 );
 
-                const isComplete = ledgerEntries.length < limit;
+                const isComplete = page.nextCursor === null || page.nextCursor === undefined;
 
                 if (lastCursorState) {
                   lastCursorState.totalFetched = cumulativeFetched;
@@ -236,7 +277,9 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   transactions,
                   operationType: accountId,
                   cursor: lastCursorState ?? {
-                    primary: { type: 'timestamp', value: accountCursor ?? Date.now() },
+                    primary: startingAfter
+                      ? { type: 'pageToken' as const, value: startingAfter, providerName: 'coinbase' }
+                      : { type: 'timestamp' as const, value: Date.now() },
                     lastTransactionId: transactions[transactions.length - 1]?.eventId ?? '',
                     totalFetched: cumulativeFetched,
                     metadata: {
@@ -251,9 +294,8 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
 
                 if (isComplete) break;
 
-                if (lastCursorState) {
-                  accountCursor = (lastCursorState.primary.value as number) + 1;
-                }
+                // Advance cursor for next page
+                startingAfter = page.nextCursor ?? undefined;
               }
 
               accountIndex++;
@@ -265,8 +307,23 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
 
         async fetchBalance(): Promise<Result<BalanceSnapshot, Error>> {
           try {
-            const balance = await exchange.fetchBalance();
-            const balances = ExchangeUtils.processCCXTBalance(balance);
+            const accounts = await fetchAllAccounts(auth);
+            const balances: Record<string, string> = {};
+
+            for (const account of accounts) {
+              const amount = parseFloat(account.balance.amount);
+              if (amount !== 0) {
+                const currency = account.balance.currency;
+                // Aggregate balances across accounts with the same currency
+                const existing = balances[currency];
+                if (existing) {
+                  balances[currency] = (parseFloat(existing) + amount).toString();
+                } else {
+                  balances[currency] = account.balance.amount;
+                }
+              }
+            }
+
             return ok({ balances, timestamp: Date.now() });
           } catch (error) {
             return wrapError(error, 'Failed to fetch Coinbase balance');

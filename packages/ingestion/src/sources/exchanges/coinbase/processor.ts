@@ -20,7 +20,8 @@ import { extractCorrelationId, mapCoinbaseStatus } from './coinbase-utils.js';
  *     Fee is extracted here for record-keeping but marked 'on-chain' in the
  *     interpretation strategy so the balance calculator doesn't subtract it again.
  * - advanced_trade_fill: amount = qty × fill_price. Commission is NOT included
- *     and is intentionally stripped here to avoid double-counting (#264).
+ *     in amount but IS deducted from the wallet balance. Extracted as fee with
+ *     settlement='balance' so the balance calculator subtracts it.
  * - fiat_withdrawal / send: amount = TOTAL (fee included). Fee carved from gross.
  * - fiat_deposit / interest / trade / etc.: amount = wallet change, no fee.
  *
@@ -50,11 +51,12 @@ export class CoinbaseProcessor extends CorrelatingExchangeProcessor<RawCoinbaseL
 
     // Fee extraction per entry type:
     //
-    // advanced_trade_fill: commission = qty × fill_price × rate. It is NOT
-    //   included in `amount` (amount = qty × fill_price exactly). Recording
-    //   it as a fee causes double-counting because the balance impact is just
-    //   `amount` — the commission is a separate Coinbase charge that doesn't
-    //   appear as a wallet debit in the API. Stripped entirely (#264).
+    // advanced_trade_fill: commission is a separate balance deduction NOT
+    //   included in `amount` (amount = qty × fill_price exactly). The
+    //   commission is always denominated in the quote currency of the product
+    //   (e.g. USDC for ETH-USDC). We extract it as a fee so the balance
+    //   calculator can subtract it. The interpretation strategy uses
+    //   settlement='balance' for these fees.
     //
     // buy/sell (v2 simple): buy.fee / sell.fee is a real fee, but it's
     //   ALREADY INCLUDED in `amount`:
@@ -69,7 +71,24 @@ export class CoinbaseProcessor extends CorrelatingExchangeProcessor<RawCoinbaseL
     let feeAmount: string | undefined;
     let feeCurrency: string | undefined;
 
-    if (raw.type !== 'advanced_trade_fill') {
+    if (raw.type === 'advanced_trade_fill') {
+      // Commission is denominated in the quote currency of the product_id
+      // (e.g. "ETH-USDC" → commission is in USDC)
+      const commission = raw.advanced_trade_fill?.commission;
+      if (commission) {
+        const commissionValue = parseDecimal(commission);
+        if (!commissionValue.isZero()) {
+          feeAmount = commissionValue.toFixed();
+          // Extract quote currency from product_id (e.g. "ETH-USDC" → "USDC")
+          const productId = raw.advanced_trade_fill?.product_id;
+          const quoteCurrency = productId?.split('-').pop();
+          if (quoteCurrency) {
+            const quoteCurrencyResult = parseCurrency(quoteCurrency);
+            feeCurrency = quoteCurrencyResult.isOk() ? quoteCurrencyResult.value : undefined;
+          }
+        }
+      }
+    } else {
       // For buy/sell types, extract fee from nested object
       const typeData = raw.buy ?? raw.sell;
       if (typeData?.fee) {

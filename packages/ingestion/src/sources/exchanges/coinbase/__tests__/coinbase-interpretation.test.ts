@@ -53,11 +53,11 @@ function buildEntry(
 
 describe('coinbaseGrossAmounts', () => {
   // ── advanced_trade_fill ──────────────────────────────────────────────────
-  // amount = qty × fill_price (gross trade value). Commission is stripped
-  // by the normalizer, so no fee appears here.
+  // amount = qty × fill_price (gross trade value). Commission is NOT in
+  // amount but IS deducted from wallet balance. Fee uses settlement='balance'.
 
   describe('advanced_trade_fill', () => {
-    test('inflow: amount is gross, no fee', () => {
+    test('inflow without commission: no fee', () => {
       const entry = buildEntry({
         normalized: { type: 'advanced_trade_fill', amount: '317.60', assetSymbol: 'USDC' as Currency },
         raw: { type: 'advanced_trade_fill', amount: { amount: '317.60', currency: 'USDC' } },
@@ -71,7 +71,7 @@ describe('coinbaseGrossAmounts', () => {
       expect(result.fees).toHaveLength(0);
     });
 
-    test('outflow: amount is gross, no fee', () => {
+    test('outflow without commission: no fee', () => {
       const entry = buildEntry({
         normalized: { type: 'advanced_trade_fill', amount: '-72.31', assetSymbol: 'USDC' as Currency },
         raw: { type: 'advanced_trade_fill', amount: { amount: '-72.31', currency: 'USDC' } },
@@ -83,6 +83,49 @@ describe('coinbaseGrossAmounts', () => {
       expect(result.outflows[0]?.grossAmount).toBe('72.31');
       expect(result.outflows[0]?.netAmount).toBe('72.31');
       expect(result.inflows).toHaveLength(0);
+      expect(result.fees).toHaveLength(0);
+    });
+
+    test('with commission on quote-currency entry: fee uses settlement balance', () => {
+      // USDC entry for an ETH-USDC trade — asset matches fee currency, so fee is emitted
+      const entry = buildEntry({
+        normalized: {
+          type: 'advanced_trade_fill',
+          amount: '-100.00',
+          assetSymbol: 'USDC' as Currency,
+          fee: '0.60',
+          feeCurrency: 'USDC' as Currency,
+        },
+        raw: { type: 'advanced_trade_fill', amount: { amount: '-100.00', currency: 'USDC' } },
+      });
+
+      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+
+      expect(result.outflows).toHaveLength(1);
+      expect(result.outflows[0]?.grossAmount).toBe('100');
+      expect(result.outflows[0]?.netAmount).toBe('100');
+      expect(result.fees).toHaveLength(1);
+      expect(result.fees[0]?.amount).toBe('0.6');
+      expect(result.fees[0]?.settlement).toBe('balance');
+    });
+
+    test('with commission on base-currency entry: fee skipped (dedup to quote side)', () => {
+      // ETH entry for an ETH-USDC trade — asset (ETH) != fee currency (USDC), so fee is NOT emitted
+      const entry = buildEntry({
+        normalized: {
+          type: 'advanced_trade_fill',
+          amount: '0.04',
+          assetSymbol: 'ETH' as Currency,
+          fee: '0.60',
+          feeCurrency: 'USDC' as Currency,
+        },
+        raw: { type: 'advanced_trade_fill', amount: { amount: '0.04', currency: 'ETH' } },
+      });
+
+      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+
+      expect(result.inflows).toHaveLength(1);
+      expect(result.inflows[0]?.grossAmount).toBe('0.04');
       expect(result.fees).toHaveLength(0);
     });
   });

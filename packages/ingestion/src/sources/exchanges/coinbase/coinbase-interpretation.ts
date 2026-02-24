@@ -35,10 +35,11 @@ import type {
 // │                         │ Settlement: on-chain.                           │
 // │                         │                                                 │
 // │ advanced_trade_fill     │ amount = qty × fill_price (GROSS trade value)   │
-// │ (advanced trade)        │ commission is NOT included in amount.           │
-// │                         │ The normalizer strips commission entirely       │
-// │                         │ (no fee field), so no fee logic needed here.    │
-// │                         │ See normalizer comment re: #264.               │
+// │ (advanced trade)        │ commission is NOT included in amount but IS     │
+// │                         │ deducted from the wallet balance separately.    │
+// │                         │ Commission is in the quote currency of the      │
+// │                         │ product (e.g. USDC for ETH-USDC). Fee uses     │
+// │                         │ settlement='balance' (separate deduction).      │
 // │                         │                                                 │
 // │ fiat_deposit            │ amount = positive, no fee. Pure inflow.         │
 // │                         │                                                 │
@@ -66,7 +67,7 @@ import type {
 // Therefore:
 //   - buy/sell fees use settlement 'on-chain' → not subtracted again
 //   - fiat_withdrawal/send fees use settlement 'on-chain' → carved from gross
-//   - advanced_trade_fill has no fee (stripped by normalizer)
+//   - advanced_trade_fill commission uses settlement 'balance' → subtracted separately
 //   - all other types: amount is the wallet change, no fee adjustment needed
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -74,8 +75,16 @@ import type {
  * Helper function to determine if a fee should be included for a Coinbase entry.
  * Deduplicates fees across correlated entries in the same group.
  *
- * Within a correlated group (e.g., buy/sell pairs), the same fee appears on
- * multiple entries. We only emit it once — on the first entry that carries it.
+ * Each fill in a trade produces two entries (one per asset), both carrying the
+ * same commission. Multi-fill orders have multiple fill pairs in one group.
+ *
+ * Dedup strategy by entry type:
+ * - advanced_trade_fill: commission is always in the quote currency (from
+ *   product_id). Emit fee only on the entry whose asset matches the fee
+ *   currency. This naturally deduplicates per-fill (only one side matches)
+ *   while correctly counting each fill's commission in multi-fill orders.
+ * - buy/sell: always come in pairs. Emit fee on the first entry in the group
+ *   that carries it.
  */
 function shouldIncludeFeeForCoinbaseEntry(
   entry: LedgerEntryWithRaw<RawCoinbaseLedgerEntry>,
@@ -88,8 +97,14 @@ function shouldIncludeFeeForCoinbaseEntry(
 
   const entryFeeCurrency = entry.normalized.feeCurrency;
 
-  // Find all entries in group with identical fee (using normalized data)
-  // Only include fee on first occurrence to avoid duplication across correlated entries
+  // advanced_trade_fill: emit fee only on the quote-currency side of the fill.
+  // This handles multi-fill orders correctly — each fill's USDC entry carries
+  // its own commission, and the non-USDC entry is skipped.
+  if (entry.normalized.type === 'advanced_trade_fill') {
+    return entry.normalized.assetSymbol === entryFeeCurrency;
+  }
+
+  // buy/sell: emit fee on first occurrence in the group to avoid duplication
   const entriesWithSameFee = group.filter(
     (e) => e.normalized.fee === entryFee && e.normalized.feeCurrency === entryFeeCurrency
   );
@@ -210,9 +225,8 @@ export const coinbaseGrossAmounts: InterpretationStrategy<RawCoinbaseLedgerEntry
 
     // ── All other types: advanced_trade_fill, fiat_deposit, trade,
     //    interest, subscription, retail_simple_dust, etc. ──
-    // Amount = wallet change. No separate fee deduction needed.
-    // advanced_trade_fill: normalizer already strips commission (see #264),
-    //   so feeCost is always 0 here.
+    // Amount = wallet change. Fee (if any) is a separate balance deduction.
+    // advanced_trade_fill: commission is NOT in amount, uses settlement='balance'.
     // trade (v2 legacy): spread-based, no explicit fee in normalized data.
     // fiat_deposit / interest / etc.: pure amount, no fee.
     const movement: MovementInput = {

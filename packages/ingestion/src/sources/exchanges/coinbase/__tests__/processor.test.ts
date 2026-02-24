@@ -241,6 +241,48 @@ describe('CoinbaseProcessor - Swaps/Trades', () => {
     expect(transaction.movements.inflows![0]?.assetSymbol).toBe('ETH');
     expect(transaction.movements.inflows![0]?.grossAmount.toFixed()).toBe('0.04');
   });
+
+  test('extracts commission as fee for advanced trade fills', async () => {
+    const processor = createProcessor();
+
+    const tradeEntries = [
+      buildEntry({
+        id: 'trade-fee-out',
+        type: 'advanced_trade_fill',
+        amount: { amount: '-100.00', currency: 'USDC' },
+        advanced_trade_fill: {
+          order_id: 'ORDER-FEE',
+          commission: '0.60',
+          product_id: 'ETH-USDC',
+        } as RawCoinbaseLedgerEntry['advanced_trade_fill'],
+      }),
+      buildEntry({
+        id: 'trade-fee-in',
+        type: 'advanced_trade_fill',
+        amount: { amount: '0.04', currency: 'ETH' },
+        advanced_trade_fill: {
+          order_id: 'ORDER-FEE',
+          commission: '0.60',
+          product_id: 'ETH-USDC',
+        } as RawCoinbaseLedgerEntry['advanced_trade_fill'],
+      }),
+    ];
+
+    const result = await processor.process(tradeEntries);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // Fee should be present and deduplicated (only counted once despite appearing on both entries)
+    expect(transaction.fees).toHaveLength(1);
+    expect(transaction.fees[0]?.assetSymbol).toBe('USDC');
+    expect(transaction.fees[0]?.amount.toFixed()).toBe('0.6');
+    expect(transaction.fees[0]?.settlement).toBe('balance');
+  });
 });
 
 describe('CoinbaseProcessor - Mixed Transaction Batch', () => {
