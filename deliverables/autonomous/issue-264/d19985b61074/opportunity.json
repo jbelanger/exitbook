@@ -1,0 +1,18 @@
+{
+  "headline": "GitHub[jbelanger/exitbook]: Coinbase advanced_trade_fill fees double-counted in balance calculation",
+  "url": "https://github.com/jbelanger/exitbook/issues/264",
+  "expected_usd": 145.0,
+  "strategy": "锁定明码 bounty；交付代码+run_log+sample_data，并准备自动交割链接。",
+  "raw_expected": "145.00 USD",
+  "bounty_literal": "145 USDC",
+  "source_line": "## 🚨 发现新商机：GitHub[jbelanger/exitbook]: Coinbase advanced_trade_fill fees double-counted in balance calculation",
+  "kind": "generic_automation",
+  "difficulty": 1.0,
+  "score": 145.0,
+  "oid": "0d50efff1297d9bdd1f404dbefa2ea45417f853d2a0ae68dcab24173ae1df1cc",
+  "payout": {
+    "asset": "USDT",
+    "chain": "EVM",
+    "wallet": "0xF57503F99fA20b912200ed90D26d945093136ef5"
+  }
+}
