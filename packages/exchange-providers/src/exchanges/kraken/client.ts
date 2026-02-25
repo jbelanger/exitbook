@@ -32,20 +32,18 @@ type KrakenBalanceExResponse = Record<string, { balance: string; hold_trade: str
 /**
  * Fetch ledger entries from Kraken's private Ledgers endpoint.
  * Returns raw entries with the ledger ID injected as `id`.
+ *
+ * Uses only `ofs` (absolute global offset) for pagination — never a `start` timestamp filter.
+ * Combining `start` + `ofs` is broken because Kraken's `ofs` is relative to the filtered result
+ * set, so mixing them causes entries to be silently skipped on resume and incremental runs.
  */
 async function fetchLedger(
   httpClient: HttpClient,
   auth: { apiKey: string; apiSecret: string },
-  since: number | undefined,
   limit: number,
   ofs: number
 ): Promise<Result<Record<string, unknown>[], Error>> {
-  const params: Record<string, string | number> = { ofs };
-  if (since !== undefined) {
-    params['start'] = Math.floor(since / 1000);
-  }
-
-  const result = await krakenPost<KrakenLedgerResponse>(httpClient, auth, 'Ledgers', params);
+  const result = await krakenPost<KrakenLedgerResponse>(httpClient, auth, 'Ledgers', { ofs });
 
   if (result.isErr()) {
     return err(result.error);
@@ -80,7 +78,6 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
           params?: FetchParams
         ): AsyncIterableIterator<Result<FetchBatchResult, Error>> {
           const ledgerCursor = params?.cursor?.['ledger'];
-          const since = ledgerCursor?.primary.value as number | undefined;
           let ofs = (ledgerCursor?.metadata?.['offset'] as number) || 0;
           const limit = 50;
 
@@ -89,7 +86,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
           let pageCount = 0;
 
           while (true) {
-            const ledgerResult = await fetchLedger(httpClient, auth, since, limit, ofs);
+            const ledgerResult = await fetchLedger(httpClient, auth, limit, ofs);
 
             if (ledgerResult.isErr()) {
               yield wrapError(ledgerResult.error, 'Kraken API error');
@@ -103,7 +100,10 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
                 transactions: [],
                 operationType: 'ledger',
                 cursor: {
-                  primary: { type: 'timestamp', value: since ?? Date.now() },
+                  primary: {
+                    type: 'timestamp',
+                    value: (ledgerCursor?.primary.value as number | undefined) ?? Date.now(),
+                  },
                   lastTransactionId: ledgerCursor?.lastTransactionId ?? 'kraken:ledger:none',
                   totalFetched: cumulativeFetched,
                   metadata: {
@@ -203,7 +203,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
                     },
                   }
                 : {
-                    primary: { type: 'timestamp', value: since ?? Date.now() },
+                    primary: { type: 'timestamp', value: Date.now() },
                     lastTransactionId: transactions[transactions.length - 1]?.eventId ?? '',
                     totalFetched: cumulativeFetched,
                     metadata: {

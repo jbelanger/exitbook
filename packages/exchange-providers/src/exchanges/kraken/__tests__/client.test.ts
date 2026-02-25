@@ -271,7 +271,7 @@ describe('createKrakenClient - fetchTransactionDataStreaming', () => {
       expect.any(Object),
       { apiKey: 'test-api-key', apiSecret: 'test-secret' },
       'Ledgers',
-      { ofs: 50, start: 1704067200 }
+      { ofs: 50 }
     );
   });
 
