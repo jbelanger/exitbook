@@ -225,7 +225,7 @@ function normalizeCause(rawCause: string): Result<NearBalanceChangeCause, Error>
     return ok('FEE');
   }
 
-  if (/GAS.*REFUND|REFUND.*GAS/i.test(rawCause)) {
+  if (upperCause.includes('GAS') && upperCause.includes('REFUND')) {
     logger.warn({ rawCause }, 'Unknown gas refund variant detected, normalizing to GAS_REFUND');
     return ok('GAS_REFUND');
   }

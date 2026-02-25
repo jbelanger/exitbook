@@ -172,7 +172,7 @@ export class ImportOrchestrator {
     }
 
     // Normalize path for consistent comparison and storage (remove trailing slashes, normalize separators)
-    const normalizedPath = path.normalize(csvDirectory).replace(/[/\\]+$/, '');
+    const normalizedPath = path.normalize(csvDirectory).replace(/[/\\]$/, '');
 
     // 1. Ensure default CLI user exists (id=1)
     const userResult = await this.userQueries.getOrCreateDefaultUser();
