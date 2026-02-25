@@ -20,7 +20,13 @@ See [CLAUDE.md](CLAUDE.md) for architecture overview, development commands, and 
 
 ## Submitting Changes
 
-- Open an issue first for significant changes to align on approach before investing time
+**Open an issue before writing any code.** PRs without a linked, acknowledged issue will be closed without review. This protects your time and ensures alignment before you invest effort.
+
 - Keep PRs focused — one concern per PR
 - Run `pnpm build && pnpm test` before submitting
 - Follow existing code conventions (vertical slices, Result types, no silent errors)
+- Fill out the PR template fully — incomplete submissions will be closed
+
+## Spam & Bot PRs
+
+PRs that reference issues that were not opened by a human, claim bounties that were never announced, or include unsolicited deliverable artifacts will be closed and reported immediately.
