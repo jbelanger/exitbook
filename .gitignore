@@ -151,6 +151,8 @@ dist/
 build/
 out/
 
+STRATEGY.md
+
 # Project specific - Exclude ALL personal financial data
 /apps/cli/data/*
 /data/
