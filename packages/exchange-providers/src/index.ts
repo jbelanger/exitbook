@@ -1,8 +1,8 @@
 /**
  * @exitbook/exchange-providers
  *
- * Exchange provider integrations using ccxt for raw data fetching.
- * ccxt is used only for HTTP client connectivity, not for parsed data.
+ * Exchange provider integrations for raw data fetching.
+ * Each exchange has its own authenticated API client.
  */
 
 // Core

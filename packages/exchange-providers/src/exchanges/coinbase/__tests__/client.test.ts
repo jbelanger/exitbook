@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- needed by api response */
 import type { CursorState } from '@exitbook/core';
+import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import type { FetchBatchResult, IExchangeClient } from '../../../core/types.js';
@@ -169,11 +170,13 @@ describe('createCoinbaseClient - fetchBalance', () => {
 
   test('fetches and returns balances', async () => {
     mockCoinbaseGet.mockResolvedValueOnce(
-      paginatedResponse([
-        makeAccount('acc-btc', 'BTC', '0.6'),
-        makeAccount('acc-usd', 'USD', '5000'),
-        makeAccount('acc-eth', 'ETH', '6'),
-      ])
+      ok(
+        paginatedResponse([
+          makeAccount('acc-btc', 'BTC', '0.6'),
+          makeAccount('acc-usd', 'USD', '5000'),
+          makeAccount('acc-eth', 'ETH', '6'),
+        ])
+      )
     );
 
     const result = await client.fetchBalance();
@@ -195,11 +198,13 @@ describe('createCoinbaseClient - fetchBalance', () => {
 
   test('skips zero balances', async () => {
     mockCoinbaseGet.mockResolvedValueOnce(
-      paginatedResponse([
-        makeAccount('acc-btc', 'BTC', '0.5'),
-        makeAccount('acc-usd', 'USD', '0'),
-        makeAccount('acc-eth', 'ETH', '0'),
-      ])
+      ok(
+        paginatedResponse([
+          makeAccount('acc-btc', 'BTC', '0.5'),
+          makeAccount('acc-usd', 'USD', '0'),
+          makeAccount('acc-eth', 'ETH', '0'),
+        ])
+      )
     );
 
     const result = await client.fetchBalance();
@@ -215,7 +220,7 @@ describe('createCoinbaseClient - fetchBalance', () => {
   });
 
   test('handles empty balance response', async () => {
-    mockCoinbaseGet.mockResolvedValueOnce(paginatedResponse([]));
+    mockCoinbaseGet.mockResolvedValueOnce(ok(paginatedResponse([])));
 
     const result = await client.fetchBalance();
 
@@ -227,7 +232,7 @@ describe('createCoinbaseClient - fetchBalance', () => {
   });
 
   test('handles API errors gracefully', async () => {
-    mockCoinbaseGet.mockRejectedValueOnce(new Error('Unauthorized'));
+    mockCoinbaseGet.mockResolvedValueOnce(err(new Error('Unauthorized')));
 
     const result = await client.fetchBalance();
 
@@ -262,11 +267,11 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     ...transactionPages: { data: RawCoinbaseLedgerEntry[]; nextCursor: string | null }[]
   ) {
     // First call is always fetchAllAccounts → GET /v2/accounts
-    mockCoinbaseGet.mockResolvedValueOnce(paginatedResponse(accounts));
+    mockCoinbaseGet.mockResolvedValueOnce(ok(paginatedResponse(accounts)));
 
     // Subsequent calls are transaction pages
     for (const page of transactionPages) {
-      mockCoinbaseGet.mockResolvedValueOnce(paginatedResponse(page.data, page.nextCursor));
+      mockCoinbaseGet.mockResolvedValueOnce(ok(paginatedResponse(page.data, page.nextCursor)));
     }
   }
 
@@ -416,7 +421,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     // Verify the transaction page was called with starting_after
     // Call 0 = accounts, Call 1 = transactions
     expect(mockCoinbaseGet).toHaveBeenCalledTimes(2);
-    const txCallPath = mockCoinbaseGet.mock.calls[1]![1] as string;
+    const txCallPath = mockCoinbaseGet.mock.calls[1]![2] as string;
     expect(txCallPath).toContain('starting_after=LEDGER100');
   });
 
@@ -474,9 +479,9 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     };
 
     // fetchAllAccounts
-    mockCoinbaseGet.mockResolvedValueOnce(paginatedResponse([makeAccount('account1', 'USD')]));
+    mockCoinbaseGet.mockResolvedValueOnce(ok(paginatedResponse([makeAccount('account1', 'USD')])));
     // fetchTransactionPage - returns mixed valid/invalid
-    mockCoinbaseGet.mockResolvedValueOnce(paginatedResponse([validTx, invalidTx]));
+    mockCoinbaseGet.mockResolvedValueOnce(ok(paginatedResponse([validTx, invalidTx])));
 
     const batches: FetchBatchResult[] = [];
     const errors: Error[] = [];
@@ -500,7 +505,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
   });
 
   test('handles no accounts gracefully', async () => {
-    mockCoinbaseGet.mockResolvedValueOnce(paginatedResponse([]));
+    mockCoinbaseGet.mockResolvedValueOnce(ok(paginatedResponse([])));
 
     const batches: FetchBatchResult[] = [];
     for await (const batchResult of client.fetchTransactionDataStreaming()) {

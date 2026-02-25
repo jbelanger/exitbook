@@ -1184,3 +1184,120 @@ describe('HttpClient - Hook Event Pairing', () => {
     expect(duration).toBeGreaterThan(200); // Multiple attempts + backoff delays
   });
 });
+
+describe('HttpClient - buildRequest', () => {
+  it('should call buildRequest on each retry attempt with fresh values', async () => {
+    let attempt = 0;
+    const buildRequest = vi.fn().mockImplementation(() => {
+      attempt++;
+      return {
+        body: `nonce=${attempt}&data=test`,
+        headers: {
+          'API-Sign': `signature-${attempt}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      };
+    });
+
+    // First call: rate limit in body (triggers validateResponse), second call: success
+    const mockFetch = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      const body = init.body as string;
+      if (body.includes('nonce=1')) {
+        // First attempt - return rate limit in body
+        return Promise.resolve({
+          headers: new Headers(),
+          json: () => Promise.resolve({ error: ['EAPI:Rate limit exceeded'], result: {} }),
+          ok: true,
+          status: 200,
+        });
+      }
+      // Second attempt - success with fresh nonce
+      return Promise.resolve({
+        headers: new Headers(),
+        json: () => Promise.resolve({ error: [], result: { data: 'ok' } }),
+        ok: true,
+        status: 200,
+      });
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => Date.now(),
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+        retries: 3,
+      },
+      mockEffects
+    );
+
+    const result = await client.request('/test', {
+      method: 'POST',
+      buildRequest,
+      validateResponse: (data) => {
+        const resp = data as { error: string[] };
+        if (resp.error?.some((e: string) => e.includes('Rate limit'))) {
+          return new RateLimitError('Rate limit exceeded', 1000);
+        }
+      },
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(buildRequest).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    // Verify first call used nonce=1
+    const firstCall = mockFetch.mock.calls[0]!;
+    expect((firstCall[1] as RequestInit).body).toBe('nonce=1&data=test');
+
+    // Verify second call used fresh nonce=2
+    const secondCall = mockFetch.mock.calls[1]!;
+    expect((secondCall[1] as RequestInit).body).toBe('nonce=2&data=test');
+  });
+
+  it('should use static body/headers when buildRequest is not provided', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve({ success: true }),
+      ok: true,
+      status: 200,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const result = await client.request('/test', {
+      method: 'POST',
+      body: 'static-body',
+      headers: { 'X-Custom': 'header' },
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.example.com/test',
+      expect.objectContaining({
+        body: 'static-body',
+        headers: expect.objectContaining({ 'X-Custom': 'header' }) as Record<string, string>,
+      }) as RequestInit
+    );
+  });
+});

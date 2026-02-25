@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 
-const BASE_URL = 'https://api.coinbase.com';
+import type { HttpClient } from '@exitbook/http';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
 
 interface CoinbaseAuth {
   readonly apiKey: string;
@@ -10,7 +12,7 @@ interface CoinbaseAuth {
 /**
  * Build an ES256-signed JWT for Coinbase API authentication.
  *
- * Format matches ccxt's createAuthToken for ECDSA keys:
+ * ES256-signed JWT for Coinbase Advanced Trade API:
  * - Header: { alg: "ES256", typ: "JWT", kid: apiKey, nonce: random }
  * - Payload: { aud: ["retail_rest_api_proxy"], iss: "coinbase-cloud", nbf, exp, sub, uri }
  */
@@ -93,25 +95,27 @@ export interface CoinbasePaginatedResponse<T> {
 
 /**
  * Make an authenticated GET request to the Coinbase v2 API.
+ * Uses HttpClient for rate limiting, retries, and timeout handling.
  */
-export async function coinbaseGet<T>(auth: CoinbaseAuth, path: string): Promise<CoinbasePaginatedResponse<T>> {
-  // Strip query params from URI for signing (matches ccxt behavior)
+export async function coinbaseGet<T>(
+  httpClient: HttpClient,
+  auth: CoinbaseAuth,
+  path: string
+): Promise<Result<CoinbasePaginatedResponse<T>, Error>> {
+  // Strip query params from URI for signing
   const pathForSigning = path.split('?')[0]!;
   const token = buildJwt(auth, 'GET', pathForSigning);
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    method: 'GET',
+  const result = await httpClient.get<CoinbasePaginatedResponse<T>>(path, {
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
       'CB-VERSION': '2018-05-30',
     },
   });
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Coinbase API error ${response.status}: ${body}`);
+  if (result.isErr()) {
+    return err(result.error);
   }
 
-  return (await response.json()) as CoinbasePaginatedResponse<T>;
+  return ok(result.value);
 }

@@ -163,18 +163,21 @@ export class HttpClient {
 
         timeoutId = setTimeout(() => controller.abort(), timeout);
 
+        // Regenerate body+headers on each attempt if buildRequest provided (for per-request signing)
+        const attemptOptions = options.buildRequest ? { ...options, ...options.buildRequest() } : options;
+
         const headers = {
           ...this.config.defaultHeaders,
-          ...options.headers,
+          ...attemptOptions.headers,
         };
 
         let body: string | undefined;
-        if (options.body) {
-          if (typeof options.body === 'object') {
-            body = JSON.stringify(options.body);
+        if (attemptOptions.body) {
+          if (typeof attemptOptions.body === 'object') {
+            body = JSON.stringify(attemptOptions.body);
             headers['Content-Type'] = 'application/json';
           } else {
-            body = options.body;
+            body = attemptOptions.body;
           }
         }
 
