@@ -45,12 +45,34 @@ export interface HttpEffects {
 /**
  * Factory functions for initial states
  */
-export const createInitialRateLimitState = (config: RateLimitConfig): RateLimitState => ({
-  burstLimit: config.burstLimit || 1,
-  lastRefill: 0, // Will be set by effects.now() on first use
-  requestTimestamps: [],
-  requestsPerHour: config.requestsPerHour,
-  requestsPerMinute: config.requestsPerMinute,
-  requestsPerSecond: config.requestsPerSecond,
-  tokens: config.burstLimit || 1,
-});
+const assertPositiveFinite = (fieldName: string, value: number): void => {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`Invalid rate limit configuration: ${fieldName} must be a positive finite number, got ${value}`);
+  }
+};
+
+export const createInitialRateLimitState = (config: RateLimitConfig): RateLimitState => {
+  assertPositiveFinite('requestsPerSecond', config.requestsPerSecond);
+
+  if (config.burstLimit !== undefined) {
+    assertPositiveFinite('burstLimit', config.burstLimit);
+  }
+  if (config.requestsPerMinute !== undefined) {
+    assertPositiveFinite('requestsPerMinute', config.requestsPerMinute);
+  }
+  if (config.requestsPerHour !== undefined) {
+    assertPositiveFinite('requestsPerHour', config.requestsPerHour);
+  }
+
+  const burstLimit = config.burstLimit ?? 1;
+
+  return {
+    burstLimit,
+    lastRefill: 0, // Will be set by effects.now() on first use
+    requestTimestamps: [],
+    requestsPerHour: config.requestsPerHour,
+    requestsPerMinute: config.requestsPerMinute,
+    requestsPerSecond: config.requestsPerSecond,
+    tokens: burstLimit,
+  };
+};

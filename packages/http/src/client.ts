@@ -136,12 +136,6 @@ export class HttpClient {
     const sanitizedEndpoint = sanitizeEndpoint(endpoint);
     let lastError: Error | undefined;
 
-    // Wait for rate limit permission before making request
-    const rateLimitResult = await this.waitForRateLimit();
-    if (rateLimitResult.isErr()) {
-      return err(rateLimitResult.error);
-    }
-
     // Emit start event once before retry loop (logical request started)
     const startTime = this.effects.now();
     hooks?.onRequestStart?.({ endpoint: sanitizedEndpoint, method, timestamp: startTime });
@@ -156,6 +150,12 @@ export class HttpClient {
       const attemptStartTime = this.effects.now();
 
       try {
+        // Apply local rate limit to every physical HTTP attempt, including retries.
+        const rateLimitResult = await this.waitForRateLimit();
+        if (rateLimitResult.isErr()) {
+          return err(rateLimitResult.error);
+        }
+
         this.effects.log(
           'debug',
           `Making HTTP request - URL: ${HttpUtils.sanitizeUrl(url)}, Method: ${method}, Attempt: ${attempt}/${this.config.retries}`
@@ -171,13 +171,17 @@ export class HttpClient {
           ...attemptOptions.headers,
         };
 
-        let body: string | undefined;
-        if (attemptOptions.body) {
-          if (typeof attemptOptions.body === 'object') {
-            body = JSON.stringify(attemptOptions.body);
-            headers['Content-Type'] = 'application/json';
-          } else {
+        let body: string | Buffer | Uint8Array | undefined;
+        if (attemptOptions.body !== undefined) {
+          if (typeof attemptOptions.body === 'string' || attemptOptions.body instanceof Uint8Array) {
             body = attemptOptions.body;
+          } else {
+            body = JSON.stringify(attemptOptions.body);
+
+            const hasContentType = Object.keys(headers).some((key) => key.toLowerCase() === 'content-type');
+            if (!hasContentType) {
+              headers['Content-Type'] = 'application/json';
+            }
           }
         }
 

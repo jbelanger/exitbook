@@ -23,7 +23,7 @@ export interface HttpRequestOptions {
    * When provided, the returned body/headers override the static body/headers options.
    */
   buildRequest?:
-    | (() => { body?: string | object | undefined; headers?: Record<string, string> | undefined })
+    | (() => { body?: string | Buffer | Uint8Array | object | undefined; headers?: Record<string, string> | undefined })
     | undefined;
   headers?: Record<string, string> | undefined;
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | undefined;

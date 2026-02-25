@@ -113,9 +113,9 @@ describe('http-utils (pure functions)', () => {
       expect(parseRetryAfter('60', currentTime)).toBe(30_000);
     });
 
-    it('treats large numbers as milliseconds', () => {
-      expect(parseRetryAfter('500', currentTime)).toBe(500);
-      expect(parseRetryAfter('5000', currentTime)).toBe(5000);
+    it('treats large numbers as seconds and caps at 30 seconds', () => {
+      expect(parseRetryAfter('500', currentTime)).toBe(30_000);
+      expect(parseRetryAfter('5000', currentTime)).toBe(30_000);
     });
 
     it('handles zero with minimum delay', () => {

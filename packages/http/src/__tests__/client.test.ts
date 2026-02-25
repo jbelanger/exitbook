@@ -152,6 +152,55 @@ describe('HttpClient - Result Type Implementation', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
+  it('should apply local rate limiting to retry attempts', async () => {
+    let attempt = 0;
+    let currentTime = 1000;
+    const mockFetch = vi.fn().mockImplementation(() => {
+      attempt++;
+      if (attempt === 1) {
+        throw new Error('Network error');
+      }
+      return Promise.resolve({
+        headers: new Headers(),
+        json: () => Promise.resolve({ success: true }),
+        ok: true,
+        status: 200,
+      });
+    });
+
+    const delaySpy = vi.fn().mockImplementation((ms: number) => {
+      currentTime += ms;
+      return Promise.resolve(undefined as unknown);
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: delaySpy,
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => currentTime,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { burstLimit: 1, requestsPerSecond: 0.5 },
+        retries: 2,
+      },
+      mockEffects
+    );
+
+    const result = await client.get('/test');
+
+    expect(result.isOk()).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    // One retry backoff + one rate-limiter wait before retry attempt.
+    expect(delaySpy).toHaveBeenCalledTimes(2);
+    expect(delaySpy).toHaveBeenNthCalledWith(1, 1000);
+    expect(delaySpy).toHaveBeenNthCalledWith(2, 1000);
+  });
+
   it('should enforce rate limiting', async () => {
     let currentTime = 1000;
     const mockDelay = vi.fn().mockImplementation((ms: number) => {
@@ -1299,5 +1348,121 @@ describe('HttpClient - buildRequest', () => {
         headers: expect.objectContaining({ 'X-Custom': 'header' }) as Record<string, string>,
       }) as RequestInit
     );
+  });
+
+  it('should pass binary body through without JSON serialization', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve({ success: true }),
+      ok: true,
+      status: 200,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const body = Buffer.from([0xde, 0xad, 0xbe, 0xef]);
+    const result = await client.request('/test', {
+      method: 'POST',
+      body,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.example.com/test',
+      expect.objectContaining({
+        body,
+      }) as RequestInit
+    );
+  });
+
+  it('should preserve explicit empty string body', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve({ success: true }),
+      ok: true,
+      status: 200,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const result = await client.request('/test', {
+      method: 'POST',
+      body: '',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.example.com/test',
+      expect.objectContaining({
+        body: '',
+      }) as RequestInit
+    );
+  });
+
+  it('should not overwrite caller-provided content-type for object body', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve({ success: true }),
+      ok: true,
+      status: 200,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const result = await client.request('/test', {
+      method: 'POST',
+      body: { key: 'value' },
+      headers: { 'content-type': 'application/vnd.api+json' },
+    });
+
+    expect(result.isOk()).toBe(true);
+    const requestHeaders = (mockFetch.mock.calls[0]?.[1] as RequestInit | undefined)?.headers as
+      | Record<string, string>
+      | undefined;
+    expect(requestHeaders).toBeDefined();
+    expect(requestHeaders?.['content-type']).toBe('application/vnd.api+json');
+    expect(requestHeaders?.['Content-Type']).toBeUndefined();
   });
 });

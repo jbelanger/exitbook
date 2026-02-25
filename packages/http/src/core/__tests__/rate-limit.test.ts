@@ -13,6 +13,29 @@ import {
 import { createInitialRateLimitState } from '../types.js';
 
 describe('rate-limit (pure functions)', () => {
+  describe('createInitialRateLimitState', () => {
+    it('throws for invalid requestsPerSecond', () => {
+      expect(() => createInitialRateLimitState({ requestsPerSecond: 0 })).toThrow(
+        'requestsPerSecond must be a positive finite number'
+      );
+      expect(() => createInitialRateLimitState({ requestsPerSecond: -1 })).toThrow(
+        'requestsPerSecond must be a positive finite number'
+      );
+    });
+
+    it('throws for invalid optional limits', () => {
+      expect(() => createInitialRateLimitState({ requestsPerSecond: 1, burstLimit: 0 })).toThrow(
+        'burstLimit must be a positive finite number'
+      );
+      expect(() => createInitialRateLimitState({ requestsPerSecond: 1, requestsPerMinute: -5 })).toThrow(
+        'requestsPerMinute must be a positive finite number'
+      );
+      expect(() => createInitialRateLimitState({ requestsPerSecond: 1, requestsPerHour: 0 })).toThrow(
+        'requestsPerHour must be a positive finite number'
+      );
+    });
+  });
+
   describe('refillTokens', () => {
     it('initializes lastRefill on first call', () => {
       const state = createInitialRateLimitState({ requestsPerSecond: 1 });

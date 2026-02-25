@@ -74,16 +74,8 @@ export const parseRetryAfter = (value: string, currentTime: number): number | un
     }
 
     if (seconds > 0) {
-      // Auto-detect if value is in seconds or milliseconds
-      // If seconds > 300 (5 minutes), assume it's milliseconds
-      // If seconds <= 300, assume it's seconds (RFC standard)
-      if (seconds > 300) {
-        // Likely already in milliseconds, cap at 30 seconds
-        return Math.min(seconds, 30_000);
-      } else {
-        // Likely in seconds per RFC, convert and cap at 30 seconds
-        return Math.min(seconds * 1000, 30_000);
-      }
+      // RFC: numeric Retry-After is always delay-seconds.
+      return Math.min(seconds * 1000, 30_000);
     }
   }
 
