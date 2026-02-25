@@ -40,11 +40,6 @@ the libraries, the runtime, the data layer, the monorepo tooling, the patterns.
 4. **Rank by leverage.** Order findings by (impact on correctness + DX +
    maintenance burden), not by how easy they are to spot.
 
-> **Serena tools:** Use `find_referencing_symbols` for exact call-site counts
-> (Rule 3). Use `get_symbols_overview` to sample a file's exports without
-> reading it in full (Rule 2). Use `search_for_pattern` to locate every usage
-> of a pattern across the codebase with precise file + line references.
-
 ────────────────────────────────────────
 
 ## ANALYSIS DIMENSIONS
@@ -203,11 +198,9 @@ pattern, factory pattern, registry/decorator pattern, etc.):
 
 1. **Read CLAUDE.md** to understand stated conventions and project context.
 2. **Map the dependency graph** — read all `package.json` files, understand
-   what each package does and what it depends on. Run `find_referencing_symbols`
-   on key exported symbols to detect unexpected cross-package coupling.
-3. **Sample each package** — use `get_symbols_overview` on each package's main
-   entry to see its exports without reading the full file; follow up with
-   `find_symbol` + `include_body=True` only for symbols central to a finding.
+   what each package does and what it depends on.
+3. **Sample each package** — read key files (index, main entry, largest files)
+   to understand usage patterns, not just declared dependencies.
 4. **Work through each dimension** systematically. Do not skip ahead.
 5. **For every proposed replacement**, complete the needs-coverage checklist
    before including it in the output.
