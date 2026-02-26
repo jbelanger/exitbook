@@ -18,12 +18,12 @@ const EXPLICIT_SCAM_PHRASES_REGEX =
   /\b(visit.*to.*claim|go.*to.*claim|click.*to.*claim|free.*airdrop.*claim|claim.*your.*reward)\b/i;
 
 const SUSPICIOUS_URL_PATTERNS = [
-  /jupiter.*claim/i,
-  /solana.*drop/i,
-  /crypto.*bonus/i,
-  /.*-airdrop.*\.com/i,
-  /.*claim.*\.site/i,
-  /.*bonus.*\.xyz/i,
+  /^.*jupiter.*claim.*$/i,
+  /^.*solana.*drop.*$/i,
+  /^.*crypto.*bonus.*$/i,
+  /^.*-airdrop.*\.com$/i,
+  /^.*claim.*\.site$/i,
+  /^.*bonus.*\.xyz$/i,
 ];
 
 // Unicode homograph detection (lookalike characters commonly used in scams)
