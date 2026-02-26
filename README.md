@@ -7,6 +7,7 @@
 [![codecov](https://codecov.io/gh/jbelanger/exitbook/branch/main/graph/badge.svg)](https://codecov.io/gh/jbelanger/exitbook)
 [![CodeQL](https://github.com/jbelanger/exitbook/actions/workflows/codeql.yml/badge.svg)](https://github.com/jbelanger/exitbook/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/jbelanger/exitbook/badge)](https://securityscorecards.dev/viewer/?uri=github.com/jbelanger/exitbook)
+[![OpenSSF Baseline](https://www.bestpractices.dev/projects/12043/baseline)](https://www.bestpractices.dev/projects/12043)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24-blue.svg)](https://nodejs.org)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D10.6.2-orange.svg)](https://pnpm.io)
 
