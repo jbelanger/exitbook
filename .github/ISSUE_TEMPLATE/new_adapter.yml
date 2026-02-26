@@ -1,0 +1,58 @@
+name: New Exchange or Blockchain Adapter
+description: Propose support for a new exchange or blockchain
+labels: ['new-adapter']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to propose a new exchange (CSV/API import) or blockchain integration.
+        Read the implementation guide in [CONTRIBUTING.md](../../CONTRIBUTING.md) before starting.
+
+  - type: dropdown
+    id: adapter_type
+    attributes:
+      label: Adapter type
+      options:
+        - Exchange (CSV import)
+        - Exchange (API import)
+        - Blockchain
+    validations:
+      required: true
+
+  - type: input
+    id: name
+    attributes:
+      label: Exchange or blockchain name
+      placeholder: 'e.g. Binance, Tron, Avalanche'
+    validations:
+      required: true
+
+  - type: textarea
+    id: data_source
+    attributes:
+      label: Data source
+      description: |
+        For exchanges: link to CSV export docs or API docs.
+        For blockchains: list available public explorer APIs (with free tier if any).
+      placeholder: 'https://...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: transaction_types
+    attributes:
+      label: Transaction types to support
+      description: What kinds of transactions does this source produce? (trades, transfers, staking rewards, fees, etc.)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-implementation checklist
+      description: Confirm before starting work.
+      options:
+        - label: I have read the implementation guide in CONTRIBUTING.md
+        - label: A free-tier or keyless API exists (or I will provide sample CSV data for tests)
+        - label: I will include unit tests for the processor and importer
+        - label: I understand this issue must be acknowledged before I open a PR

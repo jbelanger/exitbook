@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### CLI Usage (essentials)
 
 - All commands via `pnpm run dev ...` (tsx + `.env`). Common flows:
-  - Import (CSV): `pnpm run dev import --exchange kraken --csv-dir ./exports/kraken`
+  - Import (CSV): `pnpm run dev import --exchange kucoin --csv-dir ./exports/kucoin`
   - Import (API): `pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET`
   - Import (on-chain): `pnpm run dev import --blockchain bitcoin --address bc1q...`
   - Reprocess: `pnpm run dev reprocess` (clears derived data, reprocesses all raw data)
@@ -78,12 +78,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Runtime validation. Core schemas in `packages/core/src/schemas/`, feature-specific in `*.schemas.ts`. Use `type Foo = z.infer<typeof FooSchema>`.
 
-### Logging (Pino)
+### Logging
+
+Custom logger in `packages/logger` — not Pino. Interface: `Logger` with `trace/debug/info/warn/error` methods. Structured context passed as first arg when needed.
 
 ```typescript
 import { getLogger } from '@exitbook/logger';
 const logger = getLogger('component-name');
 logger.info('message');
+logger.warn({ field: value }, 'message with context');
 logger.error({ error }, 'error message');
 ```
 
@@ -170,7 +173,7 @@ pnpm vitest run packages/blockchain-providers/src/blockchains/bitcoin
 pnpm test  # Full test suite
 
 # CLI integration test
-pnpm run dev import --exchange kraken --csv-dir ./test-data
+pnpm run dev import --exchange kucoin --csv-dir ./test-data
 ```
 
 ## Project Context

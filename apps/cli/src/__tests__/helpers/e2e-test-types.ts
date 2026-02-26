@@ -34,9 +34,14 @@ export interface ImportCommandResult {
   };
 }
 
-export interface ProcessCommandResult {
-  errors: string[];
-  processed: number;
+export interface ReprocessCommandResult {
+  status: 'success' | 'warning';
+  reprocess: {
+    counts: {
+      processed: number;
+    };
+    processingErrors?: string[] | undefined;
+  };
 }
 
 export interface BalanceCommandResult {

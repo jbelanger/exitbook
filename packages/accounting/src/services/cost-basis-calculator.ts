@@ -98,7 +98,11 @@ export class CostBasisCalculator {
 
     try {
       // Get strategy based on config
-      const strategy = getStrategyForMethod(config.method);
+      const strategyResult = getStrategyForMethod(config.method);
+      if (strategyResult.isErr()) {
+        return err(strategyResult.error);
+      }
+      const strategy = strategyResult.value;
 
       // Get jurisdiction config for transfer fee policy
       const jurisdictionConfig = rules.getConfig();

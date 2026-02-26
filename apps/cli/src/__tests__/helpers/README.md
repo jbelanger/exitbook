@@ -87,7 +87,7 @@ Core utilities for e2e testing:
 Type definitions for CLI command responses:
 
 - `ImportCommandResult` - Result from import command
-- `ProcessCommandResult` - Result from process command
+- `ReprocessCommandResult` - Result from reprocess command
 - `BalanceCommandResult` - Result from balance command
 - `AccountsViewResult` - Result from accounts view command
 

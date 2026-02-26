@@ -247,9 +247,7 @@ async function executeClearNonTui(options: {
             console.error('\nRaw imported data will be preserved:');
             if (preview.sessions > 0) console.error(`  • ${preview.sessions} sessions`);
             if (preview.rawData > 0) console.error(`  • ${preview.rawData} raw data items`);
-            console.error(
-              '\nYou can reprocess with: exitbook process' + (options.source ? ` --source ${options.source}` : '')
-            );
+            console.error('\nYou can reprocess with: exitbook reprocess');
           }
           console.error('');
         }

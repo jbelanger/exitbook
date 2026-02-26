@@ -1,0 +1,57 @@
+name: Bug Report
+description: Something is broken or producing incorrect results
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before filing:** check that `pnpm run dev balance` confirms your import data is complete. Many calculation issues trace back to a missing wallet or incomplete import.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the incorrect behavior. Include the command you ran.
+      placeholder: 'e.g. `pnpm run dev cost-basis` shows a negative cost basis for BTC after a staking reward.'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: What should the output have been?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal sequence of commands that reproduces the issue.
+      placeholder: |
+        1. Import from exchange X
+        2. Run `reprocess`
+        3. Run `cost-basis`
+        4. See incorrect value
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Node version, OS, pnpm version.
+      placeholder: |
+        Node: 24.x
+        OS: macOS 15 / Ubuntu 22.04
+        pnpm: 10.x
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Run with `LOGGER_LOG_LEVEL=debug` and paste relevant lines.
+      render: shell

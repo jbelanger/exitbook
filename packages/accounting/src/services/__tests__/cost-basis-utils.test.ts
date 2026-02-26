@@ -15,46 +15,50 @@ import { LifoStrategy } from '../strategies/lifo-strategy.js';
 describe('getStrategyForMethod', () => {
   describe('implemented strategies', () => {
     it('returns FifoStrategy for "fifo" method', () => {
-      const strategy = getStrategyForMethod('fifo');
+      const result = getStrategyForMethod('fifo');
 
-      expect(strategy).toBeInstanceOf(FifoStrategy);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(FifoStrategy);
     });
 
     it('returns LifoStrategy for "lifo" method', () => {
-      const strategy = getStrategyForMethod('lifo');
+      const result = getStrategyForMethod('lifo');
 
-      expect(strategy).toBeInstanceOf(LifoStrategy);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(LifoStrategy);
     });
 
     it('returns AverageCostStrategy for "average-cost" method', () => {
-      const strategy = getStrategyForMethod('average-cost');
+      const result = getStrategyForMethod('average-cost');
 
-      expect(strategy).toBeInstanceOf(AverageCostStrategy);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(AverageCostStrategy);
     });
   });
 
   describe('unimplemented strategies', () => {
-    it('throws error for "specific-id" method', () => {
-      expect(() => getStrategyForMethod('specific-id')).toThrow('specific-id method not yet implemented');
+    it('returns err for "specific-id" method', () => {
+      const result = getStrategyForMethod('specific-id');
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toContain('specific-id');
     });
   });
 
   describe('strategy behavior', () => {
     it('returns different strategy instances for different methods', () => {
-      const fifoStrategy = getStrategyForMethod('fifo');
-      const lifoStrategy = getStrategyForMethod('lifo');
+      const fifoStrategy = getStrategyForMethod('fifo')._unsafeUnwrap();
+      const lifoStrategy = getStrategyForMethod('lifo')._unsafeUnwrap();
 
       expect(fifoStrategy).not.toBe(lifoStrategy);
       expect(fifoStrategy.constructor).not.toBe(lifoStrategy.constructor);
     });
 
     it('returns new strategy instances on each call', () => {
-      const strategy1 = getStrategyForMethod('fifo');
-      const strategy2 = getStrategyForMethod('fifo');
+      const strategy1 = getStrategyForMethod('fifo')._unsafeUnwrap();
+      const strategy2 = getStrategyForMethod('fifo')._unsafeUnwrap();
 
-      // Each call should return a new instance
       expect(strategy1).not.toBe(strategy2);
-      // But they should be the same type
       expect(strategy1.constructor).toBe(strategy2.constructor);
     });
   });

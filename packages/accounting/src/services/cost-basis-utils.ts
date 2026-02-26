@@ -1,3 +1,5 @@
+import { err, ok, type Result } from 'neverthrow';
+
 import type { CostBasisConfig } from '../config/cost-basis-config.js';
 
 import { AverageCostStrategy } from './strategies/average-cost-strategy.js';
@@ -6,26 +8,22 @@ import { FifoStrategy } from './strategies/fifo-strategy.js';
 import { LifoStrategy } from './strategies/lifo-strategy.js';
 
 /**
- * Get strategy instance based on method
- * Pure function - returns strategy implementation for given method
- *
- * @param method - Cost basis calculation method
- * @returns Strategy instance
- * @throws Error if method is not yet implemented
+ * Get strategy instance based on method.
+ * Pure function — returns strategy implementation for given method.
  */
-export function getStrategyForMethod(method: CostBasisConfig['method']): ICostBasisStrategy {
+export function getStrategyForMethod(method: CostBasisConfig['method']): Result<ICostBasisStrategy, Error> {
   switch (method) {
     case 'fifo': {
-      return new FifoStrategy();
+      return ok(new FifoStrategy());
     }
     case 'lifo': {
-      return new LifoStrategy();
+      return ok(new LifoStrategy());
     }
     case 'average-cost': {
-      return new AverageCostStrategy();
+      return ok(new AverageCostStrategy());
     }
     case 'specific-id': {
-      throw new Error(`specific-id method not yet implemented`);
+      return err(new Error('specific-id cost basis method is not yet implemented'));
     }
   }
 }

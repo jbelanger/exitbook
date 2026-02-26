@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { BalanceCommandResult, ImportCommandResult, ProcessCommandResult } from './e2e-test-types.js';
+import type { BalanceCommandResult, ImportCommandResult, ReprocessCommandResult } from './e2e-test-types.js';
 import { canBindUnixSocket, cleanupTestDatabase, executeCLI, getSampleDir, hasSampleData } from './e2e-test-utils.js';
 
 export interface ExchangeConfig {
@@ -121,20 +121,21 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
         // Step 2: Process the imported data
         console.log('Step 2: Processing imported data...');
 
-        const processResult = executeCLI(['process']);
+        const processResult = executeCLI(['reprocess']);
 
         expect(processResult.success).toBe(true);
-        expect(processResult.command).toBe('process');
+        expect(processResult.command).toBe('reprocess');
 
-        const processData = processResult.data as ProcessCommandResult;
+        const processData = processResult.data as ReprocessCommandResult;
         expect(processData).toBeDefined();
-        expect(processData.processed).toBeGreaterThan(0);
+        expect(processData.reprocess.counts.processed).toBeGreaterThan(0);
 
-        console.log(`  Processed ${processData.processed} transactions`);
+        console.log(`  Processed ${processData.reprocess.counts.processed} transactions`);
 
-        if (processData.errors.length > 0) {
-          console.log(`  Errors: ${processData.errors.length}`);
-          processData.errors.slice(0, 3).forEach((error) => {
+        const errors = processData.reprocess.processingErrors ?? [];
+        if (errors.length > 0) {
+          console.log(`  Errors: ${errors.length}`);
+          errors.slice(0, 3).forEach((error) => {
             console.log(`    - ${error}`);
           });
         }

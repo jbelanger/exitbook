@@ -43,6 +43,7 @@ Exitbook doesn't do any of that. Every number traces back to a real import. Ever
 | **NEAR**      | 1 chain    | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
 | **Solana**    | 1 chain    | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
 | **Substrate** | 89 chains  | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
+| **XRP**       | 2 chains   | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
 
 \* EVM supports both address and contract address tracking
 
@@ -64,6 +65,8 @@ Exitbook doesn't do any of that. Every number traces back to a real import. Ever
 **Solana:** solana
 
 **Substrate chains:** polkadot, bittensor, kusama, acala, moonbeam, astar, and 83 more
+
+**XRP:** xrp, xrp-testnet
 
 </details>
 
@@ -222,7 +225,7 @@ pnpm run dev reprocess
 
 ```bash
 # List available blockchains and providers
-pnpm run dev list-blockchains
+pnpm run dev blockchains view
 
 # Clear processed data (keeps raw data)
 pnpm run dev clear

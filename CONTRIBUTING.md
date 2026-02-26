@@ -16,7 +16,85 @@ This is a lightweight [Developer Certificate of Origin (DCO)](https://developerc
 
 ## Getting Started
 
-See [CLAUDE.md](CLAUDE.md) for architecture overview, development commands, and coding conventions.
+### 1. Install and build
+
+Requirements: Node.js ≥ 24, pnpm ≥ 10.6.2
+
+```bash
+git clone https://github.com/jbelanger/exitbook.git
+cd exitbook
+node --version   # must be >= 24 — use `nvm use` if you have nvm
+pnpm install
+pnpm build       # type-checks all packages and bundles the CLI
+```
+
+### 2. Run a key-free command
+
+```bash
+pnpm run dev blockchains view   # lists every supported blockchain — no API keys needed
+pnpm run dev --help             # full command reference
+```
+
+### 3. Run unit tests
+
+```bash
+pnpm test                                                         # all packages
+pnpm vitest run packages/accounting                               # single package
+pnpm vitest run packages/ingestion/src/sources/exchanges/kucoin   # single folder
+```
+
+### 4. Run e2e tests (requires API keys)
+
+Copy `.env.example` to `.env` and add at least one provider key (e.g. `HELIUS_API_KEY` for Solana).
+
+```bash
+pnpm test:e2e
+# Or a single file:
+pnpm vitest run --config vitest.e2e.config.ts packages/blockchain-providers/src/blockchains/bitcoin
+```
+
+E2e tests make real API calls and are excluded from CI. They may take several minutes.
+
+---
+
+## Adding a New Exchange Adapter
+
+1. **Exchange client (API):** `packages/exchange-providers/src/exchanges/<exchange>/`
+   — ccxt-based client + Zod schemas; export from `packages/exchange-providers/src/index.ts`
+
+2. **Importer + Processor:** `packages/ingestion/src/sources/exchanges/<exchange>/`
+   — `importer.ts` (implements `IImporter`), `processor.ts` (outputs `UniversalTransaction`), `schemas.ts`, `types.ts`
+
+3. **Register:** Create `register.ts` exporting an `ExchangeAdapter` object, then add it to `packages/ingestion/src/sources/exchanges/index.ts`.
+
+4. **Tests:** Add `__tests__/` with unit tests for the processor. Use helpers from `packages/ingestion/src/shared/test-utils/`.
+
+## Adding a New Blockchain
+
+1. **Provider:** `packages/blockchain-providers/src/blockchains/<blockchain>/providers/<provider>/`
+   — API client extending `BaseApiClient`, mapper utils, Zod schemas
+   — Add factory to `packages/blockchain-providers/src/blockchains/<blockchain>/register-apis.ts`
+
+2. **Importer + Processor:** `packages/ingestion/src/sources/blockchains/<blockchain>/`
+   — Same structure as exchanges; register in `packages/ingestion/src/sources/blockchains/index.ts`
+
+3. **Chain config:** If multi-chain, add entries to `<blockchain>-chains.json`.
+
+See `docs/architecture/import-pipeline.md` for the full pipeline design.
+
+---
+
+## Code Conventions (summary)
+
+- **Error handling:** all fallible functions return `Result<T, Error>` (neverthrow). No throws in business logic; no silent suppression.
+- **Schemas:** Zod for runtime validation. Core schemas in `packages/core/src/schemas/`.
+- **Logging:** `import { getLogger } from '@exitbook/logger'` — pass structured context as first arg when relevant.
+- **Decimals:** `import { Decimal } from 'decimal.js'` — use `.toFixed()` for strings, never `.toString()`.
+- **Vertical slices:** keep importer, processor, schemas, and tests together in one feature folder.
+
+Full architecture notes in `docs/architecture/`.
+
+---
 
 ## Submitting Changes
 
