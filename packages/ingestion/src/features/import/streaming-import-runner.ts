@@ -240,11 +240,22 @@ export class StreamingImportRunner {
         const cursorUpdateResult = await this.accountQueries.updateCursor(account.id, batch.streamType, batch.cursor);
 
         if (cursorUpdateResult.isErr()) {
-          await this.importSessionQueries.update(importSessionId, {
-            status: 'failed',
-            error_message: cursorUpdateResult.error.message,
+          const warning = `Failed to update cursor for account ${account.id} (${batch.streamType}): ${cursorUpdateResult.error.message}`;
+          this.logger.warn(
+            {
+              accountId: account.id,
+              streamType: batch.streamType,
+              error: cursorUpdateResult.error,
+            },
+            'Failed to update cursor after saving batch; continuing import with dedup protection on resume'
+          );
+          this.eventBus?.emit({
+            type: 'import.warning',
+            sourceName,
+            accountId: account.id,
+            streamType: batch.streamType,
+            warning,
           });
-          return err(cursorUpdateResult.error);
         }
 
         this.logger.info(

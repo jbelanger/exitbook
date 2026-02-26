@@ -40,13 +40,15 @@ function createMockAccount(
 }
 
 // Mock logger
+const mockLogger = {
+  debug: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+};
+
 vi.mock('@exitbook/logger', () => ({
-  getLogger: () => ({
-    debug: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-  }),
+  getLogger: () => mockLogger,
 }));
 
 // Create a mock import streaming function that can be controlled per-test
@@ -146,6 +148,8 @@ describe('StreamingImportRunner', () => {
   let mockProviderManager: BlockchainProviderManager;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+
     // Reset the mock import streaming function to default behavior
     mockImportStreamingFn.mockReset().mockImplementation(async function* () {
       yield okAsync({
@@ -391,6 +395,67 @@ describe('StreamingImportRunner', () => {
       expect(mockImportSessionQueries.create).not.toHaveBeenCalled();
       // Should update status back to 'started'
       expect(mockImportSessionQueries.update).toHaveBeenCalledWith(42, { status: 'started' });
+      expect(mockImportStreamingFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cursor: account.lastCursor,
+        })
+      );
+      expect(mockImportSessionQueries.finalize).toHaveBeenCalledWith(42, 'completed', expect.any(Number), 52, 0);
+    });
+
+    it('should complete resumed import when replayed data is skipped as duplicates', async () => {
+      const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh', {
+        lastCursor: {
+          normal: {
+            primary: { type: 'blockNumber', value: 50 },
+            lastTransactionId: 'tx-50',
+            totalFetched: 50,
+          },
+        },
+      });
+
+      const incompleteImportSession: ImportSession = {
+        id: 42,
+        accountId: 1,
+        status: 'started' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        startedAt: new Date(),
+        transactionsImported: 50,
+        transactionsSkipped: 3,
+      };
+
+      const completedSession: ImportSession = {
+        ...incompleteImportSession,
+        status: 'completed',
+        completedAt: new Date(),
+        transactionsImported: 50,
+        transactionsSkipped: 5,
+      };
+
+      vi.mocked(mockImportSessionQueries.findLatestIncomplete).mockResolvedValue(ok(incompleteImportSession));
+      vi.mocked(mockImportSessionQueries.update).mockResolvedValue(ok());
+      vi.mocked(mockRawDataQueries.saveBatch).mockResolvedValue(ok({ inserted: 0, skipped: 2 }));
+      vi.mocked(mockImportSessionQueries.finalize).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionQueries.findById).mockResolvedValue(ok(completedSession));
+
+      const result = await service.importFromSource(account);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.transactionsImported).toBe(50);
+        expect(result.value.transactionsSkipped).toBe(5);
+      }
+
+      expect(mockImportSessionQueries.create).not.toHaveBeenCalled();
+      expect(mockRawDataQueries.saveBatch).toHaveBeenCalledWith(
+        1,
+        expect.arrayContaining([
+          expect.objectContaining({ transactionHash: 'tx1' }),
+          expect.objectContaining({ transactionHash: 'tx2' }),
+        ])
+      );
+      expect(mockImportSessionQueries.finalize).toHaveBeenCalledWith(42, 'completed', expect.any(Number), 50, 5);
     });
 
     it('should return error for unknown blockchain', async () => {
@@ -868,6 +933,102 @@ describe('StreamingImportRunner', () => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- acceptable for tests
           warning: expect.stringContaining('Failed to fetch import stream counts'),
         })
+      );
+    });
+
+    it('should complete import and emit a warning when cursor persistence fails mid-import', async () => {
+      const account = createMockAccount('exchange-api', 'kraken', 'test-api-key', {
+        credentials: {
+          apiKey: 'test-key',
+          apiSecret: 'test-secret',
+        },
+      });
+
+      const mockEventBus = { emit: vi.fn() };
+      const registry = createTestRegistry();
+      const serviceWithEvents = new StreamingImportRunner(
+        {} as KyselyDB,
+        mockProviderManager,
+        registry,
+        mockEventBus as never
+      );
+
+      const completedSession: ImportSession = {
+        id: 1,
+        accountId: 1,
+        status: 'completed',
+        startedAt: new Date(),
+        completedAt: new Date(),
+        transactionsImported: 3,
+        transactionsSkipped: 0,
+        createdAt: new Date(),
+      };
+
+      mockExchangeImportStreamingFn.mockImplementationOnce(async function* () {
+        yield okAsync({
+          rawTransactions: [{ refid: 'kraken-1', type: 'trade' }],
+          streamType: 'ledger',
+          cursor: {
+            primary: { type: 'timestamp', value: 1 },
+            lastTransactionId: 'kraken-1',
+            totalFetched: 1,
+          },
+          isComplete: false,
+        });
+
+        yield okAsync({
+          rawTransactions: [
+            { refid: 'kraken-2', type: 'deposit' },
+            { refid: 'kraken-3', type: 'withdrawal' },
+          ],
+          streamType: 'ledger',
+          cursor: {
+            primary: { type: 'timestamp', value: 3 },
+            lastTransactionId: 'kraken-3',
+            totalFetched: 3,
+          },
+          isComplete: true,
+        });
+      });
+
+      vi.mocked(mockImportSessionQueries.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionQueries.create).mockResolvedValue(ok(1));
+      vi.mocked(mockRawDataQueries.saveBatch)
+        .mockResolvedValueOnce(ok({ inserted: 1, skipped: 0 }))
+        .mockResolvedValueOnce(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockAccountQueries.updateCursor)
+        .mockResolvedValueOnce(err(new Error('cursor table locked')))
+        .mockResolvedValueOnce(ok());
+      vi.mocked(mockImportSessionQueries.finalize).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionQueries.findById).mockResolvedValue(ok(completedSession));
+
+      const result = await serviceWithEvents.importFromSource(account);
+
+      expect(result.isOk()).toBe(true);
+      expect(mockImportSessionQueries.finalize).toHaveBeenCalledWith(1, 'completed', expect.any(Number), 3, 0);
+      expect(mockImportSessionQueries.update).not.toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          status: 'failed',
+        })
+      );
+      expect(mockEventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'import.warning',
+          sourceName: 'kraken',
+          accountId: 1,
+          streamType: 'ledger',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- acceptable for tests
+          warning: expect.stringContaining('Failed to update cursor'),
+        })
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 1,
+          streamType: 'ledger',
+          error: expect.any(Error) as unknown,
+        }),
+        'Failed to update cursor after saving batch; continuing import with dedup protection on resume'
       );
     });
   });
