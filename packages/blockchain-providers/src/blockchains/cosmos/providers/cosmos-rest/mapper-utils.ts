@@ -131,7 +131,6 @@ export function mapCosmosRestTransaction(
   let sourceChannel: string | undefined;
   let sourcePort: string | undefined;
   let tokenAddress: string | undefined;
-  let tokenDecimals: number | undefined;
   let tokenSymbol: string | undefined;
   let tokenType: 'cw20' | 'native' | 'ibc' | undefined;
   let selectedMessageIndex: number | undefined;
@@ -310,7 +309,7 @@ export function mapCosmosRestTransaction(
     timestamp,
     to,
     tokenAddress,
-    tokenDecimals,
+    tokenDecimals: undefined,
     tokenSymbol,
     tokenType,
   };

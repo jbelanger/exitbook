@@ -322,7 +322,6 @@ export class BlockfrostApiClient extends BaseApiClient {
       const txHashes = result.value;
 
       if (!Array.isArray(txHashes) || txHashes.length === 0) {
-        hasMore = false;
         break;
       }
 

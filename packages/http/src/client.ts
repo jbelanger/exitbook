@@ -382,7 +382,7 @@ export class HttpClient {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         this.logger.error(`Failed to close HTTP agent: ${errorMessage}`);
-        throw new Error(`HTTP agent cleanup failed: ${errorMessage}`);
+        throw new Error(`HTTP agent cleanup failed: ${errorMessage}`, { cause: error });
       }
     })();
 
@@ -486,7 +486,7 @@ export class HttpClient {
         releaseLock = resolve;
       });
 
-      let waitTimeMs = 0;
+      let waitTimeMs: number;
 
       try {
         // Wait for previous request to finish with rate limiter

@@ -62,8 +62,6 @@ export function detectScamToken(
   // ============================================================
   if (tokenMetadata.possibleSpam === true) {
     suspiciousIndicators.push('Flagged by provider spam detection');
-    riskLevel = 'error';
-    detectionSource = 'professional';
 
     // Return immediately - trust professional detection
     return {

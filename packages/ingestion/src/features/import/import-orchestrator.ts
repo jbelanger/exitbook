@@ -281,7 +281,6 @@ export class ImportOrchestrator {
     const shouldRederive = !hasExistingChildren || (existingMetadata && requestedGap > existingMetadata.gapLimit);
 
     let childAccounts: Account[];
-    let derivedCount = 0;
     let newlyDerivedCount = 0;
 
     if (shouldRederive) {
@@ -315,7 +314,7 @@ export class ImportOrchestrator {
       }
       const derivedAddresses = derivedAddressesResult.value;
 
-      derivedCount = derivedAddresses.length;
+      const derivedCount = derivedAddresses.length;
       const derivationDuration = Date.now() - startTime;
 
       // 2c. Handle empty xpub

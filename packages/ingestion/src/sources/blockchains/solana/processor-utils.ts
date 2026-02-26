@@ -663,7 +663,6 @@ export function analyzeSolanaBalanceChanges(
           movement.amount = '0';
         } else {
           movement.amount = movementAmount.minus(remainingFee).toFixed();
-          remainingFee = parseDecimal('0');
           break;
         }
       }

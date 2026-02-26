@@ -60,7 +60,6 @@ export function mapInjectiveExplorerTransaction(
   let ethereumSender: string | undefined;
   let ethereumReceiver: string | undefined;
   let tokenAddress: string | undefined;
-  let tokenDecimals: number | undefined;
   let tokenSymbol: string | undefined;
   let tokenType: 'cw20' | 'native' | 'ibc' | undefined;
   let selectedMessageIndex: number | undefined;
@@ -280,7 +279,7 @@ export function mapInjectiveExplorerTransaction(
     timestamp,
     to,
     tokenAddress,
-    tokenDecimals,
+    tokenDecimals: undefined,
     tokenSymbol,
     tokenType,
     txType: rawData.tx_type,

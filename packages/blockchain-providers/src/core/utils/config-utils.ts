@@ -52,6 +52,8 @@ export function loadExplorerConfig(configPath?: string): BlockchainExplorersConf
       // File doesn't exist - this is OK, we'll use registry defaults
       return undefined;
     }
-    throw new Error(`Failed to load blockchain explorer configuration from ${finalPath}: ${getErrorMessage(error)}`);
+    throw new Error(`Failed to load blockchain explorer configuration from ${finalPath}: ${getErrorMessage(error)}`, {
+      cause: error,
+    });
   }
 }
