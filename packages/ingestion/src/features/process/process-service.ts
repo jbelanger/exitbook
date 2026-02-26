@@ -96,28 +96,27 @@ export class TransactionProcessingService {
         accountTransactionCounts: accountTransactionCounts.size > 0 ? accountTransactionCounts : undefined,
       });
 
-      // Process each account
+      // Process each account, collecting errors so one bad account doesn't block the rest
       let totalProcessed = 0;
+      let totalFailed = 0;
       const allErrors: string[] = [];
 
       for (const accountId of accountIds) {
         const result = await this.processAccountTransactions(accountId);
 
         if (result.isErr()) {
-          // Emit failure event and return error
-          this.eventBus.emit({
-            type: 'process.failed',
-            accountIds: [accountId],
-            error: result.error.message,
-          });
-          return err(result.error);
+          const errorMsg = `Failed to process account ${accountId}: ${result.error.message}`;
+          this.logger.error(errorMsg);
+          allErrors.push(errorMsg);
+          totalFailed++;
+          continue;
         }
 
         totalProcessed += result.value.processed;
         allErrors.push(...result.value.errors);
       }
 
-      // Emit process.completed event
+      // Emit process.completed event (even if some accounts failed)
       this.eventBus.emit({
         type: 'process.completed',
         accountIds,
@@ -128,7 +127,7 @@ export class TransactionProcessingService {
 
       return ok({
         errors: allErrors,
-        failed: 0,
+        failed: totalFailed,
         processed: totalProcessed,
       });
     } catch (error) {
@@ -173,8 +172,9 @@ export class TransactionProcessingService {
         return err(incompleteImportsGuard.error);
       }
 
-      // Process each account
+      // Process each account, collecting errors so one bad account doesn't block the rest
       let totalProcessed = 0;
+      let totalFailed = 0;
       const allErrors: string[] = [];
 
       for (const accountId of accountIds) {
@@ -184,6 +184,7 @@ export class TransactionProcessingService {
           const errorMsg = `Failed to process account ${accountId}: ${result.error.message}`;
           this.logger.error(errorMsg);
           allErrors.push(errorMsg);
+          totalFailed++;
           continue;
         }
 
@@ -195,7 +196,7 @@ export class TransactionProcessingService {
 
       return ok({
         errors: allErrors,
-        failed: 0,
+        failed: totalFailed,
         processed: totalProcessed,
       });
     } catch (error) {
