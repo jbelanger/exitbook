@@ -268,7 +268,7 @@ const AccountRow: FC<{
   const { id, source, type } = cols.format(item);
 
   // Status-dependent content
-  let statusText = '';
+  let statusText: string;
   if (item.status === 'pending') {
     statusText = 'pending';
   } else if (item.status === 'verifying') {

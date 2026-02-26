@@ -119,7 +119,6 @@ export function buildPortfolioPositions(
     let priceStatus: 'ok' | 'unavailable' = 'unavailable';
     let spotPricePerUnit: string | undefined;
     let currentValue: string | undefined;
-    let allocationPct: string | undefined;
     let priceError: string | undefined;
     let usdSpotPrice: Decimal | undefined;
 
@@ -190,7 +189,7 @@ export function buildPortfolioPositions(
       isNegative,
       spotPricePerUnit,
       currentValue,
-      allocationPct,
+      allocationPct: undefined,
       priceStatus,
       priceError,
       totalCostBasis,

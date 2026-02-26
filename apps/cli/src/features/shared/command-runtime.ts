@@ -204,7 +204,8 @@ export async function runCommand(fn: (ctx: CommandContext) => Promise<void>): Pr
 export async function renderApp(create: (unmount: () => void) => React.ReactElement): Promise<void> {
   let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
   try {
-    inkInstance = render(create(() => inkInstance?.unmount()));
+    const instance = render(create(() => instance?.unmount()));
+    inkInstance = instance as { unmount: () => void; waitUntilExit: () => Promise<void> };
     await inkInstance.waitUntilExit();
   } finally {
     if (inkInstance) {
