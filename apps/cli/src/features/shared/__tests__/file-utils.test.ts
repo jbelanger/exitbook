@@ -5,6 +5,7 @@
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import tmp from 'tmp';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -14,8 +15,8 @@ describe('writeFilesAtomically', () => {
   let testDir: string;
 
   beforeEach(async () => {
-    testDir = join(tmpdir(), `exitbook-test-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
-    await fs.mkdir(testDir, { recursive: true });
+    // Use a securely created temporary directory for tests
+    testDir = tmp.dirSync({ unsafeCleanup: true }).name;
   });
 
   afterEach(async () => {

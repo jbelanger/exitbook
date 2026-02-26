@@ -45,7 +45,8 @@
     "ora": "^9.3.0",
     "picocolors": "^1.1.1",
     "protobufjs": "^8.0.0",
-    "react": "^19.2.4"
+    "react": "^19.2.4",
+    "tmp": "^0.2.5"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
