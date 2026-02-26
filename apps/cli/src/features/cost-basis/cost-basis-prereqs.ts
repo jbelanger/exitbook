@@ -13,7 +13,7 @@ import { LinksRunHandler } from '../links/links-run-handler.js';
 import { PricesEnrichMonitor } from '../prices/components/prices-enrich-components.js';
 import type { PriceEvent } from '../prices/events.js';
 import { PricesEnrichHandler } from '../prices/prices-enrich-handler.js';
-import type { CommandContext } from '../shared/command-runtime.js';
+import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
 
 import { filterTransactionsByDateRange, validateTransactionPrices } from './cost-basis-utils.js';
 
@@ -117,7 +117,7 @@ export async function ensureLinks(
  */
 export async function ensurePrices(
   txRepo: TransactionQueries,
-  linkRepo: TransactionLinkQueries,
+  db: CommandDatabase,
   startDate: Date,
   endDate: Date,
   currency: string,
@@ -153,7 +153,7 @@ export async function ensurePrices(
   }
 
   if (isJsonMode) {
-    const handler = new PricesEnrichHandler(txRepo, linkRepo);
+    const handler = new PricesEnrichHandler(db);
     ctx.onCleanup(async () => handler.destroy());
 
     const result = await handler.execute({});
@@ -171,7 +171,7 @@ export async function ensurePrices(
   const instrumentation = new InstrumentationCollector();
   const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-  const handler = new PricesEnrichHandler(txRepo, linkRepo, eventBus, instrumentation);
+  const handler = new PricesEnrichHandler(db, eventBus, instrumentation);
   ctx.onCleanup(async () => handler.destroy());
 
   ctx.onAbort(() => {

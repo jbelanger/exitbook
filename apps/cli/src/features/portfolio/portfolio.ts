@@ -78,6 +78,7 @@ async function executePortfolioJSON(options: PortfolioCommandOptions): Promise<v
         displayCurrency: normalized.displayCurrency,
         asOf: normalized.asOf,
         dataDir: ctx.dataDir,
+        db: database,
         ctx,
         isJsonMode: true,
       });
@@ -137,6 +138,7 @@ async function executePortfolioTUI(options: PortfolioCommandOptions): Promise<vo
           displayCurrency: normalized.displayCurrency,
           asOf: normalized.asOf,
           dataDir: ctx.dataDir,
+          db: database,
           ctx,
           isJsonMode: false,
         });

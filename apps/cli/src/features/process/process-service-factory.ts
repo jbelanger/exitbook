@@ -1,14 +1,9 @@
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import {
-  createAccountQueries,
-  createImportSessionQueries,
   createRawDataQueries,
   createTokenMetadataPersistence,
-  createTransactionLinkQueries,
-  createUserQueries,
   // eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
   type KyselyDB,
-  createTransactionQueries,
 } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
@@ -50,13 +45,7 @@ export interface ProcessServices {
  * Caller owns the database lifecycle (via CommandContext).
  */
 export async function createProcessServices(database: KyselyDB, registry: AdapterRegistry): Promise<ProcessServices> {
-  // Create repositories
-  const userQueries = createUserQueries(database);
-  const account = createAccountQueries(database);
-  const transaction = createTransactionQueries(database);
   const rawData = createRawDataQueries(database);
-  const importSession = createImportSessionQueries(database);
-  const transactionLink = createTransactionLinkQueries(database);
 
   const dataDir = getDataDir();
   const tokenMetadataResult = await createTokenMetadataPersistence(dataDir);
@@ -89,26 +78,14 @@ export async function createProcessServices(database: KyselyDB, registry: Adapte
     );
 
     const transactionProcessService = new TransactionProcessingService(
-      rawData,
-      account,
-      transaction,
+      database,
       providerManager,
       tokenMetadataService,
-      importSession,
       eventBus as EventBus<IngestionEvent>,
-      database,
       registry
     );
 
-    const clearService = new ClearService(
-      userQueries,
-      account,
-      transaction,
-      transactionLink,
-      rawData,
-      importSession,
-      eventBus as EventBus<IngestionEvent>
-    );
+    const clearService = new ClearService(database, eventBus as EventBus<IngestionEvent>);
 
     const ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {
       instrumentation,

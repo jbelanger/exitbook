@@ -1,12 +1,4 @@
-import {
-  type AccountQueries,
-  createAccountQueries,
-  createImportSessionQueries,
-  createRawDataQueries,
-  createTransactionLinkQueries,
-  createUserQueries,
-  createTransactionQueries,
-} from '@exitbook/data';
+import { createAccountQueries, type AccountQueries } from '@exitbook/data';
 import { ClearService, type ClearResult, type DeletionPreview } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import React from 'react';
@@ -83,21 +75,7 @@ async function executeClearTUI(options: {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const userQueries = createUserQueries(database);
-      const accountQueries = createAccountQueries(database);
-      const transactionQueries = createTransactionQueries(database);
-      const transactionLinkQueries = createTransactionLinkQueries(database);
-      const rawDataQueries = createRawDataQueries(database);
-      const importSessionQueries = createImportSessionQueries(database);
-
-      const clearService = new ClearService(
-        userQueries,
-        accountQueries,
-        transactionQueries,
-        transactionLinkQueries,
-        rawDataQueries,
-        importSessionQueries
-      );
+      const clearService = new ClearService(database);
 
       const params = {
         accountId: options.accountId,
@@ -125,7 +103,7 @@ async function executeClearTUI(options: {
       const previewWithoutRaw = previewWithoutRawResult.value;
       const previewWithRaw = previewWithRawResult.value;
 
-      const scopeLabel = await buildScopeLabel(options.accountId, options.source, accountQueries);
+      const scopeLabel = await buildScopeLabel(options.accountId, options.source, createAccountQueries(database));
 
       const initialState = createClearViewState(
         { accountId: options.accountId, source: options.source, label: scopeLabel },
@@ -189,21 +167,7 @@ async function executeClearNonTui(options: {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const userQueries = createUserQueries(database);
-      const accountRepository = createAccountQueries(database);
-      const transactionRepository = createTransactionQueries(database);
-      const transactionLinkRepository = createTransactionLinkQueries(database);
-      const rawDataQueries = createRawDataQueries(database);
-      const importSessionRepository = createImportSessionQueries(database);
-
-      const clearService = new ClearService(
-        userQueries,
-        accountRepository,
-        transactionRepository,
-        transactionLinkRepository,
-        rawDataQueries,
-        importSessionRepository
-      );
+      const clearService = new ClearService(database);
 
       // Preview deletion
       const previewResult = await clearService.previewDeletion({

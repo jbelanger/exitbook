@@ -254,6 +254,12 @@ pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET
 
 **Configuration:** Add API keys to `.env` in project root (see `CLAUDE.md` for details)
 
+## Contributing
+
+Bug reports and feature requests: [open a GitHub issue](https://github.com/jbelanger/exitbook/issues).
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the process, coding conventions, and how to add new exchange or blockchain adapters.
+
 ## License
 
-AGPL-3.0-only
+AGPL-3.0-or-later

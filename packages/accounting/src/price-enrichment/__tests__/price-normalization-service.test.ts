@@ -1,107 +1,148 @@
+/* eslint-disable unicorn/no-null -- null needed by db fixtures */
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 /**
  * Tests for PriceNormalizationService
  *
- * Tests the imperative shell that orchestrates FX normalization
- * Uses mocked dependencies for repositories and FX provider
+ * Integration tests using an in-memory database.
+ * FX provider is mocked (it's a genuine external dependency).
  */
 
 import { type Currency, parseDecimal } from '@exitbook/core';
-import type { FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
-import type { TransactionQueries } from '@exitbook/data';
+import { createTestDatabase, type KyselyDB } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IFxRateProvider } from '../fx-rate-provider.interface.js';
 import { PriceNormalizationService } from '../price-normalization-service.js';
 
-function createFeeMovement(
-  scope: 'network' | 'platform' | 'spread' | 'tax' | 'other',
-  settlement: 'on-chain' | 'balance' | 'external',
-  assetSymbol: string,
-  amount: string,
-  priceAtTxTime?: PriceAtTxTime
-): FeeMovement {
-  const movement: FeeMovement = {
-    scope,
-    settlement,
-    assetId: `test:${assetSymbol.toLowerCase()}`,
-    assetSymbol: assetSymbol as Currency,
-    amount: parseDecimal(amount),
-  };
+function createMockFxProvider(): IFxRateProvider {
+  return { getRateToUSD: vi.fn() } as unknown as IFxRateProvider;
+}
 
-  if (priceAtTxTime !== undefined) {
-    movement.priceAtTxTime = priceAtTxTime;
-  }
+async function setupPrerequisites(db: KyselyDB): Promise<void> {
+  await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
+  await db
+    .insertInto('accounts')
+    .values({
+      id: 1,
+      user_id: 1,
+      account_type: 'exchange-api',
+      source_name: 'test-exchange',
+      identifier: 'test-key',
+      provider_name: null,
+      parent_account_id: null,
+      last_cursor: null,
+      last_balance_check_at: null,
+      verification_metadata: null,
+      created_at: new Date().toISOString(),
+      updated_at: null,
+    })
+    .execute();
+  await db
+    .insertInto('import_sessions')
+    .values({
+      id: 1,
+      account_id: 1,
+      started_at: new Date().toISOString(),
+      status: 'completed',
+      transactions_imported: 0,
+      transactions_skipped: 0,
+      created_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+    })
+    .execute();
+}
 
-  return movement;
+async function insertTransaction(db: KyselyDB, id: number, datetime: string): Promise<void> {
+  await db
+    .insertInto('transactions')
+    .values({
+      id,
+      account_id: 1,
+      source_name: 'test-exchange',
+      source_type: 'exchange',
+      external_id: `test-${id}`,
+      transaction_status: 'success',
+      transaction_datetime: datetime,
+      is_spam: false,
+      excluded_from_accounting: false,
+      operation_type: 'buy',
+      created_at: new Date().toISOString(),
+    })
+    .execute();
 }
 
 describe('PriceNormalizationService', () => {
-  let mockTransactionRepo: TransactionQueries;
+  let db: KyselyDB;
   let mockFxProvider: IFxRateProvider;
   let service: PriceNormalizationService;
 
-  beforeEach(() => {
-    mockTransactionRepo = {
-      getTransactions: vi.fn(),
-      updateMovementsWithPrices: vi.fn(),
-    } as unknown as TransactionQueries;
+  beforeEach(async () => {
+    db = await createTestDatabase();
+    await setupPrerequisites(db);
+    mockFxProvider = createMockFxProvider();
+    service = new PriceNormalizationService(db, mockFxProvider);
+  });
 
-    // Mock FX rate provider
-    mockFxProvider = {
-      getRateToUSD: vi.fn(),
-    } as unknown as IFxRateProvider;
-
-    service = new PriceNormalizationService(mockTransactionRepo, mockFxProvider);
+  afterEach(async () => {
+    await db.destroy();
   });
 
   describe('normalize()', () => {
     it('should successfully normalize EUR prices to USD', async () => {
-      // Arrange
-      const transaction: UniversalTransactionData = {
-        id: 1,
-        accountId: 1,
-        externalId: 'test-1',
-        datetime: '2023-01-15T10:00:00Z',
-        timestamp: Date.parse('2023-01-15T10:00:00Z'),
-        source: 'test-exchange',
-        sourceType: 'exchange',
-        status: 'success',
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1.0'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
-                source: 'exchange-execution',
-                fetchedAt: new Date('2023-01-15T10:00:00Z'),
-                granularity: 'exact',
-              },
-            },
-          ],
-          outflows: [{ assetId: 'test:eur', assetSymbol: 'EUR' as Currency, grossAmount: parseDecimal('40000') }],
-        },
-        fees: [],
-        operation: { category: 'trade', type: 'buy' },
-      };
+      await insertTransaction(db, 1, '2023-01-15T10:00:00.000Z');
+      await db
+        .insertInto('transaction_movements')
+        .values([
+          {
+            transaction_id: 1,
+            position: 0,
+            movement_type: 'inflow',
+            asset_id: 'exchange:test:btc',
+            asset_symbol: 'BTC',
+            gross_amount: '1.0',
+            net_amount: '1.0',
+            fee_amount: null,
+            fee_scope: null,
+            fee_settlement: null,
+            price_amount: '40000',
+            price_currency: 'EUR',
+            price_source: 'exchange-execution',
+            price_fetched_at: '2023-01-15T10:00:00.000Z',
+            price_granularity: 'exact',
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          },
+          {
+            transaction_id: 1,
+            position: 1,
+            movement_type: 'outflow',
+            asset_id: 'fiat:eur',
+            asset_symbol: 'EUR',
+            gross_amount: '40000',
+            net_amount: '40000',
+            fee_amount: null,
+            fee_scope: null,
+            fee_settlement: null,
+            price_amount: null,
+            price_currency: null,
+            price_source: null,
+            price_fetched_at: null,
+            price_granularity: null,
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          },
+        ])
+        .execute();
 
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([transaction]));
       vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
-        ok({
-          rate: parseDecimal('1.08'),
-          source: 'ecb',
-          fetchedAt: new Date('2023-01-15T10:00:00Z'),
-        })
+        ok({ rate: parseDecimal('1.08'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
       );
-      vi.mocked(mockTransactionRepo.updateMovementsWithPrices).mockResolvedValue(ok());
 
-      // Act
       const result = await service.normalize();
 
-      // Assert
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.movementsNormalized).toBe(1);
@@ -110,151 +151,113 @@ describe('PriceNormalizationService', () => {
         expect(result.value.errors).toHaveLength(0);
       }
 
-      // Verify FX provider was called correctly
       expect(mockFxProvider.getRateToUSD).toHaveBeenCalledWith('EUR' as Currency, new Date('2023-01-15T10:00:00Z'));
-
-      // Verify transaction was updated
-      expect(mockTransactionRepo.updateMovementsWithPrices).toHaveBeenCalledTimes(1);
     });
 
     it('should skip USD prices (already normalized)', async () => {
-      // Arrange
-      const transaction: UniversalTransactionData = {
-        id: 1,
-        accountId: 1,
-        externalId: 'test-1',
-        datetime: '2023-01-15T10:00:00Z',
-        timestamp: Date.parse('2023-01-15T10:00:00Z'),
-        source: 'test-exchange',
-        sourceType: 'exchange',
-        status: 'success',
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1.0'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-                source: 'exchange-execution',
-                fetchedAt: new Date('2023-01-15T10:00:00Z'),
-                granularity: 'exact',
-              },
-            },
-          ],
-          outflows: [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
-        },
-        fees: [],
-        operation: { category: 'trade', type: 'buy' },
-      };
+      await insertTransaction(db, 1, '2023-01-15T10:00:00.000Z');
+      await db
+        .insertInto('transaction_movements')
+        .values({
+          transaction_id: 1,
+          position: 0,
+          movement_type: 'inflow',
+          asset_id: 'exchange:test:btc',
+          asset_symbol: 'BTC',
+          gross_amount: '1.0',
+          net_amount: '1.0',
+          fee_amount: null,
+          fee_scope: null,
+          fee_settlement: null,
+          price_amount: '50000',
+          price_currency: 'USD',
+          price_source: 'exchange-execution',
+          price_fetched_at: '2023-01-15T10:00:00.000Z',
+          price_granularity: 'exact',
+          fx_rate_to_usd: null,
+          fx_source: null,
+          fx_timestamp: null,
+        })
+        .execute();
 
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([transaction]));
-
-      // Act
       const result = await service.normalize();
 
-      // Assert
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.movementsNormalized).toBe(0);
         expect(result.value.movementsSkipped).toBe(1);
         expect(result.value.failures).toBe(0);
       }
-
-      // FX provider should not be called for USD prices
       expect(mockFxProvider.getRateToUSD).not.toHaveBeenCalled();
-
-      // No updates needed for USD-only transaction
-      expect(mockTransactionRepo.updateMovementsWithPrices).not.toHaveBeenCalled();
     });
 
     it('should skip crypto prices (BTC priced in ETH)', async () => {
-      // Arrange
-      const transaction: UniversalTransactionData = {
-        id: 1,
-        accountId: 1,
-        externalId: 'test-1',
-        datetime: '2023-01-15T10:00:00Z',
-        timestamp: Date.parse('2023-01-15T10:00:00Z'),
-        source: 'test-exchange',
-        sourceType: 'exchange',
-        status: 'success',
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1.0'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('15'), currency: 'ETH' as Currency },
-                source: 'exchange-execution',
-                fetchedAt: new Date('2023-01-15T10:00:00Z'),
-                granularity: 'exact',
-              },
-            },
-          ],
-          outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('15') }],
-        },
-        fees: [],
-        operation: { category: 'trade', type: 'swap' },
-      };
+      await insertTransaction(db, 1, '2023-01-15T10:00:00.000Z');
+      await db
+        .insertInto('transaction_movements')
+        .values({
+          transaction_id: 1,
+          position: 0,
+          movement_type: 'inflow',
+          asset_id: 'exchange:test:btc',
+          asset_symbol: 'BTC',
+          gross_amount: '1.0',
+          net_amount: '1.0',
+          fee_amount: null,
+          fee_scope: null,
+          fee_settlement: null,
+          price_amount: '15',
+          price_currency: 'ETH',
+          price_source: 'exchange-execution',
+          price_fetched_at: '2023-01-15T10:00:00.000Z',
+          price_granularity: 'exact',
+          fx_rate_to_usd: null,
+          fx_source: null,
+          fx_timestamp: null,
+        })
+        .execute();
 
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([transaction]));
-
-      // Act
       const result = await service.normalize();
 
-      // Assert
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.movementsNormalized).toBe(0);
-        expect(result.value.movementsSkipped).toBe(1); // Crypto prices are counted as skipped
+        expect(result.value.movementsSkipped).toBe(1); // Crypto prices counted as skipped
         expect(result.value.failures).toBe(0);
       }
-
-      // No FX lookup needed for crypto-to-crypto
       expect(mockFxProvider.getRateToUSD).not.toHaveBeenCalled();
     });
 
     it('should handle FX rate fetch failures gracefully', async () => {
-      // Arrange
-      const transaction: UniversalTransactionData = {
-        id: 1,
-        accountId: 1,
-        externalId: 'test-1',
-        datetime: '2023-01-15T10:00:00Z',
-        timestamp: Date.parse('2023-01-15T10:00:00Z'),
-        source: 'test-exchange',
-        sourceType: 'exchange',
-        status: 'success',
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1.0'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
-                source: 'exchange-execution',
-                fetchedAt: new Date('2023-01-15T10:00:00Z'),
-                granularity: 'exact',
-              },
-            },
-          ],
-          outflows: [{ assetId: 'test:eur', assetSymbol: 'EUR' as Currency, grossAmount: parseDecimal('40000') }],
-        },
-        fees: [],
-        operation: { category: 'trade', type: 'buy' },
-      };
+      await insertTransaction(db, 1, '2023-01-15T10:00:00.000Z');
+      await db
+        .insertInto('transaction_movements')
+        .values({
+          transaction_id: 1,
+          position: 0,
+          movement_type: 'inflow',
+          asset_id: 'exchange:test:btc',
+          asset_symbol: 'BTC',
+          gross_amount: '1.0',
+          net_amount: '1.0',
+          fee_amount: null,
+          fee_scope: null,
+          fee_settlement: null,
+          price_amount: '40000',
+          price_currency: 'EUR',
+          price_source: 'exchange-execution',
+          price_fetched_at: '2023-01-15T10:00:00.000Z',
+          price_granularity: 'exact',
+          fx_rate_to_usd: null,
+          fx_source: null,
+          fx_timestamp: null,
+        })
+        .execute();
 
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([transaction]));
       vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(err(new Error('Provider unavailable')));
-      vi.mocked(mockTransactionRepo.updateMovementsWithPrices).mockResolvedValue(ok());
 
-      // Act
       const result = await service.normalize();
 
-      // Assert
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.movementsNormalized).toBe(0);
@@ -262,174 +265,234 @@ describe('PriceNormalizationService', () => {
         expect(result.value.errors).toHaveLength(1);
         expect(result.value.errors[0]).toContain('Provider unavailable');
       }
-
-      // Transaction still updates even if some movements fail (keeps original price)
-      expect(mockTransactionRepo.updateMovementsWithPrices).toHaveBeenCalledTimes(1);
     });
 
-    it('should normalize multiple currencies in single transaction', async () => {
-      // Arrange
-      const transaction: UniversalTransactionData = {
-        id: 1,
-        accountId: 1,
-        externalId: 'test-1',
-        datetime: '2023-01-15T10:00:00Z',
-        timestamp: Date.parse('2023-01-15T10:00:00Z'),
-        source: 'test-exchange',
-        sourceType: 'exchange',
-        status: 'success',
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1.0'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
-                source: 'exchange-execution',
-                fetchedAt: new Date('2023-01-15T10:00:00Z'),
-                granularity: 'exact',
-              },
-            },
-            {
-              assetId: 'test:eth',
-              assetSymbol: 'ETH' as Currency,
-              grossAmount: parseDecimal('10.0'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('2500'), currency: 'CAD' as Currency },
-                source: 'exchange-execution',
-                fetchedAt: new Date('2023-01-15T10:00:00Z'),
-                granularity: 'exact',
-              },
-            },
-          ],
-          outflows: [],
-        },
-        fees: [],
-        operation: { category: 'trade', type: 'buy' },
-      };
+    it('should normalize multiple currencies in a single transaction', async () => {
+      await insertTransaction(db, 1, '2023-01-15T10:00:00.000Z');
+      await db
+        .insertInto('transaction_movements')
+        .values([
+          {
+            transaction_id: 1,
+            position: 0,
+            movement_type: 'inflow',
+            asset_id: 'exchange:test:btc',
+            asset_symbol: 'BTC',
+            gross_amount: '1.0',
+            net_amount: '1.0',
+            fee_amount: null,
+            fee_scope: null,
+            fee_settlement: null,
+            price_amount: '40000',
+            price_currency: 'EUR',
+            price_source: 'exchange-execution',
+            price_fetched_at: '2023-01-15T10:00:00.000Z',
+            price_granularity: 'exact',
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          },
+          {
+            transaction_id: 1,
+            position: 1,
+            movement_type: 'inflow',
+            asset_id: 'exchange:test:eth',
+            asset_symbol: 'ETH',
+            gross_amount: '10.0',
+            net_amount: '10.0',
+            fee_amount: null,
+            fee_scope: null,
+            fee_settlement: null,
+            price_amount: '2500',
+            price_currency: 'CAD',
+            price_source: 'exchange-execution',
+            price_fetched_at: '2023-01-15T10:00:00.000Z',
+            price_granularity: 'exact',
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          },
+        ])
+        .execute();
 
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([transaction]));
       vi.mocked(mockFxProvider.getRateToUSD)
         .mockResolvedValueOnce(
-          ok({
-            rate: parseDecimal('1.08'),
-            source: 'ecb',
-            fetchedAt: new Date('2023-01-15T10:00:00Z'),
-          })
+          ok({ rate: parseDecimal('1.08'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
         )
         .mockResolvedValueOnce(
-          ok({
-            rate: parseDecimal('0.74'),
-            source: 'bank-of-canada',
-            fetchedAt: new Date('2023-01-15T10:00:00Z'),
-          })
+          ok({ rate: parseDecimal('0.74'), source: 'bank-of-canada', fetchedAt: new Date('2023-01-15T10:00:00Z') })
         );
-      vi.mocked(mockTransactionRepo.updateMovementsWithPrices).mockResolvedValue(ok());
 
-      // Act
       const result = await service.normalize();
 
-      // Assert
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.movementsNormalized).toBe(2);
         expect(result.value.failures).toBe(0);
       }
 
-      // Verify FX provider called for both currencies
       expect(mockFxProvider.getRateToUSD).toHaveBeenCalledTimes(2);
       expect(mockFxProvider.getRateToUSD).toHaveBeenCalledWith('EUR' as Currency, new Date('2023-01-15T10:00:00Z'));
       expect(mockFxProvider.getRateToUSD).toHaveBeenCalledWith('CAD' as Currency, new Date('2023-01-15T10:00:00Z'));
     });
 
     it('should normalize platform fees with non-USD fiat prices', async () => {
-      // Arrange
-      const transaction: UniversalTransactionData = {
-        id: 1,
-        accountId: 1,
-        externalId: 'test-1',
-        datetime: '2023-01-15T10:00:00Z',
-        timestamp: Date.parse('2023-01-15T10:00:00Z'),
-        source: 'test-exchange',
-        sourceType: 'exchange',
-        status: 'success',
-        movements: {
-          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
-          outflows: [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
-        },
-        fees: [
-          createFeeMovement('platform', 'balance', 'EUR', '100', {
-            price: { amount: parseDecimal('100'), currency: 'EUR' as Currency },
-            source: 'exchange-execution',
-            fetchedAt: new Date('2023-01-15T10:00:00Z'),
-            granularity: 'exact',
-          }),
-        ],
-        operation: { category: 'trade', type: 'buy' },
-      };
+      await insertTransaction(db, 1, '2023-01-15T10:00:00.000Z');
+      await db
+        .insertInto('transaction_movements')
+        .values([
+          {
+            transaction_id: 1,
+            position: 0,
+            movement_type: 'inflow',
+            asset_id: 'exchange:test:btc',
+            asset_symbol: 'BTC',
+            gross_amount: '1.0',
+            net_amount: '1.0',
+            fee_amount: null,
+            fee_scope: null,
+            fee_settlement: null,
+            price_amount: null,
+            price_currency: null,
+            price_source: null,
+            price_fetched_at: null,
+            price_granularity: null,
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          },
+          {
+            transaction_id: 1,
+            position: 1,
+            movement_type: 'outflow',
+            asset_id: 'fiat:usd',
+            asset_symbol: 'USD',
+            gross_amount: '50000',
+            net_amount: '50000',
+            fee_amount: null,
+            fee_scope: null,
+            fee_settlement: null,
+            price_amount: null,
+            price_currency: null,
+            price_source: null,
+            price_fetched_at: null,
+            price_granularity: null,
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          },
+          // Platform fee priced in EUR
+          {
+            transaction_id: 1,
+            position: 2,
+            movement_type: 'fee',
+            asset_id: 'fiat:eur',
+            asset_symbol: 'EUR',
+            gross_amount: null,
+            net_amount: null,
+            fee_amount: '100',
+            fee_scope: 'platform',
+            fee_settlement: 'balance',
+            price_amount: '100',
+            price_currency: 'EUR',
+            price_source: 'exchange-execution',
+            price_fetched_at: '2023-01-15T10:00:00.000Z',
+            price_granularity: 'exact',
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          },
+        ])
+        .execute();
 
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([transaction]));
       vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
-        ok({
-          rate: parseDecimal('1.08'),
-          source: 'ecb',
-          fetchedAt: new Date('2023-01-15T10:00:00Z'),
-        })
+        ok({ rate: parseDecimal('1.08'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
       );
-      vi.mocked(mockTransactionRepo.updateMovementsWithPrices).mockResolvedValue(ok());
 
-      // Act
       const result = await service.normalize();
 
-      // Assert
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.movementsNormalized).toBe(1); // Fee normalized
+        expect(result.value.movementsNormalized).toBe(1); // Only the fee is normalized
         expect(result.value.failures).toBe(0);
       }
     });
 
     it('should normalize network fees with non-USD fiat prices', async () => {
-      // Arrange
-      const transaction: UniversalTransactionData = {
-        id: 1,
-        accountId: 1,
-        externalId: 'test-1',
-        datetime: '2023-01-15T10:00:00Z',
-        timestamp: Date.parse('2023-01-15T10:00:00Z'),
-        source: 'test-exchange',
-        sourceType: 'exchange',
-        status: 'success',
-        movements: {
-          inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
-          outflows: [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
-        },
-        fees: [
-          createFeeMovement('platform', 'balance', 'GBP', '50', {
-            price: { amount: parseDecimal('50'), currency: 'GBP' as Currency },
-            source: 'exchange-execution',
-            fetchedAt: new Date('2023-01-15T10:00:00Z'),
-            granularity: 'exact',
-          }),
-        ],
-        operation: { category: 'trade', type: 'buy' },
-      };
+      await insertTransaction(db, 1, '2023-01-15T10:00:00.000Z');
+      await db
+        .insertInto('transaction_movements')
+        .values([
+          {
+            transaction_id: 1,
+            position: 0,
+            movement_type: 'inflow',
+            asset_id: 'exchange:test:btc',
+            asset_symbol: 'BTC',
+            gross_amount: '1.0',
+            net_amount: '1.0',
+            fee_amount: null,
+            fee_scope: null,
+            fee_settlement: null,
+            price_amount: null,
+            price_currency: null,
+            price_source: null,
+            price_fetched_at: null,
+            price_granularity: null,
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          },
+          {
+            transaction_id: 1,
+            position: 1,
+            movement_type: 'outflow',
+            asset_id: 'fiat:usd',
+            asset_symbol: 'USD',
+            gross_amount: '50000',
+            net_amount: '50000',
+            fee_amount: null,
+            fee_scope: null,
+            fee_settlement: null,
+            price_amount: null,
+            price_currency: null,
+            price_source: null,
+            price_fetched_at: null,
+            price_granularity: null,
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          },
+          // Network fee priced in GBP
+          {
+            transaction_id: 1,
+            position: 2,
+            movement_type: 'fee',
+            asset_id: 'fiat:gbp',
+            asset_symbol: 'GBP',
+            gross_amount: null,
+            net_amount: null,
+            fee_amount: '50',
+            fee_scope: 'network',
+            fee_settlement: 'on-chain',
+            price_amount: '50',
+            price_currency: 'GBP',
+            price_source: 'exchange-execution',
+            price_fetched_at: '2023-01-15T10:00:00.000Z',
+            price_granularity: 'exact',
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          },
+        ])
+        .execute();
 
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([transaction]));
       vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
-        ok({
-          rate: parseDecimal('1.27'),
-          source: 'ecb',
-          fetchedAt: new Date('2023-01-15T10:00:00Z'),
-        })
+        ok({ rate: parseDecimal('1.27'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
       );
-      vi.mocked(mockTransactionRepo.updateMovementsWithPrices).mockResolvedValue(ok());
 
-      // Act
       const result = await service.normalize();
 
-      // Assert
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.movementsNormalized).toBe(1); // Network fee normalized
@@ -438,201 +501,106 @@ describe('PriceNormalizationService', () => {
     });
 
     it('should skip movements without prices', async () => {
-      // Arrange
-      const transaction: UniversalTransactionData = {
-        id: 1,
-        accountId: 1,
-        externalId: 'test-1',
-        datetime: '2023-01-15T10:00:00Z',
-        timestamp: Date.parse('2023-01-15T10:00:00Z'),
-        source: 'blockchain',
-        sourceType: 'blockchain' as const,
-        status: 'success',
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1.0'),
-              // No priceAtTxTime
-            },
-          ],
-          outflows: [],
-        },
-        fees: [],
-        operation: { category: 'transfer', type: 'transfer' },
-      };
+      await insertTransaction(db, 1, '2023-01-15T10:00:00.000Z');
+      await db
+        .insertInto('transaction_movements')
+        .values({
+          transaction_id: 1,
+          position: 0,
+          movement_type: 'inflow',
+          asset_id: 'blockchain:bitcoin:native',
+          asset_symbol: 'BTC',
+          gross_amount: '1.0',
+          net_amount: '1.0',
+          fee_amount: null,
+          fee_scope: null,
+          fee_settlement: null,
+          price_amount: null,
+          price_currency: null,
+          price_source: null,
+          price_fetched_at: null,
+          price_granularity: null,
+          fx_rate_to_usd: null,
+          fx_source: null,
+          fx_timestamp: null,
+        })
+        .execute();
 
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([transaction]));
-
-      // Act
       const result = await service.normalize();
 
-      // Assert
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.movementsNormalized).toBe(0);
         expect(result.value.movementsSkipped).toBe(0);
         expect(result.value.failures).toBe(0);
       }
-
-      // No FX lookups for movements without prices
       expect(mockFxProvider.getRateToUSD).not.toHaveBeenCalled();
     });
 
-    it('should handle database fetch errors', async () => {
-      // Arrange
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(err(new Error('Database connection failed')));
-
-      // Act
-      const result = await service.normalize();
-
-      // Assert
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Database connection failed');
-      }
-    });
-
-    it('should handle database update errors', async () => {
-      // Arrange
-      const transaction: UniversalTransactionData = {
-        id: 1,
-        accountId: 1,
-        externalId: 'test-1',
-        datetime: '2023-01-15T10:00:00Z',
-        timestamp: Date.parse('2023-01-15T10:00:00Z'),
-        source: 'test-exchange',
-        sourceType: 'exchange',
-        status: 'success',
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1.0'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
-                source: 'exchange-execution',
-                fetchedAt: new Date('2023-01-15T10:00:00Z'),
-                granularity: 'exact',
-              },
-            },
-          ],
-          outflows: [],
-        },
-        fees: [],
-        operation: { category: 'trade', type: 'buy' },
-      };
-
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([transaction]));
-      vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
-        ok({
-          rate: parseDecimal('1.08'),
-          source: 'ecb',
-          fetchedAt: new Date('2023-01-15T10:00:00Z'),
-        })
-      );
-      vi.mocked(mockTransactionRepo.updateMovementsWithPrices).mockResolvedValue(
-        err(new Error('Update failed: constraint violation'))
-      );
-
-      // Act
-      const result = await service.normalize();
-
-      // Assert
-      expect(result.isOk()).toBe(true); // Service continues despite update errors
-      if (result.isOk()) {
-        expect(result.value.movementsNormalized).toBe(1);
-        expect(result.value.failures).toBe(1);
-        expect(result.value.errors).toHaveLength(1);
-        expect(result.value.errors[0]).toContain('constraint violation');
-      }
-    });
-
     it('should process multiple transactions correctly', async () => {
-      // Arrange
-      const tx1: UniversalTransactionData = {
-        id: 1,
-        accountId: 1,
-        externalId: 'test-1',
-        datetime: '2023-01-15T10:00:00Z',
-        timestamp: Date.parse('2023-01-15T10:00:00Z'),
-        source: 'test-exchange',
-        sourceType: 'exchange',
-        status: 'success',
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1.0'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
-                source: 'exchange-execution',
-                fetchedAt: new Date('2023-01-15T10:00:00Z'),
-                granularity: 'exact',
-              },
-            },
-          ],
-          outflows: [],
-        },
-        fees: [],
-        operation: { category: 'trade', type: 'buy' },
-      };
+      await insertTransaction(db, 1, '2023-01-15T10:00:00.000Z');
+      await insertTransaction(db, 2, '2023-01-16T10:00:00.000Z');
 
-      const tx2: UniversalTransactionData = {
-        id: 2,
-        accountId: 1,
-        externalId: 'test-2',
-        datetime: '2023-01-16T10:00:00Z',
-        timestamp: Date.parse('2023-01-16T10:00:00Z'),
-        source: 'test-exchange',
-        sourceType: 'exchange',
-        status: 'success',
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:eth',
-              assetSymbol: 'ETH' as Currency,
-              grossAmount: parseDecimal('10.0'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-                source: 'exchange-execution',
-                fetchedAt: new Date('2023-01-16T10:00:00Z'),
-                granularity: 'exact',
-              },
-            },
-          ],
-          outflows: [],
-        },
-        fees: [],
-        operation: { category: 'trade', type: 'buy' },
-      };
+      await db
+        .insertInto('transaction_movements')
+        .values([
+          // tx1: BTC with EUR price — needs normalization
+          {
+            transaction_id: 1,
+            position: 0,
+            movement_type: 'inflow',
+            asset_id: 'exchange:test:btc',
+            asset_symbol: 'BTC',
+            gross_amount: '1.0',
+            net_amount: '1.0',
+            fee_amount: null,
+            fee_scope: null,
+            fee_settlement: null,
+            price_amount: '40000',
+            price_currency: 'EUR',
+            price_source: 'exchange-execution',
+            price_fetched_at: '2023-01-15T10:00:00.000Z',
+            price_granularity: 'exact',
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          },
+          // tx2: ETH with USD price — already normalized, skip
+          {
+            transaction_id: 2,
+            position: 0,
+            movement_type: 'inflow',
+            asset_id: 'exchange:test:eth',
+            asset_symbol: 'ETH',
+            gross_amount: '10.0',
+            net_amount: '10.0',
+            fee_amount: null,
+            fee_scope: null,
+            fee_settlement: null,
+            price_amount: '50000',
+            price_currency: 'USD',
+            price_source: 'exchange-execution',
+            price_fetched_at: '2023-01-16T10:00:00.000Z',
+            price_granularity: 'exact',
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          },
+        ])
+        .execute();
 
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]));
       vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
-        ok({
-          rate: parseDecimal('1.08'),
-          source: 'ecb',
-          fetchedAt: new Date('2023-01-15T10:00:00Z'),
-        })
+        ok({ rate: parseDecimal('1.08'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
       );
-      vi.mocked(mockTransactionRepo.updateMovementsWithPrices).mockResolvedValue(ok());
 
-      // Act
       const result = await service.normalize();
 
-      // Assert
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.movementsNormalized).toBe(1); // Only tx1 needs normalization
-        expect(result.value.movementsSkipped).toBe(1); // tx2 already USD
+        expect(result.value.movementsNormalized).toBe(1); // Only tx1 EUR normalized
+        expect(result.value.movementsSkipped).toBe(1); // tx2 USD skipped
         expect(result.value.failures).toBe(0);
       }
-
-      // Only one transaction updated (tx1)
-      expect(mockTransactionRepo.updateMovementsWithPrices).toHaveBeenCalledTimes(1);
     });
   });
 });

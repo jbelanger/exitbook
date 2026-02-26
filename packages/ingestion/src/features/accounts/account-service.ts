@@ -1,5 +1,5 @@
 import { type Account, wrapError } from '@exitbook/core';
-import type { AccountQueries, ImportSessionQueries, UserQueries } from '@exitbook/data';
+import { createAccountQueries, createImportSessionQueries, createUserQueries, type KyselyDB } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -20,11 +20,15 @@ export interface ViewAccountsParams extends AccountQueryParams {
  * Separates persistence orchestration from CLI handlers.
  */
 export class AccountService {
-  constructor(
-    private readonly accountQueries: AccountQueries,
-    private readonly sessionQueries: ImportSessionQueries,
-    private readonly userQueries: UserQueries
-  ) {}
+  private readonly accountQueries: ReturnType<typeof createAccountQueries>;
+  private readonly sessionQueries: ReturnType<typeof createImportSessionQueries>;
+  private readonly userQueries: ReturnType<typeof createUserQueries>;
+
+  constructor(db: KyselyDB) {
+    this.accountQueries = createAccountQueries(db);
+    this.sessionQueries = createImportSessionQueries(db);
+    this.userQueries = createUserQueries(db);
+  }
 
   /**
    * Query accounts with optional session details.

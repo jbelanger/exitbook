@@ -1,11 +1,9 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { TransactionQueries } from '@exitbook/data';
+import { createTransactionQueries, createTransactionLinkQueries, type KyselyDB } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
-
-import type { TransactionLinkQueries } from '../persistence/transaction-link-queries.js';
 
 import { buildLinkGraph } from './link-graph-utils.js';
 import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from './price-enrichment-utils.js';
@@ -43,10 +41,13 @@ function transactionNeedsPrice(transaction: UniversalTransactionData): boolean {
  * - derive: Recalculate crypto-crypto swap ratios for accurate cost basis
  */
 export class PriceEnrichmentService {
-  constructor(
-    private readonly transactionRepository: TransactionQueries,
-    private readonly linkRepository: TransactionLinkQueries
-  ) {}
+  private readonly transactionRepository: ReturnType<typeof createTransactionQueries>;
+  private readonly linkRepository: ReturnType<typeof createTransactionLinkQueries>;
+
+  constructor(db: KyselyDB) {
+    this.transactionRepository = createTransactionQueries(db);
+    this.linkRepository = createTransactionLinkQueries(db);
+  }
 
   /**
    * Main entry point: enrich prices for all transactions needing prices

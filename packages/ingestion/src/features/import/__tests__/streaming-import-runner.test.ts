@@ -7,7 +7,7 @@
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, AccountType, CursorState, ExchangeCredentials, ImportSession } from '@exitbook/core';
-import type { AccountQueries, ImportSessionQueries, RawDataQueries } from '@exitbook/data';
+import type { AccountQueries, ImportSessionQueries, KyselyDB, RawDataQueries } from '@exitbook/data';
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -130,11 +130,19 @@ function createTestRegistry() {
   );
 }
 
+// Module-scope mock query objects — referenced by @exitbook/data mock closures
+let mockRawDataQueries: RawDataQueries;
+let mockImportSessionQueries: ImportSessionQueries;
+let mockAccountQueries: AccountQueries;
+
+vi.mock('@exitbook/data', () => ({
+  createRawDataQueries: vi.fn(() => mockRawDataQueries),
+  createImportSessionQueries: vi.fn(() => mockImportSessionQueries),
+  createAccountQueries: vi.fn(() => mockAccountQueries),
+}));
+
 describe('StreamingImportRunner', () => {
   let service: StreamingImportRunner;
-  let mockRawDataQueries: RawDataQueries;
-  let mockImportSessionQueries: ImportSessionQueries;
-  let mockAccountQueries: AccountQueries;
   let mockProviderManager: BlockchainProviderManager;
 
   beforeEach(() => {
@@ -202,13 +210,7 @@ describe('StreamingImportRunner', () => {
     mockProviderManager = {} as BlockchainProviderManager;
 
     const registry = createTestRegistry();
-    service = new StreamingImportRunner(
-      mockRawDataQueries,
-      mockImportSessionQueries,
-      mockAccountQueries,
-      mockProviderManager,
-      registry
-    );
+    service = new StreamingImportRunner({} as KyselyDB, mockProviderManager, registry);
   });
 
   describe('importFromSource - blockchain', () => {
@@ -723,9 +725,7 @@ describe('StreamingImportRunner', () => {
       const mockEventBus = { emit: vi.fn() };
       const registry = createTestRegistry();
       const serviceWithEvents = new StreamingImportRunner(
-        mockRawDataQueries,
-        mockImportSessionQueries,
-        mockAccountQueries,
+        {} as KyselyDB,
         mockProviderManager,
         registry,
         mockEventBus as never

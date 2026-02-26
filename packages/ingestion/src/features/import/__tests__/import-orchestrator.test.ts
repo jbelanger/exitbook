@@ -7,7 +7,7 @@
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ImportSession } from '@exitbook/core';
-import type { AccountQueries, ImportSessionQueries, RawDataQueries, UserQueries } from '@exitbook/data';
+import type { AccountQueries, KyselyDB, UserQueries } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -96,12 +96,17 @@ function createTestRegistry() {
   );
 }
 
+// Module-scope mock query objects — referenced by @exitbook/data mock closures
+let mockUserQueries: UserQueries;
+let mockAccountQueries: AccountQueries;
+
+vi.mock('@exitbook/data', () => ({
+  createUserQueries: vi.fn(() => mockUserQueries),
+  createAccountQueries: vi.fn(() => mockAccountQueries),
+}));
+
 describe('ImportOrchestrator', () => {
   let orchestrator: ImportOrchestrator;
-  let mockUserQueries: UserQueries;
-  let mockAccountQueries: AccountQueries;
-  let mockRawDataQueries: RawDataQueries;
-  let mockImportSessionQueries: ImportSessionQueries;
   let mockProviderManager: BlockchainProviderManager;
 
   const mockUser = { id: 1, createdAt: new Date() };
@@ -118,31 +123,10 @@ describe('ImportOrchestrator', () => {
       update: vi.fn().mockResolvedValue(ok(undefined)),
     } as unknown as AccountQueries;
 
-    mockRawDataQueries = {
-      saveBatch: vi.fn(),
-      load: vi.fn(),
-      countByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
-    } as unknown as RawDataQueries;
-    mockImportSessionQueries = {
-      create: vi.fn().mockResolvedValue(ok(mockImportSession)),
-      finalize: vi.fn().mockResolvedValue(ok(undefined)),
-      findByAccount: vi.fn().mockResolvedValue(ok([])),
-      findById: vi.fn().mockResolvedValue(ok(undefined)),
-      findCompletedWithMatchingParams: vi.fn().mockResolvedValue(ok(undefined)),
-      findLatestIncomplete: vi.fn().mockResolvedValue(ok(undefined)),
-      update: vi.fn().mockResolvedValue(ok(undefined)),
-    } as unknown as ImportSessionQueries;
     mockProviderManager = {} as BlockchainProviderManager;
 
     const registry = createTestRegistry();
-    orchestrator = new ImportOrchestrator(
-      mockUserQueries,
-      mockAccountQueries,
-      mockRawDataQueries,
-      mockImportSessionQueries,
-      mockProviderManager,
-      registry
-    );
+    orchestrator = new ImportOrchestrator({} as KyselyDB, mockProviderManager, registry);
 
     // Reset derive addresses mock
     mockDeriveAddresses.mockReset();

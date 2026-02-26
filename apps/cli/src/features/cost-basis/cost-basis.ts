@@ -199,7 +199,7 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
 
       const pricesResult = await ensurePrices(
         transactionRepo,
-        linkRepo,
+        database,
         params.config.startDate,
         params.config.endDate,
         params.config.currency,
@@ -306,7 +306,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
       // Step 3: Auto-run price enrichment if missing (needs date range from params)
       const pricesResult = await ensurePrices(
         transactionRepo,
-        linkRepo,
+        database,
         params.config.startDate,
         params.config.endDate,
         params.config.currency,

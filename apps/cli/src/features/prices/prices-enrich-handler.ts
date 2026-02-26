@@ -20,20 +20,17 @@
  * --derive-only, or --fetch-only for granular control.
  */
 
-import {
-  PriceEnrichmentService,
-  PriceNormalizationService,
-  StandardFxRateProvider,
-  type TransactionLinkQueries,
-} from '@exitbook/accounting';
+import { PriceEnrichmentService, PriceNormalizationService, StandardFxRateProvider } from '@exitbook/accounting';
 import type { NormalizeResult } from '@exitbook/accounting';
-import type { TransactionQueries } from '@exitbook/data';
+import { createTransactionQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { InstrumentationCollector, type MetricsSummary } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import type { PriceProviderManager } from '@exitbook/price-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
+
+import type { CommandDatabase } from '../shared/command-runtime.js';
 
 import type { PriceEvent } from './events.js';
 import { PricesFetchHandler } from './prices-handler.js';
@@ -89,8 +86,7 @@ export class PricesEnrichHandler {
   private readonly instrumentation: InstrumentationCollector;
 
   constructor(
-    private readonly transactionRepo: TransactionQueries,
-    private readonly linkRepo: TransactionLinkQueries,
+    private readonly db: CommandDatabase,
     private readonly eventBus?: EventBus<PriceEvent>,
     instrumentation?: InstrumentationCollector
   ) {
@@ -125,7 +121,7 @@ export class PricesEnrichHandler {
           stage: 'tradePrices',
         });
 
-        const enrichmentService = new PriceEnrichmentService(this.transactionRepo, this.linkRepo);
+        const enrichmentService = new PriceEnrichmentService(this.db);
         const deriveResult = await enrichmentService.enrichPrices();
 
         if (deriveResult.isErr()) {
@@ -181,7 +177,7 @@ export class PricesEnrichHandler {
 
         const fxRateProvider = new StandardFxRateProvider(this.priceManager);
 
-        const normalizeService = new PriceNormalizationService(this.transactionRepo, fxRateProvider);
+        const normalizeService = new PriceNormalizationService(this.db, fxRateProvider);
         const normalizeResult = await normalizeService.normalize();
 
         if (normalizeResult.isErr()) {
@@ -254,7 +250,11 @@ export class PricesEnrichHandler {
           return err(new Error('Price manager not initialized'));
         }
 
-        const fetchHandler = new PricesFetchHandler(this.transactionRepo, this.instrumentation, this.eventBus);
+        const fetchHandler = new PricesFetchHandler(
+          createTransactionQueries(this.db),
+          this.instrumentation,
+          this.eventBus
+        );
         const fetchResult = await fetchHandler.execute(
           {
             asset: options.asset,
@@ -306,7 +306,7 @@ export class PricesEnrichHandler {
           stage: 'propagation',
         });
 
-        const enrichmentService = new PriceEnrichmentService(this.transactionRepo, this.linkRepo);
+        const enrichmentService = new PriceEnrichmentService(this.db);
         const secondDeriveResult = await enrichmentService.enrichPrices();
 
         if (secondDeriveResult.isErr()) {

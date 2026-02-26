@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Core domain types and entities for cryptocurrency platform",
-  "license": "AGPL-3.0",
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",

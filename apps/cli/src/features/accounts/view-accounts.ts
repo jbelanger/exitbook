@@ -100,17 +100,12 @@ async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
  * Execute accounts view in TUI mode
  */
 async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void> {
-  const { createAccountQueries, createImportSessionQueries, createUserQueries } = await import('@exitbook/data');
   const { AccountService } = await import('@exitbook/ingestion');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const accountQueries = createAccountQueries(database);
-      const sessionQueries = createImportSessionQueries(database);
-      const userQueries = createUserQueries(database);
-
-      const accountService = new AccountService(accountQueries, sessionQueries, userQueries);
+      const accountService = new AccountService(database);
 
       const result = await accountService.viewAccounts({
         accountId: params.accountId,
@@ -163,17 +158,12 @@ async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void>
  * Execute accounts view in JSON mode
  */
 async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void> {
-  const { createAccountQueries, createImportSessionQueries, createUserQueries } = await import('@exitbook/data');
   const { AccountService } = await import('@exitbook/ingestion');
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const accountQueries = createAccountQueries(database);
-      const sessionQueries = createImportSessionQueries(database);
-      const userQueries = createUserQueries(database);
-
-      const accountService = new AccountService(accountQueries, sessionQueries, userQueries);
+      const accountService = new AccountService(database);
 
       const result = await accountService.viewAccounts({
         accountId: params.accountId,

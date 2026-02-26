@@ -1,11 +1,13 @@
 import { type Account, wrapError } from '@exitbook/core';
-import type {
-  AccountQueries,
-  ImportSessionQueries,
-  RawDataQueries,
-  TransactionLinkQueries,
-  TransactionQueries,
-  UserQueries,
+import {
+  createAccountQueries,
+  createImportSessionQueries,
+  createRawDataQueries,
+  createTransactionLinkQueries,
+  createTransactionQueries,
+  createUserQueries,
+  type KyselyDB,
+  withControlledTransaction,
 } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
@@ -35,15 +37,24 @@ export interface ClearResult {
  * Imperative shell that orchestrates repositories and pure functions.
  */
 export class ClearService {
+  private readonly userQueries: ReturnType<typeof createUserQueries>;
+  private readonly accountQueries: ReturnType<typeof createAccountQueries>;
+  private readonly transactionQueries: ReturnType<typeof createTransactionQueries>;
+  private readonly transactionLinkQueries: ReturnType<typeof createTransactionLinkQueries>;
+  private readonly rawDataQueries: ReturnType<typeof createRawDataQueries>;
+  private readonly sessionQueries: ReturnType<typeof createImportSessionQueries>;
+
   constructor(
-    private userQueries: UserQueries,
-    private accountQueries: AccountQueries,
-    private transactionQueries: TransactionQueries,
-    private transactionLinkQueries: TransactionLinkQueries,
-    private rawDataQueries: RawDataQueries,
-    private sessionQueries: ImportSessionQueries,
+    private db: KyselyDB,
     private eventBus?: EventBus<IngestionEvent> | undefined
-  ) {}
+  ) {
+    this.userQueries = createUserQueries(db);
+    this.accountQueries = createAccountQueries(db);
+    this.transactionQueries = createTransactionQueries(db);
+    this.transactionLinkQueries = createTransactionLinkQueries(db);
+    this.rawDataQueries = createRawDataQueries(db);
+    this.sessionQueries = createImportSessionQueries(db);
+  }
 
   /**
    * Preview what will be deleted.
@@ -247,6 +258,7 @@ export class ClearService {
 
   /**
    * Delete data for specific accounts.
+   * All operations run inside a single DB transaction — partial failure rolls back atomically.
    */
   private async deleteForAccounts(
     accountsToClear: ResolvedAccount[],
@@ -254,84 +266,87 @@ export class ClearService {
   ): Promise<Result<void, Error>> {
     const accountIds = extractAccountIds(accountsToClear);
 
-    // Delete transaction data by account_id
-    // This ensures we only delete data for the specific accounts being cleared
-    const linksResult = await this.transactionLinkQueries.deleteByAccountIds(accountIds);
-    if (linksResult.isErr()) {
-      return err(linksResult.error);
-    }
+    return withControlledTransaction(
+      this.db,
+      logger,
+      async (trx) => {
+        const transactionLinkQueries = createTransactionLinkQueries(trx);
+        const transactionQueries = createTransactionQueries(trx);
+        const rawDataQueries = createRawDataQueries(trx);
+        const sessionQueries = createImportSessionQueries(trx);
+        const accountQueries = createAccountQueries(trx);
 
-    const transactionsResult = await this.transactionQueries.deleteByAccountIds(accountIds);
-    if (transactionsResult.isErr()) {
-      return err(transactionsResult.error);
-    }
+        // Delete transaction data by account_id
+        const linksResult = await transactionLinkQueries.deleteByAccountIds(accountIds);
+        if (linksResult.isErr()) return err(linksResult.error);
 
-    // Delete raw data and sessions (by account_id)
-    for (const { account } of accountsToClear) {
-      if (includeRaw) {
-        const rawDataResult = await this.rawDataQueries.deleteByAccount(account.id);
-        if (rawDataResult.isErr()) {
-          return err(rawDataResult.error);
+        const transactionsResult = await transactionQueries.deleteByAccountIds(accountIds);
+        if (transactionsResult.isErr()) return err(transactionsResult.error);
+
+        // Delete raw data and sessions (by account_id)
+        for (const { account } of accountsToClear) {
+          if (includeRaw) {
+            const rawDataResult = await rawDataQueries.deleteByAccount(account.id);
+            if (rawDataResult.isErr()) return err(rawDataResult.error);
+
+            const importSessionResult = await sessionQueries.deleteByAccount(account.id);
+            if (importSessionResult.isErr()) return err(importSessionResult.error);
+          } else {
+            // Reset raw data processing_status to 'pending' for reprocessing
+            const resetResult = await rawDataQueries.resetProcessingStatusByAccount(account.id);
+            if (resetResult.isErr()) return err(resetResult.error);
+          }
         }
 
-        const importSessionResult = await this.sessionQueries.deleteByAccount(account.id);
-        if (importSessionResult.isErr()) {
-          return err(importSessionResult.error);
+        // Only delete accounts if we're doing a full clear (includeRaw: true)
+        // When includeRaw: false, we're just resetting for reprocessing, so keep the accounts
+        if (includeRaw) {
+          const deleteAccountsResult = await accountQueries.deleteByIds(accountIds);
+          if (deleteAccountsResult.isErr()) return err(deleteAccountsResult.error);
         }
-      } else {
-        // Reset raw data processing_status to 'pending' for reprocessing
-        const resetResult = await this.rawDataQueries.resetProcessingStatusByAccount(account.id);
-        if (resetResult.isErr()) {
-          return err(resetResult.error);
-        }
-      }
-    }
 
-    // Only delete accounts if we're doing a full clear (includeRaw: true)
-    // When includeRaw: false, we're just resetting for reprocessing, so keep the accounts
-    if (includeRaw) {
-      const deleteAccountsResult = await this.accountQueries.deleteByIds(accountIds);
-      if (deleteAccountsResult.isErr()) {
-        return err(deleteAccountsResult.error);
-      }
-    }
-
-    return ok();
+        return ok();
+      },
+      'Failed to delete account data'
+    );
   }
 
   /**
    * Delete all data.
+   * All operations run inside a single DB transaction — partial failure rolls back atomically.
    */
   private async deleteAll(includeRaw: boolean): Promise<Result<void, Error>> {
-    const linksResult = await this.transactionLinkQueries.deleteAll();
-    if (linksResult.isErr()) {
-      return err(linksResult.error);
-    }
+    return withControlledTransaction(
+      this.db,
+      logger,
+      async (trx) => {
+        const transactionLinkQueries = createTransactionLinkQueries(trx);
+        const transactionQueries = createTransactionQueries(trx);
+        const rawDataQueries = createRawDataQueries(trx);
+        const sessionQueries = createImportSessionQueries(trx);
 
-    const transactionsResult = await this.transactionQueries.deleteAll();
-    if (transactionsResult.isErr()) {
-      return err(transactionsResult.error);
-    }
+        const linksResult = await transactionLinkQueries.deleteAll();
+        if (linksResult.isErr()) return err(linksResult.error);
 
-    if (includeRaw) {
-      const rawDataResult = await this.rawDataQueries.deleteAll();
-      if (rawDataResult.isErr()) {
-        return err(rawDataResult.error);
-      }
+        const transactionsResult = await transactionQueries.deleteAll();
+        if (transactionsResult.isErr()) return err(transactionsResult.error);
 
-      const importSessionResult = await this.sessionQueries.deleteAll();
-      if (importSessionResult.isErr()) {
-        return err(importSessionResult.error);
-      }
-    } else {
-      // Reset raw data processing_status to 'pending' for reprocessing
-      const resetResult = await this.rawDataQueries.resetProcessingStatusAll();
-      if (resetResult.isErr()) {
-        return err(resetResult.error);
-      }
-    }
+        if (includeRaw) {
+          const rawDataResult = await rawDataQueries.deleteAll();
+          if (rawDataResult.isErr()) return err(rawDataResult.error);
 
-    return ok();
+          const importSessionResult = await sessionQueries.deleteAll();
+          if (importSessionResult.isErr()) return err(importSessionResult.error);
+        } else {
+          // Reset raw data processing_status to 'pending' for reprocessing
+          const resetResult = await rawDataQueries.resetProcessingStatusAll();
+          if (resetResult.isErr()) return err(resetResult.error);
+        }
+
+        return ok();
+      },
+      'Failed to delete all data'
+    );
   }
 
   /**

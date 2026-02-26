@@ -3,7 +3,6 @@ import {
   type AccountQueries,
   type TransactionQueries,
   createAccountQueries,
-  createImportSessionQueries,
   createTokenMetadataPersistence,
   createTransactionQueries,
 } from '@exitbook/data';
@@ -116,7 +115,6 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
       const database = await ctx.database();
       const accountRepo = createAccountQueries(database);
       const transactionRepo = createTransactionQueries(database);
-      const sessionRepo = createImportSessionQueries(database);
 
       if (options.offline) {
         // Offline JSON
@@ -160,13 +158,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
         if (options.accountId) {
           // Single-account online JSON
           const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-          const balanceService = new BalanceService(
-            accountRepo,
-            transactionRepo,
-            sessionRepo,
-            tokenMetadataRepo,
-            providerManager
-          );
+          const balanceService = new BalanceService(database, tokenMetadataRepo, providerManager);
 
           try {
             let credentials: ExchangeCredentials | undefined;
@@ -243,13 +235,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
         } else {
           // All-accounts online JSON
           const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-          const balanceService = new BalanceService(
-            accountRepo,
-            transactionRepo,
-            sessionRepo,
-            tokenMetadataRepo,
-            providerManager
-          );
+          const balanceService = new BalanceService(database, tokenMetadataRepo, providerManager);
 
           try {
             const accounts = await loadAllAccounts(accountRepo);
@@ -369,7 +355,6 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
       const database = await ctx.database();
       const accountRepo = createAccountQueries(database);
       const transactionRepo = createTransactionQueries(database);
-      const sessionRepo = createImportSessionQueries(database);
       const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
       if (tokenMetadataResult.isErr()) {
         throw tokenMetadataResult.error;
@@ -378,13 +363,7 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
       ctx.onCleanup(async () => cleanupTokenMetadata());
 
       const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-      const balanceService = new BalanceService(
-        accountRepo,
-        transactionRepo,
-        sessionRepo,
-        tokenMetadataRepo,
-        providerManager
-      );
+      const balanceService = new BalanceService(database, tokenMetadataRepo, providerManager);
 
       ctx.onCleanup(async () => {
         await balanceService.destroy();
@@ -570,7 +549,6 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
       const database = await ctx.database();
       const accountRepo = createAccountQueries(database);
       const transactionRepo = createTransactionQueries(database);
-      const sessionRepo = createImportSessionQueries(database);
       const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
       if (tokenMetadataResult.isErr()) {
         throw tokenMetadataResult.error;
@@ -579,13 +557,7 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
       ctx.onCleanup(async () => cleanupTokenMetadata());
 
       const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-      const balanceService = new BalanceService(
-        accountRepo,
-        transactionRepo,
-        sessionRepo,
-        tokenMetadataRepo,
-        providerManager
-      );
+      const balanceService = new BalanceService(database, tokenMetadataRepo, providerManager);
 
       ctx.onCleanup(async () => {
         await balanceService.destroy();

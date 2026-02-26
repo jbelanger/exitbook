@@ -1,6 +1,6 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ImportSession } from '@exitbook/core';
-import type { AccountQueries, ImportSessionQueries, RawDataQueries } from '@exitbook/data';
+import { createAccountQueries, createImportSessionQueries, createRawDataQueries, type KyselyDB } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -18,16 +18,20 @@ import type { IImporter, ImportParams } from '../../shared/types/importers.js';
  */
 export class StreamingImportRunner {
   private logger: Logger;
+  private rawDataQueries: ReturnType<typeof createRawDataQueries>;
+  private importSessionQueries: ReturnType<typeof createImportSessionQueries>;
+  private accountQueries: ReturnType<typeof createAccountQueries>;
 
   constructor(
-    private rawDataQueries: RawDataQueries,
-    private importSessionQueries: ImportSessionQueries,
-    private accountQueries: AccountQueries,
+    db: KyselyDB,
     private providerManager: BlockchainProviderManager,
     private registry: AdapterRegistry,
     private eventBus?: EventBus<ImportEvent> | undefined
   ) {
     this.logger = getLogger('StreamingImportRunner');
+    this.rawDataQueries = createRawDataQueries(db);
+    this.importSessionQueries = createImportSessionQueries(db);
+    this.accountQueries = createAccountQueries(db);
   }
 
   /**

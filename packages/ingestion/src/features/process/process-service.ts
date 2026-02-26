@@ -1,13 +1,13 @@
 import { type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getErrorMessage, type RawTransaction } from '@exitbook/core';
-import type {
-  AccountQueries,
-  ImportSessionQueries,
-  KyselyDB,
-  RawDataQueries,
-  TransactionQueries,
+import {
+  createAccountQueries,
+  createImportSessionQueries,
+  createNearRawDataQueries,
+  createRawDataQueries,
+  createTransactionQueries,
+  type KyselyDB,
 } from '@exitbook/data';
-import { createNearRawDataQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -40,20 +40,24 @@ const RAW_DATA_HASH_BATCH_SIZE = 100; // For blockchain accounts, process in has
 export class TransactionProcessingService {
   private logger: Logger;
   private scamDetectionService: IScamDetectionService;
+  private rawDataQueries: ReturnType<typeof createRawDataQueries>;
+  private accountQueries: ReturnType<typeof createAccountQueries>;
+  private transactionQueries: ReturnType<typeof createTransactionQueries>;
+  private importSessionQueries: ReturnType<typeof createImportSessionQueries>;
 
   constructor(
-    private rawDataQueries: RawDataQueries,
-    private accountQueries: AccountQueries,
-    private transactionQueries: TransactionQueries,
+    private db: KyselyDB,
     private providerManager: BlockchainProviderManager,
     private tokenMetadataService: ITokenMetadataService,
-    private importSessionQueries: ImportSessionQueries,
     private eventBus: EventBus<IngestionEvent>,
-    private db: KyselyDB,
     private registry: AdapterRegistry
   ) {
     this.logger = getLogger('TransactionProcessingService');
     this.scamDetectionService = new ScamDetectionService(eventBus);
+    this.rawDataQueries = createRawDataQueries(db);
+    this.accountQueries = createAccountQueries(db);
+    this.transactionQueries = createTransactionQueries(db);
+    this.importSessionQueries = createImportSessionQueries(db);
   }
 
   /**

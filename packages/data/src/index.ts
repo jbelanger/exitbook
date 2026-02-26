@@ -18,7 +18,7 @@ export type { TokenMetadataDatabase } from './persistence/token-metadata/schema.
 export type { DatabaseSchema, TransactionLinksTable, RawTransactionTable } from './schema/database-schema.js';
 export { createRawDataQueries, type RawDataQueries, type RawDataQueryParams } from './queries/raw-data-queries.js';
 export { createNearRawDataQueries, type NearRawDataQueries } from './queries/near-raw-data-queries.js';
-export { toRawTransaction } from './queries/query-utils.js';
+export { toRawTransaction, withControlledTransaction } from './queries/query-utils.js';
 export { createImportSessionQueries } from './queries/import-session-queries.js';
 export type { ImportSessionQueries } from './queries/import-session-queries.js';
 export type { StoredImportSession, ImportSessionQuery, ImportSessionUpdate } from './types/data-types.js';

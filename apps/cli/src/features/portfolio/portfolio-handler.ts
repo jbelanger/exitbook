@@ -25,7 +25,7 @@ import {
   validateCostBasisParams,
   validateTransactionPrices,
 } from '../cost-basis/cost-basis-utils.js';
-import type { CommandContext } from '../shared/command-runtime.js';
+import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
 
 import type { PortfolioPositionItem, SpotPriceResult } from './portfolio-types.js';
 import {
@@ -53,6 +53,7 @@ export interface PortfolioHandlerParams {
   displayCurrency: string;
   asOf: Date;
   dataDir: string;
+  db: CommandDatabase;
   ctx: CommandContext;
   isJsonMode: boolean;
 }
@@ -125,7 +126,7 @@ export class PortfolioHandler {
 
       const pricesResult = await ensurePrices(
         this.transactionRepository,
-        this.transactionLinkRepository,
+        params.db,
         startDate,
         endDate,
         'USD',

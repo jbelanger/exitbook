@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { type Account, type ExchangeCredentials, type ImportSession, wrapError } from '@exitbook/core';
-import type { AccountQueries, ImportSessionQueries, RawDataQueries, UserQueries } from '@exitbook/data';
+import { createAccountQueries, createUserQueries, type KyselyDB } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -32,12 +32,11 @@ export class ImportOrchestrator {
   private providerManager: BlockchainProviderManager;
   private registry: AdapterRegistry;
   private eventBus?: EventBus<ImportEvent> | undefined;
+  private userQueries: ReturnType<typeof createUserQueries>;
+  private accountQueries: ReturnType<typeof createAccountQueries>;
 
   constructor(
-    private userQueries: UserQueries,
-    private accountQueries: AccountQueries,
-    rawDataQueries: RawDataQueries,
-    importSessionQueries: ImportSessionQueries,
+    db: KyselyDB,
     providerManager: BlockchainProviderManager,
     registry: AdapterRegistry,
     eventBus?: EventBus<ImportEvent>
@@ -46,14 +45,9 @@ export class ImportOrchestrator {
     this.providerManager = providerManager;
     this.registry = registry;
     this.eventBus = eventBus;
-    this.importExecutor = new StreamingImportRunner(
-      rawDataQueries,
-      importSessionQueries,
-      accountQueries,
-      providerManager,
-      registry,
-      eventBus
-    );
+    this.userQueries = createUserQueries(db);
+    this.accountQueries = createAccountQueries(db);
+    this.importExecutor = new StreamingImportRunner(db, providerManager, registry, eventBus);
   }
 
   /**

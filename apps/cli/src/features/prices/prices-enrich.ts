@@ -7,8 +7,6 @@
  * 3. Market prices - Fetch missing crypto prices from external providers
  * 4. Price propagation - Use newly fetched/normalized prices for ratio calculations
  */
-import { createTransactionLinkQueries } from '@exitbook/accounting';
-import { createTransactionQueries } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
@@ -84,12 +82,10 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const transactionRepo = createTransactionQueries(database);
-      const linkRepo = createTransactionLinkQueries(database);
 
       if (options.json) {
         // JSON mode: run handler directly without Ink UI
-        const handler = new PricesEnrichHandler(transactionRepo, linkRepo);
+        const handler = new PricesEnrichHandler(database);
         ctx.onCleanup(async () => handler.destroy());
 
         const result = await handler.execute(params);
@@ -117,7 +113,7 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       const instrumentation = new InstrumentationCollector();
       const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-      const handler = new PricesEnrichHandler(transactionRepo, linkRepo, eventBus, instrumentation);
+      const handler = new PricesEnrichHandler(database, eventBus, instrumentation);
 
       ctx.onCleanup(async () => {
         await handler.destroy();

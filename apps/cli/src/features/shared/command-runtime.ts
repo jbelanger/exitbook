@@ -11,6 +11,9 @@ import { getDataDir } from './data-dir.js';
 
 const logger = getLogger('command-runtime');
 
+// CLI-owned database type alias used by feature handlers to avoid direct KyselyDB imports.
+export type CommandDatabase = KyselyDB;
+
 /**
  * Manages database lifecycle, SIGINT handling, and cleanup for CLI commands.
  *

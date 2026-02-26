@@ -8,7 +8,13 @@ import type {
   VerificationMetadata,
 } from '@exitbook/core';
 import { parseAssetId, wrapError, type Currency } from '@exitbook/core';
-import type { AccountQueries, ImportSessionQueries, TokenMetadataQueries, TransactionQueries } from '@exitbook/data';
+import {
+  createAccountQueries,
+  createImportSessionQueries,
+  createTransactionQueries,
+  type KyselyDB,
+  type TokenMetadataQueries,
+} from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -41,13 +47,19 @@ export interface BalanceServiceParams {
  * Orchestrates fetching live balances, calculating from transactions, and comparing.
  */
 export class BalanceService {
+  private accountQueries: ReturnType<typeof createAccountQueries>;
+  private transactionQueries: ReturnType<typeof createTransactionQueries>;
+  private sessionQueries: ReturnType<typeof createImportSessionQueries>;
+
   constructor(
-    private accountQueries: AccountQueries,
-    private transactionQueries: TransactionQueries,
-    private sessionQueries: ImportSessionQueries,
+    db: KyselyDB,
     private tokenMetadataQueries: TokenMetadataQueries,
     private providerManager: BlockchainProviderManager
-  ) {}
+  ) {
+    this.accountQueries = createAccountQueries(db);
+    this.transactionQueries = createTransactionQueries(db);
+    this.sessionQueries = createImportSessionQueries(db);
+  }
 
   /**
    * Execute the balance verification operation.

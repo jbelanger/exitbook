@@ -1,13 +1,5 @@
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
-import {
-  createAccountQueries,
-  createImportSessionQueries,
-  createRawDataQueries,
-  createTokenMetadataPersistence,
-  createUserQueries,
-  type KyselyDB,
-  createTransactionQueries,
-} from '@exitbook/data';
+import { createTokenMetadataPersistence, type KyselyDB } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
 import {
@@ -47,8 +39,6 @@ export interface ImportServices {
  * Caller owns the database lifecycle (via CommandContext).
  */
 export async function createImportServices(database: KyselyDB, registry: AdapterRegistry): Promise<ImportServices> {
-  const repositories = createRepositories(database);
-
   const dataDir = getDataDir();
   const tokenMetadataResult = await createTokenMetadataPersistence(dataDir);
   if (tokenMetadataResult.isErr()) {
@@ -80,24 +70,17 @@ export async function createImportServices(database: KyselyDB, registry: Adapter
     );
 
     const importOrchestrator = new ImportOrchestrator(
-      repositories.user,
-      repositories.account,
-      repositories.rawData,
-      repositories.importSession,
+      database,
       providerManager,
       registry,
       eventBus as EventBus<ImportEvent>
     );
 
     const transactionProcessService = new TransactionProcessingService(
-      repositories.rawData,
-      repositories.account,
-      repositories.transaction,
+      database,
       providerManager,
       tokenMetadataService,
-      repositories.importSession,
       eventBus as EventBus<IngestionEvent>,
-      database,
       registry
     );
 
@@ -144,17 +127,4 @@ export async function createImportServices(database: KyselyDB, registry: Adapter
 
     throw error;
   }
-}
-
-/**
- * Create all repositories from database.
- */
-function createRepositories(database: KyselyDB) {
-  return {
-    user: createUserQueries(database),
-    account: createAccountQueries(database),
-    transaction: createTransactionQueries(database),
-    rawData: createRawDataQueries(database),
-    importSession: createImportSessionQueries(database),
-  };
 }
