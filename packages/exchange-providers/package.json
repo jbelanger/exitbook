@@ -22,7 +22,7 @@
     "@exitbook/core": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/logger": "workspace:*",
-    "ccxt": "^4.5.36",
+    "ccxt": "^4.5.40",
     "neverthrow": "^8.2.0",
     "zod": "^4.3.6"
   },

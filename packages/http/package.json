@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@exitbook/logger": "workspace:*",
-    "undici": "^7.6.5",
+    "undici": "^7.22.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
