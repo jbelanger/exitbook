@@ -463,7 +463,7 @@ describe('executeWithFailover', () => {
     it('should pass timeout error to buildFinalError on total timeout expiry', async () => {
       const p1 = createProvider(
         'p1',
-        () => new Promise((resolve) => setTimeout(() => resolve(err(new Error('slow'))), 100))
+        () => new Promise((resolve) => setTimeout(() => resolve(err(new Error('slow'))), 2000))
       );
       const p2 = createProvider('p2', () => Promise.resolve(ok('data-2')));
 
@@ -473,7 +473,7 @@ describe('executeWithFailover', () => {
         return new Error('custom timeout');
       });
 
-      await executeWithFailover(baseOptions([p1, p2], { totalTimeoutMs: 10, buildFinalError }));
+      await executeWithFailover(baseOptions([p1, p2], { totalTimeoutMs: 50, buildFinalError }));
 
       expect(buildFinalError).toHaveBeenCalled();
       expect(capturedLastError).toBeInstanceOf(Error);
