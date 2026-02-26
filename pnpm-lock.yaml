@@ -302,6 +302,9 @@ importers:
       '@exitbook/core':
         specifier: workspace:*
         version: link:../core
+      '@exitbook/http':
+        specifier: workspace:*
+        version: link:../http
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger

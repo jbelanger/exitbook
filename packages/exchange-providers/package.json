@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@exitbook/core": "workspace:*",
+    "@exitbook/http": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "ccxt": "^4.5.36",
     "neverthrow": "^8.2.0",
