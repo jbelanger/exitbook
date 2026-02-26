@@ -4,7 +4,7 @@
 
 import { performance } from 'node:perf_hooks';
 
-import type { LinkingEvent } from '../events.js';
+import type { LinkingEvent } from '@exitbook/accounting';
 
 import type { LinksRunState } from './links-run-state.js';
 
@@ -97,8 +97,6 @@ function updateStateFromEvent(state: LinksRunState, event: LinkingEvent): void {
         status: 'active',
         startedAt: performance.now(),
         totalTransactions: 0,
-        sourceCount: 0,
-        targetCount: 0,
       };
       break;
 
@@ -107,8 +105,6 @@ function updateStateFromEvent(state: LinksRunState, event: LinkingEvent): void {
         state.load.status = 'completed';
         state.load.completedAt = performance.now();
         state.load.totalTransactions = event.totalTransactions;
-        state.load.sourceCount = event.sourceCount;
-        state.load.targetCount = event.targetCount;
       }
       break;
 
@@ -120,6 +116,8 @@ function updateStateFromEvent(state: LinksRunState, event: LinkingEvent): void {
       state.match = {
         status: 'active',
         startedAt: performance.now(),
+        sourceCount: 0,
+        targetCount: 0,
         internalCount: 0,
         confirmedCount: 0,
         suggestedCount: 0,
@@ -130,6 +128,8 @@ function updateStateFromEvent(state: LinksRunState, event: LinkingEvent): void {
       if (state.match) {
         state.match.status = 'completed';
         state.match.completedAt = performance.now();
+        state.match.sourceCount = event.sourceCount;
+        state.match.targetCount = event.targetCount;
         state.match.internalCount = event.internalCount;
         state.match.confirmedCount = event.confirmedCount;
         state.match.suggestedCount = event.suggestedCount;

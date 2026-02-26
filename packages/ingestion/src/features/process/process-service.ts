@@ -239,6 +239,53 @@ export class TransactionProcessingService {
   }
 
   /**
+   * Check for active imports (status='started') across specified accounts.
+   * CRITICAL: This prevents processing incomplete data from in-progress imports.
+   *
+   * @param accountIds - Account IDs to check for active imports
+   * @returns Error if any active imports found, ok otherwise
+   */
+  async assertNoIncompleteImports(accountIds: number[]): Promise<Result<void, Error>> {
+    if (accountIds.length === 0) {
+      return ok(undefined);
+    }
+
+    const sessionsResult = await this.importSessionQueries.findByAccounts(accountIds);
+    if (sessionsResult.isErr()) {
+      return err(new Error(`Failed to check for active imports: ${sessionsResult.error.message}`));
+    }
+
+    const latestByAccount = new Map<number, (typeof sessionsResult.value)[number]>();
+    for (const session of sessionsResult.value) {
+      if (!latestByAccount.has(session.accountId)) {
+        latestByAccount.set(session.accountId, session);
+      }
+    }
+
+    const incompleteSessions = [...latestByAccount.values()].filter((session) => session.status !== 'completed');
+
+    if (incompleteSessions.length > 0) {
+      const affectedAccounts = incompleteSessions.map((s) => `${s.accountId}(${s.status})`);
+      const accountsStr = affectedAccounts.join(', ');
+
+      this.logger.warn(
+        `Cannot process: latest import is incomplete for account(s): ${accountsStr}. ` +
+          `Finish or re-run imports before processing.`
+      );
+
+      return err(
+        new Error(
+          `Processing blocked: Latest import session is not completed for account(s) ${accountsStr}. ` +
+            `All transaction history must be fully fetched before processing to ensure data integrity. ` +
+            `Please complete or re-run the import, then process again.`
+        )
+      );
+    }
+
+    return ok(undefined);
+  }
+
+  /**
    * Create appropriate batch provider based on source type and name.
    */
   private createBatchProvider(sourceType: string, sourceName: string, accountId: number): IRawDataBatchProvider {
@@ -553,53 +600,6 @@ export class TransactionProcessingService {
         return err(markAsProcessedResult.error);
       }
     }
-    return ok(undefined);
-  }
-
-  /**
-   * Check for active imports (status='started') across specified accounts.
-   * CRITICAL: This prevents processing incomplete data from in-progress imports.
-   *
-   * @param accountIds - Account IDs to check for active imports
-   * @returns Error if any active imports found, ok otherwise
-   */
-  private async assertNoIncompleteImports(accountIds: number[]): Promise<Result<void, Error>> {
-    if (accountIds.length === 0) {
-      return ok(undefined);
-    }
-
-    const sessionsResult = await this.importSessionQueries.findByAccounts(accountIds);
-    if (sessionsResult.isErr()) {
-      return err(new Error(`Failed to check for active imports: ${sessionsResult.error.message}`));
-    }
-
-    const latestByAccount = new Map<number, (typeof sessionsResult.value)[number]>();
-    for (const session of sessionsResult.value) {
-      if (!latestByAccount.has(session.accountId)) {
-        latestByAccount.set(session.accountId, session);
-      }
-    }
-
-    const incompleteSessions = [...latestByAccount.values()].filter((session) => session.status !== 'completed');
-
-    if (incompleteSessions.length > 0) {
-      const affectedAccounts = incompleteSessions.map((s) => `${s.accountId}(${s.status})`);
-      const accountsStr = affectedAccounts.join(', ');
-
-      this.logger.warn(
-        `Cannot process: latest import is incomplete for account(s): ${accountsStr}. ` +
-          `Finish or re-run imports before processing.`
-      );
-
-      return err(
-        new Error(
-          `Processing blocked: Latest import session is not completed for account(s) ${accountsStr}. ` +
-            `All transaction history must be fully fetched before processing to ensure data integrity. ` +
-            `Please complete or re-run the import, then process again.`
-        )
-      );
-    }
-
     return ok(undefined);
   }
 }

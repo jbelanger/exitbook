@@ -199,6 +199,8 @@ export class StreamingImportRunner {
         }
 
         const batch = batchResult.value;
+        const fetchedInBatch = batch.providerStats?.fetched ?? batch.rawTransactions.length;
+        const deduplicatedInBatch = batch.providerStats?.deduplicated ?? 0;
 
         if (batch.warnings && batch.warnings.length > 0) {
           allWarnings.push(...batch.warnings);
@@ -228,7 +230,7 @@ export class StreamingImportRunner {
         const { inserted, skipped } = saveResult.value;
         totalImported += inserted;
         totalSkipped += skipped;
-        totalFetchedRun += batch.rawTransactions.length;
+        totalFetchedRun += fetchedInBatch;
 
         if (skipped > 0) {
           this.logger.info(`Skipped ${skipped} duplicate transactions in batch`);
@@ -238,19 +240,23 @@ export class StreamingImportRunner {
         const cursorUpdateResult = await this.accountQueries.updateCursor(account.id, batch.streamType, batch.cursor);
 
         if (cursorUpdateResult.isErr()) {
-          this.logger.warn(`Failed to update cursor for ${batch.streamType}: ${cursorUpdateResult.error.message}`);
+          await this.importSessionQueries.update(importSessionId, {
+            status: 'failed',
+            error_message: cursorUpdateResult.error.message,
+          });
+          return err(cursorUpdateResult.error);
         }
 
         this.logger.info(
-          `Batch saved: ${inserted} inserted, ${skipped} skipped of ${batch.rawTransactions.length} ${batch.streamType} (total: ${totalImported}, fetched this run: ${totalFetchedRun})`
+          `Batch saved: ${inserted} inserted, ${skipped} skipped of ${batch.rawTransactions.length} ${batch.streamType} (${fetchedInBatch} fetched, ${deduplicatedInBatch} deduplicated by provider, total fetched this run: ${totalFetchedRun})`
         );
 
         this.eventBus?.emit({
           type: 'import.batch',
           sourceName,
           accountId: account.id,
-          fetched: batch.rawTransactions.length, // Count before DB dedup
-          deduplicated: batch.rawTransactions.length, // Already deduped by provider
+          fetched: fetchedInBatch,
+          deduplicated: deduplicatedInBatch,
           batchInserted: inserted,
           batchSkipped: skipped,
           totalImported,

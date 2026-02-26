@@ -4,6 +4,7 @@
 
 import { performance } from 'node:perf_hooks';
 
+import type { LinkingEvent } from '@exitbook/accounting';
 import { Box, Text } from 'ink';
 import { type FC, useEffect, useLayoutEffect, useReducer } from 'react';
 
@@ -14,7 +15,6 @@ import {
   statusIcon,
   TreeChars,
 } from '../../../ui/shared/index.js';
-import type { LinkingEvent } from '../events.js';
 
 import type { LinksRunState, LoadPhase, MatchPhase, SavePhase } from './links-run-state.js';
 import { createLinksRunState } from './links-run-state.js';
@@ -118,33 +118,11 @@ const LoadSection: FC<{ load: LoadPhase }> = ({ load }) => {
   }
 
   if (load.status === 'completed') {
-    // No transactions case
-    if (load.totalTransactions === 0) {
-      return (
-        <Text>
-          <Text color="green">✓</Text> Loaded 0 transactions <Text dimColor>({duration})</Text>
-        </Text>
-      );
-    }
-
-    // Normal case with sub-lines
     return (
-      <Box flexDirection="column">
-        <Text>
-          <Text color="green">✓</Text> Loaded <Text color="green">{load.totalTransactions.toLocaleString()}</Text>{' '}
-          transactions <Text dimColor>({duration})</Text>
-        </Text>
-        <Text>
-          {'  '}
-          <Text dimColor>{TreeChars.BRANCH}</Text> <Text color="green">{load.sourceCount.toLocaleString()}</Text>{' '}
-          outflows <Text dimColor>(sources)</Text>
-        </Text>
-        <Text>
-          {'  '}
-          <Text dimColor>{TreeChars.LAST_BRANCH}</Text> <Text color="green">{load.targetCount.toLocaleString()}</Text>{' '}
-          inflows <Text dimColor>(targets)</Text>
-        </Text>
-      </Box>
+      <Text>
+        <Text color="green">✓</Text> Loaded <Text color="green">{load.totalTransactions.toLocaleString()}</Text>{' '}
+        transactions <Text dimColor>({duration})</Text>
+      </Text>
     );
   }
 
@@ -168,51 +146,29 @@ const MatchSection: FC<{ dryRun: boolean; match: MatchPhase }> = ({ match, dryRu
 
   if (match.status === 'completed') {
     const totalMatches = match.internalCount + match.confirmedCount + match.suggestedCount;
-    const hasMatches = totalMatches > 0;
 
-    // No matches case
-    if (!hasMatches) {
-      return (
-        <Box flexDirection="column">
-          <Text>
-            <Text color="green">✓</Text> Matching{dryRun && <Text color="yellow"> — dry run</Text>}{' '}
-            <Text dimColor>({duration})</Text>
-          </Text>
-          <Text>
-            {'  '}
-            <Text dimColor>{TreeChars.LAST_BRANCH}</Text> <Text dimColor>No matches found</Text>
-          </Text>
-        </Box>
-      );
-    }
+    // Build sub-lines: source/target classification, then match results
+    const lines: { count: number; isLast: boolean; label: string }[] = [];
 
-    // With matches - show sub-lines for counts
-    const hasInternal = match.internalCount > 0;
-    const hasConfirmed = match.confirmedCount > 0;
-    const hasSuggested = match.suggestedCount > 0;
+    lines.push({ count: match.sourceCount, label: 'outflows (sources)', isLast: false });
+    lines.push({ count: match.targetCount, label: 'inflows (targets)', isLast: false });
 
-    // Determine which line is last (use LAST_BRANCH for it)
-    const lines: {
-      count: number;
-      isLast: boolean;
-      label: string;
-      type: 'internal' | 'confirmed' | 'suggested';
-    }[] = [];
-
-    if (hasInternal) {
-      lines.push({ type: 'internal', count: match.internalCount, label: 'internal (same tx hash)', isLast: false });
-    }
-    if (hasConfirmed) {
-      lines.push({ type: 'confirmed', count: match.confirmedCount, label: 'confirmed (≥95%)', isLast: false });
-    }
-    if (hasSuggested) {
-      lines.push({ type: 'suggested', count: match.suggestedCount, label: 'suggested (70–95%)', isLast: false });
+    if (totalMatches === 0) {
+      lines.push({ count: 0, label: 'no matches found', isLast: true });
+    } else {
+      if (match.internalCount > 0) {
+        lines.push({ count: match.internalCount, label: 'internal (same tx hash)', isLast: false });
+      }
+      if (match.confirmedCount > 0) {
+        lines.push({ count: match.confirmedCount, label: 'confirmed (≥95%)', isLast: false });
+      }
+      if (match.suggestedCount > 0) {
+        lines.push({ count: match.suggestedCount, label: 'suggested (70–95%)', isLast: false });
+      }
     }
 
     // Mark the last line
-    if (lines.length > 0) {
-      lines[lines.length - 1]!.isLast = true;
-    }
+    lines[lines.length - 1]!.isLast = true;
 
     return (
       <Box flexDirection="column">

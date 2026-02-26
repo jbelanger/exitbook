@@ -13,6 +13,7 @@ describe('executeReprocess', () => {
   beforeEach(() => {
     mockProcessService = {
       processImportedSessions: vi.fn().mockResolvedValue(ok({ processed: 0, errors: [], failed: 0 })),
+      assertNoIncompleteImports: vi.fn().mockResolvedValue(ok(undefined)),
     } as unknown as TransactionProcessingService;
 
     mockClearService = {

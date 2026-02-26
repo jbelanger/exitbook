@@ -461,30 +461,6 @@ describe('schemas', () => {
   });
 
   describe('LinkingResultSchema', () => {
-    const createMockCandidate = (id: number) => ({
-      id,
-      sourceName: 'test',
-      sourceType: 'exchange' as const,
-      timestamp: new Date(),
-      assetSymbol: 'BTC',
-      assetId: 'test:btc',
-      amount: parseDecimal('1.0'),
-      direction: 'out' as const,
-    });
-
-    const createMockMatch = (sourceName: number, targetId: number) => ({
-      sourceTransaction: createMockCandidate(sourceName),
-      targetTransaction: createMockCandidate(targetId),
-      confidenceScore: parseDecimal('0.85'),
-      matchCriteria: {
-        assetMatch: true,
-        amountSimilarity: parseDecimal('0.95'),
-        timingValid: true,
-        timingHours: 1.5,
-      },
-      linkType: 'exchange_to_blockchain' as const,
-    });
-
     const createMockLink = (id: string, sourceName: number, targetId: number) => ({
       id,
       sourceTransactionId: sourceName,
@@ -509,7 +485,7 @@ describe('schemas', () => {
 
     it('should validate complete linking result', () => {
       const result = {
-        suggestedLinks: [createMockMatch(1, 2), createMockMatch(3, 4)],
+        suggestedLinks: [createMockLink('link-s1', 1, 2), createMockLink('link-s2', 3, 4)],
         confirmedLinks: [createMockLink('link-1', 5, 6)],
         totalSourceTransactions: 10,
         totalTargetTransactions: 15,

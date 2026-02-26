@@ -1,4 +1,12 @@
-import type { TransactionLinkQueries } from '@exitbook/accounting';
+import {
+  LinkingOrchestrator,
+  PriceEnrichmentPipeline,
+  filterTransactionsByDateRange,
+  validateTransactionPrices,
+  type LinkingEvent,
+  type PriceEvent,
+  type TransactionLinkQueries,
+} from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
 import type { TransactionQueries } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
@@ -8,14 +16,9 @@ import { err, ok, type Result } from 'neverthrow';
 
 import { createEventDrivenController } from '../../ui/shared/index.js';
 import { LinksRunMonitor } from '../links/components/links-run-components.js';
-import type { LinkingEvent } from '../links/events.js';
-import { LinksRunHandler } from '../links/links-run-handler.js';
 import { PricesEnrichMonitor } from '../prices/components/prices-enrich-components.js';
-import type { PriceEvent } from '../prices/events.js';
-import { PricesEnrichHandler } from '../prices/prices-enrich-handler.js';
+import { createDefaultPriceProviderManager } from '../prices/prices-utils.js';
 import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
-
-import { filterTransactionsByDateRange, validateTransactionPrices } from './cost-basis-utils.js';
 
 const logger = getLogger('cost-basis-prereqs');
 
@@ -71,7 +74,7 @@ export async function ensureLinks(
   };
 
   if (isJsonMode) {
-    const handler = new LinksRunHandler(txRepo, linkRepo, overrideStore);
+    const handler = new LinkingOrchestrator(txRepo, linkRepo, overrideStore);
     const result = await handler.execute(params);
     if (result.isErr()) return err(result.error);
     logger.info('Linking completed (JSON mode)');
@@ -93,9 +96,9 @@ export async function ensureLinks(
     });
   });
 
-  controller.start();
+  await controller.start();
 
-  const handler = new LinksRunHandler(txRepo, linkRepo, overrideStore, eventBus);
+  const handler = new LinkingOrchestrator(txRepo, linkRepo, overrideStore, eventBus);
   const result = await handler.execute(params);
 
   if (result.isErr()) {
@@ -113,7 +116,7 @@ export async function ensureLinks(
  * Check if prices are missing for date range and enrich if so.
  *
  * Fetches transactions, filters by startDate/endDate, validates prices.
- * If missingPricesCount > 0, runs the full PricesEnrichHandler pipeline.
+ * If missingPricesCount > 0, runs the full PriceEnrichmentPipeline.
  */
 export async function ensurePrices(
   txRepo: TransactionQueries,
@@ -153,10 +156,13 @@ export async function ensurePrices(
   }
 
   if (isJsonMode) {
-    const handler = new PricesEnrichHandler(db);
-    ctx.onCleanup(async () => handler.destroy());
+    const priceManagerResult = await createDefaultPriceProviderManager();
+    if (priceManagerResult.isErr()) return err(priceManagerResult.error);
+    const priceManager = priceManagerResult.value;
+    ctx.onCleanup(async () => priceManager.destroy());
 
-    const result = await handler.execute({});
+    const pipeline = new PriceEnrichmentPipeline(db);
+    const result = await pipeline.execute({}, priceManager);
     if (result.isErr()) return err(result.error);
     logger.info('Price enrichment completed (JSON mode)');
     return ok();
@@ -171,8 +177,16 @@ export async function ensurePrices(
   const instrumentation = new InstrumentationCollector();
   const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-  const handler = new PricesEnrichHandler(db, eventBus, instrumentation);
-  ctx.onCleanup(async () => handler.destroy());
+  const priceManagerResult = await createDefaultPriceProviderManager(instrumentation, eventBus);
+  if (priceManagerResult.isErr()) {
+    controller.fail(priceManagerResult.error.message);
+    await controller.stop();
+    return err(priceManagerResult.error);
+  }
+  const priceManager = priceManagerResult.value;
+  ctx.onCleanup(async () => priceManager.destroy());
+
+  const pipeline = new PriceEnrichmentPipeline(db, eventBus, instrumentation);
 
   ctx.onAbort(() => {
     controller.abort();
@@ -181,9 +195,9 @@ export async function ensurePrices(
     });
   });
 
-  controller.start();
+  await controller.start();
 
-  const result = await handler.execute({});
+  const result = await pipeline.execute({}, priceManager);
 
   if (result.isErr()) {
     controller.fail(result.error.message);

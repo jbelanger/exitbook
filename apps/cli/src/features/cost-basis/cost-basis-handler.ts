@@ -1,10 +1,16 @@
 import path from 'node:path';
 
-import type { AssetMatchError, CostBasisReport, CostBasisSummary } from '@exitbook/accounting';
 import {
   CostBasisCalculator,
   CostBasisReportGenerator,
   StandardFxRateProvider,
+  getJurisdictionRules,
+  validateCostBasisParams,
+  validateTransactionPrices,
+  type AssetMatchError,
+  type CostBasisHandlerParams,
+  type CostBasisReport,
+  type CostBasisSummary,
   type TransactionLinkQueries,
 } from '@exitbook/accounting';
 import { type Currency, type UniversalTransactionData } from '@exitbook/core';
@@ -15,10 +21,6 @@ import { err, ok, type Result } from 'neverthrow';
 
 import { getDataDir } from '../shared/data-dir.js';
 
-import type { CostBasisHandlerParams } from './cost-basis-utils.js';
-import { getJurisdictionRules, validateCostBasisParams, validateTransactionPrices } from './cost-basis-utils.js';
-
-// Re-export for convenience
 export type { CostBasisHandlerParams };
 
 const logger = getLogger('CostBasisHandler');

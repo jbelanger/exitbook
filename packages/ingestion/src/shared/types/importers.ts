@@ -37,6 +37,13 @@ export interface ImportParams {
 /**
  * Single batch of imported transactions from streaming import
  */
+export interface ImportBatchProviderStats {
+  // Number of items fetched before importer-level deduplication
+  fetched: number;
+  // Number of items filtered by importer/provider-level deduplication
+  deduplicated: number;
+}
+
 export interface ImportBatchResult {
   // Successfully fetched and validated transactions in this batch
   rawTransactions: RawTransactionInput[];
@@ -46,6 +53,8 @@ export interface ImportBatchResult {
   cursor: CursorState;
   // Whether this transaction type has completed (no more batches for this transaction type)
   isComplete: boolean;
+  // Upstream fetch/dedup stats when available (typically blockchain provider batches)
+  providerStats?: ImportBatchProviderStats | undefined;
   // Warnings about partial data or skipped operations (e.g., missing API keys, unsupported features)
   warnings?: string[] | undefined;
 }

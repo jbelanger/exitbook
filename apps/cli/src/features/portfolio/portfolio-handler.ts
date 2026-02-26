@@ -7,6 +7,10 @@ import path from 'node:path';
 
 import {
   CostBasisCalculator,
+  getJurisdictionRules,
+  validateCostBasisParams,
+  validateTransactionPrices,
+  type CostBasisHandlerParams,
   type FiatCurrency as AccountingFiatCurrency,
   type TransactionLinkQueries,
 } from '@exitbook/accounting';
@@ -19,12 +23,6 @@ import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import { ensureLinks, ensurePrices } from '../cost-basis/cost-basis-prereqs.js';
-import type { CostBasisHandlerParams } from '../cost-basis/cost-basis-utils.js';
-import {
-  getJurisdictionRules,
-  validateCostBasisParams,
-  validateTransactionPrices,
-} from '../cost-basis/cost-basis-utils.js';
 import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
 
 import type { PortfolioPositionItem, SpotPriceResult } from './portfolio-types.js';

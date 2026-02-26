@@ -58,7 +58,7 @@ export class EventDrivenController<TEvent> {
     this.extraProps = extraProps;
   }
 
-  start(): void {
+  async start(): Promise<void> {
     // Subscribe to EventBus BEFORE render to capture events that arrive
     // before React's useLayoutEffect runs (EventBus delivers via queueMicrotask)
     this.unsubscribe = this.eventBus.subscribe((event: TEvent) => {
@@ -72,6 +72,12 @@ export class EventDrivenController<TEvent> {
         lifecycle: this.lifecycle,
       })
     );
+
+    // Yield once so Ink can commit the initial render and React can run the
+    // relay/lifecycle useLayoutEffect before long-running work begins.
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
   }
 
   complete(): void {

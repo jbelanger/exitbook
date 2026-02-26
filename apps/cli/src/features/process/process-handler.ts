@@ -35,22 +35,7 @@ export async function executeReprocess(
   const { accountId } = params;
   const { transactionProcessService, clearService, rawDataQueries } = deps;
 
-  // Always clear derived data and reset raw data to pending
-  const clearResult = await clearService.execute({
-    accountId,
-    includeRaw: false, // Keep raw data, just reset processing status
-  });
-
-  if (clearResult.isErr()) {
-    return err(clearResult.error);
-  }
-  const deleted = clearResult.value.deleted;
-
-  logger.info(`Cleared derived data (${deleted.links} links, ${deleted.transactions} transactions)`);
-
-  logger.info(`Reset ${deleted.transactions} transactions for reprocessing`);
-
-  // Get account IDs to process
+  // Resolve account IDs before any mutation
   let accountIds: number[];
   if (accountId) {
     accountIds = [accountId];
@@ -66,6 +51,25 @@ export async function executeReprocess(
       return ok({ errors: [], processed: 0 });
     }
   }
+
+  // Guard: abort before any mutation if any account has an incomplete import
+  const guardResult = await transactionProcessService.assertNoIncompleteImports(accountIds);
+  if (guardResult.isErr()) {
+    return err(guardResult.error);
+  }
+
+  // Clear derived data and reset raw data to pending
+  const clearResult = await clearService.execute({
+    accountId,
+    includeRaw: false, // Keep raw data, just reset processing status
+  });
+
+  if (clearResult.isErr()) {
+    return err(clearResult.error);
+  }
+  const deleted = clearResult.value.deleted;
+
+  logger.info(`Cleared derived data (${deleted.links} links, ${deleted.transactions} transactions)`);
 
   // Use processImportedSessions which emits dashboard events
   const processResult = await transactionProcessService.processImportedSessions(accountIds);

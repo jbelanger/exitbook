@@ -137,11 +137,12 @@ describe('TransactionLinkingService', () => {
         expect(confirmedLinks).toHaveLength(0);
         expect(suggestedLinks).toHaveLength(1);
 
-        const match = suggestedLinks[0];
-        expect(match?.sourceTransaction.id).toBe(1);
-        expect(match?.targetTransaction.id).toBe(2);
-        expect(match?.linkType).toBe('exchange_to_blockchain');
-        expect(match?.confidenceScore.lessThan(parseDecimal('0.95'))).toBe(true);
+        const link = suggestedLinks[0];
+        expect(link?.sourceTransactionId).toBe(1);
+        expect(link?.targetTransactionId).toBe(2);
+        expect(link?.linkType).toBe('exchange_to_blockchain');
+        expect(link?.confidenceScore.lessThan(parseDecimal('0.95'))).toBe(true);
+        expect(link?.status).toBe('suggested');
       }
     });
 
@@ -186,15 +187,8 @@ describe('TransactionLinkingService', () => {
 
         // Should be the closer source (id='1', 30 min vs id='2', 60 min)
         const link = allLinks[0];
-        if (link) {
-          if ('sourceTransactionId' in link) {
-            expect(link.sourceTransactionId).toBe(1);
-          } else {
-            expect(link.sourceTransaction.id).toBe(1);
-          }
-        } else {
-          throw new Error('Expected a link but found undefined');
-        }
+        expect(link).toBeDefined();
+        expect(link!.sourceTransactionId).toBe(1);
       }
     });
 
@@ -263,11 +257,8 @@ describe('TransactionLinkingService', () => {
         expect(allLinks).toHaveLength(1);
 
         const link = allLinks[0];
-        if (!link) {
-          throw new Error('Expected a link but found undefined');
-        }
-        const linkType = 'linkType' in link ? link.linkType : undefined;
-        expect(linkType).toBe('blockchain_to_blockchain');
+        expect(link).toBeDefined();
+        expect(link!.linkType).toBe('blockchain_to_blockchain');
       }
     });
 
@@ -590,14 +581,8 @@ describe('TransactionLinkingService', () => {
 
         // Should match to the higher confidence target (closer in time)
         const link = allLinks[0];
-        if (!link) {
-          throw new Error('Expected a link but found undefined');
-        }
-        if ('targetTransactionId' in link) {
-          expect(link.targetTransactionId).toBe(2); // The closer deposit
-        } else {
-          expect(link.targetTransaction.id).toBe(2); // The closer deposit
-        }
+        expect(link).toBeDefined();
+        expect(link!.targetTransactionId).toBe(2);
       }
     });
 
@@ -645,14 +630,8 @@ describe('TransactionLinkingService', () => {
 
         // Should be matched to source 1 (closer in time)
         const link = allLinks[0];
-        if (!link) {
-          throw new Error('Expected a link but found undefined');
-        }
-        if ('sourceTransactionId' in link) {
-          expect(link.sourceTransactionId).toBe(1);
-        } else {
-          expect(link.sourceTransaction.id).toBe(1);
-        }
+        expect(link).toBeDefined();
+        expect(link!.sourceTransactionId).toBe(1);
       }
     });
   });

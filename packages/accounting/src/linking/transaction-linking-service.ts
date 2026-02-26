@@ -1,4 +1,4 @@
-import { type Currency, type UniversalTransactionData, parseDecimal, wrapError } from '@exitbook/core';
+import { type UniversalTransactionData, parseDecimal, wrapError } from '@exitbook/core';
 import type { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { ok, type Result } from 'neverthrow';
@@ -13,7 +13,6 @@ import {
   DEFAULT_MATCHING_CONFIG,
   findPotentialMatches,
   separateSourcesAndTargets,
-  validateLinkAmountsForMatch,
 } from './matching-utils.js';
 import type { LinkingResult, MatchingConfig, OutflowGrouping, PotentialMatch, TransactionLink } from './types.js';
 
@@ -93,6 +92,7 @@ export class TransactionLinkingService {
       const now = new Date();
       const confirmedLinks: TransactionLink[] = [];
       const successfulConfirmedMatches: PotentialMatch[] = [];
+      const validSuggestedMatches: PotentialMatch[] = [];
       let filteredConfirmedCount = 0;
       for (const match of confirmed) {
         const linkResult = createTransactionLink(match, 'confirmed', uuidv4(), now);
@@ -139,49 +139,49 @@ export class TransactionLinkingService {
         );
       }
 
-      // Validate suggested matches (but don't fail - just filter out invalid ones)
-      const validSuggested: PotentialMatch[] = [];
+      // Convert suggested matches to TransactionLink objects with validation
+      const suggestedLinks: TransactionLink[] = [];
       let filteredSuggestedCount = 0;
       for (const match of suggested) {
-        const validationResult = validateLinkAmountsForMatch(match);
-        if (validationResult.isErr()) {
-          this.logger.debug({ error: validationResult.error.message, match }, 'Filtered out invalid suggested match');
+        const linkResult = createTransactionLink(match, 'suggested', uuidv4(), now);
+        if (linkResult.isErr()) {
+          this.logger.debug({ error: linkResult.error.message, match }, 'Filtered out invalid suggested match');
           filteredSuggestedCount++;
           continue;
         }
-        if (validationResult.value.allowTargetExcess) {
+        if (linkResult.value.metadata?.['targetExcessAllowed'] === true) {
           this.logger.warn(
             {
-              sourceTxId: match.sourceTransaction.id,
-              targetTxId: match.targetTransaction.id,
-              assetSymbol: match.sourceTransaction.assetSymbol,
-              sourceAmount: match.sourceTransaction.amount.toFixed(),
-              targetAmount: match.targetTransaction.amount.toFixed(),
-              targetExcess: validationResult.value.allowTargetExcess.excess.toFixed(),
-              targetExcessPct: validationResult.value.allowTargetExcess.excessPct.toFixed(2),
+              sourceTxId: linkResult.value.sourceTransactionId,
+              targetTxId: linkResult.value.targetTransactionId,
+              assetSymbol: linkResult.value.assetSymbol,
+              sourceAmount: linkResult.value.sourceAmount.toFixed(),
+              targetAmount: linkResult.value.targetAmount.toFixed(),
+              targetExcess: linkResult.value.metadata?.['targetExcess'],
+              targetExcessPct: linkResult.value.metadata?.['targetExcessPct'],
             },
             'Allowed hash-match suggested link where target exceeds source within tolerance (UTXO partial inputs)'
           );
         }
-        validSuggested.push(match);
+        suggestedLinks.push(linkResult.value);
+        validSuggestedMatches.push(match);
       }
       if (filteredSuggestedCount > 0) {
         this.logger.info(
           {
             filteredCount: filteredSuggestedCount,
             totalSuggested: suggested.length,
-            validSuggested: validSuggested.length,
+            validSuggested: suggestedLinks.length,
           },
           `Filtered out ${filteredSuggestedCount} invalid suggested matches due to amount validation`
         );
       }
-      const suggestedLinks = validSuggested;
 
       // Combine internal links with cross-source links
       const allConfirmedLinks = [...confirmedLinks, ...internalLinks];
 
       // Calculate statistics from filtered matches only
-      const linkedMatches = [...successfulConfirmedMatches, ...validSuggested];
+      const linkedMatches = [...successfulConfirmedMatches, ...validSuggestedMatches];
       const matchedSourceIds = new Set(linkedMatches.map((match) => match.sourceTransaction.id));
       const matchedTargetIds = new Set(linkedMatches.map((match) => match.targetTransaction.id));
 
@@ -313,36 +313,20 @@ export class TransactionLinkingService {
             // Skip if same account
             if (tx1.accountId === tx2.accountId) continue;
 
-            // Extract asset and amounts from movements
-            const asset1 = this.extractPrimaryAsset(tx1);
-            const asset2 = this.extractPrimaryAsset(tx2);
+            // Extract primary movement from each transaction
+            const movement1 = this.extractPrimaryMovement(tx1);
+            const movement2 = this.extractPrimaryMovement(tx2);
 
-            if (!asset1 || !asset2 || asset1 !== asset2) {
+            if (!movement1 || !movement2 || movement1.assetSymbol !== movement2.assetSymbol) {
               this.logger.warn(
-                { normalizedHash, tx1Id: tx1.id, tx2Id: tx2.id, asset1, asset2 },
+                {
+                  normalizedHash,
+                  tx1Id: tx1.id,
+                  tx2Id: tx2.id,
+                  asset1: movement1?.assetSymbol,
+                  asset2: movement2?.assetSymbol,
+                },
                 'Skipping internal link - cannot extract matching asset from both transactions'
-              );
-              continue;
-            }
-
-            const amount1 = this.extractPrimaryAmount(tx1);
-            const amount2 = this.extractPrimaryAmount(tx2);
-
-            if (!amount1 || !amount2) {
-              this.logger.warn(
-                { normalizedHash, tx1Id: tx1.id, tx2Id: tx2.id },
-                'Skipping internal link - cannot extract amounts from both transactions'
-              );
-              continue;
-            }
-
-            const sourceAssetId = this.extractPrimaryAssetId(tx1);
-            const targetAssetId = this.extractPrimaryAssetId(tx2);
-
-            if (!sourceAssetId || !targetAssetId) {
-              this.logger.warn(
-                { normalizedHash, tx1Id: tx1.id, tx2Id: tx2.id },
-                'Skipping internal link - cannot extract assetId from both transactions'
               );
               continue;
             }
@@ -351,11 +335,11 @@ export class TransactionLinkingService {
               id: uuidv4(),
               sourceTransactionId: tx1.id,
               targetTransactionId: tx2.id,
-              assetSymbol: asset1,
-              sourceAssetId,
-              targetAssetId,
-              sourceAmount: amount1,
-              targetAmount: amount2,
+              assetSymbol: movement1.assetSymbol,
+              sourceAssetId: movement1.assetId,
+              targetAssetId: movement2.assetId,
+              sourceAmount: movement1.grossAmount,
+              targetAmount: movement2.grossAmount,
               linkType: 'blockchain_internal',
               confidenceScore: parseDecimal('1.0'), // Perfect match (same tx_hash)
               matchCriteria: {
@@ -528,44 +512,10 @@ export class TransactionLinkingService {
   }
 
   /**
-   * Extract primary asset from transaction movements
-   * Prefers outflows, then inflows
+   * Extract the primary movement from a transaction.
+   * Prefers outflows, then inflows. Returns undefined if no movements exist.
    */
-  private extractPrimaryAsset(tx: UniversalTransactionData): Currency | undefined {
-    const outflows = tx.movements.outflows ?? [];
-    const inflows = tx.movements.inflows ?? [];
-
-    if (outflows.length > 0 && outflows[0]) return outflows[0].assetSymbol;
-    if (inflows.length > 0 && inflows[0]) return inflows[0].assetSymbol;
-
-    return;
-  }
-
-  /**
-   * Extract primary asset ID from transaction movements
-   * Prefers outflows, then inflows
-   */
-  private extractPrimaryAssetId(tx: UniversalTransactionData): string | undefined {
-    const outflows = tx.movements.outflows ?? [];
-    const inflows = tx.movements.inflows ?? [];
-
-    if (outflows.length > 0 && outflows[0]) return outflows[0].assetId;
-    if (inflows.length > 0 && inflows[0]) return inflows[0].assetId;
-
-    return;
-  }
-
-  /**
-   * Extract primary amount from transaction movements
-   * Prefers outflows (gross), then inflows (gross)
-   */
-  private extractPrimaryAmount(tx: UniversalTransactionData): Decimal | undefined {
-    const outflows = tx.movements.outflows ?? [];
-    const inflows = tx.movements.inflows ?? [];
-
-    if (outflows.length > 0 && outflows[0]) return outflows[0].grossAmount;
-    if (inflows.length > 0 && inflows[0]) return inflows[0].grossAmount;
-
-    return;
+  private extractPrimaryMovement(tx: UniversalTransactionData) {
+    return (tx.movements.outflows ?? [])[0] ?? (tx.movements.inflows ?? [])[0];
   }
 }

@@ -1,5 +1,6 @@
 import { performance } from 'node:perf_hooks';
 
+import type { PriceEvent } from '@exitbook/accounting';
 import type { InstrumentationCollector } from '@exitbook/http';
 import { Box, Text } from 'ink';
 import { type FC, type ReactNode, useEffect, useLayoutEffect, useReducer } from 'react';
@@ -12,7 +13,6 @@ import {
   statusIcon,
   TreeChars,
 } from '../../../ui/shared/index.js';
-import type { PriceEvent } from '../events.js';
 
 import { createPricesEnrichState, type PricesEnrichState } from './prices-enrich-state.js';
 import { computeApiCallStats, pricesEnrichReducer } from './prices-enrich-updater.js';

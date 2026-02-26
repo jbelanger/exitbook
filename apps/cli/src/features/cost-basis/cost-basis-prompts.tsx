@@ -1,5 +1,9 @@
-import { getDefaultDateRange } from '@exitbook/accounting';
-import type { FiatCurrency } from '@exitbook/accounting';
+import {
+  getDefaultDateRange,
+  type CostBasisConfigWithDates,
+  type CostBasisHandlerParams,
+  type FiatCurrency,
+} from '@exitbook/accounting';
 import { Box, Text, useInput } from 'ink';
 import { render } from 'ink';
 import React, { useState, type FC } from 'react';
@@ -7,8 +11,6 @@ import React, { useState, type FC } from 'react';
 import { ConfirmPrompt } from '../../ui/shared/ConfirmPrompt.js';
 import { SelectPrompt, type SelectOption } from '../../ui/shared/SelectPrompt.js';
 import { TextPrompt } from '../../ui/shared/TextPrompt.js';
-
-import type { CostBasisConfigWithDates, CostBasisHandlerParams } from './cost-basis-utils.js';
 
 type Jurisdiction = 'CA' | 'US';
 type Method = 'fifo' | 'lifo' | 'average-cost';

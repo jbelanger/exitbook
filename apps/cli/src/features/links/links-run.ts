@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- Used in React component code */
 import { createTransactionLinkQueries } from '@exitbook/accounting';
+import { LinkingOrchestrator, type LinkingEvent, type LinkingRunParams } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
 import { createTransactionQueries } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
@@ -18,9 +19,6 @@ import { outputSuccess } from '../shared/json-output.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 
 import { LinksRunMonitor } from './components/links-run-components.js';
-import type { LinkingEvent } from './events.js';
-import type { LinksRunHandlerParams } from './links-run-handler.js';
-import { LinksRunHandler } from './links-run-handler.js';
 
 const logger = getLogger('links-run');
 
@@ -32,7 +30,7 @@ type LinksRunCommandOptions = z.infer<typeof LinksRunCommandOptionsSchema>;
 /**
  * Build links run parameters from validated CLI options.
  */
-function buildLinksRunParamsFromFlags(options: LinksRunCommandOptions): LinksRunHandlerParams {
+function buildLinksRunParamsFromFlags(options: LinksRunCommandOptions): LinkingRunParams {
   return {
     dryRun: options.dryRun ?? false,
     minConfidenceScore: parseDecimal(options.minConfidence?.toString() ?? '0.7'),
@@ -43,8 +41,8 @@ function buildLinksRunParamsFromFlags(options: LinksRunCommandOptions): LinksRun
 /**
  * Prompt user for links run parameters in interactive mode using Ink.
  */
-async function promptForLinksRunParams(): Promise<LinksRunHandlerParams | null> {
-  return new Promise<LinksRunHandlerParams | null>((resolve) => {
+async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
+  return new Promise<LinkingRunParams | null>((resolve) => {
     const steps: PromptStep[] = [
       {
         type: 'confirm',
@@ -170,7 +168,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
   const startTime = Date.now();
 
   try {
-    let params: LinksRunHandlerParams;
+    let params: LinkingRunParams;
     if (!options.dryRun && !options.minConfidence && !options.autoConfirmThreshold && !options.json) {
       const result = await promptForLinksRunParams();
       if (!result) {
@@ -192,8 +190,8 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
 
       if (options.json) {
         // JSON mode: run handler directly without Ink UI
-        const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
-        const result = await handler.execute(params);
+        const orchestrator = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore);
+        const result = await orchestrator.execute(params);
 
         if (result.isErr()) {
           displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -219,10 +217,10 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
         });
       });
 
-      controller.start();
+      await controller.start();
 
-      const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore, eventBus);
-      const result = await handler.execute(params);
+      const orchestrator = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore, eventBus);
+      const result = await orchestrator.execute(params);
 
       if (result.isErr()) {
         controller.fail(result.error.message);

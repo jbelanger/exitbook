@@ -166,6 +166,9 @@ importers:
       '@exitbook/data':
         specifier: workspace:*
         version: link:../data
+      '@exitbook/events':
+        specifier: workspace:*
+        version: link:../events
       '@exitbook/http':
         specifier: workspace:*
         version: link:../http

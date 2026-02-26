@@ -1,10 +1,10 @@
 import { performance } from 'node:perf_hooks';
 
+import type { PriceEvent } from '@exitbook/accounting';
 import type { RequestMetric } from '@exitbook/http';
 
 import { createProviderStats } from '../../../ui/shared/index.js';
 import type { ApiCallStats } from '../../../ui/shared/index.js';
-import type { PriceEvent } from '../events.js';
 
 import type { PricesEnrichState } from './prices-enrich-state.js';
 

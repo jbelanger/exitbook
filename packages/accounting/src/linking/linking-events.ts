@@ -9,8 +9,6 @@ export type LinkingEvent =
       type: 'load.started';
     }
   | {
-      sourceCount: number;
-      targetCount: number;
       totalTransactions: number;
       type: 'load.completed';
     }
@@ -26,7 +24,9 @@ export type LinkingEvent =
   | {
       confirmedCount: number;
       internalCount: number;
+      sourceCount: number;
       suggestedCount: number;
+      targetCount: number;
       type: 'match.completed';
     }
   // Save phase events

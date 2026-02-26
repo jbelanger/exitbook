@@ -12,7 +12,6 @@ export type PriceEvent =
   | {
       /**
        * Emitted when an enrichment stage begins.
-       * Used by CLI dashboard to show stage progress.
        */
       stage: 'tradePrices' | 'fxRates' | 'marketPrices' | 'propagation';
       type: 'stage.started';
@@ -20,7 +19,6 @@ export type PriceEvent =
   | {
       /**
        * Emitted when a stage completes successfully.
-       * Used by CLI dashboard to show stage results.
        */
       result:
         | { stage: 'tradePrices'; transactionsUpdated: number }
@@ -45,7 +43,6 @@ export type PriceEvent =
   | {
       /**
        * Emitted when a stage encounters an error.
-       * Used by CLI dashboard activity log.
        */
       error: string;
       stage: string;
@@ -54,7 +51,6 @@ export type PriceEvent =
   | {
       /**
        * Emitted periodically during market prices stage with progress.
-       * Used by CLI dashboard to update progress counters.
        */
       processed: number;
       stage: 'marketPrices';

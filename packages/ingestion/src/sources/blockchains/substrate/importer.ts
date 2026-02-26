@@ -102,6 +102,10 @@ export class SubstrateImporter implements IImporter {
         streamType: 'normal',
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,
+        providerStats: {
+          fetched: providerBatch.stats.fetched,
+          deduplicated: providerBatch.stats.deduplicated,
+        },
       });
     }
   }

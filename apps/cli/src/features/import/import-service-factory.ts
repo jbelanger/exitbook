@@ -90,7 +90,7 @@ export async function createImportServices(database: KyselyDB, registry: Adapter
       instrumentation,
       providerManager,
     });
-    ingestionMonitor.start();
+    await ingestionMonitor.start();
 
     const cleanup = async () => {
       try {

@@ -1,34 +1,20 @@
-import type { TransactionLink, TransactionLinkQueries } from '@exitbook/accounting';
 import { parseDecimal, type Currency } from '@exitbook/core';
 import type { OverrideEvent, OverrideStore, TransactionQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { err, ok } from 'neverthrow';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { LinkingEvent } from '../events.js';
+import type { TransactionLinkQueries } from '../../persistence/transaction-link-queries.js';
+import type { LinkingEvent } from '../linking-events.js';
+import { LinkingOrchestrator } from '../linking-orchestrator.js';
+import { TransactionLinkingService } from '../transaction-linking-service.js';
+import type { TransactionLink } from '../types.js';
 
-const mockLinkTransactions = vi.fn();
-
-vi.mock('@exitbook/accounting', async () => {
-  const actual = await vi.importActual<typeof import('@exitbook/accounting')>('@exitbook/accounting');
-
-  class MockTransactionLinkingService {
-    linkTransactions = mockLinkTransactions;
-
-    constructor(_logger: unknown, _config: unknown) {
-      /* empty */
-    }
-  }
-
-  return {
-    ...actual,
-    TransactionLinkingService: MockTransactionLinkingService,
-  };
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
-import { LinksRunHandler } from '../links-run-handler.js';
-
-describe('LinksRunHandler', () => {
+describe('LinkingOrchestrator', () => {
   it('applies unlink overrides to internal links so rejected links do not reappear', async () => {
     const internalLink: TransactionLink = {
       id: 'internal-link-1',
@@ -52,12 +38,13 @@ describe('LinksRunHandler', () => {
       updatedAt: new Date('2026-02-07T00:00:00Z'),
     };
 
-    mockLinkTransactions.mockReturnValue(
+    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
       ok({
         confirmedLinks: [internalLink],
         suggestedLinks: [],
         totalSourceTransactions: 1,
         totalTargetTransactions: 1,
+        matchedTransactionCount: 2,
         unmatchedSourceCount: 0,
         unmatchedTargetCount: 0,
       })
@@ -95,7 +82,7 @@ describe('LinksRunHandler', () => {
       readAll: vi.fn().mockResolvedValue(ok([unlinkEvent])),
     } as unknown as OverrideStore;
 
-    const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
+    const handler = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore);
 
     const result = await handler.execute({
       dryRun: false,
@@ -114,7 +101,7 @@ describe('LinksRunHandler', () => {
   });
 
   it('returns error when linking service fails', async () => {
-    mockLinkTransactions.mockReturnValue(err(new Error('linking failed')));
+    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(err(new Error('linking failed')));
 
     const transactionRepository = {
       getTransactions: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
@@ -126,7 +113,7 @@ describe('LinksRunHandler', () => {
       createBulk: vi.fn().mockResolvedValue(ok(0)),
     } as unknown as TransactionLinkQueries;
 
-    const handler = new LinksRunHandler(transactionRepository, linkRepository);
+    const handler = new LinkingOrchestrator(transactionRepository, linkRepository);
     const result = await handler.execute({
       dryRun: false,
       minConfidenceScore: parseDecimal('0.7'),
@@ -160,12 +147,13 @@ describe('LinksRunHandler', () => {
       updatedAt: new Date('2026-02-08T00:00:00Z'),
     };
 
-    mockLinkTransactions.mockReturnValue(
+    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
       ok({
         confirmedLinks: [confirmedLink],
         suggestedLinks: [],
         totalSourceTransactions: 2,
         totalTargetTransactions: 3,
+        matchedTransactionCount: 3,
         unmatchedSourceCount: 1,
         unmatchedTargetCount: 2,
       })
@@ -197,7 +185,7 @@ describe('LinksRunHandler', () => {
       subscribe: vi.fn(),
     } as unknown as EventBus<LinkingEvent>;
 
-    const handler = new LinksRunHandler(transactionRepository, linkRepository, undefined, mockEventBus);
+    const handler = new LinkingOrchestrator(transactionRepository, linkRepository, undefined, mockEventBus);
 
     const result = await handler.execute({
       dryRun: false,
@@ -207,20 +195,15 @@ describe('LinksRunHandler', () => {
 
     expect(result.isOk()).toBe(true);
 
-    // Verify event sequence
-    // Note: load.completed comes after match.started because source/target counts
-    // are only known after the linking service analyzes transactions
+    // Verify event sequence: load fires before match
     expect(emittedEvents).toHaveLength(6);
     expect(emittedEvents[0]).toEqual({ type: 'load.started' });
-    expect(emittedEvents[1]).toEqual({ type: 'match.started' });
-    expect(emittedEvents[2]).toEqual({
-      type: 'load.completed',
-      totalTransactions: 5,
-      sourceCount: 2,
-      targetCount: 3,
-    });
+    expect(emittedEvents[1]).toEqual({ type: 'load.completed', totalTransactions: 5 });
+    expect(emittedEvents[2]).toEqual({ type: 'match.started' });
     expect(emittedEvents[3]).toEqual({
       type: 'match.completed',
+      sourceCount: 2,
+      targetCount: 3,
       internalCount: 0,
       confirmedCount: 1,
       suggestedCount: 0,
@@ -230,12 +213,13 @@ describe('LinksRunHandler', () => {
   });
 
   it('does not emit save events in dry run mode', async () => {
-    mockLinkTransactions.mockReturnValue(
+    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
       ok({
         confirmedLinks: [],
         suggestedLinks: [],
         totalSourceTransactions: 1,
         totalTargetTransactions: 1,
+        matchedTransactionCount: 0,
         unmatchedSourceCount: 1,
         unmatchedTargetCount: 1,
       })
@@ -259,7 +243,7 @@ describe('LinksRunHandler', () => {
       subscribe: vi.fn(),
     } as unknown as EventBus<LinkingEvent>;
 
-    const handler = new LinksRunHandler(transactionRepository, linkRepository, undefined, mockEventBus);
+    const handler = new LinkingOrchestrator(transactionRepository, linkRepository, undefined, mockEventBus);
 
     const result = await handler.execute({
       dryRun: true,
@@ -269,24 +253,59 @@ describe('LinksRunHandler', () => {
 
     expect(result.isOk()).toBe(true);
 
-    // Should emit load.started, match.started, load.completed, match.completed (no save in dry run)
+    // Should emit load.started, load.completed, match.started, match.completed (no save in dry run)
     expect(emittedEvents).toHaveLength(4);
-    expect(emittedEvents.some((e) => e.type === 'load.started')).toBe(true);
-    expect(emittedEvents.some((e) => e.type === 'match.started')).toBe(true);
-    expect(emittedEvents.some((e) => e.type === 'load.completed')).toBe(true);
-    expect(emittedEvents.some((e) => e.type === 'match.completed')).toBe(true);
+    expect(emittedEvents[0]!.type).toBe('load.started');
+    expect(emittedEvents[1]!.type).toBe('load.completed');
+    expect(emittedEvents[2]!.type).toBe('match.started');
+    expect(emittedEvents[3]!.type).toBe('match.completed');
     expect(emittedEvents.some((e) => e.type === 'save.started')).toBe(false);
     expect(emittedEvents.some((e) => e.type === 'save.completed')).toBe(false);
   });
 
-  it('skips orphaned override when assetId cannot be resolved from movements', async () => {
-    // Algorithm produces no links
-    mockLinkTransactions.mockReturnValue(
+  it('returns error when clearing existing links fails', async () => {
+    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
       ok({
         confirmedLinks: [],
         suggestedLinks: [],
         totalSourceTransactions: 1,
         totalTargetTransactions: 1,
+        matchedTransactionCount: 0,
+        unmatchedSourceCount: 1,
+        unmatchedTargetCount: 1,
+      })
+    );
+
+    const transactionRepository = {
+      getTransactions: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
+    } as unknown as TransactionQueries;
+
+    const linkRepository = {
+      count: vi.fn().mockResolvedValue(ok(2)),
+      deleteAll: vi.fn().mockResolvedValue(err(new Error('delete failed'))),
+      createBulk: vi.fn(),
+    } as unknown as TransactionLinkQueries;
+
+    const handler = new LinkingOrchestrator(transactionRepository, linkRepository);
+    const result = await handler.execute({
+      dryRun: false,
+      minConfidenceScore: parseDecimal('0.7'),
+      autoConfirmThreshold: parseDecimal('0.95'),
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toContain('delete failed');
+  });
+
+  it('skips orphaned override when assetId cannot be resolved from movements', async () => {
+    // Algorithm produces no links
+    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
+      ok({
+        confirmedLinks: [],
+        suggestedLinks: [],
+        totalSourceTransactions: 1,
+        totalTargetTransactions: 1,
+        matchedTransactionCount: 0,
         unmatchedSourceCount: 1,
         unmatchedTargetCount: 1,
       })
@@ -344,7 +363,7 @@ describe('LinksRunHandler', () => {
       readAll: vi.fn().mockResolvedValue(ok([linkOverride])),
     } as unknown as OverrideStore;
 
-    const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
+    const handler = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore);
 
     const result = await handler.execute({
       dryRun: false,
@@ -360,12 +379,13 @@ describe('LinksRunHandler', () => {
   });
 
   it('skips orphaned override when source transaction has ambiguous assetIds for symbol', async () => {
-    mockLinkTransactions.mockReturnValue(
+    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
       ok({
         confirmedLinks: [],
         suggestedLinks: [],
         totalSourceTransactions: 1,
         totalTargetTransactions: 1,
+        matchedTransactionCount: 0,
         unmatchedSourceCount: 1,
         unmatchedTargetCount: 1,
       })
@@ -426,7 +446,7 @@ describe('LinksRunHandler', () => {
       readAll: vi.fn().mockResolvedValue(ok([linkOverride])),
     } as unknown as OverrideStore;
 
-    const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
+    const handler = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore);
 
     const result = await handler.execute({
       dryRun: false,
@@ -439,12 +459,13 @@ describe('LinksRunHandler', () => {
   });
 
   it('skips orphaned override when target transaction has ambiguous assetIds for symbol', async () => {
-    mockLinkTransactions.mockReturnValue(
+    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
       ok({
         confirmedLinks: [],
         suggestedLinks: [],
         totalSourceTransactions: 1,
         totalTargetTransactions: 1,
+        matchedTransactionCount: 0,
         unmatchedSourceCount: 1,
         unmatchedTargetCount: 1,
       })
@@ -503,7 +524,7 @@ describe('LinksRunHandler', () => {
       readAll: vi.fn().mockResolvedValue(ok([linkOverride])),
     } as unknown as OverrideStore;
 
-    const handler = new LinksRunHandler(transactionRepository, linkRepository, overrideStore);
+    const handler = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore);
 
     const result = await handler.execute({
       dryRun: false,

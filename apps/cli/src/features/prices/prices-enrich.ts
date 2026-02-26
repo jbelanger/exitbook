@@ -7,6 +7,8 @@
  * 3. Market prices - Fetch missing crypto prices from external providers
  * 4. Price propagation - Use newly fetched/normalized prices for ratio calculations
  */
+import { PriceEnrichmentPipeline } from '@exitbook/accounting';
+import type { PriceEvent, PricesEnrichOptions } from '@exitbook/accounting';
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
@@ -22,9 +24,7 @@ import { PricesEnrichCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
 import { PricesEnrichMonitor } from './components/prices-enrich-components.js';
-import type { PriceEvent } from './events.js';
-import { PricesEnrichHandler } from './prices-enrich-handler.js';
-import type { PricesEnrichOptions } from './prices-enrich-handler.js';
+import { createDefaultPriceProviderManager } from './prices-utils.js';
 
 const logger = getLogger('prices-enrich');
 
@@ -84,11 +84,17 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       const database = await ctx.database();
 
       if (options.json) {
-        // JSON mode: run handler directly without Ink UI
-        const handler = new PricesEnrichHandler(database);
-        ctx.onCleanup(async () => handler.destroy());
+        const instrumentation = new InstrumentationCollector();
+        const priceManagerResult = await createDefaultPriceProviderManager(instrumentation);
+        if (priceManagerResult.isErr()) {
+          outputError('prices-enrich', priceManagerResult.error, ExitCodes.GENERAL_ERROR);
+          return;
+        }
+        const priceManager = priceManagerResult.value;
+        ctx.onCleanup(async () => priceManager.destroy());
 
-        const result = await handler.execute(params);
+        const pipeline = new PriceEnrichmentPipeline(database, undefined, instrumentation);
+        const result = await pipeline.execute(params, priceManager);
 
         if (result.isErr()) {
           outputError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR);
@@ -113,11 +119,15 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       const instrumentation = new InstrumentationCollector();
       const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-      const handler = new PricesEnrichHandler(database, eventBus, instrumentation);
-
-      ctx.onCleanup(async () => {
-        await handler.destroy();
-      });
+      const priceManagerResult = await createDefaultPriceProviderManager(instrumentation, eventBus);
+      if (priceManagerResult.isErr()) {
+        controller.fail(priceManagerResult.error.message);
+        await controller.stop();
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
+      const priceManager = priceManagerResult.value;
+      ctx.onCleanup(async () => priceManager.destroy());
 
       ctx.onAbort(() => {
         controller.abort();
@@ -126,9 +136,10 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
         });
       });
 
-      controller.start();
+      await controller.start();
 
-      const result = await handler.execute(params);
+      const pipeline = new PriceEnrichmentPipeline(database, eventBus, instrumentation);
+      const result = await pipeline.execute(params, priceManager);
 
       if (result.isErr()) {
         controller.fail(result.error.message);

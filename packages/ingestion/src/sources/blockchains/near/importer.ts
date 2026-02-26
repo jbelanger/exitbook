@@ -149,6 +149,10 @@ export class NearImporter implements IImporter {
         streamType,
         cursor: providerBatch.cursor,
         isComplete: providerBatch.isComplete,
+        providerStats: {
+          fetched: providerBatch.stats.fetched,
+          deduplicated: providerBatch.stats.deduplicated,
+        },
       });
     }
   }

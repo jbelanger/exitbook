@@ -1,13 +1,12 @@
-import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
-import { describe, expect, it } from 'vitest';
-
 import {
   initializeStats,
   extractAssetsNeedingPrices,
   createPriceQuery,
   validateAssetFilter,
   determineEnrichmentStages,
-} from '../prices-utils.js';
+} from '@exitbook/accounting';
+import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { describe, expect, it } from 'vitest';
 
 describe('validateAssetFilter', () => {
   it('should return empty array when asset is undefined', () => {

@@ -63,7 +63,7 @@ export const MatchingConfigSchema = z.object({
  * Linking result schema
  */
 export const LinkingResultSchema = z.object({
-  suggestedLinks: z.array(PotentialMatchSchema),
+  suggestedLinks: z.array(TransactionLinkSchema),
   confirmedLinks: z.array(TransactionLinkSchema),
   totalSourceTransactions: z.number(),
   totalTargetTransactions: z.number(),

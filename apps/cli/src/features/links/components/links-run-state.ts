@@ -12,8 +12,6 @@ export interface LoadPhase {
   startedAt: number;
   completedAt?: number | undefined;
   totalTransactions: number;
-  sourceCount: number;
-  targetCount: number;
 }
 
 /**
@@ -23,6 +21,8 @@ export interface MatchPhase {
   status: OperationStatus;
   startedAt: number;
   completedAt?: number | undefined;
+  sourceCount: number; // outflows (sources)
+  targetCount: number; // inflows (targets)
   internalCount: number; // same tx hash links
   confirmedCount: number; // ≥95% confidence
   suggestedCount: number; // 70-95% confidence

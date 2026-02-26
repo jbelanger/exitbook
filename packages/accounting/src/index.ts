@@ -55,6 +55,16 @@ export type {
 export { CostBasisReportGenerator } from './reports/cost-basis-report-generator.js';
 export type { ReportGeneratorConfig } from './reports/cost-basis-report-generator.js';
 
+// Linking orchestrator
+export { LinkingOrchestrator } from './linking/linking-orchestrator.js';
+export type { LinkingRunParams, LinkingRunResult } from './linking/linking-orchestrator.js';
+export type { LinkingEvent } from './linking/linking-events.js';
+export {
+  resolveUniqueAssetId,
+  buildLinkFromOrphanedOverride,
+  categorizeFinalLinks,
+} from './linking/linking-orchestrator-utils.js';
+
 // Transaction linking
 export type {
   LinkType,
@@ -70,12 +80,46 @@ export { TransactionLinkingService } from './linking/transaction-linking-service
 export { DEFAULT_MATCHING_CONFIG, createTransactionLink } from './linking/matching-utils.js';
 export { LinkIndex } from './linking/link-index.js';
 export { createTransactionLinkQueries, type TransactionLinkQueries } from './persistence/transaction-link-queries.js';
+// Cost basis utilities
+export {
+  buildCostBasisParams,
+  validateCostBasisParams,
+  validateTransactionPrices,
+  filterTransactionsByDateRange,
+  transactionHasAllPrices,
+  getJurisdictionRules,
+  formatCurrency,
+} from './cost-basis/cost-basis-utils.js';
+export type { CostBasisHandlerParams, CostBasisConfigWithDates } from './cost-basis/cost-basis-utils.js';
+
 export { PriceEnrichmentService } from './price-enrichment/price-enrichment-service.js';
+export type { PriceEvent } from './price-enrichment/price-events.js';
+export {
+  validateAssetFilter,
+  extractAssetsNeedingPrices,
+  createPriceQuery,
+  initializeStats,
+  determineEnrichmentStages,
+} from './price-enrichment/price-fetch-utils.js';
+export type {
+  PricesFetchCommandOptions,
+  PriceFetchStats,
+  PricesFetchResult,
+  EnrichmentStageOptions,
+  EnrichmentStages,
+} from './price-enrichment/price-fetch-utils.js';
+export { PriceFetchService, PriceFetchAbortError } from './price-enrichment/price-fetch-service.js';
+export { PriceEnrichmentPipeline, NormalizeAbortError } from './price-enrichment/price-enrichment-pipeline.js';
+export type { PricesEnrichOptions, PricesEnrichResult } from './price-enrichment/price-enrichment-pipeline.js';
 export { PriceNormalizationService } from './price-enrichment/price-normalization-service.js';
 export type { NormalizeResult } from './price-enrichment/price-normalization-service.js';
 export type { IFxRateProvider, FxRateData } from './price-enrichment/fx-rate-provider.interface.js';
 export { StandardFxRateProvider } from './price-enrichment/standard-fx-rate-provider.js';
-export { enrichMovementWithPrice, enrichMovementsWithPrices } from './price-enrichment/movement-enrichment-utils.js';
+export {
+  enrichWithPrice,
+  enrichMovementWithPrice,
+  enrichMovementsWithPrices,
+} from './price-enrichment/movement-enrichment-utils.js';
 export {
   extractMovementsNeedingNormalization,
   validateFxRate,

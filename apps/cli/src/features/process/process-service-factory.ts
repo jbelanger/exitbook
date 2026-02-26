@@ -91,7 +91,7 @@ export async function createProcessServices(database: KyselyDB, registry: Adapte
       instrumentation,
       providerManager,
     });
-    ingestionMonitor.start();
+    await ingestionMonitor.start();
 
     // Create execute function with dependencies bound
     const execute = (params: ProcessHandlerParams) =>

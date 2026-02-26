@@ -259,6 +259,63 @@ describe('StreamingImportRunner', () => {
       );
     });
 
+    it('should emit provider fetched and deduplicated stats in import.batch events', async () => {
+      const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
+      const mockEventBus = { emit: vi.fn() };
+      const registry = createTestRegistry();
+      const serviceWithEvents = new StreamingImportRunner(
+        {} as KyselyDB,
+        mockProviderManager,
+        registry,
+        mockEventBus as never
+      );
+
+      const mockSession: ImportSession = {
+        id: 1,
+        accountId: 1,
+        status: 'completed',
+        startedAt: new Date(),
+        completedAt: new Date(),
+        transactionsImported: 2,
+        transactionsSkipped: 0,
+        createdAt: new Date(),
+      };
+
+      mockImportStreamingFn.mockImplementationOnce(async function* () {
+        yield okAsync({
+          rawTransactions: [
+            { transactionHash: 'tx1', blockHeight: 100 },
+            { transactionHash: 'tx2', blockHeight: 101 },
+          ],
+          streamType: 'normal',
+          cursor: { primary: { type: 'blockNumber', value: 2 }, lastTransactionId: 'tx2', totalFetched: 2 },
+          isComplete: true,
+          providerStats: { fetched: 5, deduplicated: 3 },
+        });
+      });
+
+      vi.mocked(mockImportSessionQueries.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionQueries.create).mockResolvedValue(ok(1));
+      vi.mocked(mockRawDataQueries.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockImportSessionQueries.finalize).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionQueries.findById).mockResolvedValue(ok(mockSession));
+      vi.mocked(mockAccountQueries.updateCursor).mockResolvedValue(ok());
+
+      const result = await serviceWithEvents.importFromSource(account);
+
+      expect(result.isOk()).toBe(true);
+      expect(mockEventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'import.batch',
+          sourceName: 'bitcoin',
+          accountId: 1,
+          fetched: 5,
+          deduplicated: 3,
+          totalFetchedRun: 5,
+        })
+      );
+    });
+
     it('should normalize blockchain address before import', async () => {
       const account = createMockAccount('blockchain', 'bitcoin', 'BC1QXY2KGDYGJRSQTZQ2N0YRF2493P83KKFJHX0WLH'); // Uppercase
 
@@ -474,6 +531,56 @@ describe('StreamingImportRunner', () => {
         expect.any(Number),
         2, // transactionsImported
         0 // transactionsSkipped
+      );
+    });
+
+    it('should default import.batch deduplicated to zero when provider stats are unavailable', async () => {
+      const account = createMockAccount('exchange-api', 'kraken', 'test-api-key', {
+        credentials: {
+          apiKey: 'test-key',
+          apiSecret: 'test-secret',
+        },
+      });
+
+      const mockEventBus = { emit: vi.fn() };
+      const registry = createTestRegistry();
+      const serviceWithEvents = new StreamingImportRunner(
+        {} as KyselyDB,
+        mockProviderManager,
+        registry,
+        mockEventBus as never
+      );
+
+      const mockSession: ImportSession = {
+        id: 1,
+        accountId: 1,
+        status: 'completed',
+        startedAt: new Date(),
+        completedAt: new Date(),
+        transactionsImported: 2,
+        transactionsSkipped: 0,
+        createdAt: new Date(),
+      };
+
+      vi.mocked(mockImportSessionQueries.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionQueries.create).mockResolvedValue(ok(1));
+      vi.mocked(mockRawDataQueries.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockImportSessionQueries.finalize).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionQueries.findById).mockResolvedValue(ok(mockSession));
+      vi.mocked(mockAccountQueries.updateCursor).mockResolvedValue(ok());
+
+      const result = await serviceWithEvents.importFromSource(account);
+
+      expect(result.isOk()).toBe(true);
+      expect(mockEventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'import.batch',
+          sourceName: 'kraken',
+          accountId: 1,
+          fetched: 2,
+          deduplicated: 0,
+          totalFetchedRun: 2,
+        })
       );
     });
 

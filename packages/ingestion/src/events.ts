@@ -40,8 +40,8 @@ export type ImportEvent =
       batchInserted: number; // Successfully inserted
       batchSkipped: number; // Skipped (duplicates)
       cursorProgress?: number | undefined; // cursor.totalFetched if available (lifetime, internal)
-      deduplicated: number; // Count after deduplication
-      fetched: number; // Raw count fetched from provider
+      deduplicated: number; // Count filtered by importer/provider-level dedup (0 when unavailable)
+      fetched: number; // Raw count fetched before importer/provider-level dedup
       isComplete: boolean;
       sourceName: string;
       streamType: string;
