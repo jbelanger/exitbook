@@ -25,7 +25,7 @@ export type ProcessCommandOptions = z.infer<typeof ProcessCommandOptionsSchema>;
 /**
  * Process command result structure for JSON output
  */
-interface ProcessCommandResult {
+interface ReprocessCommandResult {
   status: 'success' | 'warning';
   reprocess: {
     counts: {
@@ -151,7 +151,7 @@ interface ProcessResultWithMetrics extends BatchProcessSummary {
 function handleProcessSuccess(isJsonMode: boolean, result: ProcessResultWithMetrics): void {
   const status = result.errors.length > 0 ? 'warning' : 'success';
 
-  const resultData: ProcessCommandResult = {
+  const resultData: ReprocessCommandResult = {
     status,
     reprocess: {
       counts: {

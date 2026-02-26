@@ -296,7 +296,7 @@ The `Sources:` line is only shown for `Raw data items` — it breaks down counts
 
 | Category          | Description                                                  | Used By                                  | Recovery                                    |
 | ----------------- | ------------------------------------------------------------ | ---------------------------------------- | ------------------------------------------- |
-| Transactions      | Processed transaction records with movements, fees, metadata | `exitbook transactions view`             | Run `exitbook process` to reprocess         |
+| Transactions      | Processed transaction records with movements, fees, metadata | `exitbook transactions view`             | Run `exitbook reprocess` to reprocess       |
 | Transaction links | Transfer link matches between outflows and inflows           | `exitbook links view`                    | Run `exitbook links run` after reprocessing |
 | Accounts          | Account records linking sources to your profile              | `exitbook accounts view`                 | Re-import to recreate accounts              |
 | Import sessions   | Import run history and metadata                              | `exitbook accounts view --show-sessions` | Re-import to recreate sessions              |
@@ -448,7 +448,7 @@ Recovery hints by scenario:
 
 | Scenario                  | Hint                                                                                      |
 | ------------------------- | ----------------------------------------------------------------------------------------- |
-| Without include-raw       | `Run \`exitbook process\` to reprocess from preserved raw data.`                          |
+| Without include-raw       | `Run \`exitbook reprocess\` to reprocess from preserved raw data.`                        |
 | With include-raw          | `Re-import from sources to restore data:`<br>`  exitbook import --exchange <name> ...`    |
 | With include-raw + source | `Re-import from {source} to restore data:`<br>`  exitbook import --exchange {source} ...` |
 
@@ -468,7 +468,7 @@ Clear Data  0 items
   No data to clear.
 
   Import data first:
-  exitbook import --exchange kraken --csv-dir ./exports/kraken
+  exitbook import --exchange kucoin --csv-dir ./exports/kucoin
 
 q/esc quit
 ```

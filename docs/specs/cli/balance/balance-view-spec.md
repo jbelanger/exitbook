@@ -753,7 +753,7 @@ Balance Verification  0 accounts
   No accounts found.
 
   Import data to create accounts:
-  exitbook import --exchange kraken --csv-dir ./exports/kraken
+  exitbook import --exchange kucoin --csv-dir ./exports/kucoin
 
 q quit
 ```

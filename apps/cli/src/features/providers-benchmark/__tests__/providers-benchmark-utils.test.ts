@@ -7,9 +7,9 @@ import {
   parseCustomRates,
   parseMaxRate,
   parseNumRequests,
-} from '../benchmark-rate-limit-utils.js';
+} from '../providers-benchmark-utils.js';
 
-describe('benchmark-rate-limit-utils', () => {
+describe('providers-benchmark-utils', () => {
   describe('parseMaxRate', () => {
     it('should parse valid positive numbers', () => {
       const result = parseMaxRate('5');

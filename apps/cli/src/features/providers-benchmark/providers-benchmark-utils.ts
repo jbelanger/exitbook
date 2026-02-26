@@ -1,11 +1,11 @@
-// Pure utility functions for benchmark-rate-limit command
+// Pure utility functions for providers-benchmark command
 // All functions are pure - no side effects
 
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 /**
- * CLI options structure for benchmark-rate-limit command.
+ * CLI options structure for providers-benchmark command.
  */
 export interface BenchmarkRateLimitCommandOptions {
   blockchain: string;

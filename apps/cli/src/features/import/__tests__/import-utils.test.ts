@@ -8,6 +8,22 @@ import { buildImportParams, type ImportCommandOptions } from '../import-utils.js
 function createTestRegistry(): AdapterRegistry {
   return {
     getBlockchain: vi.fn((_blockchain: string) => ok({ normalizeAddress: (address: string) => ok(address) })),
+    getExchange: vi.fn((exchange: string) => {
+      const name = exchange.toLowerCase();
+      if (name === 'kraken' || name === 'coinbase') {
+        return ok({
+          capabilities: { supportsApi: true, supportsCsv: false },
+        });
+      }
+      if (name === 'kucoin') {
+        return ok({
+          capabilities: { supportsApi: false, supportsCsv: true },
+        });
+      }
+      return ok({
+        capabilities: { supportsApi: true, supportsCsv: true },
+      });
+    }),
   } as unknown as AdapterRegistry;
 }
 
@@ -197,7 +213,7 @@ describe('buildImportParams', () => {
   describe('exchange sources', () => {
     it('should build params with CSV directory', () => {
       const options: ImportCommandOptions = {
-        exchange: 'kraken',
+        exchange: 'kucoin',
         csvDir: '/path/to/csv',
       };
 
@@ -205,7 +221,7 @@ describe('buildImportParams', () => {
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
-      expect(params.sourceName).toBe('kraken');
+      expect(params.sourceName).toBe('kucoin');
       expect(params.sourceType).toBe('exchange-csv');
       expect(params.csvDirectory).toBe('/path/to/csv');
     });
@@ -231,7 +247,7 @@ describe('buildImportParams', () => {
 
     it('should build params with API credentials including passphrase', () => {
       const options: ImportCommandOptions = {
-        exchange: 'kucoin',
+        exchange: 'kraken',
         apiKey: 'test-key',
         apiSecret: 'test-secret',
         apiPassphrase: 'test-passphrase',
@@ -246,6 +262,29 @@ describe('buildImportParams', () => {
         apiSecret: 'test-secret',
         apiPassphrase: 'test-passphrase',
       });
+    });
+
+    it('should reject CSV mode for API-only exchange', () => {
+      const options: ImportCommandOptions = {
+        exchange: 'kraken',
+        csvDir: '/path/to/csv',
+      };
+
+      const result = buildImportParams(options, createTestRegistry());
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toContain('does not support CSV import');
+    });
+
+    it('should reject API mode for CSV-only exchange', () => {
+      const options: ImportCommandOptions = {
+        exchange: 'kucoin',
+        apiKey: 'test-key',
+        apiSecret: 'test-secret',
+      };
+
+      const result = buildImportParams(options, createTestRegistry());
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toContain('does not support API import');
     });
   });
 

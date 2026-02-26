@@ -5,8 +5,8 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import { BenchmarkRateLimitHandler } from '../benchmark-rate-limit/benchmark-rate-limit-handler.js';
-import { buildConfigOverride } from '../benchmark-rate-limit/benchmark-rate-limit-utils.js';
+import { ProvidersBenchmarkHandler } from '../providers-benchmark/providers-benchmark-handler.js';
+import { buildConfigOverride } from '../providers-benchmark/providers-benchmark-utils.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { renderApp, runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
@@ -89,7 +89,7 @@ async function executeProvidersBenchmarkCommand(rawOptions: unknown): Promise<vo
 async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const handler = new BenchmarkRateLimitHandler();
+      const handler = new ProvidersBenchmarkHandler();
       ctx.onCleanup(async () => handler.destroy());
 
       const result = await handler.execute(options, providerRegistry, BlockchainProviderManager);
@@ -129,7 +129,7 @@ async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<v
 async function executeProvidersBenchmarkTUI(options: CommandOptions): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const handler = new BenchmarkRateLimitHandler();
+      const handler = new ProvidersBenchmarkHandler();
       ctx.onCleanup(async () => handler.destroy());
 
       // Setup phase

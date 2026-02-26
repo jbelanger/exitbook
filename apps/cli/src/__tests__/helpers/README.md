@@ -196,11 +196,17 @@ apps/cli/samples/
     └── trades.csv
 ```
 
+KuCoin helper behavior: if `apps/cli/samples/kucoin/` does not exist, the helper falls back to the newest
+`apps/cli/samples/BillingHistory*` directory.
+
 ## Running Tests
 
 ```bash
-# Run all e2e tests
+# Run local-safe e2e tests (live workflows are skipped unless LIVE_TESTS=1)
 pnpm test:e2e
+
+# Run live-network e2e tests (providers/exchanges)
+pnpm test:e2e:live
 
 # Run specific exchange test
 pnpm vitest run --config vitest.e2e.config.ts apps/cli/src/__tests__/kucoin-workflow.e2e.test.ts
@@ -208,6 +214,8 @@ pnpm vitest run --config vitest.e2e.config.ts apps/cli/src/__tests__/kucoin-work
 # Run specific blockchain test
 pnpm vitest run --config vitest.e2e.config.ts apps/cli/src/__tests__/bitcoin-workflow.e2e.test.ts
 ```
+
+Set `LIVE_TESTS=1` to enable end-to-end import/process/balance workflow tests.
 
 ## Adding a New Exchange Test
 

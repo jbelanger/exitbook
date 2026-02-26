@@ -12,9 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `pnpm install` (workspace deps)
 - `pnpm build` (type check + bundle CLI)
-- `pnpm test` / `pnpm test:e2e` (requires `.env` keys)
+- `pnpm test` / `pnpm test:e2e` (local-safe e2e) / `pnpm test:e2e:live` (network e2e, requires `.env` keys)
 - `pnpm lint` ; `pnpm prettier:fix`
-- Single test: `pnpm vitest run <file>` or `pnpm vitest run --config vitest.e2e.config.ts <file>`
+- Single test: `pnpm vitest run <file>` or `pnpm vitest run --config vitest.e2e.live.config.ts <file>`
 
 ### CLI Usage (essentials)
 

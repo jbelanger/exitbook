@@ -2,9 +2,9 @@
  * State management for benchmark TUI
  */
 
-import type { BenchmarkParams } from '../../benchmark-rate-limit/benchmark-rate-limit-utils.js';
-import { buildConfigOverride } from '../../benchmark-rate-limit/benchmark-rate-limit-utils.js';
-import type { BenchmarkProgressEvent } from '../../benchmark-rate-limit/benchmark-tool.js';
+import type { BenchmarkProgressEvent } from '../../providers-benchmark/benchmark-tool.js';
+import type { BenchmarkParams } from '../../providers-benchmark/providers-benchmark-utils.js';
+import { buildConfigOverride } from '../../providers-benchmark/providers-benchmark-utils.js';
 
 export interface SustainedTest {
   rate: number;

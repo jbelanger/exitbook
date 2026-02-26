@@ -3,8 +3,8 @@ import { loadExplorerConfig, type ProviderRegistry } from '@exitbook/blockchain-
 import { ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { BenchmarkRateLimitHandler } from '../benchmark-rate-limit-handler.js';
 import { benchmarkRateLimit } from '../benchmark-tool.js';
+import { ProvidersBenchmarkHandler } from '../providers-benchmark-handler.js';
 
 // Mock dependencies
 vi.mock('@exitbook/blockchain-providers', async () => {
@@ -44,8 +44,8 @@ function createMockBenchmarkableProvider(overrides: { blockchain?: string; name:
   };
 }
 
-describe('BenchmarkRateLimitHandler', () => {
-  let handler: BenchmarkRateLimitHandler;
+describe('ProvidersBenchmarkHandler', () => {
+  let handler: ProvidersBenchmarkHandler;
   let mockLoadExplorerConfig: ReturnType<typeof vi.fn>;
   let MockProviderManagerConstructor: ReturnType<typeof vi.fn>;
   let mockRegistry: ProviderRegistry;
@@ -73,7 +73,7 @@ describe('BenchmarkRateLimitHandler', () => {
       getAllProviders: vi.fn().mockReturnValue([]),
     } as unknown as ProviderRegistry;
 
-    handler = new BenchmarkRateLimitHandler();
+    handler = new ProvidersBenchmarkHandler();
   });
 
   afterEach(async () => {

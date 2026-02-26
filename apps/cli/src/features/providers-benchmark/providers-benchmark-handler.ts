@@ -4,10 +4,10 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { BenchmarkParams } from './benchmark-rate-limit-utils.js';
-import { buildBenchmarkParams } from './benchmark-rate-limit-utils.js';
 import type { BenchmarkProgressEvent, BenchmarkResult } from './benchmark-tool.js';
 import { benchmarkRateLimit } from './benchmark-tool.js';
+import type { BenchmarkParams } from './providers-benchmark-utils.js';
+import { buildBenchmarkParams } from './providers-benchmark-utils.js';
 
 interface BenchmarkableProvider {
   blockchain: string;
@@ -57,10 +57,10 @@ function isBenchmarkableProvider(provider: unknown): provider is BenchmarkablePr
 }
 
 /**
- * Handler for benchmark-rate-limit command.
+ * Handler for providers-benchmark command.
  * Manages BlockchainProviderManager lifecycle and orchestrates benchmark execution.
  */
-export class BenchmarkRateLimitHandler {
+export class ProvidersBenchmarkHandler {
   private providerManager: BlockchainProviderManager | undefined;
 
   /**
@@ -162,7 +162,7 @@ export class BenchmarkRateLimitHandler {
   }
 
   /**
-   * Execute benchmark-rate-limit command (JSON mode).
+   * Execute providers-benchmark command (JSON mode).
    */
   async execute(
     options: Parameters<typeof buildBenchmarkParams>[0],

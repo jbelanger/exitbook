@@ -523,7 +523,7 @@ Transactions  0 total
   No transactions found.
 
   Import transactions first:
-  exitbook import --exchange kraken --csv-dir ./exports/kraken
+  exitbook import --exchange kucoin --csv-dir ./exports/kucoin
 
 q quit
 ```

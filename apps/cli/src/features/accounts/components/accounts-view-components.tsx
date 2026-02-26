@@ -339,7 +339,7 @@ const AccountsEmptyState: FC<{ state: AccountsViewState }> = ({ state }) => {
           <Text>{'  '}No accounts found.</Text>
           <Text> </Text>
           <Text>{'  '}Import data first:</Text>
-          <Text dimColor>{'  '}exitbook import --exchange kraken --csv-dir ./exports/kraken</Text>
+          <Text dimColor>{'  '}exitbook import --exchange kucoin --csv-dir ./exports/kraken</Text>
         </Box>
       ) : (
         <Text>

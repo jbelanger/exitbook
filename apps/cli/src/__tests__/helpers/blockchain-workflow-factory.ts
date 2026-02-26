@@ -75,10 +75,11 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
   } = config;
 
   describe(`${displayName} E2E Workflow`, () => {
+    const liveTestsEnabled = process.env['LIVE_TESTS'] === '1';
     // Check credentials if required
     const hasCredentials = requiredEnvVars.length === 0 || requiredEnvVars.every((envVar) => !!process.env[envVar]);
 
-    const shouldSkip = !hasCredentials || testCases.length === 0;
+    const shouldSkip = !liveTestsEnabled || !hasCredentials || testCases.length === 0;
     let skipImportTests = false;
 
     beforeAll(() => {
@@ -279,6 +280,14 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
       requiredEnvVars.forEach((envVar) => {
         console.log(`  - ${envVar}`);
       });
+    });
+
+    it('should provide helpful message when LIVE_TESTS is not enabled', () => {
+      if (liveTestsEnabled) {
+        return;
+      }
+      console.log('\nLive blockchain workflow tests are disabled.');
+      console.log('Set LIVE_TESTS=1 to enable import/process/balance workflows.');
     });
   });
 }

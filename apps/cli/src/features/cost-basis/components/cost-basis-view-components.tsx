@@ -179,7 +179,7 @@ const AssetEmptyState: FC<{ state: CostBasisAssetState }> = ({ state }) => {
       </Text>
       <Text> </Text>
       <Text>{'  '}Import transactions first:</Text>
-      <Text dimColor>{'  '}exitbook import --exchange kraken --csv-dir ./exports/kraken</Text>
+      <Text dimColor>{'  '}exitbook import --exchange kucoin --csv-dir ./exports/kraken</Text>
       <Text> </Text>
       <Text dimColor>q quit</Text>
     </Box>

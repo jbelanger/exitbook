@@ -59,6 +59,7 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
   } = config;
 
   describe(`${displayName} E2E Workflow`, () => {
+    const liveTestsEnabled = process.env['LIVE_TESTS'] === '1';
     // Check credentials
     const credentials: Record<string, string> = {};
     const hasCredentials = requiredEnvVars.every((envVar) => {
@@ -71,7 +72,7 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
     });
 
     const hasSamples = hasSampleData(name);
-    const shouldSkip = !hasCredentials || !hasSamples;
+    const shouldSkip = !liveTestsEnabled || !hasCredentials || !hasSamples;
     let skipImportTests = false;
 
     beforeAll(() => {
@@ -281,6 +282,14 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
       requiredEnvVars.forEach((envVar) => {
         console.log(`  - ${envVar}`);
       });
+    });
+
+    it('should provide helpful message when LIVE_TESTS is not enabled', () => {
+      if (liveTestsEnabled) {
+        return;
+      }
+      console.log('\nLive exchange workflow tests are disabled.');
+      console.log('Set LIVE_TESTS=1 to enable import/process/balance workflows.');
     });
   });
 }

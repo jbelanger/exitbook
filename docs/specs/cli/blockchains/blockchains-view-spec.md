@@ -497,7 +497,7 @@ For each provider that requires an API key:
 
 ### Migration from `list-blockchains`
 
-- `list-blockchains` command deprecated and aliased to `blockchains view`
+- `list-blockchains` command removed and replaced by `blockchains view`
 - All existing utility functions (`buildBlockchainInfo`, `filterByCategory`, `sortBlockchains`, etc.) reused
 - `--detailed` flag removed (detail panel always shows full info)
 - Text output (`displayTextOutput`) removed in favor of Ink TUI

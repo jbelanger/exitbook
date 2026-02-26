@@ -162,7 +162,7 @@ const VerificationEmptyState: FC = () => {
       <Text>{'  '}No accounts found.</Text>
       <Text> </Text>
       <Text>{'  '}Import data to create accounts:</Text>
-      <Text dimColor>{'  '}exitbook import --exchange kraken --csv-dir ./exports/kraken</Text>
+      <Text dimColor>{'  '}exitbook import --exchange kucoin --csv-dir ./exports/kraken</Text>
       <Text> </Text>
       <Text dimColor>q quit</Text>
     </Box>
@@ -553,7 +553,7 @@ const OfflineEmptyState: FC = () => {
       <Text>{'  '}No accounts found.</Text>
       <Text> </Text>
       <Text>{'  '}Import data to create accounts:</Text>
-      <Text dimColor>{'  '}exitbook import --exchange kraken --csv-dir ./exports/kraken</Text>
+      <Text dimColor>{'  '}exitbook import --exchange kucoin --csv-dir ./exports/kraken</Text>
       <Text> </Text>
       <Text dimColor>q quit</Text>
     </Box>

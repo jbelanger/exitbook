@@ -116,6 +116,10 @@ function createTestRegistry() {
     ],
     [
       {
+        capabilities: {
+          supportsApi: true,
+          supportsCsv: false,
+        },
         exchange: 'kraken',
         createImporter: () => ({
           importStreaming: mockExchangeImportStreamingFn,

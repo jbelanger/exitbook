@@ -24,6 +24,7 @@ export function buildImportParams(
 ): Result<ImportParams, Error> {
   const sourceName = (options.exchange || options.blockchain)!;
   const isBlockchain = !!options.blockchain;
+  const normalizedSourceName = sourceName.toLowerCase();
 
   // Determine account type
   let accountType: AccountType;
@@ -42,7 +43,7 @@ export function buildImportParams(
       return err(new Error('Address is required for blockchain imports'));
     }
 
-    const adapterResult = registry.getBlockchain(sourceName.toLowerCase());
+    const adapterResult = registry.getBlockchain(normalizedSourceName);
     if (adapterResult.isErr()) {
       return err(adapterResult.error);
     }
@@ -61,8 +62,20 @@ export function buildImportParams(
     });
   }
 
+  const exchangeAdapterResult = registry.getExchange(normalizedSourceName);
+  if (exchangeAdapterResult.isErr()) {
+    return err(exchangeAdapterResult.error);
+  }
+  const exchangeAdapter = exchangeAdapterResult.value;
+
   // Exchange import
   if (accountType === 'exchange-csv') {
+    if (!exchangeAdapter.capabilities.supportsCsv) {
+      return err(
+        new Error(`Exchange "${sourceName}" does not support CSV import. Use API credentials for this exchange.`)
+      );
+    }
+
     // CSV import
     if (!options.csvDir) {
       return err(new Error('CSV directory is required for CSV imports'));
@@ -73,6 +86,10 @@ export function buildImportParams(
       sourceType: accountType,
       csvDirectory: options.csvDir,
     });
+  }
+
+  if (!exchangeAdapter.capabilities.supportsApi) {
+    return err(new Error(`Exchange "${sourceName}" does not support API import. Use --csv-dir for this exchange.`));
   }
 
   // API import

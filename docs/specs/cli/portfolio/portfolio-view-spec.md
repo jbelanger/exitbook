@@ -530,7 +530,7 @@ Portfolio  0 assets
   No transactions found.
 
   Import data to create accounts:
-  exitbook import --exchange kraken --csv-dir ./exports/kraken
+  exitbook import --exchange kucoin --csv-dir ./exports/kucoin
 
 q quit
 ```

@@ -43,17 +43,23 @@ pnpm vitest run packages/accounting                               # single packa
 pnpm vitest run packages/ingestion/src/sources/exchanges/kucoin   # single folder
 ```
 
-### 4. Run e2e tests (requires API keys)
+### 4. Run e2e tests
 
-Copy `.env.example` to `.env` and add at least one provider key (e.g. `HELIUS_API_KEY` for Solana).
+Local-safe e2e (CLI workflow harness, live flows skipped unless `LIVE_TESTS=1`):
 
 ```bash
 pnpm test:e2e
-# Or a single file:
-pnpm vitest run --config vitest.e2e.config.ts packages/blockchain-providers/src/blockchains/bitcoin
 ```
 
-E2e tests make real API calls and are excluded from CI. They may take several minutes.
+Live network e2e (real provider/exchange calls):
+
+```bash
+pnpm test:e2e:live
+# Or a single file:
+LIVE_TESTS=1 pnpm vitest run --config vitest.e2e.live.config.ts packages/blockchain-providers/src/blockchains/bitcoin
+```
+
+Copy `.env.example` to `.env` and add required provider keys before running live e2e.
 
 ---
 

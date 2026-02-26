@@ -28,7 +28,8 @@
     "start": "pnpm -F exitbook-cli start",
     "test": "node --env-file-if-exists .env $(which pnpm) -r run test",
     "test:coverage": "node tools/run-vitest-coverage.mjs",
-    "test:e2e": "node --env-file-if-exists .env node_modules/vitest/vitest.mjs run --config vitest.e2e.config.ts"
+    "test:e2e": "node --env-file-if-exists .env node_modules/vitest/vitest.mjs run --config vitest.e2e.config.ts",
+    "test:e2e:live": "LIVE_TESTS=1 node --env-file-if-exists .env node_modules/vitest/vitest.mjs run --config vitest.e2e.live.config.ts"
   },
   "lint-staged": {
     "*.{js,ts,tsx,json,md,yaml,yml}": [
