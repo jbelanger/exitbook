@@ -14,8 +14,7 @@ describe('writeFilesAtomically', () => {
   let testDir: string;
 
   beforeEach(async () => {
-    testDir = join(tmpdir(), `exitbook-test-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
-    await fs.mkdir(testDir, { recursive: true });
+    testDir = await fs.mkdtemp(join(tmpdir(), 'exitbook-test-'));
   });
 
   afterEach(async () => {
