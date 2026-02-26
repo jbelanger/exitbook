@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
@@ -43,22 +43,14 @@ export async function canBindUnixSocket(): Promise<boolean> {
 }
 
 /**
- * Escape a shell argument by wrapping it in single quotes and escaping any single quotes
- */
-function escapeShellArg(arg: string): string {
-  return `'${arg.replace(/'/g, "'\\''")}'`;
-}
-
-/**
  * Execute a CLI command and parse JSON output
  */
 export function executeCLI(args: string[]): CLIResponse<unknown> {
   const { repoRoot, testDataDir } = getTestPaths();
-  const escapedArgs = args.map(escapeShellArg).join(' ');
-  const command = `pnpm -s run dev ${escapedArgs} --json`;
+  const pnpmArgs = ['-s', 'run', 'dev', ...args, '--json'];
 
   try {
-    const stdout = execSync(command, {
+    const stdout = execFileSync('pnpm', pnpmArgs, {
       cwd: repoRoot,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
