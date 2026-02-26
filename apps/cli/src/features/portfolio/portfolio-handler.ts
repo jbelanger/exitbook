@@ -7,15 +7,15 @@ import path from 'node:path';
 
 import {
   CostBasisCalculator,
+  createTransactionLinkQueries,
   getJurisdictionRules,
   validateCostBasisParams,
   validateTransactionPrices,
   type CostBasisHandlerParams,
   type FiatCurrency as AccountingFiatCurrency,
-  type TransactionLinkQueries,
 } from '@exitbook/accounting';
 import { parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
-import type { AccountQueries, TransactionQueries } from '@exitbook/data';
+import { createAccountQueries, createTransactionQueries } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager } from '@exitbook/price-providers';
@@ -51,7 +51,6 @@ export interface PortfolioHandlerParams {
   displayCurrency: string;
   asOf: Date;
   dataDir: string;
-  db: CommandDatabase;
   ctx: CommandContext;
   isJsonMode: boolean;
 }
@@ -86,11 +85,17 @@ export interface PortfolioResult {
  * Portfolio Handler - Encapsulates all portfolio calculation business logic.
  */
 export class PortfolioHandler {
-  constructor(
-    private accountRepository: AccountQueries,
-    private transactionRepository: TransactionQueries,
-    private transactionLinkRepository: TransactionLinkQueries
-  ) {}
+  private readonly accountRepository;
+  private readonly transactionRepository;
+  private readonly transactionLinkRepository;
+  private readonly db: CommandDatabase;
+
+  constructor(db: CommandDatabase) {
+    this.db = db;
+    this.accountRepository = createAccountQueries(db);
+    this.transactionRepository = createTransactionQueries(db);
+    this.transactionLinkRepository = createTransactionLinkQueries(db);
+  }
 
   /**
    * Execute the portfolio calculation.
@@ -111,26 +116,12 @@ export class PortfolioHandler {
       const startDate = new Date(0);
       const endDate = asOf;
 
-      const linksResult = await ensureLinks(
-        this.transactionRepository,
-        this.transactionLinkRepository,
-        params.dataDir,
-        params.ctx,
-        params.isJsonMode
-      );
+      const linksResult = await ensureLinks(this.db, params.dataDir, params.ctx, params.isJsonMode);
       if (linksResult.isErr()) {
         return err(linksResult.error);
       }
 
-      const pricesResult = await ensurePrices(
-        this.transactionRepository,
-        params.db,
-        startDate,
-        endDate,
-        'USD',
-        params.ctx,
-        params.isJsonMode
-      );
+      const pricesResult = await ensurePrices(this.db, startDate, endDate, 'USD', params.ctx, params.isJsonMode);
       if (pricesResult.isErr()) {
         return err(pricesResult.error);
       }

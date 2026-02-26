@@ -1,16 +1,16 @@
 import {
   CostBasisCalculator,
   CostBasisReportGenerator,
+  createTransactionLinkQueries,
   type CostBasisReport,
   type CostBasisSummary,
-  type TransactionLinkQueries,
 } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
-import type { TransactionQueries } from '@exitbook/data';
+import { createTransactionQueries } from '@exitbook/data';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { CostBasisHandler } from '../cost-basis-handler.js';
 
@@ -22,12 +22,21 @@ vi.mock('@exitbook/accounting', async () => {
     CostBasisCalculator: vi.fn(),
     CostBasisReportGenerator: vi.fn(),
     StandardFxRateProvider: vi.fn(),
+    createTransactionLinkQueries: vi.fn(),
     getDefaultDateRange: vi.fn().mockReturnValue({
       startDate: new Date('2024-01-01'),
       endDate: new Date('2024-12-31'),
     }),
     CanadaRules: vi.fn(),
     USRules: vi.fn(),
+  };
+});
+
+vi.mock('@exitbook/data', async () => {
+  const actual = await vi.importActual('@exitbook/data');
+  return {
+    ...actual,
+    createTransactionQueries: vi.fn(),
   };
 });
 
@@ -46,21 +55,18 @@ vi.mock('@exitbook/logger', () => ({
 
 describe('CostBasisHandler', () => {
   let handler: CostBasisHandler;
-  let mockTransactionRepo: TransactionQueries;
-  let mockLinkRepo: TransactionLinkQueries;
+  let mockTransactionRepo: { getTransactions: Mock };
+  const mockDb = {} as ConstructorParameters<typeof CostBasisHandler>[0];
 
   beforeEach(() => {
-    // Reset mocks
     vi.clearAllMocks();
 
-    // Setup mock repos
-    mockTransactionRepo = {
-      getTransactions: vi.fn(),
-    } as unknown as TransactionQueries;
+    mockTransactionRepo = { getTransactions: vi.fn() };
 
-    mockLinkRepo = {} as unknown as TransactionLinkQueries;
+    (createTransactionQueries as unknown as Mock).mockReturnValue(mockTransactionRepo);
+    (createTransactionLinkQueries as unknown as Mock).mockReturnValue({});
 
-    handler = new CostBasisHandler(mockTransactionRepo, mockLinkRepo);
+    handler = new CostBasisHandler(mockDb);
   });
 
   describe('execute', () => {

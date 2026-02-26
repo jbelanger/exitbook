@@ -1,5 +1,3 @@
-import { createTransactionLinkQueries } from '@exitbook/accounting';
-import { createAccountQueries, createTransactionQueries } from '@exitbook/data';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -67,18 +65,13 @@ async function executePortfolioJSON(options: PortfolioCommandOptions): Promise<v
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const accountRepo = createAccountQueries(database);
-      const transactionRepo = createTransactionQueries(database);
-      const linkRepo = createTransactionLinkQueries(database);
-
-      const handler = new PortfolioHandler(accountRepo, transactionRepo, linkRepo);
+      const handler = new PortfolioHandler(database);
       const result = await handler.execute({
         method: normalized.method,
         jurisdiction: normalized.jurisdiction,
         displayCurrency: normalized.displayCurrency,
         asOf: normalized.asOf,
         dataDir: ctx.dataDir,
-        db: database,
         ctx,
         isJsonMode: true,
       });
@@ -123,11 +116,7 @@ async function executePortfolioTUI(options: PortfolioCommandOptions): Promise<vo
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const accountRepo = createAccountQueries(database);
-      const transactionRepo = createTransactionQueries(database);
-      const linkRepo = createTransactionLinkQueries(database);
-
-      const handler = new PortfolioHandler(accountRepo, transactionRepo, linkRepo);
+      const handler = new PortfolioHandler(database);
 
       const spinner = createSpinner('Calculating portfolio...', false);
       let result: Awaited<ReturnType<PortfolioHandler['execute']>>;
@@ -138,7 +127,6 @@ async function executePortfolioTUI(options: PortfolioCommandOptions): Promise<vo
           displayCurrency: normalized.displayCurrency,
           asOf: normalized.asOf,
           dataDir: ctx.dataDir,
-          db: database,
           ctx,
           isJsonMode: false,
         });

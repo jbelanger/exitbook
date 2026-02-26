@@ -4,6 +4,7 @@ import {
   CostBasisCalculator,
   CostBasisReportGenerator,
   StandardFxRateProvider,
+  createTransactionLinkQueries,
   getJurisdictionRules,
   validateCostBasisParams,
   validateTransactionPrices,
@@ -11,14 +12,14 @@ import {
   type CostBasisHandlerParams,
   type CostBasisReport,
   type CostBasisSummary,
-  type TransactionLinkQueries,
 } from '@exitbook/accounting';
 import { type Currency, type UniversalTransactionData } from '@exitbook/core';
-import type { TransactionQueries } from '@exitbook/data';
+import { createTransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
 
+import type { CommandDatabase } from '../shared/command-runtime.js';
 import { getDataDir } from '../shared/data-dir.js';
 
 export type { CostBasisHandlerParams };
@@ -50,10 +51,13 @@ export interface CostBasisResult {
  * Reusable by both CLI command and other contexts.
  */
 export class CostBasisHandler {
-  constructor(
-    private transactionRepository: TransactionQueries,
-    private transactionLinkRepository: TransactionLinkQueries
-  ) {}
+  private readonly transactionRepository;
+  private readonly transactionLinkRepository;
+
+  constructor(db: CommandDatabase) {
+    this.transactionRepository = createTransactionQueries(db);
+    this.transactionLinkRepository = createTransactionLinkQueries(db);
+  }
 
   /**
    * Execute the cost basis calculation.

@@ -1,5 +1,3 @@
-import { createTransactionLinkQueries } from '@exitbook/accounting';
-import { createTransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import React from 'react';
@@ -23,11 +21,11 @@ import {
   sortAssetsByAbsGainLoss,
   type CalculationContext,
 } from './components/index.js';
-import type { CostBasisResult } from './cost-basis-handler.js';
+import type { CostBasisResult, CostBasisHandlerParams } from './cost-basis-handler.js';
 import { CostBasisHandler } from './cost-basis-handler.js';
 import { ensureLinks, ensurePrices } from './cost-basis-prereqs.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.js';
-import { buildCostBasisParamsFromFlags, type CostBasisHandlerParams } from './cost-basis-utils.js';
+import { buildCostBasisParamsFromFlags } from './cost-basis-utils.js';
 
 const logger = getLogger('cost-basis');
 
@@ -187,18 +185,15 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const transactionRepo = createTransactionQueries(database);
-      const linkRepo = createTransactionLinkQueries(database);
 
       // Auto-run prerequisites
-      const linksResult = await ensureLinks(transactionRepo, linkRepo, ctx.dataDir, ctx, true);
+      const linksResult = await ensureLinks(database, ctx.dataDir, ctx, true);
       if (linksResult.isErr()) {
         displayCliError('cost-basis', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
       }
 
       const pricesResult = await ensurePrices(
-        transactionRepo,
         database,
         params.config.startDate,
         params.config.endDate,
@@ -211,7 +206,7 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
         return;
       }
 
-      const handler = new CostBasisHandler(transactionRepo, linkRepo);
+      const handler = new CostBasisHandler(database);
       const result = await handler.execute(params);
 
       if (result.isErr()) {
@@ -279,11 +274,9 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const transactionRepo = createTransactionQueries(database);
-      const linkRepo = createTransactionLinkQueries(database);
 
       // Step 1: Auto-run linking if stale (before prompts so DB is available)
-      const linksResult = await ensureLinks(transactionRepo, linkRepo, ctx.dataDir, ctx, false);
+      const linksResult = await ensureLinks(database, ctx.dataDir, ctx, false);
       if (linksResult.isErr()) {
         console.error(`\n\u26A0 Error: ${linksResult.error.message}`);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
@@ -305,7 +298,6 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
 
       // Step 3: Auto-run price enrichment if missing (needs date range from params)
       const pricesResult = await ensurePrices(
-        transactionRepo,
         database,
         params.config.startDate,
         params.config.endDate,
@@ -322,7 +314,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
       // Step 4: Calculate cost basis
       const spinner = createSpinner('Calculating cost basis...', false);
 
-      const handler = new CostBasisHandler(transactionRepo, linkRepo);
+      const handler = new CostBasisHandler(database);
       const result = await handler.execute(params);
       stopSpinner(spinner);
 

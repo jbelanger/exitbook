@@ -1,11 +1,13 @@
 // Handler for links reject command
 
-import type { TransactionLinkQueries } from '@exitbook/accounting';
+import { createTransactionLinkQueries } from '@exitbook/accounting';
 import type { OverrideStore } from '@exitbook/data';
-import type { TransactionQueries } from '@exitbook/data';
+import { createTransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
+
+import type { CommandDatabase } from '../shared/command-runtime.js';
 
 import { writeUnlinkOverrideEvent } from './link-override-utils.js';
 import { getDefaultReviewer, validateLinkStatusForReject } from './links-utils.js';
@@ -40,11 +42,16 @@ export interface LinksRejectResult {
  * Handler for rejecting transaction links.
  */
 export class LinksRejectHandler {
+  private readonly linkRepo;
+  private readonly txRepo;
+
   constructor(
-    private readonly linkRepo: TransactionLinkQueries,
-    private readonly txRepo: TransactionQueries,
+    db: CommandDatabase,
     private readonly overrideStore?: OverrideStore | undefined
-  ) {}
+  ) {
+    this.linkRepo = createTransactionLinkQueries(db);
+    this.txRepo = createTransactionQueries(db);
+  }
 
   /**
    * Execute the links reject command.

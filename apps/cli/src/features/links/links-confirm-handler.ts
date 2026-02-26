@@ -1,11 +1,13 @@
 // Handler for links confirm command
 
-import type { TransactionLinkQueries } from '@exitbook/accounting';
+import { createTransactionLinkQueries } from '@exitbook/accounting';
 import type { OverrideStore } from '@exitbook/data';
-import type { TransactionQueries } from '@exitbook/data';
+import { createTransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
+
+import type { CommandDatabase } from '../shared/command-runtime.js';
 
 import { writeLinkOverrideEvent } from './link-override-utils.js';
 import { getDefaultReviewer, validateLinkStatusForConfirm } from './links-utils.js';
@@ -40,11 +42,16 @@ export interface LinksConfirmResult {
  * Handler for confirming transaction links.
  */
 export class LinksConfirmHandler {
+  private readonly linkRepo;
+  private readonly txRepo;
+
   constructor(
-    private readonly linkRepo: TransactionLinkQueries,
-    private readonly txRepo: TransactionQueries,
+    db: CommandDatabase,
     private readonly overrideStore?: OverrideStore | undefined
-  ) {}
+  ) {
+    this.linkRepo = createTransactionLinkQueries(db);
+    this.txRepo = createTransactionQueries(db);
+  }
 
   /**
    * Execute the links confirm command.

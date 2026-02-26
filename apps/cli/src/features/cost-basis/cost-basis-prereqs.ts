@@ -1,14 +1,14 @@
 import {
   LinkingOrchestrator,
   PriceEnrichmentPipeline,
+  createTransactionLinkQueries,
   filterTransactionsByDateRange,
   validateTransactionPrices,
   type LinkingEvent,
   type PriceEvent,
-  type TransactionLinkQueries,
 } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
-import type { TransactionQueries } from '@exitbook/data';
+import { createTransactionQueries } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
@@ -29,12 +29,13 @@ const logger = getLogger('cost-basis-prereqs');
  * If newest tx > newest link (or no links exist), re-runs linking.
  */
 export async function ensureLinks(
-  txRepo: TransactionQueries,
-  linkRepo: TransactionLinkQueries,
+  db: CommandDatabase,
   dataDir: string,
   ctx: CommandContext,
   isJsonMode: boolean
 ): Promise<Result<void, Error>> {
+  const txRepo = createTransactionQueries(db);
+  const linkRepo = createTransactionLinkQueries(db);
   const latestTxResult = await txRepo.getLatestCreatedAt();
   if (latestTxResult.isErr()) return err(latestTxResult.error);
 
@@ -119,7 +120,6 @@ export async function ensureLinks(
  * If missingPricesCount > 0, runs the full PriceEnrichmentPipeline.
  */
 export async function ensurePrices(
-  txRepo: TransactionQueries,
   db: CommandDatabase,
   startDate: Date,
   endDate: Date,
@@ -127,6 +127,7 @@ export async function ensurePrices(
   ctx: CommandContext,
   isJsonMode: boolean
 ): Promise<Result<void, Error>> {
+  const txRepo = createTransactionQueries(db);
   const txResult = await txRepo.getTransactions();
   if (txResult.isErr()) return err(txResult.error);
 
