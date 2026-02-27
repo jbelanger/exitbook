@@ -132,6 +132,9 @@ async function executePortfolioTUI(options: PortfolioCommandOptions): Promise<vo
       }
 
       const handler = handlerResult.value;
+      // No ctx.onAbort: portfolio calculation is a single synchronous DB read — it cannot be
+      // meaningfully interrupted mid-flight. The prereq abort (prices/links) is handled inside
+      // createPortfolioHandler before this point.
 
       const spinner = createSpinner('Calculating portfolio...', false);
       let result: Awaited<ReturnType<typeof handler.execute>>;

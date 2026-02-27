@@ -8,8 +8,8 @@ import type { BlockchainProviderManager, ProviderEvent } from '@exitbook/blockch
 import type { InstrumentationCollector } from '@exitbook/http';
 import type { IngestionEvent } from '@exitbook/ingestion';
 
-import type { IngestionMonitorState, ImportOperation } from './ingestion-monitor-state.js';
-import { getOrCreateProviderStats } from './ingestion-monitor-state.js';
+import type { IngestionMonitorState, ImportOperation } from './ingestion-monitor-view-state.js';
+import { getOrCreateProviderStats } from './ingestion-monitor-view-state.js';
 
 export type CliEvent = IngestionEvent | ProviderEvent;
 

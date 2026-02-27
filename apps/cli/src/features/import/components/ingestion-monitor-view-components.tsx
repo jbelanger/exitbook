@@ -19,6 +19,7 @@ import {
   statusIcon,
 } from '../../../ui/shared/index.js';
 
+import { type CliEvent, ingestionMonitorReducer } from './ingestion-monitor-view-controller.js';
 import {
   createIngestionMonitorState,
   type ClearingOperation,
@@ -30,8 +31,7 @@ import {
   type StreamState,
   type TransientMessage,
   type XpubImportWrapper,
-} from './ingestion-monitor-state.js';
-import { type CliEvent, ingestionMonitorReducer } from './ingestion-monitor-updater.js';
+} from './ingestion-monitor-view-state.js';
 
 const REFRESH_INTERVAL_MS = 250;
 

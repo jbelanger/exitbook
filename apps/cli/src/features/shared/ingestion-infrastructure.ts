@@ -12,7 +12,7 @@ import {
 import { getLogger } from '@exitbook/logger';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
-import { IngestionMonitor } from '../import/components/ingestion-monitor-components.js';
+import { IngestionMonitor } from '../import/components/ingestion-monitor-view-components.js';
 
 import type { CommandContext } from './command-runtime.js';
 import { getDataDir } from './data-dir.js';
