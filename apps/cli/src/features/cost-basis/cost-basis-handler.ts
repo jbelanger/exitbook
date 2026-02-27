@@ -3,7 +3,7 @@ import path from 'node:path';
 import {
   CostBasisReportGenerator,
   StandardFxRateProvider,
-  computeCostBasis,
+  runCostBasisPipeline,
   validateCostBasisParams,
   type AcquisitionLot,
   type AssetMatchError,
@@ -81,7 +81,7 @@ export class CostBasisHandler {
       }
 
       // 2. Validate prices, get jurisdiction rules, run lot matching + gain/loss
-      const pipelineResult = await computeCostBasis(
+      const pipelineResult = await runCostBasisPipeline(
         txResult.value,
         config,
         this.transactionRepository,

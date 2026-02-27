@@ -4,7 +4,7 @@ import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTransaction, createTransactionWithFee } from '../../../__tests__/test-utils.js';
-import { calculateCostBasis } from '../cost-basis-calculator.js';
+import { calculateCostBasisFromValidatedTransactions } from '../cost-basis-calculator.js';
 import type { CostBasisConfig } from '../cost-basis-config.js';
 import { CanadaRules } from '../jurisdictions/canada-rules.js';
 import { USRules } from '../jurisdictions/us-rules.js';
@@ -24,7 +24,7 @@ const mockLinkRepo = () => {
   return queries as TransactionLinkQueries;
 };
 
-describe('calculateCostBasis', () => {
+describe('calculateCostBasisFromValidatedTransactions', () => {
   let lotMatcher: LotMatcher;
 
   beforeEach(() => {
@@ -52,7 +52,7 @@ describe('calculateCostBasis', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -84,7 +84,12 @@ describe('calculateCostBasis', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasis(transactions, config, new CanadaRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(
+        transactions,
+        config,
+        new CanadaRules(),
+        lotMatcher
+      );
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -113,7 +118,7 @@ describe('calculateCostBasis', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -151,7 +156,7 @@ describe('calculateCostBasis', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -198,7 +203,12 @@ describe('calculateCostBasis', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasis([transactionWithoutPrice], config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(
+        [transactionWithoutPrice],
+        config,
+        new USRules(),
+        lotMatcher
+      );
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -253,7 +263,12 @@ describe('calculateCostBasis', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasis([transaction], config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(
+        [transaction],
+        config,
+        new USRules(),
+        lotMatcher
+      );
 
       // Should succeed - fiat movements without prices are ignored
       expect(result.isOk()).toBe(true);
@@ -276,7 +291,7 @@ describe('calculateCostBasis', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -309,7 +324,7 @@ describe('calculateCostBasis', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
 
@@ -348,7 +363,7 @@ describe('calculateCostBasis', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
 
@@ -410,7 +425,7 @@ describe('calculateCostBasis', () => {
         taxYear: 2024,
       };
 
-      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -475,7 +490,12 @@ describe('calculateCostBasis', () => {
         taxYear: 2024,
       };
 
-      const result = await calculateCostBasis(transactions, config, new CanadaRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(
+        transactions,
+        config,
+        new CanadaRules(),
+        lotMatcher
+      );
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -536,7 +556,12 @@ describe('calculateCostBasis', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasis(transactionsWithEUR, config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(
+        transactionsWithEUR,
+        config,
+        new USRules(),
+        lotMatcher
+      );
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -600,7 +625,12 @@ describe('calculateCostBasis', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasis([transactionWithEURFee], config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(
+        [transactionWithEURFee],
+        config,
+        new USRules(),
+        lotMatcher
+      );
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -677,7 +707,12 @@ describe('calculateCostBasis', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasis(transactionsWithUSD, config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(
+        transactionsWithUSD,
+        config,
+        new USRules(),
+        lotMatcher
+      );
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -727,7 +762,12 @@ describe('calculateCostBasis', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasis(transactionsWithMultipleEUR, config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(
+        transactionsWithMultipleEUR,
+        config,
+        new USRules(),
+        lotMatcher
+      );
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -775,7 +815,7 @@ describe('calculateCostBasis', () => {
         taxYear: 2024,
       };
 
-      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {

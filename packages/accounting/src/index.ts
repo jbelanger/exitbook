@@ -34,10 +34,10 @@ export {
   aggregateAssetGainLoss,
   aggregateOverallGainLoss,
 } from './cost-basis/gain-loss-utils.js';
-export { calculateCostBasis } from './cost-basis/cost-basis-calculator.js';
+export { calculateCostBasisFromValidatedTransactions } from './cost-basis/cost-basis-calculator.js';
 export type { CostBasisSummary } from './cost-basis/cost-basis-calculator.js';
-export { computeCostBasis } from './cost-basis/cost-basis-compute.js';
-export type { CostBasisComputationResult } from './cost-basis/cost-basis-compute.js';
+export { runCostBasisPipeline } from './cost-basis/cost-basis-pipeline.js';
+export type { CostBasisPipelineResult } from './cost-basis/cost-basis-pipeline.js';
 
 // Strategies
 export { FifoStrategy } from './cost-basis/strategies/fifo-strategy.js';
@@ -119,7 +119,7 @@ export { PriceEnrichmentPipeline, NormalizeAbortError } from './price-enrichment
 export type { PricesEnrichOptions, PricesEnrichResult } from './price-enrichment/price-enrichment-pipeline.js';
 export { PriceNormalizationService } from './price-enrichment/price-normalization-service.js';
 export type { NormalizeResult } from './price-enrichment/price-normalization-service.js';
-export type { IFxRateProvider, FxRateData } from './price-enrichment/fx-rate-provider.interface.js';
+export type { IFxRateProvider, FxRateData } from './price-enrichment/types.js';
 export { StandardFxRateProvider } from './price-enrichment/standard-fx-rate-provider.js';
 export {
   enrichWithPrice,

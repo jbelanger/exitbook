@@ -129,11 +129,11 @@ export const AssetMovementSchema = z
  *
  * DOWNSTREAM USAGE:
  *
- * For Disposal Proceeds (lot-matcher-utils.js:calculateFeesInFiat):
+ * For Disposal Proceeds (lot-fee-utils.js:calculateFeesInFiat):
  * - Include ONLY fees where settlement='on-chain' (reduces what you received)
  * - Exclude fees where settlement='balance' (separate cost, doesn't affect proceeds)
  *
- * For Acquisition Cost Basis (lot-matcher-utils.js:calculateFeesInFiat):
+ * For Acquisition Cost Basis (lot-fee-utils.js:calculateFeesInFiat):
  * - Include ALL fees (all settlements, all scopes)
  * - Fees increase what you paid to acquire the asset
  *

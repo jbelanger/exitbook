@@ -7,14 +7,10 @@ import { err, ok, type Result } from 'neverthrow';
 import { LinkIndex } from '../linking/link-index.js';
 import type { TransactionLink } from '../linking/types.js';
 
-import {
-  buildAcquisitionLotFromInflow,
-  filterTransactionsWithoutPrices,
-  matchOutflowDisposal,
-  processTransferSource,
-  processTransferTarget,
-  sortTransactionsByDependency,
-} from './lot-matcher-utils.js';
+import { buildAcquisitionLotFromInflow, filterTransactionsWithoutPrices } from './lot-creation-utils.js';
+import { matchOutflowDisposal } from './lot-disposal-utils.js';
+import { sortTransactionsByDependency } from './lot-sorting-utils.js';
+import { processTransferSource, processTransferTarget } from './lot-transfer-processing-utils.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from './schemas.js';
 import type { ICostBasisStrategy } from './strategies/base-strategy.js';
 

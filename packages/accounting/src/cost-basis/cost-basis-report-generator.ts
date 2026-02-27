@@ -11,7 +11,7 @@ import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IFxRateProvider } from '../price-enrichment/fx-rate-provider.interface.js';
+import type { IFxRateProvider } from '../price-enrichment/types.js';
 
 import type { IJurisdictionRules } from './jurisdictions/base-rules.js';
 import { CanadaRules } from './jurisdictions/canada-rules.js';

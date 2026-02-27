@@ -11,7 +11,7 @@ import type { PriceProviderManager } from '@exitbook/price-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { FxRateData, IFxRateProvider } from './fx-rate-provider.interface.js';
+import type { FxRateData, IFxRateProvider } from './types.js';
 
 /**
  * Standard implementation that delegates to PriceProviderManager

@@ -8,7 +8,7 @@ import { Decimal } from 'decimal.js';
 import { err, okAsync } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { FxRateData, IFxRateProvider } from '../../price-enrichment/fx-rate-provider.interface.js';
+import type { FxRateData, IFxRateProvider } from '../../price-enrichment/types.js';
 import { CostBasisReportGenerator } from '../cost-basis-report-generator.js';
 import type { CostBasisCalculation, LotDisposal } from '../schemas.js';
 

@@ -1,6 +1,6 @@
 import {
   CostBasisReportGenerator,
-  computeCostBasis,
+  runCostBasisPipeline,
   type CostBasisReport,
   type CostBasisSummary,
 } from '@exitbook/accounting';
@@ -18,7 +18,7 @@ vi.mock('@exitbook/accounting', async () => {
   const actual = await vi.importActual('@exitbook/accounting');
   return {
     ...actual,
-    computeCostBasis: vi.fn(),
+    runCostBasisPipeline: vi.fn(),
     CostBasisReportGenerator: vi.fn(),
     StandardFxRateProvider: vi.fn(),
     getDefaultDateRange: vi.fn().mockReturnValue({
@@ -145,7 +145,7 @@ describe('CostBasisHandler', () => {
 
       vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok(transactions));
 
-      vi.mocked(computeCostBasis).mockResolvedValue(
+      vi.mocked(runCostBasisPipeline).mockResolvedValue(
         ok({
           summary: {
             calculation: { id: 'calc-123', config: validParams.config, transactionsProcessed: 1 },
@@ -165,7 +165,7 @@ describe('CostBasisHandler', () => {
       const result = await handler.execute(validParams);
 
       expect(result.isOk()).toBe(true);
-      expect(computeCostBasis).toHaveBeenCalled();
+      expect(runCostBasisPipeline).toHaveBeenCalled();
       if (result.isOk()) {
         expect(result.value.summary.calculation.id).toBe('calc-123');
         expect(result.value.report).toBeUndefined();
@@ -192,7 +192,7 @@ describe('CostBasisHandler', () => {
 
       vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok(transactions));
 
-      vi.mocked(computeCostBasis).mockResolvedValue(
+      vi.mocked(runCostBasisPipeline).mockResolvedValue(
         ok({
           summary: {
             calculation: { id: 'calc-123', config: cadParams.config, transactionsProcessed: 1 },
@@ -268,7 +268,7 @@ describe('CostBasisHandler', () => {
 
       vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok(transactions));
 
-      vi.mocked(computeCostBasis).mockResolvedValue(
+      vi.mocked(runCostBasisPipeline).mockResolvedValue(
         ok({
           summary: {
             calculation: { id: 'calc-123', config: validParams.config, transactionsProcessed: 1 },

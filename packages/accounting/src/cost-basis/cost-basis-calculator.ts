@@ -40,20 +40,20 @@ export interface CostBasisSummary {
   errors: AssetMatchError[];
 }
 
-const logger = getLogger('calculateCostBasis');
+const logger = getLogger('calculateCostBasisFromValidatedTransactions');
 
 /**
  * Calculate cost basis for a set of pre-validated transactions.
  *
  * Transactions must have priceAtTxTime populated for all non-fiat movements.
- * Use computeCostBasis for the full flow including soft-fail price filtering.
+ * Use runCostBasisPipeline for the full flow including soft-fail price filtering.
  *
  * @param transactions - Transactions to process (must have priceAtTxTime populated)
  * @param config - Cost basis configuration
  * @param rules - Jurisdiction-specific tax rules
  * @param lotMatcher - Lot matcher instance with transaction repositories
  */
-export async function calculateCostBasis(
+export async function calculateCostBasisFromValidatedTransactions(
   transactions: UniversalTransactionData[],
   config: CostBasisConfig,
   rules: IJurisdictionRules,

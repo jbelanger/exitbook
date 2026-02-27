@@ -6,7 +6,7 @@
 import path from 'node:path';
 
 import {
-  computeCostBasis,
+  runCostBasisPipeline,
   validateCostBasisParams,
   type CostBasisInput,
   type FiatCurrency as AccountingFiatCurrency,
@@ -204,7 +204,7 @@ export class PortfolioHandler {
         return err(costBasisValidation.error);
       }
 
-      const pipelineResult = await computeCostBasis(
+      const pipelineResult = await runCostBasisPipeline(
         transactionsUpToAsOf,
         costBasisParams.config,
         this.transactionRepository,

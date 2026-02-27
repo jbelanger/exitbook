@@ -83,4 +83,7 @@ export {
   CosmosTransactionBuilder,
   EvmTransactionBuilder,
   SolanaTransactionBuilder,
+  CardanoTransactionBuilder,
+  XrpTransactionBuilder,
+  SubstrateTransactionBuilder,
 } from './entry-builders.js';

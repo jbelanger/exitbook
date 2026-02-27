@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { AcquisitionLot, LotDisposal } from '../schemas.js';
 
 import type { DisposalRequest, ICostBasisStrategy } from './base-strategy.js';
-import { calculateHoldingPeriodDays } from './matching-utils.js';
+import { calculateHoldingPeriodDays } from './lot-sorting-utils.js';
 
 /**
  * Average Cost Basis (ACB) strategy for Canadian tax compliance

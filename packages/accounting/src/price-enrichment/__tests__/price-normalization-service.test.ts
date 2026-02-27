@@ -12,8 +12,8 @@ import { createTestDatabase, type KyselyDB } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { IFxRateProvider } from '../fx-rate-provider.interface.js';
 import { PriceNormalizationService } from '../price-normalization-service.js';
+import type { IFxRateProvider } from '../types.js';
 
 function createMockFxProvider(): IFxRateProvider {
   return { getRateToUSD: vi.fn() } as unknown as IFxRateProvider;

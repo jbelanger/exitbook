@@ -1,8 +1,11 @@
 import type {
   BitcoinTransaction,
+  CardanoTransaction,
   CosmosTransaction,
   EvmTransaction,
   SolanaTransaction,
+  SubstrateTransaction,
+  XrpTransaction,
 } from '@exitbook/blockchain-providers';
 import type { Currency } from '@exitbook/core';
 
@@ -395,5 +398,304 @@ export class SolanaTransactionBuilder {
       ...this.tx,
       accountChanges: this.tx.accountChanges ? [...this.tx.accountChanges] : undefined,
     };
+  }
+}
+
+/**
+ * Fluent builder for creating CardanoTransaction test data.
+ */
+export class CardanoTransactionBuilder {
+  private tx: CardanoTransaction = {
+    id: 'tx123',
+    eventId: '0xdefaulteventid',
+    blockHeight: 900000,
+    currency: 'ADA',
+    feeAmount: '0.17',
+    feeCurrency: 'ADA',
+    inputs: [],
+    outputs: [],
+    providerName: 'blockfrost',
+    status: 'success',
+    timestamp: TEST_TIMESTAMPS.now,
+  };
+
+  withId(id: string): this {
+    this.tx.id = id;
+    return this;
+  }
+
+  withEventId(eventId: string): this {
+    this.tx.eventId = eventId;
+    return this;
+  }
+
+  withBlockHeight(blockHeight: number): this {
+    this.tx.blockHeight = blockHeight;
+    return this;
+  }
+
+  withBlockId(blockId: string): this {
+    this.tx.blockId = blockId;
+    return this;
+  }
+
+  withTimestamp(timestamp: number): this {
+    this.tx.timestamp = timestamp;
+    return this;
+  }
+
+  withFee(feeAmount: string, feeCurrency = 'ADA'): this {
+    this.tx.feeAmount = feeAmount;
+    this.tx.feeCurrency = feeCurrency;
+    return this;
+  }
+
+  addInput(
+    address: string,
+    amounts: { quantity: string; symbol?: string; unit: string }[],
+    txHash: string,
+    outputIndex: number
+  ): this {
+    this.tx.inputs.push({ address, amounts, txHash, outputIndex });
+    return this;
+  }
+
+  addOutput(
+    address: string,
+    amounts: { quantity: string; symbol?: string; unit: string }[],
+    outputIndex: number
+  ): this {
+    this.tx.outputs.push({ address, amounts, outputIndex });
+    return this;
+  }
+
+  withProvider(providerName: string): this {
+    this.tx.providerName = providerName;
+    return this;
+  }
+
+  withStatus(status: 'pending' | 'success' | 'failed'): this {
+    this.tx.status = status;
+    return this;
+  }
+
+  build(): CardanoTransaction {
+    return { ...this.tx, inputs: [...this.tx.inputs], outputs: [...this.tx.outputs] };
+  }
+}
+
+/**
+ * Fluent builder for creating XrpTransaction test data.
+ */
+export class XrpTransactionBuilder {
+  private tx: XrpTransaction = {
+    id: 'tx123',
+    eventId: '0xdefaulteventid',
+    account: 'rUser000000000000000000000000000000000',
+    currency: 'XRP',
+    destination: 'rExternal000000000000000000000000000000',
+    feeAmount: '10',
+    feeCurrency: 'XRP',
+    ledgerIndex: 100000,
+    providerName: 'xrpl.js',
+    sequence: 1,
+    status: 'success',
+    timestamp: TEST_TIMESTAMPS.now,
+    transactionType: 'Payment',
+  };
+
+  withId(id: string): this {
+    this.tx.id = id;
+    return this;
+  }
+
+  withEventId(eventId: string): this {
+    this.tx.eventId = eventId;
+    return this;
+  }
+
+  withTimestamp(timestamp: number): this {
+    this.tx.timestamp = timestamp;
+    return this;
+  }
+
+  withAccount(account: string): this {
+    this.tx.account = account;
+    return this;
+  }
+
+  withDestination(destination: string, destinationTag?: number): this {
+    this.tx.destination = destination;
+    this.tx.destinationTag = destinationTag;
+    return this;
+  }
+
+  withSourceTag(sourceTag: number): this {
+    this.tx.sourceTag = sourceTag;
+    return this;
+  }
+
+  withFee(feeAmount: string): this {
+    this.tx.feeAmount = feeAmount;
+    return this;
+  }
+
+  withCurrency(currency: string): this {
+    this.tx.currency = currency;
+    return this;
+  }
+
+  withLedgerIndex(ledgerIndex: number): this {
+    this.tx.ledgerIndex = ledgerIndex;
+    return this;
+  }
+
+  withSequence(sequence: number): this {
+    this.tx.sequence = sequence;
+    return this;
+  }
+
+  withTransactionType(transactionType: string): this {
+    this.tx.transactionType = transactionType;
+    return this;
+  }
+
+  addBalanceChange(account: string, currency: string, balance: string): this {
+    if (!this.tx.balanceChanges) {
+      this.tx.balanceChanges = [];
+    }
+    this.tx.balanceChanges.push({ account, currency, balance });
+    return this;
+  }
+
+  withProvider(providerName: string): this {
+    this.tx.providerName = providerName;
+    return this;
+  }
+
+  withStatus(status: 'success' | 'failed'): this {
+    this.tx.status = status;
+    return this;
+  }
+
+  build(): XrpTransaction {
+    return { ...this.tx };
+  }
+}
+
+/**
+ * Fluent builder for creating SubstrateTransaction test data.
+ */
+export class SubstrateTransactionBuilder {
+  private tx: SubstrateTransaction = {
+    id: 'tx123',
+    eventId: '0xdefaulteventid',
+    amount: '1000000000000',
+    currency: 'DOT',
+    from: '5GrwvaEF5zXbM4iYEseU5TjHceR8W3pR9k6Z2X4Y7Q',
+    to: '5External0000000000000000000000000000000',
+    feeAmount: '0.01',
+    feeCurrency: 'DOT',
+    providerName: 'polkadot.js',
+    status: 'success',
+    timestamp: TEST_TIMESTAMPS.now,
+  };
+
+  withId(id: string): this {
+    this.tx.id = id;
+    return this;
+  }
+
+  withEventId(eventId: string): this {
+    this.tx.eventId = eventId;
+    return this;
+  }
+
+  withTimestamp(timestamp: number): this {
+    this.tx.timestamp = timestamp;
+    return this;
+  }
+
+  withAmount(amount: string, currency: string): this {
+    this.tx.amount = amount;
+    this.tx.currency = currency;
+    return this;
+  }
+
+  withFrom(from: string): this {
+    this.tx.from = from;
+    return this;
+  }
+
+  withTo(to: string): this {
+    this.tx.to = to;
+    return this;
+  }
+
+  withFee(feeAmount: string, feeCurrency?: string): this {
+    this.tx.feeAmount = feeAmount;
+    if (feeCurrency) {
+      this.tx.feeCurrency = feeCurrency;
+    }
+    return this;
+  }
+
+  withBlockHeight(blockHeight: number): this {
+    this.tx.blockHeight = blockHeight;
+    return this;
+  }
+
+  withBlockId(blockId: string): this {
+    this.tx.blockId = blockId;
+    return this;
+  }
+
+  withCall(call: string): this {
+    this.tx.call = call;
+    return this;
+  }
+
+  withModule(module: string): this {
+    this.tx.module = module;
+    return this;
+  }
+
+  withChainName(chainName: string): this {
+    this.tx.chainName = chainName;
+    return this;
+  }
+
+  withExtrinsicIndex(extrinsicIndex: string): this {
+    this.tx.extrinsicIndex = extrinsicIndex;
+    return this;
+  }
+
+  withNonce(nonce: number): this {
+    this.tx.nonce = nonce;
+    return this;
+  }
+
+  withTip(tip: string): this {
+    this.tx.tip = tip;
+    return this;
+  }
+
+  withSs58Format(ss58Format: number): this {
+    this.tx.ss58Format = ss58Format;
+    return this;
+  }
+
+  withProvider(providerName: string): this {
+    this.tx.providerName = providerName;
+    return this;
+  }
+
+  withStatus(status: 'pending' | 'success' | 'failed'): this {
+    this.tx.status = status;
+    return this;
+  }
+
+  build(): SubstrateTransaction {
+    return { ...this.tx };
   }
 }

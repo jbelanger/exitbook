@@ -3,14 +3,14 @@ import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data'
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import { calculateCostBasis, type CostBasisSummary } from './cost-basis-calculator.js';
+import { calculateCostBasisFromValidatedTransactions, type CostBasisSummary } from './cost-basis-calculator.js';
 import type { CostBasisConfig } from './cost-basis-config.js';
 import { getJurisdictionRules, validateTransactionPrices } from './cost-basis-utils.js';
 import { LotMatcher } from './lot-matcher.js';
 
 const logger = getLogger('cost-basis-pipeline');
 
-export interface CostBasisComputationResult {
+export interface CostBasisPipelineResult {
   summary: CostBasisSummary;
   missingPricesCount: number;
   /** Transactions that passed price validation — available for callers that need to build richer exclusion warnings */
@@ -23,12 +23,12 @@ export interface CostBasisComputationResult {
  * Used by CostBasisHandler and PortfolioHandler to avoid duplicating the
  * "validate prices → get rules → run calculator" flow.
  */
-export async function computeCostBasis(
+export async function runCostBasisPipeline(
   transactions: UniversalTransactionData[],
   config: CostBasisConfig,
   transactionRepository: TransactionQueries,
   linkRepository: TransactionLinkQueries
-): Promise<Result<CostBasisComputationResult, Error>> {
+): Promise<Result<CostBasisPipelineResult, Error>> {
   const validationResult = validateTransactionPrices(transactions, config.currency);
   if (validationResult.isErr()) {
     return err(validationResult.error);
@@ -45,7 +45,12 @@ export async function computeCostBasis(
   const rules = getJurisdictionRules(config.jurisdiction);
   const lotMatcher = new LotMatcher(transactionRepository, linkRepository);
 
-  const costBasisResult = await calculateCostBasis(validTransactions, config, rules, lotMatcher);
+  const costBasisResult = await calculateCostBasisFromValidatedTransactions(
+    validTransactions,
+    config,
+    rules,
+    lotMatcher
+  );
   if (costBasisResult.isErr()) {
     return err(costBasisResult.error);
   }

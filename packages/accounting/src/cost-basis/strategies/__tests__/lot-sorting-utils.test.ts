@@ -2,10 +2,14 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import type { AcquisitionLot } from '../schemas.js';
-
-import type { DisposalRequest } from './base-strategy.js';
-import { calculateHoldingPeriodDays, matchDisposalToSortedLots, sortLotsFifo, sortLotsLifo } from './matching-utils.js';
+import type { AcquisitionLot } from '../../schemas.js';
+import type { DisposalRequest } from '../base-strategy.js';
+import {
+  calculateHoldingPeriodDays,
+  matchDisposalToSortedLots,
+  sortLotsFifo,
+  sortLotsLifo,
+} from '../lot-sorting-utils.js';
 
 describe('calculateHoldingPeriodDays', () => {
   it('should calculate days between same date as 0', () => {

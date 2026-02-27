@@ -3,7 +3,7 @@ import type { Result } from 'neverthrow';
 import type { AcquisitionLot, LotDisposal } from '../schemas.js';
 
 import type { DisposalRequest, ICostBasisStrategy } from './base-strategy.js';
-import { matchDisposalToSortedLots, sortLotsLifo } from './matching-utils.js';
+import { matchDisposalToSortedLots, sortLotsLifo } from './lot-sorting-utils.js';
 
 /**
  * LIFO (Last-In-First-Out) cost basis strategy
