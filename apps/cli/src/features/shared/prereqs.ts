@@ -1,14 +1,13 @@
 import {
   LinkingOrchestrator,
   PriceEnrichmentPipeline,
-  createTransactionLinkQueries,
   filterTransactionsByDateRange,
   validateTransactionPrices,
   type LinkingEvent,
   type PriceEvent,
 } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
-import { createTransactionQueries } from '@exitbook/data';
+import { createTransactionLinkQueries, createTransactionQueries } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';

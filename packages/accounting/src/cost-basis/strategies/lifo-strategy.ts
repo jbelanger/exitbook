@@ -1,6 +1,6 @@
 import type { Result } from 'neverthrow';
 
-import type { AcquisitionLot, LotDisposal } from '../../domain/schemas.js';
+import type { AcquisitionLot, LotDisposal } from '../schemas.js';
 
 import type { DisposalRequest, ICostBasisStrategy } from './base-strategy.js';
 import { matchDisposalToSortedLots, sortLotsLifo } from './matching-utils.js';

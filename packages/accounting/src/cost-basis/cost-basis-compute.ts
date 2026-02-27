@@ -1,12 +1,10 @@
 import { type UniversalTransactionData } from '@exitbook/core';
-import type { TransactionQueries } from '@exitbook/data';
+import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { CostBasisConfig } from '../config/cost-basis-config.js';
-import type { TransactionLinkQueries } from '../persistence/transaction-link-queries.js';
-
 import { calculateCostBasis, type CostBasisSummary } from './cost-basis-calculator.js';
+import type { CostBasisConfig } from './cost-basis-config.js';
 import { getJurisdictionRules, validateTransactionPrices } from './cost-basis-utils.js';
 import { LotMatcher } from './lot-matcher.js';
 

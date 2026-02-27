@@ -1,6 +1,6 @@
 import { err, ok, type Result } from 'neverthrow';
 
-import type { CostBasisConfig } from '../../config/cost-basis-config.js';
+import type { CostBasisConfig } from '../cost-basis-config.js';
 
 import { AverageCostStrategy } from './average-cost-strategy.js';
 import type { ICostBasisStrategy } from './base-strategy.js';

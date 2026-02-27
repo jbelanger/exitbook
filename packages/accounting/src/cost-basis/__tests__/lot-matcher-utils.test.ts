@@ -9,7 +9,6 @@ import {
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import type { LotTransfer } from '../../domain/schemas.js';
 import type { TransactionLink } from '../../linking/types.js';
 import {
   sortTransactionsByDependency,
@@ -28,6 +27,7 @@ import {
   calculateInheritedCostBasis,
   calculateTargetCostBasis,
 } from '../lot-matcher-utils.js';
+import type { LotTransfer } from '../schemas.js';
 
 // Helper functions
 function createMockTransaction(

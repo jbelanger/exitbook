@@ -1,13 +1,11 @@
 import { isFiat, parseDecimal, wrapError, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
-import type { TransactionQueries } from '@exitbook/data';
+import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { AcquisitionLot, LotDisposal, LotTransfer } from '../domain/schemas.js';
 import { LinkIndex } from '../linking/link-index.js';
 import type { TransactionLink } from '../linking/types.js';
-import type { TransactionLinkQueries } from '../persistence/transaction-link-queries.js';
 
 import {
   buildAcquisitionLotFromInflow,
@@ -17,6 +15,7 @@ import {
   processTransferTarget,
   sortTransactionsByDependency,
 } from './lot-matcher-utils.js';
+import type { AcquisitionLot, LotDisposal, LotTransfer } from './schemas.js';
 import type { ICostBasisStrategy } from './strategies/base-strategy.js';
 
 /**
@@ -154,12 +153,11 @@ export class LotMatcher {
 
       // Load confirmed transaction links (≥95% confidence)
       // Include blockchain_internal links so we can skip them during matching
-      let confirmedLinks: TransactionLink[] = [];
       const linksResult = await this.linkRepository.findAll('confirmed');
       if (linksResult.isErr()) {
         return err(linksResult.error);
       }
-      confirmedLinks = linksResult.value.filter((link) => link.confidenceScore.gte(0.95));
+      const confirmedLinks = linksResult.value.filter((link) => link.confidenceScore.gte(0.95));
       this.logger.debug({ linkCount: confirmedLinks.length }, 'Loaded confirmed transaction links for lot matching');
 
       // Sort transactions by dependency order (topological sort with chronological tie-breaking)
@@ -202,7 +200,6 @@ export class LotMatcher {
               link,
               assetState.lots,
               config,
-              config.calculationId,
               effectiveAmount
             );
             if (transferResult.isErr()) {
@@ -448,7 +445,6 @@ export class LotMatcher {
     link: TransactionLink,
     lots: AcquisitionLot[],
     config: LotMatcherConfig,
-    calculationId: string,
     effectiveAmount?: Decimal
   ): Result<{ disposals: LotDisposal[]; transfers: LotTransfer[]; updatedLots: AcquisitionLot[] }, Error> {
     if (!config.jurisdiction) {
@@ -462,7 +458,7 @@ export class LotMatcher {
       link,
       lots,
       config.strategy,
-      calculationId,
+      config.calculationId,
       config.jurisdiction,
       config.varianceTolerance,
       effectiveAmount

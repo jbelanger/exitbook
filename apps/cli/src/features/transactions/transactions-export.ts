@@ -63,8 +63,7 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
   const options = parseResult.data;
   const isJsonMode = options.json ?? false;
 
-  const { createTransactionQueries } = await import('@exitbook/data');
-  const { createTransactionLinkQueries } = await import('@exitbook/accounting');
+  const { createTransactionQueries, createTransactionLinkQueries } = await import('@exitbook/data');
   const { ExportHandler } = await import('./transactions-export-handler.js');
 
   try {

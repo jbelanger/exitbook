@@ -2,7 +2,7 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import type { AcquisitionLot } from '../../../domain/schemas.js';
+import type { AcquisitionLot } from '../../schemas.js';
 import { AverageCostStrategy } from '../average-cost-strategy.js';
 
 describe('AverageCostStrategy', () => {

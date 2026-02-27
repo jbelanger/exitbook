@@ -1,9 +1,9 @@
 import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { CanadaRules } from '../../jurisdictions/canada-rules.js';
-import { USRules } from '../../jurisdictions/us-rules.js';
 import { calculateGainLoss } from '../gain-loss-utils.js';
+import { CanadaRules } from '../jurisdictions/canada-rules.js';
+import { USRules } from '../jurisdictions/us-rules.js';
 import type { AssetLotMatchResult } from '../lot-matcher.js';
 
 describe('calculateGainLoss', () => {

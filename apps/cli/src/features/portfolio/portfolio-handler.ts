@@ -6,14 +6,13 @@
 import path from 'node:path';
 
 import {
-  createTransactionLinkQueries,
   computeCostBasis,
   validateCostBasisParams,
   type CostBasisInput,
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
 import { parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
-import { createAccountQueries, createTransactionQueries } from '@exitbook/data';
+import { createAccountQueries, createTransactionLinkQueries, createTransactionQueries } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';

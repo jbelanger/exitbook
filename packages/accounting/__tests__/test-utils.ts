@@ -7,7 +7,7 @@ import type {
 } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 
-import type { AcquisitionLot } from '../src/domain/types.js';
+import type { AcquisitionLot } from '../src/cost-basis/types.js';
 
 /**
  * Creates a PriceAtTxTime object with common defaults

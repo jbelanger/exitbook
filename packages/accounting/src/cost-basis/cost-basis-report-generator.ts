@@ -11,19 +11,19 @@ import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { AcquisitionLot, CostBasisCalculation, LotDisposal, LotTransfer } from '../domain/schemas.js';
-import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
-import { CanadaRules } from '../jurisdictions/canada-rules.js';
-import { USRules } from '../jurisdictions/us-rules.js';
 import type { IFxRateProvider } from '../price-enrichment/fx-rate-provider.interface.js';
 
+import type { IJurisdictionRules } from './jurisdictions/base-rules.js';
+import { CanadaRules } from './jurisdictions/canada-rules.js';
+import { USRules } from './jurisdictions/us-rules.js';
 import type {
   CostBasisReport,
   ConvertedAcquisitionLot,
   ConvertedLotDisposal,
   ConvertedLotTransfer,
   FxConversionMetadata,
-} from './types.js';
+} from './report-types.js';
+import type { AcquisitionLot, CostBasisCalculation, LotDisposal, LotTransfer } from './schemas.js';
 
 /**
  * Report generator configuration
@@ -149,7 +149,6 @@ export class CostBasisReportGenerator {
         return new CanadaRules();
       case 'US':
         return new USRules();
-      // Add other jurisdictions as they're implemented
       default:
         this.logger.warn({ jurisdiction }, 'Unknown jurisdiction, defaulting to US rules');
         return new USRules();

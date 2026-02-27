@@ -3,7 +3,6 @@ import path from 'node:path';
 import {
   CostBasisReportGenerator,
   StandardFxRateProvider,
-  createTransactionLinkQueries,
   computeCostBasis,
   validateCostBasisParams,
   type AcquisitionLot,
@@ -16,7 +15,7 @@ import {
   type LotTransfer,
 } from '@exitbook/accounting';
 import { type Currency, type UniversalTransactionData } from '@exitbook/core';
-import { createTransactionQueries } from '@exitbook/data';
+import { createTransactionLinkQueries, createTransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';

@@ -1,11 +1,15 @@
 /* eslint-disable unicorn/no-null -- null needed by db */
-import { type Currency, parseDecimal } from '@exitbook/core';
-import { closeDatabase, createTestDatabase, type KyselyDB } from '@exitbook/data';
+
+import { type Currency, parseDecimal, type TransactionLink } from '@exitbook/core';
+import {
+  closeDatabase,
+  createTestDatabase,
+  createTransactionLinkQueries,
+  type KyselyDB,
+  type TransactionLinkQueries,
+} from '@exitbook/data';
 import { v4 as uuidv4 } from 'uuid';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import type { TransactionLink } from '../../linking/types.js';
-import { createTransactionLinkQueries, type TransactionLinkQueries } from '../transaction-link-queries.js';
 
 describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
   let repo: TransactionLinkQueries;

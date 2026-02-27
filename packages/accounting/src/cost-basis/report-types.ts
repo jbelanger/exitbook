@@ -4,7 +4,7 @@
 
 import type { Decimal } from 'decimal.js';
 
-import type { AcquisitionLot, LotDisposal, LotTransfer } from '../domain/schemas.js';
+import type { AcquisitionLot, LotDisposal, LotTransfer } from './schemas.js';
 
 /**
  * FX conversion metadata for audit trail

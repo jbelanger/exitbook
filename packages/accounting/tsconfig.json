@@ -4,5 +4,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["src"]
+  "include": ["src", "../data/src/queries/__tests__/transaction-link-queries.test.ts"]
 }

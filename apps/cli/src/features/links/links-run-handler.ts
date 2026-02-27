@@ -1,5 +1,4 @@
 import {
-  createTransactionLinkQueries,
   LinkingOrchestrator,
   type LinkingEvent,
   type LinkingRunParams,
@@ -7,7 +6,7 @@ import {
 } from '@exitbook/accounting';
 // eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
 import type { KyselyDB } from '@exitbook/data';
-import { createTransactionQueries, OverrideStore } from '@exitbook/data';
+import { createTransactionLinkQueries, createTransactionQueries, OverrideStore } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';

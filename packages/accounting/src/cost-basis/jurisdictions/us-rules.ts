@@ -1,6 +1,6 @@
 import type { Decimal } from 'decimal.js';
 
-import type { JurisdictionConfig } from '../domain/types.js';
+import type { JurisdictionConfig } from '../types.js';
 
 import type { IJurisdictionRules } from './base-rules.js';
 

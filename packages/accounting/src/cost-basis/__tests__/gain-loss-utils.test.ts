@@ -9,17 +9,17 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import type { AcquisitionLot, LotDisposal } from '../../domain/schemas.js';
-import type { IJurisdictionRules } from '../../jurisdictions/base-rules.js';
-import { CanadaRules } from '../../jurisdictions/canada-rules.js';
-import { USRules } from '../../jurisdictions/us-rules.js';
 import {
   aggregateAssetGainLoss,
   aggregateOverallGainLoss,
   calculateGainLoss,
   checkLossDisallowance,
 } from '../gain-loss-utils.js';
+import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
+import { CanadaRules } from '../jurisdictions/canada-rules.js';
+import { USRules } from '../jurisdictions/us-rules.js';
 import type { AssetLotMatchResult } from '../lot-matcher.js';
+import type { AcquisitionLot, LotDisposal } from '../schemas.js';
 
 // Helper to create minimal acquisition lot
 function createLot(

@@ -1,8 +1,7 @@
 import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
-import type { TransactionQueries } from '@exitbook/data';
+import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { TransactionLinkQueries } from '../../persistence/transaction-link-queries.js';
 import { LotMatcher } from '../lot-matcher.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
 
@@ -1371,14 +1370,14 @@ describe('LotMatcher - Fee Handling', () => {
       };
 
       const mockLinkRepo = () => {
-        const queries: Partial<import('../../persistence/transaction-link-queries.js').TransactionLinkQueries> = {
+        const queries: Partial<TransactionLinkQueries> = {
           findAll: vi.fn().mockResolvedValue({
             isOk: () => true,
             isErr: () => false,
             value: [link],
           }),
         };
-        return queries as import('../../persistence/transaction-link-queries.js').TransactionLinkQueries;
+        return queries as TransactionLinkQueries;
       };
 
       const matcherWithLinks = new LotMatcher(mockTransactionRepo(), mockLinkRepo());

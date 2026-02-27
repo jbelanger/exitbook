@@ -8,9 +8,9 @@ import { Decimal } from 'decimal.js';
 import { err, okAsync } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { CostBasisCalculation, LotDisposal } from '../../domain/schemas.js';
 import type { FxRateData, IFxRateProvider } from '../../price-enrichment/fx-rate-provider.interface.js';
 import { CostBasisReportGenerator } from '../cost-basis-report-generator.js';
+import type { CostBasisCalculation, LotDisposal } from '../schemas.js';
 
 describe('CostBasisReportGenerator', () => {
   // Test data

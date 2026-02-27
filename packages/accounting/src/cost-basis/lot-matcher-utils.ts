@@ -12,10 +12,10 @@ import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
-import { createAcquisitionLot } from '../domain/lot.js';
-import type { AcquisitionLot, LotDisposal, LotTransfer } from '../domain/schemas.js';
 import type { TransactionLink } from '../linking/types.js';
 
+import { createAcquisitionLot } from './lot.js';
+import type { AcquisitionLot, LotDisposal, LotTransfer } from './schemas.js';
 import type { ICostBasisStrategy } from './strategies/base-strategy.js';
 
 /**

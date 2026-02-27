@@ -1,6 +1,6 @@
-import { createTransactionLinkQueries, type TransactionLink } from '@exitbook/accounting';
+import { type TransactionLink } from '@exitbook/accounting';
 import { parseDecimal, type Currency } from '@exitbook/core';
-import { createTransactionQueries, type OverrideStore } from '@exitbook/data';
+import { createTransactionLinkQueries, createTransactionQueries, type OverrideStore } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -13,13 +13,6 @@ vi.mock('@exitbook/data', async () => {
   return {
     ...actual,
     createTransactionQueries: vi.fn(),
-  };
-});
-
-vi.mock('@exitbook/accounting', async () => {
-  const actual = await vi.importActual<typeof import('@exitbook/accounting')>('@exitbook/accounting');
-  return {
-    ...actual,
     createTransactionLinkQueries: vi.fn(),
   };
 });

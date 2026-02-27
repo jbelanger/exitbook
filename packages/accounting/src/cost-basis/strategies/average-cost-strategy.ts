@@ -6,7 +6,7 @@ import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { AcquisitionLot, LotDisposal } from '../../domain/schemas.js';
+import type { AcquisitionLot, LotDisposal } from '../schemas.js';
 
 import type { DisposalRequest, ICostBasisStrategy } from './base-strategy.js';
 import { calculateHoldingPeriodDays } from './matching-utils.js';

@@ -9,11 +9,11 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { CostBasisConfig, FiatCurrency } from '../config/cost-basis-config.js';
-import { getDefaultDateRange } from '../config/cost-basis-config.js';
-import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
-import { CanadaRules } from '../jurisdictions/canada-rules.js';
-import { USRules } from '../jurisdictions/us-rules.js';
+import type { CostBasisConfig, FiatCurrency } from './cost-basis-config.js';
+import { getDefaultDateRange } from './cost-basis-config.js';
+import type { IJurisdictionRules } from './jurisdictions/base-rules.js';
+import { CanadaRules } from './jurisdictions/canada-rules.js';
+import { USRules } from './jurisdictions/us-rules.js';
 
 const logger = getLogger('cost-basis-utils');
 
@@ -209,7 +209,7 @@ export function validateCostBasisParams(params: CostBasisInput): Result<void, Er
 
   if (config.method === 'average-cost' && config.jurisdiction !== 'CA') {
     return err(
-      new Error('Average Cost (ACB) is only supported for Canada (CA). ' + 'For other jurisdictions, use FIFO or LIFO.')
+      new Error('Average Cost (ACB) is only supported for Canada (CA). For other jurisdictions, use FIFO or LIFO.')
     );
   }
 

@@ -1,7 +1,7 @@
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 
-import type { AcquisitionLot, LotDisposal } from '../../domain/schemas.js';
+import type { AcquisitionLot, LotDisposal } from '../schemas.js';
 
 /**
  * Disposal request for matching to acquisition lots

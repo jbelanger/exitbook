@@ -3,7 +3,7 @@ import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { AcquisitionLot, LotDisposal } from '../../domain/schemas.js';
+import type { AcquisitionLot, LotDisposal } from '../schemas.js';
 
 import type { DisposalRequest } from './base-strategy.js';
 

@@ -61,7 +61,7 @@ export function disposeLot(lot: AcquisitionLot, quantityDisposed: Decimal): Resu
   if (remainingQuantity.isNegative()) {
     return err(
       new Error(
-        `Cannot dispose ${quantityDisposed.toString()} from lot ${lot.id} with only ${lot.remainingQuantity.toString()} remaining`
+        `Cannot dispose ${quantityDisposed.toFixed()} from lot ${lot.id} with only ${lot.remainingQuantity.toFixed()} remaining`
       )
     );
   }

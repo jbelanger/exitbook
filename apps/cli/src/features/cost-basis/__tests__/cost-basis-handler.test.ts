@@ -1,12 +1,11 @@
 import {
   CostBasisReportGenerator,
-  createTransactionLinkQueries,
   computeCostBasis,
   type CostBasisReport,
   type CostBasisSummary,
 } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
-import { createTransactionQueries } from '@exitbook/data';
+import { createTransactionLinkQueries, createTransactionQueries } from '@exitbook/data';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
@@ -22,7 +21,6 @@ vi.mock('@exitbook/accounting', async () => {
     computeCostBasis: vi.fn(),
     CostBasisReportGenerator: vi.fn(),
     StandardFxRateProvider: vi.fn(),
-    createTransactionLinkQueries: vi.fn(),
     getDefaultDateRange: vi.fn().mockReturnValue({
       startDate: new Date('2024-01-01'),
       endDate: new Date('2024-12-31'),
@@ -35,6 +33,7 @@ vi.mock('@exitbook/data', async () => {
   return {
     ...actual,
     createTransactionQueries: vi.fn(),
+    createTransactionLinkQueries: vi.fn(),
   };
 });
 

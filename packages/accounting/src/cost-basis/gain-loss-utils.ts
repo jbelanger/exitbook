@@ -2,10 +2,9 @@ import { parseDecimal, wrapError } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { AcquisitionLot, LotDisposal } from '../domain/schemas.js';
-import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
-
+import type { IJurisdictionRules } from './jurisdictions/base-rules.js';
 import type { AssetLotMatchResult } from './lot-matcher.js';
+import type { AcquisitionLot, LotDisposal } from './schemas.js';
 
 /**
  * Gain/loss summary for a single disposal
@@ -236,18 +235,10 @@ export function aggregateAssetGainLoss(
     });
   }
 
-  const firstDisposal = disposals[0];
-  if (!firstDisposal) {
-    return err(new Error(`Cannot access first disposal for asset ${assetSymbol}`));
-  }
-
-  // Start with zero Decimals from first disposal
-  const zero = firstDisposal.capitalGainLoss.times(0);
-
-  let totalProceeds = zero;
-  let totalCostBasis = zero;
-  let totalCapitalGainLoss = zero;
-  let totalTaxableGainLoss = zero;
+  let totalProceeds = parseDecimal('0');
+  let totalCostBasis = parseDecimal('0');
+  let totalCapitalGainLoss = parseDecimal('0');
+  let totalTaxableGainLoss = parseDecimal('0');
 
   const byCategory = new Map<string, { count: number; gainLoss: Decimal; taxableGainLoss: Decimal }>();
 
@@ -264,8 +255,8 @@ export function aggregateAssetGainLoss(
     const category = disposal.taxTreatmentCategory ?? 'uncategorized';
     const existing = byCategory.get(category) ?? {
       count: 0,
-      gainLoss: disposal.capitalGainLoss.times(0),
-      taxableGainLoss: disposal.taxableGainLoss.times(0),
+      gainLoss: parseDecimal('0'),
+      taxableGainLoss: parseDecimal('0'),
     };
 
     byCategory.set(category, {
@@ -308,18 +299,10 @@ export function aggregateOverallGainLoss(
     });
   }
 
-  // Get zero Decimal from first summary
-  const firstSummary = assetSummaries.values().next().value;
-  if (!firstSummary) {
-    return err(new Error('Cannot access first asset summary'));
-  }
-
-  const zero = firstSummary.totalProceeds.times(0);
-
-  let totalProceeds = zero;
-  let totalCostBasis = zero;
-  let totalCapitalGainLoss = zero;
-  let totalTaxableGainLoss = zero;
+  let totalProceeds = parseDecimal('0');
+  let totalCostBasis = parseDecimal('0');
+  let totalCapitalGainLoss = parseDecimal('0');
+  let totalTaxableGainLoss = parseDecimal('0');
   let totalDisposalsProcessed = 0;
 
   for (const summary of assetSummaries.values()) {

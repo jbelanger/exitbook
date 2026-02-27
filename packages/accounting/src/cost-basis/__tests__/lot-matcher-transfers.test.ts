@@ -1,11 +1,10 @@
 import type { FeeMovement } from '@exitbook/core';
 import { type Currency, parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
-import type { TransactionQueries } from '@exitbook/data';
+import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { TransactionLink } from '../../linking/types.js';
-import type { TransactionLinkQueries } from '../../persistence/transaction-link-queries.js';
 import { LotMatcher } from '../lot-matcher.js';
 import { AverageCostStrategy } from '../strategies/average-cost-strategy.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';

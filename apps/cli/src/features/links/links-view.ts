@@ -169,8 +169,7 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
  * Execute links view in TUI mode (text mode, no JSON)
  */
 async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
-  const { createTransactionQueries, OverrideStore } = await import('@exitbook/data');
-  const { createTransactionLinkQueries } = await import('@exitbook/accounting');
+  const { createTransactionQueries, createTransactionLinkQueries, OverrideStore } = await import('@exitbook/data');
 
   try {
     await runCommand(async (ctx) => {
@@ -246,8 +245,7 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
  * Execute gaps view in TUI mode (read-only)
  */
 async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
-  const { createTransactionQueries } = await import('@exitbook/data');
-  const { createTransactionLinkQueries } = await import('@exitbook/accounting');
+  const { createTransactionQueries, createTransactionLinkQueries } = await import('@exitbook/data');
 
   try {
     await runCommand(async (ctx) => {
@@ -300,8 +298,7 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
  * Execute links view in JSON mode
  */
 async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
-  const { createTransactionQueries } = await import('@exitbook/data');
-  const { createTransactionLinkQueries } = await import('@exitbook/accounting');
+  const { createTransactionQueries, createTransactionLinkQueries } = await import('@exitbook/data');
 
   try {
     await runCommand(async (ctx) => {
@@ -358,8 +355,7 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
  * Execute gaps view in JSON mode
  */
 async function executeGapsViewJSON(params: LinksViewParams): Promise<void> {
-  const { createTransactionQueries } = await import('@exitbook/data');
-  const { createTransactionLinkQueries } = await import('@exitbook/accounting');
+  const { createTransactionQueries, createTransactionLinkQueries } = await import('@exitbook/data');
 
   try {
     await runCommand(async (ctx) => {

@@ -4,15 +4,14 @@ import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { CostBasisConfig } from '../config/cost-basis-config.js';
-import type { CostBasisCalculation } from '../domain/schemas.js';
-import type { AcquisitionLot, LotDisposal, LotTransfer } from '../domain/schemas.js';
-import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
-
+import type { CostBasisConfig } from './cost-basis-config.js';
 import { assertPriceDataQuality } from './cost-basis-validation-utils.js';
 import { calculateGainLoss } from './gain-loss-utils.js';
+import type { IJurisdictionRules } from './jurisdictions/base-rules.js';
 import type { AssetMatchError } from './lot-matcher.js';
 import { LotMatcher } from './lot-matcher.js';
+import type { CostBasisCalculation } from './schemas.js';
+import type { AcquisitionLot, LotDisposal, LotTransfer } from './schemas.js';
 import { getStrategyForMethod } from './strategies/strategy-factory.js';
 
 /**
@@ -128,7 +127,7 @@ export async function calculateCostBasis(
       logger.info({ count: lotTransfers.length }, 'Processed lot transfers');
     }
 
-    const assetsProcessed = Array.from(new Set(Array.from(gainLoss.byAsset.values()).map((s) => s.assetSymbol)));
+    const assetsProcessed = [...new Set([...gainLoss.byAsset.values()].map((s) => s.assetSymbol))];
 
     const completedCalculation: CostBasisCalculation = {
       id: calculationId,

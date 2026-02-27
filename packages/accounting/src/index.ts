@@ -6,8 +6,8 @@
  */
 
 // Configuration
-export type { CostBasisConfig, FiatCurrency } from './config/cost-basis-config.js';
-export { getDefaultDateRange } from './config/cost-basis-config.js';
+export type { CostBasisConfig, FiatCurrency } from './cost-basis/cost-basis-config.js';
+export { getDefaultDateRange } from './cost-basis/cost-basis-config.js';
 
 // Domain types
 export type {
@@ -17,7 +17,7 @@ export type {
   LotDisposal,
   LotStatus,
   LotTransfer,
-} from './domain/types.js';
+} from './cost-basis/types.js';
 
 // Cost basis calculation
 export { LotMatcher } from './cost-basis/lot-matcher.js';
@@ -46,10 +46,10 @@ export { AverageCostStrategy } from './cost-basis/strategies/average-cost-strate
 export type { ICostBasisStrategy, DisposalRequest } from './cost-basis/strategies/base-strategy.js';
 
 // Jurisdiction rules
-export type { IJurisdictionRules } from './jurisdictions/base-rules.js';
-export { CanadaRules } from './jurisdictions/canada-rules.js';
-export { USRules } from './jurisdictions/us-rules.js';
-export { JURISDICTION_CONFIGS, getJurisdictionConfig } from './jurisdictions/jurisdiction-configs.js';
+export type { IJurisdictionRules } from './cost-basis/jurisdictions/base-rules.js';
+export { CanadaRules } from './cost-basis/jurisdictions/canada-rules.js';
+export { USRules } from './cost-basis/jurisdictions/us-rules.js';
+export { JURISDICTION_CONFIGS, getJurisdictionConfig } from './cost-basis/jurisdictions/jurisdiction-configs.js';
 
 // Reports
 export type {
@@ -58,9 +58,9 @@ export type {
   ConvertedLotDisposal,
   ConvertedLotTransfer,
   FxConversionMetadata,
-} from './reports/types.js';
-export { CostBasisReportGenerator } from './reports/cost-basis-report-generator.js';
-export type { CostBasisReportInput } from './reports/cost-basis-report-generator.js';
+} from './cost-basis/report-types.js';
+export { CostBasisReportGenerator } from './cost-basis/cost-basis-report-generator.js';
+export type { CostBasisReportInput } from './cost-basis/cost-basis-report-generator.js';
 
 // Linking orchestrator
 export { LinkingOrchestrator } from './linking/linking-orchestrator.js';
@@ -86,7 +86,6 @@ export type {
 export { TransactionLinkingEngine } from './linking/transaction-linking-engine.js';
 export { DEFAULT_MATCHING_CONFIG, createTransactionLink } from './linking/matching-utils.js';
 export { LinkIndex } from './linking/link-index.js';
-export { createTransactionLinkQueries, type TransactionLinkQueries } from './persistence/transaction-link-queries.js';
 // Cost basis utilities
 export {
   buildCostBasisParams,

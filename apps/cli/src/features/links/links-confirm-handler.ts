@@ -1,8 +1,7 @@
 // Handler for links confirm command
 
-import { createTransactionLinkQueries } from '@exitbook/accounting';
 import type { OverrideStore } from '@exitbook/data';
-import { createTransactionQueries } from '@exitbook/data';
+import { createTransactionLinkQueries, createTransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';

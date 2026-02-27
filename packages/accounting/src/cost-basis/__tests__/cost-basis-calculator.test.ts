@@ -1,14 +1,13 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
-import type { TransactionQueries } from '@exitbook/data';
+import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTransaction, createTransactionWithFee } from '../../../__tests__/test-utils.js';
-import type { CostBasisConfig } from '../../config/cost-basis-config.js';
-import { CanadaRules } from '../../jurisdictions/canada-rules.js';
-import { USRules } from '../../jurisdictions/us-rules.js';
-import type { TransactionLinkQueries } from '../../persistence/transaction-link-queries.js';
 import { calculateCostBasis } from '../cost-basis-calculator.js';
+import type { CostBasisConfig } from '../cost-basis-config.js';
+import { CanadaRules } from '../jurisdictions/canada-rules.js';
+import { USRules } from '../jurisdictions/us-rules.js';
 import { LotMatcher } from '../lot-matcher.js';
 
 const mockTransactionRepo = () => {

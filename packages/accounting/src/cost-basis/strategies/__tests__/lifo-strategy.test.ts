@@ -1,7 +1,7 @@
 import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { AcquisitionLot } from '../../../domain/schemas.js';
+import type { AcquisitionLot } from '../../schemas.js';
 import { LifoStrategy } from '../lifo-strategy.js';
 
 describe('LifoStrategy', () => {

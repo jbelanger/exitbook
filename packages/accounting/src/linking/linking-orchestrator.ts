@@ -1,12 +1,10 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { applyLinkOverrides, type OverrideStore } from '@exitbook/data';
-import type { TransactionQueries } from '@exitbook/data';
+import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
-
-import type { TransactionLinkQueries } from '../persistence/transaction-link-queries.js';
 
 import type { LinkingEvent } from './linking-events.js';
 import { buildLinkFromOrphanedOverride, categorizeFinalLinks } from './linking-orchestrator-utils.js';

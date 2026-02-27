@@ -1,10 +1,9 @@
 import { parseDecimal, type Currency } from '@exitbook/core';
-import type { OverrideEvent, OverrideStore, TransactionQueries } from '@exitbook/data';
+import type { OverrideEvent, OverrideStore, TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { err, ok } from 'neverthrow';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { TransactionLinkQueries } from '../../persistence/transaction-link-queries.js';
 import type { LinkingEvent } from '../linking-events.js';
 import { LinkingOrchestrator } from '../linking-orchestrator.js';
 import { TransactionLinkingEngine } from '../transaction-linking-engine.js';
