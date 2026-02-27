@@ -8,7 +8,7 @@ import {
   type ImportEvent,
   ImportOrchestrator,
   type ImportParams,
-  type TransactionProcessingService,
+  type RawDataProcessingService,
 } from '@exitbook/ingestion';
 import { isUtxoAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
@@ -43,7 +43,7 @@ export class ImportHandler {
 
   constructor(
     private importOrchestrator: ImportOrchestrator,
-    private transactionProcessService: TransactionProcessingService,
+    private rawDataProcessingService: RawDataProcessingService,
     private registry: AdapterRegistry,
     private ingestionMonitor: EventDrivenController<CliEvent>,
     private instrumentation: InstrumentationCollector
@@ -86,23 +86,19 @@ export class ImportHandler {
 
   private async executeImport(params: ImportParams): Promise<Result<ImportResult, Error>> {
     try {
-      // Call appropriate orchestrator method based on source type
       let importResult: Result<ImportSession | ImportSession[], Error>;
 
       if (params.sourceType === 'exchange-csv') {
-        // Exchange CSV import
         if (!params.csvDirectory) {
           return err(new Error('CSV directory is required for CSV imports'));
         }
         importResult = await this.importOrchestrator.importExchangeCsv(params.sourceName, params.csvDirectory);
       } else if (params.sourceType === 'exchange-api') {
-        // Exchange API import
         if (!params.credentials) {
           return err(new Error('Credentials are required for API imports'));
         }
         importResult = await this.importOrchestrator.importExchangeApi(params.sourceName, params.credentials);
       } else {
-        // Blockchain import
         if (!params.address) {
           return err(new Error('Address is required for blockchain imports'));
         }
@@ -132,7 +128,6 @@ export class ImportHandler {
         return err(importResult.error);
       }
 
-      // Normalize to array
       const sessions = Array.isArray(importResult.value) ? importResult.value : [importResult.value];
 
       const result: ImportResult = {
@@ -158,9 +153,8 @@ export class ImportHandler {
 
   private async processImportedSessions(sessions: ImportSession[]): Promise<Result<BatchProcessSummary, Error>> {
     try {
-      // Always pass account IDs - the service will emit process.completed with totalProcessed: 0 if nothing to process
       const uniqueAccountIds = [...new Set(sessions.map((s) => s.accountId))];
-      const processResult = await this.transactionProcessService.processImportedSessions(uniqueAccountIds);
+      const processResult = await this.rawDataProcessingService.processImportedSessions(uniqueAccountIds);
 
       if (processResult.isErr()) {
         return err(processResult.error);
@@ -194,7 +188,7 @@ export async function createImportHandler(
     return ok(
       new ImportHandler(
         importOrchestrator,
-        infra.transactionProcessService,
+        infra.rawDataProcessingService,
         registry,
         infra.ingestionMonitor,
         infra.instrumentation

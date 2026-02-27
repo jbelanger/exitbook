@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TransactionLinkQueries } from '../../persistence/transaction-link-queries.js';
 import type { LinkingEvent } from '../linking-events.js';
 import { LinkingOrchestrator } from '../linking-orchestrator.js';
-import { TransactionLinkingService } from '../transaction-linking-service.js';
+import { TransactionLinkingEngine } from '../transaction-linking-engine.js';
 import type { TransactionLink } from '../types.js';
 
 afterEach(() => {
@@ -38,7 +38,7 @@ describe('LinkingOrchestrator', () => {
       updatedAt: new Date('2026-02-07T00:00:00Z'),
     };
 
-    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
+    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
       ok({
         confirmedLinks: [internalLink],
         suggestedLinks: [],
@@ -101,7 +101,7 @@ describe('LinkingOrchestrator', () => {
   });
 
   it('returns error when linking service fails', async () => {
-    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(err(new Error('linking failed')));
+    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(err(new Error('linking failed')));
 
     const transactionRepository = {
       getTransactions: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
@@ -147,7 +147,7 @@ describe('LinkingOrchestrator', () => {
       updatedAt: new Date('2026-02-08T00:00:00Z'),
     };
 
-    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
+    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
       ok({
         confirmedLinks: [confirmedLink],
         suggestedLinks: [],
@@ -213,7 +213,7 @@ describe('LinkingOrchestrator', () => {
   });
 
   it('does not emit save events in dry run mode', async () => {
-    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
+    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
       ok({
         confirmedLinks: [],
         suggestedLinks: [],
@@ -264,7 +264,7 @@ describe('LinkingOrchestrator', () => {
   });
 
   it('returns error when clearing existing links fails', async () => {
-    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
+    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
       ok({
         confirmedLinks: [],
         suggestedLinks: [],
@@ -299,7 +299,7 @@ describe('LinkingOrchestrator', () => {
 
   it('skips orphaned override when assetId cannot be resolved from movements', async () => {
     // Algorithm produces no links
-    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
+    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
       ok({
         confirmedLinks: [],
         suggestedLinks: [],
@@ -379,7 +379,7 @@ describe('LinkingOrchestrator', () => {
   });
 
   it('skips orphaned override when source transaction has ambiguous assetIds for symbol', async () => {
-    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
+    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
       ok({
         confirmedLinks: [],
         suggestedLinks: [],
@@ -459,7 +459,7 @@ describe('LinkingOrchestrator', () => {
   });
 
   it('skips orphaned override when target transaction has ambiguous assetIds for symbol', async () => {
-    vi.spyOn(TransactionLinkingService.prototype, 'linkTransactions').mockReturnValue(
+    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
       ok({
         confirmedLinks: [],
         suggestedLinks: [],

@@ -1,9 +1,4 @@
-import type {
-  AdapterRegistry,
-  ImportOrchestrator,
-  ImportParams,
-  TransactionProcessingService,
-} from '@exitbook/ingestion';
+import type { AdapterRegistry, ImportOrchestrator, ImportParams, RawDataProcessingService } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -22,7 +17,7 @@ vi.mock('@exitbook/ingestion', () => ({
   ImportOrchestrator: vi.fn(),
   RawDataRepository: vi.fn(),
   TokenMetadataService: vi.fn(),
-  TransactionProcessingService: vi.fn(),
+  RawDataProcessingService: vi.fn(),
   createTransactionQueries: vi.fn(),
   isUtxoAdapter: vi.fn(),
 }));
@@ -58,7 +53,7 @@ const makeSession = (
 
 describe('ImportHandler', () => {
   let mockImportOrchestrator: Partial<ImportOrchestrator>;
-  let mockProcessService: Partial<TransactionProcessingService>;
+  let mockProcessService: Partial<RawDataProcessingService>;
   let mockRegistry: { getBlockchain: Mock };
   let mockIngestionMonitor: { abort: Mock; fail: Mock; stop: Mock };
   let mockInstrumentation: { getSummary: Mock };
@@ -95,7 +90,7 @@ describe('ImportHandler', () => {
 
     handler = new ImportHandler(
       mockImportOrchestrator as ImportOrchestrator,
-      mockProcessService as TransactionProcessingService,
+      mockProcessService as RawDataProcessingService,
       mockRegistry as unknown as AdapterRegistry,
       mockIngestionMonitor as never,
       mockInstrumentation as never

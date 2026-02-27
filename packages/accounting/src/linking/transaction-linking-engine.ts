@@ -21,7 +21,7 @@ const UTXO_CHAIN_NAMES = new Set(['bitcoin', 'dogecoin', 'litecoin', 'bitcoin-ca
 /**
  * Service for linking related transactions (e.g., exchange withdrawals → blockchain deposits)
  */
-export class TransactionLinkingService {
+export class TransactionLinkingEngine {
   constructor(
     private readonly logger: ReturnType<typeof getLogger>,
     private readonly config: MatchingConfig = DEFAULT_MATCHING_CONFIG
@@ -268,10 +268,7 @@ export class TransactionLinkingService {
         if (!UTXO_CHAIN_NAMES.has(blockchainName)) continue;
 
         // Skip transactions with no movements (e.g., contract interactions with zero value)
-        // These don't represent actual value transfers and shouldn't be linked
-        const hasMovements =
-          (tx.movements.inflows && tx.movements.inflows.length > 0) ||
-          (tx.movements.outflows && tx.movements.outflows.length > 0);
+        const hasMovements = (tx.movements.inflows?.length ?? 0) > 0 || (tx.movements.outflows?.length ?? 0) > 0;
 
         if (!hasMovements) {
           this.logger.debug(

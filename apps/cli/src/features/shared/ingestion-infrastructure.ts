@@ -7,7 +7,7 @@ import {
   type AdapterRegistry,
   type IngestionEvent,
   TokenMetadataService,
-  TransactionProcessingService,
+  RawDataProcessingService,
 } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 
@@ -24,7 +24,7 @@ export type CliEvent = IngestionEvent | ProviderEvent;
 
 export interface IngestionInfrastructure {
   tokenMetadataService: TokenMetadataService;
-  transactionProcessService: TransactionProcessingService;
+  rawDataProcessingService: RawDataProcessingService;
   providerManager: ProviderManagerWithStats['providerManager'];
   instrumentation: InstrumentationCollector;
   eventBus: EventBus<CliEvent>;
@@ -33,7 +33,7 @@ export interface IngestionInfrastructure {
 
 /**
  * Create shared ingestion infrastructure (tokenMetadata + providerManager +
- * TokenMetadataService + TransactionProcessingService + IngestionMonitor).
+ * TokenMetadataService + RawDataProcessingService + IngestionMonitor).
  * Registers cleanup with ctx internally — callers do NOT need ctx.onCleanup.
  */
 export async function createIngestionInfrastructure(
@@ -69,7 +69,7 @@ export async function createIngestionInfrastructure(
       providerManager,
       eventBus as EventBus<IngestionEvent>
     );
-    const transactionProcessService = new TransactionProcessingService(
+    const rawDataProcessingService = new RawDataProcessingService(
       database,
       providerManager,
       tokenMetadataService,
@@ -98,7 +98,7 @@ export async function createIngestionInfrastructure(
 
     return {
       tokenMetadataService,
-      transactionProcessService,
+      rawDataProcessingService,
       providerManager,
       instrumentation,
       eventBus,

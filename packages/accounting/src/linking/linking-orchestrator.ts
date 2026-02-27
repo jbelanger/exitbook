@@ -11,7 +11,7 @@ import type { TransactionLinkQueries } from '../persistence/transaction-link-que
 import type { LinkingEvent } from './linking-events.js';
 import { buildLinkFromOrphanedOverride, categorizeFinalLinks } from './linking-orchestrator-utils.js';
 import { DEFAULT_MATCHING_CONFIG } from './matching-utils.js';
-import { TransactionLinkingService } from './transaction-linking-service.js';
+import { TransactionLinkingEngine } from './transaction-linking-engine.js';
 import type { LinkingResult, TransactionLink } from './types.js';
 
 /**
@@ -64,8 +64,6 @@ export interface LinkingRunResult {
   /** Whether this was a dry run */
   dryRun: boolean;
 }
-
-// ── Orchestrator ────────────────────────────────────────────────────
 
 /**
  * Orchestrates transaction linking — runs the matching algorithm,
@@ -150,8 +148,6 @@ export class LinkingOrchestrator {
     }
   }
 
-  // ── Pipeline steps ──────────────────────────────────────────────
-
   private async loadTransactions(): Promise<
     Result<{ transactions: UniversalTransactionData[]; txById: Map<number, UniversalTransactionData> }, Error>
   > {
@@ -197,7 +193,7 @@ export class LinkingOrchestrator {
     transactions: UniversalTransactionData[],
     params: LinkingRunParams
   ): Result<{ allLinks: TransactionLink[]; linkingResult: LinkingResult }, Error> {
-    const service = new TransactionLinkingService(logger, {
+    const service = new TransactionLinkingEngine(logger, {
       maxTimingWindowHours: 48,
       minAmountSimilarity: DEFAULT_MATCHING_CONFIG.minAmountSimilarity,
       minConfidenceScore: params.minConfidenceScore,
@@ -300,8 +296,6 @@ export class LinkingOrchestrator {
     return ok(saveResult.value);
   }
 }
-
-// ── Helpers ─────────────────────────────────────────────────────────
 
 function emptyResult(dryRun: boolean): LinkingRunResult {
   return {

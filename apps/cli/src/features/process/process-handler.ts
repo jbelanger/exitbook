@@ -7,7 +7,7 @@ import {
   ClearService,
   type AdapterRegistry,
   type IngestionEvent,
-  type TransactionProcessingService,
+  type RawDataProcessingService,
 } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -43,12 +43,12 @@ export async function executeReprocess(
   params: ProcessHandlerParams,
   deps: {
     clearService: ClearService;
+    rawDataProcessingService: RawDataProcessingService;
     rawDataQueries: RawDataQueries;
-    transactionProcessService: TransactionProcessingService;
   }
 ): Promise<Result<BatchProcessSummary, Error>> {
   const { accountId } = params;
-  const { transactionProcessService, clearService, rawDataQueries } = deps;
+  const { rawDataProcessingService, clearService, rawDataQueries } = deps;
 
   // Resolve account IDs before any mutation
   let accountIds: number[];
@@ -68,7 +68,7 @@ export async function executeReprocess(
   }
 
   // Guard: abort before any mutation if any account has an incomplete import
-  const guardResult = await transactionProcessService.assertNoIncompleteImports(accountIds);
+  const guardResult = await rawDataProcessingService.assertNoIncompleteImports(accountIds);
   if (guardResult.isErr()) {
     return err(guardResult.error);
   }
@@ -87,7 +87,7 @@ export async function executeReprocess(
   logger.info(`Cleared derived data (${deleted.links} links, ${deleted.transactions} transactions)`);
 
   // Use processImportedSessions which emits dashboard events
-  const processResult = await transactionProcessService.processImportedSessions(accountIds);
+  const processResult = await rawDataProcessingService.processImportedSessions(accountIds);
   if (processResult.isErr()) {
     return err(processResult.error);
   }
@@ -100,7 +100,7 @@ export async function executeReprocess(
 
 export class ProcessHandler {
   constructor(
-    private readonly transactionProcessService: TransactionProcessingService,
+    private readonly rawDataProcessingService: RawDataProcessingService,
     private readonly clearService: ClearService,
     private readonly rawDataQueries: RawDataQueries,
     private readonly ingestionMonitor: EventDrivenController<CliEvent>,
@@ -109,7 +109,7 @@ export class ProcessHandler {
 
   async execute(params: ProcessHandlerParams): Promise<Result<BatchProcessSummaryWithMetrics, Error>> {
     const result = await executeReprocess(params, {
-      transactionProcessService: this.transactionProcessService,
+      rawDataProcessingService: this.rawDataProcessingService,
       clearService: this.clearService,
       rawDataQueries: this.rawDataQueries,
     });
@@ -144,7 +144,7 @@ export async function createProcessHandler(
 
     return ok(
       new ProcessHandler(
-        infra.transactionProcessService,
+        infra.rawDataProcessingService,
         clearService,
         rawDataQueries,
         infra.ingestionMonitor,

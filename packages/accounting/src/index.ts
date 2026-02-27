@@ -36,8 +36,8 @@ export {
 } from './cost-basis/gain-loss-utils.js';
 export { calculateCostBasis } from './cost-basis/cost-basis-calculator.js';
 export type { CostBasisSummary } from './cost-basis/cost-basis-calculator.js';
-export { runCostBasisPipeline } from './cost-basis/cost-basis-pipeline.js';
-export type { CostBasisPipelineResult } from './cost-basis/cost-basis-pipeline.js';
+export { computeCostBasis } from './cost-basis/cost-basis-compute.js';
+export type { CostBasisComputationResult } from './cost-basis/cost-basis-compute.js';
 
 // Strategies
 export { FifoStrategy } from './cost-basis/strategies/fifo-strategy.js';
@@ -83,7 +83,7 @@ export type {
   MatchingConfig,
   LinkingResult,
 } from './linking/types.js';
-export { TransactionLinkingService } from './linking/transaction-linking-service.js';
+export { TransactionLinkingEngine } from './linking/transaction-linking-engine.js';
 export { DEFAULT_MATCHING_CONFIG, createTransactionLink } from './linking/matching-utils.js';
 export { LinkIndex } from './linking/link-index.js';
 export { createTransactionLinkQueries, type TransactionLinkQueries } from './persistence/transaction-link-queries.js';
@@ -99,7 +99,7 @@ export {
 } from './cost-basis/cost-basis-utils.js';
 export type { CostBasisHandlerParams, CostBasisConfigWithDates } from './cost-basis/cost-basis-utils.js';
 
-export { PriceEnrichmentService } from './price-enrichment/price-enrichment-service.js';
+export { PriceDerivationService as PriceEnrichmentService } from './price-enrichment/price-derivation-service.js';
 export type { PriceEvent } from './price-enrichment/price-events.js';
 export {
   validateAssetFilter,

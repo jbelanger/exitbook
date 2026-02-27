@@ -2,7 +2,7 @@
 import { createTestDatabase, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { PriceEnrichmentService } from '../price-enrichment-service.js';
+import { PriceDerivationService } from '../price-derivation-service.js';
 
 async function setupPrerequisites(db: KyselyDB): Promise<void> {
   await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
@@ -69,8 +69,8 @@ describe('PriceEnrichmentService', () => {
 
   describe('Stats and Reporting', () => {
     it('should return 0 when database is empty', async () => {
-      const service = new PriceEnrichmentService(db);
-      const result = await service.enrichPrices();
+      const service = new PriceDerivationService(db);
+      const result = await service.derivePrices();
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().transactionsUpdated).toBe(0);
@@ -169,8 +169,8 @@ describe('PriceEnrichmentService', () => {
         ])
         .execute();
 
-      const service = new PriceEnrichmentService(db);
-      const result = await service.enrichPrices();
+      const service = new PriceDerivationService(db);
+      const result = await service.derivePrices();
 
       expect(result.isOk()).toBe(true);
       // Only tx1 (BTC/USD) should have a derivable price
@@ -308,8 +308,8 @@ describe('PriceEnrichmentService', () => {
         })
         .execute();
 
-      const service = new PriceEnrichmentService(db);
-      const result = await service.enrichPrices();
+      const service = new PriceDerivationService(db);
+      const result = await service.derivePrices();
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().transactionsUpdated).toBeGreaterThanOrEqual(1);
@@ -430,8 +430,8 @@ describe('PriceEnrichmentService', () => {
         })
         .execute();
 
-      const service = new PriceEnrichmentService(db);
-      await service.enrichPrices();
+      const service = new PriceDerivationService(db);
+      await service.derivePrices();
 
       // tx2's inflow must remain unpriced (suggested link ignored)
       const tx2Movements = await db
@@ -464,8 +464,8 @@ describe('PriceEnrichmentService', () => {
         })
         .execute();
 
-      const service = new PriceEnrichmentService(db);
-      const result = await service.enrichPrices();
+      const service = new PriceDerivationService(db);
+      const result = await service.derivePrices();
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().transactionsUpdated).toBe(0);

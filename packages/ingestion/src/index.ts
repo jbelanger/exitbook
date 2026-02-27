@@ -4,7 +4,7 @@ export { allBlockchainAdapters } from './sources/blockchains/index.js';
 export { allExchangeAdapters } from './sources/exchanges/index.js';
 
 export { ImportOrchestrator } from './features/import/import-orchestrator.js';
-export { TransactionProcessingService as TransactionProcessingService } from './features/process/process-service.js';
+export { RawDataProcessingService } from './features/process/process-service.js';
 export { ClearService } from './features/deletion/clear-service.js';
 export type { ClearResult } from './features/deletion/clear-service.js';
 export type { ClearServiceParams, DeletionPreview } from './features/deletion/clear-service-utils.js';

@@ -43,7 +43,7 @@ export {
 } from './matching-utils.js';
 
 // Service (imperative shell)
-export { TransactionLinkingService } from './transaction-linking-service.js';
+export { TransactionLinkingEngine } from './transaction-linking-engine.js';
 
 // Link index for efficient lookups
 export { LinkIndex } from './link-index.js';

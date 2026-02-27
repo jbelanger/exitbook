@@ -1,12 +1,12 @@
 import type { RawDataQueries } from '@exitbook/data';
-import type { ClearService, TransactionProcessingService } from '@exitbook/ingestion';
+import type { ClearService, RawDataProcessingService } from '@exitbook/ingestion';
 import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { executeReprocess } from '../process-handler.js';
 
 describe('executeReprocess', () => {
-  let mockProcessService: TransactionProcessingService;
+  let mockProcessService: RawDataProcessingService;
   let mockClearService: ClearService;
   let mockRawDataQueries: RawDataQueries;
 
@@ -14,7 +14,7 @@ describe('executeReprocess', () => {
     mockProcessService = {
       processImportedSessions: vi.fn().mockResolvedValue(ok({ processed: 0, errors: [], failed: 0 })),
       assertNoIncompleteImports: vi.fn().mockResolvedValue(ok(undefined)),
-    } as unknown as TransactionProcessingService;
+    } as unknown as RawDataProcessingService;
 
     mockClearService = {
       execute: vi.fn().mockResolvedValue(
@@ -44,7 +44,7 @@ describe('executeReprocess', () => {
       const result = await executeReprocess(
         { accountId: undefined },
         {
-          transactionProcessService: mockProcessService,
+          rawDataProcessingService: mockProcessService,
           clearService: mockClearService,
           rawDataQueries: mockRawDataQueries,
         }
@@ -65,7 +65,7 @@ describe('executeReprocess', () => {
       const result = await executeReprocess(
         { accountId: 123 },
         {
-          transactionProcessService: mockProcessService,
+          rawDataProcessingService: mockProcessService,
           clearService: mockClearService,
           rawDataQueries: mockRawDataQueries,
         }

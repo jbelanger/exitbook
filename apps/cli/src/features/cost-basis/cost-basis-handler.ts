@@ -4,12 +4,16 @@ import {
   CostBasisReportGenerator,
   StandardFxRateProvider,
   createTransactionLinkQueries,
-  runCostBasisPipeline,
+  computeCostBasis,
   validateCostBasisParams,
+  type AcquisitionLot,
   type AssetMatchError,
+  type CostBasisCalculation,
   type CostBasisHandlerParams,
   type CostBasisReport,
   type CostBasisSummary,
+  type LotDisposal,
+  type LotTransfer,
 } from '@exitbook/accounting';
 import { type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { createTransactionQueries } from '@exitbook/data';
@@ -37,11 +41,11 @@ export interface CostBasisResult {
   /** Report with display currency conversion (if displayCurrency != USD) */
   report?: CostBasisReport | undefined;
   /** Lots created during calculation (for detailed JSON output) */
-  lots: import('@exitbook/accounting').AcquisitionLot[];
+  lots: AcquisitionLot[];
   /** Disposals processed during calculation (for detailed JSON output) */
-  disposals: import('@exitbook/accounting').LotDisposal[];
+  disposals: LotDisposal[];
   /** Lot transfers during calculation (for detailed JSON output) */
-  lotTransfers: import('@exitbook/accounting').LotTransfer[];
+  lotTransfers: LotTransfer[];
   /** Per-asset calculation errors (partial failure) */
   errors: AssetMatchError[];
 }
@@ -79,7 +83,7 @@ export class CostBasisHandler {
       }
 
       // 2. Validate prices, get jurisdiction rules, run lot matching + gain/loss
-      const pipelineResult = await runCostBasisPipeline(
+      const pipelineResult = await computeCostBasis(
         txResult.value,
         config,
         this.transactionRepository,
@@ -177,10 +181,10 @@ export class CostBasisHandler {
    * Generate cost basis report with currency conversion
    */
   private async generateReport(
-    calculation: import('@exitbook/accounting').CostBasisCalculation,
-    disposals: import('@exitbook/accounting').LotDisposal[],
-    lots: import('@exitbook/accounting').AcquisitionLot[],
-    lotTransfers: import('@exitbook/accounting').LotTransfer[],
+    calculation: CostBasisCalculation,
+    disposals: LotDisposal[],
+    lots: AcquisitionLot[],
+    lotTransfers: LotTransfer[],
     displayCurrency: Currency
   ): Promise<Result<CostBasisReport, Error>> {
     logger.info({ displayCurrency }, 'Generating report with currency conversion');

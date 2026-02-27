@@ -21,7 +21,7 @@ import type { PriceProviderManager } from '@exitbook/price-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { PriceEnrichmentService } from './price-enrichment-service.js';
+import { PriceDerivationService } from './price-derivation-service.js';
 import type { PriceEvent } from './price-events.js';
 import { PriceFetchService } from './price-fetch-service.js';
 import type { PricesFetchResult } from './price-fetch-utils.js';
@@ -30,8 +30,8 @@ import type { NormalizeResult } from './price-normalization-service.js';
 import { PriceNormalizationService } from './price-normalization-service.js';
 import { StandardFxRateProvider } from './standard-fx-rate-provider.js';
 
-/** Extracted type for stage.completed event result */
 type StageCompletedResult = Extract<PriceEvent, { type: 'stage.completed' }>['result'];
+type StageName = Extract<PriceEvent, { type: 'stage.started' }>['stage'];
 
 /**
  * Options for the price enrichment pipeline
@@ -127,11 +127,11 @@ export class PriceEnrichmentPipeline {
 
       // Stage 1: Derive (extract from trades: USD + non-USD fiat, propagate via links)
       if (stages.derive) {
-        const enrichmentService = new PriceEnrichmentService(this.db);
+        const enrichmentService = new PriceDerivationService(this.db);
         const deriveResult = await this.runStage(
           'Stage 1: Deriving prices from trades (USD + fiat)',
           'tradePrices',
-          () => enrichmentService.enrichPrices(),
+          () => enrichmentService.derivePrices(),
           (value) => ({ stage: 'tradePrices' as const, transactionsUpdated: value.transactionsUpdated })
         );
         if (deriveResult.isErr()) return err(deriveResult.error);
@@ -191,11 +191,11 @@ export class PriceEnrichmentPipeline {
 
       // Stage 4: Derive (second pass) — use newly fetched/normalized prices
       if (stages.derive && (stages.fetch || stages.normalize)) {
-        const enrichmentService = new PriceEnrichmentService(this.db);
+        const enrichmentService = new PriceDerivationService(this.db);
         const propagateResult = await this.runStage(
           'Stage 4: Re-deriving prices using fetched/normalized data',
           'propagation',
-          () => enrichmentService.enrichPrices(),
+          () => enrichmentService.derivePrices(),
           (value) => ({ stage: 'propagation' as const, transactionsUpdated: value.transactionsUpdated })
         );
         if (propagateResult.isErr()) return err(propagateResult.error);
@@ -217,15 +217,12 @@ export class PriceEnrichmentPipeline {
    */
   private async runStage<T>(
     description: string,
-    stageName: string,
+    stageName: StageName,
     fn: () => Promise<Result<T, Error>>,
     buildCompletedEvent: (value: T) => StageCompletedResult
   ): Promise<Result<T, Error>> {
     this.logger.info(description);
-    this.eventBus?.emit({
-      type: 'stage.started',
-      stage: stageName as 'tradePrices' | 'fxRates' | 'marketPrices' | 'propagation',
-    });
+    this.eventBus?.emit({ type: 'stage.started', stage: stageName });
 
     const result = await fn();
 

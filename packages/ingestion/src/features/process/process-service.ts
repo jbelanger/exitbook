@@ -37,7 +37,7 @@ const TRANSACTION_SAVE_BATCH_SIZE = 500;
 const RAW_DATA_MARK_BATCH_SIZE = 500;
 const RAW_DATA_HASH_BATCH_SIZE = 100; // For blockchain accounts, process in hash-grouped batches to ensure correlation integrity
 
-export class TransactionProcessingService {
+export class RawDataProcessingService {
   private logger: Logger;
   private scamDetectionService: IScamDetectionService;
   private rawDataQueries: ReturnType<typeof createRawDataQueries>;
@@ -52,7 +52,7 @@ export class TransactionProcessingService {
     private eventBus: EventBus<IngestionEvent>,
     private registry: AdapterRegistry
   ) {
-    this.logger = getLogger('TransactionProcessingService');
+    this.logger = getLogger('RawDataProcessingService');
     this.scamDetectionService = new ScamDetectionService(eventBus);
     this.rawDataQueries = createRawDataQueries(db);
     this.accountQueries = createAccountQueries(db);

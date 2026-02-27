@@ -3,7 +3,7 @@ import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_MATCHING_CONFIG } from '../matching-utils.js';
-import { TransactionLinkingService } from '../transaction-linking-service.js';
+import { TransactionLinkingEngine } from '../transaction-linking-engine.js';
 
 const logger = getLogger('test');
 
@@ -59,10 +59,10 @@ function createTransaction(params: {
   };
 }
 
-describe('TransactionLinkingService', () => {
+describe('TransactionLinkingEngine', () => {
   describe('linkTransactions', () => {
     it('should find exact match between exchange withdrawal and blockchain deposit', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // Exchange withdrawal
@@ -106,7 +106,7 @@ describe('TransactionLinkingService', () => {
     });
 
     it('should suggest low-confidence matches without auto-confirming', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // Exchange withdrawal - no address
@@ -147,7 +147,7 @@ describe('TransactionLinkingService', () => {
     });
 
     it('should deduplicate matches - one target per source', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // Source 1 - closer in time (30 min before target)
@@ -193,7 +193,7 @@ describe('TransactionLinkingService', () => {
     });
 
     it('should skip transactions without movement data', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // Transaction with no movements
@@ -221,7 +221,7 @@ describe('TransactionLinkingService', () => {
     });
 
     it('should handle blockchain-to-blockchain links', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // Blockchain send
@@ -263,7 +263,7 @@ describe('TransactionLinkingService', () => {
     });
 
     it('should handle empty transaction list', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const result = service.linkTransactions([]);
 
@@ -278,7 +278,7 @@ describe('TransactionLinkingService', () => {
     });
 
     it('should calculate statistics correctly', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // Matched source (BTC withdrawal)
@@ -335,7 +335,7 @@ describe('TransactionLinkingService', () => {
     });
 
     it('should exclude filtered links from statistics (target > source)', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // Source 1 - valid match
@@ -399,7 +399,7 @@ describe('TransactionLinkingService', () => {
     });
 
     it('should exclude filtered links from statistics (excessive variance)', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // Source 1 - valid match
@@ -465,7 +465,7 @@ describe('TransactionLinkingService', () => {
 
   describe('convertToCandidates', () => {
     it('should convert valid transactions to candidates', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         createTransaction({
@@ -488,7 +488,7 @@ describe('TransactionLinkingService', () => {
     });
 
     it('should skip transactions with only inflows (no direction)', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // Transaction with only inflows is a deposit (direction 'in')
@@ -512,7 +512,7 @@ describe('TransactionLinkingService', () => {
     });
 
     it('should skip transactions with both inflows and outflows (trades)', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // Trade: BTC -> ETH
@@ -540,7 +540,7 @@ describe('TransactionLinkingService', () => {
 
   describe('deduplication', () => {
     it('should prevent one source from matching multiple targets', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // Single source
@@ -587,7 +587,7 @@ describe('TransactionLinkingService', () => {
     });
 
     it('should keep only highest confidence match per target', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // Source 1 - closer in time to target (1 hour before)
@@ -638,7 +638,7 @@ describe('TransactionLinkingService', () => {
 
   describe('self-matching prevention', () => {
     it('should not match a transaction against itself when it has both inflows and outflows of the same asset', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // Self-transfer: BTC withdrawal with change (both in and out in same tx)
@@ -666,7 +666,7 @@ describe('TransactionLinkingService', () => {
     });
 
     it('should not match a swap transaction against itself', () => {
-      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
         // BTC swap with BTC fee (both BTC in and out)
@@ -698,7 +698,7 @@ describe('TransactionLinkingService', () => {
 
   describe('auto-confirmation', () => {
     it('should auto-confirm matches above threshold', () => {
-      const service = new TransactionLinkingService(logger, {
+      const service = new TransactionLinkingEngine(logger, {
         ...DEFAULT_MATCHING_CONFIG,
         autoConfirmThreshold: parseDecimal('0.9'),
       });
@@ -740,7 +740,7 @@ describe('TransactionLinkingService', () => {
     });
 
     it('should suggest matches below threshold', () => {
-      const service = new TransactionLinkingService(logger, {
+      const service = new TransactionLinkingEngine(logger, {
         ...DEFAULT_MATCHING_CONFIG,
         autoConfirmThreshold: parseDecimal('0.99'), // Very high threshold
       });

@@ -4,15 +4,15 @@ import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { CostBasisConfig } from '../config/cost-basis-config.js';
-import { getJurisdictionRules, validateTransactionPrices } from '../cost-basis/cost-basis-utils.js';
 import type { TransactionLinkQueries } from '../persistence/transaction-link-queries.js';
 
 import { calculateCostBasis, type CostBasisSummary } from './cost-basis-calculator.js';
+import { getJurisdictionRules, validateTransactionPrices } from './cost-basis-utils.js';
 import { LotMatcher } from './lot-matcher.js';
 
 const logger = getLogger('cost-basis-pipeline');
 
-export interface CostBasisPipelineResult {
+export interface CostBasisComputationResult {
   summary: CostBasisSummary;
   missingPricesCount: number;
   /** Transactions that passed price validation — available for callers that need to build richer exclusion warnings */
@@ -25,12 +25,12 @@ export interface CostBasisPipelineResult {
  * Used by CostBasisHandler and PortfolioHandler to avoid duplicating the
  * "validate prices → get rules → run calculator" flow.
  */
-export async function runCostBasisPipeline(
+export async function computeCostBasis(
   transactions: UniversalTransactionData[],
   config: CostBasisConfig,
   transactionRepository: TransactionQueries,
   linkRepository: TransactionLinkQueries
-): Promise<Result<CostBasisPipelineResult, Error>> {
+): Promise<Result<CostBasisComputationResult, Error>> {
   const validationResult = validateTransactionPrices(transactions, config.currency);
   if (validationResult.isErr()) {
     return err(validationResult.error);
@@ -47,10 +47,10 @@ export async function runCostBasisPipeline(
   const rules = getJurisdictionRules(config.jurisdiction);
   const lotMatcher = new LotMatcher(transactionRepository, linkRepository);
 
-  const calcResult = await calculateCostBasis(validTransactions, config, rules, lotMatcher);
-  if (calcResult.isErr()) {
-    return err(calcResult.error);
+  const costBasisResult = await calculateCostBasis(validTransactions, config, rules, lotMatcher);
+  if (costBasisResult.isErr()) {
+    return err(costBasisResult.error);
   }
 
-  return ok({ summary: calcResult.value, missingPricesCount, validTransactions });
+  return ok({ summary: costBasisResult.value, missingPricesCount, validTransactions });
 }

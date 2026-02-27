@@ -40,7 +40,7 @@ function transactionNeedsPrice(transaction: UniversalTransactionData): boolean {
  * - fetch: Fill remaining gaps with market prices from external providers
  * - derive: Recalculate crypto-crypto swap ratios for accurate cost basis
  */
-export class PriceEnrichmentService {
+export class PriceDerivationService {
   private readonly transactionRepository: ReturnType<typeof createTransactionQueries>;
   private readonly linkRepository: ReturnType<typeof createTransactionLinkQueries>;
 
@@ -50,11 +50,11 @@ export class PriceEnrichmentService {
   }
 
   /**
-   * Main entry point: enrich prices for all transactions needing prices
+   * Main entry point: derive prices for all transactions needing prices
    */
-  async enrichPrices(): Promise<Result<{ transactionsUpdated: number }, Error>> {
+  async derivePrices(): Promise<Result<{ transactionsUpdated: number }, Error>> {
     try {
-      logger.info('Starting price enrichment process');
+      logger.info('Starting price derivation process');
 
       // Get full transaction data - we must process ALL transactions even if none need prices
       // because Pass N+2 recalculates ratios for swaps that already have fetched prices
@@ -76,7 +76,7 @@ export class PriceEnrichmentService {
 
       logger.info(
         { totalTransactions: allTransactions.length, needingPrices: txIdsNeedingPrices.size },
-        'Starting price enrichment'
+        'Starting price derivation'
       );
 
       // Fetch confirmed transaction links
@@ -97,11 +97,11 @@ export class PriceEnrichmentService {
 
       // Process each transaction group independently
       for (const group of transactionGroups) {
-        const groupResult = await this.enrichTransactionGroup(group, txIdsNeedingPrices);
+        const groupResult = await this.deriveTransactionGroup(group, txIdsNeedingPrices);
         if (groupResult.isErr()) {
           logger.error(
             { groupId: group.groupId, sources: Array.from(group.sources), error: groupResult.error },
-            'Failed to enrich transaction group'
+            'Failed to derive transaction group'
           );
           continue;
         }
@@ -109,15 +109,15 @@ export class PriceEnrichmentService {
         updatedCount += groupResult.value;
       }
 
-      logger.info({ transactionsUpdated: updatedCount }, 'Price enrichment completed');
+      logger.info({ transactionsUpdated: updatedCount }, 'Price derivation completed');
       return ok({ transactionsUpdated: updatedCount });
     } catch (error) {
-      return wrapError(error, 'Failed to enrich prices');
+      return wrapError(error, 'Failed to derive prices');
     }
   }
 
   /**
-   * Enrich prices for a transaction group using multi-pass inference
+   * Derive prices for a transaction group using multi-pass inference
    *
    * Transaction groups can contain:
    * - Single exchange transactions (no links)
@@ -127,7 +127,7 @@ export class PriceEnrichmentService {
    * The multi-pass inference algorithm works the same regardless of group composition,
    * but linked groups enable price propagation across platforms.
    */
-  private async enrichTransactionGroup(
+  private async deriveTransactionGroup(
     group: TransactionGroup,
     txIdsNeedingPrices: Set<number>
   ): Promise<Result<number, Error>> {
@@ -152,9 +152,9 @@ export class PriceEnrichmentService {
         return timeA - timeB;
       });
 
-      // Apply direct price enrichment passes
+      // Apply direct price derivation passes
       const { transactions: inferredTxs, modifiedIds: directModifiedIds } = inferMultiPass(sortedTxs);
-      logger.debug({ groupId, transactionsEnriched: directModifiedIds.size }, 'Applied multi-pass price inference');
+      logger.debug({ groupId, transactionsDerived: directModifiedIds.size }, 'Applied multi-pass price inference');
 
       // Propagate prices from movements to fees
       const txsWithFeePrices = enrichFeePricesFromMovements(inferredTxs);
@@ -176,8 +176,6 @@ export class PriceEnrichmentService {
         );
       }
 
-      const enrichedTxs = enrichedTransactions;
-
       // Combine all modified transaction IDs
       const allModifiedIds = new Set([...directModifiedIds, ...linkModifiedIds]);
 
@@ -186,7 +184,7 @@ export class PriceEnrichmentService {
       // (2) transactions modified by link propagation or ratio recalculation
       let updatedCount = 0;
       let skippedCount = 0;
-      for (const tx of enrichedTxs) {
+      for (const tx of enrichedTransactions) {
         // Skip if this transaction wasn't originally needing prices AND wasn't modified
         if (!txIdsNeedingPrices.has(tx.id) && !allModifiedIds.has(tx.id)) {
           continue;
@@ -215,19 +213,19 @@ export class PriceEnrichmentService {
 
       return ok(updatedCount);
     } catch (error) {
-      return wrapError(error, `Failed to enrich prices for transaction group: ${group.groupId}`);
+      return wrapError(error, `Failed to derive prices for transaction group: ${group.groupId}`);
     }
   }
 
   /**
-   * Update transaction in database with enriched price data
+   * Update transaction in database with derived price data
    *
-   * The transaction passed in already has enriched movements with correct priorities
+   * The transaction passed in already has derived movements with correct priorities
    * applied by the multi-pass algorithm. Just persist it directly.
    */
   private async updateTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>> {
     try {
-      // Persist the complete enriched transaction
+      // Persist the complete derived transaction
       return await this.transactionRepository.updateMovementsWithPrices(tx);
     } catch (error) {
       return wrapError(error, `Failed to update transaction ${tx.id}`);

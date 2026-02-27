@@ -7,7 +7,7 @@ import path from 'node:path';
 
 import {
   createTransactionLinkQueries,
-  runCostBasisPipeline,
+  computeCostBasis,
   validateCostBasisParams,
   type CostBasisHandlerParams,
   type FiatCurrency as AccountingFiatCurrency,
@@ -115,43 +115,14 @@ export class PortfolioHandler {
       }
 
       const allTransactions = txResult.value;
+
       if (allTransactions.length === 0) {
-        return ok({
-          positions: [],
-          closedPositions: [],
-          transactions: [],
-          warnings: [],
-          asOf: asOf.toISOString(),
-          method,
-          jurisdiction,
-          displayCurrency,
-          meta: {
-            totalAssets: 0,
-            pricedAssets: 0,
-            unpricedAssets: 0,
-            timestamp: new Date().toISOString(),
-          },
-        });
+        return ok(emptyPortfolioResult(asOf, method, jurisdiction, displayCurrency));
       }
 
       const transactionsUpToAsOf = allTransactions.filter((tx) => new Date(tx.timestamp) <= asOf);
       if (transactionsUpToAsOf.length === 0) {
-        return ok({
-          positions: [],
-          closedPositions: [],
-          transactions: [],
-          warnings: [],
-          asOf: asOf.toISOString(),
-          method,
-          jurisdiction,
-          displayCurrency,
-          meta: {
-            totalAssets: 0,
-            pricedAssets: 0,
-            unpricedAssets: 0,
-            timestamp: new Date().toISOString(),
-          },
-        });
+        return ok(emptyPortfolioResult(asOf, method, jurisdiction, displayCurrency));
       }
 
       const fiatFlowComputation = computeNetFiatInUsd(transactionsUpToAsOf);
@@ -234,7 +205,7 @@ export class PortfolioHandler {
         return err(costBasisValidation.error);
       }
 
-      const pipelineResult = await runCostBasisPipeline(
+      const pipelineResult = await computeCostBasis(
         transactionsUpToAsOf,
         costBasisParams.config,
         this.transactionRepository,
@@ -476,6 +447,30 @@ export async function createPortfolioHandler(
   return ok(new PortfolioHandler(database, priceManager));
 }
 
+function emptyPortfolioResult(
+  asOf: Date,
+  method: string,
+  jurisdiction: string,
+  displayCurrency: Currency
+): PortfolioResult {
+  return {
+    positions: [],
+    closedPositions: [],
+    transactions: [],
+    warnings: [],
+    asOf: asOf.toISOString(),
+    method,
+    jurisdiction,
+    displayCurrency,
+    meta: {
+      totalAssets: 0,
+      pricedAssets: 0,
+      unpricedAssets: 0,
+      timestamp: new Date().toISOString(),
+    },
+  };
+}
+
 function buildClosedPositionsByAssetId(
   holdingAssetIds: string[],
   assetMetadata: Record<string, string>,
@@ -562,9 +557,9 @@ function validatePortfolioParams(params: PortfolioHandlerParams): Result<
 }
 
 function isSpamOrExcludedTransaction(transaction: UniversalTransactionData): boolean {
-  if (transaction.excludedFromAccounting === true || transaction.isSpam === true) {
-    return true;
-  }
-
-  return transaction.notes?.some((note) => note.type === 'SCAM_TOKEN') ?? false;
+  return (
+    transaction.excludedFromAccounting === true ||
+    transaction.isSpam === true ||
+    (transaction.notes?.some((note) => note.type === 'SCAM_TOKEN') ?? false)
+  );
 }

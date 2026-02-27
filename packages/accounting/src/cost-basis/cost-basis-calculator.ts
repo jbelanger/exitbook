@@ -47,7 +47,7 @@ const logger = getLogger('calculateCostBasis');
  * Calculate cost basis for a set of pre-validated transactions.
  *
  * Transactions must have priceAtTxTime populated for all non-fiat movements.
- * Use runCostBasisPipeline for the full flow including soft-fail price filtering.
+ * Use computeCostBasis for the full flow including soft-fail price filtering.
  *
  * @param transactions - Transactions to process (must have priceAtTxTime populated)
  * @param config - Cost basis configuration
@@ -128,6 +128,8 @@ export async function calculateCostBasis(
       logger.info({ count: lotTransfers.length }, 'Processed lot transfers');
     }
 
+    const assetsProcessed = Array.from(new Set(Array.from(gainLoss.byAsset.values()).map((s) => s.assetSymbol)));
+
     const completedCalculation: CostBasisCalculation = {
       id: calculationId,
       calculationDate,
@@ -138,7 +140,7 @@ export async function calculateCostBasis(
       totalCostBasis: gainLoss.totalCostBasis,
       totalGainLoss: gainLoss.totalCapitalGainLoss,
       totalTaxableGainLoss: gainLoss.totalTaxableGainLoss,
-      assetsProcessed: Array.from(new Set(Array.from(gainLoss.byAsset.values()).map((s) => s.assetSymbol))),
+      assetsProcessed,
       transactionsProcessed: transactions.length,
       lotsCreated: lotMatchResult.totalLotsCreated,
       disposalsProcessed: disposals.length,
@@ -153,7 +155,7 @@ export async function calculateCostBasis(
       disposalsProcessed: disposals.length,
       totalCapitalGainLoss: gainLoss.totalCapitalGainLoss,
       totalTaxableGainLoss: gainLoss.totalTaxableGainLoss,
-      assetsProcessed: Array.from(new Set(Array.from(gainLoss.byAsset.values()).map((s) => s.assetSymbol))),
+      assetsProcessed,
       lots,
       disposals,
       lotTransfers,
