@@ -68,6 +68,12 @@ export class LinksRunHandler {
 
 /**
  * Create a LinksRunHandler with appropriate infrastructure.
+ *
+ * Returns a bare value (not Result) because creation is infallible:
+ * createTransactionQueries/createTransactionLinkQueries are pure DB wrappers,
+ * OverrideStore constructor only sets a file path, and EventBus construction
+ * cannot throw. No Result wrapping needed — this is intentional.
+ *
  * No cleanup registration needed -- LinkingOrchestrator has no persistent resources.
  */
 export function createLinksRunHandler(

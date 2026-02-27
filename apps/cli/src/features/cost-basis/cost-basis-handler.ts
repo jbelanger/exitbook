@@ -50,7 +50,7 @@ export interface CostBasisResult {
 
 /**
  * Cost Basis Handler - Encapsulates all cost basis calculation business logic.
- * Tier 1 shape (DB-only constructor) but with a Tier 2 factory for prereq orchestration.
+ * Tier 2 handler — DB-only constructor, external factory handles prereq orchestration.
  */
 export class CostBasisHandler {
   private readonly transactionRepository;

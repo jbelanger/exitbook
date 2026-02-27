@@ -99,23 +99,7 @@ export async function executeReprocess(
 }
 
 export class ProcessHandler {
-  static create(
-    transactionProcessService: TransactionProcessingService,
-    clearService: ClearService,
-    rawDataQueries: RawDataQueries,
-    ingestionMonitor: EventDrivenController<CliEvent>,
-    instrumentation: InstrumentationCollector
-  ): ProcessHandler {
-    return new ProcessHandler(
-      transactionProcessService,
-      clearService,
-      rawDataQueries,
-      ingestionMonitor,
-      instrumentation
-    );
-  }
-
-  private constructor(
+  constructor(
     private readonly transactionProcessService: TransactionProcessingService,
     private readonly clearService: ClearService,
     private readonly rawDataQueries: RawDataQueries,
@@ -159,7 +143,7 @@ export async function createProcessHandler(
     const clearService = new ClearService(database, infra.eventBus as EventBus<IngestionEvent>);
 
     return ok(
-      ProcessHandler.create(
+      new ProcessHandler(
         infra.transactionProcessService,
         clearService,
         rawDataQueries,

@@ -89,7 +89,11 @@ async function executeProvidersBenchmarkCommand(rawOptions: unknown): Promise<vo
 async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const handler = createProvidersBenchmarkHandler(ctx);
+      const handlerResult = createProvidersBenchmarkHandler(ctx);
+      if (handlerResult.isErr()) {
+        displayCliError('providers-benchmark', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+      const handler = handlerResult.value;
       const result = await handler.execute(options, providerRegistry, BlockchainProviderManager);
 
       if (result.isErr()) {
@@ -127,7 +131,11 @@ async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<v
 async function executeProvidersBenchmarkTUI(options: CommandOptions): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const handler = createProvidersBenchmarkHandler(ctx);
+      const handlerResult = createProvidersBenchmarkHandler(ctx);
+      if (handlerResult.isErr()) {
+        displayCliError('providers-benchmark', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      }
+      const handler = handlerResult.value;
 
       // Setup phase
       const setupResult = handler.setup(options, providerRegistry, BlockchainProviderManager);

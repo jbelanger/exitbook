@@ -1,8 +1,7 @@
 import type { BlockchainProviderManager, ProviderRegistry } from '@exitbook/blockchain-providers';
 import { loadExplorerConfig } from '@exitbook/blockchain-providers';
 import { getLogger } from '@exitbook/logger';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { BenchmarkProgressEvent, BenchmarkResult } from './benchmark-tool.js';
 import { benchmarkRateLimit } from './benchmark-tool.js';
@@ -213,11 +212,14 @@ export class ProvidersBenchmarkHandler {
 /**
  * Create a ProvidersBenchmarkHandler and register cleanup with ctx.
  * Factory owns cleanup -- command files NEVER call ctx.onCleanup().
+ *
+ * Returns Result for consistency with other Tier 2 factories.
+ * Creation itself is infallible; err() is unreachable in practice.
  */
 export function createProvidersBenchmarkHandler(
   ctx: import('../shared/command-runtime.js').CommandContext
-): ProvidersBenchmarkHandler {
+): Result<ProvidersBenchmarkHandler, Error> {
   const handler = new ProvidersBenchmarkHandler();
   ctx.onCleanup(async () => handler.destroy());
-  return handler;
+  return ok(handler);
 }

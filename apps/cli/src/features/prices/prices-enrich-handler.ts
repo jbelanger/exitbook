@@ -28,41 +28,7 @@ export interface PricesEnrichResult {
  * Factory owns cleanup; command file never calls ctx.onCleanup().
  */
 export class PricesEnrichHandler {
-  /** @internal — exposed for JSON mode where no controller exists */
-  static async _createForJson(ctx: CommandContext, database: KyselyDB): Promise<Result<PricesEnrichHandler, Error>> {
-    const instrumentation = new InstrumentationCollector();
-    const priceManagerResult = await createDefaultPriceProviderManager(instrumentation);
-    if (priceManagerResult.isErr()) {
-      return err(priceManagerResult.error);
-    }
-    const priceManager = priceManagerResult.value;
-    ctx.onCleanup(async () => priceManager.destroy());
-
-    return ok(new PricesEnrichHandler(database, priceManager, instrumentation, undefined, undefined));
-  }
-
-  static async _createForTui(ctx: CommandContext, database: KyselyDB): Promise<Result<PricesEnrichHandler, Error>> {
-    const eventBus = new EventBus<PriceEvent>({
-      onError: (busErr) => {
-        logger.error({ err: busErr }, 'EventBus error');
-      },
-    });
-    const instrumentation = new InstrumentationCollector();
-    const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
-
-    const priceManagerResult = await createDefaultPriceProviderManager(instrumentation, eventBus);
-    if (priceManagerResult.isErr()) {
-      controller.fail(priceManagerResult.error.message);
-      await controller.stop();
-      return err(priceManagerResult.error);
-    }
-    const priceManager = priceManagerResult.value;
-    ctx.onCleanup(async () => priceManager.destroy());
-
-    return ok(new PricesEnrichHandler(database, priceManager, instrumentation, eventBus, controller));
-  }
-
-  private constructor(
+  constructor(
     private readonly database: KyselyDB,
     private readonly priceManager: PriceProviderManager,
     private readonly instrumentation: InstrumentationCollector,
@@ -131,7 +97,33 @@ export async function createPricesEnrichHandler(
   options: { isJsonMode: boolean }
 ): Promise<Result<PricesEnrichHandler, Error>> {
   if (options.isJsonMode) {
-    return PricesEnrichHandler._createForJson(ctx, database);
+    const instrumentation = new InstrumentationCollector();
+    const priceManagerResult = await createDefaultPriceProviderManager(instrumentation);
+    if (priceManagerResult.isErr()) {
+      return err(priceManagerResult.error);
+    }
+    const priceManager = priceManagerResult.value;
+    ctx.onCleanup(async () => priceManager.destroy());
+
+    return ok(new PricesEnrichHandler(database, priceManager, instrumentation, undefined, undefined));
   }
-  return PricesEnrichHandler._createForTui(ctx, database);
+
+  const eventBus = new EventBus<PriceEvent>({
+    onError: (busErr) => {
+      logger.error({ err: busErr }, 'EventBus error');
+    },
+  });
+  const instrumentation = new InstrumentationCollector();
+  const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
+
+  const priceManagerResult = await createDefaultPriceProviderManager(instrumentation, eventBus);
+  if (priceManagerResult.isErr()) {
+    controller.fail(priceManagerResult.error.message);
+    await controller.stop();
+    return err(priceManagerResult.error);
+  }
+  const priceManager = priceManagerResult.value;
+  ctx.onCleanup(async () => priceManager.destroy());
+
+  return ok(new PricesEnrichHandler(database, priceManager, instrumentation, eventBus, controller));
 }

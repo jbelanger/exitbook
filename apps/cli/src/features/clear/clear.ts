@@ -153,7 +153,7 @@ async function buildScopeLabel(
 }
 
 /**
- * Execute clear command in legacy mode (JSON or --confirm bypass)
+ * Execute clear command in JSON or --confirm bypass mode
  */
 async function executeClearNonTui(options: {
   accountId?: number | undefined;
