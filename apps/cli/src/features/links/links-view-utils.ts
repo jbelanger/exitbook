@@ -34,7 +34,7 @@ export interface TransactionDetails {
  * Link info for display (with transaction details).
  */
 export interface LinkInfo {
-  id: string;
+  id: number;
   source_transaction_id: number;
   target_transaction_id: number;
   asset_symbol: string;
@@ -240,7 +240,7 @@ export function formatLinkForDisplay(link: LinkInfo): string {
 
   // Title line with asset symbol
   lines.push(
-    `${statusIcon} Link #${link.id.slice(0, 8)} - ${link.asset_symbol} ${link.link_type.replace(/_/g, ' ')} (${formatConfidence(link.confidence_score)})`
+    `${statusIcon} Link #${link.id} - ${link.asset_symbol} ${link.link_type.replace(/_/g, ' ')} (${formatConfidence(link.confidence_score)})`
   );
 
   // Transaction IDs and amounts

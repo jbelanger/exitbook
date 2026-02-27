@@ -15,14 +15,14 @@ const logger = getLogger('LinksRejectHandler');
  * Parameters for links reject command.
  */
 export interface LinksRejectParams {
-  linkId: string;
+  linkId: number;
 }
 
 /**
  * Result of links reject operation.
  */
 export interface LinksRejectResult {
-  linkId: string;
+  linkId: number;
   newStatus: 'rejected';
   reviewedBy: string;
   reviewedAt: Date;

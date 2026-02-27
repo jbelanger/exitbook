@@ -54,7 +54,7 @@ describe('LinksRejectHandler', () => {
   });
 
   const createMockLink = (
-    id: string,
+    id: number,
     status: 'suggested' | 'confirmed' | 'rejected',
     reviewedBy?: string,
     reviewedAt?: Date
@@ -99,10 +99,10 @@ describe('LinksRejectHandler', () => {
   describe('execute', () => {
     it('should successfully reject a suggested link', async () => {
       const params: LinksRejectParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const suggestedLink = createMockLink('link-123', 'suggested');
+      const suggestedLink = createMockLink(123, 'suggested');
 
       mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkQueries.updateStatus.mockResolvedValue(ok(true));
@@ -116,7 +116,7 @@ describe('LinksRejectHandler', () => {
 
       expect(result.isOk()).toBe(true);
       const rejectResult = result._unsafeUnwrap();
-      expect(rejectResult.linkId).toBe('link-123');
+      expect(rejectResult.linkId).toBe(123);
       expect(rejectResult.newStatus).toBe('rejected');
       expect(rejectResult.reviewedBy).toBe('cli-user');
       expect(rejectResult.reviewedAt).toBeInstanceOf(Date);
@@ -127,10 +127,10 @@ describe('LinksRejectHandler', () => {
 
     it('should write unlink_override event after successful reject', async () => {
       const params: LinksRejectParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const suggestedLink = createMockLink('link-123', 'suggested');
+      const suggestedLink = createMockLink(123, 'suggested');
 
       mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkQueries.updateStatus.mockResolvedValue(ok(true));
@@ -154,10 +154,10 @@ describe('LinksRejectHandler', () => {
 
     it('should not fail if override store write fails', async () => {
       const params: LinksRejectParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const suggestedLink = createMockLink('link-123', 'suggested');
+      const suggestedLink = createMockLink(123, 'suggested');
 
       mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkQueries.updateStatus.mockResolvedValue(ok(true));
@@ -176,10 +176,10 @@ describe('LinksRejectHandler', () => {
 
     it('should handle already rejected link (idempotent)', async () => {
       const params: LinksRejectParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const rejectedLink = createMockLink('link-123', 'rejected', 'cli-user', new Date('2024-01-02T12:00:00Z'));
+      const rejectedLink = createMockLink(123, 'rejected', 'cli-user', new Date('2024-01-02T12:00:00Z'));
 
       mockLinkQueries.findById.mockResolvedValue(ok(rejectedLink));
 
@@ -187,7 +187,7 @@ describe('LinksRejectHandler', () => {
 
       expect(result.isOk()).toBe(true);
       const rejectResult = result._unsafeUnwrap();
-      expect(rejectResult.linkId).toBe('link-123');
+      expect(rejectResult.linkId).toBe(123);
       expect(rejectResult.newStatus).toBe('rejected');
       expect(rejectResult.reviewedBy).toBe('cli-user');
 
@@ -199,10 +199,10 @@ describe('LinksRejectHandler', () => {
 
     it('should successfully reject a confirmed link (override auto-confirmation)', async () => {
       const params: LinksRejectParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const confirmedLink = createMockLink('link-123', 'confirmed', 'cli-user', new Date('2024-01-02T12:00:00Z'));
+      const confirmedLink = createMockLink(123, 'confirmed', 'cli-user', new Date('2024-01-02T12:00:00Z'));
 
       mockLinkQueries.findById.mockResolvedValue(ok(confirmedLink));
       mockLinkQueries.updateStatus.mockResolvedValue(ok(true));
@@ -216,7 +216,7 @@ describe('LinksRejectHandler', () => {
 
       expect(result.isOk()).toBe(true);
       const rejectResult = result._unsafeUnwrap();
-      expect(rejectResult.linkId).toBe('link-123');
+      expect(rejectResult.linkId).toBe(123);
       expect(rejectResult.newStatus).toBe('rejected');
       expect(rejectResult.reviewedBy).toBe('cli-user');
 
@@ -225,7 +225,7 @@ describe('LinksRejectHandler', () => {
 
     it('should return error if link not found', async () => {
       const params: LinksRejectParams = {
-        linkId: 'non-existent-link',
+        linkId: 999,
       };
 
       mockLinkQueries.findById.mockResolvedValue(ok(undefined));
@@ -240,7 +240,7 @@ describe('LinksRejectHandler', () => {
 
     it('should return error if findById fails', async () => {
       const params: LinksRejectParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
       mockLinkQueries.findById.mockResolvedValue(err(new Error('Database error')));
@@ -255,10 +255,10 @@ describe('LinksRejectHandler', () => {
 
     it('should return error if updateStatus fails', async () => {
       const params: LinksRejectParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const suggestedLink = createMockLink('link-123', 'suggested');
+      const suggestedLink = createMockLink(123, 'suggested');
 
       mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkQueries.updateStatus.mockResolvedValue(err(new Error('Update failed')));
@@ -271,10 +271,10 @@ describe('LinksRejectHandler', () => {
 
     it('should return error if updateStatus returns false', async () => {
       const params: LinksRejectParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const suggestedLink = createMockLink('link-123', 'suggested');
+      const suggestedLink = createMockLink(123, 'suggested');
 
       mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkQueries.updateStatus.mockResolvedValue(ok(false));
@@ -287,7 +287,7 @@ describe('LinksRejectHandler', () => {
 
     it('should handle exceptions gracefully', async () => {
       const params: LinksRejectParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
       mockLinkQueries.findById.mockRejectedValue(new Error('Unexpected error'));

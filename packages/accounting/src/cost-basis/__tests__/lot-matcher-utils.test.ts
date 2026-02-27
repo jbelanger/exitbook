@@ -122,7 +122,7 @@ function createPriceAtTxTime(amount: string, currency = 'USD'): PriceAtTxTime {
 }
 
 function createTransactionLink(
-  id: string,
+  id: number,
   sourceName: number,
   targetId: number,
   assetSymbol: string,
@@ -169,7 +169,7 @@ describe('lot-matcher-utils', () => {
     it('should enforce source-before-target regardless of timestamp', () => {
       const tx1 = createMockTransaction(1, '2024-01-01T12:00:00Z', {}); // Later timestamp
       const tx2 = createMockTransaction(2, '2024-01-01T10:00:00Z', {}); // Earlier timestamp
-      const link = createTransactionLink('link-1', 1, 2, 'BTC', '1', '1'); // 1 → 2
+      const link = createTransactionLink(1, 1, 2, 'BTC', '1', '1'); // 1 → 2
 
       const result = sortTransactionsByDependency([tx2, tx1], [link]);
 
@@ -191,7 +191,7 @@ describe('lot-matcher-utils', () => {
     it('should ignore links not in provided tx set', () => {
       const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
       const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
-      const linkToExternal = createTransactionLink('link-1', 1, 999, 'BTC', '1', '1'); // 1 → 999 (not in set)
+      const linkToExternal = createTransactionLink(1, 1, 999, 'BTC', '1', '1'); // 1 → 999 (not in set)
 
       const result = sortTransactionsByDependency([tx2, tx1], [linkToExternal]);
 
@@ -202,7 +202,7 @@ describe('lot-matcher-utils', () => {
     it('should ignore self-referential links', () => {
       const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
       const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
-      const selfLink = createTransactionLink('link-self', 1, 1, 'BTC', '1', '1');
+      const selfLink = createTransactionLink(99, 1, 1, 'BTC', '1', '1');
 
       const result = sortTransactionsByDependency([tx2, tx1], [selfLink]);
 
@@ -213,8 +213,8 @@ describe('lot-matcher-utils', () => {
     it('should deduplicate repeated links between same transactions', () => {
       const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
       const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
-      const link1 = createTransactionLink('link-1', 1, 2, 'BTC', '1', '1');
-      const link2 = createTransactionLink('link-2', 1, 2, 'BTC', '1', '1');
+      const link1 = createTransactionLink(1, 1, 2, 'BTC', '1', '1');
+      const link2 = createTransactionLink(2, 1, 2, 'BTC', '1', '1');
 
       const result = sortTransactionsByDependency([tx2, tx1], [link1, link2]);
 
@@ -241,8 +241,8 @@ describe('lot-matcher-utils', () => {
     it('should return error with unresolved tx ids on cycle', () => {
       const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
       const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
-      const link1 = createTransactionLink('link-1', 1, 2, 'BTC', '1', '1'); // 1 → 2
-      const link2 = createTransactionLink('link-2', 2, 1, 'BTC', '1', '1'); // 2 → 1 (creates cycle)
+      const link1 = createTransactionLink(1, 1, 2, 'BTC', '1', '1'); // 1 → 2
+      const link2 = createTransactionLink(2, 2, 1, 'BTC', '1', '1'); // 2 → 1 (creates cycle)
 
       const result = sortTransactionsByDependency([tx1, tx2], [link1, link2]);
 
@@ -258,8 +258,8 @@ describe('lot-matcher-utils', () => {
       const tx3 = createMockTransaction(3, '2024-01-01T09:00:00Z', {}); // Earlier, but depends on 2
       const tx4 = createMockTransaction(4, '2024-01-01T08:00:00Z', {}); // Earliest, no deps
 
-      const link1 = createTransactionLink('link-1', 1, 2, 'BTC', '1', '1'); // 1 → 2
-      const link2 = createTransactionLink('link-2', 2, 3, 'BTC', '1', '1'); // 2 → 3
+      const link1 = createTransactionLink(1, 1, 2, 'BTC', '1', '1'); // 1 → 2
+      const link2 = createTransactionLink(2, 2, 3, 'BTC', '1', '1'); // 2 → 3
 
       const result = sortTransactionsByDependency([tx3, tx4, tx1, tx2], [link1, link2]);
 
@@ -280,8 +280,8 @@ describe('lot-matcher-utils', () => {
       const tx3 = createMockTransaction(3, '2024-01-01T14:00:00Z', {}); // exchange send
       const tx4 = createMockTransaction(4, '2024-01-01T14:30:00Z', {}); // blockchain receive
 
-      const link1 = createTransactionLink('link-1', 1, 2, 'BTC', '1', '1'); // tx1 → tx2
-      const link2 = createTransactionLink('link-2', 3, 4, 'BTC', '1', '1'); // tx3 → tx4
+      const link1 = createTransactionLink(1, 1, 2, 'BTC', '1', '1'); // tx1 → tx2
+      const link2 = createTransactionLink(2, 3, 4, 'BTC', '1', '1'); // tx3 → tx4
 
       const result = sortTransactionsByDependency([tx1, tx2, tx3, tx4], [link1, link2]);
 
@@ -1061,7 +1061,7 @@ describe('lot-matcher-utils', () => {
           id: '1',
           calculationId: 'calc-1',
           sourceLotId: 'lot-1',
-          linkId: 'link-1',
+          linkId: 1,
           quantityTransferred: parseDecimal('0.5'),
           costBasisPerUnit: parseDecimal('50000'),
           sourceTransactionId: 1,
@@ -1073,7 +1073,7 @@ describe('lot-matcher-utils', () => {
           id: '2',
           calculationId: 'calc-1',
           sourceLotId: 'lot-2',
-          linkId: 'link-1',
+          linkId: 1,
           quantityTransferred: parseDecimal('0.3'),
           costBasisPerUnit: parseDecimal('51000'),
           sourceTransactionId: 1,
@@ -1097,7 +1097,7 @@ describe('lot-matcher-utils', () => {
           id: '1',
           calculationId: 'calc-1',
           sourceLotId: 'lot-1',
-          linkId: 'link-1',
+          linkId: 1,
           quantityTransferred: parseDecimal('0.5'),
           costBasisPerUnit: parseDecimal('50000'),
           sourceTransactionId: 1,

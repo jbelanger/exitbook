@@ -55,7 +55,7 @@ function createLink(
   status: 'suggested' | 'confirmed' | 'rejected' = 'confirmed'
 ): TransactionLink {
   return {
-    id: `link-${sourceName}-${targetId}`,
+    id: targetId,
     sourceTransactionId: sourceName,
     targetTransactionId: targetId,
     assetSymbol: 'BTC' as Currency,

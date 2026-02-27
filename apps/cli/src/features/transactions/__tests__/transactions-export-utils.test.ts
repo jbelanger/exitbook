@@ -492,7 +492,7 @@ describe('export-utils', () => {
       };
 
       const link: TransactionLink = {
-        id: 'link-1',
+        id: 1,
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC' as Currency,

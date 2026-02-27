@@ -38,7 +38,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
   });
 
   const createLink = (
-    id: string,
+    id: number,
     sourceTransactionId: number,
     targetTransactionId: number,
     assetSymbol: string,
@@ -176,7 +176,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
       // sourceAmount matches outflow's netAmount (what production link creation stores)
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -262,7 +262,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
       // sourceAmount matches outflow's netAmount (what production link creation stores)
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -363,7 +363,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
       // sourceAmount matches outflow's netAmount (what production link creation stores)
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -454,7 +454,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
       // sourceAmount matches outflow's netAmount (what production link creation stores)
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -565,8 +565,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseTx, withdrawal1Tx, deposit1Tx, withdrawal2Tx, deposit2Tx];
 
       // sourceAmount matches outflow's netAmount (what production link creation stores)
-      const link1 = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
-      const link2 = createLink('link2', 4, 5, 'BTC', '0.9992', '0.9992');
+      const link1 = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
+      const link2 = createLink(2, 4, 5, 'BTC', '0.9992', '0.9992');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link1, link2]);
@@ -675,7 +675,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseBTCTx, purchaseETHTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 3, 4, 'BTC', '1.0', '1.0');
+      const link = createLink(1, 3, 4, 'BTC', '1.0', '1.0');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -781,8 +781,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseTx, batchedWithdrawalTx, deposit1Tx, deposit2Tx];
 
       // sourceAmount matches outflow's netAmount (what production link creation stores)
-      const link1 = createLink('link1', 2, 3, 'BTC', '0.99975', '0.99975');
-      const link2 = createLink('link2', 2, 4, 'BTC', '0.99975', '0.99975');
+      const link1 = createLink(1, 2, 3, 'BTC', '0.99975', '0.99975');
+      const link2 = createLink(2, 2, 4, 'BTC', '0.99975', '0.99975');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link1, link2]);
@@ -875,7 +875,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
       // sourceAmount matches outflow's netAmount (what production link creation stores)
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -958,7 +958,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
       // sourceAmount matches outflow's netAmount (what production link creation stores)
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -1039,7 +1039,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
       // sourceAmount matches outflow's netAmount (what production link creation stores)
-      const link = createLink('link1', 2, 3, 'BTC', '0.9875', '0.9875');
+      const link = createLink(1, 2, 3, 'BTC', '0.9875', '0.9875');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -1116,7 +1116,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
       // sourceAmount matches outflow's netAmount (what production link creation stores)
-      const link = createLink('link1', 2, 3, 'BTC', '0.94', '0.94');
+      const link = createLink(1, 2, 3, 'BTC', '0.94', '0.94');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -1191,7 +1191,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
       // sourceAmount matches outflow's netAmount (what production link creation stores)
-      const link = createLink('link1', 2, 3, 'BTC', '0.98', '0.98');
+      const link = createLink(1, 2, 3, 'BTC', '0.98', '0.98');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -1265,7 +1265,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
       // sourceAmount matches outflow's netAmount (what production link creation stores)
-      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -1352,7 +1352,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       // Link with different sourceAssetId / targetAssetId
       const link = createLink(
-        'link1',
+        1,
         2,
         3,
         'BTC',
@@ -1467,7 +1467,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseLotA, purchaseLotB, withdrawalTx, depositTx];
 
-      const link = createLink('link-acb', 3, 4, 'BTC', '1', '1');
+      const link = createLink(101, 3, 4, 'BTC', '1', '1');
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
       const matcher = new LotMatcher(txRepo, linkRepo);
@@ -1558,7 +1558,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseLotA, purchaseLotB, withdrawalTx, depositTx];
 
-      const link = createLink('link-fifo', 3, 4, 'BTC', '1.5', '1.5');
+      const link = createLink(102, 3, 4, 'BTC', '1.5', '1.5');
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
       const matcher = new LotMatcher(txRepo, linkRepo);

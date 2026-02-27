@@ -16,7 +16,7 @@ afterEach(() => {
 describe('LinkingOrchestrator', () => {
   it('applies unlink overrides to internal links so rejected links do not reappear', async () => {
     const internalLink: TransactionLink = {
-      id: 'internal-link-1',
+      id: 1,
       sourceTransactionId: 1,
       targetTransactionId: 2,
       assetSymbol: 'ETH' as Currency,
@@ -125,7 +125,7 @@ describe('LinkingOrchestrator', () => {
 
   it('emits events during execution when eventBus is provided', async () => {
     const confirmedLink: TransactionLink = {
-      id: 'link-1',
+      id: 1,
       sourceTransactionId: 1,
       targetTransactionId: 2,
       assetSymbol: 'BTC' as Currency,

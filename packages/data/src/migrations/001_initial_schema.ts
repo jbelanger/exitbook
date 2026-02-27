@@ -250,7 +250,7 @@ export async function up(db: KyselyDB): Promise<void> {
   // Create transaction_links table
   await db.schema
     .createTable('transaction_links')
-    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('source_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
     .addColumn('target_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
     .addColumn('asset', 'text', (col) => col.notNull())

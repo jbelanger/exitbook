@@ -44,7 +44,7 @@ export const TransactionLinkMetadataSchema = z.record(z.string(), z.unknown());
  * Transaction link schema
  */
 export const TransactionLinkSchema = z.object({
-  id: z.string(),
+  id: z.number(),
   sourceTransactionId: z.number(),
   targetTransactionId: z.number(),
   assetSymbol: CurrencySchema,
@@ -64,6 +64,11 @@ export const TransactionLinkSchema = z.object({
 });
 
 /**
+ * Schema for a link not yet persisted (no database-generated id).
+ */
+export const NewTransactionLinkSchema = TransactionLinkSchema.omit({ id: true });
+
+/**
  * Type exports inferred from schemas
  */
 export type LinkType = z.infer<typeof LinkTypeSchema>;
@@ -71,3 +76,4 @@ export type LinkStatus = z.infer<typeof LinkStatusSchema>;
 export type MatchCriteria = z.infer<typeof MatchCriteriaSchema>;
 export type TransactionLinkMetadata = z.infer<typeof TransactionLinkMetadataSchema>;
 export type TransactionLink = z.infer<typeof TransactionLinkSchema>;
+export type NewTransactionLink = z.infer<typeof NewTransactionLinkSchema>;

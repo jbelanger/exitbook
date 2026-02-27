@@ -46,7 +46,7 @@ export interface LinksViewLinksState {
   totalCount?: number | undefined;
 
   // Pending action (for optimistic updates)
-  pendingAction?: { action: 'confirm' | 'reject'; linkId: string } | undefined;
+  pendingAction?: { action: 'confirm' | 'reject'; linkId: number } | undefined;
 
   // Error display
   error?: string | undefined;

@@ -42,7 +42,7 @@ export function processTransferSource(
       data: {
         asset?: string;
         feeAmount?: Decimal;
-        linkId?: string;
+        linkId?: number;
         linkTargetAmount?: Decimal;
         netTransferAmount?: Decimal;
         variancePct?: Decimal;
@@ -56,7 +56,7 @@ export function processTransferSource(
     data: {
       assetSymbol?: string;
       feeAmount?: Decimal;
-      linkId?: string;
+      linkId?: number;
       linkTargetAmount?: Decimal;
       netTransferAmount?: Decimal;
       variancePct?: Decimal;
@@ -280,8 +280,8 @@ export function processTransferTarget(
       data: {
         date?: string;
         feeAmount?: Decimal;
-        feeAsset?: string;
-        linkId?: string;
+        feeAssetSymbol?: string;
+        linkId?: number;
         received?: Decimal;
         sourceTxId?: number;
         targetTxId?: number;
@@ -299,7 +299,7 @@ export function processTransferTarget(
       date?: string;
       feeAmount?: Decimal;
       feeAssetSymbol?: string;
-      linkId?: string;
+      linkId?: number;
       received?: Decimal;
       sourceTxId?: number;
       targetTxId?: number;

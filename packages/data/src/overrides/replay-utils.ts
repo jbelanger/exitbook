@@ -22,7 +22,6 @@ interface TransactionWithFingerprint {
  * Uses domain model field names matching TransactionLink from accounting.
  */
 interface LinkWithStatus {
-  id: string;
   sourceTransactionId: number;
   targetTransactionId: number;
   assetSymbol: string;

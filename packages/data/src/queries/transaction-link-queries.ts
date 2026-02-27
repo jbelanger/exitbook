@@ -5,6 +5,7 @@ import {
   MatchCriteriaSchema,
   TransactionLinkMetadataSchema,
   type LinkStatus,
+  type NewTransactionLink,
   type TransactionLink,
   wrapError,
 } from '@exitbook/core';
@@ -72,7 +73,7 @@ export function createTransactionLinkQueries(db: KyselyDB) {
    * @param link - Link data to insert
    * @returns Result with the created link ID
    */
-  async function create(link: TransactionLink): Promise<Result<string, Error>> {
+  async function create(link: NewTransactionLink): Promise<Result<number, Error>> {
     try {
       // Validate matchCriteria before saving
       const matchCriteriaValidation = MatchCriteriaSchema.safeParse(link.matchCriteria);
@@ -101,10 +102,9 @@ export function createTransactionLinkQueries(db: KyselyDB) {
         return err(serializedMetadata.error);
       }
 
-      await db
+      const row = await db
         .insertInto('transaction_links')
         .values({
-          id: link.id,
           source_transaction_id: link.sourceTransactionId,
           target_transaction_id: link.targetTransactionId,
           asset: link.assetSymbol,
@@ -122,10 +122,11 @@ export function createTransactionLinkQueries(db: KyselyDB) {
           updated_at: link.updatedAt.toISOString(),
           metadata_json: serializedMetadata.value ?? null,
         })
-        .execute();
+        .returning('id')
+        .executeTakeFirstOrThrow();
 
-      logger.debug({ linkId: link.id }, 'Created transaction link');
-      return ok(link.id);
+      logger.debug({ linkId: row.id }, 'Created transaction link');
+      return ok(row.id);
     } catch (error) {
       logger.error({ error }, 'Failed to create transaction link');
       return wrapError(error, 'Failed to create transaction link');
@@ -138,48 +139,51 @@ export function createTransactionLinkQueries(db: KyselyDB) {
    * @param links - Array of links to create
    * @returns Result with count of created links
    */
-  async function createBulk(links: TransactionLink[]): Promise<Result<number, Error>> {
+  async function createBulk(links: NewTransactionLink[]): Promise<Result<number, Error>> {
     try {
       if (links.length === 0) {
         return ok(0);
       }
 
       // Validate all links before saving
-      for (const link of links) {
+      for (const [i, link] of links.entries()) {
         const matchCriteriaValidation = MatchCriteriaSchema.safeParse(link.matchCriteria);
         if (!matchCriteriaValidation.success) {
-          return err(new Error(`Invalid match criteria for link ${link.id}: ${matchCriteriaValidation.error.message}`));
+          return err(
+            new Error(`Invalid match criteria for link at index ${i}: ${matchCriteriaValidation.error.message}`)
+          );
         }
 
         if (link.metadata !== undefined) {
           const metadataValidation = TransactionLinkMetadataSchema.safeParse(link.metadata);
           if (!metadataValidation.success) {
-            return err(new Error(`Invalid metadata for link ${link.id}: ${metadataValidation.error.message}`));
+            return err(new Error(`Invalid metadata for link at index ${i}: ${metadataValidation.error.message}`));
           }
         }
       }
 
       const values = [];
-      for (const link of links) {
+      for (const [i, link] of links.entries()) {
         const serializedMatchCriteria = serializeToJson(link.matchCriteria);
         if (serializedMatchCriteria.isErr()) {
           return err(
-            new Error(`Failed to serialize matchCriteria for link ${link.id}: ${serializedMatchCriteria.error.message}`)
+            new Error(
+              `Failed to serialize matchCriteria for link at index ${i}: ${serializedMatchCriteria.error.message}`
+            )
           );
         }
         if (serializedMatchCriteria.value === undefined) {
-          return err(new Error(`matchCriteria serialization returned undefined for required field on link ${link.id}`));
+          return err(new Error(`matchCriteria serialization returned undefined for required field at index ${i}`));
         }
 
         const serializedMetadata = serializeToJson(link.metadata);
         if (serializedMetadata.isErr()) {
           return err(
-            new Error(`Failed to serialize metadata for link ${link.id}: ${serializedMetadata.error.message}`)
+            new Error(`Failed to serialize metadata for link at index ${i}: ${serializedMetadata.error.message}`)
           );
         }
 
         values.push({
-          id: link.id,
           source_transaction_id: link.sourceTransactionId,
           target_transaction_id: link.targetTransactionId,
           asset: link.assetSymbol,
@@ -215,7 +219,7 @@ export function createTransactionLinkQueries(db: KyselyDB) {
    * @param id - Link ID
    * @returns Result with link or null if not found
    */
-  async function findById(id: string): Promise<Result<TransactionLink | null, Error>> {
+  async function findById(id: number): Promise<Result<TransactionLink | null, Error>> {
     try {
       const row = await db.selectFrom('transaction_links').selectAll().where('id', '=', id).executeTakeFirst();
 
@@ -316,7 +320,7 @@ export function createTransactionLinkQueries(db: KyselyDB) {
    * @param reviewedBy - User who reviewed
    * @returns Result with success boolean
    */
-  async function updateStatus(id: string, status: LinkStatus, reviewedBy: string): Promise<Result<boolean, Error>> {
+  async function updateStatus(id: number, status: LinkStatus, reviewedBy: string): Promise<Result<boolean, Error>> {
     try {
       const now = new Date().toISOString();
 

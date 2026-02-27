@@ -1,4 +1,4 @@
-import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { type Currency, parseDecimal, type TransactionLink, type UniversalTransactionData } from '@exitbook/core';
 import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -1334,8 +1334,8 @@ describe('LotMatcher - Fee Handling', () => {
       ];
 
       // Mock blockchain_internal link between tx2 and tx3
-      const link: import('../../linking/types.js').TransactionLink = {
-        id: 'link1',
+      const link: TransactionLink = {
+        id: 1,
         sourceTransactionId: 2,
         targetTransactionId: 3,
         assetSymbol: 'BTC' as Currency,
@@ -1358,7 +1358,7 @@ describe('LotMatcher - Fee Handling', () => {
       };
 
       const mockTransactionRepo = () => {
-        const queries: Partial<import('@exitbook/data').TransactionQueries> = {
+        const queries: Partial<TransactionQueries> = {
           findById: vi.fn().mockImplementation((id: number) => {
             const tx = transactions.find((t) => t.id === id);
             return tx
@@ -1366,7 +1366,7 @@ describe('LotMatcher - Fee Handling', () => {
               : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
           }),
         };
-        return queries as import('@exitbook/data').TransactionQueries;
+        return queries as TransactionQueries;
       };
 
       const mockLinkRepo = () => {

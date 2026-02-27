@@ -127,7 +127,7 @@ describe('schemas', () => {
   describe('TransactionLinkSchema', () => {
     it('should validate complete transaction link', () => {
       const link = {
-        id: 'link-123',
+        id: 123,
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
@@ -153,7 +153,7 @@ describe('schemas', () => {
       };
 
       const result = TransactionLinkSchema.parse(link);
-      expect(result.id).toBe('link-123');
+      expect(result.id).toBe(123);
       expect(result.sourceTransactionId).toBe(1);
       expect(result.targetTransactionId).toBe(2);
       expect(result.assetSymbol).toBe('BTC');
@@ -173,7 +173,7 @@ describe('schemas', () => {
 
     it('should validate link without optional fields', () => {
       const link = {
-        id: 'link-456',
+        id: 456,
         sourceTransactionId: 3,
         targetTransactionId: 4,
         assetSymbol: 'ETH',
@@ -209,7 +209,7 @@ describe('schemas', () => {
     it('should reject invalid link', () => {
       expect(() =>
         TransactionLinkSchema.parse({
-          id: 'link-123',
+          id: 123,
           sourceTransactionId: 'not-a-number',
           targetTransactionId: 2,
           linkType: 'exchange_to_blockchain',
@@ -223,7 +223,7 @@ describe('schemas', () => {
 
       expect(() =>
         TransactionLinkSchema.parse({
-          id: 'link-123',
+          id: 123,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -461,7 +461,7 @@ describe('schemas', () => {
   });
 
   describe('LinkingResultSchema', () => {
-    const createMockLink = (id: string, sourceName: number, targetId: number) => ({
+    const createMockLink = (id: number, sourceName: number, targetId: number) => ({
       id,
       sourceTransactionId: sourceName,
       targetTransactionId: targetId,
@@ -485,8 +485,8 @@ describe('schemas', () => {
 
     it('should validate complete linking result', () => {
       const result = {
-        suggestedLinks: [createMockLink('link-s1', 1, 2), createMockLink('link-s2', 3, 4)],
-        confirmedLinks: [createMockLink('link-1', 5, 6)],
+        suggestedLinks: [createMockLink(101, 1, 2), createMockLink(102, 3, 4)],
+        confirmedLinks: [createMockLink(1, 5, 6)],
         totalSourceTransactions: 10,
         totalTargetTransactions: 15,
         matchedTransactionCount: 3,

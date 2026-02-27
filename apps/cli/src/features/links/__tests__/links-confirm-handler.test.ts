@@ -54,7 +54,7 @@ describe('LinksConfirmHandler', () => {
   });
 
   const createMockLink = (
-    id: string,
+    id: number,
     status: 'suggested' | 'confirmed' | 'rejected',
     reviewedBy?: string,
     reviewedAt?: Date
@@ -99,10 +99,10 @@ describe('LinksConfirmHandler', () => {
   describe('execute', () => {
     it('should successfully confirm a suggested link', async () => {
       const params: LinksConfirmParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const suggestedLink = createMockLink('link-123', 'suggested');
+      const suggestedLink = createMockLink(123, 'suggested');
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
@@ -116,21 +116,21 @@ describe('LinksConfirmHandler', () => {
 
       expect(result.isOk()).toBe(true);
       const confirmResult = result._unsafeUnwrap();
-      expect(confirmResult.linkId).toBe('link-123');
+      expect(confirmResult.linkId).toBe(123);
       expect(confirmResult.newStatus).toBe('confirmed');
       expect(confirmResult.reviewedBy).toBe('cli-user');
       expect(confirmResult.reviewedAt).toBeInstanceOf(Date);
 
-      expect(mockLinkRepository.findById).toHaveBeenCalledWith('link-123');
-      expect(mockLinkRepository.updateStatus).toHaveBeenCalledWith('link-123', 'confirmed', 'cli-user');
+      expect(mockLinkRepository.findById).toHaveBeenCalledWith(123);
+      expect(mockLinkRepository.updateStatus).toHaveBeenCalledWith(123, 'confirmed', 'cli-user');
     });
 
     it('should write link_override event after successful confirm', async () => {
       const params: LinksConfirmParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const suggestedLink = createMockLink('link-123', 'suggested');
+      const suggestedLink = createMockLink(123, 'suggested');
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
@@ -157,10 +157,10 @@ describe('LinksConfirmHandler', () => {
 
     it('should not fail if override store write fails', async () => {
       const params: LinksConfirmParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const suggestedLink = createMockLink('link-123', 'suggested');
+      const suggestedLink = createMockLink(123, 'suggested');
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
@@ -179,10 +179,10 @@ describe('LinksConfirmHandler', () => {
 
     it('should handle already confirmed link (idempotent)', async () => {
       const params: LinksConfirmParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const confirmedLink = createMockLink('link-123', 'confirmed', 'cli-user', new Date('2024-01-02T12:00:00Z'));
+      const confirmedLink = createMockLink(123, 'confirmed', 'cli-user', new Date('2024-01-02T12:00:00Z'));
 
       mockLinkRepository.findById.mockResolvedValue(ok(confirmedLink));
 
@@ -190,7 +190,7 @@ describe('LinksConfirmHandler', () => {
 
       expect(result.isOk()).toBe(true);
       const confirmResult = result._unsafeUnwrap();
-      expect(confirmResult.linkId).toBe('link-123');
+      expect(confirmResult.linkId).toBe(123);
       expect(confirmResult.newStatus).toBe('confirmed');
       expect(confirmResult.reviewedBy).toBe('cli-user');
 
@@ -202,10 +202,10 @@ describe('LinksConfirmHandler', () => {
 
     it('should reject confirming a rejected link', async () => {
       const params: LinksConfirmParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const rejectedLink = createMockLink('link-123', 'rejected', 'cli-user', new Date('2024-01-02T12:00:00Z'));
+      const rejectedLink = createMockLink(123, 'rejected', 'cli-user', new Date('2024-01-02T12:00:00Z'));
 
       mockLinkRepository.findById.mockResolvedValue(ok(rejectedLink));
 
@@ -219,7 +219,7 @@ describe('LinksConfirmHandler', () => {
 
     it('should return error if link not found', async () => {
       const params: LinksConfirmParams = {
-        linkId: 'non-existent-link',
+        linkId: 999,
       };
 
       mockLinkRepository.findById.mockResolvedValue(ok(undefined));
@@ -234,7 +234,7 @@ describe('LinksConfirmHandler', () => {
 
     it('should return error if findById fails', async () => {
       const params: LinksConfirmParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
       mockLinkRepository.findById.mockResolvedValue(err(new Error('Database error')));
@@ -249,10 +249,10 @@ describe('LinksConfirmHandler', () => {
 
     it('should return error if updateStatus fails', async () => {
       const params: LinksConfirmParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const suggestedLink = createMockLink('link-123', 'suggested');
+      const suggestedLink = createMockLink(123, 'suggested');
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkRepository.updateStatus.mockResolvedValue(err(new Error('Update failed')));
@@ -265,10 +265,10 @@ describe('LinksConfirmHandler', () => {
 
     it('should return error if updateStatus returns false', async () => {
       const params: LinksConfirmParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
-      const suggestedLink = createMockLink('link-123', 'suggested');
+      const suggestedLink = createMockLink(123, 'suggested');
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkRepository.updateStatus.mockResolvedValue(ok(false));
@@ -281,7 +281,7 @@ describe('LinksConfirmHandler', () => {
 
     it('should handle exceptions gracefully', async () => {
       const params: LinksConfirmParams = {
-        linkId: 'link-123',
+        linkId: 123,
       };
 
       mockLinkRepository.findById.mockRejectedValue(new Error('Unexpected error'));

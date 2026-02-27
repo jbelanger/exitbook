@@ -5,6 +5,7 @@ import {
   LinkStatusSchema,
   LinkTypeSchema,
   MatchCriteriaSchema,
+  NewTransactionLinkSchema,
   TransactionLinkMetadataSchema,
   TransactionLinkSchema,
 } from '@exitbook/core';
@@ -18,7 +19,14 @@ const UnitIntervalDecimalSchema = DecimalSchema.refine(
 /**
  * Shared transaction link schemas re-exported for accounting APIs
  */
-export { LinkTypeSchema, LinkStatusSchema, MatchCriteriaSchema, TransactionLinkMetadataSchema, TransactionLinkSchema };
+export {
+  LinkTypeSchema,
+  LinkStatusSchema,
+  MatchCriteriaSchema,
+  NewTransactionLinkSchema,
+  TransactionLinkMetadataSchema,
+  TransactionLinkSchema,
+};
 
 /**
  * Transaction candidate schema
@@ -63,8 +71,8 @@ export const MatchingConfigSchema = z.object({
  * Linking result schema
  */
 export const LinkingResultSchema = z.object({
-  suggestedLinks: z.array(TransactionLinkSchema),
-  confirmedLinks: z.array(TransactionLinkSchema),
+  suggestedLinks: z.array(NewTransactionLinkSchema),
+  confirmedLinks: z.array(NewTransactionLinkSchema),
   totalSourceTransactions: z.number(),
   totalTargetTransactions: z.number(),
   matchedTransactionCount: z.number(),

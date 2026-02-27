@@ -52,7 +52,7 @@ export const GAPS_CHROME_LINES = calculateChromeLines({
  */
 export const LinksViewApp: FC<{
   initialState: LinksViewState;
-  onAction?: (linkId: string, action: 'confirm' | 'reject') => Promise<void>;
+  onAction?: (linkId: number, action: 'confirm' | 'reject') => Promise<void>;
   onQuit: () => void;
 }> = ({ initialState, onAction, onQuit }) => {
   // Set up state management
@@ -265,7 +265,6 @@ const LinkRow: FC<{
 }> = ({ item, isSelected, cols }) => {
   const { link } = item;
 
-  const shortId = link.id.substring(0, 8);
   const { asset, status, sourceTarget } = cols.format(item);
   const sourceAmount = formatAmount(link.sourceAmount.toFixed(), 15);
   const targetAmount = formatAmount(link.targetAmount.toFixed(), 15);
@@ -278,7 +277,7 @@ const LinkRow: FC<{
   if (isSelected) {
     return (
       <Text bold>
-        {cursor} {icon} {shortId} {asset} {sourceAmount} <Text dimColor>→</Text> {targetAmount} {sourceTarget}{' '}
+        {cursor} {icon} {link.id} {asset} {sourceAmount} <Text dimColor>→</Text> {targetAmount} {sourceTarget}{' '}
         {confidence} {status}
       </Text>
     );
@@ -287,14 +286,14 @@ const LinkRow: FC<{
   if (link.status === 'rejected') {
     return (
       <Text dimColor>
-        {cursor} {icon} {shortId} {asset} {sourceAmount} → {targetAmount} {sourceTarget} {confidence} {status}
+        {cursor} {icon} {link.id} {asset} {sourceAmount} → {targetAmount} {sourceTarget} {confidence} {status}
       </Text>
     );
   }
 
   return (
     <Text>
-      {cursor} <Text color={iconColor}>{icon}</Text> {shortId} {asset} <Text color="green">{sourceAmount}</Text>{' '}
+      {cursor} <Text color={iconColor}>{icon}</Text> {link.id} {asset} <Text color="green">{sourceAmount}</Text>{' '}
       <Text dimColor>→</Text> <Text color="green">{targetAmount}</Text> <Text color="cyan">{sourceTarget}</Text>{' '}
       {confidence} {status}
     </Text>
@@ -314,7 +313,6 @@ const LinkDetailPanel: FC<{ state: LinksViewLinksState }> = ({ state }) => {
 
   const { link, sourceTransaction, targetTransaction } = selected;
 
-  const shortId = link.id.substring(0, 8);
   const linkType = link.linkType.replace(/_/g, ' ');
   const confidence = formatConfidenceScore(link.confidenceScore.toNumber());
   const confidenceColor = getConfidenceColor(link.confidenceScore.toNumber());
@@ -326,7 +324,7 @@ const LinkDetailPanel: FC<{ state: LinksViewLinksState }> = ({ state }) => {
       paddingTop={0}
     >
       <Text>
-        <Text bold>▸ {shortId}</Text> {link.assetSymbol} <Text dimColor>{linkType}</Text>{' '}
+        <Text bold>▸ {link.id}</Text> {link.assetSymbol} <Text dimColor>{linkType}</Text>{' '}
         <Text color={confidenceColor}>{confidence}</Text> <Text color={statusColor}>{link.status}</Text>
       </Text>
       <Text> </Text>

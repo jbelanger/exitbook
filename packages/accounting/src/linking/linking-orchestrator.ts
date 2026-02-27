@@ -10,7 +10,7 @@ import type { LinkingEvent } from './linking-events.js';
 import { buildLinkFromOrphanedOverride, categorizeFinalLinks } from './linking-orchestrator-utils.js';
 import { DEFAULT_MATCHING_CONFIG } from './matching-utils.js';
 import { TransactionLinkingEngine } from './transaction-linking-engine.js';
-import type { LinkingResult, TransactionLink } from './types.js';
+import type { LinkingResult, NewTransactionLink } from './types.js';
 
 /**
  * Links run handler parameters.
@@ -190,7 +190,7 @@ export class LinkingOrchestrator {
   private runMatchingAlgorithm(
     transactions: UniversalTransactionData[],
     params: LinkingRunParams
-  ): Result<{ allLinks: TransactionLink[]; linkingResult: LinkingResult }, Error> {
+  ): Result<{ allLinks: NewTransactionLink[]; linkingResult: LinkingResult }, Error> {
     const service = new TransactionLinkingEngine(logger, {
       maxTimingWindowHours: 48,
       minAmountSimilarity: DEFAULT_MATCHING_CONFIG.minAmountSimilarity,
@@ -224,10 +224,10 @@ export class LinkingOrchestrator {
    * Returns original links unchanged if no override store is configured.
    */
   private async replayOverrides(
-    links: TransactionLink[],
+    links: NewTransactionLink[],
     transactions: UniversalTransactionData[],
     txById: Map<number, UniversalTransactionData>
-  ): Promise<Result<TransactionLink[], Error>> {
+  ): Promise<Result<NewTransactionLink[], Error>> {
     if (!this.overrideStore) return ok(links);
 
     const overridesResult = await this.overrideStore.readAll();
@@ -242,7 +242,7 @@ export class LinkingOrchestrator {
     if (applyResult.isErr()) return err(applyResult.error);
 
     const { links: adjustedLinks, orphaned, unresolved } = applyResult.value;
-    const finalLinks = adjustedLinks as TransactionLink[];
+    const finalLinks = adjustedLinks as NewTransactionLink[];
 
     for (const entry of orphaned) {
       const linkResult = buildLinkFromOrphanedOverride(entry, txById);
@@ -280,7 +280,7 @@ export class LinkingOrchestrator {
     return ok(finalLinks);
   }
 
-  private async saveLinks(links: TransactionLink[]): Promise<Result<number | undefined, Error>> {
+  private async saveLinks(links: NewTransactionLink[]): Promise<Result<number | undefined, Error>> {
     const linksToSave = links.filter((l) => l.status !== 'rejected');
     if (linksToSave.length === 0) return ok(undefined);
 

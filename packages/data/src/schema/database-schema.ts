@@ -192,7 +192,7 @@ export interface TransactionMovementsTable {
  * Used to propagate cost basis from exchanges to blockchain wallets
  */
 export interface TransactionLinksTable {
-  id: string; // UUID
+  id: Generated<number>;
   source_transaction_id: number; // FK to transactions.id (withdrawal/send)
   target_transaction_id: number; // FK to transactions.id (deposit/receive)
   asset: string; // Transferred asset symbol (e.g., 'BTC', 'ETH') — kept for display/debugging

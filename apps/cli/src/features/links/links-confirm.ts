@@ -23,7 +23,7 @@ export type LinksConfirmCommandOptions = z.infer<typeof LinksConfirmCommandOptio
  * Result data for links confirm command (JSON mode).
  */
 interface LinksConfirmCommandResult {
-  linkId: string;
+  linkId: number;
   newStatus: 'confirmed';
   reviewedBy: string;
   reviewedAt: string;
@@ -38,18 +38,19 @@ export function registerLinksConfirmCommand(linksCommand: Command): void {
     .description('Confirm a suggested transaction link')
     .argument('<link-id>', 'ID of the link to confirm')
     .option('--json', 'Output results in JSON format')
-    .action(async (linkId: string, rawOptions: unknown) => {
-      await executeLinksConfirmCommand(linkId, rawOptions);
+    .action(async (linkIdArg: string, rawOptions: unknown) => {
+      await executeLinksConfirmCommand(linkIdArg, rawOptions);
     });
 }
 
 /**
  * Execute the links confirm command.
  */
-async function executeLinksConfirmCommand(linkId: string, rawOptions: unknown): Promise<void> {
-  // Validate linkId argument
-  if (!linkId || linkId.trim() === '') {
-    displayCliError('links-confirm', new Error('Link ID is required'), ExitCodes.INVALID_ARGS, 'text');
+async function executeLinksConfirmCommand(linkIdArg: string, rawOptions: unknown): Promise<void> {
+  // Validate and parse linkId argument
+  const linkId = parseInt(linkIdArg, 10);
+  if (!linkIdArg || isNaN(linkId)) {
+    displayCliError('links-confirm', new Error('Link ID must be a valid integer'), ExitCodes.INVALID_ARGS, 'text');
   }
 
   // Validate options at CLI boundary
@@ -113,7 +114,7 @@ function handleLinksConfirmSuccess(
   result: {
     asset?: string | undefined;
     confidence?: string | undefined;
-    linkId: string;
+    linkId: number;
     newStatus: 'confirmed';
     reviewedAt: Date;
     reviewedBy: string;

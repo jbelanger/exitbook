@@ -133,7 +133,7 @@ describe('analyzeLinkGaps', () => {
     const transactions: UniversalTransactionData[] = [createBlockchainDeposit()];
     const links: TransactionLink[] = [
       {
-        id: 'link-1',
+        id: 1,
         sourceTransactionId: 5,
         targetTransactionId: 11,
         assetSymbol: 'BTC' as Currency,
@@ -215,7 +215,7 @@ describe('analyzeLinkGaps', () => {
     const transactions: UniversalTransactionData[] = [withdrawal];
     const links: TransactionLink[] = [
       {
-        id: 'link-out-1',
+        id: 1,
         sourceTransactionId: withdrawal.id ?? 0,
         targetTransactionId: 42,
         assetSymbol: 'BTC' as Currency,
@@ -277,7 +277,7 @@ describe('analyzeLinkGaps', () => {
     const transactions: UniversalTransactionData[] = [withdrawal];
     const links: TransactionLink[] = [
       {
-        id: 'link-ex-1',
+        id: 1,
         sourceTransactionId: withdrawal.id ?? 0,
         targetTransactionId: 77,
         assetSymbol: 'ETH' as Currency,

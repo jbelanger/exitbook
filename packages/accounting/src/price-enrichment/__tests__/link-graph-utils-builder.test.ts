@@ -62,7 +62,7 @@ function createTransaction(params: {
 function createTransactionLink(params: {
   asset?: string;
   confidenceScore?: string;
-  id: string;
+  id: number;
   linkType: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange';
   sourceAmount?: string;
   sourceTransactionId: number;
@@ -252,7 +252,7 @@ describe('LinkGraphBuilder', () => {
 
       const links: TransactionLink[] = [
         createTransactionLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1, // Kraken withdrawal
           targetTransactionId: 2, // Bitcoin wallet A
           linkType: 'exchange_to_blockchain',
@@ -318,7 +318,7 @@ describe('LinkGraphBuilder', () => {
 
       const links: TransactionLink[] = [
         createTransactionLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 2, // Kraken withdrawal
           targetTransactionId: 3, // Bitcoin deposit
           linkType: 'exchange_to_blockchain',
@@ -343,7 +343,7 @@ describe('LinkGraphBuilder', () => {
       expect(linkedGroup!.transactions.map((t) => t.id).sort()).toEqual([1, 2, 3]);
       expect(linkedGroup!.sources).toEqual(new Set(['kraken', 'bitcoin']));
       expect(linkedGroup!.linkChain).toHaveLength(1);
-      expect(linkedGroup!.linkChain[0]?.id).toBe('link-1');
+      expect(linkedGroup!.linkChain[0]?.id).toBe(1);
 
       // Find the isolated Bitcoin transaction
       const isolatedGroup = groups.find((g) => !g.sources.has('kraken'));
@@ -371,7 +371,7 @@ describe('LinkGraphBuilder', () => {
 
       const links: TransactionLink[] = [
         createTransactionLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           linkType: 'exchange_to_blockchain',
@@ -388,7 +388,7 @@ describe('LinkGraphBuilder', () => {
       expect(group.transactions).toHaveLength(2);
       expect(group.sources).toEqual(new Set(['kraken', 'bitcoin']));
       expect(group.linkChain).toHaveLength(1);
-      expect(group.linkChain[0]?.id).toBe('link-1');
+      expect(group.linkChain[0]?.id).toBe(1);
     });
 
     it('should ignore suggested links (only use confirmed)', () => {
@@ -409,7 +409,7 @@ describe('LinkGraphBuilder', () => {
 
       const links: TransactionLink[] = [
         createTransactionLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           linkType: 'exchange_to_blockchain',
@@ -446,7 +446,7 @@ describe('LinkGraphBuilder', () => {
 
       const links: TransactionLink[] = [
         createTransactionLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           linkType: 'exchange_to_blockchain',
@@ -500,7 +500,7 @@ describe('LinkGraphBuilder', () => {
       const links: TransactionLink[] = [
         // Kraken → Bitcoin
         createTransactionLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           linkType: 'exchange_to_blockchain',
@@ -508,7 +508,7 @@ describe('LinkGraphBuilder', () => {
         }),
         // Bitcoin → Bitcoin (internal transfer)
         createTransactionLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 2,
           targetTransactionId: 3,
           linkType: 'blockchain_to_blockchain',
@@ -516,7 +516,7 @@ describe('LinkGraphBuilder', () => {
         }),
         // Bitcoin → Ethereum (bridge)
         createTransactionLink({
-          id: 'link-3',
+          id: 3,
           sourceTransactionId: 3,
           targetTransactionId: 4,
           linkType: 'blockchain_to_blockchain',
@@ -559,14 +559,14 @@ describe('LinkGraphBuilder', () => {
 
       const links: TransactionLink[] = [
         createTransactionLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           linkType: 'exchange_to_blockchain',
           status: 'confirmed',
         }),
         createTransactionLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 2,
           targetTransactionId: 3,
           linkType: 'blockchain_to_blockchain',
@@ -574,7 +574,7 @@ describe('LinkGraphBuilder', () => {
         }),
         // Circular link back to 1 (shouldn't cause issues)
         createTransactionLink({
-          id: 'link-3',
+          id: 3,
           sourceTransactionId: 3,
           targetTransactionId: 1,
           linkType: 'blockchain_to_blockchain',
@@ -631,14 +631,14 @@ describe('LinkGraphBuilder', () => {
 
       const links: TransactionLink[] = [
         createTransactionLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           linkType: 'exchange_to_blockchain',
           status: 'confirmed',
         }),
         createTransactionLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 3,
           targetTransactionId: 4,
           linkType: 'exchange_to_blockchain',
@@ -684,7 +684,7 @@ describe('LinkGraphBuilder', () => {
       const links: TransactionLink[] = [
         // Valid link
         createTransactionLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           linkType: 'exchange_to_blockchain',
@@ -692,7 +692,7 @@ describe('LinkGraphBuilder', () => {
         }),
         // Link to non-existent transaction (ID 999)
         createTransactionLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 2,
           targetTransactionId: 999,
           linkType: 'blockchain_to_blockchain',
@@ -708,7 +708,7 @@ describe('LinkGraphBuilder', () => {
       const group = groups[0]!;
       expect(group.transactions).toHaveLength(2);
       expect(group.linkChain).toHaveLength(1); // Only the valid link
-      expect(group.linkChain[0]?.id).toBe('link-1');
+      expect(group.linkChain[0]?.id).toBe(1);
     });
 
     it('should handle mixed link types in same group', () => {
@@ -739,7 +739,7 @@ describe('LinkGraphBuilder', () => {
       const links: TransactionLink[] = [
         // Exchange → Blockchain
         createTransactionLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           linkType: 'exchange_to_blockchain',
@@ -747,7 +747,7 @@ describe('LinkGraphBuilder', () => {
         }),
         // Blockchain → Exchange (unusual but valid)
         createTransactionLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 2,
           targetTransactionId: 3,
           linkType: 'exchange_to_blockchain',

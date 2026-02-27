@@ -169,7 +169,7 @@ export class LotMatcher {
       // Per-asset mutable state for the global transaction pass
       const lotStateByAssetId = new Map<string, AssetProcessingState>();
       const sharedLotTransfers: LotTransfer[] = [];
-      const transfersByLinkId = new Map<string, LotTransfer[]>();
+      const transfersByLinkId = new Map<number, LotTransfer[]>();
 
       // Per-asset error collection: failed assets are excluded from further processing
       const failedAssetIds = new Set<string>();
@@ -574,12 +574,12 @@ export class LotMatcher {
           `Transfer target variance (${warning.data.variancePct.toFixed(2)}%) exceeds warning threshold. ` +
             `Possible fee discrepancy between source and target data.`
         );
-      } else if (warning.type === 'missing-price' && warning.data.feeAsset && warning.data.feeAmount) {
+      } else if (warning.type === 'missing-price' && warning.data.feeAssetSymbol && warning.data.feeAmount) {
         this.logger.warn(
           {
             txId: warning.data.txId,
             linkId: warning.data.linkId,
-            feeassetSymbol: warning.data.feeAsset,
+            feeAssetSymbol: warning.data.feeAssetSymbol,
             feeAmount: warning.data.feeAmount.toFixed(),
             date: warning.data.date,
           },

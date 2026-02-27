@@ -2,7 +2,6 @@ import { type UniversalTransactionData, parseDecimal, wrapError } from '@exitboo
 import type { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { ok, type Result } from 'neverthrow';
-import { v4 as uuidv4 } from 'uuid';
 
 import {
   aggregateMovementsByTransaction,
@@ -14,7 +13,7 @@ import {
   findPotentialMatches,
   separateSourcesAndTargets,
 } from './matching-utils.js';
-import type { LinkingResult, MatchingConfig, OutflowGrouping, PotentialMatch, TransactionLink } from './types.js';
+import type { LinkingResult, MatchingConfig, NewTransactionLink, OutflowGrouping, PotentialMatch } from './types.js';
 
 const UTXO_CHAIN_NAMES = new Set(['bitcoin', 'dogecoin', 'litecoin', 'bitcoin-cash', 'cardano']);
 
@@ -88,14 +87,14 @@ export class TransactionLinkingEngine {
       // Deduplicate matches
       const { suggested, confirmed } = deduplicateAndConfirm(allMatches, this.config);
 
-      // Convert to TransactionLink objects with validation (pure function with injected UUID/timestamp)
+      // Convert to NewTransactionLink objects with validation (id assigned on persistence)
       const now = new Date();
-      const confirmedLinks: TransactionLink[] = [];
+      const confirmedLinks: NewTransactionLink[] = [];
       const successfulConfirmedMatches: PotentialMatch[] = [];
       const validSuggestedMatches: PotentialMatch[] = [];
       let filteredConfirmedCount = 0;
       for (const match of confirmed) {
-        const linkResult = createTransactionLink(match, 'confirmed', uuidv4(), now);
+        const linkResult = createTransactionLink(match, 'confirmed', now);
         if (linkResult.isErr()) {
           this.logger.warn(
             `Failed to create confirmed link due to validation error - skipping | ` +
@@ -140,10 +139,10 @@ export class TransactionLinkingEngine {
       }
 
       // Convert suggested matches to TransactionLink objects with validation
-      const suggestedLinks: TransactionLink[] = [];
+      const suggestedLinks: NewTransactionLink[] = [];
       let filteredSuggestedCount = 0;
       for (const match of suggested) {
-        const linkResult = createTransactionLink(match, 'suggested', uuidv4(), now);
+        const linkResult = createTransactionLink(match, 'suggested', now);
         if (linkResult.isErr()) {
           this.logger.debug({ error: linkResult.error.message, match }, 'Filtered out invalid suggested match');
           filteredSuggestedCount++;
@@ -255,7 +254,7 @@ export class TransactionLinkingEngine {
    */
   private detectInternalBlockchainTransfers(
     transactions: UniversalTransactionData[]
-  ): Result<TransactionLink[], Error> {
+  ): Result<NewTransactionLink[], Error> {
     try {
       // Group by normalized blockchain_transaction_hash (strip log index suffix)
       const txHashGroups = new Map<string, UniversalTransactionData[]>();
@@ -285,7 +284,7 @@ export class TransactionLinkingEngine {
         txHashGroups.set(normalizedHash, group);
       }
 
-      const links: TransactionLink[] = [];
+      const links: NewTransactionLink[] = [];
       const now = new Date();
 
       // Create links for groups with multiple transactions from different accounts
@@ -329,7 +328,6 @@ export class TransactionLinkingEngine {
             }
 
             links.push({
-              id: uuidv4(),
               sourceTransactionId: tx1.id,
               targetTransactionId: tx2.id,
               assetSymbol: movement1.assetSymbol,
@@ -383,7 +381,7 @@ export class TransactionLinkingEngine {
    */
   private buildInternalOutflowAdjustments(
     transactions: UniversalTransactionData[],
-    internalLinks: TransactionLink[]
+    internalLinks: NewTransactionLink[]
   ): { adjustments: Map<number, Map<string, Decimal>>; outflowGroupings: OutflowGrouping[] } {
     const adjustments = new Map<number, Map<string, Decimal>>();
     const outflowGroupings: OutflowGrouping[] = [];

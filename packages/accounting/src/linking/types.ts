@@ -6,6 +6,7 @@ import type {
   LinkTypeSchema,
   MatchCriteriaSchema,
   MatchingConfigSchema,
+  NewTransactionLinkSchema,
   PotentialMatchSchema,
   TransactionCandidateSchema,
   TransactionLinkSchema,
@@ -45,6 +46,7 @@ export type MatchCriteria = z.infer<typeof MatchCriteriaSchema>;
  * where one is the source (withdrawal/send) and the other is the target (deposit/receive)
  */
 export type TransactionLink = z.infer<typeof TransactionLinkSchema>;
+export type NewTransactionLink = z.infer<typeof NewTransactionLinkSchema>;
 
 /**
  * A potential match found by the matching algorithm

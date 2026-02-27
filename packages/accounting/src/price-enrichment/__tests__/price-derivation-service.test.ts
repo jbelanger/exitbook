@@ -283,7 +283,7 @@ describe('PriceEnrichmentService', () => {
       await db
         .insertInto('transaction_links')
         .values({
-          id: 'link-1',
+          id: 1,
           source_transaction_id: 2,
           target_transaction_id: 3,
           asset: 'BTC',
@@ -405,7 +405,7 @@ describe('PriceEnrichmentService', () => {
       await db
         .insertInto('transaction_links')
         .values({
-          id: 'link-1',
+          id: 1,
           source_transaction_id: 1,
           target_transaction_id: 2,
           asset: 'BTC',

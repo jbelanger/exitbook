@@ -7,7 +7,7 @@ import type { FC } from 'react';
 
 interface LinkActionResultProps {
   action: 'confirmed' | 'rejected';
-  linkId: string;
+  linkId: number;
   asset: string;
   sourceAmount: string;
   targetAmount: string;
@@ -31,14 +31,13 @@ export const LinkActionResult: FC<LinkActionResultProps> = ({
   targetName,
   confidence,
 }) => {
-  const shortId = linkId.substring(0, 8);
   const icon = action === 'confirmed' ? '✓' : '✗';
   const iconColor = action === 'confirmed' ? 'green' : 'dim';
   const actionText = action === 'confirmed' ? 'Confirmed' : 'Rejected';
 
   return (
     <Text>
-      <Text color={iconColor}>{icon}</Text> <Text bold>{actionText}</Text> {shortId} <Text dimColor>·</Text> {asset}{' '}
+      <Text color={iconColor}>{icon}</Text> <Text bold>{actionText}</Text> {linkId} <Text dimColor>·</Text> {asset}{' '}
       <Text color="green">{sourceAmount}</Text> <Text dimColor>→</Text> <Text color="green">{targetAmount}</Text>{' '}
       <Text dimColor>·</Text> <Text color="cyan">{sourceName}</Text> <Text dimColor>→</Text>{' '}
       <Text color="cyan">{targetName}</Text> <Text dimColor>({confidence})</Text>
@@ -47,19 +46,17 @@ export const LinkActionResult: FC<LinkActionResultProps> = ({
 };
 
 interface LinkActionErrorProps {
-  linkId: string;
+  linkId: number;
   message: string;
 }
 
 /**
  * Renders an error message for link actions
  */
-export const LinkActionError: FC<LinkActionErrorProps> = ({ linkId, message }) => {
-  const shortId = linkId.substring(0, 8);
-
+export const LinkActionError: FC<LinkActionErrorProps> = ({ message }) => {
   return (
     <Text>
-      <Text color="yellow">⚠</Text> {message.replace(linkId, shortId)}
+      <Text color="yellow">⚠</Text> {message}
     </Text>
   );
 };

@@ -1361,15 +1361,13 @@ describe('matching-utils', () => {
         linkType: 'exchange_to_blockchain',
       };
 
-      const id = 'test-uuid';
       const now = new Date('2024-01-01T13:00:00Z');
 
-      const result = createTransactionLink(match, 'confirmed', id, now);
+      const result = createTransactionLink(match, 'confirmed', now);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const link = result.value;
-        expect(link.id).toBe(id);
         expect(link.sourceTransactionId).toBe(1);
         expect(link.targetTransactionId).toBe(2);
         expect(link.assetSymbol).toBe('BTC');
@@ -1416,7 +1414,7 @@ describe('matching-utils', () => {
         linkType: 'exchange_to_blockchain',
       };
 
-      const result = createTransactionLink(match, 'suggested', 'test-uuid', new Date());
+      const result = createTransactionLink(match, 'suggested', new Date());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -1459,7 +1457,7 @@ describe('matching-utils', () => {
         linkType: 'exchange_to_blockchain',
       };
 
-      const result = createTransactionLink(match, 'confirmed', 'test-uuid', new Date());
+      const result = createTransactionLink(match, 'confirmed', new Date());
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -1502,7 +1500,7 @@ describe('matching-utils', () => {
         linkType: 'exchange_to_blockchain',
       };
 
-      const result = createTransactionLink(match, 'confirmed', 'test-uuid', new Date());
+      const result = createTransactionLink(match, 'confirmed', new Date());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -1543,7 +1541,7 @@ describe('matching-utils', () => {
         linkType: 'exchange_to_blockchain',
       };
 
-      const result = createTransactionLink(match, 'confirmed', 'test-uuid', new Date());
+      const result = createTransactionLink(match, 'confirmed', new Date());
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -1583,7 +1581,7 @@ describe('matching-utils', () => {
         linkType: 'exchange_to_blockchain',
       };
 
-      const result = createTransactionLink(match, 'confirmed', 'test-uuid', new Date());
+      const result = createTransactionLink(match, 'confirmed', new Date());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {

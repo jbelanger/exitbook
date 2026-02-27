@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- null needed by db */
 
-import { type Currency, parseDecimal, type TransactionLink } from '@exitbook/core';
+import { type Currency, type NewTransactionLink, parseDecimal } from '@exitbook/core';
 import {
   closeDatabase,
   createTestDatabase,
@@ -8,7 +8,6 @@ import {
   type KyselyDB,
   type TransactionLinkQueries,
 } from '@exitbook/data';
-import { v4 as uuidv4 } from 'uuid';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
@@ -87,8 +86,7 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
 
   describe('create', () => {
     it('should create a link with asset, sourceAmount, and targetAmount', async () => {
-      const link: TransactionLink = {
-        id: uuidv4(),
+      const link: NewTransactionLink = {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC' as Currency,
@@ -115,22 +113,22 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value).toBe(link.id);
-      }
+        expect(typeof result.value).toBe('number');
+        expect(result.value).toBeGreaterThan(0);
 
-      // Verify it was stored correctly
-      const fetchResult = await repo.findById(link.id);
-      expect(fetchResult.isOk()).toBe(true);
-      if (fetchResult.isOk() && fetchResult.value) {
-        expect(fetchResult.value.assetSymbol).toBe('BTC');
-        expect(fetchResult.value?.sourceAmount?.toFixed()).toBe('1');
-        expect(fetchResult.value?.targetAmount?.toFixed()).toBe('0.9995');
+        // Verify it was stored correctly
+        const fetchResult = await repo.findById(result.value);
+        expect(fetchResult.isOk()).toBe(true);
+        if (fetchResult.isOk() && fetchResult.value) {
+          expect(fetchResult.value.assetSymbol).toBe('BTC');
+          expect(fetchResult.value?.sourceAmount?.toFixed()).toBe('1');
+          expect(fetchResult.value?.targetAmount?.toFixed()).toBe('0.9995');
+        }
       }
     });
 
     it('should store variance metadata in metadata_json', async () => {
-      const link: TransactionLink = {
-        id: uuidv4(),
+      const link: NewTransactionLink = {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'ETH' as Currency,
@@ -159,20 +157,21 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
       const result = await repo.create(link);
       expect(result.isOk()).toBe(true);
 
-      const fetchResult = await repo.findById(link.id);
-      expect(fetchResult.isOk()).toBe(true);
-      if (fetchResult.isOk() && fetchResult.value) {
-        expect(fetchResult.value.metadata).toEqual({
-          variance: '0.05',
-          variancePct: '0.50',
-          impliedFee: '0.05',
-        });
+      if (result.isOk()) {
+        const fetchResult = await repo.findById(result.value);
+        expect(fetchResult.isOk()).toBe(true);
+        if (fetchResult.isOk() && fetchResult.value) {
+          expect(fetchResult.value.metadata).toEqual({
+            variance: '0.05',
+            variancePct: '0.50',
+            impliedFee: '0.05',
+          });
+        }
       }
     });
 
     it('should handle very small amounts correctly', async () => {
-      const link: TransactionLink = {
-        id: uuidv4(),
+      const link: NewTransactionLink = {
         sourceTransactionId: 3,
         targetTransactionId: 4,
         assetSymbol: 'BTC' as Currency,
@@ -196,17 +195,18 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
       const result = await repo.create(link);
       expect(result.isOk()).toBe(true);
 
-      const fetchResult = await repo.findById(link.id);
-      expect(fetchResult.isOk()).toBe(true);
-      if (fetchResult.isOk() && fetchResult.value) {
-        expect(fetchResult.value.sourceAmount.toFixed()).toBe('0.00001');
-        expect(fetchResult.value.targetAmount.toFixed()).toBe('0.000009');
+      if (result.isOk()) {
+        const fetchResult = await repo.findById(result.value);
+        expect(fetchResult.isOk()).toBe(true);
+        if (fetchResult.isOk() && fetchResult.value) {
+          expect(fetchResult.value.sourceAmount.toFixed()).toBe('0.00001');
+          expect(fetchResult.value.targetAmount.toFixed()).toBe('0.000009');
+        }
       }
     });
 
     it('should handle large amounts correctly', async () => {
-      const link: TransactionLink = {
-        id: uuidv4(),
+      const link: NewTransactionLink = {
         sourceTransactionId: 5,
         targetTransactionId: 6,
         assetSymbol: 'BTC' as Currency,
@@ -230,20 +230,21 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
       const result = await repo.create(link);
       expect(result.isOk()).toBe(true);
 
-      const fetchResult = await repo.findById(link.id);
-      expect(fetchResult.isOk()).toBe(true);
-      if (fetchResult.isOk() && fetchResult.value) {
-        expect(fetchResult.value.sourceAmount.toFixed()).toBe('1000000.123456789');
-        expect(fetchResult.value.targetAmount.toFixed()).toBe('999999.123456789');
+      if (result.isOk()) {
+        const fetchResult = await repo.findById(result.value);
+        expect(fetchResult.isOk()).toBe(true);
+        if (fetchResult.isOk() && fetchResult.value) {
+          expect(fetchResult.value.sourceAmount.toFixed()).toBe('1000000.123456789');
+          expect(fetchResult.value.targetAmount.toFixed()).toBe('999999.123456789');
+        }
       }
     });
   });
 
   describe('createBulk', () => {
     it('should create multiple links with new fields', async () => {
-      const links: TransactionLink[] = [
+      const links: NewTransactionLink[] = [
         {
-          id: uuidv4(),
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC' as Currency,
@@ -264,7 +265,6 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
           updatedAt: new Date(),
         },
         {
-          id: uuidv4(),
           sourceTransactionId: 3,
           targetTransactionId: 4,
           assetSymbol: 'ETH' as Currency,
@@ -292,23 +292,22 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
         expect(result.value).toBe(2);
       }
 
-      // Verify both were stored correctly
-      for (const link of links) {
-        const fetchResult = await repo.findById(link.id);
-        expect(fetchResult.isOk()).toBe(true);
-        if (fetchResult.isOk() && fetchResult.value) {
-          expect(fetchResult.value.assetSymbol).toBe(link.assetSymbol);
-          expect(fetchResult.value.sourceAmount.toFixed()).toBe(link.sourceAmount.toFixed());
-          expect(fetchResult.value.targetAmount.toFixed()).toBe(link.targetAmount.toFixed());
-        }
+      // Verify both were stored correctly using findAll
+      const allResult = await repo.findAll();
+      expect(allResult.isOk()).toBe(true);
+      if (allResult.isOk()) {
+        expect(allResult.value).toHaveLength(2);
+        const btcLink = allResult.value.find((l) => l.assetSymbol === 'BTC');
+        const ethLink = allResult.value.find((l) => l.assetSymbol === 'ETH');
+        expect(btcLink?.sourceAmount.toFixed()).toBe('1');
+        expect(ethLink?.sourceAmount.toFixed()).toBe('10');
       }
     });
   });
 
   describe('findByTransactionIds', () => {
     it('should find links by related transaction IDs with amounts', async () => {
-      const link1: TransactionLink = {
-        id: uuidv4(),
+      const link1: NewTransactionLink = {
         sourceTransactionId: 7,
         targetTransactionId: 8,
         assetSymbol: 'BTC' as Currency,
@@ -329,8 +328,7 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
         updatedAt: new Date(),
       };
 
-      const link2: TransactionLink = {
-        id: uuidv4(),
+      const link2: NewTransactionLink = {
         sourceTransactionId: 7,
         targetTransactionId: 9,
         assetSymbol: 'ETH' as Currency,
@@ -367,8 +365,7 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
 
   describe('findAll', () => {
     it('should return all links with new fields', async () => {
-      const link: TransactionLink = {
-        id: uuidv4(),
+      const link: NewTransactionLink = {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC' as Currency,
@@ -389,13 +386,14 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
         updatedAt: new Date(),
       };
 
-      await repo.create(link);
+      const createResult = await repo.create(link);
+      expect(createResult.isOk()).toBe(true);
 
       const result = await repo.findAll();
       expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
+      if (result.isOk() && createResult.isOk()) {
         expect(result.value.length).toBeGreaterThan(0);
-        const foundLink = result.value.find((l) => l.id === link.id);
+        const foundLink = result.value.find((l) => l.id === createResult.value);
         expect(foundLink).toBeDefined();
         expect(foundLink?.assetSymbol).toBe('BTC');
         expect(foundLink?.sourceAmount.toFixed()).toBe('1');
@@ -406,8 +404,7 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
 
   describe('count', () => {
     it('should count all links when no filters are provided', async () => {
-      const link1: TransactionLink = {
-        id: uuidv4(),
+      const link1: NewTransactionLink = {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC' as Currency,
@@ -428,8 +425,7 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
         updatedAt: new Date(),
       };
 
-      const link2: TransactionLink = {
-        id: uuidv4(),
+      const link2: NewTransactionLink = {
         sourceTransactionId: 3,
         targetTransactionId: 4,
         assetSymbol: 'ETH' as Currency,
@@ -497,7 +493,6 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
       }
 
       await repo.create({
-        id: uuidv4(),
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC' as Currency,
@@ -519,7 +514,6 @@ describe('TransactionLinkQueries - ADR-004 Phase 0', () => {
       });
 
       await repo.create({
-        id: uuidv4(),
         sourceTransactionId: 11,
         targetTransactionId: 12,
         assetSymbol: 'ETH' as Currency,

@@ -161,7 +161,7 @@ describe('linksViewReducer', () => {
     expect(newState.mode).toBe('links');
     if (newState.mode === 'links') {
       expect(newState.pendingAction).toEqual({
-        linkId: 'link-003-suggested',
+        linkId: 3,
         action: 'confirm',
       });
       expect(newState.error).toBeUndefined();
@@ -177,7 +177,7 @@ describe('linksViewReducer', () => {
     expect(newState.mode).toBe('links');
     if (newState.mode === 'links') {
       expect(newState.pendingAction).toEqual({
-        linkId: 'link-003-suggested',
+        linkId: 3,
         action: 'reject',
       });
       expect(newState.error).toBeUndefined();
@@ -213,7 +213,7 @@ describe('linksViewReducer', () => {
   it('sets error message', () => {
     const links = createMockLinks();
     const state = createLinksViewState(links);
-    state.pendingAction = { linkId: 'link-003-suggested', action: 'confirm' };
+    state.pendingAction = { linkId: 3, action: 'confirm' };
 
     const newState = linksViewReducer(state, { type: 'SET_ERROR', error: 'Network error' });
     expect(newState.mode).toBe('links');
@@ -227,7 +227,7 @@ describe('linksViewReducer', () => {
     const links = createMockLinks();
     const state = createLinksViewState(links);
     state.error = 'Something went wrong';
-    state.pendingAction = { linkId: 'link-003-suggested', action: 'confirm' };
+    state.pendingAction = { linkId: 3, action: 'confirm' };
 
     const newState = linksViewReducer(state, { type: 'CLEAR_ERROR' });
     expect(newState.mode).toBe('links');
@@ -608,7 +608,7 @@ function createMockLinks(): LinkWithTransactions[] {
   return [
     {
       link: {
-        id: 'link-001-confirmed',
+        id: 1,
         sourceTransactionId: 1,
         targetTransactionId: 2,
         linkType: 'exchange_to_blockchain',
@@ -636,7 +636,7 @@ function createMockLinks(): LinkWithTransactions[] {
     },
     {
       link: {
-        id: 'link-002-confirmed',
+        id: 2,
         sourceTransactionId: 3,
         targetTransactionId: 4,
         linkType: 'exchange_to_blockchain',
@@ -664,7 +664,7 @@ function createMockLinks(): LinkWithTransactions[] {
     },
     {
       link: {
-        id: 'link-003-suggested',
+        id: 3,
         sourceTransactionId: 5,
         targetTransactionId: 6,
         linkType: 'exchange_to_blockchain',
@@ -692,7 +692,7 @@ function createMockLinks(): LinkWithTransactions[] {
     },
     {
       link: {
-        id: 'link-004-rejected',
+        id: 4,
         sourceTransactionId: 7,
         targetTransactionId: 8,
         linkType: 'exchange_to_blockchain',

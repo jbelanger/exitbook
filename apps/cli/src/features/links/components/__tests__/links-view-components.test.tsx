@@ -88,8 +88,8 @@ describe('LinksViewApp - links mode', () => {
     );
     const frame = lastFrame();
 
-    expect(frame).toContain('link-001');
-    expect(frame).toContain('link-002');
+    expect(frame).toContain(' 1 ');
+    expect(frame).toContain(' 2 ');
 
     expect(frame).toContain('✓');
     expect(frame).toContain('⚠');
@@ -340,22 +340,22 @@ describe('LinksViewApp - gaps mode', () => {
 function createMockLinks(): LinkWithTransactions[] {
   return [
     {
-      link: createMockLink('link-001-confirmed', 'confirmed', 0.98, 'ETH', '1.5', '1.498', 1, 2),
+      link: createMockLink(1, 'confirmed', 0.98, 'ETH', '1.5', '1.498', 1, 2),
       sourceTransaction: createMockTransaction(1, 'kraken', '2024-03-15T14:23:41Z'),
       targetTransaction: createMockTransaction(2, 'ethereum', '2024-03-15T14:25:12Z'),
     },
     {
-      link: createMockLink('link-002-confirmed', 'confirmed', 0.96, 'BTC', '0.5', '0.4998', 3, 4),
+      link: createMockLink(2, 'confirmed', 0.96, 'BTC', '0.5', '0.4998', 3, 4),
       sourceTransaction: createMockTransaction(3, 'kraken', '2024-03-16T10:15:22Z'),
       targetTransaction: createMockTransaction(4, 'bitcoin', '2024-03-16T10:17:45Z'),
     },
     {
-      link: createMockLink('link-003-suggested', 'suggested', 0.82, 'ETH', '2.0', '1.997', 5, 6),
+      link: createMockLink(3, 'suggested', 0.82, 'ETH', '2.0', '1.997', 5, 6),
       sourceTransaction: createMockTransaction(5, 'coinbase', '2024-03-17T08:30:11Z'),
       targetTransaction: createMockTransaction(6, 'ethereum', '2024-03-17T08:32:05Z'),
     },
     {
-      link: createMockLink('link-004-rejected', 'rejected', 0.52, 'ETH', '3.0', '2.85', 7, 8),
+      link: createMockLink(4, 'rejected', 0.52, 'ETH', '3.0', '2.85', 7, 8),
       sourceTransaction: createMockTransaction(7, 'kraken', '2024-03-18T16:45:33Z'),
       targetTransaction: createMockTransaction(8, 'ethereum', '2024-03-18T17:12:15Z'),
     },
@@ -363,7 +363,7 @@ function createMockLinks(): LinkWithTransactions[] {
 }
 
 function createMockLink(
-  id: string,
+  id: number,
   status: 'confirmed' | 'suggested' | 'rejected',
   confidence: number,
   asset: string,

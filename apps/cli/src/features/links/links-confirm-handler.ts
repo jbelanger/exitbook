@@ -17,14 +17,14 @@ const logger = getLogger('LinksConfirmHandler');
  * Parameters for links confirm command.
  */
 export interface LinksConfirmParams {
-  linkId: string;
+  linkId: number;
 }
 
 /**
  * Result of links confirm operation.
  */
 export interface LinksConfirmResult {
-  linkId: string;
+  linkId: number;
   newStatus: 'confirmed';
   reviewedBy: string;
   reviewedAt: Date;

@@ -7,10 +7,10 @@ import type {
   LinkType,
   MatchCriteria,
   MatchingConfig,
+  NewTransactionLink,
   OutflowGrouping,
   PotentialMatch,
   TransactionCandidate,
-  TransactionLink,
 } from './types.js';
 
 /**
@@ -926,16 +926,14 @@ export function deduplicateAndConfirm(
  *
  * @param match - Potential match to convert
  * @param status - Link status (suggested or confirmed)
- * @param id - UUID for the link
  * @param now - Current timestamp
- * @returns Result with TransactionLink or error
+ * @returns Result with NewTransactionLink or error
  */
 export function createTransactionLink(
   match: PotentialMatch,
   status: 'suggested' | 'confirmed',
-  id: string,
   now: Date
-): Result<TransactionLink, Error> {
+): Result<NewTransactionLink, Error> {
   // Extract amounts from match
   const assetSymbol = match.sourceTransaction.assetSymbol;
   const sourceAmount = match.sourceTransaction.amount;
@@ -963,7 +961,6 @@ export function createTransactionLink(
 
   // Create link with all required fields
   return ok({
-    id,
     sourceTransactionId: match.sourceTransaction.id,
     targetTransactionId: match.targetTransaction.id,
     assetSymbol: assetSymbol,

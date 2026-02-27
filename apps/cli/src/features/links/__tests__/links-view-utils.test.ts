@@ -7,7 +7,7 @@ import { filterLinksByConfidence, formatLinkInfo, mapTransactionToDetails } from
 
 describe('links-view-utils', () => {
   const createMockLink = (
-    id: string,
+    id: number,
     confidenceScore: number,
     status: 'suggested' | 'confirmed' | 'rejected' = 'suggested'
   ): TransactionLink => ({
@@ -67,7 +67,7 @@ describe('links-view-utils', () => {
 
   describe('filterLinksByConfidence', () => {
     it('should return all links when no filters provided', () => {
-      const links = [createMockLink('link-1', 0.5), createMockLink('link-2', 0.8), createMockLink('link-3', 0.95)];
+      const links = [createMockLink(1, 0.5), createMockLink(2, 0.8), createMockLink(3, 0.95)];
 
       const result = filterLinksByConfidence(links);
 
@@ -76,36 +76,36 @@ describe('links-view-utils', () => {
     });
 
     it('should filter by minimum confidence', () => {
-      const links = [createMockLink('link-1', 0.5), createMockLink('link-2', 0.8), createMockLink('link-3', 0.95)];
+      const links = [createMockLink(1, 0.5), createMockLink(2, 0.8), createMockLink(3, 0.95)];
 
       const result = filterLinksByConfidence(links, 0.7);
 
       expect(result).toHaveLength(2);
-      expect(result[0]?.id).toBe('link-2');
-      expect(result[1]?.id).toBe('link-3');
+      expect(result[0]?.id).toBe(2);
+      expect(result[1]?.id).toBe(3);
     });
 
     it('should filter by maximum confidence', () => {
-      const links = [createMockLink('link-1', 0.5), createMockLink('link-2', 0.8), createMockLink('link-3', 0.95)];
+      const links = [createMockLink(1, 0.5), createMockLink(2, 0.8), createMockLink(3, 0.95)];
 
       const result = filterLinksByConfidence(links, undefined, 0.85);
 
       expect(result).toHaveLength(2);
-      expect(result[0]?.id).toBe('link-1');
-      expect(result[1]?.id).toBe('link-2');
+      expect(result[0]?.id).toBe(1);
+      expect(result[1]?.id).toBe(2);
     });
 
     it('should filter by both minimum and maximum confidence', () => {
-      const links = [createMockLink('link-1', 0.5), createMockLink('link-2', 0.8), createMockLink('link-3', 0.95)];
+      const links = [createMockLink(1, 0.5), createMockLink(2, 0.8), createMockLink(3, 0.95)];
 
       const result = filterLinksByConfidence(links, 0.7, 0.85);
 
       expect(result).toHaveLength(1);
-      expect(result[0]?.id).toBe('link-2');
+      expect(result[0]?.id).toBe(2);
     });
 
     it('should return empty array when no links match filters', () => {
-      const links = [createMockLink('link-1', 0.5), createMockLink('link-2', 0.8)];
+      const links = [createMockLink(1, 0.5), createMockLink(2, 0.8)];
 
       const result = filterLinksByConfidence(links, 0.9);
 
@@ -209,12 +209,12 @@ describe('links-view-utils', () => {
 
   describe('formatLinkInfo', () => {
     it('should format link without transaction details', () => {
-      const link = createMockLink('link-123', 0.85);
+      const link = createMockLink(123, 0.85);
 
       const result = formatLinkInfo(link);
 
       expect(result).toEqual({
-        id: 'link-123',
+        id: 123,
         source_transaction_id: 1,
         target_transaction_id: 2,
         asset_symbol: 'BTC',
@@ -242,7 +242,7 @@ describe('links-view-utils', () => {
     });
 
     it('should format link with source transaction details', () => {
-      const link = createMockLink('link-123', 0.85);
+      const link = createMockLink(123, 0.85);
       const sourceTx = createMockTransaction(1);
 
       const result = formatLinkInfo(link, sourceTx);
@@ -254,7 +254,7 @@ describe('links-view-utils', () => {
     });
 
     it('should format link with target transaction details', () => {
-      const link = createMockLink('link-123', 0.85);
+      const link = createMockLink(123, 0.85);
       const targetTx = createMockTransaction(2);
 
       const result = formatLinkInfo(link, undefined, targetTx);
@@ -266,7 +266,7 @@ describe('links-view-utils', () => {
     });
 
     it('should format link with both transaction details', () => {
-      const link = createMockLink('link-123', 0.85);
+      const link = createMockLink(123, 0.85);
       const sourceTx = createMockTransaction(1);
       const targetTx = createMockTransaction(2);
 
@@ -280,7 +280,7 @@ describe('links-view-utils', () => {
 
     it('should format confirmed link with review information', () => {
       const link: TransactionLink = {
-        ...createMockLink('link-123', 0.85, 'confirmed'),
+        ...createMockLink(123, 0.85, 'confirmed'),
         reviewedBy: 'cli-user',
         reviewedAt: new Date('2024-01-02T14:30:00Z'),
       };
@@ -293,7 +293,7 @@ describe('links-view-utils', () => {
     });
 
     it('should use toFixed() for confidence score', () => {
-      const link = createMockLink('link-123', 0.123456789);
+      const link = createMockLink(123, 0.123456789);
 
       const result = formatLinkInfo(link);
 

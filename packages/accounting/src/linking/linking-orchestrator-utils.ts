@@ -1,9 +1,8 @@
 import { parseDecimal, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import type { OrphanedLinkOverride } from '@exitbook/data';
 import { err, ok, type Result } from 'neverthrow';
-import { v4 as uuidv4 } from 'uuid';
 
-import type { TransactionLink } from './types.js';
+import type { NewTransactionLink } from './types.js';
 
 /**
  * Resolve a unique assetId for an asset symbol within a transaction.
@@ -49,7 +48,7 @@ export function resolveUniqueAssetId(
 export function buildLinkFromOrphanedOverride(
   entry: OrphanedLinkOverride,
   txById: Map<number, UniversalTransactionData>
-): Result<TransactionLink, Error> {
+): Result<NewTransactionLink, Error> {
   const now = new Date();
   const zero = parseDecimal('0');
 
@@ -73,7 +72,6 @@ export function buildLinkFromOrphanedOverride(
   }
 
   return ok({
-    id: uuidv4(),
     sourceTransactionId: entry.sourceTransactionId,
     targetTransactionId: entry.targetTransactionId,
     assetSymbol: entry.assetSymbol as Currency,
@@ -81,7 +79,7 @@ export function buildLinkFromOrphanedOverride(
     targetAssetId: targetAssetIdResult.value,
     sourceAmount: zero,
     targetAmount: zero,
-    linkType: entry.linkType as TransactionLink['linkType'],
+    linkType: entry.linkType as NewTransactionLink['linkType'],
     confidenceScore: parseDecimal('1'),
     matchCriteria: {
       assetMatch: true,
@@ -99,7 +97,7 @@ export function buildLinkFromOrphanedOverride(
 }
 
 /** Count links by category after override replay. */
-export function categorizeFinalLinks(links: TransactionLink[]) {
+export function categorizeFinalLinks(links: NewTransactionLink[]) {
   let internalCount = 0;
   let confirmedCount = 0;
   let suggestedCount = 0;

@@ -23,7 +23,7 @@ export type LinksRejectCommandOptions = z.infer<typeof LinksRejectCommandOptions
  * Result data for links reject command (JSON mode).
  */
 interface LinksRejectCommandResult {
-  linkId: string;
+  linkId: number;
   newStatus: 'rejected';
   reviewedBy: string;
   reviewedAt: string;
@@ -38,18 +38,19 @@ export function registerLinksRejectCommand(linksCommand: Command): void {
     .description('Reject a suggested transaction link')
     .argument('<link-id>', 'ID of the link to reject')
     .option('--json', 'Output results in JSON format')
-    .action(async (linkId: string, rawOptions: unknown) => {
-      await executeLinksRejectCommand(linkId, rawOptions);
+    .action(async (linkIdArg: string, rawOptions: unknown) => {
+      await executeLinksRejectCommand(linkIdArg, rawOptions);
     });
 }
 
 /**
  * Execute the links reject command.
  */
-async function executeLinksRejectCommand(linkId: string, rawOptions: unknown): Promise<void> {
-  // Validate linkId argument
-  if (!linkId || linkId.trim() === '') {
-    displayCliError('links-reject', new Error('Link ID is required'), ExitCodes.INVALID_ARGS, 'text');
+async function executeLinksRejectCommand(linkIdArg: string, rawOptions: unknown): Promise<void> {
+  // Validate and parse linkId argument
+  const linkId = parseInt(linkIdArg, 10);
+  if (!linkIdArg || isNaN(linkId)) {
+    displayCliError('links-reject', new Error('Link ID must be a valid integer'), ExitCodes.INVALID_ARGS, 'text');
   }
 
   // Validate options at CLI boundary
@@ -113,7 +114,7 @@ function handleLinksRejectSuccess(
   result: {
     asset?: string | undefined;
     confidence?: string | undefined;
-    linkId: string;
+    linkId: number;
     newStatus: 'rejected';
     reviewedAt: Date;
     reviewedBy: string;

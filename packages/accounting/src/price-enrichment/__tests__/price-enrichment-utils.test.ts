@@ -358,7 +358,7 @@ describe('propagatePricesAcrossLinks', () => {
       sources: new Set(['kraken', 'bitcoin']),
       linkChain: [
         {
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC' as Currency,
@@ -415,7 +415,7 @@ describe('propagatePricesAcrossLinks', () => {
       sources: new Set(['kraken', 'bitcoin']),
       linkChain: [
         {
-          id: '1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC' as Currency,
@@ -471,7 +471,7 @@ describe('propagatePricesAcrossLinks', () => {
       sources: new Set(['kraken', 'bitcoin']),
       linkChain: [
         {
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC' as Currency,
@@ -519,7 +519,7 @@ describe('propagatePricesAcrossLinks', () => {
       sources: new Set(['kraken', 'bitcoin']),
       linkChain: [
         {
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC' as Currency,
@@ -574,7 +574,7 @@ describe('propagatePricesAcrossLinks', () => {
       sources: new Set(['kraken', 'bitcoin']),
       linkChain: [
         {
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC' as Currency,
@@ -650,7 +650,7 @@ describe('propagatePricesAcrossLinks', () => {
       sources: new Set(['kraken', 'bitcoin']),
       linkChain: [
         {
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC' as Currency,
@@ -671,7 +671,7 @@ describe('propagatePricesAcrossLinks', () => {
           updatedAt: new Date(),
         },
         {
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 2,
           targetTransactionId: 3,
           assetSymbol: 'BTC' as Currency,

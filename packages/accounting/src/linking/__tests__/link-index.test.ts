@@ -10,7 +10,7 @@ describe('LinkIndex', () => {
     it('should build both maps correctly with single link', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -25,15 +25,15 @@ describe('LinkIndex', () => {
       const foundByTarget = index.findByTarget(2, 'BTC');
 
       expect(foundBySource).toBeDefined();
-      expect(foundBySource?.id).toBe('link-1');
+      expect(foundBySource?.id).toBe(1);
       expect(foundByTarget).toBeDefined();
-      expect(foundByTarget?.id).toBe('link-1');
+      expect(foundByTarget?.id).toBe(1);
     });
 
     it('should build both maps correctly with multiple links', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -41,7 +41,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.9995'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 3,
           targetTransactionId: 4,
           assetSymbol: 'ETH',
@@ -55,8 +55,8 @@ describe('LinkIndex', () => {
       const btcLink = index.findBySource(1, 'BTC', parseDecimal('1.0'));
       const ethLink = index.findBySource(3, 'ETH', parseDecimal('10.0'));
 
-      expect(btcLink?.id).toBe('link-1');
-      expect(ethLink?.id).toBe('link-2');
+      expect(btcLink?.id).toBe(1);
+      expect(ethLink?.id).toBe(2);
     });
 
     it('should handle empty link array', () => {
@@ -74,7 +74,7 @@ describe('LinkIndex', () => {
     it('should return correct link for matching txId, asset, and amount', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -87,7 +87,7 @@ describe('LinkIndex', () => {
       const found = index.findBySource(1, 'BTC', parseDecimal('1.0'));
 
       expect(found).toBeDefined();
-      expect(found?.id).toBe('link-1');
+      expect(found?.id).toBe(1);
       expect(found?.sourceTransactionId).toBe(1);
       expect(found?.assetSymbol).toBe('BTC');
       expect(found?.sourceAmount.toFixed()).toBe('1');
@@ -96,7 +96,7 @@ describe('LinkIndex', () => {
     it('should return undefined when no matching link exists', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -114,7 +114,7 @@ describe('LinkIndex', () => {
     it('should return undefined when asset does not match', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -132,7 +132,7 @@ describe('LinkIndex', () => {
     it('should return undefined when amount does not match', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -150,7 +150,7 @@ describe('LinkIndex', () => {
     it('should return first unconsumed link when multiple links exist for same key', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -158,7 +158,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.9995'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 1,
           targetTransactionId: 3,
           assetSymbol: 'BTC',
@@ -170,13 +170,13 @@ describe('LinkIndex', () => {
       const index = new LinkIndex(links);
       const found = index.findBySource(1, 'BTC', parseDecimal('1.0'));
 
-      expect(found?.id).toBe('link-1');
+      expect(found?.id).toBe(1);
     });
 
     it('should handle Decimal amount precision', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -189,7 +189,7 @@ describe('LinkIndex', () => {
       const found = index.findBySource(1, 'BTC', parseDecimal('0.00012345'));
 
       expect(found).toBeDefined();
-      expect(found?.id).toBe('link-1');
+      expect(found?.id).toBe(1);
     });
   });
 
@@ -197,7 +197,7 @@ describe('LinkIndex', () => {
     it('should return correct link for matching txId and asset', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -210,7 +210,7 @@ describe('LinkIndex', () => {
       const found = index.findByTarget(2, 'BTC');
 
       expect(found).toBeDefined();
-      expect(found?.id).toBe('link-1');
+      expect(found?.id).toBe(1);
       expect(found?.targetTransactionId).toBe(2);
       expect(found?.assetSymbol).toBe('BTC');
     });
@@ -218,7 +218,7 @@ describe('LinkIndex', () => {
     it('should return undefined when no matching link exists', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -236,7 +236,7 @@ describe('LinkIndex', () => {
     it('should return undefined when asset does not match', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -254,7 +254,7 @@ describe('LinkIndex', () => {
     it('should return first unconsumed link when multiple links exist for same key', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -262,7 +262,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.9995'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 3,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -274,14 +274,14 @@ describe('LinkIndex', () => {
       const index = new LinkIndex(links);
       const found = index.findByTarget(2, 'BTC');
 
-      expect(found?.id).toBe('link-1');
+      expect(found?.id).toBe(1);
     });
   });
 
   describe('two-phase consumption', () => {
     it('should remove link from sourceMap when consumeSourceLink is called', () => {
       const link = createLink({
-        id: 'link-1',
+        id: 1,
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
@@ -300,7 +300,7 @@ describe('LinkIndex', () => {
 
     it('should keep link in targetMap after consumeSourceLink', () => {
       const link = createLink({
-        id: 'link-1',
+        id: 1,
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
@@ -314,12 +314,12 @@ describe('LinkIndex', () => {
 
       const foundByTarget = index.findByTarget(2, 'BTC');
       expect(foundByTarget).toBeDefined();
-      expect(foundByTarget?.id).toBe('link-1');
+      expect(foundByTarget?.id).toBe(1);
     });
 
     it('should remove link from targetMap when consumeTargetLink is called', () => {
       const link = createLink({
-        id: 'link-1',
+        id: 1,
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
@@ -338,7 +338,7 @@ describe('LinkIndex', () => {
 
     it('should remove link from both maps after both consumptions', () => {
       const link = createLink({
-        id: 'link-1',
+        id: 1,
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
@@ -357,7 +357,7 @@ describe('LinkIndex', () => {
 
     it('should handle consumeSourceLink when link is not in index', () => {
       const link = createLink({
-        id: 'link-1',
+        id: 1,
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
@@ -372,7 +372,7 @@ describe('LinkIndex', () => {
 
     it('should handle consumeTargetLink when link is not in index', () => {
       const link = createLink({
-        id: 'link-1',
+        id: 1,
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
@@ -387,7 +387,7 @@ describe('LinkIndex', () => {
 
     it('should allow consuming same link multiple times without error', () => {
       const link = createLink({
-        id: 'link-1',
+        id: 1,
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
@@ -408,7 +408,7 @@ describe('LinkIndex', () => {
     it('should handle multiple links with same txId and asset but different amounts', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -416,7 +416,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.4995'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 1,
           targetTransactionId: 3,
           assetSymbol: 'BTC',
@@ -424,7 +424,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.9995'),
         }),
         createLink({
-          id: 'link-3',
+          id: 3,
           sourceTransactionId: 1,
           targetTransactionId: 4,
           assetSymbol: 'BTC',
@@ -438,14 +438,14 @@ describe('LinkIndex', () => {
       const link1 = index.findBySource(1, 'BTC', parseDecimal('0.5'));
       const link2 = index.findBySource(1, 'BTC', parseDecimal('1.0'));
 
-      expect(link1?.id).toBe('link-1');
-      expect(link2?.id).toBe('link-2');
+      expect(link1?.id).toBe(1);
+      expect(link2?.id).toBe(2);
     });
 
     it('should return first matching link for exact amount', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -453,7 +453,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.4995'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 1,
           targetTransactionId: 3,
           assetSymbol: 'BTC',
@@ -465,13 +465,13 @@ describe('LinkIndex', () => {
       const index = new LinkIndex(links);
       const found = index.findBySource(1, 'BTC', parseDecimal('0.5'));
 
-      expect(found?.id).toBe('link-1');
+      expect(found?.id).toBe(1);
     });
 
     it('should allow sequential consumption of multiple outflows', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -479,7 +479,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.4995'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 1,
           targetTransactionId: 3,
           assetSymbol: 'BTC',
@@ -491,18 +491,18 @@ describe('LinkIndex', () => {
       const index = new LinkIndex(links);
 
       const firstLink = index.findBySource(1, 'BTC', parseDecimal('0.5'));
-      expect(firstLink?.id).toBe('link-1');
+      expect(firstLink?.id).toBe(1);
 
       index.consumeSourceLink(firstLink!);
 
       const secondLink = index.findBySource(1, 'BTC', parseDecimal('0.5'));
-      expect(secondLink?.id).toBe('link-2');
+      expect(secondLink?.id).toBe(2);
     });
 
     it('should keep remaining links available after consuming one', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -510,7 +510,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.4995'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 1,
           targetTransactionId: 3,
           assetSymbol: 'BTC',
@@ -518,7 +518,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.9995'),
         }),
         createLink({
-          id: 'link-3',
+          id: 3,
           sourceTransactionId: 1,
           targetTransactionId: 4,
           assetSymbol: 'BTC',
@@ -535,14 +535,14 @@ describe('LinkIndex', () => {
       const link1Remaining = index.findBySource(1, 'BTC', parseDecimal('1.0'));
       const link2Remaining = index.findBySource(1, 'BTC', parseDecimal('0.5'));
 
-      expect(link1Remaining?.id).toBe('link-2');
-      expect(link2Remaining?.id).toBe('link-3');
+      expect(link1Remaining?.id).toBe(2);
+      expect(link2Remaining?.id).toBe(3);
     });
 
     it('should allow target side to find links even after source consumption', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -550,7 +550,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.4995'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 1,
           targetTransactionId: 3,
           assetSymbol: 'BTC',
@@ -567,14 +567,14 @@ describe('LinkIndex', () => {
       const targetLink1 = index.findByTarget(2, 'BTC');
       const targetLink2 = index.findByTarget(3, 'BTC');
 
-      expect(targetLink1?.id).toBe('link-1');
-      expect(targetLink2?.id).toBe('link-2');
+      expect(targetLink1?.id).toBe(1);
+      expect(targetLink2?.id).toBe(2);
     });
 
     it('should handle batched withdrawal with 3 outflows from same transaction', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 100,
           targetTransactionId: 201,
           assetSymbol: 'BTC',
@@ -582,7 +582,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.2997'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 100,
           targetTransactionId: 202,
           assetSymbol: 'BTC',
@@ -590,7 +590,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.4995'),
         }),
         createLink({
-          id: 'link-3',
+          id: 3,
           sourceTransactionId: 100,
           targetTransactionId: 203,
           assetSymbol: 'BTC',
@@ -602,15 +602,15 @@ describe('LinkIndex', () => {
       const index = new LinkIndex(links);
 
       const firstOutflow = index.findBySource(100, 'BTC', parseDecimal('0.3'));
-      expect(firstOutflow?.id).toBe('link-1');
+      expect(firstOutflow?.id).toBe(1);
       index.consumeSourceLink(firstOutflow!);
 
       const secondOutflow = index.findBySource(100, 'BTC', parseDecimal('0.5'));
-      expect(secondOutflow?.id).toBe('link-2');
+      expect(secondOutflow?.id).toBe(2);
       index.consumeSourceLink(secondOutflow!);
 
       const thirdOutflow = index.findBySource(100, 'BTC', parseDecimal('0.2'));
-      expect(thirdOutflow?.id).toBe('link-3');
+      expect(thirdOutflow?.id).toBe(3);
       index.consumeSourceLink(thirdOutflow!);
 
       const noMoreLinks = index.findBySource(100, 'BTC', parseDecimal('0.3'));
@@ -622,7 +622,7 @@ describe('LinkIndex', () => {
     it('should handle same transaction with multiple inflows and outflows', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -630,7 +630,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.9995'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'ETH',
@@ -644,14 +644,14 @@ describe('LinkIndex', () => {
       const btcLink = index.findBySource(1, 'BTC', parseDecimal('1.0'));
       const ethLink = index.findBySource(1, 'ETH', parseDecimal('10.0'));
 
-      expect(btcLink?.id).toBe('link-1');
-      expect(ethLink?.id).toBe('link-2');
+      expect(btcLink?.id).toBe(1);
+      expect(ethLink?.id).toBe(2);
     });
 
     it('should handle very small amounts with high precision', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -664,13 +664,13 @@ describe('LinkIndex', () => {
       const found = index.findBySource(1, 'BTC', parseDecimal('0.00000001'));
 
       expect(found).toBeDefined();
-      expect(found?.id).toBe('link-1');
+      expect(found?.id).toBe(1);
     });
 
     it('should handle very large amounts', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'SHIB',
@@ -683,13 +683,13 @@ describe('LinkIndex', () => {
       const found = index.findBySource(1, 'SHIB', parseDecimal('1000000000'));
 
       expect(found).toBeDefined();
-      expect(found?.id).toBe('link-1');
+      expect(found?.id).toBe(1);
     });
 
     it('should maintain FIFO order for unconsumed links', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -697,7 +697,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.9995'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 1,
           targetTransactionId: 3,
           assetSymbol: 'BTC',
@@ -705,7 +705,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.999'),
         }),
         createLink({
-          id: 'link-3',
+          id: 3,
           sourceTransactionId: 1,
           targetTransactionId: 4,
           assetSymbol: 'BTC',
@@ -717,23 +717,23 @@ describe('LinkIndex', () => {
       const index = new LinkIndex(links);
 
       const first = index.findBySource(1, 'BTC', parseDecimal('1.0'));
-      expect(first?.id).toBe('link-1');
+      expect(first?.id).toBe(1);
 
       index.consumeSourceLink(first!);
 
       const second = index.findBySource(1, 'BTC', parseDecimal('1.0'));
-      expect(second?.id).toBe('link-2');
+      expect(second?.id).toBe(2);
 
       index.consumeSourceLink(second!);
 
       const third = index.findBySource(1, 'BTC', parseDecimal('1.0'));
-      expect(third?.id).toBe('link-3');
+      expect(third?.id).toBe(3);
     });
 
     it('should handle different assets for same transaction IDs', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -741,7 +741,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.9995'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'ETH',
@@ -755,8 +755,8 @@ describe('LinkIndex', () => {
       const btcLink = index.findBySource(1, 'BTC', parseDecimal('1.0'));
       const ethLink = index.findBySource(1, 'ETH', parseDecimal('10.0'));
 
-      expect(btcLink?.id).toBe('link-1');
-      expect(ethLink?.id).toBe('link-2');
+      expect(btcLink?.id).toBe(1);
+      expect(ethLink?.id).toBe(2);
 
       index.consumeSourceLink(btcLink!);
 
@@ -764,13 +764,13 @@ describe('LinkIndex', () => {
       const ethStillThere = index.findBySource(1, 'ETH', parseDecimal('10.0'));
 
       expect(btcStillGone).toBeUndefined();
-      expect(ethStillThere?.id).toBe('link-2');
+      expect(ethStillThere?.id).toBe(2);
     });
 
     it('should handle consuming from middle of link array', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -778,7 +778,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.9995'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 1,
           targetTransactionId: 3,
           assetSymbol: 'BTC',
@@ -786,7 +786,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.999'),
         }),
         createLink({
-          id: 'link-3',
+          id: 3,
           sourceTransactionId: 1,
           targetTransactionId: 4,
           assetSymbol: 'BTC',
@@ -801,12 +801,12 @@ describe('LinkIndex', () => {
       index.consumeSourceLink(first!);
 
       const second = index.findBySource(1, 'BTC', parseDecimal('1.0'));
-      expect(second?.id).toBe('link-2');
+      expect(second?.id).toBe(2);
 
       index.consumeSourceLink(second!);
 
       const third = index.findBySource(1, 'BTC', parseDecimal('1.0'));
-      expect(third?.id).toBe('link-3');
+      expect(third?.id).toBe(3);
 
       index.consumeSourceLink(third!);
 
@@ -817,7 +817,7 @@ describe('LinkIndex', () => {
     it('should handle links with identical amounts but different targets', () => {
       const links: TransactionLink[] = [
         createLink({
-          id: 'link-1',
+          id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
@@ -825,7 +825,7 @@ describe('LinkIndex', () => {
           targetAmount: parseDecimal('0.9995'),
         }),
         createLink({
-          id: 'link-2',
+          id: 2,
           sourceTransactionId: 1,
           targetTransactionId: 3,
           assetSymbol: 'BTC',
@@ -839,8 +839,8 @@ describe('LinkIndex', () => {
       const byTarget2 = index.findByTarget(2, 'BTC');
       const byTarget3 = index.findByTarget(3, 'BTC');
 
-      expect(byTarget2?.id).toBe('link-1');
-      expect(byTarget3?.id).toBe('link-2');
+      expect(byTarget2?.id).toBe(1);
+      expect(byTarget3?.id).toBe(2);
     });
   });
 });
@@ -850,7 +850,7 @@ describe('LinkIndex', () => {
  */
 function createLink(params: {
   assetSymbol: string;
-  id: string;
+  id: number;
   sourceAmount: Decimal;
   sourceTransactionId: number;
   targetAmount: Decimal;

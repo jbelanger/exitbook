@@ -81,7 +81,7 @@ export const LotTransferSchema = z.object({
   id: z.string().uuid(),
   calculationId: z.string().uuid(),
   sourceLotId: z.string().uuid(),
-  linkId: z.string().uuid(),
+  linkId: z.number(),
   quantityTransferred: DecimalSchema,
   costBasisPerUnit: DecimalSchema,
   sourceTransactionId: z.number().int().positive(),
