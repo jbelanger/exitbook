@@ -1,6 +1,5 @@
 import { isFiat, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
-import { v4 as uuidv4 } from 'uuid';
 
 import { calculateFeesInFiat } from './lot-fee-utils.js';
 import { createAcquisitionLot } from './lot.js';
@@ -72,7 +71,7 @@ export function buildAcquisitionLotFromInflow(
 
   return ok(
     createAcquisitionLot({
-      id: uuidv4(),
+      id: globalThis.crypto.randomUUID(),
       calculationId,
       acquisitionTransactionId: transaction.id,
       assetId: inflow.assetId,

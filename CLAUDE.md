@@ -130,6 +130,7 @@ logger.error({ error }, 'error message');
 - **Developer Experience:** Prioritize clean DX when developing packages. Intuitive APIs, helpful errors, minimal setup.
 - **Meaningful Comments:** Add comments only for meaningful context not expressible in code. Avoid obvious statements or refactoring notes. Explain why, not what.
 - **Decimal.js:** Use named import `import { Decimal } from 'decimal.js'` and `.toFixed()` for strings (NOT `.toString()` which outputs scientific notation)
+- **Runtime-Agnostic:** Prefer Web-standard globals over Node-specific modules (e.g. `globalThis.crypto.randomUUID()` not `node:crypto`). Avoid `node:` imports in shared packages — React Native target is planned.
 - **Context Management:** When context exceeds 125k tokens, warn and propose sub-tasks after `/clear`
 - **Document Naming Issues:** When working on code, identify variables or functions with unclear names. Include rename suggestions in task summaries to track clarity improvements.
 

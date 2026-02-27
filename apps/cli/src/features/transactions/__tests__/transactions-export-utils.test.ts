@@ -525,7 +525,7 @@ describe('export-utils', () => {
       expect(result.feesCsv).toContain('tx_id,asset_id,asset_symbol,amount');
       expect(result.feesCsv).toContain('1,test:usd,USD,10,platform,balance');
       expect(result.linksCsv).toContain('link_id,source_transaction_id,target_transaction_id');
-      expect(result.linksCsv).toContain('link-1,1,2,BTC,1.5,1.49');
+      expect(result.linksCsv).toContain('1,1,2,BTC,1.5,1.49');
     });
   });
 });

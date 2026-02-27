@@ -1,7 +1,6 @@
 import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
-import { v4 as uuidv4 } from 'uuid';
 
 import type { AcquisitionLot, LotDisposal } from '../schemas.js';
 
@@ -88,7 +87,7 @@ export function matchDisposalToSortedLots(
 
     // Create lot disposal record
     disposals.push({
-      id: uuidv4(),
+      id: globalThis.crypto.randomUUID(),
       lotId: lot.id,
       disposalTransactionId: disposal.transactionId,
       quantityDisposed: quantityToDispose,

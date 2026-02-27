@@ -2,7 +2,6 @@ import { type UniversalTransactionData, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
-import { v4 as uuidv4 } from 'uuid';
 
 import type { CostBasisConfig } from './cost-basis-config.js';
 import { assertPriceDataQuality } from './cost-basis-validation-utils.js';
@@ -78,7 +77,7 @@ export async function calculateCostBasisFromValidatedTransactions(
     return err(validationResult.error);
   }
 
-  const calculationId = uuidv4();
+  const calculationId = globalThis.crypto.randomUUID();
   const calculationDate = new Date();
 
   try {

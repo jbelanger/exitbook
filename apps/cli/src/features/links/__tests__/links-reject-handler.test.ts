@@ -121,8 +121,8 @@ describe('LinksRejectHandler', () => {
       expect(rejectResult.reviewedBy).toBe('cli-user');
       expect(rejectResult.reviewedAt).toBeInstanceOf(Date);
 
-      expect(mockLinkQueries.findById).toHaveBeenCalledWith('link-123');
-      expect(mockLinkQueries.updateStatus).toHaveBeenCalledWith('link-123', 'rejected', 'cli-user');
+      expect(mockLinkQueries.findById).toHaveBeenCalledWith(123);
+      expect(mockLinkQueries.updateStatus).toHaveBeenCalledWith(123, 'rejected', 'cli-user');
     });
 
     it('should write unlink_override event after successful reject', async () => {
@@ -220,7 +220,7 @@ describe('LinksRejectHandler', () => {
       expect(rejectResult.newStatus).toBe('rejected');
       expect(rejectResult.reviewedBy).toBe('cli-user');
 
-      expect(mockLinkQueries.updateStatus).toHaveBeenCalledWith('link-123', 'rejected', 'cli-user');
+      expect(mockLinkQueries.updateStatus).toHaveBeenCalledWith(123, 'rejected', 'cli-user');
     });
 
     it('should return error if link not found', async () => {

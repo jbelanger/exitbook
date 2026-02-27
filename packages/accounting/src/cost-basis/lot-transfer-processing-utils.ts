@@ -1,7 +1,6 @@
 import { parseDecimal, type AssetMovement, type PriceAtTxTime, type UniversalTransactionData } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
-import { v4 as uuidv4 } from 'uuid';
 
 import type { TransactionLink } from '../linking/types.js';
 
@@ -178,7 +177,7 @@ export function processTransferSource(
     }
 
     transfers.push({
-      id: uuidv4(),
+      id: globalThis.crypto.randomUUID(),
       calculationId,
       sourceLotId: lotDisposal.lotId,
       linkId: link.id,
@@ -387,7 +386,7 @@ export function processTransferTarget(
   const costBasisPerUnit = calculateTargetCostBasis(inheritedCostBasis, fiatFees, receivedQuantity);
 
   const lot = createAcquisitionLot({
-    id: uuidv4(),
+    id: globalThis.crypto.randomUUID(),
     calculationId,
     acquisitionTransactionId: tx.id,
     assetId: inflow.assetId,
