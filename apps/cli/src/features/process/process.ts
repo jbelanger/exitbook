@@ -58,43 +58,84 @@ async function executeReprocessCommand(rawOptions: unknown, registry: AdapterReg
   }
 
   const options = validationResult.data;
-  const isTuiMode = !options.json;
+  if (options.json) {
+    await executeReprocessJSON(options, registry);
+  } else {
+    await executeReprocessTUI(options, registry);
+  }
+}
 
+// ─── JSON Mode ───────────────────────────────────────────────────────────────
+
+async function executeReprocessJSON(options: ProcessCommandOptions, registry: AdapterRegistry): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = await createProcessHandler(ctx, database, registry);
-
-      if (isTuiMode) {
-        ctx.onAbort(() => handler.abort());
+      const handlerResult = await createProcessHandler(ctx, database, registry);
+      if (handlerResult.isErr()) {
+        displayCliError('reprocess', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
+      const handler = handlerResult.value;
 
       const result = await handler.execute({ accountId: options.accountId });
       if (result.isErr()) {
-        if (!isTuiMode) {
-          displayCliError('reprocess', result.error, ExitCodes.GENERAL_ERROR, 'json');
-        }
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
+        displayCliError('reprocess', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
-      handleProcessSuccess(options.json ?? false, result.value);
+      outputSuccess('reprocess', buildReprocessResult(result.value));
     });
   } catch (error) {
     displayCliError(
       'reprocess',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      options.json ? 'json' : 'text'
+      'json'
     );
   }
 }
 
-function handleProcessSuccess(isJsonMode: boolean, result: BatchProcessSummaryWithMetrics): void {
-  const status = result.errors.length > 0 ? 'warning' : 'success';
+// ─── TUI Mode ────────────────────────────────────────────────────────────────
 
-  const resultData: ReprocessCommandResult = {
-    status,
+async function executeReprocessTUI(options: ProcessCommandOptions, registry: AdapterRegistry): Promise<void> {
+  try {
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const handlerResult = await createProcessHandler(ctx, database, registry);
+      if (handlerResult.isErr()) {
+        displayCliError('reprocess', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      }
+      const handler = handlerResult.value;
+
+      ctx.onAbort(() => handler.abort());
+
+      const result = await handler.execute({ accountId: options.accountId });
+      if (result.isErr()) {
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
+
+      if (result.value.errors.length > 0) {
+        process.stderr.write('\nFirst 5 processing errors:\n');
+        for (const error of result.value.errors.slice(0, 5)) {
+          process.stderr.write(`  • ${error}\n`);
+        }
+      }
+    });
+  } catch (error) {
+    displayCliError(
+      'reprocess',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'text'
+    );
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function buildReprocessResult(result: BatchProcessSummaryWithMetrics): ReprocessCommandResult {
+  return {
+    status: result.errors.length > 0 ? 'warning' : 'success',
     reprocess: {
       counts: {
         processed: result.processed,
@@ -106,15 +147,4 @@ function handleProcessSuccess(isJsonMode: boolean, result: BatchProcessSummaryWi
       timestamp: new Date().toISOString(),
     },
   };
-
-  if (isJsonMode) {
-    outputSuccess('reprocess', resultData);
-  } else {
-    if (result.errors.length > 0) {
-      process.stderr.write('\nFirst 5 processing errors:\n');
-      for (const error of result.errors.slice(0, 5)) {
-        process.stderr.write(`  • ${error}\n`);
-      }
-    }
-  }
 }

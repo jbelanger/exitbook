@@ -180,21 +180,27 @@ export async function createImportHandler(
   ctx: CommandContext,
   database: KyselyDB,
   registry: AdapterRegistry
-): Promise<ImportHandler> {
-  const infra = await createIngestionInfrastructure(ctx, database, registry);
+): Promise<Result<ImportHandler, Error>> {
+  try {
+    const infra = await createIngestionInfrastructure(ctx, database, registry);
 
-  const importOrchestrator = new ImportOrchestrator(
-    database,
-    infra.providerManager,
-    registry,
-    infra.eventBus as EventBus<ImportEvent>
-  );
+    const importOrchestrator = new ImportOrchestrator(
+      database,
+      infra.providerManager,
+      registry,
+      infra.eventBus as EventBus<ImportEvent>
+    );
 
-  return new ImportHandler(
-    importOrchestrator,
-    infra.transactionProcessService,
-    registry,
-    infra.ingestionMonitor,
-    infra.instrumentation
-  );
+    return ok(
+      new ImportHandler(
+        importOrchestrator,
+        infra.transactionProcessService,
+        registry,
+        infra.ingestionMonitor,
+        infra.instrumentation
+      )
+    );
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
 }

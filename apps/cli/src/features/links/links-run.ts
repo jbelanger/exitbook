@@ -139,14 +139,9 @@ export function registerLinksRunCommand(linksCommand: Command): void {
     });
 }
 
-/**
- * Execute the links run command.
- */
 async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
-  // Check for --json flag early (even before validation) to determine output format
   const isJson = isJsonMode(rawOptions);
 
-  // Validate options at CLI boundary
   const parseResult = LinksRunCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
     displayCliError(
@@ -158,46 +153,66 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
   }
 
   const options = parseResult.data;
+  if (options.json) {
+    await executeLinksRunJSON(options);
+  } else {
+    await executeLinksRunTUI(options);
+  }
+}
+
+// ─── JSON Mode ───────────────────────────────────────────────────────────────
+
+async function executeLinksRunJSON(options: LinksRunCommandOptions): Promise<void> {
   const startTime = Date.now();
+  const params = buildLinksRunParamsFromFlags(options);
 
   try {
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const handler = createLinksRunHandler(ctx, database, { dryRun: params.dryRun, isJsonMode: true });
+
+      const result = await handler.execute(params);
+      if (result.isErr()) {
+        displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
+      outputSuccess('links-run', result.value, { duration_ms: Date.now() - startTime });
+    });
+  } catch (error) {
+    displayCliError(
+      'links-run',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'json'
+    );
+  }
+}
+
+// ─── TUI Mode ────────────────────────────────────────────────────────────────
+
+async function executeLinksRunTUI(options: LinksRunCommandOptions): Promise<void> {
+  try {
     let params: LinkingRunParams;
-    if (!options.dryRun && !options.minConfidence && !options.autoConfirmThreshold && !options.json) {
-      const result = await promptForLinksRunParams();
-      if (!result) {
+    if (!options.dryRun && !options.minConfidence && !options.autoConfirmThreshold) {
+      const prompted = await promptForLinksRunParams();
+      if (!prompted) {
         console.log('Transaction linking cancelled.');
         return;
       }
-      params = result;
+      params = prompted;
     } else {
       params = buildLinksRunParamsFromFlags(options);
     }
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = createLinksRunHandler(ctx, database, {
-        dryRun: params.dryRun,
-        isJsonMode: !!options.json,
-      });
+      const handler = createLinksRunHandler(ctx, database, { dryRun: params.dryRun, isJsonMode: false });
 
-      if (!options.json) {
-        ctx.onAbort(() => handler.abort());
-      }
+      ctx.onAbort(() => handler.abort());
 
       const result = await handler.execute(params);
-
       if (result.isErr()) {
-        if (options.json) {
-          displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'json');
-        } else {
-          ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        }
-        return;
-      }
-
-      if (options.json) {
-        const duration_ms = Date.now() - startTime;
-        outputSuccess('links-run', result.value, { duration_ms });
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
       }
     });
   } catch (error) {
@@ -205,7 +220,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       'links-run',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      isJson ? 'json' : 'text'
+      'text'
     );
   }
 }

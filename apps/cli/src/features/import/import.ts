@@ -96,22 +96,62 @@ async function executeImportCommand(rawOptions: unknown, registry: AdapterRegist
   }
 
   const options = validationResult.data;
-  const isTuiMode = !options.json;
+  if (options.json) {
+    await executeImportJSON(options, registry);
+  } else {
+    await executeImportTUI(options, registry);
+  }
+}
 
+// ─── JSON Mode ───────────────────────────────────────────────────────────────
+
+async function executeImportJSON(options: ImportCommandOptions, registry: AdapterRegistry): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = await createImportHandler(ctx, database, registry);
-
-      if (isTuiMode) {
-        ctx.onAbort(() => handler.abort());
+      const handlerResult = await createImportHandler(ctx, database, registry);
+      if (handlerResult.isErr()) {
+        displayCliError('import', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
+      const handler = handlerResult.value;
+
+      const params = unwrapResult(buildImportParams(options, registry));
+      const result = await handler.execute(params);
+      if (result.isErr()) {
+        displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
+      outputSuccess('import', buildImportResult(result.value, params));
+    });
+  } catch (error) {
+    displayCliError(
+      'import',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'json'
+    );
+  }
+}
+
+// ─── TUI Mode ────────────────────────────────────────────────────────────────
+
+async function executeImportTUI(options: ImportCommandOptions, registry: AdapterRegistry): Promise<void> {
+  try {
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const handlerResult = await createImportHandler(ctx, database, registry);
+      if (handlerResult.isErr()) {
+        displayCliError('import', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      }
+      const handler = handlerResult.value;
+
+      ctx.onAbort(() => handler.abort());
 
       const params = unwrapResult(buildImportParams(options, registry));
 
-      let onSingleAddressWarning: (() => Promise<boolean>) | undefined;
-      if (isTuiMode) {
-        onSingleAddressWarning = async () => {
+      const paramsWithCallback: ImportParams = {
+        ...params,
+        onSingleAddressWarning: async () => {
           process.stderr.write('\n⚠️  Single address import (incomplete wallet view)\n\n');
           process.stderr.write('Single address tracking has limitations:\n');
           process.stderr.write('  • Cannot distinguish internal transfers from external sends\n');
@@ -122,41 +162,38 @@ async function executeImportCommand(rawOptions: unknown, registry: AdapterRegist
             `  $ exitbook import --blockchain ${params.sourceName} --address xpub... [--xpub-gap 20]\n\n`
           );
           process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
-
           return await promptConfirm('Continue with single address import?', false);
-        };
-      }
-
-      const paramsWithCallback: ImportParams = {
-        ...params,
-        onSingleAddressWarning,
+        },
       };
 
       const result = await handler.execute(paramsWithCallback);
       if (result.isErr()) {
-        if (!isTuiMode) {
-          displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'json');
-        }
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
         return;
       }
 
-      handleImportSuccess(options.json ?? false, result.value, params);
+      if (result.value.processingErrors.length > 0) {
+        process.stderr.write('\nFirst 5 processing errors:\n');
+        for (const error of result.value.processingErrors.slice(0, 5)) {
+          process.stderr.write(`  • ${error}\n`);
+        }
+      }
     });
   } catch (error) {
     displayCliError(
       'import',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      options.json ? 'json' : 'text'
+      'text'
     );
   }
 }
 
-function handleImportSuccess(isJsonMode: boolean, importResult: ImportExecuteResult, params: ImportParams): void {
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function buildImportResult(importResult: ImportExecuteResult, params: ImportParams): ImportCommandResult {
   const totalImported = importResult.sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
   const totalSkipped = importResult.sessions.reduce((sum, s) => sum + s.transactionsSkipped, 0);
-  const includeSessions = importResult.sessions.length > 0;
   const firstSession = importResult.sessions[0];
   const sourceIsBlockchain = params.sourceType === 'blockchain';
 
@@ -167,20 +204,18 @@ function handleImportSuccess(isJsonMode: boolean, importResult: ImportExecuteRes
     ...(sourceIsBlockchain ? { blockchain: params.sourceName } : { exchange: params.sourceName }),
   };
 
-  const hasProcessingErrors = importResult.processingErrors.length > 0;
-  const status = hasProcessingErrors ? 'warning' : 'success';
+  const sessionSummaries =
+    importResult.sessions.length > 0
+      ? importResult.sessions.map((s) => ({
+          id: s.id,
+          startedAt: s.startedAt ? new Date(s.startedAt).toISOString() : undefined,
+          completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : undefined,
+          status: s.status,
+        }))
+      : undefined;
 
-  const sessionSummaries = includeSessions
-    ? importResult.sessions.map((s) => ({
-        id: s.id,
-        startedAt: s.startedAt ? new Date(s.startedAt).toISOString() : undefined,
-        completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : undefined,
-        status: s.status,
-      }))
-    : undefined;
-
-  const resultData: ImportCommandResult = {
-    status,
+  return {
+    status: importResult.processingErrors.length > 0 ? 'warning' : 'success',
     import: {
       accountId: firstSession?.accountId,
       source: params.sourceName,
@@ -198,15 +233,4 @@ function handleImportSuccess(isJsonMode: boolean, importResult: ImportExecuteRes
       timestamp: new Date().toISOString(),
     },
   };
-
-  if (isJsonMode) {
-    outputSuccess('import', resultData);
-  } else {
-    if (importResult.processingErrors.length > 0) {
-      process.stderr.write('\nFirst 5 processing errors:\n');
-      for (const error of importResult.processingErrors.slice(0, 5)) {
-        process.stderr.write(`  • ${error}\n`);
-      }
-    }
-  }
 }

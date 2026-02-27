@@ -152,16 +152,22 @@ export async function createProcessHandler(
   ctx: CommandContext,
   database: KyselyDB,
   registry: AdapterRegistry
-): Promise<ProcessHandler> {
-  const infra = await createIngestionInfrastructure(ctx, database, registry);
-  const rawDataQueries = createRawDataQueries(database);
-  const clearService = new ClearService(database, infra.eventBus as EventBus<IngestionEvent>);
+): Promise<Result<ProcessHandler, Error>> {
+  try {
+    const infra = await createIngestionInfrastructure(ctx, database, registry);
+    const rawDataQueries = createRawDataQueries(database);
+    const clearService = new ClearService(database, infra.eventBus as EventBus<IngestionEvent>);
 
-  return ProcessHandler.create(
-    infra.transactionProcessService,
-    clearService,
-    rawDataQueries,
-    infra.ingestionMonitor,
-    infra.instrumentation
-  );
+    return ok(
+      ProcessHandler.create(
+        infra.transactionProcessService,
+        clearService,
+        rawDataQueries,
+        infra.ingestionMonitor,
+        infra.instrumentation
+      )
+    );
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
 }

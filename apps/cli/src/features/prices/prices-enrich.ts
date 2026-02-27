@@ -62,46 +62,75 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
   }
 
   const options = parseResult.data;
+  if (options.json) {
+    await executePricesEnrichJSON(options);
+  } else {
+    await executePricesEnrichTUI(options);
+  }
+}
+
+// ─── JSON Mode ───────────────────────────────────────────────────────────────
+
+async function executePricesEnrichJSON(options: CommandOptions): Promise<void> {
+  const params: PricesEnrichOptions = {
+    asset: options.asset,
+    onMissing: options.onMissing,
+    normalizeOnly: options.normalizeOnly,
+    deriveOnly: options.deriveOnly,
+    fetchOnly: options.fetchOnly,
+  };
 
   try {
-    const params: PricesEnrichOptions = {
-      asset: options.asset,
-      onMissing: options.onMissing,
-      normalizeOnly: options.normalizeOnly,
-      deriveOnly: options.deriveOnly,
-      fetchOnly: options.fetchOnly,
-    };
-
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handlerResult = await createPricesEnrichHandler(ctx, database, { isJsonMode: !!options.json });
-
+      const handlerResult = await createPricesEnrichHandler(ctx, database, { isJsonMode: true });
       if (handlerResult.isErr()) {
-        if (options.json) {
-          displayCliError('prices-enrich', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        }
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
+        displayCliError('prices-enrich', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
-
       const handler = handlerResult.value;
 
-      if (!options.json) {
-        ctx.onAbort(() => handler.abort());
+      const result = await handler.execute(params);
+      if (result.isErr()) {
+        displayCliError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
+
+      outputSuccess('prices-enrich', result.value);
+    });
+  } catch (error) {
+    displayCliError(
+      'prices-enrich',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'json'
+    );
+  }
+}
+
+// ─── TUI Mode ────────────────────────────────────────────────────────────────
+
+async function executePricesEnrichTUI(options: CommandOptions): Promise<void> {
+  const params: PricesEnrichOptions = {
+    asset: options.asset,
+    onMissing: options.onMissing,
+    normalizeOnly: options.normalizeOnly,
+    deriveOnly: options.deriveOnly,
+    fetchOnly: options.fetchOnly,
+  };
+
+  try {
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const handlerResult = await createPricesEnrichHandler(ctx, database, { isJsonMode: false });
+      if (handlerResult.isErr()) {
+        displayCliError('prices-enrich', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      }
+      const handler = handlerResult.value;
+
+      ctx.onAbort(() => handler.abort());
 
       const result = await handler.execute(params);
-
       if (result.isErr()) {
-        if (options.json) {
-          displayCliError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR, 'json');
-        }
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      if (options.json) {
-        outputSuccess('prices-enrich', result.value);
       }
     });
   } catch (error) {
@@ -109,7 +138,7 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
       'prices-enrich',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      options.json ? 'json' : 'text'
+      'text'
     );
   }
 }
