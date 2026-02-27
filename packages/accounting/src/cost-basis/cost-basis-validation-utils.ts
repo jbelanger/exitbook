@@ -294,13 +294,15 @@ export function formatValidationError(result: PriceValidationResult): string {
 }
 
 /**
- * Orchestrate all price validations for cost basis calculation
- * Pure function - returns Result type for error handling
+ * Assert that all transactions have complete, USD-denominated price data.
+ * Hard-fail: any missing, non-USD, or incomplete FX-trail price returns an error.
+ * Used as a pre-condition inside CostBasisCalculator (defense-in-depth after the
+ * soft-filtering done by validateTransactionPrices in cost-basis/cost-basis-utils.ts).
  *
- * @param transactions - Transactions to validate
+ * @param transactions - Transactions to validate (should already be price-filtered)
  * @returns Result containing void on success, or Error with formatted message on failure
  */
-export function validateTransactionPrices(transactions: UniversalTransactionData[]): Result<void, Error> {
+export function assertPriceDataQuality(transactions: UniversalTransactionData[]): Result<void, Error> {
   // Phase 1: Collect all entities
   const entities = collectPricedEntities(transactions);
 

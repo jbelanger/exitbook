@@ -8,5 +8,11 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**', '**/*.e2e.test.ts', '**/*e2e*.test.ts'],
     testTimeout: 60000,
     passWithNoTests: true,
+    coverage: {
+      reporter: ['lcov', 'text-summary'],
+      reportsDirectory: 'coverage',
+      all: true,
+      include: ['apps/**/*.ts', 'apps/**/*.tsx', 'packages/**/*.ts', 'packages/**/*.tsx'],
+    },
   },
 });

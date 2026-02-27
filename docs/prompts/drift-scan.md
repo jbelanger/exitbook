@@ -216,6 +216,5 @@ Constraints:
 - When recommending a standard, cite where it appears in the repo evidence you saw.
 - If asked to compare to external best practices, treat them as secondary to repo evidence.
 
-Now analyze the following repository tree and feature code:
-<PASTE TREE HERE>
-<PASTE FEATURE FILES HERE>
+Now analyze the following repository tree (tree command) and feature code:
+[USER_INPUT]

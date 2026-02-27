@@ -1,16 +1,13 @@
 /**
- * Tests for cost basis utility functions
- *
- * These tests verify the pure business logic for cost basis strategy selection
- * according to the "Functional Core, Imperative Shell" pattern
+ * Tests for getStrategyForMethod factory function
  */
 
 import { describe, expect, it } from 'vitest';
 
-import { getStrategyForMethod } from '../cost-basis-utils.js';
-import { AverageCostStrategy } from '../strategies/average-cost-strategy.js';
-import { FifoStrategy } from '../strategies/fifo-strategy.js';
-import { LifoStrategy } from '../strategies/lifo-strategy.js';
+import { AverageCostStrategy } from '../average-cost-strategy.js';
+import { FifoStrategy } from '../fifo-strategy.js';
+import { LifoStrategy } from '../lifo-strategy.js';
+import { getStrategyForMethod } from '../strategy-factory.js';
 
 describe('getStrategyForMethod', () => {
   describe('implemented strategies', () => {

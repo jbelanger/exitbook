@@ -8,7 +8,8 @@ import type { CostBasisConfig } from '../../config/cost-basis-config.js';
 import { CanadaRules } from '../../jurisdictions/canada-rules.js';
 import { USRules } from '../../jurisdictions/us-rules.js';
 import type { TransactionLinkQueries } from '../../persistence/transaction-link-queries.js';
-import { CostBasisCalculator } from '../cost-basis-calculator.js';
+import { calculateCostBasis } from '../cost-basis-calculator.js';
+import { LotMatcher } from '../lot-matcher.js';
 
 const mockTransactionRepo = () => {
   const queries: Partial<TransactionQueries> = {
@@ -24,11 +25,11 @@ const mockLinkRepo = () => {
   return queries as TransactionLinkQueries;
 };
 
-describe('CostBasisCalculator', () => {
-  let calculator: CostBasisCalculator;
+describe('calculateCostBasis', () => {
+  let lotMatcher: LotMatcher;
 
   beforeEach(() => {
-    calculator = new CostBasisCalculator(mockTransactionRepo(), mockLinkRepo());
+    lotMatcher = new LotMatcher(mockTransactionRepo(), mockLinkRepo());
   });
 
   describe('calculate', () => {
@@ -52,7 +53,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await calculator.calculate(transactions, config, new USRules());
+      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -84,7 +85,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await calculator.calculate(transactions, config, new CanadaRules());
+      const result = await calculateCostBasis(transactions, config, new CanadaRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -113,7 +114,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await calculator.calculate(transactions, config, new USRules());
+      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -151,7 +152,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await calculator.calculate(transactions, config, new USRules());
+      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -198,7 +199,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await calculator.calculate([transactionWithoutPrice], config, new USRules());
+      const result = await calculateCostBasis([transactionWithoutPrice], config, new USRules(), lotMatcher);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -253,7 +254,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await calculator.calculate([transaction], config, new USRules());
+      const result = await calculateCostBasis([transaction], config, new USRules(), lotMatcher);
 
       // Should succeed - fiat movements without prices are ignored
       expect(result.isOk()).toBe(true);
@@ -276,7 +277,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await calculator.calculate(transactions, config, new USRules());
+      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -309,13 +310,12 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await calculator.calculate(transactions, config, new USRules());
+      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
 
       if (result.isOk()) {
         const summary = result.value;
-        // Verify assetsProcessed is in the summary
         expect(summary.assetsProcessed).toHaveLength(2);
         expect(summary.assetsProcessed).toContain('BTC');
         expect(summary.assetsProcessed).toContain('ETH');
@@ -349,7 +349,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await calculator.calculate(transactions, config, new USRules());
+      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
 
@@ -357,13 +357,11 @@ describe('CostBasisCalculator', () => {
         const summary = result.value;
         expect(summary.disposals).toHaveLength(2);
 
-        // Check first disposal (short-term)
         const shortTermDisposal = summary.disposals[0];
         expect(shortTermDisposal).toBeDefined();
         expect(shortTermDisposal!.taxTreatmentCategory).toBe('short_term');
         expect(shortTermDisposal!.holdingPeriodDays).toBeLessThan(365);
 
-        // Check second disposal (long-term)
         const longTermDisposal = summary.disposals[1];
         expect(longTermDisposal).toBeDefined();
         expect(longTermDisposal!.taxTreatmentCategory).toBe('long_term');
@@ -413,7 +411,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2024,
       };
 
-      const result = await calculator.calculate(transactions, config, new USRules());
+      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -422,9 +420,6 @@ describe('CostBasisCalculator', () => {
         // Loss should be disallowed due to wash sale (taxable gain/loss = 0)
         expect(summary.totalTaxableGainLoss.toString()).toBe('0');
 
-        // Verify fee was allocated correctly per ADR-005:
-        // - Acquisitions: ALL fees increase cost basis
-        // - Disposals: ONLY on-chain fees reduce proceeds (platform fees don't)
         expect(summary.disposals).toHaveLength(1);
         const disposal = summary.disposals[0];
         expect(disposal).toBeDefined();
@@ -481,7 +476,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2024,
       };
 
-      const result = await calculator.calculate(transactions, config, new CanadaRules());
+      const result = await calculateCostBasis(transactions, config, new CanadaRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -542,7 +537,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await calculator.calculate(transactionsWithEUR, config, new USRules());
+      const result = await calculateCostBasis(transactionsWithEUR, config, new USRules(), lotMatcher);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -606,7 +601,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await calculator.calculate([transactionWithEURFee], config, new USRules());
+      const result = await calculateCostBasis([transactionWithEURFee], config, new USRules(), lotMatcher);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -683,7 +678,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await calculator.calculate(transactionsWithUSD, config, new USRules());
+      const result = await calculateCostBasis(transactionsWithUSD, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -733,7 +728,7 @@ describe('CostBasisCalculator', () => {
         taxYear: 2023,
       };
 
-      const result = await calculator.calculate(transactionsWithMultipleEUR, config, new USRules());
+      const result = await calculateCostBasis(transactionsWithMultipleEUR, config, new USRules(), lotMatcher);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -741,7 +736,6 @@ describe('CostBasisCalculator', () => {
         expect(result.error.message).toContain('7 price(s) not in USD');
         expect(result.error.message).toContain('Examples of issues found');
         // Should show 5 examples, not all 7
-        // Transaction IDs are shown as "Tx 1", "Tx 2", etc. in error messages
         const examples = result.error.message.match(/Tx \d+/g);
         expect(examples).toHaveLength(5);
       }
@@ -782,20 +776,18 @@ describe('CostBasisCalculator', () => {
         taxYear: 2024,
       };
 
-      const result = await calculator.calculate(transactions, config, new USRules());
+      const result = await calculateCostBasis(transactions, config, new USRules(), lotMatcher);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const summary = result.value;
 
-        // Verify long-term classification
         expect(summary.disposals).toHaveLength(1);
         const disposal = summary.disposals[0];
         expect(disposal).toBeDefined();
         expect(disposal!.taxTreatmentCategory).toBe('long_term');
         expect(disposal!.holdingPeriodDays).toBeGreaterThanOrEqual(365);
 
-        // Verify fee allocation per ADR-005
         // Cost basis per unit: ($30,000 + $100 acquisition fee) / 1 = $30,100
         // Cost basis for 0.5 BTC: $30,100 * 0.5 = $15,050
         expect(disposal!.costBasisPerUnit.toString()).toBe('30100');
@@ -807,7 +799,6 @@ describe('CostBasisCalculator', () => {
         // Gain: $25,000 - $15,050 = $9,950
         expect(disposal!.gainLoss.toString()).toBe('9950');
         expect(summary.totalCapitalGainLoss.toString()).toBe('9950');
-        // US: 100% taxable
         expect(summary.totalTaxableGainLoss.toString()).toBe('9950');
       }
     });

@@ -1,13 +1,11 @@
 import path from 'node:path';
 
 import {
-  CostBasisCalculator,
   CostBasisReportGenerator,
   StandardFxRateProvider,
   createTransactionLinkQueries,
-  getJurisdictionRules,
+  runCostBasisPipeline,
   validateCostBasisParams,
-  validateTransactionPrices,
   type AssetMatchError,
   type CostBasisHandlerParams,
   type CostBasisReport,
@@ -66,7 +64,6 @@ export class CostBasisHandler {
    */
   async execute(params: CostBasisHandlerParams): Promise<Result<CostBasisResult, Error>> {
     try {
-      // Validate parameters
       const validation = validateCostBasisParams(params);
       if (validation.isErr()) {
         return err(validation.error);
@@ -75,22 +72,24 @@ export class CostBasisHandler {
       const { config } = params;
       logger.debug({ config }, 'Starting cost basis calculation');
 
-      // 1. Fetch and filter transactions
-      const txResult = await this.loadTransactionsInReportWindow(config);
+      // 1. Fetch and filter transactions to the report window
+      const txResult = await this.fetchTransactionsForWindow(config);
       if (txResult.isErr()) {
         return err(txResult.error);
       }
-      const { validTransactions, missingPricesCount } = txResult.value;
 
-      // 2. Run calculation
-      const rules = getJurisdictionRules(config.jurisdiction);
-      const calculator = new CostBasisCalculator(this.transactionRepository, this.transactionLinkRepository);
-
-      const calcResult = await calculator.calculate(validTransactions, config, rules);
-      if (calcResult.isErr()) {
-        return err(calcResult.error);
+      // 2. Validate prices, get jurisdiction rules, run lot matching + gain/loss
+      const pipelineResult = await runCostBasisPipeline(
+        txResult.value,
+        config,
+        this.transactionRepository,
+        this.transactionLinkRepository
+      );
+      if (pipelineResult.isErr()) {
+        return err(pipelineResult.error);
       }
-      const summary = calcResult.value;
+
+      const { summary, missingPricesCount } = pipelineResult.value;
 
       logger.info(
         {
@@ -102,12 +101,9 @@ export class CostBasisHandler {
         'Cost basis calculation completed'
       );
 
-      // 3. Get lots, disposals, and transfers from summary (already in-memory)
-      const lots = summary.lots;
-      const disposals = summary.disposals;
-      const lotTransfers = summary.lotTransfers;
+      const { lots, disposals, lotTransfers } = summary;
 
-      // 4. Generate optional report with currency conversion
+      // 3. Generate optional report with currency conversion
       let report: CostBasisReport | undefined;
       if (config.currency !== 'USD') {
         const reportResult = await this.generateReport(
@@ -123,7 +119,6 @@ export class CostBasisHandler {
         report = reportResult.value;
       }
 
-      // 5. Build result
       return ok({
         summary,
         missingPricesWarning:
@@ -142,17 +137,17 @@ export class CostBasisHandler {
   }
 
   /**
-   * Fetch, filter, and validate transactions for cost basis
+   * Fetch and filter transactions to the report window end date.
+   * Pre-period acquisitions are included so the lot pool is complete.
    */
-  private async loadTransactionsInReportWindow(
+  private async fetchTransactionsForWindow(
     config: CostBasisHandlerParams['config']
-  ): Promise<Result<{ missingPricesCount: number; validTransactions: UniversalTransactionData[] }, Error>> {
+  ): Promise<Result<UniversalTransactionData[], Error>> {
     // Guard against any non-CLI callers that bypass validation.
     if (!config.startDate || !config.endDate) {
       return err(new Error('Start date and end date must be defined'));
     }
 
-    // Fetch all transactions
     const transactionsResult = await this.transactionRepository.getTransactions();
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);
@@ -169,30 +164,13 @@ export class CostBasisHandler {
     // Pre-period acquisitions are needed to build the lot pool — e.g. a 2023 buy
     // must exist so a 2024 transfer/disposal can match against it.
     // The calculator filters output disposals to [startDate, endDate] for reporting.
-    const transactionsUpToEndDate = allTransactions.filter((tx) => {
-      const txDate = new Date(tx.timestamp);
-      return txDate <= config.endDate;
-    });
+    const transactionsUpToEndDate = allTransactions.filter((tx) => new Date(tx.timestamp) <= config.endDate);
 
     if (transactionsUpToEndDate.length === 0) {
       return err(new Error(`No transactions found on or before ${config.endDate.toISOString().split('T')[0]}`));
     }
 
-    // Validate prices
-    const validationResult = validateTransactionPrices(transactionsUpToEndDate, config.currency);
-    if (validationResult.isErr()) {
-      return err(validationResult.error);
-    }
-
-    const { validTransactions, missingPricesCount } = validationResult.value;
-    if (missingPricesCount > 0) {
-      logger.warn(
-        { missingPricesCount, validCount: validTransactions.length },
-        'Some transactions missing prices will be excluded'
-      );
-    }
-
-    return ok({ validTransactions, missingPricesCount });
+    return ok(transactionsUpToEndDate);
   }
 
   /**

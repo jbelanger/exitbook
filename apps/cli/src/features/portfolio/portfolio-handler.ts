@@ -6,11 +6,9 @@
 import path from 'node:path';
 
 import {
-  CostBasisCalculator,
   createTransactionLinkQueries,
-  getJurisdictionRules,
+  runCostBasisPipeline,
   validateCostBasisParams,
-  validateTransactionPrices,
   type CostBasisHandlerParams,
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
@@ -236,11 +234,17 @@ export class PortfolioHandler {
         return err(costBasisValidation.error);
       }
 
-      const priceValidationResult = validateTransactionPrices(transactionsUpToAsOf, 'USD');
-      if (priceValidationResult.isErr()) {
-        return err(priceValidationResult.error);
+      const pipelineResult = await runCostBasisPipeline(
+        transactionsUpToAsOf,
+        costBasisParams.config,
+        this.transactionRepository,
+        this.transactionLinkRepository
+      );
+      if (pipelineResult.isErr()) {
+        return err(pipelineResult.error);
       }
-      const { validTransactions, missingPricesCount } = priceValidationResult.value;
+
+      const { summary: costBasisSummary, missingPricesCount, validTransactions } = pipelineResult.value;
 
       if (missingPricesCount > 0) {
         const validTransactionIds = new Set(validTransactions.map((tx) => tx.id));
@@ -264,15 +268,8 @@ export class PortfolioHandler {
         );
       }
 
-      const calculator = new CostBasisCalculator(this.transactionRepository, this.transactionLinkRepository);
-      const rules = getJurisdictionRules(costBasisParams.config.jurisdiction);
-      const calcResult = await calculator.calculate(validTransactions, costBasisParams.config, rules);
-      if (calcResult.isErr()) {
-        return err(calcResult.error);
-      }
-
-      const openLotsByAssetId = new Map<string, typeof calcResult.value.lots>();
-      for (const lot of calcResult.value.lots) {
+      const openLotsByAssetId = new Map<string, typeof costBasisSummary.lots>();
+      for (const lot of costBasisSummary.lots) {
         if (lot.remainingQuantity.lte(0)) {
           continue;
         }
@@ -284,9 +281,9 @@ export class PortfolioHandler {
         }
       }
 
-      const lotAssetByLotId = new Map<string, string>(calcResult.value.lots.map((lot) => [lot.id, lot.assetId]));
+      const lotAssetByLotId = new Map<string, string>(costBasisSummary.lots.map((lot) => [lot.id, lot.assetId]));
       const realizedGainLossByAssetIdUsd = new Map<string, Decimal>();
-      for (const disposal of calcResult.value.disposals) {
+      for (const disposal of costBasisSummary.disposals) {
         const assetId = lotAssetByLotId.get(disposal.lotId);
         if (!assetId) {
           logger.warn({ disposalId: disposal.id, lotId: disposal.lotId }, 'Disposal references missing lot');

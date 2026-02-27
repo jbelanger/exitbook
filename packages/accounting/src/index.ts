@@ -19,24 +19,31 @@ export type {
   LotTransfer,
 } from './domain/types.js';
 
-// Services
-export { LotMatcher } from './services/lot-matcher.js';
-export type { LotMatcherConfig, LotMatchResult, AssetLotMatchResult, AssetMatchError } from './services/lot-matcher.js';
-export type { GainLossResult, AssetGainLossSummary, DisposalGainLoss } from './services/gain-loss-calculator.js';
+// Cost basis calculation
+export { LotMatcher } from './cost-basis/lot-matcher.js';
+export type {
+  LotMatcherConfig,
+  LotMatchResult,
+  AssetLotMatchResult,
+  AssetMatchError,
+} from './cost-basis/lot-matcher.js';
+export type { GainLossResult, AssetGainLossSummary, DisposalGainLoss } from './cost-basis/gain-loss-utils.js';
 export {
   calculateGainLoss,
   checkLossDisallowance,
   aggregateAssetGainLoss,
   aggregateOverallGainLoss,
-} from './services/gain-loss-utils.js';
-export { CostBasisCalculator } from './services/cost-basis-calculator.js';
-export type { CostBasisSummary } from './services/cost-basis-calculator.js';
+} from './cost-basis/gain-loss-utils.js';
+export { calculateCostBasis } from './cost-basis/cost-basis-calculator.js';
+export type { CostBasisSummary } from './cost-basis/cost-basis-calculator.js';
+export { runCostBasisPipeline } from './cost-basis/cost-basis-pipeline.js';
+export type { CostBasisPipelineResult } from './cost-basis/cost-basis-pipeline.js';
 
 // Strategies
-export { FifoStrategy } from './services/strategies/fifo-strategy.js';
-export { LifoStrategy } from './services/strategies/lifo-strategy.js';
-export { AverageCostStrategy } from './services/strategies/average-cost-strategy.js';
-export type { ICostBasisStrategy, DisposalRequest } from './services/strategies/base-strategy.js';
+export { FifoStrategy } from './cost-basis/strategies/fifo-strategy.js';
+export { LifoStrategy } from './cost-basis/strategies/lifo-strategy.js';
+export { AverageCostStrategy } from './cost-basis/strategies/average-cost-strategy.js';
+export type { ICostBasisStrategy, DisposalRequest } from './cost-basis/strategies/base-strategy.js';
 
 // Jurisdiction rules
 export type { IJurisdictionRules } from './jurisdictions/base-rules.js';

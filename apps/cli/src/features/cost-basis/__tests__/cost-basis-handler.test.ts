@@ -1,7 +1,7 @@
 import {
-  CostBasisCalculator,
   CostBasisReportGenerator,
   createTransactionLinkQueries,
+  runCostBasisPipeline,
   type CostBasisReport,
   type CostBasisSummary,
 } from '@exitbook/accounting';
@@ -19,7 +19,7 @@ vi.mock('@exitbook/accounting', async () => {
   const actual = await vi.importActual('@exitbook/accounting');
   return {
     ...actual,
-    CostBasisCalculator: vi.fn(),
+    runCostBasisPipeline: vi.fn(),
     CostBasisReportGenerator: vi.fn(),
     StandardFxRateProvider: vi.fn(),
     createTransactionLinkQueries: vi.fn(),
@@ -27,8 +27,6 @@ vi.mock('@exitbook/accounting', async () => {
       startDate: new Date('2024-01-01'),
       endDate: new Date('2024-12-31'),
     }),
-    CanadaRules: vi.fn(),
-    USRules: vi.fn(),
   };
 });
 
@@ -148,26 +146,27 @@ describe('CostBasisHandler', () => {
 
       vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok(transactions));
 
-      // Mock Calculator
-      const mockCalculate = vi.fn().mockResolvedValue(
+      vi.mocked(runCostBasisPipeline).mockResolvedValue(
         ok({
-          calculation: { id: 'calc-123', config: validParams.config, transactionsProcessed: 1 },
-          lotsCreated: 1,
-          disposalsProcessed: 0,
-          assetsProcessed: ['BTC'],
-        } as CostBasisSummary)
+          summary: {
+            calculation: { id: 'calc-123', config: validParams.config, transactionsProcessed: 1 },
+            lotsCreated: 1,
+            disposalsProcessed: 0,
+            assetsProcessed: ['BTC'],
+            lots: [],
+            disposals: [],
+            lotTransfers: [],
+            errors: [],
+          } as unknown as CostBasisSummary,
+          missingPricesCount: 0,
+          validTransactions: transactions,
+        })
       );
-      vi.mocked(CostBasisCalculator).mockImplementation(function () {
-        return {
-          calculate: mockCalculate,
-          calculateCostBasis: vi.fn(),
-        } as unknown as CostBasisCalculator;
-      });
 
       const result = await handler.execute(validParams);
 
       expect(result.isOk()).toBe(true);
-      expect(mockCalculate).toHaveBeenCalled();
+      expect(runCostBasisPipeline).toHaveBeenCalled();
       if (result.isOk()) {
         expect(result.value.summary.calculation.id).toBe('calc-123');
         expect(result.value.report).toBeUndefined();
@@ -194,21 +193,22 @@ describe('CostBasisHandler', () => {
 
       vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok(transactions));
 
-      // Mock Calculator
-      const mockCalculate = vi.fn().mockResolvedValue(
+      vi.mocked(runCostBasisPipeline).mockResolvedValue(
         ok({
-          calculation: { id: 'calc-123', config: cadParams.config, transactionsProcessed: 1 },
-          lotsCreated: 1,
-          disposalsProcessed: 0,
-          assetsProcessed: ['BTC'],
-        } as CostBasisSummary)
+          summary: {
+            calculation: { id: 'calc-123', config: cadParams.config, transactionsProcessed: 1 },
+            lotsCreated: 1,
+            disposalsProcessed: 0,
+            assetsProcessed: ['BTC'],
+            lots: [],
+            disposals: [],
+            lotTransfers: [],
+            errors: [],
+          } as unknown as CostBasisSummary,
+          missingPricesCount: 0,
+          validTransactions: transactions,
+        })
       );
-      vi.mocked(CostBasisCalculator).mockImplementation(function () {
-        return {
-          calculate: mockCalculate,
-          calculateCostBasis: vi.fn(),
-        } as unknown as CostBasisCalculator;
-      });
 
       // Mock Price Provider
       vi.mocked(createPriceProviderManager).mockResolvedValue(
@@ -259,37 +259,32 @@ describe('CostBasisHandler', () => {
       const transactions = [
         {
           timestamp: new Date('2024-06-01').getTime(),
-          movements: {
-            inflows: [{ assetSymbol: 'BTC', amount: '1', priceAtTxTime: '50000' }],
-            outflows: [],
-          },
+          movements: { inflows: [{ assetSymbol: 'BTC', priceAtTxTime: '50000' }], outflows: [] },
         },
         {
           timestamp: new Date('2024-06-02').getTime(),
-          movements: {
-            inflows: [{ assetSymbol: 'ETH', amount: '10', priceAtTxTime: undefined }], // Missing price
-            outflows: [],
-          },
+          movements: { inflows: [{ assetSymbol: 'ETH', priceAtTxTime: undefined }], outflows: [] },
         },
       ] as unknown as UniversalTransactionData[];
 
       vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok(transactions));
 
-      // Mock Calculator
-      const mockCalculate = vi.fn().mockResolvedValue(
+      vi.mocked(runCostBasisPipeline).mockResolvedValue(
         ok({
-          calculation: { id: 'calc-123', config: validParams.config, transactionsProcessed: 1 },
-          lotsCreated: 1,
-          disposalsProcessed: 0,
-          assetsProcessed: ['BTC'],
-        } as CostBasisSummary)
+          summary: {
+            calculation: { id: 'calc-123', config: validParams.config, transactionsProcessed: 1 },
+            lotsCreated: 1,
+            disposalsProcessed: 0,
+            assetsProcessed: ['BTC'],
+            lots: [],
+            disposals: [],
+            lotTransfers: [],
+            errors: [],
+          } as unknown as CostBasisSummary,
+          missingPricesCount: 1,
+          validTransactions: [transactions[0]!],
+        })
       );
-      vi.mocked(CostBasisCalculator).mockImplementation(function () {
-        return {
-          calculate: mockCalculate,
-          calculateCostBasis: vi.fn(),
-        } as unknown as CostBasisCalculator;
-      });
 
       const result = await handler.execute(validParams);
 
@@ -297,12 +292,6 @@ describe('CostBasisHandler', () => {
       if (result.isOk()) {
         expect(result.value.missingPricesWarning).toBeDefined();
         expect(result.value.missingPricesWarning).toContain('1 transactions were excluded');
-        // Check that valid transactions were passed to calculator
-        expect(mockCalculate).toHaveBeenCalledWith(
-          expect.arrayContaining([expect.objectContaining({ timestamp: transactions[0]!.timestamp })]),
-          expect.anything(),
-          expect.anything()
-        );
       }
     });
   });

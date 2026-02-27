@@ -4,12 +4,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { PriceValidationResult } from '../cost-basis-validation-utils.js';
 import {
+  assertPriceDataQuality,
   collectPricedEntities,
+  formatValidationError,
+  validateFxAuditTrail,
   validatePriceCompleteness,
   validatePriceCurrency,
-  validateFxAuditTrail,
-  formatValidationError,
-  validateTransactionPrices,
 } from '../cost-basis-validation-utils.js';
 
 describe('cost-basis-validation-utils', () => {
@@ -619,7 +619,7 @@ describe('cost-basis-validation-utils', () => {
     });
   });
 
-  describe('validateTransactionPrices', () => {
+  describe('assertPriceDataQuality', () => {
     it('should return ok for valid transactions', () => {
       const transactions: UniversalTransactionData[] = [
         {
@@ -667,7 +667,7 @@ describe('cost-basis-validation-utils', () => {
         },
       ];
 
-      const result = validateTransactionPrices(transactions);
+      const result = assertPriceDataQuality(transactions);
 
       expect(result.isOk()).toBe(true);
     });
@@ -702,7 +702,7 @@ describe('cost-basis-validation-utils', () => {
         },
       ];
 
-      const result = validateTransactionPrices(transactions);
+      const result = assertPriceDataQuality(transactions);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -745,7 +745,7 @@ describe('cost-basis-validation-utils', () => {
         },
       ];
 
-      const result = validateTransactionPrices(transactions);
+      const result = assertPriceDataQuality(transactions);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -791,7 +791,7 @@ describe('cost-basis-validation-utils', () => {
         },
       ];
 
-      const result = validateTransactionPrices(transactions);
+      const result = assertPriceDataQuality(transactions);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -859,7 +859,7 @@ describe('cost-basis-validation-utils', () => {
         },
       ];
 
-      const result = validateTransactionPrices(transactions);
+      const result = assertPriceDataQuality(transactions);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
