@@ -22,8 +22,7 @@ import {
   type CalculationContext,
 } from './components/index.js';
 import type { CostBasisResult, CostBasisHandlerParams } from './cost-basis-handler.js';
-import { CostBasisHandler } from './cost-basis-handler.js';
-import { ensureLinks, ensurePrices } from './cost-basis-prereqs.js';
+import { createCostBasisHandler } from './cost-basis-handler.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.js';
 import { buildCostBasisParamsFromFlags } from './cost-basis-utils.js';
 
@@ -184,26 +183,13 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const handlerResult = await createCostBasisHandler(ctx, database, { isJsonMode: true, params });
 
-      // Auto-run prerequisites
-      const linksResult = await ensureLinks(database, ctx.dataDir, ctx, true);
-      if (linksResult.isErr()) {
-        displayCliError('cost-basis', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      if (handlerResult.isErr()) {
+        displayCliError('cost-basis', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
-      const pricesResult = await ensurePrices(
-        database,
-        params.config.startDate,
-        params.config.endDate,
-        params.config.currency,
-        ctx,
-        true
-      );
-      if (pricesResult.isErr()) {
-        displayCliError('cost-basis', pricesResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      const handler = new CostBasisHandler(database);
+      const handler = handlerResult.value;
       const result = await handler.execute(params);
 
       if (result.isErr()) {
@@ -271,15 +257,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
     await runCommand(async (ctx) => {
       const database = await ctx.database();
 
-      // Step 1: Auto-run linking if stale (before prompts so DB is available)
-      const linksResult = await ensureLinks(database, ctx.dataDir, ctx, false);
-      if (linksResult.isErr()) {
-        console.error(`\n\u26A0 Error: ${linksResult.error.message}`);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      // Step 2: Resolve params via interactive prompts or CLI flags
+      // Step 1: Resolve params via interactive prompts or CLI flags
       let params: CostBasisHandlerParams;
       if (!options.method && !options.jurisdiction && !options.taxYear) {
         const promptResult = await promptForCostBasisParams();
@@ -292,32 +270,21 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
         params = unwrapResult(buildCostBasisParamsFromFlags(options));
       }
 
-      // Step 3: Auto-run price enrichment if missing (needs date range from params)
-      const pricesResult = await ensurePrices(
-        database,
-        params.config.startDate,
-        params.config.endDate,
-        params.config.currency,
-        ctx,
-        false
-      );
-      if (pricesResult.isErr()) {
-        console.error(`\n\u26A0 Error: ${pricesResult.error.message}`);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
+      // Step 2: Create handler (runs linking + price enrichment prereqs)
+      const handlerResult = await createCostBasisHandler(ctx, database, { isJsonMode: false, params });
+      if (handlerResult.isErr()) {
+        displayCliError('cost-basis', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }
 
-      // Step 4: Calculate cost basis
-      const spinner = createSpinner('Calculating cost basis...', false);
+      const handler = handlerResult.value;
 
-      const handler = new CostBasisHandler(database);
+      // Step 3: Calculate cost basis
+      const spinner = createSpinner('Calculating cost basis...', false);
       const result = await handler.execute(params);
       stopSpinner(spinner);
 
       if (result.isErr()) {
-        console.error(`\n\u26A0 Error: ${result.error.message}`);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
+        displayCliError('cost-basis', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }
 
       const costBasisResult = result.value;
@@ -366,8 +333,12 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
       );
     });
   } catch (error) {
-    console.error('\n\u26A0 Error:', error instanceof Error ? error.message : String(error));
-    process.exit(ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'cost-basis',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'text'
+    );
   }
 }
 

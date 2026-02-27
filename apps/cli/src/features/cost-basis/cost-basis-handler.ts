@@ -19,8 +19,10 @@ import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { CommandDatabase } from '../shared/command-runtime.js';
+import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
 import { getDataDir } from '../shared/data-dir.js';
+
+import { ensureLinks, ensurePrices } from './cost-basis-prereqs.js';
 
 export type { CostBasisHandlerParams };
 
@@ -48,7 +50,7 @@ export interface CostBasisResult {
 
 /**
  * Cost Basis Handler - Encapsulates all cost basis calculation business logic.
- * Reusable by both CLI command and other contexts.
+ * Tier 1 shape (DB-only constructor) but with a Tier 2 factory for prereq orchestration.
  */
 export class CostBasisHandler {
   private readonly transactionRepository;
@@ -246,4 +248,49 @@ export class CostBasisHandler {
       await priceManager.destroy();
     }
   }
+}
+
+/**
+ * Create a CostBasisHandler with prereqs (linking + price enrichment) run first.
+ * Factory runs prereqs -- command files NEVER call ensureLinks/ensurePrices directly.
+ */
+export async function createCostBasisHandler(
+  ctx: CommandContext,
+  database: CommandDatabase,
+  options: { isJsonMode: boolean; params: CostBasisHandlerParams }
+): Promise<Result<CostBasisHandler, Error>> {
+  let prereqAbort: (() => void) | undefined;
+  if (!options.isJsonMode) {
+    ctx.onAbort(() => {
+      prereqAbort?.();
+    });
+  }
+
+  // Run linking prereq
+  const linksResult = await ensureLinks(database, ctx.dataDir, {
+    isJsonMode: options.isJsonMode,
+    setAbort: (abort) => {
+      prereqAbort = abort;
+    },
+  });
+  if (linksResult.isErr()) {
+    return err(linksResult.error);
+  }
+
+  // Run price enrichment prereq (needs date range from params)
+  const { config } = options.params;
+  if (config.startDate && config.endDate) {
+    const pricesResult = await ensurePrices(database, config.startDate, config.endDate, config.currency, {
+      isJsonMode: options.isJsonMode,
+      setAbort: (abort) => {
+        prereqAbort = abort;
+      },
+    });
+    if (pricesResult.isErr()) {
+      return err(pricesResult.error);
+    }
+  }
+
+  prereqAbort = undefined;
+  return ok(new CostBasisHandler(database));
 }

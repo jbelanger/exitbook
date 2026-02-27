@@ -18,9 +18,14 @@ import { createEventDrivenController } from '../../ui/shared/index.js';
 import { LinksRunMonitor } from '../links/components/links-run-components.js';
 import { PricesEnrichMonitor } from '../prices/components/prices-enrich-components.js';
 import { createDefaultPriceProviderManager } from '../prices/prices-utils.js';
-import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
+import type { CommandDatabase } from '../shared/command-runtime.js';
 
 const logger = getLogger('cost-basis-prereqs');
+
+export interface PrereqExecutionOptions {
+  isJsonMode: boolean;
+  setAbort?: ((abort: (() => void) | undefined) => void) | undefined;
+}
 
 /**
  * Check if linking is needed (timestamp comparison) and run if so.
@@ -31,8 +36,7 @@ const logger = getLogger('cost-basis-prereqs');
 export async function ensureLinks(
   db: CommandDatabase,
   dataDir: string,
-  ctx: CommandContext,
-  isJsonMode: boolean
+  options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
   const txRepo = createTransactionQueries(db);
   const linkRepo = createTransactionLinkQueries(db);
@@ -61,7 +65,7 @@ export async function ensureLinks(
     'Transaction links are stale, running linking'
   );
 
-  if (!isJsonMode) {
+  if (!options.isJsonMode) {
     console.log('\nTransaction links are stale, running linking...\n');
   }
 
@@ -74,7 +78,7 @@ export async function ensureLinks(
     autoConfirmThreshold: parseDecimal('0.95'),
   };
 
-  if (isJsonMode) {
+  if (options.isJsonMode) {
     const handler = new LinkingOrchestrator(txRepo, linkRepo, overrideStore);
     const result = await handler.execute(params);
     if (result.isErr()) return err(result.error);
@@ -89,28 +93,37 @@ export async function ensureLinks(
     },
   });
   const controller = createEventDrivenController(eventBus, LinksRunMonitor, { dryRun: false });
-
-  ctx.onAbort(() => {
+  const abort = () => {
     controller.abort();
     void controller.stop().catch((cleanupErr) => {
       logger.warn({ cleanupErr }, 'Failed to stop links controller on abort');
     });
-  });
+  };
 
-  await controller.start();
+  options.setAbort?.(abort);
+  try {
+    await controller.start();
 
-  const handler = new LinkingOrchestrator(txRepo, linkRepo, overrideStore, eventBus);
-  const result = await handler.execute(params);
+    const handler = new LinkingOrchestrator(txRepo, linkRepo, overrideStore, eventBus);
+    const result = await handler.execute(params);
 
-  if (result.isErr()) {
-    controller.fail(result.error.message);
-    await controller.stop();
-    return err(result.error);
+    if (result.isErr()) {
+      controller.fail(result.error.message);
+      return err(result.error);
+    }
+
+    controller.complete();
+    return ok();
+  } catch (error) {
+    const caughtError = error instanceof Error ? error : new Error(String(error));
+    controller.fail(caughtError.message);
+    return err(caughtError);
+  } finally {
+    options.setAbort?.(undefined);
+    await controller.stop().catch((cleanupErr) => {
+      logger.warn({ cleanupErr }, 'Failed to stop links controller during cleanup');
+    });
   }
-
-  controller.complete();
-  await controller.stop();
-  return ok();
 }
 
 /**
@@ -124,8 +137,7 @@ export async function ensurePrices(
   startDate: Date,
   endDate: Date,
   currency: string,
-  ctx: CommandContext,
-  isJsonMode: boolean
+  options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
   const txRepo = createTransactionQueries(db);
   const txResult = await txRepo.getTransactions();
@@ -152,21 +164,25 @@ export async function ensurePrices(
     );
   }
 
-  if (!isJsonMode) {
+  if (!options.isJsonMode) {
     console.log('\nPrices missing for requested date range, running enrichment...\n');
   }
 
-  if (isJsonMode) {
+  if (options.isJsonMode) {
     const priceManagerResult = await createDefaultPriceProviderManager();
     if (priceManagerResult.isErr()) return err(priceManagerResult.error);
     const priceManager = priceManagerResult.value;
-    ctx.onCleanup(async () => priceManager.destroy());
-
-    const pipeline = new PriceEnrichmentPipeline(db);
-    const result = await pipeline.execute({}, priceManager);
-    if (result.isErr()) return err(result.error);
-    logger.info('Price enrichment completed (JSON mode)');
-    return ok();
+    try {
+      const pipeline = new PriceEnrichmentPipeline(db);
+      const result = await pipeline.execute({}, priceManager);
+      if (result.isErr()) return err(result.error);
+      logger.info('Price enrichment completed (JSON mode)');
+      return ok();
+    } finally {
+      await priceManager.destroy().catch((cleanupErr) => {
+        logger.warn({ cleanupErr }, 'Failed to destroy price manager after JSON enrichment');
+      });
+    }
   }
 
   // TUI mode: mount PricesEnrichMonitor
@@ -185,28 +201,38 @@ export async function ensurePrices(
     return err(priceManagerResult.error);
   }
   const priceManager = priceManagerResult.value;
-  ctx.onCleanup(async () => priceManager.destroy());
-
-  const pipeline = new PriceEnrichmentPipeline(db, eventBus, instrumentation);
-
-  ctx.onAbort(() => {
+  const abort = () => {
     controller.abort();
     void controller.stop().catch((cleanupErr) => {
       logger.warn({ cleanupErr }, 'Failed to stop prices controller on abort');
     });
-  });
+  };
 
-  await controller.start();
+  options.setAbort?.(abort);
+  try {
+    await controller.start();
 
-  const result = await pipeline.execute({}, priceManager);
+    const pipeline = new PriceEnrichmentPipeline(db, eventBus, instrumentation);
+    const result = await pipeline.execute({}, priceManager);
 
-  if (result.isErr()) {
-    controller.fail(result.error.message);
-    await controller.stop();
-    return err(result.error);
+    if (result.isErr()) {
+      controller.fail(result.error.message);
+      return err(result.error);
+    }
+
+    controller.complete();
+    return ok();
+  } catch (error) {
+    const caughtError = error instanceof Error ? error : new Error(String(error));
+    controller.fail(caughtError.message);
+    return err(caughtError);
+  } finally {
+    options.setAbort?.(undefined);
+    await controller.stop().catch((cleanupErr) => {
+      logger.warn({ cleanupErr }, 'Failed to stop prices controller during cleanup');
+    });
+    await priceManager.destroy().catch((cleanupErr) => {
+      logger.warn({ cleanupErr }, 'Failed to destroy price manager after TUI enrichment');
+    });
   }
-
-  controller.complete();
-  await controller.stop();
-  return ok();
 }

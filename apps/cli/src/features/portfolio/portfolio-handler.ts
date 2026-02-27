@@ -1,6 +1,6 @@
 /**
  * Portfolio Handler - Orchestrates portfolio calculation business logic.
- * Reusable by both CLI command and other contexts.
+ * Tier 2: Factory owns cleanup; command file never calls ctx.onCleanup().
  */
 
 import path from 'node:path';
@@ -18,7 +18,7 @@ import { parseCurrency, type Currency, type UniversalTransactionData } from '@ex
 import { createAccountQueries, createTransactionQueries } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
-import { createPriceProviderManager } from '@exitbook/price-providers';
+import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -43,16 +43,13 @@ type PortfolioJurisdiction = 'CA' | 'US';
 type PortfolioMethod = 'fifo' | 'lifo' | 'average-cost';
 
 /**
- * Portfolio handler parameters
+ * Portfolio handler parameters (no ctx/dataDir/isJsonMode leaks)
  */
 export interface PortfolioHandlerParams {
   method: string;
   jurisdiction: string;
   displayCurrency: string;
   asOf: Date;
-  dataDir: string;
-  ctx: CommandContext;
-  isJsonMode: boolean;
 }
 
 /**
@@ -88,13 +85,14 @@ export class PortfolioHandler {
   private readonly accountRepository;
   private readonly transactionRepository;
   private readonly transactionLinkRepository;
-  private readonly db: CommandDatabase;
 
-  constructor(db: CommandDatabase) {
-    this.db = db;
-    this.accountRepository = createAccountQueries(db);
-    this.transactionRepository = createTransactionQueries(db);
-    this.transactionLinkRepository = createTransactionLinkQueries(db);
+  constructor(
+    database: CommandDatabase,
+    private readonly priceManager: PriceProviderManager
+  ) {
+    this.accountRepository = createAccountQueries(database);
+    this.transactionRepository = createTransactionQueries(database);
+    this.transactionLinkRepository = createTransactionLinkQueries(database);
   }
 
   /**
@@ -112,19 +110,6 @@ export class PortfolioHandler {
         { method, jurisdiction, displayCurrency, asOf: asOf.toISOString() },
         'Starting portfolio calculation'
       );
-
-      const startDate = new Date(0);
-      const endDate = asOf;
-
-      const linksResult = await ensureLinks(this.db, params.dataDir, params.ctx, params.isJsonMode);
-      if (linksResult.isErr()) {
-        return err(linksResult.error);
-      }
-
-      const pricesResult = await ensurePrices(this.db, startDate, endDate, 'USD', params.ctx, params.isJsonMode);
-      if (pricesResult.isErr()) {
-        return err(pricesResult.error);
-      }
 
       const txResult = await this.transactionRepository.getTransactions();
       if (txResult.isErr()) {
@@ -192,18 +177,6 @@ export class PortfolioHandler {
         }
       }
 
-      const priceManagerResult = await createPriceProviderManager({
-        providers: {
-          databasePath: path.join(params.dataDir, 'prices.db'),
-        },
-      });
-      if (priceManagerResult.isErr()) {
-        return err(new Error(`Failed to create price provider manager: ${priceManagerResult.error.message}`));
-      }
-
-      const priceManager = priceManagerResult.value;
-      params.ctx.onCleanup(async () => priceManager.destroy());
-
       const invalidSymbolPrices = new Map<string, SpotPriceResult>();
       const symbolsToPrice = new Map<string, Currency>();
       for (const assetId of Object.keys(holdings)) {
@@ -218,13 +191,13 @@ export class PortfolioHandler {
         }
       }
 
-      const fetchedSpotPrices = await fetchSpotPrices(symbolsToPrice, priceManager, asOf);
+      const fetchedSpotPrices = await fetchSpotPrices(symbolsToPrice, this.priceManager, asOf);
       const spotPrices = new Map<string, SpotPriceResult>([...invalidSymbolPrices, ...fetchedSpotPrices]);
 
       const warnings: string[] = [...fiatFlowWarnings];
       let fxRate: Decimal | undefined;
       if (displayCurrency !== 'USD') {
-        const fxResult = await priceManager.fetchPrice({
+        const fxResult = await this.priceManager.fetchPrice({
           assetSymbol: displayCurrency,
           timestamp: asOf,
           currency: 'USD' as Currency,
@@ -243,6 +216,9 @@ export class PortfolioHandler {
       const totalNetFiatIn = (
         fxRate ? fiatFlowComputation.netFiatInUsd.times(fxRate) : fiatFlowComputation.netFiatInUsd
       ).toFixed(2);
+
+      const startDate = new Date(0);
+      const endDate = asOf;
 
       const costBasisParams: CostBasisHandlerParams = {
         config: {
@@ -444,6 +420,63 @@ export class PortfolioHandler {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
+}
+
+/**
+ * Create a PortfolioHandler with appropriate infrastructure.
+ * Factory runs prereqs and registers ctx.onCleanup() -- command files NEVER do.
+ */
+export async function createPortfolioHandler(
+  ctx: CommandContext,
+  database: CommandDatabase,
+  options: { asOf: Date; isJsonMode: boolean }
+): Promise<Result<PortfolioHandler, Error>> {
+  const dataDir = ctx.dataDir;
+  let prereqAbort: (() => void) | undefined;
+  if (!options.isJsonMode) {
+    ctx.onAbort(() => {
+      prereqAbort?.();
+    });
+  }
+
+  // Run prereqs
+  const linksResult = await ensureLinks(database, dataDir, {
+    isJsonMode: options.isJsonMode,
+    setAbort: (abort) => {
+      prereqAbort = abort;
+    },
+  });
+  if (linksResult.isErr()) {
+    return err(linksResult.error);
+  }
+
+  const startDate = new Date(0);
+  const endDate = options.asOf;
+  const pricesResult = await ensurePrices(database, startDate, endDate, 'USD', {
+    isJsonMode: options.isJsonMode,
+    setAbort: (abort) => {
+      prereqAbort = abort;
+    },
+  });
+  if (pricesResult.isErr()) {
+    return err(pricesResult.error);
+  }
+
+  // Create price manager for spot prices + FX
+  const priceManagerResult = await createPriceProviderManager({
+    providers: {
+      databasePath: path.join(dataDir, 'prices.db'),
+    },
+  });
+  if (priceManagerResult.isErr()) {
+    return err(new Error(`Failed to create price provider manager: ${priceManagerResult.error.message}`));
+  }
+
+  const priceManager = priceManagerResult.value;
+  ctx.onCleanup(async () => priceManager.destroy());
+
+  prereqAbort = undefined;
+  return ok(new PortfolioHandler(database, priceManager));
 }
 
 function buildClosedPositionsByAssetId(

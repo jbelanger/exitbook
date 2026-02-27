@@ -1,16 +1,11 @@
 /* eslint-disable unicorn/no-null -- Used in React component code */
-import { createTransactionLinkQueries } from '@exitbook/accounting';
-import { LinkingOrchestrator, type LinkingEvent, type LinkingRunParams } from '@exitbook/accounting';
+import type { LinkingRunParams } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
-import { createTransactionQueries } from '@exitbook/data';
-import { EventBus } from '@exitbook/events';
-import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
-import { createEventDrivenController } from '../../ui/shared/index.js';
 import { PromptFlow, type PromptStep } from '../../ui/shared/PromptFlow.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { runCommand } from '../shared/command-runtime.js';
@@ -18,9 +13,7 @@ import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 
-import { LinksRunMonitor } from './components/links-run-components.js';
-
-const logger = getLogger('links-run');
+import { createLinksRunHandler } from './links-run-handler.js';
 
 /**
  * Command options validated by Zod at CLI boundary
@@ -109,7 +102,7 @@ async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
           const minConfidence = Number(minConfidenceInput);
           const autoConfirm = Number(autoConfirmInput);
           if (autoConfirm < minConfidence) {
-            console.error('⚠ Error: Auto-confirm threshold must be >= minimum confidence score');
+            console.error('\u26A0 Error: Auto-confirm threshold must be >= minimum confidence score');
             resolve(null);
             return;
           }
@@ -180,55 +173,31 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       params = buildLinksRunParamsFromFlags(options);
     }
 
-    const { OverrideStore } = await import('@exitbook/data');
-
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const transactionRepository = createTransactionQueries(database);
-      const linkRepository = createTransactionLinkQueries(database);
-      const overrideStore = new OverrideStore(ctx.dataDir);
+      const handler = createLinksRunHandler(ctx, database, {
+        dryRun: params.dryRun,
+        isJsonMode: !!options.json,
+      });
 
-      if (options.json) {
-        // JSON mode: run handler directly without Ink UI
-        const orchestrator = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore);
-        const result = await orchestrator.execute(params);
+      if (!options.json) {
+        ctx.onAbort(() => handler.abort());
+      }
 
-        if (result.isErr()) {
+      const result = await handler.execute(params);
+
+      if (result.isErr()) {
+        if (options.json) {
           displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'json');
+        } else {
+          ctx.exitCode = ExitCodes.GENERAL_ERROR;
         }
-
-        const duration_ms = Date.now() - startTime;
-        outputSuccess('links-run', result.value, { duration_ms });
         return;
       }
 
-      // Ink TUI mode
-      const eventBus = new EventBus<LinkingEvent>({
-        onError: (err) => {
-          logger.error({ err }, 'EventBus error');
-        },
-      });
-      const controller = createEventDrivenController(eventBus, LinksRunMonitor, { dryRun: params.dryRun });
-
-      ctx.onAbort(() => {
-        controller.abort();
-        void controller.stop().catch((cleanupErr) => {
-          logger.warn({ cleanupErr }, 'Failed to stop controller on abort');
-        });
-      });
-
-      await controller.start();
-
-      const orchestrator = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore, eventBus);
-      const result = await orchestrator.execute(params);
-
-      if (result.isErr()) {
-        controller.fail(result.error.message);
-        await controller.stop();
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-      } else {
-        controller.complete();
-        await controller.stop();
+      if (options.json) {
+        const duration_ms = Date.now() - startTime;
+        outputSuccess('links-run', result.value, { duration_ms });
       }
     });
   } catch (error) {

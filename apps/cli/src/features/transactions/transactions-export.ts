@@ -5,7 +5,7 @@ import { displayCliError } from '../shared/cli-error.js';
 import { runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { writeFilesAtomically } from '../shared/file-utils.js';
-import { outputError, outputSuccess } from '../shared/json-output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { TransactionsExportCommandOptionsSchema } from '../shared/schemas.js';
 
 /**
@@ -85,7 +85,7 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
       });
 
       if (result.isErr()) {
-        outputError('transactions-export', result.error, ExitCodes.GENERAL_ERROR);
+        displayCliError('transactions-export', result.error, ExitCodes.GENERAL_ERROR, isJsonMode ? 'json' : 'text');
       }
 
       if (result.value.transactionCount === 0) {
@@ -108,7 +108,12 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
       // Write files atomically
       const writeResult = await writeFilesAtomically(result.value.outputs);
       if (writeResult.isErr()) {
-        outputError('transactions-export', writeResult.error, ExitCodes.GENERAL_ERROR);
+        displayCliError(
+          'transactions-export',
+          writeResult.error,
+          ExitCodes.GENERAL_ERROR,
+          isJsonMode ? 'json' : 'text'
+        );
       }
 
       const outputPaths = writeResult.value;

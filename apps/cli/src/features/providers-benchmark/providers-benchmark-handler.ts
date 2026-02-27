@@ -209,3 +209,15 @@ export class ProvidersBenchmarkHandler {
     }
   }
 }
+
+/**
+ * Create a ProvidersBenchmarkHandler and register cleanup with ctx.
+ * Factory owns cleanup -- command files NEVER call ctx.onCleanup().
+ */
+export function createProvidersBenchmarkHandler(
+  ctx: import('../shared/command-runtime.js').CommandContext
+): ProvidersBenchmarkHandler {
+  const handler = new ProvidersBenchmarkHandler();
+  ctx.onCleanup(async () => handler.destroy());
+  return handler;
+}

@@ -7,7 +7,7 @@ import { EventRelay } from '../../ui/shared/event-relay.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { renderApp, runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
-import { outputError, outputSuccess } from '../shared/json-output.js';
+import { outputSuccess } from '../shared/json-output.js';
 import { BalanceCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
@@ -99,8 +99,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
       if (options.offline) {
         const result = await handler.executeOffline({ accountId: options.accountId });
         if (result.isErr()) {
-          outputError('balance', result.error, ExitCodes.GENERAL_ERROR);
-          return;
+          displayCliError('balance', result.error, ExitCodes.GENERAL_ERROR, 'json');
         }
 
         const accountsData = result.value.accounts.map((a) => ({
@@ -136,8 +135,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
 
         const result = await handler.executeSingle({ accountId: options.accountId, credentials });
         if (result.isErr()) {
-          outputError('balance', result.error, ExitCodes.GENERAL_ERROR);
-          return;
+          displayCliError('balance', result.error, ExitCodes.GENERAL_ERROR, 'json');
         }
 
         const { account, comparisons, verificationResult: vr, streamMetadata } = result.value;
@@ -170,8 +168,7 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
       } else {
         const result = await handler.executeAll();
         if (result.isErr()) {
-          outputError('balance', result.error, ExitCodes.GENERAL_ERROR);
-          return;
+          displayCliError('balance', result.error, ExitCodes.GENERAL_ERROR, 'json');
         }
 
         outputSuccess(
@@ -189,7 +186,12 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
       }
     });
   } catch (error) {
-    outputError('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+    displayCliError(
+      'balance',
+      error instanceof Error ? error : new Error(String(error)),
+      ExitCodes.GENERAL_ERROR,
+      'json'
+    );
   }
 }
 
@@ -257,9 +259,7 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
 
       const result = await handler.executeSingle({ accountId: options.accountId!, credentials });
       if (result.isErr()) {
-        console.error(`\n⚠ Error: ${result.error.message}`);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
+        displayCliError('balance', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }
 
       const { account, comparisons } = result.value;
@@ -307,15 +307,14 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
       const initialState = createBalanceVerificationState(initialItems);
 
       const relay = new EventRelay<BalanceEvent>();
-      const abortController = new AbortController();
 
-      const verificationPromise = handler.stream(sortedResult.value, relay, abortController.signal).catch((error) => {
+      const verificationPromise = handler.stream(sortedResult.value, relay).catch((error) => {
         if (error instanceof Error && error.name === 'AbortError') return;
         logger.error({ error }, 'Verification loop error');
       });
 
+      ctx.onAbort(() => handler.abort());
       ctx.onCleanup(async () => {
-        abortController.abort();
         await verificationPromise;
       });
 

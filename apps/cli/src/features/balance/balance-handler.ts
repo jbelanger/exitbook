@@ -87,12 +87,17 @@ export class BalanceHandler {
   ): BalanceHandler {
     return new BalanceHandler(accountRepo, transactionRepo, balanceService);
   }
+  private abortController: AbortController | undefined;
 
   private constructor(
     private readonly accountRepo: AccountQueries,
     private readonly transactionRepo: TransactionQueries,
     private readonly balanceService: BalanceService | undefined
   ) {}
+
+  abort(): void {
+    this.abortController?.abort();
+  }
 
   async loadAccountsForVerification(): Promise<Result<SortedVerificationAccount[], Error>> {
     const result = await this.accountRepo.findAll();
@@ -273,11 +278,9 @@ export class BalanceHandler {
     }
   }
 
-  async stream(
-    accounts: SortedVerificationAccount[],
-    relay: EventRelay<BalanceEvent>,
-    signal: AbortSignal
-  ): Promise<void> {
+  async stream(accounts: SortedVerificationAccount[], relay: EventRelay<BalanceEvent>): Promise<void> {
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
     const service = this.requireBalanceService();
 
     for (const item of accounts) {

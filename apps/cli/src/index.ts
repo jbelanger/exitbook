@@ -69,9 +69,9 @@ async function main() {
 }
 
 // Only catch initialization errors (before commands run).
-// All command errors MUST go through displayCliError() or outputError() to ensure
-// consistent JSON/text formatting and respect for --json flag. Global handlers would
-// bypass these functions and violate financial correctness by producing inconsistent output.
+// All command errors MUST go through displayCliError() to ensure consistent
+// JSON/text formatting and respect for --json flag. Global handlers would bypass
+// this function and produce inconsistent output.
 main().catch((error) => {
   logger.error(`CLI initialization failed: ${String(error)}`);
   flushLoggers();

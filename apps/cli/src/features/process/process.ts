@@ -3,7 +3,6 @@ import type { Command } from 'commander';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
-import { createErrorResponse, exitCodeToErrorCode } from '../shared/cli-response.js';
 import { runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
@@ -73,12 +72,7 @@ async function executeReprocessCommand(rawOptions: unknown, registry: AdapterReg
       const result = await handler.execute({ accountId: options.accountId });
       if (result.isErr()) {
         if (!isTuiMode) {
-          const errorResponse = createErrorResponse(
-            'reprocess',
-            result.error,
-            exitCodeToErrorCode(ExitCodes.GENERAL_ERROR)
-          );
-          console.log(JSON.stringify(errorResponse, undefined, 2));
+          displayCliError('reprocess', result.error, ExitCodes.GENERAL_ERROR, 'json');
         }
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
         return;

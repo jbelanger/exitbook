@@ -5,7 +5,7 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import { ProvidersBenchmarkHandler } from '../providers-benchmark/providers-benchmark-handler.js';
+import { createProvidersBenchmarkHandler } from '../providers-benchmark/providers-benchmark-handler.js';
 import { buildConfigOverride } from '../providers-benchmark/providers-benchmark-utils.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { renderApp, runCommand } from '../shared/command-runtime.js';
@@ -89,9 +89,7 @@ async function executeProvidersBenchmarkCommand(rawOptions: unknown): Promise<vo
 async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const handler = new ProvidersBenchmarkHandler();
-      ctx.onCleanup(async () => handler.destroy());
-
+      const handler = createProvidersBenchmarkHandler(ctx);
       const result = await handler.execute(options, providerRegistry, BlockchainProviderManager);
 
       if (result.isErr()) {
@@ -129,8 +127,7 @@ async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<v
 async function executeProvidersBenchmarkTUI(options: CommandOptions): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const handler = new ProvidersBenchmarkHandler();
-      ctx.onCleanup(async () => handler.destroy());
+      const handler = createProvidersBenchmarkHandler(ctx);
 
       // Setup phase
       const setupResult = handler.setup(options, providerRegistry, BlockchainProviderManager);

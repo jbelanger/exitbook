@@ -11,7 +11,7 @@ import { createSpinner, stopSpinner } from '../shared/spinner.js';
 import { isJsonMode } from '../shared/utils.js';
 
 import { PortfolioApp, createPortfolioAssetsState, type CreatePortfolioAssetsStateParams } from './components/index.js';
-import { PortfolioHandler } from './portfolio-handler.js';
+import { createPortfolioHandler } from './portfolio-handler.js';
 import type { PortfolioTransactionItem } from './portfolio-types.js';
 import { buildAssetIdsBySymbol, buildTransactionItems, filterTransactionsForAssets } from './portfolio-utils.js';
 
@@ -65,15 +65,21 @@ async function executePortfolioJSON(options: PortfolioCommandOptions): Promise<v
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = new PortfolioHandler(database);
+      const handlerResult = await createPortfolioHandler(ctx, database, {
+        isJsonMode: true,
+        asOf: normalized.asOf,
+      });
+
+      if (handlerResult.isErr()) {
+        throw handlerResult.error;
+      }
+
+      const handler = handlerResult.value;
       const result = await handler.execute({
         method: normalized.method,
         jurisdiction: normalized.jurisdiction,
         displayCurrency: normalized.displayCurrency,
         asOf: normalized.asOf,
-        dataDir: ctx.dataDir,
-        ctx,
-        isJsonMode: true,
       });
 
       if (result.isErr()) {
@@ -116,19 +122,25 @@ async function executePortfolioTUI(options: PortfolioCommandOptions): Promise<vo
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = new PortfolioHandler(database);
+      const handlerResult = await createPortfolioHandler(ctx, database, {
+        isJsonMode: false,
+        asOf: normalized.asOf,
+      });
+
+      if (handlerResult.isErr()) {
+        throw handlerResult.error;
+      }
+
+      const handler = handlerResult.value;
 
       const spinner = createSpinner('Calculating portfolio...', false);
-      let result: Awaited<ReturnType<PortfolioHandler['execute']>>;
+      let result: Awaited<ReturnType<typeof handler.execute>>;
       try {
         result = await handler.execute({
           method: normalized.method,
           jurisdiction: normalized.jurisdiction,
           displayCurrency: normalized.displayCurrency,
           asOf: normalized.asOf,
-          dataDir: ctx.dataDir,
-          ctx,
-          isJsonMode: false,
         });
       } finally {
         stopSpinner(spinner);
