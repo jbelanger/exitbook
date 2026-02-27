@@ -69,6 +69,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Critical Patterns
 
+### CLI Command Wiring
+
+Every feature in `apps/cli/src/features/` follows a two-tier wiring pattern:
+
+**Tier 1 — DB-only handlers** (`CostBasisHandler`, `PortfolioHandler`, `ViewPricesHandler`, etc.)
+
+- Constructor accepts `database: KyselyDB` (or derived query objects)
+- Instantiated inline: `new FooHandler(await ctx.database())`
+- No cleanup registration needed
+
+**Tier 2 — Infrastructure handlers** (`ImportHandler`, `ProcessHandler`, `BalanceHandler`)
+
+- Created via `createFooHandler(ctx, database, registry?)` factory defined in the handler file
+- Factory registers `ctx.onCleanup` internally — command files never wire cleanup manually
+- Handler exposes `abort(): void` — registered via `ctx.onAbort(() => handler.abort())` in TUI mode only
+- Shared infrastructure (tokenMetadata + providerManager + EventBus + IngestionMonitor) is created via `createIngestionInfrastructure()` in `features/shared/ingestion-infrastructure.ts`
+
+**File layout per feature:**
+
+```
+<feature>.ts          — Commander registration, option parsing, JSON/TUI dispatch
+<feature>-handler.ts  — Handler class: execute(), optional abort(), optional factory
+```
+
 ### Result Type (neverthrow)
 
 - All fallible functions return `Result<T, Error>` (no throws). Chain/mapErr; propagate/log.

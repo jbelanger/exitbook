@@ -4,10 +4,10 @@ import React from 'react';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
-import { unwrapResult } from '../shared/command-execution.js';
 import { renderApp, runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
+import { unwrapResult } from '../shared/result-utils.js';
 import { CostBasisCommandOptionsSchema } from '../shared/schemas.js';
 import { createSpinner, stopSpinner } from '../shared/spinner.js';
 import { isJsonMode } from '../shared/utils.js';
@@ -165,7 +165,6 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
       ExitCodes.INVALID_ARGS,
       isJson ? 'json' : 'text'
     );
-    return;
   }
 
   const options = parseResult.data;
@@ -190,7 +189,6 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
       const linksResult = await ensureLinks(database, ctx.dataDir, ctx, true);
       if (linksResult.isErr()) {
         displayCliError('cost-basis', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
       }
 
       const pricesResult = await ensurePrices(
@@ -203,7 +201,6 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
       );
       if (pricesResult.isErr()) {
         displayCliError('cost-basis', pricesResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
       }
 
       const handler = new CostBasisHandler(database);
@@ -211,7 +208,6 @@ async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<v
 
       if (result.isErr()) {
         displayCliError('cost-basis', result.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
       }
 
       outputCostBasisJSON(result.value);

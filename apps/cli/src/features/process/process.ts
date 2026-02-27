@@ -1,6 +1,4 @@
-import type { MetricsSummary } from '@exitbook/http';
 import type { AdapterRegistry } from '@exitbook/ingestion';
-import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -12,10 +10,7 @@ import { outputSuccess } from '../shared/json-output.js';
 import { ProcessCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
-import type { BatchProcessSummary } from './process-handler.js';
-import { createProcessServices } from './process-service-factory.js';
-
-const logger = getLogger('process');
+import { createProcessHandler, type BatchProcessSummaryWithMetrics } from './process-handler.js';
 
 /**
  * Process command options validated by Zod at CLI boundary
@@ -32,7 +27,7 @@ interface ReprocessCommandResult {
       processed: number;
     };
     processingErrors?: string[] | undefined;
-    runStats?: MetricsSummary | undefined;
+    runStats?: import('@exitbook/http').MetricsSummary | undefined;
   };
   meta: {
     timestamp: string;
@@ -50,10 +45,8 @@ export function registerReprocessCommand(program: Command, registry: AdapterRegi
 }
 
 async function executeReprocessCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
-  // Check for --json flag early (even before validation) to determine output format
   const isJson = isJsonMode(rawOptions);
 
-  // Validate options at CLI boundary with Zod
   const validationResult = ProcessCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
     const firstError = validationResult.error.issues[0];
@@ -71,39 +64,27 @@ async function executeReprocessCommand(rawOptions: unknown, registry: AdapterReg
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const services = await createProcessServices(database, registry);
-      ctx.onCleanup(async () => services.cleanup());
+      const handler = await createProcessHandler(ctx, database, registry);
 
       if (isTuiMode) {
-        ctx.onAbort(() => {
-          services.ingestionMonitor.abort();
-          void services.ingestionMonitor.stop().catch((cleanupErr) => {
-            logger.warn({ cleanupErr }, 'Failed to stop ingestion monitor on abort');
-          });
-        });
+        ctx.onAbort(() => handler.abort());
       }
 
-      // Execute reprocess
-      const processResult = await services.execute({
-        accountId: options.accountId,
-      });
-
-      if (processResult.isErr()) {
-        await handleCommandError(processResult.error.message, isTuiMode, services.ingestionMonitor);
+      const result = await handler.execute({ accountId: options.accountId });
+      if (result.isErr()) {
+        if (!isTuiMode) {
+          const errorResponse = createErrorResponse(
+            'reprocess',
+            result.error,
+            exitCodeToErrorCode(ExitCodes.GENERAL_ERROR)
+          );
+          console.log(JSON.stringify(errorResponse, undefined, 2));
+        }
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
         return;
       }
 
-      // Combine results and output success
-      const result = {
-        ...processResult.value,
-        runStats: services.instrumentation.getSummary(),
-      };
-
-      handleProcessSuccess(options.json ?? false, result);
-
-      // Flush final dashboard renders before natural exit
-      await services.ingestionMonitor.stop();
+      handleProcessSuccess(options.json ?? false, result.value);
     });
   } catch (error) {
     displayCliError(
@@ -115,40 +96,7 @@ async function executeReprocessCommand(rawOptions: unknown, registry: AdapterReg
   }
 }
 
-/**
- * Handle command error by showing in dashboard or outputting to console.
- * Returns to allow cleanup before exit.
- */
-async function handleCommandError(
-  errorMessage: string,
-  useInk: boolean,
-  ingestionMonitor: { fail(errorMessage: string): void; stop(): Promise<void> }
-): Promise<void> {
-  if (useInk) {
-    ingestionMonitor.fail(errorMessage);
-    // Stop monitor (monitor renders the error inline)
-    await ingestionMonitor.stop();
-  } else {
-    const errorResponse = createErrorResponse(
-      'reprocess',
-      new Error(errorMessage),
-      exitCodeToErrorCode(ExitCodes.GENERAL_ERROR)
-    );
-    console.log(JSON.stringify(errorResponse, undefined, 2));
-  }
-}
-
-/**
- * Process result enhanced with processing metrics
- */
-interface ProcessResultWithMetrics extends BatchProcessSummary {
-  runStats?: MetricsSummary | undefined;
-}
-
-/**
- * Handle successful reprocessing.
- */
-function handleProcessSuccess(isJsonMode: boolean, result: ProcessResultWithMetrics): void {
+function handleProcessSuccess(isJsonMode: boolean, result: BatchProcessSummaryWithMetrics): void {
   const status = result.errors.length > 0 ? 'warning' : 'success';
 
   const resultData: ReprocessCommandResult = {
@@ -168,8 +116,6 @@ function handleProcessSuccess(isJsonMode: boolean, result: ProcessResultWithMetr
   if (isJsonMode) {
     outputSuccess('reprocess', resultData);
   } else {
-    // Dashboard already shows reprocess summary and API call stats in completion phase
-    // Only show additional processing errors if any
     if (result.errors.length > 0) {
       process.stderr.write('\nFirst 5 processing errors:\n');
       for (const error of result.errors.slice(0, 5)) {

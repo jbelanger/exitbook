@@ -1,11 +1,10 @@
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
+// eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
 import { createTokenMetadataPersistence, type KyselyDB } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { InstrumentationCollector } from '@exitbook/http';
 import {
   type AdapterRegistry,
-  ImportOrchestrator,
-  type ImportEvent,
   type IngestionEvent,
   TokenMetadataService,
   TransactionProcessingService,
@@ -13,45 +12,47 @@ import {
 import { getLogger } from '@exitbook/logger';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
-import { getDataDir } from '../shared/data-dir.js';
-import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
+import { IngestionMonitor } from '../import/components/ingestion-monitor-components.js';
 
-import { IngestionMonitor } from './components/ingestion-monitor-components.js';
-import { ImportHandler } from './import-handler.js';
+import type { CommandContext } from './command-runtime.js';
+import { getDataDir } from './data-dir.js';
+import { createProviderManagerWithStats, type ProviderManagerWithStats } from './provider-manager-factory.js';
 
-const logger = getLogger('import-service-factory');
+const logger = getLogger('ingestion-infrastructure');
 
-type IngestionMonitorEvent = IngestionEvent | ProviderEvent;
+export type CliEvent = IngestionEvent | ProviderEvent;
 
-/**
- * Service container for import command.
- * Encapsulates all dependencies and cleanup logic.
- */
-export interface ImportServices {
-  handler: ImportHandler;
-  ingestionMonitor: EventDrivenController<IngestionMonitorEvent>;
+export interface IngestionInfrastructure {
+  tokenMetadataService: TokenMetadataService;
+  transactionProcessService: TransactionProcessingService;
+  providerManager: ProviderManagerWithStats['providerManager'];
   instrumentation: InstrumentationCollector;
-  cleanup: () => Promise<void>;
+  eventBus: EventBus<CliEvent>;
+  ingestionMonitor: EventDrivenController<CliEvent>;
 }
 
 /**
- * Create all services needed for import command.
- * Caller owns the database lifecycle (via CommandContext).
+ * Create shared ingestion infrastructure (tokenMetadata + providerManager +
+ * TokenMetadataService + TransactionProcessingService + IngestionMonitor).
+ * Registers cleanup with ctx internally — callers do NOT need ctx.onCleanup.
  */
-export async function createImportServices(database: KyselyDB, registry: AdapterRegistry): Promise<ImportServices> {
+export async function createIngestionInfrastructure(
+  ctx: CommandContext,
+  database: KyselyDB,
+  registry: AdapterRegistry
+): Promise<IngestionInfrastructure> {
   const dataDir = getDataDir();
   const tokenMetadataResult = await createTokenMetadataPersistence(dataDir);
   if (tokenMetadataResult.isErr()) {
-    logger.error({ error: tokenMetadataResult.error }, 'Failed to create token metadata queries persistence');
+    logger.error({ error: tokenMetadataResult.error }, 'Failed to create token metadata persistence');
     throw tokenMetadataResult.error;
   }
-
   const { queries: tokenMetadataQueries, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
 
   let providerManagerCleanup: (() => Promise<void>) | undefined;
   try {
     const instrumentation = new InstrumentationCollector();
-    const eventBus = new EventBus<IngestionMonitorEvent>({
+    const eventBus = new EventBus<CliEvent>({
       onError: (err) => {
         logger.error({ err }, 'EventBus error');
       },
@@ -68,14 +69,6 @@ export async function createImportServices(database: KyselyDB, registry: Adapter
       providerManager,
       eventBus as EventBus<IngestionEvent>
     );
-
-    const importOrchestrator = new ImportOrchestrator(
-      database,
-      providerManager,
-      registry,
-      eventBus as EventBus<ImportEvent>
-    );
-
     const transactionProcessService = new TransactionProcessingService(
       database,
       providerManager,
@@ -84,15 +77,14 @@ export async function createImportServices(database: KyselyDB, registry: Adapter
       registry
     );
 
-    const handler = new ImportHandler(importOrchestrator, transactionProcessService, registry);
-
     const ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {
       instrumentation,
       providerManager,
     });
     await ingestionMonitor.start();
 
-    const cleanup = async () => {
+    // LIFO: monitor stops first, then provider, then tokenMetadata
+    ctx.onCleanup(async () => {
       try {
         await ingestionMonitor.stop();
       } finally {
@@ -102,29 +94,23 @@ export async function createImportServices(database: KyselyDB, registry: Adapter
           await cleanupTokenMetadata();
         }
       }
-    };
+    });
 
     return {
-      handler,
-      ingestionMonitor,
+      tokenMetadataService,
+      transactionProcessService,
+      providerManager,
       instrumentation,
-      cleanup,
+      eventBus,
+      ingestionMonitor,
     };
   } catch (error) {
     if (providerManagerCleanup) {
-      try {
-        await providerManagerCleanup();
-      } catch (cleanupError) {
-        logger.warn({ cleanupError }, 'Failed to cleanup provider manager after service initialization failure');
-      }
+      await providerManagerCleanup().catch((e) =>
+        logger.warn({ e }, 'Failed to cleanup providerManager on setup failure')
+      );
     }
-
-    try {
-      await cleanupTokenMetadata();
-    } catch (cleanupError) {
-      logger.warn({ cleanupError }, 'Failed to cleanup token metadata database after service initialization failure');
-    }
-
+    await cleanupTokenMetadata().catch((e) => logger.warn({ e }, 'Failed to cleanup tokenMetadata on setup failure'));
     throw error;
   }
 }

@@ -1,9 +1,9 @@
 import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import { unwrapResult } from '../command-execution.js';
+import { unwrapResult } from '../result-utils.js';
 
-describe('command-execution', () => {
+describe('result-utils', () => {
   describe('unwrapResult', () => {
     it('should return value for successful Result', () => {
       const result = ok('success value');

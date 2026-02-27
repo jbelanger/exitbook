@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 // Command registration for view prices subcommand
+import { createTransactionQueries, OverrideStore } from '@exitbook/data';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -115,8 +116,6 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
  * Execute coverage view in TUI mode (keeps DB open for drill-down into missing mode)
  */
 async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
-  const { createTransactionQueries, OverrideStore } = await import('@exitbook/data');
-
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
@@ -183,8 +182,6 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
  * Execute missing view in TUI mode (keeps DB open for set-price writes)
  */
 async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
-  const { createTransactionQueries, OverrideStore } = await import('@exitbook/data');
-
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
@@ -234,8 +231,6 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
  * Execute view prices in JSON mode
  */
 async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
-  const { createTransactionQueries } = await import('@exitbook/data');
-
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
@@ -292,8 +287,6 @@ type MissingPricesCommandResult = ViewCommandResult<{
  * Execute missing prices in JSON mode
  */
 async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
-  const { createTransactionQueries } = await import('@exitbook/data');
-
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();

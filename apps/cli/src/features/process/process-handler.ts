@@ -1,7 +1,20 @@
-import type { RawDataQueries } from '@exitbook/data';
-import type { ClearService, TransactionProcessingService } from '@exitbook/ingestion';
+// eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
+import type { KyselyDB, RawDataQueries } from '@exitbook/data';
+import { createRawDataQueries } from '@exitbook/data';
+import type { EventBus } from '@exitbook/events';
+import type { InstrumentationCollector, MetricsSummary } from '@exitbook/http';
+import {
+  ClearService,
+  type AdapterRegistry,
+  type IngestionEvent,
+  type TransactionProcessingService,
+} from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
+
+import type { EventDrivenController } from '../../ui/shared/index.js';
+import type { CommandContext } from '../shared/command-runtime.js';
+import { createIngestionInfrastructure, type CliEvent } from '../shared/ingestion-infrastructure.js';
 
 export interface BatchProcessSummary {
   /** Number of transactions processed */
@@ -11,15 +24,13 @@ export interface BatchProcessSummary {
   errors: string[];
 }
 
+export interface BatchProcessSummaryWithMetrics extends BatchProcessSummary {
+  runStats: MetricsSummary;
+}
+
 export interface ProcessHandlerParams {
   /** Reprocess only a specific account ID */
   accountId?: number | undefined;
-}
-
-interface ProcessDependencies {
-  transactionProcessService: TransactionProcessingService;
-  clearService: ClearService;
-  rawDataQueries: RawDataQueries;
 }
 
 const logger = getLogger('ProcessHandler');
@@ -30,7 +41,11 @@ const logger = getLogger('ProcessHandler');
  */
 export async function executeReprocess(
   params: ProcessHandlerParams,
-  deps: ProcessDependencies
+  deps: {
+    clearService: ClearService;
+    rawDataQueries: RawDataQueries;
+    transactionProcessService: TransactionProcessingService;
+  }
 ): Promise<Result<BatchProcessSummary, Error>> {
   const { accountId } = params;
   const { transactionProcessService, clearService, rawDataQueries } = deps;
@@ -81,4 +96,72 @@ export async function executeReprocess(
     processed: processResult.value.processed,
     errors: processResult.value.errors,
   });
+}
+
+export class ProcessHandler {
+  static create(
+    transactionProcessService: TransactionProcessingService,
+    clearService: ClearService,
+    rawDataQueries: RawDataQueries,
+    ingestionMonitor: EventDrivenController<CliEvent>,
+    instrumentation: InstrumentationCollector
+  ): ProcessHandler {
+    return new ProcessHandler(
+      transactionProcessService,
+      clearService,
+      rawDataQueries,
+      ingestionMonitor,
+      instrumentation
+    );
+  }
+
+  private constructor(
+    private readonly transactionProcessService: TransactionProcessingService,
+    private readonly clearService: ClearService,
+    private readonly rawDataQueries: RawDataQueries,
+    private readonly ingestionMonitor: EventDrivenController<CliEvent>,
+    private readonly instrumentation: InstrumentationCollector
+  ) {}
+
+  async execute(params: ProcessHandlerParams): Promise<Result<BatchProcessSummaryWithMetrics, Error>> {
+    const result = await executeReprocess(params, {
+      transactionProcessService: this.transactionProcessService,
+      clearService: this.clearService,
+      rawDataQueries: this.rawDataQueries,
+    });
+
+    if (result.isErr()) {
+      this.ingestionMonitor.fail(result.error.message);
+      await this.ingestionMonitor.stop();
+      return err(result.error);
+    }
+
+    await this.ingestionMonitor.stop();
+    return ok({ ...result.value, runStats: this.instrumentation.getSummary() });
+  }
+
+  abort(): void {
+    this.ingestionMonitor.abort();
+    void this.ingestionMonitor.stop().catch((e) => {
+      logger.warn({ e }, 'Failed to stop ingestion monitor on abort');
+    });
+  }
+}
+
+export async function createProcessHandler(
+  ctx: CommandContext,
+  database: KyselyDB,
+  registry: AdapterRegistry
+): Promise<ProcessHandler> {
+  const infra = await createIngestionInfrastructure(ctx, database, registry);
+  const rawDataQueries = createRawDataQueries(database);
+  const clearService = new ClearService(database, infra.eventBus as EventBus<IngestionEvent>);
+
+  return ProcessHandler.create(
+    infra.transactionProcessService,
+    clearService,
+    rawDataQueries,
+    infra.ingestionMonitor,
+    infra.instrumentation
+  );
 }

@@ -1,29 +1,37 @@
 import type { ImportSession } from '@exitbook/core';
-import type {
-  AdapterRegistry,
+// eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
+import type { KyselyDB } from '@exitbook/data';
+import { EventBus } from '@exitbook/events';
+import type { InstrumentationCollector, MetricsSummary } from '@exitbook/http';
+import {
+  type AdapterRegistry,
+  type ImportEvent,
   ImportOrchestrator,
-  ImportParams,
-  TransactionProcessingService,
+  type ImportParams,
+  type TransactionProcessingService,
 } from '@exitbook/ingestion';
 import { isUtxoAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-/**
- * Result of the import operation.
- * Can be single ImportSession or array of ImportSessions (for xpub imports).
- */
-export interface ImportResult {
-  /** Import sessions (array for xpub imports, single for regular imports) */
+import type { EventDrivenController } from '../../ui/shared/index.js';
+import type { CommandContext } from '../shared/command-runtime.js';
+import { createIngestionInfrastructure, type CliEvent } from '../shared/ingestion-infrastructure.js';
+
+interface ImportResult {
   sessions: ImportSession[];
 }
 
-export interface BatchProcessSummary {
-  /** Number of items processed */
+interface BatchProcessSummary {
   processed: number;
-
-  /** Processing errors */
   processingErrors: string[];
+}
+
+export interface ImportExecuteResult {
+  sessions: ImportSession[];
+  processed: number;
+  processingErrors: string[];
+  runStats: MetricsSummary;
 }
 
 /**
@@ -36,13 +44,47 @@ export class ImportHandler {
   constructor(
     private importOrchestrator: ImportOrchestrator,
     private transactionProcessService: TransactionProcessingService,
-    private registry: AdapterRegistry
+    private registry: AdapterRegistry,
+    private ingestionMonitor: EventDrivenController<CliEvent>,
+    private instrumentation: InstrumentationCollector
   ) {}
 
   /**
-   * Execute the import operation (without processing).
+   * Execute the full import pipeline (import + process).
+   * Manages ingestion monitor lifecycle.
    */
-  async executeImport(params: ImportParams): Promise<Result<ImportResult, Error>> {
+  async execute(params: ImportParams): Promise<Result<ImportExecuteResult, Error>> {
+    const importResult = await this.executeImport(params);
+    if (importResult.isErr()) {
+      this.ingestionMonitor.fail(importResult.error.message);
+      await this.ingestionMonitor.stop();
+      return err(importResult.error);
+    }
+
+    const processResult = await this.processImportedSessions(importResult.value.sessions);
+    if (processResult.isErr()) {
+      this.ingestionMonitor.fail(processResult.error.message);
+      await this.ingestionMonitor.stop();
+      return err(processResult.error);
+    }
+
+    await this.ingestionMonitor.stop();
+    return ok({
+      sessions: importResult.value.sessions,
+      processed: processResult.value.processed,
+      processingErrors: processResult.value.processingErrors,
+      runStats: this.instrumentation.getSummary(),
+    });
+  }
+
+  abort(): void {
+    this.ingestionMonitor.abort();
+    void this.ingestionMonitor.stop().catch((e) => {
+      this.logger.warn({ e }, 'Failed to stop ingestion monitor on abort');
+    });
+  }
+
+  private async executeImport(params: ImportParams): Promise<Result<ImportResult, Error>> {
     try {
       // Call appropriate orchestrator method based on source type
       let importResult: Result<ImportSession | ImportSession[], Error>;
@@ -114,10 +156,7 @@ export class ImportHandler {
     }
   }
 
-  /**
-   * Execute the processing operation for imported sessions.
-   */
-  async processImportedSessions(sessions: ImportSession[]): Promise<Result<BatchProcessSummary, Error>> {
+  private async processImportedSessions(sessions: ImportSession[]): Promise<Result<BatchProcessSummary, Error>> {
     try {
       // Always pass account IDs - the service will emit process.completed with totalProcessed: 0 if nothing to process
       const uniqueAccountIds = [...new Set(sessions.map((s) => s.accountId))];
@@ -135,4 +174,27 @@ export class ImportHandler {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
+}
+
+export async function createImportHandler(
+  ctx: CommandContext,
+  database: KyselyDB,
+  registry: AdapterRegistry
+): Promise<ImportHandler> {
+  const infra = await createIngestionInfrastructure(ctx, database, registry);
+
+  const importOrchestrator = new ImportOrchestrator(
+    database,
+    infra.providerManager,
+    registry,
+    infra.eventBus as EventBus<ImportEvent>
+  );
+
+  return new ImportHandler(
+    importOrchestrator,
+    infra.transactionProcessService,
+    registry,
+    infra.ingestionMonitor,
+    infra.instrumentation
+  );
 }

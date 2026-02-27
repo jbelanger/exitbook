@@ -1,24 +1,19 @@
-import type { MetricsSummary } from '@exitbook/http';
 import type { AdapterRegistry, ImportParams } from '@exitbook/ingestion';
-import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
 import { displayCliError } from '../shared/cli-error.js';
 import { createErrorResponse, exitCodeToErrorCode } from '../shared/cli-response.js';
-import { unwrapResult } from '../shared/command-execution.js';
 import { runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { promptConfirm } from '../shared/prompts.js';
+import { unwrapResult } from '../shared/result-utils.js';
 import { ImportCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
-import type { ImportResult } from './import-handler.js';
-import { createImportServices } from './import-service-factory.js';
+import { createImportHandler, type ImportExecuteResult } from './import-handler.js';
 import { buildImportParams } from './import-utils.js';
-
-const logger = getLogger('import');
 
 /**
  * Import command options validated by Zod at CLI boundary
@@ -57,7 +52,7 @@ interface ImportCommandResult {
       processed: boolean;
     };
     processingErrors?: string[] | undefined;
-    runStats?: MetricsSummary | undefined;
+    runStats?: import('@exitbook/http').MetricsSummary | undefined;
     source?: string | undefined;
   };
   meta: {
@@ -88,10 +83,8 @@ export function registerImportCommand(program: Command, registry: AdapterRegistr
 }
 
 async function executeImportCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
-  // Check for --json flag early (even before validation) to determine output format
   const isJson = isJsonMode(rawOptions);
 
-  // Validate options at CLI boundary with Zod
   const validationResult = ImportCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
     const firstError = validationResult.error.issues[0];
@@ -109,22 +102,14 @@ async function executeImportCommand(rawOptions: unknown, registry: AdapterRegist
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const services = await createImportServices(database, registry);
-      ctx.onCleanup(async () => services.cleanup());
+      const handler = await createImportHandler(ctx, database, registry);
 
       if (isTuiMode) {
-        ctx.onAbort(() => {
-          services.ingestionMonitor.abort();
-          void services.ingestionMonitor.stop().catch((cleanupErr) => {
-            logger.warn({ cleanupErr }, 'Failed to stop ingestion monitor on abort');
-          });
-        });
+        ctx.onAbort(() => handler.abort());
       }
 
-      // Resolve import parameters
       const params = unwrapResult(buildImportParams(options, registry));
 
-      // Add warning callback for single address imports (only in non-JSON mode)
       let onSingleAddressWarning: (() => Promise<boolean>) | undefined;
       if (isTuiMode) {
         onSingleAddressWarning = async () => {
@@ -148,34 +133,21 @@ async function executeImportCommand(rawOptions: unknown, registry: AdapterRegist
         onSingleAddressWarning,
       };
 
-      // Execute import
-      const importResult = await services.handler.executeImport(paramsWithCallback);
-      if (importResult.isErr()) {
-        await handleCommandError(importResult.error.message, isTuiMode, services.ingestionMonitor);
+      const result = await handler.execute(paramsWithCallback);
+      if (result.isErr()) {
+        if (!isTuiMode) {
+          const errorResponse = createErrorResponse(
+            'import',
+            result.error,
+            exitCodeToErrorCode(ExitCodes.GENERAL_ERROR)
+          );
+          console.log(JSON.stringify(errorResponse, undefined, 2));
+        }
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
         return;
       }
 
-      // Execute processing
-      const processResult = await services.handler.processImportedSessions(importResult.value.sessions);
-      if (processResult.isErr()) {
-        await handleCommandError(processResult.error.message, isTuiMode, services.ingestionMonitor);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      // Combine results and output success
-      const combinedResult = {
-        sessions: importResult.value.sessions,
-        processed: processResult.value.processed,
-        processingErrors: processResult.value.processingErrors,
-        runStats: services.instrumentation.getSummary(),
-      };
-
-      handleImportSuccess(options.json ?? false, combinedResult, params);
-
-      // Flush final dashboard renders before natural exit
-      await services.ingestionMonitor.stop();
+      handleImportSuccess(options.json ?? false, result.value, params);
     });
   } catch (error) {
     displayCliError(
@@ -187,43 +159,7 @@ async function executeImportCommand(rawOptions: unknown, registry: AdapterRegist
   }
 }
 
-/**
- * Handle command error by showing in dashboard or outputting to console.
- * Returns to allow cleanup before exit.
- */
-async function handleCommandError(
-  errorMessage: string,
-  useInk: boolean,
-  ingestionMonitor: { fail(errorMessage: string): void; stop(): Promise<void> }
-): Promise<void> {
-  if (useInk) {
-    ingestionMonitor.fail(errorMessage);
-    // Stop monitor (monitor renders the error inline)
-    await ingestionMonitor.stop();
-  } else {
-    const errorResponse = createErrorResponse(
-      'import',
-      new Error(errorMessage),
-      exitCodeToErrorCode(ExitCodes.GENERAL_ERROR)
-    );
-    console.log(JSON.stringify(errorResponse, undefined, 2));
-  }
-}
-
-/**
- * Import result enhanced with processing metrics
- */
-interface ImportResultWithMetrics extends ImportResult {
-  processed?: number | undefined;
-  processingErrors?: string[] | undefined;
-  runStats?: MetricsSummary | undefined;
-}
-
-/**
- * Handle successful import and processing.
- */
-function handleImportSuccess(isJsonMode: boolean, importResult: ImportResultWithMetrics, params: ImportParams): void {
-  // Calculate totals from sessions
+function handleImportSuccess(isJsonMode: boolean, importResult: ImportExecuteResult, params: ImportParams): void {
   const totalImported = importResult.sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
   const totalSkipped = importResult.sessions.reduce((sum, s) => sum + s.transactionsSkipped, 0);
   const includeSessions = importResult.sessions.length > 0;
@@ -233,11 +169,11 @@ function handleImportSuccess(isJsonMode: boolean, importResult: ImportResultWith
   const inputData = {
     csvDir: params.csvDirectory,
     address: params.address,
-    processed: importResult.processed !== undefined,
+    processed: true,
     ...(sourceIsBlockchain ? { blockchain: params.sourceName } : { exchange: params.sourceName }),
   };
 
-  const hasProcessingErrors = importResult.processingErrors && importResult.processingErrors.length > 0;
+  const hasProcessingErrors = importResult.processingErrors.length > 0;
   const status = hasProcessingErrors ? 'warning' : 'success';
 
   const sessionSummaries = includeSessions
@@ -261,7 +197,7 @@ function handleImportSuccess(isJsonMode: boolean, importResult: ImportResultWith
         processed: importResult.processed,
       },
       importSessions: sessionSummaries,
-      processingErrors: importResult.processingErrors?.slice(0, 5),
+      processingErrors: importResult.processingErrors.slice(0, 5),
       runStats: importResult.runStats,
     },
     meta: {
@@ -272,9 +208,7 @@ function handleImportSuccess(isJsonMode: boolean, importResult: ImportResultWith
   if (isJsonMode) {
     outputSuccess('import', resultData);
   } else {
-    // ProgressHandler already shows import summary and API call stats in completion phase
-    // Only show additional processing errors if any
-    if (importResult.processingErrors && importResult.processingErrors.length > 0) {
+    if (importResult.processingErrors.length > 0) {
       process.stderr.write('\nFirst 5 processing errors:\n');
       for (const error of importResult.processingErrors.slice(0, 5)) {
         process.stderr.write(`  • ${error}\n`);
