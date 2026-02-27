@@ -12,6 +12,7 @@ import { runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
+import { isJsonMode } from '../shared/utils.js';
 
 import { createLinksRunHandler } from './links-run-handler.js';
 
@@ -143,8 +144,7 @@ export function registerLinksRunCommand(linksCommand: Command): void {
  */
 async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
   // Check for --json flag early (even before validation) to determine output format
-  const isJsonMode =
-    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+  const isJson = isJsonMode(rawOptions);
 
   // Validate options at CLI boundary
   const parseResult = LinksRunCommandOptionsSchema.safeParse(rawOptions);
@@ -153,7 +153,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       'links-run',
       new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
       ExitCodes.INVALID_ARGS,
-      isJsonMode ? 'json' : 'text'
+      isJson ? 'json' : 'text'
     );
   }
 
@@ -205,7 +205,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       'links-run',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      isJsonMode ? 'json' : 'text'
+      isJson ? 'json' : 'text'
     );
   }
 }

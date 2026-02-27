@@ -76,20 +76,10 @@ export interface AllAccountsVerificationResult {
 }
 
 export class BalanceHandler {
-  static createOffline(accountRepo: AccountQueries, transactionRepo: TransactionQueries): BalanceHandler {
-    return new BalanceHandler(accountRepo, transactionRepo, undefined);
-  }
-
-  static createOnline(
-    accountRepo: AccountQueries,
-    transactionRepo: TransactionQueries,
-    balanceService: BalanceService
-  ): BalanceHandler {
-    return new BalanceHandler(accountRepo, transactionRepo, balanceService);
-  }
   private abortController: AbortController | undefined;
+  private streamPromise: Promise<void> | undefined;
 
-  private constructor(
+  constructor(
     private readonly accountRepo: AccountQueries,
     private readonly transactionRepo: TransactionQueries,
     private readonly balanceService: BalanceService | undefined
@@ -278,7 +268,18 @@ export class BalanceHandler {
     }
   }
 
-  async stream(accounts: SortedVerificationAccount[], relay: EventRelay<BalanceEvent>): Promise<void> {
+  startStream(accounts: SortedVerificationAccount[], relay: EventRelay<BalanceEvent>): void {
+    this.streamPromise = this.runStream(accounts, relay).catch((error) => {
+      if (error instanceof Error && error.name === 'AbortError') return;
+      logger.error({ error }, 'Verification loop error');
+    });
+  }
+
+  async awaitStream(): Promise<void> {
+    await this.streamPromise;
+  }
+
+  private async runStream(accounts: SortedVerificationAccount[], relay: EventRelay<BalanceEvent>): Promise<void> {
     this.abortController = new AbortController();
     const signal = this.abortController.signal;
     const service = this.requireBalanceService();
@@ -467,25 +468,31 @@ export async function createBalanceHandler(
   ctx: CommandContext,
   database: KyselyDB,
   options: { needsOnline: boolean }
-): Promise<BalanceHandler> {
-  const accountRepo = createAccountQueries(database);
-  const transactionRepo = createTransactionQueries(database);
+): Promise<Result<BalanceHandler, Error>> {
+  try {
+    const accountRepo = createAccountQueries(database);
+    const transactionRepo = createTransactionQueries(database);
 
-  if (!options.needsOnline) {
-    return BalanceHandler.createOffline(accountRepo, transactionRepo);
+    if (!options.needsOnline) {
+      return ok(new BalanceHandler(accountRepo, transactionRepo, undefined));
+    }
+
+    const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
+    if (tokenMetadataResult.isErr()) return err(tokenMetadataResult.error);
+    const { queries: tokenMetadataRepo, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
+    ctx.onCleanup(async () => cleanupTokenMetadata());
+
+    const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
+    const balanceService = new BalanceService(database, tokenMetadataRepo, providerManager);
+    const handler = new BalanceHandler(accountRepo, transactionRepo, balanceService);
+    ctx.onCleanup(async () => {
+      await handler.awaitStream();
+      await balanceService.destroy();
+      await cleanupProviderManager();
+    });
+
+    return ok(handler);
+  } catch (e) {
+    return err(e instanceof Error ? e : new Error(String(e)));
   }
-
-  const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
-  if (tokenMetadataResult.isErr()) throw tokenMetadataResult.error;
-  const { queries: tokenMetadataRepo, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
-  ctx.onCleanup(async () => cleanupTokenMetadata());
-
-  const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-  const balanceService = new BalanceService(database, tokenMetadataRepo, providerManager);
-  ctx.onCleanup(async () => {
-    await balanceService.destroy();
-    await cleanupProviderManager();
-  });
-
-  return BalanceHandler.createOnline(accountRepo, transactionRepo, balanceService);
 }

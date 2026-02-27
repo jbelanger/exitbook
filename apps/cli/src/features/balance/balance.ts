@@ -1,4 +1,3 @@
-import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -23,8 +22,6 @@ import {
   type AccountVerificationItem,
   type BalanceEvent,
 } from './components/index.js';
-
-const logger = getLogger('balance');
 
 /**
  * Balance command options validated by Zod at CLI boundary
@@ -94,7 +91,11 @@ async function executeBalanceJSON(options: BalanceCommandOptions): Promise<void>
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = await createBalanceHandler(ctx, database, { needsOnline: !options.offline });
+      const handlerResult = await createBalanceHandler(ctx, database, { needsOnline: !options.offline });
+      if (handlerResult.isErr()) {
+        displayCliError('balance', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+      const handler = handlerResult.value;
 
       if (options.offline) {
         const result = await handler.executeOffline({ accountId: options.accountId });
@@ -201,7 +202,9 @@ async function executeBalanceOfflineTUI(options: BalanceCommandOptions): Promise
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = await createBalanceHandler(ctx, database, { needsOnline: false });
+      const handlerResult = await createBalanceHandler(ctx, database, { needsOnline: false });
+      if (handlerResult.isErr()) throw handlerResult.error;
+      const handler = handlerResult.value;
 
       const result = await handler.executeOffline({ accountId: options.accountId });
       if (result.isErr()) throw result.error;
@@ -246,7 +249,9 @@ async function executeBalanceSingleTUI(options: BalanceCommandOptions): Promise<
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = await createBalanceHandler(ctx, database, { needsOnline: true });
+      const handlerResult = await createBalanceHandler(ctx, database, { needsOnline: true });
+      if (handlerResult.isErr()) throw handlerResult.error;
+      const handler = handlerResult.value;
 
       let credentials: import('@exitbook/core').ExchangeCredentials | undefined;
       if (options.apiKey && options.apiSecret) {
@@ -288,7 +293,9 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = await createBalanceHandler(ctx, database, { needsOnline: true });
+      const handlerResult = await createBalanceHandler(ctx, database, { needsOnline: true });
+      if (handlerResult.isErr()) throw handlerResult.error;
+      const handler = handlerResult.value;
 
       const sortedResult = await handler.loadAccountsForVerification();
       if (sortedResult.isErr()) throw sortedResult.error;
@@ -308,15 +315,8 @@ async function executeBalanceAllTUI(_options: BalanceCommandOptions): Promise<vo
 
       const relay = new EventRelay<BalanceEvent>();
 
-      const verificationPromise = handler.stream(sortedResult.value, relay).catch((error) => {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        logger.error({ error }, 'Verification loop error');
-      });
-
+      handler.startStream(sortedResult.value, relay);
       ctx.onAbort(() => handler.abort());
-      ctx.onCleanup(async () => {
-        await verificationPromise;
-      });
 
       await renderApp((unmount) =>
         React.createElement(BalanceApp, {
