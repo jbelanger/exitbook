@@ -23,8 +23,7 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
 import { getDataDir } from '../shared/data-dir.js';
-
-import { ensureLinks, ensurePrices } from './cost-basis-prereqs.js';
+import { ensureLinks, ensurePrices } from '../shared/prereqs.js';
 
 export type { CostBasisInput };
 

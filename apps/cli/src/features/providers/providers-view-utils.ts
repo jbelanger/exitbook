@@ -6,7 +6,7 @@ import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { providerToSummary } from '../blockchains/view-blockchains-utils.js';
+import { providerToSummary } from '../blockchains/blockchains-view-utils.js';
 import { providerRegistry } from '../shared/provider-registry.js';
 
 import type {

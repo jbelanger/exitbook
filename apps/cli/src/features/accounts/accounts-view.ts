@@ -1,4 +1,4 @@
-// Command registration for view accounts subcommand
+// Command registration for accounts view subcommand
 import type { AccountType } from '@exitbook/core';
 import type { Command } from 'commander';
 import React from 'react';
@@ -12,9 +12,9 @@ import { AccountsViewCommandOptionsSchema } from '../shared/schemas.js';
 import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta } from '../shared/view-utils.js';
 
+import { AccountsViewHandler, type ViewAccountsParams } from './accounts-view-handler.js';
+import { toAccountViewItem } from './accounts-view-utils.js';
 import { AccountsViewApp, computeTypeCounts, createAccountsViewState } from './components/index.js';
-import type { ViewAccountsParams } from './view-accounts-utils.js';
-import { toAccountViewItem } from './view-accounts-utils.js';
 
 /**
  * Command options (validated at CLI boundary).
@@ -100,14 +100,12 @@ async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
  * Execute accounts view in TUI mode
  */
 async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void> {
-  const { AccountService } = await import('@exitbook/ingestion');
-
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const accountService = new AccountService(database);
+      const handler = new AccountsViewHandler(database);
 
-      const result = await accountService.viewAccounts({
+      const result = await handler.execute({
         accountId: params.accountId,
         accountType: params.accountType,
         source: params.source,
@@ -158,14 +156,12 @@ async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void>
  * Execute accounts view in JSON mode
  */
 async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void> {
-  const { AccountService } = await import('@exitbook/ingestion');
-
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const accountService = new AccountService(database);
+      const handler = new AccountsViewHandler(database);
 
-      const result = await accountService.viewAccounts({
+      const result = await handler.execute({
         accountId: params.accountId,
         accountType: params.accountType,
         source: params.source,

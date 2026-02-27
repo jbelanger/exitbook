@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import { formatCryptoQuantity } from '../cost-basis-view-utils.js';
+import { formatCryptoQuantity } from '../../cost-basis-view-utils.js';
 
 describe('formatCryptoQuantity', () => {
   it('should format normal quantities with trimmed trailing zeros (min 2dp)', () => {

@@ -1,8 +1,13 @@
-import { PriceEnrichmentPipeline, type PriceEvent, type PricesEnrichOptions } from '@exitbook/accounting';
+import {
+  PriceEnrichmentPipeline,
+  type PriceEvent,
+  type PricesEnrichOptions,
+  type PricesEnrichResult,
+} from '@exitbook/accounting';
 // eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
 import type { KyselyDB } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
-import { InstrumentationCollector, type MetricsSummary } from '@exitbook/http';
+import { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import type { PriceProviderManager } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
@@ -14,14 +19,6 @@ import { PricesEnrichMonitor } from './components/prices-enrich-components.js';
 import { createDefaultPriceProviderManager } from './prices-utils.js';
 
 const logger = getLogger('PricesEnrichHandler');
-
-export interface PricesEnrichResult {
-  derive: unknown;
-  fetch: unknown;
-  normalize: unknown;
-  rederive: unknown;
-  runStats: MetricsSummary | undefined;
-}
 
 /**
  * Tier 2 handler for `prices enrich`.
@@ -58,13 +55,7 @@ export class PricesEnrichHandler {
         await this.controller.stop();
       }
 
-      return ok({
-        derive: result.value.derive,
-        fetch: result.value.fetch,
-        normalize: result.value.normalize,
-        rederive: result.value.rederive,
-        runStats: result.value.runStats,
-      });
+      return ok(result.value);
     } catch (error) {
       if (this.controller) {
         const message = error instanceof Error ? error.message : String(error);

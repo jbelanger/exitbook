@@ -13,7 +13,7 @@ import {
   Divider,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
-import { formatTimeAgo } from '../view-providers-utils.js';
+import { formatTimeAgo } from '../providers-view-utils.js';
 
 import { handleProvidersKeyboardInput, providersViewReducer } from './providers-view-controller.js';
 import type {

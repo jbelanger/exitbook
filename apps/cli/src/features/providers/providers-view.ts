@@ -1,17 +1,6 @@
-// Command registration for view providers subcommand
+// Command registration for providers view subcommand
 
-import path from 'node:path';
-
-import {
-  closeProviderStatsDatabase,
-  createProviderStatsDatabase,
-  initializeProviderStatsDatabase,
-  loadExplorerConfig,
-  createProviderStatsQueries,
-  type ProviderStatsRow,
-} from '@exitbook/blockchain-providers';
 import type { AdapterRegistry } from '@exitbook/ingestion';
-import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -21,21 +10,11 @@ import { renderApp } from '../shared/command-runtime.js';
 import { getDataDir } from '../shared/data-dir.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
-import { providerRegistry } from '../shared/provider-registry.js';
 import { ProvidersViewCommandOptionsSchema } from '../shared/schemas.js';
 
 import { ProvidersViewApp, computeHealthCounts, createProvidersViewState } from './components/index.js';
-import type { ProviderViewItem } from './components/index.js';
-import {
-  buildProviderMap,
-  filterProviders,
-  mergeProviderData,
-  sortProviders,
-  validateHealthFilter,
-  type HealthFilter,
-} from './view-providers-utils.js';
-
-const logger = getLogger('providers-view');
+import { ProvidersViewHandler } from './providers-view-handler.js';
+import { validateHealthFilter, type HealthFilter } from './providers-view-utils.js';
 
 /**
  * Command options (validated at CLI boundary).
@@ -110,67 +89,6 @@ async function executeProvidersViewCommand(rawOptions: unknown, registry: Adapte
 }
 
 /**
- * Load provider data from registry + stats DB.
- * Returns sorted and filtered ProviderViewItem[].
- */
-async function loadProviderData(
-  options: CommandOptions,
-  validatedHealth: HealthFilter | undefined,
-  registry: AdapterRegistry
-): Promise<ProviderViewItem[]> {
-  // Get all blockchains and build provider map
-  const allBlockchains = registry.getAllBlockchains();
-  const providerMap = buildProviderMap(allBlockchains, (blockchain) => providerRegistry.getAvailable(blockchain));
-
-  // Load explorer config (graceful if missing)
-  const explorerConfig = loadExplorerConfig();
-
-  // Load stats from providers.db (graceful degradation)
-  let allStatsRows: ProviderStatsRow[] = [];
-  const dataDir = getDataDir();
-  const dbResult = createProviderStatsDatabase(path.join(dataDir, 'providers.db'));
-
-  if (dbResult.isOk()) {
-    const db = dbResult.value;
-    const migrationResult = await initializeProviderStatsDatabase(db);
-
-    if (migrationResult.isOk()) {
-      const statsQueries = createProviderStatsQueries(db);
-      const statsResult = await statsQueries.getAll();
-      if (statsResult.isOk()) {
-        allStatsRows = statsResult.value;
-      } else {
-        logger.warn(`Failed to load provider stats: ${statsResult.error.message}`);
-      }
-    } else {
-      logger.warn(`Provider stats migration failed: ${migrationResult.error.message}. Showing without stats.`);
-    }
-
-    const closeResult = await closeProviderStatsDatabase(db);
-    if (closeResult.isErr()) {
-      logger.warn(`Failed to close provider stats database: ${closeResult.error.message}`);
-    }
-  } else {
-    logger.warn(`Failed to open provider stats database: ${dbResult.error.message}. Showing without stats.`);
-  }
-
-  // Merge all data
-  let items = mergeProviderData(providerMap, allStatsRows, explorerConfig);
-
-  // Apply filters
-  items = filterProviders(items, {
-    blockchain: options.blockchain,
-    health: validatedHealth,
-    missingApiKey: options.missingApiKey,
-  });
-
-  // Sort
-  items = sortProviders(items);
-
-  return items;
-}
-
-/**
  * Execute providers view in TUI mode
  */
 async function executeProvidersViewTUI(
@@ -179,7 +97,12 @@ async function executeProvidersViewTUI(
   registry: AdapterRegistry
 ): Promise<void> {
   try {
-    const viewItems = await loadProviderData(options, validatedHealth, registry);
+    const handler = new ProvidersViewHandler(registry, getDataDir());
+    const viewItems = await handler.execute({
+      blockchain: options.blockchain,
+      health: validatedHealth,
+      missingApiKey: options.missingApiKey,
+    });
 
     const healthCounts = computeHealthCounts(viewItems);
 
@@ -218,7 +141,12 @@ async function executeProvidersViewJSON(
   registry: AdapterRegistry
 ): Promise<void> {
   try {
-    const viewItems = await loadProviderData(options, validatedHealth, registry);
+    const handler = new ProvidersViewHandler(registry, getDataDir());
+    const viewItems = await handler.execute({
+      blockchain: options.blockchain,
+      health: validatedHealth,
+      missingApiKey: options.missingApiKey,
+    });
     const healthCounts = computeHealthCounts(viewItems);
 
     // Build filters record

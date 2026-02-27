@@ -3,7 +3,7 @@ import type { ClearService, RawDataProcessingService } from '@exitbook/ingestion
 import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { executeReprocess } from '../process-handler.js';
+import { executeReprocess } from '../reprocess-handler.js';
 
 describe('executeReprocess', () => {
   let mockProcessService: RawDataProcessingService;

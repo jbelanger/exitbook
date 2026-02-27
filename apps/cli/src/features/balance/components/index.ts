@@ -28,4 +28,4 @@ export {
   sortAccountsByVerificationPriority,
   sortAssetsOffline,
   sortAssetsByStatus,
-} from './balance-view-utils.js';
+} from '../balance-view-utils.js';

@@ -15,6 +15,7 @@ import {
   Divider,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
+import { formatSignedAmount, truncateAddress } from '../balance-view-utils.js';
 
 import { balanceViewReducer, handleBalanceKeyboardInput } from './balance-view-controller.js';
 import type {
@@ -29,7 +30,6 @@ import type {
   BalanceState,
   BalanceVerificationState,
 } from './balance-view-state.js';
-import { formatSignedAmount, truncateAddress } from './balance-view-utils.js';
 
 const BALANCE_ACCOUNTS_CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line

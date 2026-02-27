@@ -18,6 +18,7 @@ Non-negotiables:
 
 1. “Reference Standards to Adopt”
 2. “Feature Scaffold Standard (File/Folder Contract)”
+   2b. “File & Folder Consistency Audit”
 3. “Pattern Inventory (Competing Conventions)”
 4. “Realignment Plan (Rewrite-Level)”
 5. “Discrepancy Ledger (Per Feature)”
@@ -99,7 +100,40 @@ README.md (feature contract + invariants)
 
 Adapt the names to the repo conventions you actually observe.
 
-Also output a “Scaffold Matrix” table (feature × required elements) showing compliance and gaps.
+Also output a “Scaffold Matrix” table (feature × required elements) showing compliance and gaps. Include a **File Count** column — flag any feature whose file count deviates more than ±40% from the median (likely over-engineered or under-built).
+
+---
+
+## 2b) File & Folder Consistency Audit
+
+MANDATORY: detect naming and structural inconsistencies across features, independent of whether any single feature is “wrong”.
+
+### Naming convention inventory
+
+For each category below, list every distinct convention found and which features use it:
+
+- **Folder names**: kebab-case vs camelCase vs PascalCase; singular vs plural
+- **File suffixes**: what compound suffixes exist (e.g., `.handler.ts`, `-handler.ts`, `.service.ts`, `-utils.ts`, `.schemas.ts`, `.types.ts`) and which features use each
+- **Test file placement**: co-located `*.test.ts` vs `tests/` subdirectory vs `__tests__/`
+- **Index barrel files**: present vs absent; re-export-only vs mixed
+
+For each category, determine the **dominant convention** (majority count) and flag all deviations.
+
+### File count comparison table
+
+| Feature | File count | Folders | Has index? | Has tests? | Has types/schemas? |
+| ------- | ---------- | ------- | ---------- | ---------- | ------------------ |
+| ...     | ...        | ...     | ...        | ...        | ...                |
+
+Flag outliers: features with significantly more or fewer files than peers — these signal either missing structure or unjustified complexity.
+
+### Same-concept, different-name inventory
+
+List concepts that appear in multiple features under different names (e.g., one feature calls it `mapper.ts`, another `transform.ts`, another `serializer.ts`). For each:
+
+- Concept: <what it does>
+- Names used: <file/symbol names across features>
+- Recommendation: [canonicalize to X | Needs Research]
 
 ---
 
@@ -163,6 +197,11 @@ Feature: <name>
   - Missing:
   - Extra/unusual:
   - Misplaced (layer violations):
+- File/folder naming deviations (compare to dominant convention from §2b):
+  - Non-standard suffixes:
+  - Non-standard casing:
+  - Same-concept renamed vs peers:
+  - File count outlier (if applicable):
 - Style deviations:
 - Architecture deviations:
 - Behavior/contract deviations:

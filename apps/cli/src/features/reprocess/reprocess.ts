@@ -9,7 +9,7 @@ import { outputSuccess } from '../shared/json-output.js';
 import { ProcessCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
-import { createProcessHandler, type BatchProcessSummaryWithMetrics } from './process-handler.js';
+import { createProcessHandler, type BatchProcessSummaryWithMetrics } from './reprocess-handler.js';
 
 /**
  * Process command options validated by Zod at CLI boundary

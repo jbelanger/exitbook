@@ -9,7 +9,7 @@ import { err, ok } from 'neverthrow';
 
 import type { CommandDatabase } from '../shared/command-runtime.js';
 
-import { writeLinkOverrideEvent } from './link-override-utils.js';
+import { writeLinkOverrideEvent } from './links-override-utils.js';
 import { getDefaultReviewer, validateLinkStatusForConfirm } from './links-utils.js';
 
 const logger = getLogger('LinksConfirmHandler');

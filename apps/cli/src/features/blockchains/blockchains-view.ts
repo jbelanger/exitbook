@@ -13,8 +13,7 @@ import { outputSuccess } from '../shared/json-output.js';
 import { providerRegistry } from '../shared/provider-registry.js';
 import { BlockchainsViewCommandOptionsSchema } from '../shared/schemas.js';
 
-import { BlockchainsViewApp, computeCategoryCounts, createBlockchainsViewState } from './components/index.js';
-import type { BlockchainCategory } from './view-blockchains-utils.js';
+import type { BlockchainCategory } from './blockchains-view-utils.js';
 import {
   buildBlockchainInfo,
   filterByApiKeyRequirement,
@@ -22,7 +21,8 @@ import {
   sortBlockchains,
   toBlockchainViewItem,
   validateCategory,
-} from './view-blockchains-utils.js';
+} from './blockchains-view-utils.js';
+import { BlockchainsViewApp, computeCategoryCounts, createBlockchainsViewState } from './components/index.js';
 
 /**
  * Command options (validated at CLI boundary).

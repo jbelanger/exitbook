@@ -14,11 +14,11 @@ import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 
 import type {
-  AcquisitionViewItem,
   AssetCostBasisItem,
+  AcquisitionViewItem,
   DisposalViewItem,
   TransferViewItem,
-} from './cost-basis-view-state.js';
+} from './components/cost-basis-view-state.js';
 
 const logger = getLogger('cost-basis-view-utils');
 

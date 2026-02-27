@@ -5,8 +5,6 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import { createProvidersBenchmarkHandler } from '../providers-benchmark/providers-benchmark-handler.js';
-import { buildConfigOverride } from '../providers-benchmark/providers-benchmark-utils.js';
 import { displayCliError } from '../shared/cli-error.js';
 import { renderApp, runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
@@ -14,8 +12,10 @@ import { outputSuccess } from '../shared/json-output.js';
 import { providerRegistry } from '../shared/provider-registry.js';
 import { ProvidersBenchmarkCommandOptionsSchema } from '../shared/schemas.js';
 
-import { BenchmarkApp } from './components/benchmark-components.js';
+import { BenchmarkApp } from './components/benchmark-components.jsx';
 import { createBenchmarkState } from './components/benchmark-state.js';
+import { createProvidersBenchmarkHandler } from './providers-benchmark-handler.js';
+import { buildConfigOverride } from './providers-benchmark-utils.js';
 
 /**
  * Command options (validated at CLI boundary).

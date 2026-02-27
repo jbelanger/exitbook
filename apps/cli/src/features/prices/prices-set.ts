@@ -3,6 +3,7 @@
 
 import path from 'node:path';
 
+import { ManualPriceService } from '@exitbook/price-providers';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -62,7 +63,8 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
     const { OverrideStore } = await import('@exitbook/data');
     const dataDir = getDataDir();
     const overrideStore = new OverrideStore(dataDir);
-    const handler = new PricesSetHandler(path.join(dataDir, 'prices.db'), overrideStore);
+    const service = new ManualPriceService(path.join(dataDir, 'prices.db'));
+    const handler = new PricesSetHandler(service, overrideStore);
     const result = await handler.execute({
       asset: options.asset,
       date: options.date,

@@ -13,7 +13,7 @@ import {
   sortProviders,
   validateHealthFilter,
   mergeProviderData,
-} from '../../view-providers-utils.js';
+} from '../../providers-view-utils.js';
 import type { ProviderViewItem } from '../providers-view-state.js';
 
 // --- Test Helpers ---

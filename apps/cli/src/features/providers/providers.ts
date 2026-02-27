@@ -3,8 +3,8 @@
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
-import { registerProvidersBenchmarkCommand } from './benchmark-providers.js';
-import { registerProvidersViewCommand } from './view-providers.js';
+import { registerProvidersBenchmarkCommand } from './providers-benchmark.js';
+import { registerProvidersViewCommand } from './providers-view.js';
 
 /**
  * Register the unified providers command with all subcommands.

@@ -45,14 +45,10 @@ export interface PricesSetResult {
  * Handler for prices set command
  */
 export class PricesSetHandler {
-  private service: ManualPriceService;
-
   constructor(
-    databasePath: string,
+    private readonly service: ManualPriceService,
     private readonly overrideStore?: OverrideStore | undefined
-  ) {
-    this.service = new ManualPriceService(databasePath);
-  }
+  ) {}
 
   /**
    * Execute prices set command

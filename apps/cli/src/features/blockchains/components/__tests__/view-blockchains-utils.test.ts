@@ -1,7 +1,7 @@
 import type { ProviderInfo, ProviderOperationType } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
-import type { BlockchainInfo } from '../../view-blockchains-utils.js';
+import type { BlockchainInfo } from '../../blockchains-view-utils.js';
 import {
   buildBlockchainInfo,
   filterByApiKeyRequirement,
@@ -12,7 +12,7 @@ import {
   sortBlockchains,
   toBlockchainViewItem,
   validateCategory,
-} from '../../view-blockchains-utils.js';
+} from '../../blockchains-view-utils.js';
 
 describe('view-blockchains-utils', () => {
   describe('validateCategory', () => {

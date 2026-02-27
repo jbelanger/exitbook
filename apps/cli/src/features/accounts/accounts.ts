@@ -3,7 +3,7 @@
 
 import type { Command } from 'commander';
 
-import { registerAccountsViewCommand } from './view-accounts.js';
+import { registerAccountsViewCommand } from './accounts-view.js';
 
 /**
  * Register the unified accounts command with all subcommands.

@@ -2,6 +2,7 @@ import path from 'node:path';
 
 // Command registration for view prices subcommand
 import { createTransactionQueries, OverrideStore } from '@exitbook/data';
+import { ManualPriceService } from '@exitbook/price-providers';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -152,7 +153,10 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
 
       // Set-price callback (used after drilling into missing mode)
       const overrideStore = new OverrideStore(ctx.dataDir);
-      const pricesSetHandler = new PricesSetHandler(path.join(ctx.dataDir, 'prices.db'), overrideStore);
+      const pricesSetHandler = new PricesSetHandler(
+        new ManualPriceService(path.join(ctx.dataDir, 'prices.db')),
+        overrideStore
+      );
 
       const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
         const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
@@ -200,7 +204,10 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
 
       const initialState = createMissingViewState(movements, assetBreakdown, params.asset, params.source);
 
-      const pricesSetHandler = new PricesSetHandler(path.join(ctx.dataDir, 'prices.db'), overrideStore);
+      const pricesSetHandler = new PricesSetHandler(
+        new ManualPriceService(path.join(ctx.dataDir, 'prices.db')),
+        overrideStore
+      );
 
       const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
         const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });

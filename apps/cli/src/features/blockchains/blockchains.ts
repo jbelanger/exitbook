@@ -4,7 +4,7 @@
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
-import { registerBlockchainsViewCommand } from './view-blockchains.js';
+import { registerBlockchainsViewCommand } from './blockchains-view.js';
 
 /**
  * Register the unified blockchains command with all subcommands.

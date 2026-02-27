@@ -39,8 +39,8 @@ import { registerImportCommand } from './features/import/import.js';
 import { registerLinksCommand } from './features/links/links.js';
 import { registerPortfolioCommand } from './features/portfolio/portfolio.js';
 import { registerPricesCommand } from './features/prices/prices.js';
-import { registerReprocessCommand } from './features/process/process.js';
 import { registerProvidersCommand } from './features/providers/providers.js';
+import { registerReprocessCommand } from './features/reprocess/reprocess.js';
 import { registerTransactionsCommand } from './features/transactions/transactions.js';
 
 // Construct registry once at startup — duplicate registrations throw at construction time

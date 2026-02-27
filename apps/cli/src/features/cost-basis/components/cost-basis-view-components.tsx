@@ -13,6 +13,7 @@ import {
   Divider,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
+import { formatUnsignedCurrency, formatSignedCurrency } from '../cost-basis-view-utils.js';
 
 import { costBasisViewReducer, handleCostBasisKeyboardInput } from './cost-basis-view-controller.js';
 import type {
@@ -24,7 +25,6 @@ import type {
   DisposalViewItem,
   TransferViewItem,
 } from './cost-basis-view-state.js';
-import { formatSignedCurrency, formatUnsignedCurrency } from './cost-basis-view-utils.js';
 
 export const COST_BASIS_ASSETS_CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line

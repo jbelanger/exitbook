@@ -15,4 +15,4 @@ export {
   type ClearScope,
   type ClearViewState,
 } from './clear-view-state.js';
-export { formatCount, getCategoryDescription } from './clear-view-utils.js';
+export { formatCount, getCategoryDescription } from '../clear-view-utils.js';

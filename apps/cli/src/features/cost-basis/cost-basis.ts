@@ -12,19 +12,17 @@ import { CostBasisCommandOptionsSchema } from '../shared/schemas.js';
 import { createSpinner, stopSpinner } from '../shared/spinner.js';
 import { isJsonMode } from '../shared/utils.js';
 
+import { CostBasisApp } from './components/cost-basis-view-components.jsx';
 import {
-  CostBasisApp,
-  buildAssetCostBasisItems,
-  computeSummaryTotals,
+  type CalculationContext,
   createCostBasisAssetState,
   createCostBasisTimelineState,
-  sortAssetsByAbsGainLoss,
-  type CalculationContext,
-} from './components/index.js';
+} from './components/cost-basis-view-state.js';
 import type { CostBasisResult, CostBasisInput } from './cost-basis-handler.js';
 import { createCostBasisHandler } from './cost-basis-handler.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.js';
 import { buildCostBasisParamsFromFlags } from './cost-basis-utils.js';
+import { buildAssetCostBasisItems, sortAssetsByAbsGainLoss, computeSummaryTotals } from './cost-basis-view-utils.js';
 
 const logger = getLogger('cost-basis');
 

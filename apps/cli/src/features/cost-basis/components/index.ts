@@ -18,12 +18,3 @@ export {
   type TimelineEvent,
   type TransferViewItem,
 } from './cost-basis-view-state.js';
-export {
-  buildAssetCostBasisItems,
-  computeSummaryTotals,
-  computeTaxableAmount,
-  formatCryptoQuantity,
-  formatSignedCurrency,
-  formatUnsignedCurrency,
-  sortAssetsByAbsGainLoss,
-} from './cost-basis-view-utils.js';

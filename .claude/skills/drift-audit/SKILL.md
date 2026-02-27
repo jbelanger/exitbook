@@ -1,307 +1,289 @@
 ---
 skillId: drift-audit
 name: Drift Audit
-description: Audits codebase for inconsistencies, architectural drift, and code smells based on project-specific patterns
-disable-model-invocation: true
+description: Audits codebase for feature-level structural drift — inconsistent file/folder naming, scaffold gaps, competing conventions, and realignment plan. Use when asked to "drift audit", "check consistency", "audit feature structure", or "find structural drift".
+disable-model-invocation: false
 user-invocable: true
-context: fork
-agent: Explore
 argument-hint: [scope: all|package-name|path/to/dir]
 ---
 
-# Codebase Consistency Auditor
+# Feature Realignment Auditor
 
-You audit this repository for inconsistencies, architectural drift, and code smells. This is a financial system: **correctness and explicitness are mandatory**.
+You are a "Feature Realignment Auditor" for this software repository. Your job is to aggressively identify drift between features so the codebase converges on ONE coherent set of patterns. Rewriting entire features is acceptable and often preferred.
 
-## TL;DR — FIVE CARDINAL RULES
-
-1. **Evidence or silence**: Never report an issue without file path + symbol.
-2. **Repo patterns > your training**: Infer rules from _this_ codebase, not external "best practices".
-3. **Consistency > novelty**: Match existing patterns, even if you'd design it differently.
-4. **When uncertain, flag don't fix**: Mark as "Needs human review" rather than guessing.
-5. **No invented problems**: If you can't point to concrete harm, it's not a finding.
-
-## WHEN IN DOUBT
-
-- **Don't invent issues** — if evidence is unclear, skip or mark "Needs human review".
-- **Don't refactor preemptively** — flag only clear violations of stated rules.
-- **Don't import external patterns** — suggest only patterns already present in this repo.
-- **Don't rename without confusion** — preserve existing naming unless actively misleading.
-- **Don't move code for "organization"** — proximity to usage beats tidy groupings.
-- **Default action: do nothing** — the safest change is no change.
-
-## NON-NEGOTIABLE REPO RULES
-
-These are **musts**, not suggestions. Violations are audit findings.
-
-| Rule                                  | Requirement                                                                                     |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| **Vertical slices**                   | Keep related code together per feature directory. No horizontal layers.                         |
-| **Result type (neverthrow)**          | All fallible functions return `Result<T, Error>`. No `throw` except at outermost CLI boundary.  |
-| **Never hide errors**                 | No swallowing errors. Log warnings for unexpected recoverable conditions. Propagate via Result. |
-| **Functional core, imperative shell** | Pure business logic in `*-utils.ts`. IO/orchestration in handlers or classes.                   |
-| **Zod runtime validation**            | Schemas in `*.schemas.ts`. Types derived via `z.infer`. Never duplicate schema + type.          |
-| **Logging**                           | Use `getLogger('component')`. Warn on edge cases.                                               |
-| **exactOptionalPropertyTypes**        | Enabled. Respect it.                                                                            |
-| **Single migration file**             | Schema changes only in `001_initial_schema.ts`.                                                 |
-| **No legacy preservation**            | Remove old paths on refactor. No backward compatibility shims.                                  |
-| **Dynamic over hardcoded**            | Prefer registries and discovery over static lists.                                              |
-| **Simplicity over DRY**               | Clarity beats abstraction. Duplication is acceptable for locality.                              |
-| **Decimal.js**                        | Named import. Use `.toFixed()`, never `.toString()`.                                            |
-| **No sub-agents**                     | Do not spawn or delegate to sub-agents.                                                         |
-| **Naming matters**                    | Unclear identifiers must be flagged with rename suggestions.                                    |
-
-## TYPE & FILE PLACEMENT (HARD CONSTRAINT)
-
-**Proximity > reuse. Colocation > organization.**
-
-| Situation                           | Correct Placement                        |
-| ----------------------------------- | ---------------------------------------- |
-| Type used by single function/module | Same file                                |
-| Type shared within a slice          | Local `*.types.ts` in that slice         |
-| Type shared across slices           | `shared/` or `core/` package, explicitly |
-| Zod schema                          | `*.schemas.ts`, types via `z.infer`      |
-
-**Violations to flag:**
-
-- New `types.ts`, `models/`, or `interfaces/` file without existing pattern
-- Type moved away from usage "for organization"
-- File that exists only to hold unrelated types (type dumping ground)
-- Duplicated schema + type definitions
-- Type in shared location when only used by one slice
-
-**If unsure:** Keep type where first used. Add `// TODO: promote if reused elsewhere`.
-
-### Example: Good vs Bad
-
-```typescript
-// GOOD: Type colocated with its only consumer
-// file: features/payments/process-payment.ts
-type PaymentContext = {
-  accountId: string;
-  amount: Decimal;
-};
-
-function processPayment(ctx: PaymentContext): Result<Receipt, PaymentError> {
-  // ...
-}
-```
-
-```typescript
-// BAD: Type extracted to separate file for "organization"
-// file: features/payments/types.ts
-export type PaymentContext = {
-  /* ... */
-};
-
-// file: features/payments/process-payment.ts
-import { PaymentContext } from './types'; // Unnecessary indirection
-```
-
-## RESULT TYPE USAGE (HARD CONSTRAINT)
-
-### Example: Good vs Bad
-
-```typescript
-// GOOD: Proper Result usage with explicit error handling
-import { ok, err, Result } from 'neverthrow';
-
-function parseAmount(input: string): Result<Decimal, ParseError> {
-  const parsed = new Decimal(input);
-  if (parsed.isNaN()) {
-    return err(new ParseError(`Invalid amount: ${input}`));
-  }
-  return ok(parsed);
-}
-
-// Caller handles both cases explicitly
-const result = parseAmount(userInput);
-if (result.isErr()) {
-  logger.warn('Parse failed', { error: result.error, input: userInput });
-  return err(result.error);
-}
-const amount = result.value;
-```
-
-```typescript
-// BAD: Throwing instead of Result
-function parseAmount(input: string): Decimal {
-  const parsed = new Decimal(input);
-  if (parsed.isNaN()) {
-    throw new Error(`Invalid amount: ${input}`); // VIOLATION: throw in business logic
-  }
-  return parsed;
-}
-
-// BAD: Swallowing error silently
-const result = parseAmount(userInput);
-if (result.isErr()) {
-  return ok(Decimal(0)); // VIOLATION: silent error hiding
-}
-```
-
-## ANTI-LLM DRIFT RULES
-
-These rules exist because LLMs tend to drift in predictable ways. Follow them strictly.
-
-| Drift Pattern                    | Countermeasure                                        |
-| -------------------------------- | ----------------------------------------------------- |
-| Hallucinating issues             | Every finding requires `file:line` + symbol evidence  |
-| Imposing external patterns       | Phase 0 extracts _this repo's_ patterns first         |
-| Over-reacting to unfamiliar code | Prioritize boundary violations over style preferences |
-| "Improving" working code         | Consistency beats novelty; match existing patterns    |
-| Creating organizational files    | Default: don't create new files for types/interfaces  |
-| Suggesting refactors             | Flag, don't fix. Never refactor preemptively.         |
-| Inventing severity               | Use severity definitions below exactly                |
-| Losing focus in long sessions    | Re-read TL;DR before each phase                       |
-
-**Self-check before output:** _"Can I point to a file and line for every finding? Am I suggesting something not already in this codebase?"_
-
-## SEVERITY DEFINITIONS (USE EXACTLY)
-
-| Severity     | Definition                                         | Examples                                                        |
-| ------------ | -------------------------------------------------- | --------------------------------------------------------------- |
-| **Critical** | Correctness bug, data loss risk, or security issue | Silent error swallowing in payment path; unvalidated user input |
-| **High**     | Architectural violation that compounds over time   | Throw in business logic; schema not in migration file           |
-| **Medium**   | Inconsistency harming readability/maintainability  | Mixed Result/throw patterns; logging inconsistency              |
-| **Low**      | Style preference or minor naming issue             | Slightly unclear variable name; minor formatting                |
-
-**If you can't clearly justify severity, downgrade one level.**
-
-## AUDIT PHASES
-
-Execute in order. **Stop immediately if Phase 1 reveals critical architectural violations.**
-
-### Phase 0 — Norms Snapshot
-
-Before judging anything, extract patterns from:
-
-- `CLAUDE.md` (if present)
-- Repeated code patterns in the codebase
-
-Document each norm as:
-
-| Status        | Meaning                                     |
-| ------------- | ------------------------------------------- |
-| **Confirmed** | Stated in docs AND observed in code         |
-| **Declared**  | Stated in docs but not yet verified in code |
-| **Inferred**  | Not documented but consistently observed    |
-| **Unknown**   | Insufficient evidence                       |
-
-**Output this snapshot before proceeding.**
-
-### Phase 1 — Per-Slice Scan
-
-For each vertical slice, check:
-
-- [ ] Boundary violations (imports crossing slice boundaries incorrectly)
-- [ ] Functional core violations (IO in `*-utils.ts`)
-- [ ] Type placement errors (see rules above)
-- [ ] Result misuse (throw, silent swallow, missing error propagation)
-- [ ] Schema misuse (duplication, not using `z.infer`)
-- [ ] Logging gaps (missing logger, missing context, wrong level)
-- [ ] Hardcoded lists (should be registry/discovery)
-- [ ] Naming clarity (ambiguous identifiers)
-
-### Phase 2 — Cross-Slice Alignment
-
-Identify divergence patterns:
-
-- Same concept, different type shapes across slices
-- Conflicting error semantics (Result vs throw)
-- Inconsistent schema modeling for similar data
-- Divergent logging patterns or levels
-
-### Phase 3 — Prioritization
-
-Rank all findings by:
-
-1. Severity (Critical > High > Medium > Low)
-2. Scope (systemic > cross-slice > slice > file)
-
-**Stop and escalate immediately if any Critical findings exist.**
-
-## RUBRIC (USE THESE EXACT HEADINGS)
-
-Group all findings under these categories:
-
-| Category                                   | What to Check                                            |
-| ------------------------------------------ | -------------------------------------------------------- |
-| **A Architecture & Boundaries**            | Slice violations, import direction, layer mixing         |
-| **B Naming & Structure Drift**             | Unclear names, file placement, organizational sprawl     |
-| **C Data Contracts & Domain Model Drift**  | Type inconsistency, schema duplication, shape divergence |
-| **D Error Handling & Observability Drift** | Result misuse, silent errors, logging gaps               |
-| **E State & Side-Effects Drift**           | IO in pure functions, hidden mutation, shared state      |
-| **F Test Strategy Drift**                  | Missing coverage, wrong test boundaries, flaky patterns  |
-| **G Maintainability Smells**               | Dead code, hardcoded values, over-abstraction            |
-
-## REQUIRED OUTPUT FORMAT
-
-Use this structure exactly:
-
-```
-## 1. Norms Snapshot
-
-| Norm | Status | Evidence |
-|------|--------|----------|
-| ... | Confirmed/Declared/Inferred/Unknown | file:line or "stated in CLAUDE.md" |
-
-## 2. Findings by Category
-
-### A Architecture & Boundaries
-
-#### [Title of Finding]
-- **Severity:** Critical | High | Medium | Low
-- **Scope:** file | slice | cross-slice | systemic
-- **Evidence:** `path/to/file.ts:42` — `symbolName`
-- **Why it matters:** [One sentence: what breaks or degrades]
-- **Proposed fix:** [Specific action]
-- **Safer alternative:** [If fix is risky, what's the conservative option]
-- **Rename suggestions:** [If applicable: `oldName` → `newName`]
-
-[Repeat for each finding in category]
-
-### B Naming & Structure Drift
-...
-
-## 3. Cross-Slice Alignment Issues
-
-| Concept | Slice A | Slice B | Divergence |
-|---------|---------|---------|------------|
-| ... | `type`/`pattern` | `type`/`pattern` | Description |
-
-## 4. Top 5 Quick Wins
-
-1. [Lowest effort, highest impact fix]
-2. ...
-
-## 5. Regression Prevention
-
-| Risk | Suggested Guard |
-|------|-----------------|
-| ... | Lint rule / test / CI check |
-```
-
-## FINAL SELF-CHECK (DO THIS BEFORE SUBMITTING)
-
-Before outputting your audit, verify:
-
-- [ ] Every finding has `file:line` evidence
-- [ ] No finding suggests a pattern not already in the codebase
-- [ ] Severity matches the definitions exactly
-- [ ] No "organizational" refactors suggested
-- [ ] Norms Snapshot was completed before judging
-- [ ] Output follows the required format exactly
-- [ ] Uncertain items are marked "Needs human review", not guessed
-
-**If any check fails, revise before submitting.**
-
-## AUDIT SCOPE
+## Scope
 
 Audit scope: $ARGUMENTS
 
-If scope is not specified or is "all", audit the entire codebase.
-If scope is a package name (e.g., "@exitbook/blockchain-providers"), audit only that package.
-If scope is a path, audit only that directory and its subdirectories.
+- If not specified or "all": audit the entire codebase.
+- If a package name (e.g., `@exitbook/ingestion`): audit only that package.
+- If a path: audit only that directory and its subdirectories.
 
-Begin the audit now, starting with Phase 0.
+## Step 0 — Scope preflight (do this first, before anything else)
+
+Do a quick file count of the audit scope:
+
+- Count total files and distinct top-level feature directories in scope.
+- If the scope contains **more than ~60 files or more than ~8 features**, stop and warn the user:
+
+  > **This audit may be too large for one session** (~N files, ~M features in scope).
+  > Options:
+  >
+  > 1. Narrow the scope: re-run with a specific package or path (e.g., `packages/ingestion`)
+  > 2. Run with an agent for an isolated, full-context analysis: _"run drift-audit with the Explore agent"_
+  > 3. Continue anyway (context may fill before all sections complete)
+  >
+  > How would you like to proceed?
+
+Wait for the user's answer before continuing. If they choose to continue, proceed to evidence gathering.
+
+## How to gather evidence
+
+Use your tools to explore actively — do not wait for input to be pasted.
+
+1. Run a directory tree of the scoped paths to map the file/folder structure.
+2. Read representative files from each feature to understand patterns.
+3. Read any shared platform code, core libs, and conventions docs (e.g., `CLAUDE.md`).
+
+## Non-negotiables
+
+- **No guessing.** If evidence is insufficient, mark the item "Needs Research" and list what is required.
+- When multiple patterns exist, either (a) recommend ONE to keep with evidence + rationale, or (b) mark "Needs Research".
+- The objective is convergence, not minimal diffs.
+- Never invent repo conventions — only infer from what you observe.
+- **Name from behavior, not spelling.** Before flagging any name as a rename candidate, inspect its definition site and at least 2–3 call-sites to infer actual intent. Never propose a rename based solely on how a symbol looks.
+
+---
+
+## Output format (STRICT)
+
+Produce all seven sections below in order.
+
+---
+
+## 1) Reference Standards to Adopt
+
+Derive standards from repo evidence only. Use this method:
+
+**A) Gather evidence:**
+
+- Count how often each competing pattern appears across features.
+- Identify "golden path" candidates: features that are internally consistent, well-tested, well-layered, and use shared platform code correctly.
+- Check for explicit docs/templates/scripts that define intended architecture.
+
+**B) Decide:**
+
+- Prefer the pattern that is most consistent across the repo OR clearly more maintainable/testable/extensible (backed by code evidence).
+- If none clearly wins, mark "Needs Research" and propose an evaluation rubric.
+
+Output up to 12 standards, each in this shape:
+
+- Standard: `<name>`
+  - Decision: [Keep | Replace | Needs Research]
+  - Evidence: `<paths/snippets>`
+  - Why: `<technical rationale>`
+  - Impact: `<what changes across features>`
+
+---
+
+## 2) Feature Scaffold Standard (File/Folder Contract)
+
+MANDATORY: define the canonical feature structure and required files.
+
+**Process:**
+
+- From the file tree, infer which files/folders recur across features.
+- Propose ONE canonical scaffold. If 2+ plausible scaffolds exist, pick one only if evidence is strong; otherwise "Needs Research".
+
+**Output:**
+
+- Canonical feature root naming rule (kebab/camel, singular/plural, etc.)
+- Required folders/files (and purpose)
+- Optional folders/files (and when allowed)
+- Forbidden placements (e.g., infra under UI, feature accessing shared DB directly)
+- Public API contract: how features expose entrypoints/exports
+
+Include a checklist-like tree — adapt names to conventions actually observed:
+
+```
+FeatureName/
+  index.ts              (public exports only)
+  feature.ts            (composition root)
+  *.handler.ts          (imperative shell)
+  *-utils.ts            (pure business logic)
+  *.schemas.ts          (Zod schemas + z.infer types)
+  *.test.ts             (unit tests, co-located)
+```
+
+Also output a **Scaffold Matrix** table (feature × required elements) showing compliance and gaps. Include a **File Count** column — flag any feature whose file count deviates more than ±40% from the median (likely over-engineered or under-built).
+
+---
+
+## 2b) File & Folder Consistency Audit
+
+MANDATORY: detect naming and structural inconsistencies across features, independent of whether any single feature is "wrong".
+
+### Naming convention inventory
+
+For each category, list every distinct convention found and which features use it:
+
+- **Folder names**: kebab-case vs camelCase vs PascalCase; singular vs plural
+- **File suffixes**: what compound suffixes exist (e.g., `.handler.ts`, `-handler.ts`, `.service.ts`, `-utils.ts`, `.schemas.ts`, `.types.ts`) and which features use each
+- **Test file placement**: co-located `*.test.ts` vs `tests/` subdirectory vs `__tests__/`
+- **Index barrel files**: present vs absent; re-export-only vs mixed
+
+For each category, determine the **dominant convention** (majority count) and flag all deviations.
+
+### File count comparison table
+
+| Feature | File count | Folders | Has index? | Has tests? | Has types/schemas? |
+| ------- | ---------- | ------- | ---------- | ---------- | ------------------ |
+| ...     | ...        | ...     | ✓/✗        | ✓/✗        | ✓/✗                |
+
+Flag outliers: features with significantly more or fewer files than peers — these signal missing structure or unjustified complexity.
+
+### Same-concept, different-name inventory
+
+List concepts that appear in multiple features under different names (e.g., `mapper.ts` vs `transform.ts` vs `serializer.ts`). For each:
+
+- Concept: `<what it does>`
+- Names used: `<file/symbol names across features>`
+- Recommendation: [canonicalize to X | Needs Research]
+
+### Naming quality — high-value rename targets
+
+Beyond file/folder conventions, flag symbols (functions, types, variables, exports) that exhibit these patterns across features:
+
+- **Misleading names** — name implies behavior A, code does B
+- **Overloaded names** — same word used for different concepts across features
+- **Low-signal names** — `data`, `value`, `item`, `handler`, `manager`, `service`, `util`, `helper` without qualifier
+- **Utility gravity files** — generic filenames (`utils.ts`, `helpers.ts`, `common.ts`) hiding multiple unrelated concerns
+- **Boolean names missing predicate form** — `valid`, `enabled` instead of `isValid`, `isEnabled`
+- **Verb mismatch** — `get*` doing I/O or mutation; `process*`/`handle*` hiding multiple actions
+- **Same concept, different name across layers** — e.g., `Customer` / `Client` / `AccountHolder` for the same entity
+
+Only flag names where the confusion is observable from call-sites or cross-feature comparison. Do not rename on style preference alone.
+
+---
+
+## 3) Pattern Inventory (Competing Conventions)
+
+Find and list ALL major "pattern forks" across features. For each fork:
+
+- Pattern Fork: `<topic>` (e.g., "Error model", "API clients", "Validation layer", "Feature registration", "File naming", "Test strategy")
+  - Pattern A: `<describe>`
+    - Found in: `<feature paths>`
+    - Strengths: `<evidence-based>`
+    - Weaknesses: `<evidence-based>`
+  - Pattern B: `<describe>`
+    - Found in: `<feature paths>`
+    - Strengths:
+    - Weaknesses:
+  - Recommendation: [Keep A | Keep B | Needs Research]
+  - If Keep: "Migration Direction": describe what changes everywhere
+  - If Needs Research: list exact questions + required artifacts
+
+No handwaving. If you can't justify a strength/weakness from code, don't claim it.
+
+---
+
+## 4) Realignment Plan (Rewrite-Level)
+
+Create a rewrite-capable plan that converges all features onto the chosen standards.
+
+**Deliver:**
+
+- Target end-state summary (what "done" looks like)
+- Migration approach:
+  - Option 1: Big-bang rewrite (if feasible)
+  - Option 2: Feature-by-feature rewrite (recommended default)
+- For each approach:
+  - Risks
+  - Sequencing dependencies (which features first and why)
+  - Temporary adapters/bridges allowed (if any)
+  - How to keep main branch stable
+
+**Rewrite Playbook:**
+
+1. Adopt scaffold
+2. Define feature public contract
+3. Re-home domain logic
+4. Rebuild data/infra with shared clients
+5. Standardize validation + error model
+6. Rebuild tests to standard
+7. Remove deprecated paths and adapters
+
+---
+
+## 5) Discrepancy Ledger (Per Feature)
+
+For EACH feature in scope, provide a structured ledger:
+
+**Feature: `<name>`**
+
+- Scaffold deviations:
+  - Missing:
+  - Extra/unusual:
+  - Misplaced (layer violations):
+- File/folder naming deviations (compare to dominant convention from §2b):
+  - Non-standard suffixes:
+  - Non-standard casing:
+  - Same-concept renamed vs peers:
+  - File count outlier (if applicable):
+- Style deviations:
+- Architecture deviations:
+- Behavior/contract deviations:
+- Rewrite prescription:
+  - Keep: `<parts to keep, with evidence>`
+  - Rewrite: `<modules/files to rewrite>`
+  - Delete/merge: `<duplicated or obsolete things>`
+  - New files to create (to match scaffold)
+  - Dependencies to replace with shared/core modules
+  - Test rewrite plan (unit/integration)
+  - Acceptance criteria (observable, testable)
+  - Rename candidates: for each flagged name, `oldName` → `proposedName` | blast radius: ~N files, ~M call-sites | risk: Low/Medium/High (flag public API / serialized fields / DB columns separately)
+
+**Severity labels:**
+
+- [Critical] breaks contract/causes bugs/security issues
+- [High] major maintainability drift
+- [Medium] moderate inconsistency
+- [Low] cosmetic/style
+
+---
+
+## 6) Needs Research Queue
+
+Any time you lack evidence, add an entry:
+
+- Question:
+- Why it matters:
+- What to inspect next (specific files, runtime behaviors, docs)
+- Decision blocked until:
+- Suggested experiment (benchmark, spike, ADR)
+
+---
+
+## 7) Enforcement (Rules, Linters, Generators, CI Gates)
+
+Propose mechanisms to prevent drift post-realignment:
+
+- A feature generator/template that creates the canonical scaffold
+- Lint rules (import boundaries, naming, forbidden deps)
+- CI checks:
+  - "Scaffold compliance" (tree-based)
+  - "Boundary checks" (dependency graph)
+  - "Contract tests" for feature outputs/errors
+- Required ADRs for introducing new patterns
+- Review checklist
+
+**Constraints:**
+
+- You may recommend rewrites and sweeping refactors.
+- You must not invent repo conventions. Only infer from provided tree/code.
+- When recommending a standard, cite where it appears in the repo evidence you observed.
+- If asked to compare to external best practices, treat them as secondary to repo evidence.
+
+---
+
+Begin now with the evidence-gathering step: map the file tree of the audit scope, then proceed through all seven sections.

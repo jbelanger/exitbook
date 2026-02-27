@@ -15,10 +15,11 @@ import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import { createEventDrivenController } from '../../ui/shared/index.js';
-import { LinksRunMonitor } from '../links/components/links-run-components.js';
-import { PricesEnrichMonitor } from '../prices/components/prices-enrich-components.js';
+import { LinksRunMonitor } from '../links/components/links-run-components.jsx';
+import { PricesEnrichMonitor } from '../prices/components/prices-enrich-components.jsx';
 import { createDefaultPriceProviderManager } from '../prices/prices-utils.js';
-import type { CommandDatabase } from '../shared/command-runtime.js';
+
+import type { CommandDatabase } from './command-runtime.js';
 
 const logger = getLogger('cost-basis-prereqs');
 

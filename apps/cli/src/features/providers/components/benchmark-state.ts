@@ -2,9 +2,8 @@
  * State management for benchmark TUI
  */
 
-import type { BenchmarkProgressEvent } from '../../providers-benchmark/benchmark-tool.js';
-import type { BenchmarkParams } from '../../providers-benchmark/providers-benchmark-utils.js';
-import { buildConfigOverride } from '../../providers-benchmark/providers-benchmark-utils.js';
+import type { BenchmarkProgressEvent } from '../benchmark-tool.js';
+import { type BenchmarkParams, buildConfigOverride } from '../providers-benchmark-utils.js';
 
 export interface SustainedTest {
   rate: number;

@@ -194,10 +194,14 @@ export async function executeWithFailover<TProvider extends IProvider, TResult, 
     // Build per-attempt signal: combine caller signal + per-attempt timeout
     const attemptSignals: AbortSignal[] = [];
     if (signal) attemptSignals.push(signal);
-    if (perAttemptTimeoutMs !== undefined) attemptSignals.push(AbortSignal.timeout(perAttemptTimeoutMs));
+    const perAttemptTimeoutSignal =
+      perAttemptTimeoutMs !== undefined ? AbortSignal.timeout(perAttemptTimeoutMs) : undefined;
+    if (perAttemptTimeoutSignal) attemptSignals.push(perAttemptTimeoutSignal);
+    let deadlineTimeoutSignal: AbortSignal | undefined;
     if (deadline !== undefined) {
       const remaining = deadline - Date.now();
-      attemptSignals.push(AbortSignal.timeout(Math.max(0, remaining)));
+      deadlineTimeoutSignal = AbortSignal.timeout(Math.max(0, remaining));
+      attemptSignals.push(deadlineTimeoutSignal);
     }
 
     const attemptSignal = attemptSignals.length > 0 ? AbortSignal.any(attemptSignals) : undefined;
@@ -217,6 +221,15 @@ export async function executeWithFailover<TProvider extends IProvider, TResult, 
           ? buildFinalError(toError(signal.reason), attemptedProviders, allRecoverable, attemptDiagnostics)
           : (toError(signal.reason) as TError);
         return err(abortError);
+      }
+      if (deadlineTimeoutSignal?.aborted) {
+        const timeoutCause = new Error(
+          `Total timeout exceeded for ${operationLabel} after ${attemptedProviders.length} attempt(s)`
+        );
+        const timeoutError = buildFinalError
+          ? buildFinalError(timeoutCause, attemptedProviders, allRecoverable, attemptDiagnostics)
+          : (timeoutCause as TError);
+        return err(timeoutError);
       }
 
       lastError = exception instanceof Error ? exception : new Error(String(exception));

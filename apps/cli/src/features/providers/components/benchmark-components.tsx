@@ -6,7 +6,7 @@ import { Box, Text, useApp } from 'ink';
 import Spinner from 'ink-spinner';
 import { useEffect, useReducer, type FC } from 'react';
 
-import type { BenchmarkProgressEvent } from '../../providers-benchmark/benchmark-tool.js';
+import type { BenchmarkProgressEvent } from '../benchmark-tool.js';
 
 import type { BenchmarkState, BurstTest, SustainedTest } from './benchmark-state.js';
 import { benchmarkReducer } from './benchmark-state.js';
