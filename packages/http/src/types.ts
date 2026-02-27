@@ -1,6 +1,5 @@
+import type { InstrumentationCollector } from '@exitbook/observability';
 import type { ZodType } from 'zod';
-
-import type { InstrumentationCollector } from './instrumentation.js';
 
 export interface HttpClientConfig {
   baseUrl: string;

@@ -2,7 +2,6 @@
 import type { KyselyDB, RawDataQueries } from '@exitbook/data';
 import { createRawDataQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
-import type { InstrumentationCollector, MetricsSummary } from '@exitbook/http';
 import {
   ClearService,
   type AdapterRegistry,
@@ -10,6 +9,7 @@ import {
   type RawDataProcessingService,
 } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
+import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { EventDrivenController } from '../../ui/shared/index.js';

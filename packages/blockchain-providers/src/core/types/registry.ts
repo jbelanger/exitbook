@@ -1,4 +1,5 @@
-import type { HttpClientHooks, InstrumentationCollector, RateLimitConfig } from '@exitbook/http';
+import type { HttpClientHooks, RateLimitConfig } from '@exitbook/http';
+import type { InstrumentationCollector } from '@exitbook/observability';
 
 import type { IBlockchainProvider, ProviderCapabilities } from './provider.js';
 

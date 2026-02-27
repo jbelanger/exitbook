@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import type { PriceEvent } from '@exitbook/accounting';
 import type { EventBus } from '@exitbook/events';
-import type { InstrumentationCollector } from '@exitbook/http';
+import type { InstrumentationCollector } from '@exitbook/observability';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import type { PriceProviderEvent } from '@exitbook/price-providers';
 import { type Result } from 'neverthrow';

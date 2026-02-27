@@ -5,8 +5,8 @@
  */
 
 import type { EventBus } from '@exitbook/events';
-import type { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
+import type { InstrumentationCollector } from '@exitbook/observability';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 

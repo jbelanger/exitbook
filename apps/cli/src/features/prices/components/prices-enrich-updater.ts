@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 
 import type { PriceEvent } from '@exitbook/accounting';
-import type { RequestMetric } from '@exitbook/http';
+import type { RequestMetric } from '@exitbook/observability';
 
 import { createProviderStats } from '../../../ui/shared/index.js';
 import type { ApiCallStats } from '../../../ui/shared/index.js';

@@ -1,7 +1,7 @@
 import { getErrorMessage, type CursorState } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
-import type { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
+import type { InstrumentationCollector } from '@exitbook/observability';
 import { TtlCache } from '@exitbook/resilience/cache';
 import {
   CircuitBreakerRegistry,

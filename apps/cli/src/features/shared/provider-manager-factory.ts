@@ -19,8 +19,8 @@ import {
   type ProviderStatsDB,
 } from '@exitbook/blockchain-providers';
 import type { EventBus } from '@exitbook/events';
-import type { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
+import type { InstrumentationCollector } from '@exitbook/observability';
 
 import { getDataDir } from './data-dir.js';
 import { providerRegistry } from './provider-registry.js';

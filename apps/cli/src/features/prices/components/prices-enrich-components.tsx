@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 
 import type { PriceEvent } from '@exitbook/accounting';
-import type { InstrumentationCollector } from '@exitbook/http';
+import type { InstrumentationCollector } from '@exitbook/observability';
 import { Box, Text } from 'ink';
 import { type FC, type ReactNode, useEffect, useLayoutEffect, useReducer } from 'react';
 

@@ -1,6 +1,7 @@
+import { InstrumentationCollector } from '@exitbook/observability';
 import { describe, expect, it } from 'vitest';
 
-import { InstrumentationCollector, sanitizeEndpoint } from '../instrumentation.js';
+import { sanitizeEndpoint } from '../instrumentation.js';
 
 describe('Instrumentation Utilities', () => {
   describe('sanitizeEndpoint', () => {

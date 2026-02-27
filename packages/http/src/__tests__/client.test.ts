@@ -1,9 +1,9 @@
+import { InstrumentationCollector } from '@exitbook/observability';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { HttpClient } from '../client.js';
 import type { HttpEffects } from '../core/types.js';
-import { InstrumentationCollector } from '../instrumentation.js';
 import { HttpError, RateLimitError, ResponseValidationError } from '../types.js';
 
 describe('HttpClient - Result Type Implementation', () => {

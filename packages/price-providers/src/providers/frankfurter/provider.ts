@@ -13,7 +13,8 @@
  */
 
 import { isFiat, parseDecimal, wrapError, type Currency } from '@exitbook/core';
-import type { HttpClient, InstrumentationCollector } from '@exitbook/http';
+import type { HttpClient } from '@exitbook/http';
+import type { InstrumentationCollector } from '@exitbook/observability';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 

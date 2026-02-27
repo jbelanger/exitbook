@@ -51,7 +51,7 @@ interface ImportCommandResult {
       processed: boolean;
     };
     processingErrors?: string[] | undefined;
-    runStats?: import('@exitbook/http').MetricsSummary | undefined;
+    runStats?: import('@exitbook/observability').MetricsSummary | undefined;
     source?: string | undefined;
   };
   meta: {

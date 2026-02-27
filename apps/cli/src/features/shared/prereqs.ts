@@ -9,8 +9,8 @@ import {
 import { parseDecimal } from '@exitbook/core';
 import { createTransactionLinkQueries, createTransactionQueries } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
-import { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
+import { InstrumentationCollector } from '@exitbook/observability';
 import { err, ok, type Result } from 'neverthrow';
 
 import { createEventDrivenController } from '../../ui/shared/index.js';

@@ -2,7 +2,6 @@ import { type ProviderEvent } from '@exitbook/blockchain-providers';
 // eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
 import { createTokenMetadataPersistence, type KyselyDB } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
-import { InstrumentationCollector } from '@exitbook/http';
 import {
   type AdapterRegistry,
   type IngestionEvent,
@@ -10,6 +9,7 @@ import {
   RawDataProcessingService,
 } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
+import { InstrumentationCollector } from '@exitbook/observability';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
 import { IngestionMonitor } from '../import/components/ingestion-monitor-view-components.js';

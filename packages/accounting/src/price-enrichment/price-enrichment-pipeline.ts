@@ -15,8 +15,8 @@
 
 import type { KyselyDB } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
-import { InstrumentationCollector, type MetricsSummary } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
+import { InstrumentationCollector, type MetricsSummary } from '@exitbook/observability';
 import type { PriceProviderManager } from '@exitbook/price-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';

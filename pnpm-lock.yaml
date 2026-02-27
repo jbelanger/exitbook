@@ -102,6 +102,9 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@exitbook/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       '@exitbook/price-providers':
         specifier: workspace:*
         version: link:../../packages/price-providers
@@ -169,12 +172,12 @@ importers:
       '@exitbook/events':
         specifier: workspace:*
         version: link:../events
-      '@exitbook/http':
-        specifier: workspace:*
-        version: link:../http
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
+      '@exitbook/observability':
+        specifier: workspace:*
+        version: link:../observability
       '@exitbook/price-providers':
         specifier: workspace:*
         version: link:../price-providers
@@ -212,6 +215,9 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
+      '@exitbook/observability':
+        specifier: workspace:*
+        version: link:../observability
       '@exitbook/resilience':
         specifier: workspace:*
         version: link:../resilience
@@ -327,6 +333,9 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
+      '@exitbook/observability':
+        specifier: workspace:*
+        version: link:../observability
       undici:
         specifier: ^7.22.0
         version: 7.22.0
@@ -384,6 +393,12 @@ importers:
         specifier: workspace:*
         version: link:../tsconfig
 
+  packages/observability:
+    devDependencies:
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+
   packages/price-providers:
     dependencies:
       '@exitbook/core':
@@ -398,6 +413,9 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
+      '@exitbook/observability':
+        specifier: workspace:*
+        version: link:../observability
       '@exitbook/resilience':
         specifier: workspace:*
         version: link:../resilience

@@ -1,8 +1,8 @@
 {
-  "name": "@exitbook/http",
+  "name": "@exitbook/observability",
   "version": "0.1.0",
   "private": true,
-  "description": "HTTP client utilities with rate limiting and resilience patterns",
+  "description": "Observability primitives: instrumentation, metrics collection",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "exports": {
@@ -18,12 +18,7 @@
     "prettier:fix": "prettier --write .",
     "test": "vitest run"
   },
-  "dependencies": {
-    "@exitbook/logger": "workspace:*",
-    "@exitbook/observability": "workspace:*",
-    "undici": "^7.22.0",
-    "zod": "^4.3.6"
-  },
+  "dependencies": {},
   "devDependencies": {
     "tsconfig": "workspace:*"
   }

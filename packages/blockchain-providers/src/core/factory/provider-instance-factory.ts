@@ -7,8 +7,9 @@
  */
 
 import { getErrorMessage } from '@exitbook/core';
-import type { HttpClientHooks, InstrumentationCollector } from '@exitbook/http';
+import type { HttpClientHooks } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
+import type { InstrumentationCollector } from '@exitbook/observability';
 
 import { buildProviderNotFoundError, validateProviderApiKey } from '../manager/provider-manager-utils.js';
 import type { ProviderRegistry } from '../registry/provider-registry.js';

@@ -5,8 +5,8 @@
 import { performance } from 'node:perf_hooks';
 
 import type { BlockchainProviderManager, ProviderEvent } from '@exitbook/blockchain-providers';
-import type { InstrumentationCollector } from '@exitbook/http';
 import type { IngestionEvent } from '@exitbook/ingestion';
+import type { InstrumentationCollector } from '@exitbook/observability';
 
 import type { IngestionMonitorState, ImportOperation } from './ingestion-monitor-view-state.js';
 import { getOrCreateProviderStats } from './ingestion-monitor-view-state.js';

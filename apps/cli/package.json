@@ -33,6 +33,7 @@
     "@exitbook/http": "workspace:*",
     "@exitbook/ingestion": "workspace:*",
     "@exitbook/logger": "workspace:*",
+    "@exitbook/observability": "workspace:*",
     "@exitbook/price-providers": "workspace:*",
     "@inquirer/confirm": "^6.0.8",
     "@inquirer/core": "^11.1.5",

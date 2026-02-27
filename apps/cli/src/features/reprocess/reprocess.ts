@@ -26,7 +26,7 @@ interface ReprocessCommandResult {
       processed: number;
     };
     processingErrors?: string[] | undefined;
-    runStats?: import('@exitbook/http').MetricsSummary | undefined;
+    runStats?: import('@exitbook/observability').MetricsSummary | undefined;
   };
   meta: {
     timestamp: string;

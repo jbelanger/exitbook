@@ -27,6 +27,7 @@
     "@exitbook/events": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/logger": "workspace:*",
+    "@exitbook/observability": "workspace:*",
     "@exitbook/resilience": "workspace:*",
     "@exitbook/sqlite": "workspace:*",
     "neverthrow": "^8.2.0",

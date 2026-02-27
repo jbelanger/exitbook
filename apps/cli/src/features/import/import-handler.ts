@@ -2,7 +2,6 @@ import type { ImportSession } from '@exitbook/core';
 // eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
 import type { KyselyDB } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
-import type { InstrumentationCollector, MetricsSummary } from '@exitbook/http';
 import {
   type AdapterRegistry,
   type ImportEvent,
@@ -12,6 +11,7 @@ import {
 } from '@exitbook/ingestion';
 import { isUtxoAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
+import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { EventDrivenController } from '../../ui/shared/index.js';

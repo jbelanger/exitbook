@@ -7,8 +7,8 @@ import {
 // eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
 import type { KyselyDB } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
-import { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
+import { InstrumentationCollector } from '@exitbook/observability';
 import type { PriceProviderManager } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
 

@@ -1,7 +1,7 @@
 // Pure business logic for price fetch operations
 
 import { isFiat, parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
-import type { MetricsSummary } from '@exitbook/http';
+import type { MetricsSummary } from '@exitbook/observability';
 import type { PriceQuery } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
 
