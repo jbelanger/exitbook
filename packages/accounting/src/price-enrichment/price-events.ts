@@ -13,7 +13,7 @@ export type PriceEvent =
       /**
        * Emitted when an enrichment stage begins.
        */
-      stage: 'tradePrices' | 'fxRates' | 'marketPrices' | 'propagation';
+      stage: 'tradePrices' | 'fxRates' | 'marketPrices' | 'rederive';
       type: 'stage.started';
     }
   | {
@@ -37,7 +37,7 @@ export type PriceEvent =
             skipped: number;
             stage: 'marketPrices';
           }
-        | { stage: 'propagation'; transactionsUpdated: number };
+        | { stage: 'rederive'; transactionsUpdated: number };
       type: 'stage.completed';
     }
   | {

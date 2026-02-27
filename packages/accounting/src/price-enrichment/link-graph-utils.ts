@@ -128,10 +128,12 @@ export function buildLinkGraph(transactions: UniversalTransactionData[], links: 
     // Only group if this is an exchange transaction (not blockchain)
     const isBlockchain = 'blockchain' in tx && tx.blockchain !== undefined;
     if (!isBlockchain) {
-      if (!txsByExchange.has(tx.source)) {
-        txsByExchange.set(tx.source, []);
+      const existing = txsByExchange.get(tx.source);
+      if (existing) {
+        existing.push(tx.id);
+      } else {
+        txsByExchange.set(tx.source, [tx.id]);
       }
-      txsByExchange.get(tx.source)!.push(tx.id);
     }
   }
 
@@ -147,7 +149,7 @@ export function buildLinkGraph(transactions: UniversalTransactionData[], links: 
   }
 
   // ENHANCE: Then, union confirmed cross-platform links (Phase 2 functionality)
-  // This enables price propagation across different sources (exchange ↔ blockchain)
+  // This enables price rederive across different sources (exchange ↔ blockchain)
   for (const link of links) {
     if (link.status === 'confirmed') {
       // Check that both transactions exist in our transaction set (O(1) lookup with Set)

@@ -3,7 +3,7 @@
  *
  * This module contains the business logic for:
  * - Multi-pass price inference (exchange-execution, derived ratios, swap recalculation)
- * - Link-based price propagation across platforms
+ * - Link-based price rederive across platforms
  * - Fee price enrichment from movement prices
  *
  * All functions are pure (no side effects, no DB access, no logging).
@@ -37,12 +37,12 @@ interface PassResult {
 }
 
 /**
- * Result of link-based price propagation
+ * Result of link-based price rederive
  */
 export interface PropagatePricesResult {
   /** Enriched transactions with propagated prices */
   enrichedTransactions: UniversalTransactionData[];
-  /** IDs of transactions modified by link propagation */
+  /** IDs of transactions modified by link rederive */
   modifiedIds: Set<number>;
 }
 
@@ -145,22 +145,17 @@ function deriveInflowPricesFromOutflows(
     const ratio = trade.outflow.grossAmount.dividedBy(trade.inflow.grossAmount);
     const derivedPrice = trade.outflow.priceAtTxTime.price.amount.times(ratio);
 
-    const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
-      {
-        asset: trade.inflow.assetSymbol,
-        priceAtTxTime: {
-          price: {
-            amount: derivedPrice,
-            currency: trade.outflow.priceAtTxTime.price.currency,
-          },
-          source: 'derived-ratio',
-          fetchedAt: new Date(timestamp),
-          granularity: trade.outflow.priceAtTxTime.granularity,
-        },
+    const derivedPriceAtTxTime: PriceAtTxTime = {
+      price: {
+        amount: derivedPrice,
+        currency: trade.outflow.priceAtTxTime.price.currency,
       },
-    ];
+      source: 'derived-ratio',
+      fetchedAt: new Date(timestamp),
+      granularity: trade.outflow.priceAtTxTime.granularity,
+    };
 
-    const pricesMap = new Map(ratioPrices.map((p) => [p.asset, p.priceAtTxTime]));
+    const pricesMap = new Map([[trade.inflow.assetSymbol, derivedPriceAtTxTime]]);
     const updatedInflows = enrichMovementsWithPrices(inflows, pricesMap);
 
     enrichedMovements.set(tx.id, {
@@ -224,23 +219,18 @@ function recalculateCryptoSwapRatios(
     );
     const derivedPrice = parseDecimal(trade.outflow.priceAtTxTime.price.amount.toFixed()).times(ratio);
 
-    const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
-      {
-        asset: trade.inflow.assetSymbol,
-        priceAtTxTime: {
-          price: {
-            amount: derivedPrice,
-            currency: trade.outflow.priceAtTxTime.price.currency,
-          },
-          source: 'derived-ratio',
-          fetchedAt: new Date(timestamp),
-          granularity: trade.outflow.priceAtTxTime.granularity,
-        },
+    const derivedPriceAtTxTime: PriceAtTxTime = {
+      price: {
+        amount: derivedPrice,
+        currency: trade.outflow.priceAtTxTime.price.currency,
       },
-    ];
+      source: 'derived-ratio',
+      fetchedAt: new Date(timestamp),
+      granularity: trade.outflow.priceAtTxTime.granularity,
+    };
 
     // Priority system automatically overwrites fetched prices with derived-ratio (priority 2)
-    const pricesMap = new Map(ratioPrices.map((p) => [p.asset, p.priceAtTxTime]));
+    const pricesMap = new Map([[trade.inflow.assetSymbol, derivedPriceAtTxTime]]);
     const updatedInflows = enrichMovementsWithPrices(inflows, pricesMap);
 
     enrichedMovements.set(tx.id, {
@@ -378,7 +368,7 @@ export function propagatePricesAcrossLinks(
     // Apply propagated prices to target transaction movements
     // Priority system automatically handles overwriting (link-propagated has priority 2)
     if (targetMovementPrices.length > 0) {
-      const pricesMap = new Map(targetMovementPrices.map((p) => [p.asset, p.priceAtTxTime]));
+      const pricesMap = new Map(targetMovementPrices.map((p) => [p.asset, p.priceAtTxTime] as const));
       const enrichedInflows = enrichMovementsWithPrices(targetInflows, pricesMap);
       const targetOutflows = targetTx.movements.outflows ?? [];
 

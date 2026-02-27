@@ -11,7 +11,7 @@ import { err, ok } from 'neverthrow';
 
 import { enrichMovementsWithPrices, enrichWithPrice } from './movement-enrichment-utils.js';
 import type { PriceEvent } from './price-events.js';
-import type { PriceFetchStats, PricesFetchCommandOptions, PricesFetchResult } from './price-fetch-utils.js';
+import type { PriceFetchStats, PriceFetchOptions, PricesFetchResult } from './price-fetch-utils.js';
 import {
   createPriceQuery,
   extractAssetsNeedingPrices,
@@ -49,13 +49,13 @@ export class PriceFetchService {
   ) {}
 
   /**
-   * Execute prices fetch.
+   * Fetch prices for transactions.
    *
    * @param options - Fetch options
    * @param priceManager - Initialized price provider manager (caller is responsible for lifecycle)
    */
-  async execute(
-    options: PricesFetchCommandOptions,
+  async fetchPrices(
+    options: PriceFetchOptions,
     priceManager: PriceProviderManager
   ): Promise<Result<PricesFetchResult, Error>> {
     const transactionRepo = createTransactionQueries(this.db);

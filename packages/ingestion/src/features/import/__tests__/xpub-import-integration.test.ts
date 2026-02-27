@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdapterRegistry } from '../../../shared/types/adapter-registry.js';
 import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter.js';
-import { ImportOrchestrator } from '../import-orchestrator.js';
+import { ImportCoordinator } from '../import-coordinator.js';
 
 // Mock logger
 vi.mock('@exitbook/logger', () => ({
@@ -54,7 +54,7 @@ const mockImportStreamingFn = vi.fn();
 
 describe('xpub import integration tests', () => {
   let db: KyselyDB;
-  let orchestrator: ImportOrchestrator;
+  let orchestrator: ImportCoordinator;
 
   beforeEach(async () => {
     // Reset mocks
@@ -89,7 +89,7 @@ describe('xpub import integration tests', () => {
     const registry = new AdapterRegistry([bitcoinAdapter, cardanoAdapter], []);
 
     // Create orchestrator
-    orchestrator = new ImportOrchestrator(db, mockProviderManager, registry);
+    orchestrator = new ImportCoordinator(db, mockProviderManager, registry);
 
     // Reset mocks after orchestrator setup
     mockDeriveAddresses.mockReset();

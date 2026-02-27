@@ -8,7 +8,7 @@ import { err, ok, type Result } from 'neverthrow';
 /**
  * Command options for prices fetch
  */
-export interface PricesFetchCommandOptions {
+export interface PriceFetchOptions {
   /** Optional asset filter (e.g., 'BTC', 'ETH') */
   asset?: string | string[] | undefined;
   /** How to handle missing prices/FX rates */

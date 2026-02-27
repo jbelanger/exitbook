@@ -401,7 +401,7 @@ describe('PriceEnrichmentService', () => {
         })
         .execute();
 
-      // Suggested link only (should NOT trigger propagation)
+      // Suggested link only (should NOT trigger rederive)
       await db
         .insertInto('transaction_links')
         .values({

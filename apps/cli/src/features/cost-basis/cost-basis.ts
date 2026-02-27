@@ -21,7 +21,7 @@ import {
   sortAssetsByAbsGainLoss,
   type CalculationContext,
 } from './components/index.js';
-import type { CostBasisResult, CostBasisHandlerParams } from './cost-basis-handler.js';
+import type { CostBasisResult, CostBasisInput } from './cost-basis-handler.js';
 import { createCostBasisHandler } from './cost-basis-handler.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.js';
 import { buildCostBasisParamsFromFlags } from './cost-basis-utils.js';
@@ -258,7 +258,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
       const database = await ctx.database();
 
       // Step 1: Resolve params via interactive prompts or CLI flags
-      let params: CostBasisHandlerParams;
+      let params: CostBasisInput;
       if (!options.method && !options.jurisdiction && !options.taxYear) {
         const promptResult = await promptForCostBasisParams();
         if (!promptResult) {

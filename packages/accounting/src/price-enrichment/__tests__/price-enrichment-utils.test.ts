@@ -3,7 +3,7 @@
  *
  * These tests verify the core business logic for:
  * - Multi-pass price inference (exchange-execution, derived ratios, swap recalculation)
- * - Link-based price propagation across platforms
+ * - Link-based price rederive across platforms
  * - Fee price enrichment from movement prices
  */
 

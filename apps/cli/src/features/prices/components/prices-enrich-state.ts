@@ -49,7 +49,7 @@ export interface PricesEnrichState {
       }
     | undefined;
 
-  propagation?:
+  rederive?:
     | {
         completedAt?: number | undefined;
         startedAt: number;

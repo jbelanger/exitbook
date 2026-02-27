@@ -6,7 +6,7 @@ import type { InstrumentationCollector, MetricsSummary } from '@exitbook/http';
 import {
   type AdapterRegistry,
   type ImportEvent,
-  ImportOrchestrator,
+  ImportCoordinator,
   type ImportParams,
   type RawDataProcessingService,
 } from '@exitbook/ingestion';
@@ -42,7 +42,7 @@ export class ImportHandler {
   private readonly logger = getLogger('ImportHandler');
 
   constructor(
-    private importOrchestrator: ImportOrchestrator,
+    private importCoordinator: ImportCoordinator,
     private rawDataProcessingService: RawDataProcessingService,
     private registry: AdapterRegistry,
     private ingestionMonitor: EventDrivenController<CliEvent>,
@@ -92,12 +92,12 @@ export class ImportHandler {
         if (!params.csvDirectory) {
           return err(new Error('CSV directory is required for CSV imports'));
         }
-        importResult = await this.importOrchestrator.importExchangeCsv(params.sourceName, params.csvDirectory);
+        importResult = await this.importCoordinator.importExchangeCsv(params.sourceName, params.csvDirectory);
       } else if (params.sourceType === 'exchange-api') {
         if (!params.credentials) {
           return err(new Error('Credentials are required for API imports'));
         }
-        importResult = await this.importOrchestrator.importExchangeApi(params.sourceName, params.credentials);
+        importResult = await this.importCoordinator.importExchangeApi(params.sourceName, params.credentials);
       } else {
         if (!params.address) {
           return err(new Error('Address is required for blockchain imports'));
@@ -116,7 +116,7 @@ export class ImportHandler {
           }
         }
 
-        importResult = await this.importOrchestrator.importBlockchain(
+        importResult = await this.importCoordinator.importBlockchain(
           params.sourceName,
           params.address,
           params.providerName,
@@ -178,7 +178,7 @@ export async function createImportHandler(
   try {
     const infra = await createIngestionInfrastructure(ctx, database, registry);
 
-    const importOrchestrator = new ImportOrchestrator(
+    const importCoordinator = new ImportCoordinator(
       database,
       infra.providerManager,
       registry,
@@ -187,7 +187,7 @@ export async function createImportHandler(
 
     return ok(
       new ImportHandler(
-        importOrchestrator,
+        importCoordinator,
         infra.rawDataProcessingService,
         registry,
         infra.ingestionMonitor,

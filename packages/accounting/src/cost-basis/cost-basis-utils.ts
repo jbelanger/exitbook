@@ -20,13 +20,13 @@ const logger = getLogger('cost-basis-utils');
 /**
  * Handler parameters for cost-basis calculation
  */
-export type CostBasisConfigWithDates = CostBasisConfig & {
+export type ValidatedCostBasisConfig = CostBasisConfig & {
   endDate: Date;
   startDate: Date;
 };
 
-export interface CostBasisHandlerParams {
-  config: CostBasisConfigWithDates;
+export interface CostBasisInput {
+  config: ValidatedCostBasisConfig;
 }
 
 /**
@@ -141,7 +141,7 @@ export function buildCostBasisParams(fields: {
   method: string;
   startDate?: string | undefined;
   taxYear: number | string;
-}): Result<CostBasisHandlerParams, Error> {
+}): Result<CostBasisInput, Error> {
   const methodResult = validateMethod(fields.method);
   if (methodResult.isErr()) return err(methodResult.error);
   const method = methodResult.value;
@@ -189,7 +189,7 @@ export function buildCostBasisParams(fields: {
     endDate = defaultRange.endDate;
   }
 
-  const config: CostBasisConfigWithDates = {
+  const config: ValidatedCostBasisConfig = {
     method,
     jurisdiction,
     taxYear,
@@ -204,7 +204,7 @@ export function buildCostBasisParams(fields: {
 /**
  * Validate cost basis parameters (business rules)
  */
-export function validateCostBasisParams(params: CostBasisHandlerParams): Result<void, Error> {
+export function validateCostBasisParams(params: CostBasisInput): Result<void, Error> {
   const { config } = params;
 
   if (config.method === 'average-cost' && config.jurisdiction !== 'CA') {

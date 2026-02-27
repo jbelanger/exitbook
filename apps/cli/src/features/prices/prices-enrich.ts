@@ -5,7 +5,7 @@
  * 1. Trade prices - Extract prices from trades (USD + fiat) and propagate via links
  * 2. FX rates - Convert non-USD fiat prices to USD using FX providers
  * 3. Market prices - Fetch missing crypto prices from external providers
- * 4. Price propagation - Use newly fetched/normalized prices for ratio calculations
+ * 4. Price rederive - Use newly fetched/normalized prices for ratio calculations
  */
 import type { PricesEnrichOptions } from '@exitbook/accounting';
 import type { Command } from 'commander';
@@ -62,16 +62,6 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
   }
 
   const options = parseResult.data;
-  if (options.json) {
-    await executePricesEnrichJSON(options);
-  } else {
-    await executePricesEnrichTUI(options);
-  }
-}
-
-// ─── JSON Mode ───────────────────────────────────────────────────────────────
-
-async function executePricesEnrichJSON(options: CommandOptions): Promise<void> {
   const params: PricesEnrichOptions = {
     asset: options.asset,
     onMissing: options.onMissing,
@@ -80,6 +70,16 @@ async function executePricesEnrichJSON(options: CommandOptions): Promise<void> {
     fetchOnly: options.fetchOnly,
   };
 
+  if (options.json) {
+    await executePricesEnrichJSON(options, params);
+  } else {
+    await executePricesEnrichTUI(options, params);
+  }
+}
+
+// ─── JSON Mode ───────────────────────────────────────────────────────────────
+
+async function executePricesEnrichJSON(options: CommandOptions, params: PricesEnrichOptions): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
@@ -108,15 +108,7 @@ async function executePricesEnrichJSON(options: CommandOptions): Promise<void> {
 
 // ─── TUI Mode ────────────────────────────────────────────────────────────────
 
-async function executePricesEnrichTUI(options: CommandOptions): Promise<void> {
-  const params: PricesEnrichOptions = {
-    asset: options.asset,
-    onMissing: options.onMissing,
-    normalizeOnly: options.normalizeOnly,
-    deriveOnly: options.deriveOnly,
-    fetchOnly: options.fetchOnly,
-  };
-
+async function executePricesEnrichTUI(options: CommandOptions, params: PricesEnrichOptions): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();

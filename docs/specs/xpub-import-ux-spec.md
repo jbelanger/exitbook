@@ -206,7 +206,7 @@ blockstream…  4.8 req/s            178ms   67 calls   64 ok (200) · 3 err (ti
 ```typescript
 /**
  * Emitted when xpub address derivation begins
- * Location: ImportOrchestrator.importFromXpub() - before calling deriveAddressesFromXpub()
+ * Location: ImportCoordinator.importFromXpub() - before calling deriveAddressesFromXpub()
  */
 interface XpubDerivationStartedEvent {
   type: 'xpub.derivation.started';
@@ -220,7 +220,7 @@ interface XpubDerivationStartedEvent {
 
 /**
  * Emitted when xpub address derivation completes successfully
- * Location: ImportOrchestrator.importFromXpub() - after deriveAddressesFromXpub() returns
+ * Location: ImportCoordinator.importFromXpub() - after deriveAddressesFromXpub() returns
  */
 interface XpubDerivationCompletedEvent {
   type: 'xpub.derivation.completed';
@@ -232,7 +232,7 @@ interface XpubDerivationCompletedEvent {
 
 /**
  * Emitted when xpub derivation fails
- * Location: ImportOrchestrator.importFromXpub() - if deriveAddressesFromXpub() returns error
+ * Location: ImportCoordinator.importFromXpub() - if deriveAddressesFromXpub() returns error
  */
 interface XpubDerivationFailedEvent {
   type: 'xpub.derivation.failed';
@@ -247,7 +247,7 @@ interface XpubDerivationFailedEvent {
 ```typescript
 /**
  * Emitted when xpub import begins (wrapper for all child imports)
- * Location: ImportOrchestrator.importFromXpub() - after creating child accounts, before importing them
+ * Location: ImportCoordinator.importFromXpub() - after creating child accounts, before importing them
  */
 interface XpubImportStartedEvent {
   type: 'xpub.import.started';
@@ -259,7 +259,7 @@ interface XpubImportStartedEvent {
 
 /**
  * Emitted when xpub import completes (all children imported)
- * Location: ImportOrchestrator.importFromXpub() - after all child imports succeed
+ * Location: ImportCoordinator.importFromXpub() - after all child imports succeed
  */
 interface XpubImportCompletedEvent {
   type: 'xpub.import.completed';
@@ -271,7 +271,7 @@ interface XpubImportCompletedEvent {
 
 /**
  * Emitted when any child import fails (entire xpub import fails)
- * Location: ImportOrchestrator.importFromXpub() - when a child import returns error
+ * Location: ImportCoordinator.importFromXpub() - when a child import returns error
  */
 interface XpubImportFailedEvent {
   type: 'xpub.import.failed';
@@ -314,7 +314,7 @@ interface ImportBatchEvent {
 
 /**
  * New warning event for empty xpub
- * Location: ImportOrchestrator.importFromXpub() - when derivedAddresses.length === 0
+ * Location: ImportCoordinator.importFromXpub() - when derivedAddresses.length === 0
  */
 interface XpubEmptyWarningEvent {
   type: 'xpub.empty';
@@ -1214,7 +1214,7 @@ Schema update required:
 
 ### Phase 2: Ingestion Layer
 
-- [ ] Update `ImportOrchestrator.importFromXpub()` in `packages/ingestion/src/features/import/import-orchestrator.ts`
+- [ ] Update `ImportCoordinator.importFromXpub()` in `packages/ingestion/src/features/import/import-orchestrator.ts`
   - [ ] Check for existing metadata to determine if re-derivation needed
   - [ ] Emit `xpub.derivation.started` before derivation
   - [ ] Emit `xpub.derivation.completed` after derivation

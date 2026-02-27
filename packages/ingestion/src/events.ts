@@ -86,7 +86,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when xpub address derivation begins.
-       * Location: ImportOrchestrator.importFromXpub() - before calling deriveAddressesFromXpub()
+       * Location: ImportCoordinator.importFromXpub() - before calling deriveAddressesFromXpub()
        */
       blockchain: string;
       gapLimit: number;
@@ -99,7 +99,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when xpub address derivation completes successfully.
-       * Location: ImportOrchestrator.importFromXpub() - after deriveAddressesFromXpub() returns
+       * Location: ImportCoordinator.importFromXpub() - after deriveAddressesFromXpub() returns
        */
       derivedCount: number;
       durationMs: number;
@@ -110,7 +110,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when xpub derivation fails.
-       * Location: ImportOrchestrator.importFromXpub() - if deriveAddressesFromXpub() returns error
+       * Location: ImportCoordinator.importFromXpub() - if deriveAddressesFromXpub() returns error
        */
       durationMs: number;
       error: string;
@@ -120,7 +120,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when xpub import begins (wrapper for all child imports).
-       * Location: ImportOrchestrator.importFromXpub() - after creating child accounts, before importing them
+       * Location: ImportCoordinator.importFromXpub() - after creating child accounts, before importing them
        */
       blockchain: string;
       childAccountCount: number;
@@ -131,7 +131,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when xpub import completes (all children imported).
-       * Location: ImportOrchestrator.importFromXpub() - after all child imports succeed
+       * Location: ImportCoordinator.importFromXpub() - after all child imports succeed
        */
       parentAccountId: number;
       sessions: ImportSession[];
@@ -142,7 +142,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when any child import fails (entire xpub import fails).
-       * Location: ImportOrchestrator.importFromXpub() - when a child import returns error
+       * Location: ImportCoordinator.importFromXpub() - when a child import returns error
        */
       error: string;
       failedChildAccountId: number;
@@ -152,7 +152,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when xpub has no active addresses found.
-       * Location: ImportOrchestrator.importFromXpub() - when derivedAddresses.length === 0
+       * Location: ImportCoordinator.importFromXpub() - when derivedAddresses.length === 0
        */
       blockchain: string;
       parentAccountId: number;

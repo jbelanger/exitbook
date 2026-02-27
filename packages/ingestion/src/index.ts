@@ -3,7 +3,7 @@ export { AdapterRegistry } from './shared/types/adapter-registry.js';
 export { allBlockchainAdapters } from './sources/blockchains/index.js';
 export { allExchangeAdapters } from './sources/exchanges/index.js';
 
-export { ImportOrchestrator } from './features/import/import-orchestrator.js';
+export { ImportCoordinator } from './features/import/import-coordinator.js';
 export { RawDataProcessingService } from './features/process/process-service.js';
 export { ClearService } from './features/deletion/clear-service.js';
 export type { ClearResult } from './features/deletion/clear-service.js';

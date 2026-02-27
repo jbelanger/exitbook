@@ -1,4 +1,4 @@
-import type { AdapterRegistry, ImportOrchestrator, ImportParams, RawDataProcessingService } from '@exitbook/ingestion';
+import type { AdapterRegistry, ImportCoordinator, ImportParams, RawDataProcessingService } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -14,7 +14,7 @@ vi.mock('@exitbook/blockchain-providers', () => ({
 
 vi.mock('@exitbook/ingestion', () => ({
   ImportSessionRepository: vi.fn(),
-  ImportOrchestrator: vi.fn(),
+  ImportCoordinator: vi.fn(),
   RawDataRepository: vi.fn(),
   TokenMetadataService: vi.fn(),
   RawDataProcessingService: vi.fn(),
@@ -52,7 +52,7 @@ const makeSession = (
 });
 
 describe('ImportHandler', () => {
-  let mockImportOrchestrator: Partial<ImportOrchestrator>;
+  let mockImportCoordinator: Partial<ImportCoordinator>;
   let mockProcessService: Partial<RawDataProcessingService>;
   let mockRegistry: { getBlockchain: Mock };
   let mockIngestionMonitor: { abort: Mock; fail: Mock; stop: Mock };
@@ -62,7 +62,7 @@ describe('ImportHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockImportOrchestrator = {
+    mockImportCoordinator = {
       importBlockchain: vi.fn(),
       importExchangeApi: vi.fn(),
       importExchangeCsv: vi.fn(),
@@ -89,7 +89,7 @@ describe('ImportHandler', () => {
     };
 
     handler = new ImportHandler(
-      mockImportOrchestrator as ImportOrchestrator,
+      mockImportCoordinator as ImportCoordinator,
       mockProcessService as RawDataProcessingService,
       mockRegistry as unknown as AdapterRegistry,
       mockIngestionMonitor as never,
@@ -100,7 +100,7 @@ describe('ImportHandler', () => {
   describe('execute — import stage', () => {
     it('should successfully import blockchain data', async () => {
       const session = makeSession({ transactionsImported: 50 });
-      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(ok(session));
+      (mockImportCoordinator.importBlockchain as Mock).mockResolvedValue(ok(session));
 
       const params: ImportParams = {
         sourceName: 'bitcoin',
@@ -112,13 +112,13 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().sessions).toEqual([session]);
-      expect(mockImportOrchestrator.importBlockchain).toHaveBeenCalledWith('bitcoin', 'bc1qtest', undefined, undefined);
+      expect(mockImportCoordinator.importBlockchain).toHaveBeenCalledWith('bitcoin', 'bc1qtest', undefined, undefined);
       expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
     });
 
     it('should successfully import exchange data from CSV', async () => {
       const session = makeSession({ id: 456, accountId: 2, transactionsImported: 100 });
-      (mockImportOrchestrator.importExchangeCsv as Mock).mockResolvedValue(ok(session));
+      (mockImportCoordinator.importExchangeCsv as Mock).mockResolvedValue(ok(session));
 
       const params: ImportParams = {
         sourceName: 'kraken',
@@ -130,12 +130,12 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().sessions).toEqual([session]);
-      expect(mockImportOrchestrator.importExchangeCsv).toHaveBeenCalledWith('kraken', './data/kraken');
+      expect(mockImportCoordinator.importExchangeCsv).toHaveBeenCalledWith('kraken', './data/kraken');
     });
 
     it('should successfully import exchange data from API', async () => {
       const session = makeSession({ id: 789, accountId: 3, transactionsImported: 75 });
-      (mockImportOrchestrator.importExchangeApi as Mock).mockResolvedValue(ok(session));
+      (mockImportCoordinator.importExchangeApi as Mock).mockResolvedValue(ok(session));
 
       const params: ImportParams = {
         sourceName: 'kucoin',
@@ -151,7 +151,7 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().sessions).toEqual([session]);
-      expect(mockImportOrchestrator.importExchangeApi).toHaveBeenCalledWith('kucoin', {
+      expect(mockImportCoordinator.importExchangeApi).toHaveBeenCalledWith('kucoin', {
         apiKey: 'test-key',
         apiSecret: 'test-secret',
         apiPassphrase: 'test-passphrase',
@@ -159,7 +159,7 @@ describe('ImportHandler', () => {
     });
 
     it('should fail when import sessions are not completed', async () => {
-      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(ok(makeSession({ status: 'failed' })));
+      (mockImportCoordinator.importBlockchain as Mock).mockResolvedValue(ok(makeSession({ status: 'failed' })));
 
       const result = await handler.execute({
         sourceName: 'bitcoin',
@@ -175,7 +175,7 @@ describe('ImportHandler', () => {
 
     it('should return error when import fails', async () => {
       const importError = new Error('Import failed: network timeout');
-      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(err(importError));
+      (mockImportCoordinator.importBlockchain as Mock).mockResolvedValue(err(importError));
 
       const result = await handler.execute({
         sourceName: 'bitcoin',
@@ -193,7 +193,7 @@ describe('ImportHandler', () => {
     const successfulImportSession = makeSession();
 
     beforeEach(() => {
-      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(ok(successfulImportSession));
+      (mockImportCoordinator.importBlockchain as Mock).mockResolvedValue(ok(successfulImportSession));
     });
 
     const params: ImportParams = {
@@ -243,7 +243,7 @@ describe('ImportHandler', () => {
     });
 
     it('should call processImportedSessions even when no transactions were imported', async () => {
-      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(ok(makeSession({ transactionsImported: 0 })));
+      (mockImportCoordinator.importBlockchain as Mock).mockResolvedValue(ok(makeSession({ transactionsImported: 0 })));
       (mockProcessService.processImportedSessions as Mock).mockResolvedValue(ok({ processed: 0, errors: [] }));
 
       const result = await handler.execute(params);

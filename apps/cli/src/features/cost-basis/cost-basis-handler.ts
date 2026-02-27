@@ -9,7 +9,7 @@ import {
   type AcquisitionLot,
   type AssetMatchError,
   type CostBasisCalculation,
-  type CostBasisHandlerParams,
+  type CostBasisInput,
   type CostBasisReport,
   type CostBasisSummary,
   type LotDisposal,
@@ -26,7 +26,7 @@ import { getDataDir } from '../shared/data-dir.js';
 
 import { ensureLinks, ensurePrices } from './cost-basis-prereqs.js';
 
-export type { CostBasisHandlerParams };
+export type { CostBasisInput };
 
 const logger = getLogger('CostBasisHandler');
 
@@ -66,7 +66,7 @@ export class CostBasisHandler {
   /**
    * Execute the cost basis calculation.
    */
-  async execute(params: CostBasisHandlerParams): Promise<Result<CostBasisResult, Error>> {
+  async execute(params: CostBasisInput): Promise<Result<CostBasisResult, Error>> {
     try {
       const validation = validateCostBasisParams(params);
       if (validation.isErr()) {
@@ -145,7 +145,7 @@ export class CostBasisHandler {
    * Pre-period acquisitions are included so the lot pool is complete.
    */
   private async fetchTransactionsForWindow(
-    config: CostBasisHandlerParams['config']
+    config: CostBasisInput['config']
   ): Promise<Result<UniversalTransactionData[], Error>> {
     // Guard against any non-CLI callers that bypass validation.
     if (!config.startDate || !config.endDate) {
@@ -239,7 +239,7 @@ export class CostBasisHandler {
 export async function createCostBasisHandler(
   ctx: CommandContext,
   database: CommandDatabase,
-  options: { isJsonMode: boolean; params: CostBasisHandlerParams }
+  options: { isJsonMode: boolean; params: CostBasisInput }
 ): Promise<Result<CostBasisHandler, Error>> {
   let prereqAbort: (() => void) | undefined;
   if (!options.isJsonMode) {

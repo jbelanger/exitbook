@@ -30,10 +30,10 @@ function transactionNeedsPrice(transaction: UniversalTransactionData): boolean {
  * 2. Propagate prices across confirmed transaction links
  * 3. Recalculate crypto-crypto swap ratios using fetched prices
  *
- * Link-aware price propagation:
+ * Link-aware price rederive:
  * - Uses TransactionLinkQueries to fetch confirmed transaction links
  * - Groups linked transactions together via Union-Find algorithm
- * - Enables price propagation across platforms (exchange ↔ blockchain)
+ * - Enables price rederive across platforms (exchange ↔ blockchain)
  *
  * Designed for use in a three-step workflow:
  * - derive: Extract execution prices and propagate across links
@@ -89,7 +89,7 @@ export class PriceDerivationService {
       logger.info({ linkCount: confirmedLinks.length }, 'Fetched confirmed transaction links');
 
       // Build link graph: groups transitively linked transactions together
-      // This enables price propagation across platforms (exchange → blockchain → exchange)
+      // This enables price rederive across platforms (exchange → blockchain → exchange)
       const transactionGroups = buildLinkGraph(allTransactions, confirmedLinks);
       logger.info({ groupCount: transactionGroups.length }, 'Built transaction groups from links');
 
@@ -125,7 +125,7 @@ export class PriceDerivationService {
    * - Mixed cross-platform transactions (linked via Union-Find)
    *
    * The multi-pass inference algorithm works the same regardless of group composition,
-   * but linked groups enable price propagation across platforms.
+   * but linked groups enable price rederive across platforms.
    */
   private async deriveTransactionGroup(
     group: TransactionGroup,
@@ -181,7 +181,7 @@ export class PriceDerivationService {
 
       // Update database with enriched prices
       // Include both: (1) transactions that originally needed prices AND
-      // (2) transactions modified by link propagation or ratio recalculation
+      // (2) transactions modified by link rederive or ratio recalculation
       let updatedCount = 0;
       let skippedCount = 0;
       for (const tx of enrichedTransactions) {

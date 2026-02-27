@@ -19,7 +19,7 @@ export interface PricesEnrichResult {
   derive: unknown;
   fetch: unknown;
   normalize: unknown;
-  propagation: unknown;
+  rederive: unknown;
   runStats: MetricsSummary | undefined;
 }
 
@@ -62,7 +62,7 @@ export class PricesEnrichHandler {
         derive: result.value.derive,
         fetch: result.value.fetch,
         normalize: result.value.normalize,
-        propagation: result.value.propagation,
+        rederive: result.value.rederive,
         runStats: result.value.runStats,
       });
     } catch (error) {

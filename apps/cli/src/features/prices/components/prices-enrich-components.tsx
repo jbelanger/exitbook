@@ -85,7 +85,7 @@ export const PricesEnrichMonitor: FC<PricesEnrichMonitorProps> = ({ relay, lifec
       {state.providerInit && <ProviderInitStage stage={state.providerInit} />}
       {state.fxRates && <FxRatesStage stage={state.fxRates} />}
       {state.marketPrices && <MarketPricesStage stage={state.marketPrices} />}
-      {state.propagation && <PropagationStage stage={state.propagation} />}
+      {state.rederive && <RederiveStage stage={state.rederive} />}
       {state.isComplete && (
         <CompletionSection
           state={state}
@@ -340,14 +340,14 @@ const MarketPricesStage: FC<{ stage: NonNullable<PricesEnrichState['marketPrices
   );
 };
 
-const PropagationStage: FC<{ stage: NonNullable<PricesEnrichState['propagation']> }> = ({ stage }) => {
+const RederiveStage: FC<{ stage: NonNullable<PricesEnrichState['rederive']> }> = ({ stage }) => {
   const elapsed = stage.completedAt ? stage.completedAt - stage.startedAt : performance.now() - stage.startedAt;
   const duration = formatDuration(elapsed);
 
   if (stage.status === 'active') {
     return (
       <Text>
-        {statusIcon('active')} <Text bold>Propagating prices</Text>
+        {statusIcon('active')} <Text bold>Re-deriving prices</Text>
         <Text dimColor> · {duration}</Text>
       </Text>
     );
@@ -356,7 +356,7 @@ const PropagationStage: FC<{ stage: NonNullable<PricesEnrichState['propagation']
   return (
     <Box flexDirection="column">
       <Text>
-        {statusIcon(stage.status)} <Text bold>Price propagation</Text>
+        {statusIcon(stage.status)} <Text bold>Price re-derivation</Text>
         <Text dimColor> ({duration})</Text>
       </Text>
       <Box>

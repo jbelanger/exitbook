@@ -28,7 +28,7 @@ import type {
 /**
  * Report generator configuration
  */
-export interface ReportGeneratorConfig {
+export interface CostBasisReportInput {
   /** Display currency for the report */
   displayCurrency: Currency;
   /** Calculation record */
@@ -61,7 +61,7 @@ export class CostBasisReportGenerator {
    * @param config - Report configuration
    * @returns Report with converted amounts or error
    */
-  async generateReport(config: ReportGeneratorConfig): Promise<Result<CostBasisReport, Error>> {
+  async generateReport(config: CostBasisReportInput): Promise<Result<CostBasisReport, Error>> {
     const { calculation, disposals, lots, lotTransfers, displayCurrency } = config;
 
     try {

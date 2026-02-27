@@ -1,4 +1,4 @@
-import { buildCostBasisParams, type CostBasisHandlerParams } from '@exitbook/accounting';
+import { buildCostBasisParams, type CostBasisInput } from '@exitbook/accounting';
 import { err, type Result } from 'neverthrow';
 
 /**
@@ -16,7 +16,7 @@ export interface CostBasisCommandOptions {
 /**
  * Build cost basis parameters from CLI flags
  */
-export function buildCostBasisParamsFromFlags(options: CostBasisCommandOptions): Result<CostBasisHandlerParams, Error> {
+export function buildCostBasisParamsFromFlags(options: CostBasisCommandOptions): Result<CostBasisInput, Error> {
   if (!options.method) {
     return err(new Error('--method is required (fifo, lifo, specific-id, average-cost)'));
   }

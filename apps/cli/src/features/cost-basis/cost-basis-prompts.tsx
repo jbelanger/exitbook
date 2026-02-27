@@ -1,11 +1,10 @@
 import {
   getDefaultDateRange,
-  type CostBasisConfigWithDates,
-  type CostBasisHandlerParams,
+  type CostBasisInput,
   type FiatCurrency,
+  type ValidatedCostBasisConfig,
 } from '@exitbook/accounting';
-import { Box, Text, useInput } from 'ink';
-import { render } from 'ink';
+import { Box, render, Text, useInput } from 'ink';
 import React, { useState, type FC } from 'react';
 
 import { ConfirmPrompt } from '../../ui/shared/ConfirmPrompt.js';
@@ -48,17 +47,10 @@ const jurisdictionOptions: SelectOption[] = [
 ];
 
 function buildMethodOptions(jurisdiction: Jurisdiction): SelectOption[] {
+  const craHint = jurisdiction === 'CA' ? 'Not CRA-compliant for identical properties' : undefined;
   const options: SelectOption[] = [
-    {
-      label: 'FIFO (First In, First Out)',
-      value: 'fifo',
-      ...(jurisdiction === 'CA' ? { hint: 'Not CRA-compliant for identical properties' } : {}),
-    },
-    {
-      label: 'LIFO (Last In, First Out)',
-      value: 'lifo',
-      ...(jurisdiction === 'CA' ? { hint: 'Not CRA-compliant for identical properties' } : {}),
-    },
+    { label: 'FIFO (First In, First Out)', value: 'fifo', hint: craHint },
+    { label: 'LIFO (Last In, First Out)', value: 'lifo', hint: craHint },
   ];
 
   if (jurisdiction === 'CA') {
@@ -122,7 +114,7 @@ const CraWarning: FC<CraWarningProps> = ({ method, onContinue, onCancel }) => {
 // ─── Main prompt app ─────────────────────────────────────────────────────────
 
 interface CostBasisPromptAppProps {
-  onComplete: (params: CostBasisHandlerParams) => void;
+  onComplete: (params: CostBasisInput) => void;
   onCancel: () => void;
 }
 
@@ -204,7 +196,7 @@ const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ onComplete, onCancel 
       end = defaultRange.endDate;
     }
 
-    const config: CostBasisConfigWithDates = {
+    const config: ValidatedCostBasisConfig = {
       method: method!,
       jurisdiction: jurisdiction!,
       taxYear: taxYear!,
@@ -334,11 +326,11 @@ const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ onComplete, onCancel 
  * Prompt user for cost basis parameters in interactive mode using Ink.
  * Returns null if the user cancels.
  */
-export async function promptForCostBasisParams(): Promise<CostBasisHandlerParams | null> {
-  return new Promise<CostBasisHandlerParams | null>((resolve) => {
+export async function promptForCostBasisParams(): Promise<CostBasisInput | null> {
+  return new Promise<CostBasisInput | null>((resolve) => {
     const { unmount } = render(
       React.createElement(CostBasisPromptApp, {
-        onComplete: (params: CostBasisHandlerParams) => {
+        onComplete: (params: CostBasisInput) => {
           unmount();
           resolve(params);
         },

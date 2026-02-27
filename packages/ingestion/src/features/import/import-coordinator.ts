@@ -11,8 +11,7 @@ import { err, ok } from 'neverthrow';
 
 import type { ImportEvent } from '../../events.js';
 import { AdapterRegistry } from '../../shared/types/adapter-registry.js';
-import type { UtxoBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
-import { isUtxoAdapter } from '../../shared/types/blockchain-adapter.js';
+import { isUtxoAdapter, type UtxoBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
 
 import { StreamingImportRunner } from './streaming-import-runner.js';
 
@@ -26,14 +25,14 @@ import { StreamingImportRunner } from './streaming-import-runner.js';
  * - Find or create account for the import
  * - Delegate to StreamingImportRunner for streaming import execution
  */
-export class ImportOrchestrator {
-  private logger: Logger;
-  private importExecutor: StreamingImportRunner;
-  private providerManager: BlockchainProviderManager;
-  private registry: AdapterRegistry;
-  private eventBus?: EventBus<ImportEvent> | undefined;
-  private userQueries: ReturnType<typeof createUserQueries>;
-  private accountQueries: ReturnType<typeof createAccountQueries>;
+export class ImportCoordinator {
+  private readonly logger: Logger;
+  private readonly streamingRunner: StreamingImportRunner;
+  private readonly providerManager: BlockchainProviderManager;
+  private readonly registry: AdapterRegistry;
+  private readonly eventBus?: EventBus<ImportEvent> | undefined;
+  private readonly userQueries: ReturnType<typeof createUserQueries>;
+  private readonly accountQueries: ReturnType<typeof createAccountQueries>;
 
   constructor(
     db: KyselyDB,
@@ -41,13 +40,13 @@ export class ImportOrchestrator {
     registry: AdapterRegistry,
     eventBus?: EventBus<ImportEvent>
   ) {
-    this.logger = getLogger('ImportOrchestrator');
+    this.logger = getLogger('ImportCoordinator');
     this.providerManager = providerManager;
     this.registry = registry;
     this.eventBus = eventBus;
     this.userQueries = createUserQueries(db);
     this.accountQueries = createAccountQueries(db);
-    this.importExecutor = new StreamingImportRunner(db, providerManager, registry, eventBus);
+    this.streamingRunner = new StreamingImportRunner(db, providerManager, registry, eventBus);
   }
 
   /**
@@ -113,7 +112,7 @@ export class ImportOrchestrator {
     this.logger.info(`Using account #${account.id} (blockchain) for import`);
 
     // 5. Delegate to import executor with account
-    return this.importExecutor.importFromSource(account);
+    return this.streamingRunner.importFromSource(account);
   }
 
   /**
@@ -151,7 +150,7 @@ export class ImportOrchestrator {
     this.logger.info(`Using account #${account.id} (exchange-api) for import`);
 
     // 3. Delegate to import executor with account
-    return this.importExecutor.importFromSource(account);
+    return this.streamingRunner.importFromSource(account);
   }
 
   /**
@@ -203,7 +202,7 @@ export class ImportOrchestrator {
       }
       // Same directory - use existing account
       this.logger.info(`Found existing account #${existingAccount.id}`);
-      return this.importExecutor.importFromSource(existingAccount);
+      return this.streamingRunner.importFromSource(existingAccount);
     }
 
     // 3. Create new account (use normalized path for consistency)
@@ -224,7 +223,7 @@ export class ImportOrchestrator {
     this.logger.info(`Created new account #${account.id} for import`);
 
     // 4. Delegate to import executor with account
-    return this.importExecutor.importFromSource(account);
+    return this.streamingRunner.importFromSource(account);
   }
 
   /**
@@ -404,7 +403,7 @@ export class ImportOrchestrator {
     for (const childAccount of childAccounts) {
       this.logger.info(`Importing child account #${childAccount.id}`);
 
-      const importResult = await this.importExecutor.importFromSource(childAccount);
+      const importResult = await this.streamingRunner.importFromSource(childAccount);
 
       if (importResult.isErr()) {
         // Any child failure = entire xpub import fails

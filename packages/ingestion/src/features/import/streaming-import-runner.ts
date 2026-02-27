@@ -14,19 +14,19 @@ import type { IImporter, ImportParams } from '../../shared/types/importers.js';
 /**
  * Internal service that executes imports for a given account.
  * Handles importer creation, streaming, crash recovery, and database persistence.
- * Not exported - use ImportOrchestrator as the public API.
+ * Not exported - use ImportCoordinator as the public API.
  */
 export class StreamingImportRunner {
-  private logger: Logger;
-  private rawDataQueries: ReturnType<typeof createRawDataQueries>;
-  private importSessionQueries: ReturnType<typeof createImportSessionQueries>;
-  private accountQueries: ReturnType<typeof createAccountQueries>;
+  private readonly logger: Logger;
+  private readonly rawDataQueries: ReturnType<typeof createRawDataQueries>;
+  private readonly importSessionQueries: ReturnType<typeof createImportSessionQueries>;
+  private readonly accountQueries: ReturnType<typeof createAccountQueries>;
 
   constructor(
     db: KyselyDB,
-    private providerManager: BlockchainProviderManager,
-    private registry: AdapterRegistry,
-    private eventBus?: EventBus<ImportEvent> | undefined
+    private readonly providerManager: BlockchainProviderManager,
+    private readonly registry: AdapterRegistry,
+    private readonly eventBus?: EventBus<ImportEvent> | undefined
   ) {
     this.logger = getLogger('StreamingImportRunner');
     this.rawDataQueries = createRawDataQueries(db);

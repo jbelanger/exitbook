@@ -1,5 +1,5 @@
 /**
- * Tests for ImportOrchestrator
+ * Tests for ImportCoordinator
  *
  * Tests orchestration of user/account management and delegation to TransactionImportService,
  * with particular focus on xpub/HD wallet parent-child account creation
@@ -12,7 +12,7 @@ import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdapterRegistry } from '../../../shared/types/adapter-registry.js';
-import { ImportOrchestrator } from '../import-orchestrator.js';
+import { ImportCoordinator } from '../import-coordinator.js';
 
 // Mock logger
 vi.mock('@exitbook/logger', () => ({
@@ -105,8 +105,8 @@ vi.mock('@exitbook/data', () => ({
   createAccountQueries: vi.fn(() => mockAccountQueries),
 }));
 
-describe('ImportOrchestrator', () => {
-  let orchestrator: ImportOrchestrator;
+describe('ImportCoordinator', () => {
+  let orchestrator: ImportCoordinator;
   let mockProviderManager: BlockchainProviderManager;
 
   const mockUser = { id: 1, createdAt: new Date() };
@@ -126,7 +126,7 @@ describe('ImportOrchestrator', () => {
     mockProviderManager = {} as BlockchainProviderManager;
 
     const registry = createTestRegistry();
-    orchestrator = new ImportOrchestrator({} as KyselyDB, mockProviderManager, registry);
+    orchestrator = new ImportCoordinator({} as KyselyDB, mockProviderManager, registry);
 
     // Reset derive addresses mock
     mockDeriveAddresses.mockReset();
@@ -397,8 +397,8 @@ describe('ImportOrchestrator', () => {
 
       // Mock import service to fail on first child, succeed on second
       const mockImportExecutor = (
-        orchestrator as unknown as { importExecutor: { importFromSource: ReturnType<typeof vi.fn> } }
-      ).importExecutor;
+        orchestrator as unknown as { streamingRunner: { importFromSource: ReturnType<typeof vi.fn> } }
+      ).streamingRunner;
 
       const successSession: ImportSession = {
         id: 2,
@@ -451,8 +451,8 @@ describe('ImportOrchestrator', () => {
 
       // Mock import service to fail
       const mockImportExecutor = (
-        orchestrator as unknown as { importExecutor: { importFromSource: ReturnType<typeof vi.fn> } }
-      ).importExecutor;
+        orchestrator as unknown as { streamingRunner: { importFromSource: ReturnType<typeof vi.fn> } }
+      ).streamingRunner;
       vi.mocked(mockImportExecutor.importFromSource).mockResolvedValue(err(new Error('Provider unavailable')));
 
       const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');

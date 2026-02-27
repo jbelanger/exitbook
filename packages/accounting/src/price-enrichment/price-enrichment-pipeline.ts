@@ -67,7 +67,7 @@ export interface PricesEnrichResult {
   fetch?: PricesFetchResult | undefined;
 
   /** Stage 4 results (derivation - second pass) */
-  propagation?: { transactionsUpdated: number } | undefined;
+  rederive?: { transactionsUpdated: number } | undefined;
 
   /** Aggregated API call statistics across stages */
   runStats?: MetricsSummary | undefined;
@@ -175,7 +175,7 @@ export class PriceEnrichmentPipeline {
         const fetchResult = await this.runStage(
           'Stage 3: Fetching missing prices from external providers',
           'marketPrices',
-          () => fetchService.execute({ asset: options.asset, onMissing: options.onMissing }, priceManager),
+          () => fetchService.fetchPrices({ asset: options.asset, onMissing: options.onMissing }, priceManager),
           (value) => ({
             stage: 'marketPrices' as const,
             pricesFetched: value.stats.pricesFetched,
@@ -194,12 +194,12 @@ export class PriceEnrichmentPipeline {
         const enrichmentService = new PriceDerivationService(this.db);
         const propagateResult = await this.runStage(
           'Stage 4: Re-deriving prices using fetched/normalized data',
-          'propagation',
+          'rederive',
           () => enrichmentService.derivePrices(),
-          (value) => ({ stage: 'propagation' as const, transactionsUpdated: value.transactionsUpdated })
+          (value) => ({ stage: 'rederive' as const, transactionsUpdated: value.transactionsUpdated })
         );
         if (propagateResult.isErr()) return err(propagateResult.error);
-        result.propagation = propagateResult.value;
+        result.rederive = propagateResult.value;
       }
 
       this.logger.info('Unified price enrichment pipeline completed');

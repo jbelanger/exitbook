@@ -9,7 +9,7 @@ import {
   createTransactionLinkQueries,
   computeCostBasis,
   validateCostBasisParams,
-  type CostBasisHandlerParams,
+  type CostBasisInput,
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
 import { parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
@@ -189,7 +189,7 @@ export class PortfolioHandler {
       const startDate = new Date(0);
       const endDate = asOf;
 
-      const costBasisParams: CostBasisHandlerParams = {
+      const costBasisParams: CostBasisInput = {
         config: {
           method,
           jurisdiction,

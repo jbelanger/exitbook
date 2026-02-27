@@ -60,7 +60,7 @@ export type {
   FxConversionMetadata,
 } from './reports/types.js';
 export { CostBasisReportGenerator } from './reports/cost-basis-report-generator.js';
-export type { ReportGeneratorConfig } from './reports/cost-basis-report-generator.js';
+export type { CostBasisReportInput } from './reports/cost-basis-report-generator.js';
 
 // Linking orchestrator
 export { LinkingOrchestrator } from './linking/linking-orchestrator.js';
@@ -97,9 +97,9 @@ export {
   getJurisdictionRules,
   formatCurrency,
 } from './cost-basis/cost-basis-utils.js';
-export type { CostBasisHandlerParams, CostBasisConfigWithDates } from './cost-basis/cost-basis-utils.js';
+export type { CostBasisInput, ValidatedCostBasisConfig } from './cost-basis/cost-basis-utils.js';
 
-export { PriceDerivationService as PriceEnrichmentService } from './price-enrichment/price-derivation-service.js';
+export { PriceDerivationService } from './price-enrichment/price-derivation-service.js';
 export type { PriceEvent } from './price-enrichment/price-events.js';
 export {
   validateAssetFilter,
@@ -109,7 +109,7 @@ export {
   determineEnrichmentStages,
 } from './price-enrichment/price-fetch-utils.js';
 export type {
-  PricesFetchCommandOptions,
+  PriceFetchOptions,
   PriceFetchStats,
   PricesFetchResult,
   EnrichmentStageOptions,

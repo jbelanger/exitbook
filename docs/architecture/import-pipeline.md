@@ -16,7 +16,7 @@ The import pipeline separates concerns into three layers:
 
 ```mermaid
 graph TD
-    A[ImportOrchestrator] -->|account setup| B[StreamingImportRunner]
+    A[ImportCoordinator] -->|account setup| B[StreamingImportRunner]
     B -->|creates| C[IImporter]
     C -->|yields| D["AsyncIterableIterator&lt;Result&lt;Batch, Error&gt;&gt;"]
     D -->|each batch| E[Persist raw_transactions]
@@ -27,7 +27,7 @@ graph TD
     D -->|error| I[Finalize session: failed]
 ```
 
-**ImportOrchestrator** handles identity: ensuring a user exists, normalizing addresses, finding or creating the account record, and handling xpub derivation for UTXO chains. It delegates all import execution to StreamingImportRunner.
+**ImportCoordinator** handles identity: ensuring a user exists, normalizing addresses, finding or creating the account record, and handling xpub derivation for UTXO chains. It delegates all import execution to StreamingImportRunner.
 
 **StreamingImportRunner** handles execution: creating the appropriate importer via the adapter registry, managing import sessions (resume or create), iterating batches, persisting raw transactions, and updating cursors.
 
@@ -65,7 +65,7 @@ graph TD
 
 ## How It Works
 
-### 1. Orchestration (ImportOrchestrator)
+### 1. Orchestration (ImportCoordinator)
 
 The CLI command calls one of three methods: `importBlockchain()`, `importExchangeApi()`, or `importExchangeCsv()`. Each method:
 
@@ -113,7 +113,7 @@ Each batch includes a `cursor` containing the pagination state needed to resume,
 
 | File                                                                | Role                                                    |
 | ------------------------------------------------------------------- | ------------------------------------------------------- |
-| `packages/ingestion/src/features/import/import-orchestrator.ts`     | Public API; account setup, xpub derivation              |
+| `packages/ingestion/src/features/import/import-coordinator.ts`      | Public API; account setup, xpub derivation              |
 | `packages/ingestion/src/features/import/streaming-import-runner.ts` | Core streaming loop, session management, crash recovery |
 | `packages/ingestion/src/shared/types/importers.ts`                  | `IImporter` interface and `ImportBatchResult` type      |
 | `packages/ingestion/src/shared/types/adapter-registry.ts`           | Registry for blockchain and exchange adapters           |
