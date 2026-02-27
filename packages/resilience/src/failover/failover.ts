@@ -199,8 +199,8 @@ export async function executeWithFailover<TProvider extends IProvider, TResult, 
     if (perAttemptTimeoutSignal) attemptSignals.push(perAttemptTimeoutSignal);
     let deadlineTimeoutSignal: AbortSignal | undefined;
     if (deadline !== undefined) {
-      const remaining = deadline - Date.now();
-      deadlineTimeoutSignal = AbortSignal.timeout(Math.max(0, remaining));
+      const remainingMs = deadline - Date.now();
+      deadlineTimeoutSignal = AbortSignal.timeout(Math.max(0, remainingMs));
       attemptSignals.push(deadlineTimeoutSignal);
     }
 

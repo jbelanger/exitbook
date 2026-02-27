@@ -89,6 +89,24 @@ async function executeProvidersViewCommand(rawOptions: unknown, registry: Adapte
 }
 
 /**
+ * Load provider view items and health counts from the registry.
+ */
+async function fetchProviderViewData(
+  options: CommandOptions,
+  validatedHealth: HealthFilter | undefined,
+  registry: AdapterRegistry
+) {
+  const handler = new ProvidersViewHandler(registry, getDataDir());
+  const viewItems = await handler.execute({
+    blockchain: options.blockchain,
+    health: validatedHealth,
+    missingApiKey: options.missingApiKey,
+  });
+  const healthCounts = computeHealthCounts(viewItems);
+  return { viewItems, healthCounts };
+}
+
+/**
  * Execute providers view in TUI mode
  */
 async function executeProvidersViewTUI(
@@ -97,14 +115,7 @@ async function executeProvidersViewTUI(
   registry: AdapterRegistry
 ): Promise<void> {
   try {
-    const handler = new ProvidersViewHandler(registry, getDataDir());
-    const viewItems = await handler.execute({
-      blockchain: options.blockchain,
-      health: validatedHealth,
-      missingApiKey: options.missingApiKey,
-    });
-
-    const healthCounts = computeHealthCounts(viewItems);
+    const { viewItems, healthCounts } = await fetchProviderViewData(options, validatedHealth, registry);
 
     const initialState = createProvidersViewState(
       viewItems,
@@ -141,20 +152,13 @@ async function executeProvidersViewJSON(
   registry: AdapterRegistry
 ): Promise<void> {
   try {
-    const handler = new ProvidersViewHandler(registry, getDataDir());
-    const viewItems = await handler.execute({
-      blockchain: options.blockchain,
-      health: validatedHealth,
-      missingApiKey: options.missingApiKey,
-    });
-    const healthCounts = computeHealthCounts(viewItems);
+    const { viewItems, healthCounts } = await fetchProviderViewData(options, validatedHealth, registry);
 
     // Build filters record
-    const filters: Record<string, unknown> = {
-      ...(options.blockchain && { blockchain: options.blockchain }),
-      ...(validatedHealth && { health: validatedHealth }),
-      ...(options.missingApiKey && { missingApiKey: true }),
-    };
+    const filters: Record<string, unknown> = {};
+    if (options.blockchain) filters['blockchain'] = options.blockchain;
+    if (validatedHealth) filters['health'] = validatedHealth;
+    if (options.missingApiKey) filters['missingApiKey'] = true;
 
     // Build JSON-friendly provider data
     const jsonProviders = viewItems.map((p) => ({

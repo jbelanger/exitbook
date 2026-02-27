@@ -21,7 +21,7 @@ import { createDefaultPriceProviderManager } from '../prices/prices-utils.js';
 
 import type { CommandDatabase } from './command-runtime.js';
 
-const logger = getLogger('cost-basis-prereqs');
+const logger = getLogger('prereqs');
 
 export interface PrereqExecutionOptions {
   isJsonMode: boolean;
@@ -66,10 +66,6 @@ export async function ensureLinks(
     'Transaction links are stale, running linking'
   );
 
-  if (!options.isJsonMode) {
-    console.log('\nTransaction links are stale, running linking...\n');
-  }
-
   const { OverrideStore } = await import('@exitbook/data');
   const overrideStore = new OverrideStore(dataDir);
 
@@ -86,6 +82,8 @@ export async function ensureLinks(
     logger.info('Linking completed (JSON mode)');
     return ok();
   }
+
+  console.log('\nTransaction links are stale, running linking...\n');
 
   // TUI mode: mount LinksRunMonitor
   const eventBus = new EventBus<LinkingEvent>({
@@ -165,10 +163,6 @@ export async function ensurePrices(
     );
   }
 
-  if (!options.isJsonMode) {
-    console.log('\nPrices missing for requested date range, running enrichment...\n');
-  }
-
   if (options.isJsonMode) {
     const priceManagerResult = await createDefaultPriceProviderManager();
     if (priceManagerResult.isErr()) return err(priceManagerResult.error);
@@ -185,6 +179,8 @@ export async function ensurePrices(
       });
     }
   }
+
+  console.log('\nPrices missing for requested date range, running enrichment...\n');
 
   // TUI mode: mount PricesEnrichMonitor
   const eventBus = new EventBus<PriceEvent>({

@@ -1,4 +1,3 @@
-// Tier 1 handler for providers view command
 import path from 'node:path';
 
 import {

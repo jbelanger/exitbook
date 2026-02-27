@@ -1,6 +1,6 @@
+// Command registration for view prices subcommand
 import path from 'node:path';
 
-// Command registration for view prices subcommand
 import { createTransactionQueries, OverrideStore } from '@exitbook/data';
 import { ManualPriceService } from '@exitbook/price-providers';
 import type { Command } from 'commander';
@@ -255,8 +255,8 @@ async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
 
       const filters: Record<string, unknown> = {};
       if (params.asset) filters['asset'] = params.asset;
-      if (params.missingOnly) filters['missingOnly'] = params.missingOnly;
       if (params.source) filters['source'] = params.source;
+      if (params.missingOnly) filters['missingOnly'] = params.missingOnly;
 
       const resultData: ViewPricesCommandResult = {
         data: { coverage, summary },

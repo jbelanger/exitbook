@@ -1,8 +1,7 @@
 // Pure utility functions for providers view command
 // All functions are pure — no side effects (except checkApiKeyStatus which reads process.env)
 
-import type { ProviderInfo, ProviderStatsRow } from '@exitbook/blockchain-providers';
-import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
+import type { BlockchainExplorersConfig, ProviderInfo, ProviderStatsRow } from '@exitbook/blockchain-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
