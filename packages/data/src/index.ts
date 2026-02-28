@@ -37,4 +37,4 @@ export type { DatabaseSchema, TransactionLinksTable, RawTransactionTable } from 
 export { toRawTransaction, withControlledTransaction } from './repositories/db-utils.js';
 
 export * from './overrides/index.js';
-export { createTestDatabase } from './test-utils.js';
+export { createTestDatabase, createTestDataContext } from './test-utils.js';
