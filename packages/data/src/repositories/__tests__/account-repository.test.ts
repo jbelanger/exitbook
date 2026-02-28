@@ -1,10 +1,11 @@
 /* eslint-disable unicorn/no-null --- null needed for db */
 import type { Account, CursorState } from '@exitbook/core';
+import { assertOk } from '@exitbook/core/test-utils';
 import { type DatabaseSchema } from '@exitbook/data';
 import type { Kysely } from '@exitbook/sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createTestDatabase, unwrapOk } from '../../__tests__/test-utils.js';
+import { createTestDatabase } from '../../__tests__/test-utils.js';
 import { AccountRepository } from '../account-repository.js';
 
 import { seedUser } from './helpers.js';
@@ -26,7 +27,7 @@ describe('AccountRepository', () => {
 
   describe('findOrCreate', () => {
     it('creates a new blockchain account', async () => {
-      const account = unwrapOk(
+      const account = assertOk(
         await repo.findOrCreate({
           userId: 1,
           accountType: 'blockchain',
@@ -46,7 +47,7 @@ describe('AccountRepository', () => {
     });
 
     it('creates an exchange-api account with credentials', async () => {
-      const account = unwrapOk(
+      const account = assertOk(
         await repo.findOrCreate({
           userId: 1,
           accountType: 'exchange-api',
@@ -61,7 +62,7 @@ describe('AccountRepository', () => {
     });
 
     it('returns existing account instead of creating a duplicate', async () => {
-      const first = unwrapOk(
+      const first = assertOk(
         await repo.findOrCreate({
           userId: 1,
           accountType: 'blockchain',
@@ -70,7 +71,7 @@ describe('AccountRepository', () => {
         })
       );
 
-      const second = unwrapOk(
+      const second = assertOk(
         await repo.findOrCreate({
           userId: 1,
           accountType: 'blockchain',
@@ -87,7 +88,7 @@ describe('AccountRepository', () => {
     });
 
     it('allows multiple accounts on the same exchange with different identifiers (ADR-007 Use Case 1)', async () => {
-      const personal = unwrapOk(
+      const personal = assertOk(
         await repo.findOrCreate({
           userId: 1,
           accountType: 'exchange-api',
@@ -95,7 +96,7 @@ describe('AccountRepository', () => {
           identifier: 'apiKey_personal',
         })
       );
-      const business = unwrapOk(
+      const business = assertOk(
         await repo.findOrCreate({
           userId: 1,
           accountType: 'exchange-api',
@@ -108,7 +109,7 @@ describe('AccountRepository', () => {
     });
 
     it('allows exchange-api and exchange-csv accounts on the same exchange', async () => {
-      const api = unwrapOk(
+      const api = assertOk(
         await repo.findOrCreate({
           userId: 1,
           accountType: 'exchange-api',
@@ -116,7 +117,7 @@ describe('AccountRepository', () => {
           identifier: 'apiKey123',
         })
       );
-      const csv = unwrapOk(
+      const csv = assertOk(
         await repo.findOrCreate({
           userId: 1,
           accountType: 'exchange-csv',
@@ -131,7 +132,7 @@ describe('AccountRepository', () => {
     });
 
     it('supports external accounts with no userId (ADR-007 Use Case 3)', async () => {
-      const account = unwrapOk(
+      const account = assertOk(
         await repo.findOrCreate({
           userId: undefined,
           accountType: 'blockchain',
@@ -146,7 +147,7 @@ describe('AccountRepository', () => {
 
   describe('findById', () => {
     it('finds an existing account', async () => {
-      const created = unwrapOk(
+      const created = assertOk(
         await repo.findOrCreate({
           userId: 1,
           accountType: 'blockchain',
@@ -155,7 +156,7 @@ describe('AccountRepository', () => {
         })
       );
 
-      const found = unwrapOk(await repo.findById(created.id));
+      const found = assertOk(await repo.findById(created.id));
       expect(found.id).toBe(created.id);
       expect(found.sourceName).toBe('ethereum');
     });
@@ -232,7 +233,7 @@ describe('AccountRepository', () => {
         identifier: 'bc1q...',
       });
 
-      const found = unwrapOk(
+      const found = assertOk(
         await repo.findBy({
           accountType: 'blockchain',
           sourceName: 'bitcoin',
@@ -245,7 +246,7 @@ describe('AccountRepository', () => {
     });
 
     it('returns undefined for no match', async () => {
-      const found = unwrapOk(
+      const found = assertOk(
         await repo.findBy({
           accountType: 'blockchain',
           sourceName: 'bitcoin',
@@ -264,7 +265,7 @@ describe('AccountRepository', () => {
         identifier: 'bc1q...',
       });
 
-      const found = unwrapOk(
+      const found = assertOk(
         await repo.findBy({
           accountType: 'blockchain',
           sourceName: 'bitcoin',
@@ -287,13 +288,13 @@ describe('AccountRepository', () => {
         identifier: 'apiKey123',
       });
 
-      const accounts = unwrapOk(await repo.findAll({ userId: 1 }));
+      const accounts = assertOk(await repo.findAll({ userId: 1 }));
       expect(accounts).toHaveLength(2);
       expect(accounts.every((a) => a.userId === 1)).toBe(true);
     });
 
     it('returns empty array for a user with no accounts', async () => {
-      const accounts = unwrapOk(await repo.findAll({ userId: 999 }));
+      const accounts = assertOk(await repo.findAll({ userId: 999 }));
       expect(accounts).toHaveLength(0);
     });
 
@@ -302,13 +303,13 @@ describe('AccountRepository', () => {
       await repo.findOrCreate({ userId: 1, accountType: 'blockchain', sourceName: 'bitcoin', identifier: 'bc1q...' });
       await repo.findOrCreate({ userId: 2, accountType: 'blockchain', sourceName: 'ethereum', identifier: '0x456' });
 
-      const accounts = unwrapOk(await repo.findAll({ userId: 1 }));
+      const accounts = assertOk(await repo.findAll({ userId: 1 }));
       expect(accounts).toHaveLength(1);
       expect(accounts[0]?.sourceName).toBe('bitcoin');
     });
 
     it('returns child accounts for a parent', async () => {
-      const parent = unwrapOk(
+      const parent = assertOk(
         await repo.findOrCreate({
           userId: 1,
           accountType: 'blockchain',
@@ -332,13 +333,13 @@ describe('AccountRepository', () => {
         identifier: 'bc1q2...',
       });
 
-      const children = unwrapOk(await repo.findAll({ parentAccountId: parent.id }));
+      const children = assertOk(await repo.findAll({ parentAccountId: parent.id }));
       expect(children).toHaveLength(2);
       expect(children.every((a) => a.parentAccountId === parent.id)).toBe(true);
     });
 
     it('does not mix children across different parents', async () => {
-      const p1 = unwrapOk(
+      const p1 = assertOk(
         await repo.findOrCreate({
           userId: 1,
           accountType: 'blockchain',
@@ -346,7 +347,7 @@ describe('AccountRepository', () => {
           identifier: 'xpub1...',
         })
       );
-      const p2 = unwrapOk(
+      const p2 = assertOk(
         await repo.findOrCreate({
           userId: 1,
           accountType: 'blockchain',
@@ -370,7 +371,7 @@ describe('AccountRepository', () => {
         identifier: 'bc1q-child2...',
       });
 
-      const children = unwrapOk(await repo.findAll({ parentAccountId: p1.id }));
+      const children = assertOk(await repo.findAll({ parentAccountId: p1.id }));
       expect(children).toHaveLength(1);
       expect(children[0]?.identifier).toBe('bc1q-child1...');
     });
@@ -391,14 +392,14 @@ describe('AccountRepository', () => {
 
     it('updates providerName', async () => {
       await repo.update(account.id, { providerName: 'mempool.space' });
-      const updated = unwrapOk(await repo.findById(account.id));
+      const updated = assertOk(await repo.findById(account.id));
       expect(updated.providerName).toBe('mempool.space');
     });
 
     it('updates lastBalanceCheckAt', async () => {
       const checkTime = new Date('2025-01-15T10:30:00Z');
       await repo.update(account.id, { lastBalanceCheckAt: checkTime });
-      const updated = unwrapOk(await repo.findById(account.id));
+      const updated = assertOk(await repo.findById(account.id));
       expect(updated.lastBalanceCheckAt).toEqual(checkTime);
     });
 
@@ -413,12 +414,12 @@ describe('AccountRepository', () => {
         },
       };
       await repo.update(account.id, { verificationMetadata: metadata });
-      const updated = unwrapOk(await repo.findById(account.id));
+      const updated = assertOk(await repo.findById(account.id));
       expect(updated.verificationMetadata).toEqual(metadata);
     });
 
     it('updates credentials', async () => {
-      const exchange = unwrapOk(
+      const exchange = assertOk(
         await repo.findOrCreate({
           userId: 1,
           accountType: 'exchange-api',
@@ -429,22 +430,22 @@ describe('AccountRepository', () => {
       );
 
       await repo.update(exchange.id, { credentials: { apiKey: 'new_key', apiSecret: 'new_secret' } });
-      const updated = unwrapOk(await repo.findById(exchange.id));
+      const updated = assertOk(await repo.findById(exchange.id));
       expect(updated.credentials).toEqual({ apiKey: 'new_key', apiSecret: 'new_secret' });
     });
 
     it('sets updatedAt', async () => {
       await repo.update(account.id, { providerName: 'new_provider' });
-      const updated = unwrapOk(await repo.findById(account.id));
+      const updated = assertOk(await repo.findById(account.id));
       expect(updated.updatedAt).toBeInstanceOf(Date);
     });
 
     it('treats undefined fields as no-op', async () => {
       await repo.update(account.id, { providerName: 'existing-provider' });
-      const before = unwrapOk(await repo.findById(account.id));
+      const before = assertOk(await repo.findById(account.id));
 
       await repo.update(account.id, { providerName: undefined });
-      const after = unwrapOk(await repo.findById(account.id));
+      const after = assertOk(await repo.findById(account.id));
 
       expect(after.providerName).toBe('existing-provider');
       expect(after.updatedAt?.toISOString()).toBe(before.updatedAt?.toISOString());
@@ -472,7 +473,7 @@ describe('AccountRepository', () => {
       };
 
       await repo.updateCursor(account.id, 'normal', cursor);
-      const updated = unwrapOk(await repo.findById(account.id));
+      const updated = assertOk(await repo.findById(account.id));
       expect(updated.lastCursor).toEqual({ normal: cursor });
     });
 
@@ -488,7 +489,7 @@ describe('AccountRepository', () => {
         totalFetched: 150,
       });
 
-      const updated = unwrapOk(await repo.findById(account.id));
+      const updated = assertOk(await repo.findById(account.id));
       expect(updated.lastCursor?.['normal']?.totalFetched).toBe(500);
       expect(updated.lastCursor?.['internal']?.totalFetched).toBe(150);
     });
@@ -505,7 +506,7 @@ describe('AccountRepository', () => {
         totalFetched: 1000,
       });
 
-      const updated = unwrapOk(await repo.findById(account.id));
+      const updated = assertOk(await repo.findById(account.id));
       expect(updated.lastCursor?.['normal']?.totalFetched).toBe(1000);
       expect(updated.lastCursor?.['normal']?.lastTransactionId).toBe('tx1000');
     });

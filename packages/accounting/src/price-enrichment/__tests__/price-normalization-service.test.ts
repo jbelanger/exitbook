@@ -7,7 +7,8 @@
  */
 
 import { type Currency, parseDecimal } from '@exitbook/core';
-import { createTestDataContext, DataContext } from '@exitbook/data';
+import { DataContext } from '@exitbook/data';
+import { createTestDataContext } from '@exitbook/data/test-utils';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

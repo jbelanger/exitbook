@@ -10,7 +10,8 @@
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
-import { createTestDataContext, DataContext } from '@exitbook/data';
+import { DataContext } from '@exitbook/data';
+import { createTestDataContext } from '@exitbook/data/test-utils';
 import { ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

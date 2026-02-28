@@ -1,5 +1,6 @@
 import type { Currency } from '@exitbook/core';
-import { createTestDataContext, DataContext } from '@exitbook/data';
+import { DataContext } from '@exitbook/data';
+import { createTestDataContext } from '@exitbook/data/test-utils';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 

@@ -1,8 +1,9 @@
 /* eslint-disable unicorn/no-null -- null needed by db */
 import { type Currency, type NewTransactionLink, parseDecimal } from '@exitbook/core';
+import { assertOk } from '@exitbook/core/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createTestDatabase, unwrapOk } from '../../__tests__/test-utils.js';
+import { createTestDatabase } from '../../__tests__/test-utils.js';
 import type { KyselyDB } from '../../storage/initialization.js';
 import { TransactionLinkRepository } from '../transaction-link-repository.js';
 
@@ -78,12 +79,12 @@ describe('TransactionLinkRepository', () => {
 
   describe('create', () => {
     it('creates a link and returns its numeric ID', async () => {
-      const id = unwrapOk(await repo.create(makeBtcLink(1, 2)));
+      const id = assertOk(await repo.create(makeBtcLink(1, 2)));
 
       expect(typeof id).toBe('number');
       expect(id).toBeGreaterThan(0);
 
-      const fetched = unwrapOk(await repo.findById(id));
+      const fetched = assertOk(await repo.findById(id));
       expect(fetched?.assetSymbol).toBe('BTC');
       expect(fetched?.sourceAmount.toFixed()).toBe('1');
       expect(fetched?.targetAmount.toFixed()).toBe('0.9995');
@@ -102,8 +103,8 @@ describe('TransactionLinkRepository', () => {
         metadata: { variance: '0.05', variancePct: '0.50', impliedFee: '0.05' },
       };
 
-      const id = unwrapOk(await repo.create(link));
-      const fetched = unwrapOk(await repo.findById(id));
+      const id = assertOk(await repo.create(link));
+      const fetched = assertOk(await repo.findById(id));
       expect(fetched?.metadata).toEqual({ variance: '0.05', variancePct: '0.50', impliedFee: '0.05' });
     });
 
@@ -113,8 +114,8 @@ describe('TransactionLinkRepository', () => {
         sourceAmount: parseDecimal('0.00001'),
         targetAmount: parseDecimal('0.000009'),
       };
-      const id = unwrapOk(await repo.create(link));
-      const fetched = unwrapOk(await repo.findById(id));
+      const id = assertOk(await repo.create(link));
+      const fetched = assertOk(await repo.findById(id));
       expect(fetched?.sourceAmount.toFixed()).toBe('0.00001');
       expect(fetched?.targetAmount.toFixed()).toBe('0.000009');
     });
@@ -126,8 +127,8 @@ describe('TransactionLinkRepository', () => {
         sourceAmount: parseDecimal('1000000.123456789'),
         targetAmount: parseDecimal('999999.123456789'),
       };
-      const id = unwrapOk(await repo.create(link));
-      const fetched = unwrapOk(await repo.findById(id));
+      const id = assertOk(await repo.create(link));
+      const fetched = assertOk(await repo.findById(id));
       expect(fetched?.sourceAmount.toFixed()).toBe('1000000.123456789');
       expect(fetched?.targetAmount.toFixed()).toBe('999999.123456789');
     });
@@ -156,9 +157,9 @@ describe('TransactionLinkRepository', () => {
         },
       ];
 
-      expect(unwrapOk(await repo.createBulk(links))).toBe(2);
+      expect(assertOk(await repo.createBulk(links))).toBe(2);
 
-      const all = unwrapOk(await repo.findAll());
+      const all = assertOk(await repo.findAll());
       expect(all).toHaveLength(2);
       expect(all.find((l) => l.assetSymbol === 'BTC')?.sourceAmount.toFixed()).toBe('1');
       expect(all.find((l) => l.assetSymbol === 'ETH')?.sourceAmount.toFixed()).toBe('10');
@@ -184,7 +185,7 @@ describe('TransactionLinkRepository', () => {
         },
       });
 
-      const links = unwrapOk(await repo.findByTransactionIds([7]));
+      const links = assertOk(await repo.findByTransactionIds([7]));
       expect(links).toHaveLength(2);
       expect(links[0]?.assetSymbol).toBeDefined();
       expect(links[0]?.sourceAmount).toBeDefined();
@@ -194,9 +195,9 @@ describe('TransactionLinkRepository', () => {
 
   describe('findAll', () => {
     it('returns all links with their stored fields', async () => {
-      const id = unwrapOk(await repo.create(makeBtcLink(1, 2)));
+      const id = assertOk(await repo.create(makeBtcLink(1, 2)));
 
-      const all = unwrapOk(await repo.findAll());
+      const all = assertOk(await repo.findAll());
       const found = all.find((l) => l.id === id);
       expect(found).toBeDefined();
       expect(found?.assetSymbol).toBe('BTC');
@@ -215,7 +216,7 @@ describe('TransactionLinkRepository', () => {
         targetAssetId: 'test:eth',
       });
 
-      expect(unwrapOk(await repo.count())).toBe(2);
+      expect(assertOk(await repo.count())).toBe(2);
     });
 
     it('counts links scoped to specific account IDs', async () => {
@@ -263,12 +264,12 @@ describe('TransactionLinkRepository', () => {
         targetAssetId: 'test:eth',
       });
 
-      expect(unwrapOk(await repo.count({ accountIds: [1] }))).toBe(1);
-      expect(unwrapOk(await repo.count({ accountIds: [2] }))).toBe(1);
+      expect(assertOk(await repo.count({ accountIds: [1] }))).toBe(1);
+      expect(assertOk(await repo.count({ accountIds: [2] }))).toBe(1);
     });
 
     it('returns 0 when accountIds filter is empty', async () => {
-      expect(unwrapOk(await repo.count({ accountIds: [] }))).toBe(0);
+      expect(assertOk(await repo.count({ accountIds: [] }))).toBe(0);
     });
   });
 });

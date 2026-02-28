@@ -1,7 +1,8 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
+import { assertOk } from '@exitbook/core/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createTestDatabase, unwrapOk } from '../../__tests__/test-utils.js';
+import { createTestDatabase } from '../../__tests__/test-utils.js';
 import type { KyselyDB } from '../../storage/initialization.js';
 import { RawTransactionRepository } from '../raw-transaction-repository.js';
 
@@ -69,7 +70,7 @@ describe('RawTransactionRepository', () => {
         .execute();
       expect(initialProcessed.length).toBeGreaterThan(0);
 
-      expect(unwrapOk(await repo.resetProcessingStatus({ accountId: 1 }))).toBe(3);
+      expect(assertOk(await repo.resetProcessingStatus({ accountId: 1 }))).toBe(3);
 
       const krakenRows = await db.selectFrom('raw_transactions').where('account_id', '=', 1).selectAll().execute();
       expect(krakenRows).toHaveLength(3);
@@ -87,11 +88,11 @@ describe('RawTransactionRepository', () => {
     });
 
     it('returns 0 when the account has no records', async () => {
-      expect(unwrapOk(await repo.resetProcessingStatus({ accountId: 999 }))).toBe(0);
+      expect(assertOk(await repo.resetProcessingStatus({ accountId: 999 }))).toBe(0);
     });
 
     it('resets processing status for all records when no filter is given', async () => {
-      expect(unwrapOk(await repo.resetProcessingStatus())).toBe(5);
+      expect(assertOk(await repo.resetProcessingStatus())).toBe(5);
 
       const allRows = await db.selectFrom('raw_transactions').selectAll().execute();
       expect(allRows.every((r) => r.processing_status === 'pending')).toBe(true);
@@ -101,7 +102,7 @@ describe('RawTransactionRepository', () => {
     it('returns 0 when no records exist', async () => {
       await db.deleteFrom('raw_transactions').execute();
 
-      expect(unwrapOk(await repo.resetProcessingStatus())).toBe(0);
+      expect(assertOk(await repo.resetProcessingStatus())).toBe(0);
     });
 
     it('returns an error when the database is closed', async () => {
@@ -118,7 +119,7 @@ describe('RawTransactionRepository', () => {
 
   describe('deleteAll', () => {
     it('deletes records for a specific account', async () => {
-      expect(unwrapOk(await repo.deleteAll({ accountId: 1 }))).toBe(3);
+      expect(assertOk(await repo.deleteAll({ accountId: 1 }))).toBe(3);
 
       const remaining = await db.selectFrom('raw_transactions').selectAll().execute();
       expect(remaining).toHaveLength(2);
@@ -126,14 +127,14 @@ describe('RawTransactionRepository', () => {
     });
 
     it('returns 0 when the account has no records', async () => {
-      expect(unwrapOk(await repo.deleteAll({ accountId: 999 }))).toBe(0);
+      expect(assertOk(await repo.deleteAll({ accountId: 999 }))).toBe(0);
 
       const allRows = await db.selectFrom('raw_transactions').selectAll().execute();
       expect(allRows).toHaveLength(5);
     });
 
     it('deletes all records when no filter is given', async () => {
-      expect(unwrapOk(await repo.deleteAll())).toBe(5);
+      expect(assertOk(await repo.deleteAll())).toBe(5);
 
       const remaining = await db.selectFrom('raw_transactions').selectAll().execute();
       expect(remaining).toHaveLength(0);
@@ -142,7 +143,7 @@ describe('RawTransactionRepository', () => {
     it('returns 0 when no records exist', async () => {
       await db.deleteFrom('raw_transactions').execute();
 
-      expect(unwrapOk(await repo.deleteAll())).toBe(0);
+      expect(assertOk(await repo.deleteAll())).toBe(0);
     });
 
     it('returns an error when the database is closed', async () => {
@@ -235,7 +236,7 @@ describe('RawTransactionRepository', () => {
     });
 
     it('returns all events for the first N distinct hashes', async () => {
-      const txs = unwrapOk(await repo.findByHashBatch(2, 2));
+      const txs = assertOk(await repo.findByHashBatch(2, 2));
 
       // 3 events from hash-1 + 2 events from hash-2
       expect(txs).toHaveLength(5);
@@ -245,7 +246,7 @@ describe('RawTransactionRepository', () => {
     });
 
     it('returns all events for a hash as a group', async () => {
-      const txs = unwrapOk(await repo.findByHashBatch(2, 1));
+      const txs = assertOk(await repo.findByHashBatch(2, 1));
 
       expect(txs).toHaveLength(3);
       expect(txs.every((t) => t.blockchainTransactionHash === 'hash-1')).toBe(true);
@@ -255,7 +256,7 @@ describe('RawTransactionRepository', () => {
     });
 
     it('returns all pending events when hash limit exceeds available hashes', async () => {
-      const txs = unwrapOk(await repo.findByHashBatch(2, 10));
+      const txs = assertOk(await repo.findByHashBatch(2, 10));
 
       // 3 + 2 + 1 = 6 pending events across 3 hashes
       expect(txs).toHaveLength(6);
@@ -265,7 +266,7 @@ describe('RawTransactionRepository', () => {
     });
 
     it('orders results by hash then by id within each hash', async () => {
-      const txs = unwrapOk(await repo.findByHashBatch(2, 10));
+      const txs = assertOk(await repo.findByHashBatch(2, 10));
 
       expect(txs.slice(0, 3).map((t) => t.blockchainTransactionHash)).toEqual(['hash-1', 'hash-1', 'hash-1']);
       expect(txs.slice(3, 5).map((t) => t.blockchainTransactionHash)).toEqual(['hash-2', 'hash-2']);
@@ -281,7 +282,7 @@ describe('RawTransactionRepository', () => {
     });
 
     it('filters by account ID', async () => {
-      const txs = unwrapOk(await repo.findByHashBatch(1, 10));
+      const txs = assertOk(await repo.findByHashBatch(1, 10));
 
       expect(txs).toHaveLength(1);
       expect(txs[0]?.accountId).toBe(1);
@@ -289,7 +290,7 @@ describe('RawTransactionRepository', () => {
     });
 
     it('excludes processed events', async () => {
-      const txs = unwrapOk(await repo.findByHashBatch(2, 10));
+      const txs = assertOk(await repo.findByHashBatch(2, 10));
 
       expect(txs.every((t) => t.blockchainTransactionHash !== 'hash-4')).toBe(true);
       expect(txs.every((t) => t.processingStatus === 'pending')).toBe(true);
@@ -301,12 +302,12 @@ describe('RawTransactionRepository', () => {
         .set({ processing_status: 'processed', processed_at: new Date().toISOString() })
         .execute();
 
-      const txs = unwrapOk(await repo.findByHashBatch(2, 10));
+      const txs = assertOk(await repo.findByHashBatch(2, 10));
       expect(txs).toHaveLength(0);
     });
 
     it('returns an empty array for a non-existent account', async () => {
-      const txs = unwrapOk(await repo.findByHashBatch(999, 10));
+      const txs = assertOk(await repo.findByHashBatch(999, 10));
       expect(txs).toHaveLength(0);
     });
 

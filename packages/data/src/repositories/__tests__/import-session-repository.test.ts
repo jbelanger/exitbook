@@ -1,8 +1,9 @@
 /* eslint-disable unicorn/no-null -- null required by db */
 
+import { assertOk } from '@exitbook/core/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createTestDatabase, unwrapOk } from '../../__tests__/test-utils.js';
+import { createTestDatabase } from '../../__tests__/test-utils.js';
 import type { KyselyDB } from '../../storage/initialization.js';
 import { ImportSessionRepository } from '../import-session-repository.js';
 
@@ -66,7 +67,7 @@ describe('ImportSessionRepository', () => {
 
   describe('create', () => {
     it('creates a started import session and returns its ID', async () => {
-      const id = unwrapOk(await repo.create(1));
+      const id = assertOk(await repo.create(1));
 
       expect(id).toBeGreaterThan(0);
 
@@ -94,10 +95,10 @@ describe('ImportSessionRepository', () => {
 
   describe('finalize', () => {
     it('marks a session complete with duration, counts, and error metadata', async () => {
-      const sessionId = unwrapOk(await repo.create(1));
+      const sessionId = assertOk(await repo.create(1));
       const startTime = Date.now() - 250;
 
-      unwrapOk(
+      assertOk(
         await repo.finalize(sessionId, 'failed', startTime, 12, 3, 'Provider timeout', {
           code: 'TIMEOUT',
           attempt: 2,
@@ -121,7 +122,7 @@ describe('ImportSessionRepository', () => {
     });
 
     it('returns an error when error details cannot be serialized', async () => {
-      const sessionId = unwrapOk(await repo.create(1));
+      const sessionId = assertOk(await repo.create(1));
       const circular: Record<string, unknown> = {};
       circular['self'] = circular;
 
@@ -141,7 +142,7 @@ describe('ImportSessionRepository', () => {
     });
 
     it('returns an error when the database is closed', async () => {
-      const sessionId = unwrapOk(await repo.create(1));
+      const sessionId = assertOk(await repo.create(1));
       await db.destroy();
 
       const result = await repo.finalize(sessionId, 'completed', Date.now(), 2, 0);
@@ -173,7 +174,7 @@ describe('ImportSessionRepository', () => {
         updatedAt,
       });
 
-      const session = unwrapOk(await repo.findById(sessionId));
+      const session = assertOk(await repo.findById(sessionId));
 
       expect(session).toBeDefined();
       expect(session?.id).toBe(sessionId);
@@ -191,7 +192,7 @@ describe('ImportSessionRepository', () => {
     });
 
     it('returns undefined when no session exists', async () => {
-      const session = unwrapOk(await repo.findById(999));
+      const session = assertOk(await repo.findById(999));
       expect(session).toBeUndefined();
     });
 
@@ -215,7 +216,7 @@ describe('ImportSessionRepository', () => {
     });
 
     it('returns all sessions ordered by startedAt descending', async () => {
-      const sessions = unwrapOk(await repo.findAll());
+      const sessions = assertOk(await repo.findAll());
 
       expect(sessions).toHaveLength(3);
       expect(sessions.map((session) => session.startedAt.toISOString())).toEqual([
@@ -226,14 +227,14 @@ describe('ImportSessionRepository', () => {
     });
 
     it('filters sessions by account IDs', async () => {
-      const sessions = unwrapOk(await repo.findAll({ accountIds: [1] }));
+      const sessions = assertOk(await repo.findAll({ accountIds: [1] }));
 
       expect(sessions).toHaveLength(2);
       expect(sessions.every((session) => session.accountId === 1)).toBe(true);
     });
 
     it('returns an empty array when accountIds filter is empty', async () => {
-      const sessions = unwrapOk(await repo.findAll({ accountIds: [] }));
+      const sessions = assertOk(await repo.findAll({ accountIds: [] }));
       expect(sessions).toEqual([]);
     });
 
@@ -257,7 +258,7 @@ describe('ImportSessionRepository', () => {
     });
 
     it('returns counts for all requested accounts and fills missing with 0', async () => {
-      const counts = unwrapOk(await repo.getSessionCountsByAccount([1, 2, 999]));
+      const counts = assertOk(await repo.getSessionCountsByAccount([1, 2, 999]));
 
       expect(counts.get(1)).toBe(2);
       expect(counts.get(2)).toBe(1);
@@ -265,7 +266,7 @@ describe('ImportSessionRepository', () => {
     });
 
     it('returns an empty map for empty account list', async () => {
-      const counts = unwrapOk(await repo.getSessionCountsByAccount([]));
+      const counts = assertOk(await repo.getSessionCountsByAccount([]));
       expect(counts.size).toBe(0);
     });
 
@@ -290,7 +291,7 @@ describe('ImportSessionRepository', () => {
         completedAt: null,
       });
 
-      unwrapOk(
+      assertOk(
         await repo.update(sessionId, {
           status: 'completed',
           transactions_imported: 25,
@@ -319,7 +320,7 @@ describe('ImportSessionRepository', () => {
     it('does not update timestamps when no changes are provided', async () => {
       const sessionId = await insertSession(db, { accountId: 1, updatedAt: null });
 
-      unwrapOk(await repo.update(sessionId, {}));
+      assertOk(await repo.update(sessionId, {}));
 
       const row = await db
         .selectFrom('import_sessions')
@@ -332,7 +333,7 @@ describe('ImportSessionRepository', () => {
     it('does not set completedAt when status remains started', async () => {
       const sessionId = await insertSession(db, { accountId: 1, status: 'started', completedAt: null });
 
-      unwrapOk(await repo.update(sessionId, { status: 'started' }));
+      assertOk(await repo.update(sessionId, { status: 'started' }));
 
       const row = await db
         .selectFrom('import_sessions')
@@ -386,15 +387,15 @@ describe('ImportSessionRepository', () => {
     });
 
     it('counts all sessions when no filter is provided', async () => {
-      expect(unwrapOk(await repo.count())).toBe(3);
+      expect(assertOk(await repo.count())).toBe(3);
     });
 
     it('counts sessions filtered by account IDs', async () => {
-      expect(unwrapOk(await repo.count({ accountIds: [1] }))).toBe(2);
+      expect(assertOk(await repo.count({ accountIds: [1] }))).toBe(2);
     });
 
     it('returns 0 when accountIds filter is empty', async () => {
-      expect(unwrapOk(await repo.count({ accountIds: [] }))).toBe(0);
+      expect(assertOk(await repo.count({ accountIds: [] }))).toBe(0);
     });
 
     it('returns an error when the database is closed', async () => {
@@ -417,7 +418,7 @@ describe('ImportSessionRepository', () => {
     });
 
     it('deletes sessions for a specific account', async () => {
-      unwrapOk(await repo.deleteBy({ accountId: 1 }));
+      assertOk(await repo.deleteBy({ accountId: 1 }));
 
       const rows = await db.selectFrom('import_sessions').selectAll().execute();
       expect(rows).toHaveLength(1);
@@ -425,7 +426,7 @@ describe('ImportSessionRepository', () => {
     });
 
     it('deletes all sessions when no filter is provided', async () => {
-      unwrapOk(await repo.deleteBy());
+      assertOk(await repo.deleteBy());
 
       const rows = await db.selectFrom('import_sessions').selectAll().execute();
       expect(rows).toHaveLength(0);
@@ -466,7 +467,7 @@ describe('ImportSessionRepository', () => {
         startedAt: '2024-01-01T13:00:00.000Z',
       });
 
-      const session = unwrapOk(await repo.findLatestIncomplete(1));
+      const session = assertOk(await repo.findLatestIncomplete(1));
 
       expect(session?.id).toBe(failedId);
       expect(session?.status).toBe('failed');
@@ -485,7 +486,7 @@ describe('ImportSessionRepository', () => {
         startedAt: '2024-01-01T13:00:00.000Z',
       });
 
-      const session = unwrapOk(await repo.findLatestIncomplete(2));
+      const session = assertOk(await repo.findLatestIncomplete(2));
       expect(session).toBeUndefined();
     });
 

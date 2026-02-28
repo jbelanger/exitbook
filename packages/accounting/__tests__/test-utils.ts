@@ -171,23 +171,3 @@ export function createLot(
     updatedAt: new Date(),
   };
 }
-
-/**
- * Assertion helper to unwrap Result and assert it's ok
- */
-export function assertOk<T, E>(result: { error: E; isOk(): boolean; value: T }): T {
-  if (!result.isOk()) {
-    throw new Error(`Expected Result to be Ok, but got Error: ${String(result.error)}`);
-  }
-  return result.value;
-}
-
-/**
- * Assertion helper to unwrap Result and assert it's error
- */
-export function assertErr<T, E>(result: { error: E; isErr(): boolean; value: T }): E {
-  if (!result.isErr()) {
-    throw new Error(`Expected Result to be Err, but got Ok: ${String(result.value)}`);
-  }
-  return result.error;
-}

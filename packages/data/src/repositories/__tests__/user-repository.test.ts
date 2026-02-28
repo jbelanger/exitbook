@@ -1,6 +1,7 @@
+import { assertOk } from '@exitbook/core/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createTestDatabase, unwrapOk } from '../../__tests__/test-utils.js';
+import { createTestDatabase } from '../../__tests__/test-utils.js';
 import type { KyselyDB } from '../../storage/initialization.js';
 import { UserRepository } from '../user-repository.js';
 
@@ -19,7 +20,7 @@ describe('UserRepository', () => {
 
   describe('create', () => {
     it('creates a user and returns its ID', async () => {
-      const id = unwrapOk(await repo.create());
+      const id = assertOk(await repo.create());
 
       expect(id).toBeGreaterThan(0);
 
@@ -30,8 +31,8 @@ describe('UserRepository', () => {
     });
 
     it('creates multiple users with distinct IDs', async () => {
-      const id1 = unwrapOk(await repo.create());
-      const id2 = unwrapOk(await repo.create());
+      const id1 = assertOk(await repo.create());
+      const id2 = assertOk(await repo.create());
 
       expect(id1).not.toBe(id2);
     });
@@ -50,15 +51,15 @@ describe('UserRepository', () => {
 
   describe('findById', () => {
     it('returns an existing user', async () => {
-      const id = unwrapOk(await repo.create());
-      const user = unwrapOk(await repo.findById(id));
+      const id = assertOk(await repo.create());
+      const user = assertOk(await repo.findById(id));
 
       expect(user?.id).toBe(id);
       expect(user?.createdAt).toBeInstanceOf(Date);
     });
 
     it('returns undefined for a non-existent user', async () => {
-      const user = unwrapOk(await repo.findById(999));
+      const user = assertOk(await repo.findById(999));
 
       expect(user).toBeUndefined();
     });
@@ -77,7 +78,7 @@ describe('UserRepository', () => {
 
   describe('getOrCreateDefaultUser', () => {
     it('creates default user (id=1) when it does not exist', async () => {
-      const user = unwrapOk(await repo.getOrCreateDefaultUser());
+      const user = assertOk(await repo.getOrCreateDefaultUser());
 
       expect(user.id).toBe(1);
       expect(user.createdAt).toBeInstanceOf(Date);
@@ -87,8 +88,8 @@ describe('UserRepository', () => {
     });
 
     it('returns the existing default user without creating a duplicate', async () => {
-      const first = unwrapOk(await repo.getOrCreateDefaultUser());
-      const second = unwrapOk(await repo.getOrCreateDefaultUser());
+      const first = assertOk(await repo.getOrCreateDefaultUser());
+      const second = assertOk(await repo.getOrCreateDefaultUser());
 
       expect(second.id).toBe(1);
       expect(second.createdAt).toEqual(first.createdAt);
@@ -99,9 +100,9 @@ describe('UserRepository', () => {
 
     it('is idempotent across multiple sequential calls', async () => {
       // Sequential — concurrent calls can race on INSERT (SQLite has no upsert here)
-      const result1 = unwrapOk(await repo.getOrCreateDefaultUser());
-      const result2 = unwrapOk(await repo.getOrCreateDefaultUser());
-      const result3 = unwrapOk(await repo.getOrCreateDefaultUser());
+      const result1 = assertOk(await repo.getOrCreateDefaultUser());
+      const result2 = assertOk(await repo.getOrCreateDefaultUser());
+      const result3 = assertOk(await repo.getOrCreateDefaultUser());
 
       expect(result1.id).toBe(1);
       expect(result2.id).toBe(1);
