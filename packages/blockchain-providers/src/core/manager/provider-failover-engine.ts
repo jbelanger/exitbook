@@ -71,6 +71,8 @@ export class ProviderFailoverEngine {
       return;
     }
 
+    const operationDesc = operation.streamType ? `${operation.type}[${operation.streamType}]` : operation.type;
+
     let currentCursor = resumeCursor;
     let providerIndex = 0;
 
@@ -141,7 +143,7 @@ export class ProviderFailoverEngine {
           if (batchResult.isErr()) {
             lastErrorMessage = getErrorMessage(batchResult.error);
             lastFailedProvider = provider.name;
-            logger.error(`Provider ${provider.name} batch failed: ${lastErrorMessage}`);
+            logger.error(`Provider ${provider.name} batch failed (${operationDesc}): ${lastErrorMessage}`);
             this.recordProviderFailure(blockchain, provider.name, lastErrorMessage);
             providerIndex++;
             providerFailed = true;
@@ -208,7 +210,7 @@ export class ProviderFailoverEngine {
         } else {
           yield err(
             new ProviderError(
-              `All providers exhausted for ${blockchain}. Last error: ${errorMessage}`,
+              `All providers exhausted for ${blockchain} (${operationDesc}). Last error: ${errorMessage}`,
               'ALL_PROVIDERS_FAILED',
               { blockchain, operation: operation.type, lastError: errorMessage }
             )
@@ -221,11 +223,15 @@ export class ProviderFailoverEngine {
     // No compatible providers found or all failed
     const reason = lastErrorMessage ? ` Last error: ${lastErrorMessage}` : '';
     yield err(
-      new ProviderError(`No compatible providers found for ${blockchain}.${reason}`, 'NO_COMPATIBLE_PROVIDERS', {
-        blockchain,
-        operation: operation.type,
-        lastError: lastErrorMessage,
-      })
+      new ProviderError(
+        `No compatible providers found for ${blockchain} (${operationDesc}).${reason}`,
+        'NO_COMPATIBLE_PROVIDERS',
+        {
+          blockchain,
+          operation: operation.type,
+          lastError: lastErrorMessage,
+        }
+      )
     );
   }
 
