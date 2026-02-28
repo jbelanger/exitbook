@@ -212,7 +212,7 @@ export class StreamingImportRunner {
 
         this.logger.debug(`Saving ${batch.rawTransactions.length} ${batch.streamType}...`);
         const saveResult = await this.db.executeInTransaction((tx) =>
-          tx.rawTransactions.saveBatch(account.id, batch.rawTransactions)
+          tx.rawTransactions.createBatch(account.id, batch.rawTransactions)
         );
 
         if (saveResult.isErr()) {

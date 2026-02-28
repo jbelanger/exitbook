@@ -86,7 +86,7 @@ export class AccountService {
    */
   private async fetchAccounts(params: AccountQueryParams): Promise<Result<Account[], Error>> {
     // Get the default user to scope queries
-    const userResult = await this.db.users.getOrCreateDefaultUser();
+    const userResult = await this.db.users.findOrCreateDefault();
     if (userResult.isErr()) {
       return err(userResult.error);
     }
@@ -124,7 +124,7 @@ export class AccountService {
    */
   private async fetchSessionCounts(accounts: Account[]): Promise<Result<Map<number, number>, Error>> {
     const accountIds = accounts.map((a) => a.id);
-    return this.db.importSessions.getSessionCountsByAccount(accountIds);
+    return this.db.importSessions.countByAccount(accountIds);
   }
 
   /**

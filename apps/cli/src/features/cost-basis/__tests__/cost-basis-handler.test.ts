@@ -43,13 +43,13 @@ vi.mock('@exitbook/logger', () => ({
 
 describe('CostBasisHandler', () => {
   let handler: CostBasisHandler;
-  let mockTransactionRepo: { getTransactions: Mock };
+  let mockTransactionRepo: { findAll: Mock };
   let mockTransactionLinkRepo: Record<string, never>;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockTransactionRepo = { getTransactions: vi.fn() };
+    mockTransactionRepo = { findAll: vi.fn() };
     mockTransactionLinkRepo = {};
 
     const mockDb = {
@@ -90,7 +90,7 @@ describe('CostBasisHandler', () => {
     });
 
     it('should return error if fetching transactions fails', async () => {
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(err(new Error('DB Error')));
+      vi.mocked(mockTransactionRepo.findAll).mockResolvedValue(err(new Error('DB Error')));
 
       const result = await handler.execute(validParams);
 
@@ -101,7 +101,7 @@ describe('CostBasisHandler', () => {
     });
 
     it('should return error if no transactions found in DB', async () => {
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok([]));
+      vi.mocked(mockTransactionRepo.findAll).mockResolvedValue(ok([]));
 
       const result = await handler.execute(validParams);
 
@@ -116,7 +116,7 @@ describe('CostBasisHandler', () => {
         { timestamp: new Date('2025-06-01').getTime(), movements: { inflows: [], outflows: [] } },
       ] as unknown as UniversalTransactionData[];
 
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok(dbTransactions));
+      vi.mocked(mockTransactionRepo.findAll).mockResolvedValue(ok(dbTransactions));
 
       const result = await handler.execute(validParams);
 
@@ -137,7 +137,7 @@ describe('CostBasisHandler', () => {
         },
       ] as unknown as UniversalTransactionData[];
 
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok(transactions));
+      vi.mocked(mockTransactionRepo.findAll).mockResolvedValue(ok(transactions));
 
       vi.mocked(runCostBasisPipeline).mockResolvedValue(
         ok({
@@ -184,7 +184,7 @@ describe('CostBasisHandler', () => {
         },
       ] as unknown as UniversalTransactionData[];
 
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok(transactions));
+      vi.mocked(mockTransactionRepo.findAll).mockResolvedValue(ok(transactions));
 
       vi.mocked(runCostBasisPipeline).mockResolvedValue(
         ok({
@@ -260,7 +260,7 @@ describe('CostBasisHandler', () => {
         },
       ] as unknown as UniversalTransactionData[];
 
-      vi.mocked(mockTransactionRepo.getTransactions).mockResolvedValue(ok(transactions));
+      vi.mocked(mockTransactionRepo.findAll).mockResolvedValue(ok(transactions));
 
       vi.mocked(runCostBasisPipeline).mockResolvedValue(
         ok({

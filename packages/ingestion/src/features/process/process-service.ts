@@ -561,7 +561,7 @@ export class RawDataProcessingService {
 
     for (let start = 0; start < transactions.length; start += TRANSACTION_SAVE_BATCH_SIZE) {
       const batch = transactions.slice(start, start + TRANSACTION_SAVE_BATCH_SIZE);
-      const saveResult = await this.db.executeInTransaction((tx) => tx.transactions.saveBatch(batch, accountId));
+      const saveResult = await this.db.executeInTransaction((tx) => tx.transactions.createBatch(batch, accountId));
 
       if (saveResult.isErr()) {
         const errorMessage = `CRITICAL: Failed to save transactions batch starting at index ${start} for account ${accountId}: ${saveResult.error.message}`;
@@ -585,7 +585,7 @@ export class RawDataProcessingService {
     const allRawDataIds = rawDataItems.map((item) => item.id);
     for (let start = 0; start < allRawDataIds.length; start += RAW_DATA_MARK_BATCH_SIZE) {
       const batchIds = allRawDataIds.slice(start, start + RAW_DATA_MARK_BATCH_SIZE);
-      const markAsProcessedResult = await this.db.rawTransactions.markAsProcessed(batchIds);
+      const markAsProcessedResult = await this.db.rawTransactions.markProcessed(batchIds);
 
       if (markAsProcessedResult.isErr()) {
         return err(markAsProcessedResult.error);

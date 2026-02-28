@@ -64,7 +64,7 @@ export class NearRawTransactionRepository extends BaseRepository {
     }
   }
 
-  async loadPendingNearAnchorHashes(accountId: number, limit: number): Promise<Result<string[], Error>> {
+  async findPendingAnchorHashes(accountId: number, limit: number): Promise<Result<string[], Error>> {
     try {
       const rows = await this.db
         .selectFrom('raw_transactions')
@@ -84,7 +84,7 @@ export class NearRawTransactionRepository extends BaseRepository {
     }
   }
 
-  async loadPendingByHashes(accountId: number, hashes: string[]): Promise<Result<RawTransaction[], Error>> {
+  async findPendingByHashes(accountId: number, hashes: string[]): Promise<Result<RawTransaction[], Error>> {
     try {
       if (hashes.length === 0) {
         return ok([]);
@@ -111,7 +111,7 @@ export class NearRawTransactionRepository extends BaseRepository {
     }
   }
 
-  async loadPendingNearByReceiptIds(accountId: number, receiptIds: string[]): Promise<Result<RawTransaction[], Error>> {
+  async findPendingByReceiptIds(accountId: number, receiptIds: string[]): Promise<Result<RawTransaction[], Error>> {
     try {
       if (receiptIds.length === 0) {
         return ok([]);
@@ -153,7 +153,7 @@ export class NearRawTransactionRepository extends BaseRepository {
     }
   }
 
-  async loadProcessedNearBalanceChangesByAccounts(
+  async findProcessedBalanceChangesByAccounts(
     accountId: number,
     affectedAccountIds: string[],
     maxTimestamp: number

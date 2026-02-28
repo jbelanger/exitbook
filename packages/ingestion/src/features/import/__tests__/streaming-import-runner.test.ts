@@ -187,7 +187,7 @@ describe('StreamingImportRunner', () => {
     });
 
     mockRawTransactionsRepo = {
-      saveBatch: vi.fn(),
+      createBatch: vi.fn(),
       load: vi.fn(),
       countByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
     } as unknown as RawTransactionRepository;
@@ -237,7 +237,7 @@ describe('StreamingImportRunner', () => {
 
       vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockRawTransactionsRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockRawTransactionsRepo.createBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
       vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
       vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(mockSession));
 
@@ -250,7 +250,7 @@ describe('StreamingImportRunner', () => {
       }
 
       expect(mockImportSessionRepo.create).toHaveBeenCalledWith(1);
-      expect(mockRawTransactionsRepo.saveBatch).toHaveBeenCalledWith(
+      expect(mockRawTransactionsRepo.createBatch).toHaveBeenCalledWith(
         1,
         expect.arrayContaining([
           expect.objectContaining({ transactionHash: 'tx1' }),
@@ -298,7 +298,7 @@ describe('StreamingImportRunner', () => {
 
       vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockRawTransactionsRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockRawTransactionsRepo.createBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
       vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
       vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(mockSession));
       vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
@@ -334,7 +334,7 @@ describe('StreamingImportRunner', () => {
 
       vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockRawTransactionsRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockRawTransactionsRepo.createBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
       vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
       vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(mockSession));
 
@@ -377,7 +377,7 @@ describe('StreamingImportRunner', () => {
 
       vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(incompleteImportSession));
       vi.mocked(mockImportSessionRepo.update).mockResolvedValue(ok());
-      vi.mocked(mockRawTransactionsRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockRawTransactionsRepo.createBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
       vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
       vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(completedSession));
 
@@ -433,7 +433,7 @@ describe('StreamingImportRunner', () => {
 
       vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(incompleteImportSession));
       vi.mocked(mockImportSessionRepo.update).mockResolvedValue(ok());
-      vi.mocked(mockRawTransactionsRepo.saveBatch).mockResolvedValue(ok({ inserted: 0, skipped: 2 }));
+      vi.mocked(mockRawTransactionsRepo.createBatch).mockResolvedValue(ok({ inserted: 0, skipped: 2 }));
       vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
       vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(completedSession));
 
@@ -446,7 +446,7 @@ describe('StreamingImportRunner', () => {
       }
 
       expect(mockImportSessionRepo.create).not.toHaveBeenCalled();
-      expect(mockRawTransactionsRepo.saveBatch).toHaveBeenCalledWith(
+      expect(mockRawTransactionsRepo.createBatch).toHaveBeenCalledWith(
         1,
         expect.arrayContaining([
           expect.objectContaining({ transactionHash: 'tx1' }),
@@ -494,12 +494,12 @@ describe('StreamingImportRunner', () => {
       }
     });
 
-    it('should finalize as failed if saveBatch fails', async () => {
+    it('should finalize as failed if createBatch fails', async () => {
       const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
       vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockRawTransactionsRepo.saveBatch).mockResolvedValue(err(new Error('Disk full')));
+      vi.mocked(mockRawTransactionsRepo.createBatch).mockResolvedValue(err(new Error('Disk full')));
 
       const result = await service.importFromSource(account);
 
@@ -567,7 +567,7 @@ describe('StreamingImportRunner', () => {
 
       vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockRawTransactionsRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockRawTransactionsRepo.createBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
       vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
       vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(mockSession));
       vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
@@ -581,7 +581,7 @@ describe('StreamingImportRunner', () => {
       }
 
       expect(mockImportSessionRepo.create).toHaveBeenCalledWith(1);
-      expect(mockRawTransactionsRepo.saveBatch).toHaveBeenCalledWith(
+      expect(mockRawTransactionsRepo.createBatch).toHaveBeenCalledWith(
         1,
         expect.arrayContaining([
           expect.objectContaining({ refid: 'kraken-1' }),
@@ -622,7 +622,7 @@ describe('StreamingImportRunner', () => {
 
       vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockRawTransactionsRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockRawTransactionsRepo.createBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
       vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
       vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(mockSession));
       vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
@@ -685,7 +685,7 @@ describe('StreamingImportRunner', () => {
 
       vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(existingImportSession));
       vi.mocked(mockImportSessionRepo.update).mockResolvedValue(ok());
-      vi.mocked(mockRawTransactionsRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockRawTransactionsRepo.createBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
       vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
       vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(completedSession));
       vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
@@ -750,7 +750,7 @@ describe('StreamingImportRunner', () => {
 
       vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockRawTransactionsRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockRawTransactionsRepo.createBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
       vi.mocked(mockImportSessionRepo.update).mockResolvedValue(ok());
       vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
 
@@ -775,7 +775,7 @@ describe('StreamingImportRunner', () => {
       }
 
       // Should save successful batch before failing
-      expect(mockRawTransactionsRepo.saveBatch).toHaveBeenCalledWith(1, successfulItems);
+      expect(mockRawTransactionsRepo.createBatch).toHaveBeenCalledWith(1, successfulItems);
 
       // Should update import session as failed
       expect(mockImportSessionRepo.update).toHaveBeenCalledWith(
@@ -812,7 +812,7 @@ describe('StreamingImportRunner', () => {
       }
 
       // Should NOT attempt to save anything
-      expect(mockRawTransactionsRepo.saveBatch).not.toHaveBeenCalled();
+      expect(mockRawTransactionsRepo.createBatch).not.toHaveBeenCalled();
 
       // Should update import session as failed
       expect(mockImportSessionRepo.update).toHaveBeenCalledWith(
@@ -834,7 +834,7 @@ describe('StreamingImportRunner', () => {
 
       vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockRawTransactionsRepo.saveBatch).mockResolvedValue(ok({ inserted: 0, skipped: 0 }));
+      vi.mocked(mockRawTransactionsRepo.createBatch).mockResolvedValue(ok({ inserted: 0, skipped: 0 }));
       vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
       vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
 
@@ -903,7 +903,7 @@ describe('StreamingImportRunner', () => {
       vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockRawTransactionsRepo.countByStreamType).mockResolvedValue(err(new Error('metrics unavailable')));
-      vi.mocked(mockRawTransactionsRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockRawTransactionsRepo.createBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
       vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
       vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(mockSession));
       vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
@@ -974,7 +974,7 @@ describe('StreamingImportRunner', () => {
 
       vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockRawTransactionsRepo.saveBatch)
+      vi.mocked(mockRawTransactionsRepo.createBatch)
         .mockResolvedValueOnce(ok({ inserted: 1, skipped: 0 }))
         .mockResolvedValueOnce(ok({ inserted: 2, skipped: 0 }));
       vi.mocked(mockAccountRepo.updateCursor)
@@ -1034,7 +1034,7 @@ describe('StreamingImportRunner', () => {
       }
 
       // Should NOT save anything
-      expect(mockRawTransactionsRepo.saveBatch).not.toHaveBeenCalled();
+      expect(mockRawTransactionsRepo.createBatch).not.toHaveBeenCalled();
     });
 
     it('should handle errors when checking for incomplete import session', async () => {

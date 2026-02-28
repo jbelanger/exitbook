@@ -36,7 +36,7 @@ export async function ensureLinks(
   dataDir: string,
   options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
-  const latestTxResult = await db.transactions.getLatestCreatedAt();
+  const latestTxResult = await db.transactions.findLatestCreatedAt();
   if (latestTxResult.isErr()) return err(latestTxResult.error);
 
   const latestTx = latestTxResult.value;
@@ -45,7 +45,7 @@ export async function ensureLinks(
     return ok();
   }
 
-  const latestLinkResult = await db.transactionLinks.getLatestCreatedAt();
+  const latestLinkResult = await db.transactionLinks.findLatestCreatedAt();
   if (latestLinkResult.isErr()) return err(latestLinkResult.error);
 
   const latestLink = latestLinkResult.value;
@@ -133,7 +133,7 @@ export async function ensurePrices(
   currency: string,
   options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
-  const txResult = await db.transactions.getTransactions();
+  const txResult = await db.transactions.findAll();
   if (txResult.isErr()) return err(txResult.error);
 
   const filtered = filterTransactionsByDateRange(txResult.value, startDate, endDate);

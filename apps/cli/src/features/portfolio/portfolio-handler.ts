@@ -100,7 +100,7 @@ export class PortfolioHandler {
         'Starting portfolio calculation'
       );
 
-      const txResult = await this.db.transactions.getTransactions();
+      const txResult = await this.db.transactions.findAll();
       if (txResult.isErr()) {
         return err(txResult.error);
       }

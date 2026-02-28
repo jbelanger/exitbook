@@ -57,7 +57,7 @@ export class ExportHandler {
       };
 
       // Fetch transactions from database
-      const transactionsResult = await this.db.transactions.getTransactions(filters);
+      const transactionsResult = await this.db.transactions.findAll(filters);
 
       if (transactionsResult.isErr()) {
         return err(new Error(`Failed to retrieve transactions: ${transactionsResult.error.message}`));

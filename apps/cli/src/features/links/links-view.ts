@@ -251,7 +251,7 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
       const txRepo = database.transactions;
       const linkRepo = database.transactionLinks;
 
-      const transactionsResult = await txRepo.getTransactions();
+      const transactionsResult = await txRepo.findAll();
       if (transactionsResult.isErr()) {
         console.error('\n⚠ Error:', transactionsResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
@@ -357,7 +357,7 @@ async function executeGapsViewJSON(params: LinksViewParams): Promise<void> {
       const txRepo = database.transactions;
       const linkRepo = database.transactionLinks;
 
-      const transactionsResult = await txRepo.getTransactions();
+      const transactionsResult = await txRepo.findAll();
       if (transactionsResult.isErr()) {
         displayCliError('links-view', transactionsResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;

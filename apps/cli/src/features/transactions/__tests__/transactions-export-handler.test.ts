@@ -9,7 +9,7 @@ import type { ExportHandlerParams } from '../transactions-export-utils.js';
 
 describe('ExportHandler', () => {
   let mockTransactionRepository: {
-    getTransactions: Mock;
+    findAll: Mock;
   };
   let mockTransactionLinkQueries: {
     findByTransactionIds: Mock;
@@ -20,7 +20,7 @@ describe('ExportHandler', () => {
     vi.clearAllMocks();
 
     mockTransactionRepository = {
-      getTransactions: vi.fn(),
+      findAll: vi.fn(),
     };
 
     mockTransactionLinkQueries = {
@@ -67,7 +67,7 @@ describe('ExportHandler', () => {
 
       const transactions = [createMockTransaction(1, 'kraken', 'BTC'), createMockTransaction(2, 'kraken', 'ETH')];
 
-      mockTransactionRepository.getTransactions.mockResolvedValue(ok(transactions));
+      mockTransactionRepository.findAll.mockResolvedValue(ok(transactions));
 
       const result = await handler.execute(params);
 
@@ -83,7 +83,7 @@ describe('ExportHandler', () => {
       expect(exportResult.outputs[0]?.content).toContain('2,ext-2,1,kraken,trade');
       expect(exportResult.outputs[3]?.path).toBe('./data/transactions.links.csv');
 
-      expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith({ includeExcluded: true });
+      expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({ includeExcluded: true });
       expect(mockTransactionLinkQueries.findByTransactionIds).toHaveBeenCalledWith([1, 2]);
     });
 
@@ -95,7 +95,7 @@ describe('ExportHandler', () => {
 
       const transactions = [createMockTransaction(1, 'kraken', 'BTC')];
 
-      mockTransactionRepository.getTransactions.mockResolvedValue(ok(transactions));
+      mockTransactionRepository.findAll.mockResolvedValue(ok(transactions));
 
       const result = await handler.execute(params);
 
@@ -122,7 +122,7 @@ describe('ExportHandler', () => {
 
       const transactions = [createMockTransaction(1, 'kraken', 'BTC')];
 
-      mockTransactionRepository.getTransactions.mockResolvedValue(ok(transactions));
+      mockTransactionRepository.findAll.mockResolvedValue(ok(transactions));
 
       const result = await handler.execute(params);
 
@@ -144,7 +144,7 @@ describe('ExportHandler', () => {
 
       const transactions = [createMockTransaction(1, 'kraken', 'BTC')];
 
-      mockTransactionRepository.getTransactions.mockResolvedValue(ok(transactions));
+      mockTransactionRepository.findAll.mockResolvedValue(ok(transactions));
 
       const result = await handler.execute(params);
 
@@ -153,7 +153,7 @@ describe('ExportHandler', () => {
       expect(exportResult.sourceName).toBe('kraken');
       expect(exportResult.transactionCount).toBe(1);
 
-      expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith({
+      expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({
         sourceName: 'kraken',
         includeExcluded: true,
       });
@@ -169,12 +169,12 @@ describe('ExportHandler', () => {
 
       const transactions = [createMockTransaction(1, 'kraken', 'BTC')];
 
-      mockTransactionRepository.getTransactions.mockResolvedValue(ok(transactions));
+      mockTransactionRepository.findAll.mockResolvedValue(ok(transactions));
 
       const result = await handler.execute(params);
 
       expect(result.isOk()).toBe(true);
-      expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith({
+      expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({
         since: sinceTimestamp,
         includeExcluded: true,
       });
@@ -191,12 +191,12 @@ describe('ExportHandler', () => {
 
       const transactions = [createMockTransaction(1, 'bitcoin', 'BTC')];
 
-      mockTransactionRepository.getTransactions.mockResolvedValue(ok(transactions));
+      mockTransactionRepository.findAll.mockResolvedValue(ok(transactions));
 
       const result = await handler.execute(params);
 
       expect(result.isOk()).toBe(true);
-      expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith({
+      expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({
         sourceName: 'bitcoin',
         since: sinceTimestamp,
         includeExcluded: true,
@@ -209,7 +209,7 @@ describe('ExportHandler', () => {
         outputPath: './data/transactions.csv',
       };
 
-      mockTransactionRepository.getTransactions.mockResolvedValue(ok([]));
+      mockTransactionRepository.findAll.mockResolvedValue(ok([]));
 
       const result = await handler.execute(params);
 
@@ -225,7 +225,7 @@ describe('ExportHandler', () => {
         outputPath: './data/transactions.json',
       };
 
-      mockTransactionRepository.getTransactions.mockResolvedValue(ok([]));
+      mockTransactionRepository.findAll.mockResolvedValue(ok([]));
 
       const result = await handler.execute(params);
 
@@ -245,7 +245,7 @@ describe('ExportHandler', () => {
       };
 
       const dbError = new Error('Database connection failed');
-      mockTransactionRepository.getTransactions.mockResolvedValue(err(dbError));
+      mockTransactionRepository.findAll.mockResolvedValue(err(dbError));
 
       const result = await handler.execute(params);
 
@@ -260,7 +260,7 @@ describe('ExportHandler', () => {
         outputPath: './data/transactions.csv',
       };
 
-      mockTransactionRepository.getTransactions.mockRejectedValue(new Error('Unexpected error'));
+      mockTransactionRepository.findAll.mockRejectedValue(new Error('Unexpected error'));
 
       const result = await handler.execute(params);
 
@@ -274,7 +274,7 @@ describe('ExportHandler', () => {
         outputPath: './data/transactions.csv',
       };
 
-      mockTransactionRepository.getTransactions.mockRejectedValue('String error');
+      mockTransactionRepository.findAll.mockRejectedValue('String error');
 
       const result = await handler.execute(params);
 

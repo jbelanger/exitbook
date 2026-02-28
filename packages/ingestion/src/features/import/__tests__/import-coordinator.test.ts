@@ -107,7 +107,7 @@ describe('ImportCoordinator', () => {
 
   beforeEach(() => {
     mockUserRepo = {
-      getOrCreateDefaultUser: vi.fn().mockResolvedValue(ok(mockUser)),
+      findOrCreateDefault: vi.fn().mockResolvedValue(ok(mockUser)),
     } as unknown as UserRepository;
 
     mockAccountRepo = {
@@ -526,7 +526,7 @@ describe('ImportCoordinator', () => {
     });
 
     it('should handle user creation failure', async () => {
-      vi.mocked(mockUserRepo.getOrCreateDefaultUser).mockResolvedValue(err(new Error('User creation failed')));
+      vi.mocked(mockUserRepo.findOrCreateDefault).mockResolvedValue(err(new Error('User creation failed')));
 
       const result = await orchestrator.importBlockchain('bitcoin', 'bc1q...');
 

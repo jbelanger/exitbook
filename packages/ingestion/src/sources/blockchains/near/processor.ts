@@ -250,7 +250,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
     const maxTimestamp = Math.max(...Array.from(earliestByAccount.values(), (c) => c.timestamp));
 
     const affectedAccounts = Array.from(earliestByAccount.keys());
-    const processedResult = await this.nearRawDataQueries.loadProcessedNearBalanceChangesByAccounts(
+    const processedResult = await this.nearRawDataQueries.findProcessedBalanceChangesByAccounts(
       this.accountId,
       affectedAccounts,
       maxTimestamp

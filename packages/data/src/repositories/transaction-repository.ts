@@ -371,7 +371,7 @@ export class TransactionRepository extends BaseRepository {
    * Transaction-agnostic: executes directly on this.db.
    * Callers that need atomicity should use DataContext.executeInTransaction().
    */
-  async save(
+  async create(
     transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
     accountId: number
   ): Promise<Result<number, Error>> {
@@ -429,7 +429,7 @@ export class TransactionRepository extends BaseRepository {
    * Transaction-agnostic: executes directly on this.db.
    * Callers that need atomicity should use DataContext.executeInTransaction().
    */
-  async saveBatch(
+  async createBatch(
     transactions: Omit<UniversalTransactionData, 'id' | 'accountId'>[],
     accountId: number
   ): Promise<Result<{ duplicates: number; saved: number }, Error>> {
@@ -504,9 +504,9 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  getTransactions(filters: SummaryTransactionQueryParams): Promise<Result<TransactionSummary[], Error>>;
-  getTransactions(filters?: FullTransactionQueryParams): Promise<Result<UniversalTransactionData[], Error>>;
-  async getTransactions(
+  findAll(filters: SummaryTransactionQueryParams): Promise<Result<TransactionSummary[], Error>>;
+  findAll(filters?: FullTransactionQueryParams): Promise<Result<UniversalTransactionData[], Error>>;
+  async findAll(
     filters?: FullTransactionQueryParams | SummaryTransactionQueryParams
   ): Promise<Result<UniversalTransactionData[] | TransactionSummary[], Error>> {
     try {
@@ -548,7 +548,7 @@ export class TransactionRepository extends BaseRepository {
       }
 
       const transactionIds = rows.map((r) => r.id);
-      const movementsMapResult = await this.loadMovementsForTransactions(transactionIds);
+      const movementsMapResult = await this.findMovementsForIds(transactionIds);
       if (movementsMapResult.isErr()) {
         return err(movementsMapResult.error);
       }
@@ -578,7 +578,7 @@ export class TransactionRepository extends BaseRepository {
         return ok(undefined);
       }
 
-      const movementsResult = await this.loadMovementsForTransactions([id]);
+      const movementsResult = await this.findMovementsForIds([id]);
       if (movementsResult.isErr()) {
         return err(movementsResult.error);
       }
@@ -595,7 +595,7 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  async findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransactionData[], Error>> {
+  async findNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransactionData[], Error>> {
     try {
       const query = this.db.selectFrom('transactions').selectAll().where('excluded_from_accounting', '=', false);
 
@@ -606,7 +606,7 @@ export class TransactionRepository extends BaseRepository {
       }
 
       const transactionIds = rows.map((r) => r.id);
-      const movementsMapResult = await this.loadMovementsForTransactions(transactionIds);
+      const movementsMapResult = await this.findMovementsForIds(transactionIds);
       if (movementsMapResult.isErr()) {
         return err(movementsMapResult.error);
       }
@@ -699,7 +699,7 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  async countTransactions(filters?: TransactionQueryParams): Promise<Result<number, Error>> {
+  async count(filters?: TransactionQueryParams): Promise<Result<number, Error>> {
     try {
       let query = this.db.selectFrom('transactions').select(({ fn }) => [fn.count<number>('id').as('count')]);
 
@@ -747,7 +747,7 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  async getLatestCreatedAt(): Promise<Result<Date | null, Error>> {
+  async findLatestCreatedAt(): Promise<Result<Date | null, Error>> {
     try {
       const result = await this.db
         .selectFrom('transactions')
@@ -773,9 +773,7 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  private async loadMovementsForTransactions(
-    transactionIds: number[]
-  ): Promise<Result<Map<number, MovementRow[]>, Error>> {
+  private async findMovementsForIds(transactionIds: number[]): Promise<Result<Map<number, MovementRow[]>, Error>> {
     if (transactionIds.length === 0) {
       return ok(new Map());
     }

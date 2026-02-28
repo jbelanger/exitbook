@@ -151,7 +151,7 @@ export class LinkingOrchestrator {
   > {
     this.eventBus?.emit({ type: 'load.started' });
 
-    const result = await this.transactionRepository.getTransactions();
+    const result = await this.transactionRepository.findAll();
     if (result.isErr()) return err(result.error);
 
     const transactions = result.value;
@@ -286,7 +286,7 @@ export class LinkingOrchestrator {
 
     this.eventBus?.emit({ type: 'save.started' });
 
-    const saveResult = await this.linkRepository.createBulk(linksToSave);
+    const saveResult = await this.linkRepository.createBatch(linksToSave);
     if (saveResult.isErr()) return err(saveResult.error);
 
     logger.info({ count: saveResult.value }, 'Saved links to database');

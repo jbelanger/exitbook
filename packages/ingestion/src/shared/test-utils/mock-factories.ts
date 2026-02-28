@@ -14,14 +14,14 @@ import type { ITokenMetadataService } from '../../features/token-metadata/token-
 export function createMockRawDataQueries(): Mocked<RawTransactionRepository> {
   return {
     findAll: vi.fn().mockResolvedValue(ok([])),
-    markAsProcessed: vi.fn().mockResolvedValue(ok()),
-    saveBatch: vi.fn().mockResolvedValue(ok({ inserted: 0, skipped: 0 })),
+    markProcessed: vi.fn().mockResolvedValue(ok()),
+    createBatch: vi.fn().mockResolvedValue(ok({ inserted: 0, skipped: 0 })),
     resetProcessingStatus: vi.fn().mockResolvedValue(ok(0)),
     count: vi.fn().mockResolvedValue(ok(0)),
     countByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
     deleteAll: vi.fn().mockResolvedValue(ok(0)),
     findDistinctAccountIds: vi.fn().mockResolvedValue(ok([])),
-    findByHashBatch: vi.fn().mockResolvedValue(ok([])),
+    findByHashes: vi.fn().mockResolvedValue(ok([])),
   } as unknown as Mocked<RawTransactionRepository>;
 }
 
@@ -35,7 +35,7 @@ export function createMockImportSessionQueries(): Mocked<ImportSessionRepository
     finalize: vi.fn().mockResolvedValue(ok()),
     findById: vi.fn().mockResolvedValue(ok()),
     findAll: vi.fn().mockResolvedValue(ok([])),
-    getSessionCountsByAccount: vi.fn().mockResolvedValue(ok(new Map())),
+    countByAccount: vi.fn().mockResolvedValue(ok(new Map())),
     findLatestIncomplete: vi.fn().mockResolvedValue(ok(undefined)),
     update: vi.fn().mockResolvedValue(ok()),
     count: vi.fn().mockResolvedValue(ok(0)),

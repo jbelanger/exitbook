@@ -158,7 +158,7 @@ describe('RawTransactionRepository', () => {
     });
   });
 
-  describe('findByHashBatch', () => {
+  describe('findByHashes', () => {
     beforeEach(async () => {
       await db.deleteFrom('raw_transactions').execute();
 
@@ -236,7 +236,7 @@ describe('RawTransactionRepository', () => {
     });
 
     it('returns all events for the first N distinct hashes', async () => {
-      const txs = assertOk(await repo.findByHashBatch(2, 2));
+      const txs = assertOk(await repo.findByHashes(2, 2));
 
       // 3 events from hash-1 + 2 events from hash-2
       expect(txs).toHaveLength(5);
@@ -246,7 +246,7 @@ describe('RawTransactionRepository', () => {
     });
 
     it('returns all events for a hash as a group', async () => {
-      const txs = assertOk(await repo.findByHashBatch(2, 1));
+      const txs = assertOk(await repo.findByHashes(2, 1));
 
       expect(txs).toHaveLength(3);
       expect(txs.every((t) => t.blockchainTransactionHash === 'hash-1')).toBe(true);
@@ -256,7 +256,7 @@ describe('RawTransactionRepository', () => {
     });
 
     it('returns all pending events when hash limit exceeds available hashes', async () => {
-      const txs = assertOk(await repo.findByHashBatch(2, 10));
+      const txs = assertOk(await repo.findByHashes(2, 10));
 
       // 3 + 2 + 1 = 6 pending events across 3 hashes
       expect(txs).toHaveLength(6);
@@ -266,7 +266,7 @@ describe('RawTransactionRepository', () => {
     });
 
     it('orders results by hash then by id within each hash', async () => {
-      const txs = assertOk(await repo.findByHashBatch(2, 10));
+      const txs = assertOk(await repo.findByHashes(2, 10));
 
       expect(txs.slice(0, 3).map((t) => t.blockchainTransactionHash)).toEqual(['hash-1', 'hash-1', 'hash-1']);
       expect(txs.slice(3, 5).map((t) => t.blockchainTransactionHash)).toEqual(['hash-2', 'hash-2']);
@@ -282,7 +282,7 @@ describe('RawTransactionRepository', () => {
     });
 
     it('filters by account ID', async () => {
-      const txs = assertOk(await repo.findByHashBatch(1, 10));
+      const txs = assertOk(await repo.findByHashes(1, 10));
 
       expect(txs).toHaveLength(1);
       expect(txs[0]?.accountId).toBe(1);
@@ -290,7 +290,7 @@ describe('RawTransactionRepository', () => {
     });
 
     it('excludes processed events', async () => {
-      const txs = assertOk(await repo.findByHashBatch(2, 10));
+      const txs = assertOk(await repo.findByHashes(2, 10));
 
       expect(txs.every((t) => t.blockchainTransactionHash !== 'hash-4')).toBe(true);
       expect(txs.every((t) => t.processingStatus === 'pending')).toBe(true);
@@ -302,19 +302,19 @@ describe('RawTransactionRepository', () => {
         .set({ processing_status: 'processed', processed_at: new Date().toISOString() })
         .execute();
 
-      const txs = assertOk(await repo.findByHashBatch(2, 10));
+      const txs = assertOk(await repo.findByHashes(2, 10));
       expect(txs).toHaveLength(0);
     });
 
     it('returns an empty array for a non-existent account', async () => {
-      const txs = assertOk(await repo.findByHashBatch(999, 10));
+      const txs = assertOk(await repo.findByHashes(999, 10));
       expect(txs).toHaveLength(0);
     });
 
     it('returns an error when the database is closed', async () => {
       await db.destroy();
 
-      const result = await repo.findByHashBatch(2, 10);
+      const result = await repo.findByHashes(2, 10);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

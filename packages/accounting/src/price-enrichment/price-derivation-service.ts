@@ -52,7 +52,7 @@ export class PriceDerivationService {
 
       // Get full transaction data - we must process ALL transactions even if none need prices
       // because Pass N+2 recalculates ratios for swaps that already have fetched prices
-      const allTransactionsResult = await this.db.transactions.getTransactions();
+      const allTransactionsResult = await this.db.transactions.findAll();
       if (allTransactionsResult.isErr()) {
         return err(allTransactionsResult.error);
       }

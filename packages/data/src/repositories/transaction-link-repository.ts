@@ -118,7 +118,7 @@ export class TransactionLinkRepository extends BaseRepository {
     }
   }
 
-  async createBulk(links: NewTransactionLink[]): Promise<Result<number, Error>> {
+  async createBatch(links: NewTransactionLink[]): Promise<Result<number, Error>> {
     try {
       if (links.length === 0) {
         return ok(0);
@@ -325,7 +325,7 @@ export class TransactionLinkRepository extends BaseRepository {
     }
   }
 
-  async getLatestCreatedAt(): Promise<Result<Date | null, Error>> {
+  async findLatestCreatedAt(): Promise<Result<Date | null, Error>> {
     try {
       const result = await this.db
         .selectFrom('transaction_links')

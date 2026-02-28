@@ -87,7 +87,7 @@ export class ClearService {
           accountsCount = accountsToClear.length;
         }
 
-        const transactionsResult = await this.db.transactions.countTransactions({
+        const transactionsResult = await this.db.transactions.count({
           accountIds,
           includeExcluded: true,
         });
@@ -127,7 +127,7 @@ export class ClearService {
           rawDataCount = rawDataResult.value;
         }
 
-        const transactionsResult = await this.db.transactions.countTransactions({ includeExcluded: true });
+        const transactionsResult = await this.db.transactions.count({ includeExcluded: true });
         if (transactionsResult.isErr()) {
           return err(transactionsResult.error);
         }
@@ -312,7 +312,7 @@ export class ClearService {
    */
   private async resolveAccounts(params: ClearServiceParams): Promise<Result<ResolvedAccount[], Error>> {
     // 1. Ensure default user exists (id=1)
-    const userResult = await this.db.users.getOrCreateDefaultUser();
+    const userResult = await this.db.users.findOrCreateDefault();
     if (userResult.isErr()) {
       return err(userResult.error);
     }

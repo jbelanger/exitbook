@@ -55,7 +55,7 @@ describe('PriceEnrichmentService', () => {
       const { accountId } = await setupPrerequisites(db);
 
       // tx1: BTC/USD trade — BTC price CAN be derived from USD outflow
-      const tx1Result = await db.transactions.save(
+      const tx1Result = await db.transactions.create(
         {
           externalId: 'tx-1',
           datetime: '2024-01-01T10:00:00.000Z',
@@ -77,7 +77,7 @@ describe('PriceEnrichmentService', () => {
       if (tx1Result.isErr()) throw tx1Result.error;
 
       // tx2: SOL/ADA crypto-crypto trade — no price can be derived
-      const tx2Result = await db.transactions.save(
+      const tx2Result = await db.transactions.create(
         {
           externalId: 'tx-2',
           datetime: '2024-01-01T11:00:00.000Z',
@@ -127,7 +127,7 @@ describe('PriceEnrichmentService', () => {
       const depositTime = new Date(baseTime.getTime() + 120_000).toISOString();
 
       // BTC withdrawal from Kraken — already has a priced outflow (derived-trade)
-      const withdrawalResult = await db.transactions.save(
+      const withdrawalResult = await db.transactions.create(
         {
           externalId: 'tx-2',
           datetime: withdrawalTime,
@@ -159,7 +159,7 @@ describe('PriceEnrichmentService', () => {
       const withdrawalTxId = withdrawalResult.value;
 
       // BTC deposit on Bitcoin blockchain — no price yet
-      const depositSaveResult = await db.transactions.save(
+      const depositSaveResult = await db.transactions.create(
         {
           externalId: 'tx-3',
           datetime: depositTime,
@@ -231,7 +231,7 @@ describe('PriceEnrichmentService', () => {
       const baseTime = new Date('2024-01-01T10:00:00.000Z');
 
       // tx1: BTC withdrawal — priced outflow
-      const tx1Result = await db.transactions.save(
+      const tx1Result = await db.transactions.create(
         {
           externalId: 'tx-1',
           datetime: baseTime.toISOString(),
@@ -263,7 +263,7 @@ describe('PriceEnrichmentService', () => {
       const tx1Id = tx1Result.value;
 
       // tx2: BTC deposit — no price
-      const tx2Result = await db.transactions.save(
+      const tx2Result = await db.transactions.create(
         {
           externalId: 'tx-2',
           datetime: new Date(baseTime.getTime() + 60_000).toISOString(),
@@ -322,7 +322,7 @@ describe('PriceEnrichmentService', () => {
     it('should handle transactions with no movements', async () => {
       const { accountId } = await setupPrerequisites(db);
 
-      const txResult = await db.transactions.save(
+      const txResult = await db.transactions.create(
         {
           externalId: 'tx-1',
           datetime: '2024-01-01T10:00:00.000Z',

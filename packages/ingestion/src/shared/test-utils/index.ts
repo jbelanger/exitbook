@@ -25,7 +25,7 @@
  *
  * // Use mock factories
  * const mockRepo = createMockRawDataQueries();
- * mockRepo.saveBatch.mockResolvedValue(ok(2));
+ * mockRepo.createBatch.mockResolvedValue(ok(2));
  *
  * // Use builders
  * const entry = new ExchangeEntryBuilder()

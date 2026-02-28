@@ -321,7 +321,7 @@ export class BalanceService {
       }
 
       // Fetch ALL transactions for all accounts in one query (avoids N+1)
-      const transactionsResult: Result<UniversalTransactionData[], Error> = await this.db.transactions.getTransactions({
+      const transactionsResult: Result<UniversalTransactionData[], Error> = await this.db.transactions.findAll({
         accountIds,
       });
 
@@ -444,7 +444,7 @@ export class BalanceService {
       }
 
       // Fetch ALL excluded transactions for all accounts in one query (avoids N+1)
-      const excludedTxResult: Result<UniversalTransactionData[], Error> = await this.db.transactions.getTransactions({
+      const excludedTxResult: Result<UniversalTransactionData[], Error> = await this.db.transactions.findAll({
         accountIds,
         includeExcluded: true, // Must include to get the excluded ones
       });

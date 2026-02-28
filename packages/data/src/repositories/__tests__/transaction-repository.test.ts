@@ -75,7 +75,7 @@ describe('TransactionRepository', () => {
     });
   });
 
-  describe('getTransactions — spam/excluded filtering', () => {
+  describe('findAll — spam/excluded filtering', () => {
     beforeEach(async () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
@@ -175,19 +175,19 @@ describe('TransactionRepository', () => {
     });
 
     it('excludes spam/excluded transactions by default', async () => {
-      const txs = assertOk(await repo.getTransactions({ accountId: 1 }));
+      const txs = assertOk(await repo.findAll({ accountId: 1 }));
 
       expect(txs).toHaveLength(3);
       expect(txs.every((tx) => !tx.notes?.some((n) => n.type === 'SCAM_TOKEN'))).toBe(true);
     });
 
     it('excludes spam/excluded transactions when includeExcluded is false', async () => {
-      const txs = assertOk(await repo.getTransactions({ accountId: 1, includeExcluded: false }));
+      const txs = assertOk(await repo.findAll({ accountId: 1, includeExcluded: false }));
       expect(txs).toHaveLength(3);
     });
 
     it('includes spam/excluded transactions when includeExcluded is true', async () => {
-      const txs = assertOk(await repo.getTransactions({ accountId: 1, includeExcluded: true }));
+      const txs = assertOk(await repo.findAll({ accountId: 1, includeExcluded: true }));
 
       expect(txs).toHaveLength(5);
       const scamTxs = txs.filter((tx) => tx.notes?.some((n) => n.type === 'SCAM_TOKEN'));
@@ -235,7 +235,7 @@ describe('TransactionRepository', () => {
         timestamp: Date.now(),
       };
 
-      assertOk(await repo.save(tx, 1));
+      assertOk(await repo.create(tx, 1));
 
       const row = await db
         .selectFrom('transactions')
@@ -270,7 +270,7 @@ describe('TransactionRepository', () => {
         timestamp: Date.now(),
       };
 
-      assertOk(await repo.save(tx, 1));
+      assertOk(await repo.create(tx, 1));
 
       const row = await db
         .selectFrom('transactions')
@@ -304,7 +304,7 @@ describe('TransactionRepository', () => {
         timestamp: Date.now(),
       };
 
-      assertOk(await repo.save(tx, 1));
+      assertOk(await repo.create(tx, 1));
 
       const row = await db
         .selectFrom('transactions')
@@ -329,7 +329,7 @@ describe('TransactionRepository', () => {
         timestamp: Date.now(),
       };
 
-      assertOk(await repo.save(tx, 1));
+      assertOk(await repo.create(tx, 1));
 
       const row = await db
         .selectFrom('transactions')
@@ -354,7 +354,7 @@ describe('TransactionRepository', () => {
         timestamp: Date.now(),
       };
 
-      assertOk(await repo.save(tx, 1));
+      assertOk(await repo.create(tx, 1));
 
       const row = await db
         .selectFrom('transactions')

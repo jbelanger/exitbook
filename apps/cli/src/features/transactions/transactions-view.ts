@@ -130,7 +130,7 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
         includeExcluded: true,
       };
 
-      const txResult = await database.transactions.getTransactions(filters);
+      const txResult = await database.transactions.findAll(filters);
       if (txResult.isErr()) {
         console.error('\n⚠ Error:', txResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
@@ -241,7 +241,7 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
         includeExcluded: true,
       };
 
-      const txResult = await database.transactions.getTransactions(filters);
+      const txResult = await database.transactions.findAll(filters);
       if (txResult.isErr()) {
         displayCliError('view-transactions', txResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;

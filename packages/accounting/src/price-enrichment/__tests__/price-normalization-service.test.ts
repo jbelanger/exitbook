@@ -59,7 +59,7 @@ describe('PriceNormalizationService', () => {
 
   describe('normalize()', () => {
     it('should successfully normalize EUR prices to USD', async () => {
-      const saveResult = await db.transactions.save(
+      const saveResult = await db.transactions.create(
         {
           externalId: 'test-1',
           datetime: '2023-01-15T10:00:00.000Z',
@@ -113,7 +113,7 @@ describe('PriceNormalizationService', () => {
     });
 
     it('should skip USD prices (already normalized)', async () => {
-      const saveResult = await db.transactions.save(
+      const saveResult = await db.transactions.create(
         {
           externalId: 'test-1',
           datetime: '2023-01-15T10:00:00.000Z',
@@ -155,7 +155,7 @@ describe('PriceNormalizationService', () => {
     });
 
     it('should skip crypto prices (BTC priced in ETH)', async () => {
-      const saveResult = await db.transactions.save(
+      const saveResult = await db.transactions.create(
         {
           externalId: 'test-1',
           datetime: '2023-01-15T10:00:00.000Z',
@@ -197,7 +197,7 @@ describe('PriceNormalizationService', () => {
     });
 
     it('should handle FX rate fetch failures gracefully', async () => {
-      const saveResult = await db.transactions.save(
+      const saveResult = await db.transactions.create(
         {
           externalId: 'test-1',
           datetime: '2023-01-15T10:00:00.000Z',
@@ -241,7 +241,7 @@ describe('PriceNormalizationService', () => {
     });
 
     it('should normalize multiple currencies in a single transaction', async () => {
-      const saveResult = await db.transactions.save(
+      const saveResult = await db.transactions.create(
         {
           externalId: 'test-1',
           datetime: '2023-01-15T10:00:00.000Z',
@@ -303,7 +303,7 @@ describe('PriceNormalizationService', () => {
     });
 
     it('should normalize platform fees with non-USD fiat prices', async () => {
-      const saveResult = await db.transactions.save(
+      const saveResult = await db.transactions.create(
         {
           externalId: 'test-1',
           datetime: '2023-01-15T10:00:00.000Z',
@@ -362,7 +362,7 @@ describe('PriceNormalizationService', () => {
     });
 
     it('should normalize network fees with non-USD fiat prices', async () => {
-      const saveResult = await db.transactions.save(
+      const saveResult = await db.transactions.create(
         {
           externalId: 'test-1',
           datetime: '2023-01-15T10:00:00.000Z',
@@ -421,7 +421,7 @@ describe('PriceNormalizationService', () => {
     });
 
     it('should skip movements without prices', async () => {
-      const saveResult = await db.transactions.save(
+      const saveResult = await db.transactions.create(
         {
           externalId: 'test-1',
           datetime: '2023-01-15T10:00:00.000Z',
@@ -458,7 +458,7 @@ describe('PriceNormalizationService', () => {
 
     it('should process multiple transactions correctly', async () => {
       // tx1: BTC with EUR price — needs normalization
-      const tx1Result = await db.transactions.save(
+      const tx1Result = await db.transactions.create(
         {
           externalId: 'test-1',
           datetime: '2023-01-15T10:00:00.000Z',
@@ -489,7 +489,7 @@ describe('PriceNormalizationService', () => {
       if (tx1Result.isErr()) throw tx1Result.error;
 
       // tx2: ETH with USD price — already normalized, skip
-      const tx2Result = await db.transactions.save(
+      const tx2Result = await db.transactions.create(
         {
           externalId: 'test-2',
           datetime: '2023-01-16T10:00:00.000Z',

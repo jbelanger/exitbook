@@ -125,7 +125,7 @@ export class RawTransactionRepository extends BaseRepository {
     }
   }
 
-  async markAsProcessed(rawTransactionIds: number[]): Promise<Result<void, Error>> {
+  async markProcessed(rawTransactionIds: number[]): Promise<Result<void, Error>> {
     if (rawTransactionIds.length === 0) {
       return ok();
     }
@@ -148,7 +148,7 @@ export class RawTransactionRepository extends BaseRepository {
     }
   }
 
-  async saveBatch(
+  async createBatch(
     accountId: number,
     items: RawTransactionInput[]
   ): Promise<Result<{ inserted: number; skipped: number }, Error>> {
@@ -308,7 +308,7 @@ export class RawTransactionRepository extends BaseRepository {
     }
   }
 
-  async findByHashBatch(accountId: number, hashLimit: number): Promise<Result<RawTransaction[], Error>> {
+  async findByHashes(accountId: number, hashLimit: number): Promise<Result<RawTransaction[], Error>> {
     try {
       const hashesSubquery = this.db
         .selectFrom('raw_transactions')

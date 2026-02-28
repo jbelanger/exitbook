@@ -144,7 +144,7 @@ export class CostBasisHandler {
       return err(new Error('Start date and end date must be defined'));
     }
 
-    const transactionsResult = await this.db.transactions.getTransactions();
+    const transactionsResult = await this.db.transactions.findAll();
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);
     }

@@ -76,9 +76,9 @@ describe('UserRepository', () => {
     });
   });
 
-  describe('getOrCreateDefaultUser', () => {
+  describe('findOrCreateDefault', () => {
     it('creates default user (id=1) when it does not exist', async () => {
-      const user = assertOk(await repo.getOrCreateDefaultUser());
+      const user = assertOk(await repo.findOrCreateDefault());
 
       expect(user.id).toBe(1);
       expect(user.createdAt).toBeInstanceOf(Date);
@@ -88,8 +88,8 @@ describe('UserRepository', () => {
     });
 
     it('returns the existing default user without creating a duplicate', async () => {
-      const first = assertOk(await repo.getOrCreateDefaultUser());
-      const second = assertOk(await repo.getOrCreateDefaultUser());
+      const first = assertOk(await repo.findOrCreateDefault());
+      const second = assertOk(await repo.findOrCreateDefault());
 
       expect(second.id).toBe(1);
       expect(second.createdAt).toEqual(first.createdAt);
@@ -100,9 +100,9 @@ describe('UserRepository', () => {
 
     it('is idempotent across multiple sequential calls', async () => {
       // Sequential — concurrent calls can race on INSERT (SQLite has no upsert here)
-      const result1 = assertOk(await repo.getOrCreateDefaultUser());
-      const result2 = assertOk(await repo.getOrCreateDefaultUser());
-      const result3 = assertOk(await repo.getOrCreateDefaultUser());
+      const result1 = assertOk(await repo.findOrCreateDefault());
+      const result2 = assertOk(await repo.findOrCreateDefault());
+      const result3 = assertOk(await repo.findOrCreateDefault());
 
       expect(result1.id).toBe(1);
       expect(result2.id).toBe(1);
@@ -116,7 +116,7 @@ describe('UserRepository', () => {
     it('returns an error when the database is closed', async () => {
       await db.destroy();
 
-      const result = await repo.getOrCreateDefaultUser();
+      const result = await repo.findOrCreateDefault();
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

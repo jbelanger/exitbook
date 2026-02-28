@@ -392,7 +392,7 @@ export class BalanceHandler {
       logger.warn(`Failed to load child accounts for account #${account.id}: ${childResult.error.message}`);
     }
 
-    const txResult = await this.db.transactions.getTransactions({ accountIds });
+    const txResult = await this.db.transactions.findAll({ accountIds });
     if (txResult.isErr()) {
       logger.warn(`Failed to load transactions for account #${account.id}: ${txResult.error.message}`);
       return [];

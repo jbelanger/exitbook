@@ -81,7 +81,7 @@ export class PriceNormalizationService {
       logger.info('Starting price normalization (non-USD fiat → USD)');
 
       // Get all transactions (we need to check all for non-USD fiat prices)
-      const txResult = await this.db.transactions.getTransactions();
+      const txResult = await this.db.transactions.findAll();
       if (txResult.isErr()) {
         return err(txResult.error);
       }

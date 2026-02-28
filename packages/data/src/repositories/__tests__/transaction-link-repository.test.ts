@@ -134,7 +134,7 @@ describe('TransactionLinkRepository', () => {
     });
   });
 
-  describe('createBulk', () => {
+  describe('createBatch', () => {
     it('creates multiple links and returns the count', async () => {
       const links: NewTransactionLink[] = [
         makeBtcLink(1, 2),
@@ -157,7 +157,7 @@ describe('TransactionLinkRepository', () => {
         },
       ];
 
-      expect(assertOk(await repo.createBulk(links))).toBe(2);
+      expect(assertOk(await repo.createBatch(links))).toBe(2);
 
       const all = assertOk(await repo.findAll());
       expect(all).toHaveLength(2);

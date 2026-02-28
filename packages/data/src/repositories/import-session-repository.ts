@@ -147,7 +147,7 @@ export class ImportSessionRepository extends BaseRepository {
     }
   }
 
-  async getSessionCountsByAccount(accountIds: number[]): Promise<Result<Map<number, number>, Error>> {
+  async countByAccount(accountIds: number[]): Promise<Result<Map<number, number>, Error>> {
     try {
       if (accountIds.length === 0) {
         return ok(new Map());

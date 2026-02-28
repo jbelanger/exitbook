@@ -58,7 +58,7 @@ export class ImportCoordinator {
     this.logger.debug(`Starting blockchain import for ${blockchain} (${addressOrXpub.substring(0, 20)}...)`);
 
     // 1. Ensure default CLI user exists (id=1)
-    const userResult = await this.db.users.getOrCreateDefaultUser();
+    const userResult = await this.db.users.findOrCreateDefault();
     if (userResult.isErr()) {
       return err(userResult.error);
     }
@@ -122,7 +122,7 @@ export class ImportCoordinator {
     }
 
     // 1. Ensure default CLI user exists (id=1)
-    const userResult = await this.db.users.getOrCreateDefaultUser();
+    const userResult = await this.db.users.findOrCreateDefault();
     if (userResult.isErr()) {
       return err(userResult.error);
     }
@@ -164,7 +164,7 @@ export class ImportCoordinator {
     const normalizedPath = path.normalize(csvDirectory).replace(/[/\\]$/, '');
 
     // 1. Ensure default CLI user exists (id=1)
-    const userResult = await this.db.users.getOrCreateDefaultUser();
+    const userResult = await this.db.users.findOrCreateDefault();
     if (userResult.isErr()) {
       return err(userResult.error);
     }

@@ -68,14 +68,14 @@ describe('LinkingOrchestrator', () => {
     };
 
     const transactionRepository = {
-      getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      findAll: vi.fn().mockResolvedValue(ok(transactions)),
     } as unknown as TransactionRepository;
 
     const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
     const linkRepository = {
       count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBulk: mockCreateBulk,
+      createBatch: mockCreateBulk,
     } as unknown as TransactionLinkRepository;
 
     const overrideStore = {
@@ -103,13 +103,13 @@ describe('LinkingOrchestrator', () => {
     vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(err(new Error('linking failed')));
 
     const transactionRepository = {
-      getTransactions: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
+      findAll: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
     } as unknown as TransactionRepository;
 
     const linkRepository = {
       count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBulk: vi.fn().mockResolvedValue(ok(0)),
+      createBatch: vi.fn().mockResolvedValue(ok(0)),
     } as unknown as TransactionLinkRepository;
 
     const handler = new LinkingOrchestrator(transactionRepository, linkRepository);
@@ -166,13 +166,13 @@ describe('LinkingOrchestrator', () => {
     ];
 
     const transactionRepository = {
-      getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      findAll: vi.fn().mockResolvedValue(ok(transactions)),
     } as unknown as TransactionRepository;
 
     const linkRepository = {
       count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBulk: vi.fn().mockResolvedValue(ok(1)),
+      createBatch: vi.fn().mockResolvedValue(ok(1)),
     } as unknown as TransactionLinkRepository;
 
     const emittedEvents: LinkingEvent[] = [];
@@ -224,13 +224,13 @@ describe('LinkingOrchestrator', () => {
     );
 
     const transactionRepository = {
-      getTransactions: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
+      findAll: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
     } as unknown as TransactionRepository;
 
     const linkRepository = {
       count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBulk: vi.fn(),
+      createBatch: vi.fn(),
     } as unknown as TransactionLinkRepository;
 
     const emittedEvents: LinkingEvent[] = [];
@@ -275,13 +275,13 @@ describe('LinkingOrchestrator', () => {
     );
 
     const transactionRepository = {
-      getTransactions: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
+      findAll: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
     } as unknown as TransactionRepository;
 
     const linkRepository = {
       count: vi.fn().mockResolvedValue(ok(2)),
       deleteAll: vi.fn().mockResolvedValue(err(new Error('delete failed'))),
-      createBulk: vi.fn(),
+      createBatch: vi.fn(),
     } as unknown as TransactionLinkRepository;
 
     const handler = new LinkingOrchestrator(transactionRepository, linkRepository);
@@ -346,14 +346,14 @@ describe('LinkingOrchestrator', () => {
     };
 
     const transactionRepository = {
-      getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      findAll: vi.fn().mockResolvedValue(ok(transactions)),
     } as unknown as TransactionRepository;
 
     const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
     const linkRepository = {
       count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBulk: mockCreateBulk,
+      createBatch: mockCreateBulk,
     } as unknown as TransactionLinkRepository;
 
     const overrideStore = {
@@ -429,14 +429,14 @@ describe('LinkingOrchestrator', () => {
     };
 
     const transactionRepository = {
-      getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      findAll: vi.fn().mockResolvedValue(ok(transactions)),
     } as unknown as TransactionRepository;
 
     const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
     const linkRepository = {
       count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBulk: mockCreateBulk,
+      createBatch: mockCreateBulk,
     } as unknown as TransactionLinkRepository;
 
     const overrideStore = {
@@ -507,14 +507,14 @@ describe('LinkingOrchestrator', () => {
     };
 
     const transactionRepository = {
-      getTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      findAll: vi.fn().mockResolvedValue(ok(transactions)),
     } as unknown as TransactionRepository;
 
     const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
     const linkRepository = {
       count: vi.fn().mockResolvedValue(ok(0)),
       deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBulk: mockCreateBulk,
+      createBatch: mockCreateBulk,
     } as unknown as TransactionLinkRepository;
 
     const overrideStore = {

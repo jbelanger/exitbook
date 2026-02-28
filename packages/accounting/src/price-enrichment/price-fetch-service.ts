@@ -67,7 +67,7 @@ export class PriceFetchService {
     const assetFilter = assetFilterResult.value?.map((c) => c.toString());
 
     // Query transactions needing prices
-    const transactionsResult = await this.db.transactions.findTransactionsNeedingPrices(assetFilter);
+    const transactionsResult = await this.db.transactions.findNeedingPrices(assetFilter);
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);
     }

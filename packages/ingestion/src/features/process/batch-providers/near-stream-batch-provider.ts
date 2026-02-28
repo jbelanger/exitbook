@@ -32,7 +32,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
     }
 
     // 1) Anchor on transaction hashes from transactions + receipts + token-transfers
-    const hashesResult = await this.nearRawDataQueries.loadPendingNearAnchorHashes(this.accountId, this.hashBatchSize);
+    const hashesResult = await this.nearRawDataQueries.findPendingAnchorHashes(this.accountId, this.hashBatchSize);
     if (hashesResult.isErr()) {
       return err(hashesResult.error);
     }
@@ -44,7 +44,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
     }
 
     // 2) Load all pending rows for those hashes
-    const baseResult = await this.nearRawDataQueries.loadPendingByHashes(this.accountId, hashes);
+    const baseResult = await this.nearRawDataQueries.findPendingByHashes(this.accountId, hashes);
     if (baseResult.isErr()) {
       return baseResult;
     }
@@ -63,7 +63,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
     // 4) Fetch balance-changes missing transactionHash linked by receiptId via JSON1
     const extraRows: RawTransaction[] = [];
     if (receiptIds.size > 0) {
-      const extraResult = await this.nearRawDataQueries.loadPendingNearByReceiptIds(this.accountId, [...receiptIds]);
+      const extraResult = await this.nearRawDataQueries.findPendingByReceiptIds(this.accountId, [...receiptIds]);
       if (extraResult.isErr()) {
         return extraResult;
       }

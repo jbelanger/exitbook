@@ -250,7 +250,7 @@ describe('ImportSessionRepository', () => {
     });
   });
 
-  describe('getSessionCountsByAccount', () => {
+  describe('countByAccount', () => {
     beforeEach(async () => {
       await insertSession(db, { accountId: 1 });
       await insertSession(db, { accountId: 1 });
@@ -258,7 +258,7 @@ describe('ImportSessionRepository', () => {
     });
 
     it('returns counts for all requested accounts and fills missing with 0', async () => {
-      const counts = assertOk(await repo.getSessionCountsByAccount([1, 2, 999]));
+      const counts = assertOk(await repo.countByAccount([1, 2, 999]));
 
       expect(counts.get(1)).toBe(2);
       expect(counts.get(2)).toBe(1);
@@ -266,14 +266,14 @@ describe('ImportSessionRepository', () => {
     });
 
     it('returns an empty map for empty account list', async () => {
-      const counts = assertOk(await repo.getSessionCountsByAccount([]));
+      const counts = assertOk(await repo.countByAccount([]));
       expect(counts.size).toBe(0);
     });
 
     it('returns an error when the database is closed', async () => {
       await db.destroy();
 
-      const result = await repo.getSessionCountsByAccount([1, 2]);
+      const result = await repo.countByAccount([1, 2]);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

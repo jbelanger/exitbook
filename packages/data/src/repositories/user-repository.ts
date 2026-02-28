@@ -59,7 +59,7 @@ export class UserRepository extends BaseRepository {
     }
   }
 
-  async getOrCreateDefaultUser(): Promise<Result<User, Error>> {
+  async findOrCreateDefault(): Promise<Result<User, Error>> {
     try {
       const existingResult = await this.findById(1);
       if (existingResult.isErr()) {
