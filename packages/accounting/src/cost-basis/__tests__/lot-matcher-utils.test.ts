@@ -1,14 +1,14 @@
-import type { FeeMovement } from '@exitbook/core';
-import {
-  type Currency,
-  parseDecimal,
-  type AssetMovement,
-  type PriceAtTxTime,
-  type UniversalTransactionData,
-} from '@exitbook/core';
+import { type AssetMovement, type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
+import {
+  createFeeMovement,
+  createMovement,
+  createPriceAtTxTime,
+  createTransactionFromMovements,
+} from '../../../__tests__/test-utils.js';
 import type { TransactionLink } from '../../linking/types.js';
 import {
   sortTransactionsByDependency,
@@ -28,98 +28,6 @@ import {
   calculateTargetCostBasis,
 } from '../lot-matcher-utils.js';
 import type { LotTransfer } from '../schemas.js';
-
-// Helper functions
-function createMockTransaction(
-  id: number,
-  datetime: string,
-  movements: { inflows?: AssetMovement[]; outflows?: AssetMovement[] },
-  fees: FeeMovement[] = []
-): UniversalTransactionData {
-  return {
-    id,
-    accountId: 1,
-    externalId: `ext-${id}`,
-    source: 'test',
-    sourceType: 'exchange',
-    datetime,
-    timestamp: new Date(datetime).getTime(),
-    status: 'success',
-    movements,
-    fees,
-    operation: {
-      category: 'trade',
-      type: 'buy',
-    },
-  };
-}
-
-function createMovement(
-  assetSymbol: string,
-  amount: string,
-  priceAmount?: string,
-  priceCurrency = 'USD'
-): AssetMovement {
-  const movement: AssetMovement = {
-    assetId: `test:${assetSymbol.toLowerCase()}`,
-    assetSymbol: assetSymbol as Currency,
-    grossAmount: new Decimal(amount),
-  };
-
-  if (priceAmount !== undefined) {
-    movement.priceAtTxTime = {
-      price: {
-        amount: new Decimal(priceAmount),
-        currency: priceCurrency as Currency,
-      },
-      source: 'test',
-      fetchedAt: new Date(),
-    };
-  }
-
-  return movement;
-}
-
-function createFeeMovement(
-  scope: 'network' | 'platform' | 'spread' | 'tax' | 'other',
-  settlement: 'on-chain' | 'balance' | 'external',
-  assetSymbol: string,
-  amount: string,
-  priceAmount?: string,
-  priceCurrency = 'USD'
-): FeeMovement {
-  const movement: FeeMovement = {
-    assetId: `test:${assetSymbol.toLowerCase()}`,
-    scope,
-    settlement,
-    assetSymbol: assetSymbol as Currency,
-    amount: new Decimal(amount),
-  };
-
-  if (priceAmount !== undefined) {
-    movement.priceAtTxTime = {
-      price: {
-        amount: new Decimal(priceAmount),
-        currency: priceCurrency as Currency,
-      },
-      source: 'test',
-      fetchedAt: new Date(),
-    };
-  }
-
-  return movement;
-}
-
-function createPriceAtTxTime(amount: string, currency = 'USD'): PriceAtTxTime {
-  return {
-    price: {
-      amount: new Decimal(amount),
-      currency: currency as Currency,
-    },
-    source: 'test',
-    fetchedAt: new Date(),
-  };
-}
 
 function createTransactionLink(
   id: number,
@@ -156,115 +64,112 @@ function createTransactionLink(
 describe('lot-matcher-utils', () => {
   describe('sortTransactionsByDependency', () => {
     it('should return chronological order when links empty', () => {
-      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
-      const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
-      const tx3 = createMockTransaction(3, '2024-01-01T12:00:00Z', {});
+      const tx1 = createTransactionFromMovements(1, '2024-01-01T10:00:00Z', {});
+      const tx2 = createTransactionFromMovements(2, '2024-01-01T11:00:00Z', {});
+      const tx3 = createTransactionFromMovements(3, '2024-01-01T12:00:00Z', {});
 
       const result = sortTransactionsByDependency([tx3, tx1, tx2], []);
+      const sortedTransactions = assertOk(result);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2, 3]);
+      expect(sortedTransactions.map((tx) => tx.id)).toEqual([1, 2, 3]);
     });
 
     it('should enforce source-before-target regardless of timestamp', () => {
-      const tx1 = createMockTransaction(1, '2024-01-01T12:00:00Z', {}); // Later timestamp
-      const tx2 = createMockTransaction(2, '2024-01-01T10:00:00Z', {}); // Earlier timestamp
+      const tx1 = createTransactionFromMovements(1, '2024-01-01T12:00:00Z', {}); // Later timestamp
+      const tx2 = createTransactionFromMovements(2, '2024-01-01T10:00:00Z', {}); // Earlier timestamp
       const link = createTransactionLink(1, 1, 2, 'BTC', '1', '1'); // 1 → 2
 
       const result = sortTransactionsByDependency([tx2, tx1], [link]);
+      const sortedTransactions = assertOk(result);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2]); // Dependency overrides timestamp
+      expect(sortedTransactions.map((tx) => tx.id)).toEqual([1, 2]); // Dependency overrides timestamp
     });
 
     it('should break ties by tx id when datetime equal', () => {
-      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
-      const tx2 = createMockTransaction(2, '2024-01-01T10:00:00Z', {}); // Same timestamp
-      const tx3 = createMockTransaction(3, '2024-01-01T10:00:00Z', {}); // Same timestamp
+      const tx1 = createTransactionFromMovements(1, '2024-01-01T10:00:00Z', {});
+      const tx2 = createTransactionFromMovements(2, '2024-01-01T10:00:00Z', {}); // Same timestamp
+      const tx3 = createTransactionFromMovements(3, '2024-01-01T10:00:00Z', {}); // Same timestamp
 
       const result = sortTransactionsByDependency([tx3, tx1, tx2], []);
+      const sortedTransactions = assertOk(result);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2, 3]); // Sorted by ID
+      expect(sortedTransactions.map((tx) => tx.id)).toEqual([1, 2, 3]); // Sorted by ID
     });
 
     it('should ignore links not in provided tx set', () => {
-      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
-      const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
+      const tx1 = createTransactionFromMovements(1, '2024-01-01T10:00:00Z', {});
+      const tx2 = createTransactionFromMovements(2, '2024-01-01T11:00:00Z', {});
       const linkToExternal = createTransactionLink(1, 1, 999, 'BTC', '1', '1'); // 1 → 999 (not in set)
 
       const result = sortTransactionsByDependency([tx2, tx1], [linkToExternal]);
+      const sortedTransactions = assertOk(result);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2]); // Chronological (link ignored)
+      expect(sortedTransactions.map((tx) => tx.id)).toEqual([1, 2]); // Chronological (link ignored)
     });
 
     it('should ignore self-referential links', () => {
-      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
-      const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
+      const tx1 = createTransactionFromMovements(1, '2024-01-01T10:00:00Z', {});
+      const tx2 = createTransactionFromMovements(2, '2024-01-01T11:00:00Z', {});
       const selfLink = createTransactionLink(99, 1, 1, 'BTC', '1', '1');
 
       const result = sortTransactionsByDependency([tx2, tx1], [selfLink]);
+      const sortedTransactions = assertOk(result);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2]);
+      expect(sortedTransactions.map((tx) => tx.id)).toEqual([1, 2]);
     });
 
     it('should deduplicate repeated links between same transactions', () => {
-      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
-      const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
+      const tx1 = createTransactionFromMovements(1, '2024-01-01T10:00:00Z', {});
+      const tx2 = createTransactionFromMovements(2, '2024-01-01T11:00:00Z', {});
       const link1 = createTransactionLink(1, 1, 2, 'BTC', '1', '1');
       const link2 = createTransactionLink(2, 1, 2, 'BTC', '1', '1');
 
       const result = sortTransactionsByDependency([tx2, tx1], [link1, link2]);
+      const sortedTransactions = assertOk(result);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2]);
+      expect(sortedTransactions.map((tx) => tx.id)).toEqual([1, 2]);
     });
 
     it('should use datetime for tie-breaking even if timestamp differs', () => {
       const tx1: UniversalTransactionData = {
-        ...createMockTransaction(1, '2024-01-01T10:00:00Z', {}),
+        ...createTransactionFromMovements(1, '2024-01-01T10:00:00Z', {}),
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
       };
       const tx2: UniversalTransactionData = {
-        ...createMockTransaction(2, '2024-01-01T11:00:00Z', {}),
+        ...createTransactionFromMovements(2, '2024-01-01T11:00:00Z', {}),
         timestamp: Date.parse('2024-01-01T09:00:00Z'),
       };
 
       const result = sortTransactionsByDependency([tx2, tx1], []);
+      const sortedTransactions = assertOk(result);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2]);
+      expect(sortedTransactions.map((tx) => tx.id)).toEqual([1, 2]);
     });
 
     it('should return error with unresolved tx ids on cycle', () => {
-      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {});
-      const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {});
+      const tx1 = createTransactionFromMovements(1, '2024-01-01T10:00:00Z', {});
+      const tx2 = createTransactionFromMovements(2, '2024-01-01T11:00:00Z', {});
       const link1 = createTransactionLink(1, 1, 2, 'BTC', '1', '1'); // 1 → 2
       const link2 = createTransactionLink(2, 2, 1, 'BTC', '1', '1'); // 2 → 1 (creates cycle)
 
       const result = sortTransactionsByDependency([tx1, tx2], [link1, link2]);
+      const error = assertErr(result);
 
-      expect(result.isErr()).toBe(true);
-      const error = result._unsafeUnwrapErr();
       expect(error.message).toContain('Transaction dependency cycle detected');
       expect(error.message).toMatch(/1.*2/); // Both tx IDs mentioned
     });
 
     it('should handle complex dependency chains', () => {
-      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {}); // No deps
-      const tx2 = createMockTransaction(2, '2024-01-01T11:00:00Z', {}); // Depends on 1
-      const tx3 = createMockTransaction(3, '2024-01-01T09:00:00Z', {}); // Earlier, but depends on 2
-      const tx4 = createMockTransaction(4, '2024-01-01T08:00:00Z', {}); // Earliest, no deps
+      const tx1 = createTransactionFromMovements(1, '2024-01-01T10:00:00Z', {}); // No deps
+      const tx2 = createTransactionFromMovements(2, '2024-01-01T11:00:00Z', {}); // Depends on 1
+      const tx3 = createTransactionFromMovements(3, '2024-01-01T09:00:00Z', {}); // Earlier, but depends on 2
+      const tx4 = createTransactionFromMovements(4, '2024-01-01T08:00:00Z', {}); // Earliest, no deps
 
       const link1 = createTransactionLink(1, 1, 2, 'BTC', '1', '1'); // 1 → 2
       const link2 = createTransactionLink(2, 2, 3, 'BTC', '1', '1'); // 2 → 3
 
       const result = sortTransactionsByDependency([tx3, tx4, tx1, tx2], [link1, link2]);
-
-      expect(result.isOk()).toBe(true);
-      const sorted = result._unsafeUnwrap().map((tx) => tx.id);
+      const sorted = assertOk(result).map((tx) => tx.id);
 
       // tx4 and tx1 have no dependencies, sorted by timestamp (4 is earlier)
       // Then tx2 (depends on tx1), then tx3 (depends on tx2)
@@ -273,20 +178,20 @@ describe('lot-matcher-utils', () => {
 
     it('should handle cross-asset bidirectional transfers (non-cycle)', () => {
       // A → B (deposit to exchange)
-      const tx1 = createMockTransaction(1, '2024-01-01T10:00:00Z', {}); // blockchain send
-      const tx2 = createMockTransaction(2, '2024-01-01T10:30:00Z', {}); // exchange receive
+      const tx1 = createTransactionFromMovements(1, '2024-01-01T10:00:00Z', {}); // blockchain send
+      const tx2 = createTransactionFromMovements(2, '2024-01-01T10:30:00Z', {}); // exchange receive
 
       // B → A (withdrawal from exchange) - different transaction IDs
-      const tx3 = createMockTransaction(3, '2024-01-01T14:00:00Z', {}); // exchange send
-      const tx4 = createMockTransaction(4, '2024-01-01T14:30:00Z', {}); // blockchain receive
+      const tx3 = createTransactionFromMovements(3, '2024-01-01T14:00:00Z', {}); // exchange send
+      const tx4 = createTransactionFromMovements(4, '2024-01-01T14:30:00Z', {}); // blockchain receive
 
       const link1 = createTransactionLink(1, 1, 2, 'BTC', '1', '1'); // tx1 → tx2
       const link2 = createTransactionLink(2, 3, 4, 'BTC', '1', '1'); // tx3 → tx4
 
       const result = sortTransactionsByDependency([tx1, tx2, tx3, tx4], [link1, link2]);
+      const sortedTransactions = assertOk(result);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().map((tx) => tx.id)).toEqual([1, 2, 3, 4]); // Chronological + dependency
+      expect(sortedTransactions.map((tx) => tx.id)).toEqual([1, 2, 3, 4]); // Chronological + dependency
     });
   });
 
@@ -324,7 +229,7 @@ describe('lot-matcher-utils', () => {
 
   describe('extractOnChainFees', () => {
     it('should extract only on-chain fees for specified asset', () => {
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000'),
         createFeeMovement('platform', 'balance', 'BTC', '0.0004', '50000'),
         createFeeMovement('network', 'on-chain', 'ETH', '0.002', '3000'),
@@ -336,7 +241,7 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should return zero when no on-chain fees exist', () => {
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('platform', 'balance', 'BTC', '0.0004', '50000'),
       ]);
 
@@ -346,7 +251,7 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should sum multiple on-chain fees for same asset', () => {
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000'),
         createFeeMovement('platform', 'on-chain', 'BTC', '0.0002', '50000'),
       ]);
@@ -359,138 +264,122 @@ describe('lot-matcher-utils', () => {
 
   describe('extractCryptoFee', () => {
     it('should extract network fee', () => {
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000'),
       ]);
 
       const result = extractCryptoFee(tx, 'BTC');
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.amount.toFixed()).toBe('0.001');
-        expect(result.value.feeType).toBe('network');
-        expect(result.value.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.amount.toFixed()).toBe('0.001');
+      expect(resultValue.feeType).toBe('network');
+      expect(resultValue.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
     });
 
     it('should extract platform fee', () => {
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('platform', 'on-chain', 'BTC', '0.002', '50000'),
       ]);
 
       const result = extractCryptoFee(tx, 'BTC');
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.amount.toFixed()).toBe('0.002');
-        expect(result.value.feeType).toBe('platform');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.amount.toFixed()).toBe('0.002');
+      expect(resultValue.feeType).toBe('platform');
     });
 
     it('should combine network and platform fees', () => {
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000'),
         createFeeMovement('platform', 'on-chain', 'BTC', '0.002', '50000'),
       ]);
 
       const result = extractCryptoFee(tx, 'BTC');
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.amount.toFixed()).toBe('0.003');
-        expect(result.value.feeType).toBe('network+platform');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.amount.toFixed()).toBe('0.003');
+      expect(resultValue.feeType).toBe('network+platform');
     });
 
     it('should return zero for no fees', () => {
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {});
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {});
 
       const result = extractCryptoFee(tx, 'BTC');
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.amount.toFixed()).toBe('0');
-        expect(result.value.feeType).toBe('none');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.amount.toFixed()).toBe('0');
+      expect(resultValue.feeType).toBe('none');
     });
 
     it('should return zero for fees in different asset', () => {
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('network', 'on-chain', 'ETH', '0.01', '3000'),
       ]);
 
       const result = extractCryptoFee(tx, 'BTC');
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.amount.toFixed()).toBe('0');
-        expect(result.value.feeType).toBe('none');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.amount.toFixed()).toBe('0');
+      expect(resultValue.feeType).toBe('none');
     });
   });
 
   describe('collectFiatFees', () => {
     it('should collect fiat fees from both transactions', () => {
-      const sourceTx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+      const sourceTx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('platform', 'balance', 'USD', '1.50', '1'),
       ]);
-      const targetTx = createMockTransaction(2, '2024-01-01T00:00:00Z', {}, [
+      const targetTx = createTransactionFromMovements(2, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('platform', 'balance', 'EUR', '2.00', '1.1'),
       ]);
 
       const result = collectFiatFees(sourceTx, targetTx);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.length).toBe(2);
-        expect(result.value[0]!.assetSymbol).toBe('USD');
-        expect(result.value[0]!.amount.toFixed()).toBe('1.5');
-        expect(result.value[0]!.txId).toBe(1);
-        expect(result.value[1]!.assetSymbol).toBe('EUR');
-        expect(result.value[1]!.amount.toFixed()).toBe('2');
-        expect(result.value[1]!.txId).toBe(2);
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.length).toBe(2);
+      expect(resultValue[0]!.assetSymbol).toBe('USD');
+      expect(resultValue[0]!.amount.toFixed()).toBe('1.5');
+      expect(resultValue[0]!.txId).toBe(1);
+      expect(resultValue[1]!.assetSymbol).toBe('EUR');
+      expect(resultValue[1]!.amount.toFixed()).toBe('2');
+      expect(resultValue[1]!.txId).toBe(2);
     });
 
     it('should ignore crypto fees', () => {
-      const sourceTx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+      const sourceTx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000'),
       ]);
-      const targetTx = createMockTransaction(2, '2024-01-01T00:00:00Z', {}, [
+      const targetTx = createTransactionFromMovements(2, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('platform', 'on-chain', 'ETH', '0.01', '3000'),
       ]);
 
       const result = collectFiatFees(sourceTx, targetTx);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.length).toBe(0);
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.length).toBe(0);
     });
 
     it('should return empty array for no fees', () => {
-      const sourceTx = createMockTransaction(1, '2024-01-01T00:00:00Z', {});
-      const targetTx = createMockTransaction(2, '2024-01-01T00:00:00Z', {});
+      const sourceTx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {});
+      const targetTx = createTransactionFromMovements(2, '2024-01-01T00:00:00Z', {});
 
       const result = collectFiatFees(sourceTx, targetTx);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.length).toBe(0);
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.length).toBe(0);
     });
   });
 
   describe('filterTransactionsWithoutPrices', () => {
     it('should filter transactions with missing prices on crypto movements', () => {
       const transactions = [
-        createMockTransaction(1, '2024-01-01T00:00:00Z', {
+        createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {
           inflows: [createMovement('BTC', '1', '50000')],
         }),
-        createMockTransaction(2, '2024-01-01T00:00:00Z', {
+        createTransactionFromMovements(2, '2024-01-01T00:00:00Z', {
           inflows: [createMovement('BTC', '1')], // Missing price
         }),
-        createMockTransaction(3, '2024-01-01T00:00:00Z', {
+        createTransactionFromMovements(3, '2024-01-01T00:00:00Z', {
           outflows: [createMovement('ETH', '10')], // Missing price
         }),
       ];
@@ -503,7 +392,7 @@ describe('lot-matcher-utils', () => {
 
     it('should ignore fiat movements without prices', () => {
       const transactions = [
-        createMockTransaction(1, '2024-01-01T00:00:00Z', {
+        createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {
           inflows: [createMovement('USD', '1000')], // Fiat without price - OK
           outflows: [createMovement('BTC', '1', '50000')],
         }),
@@ -516,7 +405,7 @@ describe('lot-matcher-utils', () => {
 
     it('should return empty for all priced transactions', () => {
       const transactions = [
-        createMockTransaction(1, '2024-01-01T00:00:00Z', {
+        createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {
           inflows: [createMovement('BTC', '1', '50000')],
           outflows: [createMovement('USD', '50000', '1')],
         }),
@@ -530,7 +419,7 @@ describe('lot-matcher-utils', () => {
 
   describe('calculateFeesInFiat', () => {
     it('should allocate fees proportionally to movement value', () => {
-      const tx = createMockTransaction(
+      const tx = createTransactionFromMovements(
         1,
         '2024-01-01T00:00:00Z',
         {
@@ -547,34 +436,29 @@ describe('lot-matcher-utils', () => {
 
       const btcFeeResult = calculateFeesInFiat(tx, btcMovement, true);
       const ethFeeResult = calculateFeesInFiat(tx, ethMovement, true);
+      const btcFeeValue = assertOk(btcFeeResult);
+      const ethFeeValue = assertOk(ethFeeResult);
 
-      expect(btcFeeResult.isOk()).toBe(true);
-      expect(ethFeeResult.isOk()).toBe(true);
-
-      if (btcFeeResult.isOk() && ethFeeResult.isOk()) {
-        // BTC: 50000/80000 * 80 = 50
-        expect(btcFeeResult.value.toFixed()).toBe('50');
-        // ETH: 30000/80000 * 80 = 30
-        expect(ethFeeResult.value.toFixed()).toBe('30');
-      }
+      // BTC: 50000/80000 * 80 = 50
+      expect(btcFeeValue.toFixed()).toBe('50');
+      // ETH: 30000/80000 * 80 = 30
+      expect(ethFeeValue.toFixed()).toBe('30');
     });
 
     it('should return zero for no fees', () => {
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {
         inflows: [createMovement('BTC', '1', '50000')],
       });
 
       const result = calculateFeesInFiat(tx, tx.movements.inflows![0]!, true);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.toFixed()).toBe('0');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.toFixed()).toBe('0');
     });
 
     it('should not allocate fees to fee movement itself', () => {
       const feeMovement = createMovement('BTC', '0.001', '50000');
-      const tx = createMockTransaction(
+      const tx = createTransactionFromMovements(
         1,
         '2024-01-01T00:00:00Z',
         {
@@ -585,14 +469,12 @@ describe('lot-matcher-utils', () => {
 
       const result = calculateFeesInFiat(tx, feeMovement, true);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.toFixed()).toBe('0');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.toFixed()).toBe('0');
     });
 
     it('should split fees evenly when all movements have zero value', () => {
-      const tx = createMockTransaction(
+      const tx = createTransactionFromMovements(
         1,
         '2024-01-01T00:00:00Z',
         {
@@ -607,15 +489,13 @@ describe('lot-matcher-utils', () => {
       const token1Movement = tx.movements.inflows![0]!;
       const result = calculateFeesInFiat(tx, token1Movement, true);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        // Split evenly: 10 / 2 = 5
-        expect(result.value.toFixed()).toBe('5');
-      }
+      const resultValue = assertOk(result);
+      // Split evenly: 10 / 2 = 5
+      expect(resultValue.toFixed()).toBe('5');
     });
 
     it('should handle fiat fee with same currency as movement price', () => {
-      const tx = createMockTransaction(
+      const tx = createTransactionFromMovements(
         1,
         '2024-01-01T00:00:00Z',
         {
@@ -626,15 +506,13 @@ describe('lot-matcher-utils', () => {
 
       const result = calculateFeesInFiat(tx, tx.movements.inflows![0]!, true);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        // Single BTC inflow gets ALL the $100 fee allocated to it (no other movements to split with)
-        expect(result.value.toFixed()).toBe('100');
-      }
+      const resultValue = assertOk(result);
+      // Single BTC inflow gets ALL the $100 fee allocated to it (no other movements to split with)
+      expect(resultValue.toFixed()).toBe('100');
     });
 
     it('should use fee price when available (even if fiat currency differs)', () => {
-      const tx = createMockTransaction(
+      const tx = createTransactionFromMovements(
         1,
         '2024-01-01T00:00:00Z',
         {
@@ -645,15 +523,13 @@ describe('lot-matcher-utils', () => {
 
       const result = calculateFeesInFiat(tx, tx.movements.inflows![0]!, true);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        // Fee has price: 50 EUR * $1 = $50, allocated to single BTC movement
-        expect(result.value.toFixed()).toBe('50');
-      }
+      const resultValue = assertOk(result);
+      // Fee has price: 50 EUR * $1 = $50, allocated to single BTC movement
+      expect(resultValue.toFixed()).toBe('50');
     });
 
     it('should error on crypto fee without price', () => {
-      const tx = createMockTransaction(
+      const tx = createTransactionFromMovements(
         1,
         '2024-01-01T00:00:00Z',
         {
@@ -664,14 +540,12 @@ describe('lot-matcher-utils', () => {
 
       const result = calculateFeesInFiat(tx, tx.movements.inflows![0]!, true);
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('missing priceAtTxTime');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('missing priceAtTxTime');
     });
 
     it('should allocate fees proportionally even to fiat movements with value', () => {
-      const tx = createMockTransaction(
+      const tx = createTransactionFromMovements(
         1,
         '2024-01-01T00:00:00Z',
         {
@@ -683,20 +557,18 @@ describe('lot-matcher-utils', () => {
       const usdMovement = tx.movements.inflows![1]!;
       const result = calculateFeesInFiat(tx, usdMovement, true);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        // nonFiatMovements only includes BTC (totalValue = 50000)
-        // usdMovement value = 50000
-        // Fee allocation: 10 * 50000 / 50000 = 10
-        // Note: This fee allocation won't be used for cost basis as fiat is filtered in lot matching
-        expect(result.value.toFixed()).toBe('10');
-      }
+      const resultValue = assertOk(result);
+      // nonFiatMovements only includes BTC (totalValue = 50000)
+      // usdMovement value = 50000
+      // Fee allocation: 10 * 50000 / 50000 = 10
+      // Note: This fee allocation won't be used for cost basis as fiat is filtered in lot matching
+      expect(resultValue.toFixed()).toBe('10');
     });
   });
 
   describe('buildAcquisitionLotFromInflow', () => {
     it('should create lot with cost basis including fees', () => {
-      const tx = createMockTransaction(
+      const tx = createTransactionFromMovements(
         1,
         '2024-01-01T00:00:00Z',
         {
@@ -707,48 +579,42 @@ describe('lot-matcher-utils', () => {
 
       const result = buildAcquisitionLotFromInflow(tx, tx.movements.inflows![0]!, 'calc-123', 'fifo');
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const lot = result.value;
-        expect(lot.assetSymbol).toBe('BTC');
-        expect(lot.quantity.toFixed()).toBe('1');
-        // Cost basis = (1 * 50000 + 100) / 1 = 50100
-        expect(lot.costBasisPerUnit.toFixed()).toBe('50100');
-        expect(lot.method).toBe('fifo');
-        expect(lot.acquisitionTransactionId).toBe(1);
-      }
+      const resultValue = assertOk(result);
+      const lot = resultValue;
+      expect(lot.assetSymbol).toBe('BTC');
+      expect(lot.quantity.toFixed()).toBe('1');
+      // Cost basis = (1 * 50000 + 100) / 1 = 50100
+      expect(lot.costBasisPerUnit.toFixed()).toBe('50100');
+      expect(lot.method).toBe('fifo');
+      expect(lot.acquisitionTransactionId).toBe(1);
     });
 
     it('should error on missing price', () => {
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {
         inflows: [createMovement('BTC', '1')], // No price
       });
 
       const result = buildAcquisitionLotFromInflow(tx, tx.movements.inflows![0]!, 'calc-123', 'fifo');
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('missing priceAtTxTime');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('missing priceAtTxTime');
     });
 
     it('should create lot with zero fees', () => {
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {
         inflows: [createMovement('BTC', '1', '50000')],
       });
 
       const result = buildAcquisitionLotFromInflow(tx, tx.movements.inflows![0]!, 'calc-123', 'lifo');
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.costBasisPerUnit.toFixed()).toBe('50000');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.costBasisPerUnit.toFixed()).toBe('50000');
     });
   });
 
   describe('calculateNetProceeds', () => {
     it('should NOT subtract platform fees from disposal proceeds (ADR-005)', () => {
-      const tx = createMockTransaction(
+      const tx = createTransactionFromMovements(
         1,
         '2024-01-01T00:00:00Z',
         {
@@ -759,20 +625,18 @@ describe('lot-matcher-utils', () => {
 
       const result = calculateNetProceeds(tx, tx.movements.outflows![0]!);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        // Per ADR-005: Only on-chain fees reduce disposal proceeds
-        // Platform fees (settlement='balance') are charged separately and don't affect proceeds
-        // Gross: 1 * 52000 = 52000
-        // Fee subtracted: $0 (platform fee not included)
-        // Proceeds per unit: 52000
-        expect(result.value.proceedsPerUnit.toFixed()).toBe('52000');
-        expect(result.value.totalFeeAmount.toFixed()).toBe('0');
-      }
+      const resultValue = assertOk(result);
+      // Per ADR-005: Only on-chain fees reduce disposal proceeds
+      // Platform fees (settlement='balance') are charged separately and don't affect proceeds
+      // Gross: 1 * 52000 = 52000
+      // Fee subtracted: $0 (platform fee not included)
+      // Proceeds per unit: 52000
+      expect(resultValue.proceedsPerUnit.toFixed()).toBe('52000');
+      expect(resultValue.totalFeeAmount.toFixed()).toBe('0');
     });
 
     it('should subtract on-chain fees from disposal proceeds (ADR-005)', () => {
-      const tx = createMockTransaction(
+      const tx = createTransactionFromMovements(
         1,
         '2024-01-01T00:00:00Z',
         {
@@ -783,43 +647,37 @@ describe('lot-matcher-utils', () => {
 
       const result = calculateNetProceeds(tx, tx.movements.outflows![0]!);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        // Per ADR-005: On-chain fees DO reduce disposal proceeds
-        // Gross proceeds: 1 * 3500 = 3500
-        // Fee: 0.002 * 3500 = 7
-        // Net proceeds: 3500 - 7 = 3493
-        // Per unit: 3493 / 1 = 3493
-        expect(result.value.proceedsPerUnit.toFixed()).toBe('3493');
-        expect(result.value.totalFeeAmount.toFixed()).toBe('7');
-      }
+      const resultValue = assertOk(result);
+      // Per ADR-005: On-chain fees DO reduce disposal proceeds
+      // Gross proceeds: 1 * 3500 = 3500
+      // Fee: 0.002 * 3500 = 7
+      // Net proceeds: 3500 - 7 = 3493
+      // Per unit: 3493 / 1 = 3493
+      expect(resultValue.proceedsPerUnit.toFixed()).toBe('3493');
+      expect(resultValue.totalFeeAmount.toFixed()).toBe('7');
     });
 
     it('should error on missing price', () => {
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {
         outflows: [createMovement('BTC', '1')], // No price
       });
 
       const result = calculateNetProceeds(tx, tx.movements.outflows![0]!);
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('missing priceAtTxTime');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('missing priceAtTxTime');
     });
 
     it('should handle zero fees', () => {
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {
         outflows: [createMovement('BTC', '2', '52000')],
       });
 
       const result = calculateNetProceeds(tx, tx.movements.outflows![0]!);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.proceedsPerUnit.toFixed()).toBe('52000');
-        expect(result.value.totalFeeAmount.toFixed()).toBe('0');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.proceedsPerUnit.toFixed()).toBe('52000');
+      expect(resultValue.totalFeeAmount.toFixed()).toBe('0');
     });
   });
 
@@ -827,30 +685,24 @@ describe('lot-matcher-utils', () => {
     it('should pass validation within tolerance', () => {
       const result = validateTransferVariance(parseDecimal('1'), new Decimal('1.005'), 'kraken', 1, 'BTC');
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.variancePct.toFixed(2)).toBe('0.50');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.variancePct.toFixed(2)).toBe('0.50');
     });
 
     it('should error when exceeding error threshold', () => {
       const result = validateTransferVariance(parseDecimal('1'), new Decimal('1.05'), 'kraken', 1, 'BTC');
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Transfer amount mismatch');
-        expect(result.error.message).toContain('5.00% variance');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Transfer amount mismatch');
+      expect(resultError.message).toContain('5.00% variance');
     });
 
     it('should handle zero actual amount', () => {
       const result = validateTransferVariance(parseDecimal('0'), new Decimal('1'), 'kraken', 1, 'BTC');
 
       // When actual is zero, variance is 0%
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.variancePct.toFixed()).toBe('0');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.variancePct.toFixed()).toBe('0');
     });
 
     it('should respect config override', () => {
@@ -863,7 +715,7 @@ describe('lot-matcher-utils', () => {
         { warn: 10, error: 20 } // High tolerance
       );
 
-      expect(result.isOk()).toBe(true);
+      assertOk(result);
     });
   });
 
@@ -875,13 +727,13 @@ describe('lot-matcher-utils', () => {
         grossAmount: parseDecimal('1.0'),
         netAmount: parseDecimal('0.9995'),
       };
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '50000'),
       ]);
 
       const result = validateOutflowFees(outflow, tx, 'kraken', 1);
 
-      expect(result.isOk()).toBe(true);
+      assertOk(result);
     });
 
     it('should pass when no netAmount is provided (legacy data)', () => {
@@ -890,11 +742,11 @@ describe('lot-matcher-utils', () => {
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
       };
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {});
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {});
 
       const result = validateOutflowFees(outflow, tx, 'kraken', 1);
 
-      expect(result.isOk()).toBe(true);
+      assertOk(result);
     });
 
     it('should ignore balance-settled fees when validating netAmount', () => {
@@ -904,13 +756,13 @@ describe('lot-matcher-utils', () => {
         grossAmount: parseDecimal('1.0'),
         netAmount: parseDecimal('1.0'),
       };
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('platform', 'balance', 'BTC', '0.0004', '50000'),
       ]);
 
       const result = validateOutflowFees(outflow, tx, 'kraken', 1);
 
-      expect(result.isOk()).toBe(true);
+      assertOk(result);
     });
 
     it('should error when hidden fees exceed error threshold', () => {
@@ -920,18 +772,16 @@ describe('lot-matcher-utils', () => {
         grossAmount: parseDecimal('1.0'),
         netAmount: parseDecimal('0.94'),
       };
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '50000'),
       ]);
 
       const result = validateOutflowFees(outflow, tx, 'binance', 1);
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Outflow fee validation failed');
-        expect(result.error.message).toContain('hidden fee');
-        expect(result.error.message).toContain('Exceeds error threshold');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Outflow fee validation failed');
+      expect(resultError.message).toContain('hidden fee');
+      expect(resultError.message).toContain('Exceeds error threshold');
     });
 
     it('should pass when hidden fees are within error threshold', () => {
@@ -941,11 +791,11 @@ describe('lot-matcher-utils', () => {
         grossAmount: parseDecimal('1.0'),
         netAmount: parseDecimal('0.98'),
       };
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, []);
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, []);
 
       const result = validateOutflowFees(outflow, tx, 'binance', 1);
 
-      expect(result.isOk()).toBe(true);
+      assertOk(result);
     });
 
     it('should sum multiple on-chain fees when validating', () => {
@@ -955,14 +805,14 @@ describe('lot-matcher-utils', () => {
         grossAmount: parseDecimal('1.0'),
         netAmount: parseDecimal('0.9988'),
       };
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
         createFeeMovement('network', 'on-chain', 'BTC', '0.0007', '50000'),
         createFeeMovement('platform', 'on-chain', 'BTC', '0.0005', '50000'),
       ]);
 
       const result = validateOutflowFees(outflow, tx, 'kraken', 1);
 
-      expect(result.isOk()).toBe(true);
+      assertOk(result);
     });
 
     it('should use custom tolerance when provided', () => {
@@ -972,11 +822,11 @@ describe('lot-matcher-utils', () => {
         grossAmount: parseDecimal('1.0'),
         netAmount: parseDecimal('0.92'),
       };
-      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, []);
+      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, []);
 
       const result = validateOutflowFees(outflow, tx, 'kraken', 1, { warn: 5.0, error: 10.0 });
 
-      expect(result.isOk()).toBe(true);
+      assertOk(result);
     });
   });
 

@@ -1,21 +1,21 @@
 import type { FeeMovement } from '@exitbook/core';
 import { type Currency, parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
+import { assertOk } from '@exitbook/core/test-utils';
 import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
 
+import {
+  createFeeMovement,
+  createPriceAtTxTime,
+  createTransactionFromMovements,
+} from '../../../__tests__/test-utils.js';
 import type { TransactionLink } from '../../linking/types.js';
 import { LotMatcher } from '../lot-matcher.js';
 import { AverageCostStrategy } from '../strategies/average-cost-strategy.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
 
 describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () => {
-  const createPriceAtTxTime = (amount: string, currency = 'USD') => ({
-    price: { amount: parseDecimal(amount), currency: currency as Currency },
-    source: 'manual' as const,
-    fetchedAt: new Date('2024-01-01'),
-  });
-
   const createTransaction = (
     id: number,
     datetime: string,
@@ -23,19 +23,12 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     inflows: AssetMovement[] = [],
     outflows: AssetMovement[] = [],
     fees: FeeMovement[] = []
-  ): UniversalTransactionData => ({
-    id,
-    accountId: 1,
-    externalId: `tx${id}`,
-    datetime,
-    timestamp: Date.parse(datetime),
-    source,
-    sourceType: 'exchange',
-    status: 'success',
-    movements: { inflows, outflows },
-    fees,
-    operation: { category: 'transfer', type: 'withdrawal' },
-  });
+  ): UniversalTransactionData =>
+    createTransactionFromMovements(id, datetime, { inflows, outflows }, fees, {
+      source,
+      category: 'transfer',
+      type: 'withdrawal',
+    });
 
   const createLink = (
     id: number,
@@ -68,36 +61,6 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
   });
-
-  function createFeeMovement(
-    scope: 'network' | 'platform' | 'spread' | 'tax' | 'other',
-    settlement: 'on-chain' | 'balance' | 'external',
-    assetSymbol: string,
-    amount: string,
-    priceAmount?: string,
-    priceCurrency = 'USD'
-  ): FeeMovement {
-    const movement: FeeMovement = {
-      scope,
-      settlement,
-      assetId: `test:${assetSymbol.toLowerCase()}`,
-      assetSymbol: assetSymbol as Currency,
-      amount: new Decimal(amount),
-    };
-
-    if (priceAmount !== undefined) {
-      movement.priceAtTxTime = {
-        price: {
-          amount: new Decimal(priceAmount),
-          currency: priceCurrency as Currency,
-        },
-        source: 'test',
-        fetchedAt: new Date(),
-      };
-    }
-
-    return movement;
-  }
 
   const mockTransactionRepo = () => {
     const queries: Partial<TransactionRepository> = {
@@ -188,25 +151,19 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      expect(btcResult).toBeDefined();
+      expect(btcResult!.lots).toHaveLength(2);
+      expect(btcResult!.disposals).toHaveLength(1);
+      expect(btcResult!.lotTransfers).toHaveLength(1);
 
-      if (result.isErr()) {
-        console.error('Test #1 error:', result.error.message);
-      }
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        expect(btcResult).toBeDefined();
-        expect(btcResult!.lots).toHaveLength(2);
-        expect(btcResult!.disposals).toHaveLength(1);
-        expect(btcResult!.lotTransfers).toHaveLength(1);
+      const transferLot = btcResult!.lots[1];
+      expect(transferLot?.acquisitionTransactionId).toBe(3);
+      expect(transferLot?.quantity.toFixed()).toBe('0.9995');
 
-        const transferLot = btcResult!.lots[1];
-        expect(transferLot?.acquisitionTransactionId).toBe(3);
-        expect(transferLot?.quantity.toFixed()).toBe('0.9995');
-
-        const feeDisposal = btcResult!.disposals[0];
-        expect(feeDisposal?.quantityDisposed.toFixed()).toBe('0.0005');
-      }
+      const feeDisposal = btcResult!.disposals[0];
+      expect(feeDisposal?.quantityDisposed.toFixed()).toBe('0.0005');
     });
   });
 
@@ -275,39 +232,37 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        expect(btcResult).toBeDefined();
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      expect(btcResult).toBeDefined();
 
-        expect(btcResult!.lots).toHaveLength(2);
-        const purchaseLot = btcResult!.lots[0];
-        expect(purchaseLot?.quantity.toFixed()).toBe('1');
-        expect(purchaseLot?.costBasisPerUnit.toFixed()).toBe('50000');
-        expect(purchaseLot?.remainingQuantity.toFixed()).toBe('0');
-        expect(purchaseLot?.status).toBe('fully_disposed');
+      expect(btcResult!.lots).toHaveLength(2);
+      const purchaseLot = btcResult!.lots[0];
+      expect(purchaseLot?.quantity.toFixed()).toBe('1');
+      expect(purchaseLot?.costBasisPerUnit.toFixed()).toBe('50000');
+      expect(purchaseLot?.remainingQuantity.toFixed()).toBe('0');
+      expect(purchaseLot?.status).toBe('fully_disposed');
 
-        const transferLot = btcResult!.lots[1];
-        expect(transferLot?.acquisitionTransactionId).toBe(3);
-        expect(transferLot?.quantity.toFixed()).toBe('0.9995');
-        expect(transferLot?.costBasisPerUnit.toFixed()).toBe('50000');
-        expect(transferLot?.remainingQuantity.toFixed()).toBe('0.9995');
+      const transferLot = btcResult!.lots[1];
+      expect(transferLot?.acquisitionTransactionId).toBe(3);
+      expect(transferLot?.quantity.toFixed()).toBe('0.9995');
+      expect(transferLot?.costBasisPerUnit.toFixed()).toBe('50000');
+      expect(transferLot?.remainingQuantity.toFixed()).toBe('0.9995');
 
-        expect(btcResult!.disposals).toHaveLength(1);
-        const feeDisposal = btcResult!.disposals[0];
-        expect(feeDisposal?.disposalTransactionId).toBe(2);
-        expect(feeDisposal?.quantityDisposed.toFixed()).toBe('0.0005');
-        expect(feeDisposal?.proceedsPerUnit.toFixed()).toBe('60000');
-        expect(feeDisposal?.costBasisPerUnit.toFixed()).toBe('50000');
-        expect(feeDisposal?.gainLoss.toFixed()).toBe('5');
+      expect(btcResult!.disposals).toHaveLength(1);
+      const feeDisposal = btcResult!.disposals[0];
+      expect(feeDisposal?.disposalTransactionId).toBe(2);
+      expect(feeDisposal?.quantityDisposed.toFixed()).toBe('0.0005');
+      expect(feeDisposal?.proceedsPerUnit.toFixed()).toBe('60000');
+      expect(feeDisposal?.costBasisPerUnit.toFixed()).toBe('50000');
+      expect(feeDisposal?.gainLoss.toFixed()).toBe('5');
 
-        expect(btcResult!.lotTransfers).toHaveLength(1);
-        const transfer = btcResult!.lotTransfers[0];
-        expect(transfer?.quantityTransferred.toFixed()).toBe('0.9995');
-        expect(transfer?.costBasisPerUnit.toFixed()).toBe('50000');
-        expect(transfer?.sourceTransactionId).toBe(2);
-        expect(transfer?.targetTransactionId).toBe(3);
-      }
+      expect(btcResult!.lotTransfers).toHaveLength(1);
+      const transfer = btcResult!.lotTransfers[0];
+      expect(transfer?.quantityTransferred.toFixed()).toBe('0.9995');
+      expect(transfer?.costBasisPerUnit.toFixed()).toBe('50000');
+      expect(transfer?.sourceTransactionId).toBe(2);
+      expect(transfer?.targetTransactionId).toBe(3);
     });
   });
 
@@ -376,26 +331,24 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'add-to-basis' },
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        expect(btcResult).toBeDefined();
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      expect(btcResult).toBeDefined();
 
-        expect(btcResult!.lots).toHaveLength(2);
-        expect(btcResult!.disposals).toHaveLength(0);
+      expect(btcResult!.lots).toHaveLength(2);
+      expect(btcResult!.disposals).toHaveLength(0);
 
-        const transferLot = btcResult!.lots[1];
-        expect(transferLot?.acquisitionTransactionId).toBe(3);
-        expect(transferLot?.quantity.toFixed()).toBe('0.9995');
-        const expectedBasis = parseDecimal('49975').plus(new Decimal('30'));
-        const expectedPerUnit = expectedBasis.dividedBy(parseDecimal('0.9995'));
-        expect(transferLot?.costBasisPerUnit.toFixed()).toBe(expectedPerUnit.toFixed());
+      const transferLot = btcResult!.lots[1];
+      expect(transferLot?.acquisitionTransactionId).toBe(3);
+      expect(transferLot?.quantity.toFixed()).toBe('0.9995');
+      const expectedBasis = parseDecimal('49975').plus(new Decimal('30'));
+      const expectedPerUnit = expectedBasis.dividedBy(parseDecimal('0.9995'));
+      expect(transferLot?.costBasisPerUnit.toFixed()).toBe(expectedPerUnit.toFixed());
 
-        expect(btcResult!.lotTransfers).toHaveLength(1);
-        const transfer = btcResult!.lotTransfers[0];
-        expect(transfer?.metadata?.cryptoFeeUsdValue).toBeDefined();
-        expect(new Decimal(transfer!.metadata!.cryptoFeeUsdValue!).toFixed()).toBe('30');
-      }
+      expect(btcResult!.lotTransfers).toHaveLength(1);
+      const transfer = btcResult!.lotTransfers[0];
+      expect(transfer?.metadata?.cryptoFeeUsdValue).toBeDefined();
+      expect(new Decimal(transfer!.metadata!.cryptoFeeUsdValue!).toFixed()).toBe('30');
     });
   });
 
@@ -467,17 +420,15 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        expect(btcResult).toBeDefined();
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      expect(btcResult).toBeDefined();
 
-        const transferLot = btcResult!.lots[1];
-        expect(transferLot?.acquisitionTransactionId).toBe(3);
-        const expectedBasis = parseDecimal('49975').plus(new Decimal('1.5'));
-        const expectedPerUnit = expectedBasis.dividedBy(parseDecimal('0.9995'));
-        expect(transferLot?.costBasisPerUnit.toFixed()).toBe(expectedPerUnit.toFixed());
-      }
+      const transferLot = btcResult!.lots[1];
+      expect(transferLot?.acquisitionTransactionId).toBe(3);
+      const expectedBasis = parseDecimal('49975').plus(new Decimal('1.5'));
+      const expectedPerUnit = expectedBasis.dividedBy(parseDecimal('0.9995'));
+      expect(transferLot?.costBasisPerUnit.toFixed()).toBe(expectedPerUnit.toFixed());
     });
   });
 
@@ -578,29 +529,23 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      expect(btcResult).toBeDefined();
 
-      if (result.isErr()) {
-        console.error('Test #5 error:', result.error.message);
-      }
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        expect(btcResult).toBeDefined();
+      expect(btcResult!.lots).toHaveLength(3);
+      expect(btcResult!.disposals).toHaveLength(2);
+      expect(btcResult!.lotTransfers).toHaveLength(2);
 
-        expect(btcResult!.lots).toHaveLength(3);
-        expect(btcResult!.disposals).toHaveLength(2);
-        expect(btcResult!.lotTransfers).toHaveLength(2);
+      const finalLot = btcResult!.lots[2];
+      expect(finalLot?.acquisitionTransactionId).toBe(5);
+      expect(finalLot?.quantity.toFixed()).toBe('0.9992');
+      expect(finalLot?.costBasisPerUnit.toFixed()).toBe('50000');
 
-        const finalLot = btcResult!.lots[2];
-        expect(finalLot?.acquisitionTransactionId).toBe(5);
-        expect(finalLot?.quantity.toFixed()).toBe('0.9992');
-        expect(finalLot?.costBasisPerUnit.toFixed()).toBe('50000');
-
-        const feeDisposal1 = btcResult!.disposals[0];
-        expect(feeDisposal1?.quantityDisposed.toFixed()).toBe('0.0005');
-        const feeDisposal2 = btcResult!.disposals[1];
-        expect(feeDisposal2?.quantityDisposed.toFixed()).toBe('0.0003');
-      }
+      const feeDisposal1 = btcResult!.disposals[0];
+      expect(feeDisposal1?.quantityDisposed.toFixed()).toBe('0.0005');
+      const feeDisposal2 = btcResult!.disposals[1];
+      expect(feeDisposal2?.quantityDisposed.toFixed()).toBe('0.0003');
     });
   });
 
@@ -688,22 +633,20 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        const ethResult = result.value.assetResults.find((r) => r.assetSymbol === 'ETH');
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      const ethResult = resultValue.assetResults.find((r) => r.assetSymbol === 'ETH');
 
-        expect(btcResult).toBeDefined();
-        expect(ethResult).toBeDefined();
+      expect(btcResult).toBeDefined();
+      expect(ethResult).toBeDefined();
 
-        expect(btcResult!.lotTransfers).toHaveLength(1);
-        expect(btcResult!.disposals).toHaveLength(0);
+      expect(btcResult!.lotTransfers).toHaveLength(1);
+      expect(btcResult!.disposals).toHaveLength(0);
 
-        expect(ethResult!.disposals).toHaveLength(1);
-        const ethFeeDisposal = ethResult!.disposals[0];
-        expect(ethFeeDisposal?.quantityDisposed.toFixed()).toBe('0.01');
-        expect(ethFeeDisposal?.proceedsPerUnit.toFixed()).toBe('3500');
-      }
+      expect(ethResult!.disposals).toHaveLength(1);
+      const ethFeeDisposal = ethResult!.disposals[0];
+      expect(ethFeeDisposal?.quantityDisposed.toFixed()).toBe('0.01');
+      expect(ethFeeDisposal?.proceedsPerUnit.toFixed()).toBe('3500');
     });
   });
 
@@ -794,26 +737,20 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      expect(btcResult).toBeDefined();
 
-      if (result.isErr()) {
-        console.error('Test #7 error:', result.error.message);
-      }
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        expect(btcResult).toBeDefined();
+      expect(btcResult!.lots).toHaveLength(3);
+      expect(btcResult!.lotTransfers).toHaveLength(2);
 
-        expect(btcResult!.lots).toHaveLength(3);
-        expect(btcResult!.lotTransfers).toHaveLength(2);
+      const transferLot1 = btcResult!.lots[1];
+      expect(transferLot1?.acquisitionTransactionId).toBe(3);
+      expect(transferLot1?.quantity.toFixed()).toBe('0.99975');
 
-        const transferLot1 = btcResult!.lots[1];
-        expect(transferLot1?.acquisitionTransactionId).toBe(3);
-        expect(transferLot1?.quantity.toFixed()).toBe('0.99975');
-
-        const transferLot2 = btcResult!.lots[2];
-        expect(transferLot2?.acquisitionTransactionId).toBe(4);
-        expect(transferLot2?.quantity.toFixed()).toBe('0.99975');
-      }
+      const transferLot2 = btcResult!.lots[2];
+      expect(transferLot2?.acquisitionTransactionId).toBe(4);
+      expect(transferLot2?.quantity.toFixed()).toBe('0.99975');
     });
   });
 
@@ -888,18 +825,16 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        expect(btcResult).toBeDefined();
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      expect(btcResult).toBeDefined();
 
-        expect(btcResult!.lots).toHaveLength(2);
-        expect(btcResult!.lotTransfers).toHaveLength(1);
+      expect(btcResult!.lots).toHaveLength(2);
+      expect(btcResult!.lotTransfers).toHaveLength(1);
 
-        const transferLot = btcResult!.lots[1];
-        expect(transferLot?.quantity.toFixed()).toBe('0.9995');
-        expect(transferLot?.acquisitionTransactionId).toBe(3);
-      }
+      const transferLot = btcResult!.lots[1];
+      expect(transferLot?.quantity.toFixed()).toBe('0.9995');
+      expect(transferLot?.acquisitionTransactionId).toBe(3);
     });
   });
 
@@ -971,19 +906,17 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        expect(btcResult).toBeDefined();
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      expect(btcResult).toBeDefined();
 
-        expect(btcResult!.disposals).toHaveLength(1);
-        const feeDisposal = btcResult!.disposals[0];
-        expect(feeDisposal?.quantityDisposed.toFixed()).toBe('0.0005');
+      expect(btcResult!.disposals).toHaveLength(1);
+      const feeDisposal = btcResult!.disposals[0];
+      expect(feeDisposal?.quantityDisposed.toFixed()).toBe('0.0005');
 
-        expect(btcResult!.lotTransfers).toHaveLength(1);
-        const transfer = btcResult!.lotTransfers[0];
-        expect(transfer?.quantityTransferred.toFixed()).toBe('0.9995');
-      }
+      expect(btcResult!.lotTransfers).toHaveLength(1);
+      const transfer = btcResult!.lotTransfers[0];
+      expect(transfer?.quantityTransferred.toFixed()).toBe('0.9995');
     });
   });
 
@@ -1051,16 +984,10 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
-
-      if (result.isErr()) {
-        console.error('Test #10 error:', result.error.message);
-      }
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        expect(btcResult).toBeDefined();
-        expect(btcResult!.lotTransfers).toHaveLength(1);
-      }
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      expect(btcResult).toBeDefined();
+      expect(btcResult!.lotTransfers).toHaveLength(1);
     });
   });
 
@@ -1129,13 +1056,11 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.errors).toHaveLength(1);
-        expect(result.value.errors[0]!.error).toContain('Outflow fee validation failed');
-        expect(result.value.errors[0]!.error).toContain('hidden fee');
-        expect(result.value.errors[0]!.error).toContain('Exceeds error threshold');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.errors).toHaveLength(1);
+      expect(resultValue.errors[0]!.error).toContain('Outflow fee validation failed');
+      expect(resultValue.errors[0]!.error).toContain('hidden fee');
+      expect(resultValue.errors[0]!.error).toContain('Exceeds error threshold');
     });
   });
 
@@ -1204,12 +1129,10 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        expect(btcResult).toBeDefined();
-        expect(btcResult!.lotTransfers).toHaveLength(1);
-      }
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      expect(btcResult).toBeDefined();
+      expect(btcResult!.lotTransfers).toHaveLength(1);
     });
   });
 
@@ -1278,21 +1201,19 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'add-to-basis' },
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        expect(btcResult).toBeDefined();
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      expect(btcResult).toBeDefined();
 
-        const transferLot = btcResult!.lots[1];
-        expect(transferLot).toBeDefined();
+      const transferLot = btcResult!.lots[1];
+      expect(transferLot).toBeDefined();
 
-        const transfer = btcResult!.lotTransfers[0];
-        expect(transfer?.metadata?.cryptoFeeUsdValue).toBeUndefined();
+      const transfer = btcResult!.lotTransfers[0];
+      expect(transfer?.metadata?.cryptoFeeUsdValue).toBeUndefined();
 
-        const expectedBasis = parseDecimal('49975');
-        const expectedPerUnit = expectedBasis.dividedBy(parseDecimal('0.9995'));
-        expect(transferLot?.costBasisPerUnit.toFixed()).toBe(expectedPerUnit.toFixed());
-      }
+      const expectedBasis = parseDecimal('49975');
+      const expectedPerUnit = expectedBasis.dividedBy(parseDecimal('0.9995'));
+      expect(transferLot?.costBasisPerUnit.toFixed()).toBe(expectedPerUnit.toFixed());
     });
   });
 
@@ -1373,35 +1294,29 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
+      const resultValue = assertOk(result);
+      const exchangeResult = resultValue.assetResults.find((r) => r.assetId === 'exchange:kraken:btc');
+      const blockchainResult = resultValue.assetResults.find((r) => r.assetId === 'blockchain:bitcoin:native');
 
-      if (result.isErr()) {
-        console.error('Test #14 error:', result.error.message);
-      }
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const exchangeResult = result.value.assetResults.find((r) => r.assetId === 'exchange:kraken:btc');
-        const blockchainResult = result.value.assetResults.find((r) => r.assetId === 'blockchain:bitcoin:native');
+      expect(exchangeResult).toBeDefined();
+      expect(blockchainResult).toBeDefined();
 
-        expect(exchangeResult).toBeDefined();
-        expect(blockchainResult).toBeDefined();
+      // Exchange group: 1 purchase lot, 1 fee disposal, 1 transfer
+      expect(exchangeResult!.lots).toHaveLength(1);
+      expect(exchangeResult!.lots[0]?.costBasisPerUnit.toFixed()).toBe('50000');
+      expect(exchangeResult!.lotTransfers).toHaveLength(1);
+      expect(exchangeResult!.disposals).toHaveLength(1);
+      expect(exchangeResult!.disposals[0]?.quantityDisposed.toFixed()).toBe('0.0005');
 
-        // Exchange group: 1 purchase lot, 1 fee disposal, 1 transfer
-        expect(exchangeResult!.lots).toHaveLength(1);
-        expect(exchangeResult!.lots[0]?.costBasisPerUnit.toFixed()).toBe('50000');
-        expect(exchangeResult!.lotTransfers).toHaveLength(1);
-        expect(exchangeResult!.disposals).toHaveLength(1);
-        expect(exchangeResult!.disposals[0]?.quantityDisposed.toFixed()).toBe('0.0005');
+      // Blockchain group: 1 lot (transfer target) with inherited cost basis
+      expect(blockchainResult!.lots).toHaveLength(1);
+      const transferLot = blockchainResult!.lots[0];
+      expect(transferLot?.acquisitionTransactionId).toBe(3);
+      expect(transferLot?.quantity.toFixed()).toBe('0.9995');
+      expect(transferLot?.costBasisPerUnit.toFixed()).toBe('50000');
 
-        // Blockchain group: 1 lot (transfer target) with inherited cost basis
-        expect(blockchainResult!.lots).toHaveLength(1);
-        const transferLot = blockchainResult!.lots[0];
-        expect(transferLot?.acquisitionTransactionId).toBe(3);
-        expect(transferLot?.quantity.toFixed()).toBe('0.9995');
-        expect(transferLot?.costBasisPerUnit.toFixed()).toBe('50000');
-
-        // Totals
-        expect(result.value.totalTransfersProcessed).toBe(1);
-      }
+      // Totals
+      expect(resultValue.totalTransfersProcessed).toBe(1);
     });
   });
 
@@ -1479,22 +1394,20 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        expect(btcResult).toBeDefined();
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      expect(btcResult).toBeDefined();
 
-        // Two source lots should produce two transfer records.
-        expect(btcResult!.lotTransfers).toHaveLength(2);
-        for (const transfer of btcResult!.lotTransfers) {
-          expect(transfer.costBasisPerUnit.toFixed()).toBe('20000');
-        }
-
-        // Target lot should inherit pooled ACB.
-        const transferLot = btcResult!.lots.find((lot) => lot.acquisitionTransactionId === 4);
-        expect(transferLot).toBeDefined();
-        expect(transferLot?.costBasisPerUnit.toFixed()).toBe('20000');
+      // Two source lots should produce two transfer records.
+      expect(btcResult!.lotTransfers).toHaveLength(2);
+      for (const transfer of btcResult!.lotTransfers) {
+        expect(transfer.costBasisPerUnit.toFixed()).toBe('20000');
       }
+
+      // Target lot should inherit pooled ACB.
+      const transferLot = btcResult!.lots.find((lot) => lot.acquisitionTransactionId === 4);
+      expect(transferLot).toBeDefined();
+      expect(transferLot?.costBasisPerUnit.toFixed()).toBe('20000');
     });
 
     it('should preserve per-lot basis under fifo when transfer spans multiple lots', async () => {
@@ -1570,18 +1483,16 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
-        expect(btcResult).toBeDefined();
-        expect(btcResult!.lotTransfers).toHaveLength(2);
+      const resultValue = assertOk(result);
+      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
+      expect(btcResult).toBeDefined();
+      expect(btcResult!.lotTransfers).toHaveLength(2);
 
-        const transferByBasis = new Map(
-          btcResult!.lotTransfers.map((transfer) => [transfer.costBasisPerUnit.toFixed(), transfer])
-        );
-        expect(transferByBasis.get('10000')?.quantityTransferred.toFixed()).toBe('1');
-        expect(transferByBasis.get('30000')?.quantityTransferred.toFixed()).toBe('0.5');
-      }
+      const transferByBasis = new Map(
+        btcResult!.lotTransfers.map((transfer) => [transfer.costBasisPerUnit.toFixed(), transfer])
+      );
+      expect(transferByBasis.get('10000')?.quantityTransferred.toFixed()).toBe('1');
+      expect(transferByBasis.get('30000')?.quantityTransferred.toFixed()).toBe('0.5');
     });
   });
 });

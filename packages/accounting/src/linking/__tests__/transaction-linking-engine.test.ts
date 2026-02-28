@@ -1,63 +1,14 @@
-import { type Currency, type UniversalTransactionData, parseDecimal } from '@exitbook/core';
+import { type UniversalTransactionData, parseDecimal } from '@exitbook/core';
+import { assertOk } from '@exitbook/core/test-utils';
 import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_MATCHING_CONFIG } from '../matching-utils.js';
 import { TransactionLinkingEngine } from '../transaction-linking-engine.js';
 
-const logger = getLogger('test');
+import { createTransaction } from './test-utils.js';
 
-/**
- * Helper to create a minimal UniversalTransactionData for testing.
- * Only requires the essential fields, rest are set to sensible defaults.
- */
-function createTransaction(params: {
-  blockchain?: { is_confirmed: boolean; name: string; transaction_hash: string };
-  datetime: string;
-  from?: string;
-  id: number;
-  inflows?: { amount: string; assetSymbol: string }[];
-  outflows?: { amount: string; assetSymbol: string }[];
-  source: string;
-  sourceType?: 'blockchain' | 'exchange';
-  to?: string;
-}): UniversalTransactionData {
-  const sourceType = params.sourceType ?? (params.blockchain ? 'blockchain' : 'exchange');
-  return {
-    id: params.id,
-    accountId: 1,
-    externalId: `${params.source}-${params.id}`,
-    datetime: params.datetime,
-    timestamp: new Date(params.datetime).getTime(),
-    source: params.source,
-    sourceType,
-    status: 'success',
-    from: params.from,
-    to: params.to,
-    movements: {
-      inflows: params.inflows
-        ? params.inflows.map((m) => ({
-            assetId: `test:${m.assetSymbol.toLowerCase()}`,
-            assetSymbol: m.assetSymbol as Currency,
-            grossAmount: parseDecimal(m.amount),
-          }))
-        : [],
-      outflows: params.outflows
-        ? params.outflows.map((m) => ({
-            assetId: `test:${m.assetSymbol.toLowerCase()}`,
-            assetSymbol: m.assetSymbol as Currency,
-            grossAmount: parseDecimal(m.amount),
-          }))
-        : [],
-    },
-    fees: [],
-    operation: {
-      category: 'transfer',
-      type: 'transfer',
-    },
-    blockchain: params.blockchain,
-  };
-}
+const logger = getLogger('test');
 
 describe('TransactionLinkingEngine', () => {
   describe('linkTransactions', () => {
@@ -84,25 +35,19 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { confirmedLinks, suggestedLinks } = assertOk(service.linkTransactions(transactions));
 
-      expect(result.isOk()).toBe(true);
+      // Should auto-confirm this high-confidence match
+      expect(confirmedLinks).toHaveLength(1);
+      expect(suggestedLinks).toHaveLength(0);
 
-      if (result.isOk()) {
-        const { confirmedLinks, suggestedLinks } = result.value;
-
-        // Should auto-confirm this high-confidence match
-        expect(confirmedLinks).toHaveLength(1);
-        expect(suggestedLinks).toHaveLength(0);
-
-        const link = confirmedLinks[0];
-        expect(link?.sourceTransactionId).toBe(1);
-        expect(link?.targetTransactionId).toBe(2);
-        expect(link?.linkType).toBe('exchange_to_blockchain');
-        expect(link?.status).toBe('confirmed');
-        expect(link?.reviewedBy).toBe('auto');
-        expect(link?.confidenceScore.greaterThanOrEqualTo(parseDecimal('0.95'))).toBe(true);
-      }
+      const link = confirmedLinks[0];
+      expect(link?.sourceTransactionId).toBe(1);
+      expect(link?.targetTransactionId).toBe(2);
+      expect(link?.linkType).toBe('exchange_to_blockchain');
+      expect(link?.status).toBe('confirmed');
+      expect(link?.reviewedBy).toBe('auto');
+      expect(link?.confidenceScore.greaterThanOrEqualTo(parseDecimal('0.95'))).toBe(true);
     });
 
     it('should suggest low-confidence matches without auto-confirming', () => {
@@ -126,24 +71,18 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { confirmedLinks, suggestedLinks } = assertOk(service.linkTransactions(transactions));
 
-      expect(result.isOk()).toBe(true);
+      // Should suggest but not auto-confirm due to lower confidence
+      expect(confirmedLinks).toHaveLength(0);
+      expect(suggestedLinks).toHaveLength(1);
 
-      if (result.isOk()) {
-        const { confirmedLinks, suggestedLinks } = result.value;
-
-        // Should suggest but not auto-confirm due to lower confidence
-        expect(confirmedLinks).toHaveLength(0);
-        expect(suggestedLinks).toHaveLength(1);
-
-        const link = suggestedLinks[0];
-        expect(link?.sourceTransactionId).toBe(1);
-        expect(link?.targetTransactionId).toBe(2);
-        expect(link?.linkType).toBe('exchange_to_blockchain');
-        expect(link?.confidenceScore.lessThan(parseDecimal('0.95'))).toBe(true);
-        expect(link?.status).toBe('suggested');
-      }
+      const link = suggestedLinks[0];
+      expect(link?.sourceTransactionId).toBe(1);
+      expect(link?.targetTransactionId).toBe(2);
+      expect(link?.linkType).toBe('exchange_to_blockchain');
+      expect(link?.confidenceScore.lessThan(parseDecimal('0.95'))).toBe(true);
+      expect(link?.status).toBe('suggested');
     });
 
     it('should deduplicate matches - one target per source', () => {
@@ -174,22 +113,16 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { confirmedLinks, suggestedLinks } = assertOk(service.linkTransactions(transactions));
+      const allLinks = [...confirmedLinks, ...suggestedLinks];
 
-      expect(result.isOk()).toBe(true);
+      // Should only have one link (best match)
+      expect(allLinks).toHaveLength(1);
 
-      if (result.isOk()) {
-        const { confirmedLinks, suggestedLinks } = result.value;
-        const allLinks = [...confirmedLinks, ...suggestedLinks];
-
-        // Should only have one link (best match)
-        expect(allLinks).toHaveLength(1);
-
-        // Should be the closer source (id='1', 30 min vs id='2', 60 min)
-        const link = allLinks[0];
-        expect(link).toBeDefined();
-        expect(link!.sourceTransactionId).toBe(1);
-      }
+      // Should be the closer source (id='1', 30 min vs id='2', 60 min)
+      const link = allLinks[0];
+      expect(link).toBeDefined();
+      expect(link!.sourceTransactionId).toBe(1);
     });
 
     it('should skip transactions without movement data', () => {
@@ -205,19 +138,15 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { confirmedLinks, suggestedLinks, totalSourceTransactions, totalTargetTransactions } = assertOk(
+        service.linkTransactions(transactions)
+      );
 
-      expect(result.isOk()).toBe(true);
-
-      if (result.isOk()) {
-        const { confirmedLinks, suggestedLinks, totalSourceTransactions, totalTargetTransactions } = result.value;
-
-        // Should have no matches
-        expect(confirmedLinks).toHaveLength(0);
-        expect(suggestedLinks).toHaveLength(0);
-        expect(totalSourceTransactions).toBe(0);
-        expect(totalTargetTransactions).toBe(0);
-      }
+      // Should have no matches
+      expect(confirmedLinks).toHaveLength(0);
+      expect(suggestedLinks).toHaveLength(0);
+      expect(totalSourceTransactions).toBe(0);
+      expect(totalTargetTransactions).toBe(0);
     });
 
     it('should handle blockchain-to-blockchain links', () => {
@@ -246,35 +175,23 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { confirmedLinks, suggestedLinks } = assertOk(service.linkTransactions(transactions));
+      const allLinks = [...confirmedLinks, ...suggestedLinks];
 
-      expect(result.isOk()).toBe(true);
+      expect(allLinks).toHaveLength(1);
 
-      if (result.isOk()) {
-        const { confirmedLinks, suggestedLinks } = result.value;
-        const allLinks = [...confirmedLinks, ...suggestedLinks];
-
-        expect(allLinks).toHaveLength(1);
-
-        const link = allLinks[0];
-        expect(link).toBeDefined();
-        expect(link!.linkType).toBe('blockchain_to_blockchain');
-      }
+      const link = allLinks[0];
+      expect(link).toBeDefined();
+      expect(link!.linkType).toBe('blockchain_to_blockchain');
     });
 
     it('should handle empty transaction list', () => {
       const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
-      const result = service.linkTransactions([]);
+      const { confirmedLinks, suggestedLinks } = assertOk(service.linkTransactions([]));
 
-      expect(result.isOk()).toBe(true);
-
-      if (result.isOk()) {
-        const { confirmedLinks, suggestedLinks } = result.value;
-
-        expect(confirmedLinks).toHaveLength(0);
-        expect(suggestedLinks).toHaveLength(0);
-      }
+      expect(confirmedLinks).toHaveLength(0);
+      expect(suggestedLinks).toHaveLength(0);
     });
 
     it('should calculate statistics correctly', () => {
@@ -313,25 +230,19 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const {
+        totalSourceTransactions,
+        totalTargetTransactions,
+        matchedTransactionCount,
+        unmatchedSourceCount,
+        unmatchedTargetCount,
+      } = assertOk(service.linkTransactions(transactions));
 
-      expect(result.isOk()).toBe(true);
-
-      if (result.isOk()) {
-        const {
-          totalSourceTransactions,
-          totalTargetTransactions,
-          matchedTransactionCount,
-          unmatchedSourceCount,
-          unmatchedTargetCount,
-        } = result.value;
-
-        expect(totalSourceTransactions).toBe(2); // BTC and ETH withdrawals
-        expect(totalTargetTransactions).toBe(2); // BTC and USDT deposits
-        expect(matchedTransactionCount).toBe(2); // 1 source + 1 target = 2 transactions involved
-        expect(unmatchedSourceCount).toBe(1); // ETH withdrawal unmatched
-        expect(unmatchedTargetCount).toBe(1); // USDT deposit unmatched
-      }
+      expect(totalSourceTransactions).toBe(2); // BTC and ETH withdrawals
+      expect(totalTargetTransactions).toBe(2); // BTC and USDT deposits
+      expect(matchedTransactionCount).toBe(2); // 1 source + 1 target = 2 transactions involved
+      expect(unmatchedSourceCount).toBe(1); // ETH withdrawal unmatched
+      expect(unmatchedTargetCount).toBe(1); // USDT deposit unmatched
     });
 
     it('should exclude filtered links from statistics (target > source)', () => {
@@ -370,32 +281,26 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const {
+        confirmedLinks,
+        suggestedLinks,
+        totalSourceTransactions,
+        totalTargetTransactions,
+        matchedTransactionCount,
+        unmatchedSourceCount,
+        unmatchedTargetCount,
+      } = assertOk(service.linkTransactions(transactions));
 
-      expect(result.isOk()).toBe(true);
+      // ETH link should be filtered out due to target > source
+      const allLinks = [...confirmedLinks, ...suggestedLinks];
+      expect(allLinks).toHaveLength(1); // Only BTC link
 
-      if (result.isOk()) {
-        const {
-          confirmedLinks,
-          suggestedLinks,
-          totalSourceTransactions,
-          totalTargetTransactions,
-          matchedTransactionCount,
-          unmatchedSourceCount,
-          unmatchedTargetCount,
-        } = result.value;
-
-        // ETH link should be filtered out due to target > source
-        const allLinks = [...confirmedLinks, ...suggestedLinks];
-        expect(allLinks).toHaveLength(1); // Only BTC link
-
-        // Statistics should reflect only the valid link
-        expect(totalSourceTransactions).toBe(2); // BTC and ETH withdrawals
-        expect(totalTargetTransactions).toBe(2); // BTC and ETH deposits
-        expect(matchedTransactionCount).toBe(2); // Only BTC: 1 source + 1 target
-        expect(unmatchedSourceCount).toBe(1); // ETH source unmatched (link filtered)
-        expect(unmatchedTargetCount).toBe(1); // ETH target unmatched (link filtered)
-      }
+      // Statistics should reflect only the valid link
+      expect(totalSourceTransactions).toBe(2); // BTC and ETH withdrawals
+      expect(totalTargetTransactions).toBe(2); // BTC and ETH deposits
+      expect(matchedTransactionCount).toBe(2); // Only BTC: 1 source + 1 target
+      expect(unmatchedSourceCount).toBe(1); // ETH source unmatched (link filtered)
+      expect(unmatchedTargetCount).toBe(1); // ETH target unmatched (link filtered)
     });
 
     it('should exclude filtered links from statistics (excessive variance)', () => {
@@ -434,32 +339,26 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const {
+        confirmedLinks,
+        suggestedLinks,
+        totalSourceTransactions,
+        totalTargetTransactions,
+        matchedTransactionCount,
+        unmatchedSourceCount,
+        unmatchedTargetCount,
+      } = assertOk(service.linkTransactions(transactions));
 
-      expect(result.isOk()).toBe(true);
+      // ETH link should be filtered out due to excessive variance
+      const allLinks = [...confirmedLinks, ...suggestedLinks];
+      expect(allLinks).toHaveLength(1); // Only BTC link
 
-      if (result.isOk()) {
-        const {
-          confirmedLinks,
-          suggestedLinks,
-          totalSourceTransactions,
-          totalTargetTransactions,
-          matchedTransactionCount,
-          unmatchedSourceCount,
-          unmatchedTargetCount,
-        } = result.value;
-
-        // ETH link should be filtered out due to excessive variance
-        const allLinks = [...confirmedLinks, ...suggestedLinks];
-        expect(allLinks).toHaveLength(1); // Only BTC link
-
-        // Statistics should reflect only the valid link
-        expect(totalSourceTransactions).toBe(2);
-        expect(totalTargetTransactions).toBe(2);
-        expect(matchedTransactionCount).toBe(2); // Only BTC: 1 source + 1 target
-        expect(unmatchedSourceCount).toBe(1); // ETH source unmatched (link filtered)
-        expect(unmatchedTargetCount).toBe(1); // ETH target unmatched (link filtered)
-      }
+      // Statistics should reflect only the valid link
+      expect(totalSourceTransactions).toBe(2);
+      expect(totalTargetTransactions).toBe(2);
+      expect(matchedTransactionCount).toBe(2); // Only BTC: 1 source + 1 target
+      expect(unmatchedSourceCount).toBe(1); // ETH source unmatched (link filtered)
+      expect(unmatchedTargetCount).toBe(1); // ETH target unmatched (link filtered)
     });
   });
 
@@ -477,14 +376,11 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { totalSourceTransactions, totalTargetTransactions } = assertOk(service.linkTransactions(transactions));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        // Should have 1 source (the withdrawal)
-        expect(result.value.totalSourceTransactions).toBe(1);
-        expect(result.value.totalTargetTransactions).toBe(0);
-      }
+      // Should have 1 source (the withdrawal)
+      expect(totalSourceTransactions).toBe(1);
+      expect(totalTargetTransactions).toBe(0);
     });
 
     it('should skip transactions with only inflows (no direction)', () => {
@@ -501,14 +397,11 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { totalSourceTransactions, totalTargetTransactions } = assertOk(service.linkTransactions(transactions));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        // Deposit should be a target, not a source
-        expect(result.value.totalSourceTransactions).toBe(0);
-        expect(result.value.totalTargetTransactions).toBe(1);
-      }
+      // Deposit should be a target, not a source
+      expect(totalSourceTransactions).toBe(0);
+      expect(totalTargetTransactions).toBe(1);
     });
 
     it('should skip transactions with both inflows and outflows (trades)', () => {
@@ -525,16 +418,13 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { totalTargetTransactions } = assertOk(service.linkTransactions(transactions));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        // Trades should participate in linking (primary movement is computed)
-        // In this case, ETH inflow is larger in value, so it becomes an 'in' direction
-        // But since we can't know prices, the service uses largest by amount
-        // ETH 10.0 > BTC 1.0, so direction is 'in', making it a target
-        expect(result.value.totalTargetTransactions).toBeGreaterThanOrEqual(0);
-      }
+      // Trades should participate in linking (primary movement is computed)
+      // In this case, ETH inflow is larger in value, so it becomes an 'in' direction
+      // But since we can't know prices, the service uses largest by amount
+      // ETH 10.0 > BTC 1.0, so direction is 'in', making it a target
+      expect(totalTargetTransactions).toBeGreaterThanOrEqual(0);
     });
   });
 
@@ -568,22 +458,16 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { confirmedLinks, suggestedLinks } = assertOk(service.linkTransactions(transactions));
+      const allLinks = [...confirmedLinks, ...suggestedLinks];
 
-      expect(result.isOk()).toBe(true);
+      // Should only have one link (source can only match one target)
+      expect(allLinks).toHaveLength(1);
 
-      if (result.isOk()) {
-        const { confirmedLinks, suggestedLinks } = result.value;
-        const allLinks = [...confirmedLinks, ...suggestedLinks];
-
-        // Should only have one link (source can only match one target)
-        expect(allLinks).toHaveLength(1);
-
-        // Should match to the higher confidence target (closer in time)
-        const link = allLinks[0];
-        expect(link).toBeDefined();
-        expect(link!.targetTransactionId).toBe(2);
-      }
+      // Should match to the higher confidence target (closer in time)
+      const link = allLinks[0];
+      expect(link).toBeDefined();
+      expect(link!.targetTransactionId).toBe(2);
     });
 
     it('should keep only highest confidence match per target', () => {
@@ -618,21 +502,16 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { confirmedLinks, suggestedLinks } = assertOk(service.linkTransactions(transactions));
+      const allLinks = [...confirmedLinks, ...suggestedLinks];
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const { confirmedLinks, suggestedLinks } = result.value;
-        const allLinks = [...confirmedLinks, ...suggestedLinks];
+      // Should have exactly one link
+      expect(allLinks).toHaveLength(1);
 
-        // Should have exactly one link
-        expect(allLinks).toHaveLength(1);
-
-        // Should be matched to source 1 (closer in time)
-        const link = allLinks[0];
-        expect(link).toBeDefined();
-        expect(link!.sourceTransactionId).toBe(1);
-      }
+      // Should be matched to source 1 (closer in time)
+      const link = allLinks[0];
+      expect(link).toBeDefined();
+      expect(link!.sourceTransactionId).toBe(1);
     });
   });
 
@@ -652,17 +531,11 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { confirmedLinks, suggestedLinks } = assertOk(service.linkTransactions(transactions));
 
-      expect(result.isOk()).toBe(true);
-
-      if (result.isOk()) {
-        const { confirmedLinks, suggestedLinks } = result.value;
-
-        // Should have NO matches (transaction should not match itself)
-        expect(confirmedLinks).toHaveLength(0);
-        expect(suggestedLinks).toHaveLength(0);
-      }
+      // Should have NO matches (transaction should not match itself)
+      expect(confirmedLinks).toHaveLength(0);
+      expect(suggestedLinks).toHaveLength(0);
     });
 
     it('should not match a swap transaction against itself', () => {
@@ -682,17 +555,11 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { confirmedLinks, suggestedLinks } = assertOk(service.linkTransactions(transactions));
 
-      expect(result.isOk()).toBe(true);
-
-      if (result.isOk()) {
-        const { confirmedLinks, suggestedLinks } = result.value;
-
-        // Should have NO matches (BTC inflow should not match BTC outflow from same tx)
-        expect(confirmedLinks).toHaveLength(0);
-        expect(suggestedLinks).toHaveLength(0);
-      }
+      // Should have NO matches (BTC inflow should not match BTC outflow from same tx)
+      expect(confirmedLinks).toHaveLength(0);
+      expect(suggestedLinks).toHaveLength(0);
     });
   });
 
@@ -722,21 +589,16 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { confirmedLinks, suggestedLinks } = assertOk(service.linkTransactions(transactions));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const { confirmedLinks, suggestedLinks } = result.value;
+      // Should be auto-confirmed (threshold is 0.9)
+      expect(confirmedLinks).toHaveLength(1);
+      expect(suggestedLinks).toHaveLength(0);
 
-        // Should be auto-confirmed (threshold is 0.9)
-        expect(confirmedLinks).toHaveLength(1);
-        expect(suggestedLinks).toHaveLength(0);
-
-        const link = confirmedLinks[0];
-        expect(link?.status).toBe('confirmed');
-        expect(link?.reviewedBy).toBe('auto');
-        expect(link?.confidenceScore.greaterThanOrEqualTo(parseDecimal('0.9'))).toBe(true);
-      }
+      const link = confirmedLinks[0];
+      expect(link?.status).toBe('confirmed');
+      expect(link?.reviewedBy).toBe('auto');
+      expect(link?.confidenceScore.greaterThanOrEqualTo(parseDecimal('0.9'))).toBe(true);
     });
 
     it('should suggest matches below threshold', () => {
@@ -763,19 +625,14 @@ describe('TransactionLinkingEngine', () => {
         }),
       ];
 
-      const result = service.linkTransactions(transactions);
+      const { confirmedLinks, suggestedLinks } = assertOk(service.linkTransactions(transactions));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const { confirmedLinks, suggestedLinks } = result.value;
+      // Should be suggested, not confirmed (threshold is 0.99)
+      expect(confirmedLinks).toHaveLength(0);
+      expect(suggestedLinks).toHaveLength(1);
 
-        // Should be suggested, not confirmed (threshold is 0.99)
-        expect(confirmedLinks).toHaveLength(0);
-        expect(suggestedLinks).toHaveLength(1);
-
-        const match = suggestedLinks[0];
-        expect(match?.confidenceScore.lessThan(parseDecimal('0.99'))).toBe(true);
-      }
+      const match = suggestedLinks[0];
+      expect(match?.confidenceScore.lessThan(parseDecimal('0.99'))).toBe(true);
     });
   });
 });

@@ -1,5 +1,6 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -54,16 +55,14 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
 
       const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const summary = result.value;
-        expect(summary.lotsCreated).toBe(1);
-        expect(summary.disposalsProcessed).toBe(1);
-        expect(summary.totalCapitalGainLoss.toString()).toBe('5000'); // (40000 - 30000) * 0.5
-        expect(summary.totalTaxableGainLoss.toString()).toBe('5000'); // US: 100% taxable
-        expect(summary.assetsProcessed).toEqual(['BTC']);
-        expect(summary.calculation.status).toBe('completed');
-      }
+      const resultValue = assertOk(result);
+      const summary = resultValue;
+      expect(summary.lotsCreated).toBe(1);
+      expect(summary.disposalsProcessed).toBe(1);
+      expect(summary.totalCapitalGainLoss.toString()).toBe('5000'); // (40000 - 30000) * 0.5
+      expect(summary.totalTaxableGainLoss.toString()).toBe('5000'); // US: 100% taxable
+      expect(summary.assetsProcessed).toEqual(['BTC']);
+      expect(summary.calculation.status).toBe('completed');
     });
 
     it('should apply Canadian 50% inclusion rate', async () => {
@@ -91,12 +90,10 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         lotMatcher
       );
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const summary = result.value;
-        expect(summary.totalCapitalGainLoss.toString()).toBe('5000'); // (2500 - 2000) * 10
-        expect(summary.totalTaxableGainLoss.toString()).toBe('2500'); // Canada: 50% inclusion
-      }
+      const resultValue = assertOk(result);
+      const summary = resultValue;
+      expect(summary.totalCapitalGainLoss.toString()).toBe('5000'); // (2500 - 2000) * 10
+      expect(summary.totalTaxableGainLoss.toString()).toBe('2500'); // Canada: 50% inclusion
     });
 
     it('should work with LIFO method', async () => {
@@ -120,15 +117,13 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
 
       const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const summary = result.value;
-        expect(summary.lotsCreated).toBe(2);
-        expect(summary.disposalsProcessed).toBe(1);
-        // LIFO: Sells from lot 2 (purchased at 35000)
-        // Gain: (40000 - 35000) * 0.5 = 2500
-        expect(summary.totalCapitalGainLoss.toString()).toBe('2500');
-      }
+      const resultValue = assertOk(result);
+      const summary = resultValue;
+      expect(summary.lotsCreated).toBe(2);
+      expect(summary.disposalsProcessed).toBe(1);
+      // LIFO: Sells from lot 2 (purchased at 35000)
+      // Gain: (40000 - 35000) * 0.5 = 2500
+      expect(summary.totalCapitalGainLoss.toString()).toBe('2500');
     });
 
     it('should handle multiple assets', async () => {
@@ -158,17 +153,15 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
 
       const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const summary = result.value;
-        expect(summary.lotsCreated).toBe(2);
-        expect(summary.disposalsProcessed).toBe(2);
-        expect(summary.assetsProcessed.sort()).toEqual(['BTC', 'ETH']);
-        // BTC gain: (40000 - 30000) * 0.5 = 5000
-        // ETH gain: (2500 - 2000) * 5 = 2500
-        // Total: 7500
-        expect(summary.totalCapitalGainLoss.toString()).toBe('7500');
-      }
+      const resultValue = assertOk(result);
+      const summary = resultValue;
+      expect(summary.lotsCreated).toBe(2);
+      expect(summary.disposalsProcessed).toBe(2);
+      expect(summary.assetsProcessed.sort()).toEqual(['BTC', 'ETH']);
+      // BTC gain: (40000 - 30000) * 0.5 = 5000
+      // ETH gain: (2500 - 2000) * 5 = 2500
+      // Total: 7500
+      expect(summary.totalCapitalGainLoss.toString()).toBe('7500');
     });
 
     it('should return error for crypto transactions missing prices', async () => {
@@ -210,12 +203,10 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         lotMatcher
       );
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Price preflight validation failed');
-        expect(result.error.message).toContain('price(s) missing');
-        expect(result.error.message).toContain('prices enrich');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Price preflight validation failed');
+      expect(resultError.message).toContain('price(s) missing');
+      expect(resultError.message).toContain('prices enrich');
     });
 
     it('should allow fiat movements without prices', async () => {
@@ -271,12 +262,10 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
       );
 
       // Should succeed - fiat movements without prices are ignored
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const summary = result.value;
-        expect(summary.lotsCreated).toBe(1); // BTC lot created
-        expect(summary.assetsProcessed).toEqual(['BTC']); // Only BTC processed
-      }
+      const resultValue = assertOk(result);
+      const summary = resultValue;
+      expect(summary.lotsCreated).toBe(1); // BTC lot created
+      expect(summary.assetsProcessed).toEqual(['BTC']); // Only BTC processed
     });
 
     it('should throw error for unimplemented methods', async () => {
@@ -293,10 +282,8 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
 
       const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('only supported for Canada');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('only supported for Canada');
     });
 
     it('should include assetsProcessed in summary (Issue #2 fix)', async () => {
@@ -326,14 +313,11 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
 
       const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
-      expect(result.isOk()).toBe(true);
-
-      if (result.isOk()) {
-        const summary = result.value;
-        expect(summary.assetsProcessed).toHaveLength(2);
-        expect(summary.assetsProcessed).toContain('BTC');
-        expect(summary.assetsProcessed).toContain('ETH');
-      }
+      const resultValue = assertOk(result);
+      const summary = resultValue;
+      expect(summary.assetsProcessed).toHaveLength(2);
+      expect(summary.assetsProcessed).toContain('BTC');
+      expect(summary.assetsProcessed).toContain('ETH');
     });
 
     it('should include tax classifications in disposals (Issue #3 fix)', async () => {
@@ -365,22 +349,19 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
 
       const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
-      expect(result.isOk()).toBe(true);
+      const resultValue = assertOk(result);
+      const summary = resultValue;
+      expect(summary.disposals).toHaveLength(2);
 
-      if (result.isOk()) {
-        const summary = result.value;
-        expect(summary.disposals).toHaveLength(2);
+      const shortTermDisposal = summary.disposals[0];
+      expect(shortTermDisposal).toBeDefined();
+      expect(shortTermDisposal!.taxTreatmentCategory).toBe('short_term');
+      expect(shortTermDisposal!.holdingPeriodDays).toBeLessThan(365);
 
-        const shortTermDisposal = summary.disposals[0];
-        expect(shortTermDisposal).toBeDefined();
-        expect(shortTermDisposal!.taxTreatmentCategory).toBe('short_term');
-        expect(shortTermDisposal!.holdingPeriodDays).toBeLessThan(365);
-
-        const longTermDisposal = summary.disposals[1];
-        expect(longTermDisposal).toBeDefined();
-        expect(longTermDisposal!.taxTreatmentCategory).toBe('long_term');
-        expect(longTermDisposal!.holdingPeriodDays).toBeGreaterThanOrEqual(365);
-      }
+      const longTermDisposal = summary.disposals[1];
+      expect(longTermDisposal).toBeDefined();
+      expect(longTermDisposal!.taxTreatmentCategory).toBe('long_term');
+      expect(longTermDisposal!.holdingPeriodDays).toBeGreaterThanOrEqual(365);
     });
 
     it('should disallow wash sale loss with fee allocation (US)', async () => {
@@ -427,24 +408,22 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
 
       const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const summary = result.value;
+      const resultValue = assertOk(result);
+      const summary = resultValue;
 
-        // Loss should be disallowed due to wash sale (taxable gain/loss = 0)
-        expect(summary.totalTaxableGainLoss.toString()).toBe('0');
+      // Loss should be disallowed due to wash sale (taxable gain/loss = 0)
+      expect(summary.totalTaxableGainLoss.toString()).toBe('0');
 
-        expect(summary.disposals).toHaveLength(1);
-        const disposal = summary.disposals[0];
-        expect(disposal).toBeDefined();
+      expect(summary.disposals).toHaveLength(1);
+      const disposal = summary.disposals[0];
+      expect(disposal).toBeDefined();
 
-        // Proceeds: $30,000 (platform fee NOT subtracted per ADR-005)
-        expect(disposal!.totalProceeds.toString()).toBe('30000');
-        // Cost basis: $50,000 (no fee on first acquisition)
-        expect(disposal!.totalCostBasis.toString()).toBe('50000');
-        // Capital loss: $30,000 - $50,000 = -$20,000
-        expect(disposal!.gainLoss.toString()).toBe('-20000');
-      }
+      // Proceeds: $30,000 (platform fee NOT subtracted per ADR-005)
+      expect(disposal!.totalProceeds.toString()).toBe('30000');
+      // Cost basis: $50,000 (no fee on first acquisition)
+      expect(disposal!.totalCostBasis.toString()).toBe('50000');
+      // Capital loss: $30,000 - $50,000 = -$20,000
+      expect(disposal!.gainLoss.toString()).toBe('-20000');
     });
 
     it('should handle superficial loss with multi-asset fees (Canada)', async () => {
@@ -497,22 +476,20 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         lotMatcher
       );
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const summary = result.value;
+      const resultValue = assertOk(result);
+      const summary = resultValue;
 
-        // Fee allocation: BTC gets $40 (2/3), ETH gets $20 (1/3)
-        // BTC cost basis: $40,000 + $40 = $40,040
-        // ETH cost basis: $20,000 + $20 = $20,020
+      // Fee allocation: BTC gets $40 (2/3), ETH gets $20 (1/3)
+      // BTC cost basis: $40,000 + $40 = $40,040
+      // ETH cost basis: $20,000 + $20 = $20,020
 
-        // BTC loss should be disallowed (superficial loss), no taxable loss
-        // ETH gain should still be taxable (not affected by BTC superficial loss)
-        // ETH proceeds: $25,000
-        // ETH cost basis: $20,020
-        // ETH gain: $4,980
-        // Canada 50% inclusion: $2,490
-        expect(summary.totalTaxableGainLoss.toNumber()).toBeCloseTo(2490, 0);
-      }
+      // BTC loss should be disallowed (superficial loss), no taxable loss
+      // ETH gain should still be taxable (not affected by BTC superficial loss)
+      // ETH proceeds: $25,000
+      // ETH cost basis: $20,020
+      // ETH gain: $4,980
+      // Canada 50% inclusion: $2,490
+      expect(summary.totalTaxableGainLoss.toNumber()).toBeCloseTo(2490, 0);
     });
 
     it('should reject transactions with non-USD prices (EUR)', async () => {
@@ -563,15 +540,13 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         lotMatcher
       );
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Price preflight validation failed');
-        expect(result.error.message).toContain('price(s) not in USD');
-        expect(result.error.message).toContain('prices enrich');
-        expect(result.error.message).toContain('EUR');
-        // Transaction ID is shown as numeric ID (2) rather than external ID (ext-2)
-        expect(result.error.message).toContain('Tx 2');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Price preflight validation failed');
+      expect(resultError.message).toContain('price(s) not in USD');
+      expect(resultError.message).toContain('prices enrich');
+      expect(resultError.message).toContain('EUR');
+      // Transaction ID is shown as numeric ID (2) rather than external ID (ext-2)
+      expect(resultError.message).toContain('Tx 2');
     });
 
     it('should reject transactions with non-USD prices in fees', async () => {
@@ -632,12 +607,10 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         lotMatcher
       );
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Price preflight validation failed');
-        expect(result.error.message).toContain('price(s) not in USD');
-        expect(result.error.message).toContain('EUR');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Price preflight validation failed');
+      expect(resultError.message).toContain('price(s) not in USD');
+      expect(resultError.message).toContain('EUR');
     });
 
     it('should accept transactions with all USD prices', async () => {
@@ -714,11 +687,9 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         lotMatcher
       );
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.lotsCreated).toBe(1);
-        expect(result.value.disposalsProcessed).toBe(1);
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.lotsCreated).toBe(1);
+      expect(resultValue.disposalsProcessed).toBe(1);
     });
 
     it('should list up to 5 examples of non-USD movements', async () => {
@@ -769,15 +740,13 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         lotMatcher
       );
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Price preflight validation failed');
-        expect(result.error.message).toContain('7 price(s) not in USD');
-        expect(result.error.message).toContain('Examples of issues found');
-        // Should show 5 examples, not all 7
-        const examples = result.error.message.match(/Tx \d+/g);
-        expect(examples).toHaveLength(5);
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Price preflight validation failed');
+      expect(resultError.message).toContain('7 price(s) not in USD');
+      expect(resultError.message).toContain('Examples of issues found');
+      // Should show 5 examples, not all 7
+      const examples = resultError.message.match(/Tx \d+/g);
+      expect(examples).toHaveLength(5);
     });
 
     it('should correctly classify long-term gains with complex fee scenarios', async () => {
@@ -817,29 +786,27 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
 
       const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const summary = result.value;
+      const resultValue = assertOk(result);
+      const summary = resultValue;
 
-        expect(summary.disposals).toHaveLength(1);
-        const disposal = summary.disposals[0];
-        expect(disposal).toBeDefined();
-        expect(disposal!.taxTreatmentCategory).toBe('long_term');
-        expect(disposal!.holdingPeriodDays).toBeGreaterThanOrEqual(365);
+      expect(summary.disposals).toHaveLength(1);
+      const disposal = summary.disposals[0];
+      expect(disposal).toBeDefined();
+      expect(disposal!.taxTreatmentCategory).toBe('long_term');
+      expect(disposal!.holdingPeriodDays).toBeGreaterThanOrEqual(365);
 
-        // Cost basis per unit: ($30,000 + $100 acquisition fee) / 1 = $30,100
-        // Cost basis for 0.5 BTC: $30,100 * 0.5 = $15,050
-        expect(disposal!.costBasisPerUnit.toString()).toBe('30100');
-        expect(disposal!.totalCostBasis.toString()).toBe('15050');
+      // Cost basis per unit: ($30,000 + $100 acquisition fee) / 1 = $30,100
+      // Cost basis for 0.5 BTC: $30,100 * 0.5 = $15,050
+      expect(disposal!.costBasisPerUnit.toString()).toBe('30100');
+      expect(disposal!.totalCostBasis.toString()).toBe('15050');
 
-        // Proceeds: 0.5 * $50,000 = $25,000 (platform fee NOT subtracted per ADR-005)
-        expect(disposal!.totalProceeds.toString()).toBe('25000');
+      // Proceeds: 0.5 * $50,000 = $25,000 (platform fee NOT subtracted per ADR-005)
+      expect(disposal!.totalProceeds.toString()).toBe('25000');
 
-        // Gain: $25,000 - $15,050 = $9,950
-        expect(disposal!.gainLoss.toString()).toBe('9950');
-        expect(summary.totalCapitalGainLoss.toString()).toBe('9950');
-        expect(summary.totalTaxableGainLoss.toString()).toBe('9950');
-      }
+      // Gain: $25,000 - $15,050 = $9,950
+      expect(disposal!.gainLoss.toString()).toBe('9950');
+      expect(summary.totalCapitalGainLoss.toString()).toBe('9950');
+      expect(summary.totalTaxableGainLoss.toString()).toBe('9950');
     });
   });
 });

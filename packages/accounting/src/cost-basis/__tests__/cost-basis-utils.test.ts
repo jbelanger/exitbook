@@ -1,4 +1,5 @@
 import type { UniversalTransactionData } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -23,10 +24,8 @@ describe('cost-basis-utils', () => {
           fiatCurrency: 'USD',
         });
 
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          expect(result.value.config.currency).toBe('USD');
-        }
+        const resultValue = assertOk(result);
+        expect(resultValue.config.currency).toBe('USD');
       });
 
       it('should accept CAD as valid currency', () => {
@@ -37,10 +36,8 @@ describe('cost-basis-utils', () => {
           fiatCurrency: 'CAD',
         });
 
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          expect(result.value.config.currency).toBe('CAD');
-        }
+        const resultValue = assertOk(result);
+        expect(resultValue.config.currency).toBe('CAD');
       });
 
       it('should accept EUR as valid currency', () => {
@@ -51,10 +48,8 @@ describe('cost-basis-utils', () => {
           fiatCurrency: 'EUR',
         });
 
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          expect(result.value.config.currency).toBe('EUR');
-        }
+        const resultValue = assertOk(result);
+        expect(resultValue.config.currency).toBe('EUR');
       });
 
       it('should accept GBP as valid currency', () => {
@@ -65,10 +60,8 @@ describe('cost-basis-utils', () => {
           fiatCurrency: 'GBP',
         });
 
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          expect(result.value.config.currency).toBe('GBP');
-        }
+        const resultValue = assertOk(result);
+        expect(resultValue.config.currency).toBe('GBP');
       });
 
       it('should reject invalid fiat currency', () => {
@@ -79,12 +72,10 @@ describe('cost-basis-utils', () => {
           fiatCurrency: 'AUD',
         });
 
-        expect(result.isErr()).toBe(true);
-        if (result.isErr()) {
-          expect(result.error.message).toContain('Invalid fiat currency');
-          expect(result.error.message).toContain('AUD');
-          expect(result.error.message).toContain('USD, CAD, EUR, GBP');
-        }
+        const resultError = assertErr(result);
+        expect(resultError.message).toContain('Invalid fiat currency');
+        expect(resultError.message).toContain('AUD');
+        expect(resultError.message).toContain('USD, CAD, EUR, GBP');
       });
 
       it('should not silently coerce invalid currency to default', () => {
@@ -95,7 +86,7 @@ describe('cost-basis-utils', () => {
           fiatCurrency: 'AUD',
         });
 
-        expect(result.isErr()).toBe(true);
+        assertErr(result);
       });
 
       it('should use default currency when not provided (US -> USD)', () => {
@@ -105,10 +96,8 @@ describe('cost-basis-utils', () => {
           taxYear: 2024,
         });
 
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          expect(result.value.config.currency).toBe('USD');
-        }
+        const resultValue = assertOk(result);
+        expect(resultValue.config.currency).toBe('USD');
       });
 
       it('should use default currency when not provided (CA -> CAD)', () => {
@@ -118,10 +107,8 @@ describe('cost-basis-utils', () => {
           taxYear: 2024,
         });
 
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          expect(result.value.config.currency).toBe('CAD');
-        }
+        const resultValue = assertOk(result);
+        expect(resultValue.config.currency).toBe('CAD');
       });
     });
 
@@ -133,12 +120,10 @@ describe('cost-basis-utils', () => {
           taxYear: 2024,
         });
 
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          expect(result.value.config.startDate).toBeInstanceOf(Date);
-          expect(result.value.config.endDate).toBeInstanceOf(Date);
-          expect(result.value.config.endDate.getTime()).toBeGreaterThan(result.value.config.startDate.getTime());
-        }
+        const resultValue = assertOk(result);
+        expect(resultValue.config.startDate).toBeInstanceOf(Date);
+        expect(resultValue.config.endDate).toBeInstanceOf(Date);
+        expect(resultValue.config.endDate.getTime()).toBeGreaterThan(resultValue.config.startDate.getTime());
       });
 
       it('should use custom dates when provided', () => {
@@ -150,11 +135,9 @@ describe('cost-basis-utils', () => {
           endDate: '2024-12-31',
         });
 
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          expect(result.value.config.startDate?.toISOString().split('T')[0]).toBe('2024-06-01');
-          expect(result.value.config.endDate?.toISOString().split('T')[0]).toBe('2024-12-31');
-        }
+        const resultValue = assertOk(result);
+        expect(resultValue.config.startDate?.toISOString().split('T')[0]).toBe('2024-06-01');
+        expect(resultValue.config.endDate?.toISOString().split('T')[0]).toBe('2024-12-31');
       });
 
       it('should error if only start date provided', () => {
@@ -165,10 +148,8 @@ describe('cost-basis-utils', () => {
           startDate: '2024-06-01',
         });
 
-        expect(result.isErr()).toBe(true);
-        if (result.isErr()) {
-          expect(result.error.message).toContain('Both startDate and endDate must be provided together');
-        }
+        const resultError = assertErr(result);
+        expect(resultError.message).toContain('Both startDate and endDate must be provided together');
       });
 
       it('should error if only end date provided', () => {
@@ -179,10 +160,8 @@ describe('cost-basis-utils', () => {
           endDate: '2024-12-31',
         });
 
-        expect(result.isErr()).toBe(true);
-        if (result.isErr()) {
-          expect(result.error.message).toContain('Both startDate and endDate must be provided together');
-        }
+        const resultError = assertErr(result);
+        expect(resultError.message).toContain('Both startDate and endDate must be provided together');
       });
 
       it('should error if start date is after end date', () => {
@@ -194,10 +173,8 @@ describe('cost-basis-utils', () => {
           endDate: '2024-01-01',
         });
 
-        expect(result.isErr()).toBe(true);
-        if (result.isErr()) {
-          expect(result.error.message).toContain('startDate must be before endDate');
-        }
+        const resultError = assertErr(result);
+        expect(resultError.message).toContain('startDate must be before endDate');
       });
 
       it('should error if dates are equal', () => {
@@ -209,10 +186,8 @@ describe('cost-basis-utils', () => {
           endDate: '2024-06-01',
         });
 
-        expect(result.isErr()).toBe(true);
-        if (result.isErr()) {
-          expect(result.error.message).toContain('startDate must be before endDate');
-        }
+        const resultError = assertErr(result);
+        expect(resultError.message).toContain('startDate must be before endDate');
       });
     });
 
@@ -224,11 +199,9 @@ describe('cost-basis-utils', () => {
           taxYear: 2024,
         });
 
-        expect(result.isErr()).toBe(true);
-        if (result.isErr()) {
-          expect(result.error.message).toContain('Invalid method');
-          expect(result.error.message).toContain('random');
-        }
+        const resultError = assertErr(result);
+        expect(resultError.message).toContain('Invalid method');
+        expect(resultError.message).toContain('random');
       });
 
       it('should error if jurisdiction is invalid', () => {
@@ -238,11 +211,9 @@ describe('cost-basis-utils', () => {
           taxYear: 2024,
         });
 
-        expect(result.isErr()).toBe(true);
-        if (result.isErr()) {
-          expect(result.error.message).toContain('Invalid jurisdiction');
-          expect(result.error.message).toContain('AU');
-        }
+        const resultError = assertErr(result);
+        expect(resultError.message).toContain('Invalid jurisdiction');
+        expect(resultError.message).toContain('AU');
       });
 
       it('should error if tax year is invalid (non-numeric)', () => {
@@ -252,10 +223,8 @@ describe('cost-basis-utils', () => {
           taxYear: 'invalid',
         });
 
-        expect(result.isErr()).toBe(true);
-        if (result.isErr()) {
-          expect(result.error.message).toContain('Invalid tax year');
-        }
+        const resultError = assertErr(result);
+        expect(resultError.message).toContain('Invalid tax year');
       });
 
       it('should error if tax year is out of range (too old)', () => {
@@ -265,10 +234,8 @@ describe('cost-basis-utils', () => {
           taxYear: 1999,
         });
 
-        expect(result.isErr()).toBe(true);
-        if (result.isErr()) {
-          expect(result.error.message).toContain('out of reasonable range');
-        }
+        const resultError = assertErr(result);
+        expect(resultError.message).toContain('out of reasonable range');
       });
 
       it('should error if tax year is out of range (too far future)', () => {
@@ -278,10 +245,8 @@ describe('cost-basis-utils', () => {
           taxYear: 2101,
         });
 
-        expect(result.isErr()).toBe(true);
-        if (result.isErr()) {
-          expect(result.error.message).toContain('out of reasonable range');
-        }
+        const resultError = assertErr(result);
+        expect(resultError.message).toContain('out of reasonable range');
       });
     });
   });
@@ -347,8 +312,8 @@ describe('cost-basis-utils', () => {
       } as unknown as UniversalTransactionData;
 
       const result = transactionHasAllPrices(tx);
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) expect(result.value).toBe(true);
+      const resultValue = assertOk(result);
+      expect(resultValue).toBe(true);
     });
 
     it('should return false when crypto inflow is missing price', () => {
@@ -360,8 +325,8 @@ describe('cost-basis-utils', () => {
       } as unknown as UniversalTransactionData;
 
       const result = transactionHasAllPrices(tx);
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) expect(result.value).toBe(false);
+      const resultValue = assertOk(result);
+      expect(resultValue).toBe(false);
     });
 
     it('should return false when crypto outflow is missing price', () => {
@@ -373,8 +338,8 @@ describe('cost-basis-utils', () => {
       } as unknown as UniversalTransactionData;
 
       const result = transactionHasAllPrices(tx);
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) expect(result.value).toBe(false);
+      const resultValue = assertOk(result);
+      expect(resultValue).toBe(false);
     });
 
     it('should return true when only fiat movements (no price needed)', () => {
@@ -386,8 +351,8 @@ describe('cost-basis-utils', () => {
       } as unknown as UniversalTransactionData;
 
       const result = transactionHasAllPrices(tx);
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) expect(result.value).toBe(true);
+      const resultValue = assertOk(result);
+      expect(resultValue).toBe(true);
     });
 
     it('should return true when fiat and crypto both present, crypto has price', () => {
@@ -402,8 +367,8 @@ describe('cost-basis-utils', () => {
       } as unknown as UniversalTransactionData;
 
       const result = transactionHasAllPrices(tx);
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) expect(result.value).toBe(true);
+      const resultValue = assertOk(result);
+      expect(resultValue).toBe(true);
     });
 
     it('should return false when fiat and crypto both present, crypto missing price', () => {
@@ -418,8 +383,8 @@ describe('cost-basis-utils', () => {
       } as unknown as UniversalTransactionData;
 
       const result = transactionHasAllPrices(tx);
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) expect(result.value).toBe(false);
+      const resultValue = assertOk(result);
+      expect(resultValue).toBe(false);
     });
 
     it('should handle empty inflows and outflows', () => {
@@ -428,8 +393,8 @@ describe('cost-basis-utils', () => {
       } as unknown as UniversalTransactionData;
 
       const result = transactionHasAllPrices(tx);
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) expect(result.value).toBe(true);
+      const resultValue = assertOk(result);
+      expect(resultValue).toBe(true);
     });
 
     it('should treat unknown currency symbols as crypto requiring price', () => {
@@ -441,8 +406,8 @@ describe('cost-basis-utils', () => {
       } as unknown as UniversalTransactionData;
 
       const result = transactionHasAllPrices(tx);
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) expect(result.value).toBe(false);
+      const resultValue = assertOk(result);
+      expect(resultValue).toBe(false);
     });
 
     it('should treat unknown currency symbols as valid when price is present', () => {
@@ -454,8 +419,8 @@ describe('cost-basis-utils', () => {
       } as unknown as UniversalTransactionData;
 
       const result = transactionHasAllPrices(tx);
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) expect(result.value).toBe(true);
+      const resultValue = assertOk(result);
+      expect(resultValue).toBe(true);
     });
 
     it('should return error for empty currency symbols', () => {
@@ -467,10 +432,8 @@ describe('cost-basis-utils', () => {
       } as unknown as UniversalTransactionData;
 
       const result = transactionHasAllPrices(tx);
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Unknown currency symbol');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Unknown currency symbol');
     });
   });
 
@@ -492,11 +455,9 @@ describe('cost-basis-utils', () => {
       ];
 
       const result = validateTransactionPrices(transactions, 'USD');
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.validTransactions).toHaveLength(2);
-        expect(result.value.missingPricesCount).toBe(0);
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.validTransactions).toHaveLength(2);
+      expect(resultValue.missingPricesCount).toBe(0);
     });
 
     it('should filter out transactions missing prices', () => {
@@ -522,11 +483,9 @@ describe('cost-basis-utils', () => {
       ];
 
       const result = validateTransactionPrices(transactions, 'USD');
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.validTransactions).toHaveLength(2);
-        expect(result.value.missingPricesCount).toBe(1);
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.validTransactions).toHaveLength(2);
+      expect(resultValue.missingPricesCount).toBe(1);
     });
 
     it('should return error when ALL transactions missing prices', () => {
@@ -546,11 +505,9 @@ describe('cost-basis-utils', () => {
       ];
 
       const result = validateTransactionPrices(transactions, 'USD');
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('All transactions are missing price data');
-        expect(result.error.message).toContain('USD');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('All transactions are missing price data');
+      expect(resultError.message).toContain('USD');
     });
 
     it('should count fiat-only transactions as valid (no prices needed)', () => {
@@ -570,45 +527,35 @@ describe('cost-basis-utils', () => {
       ];
 
       const result = validateTransactionPrices(transactions, 'USD');
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.validTransactions).toHaveLength(2);
-        expect(result.value.missingPricesCount).toBe(0);
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.validTransactions).toHaveLength(2);
+      expect(resultValue.missingPricesCount).toBe(0);
     });
   });
 
   describe('getJurisdictionRules', () => {
     it('should return CanadaRules for CA jurisdiction', () => {
       const result = getJurisdictionRules('CA');
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.constructor.name).toBe('CanadaRules');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.constructor.name).toBe('CanadaRules');
     });
 
     it('should return USRules for US jurisdiction', () => {
       const result = getJurisdictionRules('US');
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.constructor.name).toBe('USRules');
-      }
+      const resultValue = assertOk(result);
+      expect(resultValue.constructor.name).toBe('USRules');
     });
 
     it('should return error for UK jurisdiction (not implemented)', () => {
       const result = getJurisdictionRules('UK');
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('UK jurisdiction rules not yet implemented');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('UK jurisdiction rules not yet implemented');
     });
 
     it('should return error for EU jurisdiction (not implemented)', () => {
       const result = getJurisdictionRules('EU');
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('EU jurisdiction rules not yet implemented');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('EU jurisdiction rules not yet implemented');
     });
   });
 
@@ -625,7 +572,7 @@ describe('cost-basis-utils', () => {
         },
       });
 
-      expect(result.isOk()).toBe(true);
+      assertOk(result);
     });
 
     it('should accept average-cost for CA jurisdiction', () => {
@@ -640,7 +587,7 @@ describe('cost-basis-utils', () => {
         },
       });
 
-      expect(result.isOk()).toBe(true);
+      assertOk(result);
     });
 
     it('should error when average-cost used with non-CA jurisdiction', () => {
@@ -655,10 +602,8 @@ describe('cost-basis-utils', () => {
         },
       });
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Average Cost (ACB) is only supported for Canada');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Average Cost (ACB) is only supported for Canada');
     });
 
     it('should error when specific-id method used (not implemented)', () => {
@@ -673,10 +618,8 @@ describe('cost-basis-utils', () => {
         },
       });
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('not yet implemented');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('not yet implemented');
     });
 
     it('should error for UK jurisdiction (not implemented)', () => {
@@ -691,10 +634,8 @@ describe('cost-basis-utils', () => {
         },
       });
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('tax rules not yet implemented');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('tax rules not yet implemented');
     });
   });
 

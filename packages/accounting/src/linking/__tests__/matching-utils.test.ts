@@ -1,4 +1,5 @@
 import { type Currency, type UniversalTransactionData, parseDecimal } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -24,6 +25,8 @@ import {
   validateLinkAmounts,
 } from '../matching-utils.js';
 import type { PotentialMatch, TransactionCandidate } from '../types.js';
+
+import { createCandidate } from './test-utils.js';
 
 describe('matching-utils', () => {
   describe('calculateAmountSimilarity', () => {
@@ -128,168 +131,79 @@ describe('matching-utils', () => {
 
   describe('checkAddressMatch', () => {
     it('should return true when source.to matches target.to', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'coinbase',
-        sourceType: 'exchange',
         externalId: 'W123',
-        timestamp: new Date(),
         assetId: 'test:sol',
         assetSymbol: 'SOL' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        fromAddress: undefined,
         toAddress: '4Yno2U5DfFJdKmSz9XuUToEFEwnWv6SMx1pd9hJ3YzsP',
-      };
-
-      const target: TransactionCandidate = {
+      });
+      const target = createCandidate({
         id: 2,
         sourceName: 'kucoin',
-        sourceType: 'exchange',
         externalId: 'D123',
-        timestamp: new Date(),
         assetId: 'test:sol',
         assetSymbol: 'SOL' as Currency,
         amount: parseDecimal('0.99'),
         direction: 'in',
-        fromAddress: undefined,
         toAddress: '4Yno2U5DfFJdKmSz9XuUToEFEwnWv6SMx1pd9hJ3YzsP',
-      };
-
-      const match = checkAddressMatch(source, target);
-      expect(match).toBe(true);
+      });
+      expect(checkAddressMatch(source, target)).toBe(true);
     });
 
     it('should return true when addresses match', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        externalId: 'W123',
-        timestamp: new Date(),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        fromAddress: undefined,
-        toAddress: 'bc1qxyz123',
-      };
-
-      const target: TransactionCandidate = {
+      const source = createCandidate({ externalId: 'W123', toAddress: 'bc1qxyz123' });
+      const target = createCandidate({
         id: 2,
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         externalId: 'txabc',
-        timestamp: new Date(),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qxyz123',
-        toAddress: undefined,
-      };
-
-      const match = checkAddressMatch(source, target);
-      expect(match).toBe(true);
+      });
+      expect(checkAddressMatch(source, target)).toBe(true);
     });
 
     it('should return false when addresses do not match', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        externalId: 'W123',
-        timestamp: new Date(),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        fromAddress: undefined,
-        toAddress: 'bc1qxyz123',
-      };
-
-      const target: TransactionCandidate = {
+      const source = createCandidate({ externalId: 'W123', toAddress: 'bc1qxyz123' });
+      const target = createCandidate({
         id: 2,
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         externalId: 'txabc',
-        timestamp: new Date(),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qdifferent',
-        toAddress: undefined,
-      };
-
-      const match = checkAddressMatch(source, target);
-      expect(match).toBe(false);
+      });
+      expect(checkAddressMatch(source, target)).toBe(false);
     });
 
     it('should return undefined when addresses are not available', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        externalId: 'W123',
-        timestamp: new Date(),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        fromAddress: undefined,
-        toAddress: undefined,
-      };
-
-      const target: TransactionCandidate = {
+      const source = createCandidate({ externalId: 'W123' });
+      const target = createCandidate({
         id: 2,
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         externalId: 'txabc',
-        timestamp: new Date(),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.99'),
         direction: 'in',
-        fromAddress: undefined,
-        toAddress: undefined,
-      };
-
-      const match = checkAddressMatch(source, target);
-      expect(match).toBeUndefined();
+      });
+      expect(checkAddressMatch(source, target)).toBeUndefined();
     });
 
     it('should be case-insensitive', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        externalId: 'W123',
-        timestamp: new Date(),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        fromAddress: undefined,
-        toAddress: 'BC1QXYZ123',
-      };
-
-      const target: TransactionCandidate = {
+      const source = createCandidate({ externalId: 'W123', toAddress: 'BC1QXYZ123' });
+      const target = createCandidate({
         id: 2,
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         externalId: 'txabc',
-        timestamp: new Date(),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qxyz123',
-        toAddress: undefined,
-      };
-
-      const match = checkAddressMatch(source, target);
-      expect(match).toBe(true);
+      });
+      expect(checkAddressMatch(source, target)).toBe(true);
     });
   });
 
@@ -368,33 +282,17 @@ describe('matching-utils', () => {
 
   describe('buildMatchCriteria', () => {
     it('should build complete match criteria', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        externalId: 'W123',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        fromAddress: undefined,
-        toAddress: 'bc1qxyz123',
-      };
-
-      const target: TransactionCandidate = {
+      const source = createCandidate({ externalId: 'W123', toAddress: 'bc1qxyz123' });
+      const target = createCandidate({
         id: 2,
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         externalId: 'txabc',
         timestamp: new Date('2024-01-01T13:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qxyz123',
-        toAddress: undefined,
-      };
+      });
 
       const criteria = buildMatchCriteria(source, target, DEFAULT_MATCHING_CONFIG);
 
@@ -408,35 +306,19 @@ describe('matching-utils', () => {
 
   describe('findPotentialMatches', () => {
     it('should find matching transactions', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        externalId: 'W123',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        fromAddress: undefined,
-        toAddress: 'bc1qxyz123',
-      };
-
+      const source = createCandidate({ externalId: 'W123', toAddress: 'bc1qxyz123' });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.99'),
           direction: 'in',
           fromAddress: 'bc1qxyz123',
-          toAddress: undefined,
-        },
-        {
+        }),
+        createCandidate({
           id: 3,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
@@ -446,9 +328,7 @@ describe('matching-utils', () => {
           assetSymbol: 'ETH' as Currency, // Different asset
           amount: parseDecimal('0.99'),
           direction: 'in',
-          fromAddress: undefined,
-          toAddress: undefined,
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -459,34 +339,17 @@ describe('matching-utils', () => {
     });
 
     it('should filter by minimum confidence', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        externalId: 'W123',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        fromAddress: undefined,
-        toAddress: undefined,
-      };
-
+      const source = createCandidate({ externalId: 'W123' });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.3'), // Very different amount
           direction: 'in',
-          fromAddress: undefined,
-          toAddress: undefined,
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -496,47 +359,26 @@ describe('matching-utils', () => {
     });
 
     it('should sort by confidence descending', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        externalId: 'W123',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        fromAddress: undefined,
-        toAddress: undefined,
-      };
-
+      const source = createCandidate({ externalId: 'W123' });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T20:00:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.95'), // Good match but later
           direction: 'in',
-          fromAddress: undefined,
-          toAddress: undefined,
-        },
-        {
+        }),
+        createCandidate({
           id: 3,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txdef',
           timestamp: new Date('2024-01-01T13:00:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.99'), // Better match, sooner
           direction: 'in',
-          fromAddress: undefined,
-          toAddress: undefined,
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -588,34 +430,21 @@ describe('matching-utils', () => {
 
   describe('timing threshold enforcement', () => {
     it('should reject matches where deposit comes before withdrawal', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kraken',
-        sourceType: 'exchange',
+      const source = createCandidate({
         externalId: 'W123',
         timestamp: new Date('2024-01-01T14:00:00Z'), // Withdrawal at 14:00
         assetId: 'exchange:kraken:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        fromAddress: undefined,
-        toAddress: undefined,
-      };
-
+      });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T12:00:00Z'), // Deposit at 12:00 (BEFORE withdrawal)
           assetId: 'blockchain:bitcoin:btc',
-          assetSymbol: 'BTC' as Currency,
-          amount: parseDecimal('1.0'), // Perfect amount match
           direction: 'in',
-          fromAddress: undefined,
-          toAddress: undefined,
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -625,34 +454,17 @@ describe('matching-utils', () => {
     });
 
     it('should reject matches outside the time window', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        externalId: 'W123',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        fromAddress: undefined,
-        toAddress: undefined,
-      };
-
+      const source = createCandidate({ externalId: 'W123' });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-04T12:00:00Z'), // 72 hours later (outside 48h window)
           assetId: 'blockchain:bitcoin:btc',
-          assetSymbol: 'BTC' as Currency,
-          amount: parseDecimal('1.0'),
           direction: 'in',
-          fromAddress: undefined,
-          toAddress: undefined,
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -664,34 +476,17 @@ describe('matching-utils', () => {
 
   describe('amount similarity threshold enforcement', () => {
     it('should reject matches below minAmountSimilarity threshold', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        externalId: 'W123',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        fromAddress: undefined,
-        toAddress: undefined,
-      };
-
+      const source = createCandidate({ externalId: 'W123' });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.90'), // 90% similarity (below 95% threshold)
           direction: 'in',
-          fromAddress: undefined,
-          toAddress: undefined,
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -701,34 +496,17 @@ describe('matching-utils', () => {
     });
 
     it('should accept matches at or above minAmountSimilarity threshold', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        externalId: 'W123',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        fromAddress: undefined,
-        toAddress: undefined,
-      };
-
+      const source = createCandidate({ externalId: 'W123' });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.95'), // Exactly 95% (meets threshold)
           direction: 'in',
-          fromAddress: undefined,
-          toAddress: undefined,
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -768,31 +546,17 @@ describe('matching-utils', () => {
     });
 
     it('should reject target amount greater than source (airdrop scenario)', () => {
-      const sourceAmount = parseDecimal('1.0');
-      const targetAmount = parseDecimal('1.1'); // Target > source
-
-      const result = validateLinkAmounts(sourceAmount, targetAmount);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Target amount');
-        expect(result.error.message).toContain('exceeds source amount');
-        expect(result.error.message).toContain('airdrop');
-      }
+      const error = assertErr(validateLinkAmounts(parseDecimal('1.0'), parseDecimal('1.1')));
+      expect(error.message).toContain('Target amount');
+      expect(error.message).toContain('exceeds source amount');
+      expect(error.message).toContain('airdrop');
     });
 
     it('should reject excessive variance (>10%)', () => {
-      const sourceAmount = parseDecimal('1.0');
-      const targetAmount = parseDecimal('0.85'); // 15% variance
-
-      const result = validateLinkAmounts(sourceAmount, targetAmount);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Variance');
-        expect(result.error.message).toContain('exceeds 10% threshold');
-        expect(result.error.message).toContain('15.00%');
-      }
+      const error = assertErr(validateLinkAmounts(parseDecimal('1.0'), parseDecimal('0.85')));
+      expect(error.message).toContain('Variance');
+      expect(error.message).toContain('exceeds 10% threshold');
+      expect(error.message).toContain('15.00%');
     });
 
     it('should handle very small amounts', () => {
@@ -832,54 +596,27 @@ describe('matching-utils', () => {
     });
 
     it('should reject zero source amount', () => {
-      const sourceAmount = parseDecimal('0');
-      const targetAmount = parseDecimal('0');
-
-      const result = validateLinkAmounts(sourceAmount, targetAmount);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Source amount must be positive');
-        expect(result.error.message).toContain('missing movement data');
-      }
+      const error = assertErr(validateLinkAmounts(parseDecimal('0'), parseDecimal('0')));
+      expect(error.message).toContain('Source amount must be positive');
+      expect(error.message).toContain('missing movement data');
     });
 
     it('should reject negative source amount', () => {
-      const sourceAmount = parseDecimal('-1.0');
-      const targetAmount = parseDecimal('0.5');
-
-      const result = validateLinkAmounts(sourceAmount, targetAmount);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Source amount must be positive');
-      }
+      expect(assertErr(validateLinkAmounts(parseDecimal('-1.0'), parseDecimal('0.5'))).message).toContain(
+        'Source amount must be positive'
+      );
     });
 
     it('should reject negative target amount', () => {
-      const sourceAmount = parseDecimal('1.0');
-      const targetAmount = parseDecimal('-0.5');
-
-      const result = validateLinkAmounts(sourceAmount, targetAmount);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Target amount must be positive');
-        expect(result.error.message).toContain('invalid transaction data');
-      }
+      const error = assertErr(validateLinkAmounts(parseDecimal('1.0'), parseDecimal('-0.5')));
+      expect(error.message).toContain('Target amount must be positive');
+      expect(error.message).toContain('invalid transaction data');
     });
 
     it('should reject zero target amount', () => {
-      const sourceAmount = parseDecimal('1.0');
-      const targetAmount = parseDecimal('0');
-
-      const result = validateLinkAmounts(sourceAmount, targetAmount);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Target amount must be positive');
-        expect(result.error.message).toContain('invalid transaction data');
-      }
+      const error = assertErr(validateLinkAmounts(parseDecimal('1.0'), parseDecimal('0')));
+      expect(error.message).toContain('Target amount must be positive');
+      expect(error.message).toContain('invalid transaction data');
     });
   });
 
@@ -1363,23 +1100,18 @@ describe('matching-utils', () => {
 
       const now = new Date('2024-01-01T13:00:00Z');
 
-      const result = createTransactionLink(match, 'confirmed', now);
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const link = result.value;
-        expect(link.sourceTransactionId).toBe(1);
-        expect(link.targetTransactionId).toBe(2);
-        expect(link.assetSymbol).toBe('BTC');
-        expect(link.sourceAmount.toFixed()).toBe('1');
-        expect(link.targetAmount.toFixed()).toBe('0.9995');
-        expect(link.status).toBe('confirmed');
-        expect(link.reviewedBy).toBe('auto');
-        expect(link.reviewedAt).toEqual(now);
-        expect(link.createdAt).toEqual(now);
-        expect(link.updatedAt).toEqual(now);
-        expect(link.metadata).toBeDefined();
-      }
+      const link = assertOk(createTransactionLink(match, 'confirmed', now));
+      expect(link.sourceTransactionId).toBe(1);
+      expect(link.targetTransactionId).toBe(2);
+      expect(link.assetSymbol).toBe('BTC');
+      expect(link.sourceAmount.toFixed()).toBe('1');
+      expect(link.targetAmount.toFixed()).toBe('0.9995');
+      expect(link.status).toBe('confirmed');
+      expect(link.reviewedBy).toBe('auto');
+      expect(link.reviewedAt).toEqual(now);
+      expect(link.createdAt).toEqual(now);
+      expect(link.updatedAt).toEqual(now);
+      expect(link.metadata).toBeDefined();
     });
 
     it('should create suggested link without reviewedBy/reviewedAt', () => {
@@ -1414,15 +1146,10 @@ describe('matching-utils', () => {
         linkType: 'exchange_to_blockchain',
       };
 
-      const result = createTransactionLink(match, 'suggested', new Date());
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const link = result.value;
-        expect(link.status).toBe('suggested');
-        expect(link.reviewedBy).toBeUndefined();
-        expect(link.reviewedAt).toBeUndefined();
-      }
+      const link = assertOk(createTransactionLink(match, 'suggested', new Date()));
+      expect(link.status).toBe('suggested');
+      expect(link.reviewedBy).toBeUndefined();
+      expect(link.reviewedAt).toBeUndefined();
     });
 
     it('should reject invalid amounts (target > source)', () => {
@@ -1457,12 +1184,9 @@ describe('matching-utils', () => {
         linkType: 'exchange_to_blockchain',
       };
 
-      const result = createTransactionLink(match, 'confirmed', new Date());
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('exceeds source amount');
-      }
+      expect(assertErr(createTransactionLink(match, 'confirmed', new Date())).message).toContain(
+        'exceeds source amount'
+      );
     });
 
     it('should allow small target excess for hash matches', () => {
@@ -1500,37 +1224,22 @@ describe('matching-utils', () => {
         linkType: 'exchange_to_blockchain',
       };
 
-      const result = createTransactionLink(match, 'confirmed', new Date());
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.metadata?.['targetExcessAllowed']).toBe(true);
-        expect(result.value.metadata?.['targetExcessPct']).toBeDefined();
-      }
+      const link = assertOk(createTransactionLink(match, 'confirmed', new Date()));
+      expect(link.metadata?.['targetExcessAllowed']).toBe(true);
+      expect(link.metadata?.['targetExcessPct']).toBeDefined();
     });
 
     it('should reject excessive variance (>10%)', () => {
       const match: PotentialMatch = {
-        sourceTransaction: {
-          id: 1,
-          sourceName: 'kraken',
-          sourceType: 'exchange',
-          timestamp: new Date('2024-01-01T12:00:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
-          amount: parseDecimal('1.0'),
-          direction: 'out',
-        },
-        targetTransaction: {
+        sourceTransaction: createCandidate(),
+        targetTransaction: createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.85'),
           direction: 'in',
-        },
+        }),
         confidenceScore: parseDecimal('0.98'),
         matchCriteria: {
           assetMatch: true,
@@ -1541,12 +1250,9 @@ describe('matching-utils', () => {
         linkType: 'exchange_to_blockchain',
       };
 
-      const result = createTransactionLink(match, 'confirmed', new Date());
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('exceeds 10% threshold');
-      }
+      expect(assertErr(createTransactionLink(match, 'confirmed', new Date())).message).toContain(
+        'exceeds 10% threshold'
+      );
     });
 
     it('should include variance metadata', () => {
@@ -1581,16 +1287,11 @@ describe('matching-utils', () => {
         linkType: 'exchange_to_blockchain',
       };
 
-      const result = createTransactionLink(match, 'confirmed', new Date());
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const link = result.value;
-        expect(link.metadata).toBeDefined();
-        expect(link.metadata?.['variance']).toBe('0.05');
-        expect(link.metadata?.['variancePct']).toBe('5.00');
-        expect(link.metadata?.['impliedFee']).toBe('0.05');
-      }
+      const link = assertOk(createTransactionLink(match, 'confirmed', new Date()));
+      expect(link.metadata).toBeDefined();
+      expect(link.metadata?.['variance']).toBe('0.05');
+      expect(link.metadata?.['variancePct']).toBe('5.00');
+      expect(link.metadata?.['impliedFee']).toBe('0.05');
     });
   });
 
@@ -1623,46 +1324,27 @@ describe('matching-utils', () => {
 
   describe('checkTransactionHashMatch', () => {
     it('should return true when hashes match exactly', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        blockchainTransactionHash: '0xabc123',
-      };
-      const target: TransactionCandidate = {
+      const source = createCandidate({ sourceName: 'kucoin', blockchainTransactionHash: '0xabc123' });
+      const target = createCandidate({
         id: 2,
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: '0xabc123',
-      };
-
-      const match = checkTransactionHashMatch(source, target);
-      expect(match).toBe(true);
+      });
+      expect(checkTransactionHashMatch(source, target)).toBe(true);
     });
 
     it('should return true when hashes match after normalization', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:eth',
         assetSymbol: 'ETH' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xdef456',
-      };
-      const target: TransactionCandidate = {
+      });
+      const target = createCandidate({
         id: 2,
         sourceName: 'ethereum',
         sourceType: 'blockchain',
@@ -1672,25 +1354,18 @@ describe('matching-utils', () => {
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: '0xdef456-819', // With log index
-      };
-
-      const match = checkTransactionHashMatch(source, target);
-      expect(match).toBe(true);
+      });
+      expect(checkTransactionHashMatch(source, target)).toBe(true);
     });
 
     it('should return true when hex hashes match case-insensitively', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:eth',
         assetSymbol: 'ETH' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xABC123',
-      };
-      const target: TransactionCandidate = {
+      });
+      const target = createCandidate({
         id: 2,
         sourceName: 'ethereum',
         sourceType: 'blockchain',
@@ -1700,25 +1375,18 @@ describe('matching-utils', () => {
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: '0xabc123',
-      };
-
-      const match = checkTransactionHashMatch(source, target);
-      expect(match).toBe(true);
+      });
+      expect(checkTransactionHashMatch(source, target)).toBe(true);
     });
 
     it('should be case-sensitive for non-hex hashes (Solana base58)', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:sol',
         assetSymbol: 'SOL' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
         blockchainTransactionHash: 'AbC123DeFg456', // Solana base58 hash
-      };
-      const target: TransactionCandidate = {
+      });
+      const target = createCandidate({
         id: 2,
         sourceName: 'solana',
         sourceType: 'blockchain',
@@ -1728,25 +1396,20 @@ describe('matching-utils', () => {
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: 'abc123defg456', // Different case
-      };
+      });
 
       const match = checkTransactionHashMatch(source, target);
       expect(match).toBe(false); // Should not match - case matters for Solana
     });
 
     it('should match non-hex hashes when case matches exactly', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:sol',
         assetSymbol: 'SOL' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
         blockchainTransactionHash: 'AbC123DeFg456',
-      };
-      const target: TransactionCandidate = {
+      });
+      const target = createCandidate({
         id: 2,
         sourceName: 'solana',
         sourceType: 'blockchain',
@@ -1756,107 +1419,60 @@ describe('matching-utils', () => {
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: 'AbC123DeFg456', // Exact case match
-      };
-
-      const match = checkTransactionHashMatch(source, target);
-      expect(match).toBe(true);
+      });
+      expect(checkTransactionHashMatch(source, target)).toBe(true);
     });
 
     it('should return false when hashes do not match', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        blockchainTransactionHash: '0xabc123',
-      };
-      const target: TransactionCandidate = {
+      const source = createCandidate({ sourceName: 'kucoin', blockchainTransactionHash: '0xabc123' });
+      const target = createCandidate({
         id: 2,
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: '0xdef456',
-      };
-
-      const match = checkTransactionHashMatch(source, target);
-      expect(match).toBe(false);
+      });
+      expect(checkTransactionHashMatch(source, target)).toBe(false);
     });
 
     it('should return undefined when source hash is missing', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-      };
-      const target: TransactionCandidate = {
+      const source = createCandidate({ sourceName: 'kucoin' });
+      const target = createCandidate({
         id: 2,
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.999'),
         direction: 'in',
         blockchainTransactionHash: '0xabc123',
-      };
-
-      const match = checkTransactionHashMatch(source, target);
-      expect(match).toBeUndefined();
+      });
+      expect(checkTransactionHashMatch(source, target)).toBeUndefined();
     });
 
     it('should return undefined when target hash is missing', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        blockchainTransactionHash: '0xabc123',
-      };
-      const target: TransactionCandidate = {
+      const source = createCandidate({ sourceName: 'kucoin', blockchainTransactionHash: '0xabc123' });
+      const target = createCandidate({
         id: 2,
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.999'),
         direction: 'in',
-      };
-
-      const match = checkTransactionHashMatch(source, target);
-      expect(match).toBeUndefined();
+      });
+      expect(checkTransactionHashMatch(source, target)).toBeUndefined();
     });
 
     it('should match when both have same log index (exact match)', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xabc123-819',
-      };
-      const target: TransactionCandidate = {
+      });
+      const target = createCandidate({
         id: 2,
         sourceName: 'ethereum',
         sourceType: 'blockchain',
@@ -1866,25 +1482,19 @@ describe('matching-utils', () => {
         amount: parseDecimal('99.5'),
         direction: 'in',
         blockchainTransactionHash: '0xabc123-819', // Same log index
-      };
-
-      const match = checkTransactionHashMatch(source, target);
-      expect(match).toBe(true);
+      });
+      expect(checkTransactionHashMatch(source, target)).toBe(true);
     });
 
     it('should NOT match when both have different log indices (batched transfer safety)', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xabc123-819',
-      };
-      const target: TransactionCandidate = {
+      });
+      const target = createCandidate({
         id: 2,
         sourceName: 'ethereum',
         sourceType: 'blockchain',
@@ -1894,38 +1504,29 @@ describe('matching-utils', () => {
         amount: parseDecimal('50.0'),
         direction: 'in',
         blockchainTransactionHash: '0xabc123-820', // Different log index
-      };
-
-      const match = checkTransactionHashMatch(source, target);
-      expect(match).toBe(false); // Should NOT match - different log indices
+      });
+      expect(checkTransactionHashMatch(source, target)).toBe(false); // Should NOT match - different log indices
     });
 
     it('should NOT match batched withdrawals to same deposit (safety check)', () => {
       // Scenario: Two separate withdrawals from exchange in same tx (0xabc-819, 0xabc-820)
       // should NOT both match a single deposit (0xabc)
-      const withdrawal1: TransactionCandidate = {
-        id: 1,
+      const withdrawal1 = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xabc123-819',
-      };
-      const withdrawal2: TransactionCandidate = {
+      });
+      const withdrawal2 = createCandidate({
         id: 2,
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('50.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xabc123-820',
-      };
-      const deposit: TransactionCandidate = {
+      });
+      const deposit = createCandidate({
         id: 3,
         sourceName: 'ethereum',
         sourceType: 'blockchain',
@@ -1935,7 +1536,7 @@ describe('matching-utils', () => {
         amount: parseDecimal('149.5'),
         direction: 'in',
         blockchainTransactionHash: '0xabc123',
-      };
+      });
 
       // Both withdrawals should match the deposit (one has log index, other doesn't)
       const match1 = checkTransactionHashMatch(withdrawal1, deposit);
@@ -1952,29 +1553,17 @@ describe('matching-utils', () => {
 
   describe('findPotentialMatches with hash matching', () => {
     it('should create perfect match when transaction hashes match', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        blockchainTransactionHash: '0xabc123',
-      };
+      const source = createCandidate({ sourceName: 'kucoin', blockchainTransactionHash: '0xabc123' });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.999'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -1985,42 +1574,28 @@ describe('matching-utils', () => {
     });
 
     it('should prioritize hash match over amount-based matching', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        blockchainTransactionHash: '0xabc123',
-      };
+      const source = createCandidate({ sourceName: 'kucoin', blockchainTransactionHash: '0xabc123' });
       const targets: TransactionCandidate[] = [
         // Perfect amount match but no hash
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('1.0'), // Exact amount match
           direction: 'in',
           blockchainTransactionHash: '0xdifferent',
-        },
+        }),
         // Imperfect amount but hash match
-        {
+        createCandidate({
           id: 3,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:10:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.95'), // 5% fee
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -2034,19 +1609,14 @@ describe('matching-utils', () => {
     });
 
     it('should handle normalized hash matching', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:eth',
         assetSymbol: 'ETH' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xdef456',
-      };
+      });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'ethereum',
           sourceType: 'blockchain',
@@ -2056,7 +1626,7 @@ describe('matching-utils', () => {
           amount: parseDecimal('0.999'),
           direction: 'in',
           blockchainTransactionHash: '0xdef456-819', // With log index
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -2066,29 +1636,21 @@ describe('matching-utils', () => {
     });
 
     it('should NOT hash-match blockchain→blockchain pairs (let internal linking handle)', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xabc123',
-      };
+      });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.999'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123', // Same hash
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -2103,29 +1665,18 @@ describe('matching-utils', () => {
     });
 
     it('should calculate actual timing validation for hash matches', () => {
-      const source: TransactionCandidate = {
-        id: 1,
-        sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
-        blockchainTransactionHash: '0xabc123',
-      };
+      const source = createCandidate({ sourceName: 'kucoin', blockchainTransactionHash: '0xabc123' });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-03T14:00:00Z'), // 50 hours later (outside default 48h window)
           assetId: 'blockchain:bitcoin:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.999'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -2137,20 +1688,16 @@ describe('matching-utils', () => {
     });
 
     it('should NOT auto-confirm when multiple targets share the same normalized hash (ambiguity)', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xabc123',
-      };
+      });
       const targets: TransactionCandidate[] = [
         // Two deposits with same normalized hash (0xabc123-819 and 0xabc123-820 both normalize to 0xabc123)
-        {
+        createCandidate({
           id: 2,
           sourceName: 'ethereum',
           sourceType: 'blockchain',
@@ -2160,8 +1707,8 @@ describe('matching-utils', () => {
           amount: parseDecimal('99.5'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123-819',
-        },
-        {
+        }),
+        createCandidate({
           id: 3,
           sourceName: 'ethereum',
           sourceType: 'blockchain',
@@ -2171,7 +1718,7 @@ describe('matching-utils', () => {
           amount: parseDecimal('50.0'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123-820',
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -2185,20 +1732,16 @@ describe('matching-utils', () => {
     });
 
     it('should auto-confirm when hash is unique on target side', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xabc123',
-      };
+      });
       const targets: TransactionCandidate[] = [
         // Only one deposit with this normalized hash
-        {
+        createCandidate({
           id: 2,
           sourceName: 'ethereum',
           sourceType: 'blockchain',
@@ -2208,9 +1751,9 @@ describe('matching-utils', () => {
           amount: parseDecimal('99.5'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123-819',
-        },
+        }),
         // Another deposit with different hash
-        {
+        createCandidate({
           id: 3,
           sourceName: 'ethereum',
           sourceType: 'blockchain',
@@ -2220,7 +1763,7 @@ describe('matching-utils', () => {
           amount: parseDecimal('50.0'),
           direction: 'in',
           blockchainTransactionHash: '0xdef456-820',
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -2233,20 +1776,16 @@ describe('matching-utils', () => {
     });
 
     it('should NOT auto-confirm when hex hashes differ only by case (uniqueness check is case-insensitive)', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xabc123',
-      };
+      });
       const targets: TransactionCandidate[] = [
         // Same hash but uppercase
-        {
+        createCandidate({
           id: 2,
           sourceName: 'ethereum',
           sourceType: 'blockchain',
@@ -2256,9 +1795,9 @@ describe('matching-utils', () => {
           amount: parseDecimal('99.5'),
           direction: 'in',
           blockchainTransactionHash: '0xABC123',
-        },
+        }),
         // Same hash but different case
-        {
+        createCandidate({
           id: 3,
           sourceName: 'ethereum',
           sourceType: 'blockchain',
@@ -2268,7 +1807,7 @@ describe('matching-utils', () => {
           amount: parseDecimal('50.0'),
           direction: 'in',
           blockchainTransactionHash: '0xAbC123',
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -2282,20 +1821,16 @@ describe('matching-utils', () => {
     });
 
     it('should be case-sensitive for non-hex hashes in uniqueness check (Solana)', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:sol',
         assetSymbol: 'SOL' as Currency,
         amount: parseDecimal('10.0'),
-        direction: 'out',
         blockchainTransactionHash: 'AbC123DeFg456',
-      };
+      });
       const targets: TransactionCandidate[] = [
         // Exact case match
-        {
+        createCandidate({
           id: 2,
           sourceName: 'solana',
           sourceType: 'blockchain',
@@ -2305,9 +1840,9 @@ describe('matching-utils', () => {
           amount: parseDecimal('9.95'),
           direction: 'in',
           blockchainTransactionHash: 'AbC123DeFg456',
-        },
+        }),
         // Different case (should be considered different hash for Solana)
-        {
+        createCandidate({
           id: 3,
           sourceName: 'solana',
           sourceType: 'blockchain',
@@ -2317,7 +1852,7 @@ describe('matching-utils', () => {
           amount: parseDecimal('5.0'),
           direction: 'in',
           blockchainTransactionHash: 'abc123defg456',
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -2332,40 +1867,30 @@ describe('matching-utils', () => {
 
   describe('hash multi-output sum validation', () => {
     it('should create hash matches when sum of targets does not exceed source', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'), // Source has 1.0
-        direction: 'out',
         blockchainTransactionHash: '0xabc123',
-      };
+      });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.6'), // Target 1: 0.6
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
-        },
-        {
+        }),
+        createCandidate({
           id: 3,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.39'), // Target 2: 0.39, total = 0.99 (valid)
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -2377,40 +1902,30 @@ describe('matching-utils', () => {
     });
 
     it('should fall back to heuristic when sum of targets exceeds source', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('1.0'), // Source has 1.0
-        direction: 'out',
         blockchainTransactionHash: '0xabc123',
-      };
+      });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.7'), // Target 1: 0.7
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
-        },
-        {
+        }),
+        createCandidate({
           id: 3,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.5'), // Target 2: 0.5, total = 1.2 > 1.0 (invalid!)
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -2427,42 +1942,29 @@ describe('matching-utils', () => {
     });
 
     it('should exclude self-targets from sum validation', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xabc123',
-      };
+      });
       const targets: TransactionCandidate[] = [
         // Self-target (same transaction id as source)
-        {
+        createCandidate({
           id: 1,
           sourceName: 'kucoin',
-          sourceType: 'exchange',
-          timestamp: new Date('2024-01-01T12:00:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('10.0'), // Large amount but same tx
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
-        },
+        }),
         // Valid target
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.99'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -2475,30 +1977,22 @@ describe('matching-utils', () => {
     });
 
     it('should exclude blockchain targets when source is blockchain', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xabc123',
-      };
+      });
       const targets: TransactionCandidate[] = [
         // Blockchain target (should be excluded from hash path)
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('10.0'), // Large amount
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
-        },
+        }),
         // Exchange target (would be included, but no exchange targets here)
       ];
 
@@ -2510,29 +2004,20 @@ describe('matching-utils', () => {
     });
 
     it('should handle single target with hash match (no sum validation needed)', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('1.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xabc123',
-      };
+      });
       const targets: TransactionCandidate[] = [
-        {
+        createCandidate({
           id: 2,
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
           amount: parseDecimal('0.99'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123',
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
@@ -2544,20 +2029,16 @@ describe('matching-utils', () => {
     });
 
     it('should use checkTransactionHashMatch for consistent log-index handling', () => {
-      const source: TransactionCandidate = {
-        id: 1,
+      const source = createCandidate({
         sourceName: 'kucoin',
-        sourceType: 'exchange',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:usdt',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
-        direction: 'out',
         blockchainTransactionHash: '0xabc123-100',
-      };
+      });
       const targets: TransactionCandidate[] = [
         // Same hash with same log index (should match via checkTransactionHashMatch)
-        {
+        createCandidate({
           id: 2,
           sourceName: 'ethereum',
           sourceType: 'blockchain',
@@ -2567,9 +2048,9 @@ describe('matching-utils', () => {
           amount: parseDecimal('50.0'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123-100',
-        },
+        }),
         // Same base hash but different log index (should NOT match)
-        {
+        createCandidate({
           id: 3,
           sourceName: 'ethereum',
           sourceType: 'blockchain',
@@ -2579,7 +2060,7 @@ describe('matching-utils', () => {
           amount: parseDecimal('49.0'),
           direction: 'in',
           blockchainTransactionHash: '0xabc123-101',
-        },
+        }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);

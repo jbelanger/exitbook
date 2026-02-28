@@ -1,5 +1,6 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import type { PriceValidationResult } from '../cost-basis-validation-utils.js';
@@ -669,7 +670,7 @@ describe('cost-basis-validation-utils', () => {
 
       const result = assertPriceDataQuality(transactions);
 
-      expect(result.isOk()).toBe(true);
+      assertOk(result);
     });
 
     it('should return error for missing prices', () => {
@@ -704,11 +705,9 @@ describe('cost-basis-validation-utils', () => {
 
       const result = assertPriceDataQuality(transactions);
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Price preflight validation failed');
-        expect(result.error.message).toContain('1 price(s) missing');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Price preflight validation failed');
+      expect(resultError.message).toContain('1 price(s) missing');
     });
 
     it('should return error for non-USD prices', () => {
@@ -747,11 +746,9 @@ describe('cost-basis-validation-utils', () => {
 
       const result = assertPriceDataQuality(transactions);
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Price preflight validation failed');
-        expect(result.error.message).toContain('1 price(s) not in USD');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Price preflight validation failed');
+      expect(resultError.message).toContain('1 price(s) not in USD');
     });
 
     it('should return error for incomplete FX metadata', () => {
@@ -793,11 +790,9 @@ describe('cost-basis-validation-utils', () => {
 
       const result = assertPriceDataQuality(transactions);
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Price preflight validation failed');
-        expect(result.error.message).toContain('missing complete FX audit trail');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Price preflight validation failed');
+      expect(resultError.message).toContain('missing complete FX audit trail');
     });
 
     it('should aggregate multiple issues', () => {
@@ -861,12 +856,10 @@ describe('cost-basis-validation-utils', () => {
 
       const result = assertPriceDataQuality(transactions);
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('1 price(s) missing');
-        expect(result.error.message).toContain('1 price(s) not in USD');
-        expect(result.error.message).toContain('missing complete FX audit trail');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('1 price(s) missing');
+      expect(resultError.message).toContain('1 price(s) not in USD');
+      expect(resultError.message).toContain('missing complete FX audit trail');
     });
   });
 });

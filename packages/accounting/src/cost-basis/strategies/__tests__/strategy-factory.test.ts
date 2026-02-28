@@ -2,6 +2,7 @@
  * Tests for getStrategyForMethod factory function
  */
 
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { AverageCostStrategy } from '../average-cost-strategy.js';
@@ -13,47 +14,47 @@ describe('getStrategyForMethod', () => {
   describe('implemented strategies', () => {
     it('returns FifoStrategy for "fifo" method', () => {
       const result = getStrategyForMethod('fifo');
+      const strategy = assertOk(result);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(FifoStrategy);
+      expect(strategy).toBeInstanceOf(FifoStrategy);
     });
 
     it('returns LifoStrategy for "lifo" method', () => {
       const result = getStrategyForMethod('lifo');
+      const strategy = assertOk(result);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(LifoStrategy);
+      expect(strategy).toBeInstanceOf(LifoStrategy);
     });
 
     it('returns AverageCostStrategy for "average-cost" method', () => {
       const result = getStrategyForMethod('average-cost');
+      const strategy = assertOk(result);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(AverageCostStrategy);
+      expect(strategy).toBeInstanceOf(AverageCostStrategy);
     });
   });
 
   describe('unimplemented strategies', () => {
     it('returns err for "specific-id" method', () => {
       const result = getStrategyForMethod('specific-id');
+      const error = assertErr(result);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('specific-id');
+      expect(error.message).toContain('specific-id');
     });
   });
 
   describe('strategy behavior', () => {
     it('returns different strategy instances for different methods', () => {
-      const fifoStrategy = getStrategyForMethod('fifo')._unsafeUnwrap();
-      const lifoStrategy = getStrategyForMethod('lifo')._unsafeUnwrap();
+      const fifoStrategy = assertOk(getStrategyForMethod('fifo'));
+      const lifoStrategy = assertOk(getStrategyForMethod('lifo'));
 
       expect(fifoStrategy).not.toBe(lifoStrategy);
       expect(fifoStrategy.constructor).not.toBe(lifoStrategy.constructor);
     });
 
     it('returns new strategy instances on each call', () => {
-      const strategy1 = getStrategyForMethod('fifo')._unsafeUnwrap();
-      const strategy2 = getStrategyForMethod('fifo')._unsafeUnwrap();
+      const strategy1 = assertOk(getStrategyForMethod('fifo'));
+      const strategy2 = assertOk(getStrategyForMethod('fifo'));
 
       expect(strategy1).not.toBe(strategy2);
       expect(strategy1.constructor).toBe(strategy2.constructor);

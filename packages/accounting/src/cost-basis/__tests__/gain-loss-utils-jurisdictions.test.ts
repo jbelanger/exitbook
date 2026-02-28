@@ -1,4 +1,5 @@
 import { type Currency, parseDecimal } from '@exitbook/core';
+import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { calculateGainLoss } from '../gain-loss-utils.js';
@@ -53,18 +54,16 @@ describe('calculateGainLoss', () => {
 
       const result = calculateGainLoss(assetResults, new USRules());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const gainLoss = result.value;
-        expect(gainLoss.totalCapitalGainLoss.toString()).toBe('5000');
-        expect(gainLoss.totalTaxableGainLoss.toString()).toBe('5000'); // US: 100% taxable
-        expect(gainLoss.totalDisposalsProcessed).toBe(1);
-        expect(gainLoss.disallowedLossCount).toBe(0);
+      const resultValue = assertOk(result);
+      const gainLoss = resultValue;
+      expect(gainLoss.totalCapitalGainLoss.toString()).toBe('5000');
+      expect(gainLoss.totalTaxableGainLoss.toString()).toBe('5000'); // US: 100% taxable
+      expect(gainLoss.totalDisposalsProcessed).toBe(1);
+      expect(gainLoss.disallowedLossCount).toBe(0);
 
-        const btcSummary = gainLoss.byAsset.get('test:btc');
-        expect(btcSummary).toBeDefined();
-        expect(btcSummary?.totalCapitalGainLoss.toString()).toBe('5000');
-      }
+      const btcSummary = gainLoss.byAsset.get('test:btc');
+      expect(btcSummary).toBeDefined();
+      expect(btcSummary?.totalCapitalGainLoss.toString()).toBe('5000');
     });
 
     it('should apply Canada 50% inclusion rate', () => {
@@ -112,12 +111,10 @@ describe('calculateGainLoss', () => {
 
       const result = calculateGainLoss(assetResults, new CanadaRules());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const gainLoss = result.value;
-        expect(gainLoss.totalCapitalGainLoss.toString()).toBe('5000');
-        expect(gainLoss.totalTaxableGainLoss.toString()).toBe('2500'); // Canada: 50% inclusion
-      }
+      const resultValue = assertOk(result);
+      const gainLoss = resultValue;
+      expect(gainLoss.totalCapitalGainLoss.toString()).toBe('5000');
+      expect(gainLoss.totalTaxableGainLoss.toString()).toBe('2500'); // Canada: 50% inclusion
     });
 
     it('should classify short-term vs long-term gains for US', () => {
@@ -195,22 +192,20 @@ describe('calculateGainLoss', () => {
 
       const result = calculateGainLoss(assetResults, new USRules());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const gainLoss = result.value;
-        const btcSummary = gainLoss.byAsset.get('test:btc');
+      const resultValue = assertOk(result);
+      const gainLoss = resultValue;
+      const btcSummary = gainLoss.byAsset.get('test:btc');
 
-        expect(btcSummary).toBeDefined();
-        expect(btcSummary?.byCategory.size).toBe(2);
+      expect(btcSummary).toBeDefined();
+      expect(btcSummary?.byCategory.size).toBe(2);
 
-        const shortTerm = btcSummary?.byCategory.get('short_term');
-        expect(shortTerm?.count).toBe(1);
-        expect(shortTerm?.gainLoss.toString()).toBe('5000');
+      const shortTerm = btcSummary?.byCategory.get('short_term');
+      expect(shortTerm?.count).toBe(1);
+      expect(shortTerm?.gainLoss.toString()).toBe('5000');
 
-        const longTerm = btcSummary?.byCategory.get('long_term');
-        expect(longTerm?.count).toBe(1);
-        expect(longTerm?.gainLoss.toString()).toBe('3500');
-      }
+      const longTerm = btcSummary?.byCategory.get('long_term');
+      expect(longTerm?.count).toBe(1);
+      expect(longTerm?.gainLoss.toString()).toBe('3500');
     });
 
     it('should handle capital losses', () => {
@@ -258,12 +253,10 @@ describe('calculateGainLoss', () => {
 
       const result = calculateGainLoss(assetResults, new CanadaRules());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const gainLoss = result.value;
-        expect(gainLoss.totalCapitalGainLoss.toString()).toBe('-20000');
-        expect(gainLoss.totalTaxableGainLoss.toString()).toBe('-10000'); // Canada: 50% of loss
-      }
+      const resultValue = assertOk(result);
+      const gainLoss = resultValue;
+      expect(gainLoss.totalCapitalGainLoss.toString()).toBe('-20000');
+      expect(gainLoss.totalTaxableGainLoss.toString()).toBe('-10000'); // Canada: 50% of loss
     });
 
     it('should detect superficial loss (Canada)', () => {
@@ -331,16 +324,14 @@ describe('calculateGainLoss', () => {
 
       const result = calculateGainLoss(assetResults, new CanadaRules());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const gainLoss = result.value;
-        // Loss is disallowed due to superficial loss rule
-        expect(gainLoss.totalTaxableGainLoss.toString()).toBe('0');
-        expect(gainLoss.disallowedLossCount).toBe(1);
+      const resultValue = assertOk(result);
+      const gainLoss = resultValue;
+      // Loss is disallowed due to superficial loss rule
+      expect(gainLoss.totalTaxableGainLoss.toString()).toBe('0');
+      expect(gainLoss.disallowedLossCount).toBe(1);
 
-        const btcSummary = gainLoss.byAsset.get('test:btc');
-        expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(true);
-      }
+      const btcSummary = gainLoss.byAsset.get('test:btc');
+      expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(true);
     });
 
     it('should handle multiple assets', () => {
@@ -427,19 +418,17 @@ describe('calculateGainLoss', () => {
 
       const result = calculateGainLoss(assetResults, new USRules());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const gainLoss = result.value;
-        expect(gainLoss.byAsset.size).toBe(2);
-        expect(gainLoss.totalCapitalGainLoss.toString()).toBe('10000');
-        expect(gainLoss.totalDisposalsProcessed).toBe(2);
+      const resultValue = assertOk(result);
+      const gainLoss = resultValue;
+      expect(gainLoss.byAsset.size).toBe(2);
+      expect(gainLoss.totalCapitalGainLoss.toString()).toBe('10000');
+      expect(gainLoss.totalDisposalsProcessed).toBe(2);
 
-        const btcSummary = gainLoss.byAsset.get('test:btc');
-        expect(btcSummary?.totalCapitalGainLoss.toString()).toBe('5000');
+      const btcSummary = gainLoss.byAsset.get('test:btc');
+      expect(btcSummary?.totalCapitalGainLoss.toString()).toBe('5000');
 
-        const ethSummary = gainLoss.byAsset.get('test:eth');
-        expect(ethSummary?.totalCapitalGainLoss.toString()).toBe('5000');
-      }
+      const ethSummary = gainLoss.byAsset.get('test:eth');
+      expect(ethSummary?.totalCapitalGainLoss.toString()).toBe('5000');
     });
 
     it('should handle assets with only acquisitions (no disposals)', () => {
@@ -472,18 +461,16 @@ describe('calculateGainLoss', () => {
 
       const result = calculateGainLoss(assetResults, new USRules());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const gainLoss = result.value;
-        expect(gainLoss.totalCapitalGainLoss.toString()).toBe('0');
-        expect(gainLoss.totalTaxableGainLoss.toString()).toBe('0');
-        expect(gainLoss.totalDisposalsProcessed).toBe(0);
+      const resultValue = assertOk(result);
+      const gainLoss = resultValue;
+      expect(gainLoss.totalCapitalGainLoss.toString()).toBe('0');
+      expect(gainLoss.totalTaxableGainLoss.toString()).toBe('0');
+      expect(gainLoss.totalDisposalsProcessed).toBe(0);
 
-        const btcSummary = gainLoss.byAsset.get('test:btc');
-        expect(btcSummary).toBeDefined();
-        expect(btcSummary?.disposalCount).toBe(0);
-        expect(btcSummary?.disposals).toEqual([]);
-      }
+      const btcSummary = gainLoss.byAsset.get('test:btc');
+      expect(btcSummary).toBeDefined();
+      expect(btcSummary?.disposalCount).toBe(0);
+      expect(btcSummary?.disposals).toEqual([]);
     });
 
     it('should return zeroed summary for empty asset results (fiat-only transactions)', () => {
@@ -491,17 +478,15 @@ describe('calculateGainLoss', () => {
       // Should return zeroed summary, not an error
       const result = calculateGainLoss([], new USRules());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const gainLoss = result.value;
-        expect(gainLoss.byAsset.size).toBe(0);
-        expect(gainLoss.totalProceeds.toString()).toBe('0');
-        expect(gainLoss.totalCostBasis.toString()).toBe('0');
-        expect(gainLoss.totalCapitalGainLoss.toString()).toBe('0');
-        expect(gainLoss.totalTaxableGainLoss.toString()).toBe('0');
-        expect(gainLoss.totalDisposalsProcessed).toBe(0);
-        expect(gainLoss.disallowedLossCount).toBe(0);
-      }
+      const resultValue = assertOk(result);
+      const gainLoss = resultValue;
+      expect(gainLoss.byAsset.size).toBe(0);
+      expect(gainLoss.totalProceeds.toString()).toBe('0');
+      expect(gainLoss.totalCostBasis.toString()).toBe('0');
+      expect(gainLoss.totalCapitalGainLoss.toString()).toBe('0');
+      expect(gainLoss.totalTaxableGainLoss.toString()).toBe('0');
+      expect(gainLoss.totalDisposalsProcessed).toBe(0);
+      expect(gainLoss.disallowedLossCount).toBe(0);
     });
 
     it('should calculate holding periods correctly', () => {
@@ -555,16 +540,14 @@ describe('calculateGainLoss', () => {
 
       const result = calculateGainLoss(assetResults, new USRules());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const gainLoss = result.value;
-        const btcSummary = gainLoss.byAsset.get('test:btc');
-        const disposal = btcSummary?.disposals[0];
+      const resultValue = assertOk(result);
+      const gainLoss = resultValue;
+      const btcSummary = gainLoss.byAsset.get('test:btc');
+      const disposal = btcSummary?.disposals[0];
 
-        expect(disposal?.holdingPeriodDays).toBe(holdingPeriodDays);
-        expect(disposal?.acquisitionDate).toEqual(acquisitionDate);
-        expect(disposal?.disposalDate).toEqual(disposalDate);
-      }
+      expect(disposal?.holdingPeriodDays).toBe(holdingPeriodDays);
+      expect(disposal?.acquisitionDate).toEqual(acquisitionDate);
+      expect(disposal?.disposalDate).toEqual(disposalDate);
     });
 
     it('should NOT disallow loss when old acquisition is >61 days before disposal', () => {
@@ -637,12 +620,10 @@ describe('calculateGainLoss', () => {
 
       const result = calculateGainLoss(assetResults, new USRules());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const gainLoss = result.value;
-        // This is a GAIN, so wash sale doesn't apply anyway
-        expect(gainLoss.disallowedLossCount).toBe(0);
-      }
+      const resultValue = assertOk(result);
+      const gainLoss = resultValue;
+      // This is a GAIN, so wash sale doesn't apply anyway
+      expect(gainLoss.disallowedLossCount).toBe(0);
     });
 
     it('should NOT disallow loss when reacquisition is >61 days after disposal (US wash sale)', () => {
@@ -714,16 +695,14 @@ describe('calculateGainLoss', () => {
 
       const result = calculateGainLoss(assetResults, new USRules());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const gainLoss = result.value;
-        // Loss should be allowed (reacquisition outside 30-day window)
-        expect(gainLoss.disallowedLossCount).toBe(0);
-        expect(gainLoss.totalTaxableGainLoss.toString()).toBe('-20000');
+      const resultValue = assertOk(result);
+      const gainLoss = resultValue;
+      // Loss should be allowed (reacquisition outside 30-day window)
+      expect(gainLoss.disallowedLossCount).toBe(0);
+      expect(gainLoss.totalTaxableGainLoss.toString()).toBe('-20000');
 
-        const btcSummary = gainLoss.byAsset.get('test:btc');
-        expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(false);
-      }
+      const btcSummary = gainLoss.byAsset.get('test:btc');
+      expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(false);
     });
 
     it('should NOT disallow loss when reacquisition is >61 days before disposal (Canada superficial loss)', () => {
@@ -795,16 +774,14 @@ describe('calculateGainLoss', () => {
 
       const result = calculateGainLoss(assetResults, new CanadaRules());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const gainLoss = result.value;
-        // Loss should be allowed (all acquisitions are >61 days before disposal)
-        expect(gainLoss.disallowedLossCount).toBe(0);
-        expect(gainLoss.totalTaxableGainLoss.toString()).toBe('-10000'); // 50% inclusion
+      const resultValue = assertOk(result);
+      const gainLoss = resultValue;
+      // Loss should be allowed (all acquisitions are >61 days before disposal)
+      expect(gainLoss.disallowedLossCount).toBe(0);
+      expect(gainLoss.totalTaxableGainLoss.toString()).toBe('-10000'); // 50% inclusion
 
-        const btcSummary = gainLoss.byAsset.get('test:btc');
-        expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(false);
-      }
+      const btcSummary = gainLoss.byAsset.get('test:btc');
+      expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(false);
     });
 
     it('should disallow loss when reacquisition is within 61 days (US wash sale)', () => {
@@ -876,16 +853,14 @@ describe('calculateGainLoss', () => {
 
       const result = calculateGainLoss(assetResults, new USRules());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const gainLoss = result.value;
-        // Loss should be disallowed (reacquisition within 30-day window)
-        expect(gainLoss.disallowedLossCount).toBe(1);
-        expect(gainLoss.totalTaxableGainLoss.toString()).toBe('0');
+      const resultValue = assertOk(result);
+      const gainLoss = resultValue;
+      // Loss should be disallowed (reacquisition within 30-day window)
+      expect(gainLoss.disallowedLossCount).toBe(1);
+      expect(gainLoss.totalTaxableGainLoss.toString()).toBe('0');
 
-        const btcSummary = gainLoss.byAsset.get('test:btc');
-        expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(true);
-      }
+      const btcSummary = gainLoss.byAsset.get('test:btc');
+      expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(true);
     });
   });
 });

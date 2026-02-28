@@ -4,6 +4,7 @@
  */
 
 import { type Currency } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
 import { err, okAsync } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
@@ -123,28 +124,25 @@ describe('CostBasisReportGenerator', () => {
         displayCurrency: 'USD' as Currency,
       });
 
-      expect(result.isOk()).toBe(true);
+      const resultValue = assertOk(result);
+      const report = resultValue;
 
-      if (result.isOk()) {
-        const report = result.value;
+      // Verify report structure
+      expect(report.calculationId).toBe(mockCalculationId);
+      expect(report.displayCurrency).toBe('USD');
+      expect(report.originalCurrency).toBe('USD');
+      expect(report.disposals).toHaveLength(3);
 
-        // Verify report structure
-        expect(report.calculationId).toBe(mockCalculationId);
-        expect(report.displayCurrency).toBe('USD');
-        expect(report.originalCurrency).toBe('USD');
-        expect(report.disposals).toHaveLength(3);
+      // Verify no conversion (amounts same as original)
+      expect(report.summary.totalProceeds.toFixed()).toBe(mockCalculation.totalProceeds.toFixed());
+      expect(report.summary.totalGainLoss.toFixed()).toBe(mockCalculation.totalGainLoss.toFixed());
 
-        // Verify no conversion (amounts same as original)
-        expect(report.summary.totalProceeds.toFixed()).toBe(mockCalculation.totalProceeds.toFixed());
-        expect(report.summary.totalGainLoss.toFixed()).toBe(mockCalculation.totalGainLoss.toFixed());
+      // Verify FX metadata shows identity conversion
+      expect(report.disposals[0]?.fxConversion.fxRate.toFixed()).toBe('1');
+      expect(report.disposals[0]?.fxConversion.fxSource).toBe('identity');
 
-        // Verify FX metadata shows identity conversion
-        expect(report.disposals[0]?.fxConversion.fxRate.toFixed()).toBe('1');
-        expect(report.disposals[0]?.fxConversion.fxSource).toBe('identity');
-
-        // Verify FX provider was NOT called
-        expect(fxProvider.getRateFromUSD).not.toHaveBeenCalled();
-      }
+      // Verify FX provider was NOT called
+      expect(fxProvider.getRateFromUSD).not.toHaveBeenCalled();
     });
 
     it('should convert disposals to CAD using historical rates', async () => {
@@ -164,63 +162,60 @@ describe('CostBasisReportGenerator', () => {
         displayCurrency: 'CAD' as Currency,
       });
 
-      expect(result.isOk()).toBe(true);
+      const resultValue = assertOk(result);
+      const report = resultValue;
 
-      if (result.isOk()) {
-        const report = result.value;
+      // Verify report structure
+      expect(report.calculationId).toBe(mockCalculationId);
+      expect(report.displayCurrency).toBe('CAD');
+      expect(report.originalCurrency).toBe('USD');
+      expect(report.disposals).toHaveLength(3);
 
-        // Verify report structure
-        expect(report.calculationId).toBe(mockCalculationId);
-        expect(report.displayCurrency).toBe('CAD');
-        expect(report.originalCurrency).toBe('USD');
-        expect(report.disposals).toHaveLength(3);
+      // Verify disposal-1 (Mar 15, rate 1.35)
+      const disposal1 = report.disposals[0];
+      expect(disposal1?.displayTotalProceeds.toFixed()).toBe(new Decimal(25000).times(1.35).toFixed()); // 25000 * 1.35 = 33750
+      expect(disposal1?.displayTotalCostBasis.toFixed()).toBe(new Decimal(20000).times(1.35).toFixed()); // 20000 * 1.35 = 27000
+      expect(disposal1?.displayGainLoss.toFixed()).toBe(new Decimal(5000).times(1.35).toFixed()); // 5000 * 1.35 = 6750
+      expect(disposal1?.fxConversion.fxRate.toFixed()).toBe('1.35');
+      expect(disposal1?.fxConversion.fxSource).toBe('test-provider');
 
-        // Verify disposal-1 (Mar 15, rate 1.35)
-        const disposal1 = report.disposals[0];
-        expect(disposal1?.displayTotalProceeds.toFixed()).toBe(new Decimal(25000).times(1.35).toFixed()); // 25000 * 1.35 = 33750
-        expect(disposal1?.displayTotalCostBasis.toFixed()).toBe(new Decimal(20000).times(1.35).toFixed()); // 20000 * 1.35 = 27000
-        expect(disposal1?.displayGainLoss.toFixed()).toBe(new Decimal(5000).times(1.35).toFixed()); // 5000 * 1.35 = 6750
-        expect(disposal1?.fxConversion.fxRate.toFixed()).toBe('1.35');
-        expect(disposal1?.fxConversion.fxSource).toBe('test-provider');
+      // Verify disposal-2 (Mar 15, rate 1.35 - same date, should use cached rate)
+      const disposal2 = report.disposals[1];
+      expect(disposal2?.displayTotalProceeds.toFixed()).toBe(new Decimal(60000).times(1.35).toFixed()); // 60000 * 1.35 = 81000
+      expect(disposal2?.displayGainLoss.toFixed()).toBe(new Decimal(10000).times(1.35).toFixed()); // 10000 * 1.35 = 13500
+      expect(disposal2?.fxConversion.fxRate.toFixed()).toBe('1.35');
 
-        // Verify disposal-2 (Mar 15, rate 1.35 - same date, should use cached rate)
-        const disposal2 = report.disposals[1];
-        expect(disposal2?.displayTotalProceeds.toFixed()).toBe(new Decimal(60000).times(1.35).toFixed()); // 60000 * 1.35 = 81000
-        expect(disposal2?.displayGainLoss.toFixed()).toBe(new Decimal(10000).times(1.35).toFixed()); // 10000 * 1.35 = 13500
-        expect(disposal2?.fxConversion.fxRate.toFixed()).toBe('1.35');
+      // Verify disposal-3 (Jun 20, rate 1.37 - different date)
+      const disposal3 = report.disposals[2];
+      expect(disposal3?.displayTotalProceeds.toFixed()).toBe(new Decimal(110000).times(1.37).toFixed()); // 110000 * 1.37 = 150700
+      expect(disposal3?.displayGainLoss.toFixed()).toBe(new Decimal(20000).times(1.37).toFixed()); // 20000 * 1.37 = 27400
+      expect(disposal3?.fxConversion.fxRate.toFixed()).toBe('1.37');
 
-        // Verify disposal-3 (Jun 20, rate 1.37 - different date)
-        const disposal3 = report.disposals[2];
-        expect(disposal3?.displayTotalProceeds.toFixed()).toBe(new Decimal(110000).times(1.37).toFixed()); // 110000 * 1.37 = 150700
-        expect(disposal3?.displayGainLoss.toFixed()).toBe(new Decimal(20000).times(1.37).toFixed()); // 20000 * 1.37 = 27400
-        expect(disposal3?.fxConversion.fxRate.toFixed()).toBe('1.37');
+      // Verify summary totals are correct
+      const expectedTotalProceeds = new Decimal(25000)
+        .times(1.35)
+        .plus(new Decimal(60000).times(1.35))
+        .plus(new Decimal(110000).times(1.37));
+      expect(report.summary.totalProceeds.toFixed()).toBe(expectedTotalProceeds.toFixed());
 
-        // Verify summary totals are correct
-        const expectedTotalProceeds = new Decimal(25000)
-          .times(1.35)
-          .plus(new Decimal(60000).times(1.35))
-          .plus(new Decimal(110000).times(1.37));
-        expect(report.summary.totalProceeds.toFixed()).toBe(expectedTotalProceeds.toFixed());
+      const expectedTotalGainLoss = new Decimal(5000)
+        .times(1.35)
+        .plus(new Decimal(10000).times(1.35))
+        .plus(new Decimal(20000).times(1.37));
+      expect(report.summary.totalGainLoss.toFixed()).toBe(expectedTotalGainLoss.toFixed());
 
-        const expectedTotalGainLoss = new Decimal(5000)
-          .times(1.35)
-          .plus(new Decimal(10000).times(1.35))
-          .plus(new Decimal(20000).times(1.37));
-        expect(report.summary.totalGainLoss.toFixed()).toBe(expectedTotalGainLoss.toFixed());
+      // Verify taxable gain/loss is correctly calculated with CA jurisdiction (50% inclusion rate)
+      // Each disposal's gain is converted to CAD, then 50% is applied for Canadian tax
+      const expectedTotalTaxableGainLoss = new Decimal(5000)
+        .times(1.35)
+        .times(0.5) // 50% inclusion rate for CA
+        .plus(new Decimal(10000).times(1.35).times(0.5))
+        .plus(new Decimal(20000).times(1.37).times(0.5));
+      expect(report.summary.totalTaxableGainLoss.toFixed()).toBe(expectedTotalTaxableGainLoss.toFixed());
 
-        // Verify taxable gain/loss is correctly calculated with CA jurisdiction (50% inclusion rate)
-        // Each disposal's gain is converted to CAD, then 50% is applied for Canadian tax
-        const expectedTotalTaxableGainLoss = new Decimal(5000)
-          .times(1.35)
-          .times(0.5) // 50% inclusion rate for CA
-          .plus(new Decimal(10000).times(1.35).times(0.5))
-          .plus(new Decimal(20000).times(1.37).times(0.5));
-        expect(report.summary.totalTaxableGainLoss.toFixed()).toBe(expectedTotalTaxableGainLoss.toFixed());
-
-        // Verify original summary is preserved
-        expect(report.originalSummary.totalProceeds.toFixed()).toBe(mockCalculation.totalProceeds.toFixed());
-        expect(report.originalSummary.totalGainLoss.toFixed()).toBe(mockCalculation.totalGainLoss.toFixed());
-      }
+      // Verify original summary is preserved
+      expect(report.originalSummary.totalProceeds.toFixed()).toBe(mockCalculation.totalProceeds.toFixed());
+      expect(report.originalSummary.totalGainLoss.toFixed()).toBe(mockCalculation.totalGainLoss.toFixed());
     });
 
     it('should cache FX rates by date to minimize API calls', async () => {
@@ -266,12 +261,9 @@ describe('CostBasisReportGenerator', () => {
         displayCurrency: 'CAD' as Currency,
       });
 
-      expect(result.isErr()).toBe(true);
-
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Failed to fetch FX rate');
-        expect(result.error.message).toContain('2024-06-20');
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Failed to fetch FX rate');
+      expect(resultError.message).toContain('2024-06-20');
     });
 
     it('should handle empty disposals list', async () => {
@@ -286,14 +278,11 @@ describe('CostBasisReportGenerator', () => {
         displayCurrency: 'CAD' as Currency,
       });
 
-      expect(result.isOk()).toBe(true);
-
-      if (result.isOk()) {
-        const report = result.value;
-        expect(report.disposals).toHaveLength(0);
-        expect(report.summary.totalProceeds.toFixed()).toBe('0');
-        expect(report.summary.totalGainLoss.toFixed()).toBe('0');
-      }
+      const resultValue = assertOk(result);
+      const report = resultValue;
+      expect(report.disposals).toHaveLength(0);
+      expect(report.summary.totalProceeds.toFixed()).toBe('0');
+      expect(report.summary.totalGainLoss.toFixed()).toBe('0');
     });
 
     it('should convert acquisition lots and lot transfers to CAD', async () => {
@@ -351,30 +340,27 @@ describe('CostBasisReportGenerator', () => {
         displayCurrency: 'CAD' as Currency,
       });
 
-      expect(result.isOk()).toBe(true);
+      const resultValue = assertOk(result);
+      const report = resultValue;
 
-      if (result.isOk()) {
-        const report = result.value;
+      // Verify lots were converted
+      expect(report.lots).toHaveLength(1);
+      const lot = report.lots[0];
+      expect(lot?.displayCostBasisPerUnit.toFixed(2)).toBe('53200.00'); // 40000 * 1.33
+      expect(lot?.displayTotalCostBasis.toFixed(2)).toBe('53200.00'); // 40000 * 1.33
+      expect(lot?.fxConversion.fxRate.toFixed(2)).toBe('1.33');
+      expect(lot?.fxConversion.fxSource).toBe('test-provider');
 
-        // Verify lots were converted
-        expect(report.lots).toHaveLength(1);
-        const lot = report.lots[0];
-        expect(lot?.displayCostBasisPerUnit.toFixed(2)).toBe('53200.00'); // 40000 * 1.33
-        expect(lot?.displayTotalCostBasis.toFixed(2)).toBe('53200.00'); // 40000 * 1.33
-        expect(lot?.fxConversion.fxRate.toFixed(2)).toBe('1.33');
-        expect(lot?.fxConversion.fxSource).toBe('test-provider');
+      // Verify lot transfers were converted
+      expect(report.lotTransfers).toHaveLength(1);
+      const transfer = report.lotTransfers[0];
+      expect(transfer?.displayCostBasisPerUnit.toFixed(2)).toBe('53600.00'); // 40000 * 1.34
+      expect(transfer?.displayTotalCostBasis.toFixed(2)).toBe('13400.00'); // 0.25 * 40000 * 1.34
+      expect(transfer?.fxConversion.fxRate.toFixed(2)).toBe('1.34');
+      expect(transfer?.fxConversion.fxSource).toBe('test-provider');
 
-        // Verify lot transfers were converted
-        expect(report.lotTransfers).toHaveLength(1);
-        const transfer = report.lotTransfers[0];
-        expect(transfer?.displayCostBasisPerUnit.toFixed(2)).toBe('53600.00'); // 40000 * 1.34
-        expect(transfer?.displayTotalCostBasis.toFixed(2)).toBe('13400.00'); // 0.25 * 40000 * 1.34
-        expect(transfer?.fxConversion.fxRate.toFixed(2)).toBe('1.34');
-        expect(transfer?.fxConversion.fxSource).toBe('test-provider');
-
-        // Verify FX provider was called for all unique dates (4 total)
-        expect(fxProvider.getRateFromUSD).toHaveBeenCalledTimes(4);
-      }
+      // Verify FX provider was called for all unique dates (4 total)
+      expect(fxProvider.getRateFromUSD).toHaveBeenCalledTimes(4);
     });
 
     it('should soft-fail on FX unavailability for lots and transfers', async () => {
@@ -430,30 +416,27 @@ describe('CostBasisReportGenerator', () => {
       });
 
       // Should succeed despite FX failures for lots/transfers (soft-fail)
-      expect(result.isOk()).toBe(true);
+      const resultValue = assertOk(result);
+      const report = resultValue;
 
-      if (result.isOk()) {
-        const report = result.value;
+      // Verify lot fell back to USD with identity rate
+      const lot = report.lots[0];
+      expect(lot?.displayCostBasisPerUnit.toFixed(2)).toBe('40000.00'); // Original USD amount
+      expect(lot?.fxConversion.fxRate.toFixed(2)).toBe('1.00');
+      expect(lot?.fxConversion.fxSource).toBe('fallback');
+      expect(lot?.fxUnavailable).toBe(true);
+      expect(lot?.originalCurrency).toBe('USD');
 
-        // Verify lot fell back to USD with identity rate
-        const lot = report.lots[0];
-        expect(lot?.displayCostBasisPerUnit.toFixed(2)).toBe('40000.00'); // Original USD amount
-        expect(lot?.fxConversion.fxRate.toFixed(2)).toBe('1.00');
-        expect(lot?.fxConversion.fxSource).toBe('fallback');
-        expect(lot?.fxUnavailable).toBe(true);
-        expect(lot?.originalCurrency).toBe('USD');
+      // Verify transfer fell back to USD with identity rate
+      const transfer = report.lotTransfers[0];
+      expect(transfer?.displayCostBasisPerUnit.toFixed(2)).toBe('40000.00'); // Original USD amount
+      expect(transfer?.fxConversion.fxRate.toFixed(2)).toBe('1.00');
+      expect(transfer?.fxConversion.fxSource).toBe('fallback');
+      expect(transfer?.fxUnavailable).toBe(true);
+      expect(transfer?.originalCurrency).toBe('USD');
 
-        // Verify transfer fell back to USD with identity rate
-        const transfer = report.lotTransfers[0];
-        expect(transfer?.displayCostBasisPerUnit.toFixed(2)).toBe('40000.00'); // Original USD amount
-        expect(transfer?.fxConversion.fxRate.toFixed(2)).toBe('1.00');
-        expect(transfer?.fxConversion.fxSource).toBe('fallback');
-        expect(transfer?.fxUnavailable).toBe(true);
-        expect(transfer?.originalCurrency).toBe('USD');
-
-        // Disposals should still be converted (hard-fail would have prevented this)
-        expect(report.disposals[0]?.fxConversion.fxSource).toBe('test-provider');
-      }
+      // Disposals should still be converted (hard-fail would have prevented this)
+      expect(report.disposals[0]?.fxConversion.fxSource).toBe('test-provider');
     });
   });
 });

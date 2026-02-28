@@ -7,7 +7,7 @@ import type {
 } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 
-import type { AcquisitionLot } from '../src/cost-basis/types.js';
+import type { AcquisitionLot, LotDisposal } from '../src/cost-basis/types.js';
 
 /**
  * Creates a PriceAtTxTime object with common defaults
@@ -33,19 +33,42 @@ export function createPriceAtTxTime(
 }
 
 /**
- * Creates an AssetMovement object with price
+ * Creates an AssetMovement object. If priceAmount is omitted, no priceAtTxTime is set.
  */
 export function createMovement(
   assetSymbol: string,
   amount: string,
-  priceAmount: string,
+  priceAmount?: string,
   currency = 'USD'
 ): AssetMovement {
   return {
     assetId: `test:${assetSymbol.toLowerCase()}`,
     assetSymbol: assetSymbol as Currency,
     grossAmount: parseDecimal(amount),
-    priceAtTxTime: createPriceAtTxTime(priceAmount, currency),
+    ...(priceAmount !== undefined ? { priceAtTxTime: createPriceAtTxTime(priceAmount, currency) } : {}),
+  };
+}
+
+/**
+ * Creates a FeeMovement with explicit scope and settlement positional args.
+ * Use this when you need to specify scope/settlement directly.
+ * For simple platform fees, use createFee() instead.
+ */
+export function createFeeMovement(
+  scope: 'network' | 'platform' | 'spread' | 'tax' | 'other',
+  settlement: 'on-chain' | 'balance' | 'external',
+  assetSymbol: string,
+  amount: string,
+  priceAmount?: string,
+  priceCurrency = 'USD'
+): FeeMovement {
+  return {
+    assetId: `test:${assetSymbol.toLowerCase()}`,
+    assetSymbol: assetSymbol as Currency,
+    scope,
+    settlement,
+    amount: parseDecimal(amount),
+    priceAtTxTime: priceAmount !== undefined ? createPriceAtTxTime(priceAmount, priceCurrency) : undefined,
   };
 }
 
@@ -75,7 +98,8 @@ export function createFee(
 }
 
 /**
- * Creates a UniversalTransactionData with common defaults
+ * Creates a UniversalTransactionData with common defaults.
+ * Inflows and outflows are specified as convenience objects with price.
  */
 export function createTransaction(
   id: number,
@@ -86,6 +110,7 @@ export function createTransaction(
     category?: 'trade' | 'transfer';
     fees?: FeeMovement[];
     source?: string;
+    sourceType?: 'exchange' | 'blockchain';
     type?: OperationType;
   }
 ): UniversalTransactionData {
@@ -98,7 +123,7 @@ export function createTransaction(
     datetime,
     timestamp: new Date(datetime).getTime(),
     source: options?.source ?? 'test',
-    sourceType: 'blockchain' as const,
+    sourceType: options?.sourceType ?? 'exchange',
     status: 'success',
     movements: {
       inflows: inflows.map((i) => createMovement(i.assetSymbol, i.amount, i.price)),
@@ -109,6 +134,43 @@ export function createTransaction(
       type: options?.type ?? (inflows.length > 0 ? 'buy' : 'sell'),
     },
     fees,
+  };
+}
+
+/**
+ * Creates a UniversalTransactionData from raw AssetMovement arrays.
+ * Use when you need to pass movements with specific priceAtTxTime already set.
+ */
+export function createTransactionFromMovements(
+  id: number,
+  datetime: string,
+  movements: { inflows?: AssetMovement[]; outflows?: AssetMovement[] } = {},
+  fees: FeeMovement[] = [],
+  options?: {
+    category?: 'trade' | 'transfer';
+    source?: string;
+    sourceType?: 'exchange' | 'blockchain';
+    type?: OperationType;
+  }
+): UniversalTransactionData {
+  return {
+    id,
+    accountId: 1,
+    externalId: `ext-${id}`,
+    source: options?.source ?? 'test',
+    sourceType: options?.sourceType ?? 'exchange',
+    datetime,
+    timestamp: new Date(datetime).getTime(),
+    status: 'success',
+    movements: {
+      inflows: movements.inflows ?? [],
+      outflows: movements.outflows ?? [],
+    },
+    fees,
+    operation: {
+      category: options?.category ?? 'trade',
+      type: options?.type ?? 'buy',
+    },
   };
 }
 
@@ -169,5 +231,38 @@ export function createLot(
     status: options?.status ?? 'open',
     createdAt: new Date(),
     updatedAt: new Date(),
+  };
+}
+
+/**
+ * Creates a LotDisposal with common defaults.
+ * gainLoss is computed as (proceedsPerUnit - costBasisPerUnit) * quantityDisposed.
+ */
+export function createDisposal(
+  id: string,
+  lotId: string,
+  assetSymbol: string,
+  disposalDate: Date,
+  quantityDisposed: string,
+  proceedsPerUnit: string,
+  costBasisPerUnit: string,
+  holdingPeriodDays: number
+): LotDisposal {
+  const qty = parseDecimal(quantityDisposed);
+  const proceeds = parseDecimal(proceedsPerUnit);
+  const costBasis = parseDecimal(costBasisPerUnit);
+  return {
+    id,
+    lotId,
+    disposalDate,
+    quantityDisposed: qty,
+    proceedsPerUnit: proceeds,
+    costBasisPerUnit: costBasis,
+    totalProceeds: proceeds.times(qty),
+    totalCostBasis: costBasis.times(qty),
+    gainLoss: proceeds.minus(costBasis).times(qty),
+    holdingPeriodDays,
+    disposalTransactionId: 1,
+    createdAt: new Date('2023-01-01T00:00:00Z'),
   };
 }

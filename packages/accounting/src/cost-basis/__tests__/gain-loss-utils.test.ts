@@ -6,9 +6,10 @@
  */
 
 import { type Currency, parseDecimal } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
+import { createDisposal, createLot } from '../../../__tests__/test-utils.js';
 import {
   aggregateAssetGainLoss,
   aggregateOverallGainLoss,
@@ -19,65 +20,6 @@ import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
 import { CanadaRules } from '../jurisdictions/canada-rules.js';
 import { USRules } from '../jurisdictions/us-rules.js';
 import type { AssetLotMatchResult } from '../lot-matcher.js';
-import type { AcquisitionLot, LotDisposal } from '../schemas.js';
-
-// Helper to create minimal acquisition lot
-function createLot(
-  id: string,
-  assetSymbol: string,
-  acquisitionDate: Date,
-  quantity: string,
-  costBasisPerUnit: string
-): AcquisitionLot {
-  return {
-    id,
-    calculationId: 'calc-1',
-    assetId: `test:${assetSymbol.toLowerCase()}`,
-    assetSymbol: assetSymbol as Currency,
-    acquisitionDate,
-    quantity: new Decimal(quantity),
-    costBasisPerUnit: new Decimal(costBasisPerUnit),
-    totalCostBasis: new Decimal(quantity).times(costBasisPerUnit),
-    remainingQuantity: new Decimal(quantity),
-    acquisitionTransactionId: 1,
-    method: 'fifo',
-    status: 'open',
-    createdAt: new Date('2023-01-01T00:00:00Z'),
-    updatedAt: new Date('2023-01-01T00:00:00Z'),
-  };
-}
-
-// Helper to create minimal lot disposal
-function createDisposal(
-  id: string,
-  lotId: string,
-  assetSymbol: string,
-  disposalDate: Date,
-  quantityDisposed: string,
-  proceedsPerUnit: string,
-  costBasisPerUnit: string,
-  holdingPeriodDays: number
-): LotDisposal {
-  const qty = new Decimal(quantityDisposed);
-  const proceeds = new Decimal(proceedsPerUnit);
-  const costBasis = new Decimal(costBasisPerUnit);
-  const gainLoss = proceeds.minus(costBasis).times(qty);
-
-  return {
-    id,
-    lotId,
-    disposalDate,
-    quantityDisposed: qty,
-    proceedsPerUnit: proceeds,
-    costBasisPerUnit: costBasis,
-    totalProceeds: proceeds.times(qty),
-    totalCostBasis: costBasis.times(qty),
-    gainLoss,
-    holdingPeriodDays,
-    disposalTransactionId: 1,
-    createdAt: new Date('2023-01-01T00:00:00Z'),
-  };
-}
 
 describe('checkLossDisallowance', () => {
   const rules: IJurisdictionRules = new CanadaRules(); // Canada: 30 days before/after
@@ -95,7 +37,7 @@ describe('checkLossDisallowance', () => {
         100 // gain of 10000
       );
 
-      const lot = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
+      const lot = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
 
       const isDisallowed = checkLossDisallowance(disposal, lot, [], [lot], rules);
 
@@ -105,7 +47,7 @@ describe('checkLossDisallowance', () => {
     it('does not disallow break-even (zero gainLoss)', () => {
       const disposal = createDisposal('d1', 'lot1', 'BTC', new Date('2023-06-15'), '1.0', '40000', '40000', 100);
 
-      const lot = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
+      const lot = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
 
       const isDisallowed = checkLossDisallowance(disposal, lot, [], [lot], rules);
 
@@ -126,7 +68,7 @@ describe('checkLossDisallowance', () => {
         100
       );
 
-      const lot = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
+      const lot = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
 
       const isDisallowed = checkLossDisallowance(disposal, lot, [], [lot], rules);
 
@@ -137,13 +79,13 @@ describe('checkLossDisallowance', () => {
       const disposalDate = new Date('2023-06-15');
       const disposal = createDisposal('d1', 'lot1', 'BTC', disposalDate, '1.0', '30000', '40000', 100);
 
-      const lot1 = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
+      const lot1 = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
 
       // Reacquisition 40 days before disposal (> 30 days before)
-      const lot2 = createLot('lot2', 'BTC', new Date('2023-05-06'), '1.0', '35000');
+      const lot2 = createLot('lot2', 'BTC', '1.0', '35000', new Date('2023-05-06'));
 
       // Reacquisition 40 days after disposal (> 30 days after)
-      const lot3 = createLot('lot3', 'BTC', new Date('2023-07-25'), '1.0', '35000');
+      const lot3 = createLot('lot3', 'BTC', '1.0', '35000', new Date('2023-07-25'));
 
       const isDisallowed = checkLossDisallowance(disposal, lot1, [], [lot1, lot2, lot3], rules);
 
@@ -156,10 +98,10 @@ describe('checkLossDisallowance', () => {
       const disposalDate = new Date('2023-06-15');
       const disposal = createDisposal('d1', 'lot1', 'BTC', disposalDate, '1.0', '30000', '40000', 100);
 
-      const lot1 = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
+      const lot1 = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
 
       // Reacquisition 15 days after disposal
-      const lot2 = createLot('lot2', 'BTC', new Date('2023-06-30'), '1.0', '35000');
+      const lot2 = createLot('lot2', 'BTC', '1.0', '35000', new Date('2023-06-30'));
 
       const isDisallowed = checkLossDisallowance(disposal, lot1, [], [lot1, lot2], rules);
 
@@ -170,10 +112,10 @@ describe('checkLossDisallowance', () => {
       const disposalDate = new Date('2023-06-15');
       const disposal = createDisposal('d1', 'lot1', 'BTC', disposalDate, '1.0', '30000', '40000', 100);
 
-      const lot1 = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
+      const lot1 = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
 
       // Reacquisition 15 days before disposal
-      const lot2 = createLot('lot2', 'BTC', new Date('2023-05-31'), '1.0', '35000');
+      const lot2 = createLot('lot2', 'BTC', '1.0', '35000', new Date('2023-05-31'));
 
       const isDisallowed = checkLossDisallowance(disposal, lot1, [], [lot1, lot2], rules);
 
@@ -184,10 +126,10 @@ describe('checkLossDisallowance', () => {
       const disposalDate = new Date('2023-06-15');
       const disposal = createDisposal('d1', 'lot1', 'BTC', disposalDate, '1.0', '30000', '40000', 100);
 
-      const lot1 = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
+      const lot1 = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
 
       // Exactly 30 days after
-      const lot2 = createLot('lot2', 'BTC', new Date('2023-07-15'), '1.0', '35000');
+      const lot2 = createLot('lot2', 'BTC', '1.0', '35000', new Date('2023-07-15'));
 
       const isDisallowed = checkLossDisallowance(disposal, lot1, [], [lot1, lot2], rules);
 
@@ -202,10 +144,10 @@ describe('checkLossDisallowance', () => {
       const disposalDate = new Date('2023-06-15');
       const disposal = createDisposal('d1', 'lot1', 'BTC', disposalDate, '1.0', '30000', '40000', 100);
 
-      const lot1 = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
+      const lot1 = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
 
       // Reacquisition 20 days after disposal
-      const lot2 = createLot('lot2', 'BTC', new Date('2023-07-05'), '1.0', '35000');
+      const lot2 = createLot('lot2', 'BTC', '1.0', '35000', new Date('2023-07-05'));
 
       const isDisallowed = checkLossDisallowance(disposal, lot1, [], [lot1, lot2], usRules);
 
@@ -216,10 +158,10 @@ describe('checkLossDisallowance', () => {
       const disposalDate = new Date('2023-06-15');
       const disposal = createDisposal('d1', 'lot1', 'BTC', disposalDate, '1.0', '30000', '40000', 100);
 
-      const lot1 = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
+      const lot1 = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
 
       // Reacquisition 15 days before disposal
-      const lot2 = createLot('lot2', 'BTC', new Date('2023-05-31'), '1.0', '35000');
+      const lot2 = createLot('lot2', 'BTC', '1.0', '35000', new Date('2023-05-31'));
 
       const isDisallowed = checkLossDisallowance(disposal, lot1, [], [lot1, lot2], usRules);
 
@@ -232,9 +174,9 @@ describe('checkLossDisallowance', () => {
       const disposalDate = new Date('2023-06-15');
       const disposal = createDisposal('d1', 'lot1', 'BTC', disposalDate, '1.0', '30000', '40000', 100);
 
-      const lot1 = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
-      const lot2 = createLot('lot2', 'BTC', new Date('2023-08-01'), '1.0', '35000'); // outside window
-      const lot3 = createLot('lot3', 'BTC', new Date('2023-06-20'), '1.0', '32000'); // within window
+      const lot1 = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
+      const lot2 = createLot('lot2', 'BTC', '1.0', '35000', new Date('2023-08-01')); // outside window
+      const lot3 = createLot('lot3', 'BTC', '1.0', '32000', new Date('2023-06-20')); // within window
 
       const isDisallowed = checkLossDisallowance(disposal, lot1, [], [lot1, lot2, lot3], rules);
 
@@ -247,7 +189,7 @@ describe('checkLossDisallowance', () => {
       const disposalDate = new Date('2023-06-15');
       const disposal = createDisposal('d1', 'lot1', 'BTC', disposalDate, '1.0', '30000', '40000', 100);
 
-      const lot1 = createLot('lot1', 'BTC', new Date('2023-06-10'), '1.0', '40000'); // within window but same lot
+      const lot1 = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-06-10')); // within window but same lot
 
       const isDisallowed = checkLossDisallowance(disposal, lot1, [], [lot1], rules);
 
@@ -276,10 +218,9 @@ describe('aggregateAssetGainLoss', () => {
 
     const result = aggregateAssetGainLoss('BTC', [disposal]);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const summary = result.value;
+    const summary = resultValue;
     expect(summary.assetSymbol).toBe('BTC');
     expect(summary.totalProceeds.toFixed()).toBe('50000');
     expect(summary.totalCostBasis.toFixed()).toBe('40000');
@@ -328,10 +269,9 @@ describe('aggregateAssetGainLoss', () => {
 
     const result = aggregateAssetGainLoss('BTC', [disposal1, disposal2]);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const summary = result.value;
+    const summary = resultValue;
     expect(summary.totalProceeds.toFixed()).toBe('140000'); // 50000 + 90000
     expect(summary.totalCostBasis.toFixed()).toBe('115000'); // 40000 + 75000
     expect(summary.totalCapitalGainLoss.toFixed()).toBe('25000'); // 10000 + 15000
@@ -354,10 +294,9 @@ describe('aggregateAssetGainLoss', () => {
   it('handles empty disposals array', () => {
     const result = aggregateAssetGainLoss('BTC', []);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const summary = result.value;
+    const summary = resultValue;
     expect(summary.assetSymbol).toBe('BTC');
     expect(summary.totalProceeds.toFixed()).toBe('0');
     expect(summary.totalCostBasis.toFixed()).toBe('0');
@@ -402,10 +341,9 @@ describe('aggregateAssetGainLoss', () => {
 
     const result = aggregateAssetGainLoss('ETH', [disposal1, disposal2]);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const summary = result.value;
+    const summary = resultValue;
     expect(summary.byCategory.get('short-term')).toEqual({
       count: 2,
       gainLoss: parseDecimal('800'),
@@ -432,10 +370,9 @@ describe('aggregateAssetGainLoss', () => {
 
     const result = aggregateAssetGainLoss('BTC', [disposal]);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const summary = result.value;
+    const summary = resultValue;
     expect(summary.byCategory.get('uncategorized')).toEqual({
       count: 1,
       gainLoss: parseDecimal('10000'),
@@ -462,10 +399,9 @@ describe('aggregateOverallGainLoss', () => {
 
     const result = aggregateOverallGainLoss(assetSummaries, 0);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const overall = result.value;
+    const overall = resultValue;
     expect(overall.totalProceeds.toFixed()).toBe('100000');
     expect(overall.totalCostBasis.toFixed()).toBe('80000');
     expect(overall.totalCapitalGainLoss.toFixed()).toBe('20000');
@@ -507,10 +443,9 @@ describe('aggregateOverallGainLoss', () => {
 
     const result = aggregateOverallGainLoss(assetSummaries, 1);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const overall = result.value;
+    const overall = resultValue;
     expect(overall.totalProceeds.toFixed()).toBe('150000');
     expect(overall.totalCostBasis.toFixed()).toBe('125000');
     expect(overall.totalCapitalGainLoss.toFixed()).toBe('25000');
@@ -522,10 +457,9 @@ describe('aggregateOverallGainLoss', () => {
   it('handles empty asset summaries map', () => {
     const result = aggregateOverallGainLoss(new Map(), 0);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const overall = result.value;
+    const overall = resultValue;
     expect(overall.totalProceeds.toFixed()).toBe('0');
     expect(overall.totalCostBasis.toFixed()).toBe('0');
     expect(overall.totalCapitalGainLoss.toFixed()).toBe('0');
@@ -552,10 +486,9 @@ describe('aggregateOverallGainLoss', () => {
 
     const result = aggregateOverallGainLoss(assetSummaries, 2);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const overall = result.value;
+    const overall = resultValue;
     expect(overall.disallowedLossCount).toBe(2);
   });
 });
@@ -564,7 +497,7 @@ describe('calculateGainLoss', () => {
   const rules: IJurisdictionRules = new CanadaRules();
 
   it('calculates gain/loss for single asset with single disposal', () => {
-    const lot = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
+    const lot = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
     const disposal = createDisposal('d1', 'lot1', 'BTC', new Date('2023-06-15'), '1.0', '50000', '40000', 100);
 
     const assetResult: AssetLotMatchResult = {
@@ -577,10 +510,9 @@ describe('calculateGainLoss', () => {
 
     const result = calculateGainLoss([assetResult], rules);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const gainLoss = result.value;
+    const gainLoss = resultValue;
     expect(gainLoss.totalProceeds.toFixed()).toBe('50000');
     expect(gainLoss.totalCostBasis.toFixed()).toBe('40000');
     expect(gainLoss.totalCapitalGainLoss.toFixed()).toBe('10000');
@@ -599,10 +531,9 @@ describe('calculateGainLoss', () => {
 
     const result = calculateGainLoss([assetResult], rules);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const gainLoss = result.value;
+    const gainLoss = resultValue;
     expect(gainLoss.byAsset.size).toBe(0);
     expect(gainLoss.totalDisposalsProcessed).toBe(0);
   });
@@ -629,18 +560,17 @@ describe('calculateGainLoss', () => {
 
     const result = calculateGainLoss([assetResult], rules);
 
-    expect(result.isErr()).toBe(true);
-    if (result.isOk()) return;
+    const resultError = assertErr(result);
 
-    expect(result.error.message).toContain('lot-nonexistent');
-    expect(result.error.message).toContain('not found');
+    expect(resultError.message).toContain('lot-nonexistent');
+    expect(resultError.message).toContain('not found');
   });
 
   it('applies tax treatment categories', () => {
     // Use US rules which distinguish between short-term and long-term gains
     const usRules: IJurisdictionRules = new USRules();
 
-    const lot = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
+    const lot = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
     const disposal = createDisposal('d1', 'lot1', 'BTC', new Date('2023-06-15'), '1.0', '50000', '40000', 100);
 
     const assetResult: AssetLotMatchResult = {
@@ -653,10 +583,9 @@ describe('calculateGainLoss', () => {
 
     const result = calculateGainLoss([assetResult], usRules);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const gainLoss = result.value;
+    const gainLoss = resultValue;
     const btcSummary = gainLoss.byAsset.get('test:btc');
 
     expect(btcSummary).toBeDefined();
@@ -665,7 +594,7 @@ describe('calculateGainLoss', () => {
 
   it('detects and counts disallowed losses', () => {
     const disposalDate = new Date('2023-06-15');
-    const lot1 = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
+    const lot1 = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
     const disposal = createDisposal(
       'd1',
       'lot1',
@@ -678,7 +607,7 @@ describe('calculateGainLoss', () => {
     );
 
     // Reacquisition within superficial loss window
-    const lot2 = createLot('lot2', 'BTC', new Date('2023-06-20'), '1.0', '35000');
+    const lot2 = createLot('lot2', 'BTC', '1.0', '35000', new Date('2023-06-20'));
 
     const assetResult: AssetLotMatchResult = {
       assetSymbol: 'BTC' as Currency,
@@ -690,10 +619,9 @@ describe('calculateGainLoss', () => {
 
     const result = calculateGainLoss([assetResult], rules);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const gainLoss = result.value;
+    const gainLoss = resultValue;
     expect(gainLoss.disallowedLossCount).toBe(1);
 
     const btcSummary = gainLoss.byAsset.get('test:btc');
@@ -702,10 +630,10 @@ describe('calculateGainLoss', () => {
   });
 
   it('handles multiple assets', () => {
-    const btcLot = createLot('lot1', 'BTC', new Date('2023-03-07'), '1.0', '40000');
+    const btcLot = createLot('lot1', 'BTC', '1.0', '40000', new Date('2023-03-07'));
     const btcDisposal = createDisposal('d1', 'lot1', 'BTC', new Date('2023-06-15'), '1.0', '50000', '40000', 100);
 
-    const ethLot = createLot('lot2', 'ETH', new Date('2023-04-01'), '10.0', '2000');
+    const ethLot = createLot('lot2', 'ETH', '10.0', '2000', new Date('2023-04-01'));
     const ethDisposal = createDisposal('d2', 'lot2', 'ETH', new Date('2023-07-01'), '5.0', '2500', '2000', 91);
 
     const assetResults: AssetLotMatchResult[] = [
@@ -727,10 +655,9 @@ describe('calculateGainLoss', () => {
 
     const result = calculateGainLoss(assetResults, rules);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const gainLoss = result.value;
+    const gainLoss = resultValue;
     expect(gainLoss.byAsset.size).toBe(2);
     expect(gainLoss.byAsset.has('test:btc')).toBe(true);
     expect(gainLoss.byAsset.has('test:eth')).toBe(true);
@@ -748,10 +675,9 @@ describe('calculateGainLoss', () => {
 
     const result = calculateGainLoss([assetResult], rules);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const resultValue = assertOk(result);
 
-    const gainLoss = result.value;
+    const gainLoss = resultValue;
     expect(gainLoss.byAsset.size).toBe(0);
     expect(gainLoss.totalProceeds.toFixed()).toBe('0');
     expect(gainLoss.totalCostBasis.toFixed()).toBe('0');

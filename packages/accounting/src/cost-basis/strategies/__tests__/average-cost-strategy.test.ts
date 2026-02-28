@@ -1,4 +1,5 @@
 import { type Currency, parseDecimal } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -35,27 +36,25 @@ describe('AverageCostStrategy', () => {
       // Pooled ACB = (1.0 * 30000 + 1.0 * 40000) / 2.0 = 35000
       const expectedPooledCost = parseDecimal('35000');
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        expect(disposals).toHaveLength(2);
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      expect(disposals).toHaveLength(2);
 
-        // First lot: dispose 0.5 BTC (50% of pool)
-        expect(disposals[0]!.lotId).toBe('lot1');
-        expect(disposals[0]!.quantityDisposed.toFixed()).toBe('0.5');
-        expect(disposals[0]!.costBasisPerUnit.toFixed()).toBe(expectedPooledCost.toFixed());
-        expect(disposals[0]!.totalCostBasis.toFixed()).toBe('17500'); // 0.5 * 35000
+      // First lot: dispose 0.5 BTC (50% of pool)
+      expect(disposals[0]!.lotId).toBe('lot1');
+      expect(disposals[0]!.quantityDisposed.toFixed()).toBe('0.5');
+      expect(disposals[0]!.costBasisPerUnit.toFixed()).toBe(expectedPooledCost.toFixed());
+      expect(disposals[0]!.totalCostBasis.toFixed()).toBe('17500'); // 0.5 * 35000
 
-        // Second lot: dispose 0.5 BTC (50% of pool, absorbs rounding)
-        expect(disposals[1]!.lotId).toBe('lot2');
-        expect(disposals[1]!.quantityDisposed.toFixed()).toBe('0.5');
-        expect(disposals[1]!.costBasisPerUnit.toFixed()).toBe(expectedPooledCost.toFixed());
-        expect(disposals[1]!.totalCostBasis.toFixed()).toBe('17500');
+      // Second lot: dispose 0.5 BTC (50% of pool, absorbs rounding)
+      expect(disposals[1]!.lotId).toBe('lot2');
+      expect(disposals[1]!.quantityDisposed.toFixed()).toBe('0.5');
+      expect(disposals[1]!.costBasisPerUnit.toFixed()).toBe(expectedPooledCost.toFixed());
+      expect(disposals[1]!.totalCostBasis.toFixed()).toBe('17500');
 
-        // Verify total disposed = disposal quantity
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
-        expect(totalDisposed.toFixed()).toBe(disposal.quantity.toFixed());
-      }
+      // Verify total disposed = disposal quantity
+      const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
+      expect(totalDisposed.toFixed()).toBe(disposal.quantity.toFixed());
     });
 
     it('should handle single lot (behaves like FIFO/LIFO)', () => {
@@ -71,15 +70,13 @@ describe('AverageCostStrategy', () => {
 
       const result = strategy.matchDisposal(disposal, lots);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        expect(disposals).toHaveLength(1);
-        expect(disposals[0]!.lotId).toBe('lot1');
-        expect(disposals[0]!.quantityDisposed.toFixed()).toBe('0.5');
-        expect(disposals[0]!.costBasisPerUnit.toFixed()).toBe('30000'); // Same as lot cost
-        expect(disposals[0]!.totalCostBasis.toFixed()).toBe('15000');
-      }
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      expect(disposals).toHaveLength(1);
+      expect(disposals[0]!.lotId).toBe('lot1');
+      expect(disposals[0]!.quantityDisposed.toFixed()).toBe('0.5');
+      expect(disposals[0]!.costBasisPerUnit.toFixed()).toBe('30000'); // Same as lot cost
+      expect(disposals[0]!.totalCostBasis.toFixed()).toBe('15000');
     });
 
     it('should handle exact match disposal (all lots fully disposed)', () => {
@@ -98,15 +95,13 @@ describe('AverageCostStrategy', () => {
 
       const result = strategy.matchDisposal(disposal, lots);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        expect(disposals).toHaveLength(2);
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      expect(disposals).toHaveLength(2);
 
-        // Verify total disposed = total available
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
-        expect(totalDisposed.toFixed()).toBe('2');
-      }
+      // Verify total disposed = total available
+      const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
+      expect(totalDisposed.toFixed()).toBe('2');
     });
 
     it('should distribute pro-rata across multiple lots with different quantities', () => {
@@ -129,32 +124,30 @@ describe('AverageCostStrategy', () => {
       // Pooled ACB = (2.0*30000 + 1.0*40000 + 0.5*50000) / 3.5 = 125000 / 3.5 = 35714.285714...
       const expectedPooledCost = parseDecimal('125000').dividedBy(new Decimal('3.5'));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        expect(disposals).toHaveLength(3);
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      expect(disposals).toHaveLength(3);
 
-        // All disposals use same pooled cost per unit
-        disposals.forEach((d) => {
-          expect(d.costBasisPerUnit.toFixed()).toBe(expectedPooledCost.toFixed());
-        });
+      // All disposals use same pooled cost per unit
+      disposals.forEach((d) => {
+        expect(d.costBasisPerUnit.toFixed()).toBe(expectedPooledCost.toFixed());
+      });
 
-        // Verify total disposed matches exactly
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
-        expect(totalDisposed.toFixed()).toBe(disposal.quantity.toFixed());
+      // Verify total disposed matches exactly
+      const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
+      expect(totalDisposed.toFixed()).toBe(disposal.quantity.toFixed());
 
-        // Verify pro-rata distribution (approximate, last lot absorbs rounding)
-        // lot1: 2.0/3.5 * 1.5 = 0.857... lot2: 1.0/3.5 * 1.5 = 0.428...
-        // lot3: remainder
-        expect(disposals[0]!.lotId).toBe('lot1');
-        expect(disposals[0]!.quantityDisposed.toNumber()).toBeCloseTo(0.857, 2);
+      // Verify pro-rata distribution (approximate, last lot absorbs rounding)
+      // lot1: 2.0/3.5 * 1.5 = 0.857... lot2: 1.0/3.5 * 1.5 = 0.428...
+      // lot3: remainder
+      expect(disposals[0]!.lotId).toBe('lot1');
+      expect(disposals[0]!.quantityDisposed.toNumber()).toBeCloseTo(0.857, 2);
 
-        expect(disposals[1]!.lotId).toBe('lot2');
-        expect(disposals[1]!.quantityDisposed.toNumber()).toBeCloseTo(0.429, 2);
+      expect(disposals[1]!.lotId).toBe('lot2');
+      expect(disposals[1]!.quantityDisposed.toNumber()).toBeCloseTo(0.429, 2);
 
-        expect(disposals[2]!.lotId).toBe('lot3');
-        // Last lot gets remainder (handles rounding)
-      }
+      expect(disposals[2]!.lotId).toBe('lot3');
+      // Last lot gets remainder (handles rounding)
     });
 
     it('should preserve acquisition dates for holding period calculation', () => {
@@ -173,13 +166,11 @@ describe('AverageCostStrategy', () => {
 
       const result = strategy.matchDisposal(disposal, lots);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        // Verify holding periods calculated from original acquisition dates
-        expect(disposals[0]!.holdingPeriodDays).toBe(60); // Jan 1 to Mar 1
-        expect(disposals[1]!.holdingPeriodDays).toBe(29); // Feb 1 to Mar 1
-      }
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      // Verify holding periods calculated from original acquisition dates
+      expect(disposals[0]!.holdingPeriodDays).toBe(60); // Jan 1 to Mar 1
+      expect(disposals[1]!.holdingPeriodDays).toBe(29); // Feb 1 to Mar 1
     });
 
     it('should throw error if insufficient quantity', () => {
@@ -197,11 +188,9 @@ describe('AverageCostStrategy', () => {
       ];
 
       const result = strategy.matchDisposal(disposal, lots);
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toMatch(/Insufficient acquisition lots/);
-        expect(result.error.message).toMatch(/Shortfall: 1/);
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toMatch(/Insufficient acquisition lots/);
+      expect(resultError.message).toMatch(/Shortfall: 1/);
     });
 
     it('should tolerate dust-level shortfall from Decimal drift', () => {
@@ -217,15 +206,13 @@ describe('AverageCostStrategy', () => {
 
       const result = strategy.matchDisposal(disposal, lots);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const totalDisposed = result.value.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
-        const shortfall = disposal.quantity.minus(totalDisposed);
+      const resultValue = assertOk(result);
+      const totalDisposed = resultValue.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
+      const shortfall = disposal.quantity.minus(totalDisposed);
 
-        expect(totalDisposed.equals(parseDecimal('0.0000099999999999999999996'))).toBe(true);
-        expect(shortfall.gt(0)).toBe(true);
-        expect(shortfall.lt(parseDecimal('1e-18'))).toBe(true);
-      }
+      expect(totalDisposed.equals(parseDecimal('0.0000099999999999999999996'))).toBe(true);
+      expect(shortfall.gt(0)).toBe(true);
+      expect(shortfall.lt(parseDecimal('1e-18'))).toBe(true);
     });
 
     it('should skip fully disposed lots', () => {
@@ -248,14 +235,12 @@ describe('AverageCostStrategy', () => {
 
       const result = strategy.matchDisposal(disposal, lots);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        // Should only use lot2
-        expect(disposals).toHaveLength(1);
-        expect(disposals[0]!.lotId).toBe('lot2');
-        expect(disposals[0]!.costBasisPerUnit.toFixed()).toBe('40000'); // Pooled from lot2 only
-      }
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      // Should only use lot2
+      expect(disposals).toHaveLength(1);
+      expect(disposals[0]!.lotId).toBe('lot2');
+      expect(disposals[0]!.costBasisPerUnit.toFixed()).toBe('40000'); // Pooled from lot2 only
     });
 
     it('should handle dust amounts (very small quantities)', () => {
@@ -274,15 +259,13 @@ describe('AverageCostStrategy', () => {
 
       const result = strategy.matchDisposal(disposal, lots);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        expect(disposals).toHaveLength(2);
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      expect(disposals).toHaveLength(2);
 
-        // Verify total disposed = disposal quantity (precision test)
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
-        expect(totalDisposed.toFixed(18)).toBe(disposal.quantity.toFixed(18));
-      }
+      // Verify total disposed = disposal quantity (precision test)
+      const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
+      expect(totalDisposed.toFixed(18)).toBe(disposal.quantity.toFixed(18));
     });
 
     it('should handle precision edge case with 100 lots', () => {
@@ -303,15 +286,13 @@ describe('AverageCostStrategy', () => {
 
       const result = strategy.matchDisposal(disposal, lots);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        expect(disposals).toHaveLength(100);
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      expect(disposals).toHaveLength(100);
 
-        // Verify exact total (critical precision test)
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
-        expect(totalDisposed.toFixed()).toBe('10');
-      }
+      // Verify exact total (critical precision test)
+      const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
+      expect(totalDisposed.toFixed()).toBe('10');
     });
 
     it('should throw error if all lots are fully disposed', () => {
@@ -333,10 +314,8 @@ describe('AverageCostStrategy', () => {
 
       // When all lots are fully disposed, totalQty is 0, so throws "Insufficient" error
       const result = strategy.matchDisposal(disposal, lots);
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toMatch(/Insufficient acquisition lots/);
-      }
+      const resultError = assertErr(result);
+      expect(resultError.message).toMatch(/Insufficient acquisition lots/);
     });
 
     it('should calculate gain/loss correctly with pooled ACB', () => {
@@ -355,17 +334,15 @@ describe('AverageCostStrategy', () => {
 
       const result = strategy.matchDisposal(disposal, lots);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        // Pooled ACB = 35000, proceeds = 50000, gain = 15000
-        const totalGainLoss = disposals.reduce((sum, d) => sum.plus(d.gainLoss), parseDecimal('0'));
-        expect(totalGainLoss.toFixed()).toBe('15000');
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      // Pooled ACB = 35000, proceeds = 50000, gain = 15000
+      const totalGainLoss = disposals.reduce((sum, d) => sum.plus(d.gainLoss), parseDecimal('0'));
+      expect(totalGainLoss.toFixed()).toBe('15000');
 
-        // Each disposal contributes half the gain
-        expect(disposals[0]!.gainLoss.toFixed()).toBe('7500'); // (50000 - 35000) * 0.5
-        expect(disposals[1]!.gainLoss.toFixed()).toBe('7500');
-      }
+      // Each disposal contributes half the gain
+      expect(disposals[0]!.gainLoss.toFixed()).toBe('7500'); // (50000 - 35000) * 0.5
+      expect(disposals[1]!.gainLoss.toFixed()).toBe('7500');
     });
 
     it('should produce deterministic results regardless of input order', () => {
@@ -392,33 +369,25 @@ describe('AverageCostStrategy', () => {
       const result1 = strategy.matchDisposal(disposal, lotsInOrder);
       const result2 = strategy.matchDisposal(disposal, lotsReversed);
       const result3 = strategy.matchDisposal(disposal, lotsScrambled);
+      const d1 = assertOk(result1);
+      const d2 = assertOk(result2);
+      const d3 = assertOk(result3);
 
-      // All should produce identical results (sorted by acquisitionDate, then id)
-      expect(result1.isOk()).toBe(true);
-      expect(result2.isOk()).toBe(true);
-      expect(result3.isOk()).toBe(true);
+      expect(d1).toHaveLength(3);
+      expect(d2).toHaveLength(3);
+      expect(d3).toHaveLength(3);
 
-      if (result1.isOk() && result2.isOk() && result3.isOk()) {
-        const d1 = result1.value;
-        const d2 = result2.value;
-        const d3 = result3.value;
+      // Verify same lot order (oldest first)
+      expect(d1[0]!.lotId).toBe('lot1');
+      expect(d2[0]!.lotId).toBe('lot1');
+      expect(d3[0]!.lotId).toBe('lot1');
 
-        expect(d1).toHaveLength(3);
-        expect(d2).toHaveLength(3);
-        expect(d3).toHaveLength(3);
-
-        // Verify same lot order (oldest first)
-        expect(d1[0]!.lotId).toBe('lot1');
-        expect(d2[0]!.lotId).toBe('lot1');
-        expect(d3[0]!.lotId).toBe('lot1');
-
-        // Verify same quantities disposed from each lot
-        for (let i = 0; i < 3; i++) {
-          expect(d1[i]!.quantityDisposed.toFixed()).toBe(d2[i]!.quantityDisposed.toFixed());
-          expect(d1[i]!.quantityDisposed.toFixed()).toBe(d3[i]!.quantityDisposed.toFixed());
-          expect(d1[i]!.lotId).toBe(d2[i]!.lotId);
-          expect(d1[i]!.lotId).toBe(d3[i]!.lotId);
-        }
+      // Verify same quantities disposed from each lot
+      for (let i = 0; i < 3; i++) {
+        expect(d1[i]!.quantityDisposed.toFixed()).toBe(d2[i]!.quantityDisposed.toFixed());
+        expect(d1[i]!.quantityDisposed.toFixed()).toBe(d3[i]!.quantityDisposed.toFixed());
+        expect(d1[i]!.lotId).toBe(d2[i]!.lotId);
+        expect(d1[i]!.lotId).toBe(d3[i]!.lotId);
       }
     });
 
@@ -441,14 +410,12 @@ describe('AverageCostStrategy', () => {
 
       const result = strategy.matchDisposal(disposal, lots);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        // Should be sorted by id: lot-a, lot-b, lot-c
-        expect(disposals[0]!.lotId).toBe('lot-a');
-        expect(disposals[1]!.lotId).toBe('lot-b');
-        // lot-c gets remainder (last in sorted order)
-      }
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      // Should be sorted by id: lot-a, lot-b, lot-c
+      expect(disposals[0]!.lotId).toBe('lot-a');
+      expect(disposals[1]!.lotId).toBe('lot-b');
+      // lot-c gets remainder (last in sorted order)
     });
 
     it('should ensure exact accounting: sum(disposed) = disposal quantity', () => {
@@ -470,14 +437,12 @@ describe('AverageCostStrategy', () => {
 
       const result = strategy.matchDisposal(disposal, lots);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        // Critical: sum must equal disposal quantity exactly (no precision drift)
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
-        expect(totalDisposed.toFixed()).toBe(disposal.quantity.toFixed());
-        expect(totalDisposed.equals(disposal.quantity)).toBe(true);
-      }
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      // Critical: sum must equal disposal quantity exactly (no precision drift)
+      const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
+      expect(totalDisposed.toFixed()).toBe(disposal.quantity.toFixed());
+      expect(totalDisposed.equals(disposal.quantity)).toBe(true);
     });
 
     it('should handle complex pro-rata with many lots', () => {
@@ -497,19 +462,17 @@ describe('AverageCostStrategy', () => {
 
       const result = strategy.matchDisposal(disposal, lots);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        // Verify exact accounting despite complex division
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
-        expect(totalDisposed.equals(disposal.quantity)).toBe(true);
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      // Verify exact accounting despite complex division
+      const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
+      expect(totalDisposed.equals(disposal.quantity)).toBe(true);
 
-        // Verify all disposals use pooled cost
-        const pooledCost = disposals[0]!.costBasisPerUnit;
-        disposals.forEach((d) => {
-          expect(d.costBasisPerUnit.equals(pooledCost)).toBe(true);
-        });
-      }
+      // Verify all disposals use pooled cost
+      const pooledCost = disposals[0]!.costBasisPerUnit;
+      disposals.forEach((d) => {
+        expect(d.costBasisPerUnit.equals(pooledCost)).toBe(true);
+      });
     });
 
     it('should skip zero-quantity disposals', () => {
@@ -529,12 +492,10 @@ describe('AverageCostStrategy', () => {
 
       const result = strategy.matchDisposal(disposal, lots);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        // Should return empty array (no disposals)
-        expect(disposals).toHaveLength(0);
-      }
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      // Should return empty array (no disposals)
+      expect(disposals).toHaveLength(0);
     });
 
     it('should never create disposal records with zero quantity', () => {
@@ -554,18 +515,16 @@ describe('AverageCostStrategy', () => {
 
       const result = strategy.matchDisposal(disposal, lots);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const disposals = result.value;
-        // All disposal records should have non-zero quantity
-        disposals.forEach((d) => {
-          expect(d.quantityDisposed.gt(0)).toBe(true);
-        });
+      const resultValue = assertOk(result);
+      const disposals = resultValue;
+      // All disposal records should have non-zero quantity
+      disposals.forEach((d) => {
+        expect(d.quantityDisposed.gt(0)).toBe(true);
+      });
 
-        // Total should still equal disposal quantity
-        const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
-        expect(totalDisposed.equals(disposal.quantity)).toBe(true);
-      }
+      // Total should still equal disposal quantity
+      const totalDisposed = disposals.reduce((sum, d) => sum.plus(d.quantityDisposed), parseDecimal('0'));
+      expect(totalDisposed.equals(disposal.quantity)).toBe(true);
     });
   });
 });

@@ -1,4 +1,5 @@
 import { parseDecimal, type Currency } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { OverrideEvent, OverrideStore, TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { err, ok } from 'neverthrow';
@@ -89,8 +90,7 @@ describe('LinkingOrchestrator', () => {
       autoConfirmThreshold: parseDecimal('0.95'),
     });
 
-    expect(result.isOk()).toBe(true);
-    const value = result._unsafeUnwrap();
+    const value = assertOk(result);
 
     expect(value.internalLinksCount).toBe(1);
     expect(value.confirmedLinksCount).toBe(0);
@@ -119,8 +119,7 @@ describe('LinkingOrchestrator', () => {
       autoConfirmThreshold: parseDecimal('0.95'),
     });
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('linking failed');
+    expect(assertErr(result).message).toContain('linking failed');
   });
 
   it('emits events during execution when eventBus is provided', async () => {
@@ -192,7 +191,7 @@ describe('LinkingOrchestrator', () => {
       autoConfirmThreshold: parseDecimal('0.95'),
     });
 
-    expect(result.isOk()).toBe(true);
+    assertOk(result);
 
     // Verify event sequence: load fires before match
     expect(emittedEvents).toHaveLength(6);
@@ -250,7 +249,7 @@ describe('LinkingOrchestrator', () => {
       autoConfirmThreshold: parseDecimal('0.95'),
     });
 
-    expect(result.isOk()).toBe(true);
+    assertOk(result);
 
     // Should emit load.started, load.completed, match.started, match.completed (no save in dry run)
     expect(emittedEvents).toHaveLength(4);
@@ -292,8 +291,7 @@ describe('LinkingOrchestrator', () => {
       autoConfirmThreshold: parseDecimal('0.95'),
     });
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('delete failed');
+    expect(assertErr(result).message).toContain('delete failed');
   });
 
   it('skips orphaned override when assetId cannot be resolved from movements', async () => {
@@ -371,7 +369,7 @@ describe('LinkingOrchestrator', () => {
     });
 
     // Should succeed — the orphaned override is skipped, not a fatal error
-    expect(result.isOk()).toBe(true);
+    assertOk(result);
 
     // No links should have been saved (the orphaned override was rejected)
     expect(mockCreateBulk).not.toHaveBeenCalled();
@@ -453,7 +451,7 @@ describe('LinkingOrchestrator', () => {
       autoConfirmThreshold: parseDecimal('0.95'),
     });
 
-    expect(result.isOk()).toBe(true);
+    assertOk(result);
     expect(mockCreateBulk).not.toHaveBeenCalled();
   });
 
@@ -531,7 +529,7 @@ describe('LinkingOrchestrator', () => {
       autoConfirmThreshold: parseDecimal('0.95'),
     });
 
-    expect(result.isOk()).toBe(true);
+    assertOk(result);
     expect(mockCreateBulk).not.toHaveBeenCalled();
   });
 });

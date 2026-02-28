@@ -136,7 +136,7 @@ logger.error({ error }, 'error message');
   **Never use closure factories (`createFooQueries(db)` returning an object of methods) as a substitute for classes** — if it captures state and exposes multiple methods, it's a class.
 
 - **Interfaces:** Use `I`-prefixed interfaces (`IProvider`, `IImporter`) only for polymorphic contracts with multiple implementations. Don't create interfaces for single-implementation classes — extract when a second implementation appears. Use plain `interface` or `z.infer<>` for data shapes.
-- **Testing:** Test pure functions in `*-utils.test.ts` without mocks. Test classes with mocked dependencies.
+- **Testing:** Apply DRY within test files — extract shared fixtures, builders, and assertion helpers into `test-utils.ts` files co-located with the tests. Prefer reusable setup over repeated inline boilerplate; maintainable tests read like specs, not setup noise.
 - **Simplicity Over DRY:** KISS > DRY. Prefer simple, readable code over complex abstractions. Some repetition acceptable for maintainability.
 - **Developer Experience:** Prioritize clean DX when developing packages. Intuitive APIs, helpful errors, minimal setup.
 - **Meaningful Comments:** Add comments only for meaningful context not expressible in code. Avoid obvious statements or refactoring notes. Explain why, not what.

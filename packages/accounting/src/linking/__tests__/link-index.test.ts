@@ -1,9 +1,9 @@
-import { type Currency, parseDecimal } from '@exitbook/core';
-import type { Decimal } from 'decimal.js';
+import { parseDecimal, type TransactionLink } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { LinkIndex } from '../link-index.js';
-import type { TransactionLink } from '../types.js';
+
+import { createLink } from './test-utils.js';
 
 describe('LinkIndex', () => {
   describe('constructor', () => {
@@ -844,39 +844,3 @@ describe('LinkIndex', () => {
     });
   });
 });
-
-/**
- * Helper function to create a TransactionLink for testing
- */
-function createLink(params: {
-  assetSymbol: string;
-  id: number;
-  sourceAmount: Decimal;
-  sourceTransactionId: number;
-  targetAmount: Decimal;
-  targetTransactionId: number;
-}): TransactionLink {
-  return {
-    id: params.id,
-    sourceTransactionId: params.sourceTransactionId,
-    targetTransactionId: params.targetTransactionId,
-    assetSymbol: params.assetSymbol as Currency,
-    sourceAssetId: params.assetSymbol,
-    targetAssetId: params.assetSymbol,
-    sourceAmount: params.sourceAmount,
-    targetAmount: params.targetAmount,
-    linkType: 'exchange_to_blockchain',
-    confidenceScore: parseDecimal('0.95'),
-    matchCriteria: {
-      assetMatch: true,
-      amountSimilarity: parseDecimal('0.9995'),
-      timingValid: true,
-      timingHours: 1,
-    },
-    status: 'confirmed',
-    reviewedBy: 'auto',
-    reviewedAt: new Date('2024-01-01T12:00:00Z'),
-    createdAt: new Date('2024-01-01T12:00:00Z'),
-    updatedAt: new Date('2024-01-01T12:00:00Z'),
-  };
-}

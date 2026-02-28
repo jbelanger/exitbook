@@ -1,4 +1,5 @@
 import { type Currency, parseDecimal } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, test } from 'vitest';
 
 import { createLot } from '../../../__tests__/test-utils.js';
@@ -87,13 +88,11 @@ describe('disposeLot', () => {
 
     const result = disposeLot(lot, parseDecimal('1'));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const disposedLot = result.value;
-      expect(disposedLot.remainingQuantity.toString()).toBe('1');
-      expect(disposedLot.status).toBe('partially_disposed');
-      expect(disposedLot.updatedAt).toBeInstanceOf(Date);
-    }
+    const resultValue = assertOk(result);
+    const disposedLot = resultValue;
+    expect(disposedLot.remainingQuantity.toString()).toBe('1');
+    expect(disposedLot.status).toBe('partially_disposed');
+    expect(disposedLot.updatedAt).toBeInstanceOf(Date);
   });
 
   test('should update status to fully_disposed when all quantity is disposed', () => {
@@ -103,12 +102,10 @@ describe('disposeLot', () => {
 
     const result = disposeLot(lot, parseDecimal('2'));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const disposedLot = result.value;
-      expect(disposedLot.remainingQuantity.toString()).toBe('0');
-      expect(disposedLot.status).toBe('fully_disposed');
-    }
+    const resultValue = assertOk(result);
+    const disposedLot = resultValue;
+    expect(disposedLot.remainingQuantity.toString()).toBe('0');
+    expect(disposedLot.status).toBe('fully_disposed');
   });
 
   test('should return error when trying to dispose more than remaining quantity', () => {
@@ -120,11 +117,9 @@ describe('disposeLot', () => {
 
     const result = disposeLot(lot, parseDecimal('1.5'));
 
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toContain('Cannot dispose 1.5 from lot lot-123');
-      expect(result.error.message).toContain('with only 1 remaining');
-    }
+    const resultError = assertErr(result);
+    expect(resultError.message).toContain('Cannot dispose 1.5 from lot lot-123');
+    expect(resultError.message).toContain('with only 1 remaining');
   });
 
   test('should handle decimal precision correctly', () => {
@@ -134,9 +129,7 @@ describe('disposeLot', () => {
 
     const result = disposeLot(lot, parseDecimal('0.023456789'));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value.remainingQuantity.toString()).toBe('0.1');
-    }
+    const resultValue = assertOk(result);
+    expect(resultValue.remainingQuantity.toString()).toBe('0.1');
   });
 });
