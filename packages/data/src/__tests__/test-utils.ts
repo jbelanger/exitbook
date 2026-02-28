@@ -1,7 +1,10 @@
-import { DataContext } from './data-context.js';
-import type { KyselyDB } from './storage/initialization.js';
-import { createDatabase } from './storage/initialization.js';
-import { runMigrations } from './storage/migrations.js';
+import type { Result } from 'neverthrow';
+import { expect } from 'vitest';
+
+import { DataContext } from '../data-context.js';
+import type { KyselyDB } from '../storage/initialization.js';
+import { createDatabase } from '../storage/initialization.js';
+import { runMigrations } from '../storage/migrations.js';
 
 /**
  * Create an in-memory database with migrations applied. For use in tests only.
@@ -28,4 +31,13 @@ export async function createTestDatabase(): Promise<KyselyDB> {
 export async function createTestDataContext(): Promise<DataContext> {
   const db = await createTestDatabase();
   return new DataContext(db);
+}
+
+/**
+ * Assert that a Result is Ok and return its value. Fails the test if it is an Err.
+ */
+export function unwrapOk<T>(result: Result<T, Error>): T {
+  expect(result.isOk()).toBe(true);
+  if (result.isErr()) throw result.error;
+  return result.value;
 }

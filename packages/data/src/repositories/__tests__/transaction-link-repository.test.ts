@@ -1,8 +1,8 @@
 /* eslint-disable unicorn/no-null -- null needed by db */
 import { type Currency, type NewTransactionLink, parseDecimal } from '@exitbook/core';
-import { createTestDatabase } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createTestDatabase, unwrapOk } from '../../__tests__/test-utils.js';
 import type { KyselyDB } from '../../storage/initialization.js';
 import { TransactionLinkRepository } from '../transaction-link-repository.js';
 
@@ -78,21 +78,15 @@ describe('TransactionLinkRepository', () => {
 
   describe('create', () => {
     it('creates a link and returns its numeric ID', async () => {
-      const result = await repo.create(makeBtcLink(1, 2));
+      const id = unwrapOk(await repo.create(makeBtcLink(1, 2)));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(typeof result.value).toBe('number');
-        expect(result.value).toBeGreaterThan(0);
+      expect(typeof id).toBe('number');
+      expect(id).toBeGreaterThan(0);
 
-        const fetched = await repo.findById(result.value);
-        expect(fetched.isOk()).toBe(true);
-        if (fetched.isOk() && fetched.value) {
-          expect(fetched.value.assetSymbol).toBe('BTC');
-          expect(fetched.value.sourceAmount.toFixed()).toBe('1');
-          expect(fetched.value.targetAmount.toFixed()).toBe('0.9995');
-        }
-      }
+      const fetched = unwrapOk(await repo.findById(id));
+      expect(fetched?.assetSymbol).toBe('BTC');
+      expect(fetched?.sourceAmount.toFixed()).toBe('1');
+      expect(fetched?.targetAmount.toFixed()).toBe('0.9995');
     });
 
     it('stores variance metadata in metadata_json', async () => {
@@ -108,16 +102,9 @@ describe('TransactionLinkRepository', () => {
         metadata: { variance: '0.05', variancePct: '0.50', impliedFee: '0.05' },
       };
 
-      const result = await repo.create(link);
-      expect(result.isOk()).toBe(true);
-
-      if (result.isOk()) {
-        const fetched = await repo.findById(result.value);
-        expect(fetched.isOk()).toBe(true);
-        if (fetched.isOk() && fetched.value) {
-          expect(fetched.value.metadata).toEqual({ variance: '0.05', variancePct: '0.50', impliedFee: '0.05' });
-        }
-      }
+      const id = unwrapOk(await repo.create(link));
+      const fetched = unwrapOk(await repo.findById(id));
+      expect(fetched?.metadata).toEqual({ variance: '0.05', variancePct: '0.50', impliedFee: '0.05' });
     });
 
     it('preserves very small amounts without precision loss', async () => {
@@ -126,17 +113,10 @@ describe('TransactionLinkRepository', () => {
         sourceAmount: parseDecimal('0.00001'),
         targetAmount: parseDecimal('0.000009'),
       };
-      const result = await repo.create(link);
-      expect(result.isOk()).toBe(true);
-
-      if (result.isOk()) {
-        const fetched = await repo.findById(result.value);
-        expect(fetched.isOk()).toBe(true);
-        if (fetched.isOk() && fetched.value) {
-          expect(fetched.value.sourceAmount.toFixed()).toBe('0.00001');
-          expect(fetched.value.targetAmount.toFixed()).toBe('0.000009');
-        }
-      }
+      const id = unwrapOk(await repo.create(link));
+      const fetched = unwrapOk(await repo.findById(id));
+      expect(fetched?.sourceAmount.toFixed()).toBe('0.00001');
+      expect(fetched?.targetAmount.toFixed()).toBe('0.000009');
     });
 
     it('preserves large amounts without precision loss', async () => {
@@ -146,17 +126,10 @@ describe('TransactionLinkRepository', () => {
         sourceAmount: parseDecimal('1000000.123456789'),
         targetAmount: parseDecimal('999999.123456789'),
       };
-      const result = await repo.create(link);
-      expect(result.isOk()).toBe(true);
-
-      if (result.isOk()) {
-        const fetched = await repo.findById(result.value);
-        expect(fetched.isOk()).toBe(true);
-        if (fetched.isOk() && fetched.value) {
-          expect(fetched.value.sourceAmount.toFixed()).toBe('1000000.123456789');
-          expect(fetched.value.targetAmount.toFixed()).toBe('999999.123456789');
-        }
-      }
+      const id = unwrapOk(await repo.create(link));
+      const fetched = unwrapOk(await repo.findById(id));
+      expect(fetched?.sourceAmount.toFixed()).toBe('1000000.123456789');
+      expect(fetched?.targetAmount.toFixed()).toBe('999999.123456789');
     });
   });
 
@@ -183,19 +156,12 @@ describe('TransactionLinkRepository', () => {
         },
       ];
 
-      const result = await repo.createBulk(links);
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBe(2);
-      }
+      expect(unwrapOk(await repo.createBulk(links))).toBe(2);
 
-      const all = await repo.findAll();
-      expect(all.isOk()).toBe(true);
-      if (all.isOk()) {
-        expect(all.value).toHaveLength(2);
-        expect(all.value.find((l) => l.assetSymbol === 'BTC')?.sourceAmount.toFixed()).toBe('1');
-        expect(all.value.find((l) => l.assetSymbol === 'ETH')?.sourceAmount.toFixed()).toBe('10');
-      }
+      const all = unwrapOk(await repo.findAll());
+      expect(all).toHaveLength(2);
+      expect(all.find((l) => l.assetSymbol === 'BTC')?.sourceAmount.toFixed()).toBe('1');
+      expect(all.find((l) => l.assetSymbol === 'ETH')?.sourceAmount.toFixed()).toBe('10');
     });
   });
 
@@ -218,31 +184,24 @@ describe('TransactionLinkRepository', () => {
         },
       });
 
-      const result = await repo.findByTransactionIds([7]);
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toHaveLength(2);
-        expect(result.value[0]?.assetSymbol).toBeDefined();
-        expect(result.value[0]?.sourceAmount).toBeDefined();
-        expect(result.value[0]?.targetAmount).toBeDefined();
-      }
+      const links = unwrapOk(await repo.findByTransactionIds([7]));
+      expect(links).toHaveLength(2);
+      expect(links[0]?.assetSymbol).toBeDefined();
+      expect(links[0]?.sourceAmount).toBeDefined();
+      expect(links[0]?.targetAmount).toBeDefined();
     });
   });
 
   describe('findAll', () => {
     it('returns all links with their stored fields', async () => {
-      const created = await repo.create(makeBtcLink(1, 2));
-      expect(created.isOk()).toBe(true);
+      const id = unwrapOk(await repo.create(makeBtcLink(1, 2)));
 
-      const result = await repo.findAll();
-      expect(result.isOk()).toBe(true);
-      if (result.isOk() && created.isOk()) {
-        const found = result.value.find((l) => l.id === created.value);
-        expect(found).toBeDefined();
-        expect(found?.assetSymbol).toBe('BTC');
-        expect(found?.sourceAmount.toFixed()).toBe('1');
-        expect(found?.targetAmount.toFixed()).toBe('0.9995');
-      }
+      const all = unwrapOk(await repo.findAll());
+      const found = all.find((l) => l.id === id);
+      expect(found).toBeDefined();
+      expect(found?.assetSymbol).toBe('BTC');
+      expect(found?.sourceAmount.toFixed()).toBe('1');
+      expect(found?.targetAmount.toFixed()).toBe('0.9995');
     });
   });
 
@@ -256,11 +215,7 @@ describe('TransactionLinkRepository', () => {
         targetAssetId: 'test:eth',
       });
 
-      const result = await repo.count();
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBe(2);
-      }
+      expect(unwrapOk(await repo.count())).toBe(2);
     });
 
     it('counts links scoped to specific account IDs', async () => {
@@ -308,25 +263,12 @@ describe('TransactionLinkRepository', () => {
         targetAssetId: 'test:eth',
       });
 
-      const countForAccount1 = await repo.count({ accountIds: [1] });
-      expect(countForAccount1.isOk()).toBe(true);
-      if (countForAccount1.isOk()) {
-        expect(countForAccount1.value).toBe(1);
-      }
-
-      const countForAccount2 = await repo.count({ accountIds: [2] });
-      expect(countForAccount2.isOk()).toBe(true);
-      if (countForAccount2.isOk()) {
-        expect(countForAccount2.value).toBe(1);
-      }
+      expect(unwrapOk(await repo.count({ accountIds: [1] }))).toBe(1);
+      expect(unwrapOk(await repo.count({ accountIds: [2] }))).toBe(1);
     });
 
     it('returns 0 when accountIds filter is empty', async () => {
-      const result = await repo.count({ accountIds: [] });
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBe(0);
-      }
+      expect(unwrapOk(await repo.count({ accountIds: [] }))).toBe(0);
     });
   });
 });

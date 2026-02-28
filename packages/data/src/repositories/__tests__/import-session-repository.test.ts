@@ -1,7 +1,8 @@
 /* eslint-disable unicorn/no-null -- null required by db */
-import { createTestDatabase } from '@exitbook/data';
+
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createTestDatabase, unwrapOk } from '../../__tests__/test-utils.js';
 import type { KyselyDB } from '../../storage/initialization.js';
 import { ImportSessionRepository } from '../import-session-repository.js';
 
@@ -65,25 +66,18 @@ describe('ImportSessionRepository', () => {
 
   describe('create', () => {
     it('creates a started import session and returns its ID', async () => {
-      const result = await repo.create(1);
+      const id = unwrapOk(await repo.create(1));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBeGreaterThan(0);
+      expect(id).toBeGreaterThan(0);
 
-        const row = await db
-          .selectFrom('import_sessions')
-          .selectAll()
-          .where('id', '=', result.value)
-          .executeTakeFirst();
-        expect(row).toBeDefined();
-        expect(row?.account_id).toBe(1);
-        expect(row?.status).toBe('started');
-        expect(row?.transactions_imported).toBe(0);
-        expect(row?.transactions_skipped).toBe(0);
-        expect(row?.started_at).toBeDefined();
-        expect(row?.created_at).toBeDefined();
-      }
+      const row = await db.selectFrom('import_sessions').selectAll().where('id', '=', id).executeTakeFirst();
+      expect(row).toBeDefined();
+      expect(row?.account_id).toBe(1);
+      expect(row?.status).toBe('started');
+      expect(row?.transactions_imported).toBe(0);
+      expect(row?.transactions_skipped).toBe(0);
+      expect(row?.started_at).toBeDefined();
+      expect(row?.created_at).toBeDefined();
     });
 
     it('returns an error when the database is closed', async () => {
@@ -100,80 +94,61 @@ describe('ImportSessionRepository', () => {
 
   describe('finalize', () => {
     it('marks a session complete with duration, counts, and error metadata', async () => {
-      const createResult = await repo.create(1);
-      expect(createResult.isOk()).toBe(true);
+      const sessionId = unwrapOk(await repo.create(1));
+      const startTime = Date.now() - 250;
 
-      if (createResult.isOk()) {
-        const startTime = Date.now() - 250;
-        const finalizeResult = await repo.finalize(createResult.value, 'failed', startTime, 12, 3, 'Provider timeout', {
+      unwrapOk(
+        await repo.finalize(sessionId, 'failed', startTime, 12, 3, 'Provider timeout', {
           code: 'TIMEOUT',
           attempt: 2,
-        });
+        })
+      );
 
-        expect(finalizeResult.isOk()).toBe(true);
+      const row = await db
+        .selectFrom('import_sessions')
+        .selectAll()
+        .where('id', '=', sessionId)
+        .executeTakeFirstOrThrow();
 
-        const row = await db
-          .selectFrom('import_sessions')
-          .selectAll()
-          .where('id', '=', createResult.value)
-          .executeTakeFirstOrThrow();
-
-        expect(row.status).toBe('failed');
-        expect(row.transactions_imported).toBe(12);
-        expect(row.transactions_skipped).toBe(3);
-        expect(row.error_message).toBe('Provider timeout');
-        expect(row.error_details).toBe(JSON.stringify({ code: 'TIMEOUT', attempt: 2 }));
-        expect(row.completed_at).toBeDefined();
-        expect(row.updated_at).toBeDefined();
-        expect((row.duration_ms ?? 0) > 0).toBe(true);
-      }
+      expect(row.status).toBe('failed');
+      expect(row.transactions_imported).toBe(12);
+      expect(row.transactions_skipped).toBe(3);
+      expect(row.error_message).toBe('Provider timeout');
+      expect(row.error_details).toBe(JSON.stringify({ code: 'TIMEOUT', attempt: 2 }));
+      expect(row.completed_at).toBeDefined();
+      expect(row.updated_at).toBeDefined();
+      expect((row.duration_ms ?? 0) > 0).toBe(true);
     });
 
     it('returns an error when error details cannot be serialized', async () => {
-      const createResult = await repo.create(1);
-      expect(createResult.isOk()).toBe(true);
+      const sessionId = unwrapOk(await repo.create(1));
+      const circular: Record<string, unknown> = {};
+      circular['self'] = circular;
 
-      if (createResult.isOk()) {
-        const circular: Record<string, unknown> = {};
-        circular['self'] = circular;
+      const finalizeResult = await repo.finalize(sessionId, 'failed', Date.now(), 0, 0, 'bad payload', circular);
 
-        const finalizeResult = await repo.finalize(
-          createResult.value,
-          'failed',
-          Date.now(),
-          0,
-          0,
-          'bad payload',
-          circular
-        );
-
-        expect(finalizeResult.isErr()).toBe(true);
-        if (finalizeResult.isErr()) {
-          expect(finalizeResult.error.message).toContain('Failed to serialize JSON');
-        }
-
-        const row = await db
-          .selectFrom('import_sessions')
-          .selectAll()
-          .where('id', '=', createResult.value)
-          .executeTakeFirstOrThrow();
-        expect(row.status).toBe('started');
+      expect(finalizeResult.isErr()).toBe(true);
+      if (finalizeResult.isErr()) {
+        expect(finalizeResult.error.message).toContain('Failed to serialize JSON');
       }
+
+      const row = await db
+        .selectFrom('import_sessions')
+        .selectAll()
+        .where('id', '=', sessionId)
+        .executeTakeFirstOrThrow();
+      expect(row.status).toBe('started');
     });
 
     it('returns an error when the database is closed', async () => {
-      const createResult = await repo.create(1);
-      expect(createResult.isOk()).toBe(true);
+      const sessionId = unwrapOk(await repo.create(1));
+      await db.destroy();
 
-      if (createResult.isOk()) {
-        await db.destroy();
+      const result = await repo.finalize(sessionId, 'completed', Date.now(), 2, 0);
 
-        const result = await repo.finalize(createResult.value, 'completed', Date.now(), 2, 0);
-
-        expect(result.isErr()).toBe(true);
-        if (result.isErr()) {
-          expect(result.error.message.length).toBeGreaterThan(0);
-        }
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message.length).toBeGreaterThan(0);
       }
     });
   });
@@ -198,33 +173,26 @@ describe('ImportSessionRepository', () => {
         updatedAt,
       });
 
-      const result = await repo.findById(sessionId);
+      const session = unwrapOk(await repo.findById(sessionId));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBeDefined();
-        expect(result.value?.id).toBe(sessionId);
-        expect(result.value?.accountId).toBe(1);
-        expect(result.value?.status).toBe('completed');
-        expect(result.value?.startedAt.toISOString()).toBe(startedAt);
-        expect(result.value?.completedAt?.toISOString()).toBe(completedAt);
-        expect(result.value?.durationMs).toBe(60_000);
-        expect(result.value?.transactionsImported).toBe(10);
-        expect(result.value?.transactionsSkipped).toBe(1);
-        expect(result.value?.errorMessage).toBeUndefined();
-        expect(result.value?.errorDetails).toEqual({ source: 'kraken' });
-        expect(result.value?.createdAt.toISOString()).toBe(createdAt);
-        expect(result.value?.updatedAt?.toISOString()).toBe(updatedAt);
-      }
+      expect(session).toBeDefined();
+      expect(session?.id).toBe(sessionId);
+      expect(session?.accountId).toBe(1);
+      expect(session?.status).toBe('completed');
+      expect(session?.startedAt.toISOString()).toBe(startedAt);
+      expect(session?.completedAt?.toISOString()).toBe(completedAt);
+      expect(session?.durationMs).toBe(60_000);
+      expect(session?.transactionsImported).toBe(10);
+      expect(session?.transactionsSkipped).toBe(1);
+      expect(session?.errorMessage).toBeUndefined();
+      expect(session?.errorDetails).toEqual({ source: 'kraken' });
+      expect(session?.createdAt.toISOString()).toBe(createdAt);
+      expect(session?.updatedAt?.toISOString()).toBe(updatedAt);
     });
 
     it('returns undefined when no session exists', async () => {
-      const result = await repo.findById(999);
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBeUndefined();
-      }
+      const session = unwrapOk(await repo.findById(999));
+      expect(session).toBeUndefined();
     });
 
     it('returns an error when the database is closed', async () => {
@@ -247,36 +215,26 @@ describe('ImportSessionRepository', () => {
     });
 
     it('returns all sessions ordered by startedAt descending', async () => {
-      const result = await repo.findAll();
+      const sessions = unwrapOk(await repo.findAll());
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toHaveLength(3);
-        expect(result.value.map((session) => session.startedAt.toISOString())).toEqual([
-          '2024-01-01T12:00:00.000Z',
-          '2024-01-01T11:00:00.000Z',
-          '2024-01-01T10:00:00.000Z',
-        ]);
-      }
+      expect(sessions).toHaveLength(3);
+      expect(sessions.map((session) => session.startedAt.toISOString())).toEqual([
+        '2024-01-01T12:00:00.000Z',
+        '2024-01-01T11:00:00.000Z',
+        '2024-01-01T10:00:00.000Z',
+      ]);
     });
 
     it('filters sessions by account IDs', async () => {
-      const result = await repo.findAll({ accountIds: [1] });
+      const sessions = unwrapOk(await repo.findAll({ accountIds: [1] }));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toHaveLength(2);
-        expect(result.value.every((session) => session.accountId === 1)).toBe(true);
-      }
+      expect(sessions).toHaveLength(2);
+      expect(sessions.every((session) => session.accountId === 1)).toBe(true);
     });
 
     it('returns an empty array when accountIds filter is empty', async () => {
-      const result = await repo.findAll({ accountIds: [] });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toEqual([]);
-      }
+      const sessions = unwrapOk(await repo.findAll({ accountIds: [] }));
+      expect(sessions).toEqual([]);
     });
 
     it('returns an error when the database is closed', async () => {
@@ -299,23 +257,16 @@ describe('ImportSessionRepository', () => {
     });
 
     it('returns counts for all requested accounts and fills missing with 0', async () => {
-      const result = await repo.getSessionCountsByAccount([1, 2, 999]);
+      const counts = unwrapOk(await repo.getSessionCountsByAccount([1, 2, 999]));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.get(1)).toBe(2);
-        expect(result.value.get(2)).toBe(1);
-        expect(result.value.get(999)).toBe(0);
-      }
+      expect(counts.get(1)).toBe(2);
+      expect(counts.get(2)).toBe(1);
+      expect(counts.get(999)).toBe(0);
     });
 
     it('returns an empty map for empty account list', async () => {
-      const result = await repo.getSessionCountsByAccount([]);
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.size).toBe(0);
-      }
+      const counts = unwrapOk(await repo.getSessionCountsByAccount([]));
+      expect(counts.size).toBe(0);
     });
 
     it('returns an error when the database is closed', async () => {
@@ -339,17 +290,17 @@ describe('ImportSessionRepository', () => {
         completedAt: null,
       });
 
-      const result = await repo.update(sessionId, {
-        status: 'completed',
-        transactions_imported: 25,
-        transactions_skipped: 5,
-        error_message: 'warnings',
-        // Repository currently accepts Updateable<ImportSessionsTable> (DB-shaped),
-        // but runtime logic serializes arbitrary payloads.
-        error_details: { warningCount: 2 } as unknown as string,
-      });
-
-      expect(result.isOk()).toBe(true);
+      unwrapOk(
+        await repo.update(sessionId, {
+          status: 'completed',
+          transactions_imported: 25,
+          transactions_skipped: 5,
+          error_message: 'warnings',
+          // Repository currently accepts Updateable<ImportSessionsTable> (DB-shaped),
+          // but runtime logic serializes arbitrary payloads.
+          error_details: { warningCount: 2 } as unknown as string,
+        })
+      );
 
       const row = await db
         .selectFrom('import_sessions')
@@ -368,9 +319,7 @@ describe('ImportSessionRepository', () => {
     it('does not update timestamps when no changes are provided', async () => {
       const sessionId = await insertSession(db, { accountId: 1, updatedAt: null });
 
-      const result = await repo.update(sessionId, {});
-
-      expect(result.isOk()).toBe(true);
+      unwrapOk(await repo.update(sessionId, {}));
 
       const row = await db
         .selectFrom('import_sessions')
@@ -383,9 +332,7 @@ describe('ImportSessionRepository', () => {
     it('does not set completedAt when status remains started', async () => {
       const sessionId = await insertSession(db, { accountId: 1, status: 'started', completedAt: null });
 
-      const result = await repo.update(sessionId, { status: 'started' });
-
-      expect(result.isOk()).toBe(true);
+      unwrapOk(await repo.update(sessionId, { status: 'started' }));
 
       const row = await db
         .selectFrom('import_sessions')
@@ -439,30 +386,15 @@ describe('ImportSessionRepository', () => {
     });
 
     it('counts all sessions when no filter is provided', async () => {
-      const result = await repo.count();
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBe(3);
-      }
+      expect(unwrapOk(await repo.count())).toBe(3);
     });
 
     it('counts sessions filtered by account IDs', async () => {
-      const result = await repo.count({ accountIds: [1] });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBe(2);
-      }
+      expect(unwrapOk(await repo.count({ accountIds: [1] }))).toBe(2);
     });
 
     it('returns 0 when accountIds filter is empty', async () => {
-      const result = await repo.count({ accountIds: [] });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBe(0);
-      }
+      expect(unwrapOk(await repo.count({ accountIds: [] }))).toBe(0);
     });
 
     it('returns an error when the database is closed', async () => {
@@ -485,9 +417,7 @@ describe('ImportSessionRepository', () => {
     });
 
     it('deletes sessions for a specific account', async () => {
-      const result = await repo.deleteBy({ accountId: 1 });
-
-      expect(result.isOk()).toBe(true);
+      unwrapOk(await repo.deleteBy({ accountId: 1 }));
 
       const rows = await db.selectFrom('import_sessions').selectAll().execute();
       expect(rows).toHaveLength(1);
@@ -495,9 +425,7 @@ describe('ImportSessionRepository', () => {
     });
 
     it('deletes all sessions when no filter is provided', async () => {
-      const result = await repo.deleteBy();
-
-      expect(result.isOk()).toBe(true);
+      unwrapOk(await repo.deleteBy());
 
       const rows = await db.selectFrom('import_sessions').selectAll().execute();
       expect(rows).toHaveLength(0);
@@ -538,14 +466,11 @@ describe('ImportSessionRepository', () => {
         startedAt: '2024-01-01T13:00:00.000Z',
       });
 
-      const result = await repo.findLatestIncomplete(1);
+      const session = unwrapOk(await repo.findLatestIncomplete(1));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value?.id).toBe(failedId);
-        expect(result.value?.status).toBe('failed');
-        expect(result.value?.id).not.toBe(startedId);
-      }
+      expect(session?.id).toBe(failedId);
+      expect(session?.status).toBe('failed');
+      expect(session?.id).not.toBe(startedId);
     });
 
     it('returns undefined when account has no started/failed sessions', async () => {
@@ -560,12 +485,8 @@ describe('ImportSessionRepository', () => {
         startedAt: '2024-01-01T13:00:00.000Z',
       });
 
-      const result = await repo.findLatestIncomplete(2);
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBeUndefined();
-      }
+      const session = unwrapOk(await repo.findLatestIncomplete(2));
+      expect(session).toBeUndefined();
     });
 
     it('returns an error when the database is closed', async () => {

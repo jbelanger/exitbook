@@ -10,7 +10,7 @@
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
-import { createTestDatabase, DataContext, type KyselyDB } from '@exitbook/data';
+import { createTestDataContext, DataContext } from '@exitbook/data';
 import { ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -53,7 +53,6 @@ const mockDeriveAddressesResult = vi.fn(async (...args: Parameters<DeriveAddress
 const mockImportStreamingFn = vi.fn();
 
 describe('xpub import integration tests', () => {
-  let db: KyselyDB;
   let dataContext: DataContext;
   let orchestrator: ImportCoordinator;
 
@@ -64,8 +63,7 @@ describe('xpub import integration tests', () => {
     mockImportStreamingFn.mockReset();
 
     // Create in-memory database
-    db = await createTestDatabase();
-    dataContext = new DataContext(db);
+    dataContext = await createTestDataContext();
 
     // Create adapter registry with bitcoin and cardano UTXO adapters
     const bitcoinAdapter: BlockchainAdapter = {
@@ -100,7 +98,7 @@ describe('xpub import integration tests', () => {
   });
 
   afterEach(async () => {
-    await db.destroy();
+    await dataContext.close();
   });
 
   describe('Bitcoin xpub import with resume', () => {
@@ -164,22 +162,22 @@ describe('xpub import integration tests', () => {
       }
 
       // Verify parent account was created
-      const allAccounts = await db.selectFrom('accounts').selectAll().execute();
+      const allAccounts = (await dataContext.accounts.findAll())._unsafeUnwrap();
       const parentAccount = allAccounts.find((a) => a.identifier === xpub.toLowerCase());
       expect(parentAccount).toBeDefined();
-      expect(parentAccount?.parent_account_id).toBeNull();
+      expect(parentAccount?.parentAccountId).toBeUndefined();
 
       // Verify child accounts were created with parent reference
-      const childAccounts = allAccounts.filter((a) => a.parent_account_id === parentAccount?.id);
+      const childAccounts = allAccounts.filter((a) => a.parentAccountId === parentAccount?.id);
       expect(childAccounts).toHaveLength(2);
 
       const child1 = childAccounts.find((a) => a.identifier === derivedAddress1);
       const child2 = childAccounts.find((a) => a.identifier === derivedAddress2);
 
       expect(child1).toBeDefined();
-      expect(child1?.parent_account_id).toBe(parentAccount?.id);
+      expect(child1?.parentAccountId).toBe(parentAccount?.id);
       expect(child2).toBeDefined();
-      expect(child2?.parent_account_id).toBe(parentAccount?.id);
+      expect(child2?.parentAccountId).toBe(parentAccount?.id);
     });
 
     it('should maintain separate cursors for each child account', async () => {
@@ -215,21 +213,18 @@ describe('xpub import integration tests', () => {
       await orchestrator.importBlockchain('bitcoin', xpub);
 
       // Verify each child account has its own cursor
-      const allAccounts = await db.selectFrom('accounts').selectAll().execute();
+      const allAccounts = (await dataContext.accounts.findAll())._unsafeUnwrap();
       const child1 = allAccounts.find((a) => a.identifier === derivedAddress1);
       const child2 = allAccounts.find((a) => a.identifier === derivedAddress2);
 
-      expect(child1?.last_cursor).toBeDefined();
-      expect(child2?.last_cursor).toBeDefined();
+      expect(child1?.lastCursor).toBeDefined();
+      expect(child2?.lastCursor).toBeDefined();
 
-      // Parse and verify cursors
-      const child1Cursor = JSON.parse(child1!.last_cursor as string) as Record<string, CursorState>;
-      const child2Cursor = JSON.parse(child2!.last_cursor as string) as Record<string, CursorState>;
-
-      expect(child1Cursor['normal']?.totalFetched).toBe(5);
-      expect(child2Cursor['normal']?.totalFetched).toBe(3);
-      expect(child1Cursor['normal']?.lastTransactionId).toBe('tx-child1-4');
-      expect(child2Cursor['normal']?.lastTransactionId).toBe('tx-child2-2');
+      // Cursors are already parsed as Record<string, CursorState>
+      expect(child1!.lastCursor!['normal']?.totalFetched).toBe(5);
+      expect(child2!.lastCursor!['normal']?.totalFetched).toBe(3);
+      expect(child1!.lastCursor!['normal']?.lastTransactionId).toBe('tx-child1-4');
+      expect(child2!.lastCursor!['normal']?.lastTransactionId).toBe('tx-child2-2');
     });
 
     it('should resume from cursor on second import and fetch 0 new transactions', async () => {
@@ -284,15 +279,12 @@ describe('xpub import integration tests', () => {
         expect(totalImported).toBe(3);
       }
 
-      // Verify cursor was stored
-      const childAccount = await db
-        .selectFrom('accounts')
-        .selectAll()
-        .where('identifier', '=', derivedAddress1)
-        .executeTakeFirstOrThrow();
-      expect(childAccount.last_cursor).toBeDefined();
-      const cursor = JSON.parse(childAccount.last_cursor as string) as Record<string, CursorState>;
-      expect(cursor['normal']?.totalFetched).toBe(3);
+      // Verify cursor was stored (already parsed as Record<string, CursorState>)
+      const childAccount = (await dataContext.accounts.findAll())
+        ._unsafeUnwrap()
+        .find((a) => a.identifier === derivedAddress1)!;
+      expect(childAccount.lastCursor).toBeDefined();
+      expect(childAccount.lastCursor!['normal']?.totalFetched).toBe(3);
 
       // Second import - return 0 new transactions (resume from cursor)
       mockImportStreamingFn.mockImplementationOnce(async function* () {
@@ -319,21 +311,14 @@ describe('xpub import integration tests', () => {
       }
 
       // Verify cursor totalFetched matches actual transactions
-      const updatedChildAccount = await db
-        .selectFrom('accounts')
-        .selectAll()
-        .where('identifier', '=', derivedAddress1)
-        .executeTakeFirstOrThrow();
-      const updatedCursor = JSON.parse(updatedChildAccount.last_cursor as string) as Record<string, CursorState>;
-      expect(updatedCursor['normal']?.totalFetched).toBe(3);
+      const updatedChildAccount = (await dataContext.accounts.findAll())
+        ._unsafeUnwrap()
+        .find((a) => a.identifier === derivedAddress1)!;
+      expect(updatedChildAccount.lastCursor!['normal']?.totalFetched).toBe(3);
 
       // Verify transaction count in database matches cursor (via account)
-      const txCount = await db
-        .selectFrom('raw_transactions')
-        .select((eb) => eb.fn.count('id').as('count'))
-        .where('account_id', '=', childAccount.id)
-        .executeTakeFirstOrThrow();
-      expect(Number(txCount.count)).toBe(3);
+      const txCount = (await dataContext.rawTransactions.count({ accountIds: [childAccount.id] }))._unsafeUnwrap();
+      expect(txCount).toBe(3);
     });
 
     it('should handle custom xpubGap parameter', async () => {
@@ -375,15 +360,15 @@ describe('xpub import integration tests', () => {
       }
 
       // Verify only parent account was created, no child accounts
-      const allAccounts = await db.selectFrom('accounts').selectAll().execute();
+      const allAccounts = (await dataContext.accounts.findAll())._unsafeUnwrap();
       expect(allAccounts).toHaveLength(1); // Only parent account
 
       const parentAccount = allAccounts.find((a) => a.identifier === xpub.toLowerCase());
       expect(parentAccount).toBeDefined();
-      expect(parentAccount?.parent_account_id).toBeNull();
+      expect(parentAccount?.parentAccountId).toBeUndefined();
 
       // Verify no import sessions were created (no child imports)
-      const importSessions = await db.selectFrom('import_sessions').selectAll().execute();
+      const importSessions = (await dataContext.importSessions.findAll())._unsafeUnwrap();
       expect(importSessions).toHaveLength(0);
 
       // importStreaming should never be called
@@ -432,7 +417,7 @@ describe('xpub import integration tests', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        // Both child accounts will import the transaction (different account_ids)
+        // Both child accounts will import the transaction (different account IDs)
         // Each account's perspective is preserved for UTXO change detection
         expect(Array.isArray(result.value)).toBe(true);
         const sessions = result.value as { transactionsImported: number }[];
@@ -441,35 +426,31 @@ describe('xpub import integration tests', () => {
       }
 
       // Verify 2 rows exist in raw_transactions (one per child account)
-      const allTransactions = await db.selectFrom('raw_transactions').selectAll().execute();
+      const allTransactions = (await dataContext.rawTransactions.findAll())._unsafeUnwrap();
       expect(allTransactions).toHaveLength(2);
 
       // Both should have the same blockchain hash
-      expect(allTransactions[0]?.blockchain_transaction_hash).toBe(sharedTxHash);
-      expect(allTransactions[1]?.blockchain_transaction_hash).toBe(sharedTxHash);
+      expect(allTransactions[0]?.blockchainTransactionHash).toBe(sharedTxHash);
+      expect(allTransactions[1]?.blockchainTransactionHash).toBe(sharedTxHash);
 
       // But different account IDs
-      expect(allTransactions[0]?.account_id).not.toBe(allTransactions[1]?.account_id);
+      expect(allTransactions[0]?.accountId).not.toBe(allTransactions[1]?.accountId);
 
       // Verify both are linked to child accounts
-      const allAccounts = await db.selectFrom('accounts').selectAll().execute();
-      const childAccounts = allAccounts.filter((a) => a.parent_account_id !== null);
+      const allAccounts = (await dataContext.accounts.findAll())._unsafeUnwrap();
+      const childAccounts = allAccounts.filter((a) => a.parentAccountId !== undefined);
       expect(childAccounts).toHaveLength(2);
 
       // Both transactions should be linked to child accounts
-      const accountIds = allTransactions.map((tx) => tx.account_id);
+      const accountIds = allTransactions.map((tx) => tx.accountId);
       expect(childAccounts.some((a) => a.id === accountIds[0])).toBe(true);
       expect(childAccounts.some((a) => a.id === accountIds[1])).toBe(true);
 
       // Verify both transactions remain pending (no cross-account deduplication)
-      const pendingTxs = await db
-        .selectFrom('raw_transactions')
-        .selectAll()
-        .where('processing_status', '=', 'pending')
-        .execute();
+      const pendingTxs = (await dataContext.rawTransactions.findAll({ processingStatus: 'pending' }))._unsafeUnwrap();
       expect(pendingTxs).toHaveLength(2);
-      expect(pendingTxs[0]?.blockchain_transaction_hash).toBe(sharedTxHash);
-      expect(pendingTxs[1]?.blockchain_transaction_hash).toBe(sharedTxHash);
+      expect(pendingTxs[0]?.blockchainTransactionHash).toBe(sharedTxHash);
+      expect(pendingTxs[1]?.blockchainTransactionHash).toBe(sharedTxHash);
     });
   });
 
@@ -502,7 +483,7 @@ describe('xpub import integration tests', () => {
           ],
           streamType: 'normal',
           cursor: {
-            primary: { type: 'blockNumber', value: 5000000 },
+            primary: { type: 'blockNumber', value: 5_000_000 },
             lastTransactionId: 'cardano-tx2',
             totalFetched: 2,
           } as CursorState,
@@ -521,15 +502,15 @@ describe('xpub import integration tests', () => {
       }
 
       // Verify parent account was created
-      const allAccounts = await db.selectFrom('accounts').selectAll().execute();
+      const allAccounts = (await dataContext.accounts.findAll())._unsafeUnwrap();
       const parentAccount = allAccounts.find((a) => a.identifier === stakeAddress);
       expect(parentAccount).toBeDefined();
-      expect(parentAccount?.parent_account_id).toBeNull();
+      expect(parentAccount?.parentAccountId).toBeUndefined();
 
       // Verify child account was created
       const childAccount = allAccounts.find((a) => a.identifier === derivedAddress1);
       expect(childAccount).toBeDefined();
-      expect(childAccount?.parent_account_id).toBe(parentAccount?.id);
+      expect(childAccount?.parentAccountId).toBe(parentAccount?.id);
     });
 
     it('should resume from cursor on second import for Cardano', async () => {
@@ -550,7 +531,7 @@ describe('xpub import integration tests', () => {
           ],
           streamType: 'normal',
           cursor: {
-            primary: { type: 'blockNumber', value: 5000000 },
+            primary: { type: 'blockNumber', value: 5_000_000 },
             lastTransactionId: 'cardano-tx1',
             totalFetched: 1,
           } as CursorState,
@@ -574,7 +555,7 @@ describe('xpub import integration tests', () => {
           rawTransactions: [],
           streamType: 'normal',
           cursor: {
-            primary: { type: 'blockNumber', value: 5000000 },
+            primary: { type: 'blockNumber', value: 5_000_000 },
             lastTransactionId: 'cardano-tx1',
             totalFetched: 1,
           } as CursorState,
@@ -592,23 +573,15 @@ describe('xpub import integration tests', () => {
         expect(totalImported).toBe(0); // 0 new transactions on resume
       }
 
-      // Verify cursor matches transaction count
-      const childAccount = await db
-        .selectFrom('accounts')
-        .selectAll()
-        .where('identifier', '=', derivedAddress1)
-        .executeTakeFirstOrThrow();
-
-      const cursor = JSON.parse(childAccount.last_cursor as string) as Record<string, CursorState>;
-      expect(cursor['normal']?.totalFetched).toBe(1);
+      // Verify cursor matches transaction count (already parsed as Record<string, CursorState>)
+      const childAccount = (await dataContext.accounts.findAll())
+        ._unsafeUnwrap()
+        .find((a) => a.identifier === derivedAddress1)!;
+      expect(childAccount.lastCursor!['normal']?.totalFetched).toBe(1);
 
       // Verify transaction count via account
-      const txCount = await db
-        .selectFrom('raw_transactions')
-        .select((eb) => eb.fn.count('id').as('count'))
-        .where('account_id', '=', childAccount.id)
-        .executeTakeFirstOrThrow();
-      expect(Number(txCount.count)).toBe(1);
+      const txCount = (await dataContext.rawTransactions.count({ accountIds: [childAccount.id] }))._unsafeUnwrap();
+      expect(txCount).toBe(1);
     });
   });
 });

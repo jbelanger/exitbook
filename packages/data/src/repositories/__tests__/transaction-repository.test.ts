@@ -1,9 +1,9 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
 import type { UniversalTransactionData } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
-import { createTestDatabase } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createTestDatabase, unwrapOk } from '../../__tests__/test-utils.js';
 import type { KyselyDB } from '../../storage/initialization.js';
 import { TransactionRepository } from '../transaction-repository.js';
 
@@ -51,12 +51,7 @@ describe('TransactionRepository', () => {
     });
 
     it('deletes all transactions and returns the count', async () => {
-      const result = await repo.deleteAll();
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBe(5);
-      }
+      expect(unwrapOk(await repo.deleteAll())).toBe(5);
 
       const remaining = await db.selectFrom('transactions').selectAll().execute();
       expect(remaining).toHaveLength(0);
@@ -64,13 +59,7 @@ describe('TransactionRepository', () => {
 
     it('returns 0 when no transactions exist', async () => {
       await db.deleteFrom('transactions').execute();
-
-      const result = await repo.deleteAll();
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBe(0);
-      }
+      expect(unwrapOk(await repo.deleteAll())).toBe(0);
     });
 
     it('returns an error when the database is closed', async () => {
@@ -185,33 +174,23 @@ describe('TransactionRepository', () => {
     });
 
     it('excludes spam/excluded transactions by default', async () => {
-      const result = await repo.getTransactions({ accountId: 1 });
+      const txs = unwrapOk(await repo.getTransactions({ accountId: 1 }));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toHaveLength(3);
-        expect(result.value.every((tx) => !tx.notes?.some((n) => n.type === 'SCAM_TOKEN'))).toBe(true);
-      }
+      expect(txs).toHaveLength(3);
+      expect(txs.every((tx) => !tx.notes?.some((n) => n.type === 'SCAM_TOKEN'))).toBe(true);
     });
 
     it('excludes spam/excluded transactions when includeExcluded is false', async () => {
-      const result = await repo.getTransactions({ accountId: 1, includeExcluded: false });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toHaveLength(3);
-      }
+      const txs = unwrapOk(await repo.getTransactions({ accountId: 1, includeExcluded: false }));
+      expect(txs).toHaveLength(3);
     });
 
     it('includes spam/excluded transactions when includeExcluded is true', async () => {
-      const result = await repo.getTransactions({ accountId: 1, includeExcluded: true });
+      const txs = unwrapOk(await repo.getTransactions({ accountId: 1, includeExcluded: true }));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toHaveLength(5);
-        const scamTxs = result.value.filter((tx) => tx.notes?.some((n) => n.type === 'SCAM_TOKEN'));
-        expect(scamTxs).toHaveLength(2);
-      }
+      expect(txs).toHaveLength(5);
+      const scamTxs = txs.filter((tx) => tx.notes?.some((n) => n.type === 'SCAM_TOKEN'));
+      expect(scamTxs).toHaveLength(2);
     });
   });
 
@@ -255,8 +234,7 @@ describe('TransactionRepository', () => {
         timestamp: Date.now(),
       };
 
-      const result = await repo.save(tx, 1);
-      expect(result.isOk()).toBe(true);
+      unwrapOk(await repo.save(tx, 1));
 
       const row = await db
         .selectFrom('transactions')
@@ -291,8 +269,7 @@ describe('TransactionRepository', () => {
         timestamp: Date.now(),
       };
 
-      const result = await repo.save(tx, 1);
-      expect(result.isOk()).toBe(true);
+      unwrapOk(await repo.save(tx, 1));
 
       const row = await db
         .selectFrom('transactions')
@@ -326,8 +303,7 @@ describe('TransactionRepository', () => {
         timestamp: Date.now(),
       };
 
-      const result = await repo.save(tx, 1);
-      expect(result.isOk()).toBe(true);
+      unwrapOk(await repo.save(tx, 1));
 
       const row = await db
         .selectFrom('transactions')
@@ -352,8 +328,7 @@ describe('TransactionRepository', () => {
         timestamp: Date.now(),
       };
 
-      const result = await repo.save(tx, 1);
-      expect(result.isOk()).toBe(true);
+      unwrapOk(await repo.save(tx, 1));
 
       const row = await db
         .selectFrom('transactions')
@@ -378,8 +353,7 @@ describe('TransactionRepository', () => {
         timestamp: Date.now(),
       };
 
-      const result = await repo.save(tx, 1);
-      expect(result.isOk()).toBe(true);
+      unwrapOk(await repo.save(tx, 1));
 
       const row = await db
         .selectFrom('transactions')
@@ -510,8 +484,7 @@ describe('TransactionRepository', () => {
         ],
       };
 
-      const result = await repo.updateMovementsWithPrices(enriched);
-      expect(result.isOk()).toBe(true);
+      unwrapOk(await repo.updateMovementsWithPrices(enriched));
 
       const movements = await db
         .selectFrom('transaction_movements')
@@ -629,8 +602,7 @@ describe('TransactionRepository', () => {
         ],
       };
 
-      const result = await repo.updateMovementsWithPrices(enriched);
-      expect(result.isOk()).toBe(true);
+      unwrapOk(await repo.updateMovementsWithPrices(enriched));
 
       const movements = await db
         .selectFrom('transaction_movements')
