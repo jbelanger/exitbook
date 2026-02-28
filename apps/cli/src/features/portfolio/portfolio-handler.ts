@@ -12,7 +12,14 @@ import {
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
 import { parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
-import { createAccountQueries, createTransactionLinkQueries, createTransactionQueries } from '@exitbook/data';
+import {
+  createAccountQueries,
+  createTransactionLinkQueries,
+  createTransactionQueries,
+  type AccountQueries,
+  type TransactionLinkQueries,
+  type TransactionQueries,
+} from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
@@ -79,18 +86,12 @@ export interface PortfolioResult {
  * Portfolio Handler - Encapsulates all portfolio calculation business logic.
  */
 export class PortfolioHandler {
-  private readonly accountRepository;
-  private readonly transactionRepository;
-  private readonly transactionLinkRepository;
-
   constructor(
-    database: CommandDatabase,
+    private readonly accountRepository: AccountQueries,
+    private readonly transactionRepository: TransactionQueries,
+    private readonly transactionLinkRepository: TransactionLinkQueries,
     private readonly priceManager: PriceProviderManager
-  ) {
-    this.accountRepository = createAccountQueries(database);
-    this.transactionRepository = createTransactionQueries(database);
-    this.transactionLinkRepository = createTransactionLinkQueries(database);
-  }
+  ) {}
 
   /**
    * Execute the portfolio calculation.
@@ -443,7 +444,10 @@ export async function createPortfolioHandler(
   ctx.onCleanup(async () => priceManager.destroy());
 
   prereqAbort = undefined;
-  return ok(new PortfolioHandler(database, priceManager));
+  const accountRepository = createAccountQueries(database);
+  const transactionRepository = createTransactionQueries(database);
+  const transactionLinkRepository = createTransactionLinkQueries(database);
+  return ok(new PortfolioHandler(accountRepository, transactionRepository, transactionLinkRepository, priceManager));
 }
 
 function emptyPortfolioResult(

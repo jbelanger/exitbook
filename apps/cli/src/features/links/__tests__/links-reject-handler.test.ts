@@ -1,21 +1,11 @@
 import { type TransactionLink } from '@exitbook/accounting';
 import { parseDecimal, type Currency } from '@exitbook/core';
-import { createTransactionLinkQueries, createTransactionQueries, type OverrideStore } from '@exitbook/data';
+import type { OverrideStore, TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { LinksRejectHandler } from '../links-reject-handler.js';
 import type { LinksRejectParams } from '../links-reject-handler.js';
-
-// Mock dependencies
-vi.mock('@exitbook/data', async () => {
-  const actual = await vi.importActual<typeof import('@exitbook/data')>('@exitbook/data');
-  return {
-    ...actual,
-    createTransactionQueries: vi.fn(),
-    createTransactionLinkQueries: vi.fn(),
-  };
-});
 
 describe('LinksRejectHandler', () => {
   let mockLinkQueries: {
@@ -29,7 +19,6 @@ describe('LinksRejectHandler', () => {
     append: Mock;
   };
   let handler: LinksRejectHandler;
-  const mockDb = {} as ConstructorParameters<typeof LinksRejectHandler>[0];
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -47,10 +36,11 @@ describe('LinksRejectHandler', () => {
       append: vi.fn().mockResolvedValue(ok({ id: 'test-event-id' })),
     };
 
-    (createTransactionQueries as unknown as Mock).mockReturnValue(mockTransactionQueries);
-    (createTransactionLinkQueries as unknown as Mock).mockReturnValue(mockLinkQueries);
-
-    handler = new LinksRejectHandler(mockDb, mockOverrideStore as unknown as OverrideStore);
+    handler = new LinksRejectHandler(
+      mockLinkQueries as unknown as TransactionLinkQueries,
+      mockTransactionQueries as unknown as TransactionQueries,
+      mockOverrideStore as unknown as OverrideStore
+    );
   });
 
   const createMockLink = (

@@ -1,6 +1,5 @@
 import { type Currency } from '@exitbook/core';
-import { createTransactionQueries } from '@exitbook/data';
-import type { KyselyDB } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
@@ -43,7 +42,7 @@ export class PriceFetchAbortError extends Error {
  */
 export class PriceFetchService {
   constructor(
-    private readonly db: KyselyDB,
+    private readonly transactionRepository: TransactionQueries,
     private readonly instrumentation: InstrumentationCollector,
     private readonly eventBus?: EventBus<PriceEvent>
   ) {}
@@ -58,7 +57,6 @@ export class PriceFetchService {
     options: PriceFetchOptions,
     priceManager: PriceProviderManager
   ): Promise<Result<PricesFetchResult, Error>> {
-    const transactionRepo = createTransactionQueries(this.db);
     const errors: string[] = [];
 
     // Validate asset filter
@@ -69,7 +67,7 @@ export class PriceFetchService {
     const assetFilter = assetFilterResult.value?.map((c) => c.toString());
 
     // Query transactions needing prices
-    const transactionsResult = await transactionRepo.findTransactionsNeedingPrices(assetFilter);
+    const transactionsResult = await this.transactionRepository.findTransactionsNeedingPrices(assetFilter);
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);
     }
@@ -205,7 +203,7 @@ export class PriceFetchService {
           fees: enrichedFees,
         };
 
-        const updateResult = await transactionRepo.updateMovementsWithPrices(enrichedTx);
+        const updateResult = await this.transactionRepository.updateMovementsWithPrices(enrichedTx);
 
         if (updateResult.isErr()) {
           logger.error(`Failed to update movements for transaction ${tx.id}: ${updateResult.error.message}`);

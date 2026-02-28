@@ -13,7 +13,7 @@
  * - Derive (2nd pass) calculates ratios and propagates prices using fetched/normalized data
  */
 
-import type { KyselyDB } from '@exitbook/data';
+import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector, type MetricsSummary } from '@exitbook/observability';
@@ -98,7 +98,8 @@ export class PriceEnrichmentPipeline {
   private readonly instrumentation: InstrumentationCollector;
 
   constructor(
-    private readonly db: KyselyDB,
+    private readonly transactionRepository: TransactionQueries,
+    private readonly linkRepository: TransactionLinkQueries,
     private readonly eventBus?: EventBus<PriceEvent>,
     instrumentation?: InstrumentationCollector
   ) {
@@ -127,7 +128,7 @@ export class PriceEnrichmentPipeline {
 
       // Stage 1: Derive (extract from trades: USD + non-USD fiat, propagate via links)
       if (stages.derive) {
-        const enrichmentService = new PriceDerivationService(this.db);
+        const enrichmentService = new PriceDerivationService(this.transactionRepository, this.linkRepository);
         const deriveResult = await this.runStage(
           'Stage 1: Deriving prices from trades (USD + fiat)',
           'tradePrices',
@@ -141,7 +142,7 @@ export class PriceEnrichmentPipeline {
       // Stage 2: Normalize (FX conversion: CAD/EUR → USD)
       if (stages.normalize) {
         const fxRateProvider = new StandardFxRateProvider(priceManager);
-        const normalizeService = new PriceNormalizationService(this.db, fxRateProvider);
+        const normalizeService = new PriceNormalizationService(this.transactionRepository, fxRateProvider);
         const normalizeResult = await this.runStage(
           'Stage 2: Normalizing non-USD fiat prices to USD',
           'fxRates',
@@ -171,7 +172,7 @@ export class PriceEnrichmentPipeline {
 
       // Stage 3: Fetch (external providers for remaining crypto prices)
       if (stages.fetch) {
-        const fetchService = new PriceFetchService(this.db, this.instrumentation, this.eventBus);
+        const fetchService = new PriceFetchService(this.transactionRepository, this.instrumentation, this.eventBus);
         const fetchResult = await this.runStage(
           'Stage 3: Fetching missing prices from external providers',
           'marketPrices',
@@ -191,7 +192,7 @@ export class PriceEnrichmentPipeline {
 
       // Stage 4: Derive (second pass) — use newly fetched/normalized prices
       if (stages.derive && (stages.fetch || stages.normalize)) {
-        const enrichmentService = new PriceDerivationService(this.db);
+        const enrichmentService = new PriceDerivationService(this.transactionRepository, this.linkRepository);
         const propagateResult = await this.runStage(
           'Stage 4: Re-deriving prices using fetched/normalized data',
           'rederive',

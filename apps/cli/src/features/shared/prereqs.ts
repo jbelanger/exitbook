@@ -167,7 +167,8 @@ export async function ensurePrices(
     if (priceManagerResult.isErr()) return err(priceManagerResult.error);
     const priceManager = priceManagerResult.value;
     try {
-      const pipeline = new PriceEnrichmentPipeline(db);
+      const linkRepo = createTransactionLinkQueries(db);
+      const pipeline = new PriceEnrichmentPipeline(txRepo, linkRepo);
       const result = await pipeline.execute({}, priceManager);
       if (result.isErr()) return err(result.error);
       logger.info('Price enrichment completed (JSON mode)');
@@ -208,7 +209,8 @@ export async function ensurePrices(
   try {
     await controller.start();
 
-    const pipeline = new PriceEnrichmentPipeline(db, eventBus, instrumentation);
+    const linkRepo = createTransactionLinkQueries(db);
+    const pipeline = new PriceEnrichmentPipeline(txRepo, linkRepo, eventBus, instrumentation);
     const result = await pipeline.execute({}, priceManager);
 
     if (result.isErr()) {

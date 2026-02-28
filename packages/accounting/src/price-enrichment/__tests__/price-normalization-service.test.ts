@@ -8,7 +8,7 @@
  */
 
 import { type Currency, parseDecimal } from '@exitbook/core';
-import { createTestDatabase, type KyselyDB } from '@exitbook/data';
+import { createTestDatabase, createTransactionQueries, type KyselyDB } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -81,7 +81,7 @@ describe('PriceNormalizationService', () => {
     db = await createTestDatabase();
     await setupPrerequisites(db);
     mockFxProvider = createMockFxProvider();
-    service = new PriceNormalizationService(db, mockFxProvider);
+    service = new PriceNormalizationService(createTransactionQueries(db), mockFxProvider);
   });
 
   afterEach(async () => {

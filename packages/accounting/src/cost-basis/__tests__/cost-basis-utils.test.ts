@@ -580,23 +580,35 @@ describe('cost-basis-utils', () => {
 
   describe('getJurisdictionRules', () => {
     it('should return CanadaRules for CA jurisdiction', () => {
-      const rules = getJurisdictionRules('CA');
-      expect(rules).toBeDefined();
-      expect(rules.constructor.name).toBe('CanadaRules');
+      const result = getJurisdictionRules('CA');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.constructor.name).toBe('CanadaRules');
+      }
     });
 
     it('should return USRules for US jurisdiction', () => {
-      const rules = getJurisdictionRules('US');
-      expect(rules).toBeDefined();
-      expect(rules.constructor.name).toBe('USRules');
+      const result = getJurisdictionRules('US');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.constructor.name).toBe('USRules');
+      }
     });
 
-    it('should throw error for UK jurisdiction (not implemented)', () => {
-      expect(() => getJurisdictionRules('UK')).toThrow('UK jurisdiction rules not yet implemented');
+    it('should return error for UK jurisdiction (not implemented)', () => {
+      const result = getJurisdictionRules('UK');
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('UK jurisdiction rules not yet implemented');
+      }
     });
 
-    it('should throw error for EU jurisdiction (not implemented)', () => {
-      expect(() => getJurisdictionRules('EU')).toThrow('EU jurisdiction rules not yet implemented');
+    it('should return error for EU jurisdiction (not implemented)', () => {
+      const result = getJurisdictionRules('EU');
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('EU jurisdiction rules not yet implemented');
+      }
     });
   });
 

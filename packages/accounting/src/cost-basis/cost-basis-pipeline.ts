@@ -42,7 +42,12 @@ export async function runCostBasisPipeline(
     );
   }
 
-  const rules = getJurisdictionRules(config.jurisdiction);
+  const rulesResult = getJurisdictionRules(config.jurisdiction);
+  if (rulesResult.isErr()) {
+    return err(rulesResult.error);
+  }
+
+  const rules = rulesResult.value;
   const lotMatcher = new LotMatcher(transactionRepository, linkRepository);
 
   const costBasisResult = await calculateCostBasisFromValidatedTransactions(

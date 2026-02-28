@@ -307,15 +307,15 @@ export function validateTransactionPrices(
 /**
  * Get jurisdiction-specific tax rules
  */
-export function getJurisdictionRules(jurisdiction: 'CA' | 'US' | 'UK' | 'EU'): IJurisdictionRules {
+export function getJurisdictionRules(jurisdiction: 'CA' | 'US' | 'UK' | 'EU'): Result<IJurisdictionRules, Error> {
   switch (jurisdiction) {
     case 'CA':
-      return new CanadaRules();
+      return ok(new CanadaRules());
     case 'US':
-      return new USRules();
+      return ok(new USRules());
     case 'UK':
     case 'EU':
-      throw new Error(`${jurisdiction} jurisdiction rules not yet implemented`);
+      return err(new Error(`${jurisdiction} jurisdiction rules not yet implemented`));
   }
 }
 

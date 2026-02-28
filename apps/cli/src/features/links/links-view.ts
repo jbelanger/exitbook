@@ -199,8 +199,8 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
 
       const linksWithTransactions: LinkWithTransactions[] = await fetchTransactionsForLinks(links, txRepo);
 
-      const confirmHandler = new LinksConfirmHandler(database, overrideStore);
-      const rejectHandler = new LinksRejectHandler(database, overrideStore);
+      const confirmHandler = new LinksConfirmHandler(linkRepo, txRepo, overrideStore);
+      const rejectHandler = new LinksRejectHandler(linkRepo, txRepo, overrideStore);
 
       const handleAction = async (linkId: number, action: 'confirm' | 'reject'): Promise<void> => {
         if (action === 'confirm') {

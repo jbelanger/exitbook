@@ -20,7 +20,7 @@
 
 import type { PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import { createTransactionQueries, type KyselyDB } from '@exitbook/data';
+import type { TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -53,14 +53,10 @@ export interface NormalizeResult {
  * Service for normalizing non-USD fiat prices to USD
  */
 export class PriceNormalizationService {
-  private readonly transactionRepository: ReturnType<typeof createTransactionQueries>;
-
   constructor(
-    db: KyselyDB,
+    private readonly transactionRepository: TransactionQueries,
     private readonly fxRateProvider: IFxRateProvider
-  ) {
-    this.transactionRepository = createTransactionQueries(db);
-  }
+  ) {}
 
   /**
    * Normalize all non-USD fiat prices to USD

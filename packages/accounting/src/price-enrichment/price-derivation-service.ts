@@ -1,6 +1,6 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import { createTransactionQueries, createTransactionLinkQueries, type KyselyDB } from '@exitbook/data';
+import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -41,13 +41,10 @@ function transactionNeedsPrice(transaction: UniversalTransactionData): boolean {
  * - derive: Recalculate crypto-crypto swap ratios for accurate cost basis
  */
 export class PriceDerivationService {
-  private readonly transactionRepository: ReturnType<typeof createTransactionQueries>;
-  private readonly linkRepository: ReturnType<typeof createTransactionLinkQueries>;
-
-  constructor(db: KyselyDB) {
-    this.transactionRepository = createTransactionQueries(db);
-    this.linkRepository = createTransactionLinkQueries(db);
-  }
+  constructor(
+    private readonly transactionRepository: TransactionQueries,
+    private readonly linkRepository: TransactionLinkQueries
+  ) {}
 
   /**
    * Main entry point: derive prices for all transactions needing prices

@@ -15,7 +15,12 @@ import {
   type LotTransfer,
 } from '@exitbook/accounting';
 import { type Currency, type UniversalTransactionData } from '@exitbook/core';
-import { createTransactionLinkQueries, createTransactionQueries } from '@exitbook/data';
+import {
+  createTransactionLinkQueries,
+  createTransactionQueries,
+  type TransactionLinkQueries,
+  type TransactionQueries,
+} from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
@@ -50,16 +55,13 @@ export interface CostBasisResult {
 
 /**
  * Cost Basis Handler - Encapsulates all cost basis calculation business logic.
- * Tier 2 handler — DB-only constructor, external factory handles prereq orchestration.
+ * Tier 2 handler — query-only constructor, external factory handles prereq orchestration.
  */
 export class CostBasisHandler {
-  private readonly transactionRepository;
-  private readonly transactionLinkRepository;
-
-  constructor(db: CommandDatabase) {
-    this.transactionRepository = createTransactionQueries(db);
-    this.transactionLinkRepository = createTransactionLinkQueries(db);
-  }
+  constructor(
+    private readonly transactionRepository: TransactionQueries,
+    private readonly transactionLinkRepository: TransactionLinkQueries
+  ) {}
 
   /**
    * Execute the cost basis calculation.
@@ -272,5 +274,7 @@ export async function createCostBasisHandler(
   }
 
   prereqAbort = undefined;
-  return ok(new CostBasisHandler(database));
+  const transactionRepository = createTransactionQueries(database);
+  const transactionLinkRepository = createTransactionLinkQueries(database);
+  return ok(new CostBasisHandler(transactionRepository, transactionLinkRepository));
 }

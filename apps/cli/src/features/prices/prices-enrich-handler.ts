@@ -4,6 +4,7 @@ import {
   type PricesEnrichOptions,
   type PricesEnrichResult,
 } from '@exitbook/accounting';
+import { createTransactionLinkQueries, createTransactionQueries } from '@exitbook/data';
 // eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
 import type { KyselyDB } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
@@ -26,10 +27,8 @@ const logger = getLogger('PricesEnrichHandler');
  */
 export class PricesEnrichHandler {
   constructor(
-    private readonly database: KyselyDB,
+    private readonly pipeline: PriceEnrichmentPipeline,
     private readonly priceManager: PriceProviderManager,
-    private readonly instrumentation: InstrumentationCollector,
-    private readonly eventBus: EventBus<PriceEvent> | undefined,
     private readonly controller: EventDrivenController<PriceEvent> | undefined
   ) {}
 
@@ -39,8 +38,7 @@ export class PricesEnrichHandler {
         await this.controller.start();
       }
 
-      const pipeline = new PriceEnrichmentPipeline(this.database, this.eventBus, this.instrumentation);
-      const result = await pipeline.execute(params, this.priceManager);
+      const result = await this.pipeline.execute(params, this.priceManager);
 
       if (result.isErr()) {
         if (this.controller) {
@@ -87,6 +85,9 @@ export async function createPricesEnrichHandler(
   database: KyselyDB,
   options: { isJsonMode: boolean }
 ): Promise<Result<PricesEnrichHandler, Error>> {
+  const transactionRepository = createTransactionQueries(database);
+  const linkRepository = createTransactionLinkQueries(database);
+
   if (options.isJsonMode) {
     const instrumentation = new InstrumentationCollector();
     const priceManagerResult = await createDefaultPriceProviderManager(instrumentation);
@@ -96,7 +97,8 @@ export async function createPricesEnrichHandler(
     const priceManager = priceManagerResult.value;
     ctx.onCleanup(async () => priceManager.destroy());
 
-    return ok(new PricesEnrichHandler(database, priceManager, instrumentation, undefined, undefined));
+    const pipeline = new PriceEnrichmentPipeline(transactionRepository, linkRepository);
+    return ok(new PricesEnrichHandler(pipeline, priceManager, undefined));
   }
 
   const eventBus = new EventBus<PriceEvent>({
@@ -116,5 +118,6 @@ export async function createPricesEnrichHandler(
   const priceManager = priceManagerResult.value;
   ctx.onCleanup(async () => priceManager.destroy());
 
-  return ok(new PricesEnrichHandler(database, priceManager, instrumentation, eventBus, controller));
+  const pipeline = new PriceEnrichmentPipeline(transactionRepository, linkRepository, eventBus, instrumentation);
+  return ok(new PricesEnrichHandler(pipeline, priceManager, controller));
 }

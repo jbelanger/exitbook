@@ -5,7 +5,7 @@ import {
   type CostBasisSummary,
 } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
-import { createTransactionLinkQueries, createTransactionQueries } from '@exitbook/data';
+import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
@@ -28,15 +28,6 @@ vi.mock('@exitbook/accounting', async () => {
   };
 });
 
-vi.mock('@exitbook/data', async () => {
-  const actual = await vi.importActual('@exitbook/data');
-  return {
-    ...actual,
-    createTransactionQueries: vi.fn(),
-    createTransactionLinkQueries: vi.fn(),
-  };
-});
-
 vi.mock('@exitbook/price-providers', () => ({
   createPriceProviderManager: vi.fn(),
 }));
@@ -53,17 +44,18 @@ vi.mock('@exitbook/logger', () => ({
 describe('CostBasisHandler', () => {
   let handler: CostBasisHandler;
   let mockTransactionRepo: { getTransactions: Mock };
-  const mockDb = {} as ConstructorParameters<typeof CostBasisHandler>[0];
+  let mockTransactionLinkRepo: Record<string, never>;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
     mockTransactionRepo = { getTransactions: vi.fn() };
+    mockTransactionLinkRepo = {};
 
-    (createTransactionQueries as unknown as Mock).mockReturnValue(mockTransactionRepo);
-    (createTransactionLinkQueries as unknown as Mock).mockReturnValue({});
-
-    handler = new CostBasisHandler(mockDb);
+    handler = new CostBasisHandler(
+      mockTransactionRepo as unknown as TransactionQueries,
+      mockTransactionLinkRepo as unknown as TransactionLinkQueries
+    );
   });
 
   describe('execute', () => {

@@ -124,7 +124,18 @@ logger.error({ error }, 'error message');
 - Remove all legacy code paths and backward compatibility when refactoring - clean breaks only
 - **Vertical Slices Over Technical Layers:** Organize by feature (e.g., `exchanges/kraken/`) not technical layer (e.g., `importers/`, `processors/`). Keep related code together - each feature directory contains its importer, processor, schemas, and tests.
 - **Dynamic Over Hardcoded:** Avoid hardcoded lists; rely on registries/metadata (auto-discovers blockchains/exchanges/providers).
-- **Functional Core, Imperative Shell:** Extract business logic into pure functions in `*-utils.ts` modules. Use classes for resource management (DB, API clients). Use factory functions for stateless wrappers. Examples: `packages/ingestion/src/services/import-service-utils.ts` (pure), blockchain provider API clients (classes).
+- **Functional Core, Imperative Shell:** Extract business logic into pure functions in `*-utils.ts` modules. Match the construct to the shape:
+
+  | Shape                         | Use                         | Example                                              |
+  | ----------------------------- | --------------------------- | ---------------------------------------------------- |
+  | State + methods               | Class                       | `TransactionRepository`, `PriceService`, API clients |
+  | Pure transform                | Function                    | `toUniversalTransaction()`, `buildMovementRows()`    |
+  | Config → single function      | Factory/closure             | `createRetryWrapper(config)` returning one function  |
+  | Bag of related pure functions | Named exports from a module | `cost-basis-utils.ts`                                |
+
+  **Never use closure factories (`createFooQueries(db)` returning an object of methods) as a substitute for classes** — if it captures state and exposes multiple methods, it's a class.
+
+- **Interfaces:** Use `I`-prefixed interfaces (`IProvider`, `IImporter`) only for polymorphic contracts with multiple implementations. Don't create interfaces for single-implementation classes — extract when a second implementation appears. Use plain `interface` or `z.infer<>` for data shapes.
 - **Testing:** Test pure functions in `*-utils.test.ts` without mocks. Test classes with mocked dependencies.
 - **Simplicity Over DRY:** KISS > DRY. Prefer simple, readable code over complex abstractions. Some repetition acceptable for maintainability.
 - **Developer Experience:** Prioritize clean DX when developing packages. Intuitive APIs, helpful errors, minimal setup.

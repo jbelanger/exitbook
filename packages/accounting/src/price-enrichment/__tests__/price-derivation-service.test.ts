@@ -1,5 +1,10 @@
 /* eslint-disable unicorn/no-null -- null needed by db fixtures */
-import { createTestDatabase, type KyselyDB } from '@exitbook/data';
+import {
+  createTestDatabase,
+  createTransactionLinkQueries,
+  createTransactionQueries,
+  type KyselyDB,
+} from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { PriceDerivationService } from '../price-derivation-service.js';
@@ -38,6 +43,10 @@ async function setupPrerequisites(db: KyselyDB): Promise<void> {
     .execute();
 }
 
+function createService(db: KyselyDB): PriceDerivationService {
+  return new PriceDerivationService(createTransactionQueries(db), createTransactionLinkQueries(db));
+}
+
 const NULL_PRICE = {
   price_amount: null,
   price_currency: null,
@@ -69,7 +78,7 @@ describe('PriceEnrichmentService', () => {
 
   describe('Stats and Reporting', () => {
     it('should return 0 when database is empty', async () => {
-      const service = new PriceDerivationService(db);
+      const service = createService(db);
       const result = await service.derivePrices();
 
       expect(result.isOk()).toBe(true);
@@ -169,7 +178,7 @@ describe('PriceEnrichmentService', () => {
         ])
         .execute();
 
-      const service = new PriceDerivationService(db);
+      const service = createService(db);
       const result = await service.derivePrices();
 
       expect(result.isOk()).toBe(true);
@@ -308,7 +317,7 @@ describe('PriceEnrichmentService', () => {
         })
         .execute();
 
-      const service = new PriceDerivationService(db);
+      const service = createService(db);
       const result = await service.derivePrices();
 
       expect(result.isOk()).toBe(true);
@@ -430,7 +439,7 @@ describe('PriceEnrichmentService', () => {
         })
         .execute();
 
-      const service = new PriceDerivationService(db);
+      const service = createService(db);
       await service.derivePrices();
 
       // tx2's inflow must remain unpriced (suggested link ignored)
@@ -464,7 +473,7 @@ describe('PriceEnrichmentService', () => {
         })
         .execute();
 
-      const service = new PriceDerivationService(db);
+      const service = createService(db);
       const result = await service.derivePrices();
 
       expect(result.isOk()).toBe(true);
