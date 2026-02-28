@@ -68,14 +68,10 @@ export class CosmosImporter implements IImporter {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<CosmosTransaction>>(
+    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<CosmosTransaction>>(
       this.chainConfig.chainName,
-      {
-        type: 'getAddressTransactions',
-        address,
-        getCacheKey: (params) =>
-          `${this.chainConfig.chainName}:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:all`,
-      },
+      address,
+      undefined,
       resumeCursor
     );
 

@@ -61,14 +61,10 @@ export class CardanoImporter implements IImporter {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<CardanoTransaction>>(
+    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<CardanoTransaction>>(
       'cardano',
-      {
-        type: 'getAddressTransactions',
-        address,
-        getCacheKey: (params) =>
-          `cardano:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:all`,
-      },
+      address,
+      undefined,
       resumeCursor
     );
 

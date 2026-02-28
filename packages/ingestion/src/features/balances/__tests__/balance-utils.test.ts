@@ -138,8 +138,7 @@ describe('fetchBlockchainBalance', () => {
     const mockProviderManager = {
       autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn(),
-      executeWithFailover: vi.fn(),
-      executeWithFailoverOnce: vi.fn().mockResolvedValue(ok(mockProviderResult)),
+      getAddressBalances: vi.fn().mockResolvedValue(ok(mockProviderResult)),
       getProviders: vi.fn().mockReturnValue([
         {
           capabilities: {
@@ -167,10 +166,10 @@ describe('fetchBlockchainBalance', () => {
     }
 
     // eslint-disable-next-line @typescript-eslint/unbound-method -- vitest mock assertion
-    expect(mockProviderManager.executeWithFailoverOnce).toHaveBeenCalledWith('bitcoin', {
-      type: 'getAddressBalances',
-      address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-    });
+    expect(mockProviderManager.getAddressBalances).toHaveBeenCalledWith(
+      'bitcoin',
+      'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
+    );
   });
 
   it('should return error when provider manager fails', async () => {
@@ -179,8 +178,7 @@ describe('fetchBlockchainBalance', () => {
     const mockProviderManager = {
       autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn(),
-      executeWithFailover: vi.fn(),
-      executeWithFailoverOnce: vi.fn().mockResolvedValue(err(mockError)),
+      getAddressBalances: vi.fn().mockResolvedValue(err(mockError)),
       getProviders: vi.fn().mockReturnValue([]),
     } as unknown as BlockchainProviderManager;
 
@@ -201,8 +199,7 @@ describe('fetchBlockchainBalance', () => {
     const mockProviderManager = {
       autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn(),
-      executeWithFailover: vi.fn(),
-      executeWithFailoverOnce: vi.fn().mockRejectedValue(new Error('Network error')),
+      getAddressBalances: vi.fn().mockRejectedValue(new Error('Network error')),
       getProviders: vi.fn().mockReturnValue([]),
     } as unknown as BlockchainProviderManager;
 
@@ -235,8 +232,7 @@ describe('fetchBlockchainBalance', () => {
     const mockProviderManager = {
       autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn(),
-      executeWithFailover: vi.fn(),
-      executeWithFailoverOnce: vi.fn().mockResolvedValue(ok(mockProviderResult)),
+      getAddressBalances: vi.fn().mockResolvedValue(ok(mockProviderResult)),
       getProviders: vi.fn().mockReturnValue([
         {
           capabilities: {
@@ -277,8 +273,7 @@ describe('fetchBlockchainBalance', () => {
     const mockProviderManager = {
       autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn(),
-      executeWithFailover: vi.fn(),
-      executeWithFailoverOnce: vi.fn().mockResolvedValue(ok(mockProviderResult)),
+      getAddressBalances: vi.fn().mockResolvedValue(ok(mockProviderResult)),
       getProviders: vi.fn().mockReturnValue([
         {
           capabilities: {
@@ -309,24 +304,21 @@ describe('fetchChildAccountsBalance', () => {
     const mockProviderManager = {
       autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn(),
-      executeWithFailover: vi.fn(),
-      executeWithFailoverOnce: vi
-        .fn()
-        .mockImplementation(async (_blockchain: string, operation: { address: string }) => {
-          if (operation.address === 'bc1-child-success') {
-            return okAsync({
-              data: {
-                rawAmount: '100000000',
-                symbol: 'BTC',
-                decimals: 8,
-                decimalAmount: '1',
-              },
-              providerName: 'blockstream',
-            });
-          }
+      getAddressBalances: vi.fn().mockImplementation(async (_blockchain: string, address: string) => {
+        if (address === 'bc1-child-success') {
+          return okAsync({
+            data: {
+              rawAmount: '100000000',
+              symbol: 'BTC',
+              decimals: 8,
+              decimalAmount: '1',
+            },
+            providerName: 'blockstream',
+          });
+        }
 
-          return err(new Error('RPC timeout'));
-        }),
+        return err(new Error('RPC timeout'));
+      }),
       getProviders: vi.fn().mockReturnValue([
         {
           capabilities: {

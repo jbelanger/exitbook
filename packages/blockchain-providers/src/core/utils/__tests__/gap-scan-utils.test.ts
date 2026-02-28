@@ -5,7 +5,7 @@ import type { BlockchainProviderManager } from '../../manager/provider-manager.j
 import { performAddressGapScanning } from '../gap-scan-utils.js';
 
 const mockProviderManager = {
-  executeWithFailoverOnce: vi.fn(),
+  hasAddressTransactions: vi.fn(),
 } as unknown as BlockchainProviderManager;
 
 describe('performAddressGapScanning', () => {
@@ -25,7 +25,7 @@ describe('performAddressGapScanning', () => {
 
   it('should stop after gap limit consecutive unused addresses', async () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for test
-    vi.mocked(mockProviderManager.executeWithFailoverOnce)
+    vi.mocked(mockProviderManager.hasAddressTransactions)
       .mockResolvedValueOnce(ok({ data: true, providerName: 'mock' })) // addr1 active
       .mockResolvedValue(ok({ data: false, providerName: 'mock' })); // rest inactive
 
@@ -45,7 +45,7 @@ describe('performAddressGapScanning', () => {
 
   it('should fail after maxErrors consecutive API errors', async () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for test
-    vi.mocked(mockProviderManager.executeWithFailoverOnce).mockResolvedValue(err(new Error('API failure')));
+    vi.mocked(mockProviderManager.hasAddressTransactions).mockResolvedValue(err(new Error('API failure')));
 
     const result = await performAddressGapScanning(
       {
@@ -63,7 +63,7 @@ describe('performAddressGapScanning', () => {
 
   it('should use gapLimit as fallback when no addresses have activity', async () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for test
-    vi.mocked(mockProviderManager.executeWithFailoverOnce).mockResolvedValue(ok({ data: false, providerName: 'mock' }));
+    vi.mocked(mockProviderManager.hasAddressTransactions).mockResolvedValue(ok({ data: false, providerName: 'mock' }));
 
     const result = await performAddressGapScanning(
       {
@@ -81,7 +81,7 @@ describe('performAddressGapScanning', () => {
 
   it('should work with cardano blockchain parameter', async () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for test
-    vi.mocked(mockProviderManager.executeWithFailoverOnce)
+    vi.mocked(mockProviderManager.hasAddressTransactions)
       .mockResolvedValueOnce(ok({ data: true, providerName: 'mock' }))
       .mockResolvedValue(ok({ data: false, providerName: 'mock' }));
 
@@ -99,8 +99,8 @@ describe('performAddressGapScanning', () => {
 
     // Verify this test's calls use the cardano blockchain name
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for test
-    expect(mockProviderManager.executeWithFailoverOnce).toHaveBeenCalledTimes(3);
+    expect(mockProviderManager.hasAddressTransactions).toHaveBeenCalledTimes(3);
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for test
-    expect(mockProviderManager.executeWithFailoverOnce).toHaveBeenNthCalledWith(1, 'cardano', expect.anything());
+    expect(mockProviderManager.hasAddressTransactions).toHaveBeenNthCalledWith(1, 'cardano', expect.anything());
   });
 });

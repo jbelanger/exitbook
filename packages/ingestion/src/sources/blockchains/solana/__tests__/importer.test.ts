@@ -4,7 +4,6 @@
  */
 
 import { type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
-import { assertOperationType } from '@exitbook/blockchain-providers';
 import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -41,9 +40,8 @@ describe('SolanaImporter', () => {
    * Helper to setup mock for transaction data
    */
   const setupMockData = (normalData: unknown[] = [], tokenData: unknown[] = []) => {
-    mockProviderManager.executeWithFailover.mockImplementation(async function* (_blockchain, operation) {
-      const data =
-        operation.type === 'getAddressTransactions' && operation.streamType === 'normal' ? normalData : tokenData;
+    mockProviderManager.streamAddressTransactions.mockImplementation(async function* (_blockchain, _address, options) {
+      const data = options?.streamType === 'normal' ? normalData : tokenData;
       yield okAsync({
         data,
         providerName: 'helius',
@@ -130,22 +128,18 @@ describe('SolanaImporter', () => {
       expect(value.rawTransactions[1]?.eventId).toMatch(/^[a-f0-9]{64}$/);
 
       // Verify API call was made
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(2);
+      expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(2);
 
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
-      const [, operation1] = executeCalls[0]!;
-      assertOperationType(operation1, 'getAddressTransactions');
-      expect(operation1.address).toBe(address);
-      expect(operation1.streamType).toBe('normal');
+      const [, address1, options1] = executeCalls[0]!;
+      expect(address1).toBe(address);
+      expect(options1?.streamType).toBe('normal');
 
-      const [, operation2] = executeCalls[1]!;
-      assertOperationType(operation2, 'getAddressTransactions');
-      expect(operation2.address).toBe(address);
-      expect(operation2.streamType).toBe('token');
-      expect(operation1.getCacheKey).toBeDefined();
-      expect(operation2.getCacheKey).toBeDefined();
+      const [, address2, options2] = executeCalls[1]!;
+      expect(address2).toBe(address);
+      expect(options2?.streamType).toBe('token');
     });
 
     test('should handle empty transaction list', async () => {
@@ -199,7 +193,7 @@ describe('SolanaImporter', () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
 
-      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
         yield errAsync(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'solana',
@@ -240,12 +234,11 @@ describe('SolanaImporter', () => {
 
       await consumeImportStream(importer, { sourceName: 'solana', sourceType: 'blockchain' as const, address });
 
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
-      const call = calls[0]![1];
-      const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe('solana:raw-txs:normal:user1111111111111111111111111111111111111111:all');
+      expect(calls[0]?.[0]).toBe('solana');
+      expect(calls[0]?.[1]).toBe(address);
     });
   });
 });

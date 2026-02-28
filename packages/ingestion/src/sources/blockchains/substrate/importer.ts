@@ -68,14 +68,10 @@ export class SubstrateImporter implements IImporter {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<SubstrateTransaction>>(
+    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<SubstrateTransaction>>(
       this.chainConfig.chainName,
-      {
-        type: 'getAddressTransactions',
-        address,
-        getCacheKey: (params) =>
-          `${this.chainConfig.chainName}:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}_all`,
-      },
+      address,
+      undefined,
       resumeCursor
     );
 

@@ -8,7 +8,6 @@ import {
   ProviderError,
   type SubstrateChainConfig,
 } from '@exitbook/blockchain-providers';
-import { assertOperationType } from '@exitbook/blockchain-providers';
 import type { Currency, PaginationCursor } from '@exitbook/core';
 import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
@@ -82,7 +81,7 @@ const mockSubstrateTx2 = {
 };
 
 type ProviderManagerMock = Mocked<
-  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'executeWithFailover' | 'getProviders'>
+  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
 >;
 
 describe('SubstrateImporter', () => {
@@ -92,7 +91,7 @@ describe('SubstrateImporter', () => {
    * Helper to setup mock for transaction data
    */
   const setupMockData = (data: unknown[] = [], providerName = 'subscan') => {
-    mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+    mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
       yield okAsync({
         data,
         providerName,
@@ -111,7 +110,7 @@ describe('SubstrateImporter', () => {
   beforeEach(() => {
     mockProviderManager = {
       autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-      executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
+      streamAddressTransactions: vi.fn<BlockchainProviderManager['streamAddressTransactions']>(),
       getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
 
@@ -219,16 +218,14 @@ describe('SubstrateImporter', () => {
       }
 
       // Verify API call was made
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(1);
+      expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(1);
 
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
-      const [blockchain, operation] = executeCalls[0]!;
+      const [blockchain, callAddress] = executeCalls[0]!;
       expect(blockchain).toBe('polkadot');
-      assertOperationType(operation, 'getAddressTransactions');
-      expect(operation.address).toBe(address);
-      expect(operation.getCacheKey).toBeDefined();
+      expect(callAddress).toBe(address);
     });
 
     test('should handle empty transaction list', async () => {
@@ -341,7 +338,7 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
         yield errAsync(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'polkadot',
@@ -394,7 +391,7 @@ describe('SubstrateImporter', () => {
       const importer = createImporter(BITTENSOR_CONFIG);
       const address = '5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL';
 
-      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
         yield errAsync(
           new ProviderError('Taostats API unavailable', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'bittensor',
@@ -422,7 +419,7 @@ describe('SubstrateImporter', () => {
         blockchain: 'polkadot',
       });
 
-      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
         yield errAsync(providerError);
       });
 
@@ -463,14 +460,13 @@ describe('SubstrateImporter', () => {
       expect(result.isOk()).toBe(true);
 
       // Verify calls were made with 'bittensor' blockchain name
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(executeCalls[0]?.[0]).toBe('bittensor');
 
-      const [, operation] = executeCalls[0]!;
-      assertOperationType(operation, 'getAddressTransactions');
-      expect(operation.address).toBe(address);
+      const [, callAddress] = executeCalls[0]!;
+      expect(callAddress).toBe(address);
 
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(1);
@@ -500,8 +496,8 @@ describe('SubstrateImporter', () => {
 
       expect(result.isOk()).toBe(true);
 
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(executeCalls[0]?.[0]).toBe('kusama');
 
@@ -519,7 +515,7 @@ describe('SubstrateImporter', () => {
       const polkadotAddress = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
       const bittensorAddress = '5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL';
 
-      mockProviderManager.executeWithFailover
+      mockProviderManager.streamAddressTransactions
         .mockImplementationOnce(async function* () {
           yield okAsync({
             data: [{ raw: { original: 'dot-data' }, normalized: { ...mockSubstrateTx1, chainName: 'polkadot' } }],
@@ -584,12 +580,11 @@ describe('SubstrateImporter', () => {
 
       await consumeImportStream(importer, { sourceName: 'substrate', sourceType: 'blockchain' as const, address });
 
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
-      const call = calls[0]![1];
-      const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe('polkadot:raw-txs:1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_all');
+      expect(calls[0]?.[0]).toBe('polkadot');
+      expect(calls[0]?.[1]).toBe(address);
     });
 
     test('should generate different cache keys for different chains', async () => {
@@ -611,18 +606,12 @@ describe('SubstrateImporter', () => {
         address,
       });
 
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
-      const polkadotCall = calls[0]![1];
-      const bittensorCall = calls[1]![1];
-
-      const polkadotCacheKey = polkadotCall.getCacheKey!(polkadotCall);
-      const bittensorCacheKey = bittensorCall.getCacheKey!(bittensorCall);
-
-      expect(polkadotCacheKey).toBe('polkadot:raw-txs:1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_all');
-      expect(bittensorCacheKey).toBe('bittensor:raw-txs:1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_all');
-      expect(polkadotCacheKey).not.toBe(bittensorCacheKey);
+      expect(calls[0]?.[0]).toBe('polkadot');
+      expect(calls[1]?.[0]).toBe('bittensor');
+      expect(calls[0]?.[0]).not.toBe(calls[1]?.[0]);
     });
 
     test('should generate cache keys based on operation type', async () => {
@@ -633,18 +622,11 @@ describe('SubstrateImporter', () => {
 
       await consumeImportStream(importer, { sourceName: 'substrate', sourceType: 'blockchain' as const, address });
 
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
-      const call = calls[0]![1];
-
-      // Verify the operation type is correct
-      expect(call.type).toBe('getAddressTransactions');
-
-      // Verify cache key generation handles the operation type correctly
-      const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toContain('polkadot');
-      expect(cacheKey).toContain(address);
+      expect(calls[0]?.[0]).toBe('polkadot');
+      expect(calls[0]?.[1]).toBe(address);
     });
   });
 
@@ -702,12 +684,10 @@ describe('SubstrateImporter', () => {
 
       expect(result.isOk()).toBe(true);
 
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
-      const call = calls[0]![1];
-      assertOperationType(call, 'getAddressTransactions');
-      expect(call.address).toBe(address);
+      expect(calls[0]?.[1]).toBe(address);
     });
 
     test('should handle addresses with special characters', async () => {

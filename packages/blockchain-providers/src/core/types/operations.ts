@@ -83,7 +83,7 @@ export interface BatchStats {
 
 /**
  * Result from streaming failover execution with cursor state
- * Used by executeWithFailover to yield batches with provenance and cursor
+ * Yielded by streamAddressTransactions with provenance and cursor
  */
 export interface FailoverStreamingExecutionResult<T> {
   data: T[];

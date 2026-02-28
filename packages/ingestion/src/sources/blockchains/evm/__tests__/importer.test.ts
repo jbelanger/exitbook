@@ -4,7 +4,6 @@
  */
 
 import { type BlockchainProviderManager, type EvmChainConfig, ProviderError } from '@exitbook/blockchain-providers';
-import { assertOperationType } from '@exitbook/blockchain-providers';
 import type { Currency, PaginationCursor } from '@exitbook/core';
 import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
@@ -39,7 +38,7 @@ const mockTokenTx = {
 };
 
 type ProviderManagerMock = Mocked<
-  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'executeWithFailover' | 'getProviders'>
+  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
 >;
 
 describe('EvmImporter', () => {
@@ -54,7 +53,7 @@ describe('EvmImporter', () => {
     tokenData: unknown[] = [],
     beaconData?: unknown[]
   ) => {
-    const mock = mockProviderManager.executeWithFailover
+    const mock = mockProviderManager.streamAddressTransactions
       .mockImplementationOnce(async function* () {
         yield okAsync({
           data: normalData,
@@ -120,7 +119,7 @@ describe('EvmImporter', () => {
   beforeEach(() => {
     mockProviderManager = {
       autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-      executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
+      streamAddressTransactions: vi.fn<BlockchainProviderManager['streamAddressTransactions']>(),
       getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
 
@@ -251,34 +250,26 @@ describe('EvmImporter', () => {
       }
 
       // Verify all four API calls were made (one for each Ethereum transaction type)
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(4);
+      expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(4);
 
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
-      const [, normalOperation] = executeCalls[0]!;
-      assertOperationType(normalOperation, 'getAddressTransactions');
-      expect(normalOperation.address).toBe(address);
-      expect(normalOperation.streamType).toBe('normal');
-      expect(normalOperation.getCacheKey).toBeDefined();
+      const [, normalAddr, normalOpts] = executeCalls[0]!;
+      expect(normalAddr).toBe(address);
+      expect(normalOpts?.streamType).toBe('normal');
 
-      const [, internalOperation] = executeCalls[1]!;
-      assertOperationType(internalOperation, 'getAddressTransactions');
-      expect(internalOperation.address).toBe(address);
-      expect(internalOperation.streamType).toBe('internal');
-      expect(internalOperation.getCacheKey).toBeDefined();
+      const [, internalAddr, internalOpts] = executeCalls[1]!;
+      expect(internalAddr).toBe(address);
+      expect(internalOpts?.streamType).toBe('internal');
 
-      const [, tokenOperation] = executeCalls[2]!;
-      assertOperationType(tokenOperation, 'getAddressTransactions');
-      expect(tokenOperation.address).toBe(address);
-      expect(tokenOperation.streamType).toBe('token');
-      expect(tokenOperation.getCacheKey).toBeDefined();
+      const [, tokenAddr, tokenOpts] = executeCalls[2]!;
+      expect(tokenAddr).toBe(address);
+      expect(tokenOpts?.streamType).toBe('token');
 
-      const [, beaconOperation] = executeCalls[3]!;
-      assertOperationType(beaconOperation, 'getAddressTransactions');
-      expect(beaconOperation.address).toBe(address);
-      expect(beaconOperation.streamType).toBe('beacon_withdrawal');
-      expect(beaconOperation.getCacheKey).toBeDefined();
+      const [, beaconAddr, beaconOpts] = executeCalls[3]!;
+      expect(beaconAddr).toBe(address);
+      expect(beaconOpts?.streamType).toBe('beacon_withdrawal');
     });
   });
 
@@ -288,7 +279,7 @@ describe('EvmImporter', () => {
       const address = '0x1234567890123456789012345678901234567890';
 
       // First call (normal) fails
-      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
         yield errAsync(
           new ProviderError('Failed to fetch normal transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'ethereum',
@@ -334,7 +325,7 @@ describe('EvmImporter', () => {
       setupDefaultMocks([], [], []);
 
       // Fourth call (beacon withdrawals) fails
-      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
         yield errAsync(
           new ProviderError('Invalid API Key provided', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'ethereum',
@@ -373,16 +364,15 @@ describe('EvmImporter', () => {
         expect(beaconCursor?.metadata?.['errorMessage']).toContain('Invalid API Key provided');
       }
 
-      // Verify executeWithFailover was called 4 times (normal, internal, token, beacon_withdrawal)
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(4);
+      // Verify streamAddressTransactions was called 4 times (normal, internal, token, beacon_withdrawal)
+      expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(4);
 
       // Verify the fourth call was for beacon withdrawals
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-      const [, beaconOperation] = executeCalls[3]!;
-      assertOperationType(beaconOperation, 'getAddressTransactions');
-      expect(beaconOperation.address).toBe(address);
-      expect(beaconOperation.streamType).toBe('beacon_withdrawal');
+      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
+      const [, beaconAddr, beaconOpts] = executeCalls[3]!;
+      expect(beaconAddr).toBe(address);
+      expect(beaconOpts?.streamType).toBe('beacon_withdrawal');
     });
   });
 
@@ -412,22 +402,20 @@ describe('EvmImporter', () => {
 
       // Verify calls were made with 'avalanche' blockchain name
       // Avalanche only supports normal and token transactions (no internal)
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(executeCalls.length).toBe(2);
       expect(executeCalls[0]?.[0]).toBe('avalanche');
       expect(executeCalls[1]?.[0]).toBe('avalanche');
 
-      const [, normalOperation] = executeCalls[0]!;
-      assertOperationType(normalOperation, 'getAddressTransactions');
-      expect(normalOperation.address).toBe(address);
-      expect(normalOperation.streamType).toBe('normal');
+      const [, normalAddr2, normalOpts2] = executeCalls[0]!;
+      expect(normalAddr2).toBe(address);
+      expect(normalOpts2?.streamType).toBe('normal');
 
-      const [, tokenOperation] = executeCalls[1]!;
-      assertOperationType(tokenOperation, 'getAddressTransactions');
-      expect(tokenOperation.address).toBe(address);
-      expect(tokenOperation.streamType).toBe('token');
+      const [, tokenAddr2, tokenOpts2] = executeCalls[1]!;
+      expect(tokenAddr2).toBe(address);
+      expect(tokenOpts2?.streamType).toBe('token');
     });
 
     test('should handle array of transactions from provider', async () => {
@@ -459,36 +447,6 @@ describe('EvmImporter', () => {
         expect(result.value.rawTransactions[0]!.providerData).toEqual(mockNormalTx);
         expect(result.value.rawTransactions[1]!.providerData).toEqual({ ...mockNormalTx, hash: '0x789' });
       }
-    });
-  });
-
-  describe('Cache Key Generation', () => {
-    test('should generate correct cache keys for each transaction type', async () => {
-      const importer = createImporter();
-      const address = '0x1234567890123456789012345678901234567890';
-
-      setupDefaultMocks([], [], [], []);
-
-      await consumeImportStream(importer, { sourceName: 'evm', sourceType: 'blockchain' as const, address });
-
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-
-      const normalCall = calls[0]![1];
-      const normalCacheKey = normalCall.getCacheKey!(normalCall);
-      expect(normalCacheKey).toBe('ethereum:normal:0x1234567890123456789012345678901234567890:all');
-
-      const internalCall = calls[1]![1];
-      const internalCacheKey = internalCall.getCacheKey!(internalCall);
-      expect(internalCacheKey).toBe('ethereum:internal:0x1234567890123456789012345678901234567890:all');
-
-      const tokenCall = calls[2]![1];
-      const tokenCacheKey = tokenCall.getCacheKey!(tokenCall);
-      expect(tokenCacheKey).toBe('ethereum:token:0x1234567890123456789012345678901234567890:all');
-
-      const beaconCall = calls[3]![1];
-      const beaconCacheKey = beaconCall.getCacheKey!(beaconCall);
-      expect(beaconCacheKey).toBe('ethereum:beacon_withdrawal:0x1234567890123456789012345678901234567890:all');
     });
   });
 });

@@ -58,10 +58,10 @@ export function createMockTokenMetadataService(): Mocked<ITokenMetadataService> 
  * Creates a mock BlockchainProviderManager with default implementations.
  * Provides a single mock provider for the specified blockchain.
  *
- * The executeWithFailover method returns an async iterator by default.
+ * The streamAddressTransactions method returns an async iterator by default.
  * Override it in tests to provide specific behavior:
  * ```
- * mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+ * mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
  *   yield ok({ data: [...], providerName: '...', cursor: {...} });
  * });
  * ```
@@ -70,19 +70,19 @@ export function createMockTokenMetadataService(): Mocked<ITokenMetadataService> 
  */
 export function createMockProviderManager(
   blockchain: string
-): Mocked<Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'executeWithFailover' | 'getProviders'>> {
+): Mocked<Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>> {
   const mockProviderManager = {
     autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-    executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
+    streamAddressTransactions: vi.fn<BlockchainProviderManager['streamAddressTransactions']>(),
     getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
   } as unknown as Mocked<
-    Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'executeWithFailover' | 'getProviders'>
+    Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
   >;
 
   mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
 
   // Default implementation: returns empty async iterator
-  mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+  mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
     // By default, yield nothing. Tests should override this.
   });
 

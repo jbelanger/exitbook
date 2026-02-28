@@ -440,10 +440,7 @@ async function checkActivityForHdNode(
   const address = addressGen(Buffer.from(firstChild.publicKey));
   logger.debug(`Checking address for activity: ${address}`);
 
-  const result = await providerManager.executeWithFailoverOnce(blockchain, {
-    address,
-    type: 'hasAddressTransactions',
-  });
+  const result = await providerManager.hasAddressTransactions(blockchain, address);
 
   if (result.isErr()) {
     // API error - cannot determine activity, propagate error

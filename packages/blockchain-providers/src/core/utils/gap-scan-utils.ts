@@ -56,11 +56,7 @@ export async function performAddressGapScanning(
     const address = derivedAddresses[i];
     if (!address) continue;
 
-    const result = await providerManager.executeWithFailoverOnce(blockchain, {
-      address,
-      getCacheKey: (params) => `${blockchain}:has-txs:${(params as { address: string }).address}`,
-      type: 'hasAddressTransactions',
-    });
+    const result = await providerManager.hasAddressTransactions(blockchain, address);
 
     if (result.isErr()) {
       errorCount++;

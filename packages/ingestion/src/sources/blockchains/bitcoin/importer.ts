@@ -56,14 +56,10 @@ export class BitcoinImporter implements IImporter {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<BitcoinTransaction>>(
+    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<BitcoinTransaction>>(
       this.chainConfig.chainName,
-      {
-        type: 'getAddressTransactions',
-        address,
-        getCacheKey: (params) =>
-          `${this.chainConfig.chainName}:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:all`,
-      },
+      address,
+      undefined,
       resumeCursor
     );
 

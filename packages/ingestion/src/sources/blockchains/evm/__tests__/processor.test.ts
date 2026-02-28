@@ -29,7 +29,7 @@ const CONTRACT_ADDRESS = '0xcontract00000000000000000000000000000000';
 
 function createMockProviderManager(isContract = false): BlockchainProviderManager {
   return {
-    executeWithFailoverOnce: vi.fn().mockResolvedValue(
+    getAddressInfo: vi.fn().mockResolvedValue(
       ok({
         data: { isContract },
         providerName: 'mock',

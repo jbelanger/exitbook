@@ -108,18 +108,10 @@ export class EvmImporter implements IImporter {
     streamType: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<EvmTransaction>>(
+    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<EvmTransaction>>(
       this.chainConfig.chainName,
-      {
-        type: 'getAddressTransactions',
-        address,
-        streamType: streamType,
-        getCacheKey: (params) => {
-          if (params.type !== 'getAddressTransactions') return 'unknown';
-          const txType = params.streamType || 'default';
-          return `${this.chainConfig.chainName}:${txType}:${params.address}:all`;
-        },
-      },
+      address,
+      { streamType },
       resumeCursor
     );
 
@@ -130,7 +122,6 @@ export class EvmImporter implements IImporter {
       }
 
       const providerBatch = providerBatchResult.value;
-      // Provider batch data is TransactionWithRawData[] from executeWithFailover
       const transactionsWithRaw = providerBatch.data;
 
       // Log batch stats including in-memory deduplication

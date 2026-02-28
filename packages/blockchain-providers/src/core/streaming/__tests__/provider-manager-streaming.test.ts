@@ -151,7 +151,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailover('ethereum', operation, cursor)) {
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address, undefined, cursor)) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -192,7 +192,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       const results = [];
       const errors = [];
-      for await (const result of manager.executeWithFailover('ethereum', operation, cursor)) {
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address, undefined, cursor)) {
         if (result.isOk()) {
           results.push(result.value);
         } else {
@@ -236,7 +236,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailover('ethereum', operation, cursor)) {
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address, undefined, cursor)) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -278,7 +278,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       const results = [];
       const errors = [];
-      for await (const result of manager.executeWithFailover('ethereum', operation, cursor)) {
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address, undefined, cursor)) {
         if (result.isOk()) {
           results.push(result.value);
         } else {
@@ -322,7 +322,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailover('ethereum', operation)) {
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address)) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -348,7 +348,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       const errors = [];
       const results = [];
-      for await (const result of manager.executeWithFailover('ethereum', operation)) {
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address)) {
         if (result.isErr()) {
           errors.push(result.error);
         } else {
@@ -399,7 +399,12 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailover('ethereum', operation, initialCursor)) {
+      for await (const result of manager.streamAddressTransactions(
+        'ethereum',
+        operation.address,
+        undefined,
+        initialCursor
+      )) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -437,7 +442,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailover('ethereum', operation)) {
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address)) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -479,9 +484,10 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results: FailoverStreamingExecutionResult<TransactionWithRawData<NormalizedTransactionBase>>[] = [];
-      for await (const result of manager.executeWithFailover<TransactionWithRawData<NormalizedTransactionBase>>(
+      for await (const result of manager.streamAddressTransactions<TransactionWithRawData<NormalizedTransactionBase>>(
         'ethereum',
-        operation,
+        operation.address,
+        undefined,
         cursor
       )) {
         if (result.isOk()) {
@@ -532,7 +538,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailover('ethereum', operation, cursor)) {
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address, undefined, cursor)) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -566,7 +572,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailover('ethereum', operation)) {
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address)) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -605,7 +611,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results: FailoverStreamingExecutionResult<TransactionWithRawData<NormalizedTransactionBase>>[] = [];
-      for await (const result of manager.executeWithFailover('ethereum', operation)) {
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address)) {
         if (result.isOk()) {
           results.push(
             result.value as FailoverStreamingExecutionResult<TransactionWithRawData<NormalizedTransactionBase>>
@@ -628,7 +634,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const errors = [];
-      for await (const result of manager.executeWithFailover('ethereum', operation)) {
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address)) {
         if (result.isErr()) {
           errors.push(result.error);
         }
@@ -659,7 +665,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
         address: '0x123',
       };
 
-      for await (const result of manager.executeWithFailover('ethereum', operation)) {
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address)) {
         expect(result.isOk()).toBe(true);
       }
 
@@ -678,7 +684,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const errors = [];
-      for await (const result of manager.executeWithFailover('ethereum', operation)) {
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address)) {
         if (result.isErr()) {
           errors.push(result.error);
         }

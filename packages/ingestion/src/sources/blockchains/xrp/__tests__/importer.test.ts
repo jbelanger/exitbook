@@ -9,7 +9,6 @@ import {
   ProviderError,
 } from '@exitbook/blockchain-providers';
 import { getXrpChainConfig } from '@exitbook/blockchain-providers';
-import { assertOperationType } from '@exitbook/blockchain-providers';
 import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -52,7 +51,7 @@ describe('XrpImporter', () => {
 
     mockProviderManager = {
       autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-      executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
+      streamAddressTransactions: vi.fn<BlockchainProviderManager['streamAddressTransactions']>(),
       getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
 
@@ -72,7 +71,7 @@ describe('XrpImporter', () => {
   });
 
   test('successfully fetches transactions', async () => {
-    mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+    mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
       yield okAsync({
         data: [{ normalized: mockXrpTx, raw: {} }],
         cursor: {
@@ -104,16 +103,15 @@ describe('XrpImporter', () => {
     expect(importResult.rawTransactions[0]?.blockchainTransactionHash).toBe('tx1abc');
 
     // Verify provider manager was called correctly
-    expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(1);
-    const executeArgs = mockProviderManager.executeWithFailover.mock.calls[0];
-    if (!executeArgs) throw new Error('executeWithFailover was not called');
+    expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(1);
+    const executeArgs = mockProviderManager.streamAddressTransactions.mock.calls[0];
+    if (!executeArgs) throw new Error('streamAddressTransactions was not called');
     expect(executeArgs[0]).toBe('xrp');
-    assertOperationType(executeArgs[1], 'getAddressTransactions');
-    expect(executeArgs[1].address).toBe(USER_ADDRESS);
+    expect(executeArgs[1]).toBe(USER_ADDRESS);
   });
 
   test('handles provider errors', async () => {
-    mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+    mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
       yield errAsync(new ProviderError('API error', 'NO_PROVIDERS'));
     });
 
@@ -138,7 +136,7 @@ describe('XrpImporter', () => {
   });
 
   test('handles multiple batches', async () => {
-    mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+    mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
       yield okAsync({
         data: [{ normalized: mockXrpTx, raw: {} }],
         cursor: {
@@ -191,7 +189,7 @@ describe('XrpImporter', () => {
       totalFetched: 100,
     };
 
-    mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+    mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
       yield okAsync({
         data: [{ normalized: mockXrpTx, raw: {} }],
         cursor: {
@@ -216,9 +214,9 @@ describe('XrpImporter', () => {
       cursor: { normal: resumeCursor },
     });
 
-    expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(1);
-    const executeArgs = mockProviderManager.executeWithFailover.mock.calls[0];
-    if (!executeArgs) throw new Error('executeWithFailover was not called');
-    expect(executeArgs[2]).toEqual(resumeCursor);
+    expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(1);
+    const executeArgs = mockProviderManager.streamAddressTransactions.mock.calls[0];
+    if (!executeArgs) throw new Error('streamAddressTransactions was not called');
+    expect(executeArgs[3]).toEqual(resumeCursor);
   });
 });

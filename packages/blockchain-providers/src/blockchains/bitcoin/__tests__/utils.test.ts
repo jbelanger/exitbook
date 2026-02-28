@@ -103,7 +103,7 @@ describe('Bitcoin Utils', () => {
 
   // Mocks for ProviderManager
   const mockProviderManager = {
-    executeWithFailoverOnce: vi.fn(),
+    hasAddressTransactions: vi.fn(),
   } as unknown as BlockchainProviderManager;
 
   describe('performBitcoinAddressGapScanning', () => {
@@ -116,7 +116,7 @@ describe('Bitcoin Utils', () => {
 
       // Mock activity: addr1 active, others inactive
       // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for test
-      vi.mocked(mockProviderManager.executeWithFailoverOnce)
+      vi.mocked(mockProviderManager.hasAddressTransactions)
         .mockResolvedValueOnce(ok({ data: true, providerName: 'mock' })) // addr1
         .mockResolvedValue(ok({ data: false, providerName: 'mock' })); // others
 

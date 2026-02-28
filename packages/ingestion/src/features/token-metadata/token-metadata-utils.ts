@@ -137,11 +137,7 @@ async function fetchBatchFromProvider(
       return ok([]);
     }
 
-    // executeWithFailover handles auto-registration and capability checking
-    const result = await providerManager.executeWithFailoverOnce(blockchain, {
-      type: 'getTokenMetadata',
-      contractAddresses,
-    });
+    const result = await providerManager.getTokenMetadata(blockchain, contractAddresses);
 
     if (result.isErr()) {
       // Check if error is due to unsupported operation (not a failure)

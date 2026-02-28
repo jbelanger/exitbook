@@ -28,8 +28,7 @@ describe('token-metadata-utils', () => {
 
       mockProviderManager = {
         getProviders: vi.fn(),
-        executeWithFailover: vi.fn(),
-        executeWithFailoverOnce: vi.fn(),
+        getTokenMetadata: vi.fn(),
       } as unknown as BlockchainProviderManager;
     });
 
@@ -51,7 +50,7 @@ describe('token-metadata-utils', () => {
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual(mockMetadata);
       expect(mockRepository.getByContract).toHaveBeenCalledWith('ethereum', '0x123');
-      expect(mockProviderManager.executeWithFailover).not.toHaveBeenCalled();
+      expect(mockProviderManager.getTokenMetadata).not.toHaveBeenCalled();
     });
 
     it('should trigger background refresh if cached metadata is stale', async () => {
@@ -92,7 +91,7 @@ describe('token-metadata-utils', () => {
           },
         },
       ] as IBlockchainProvider[]);
-      vi.mocked(mockProviderManager.executeWithFailoverOnce).mockResolvedValue(
+      vi.mocked(mockProviderManager.getTokenMetadata).mockResolvedValue(
         ok({
           data: [mockMetadata],
           providerName: 'test-provider',
@@ -111,10 +110,7 @@ describe('token-metadata-utils', () => {
         decimals: 18,
       });
       expect(returnedMetadata?.refreshedAt).toBeInstanceOf(Date);
-      expect(mockProviderManager.executeWithFailoverOnce).toHaveBeenCalledWith('ethereum', {
-        type: 'getTokenMetadata',
-        contractAddresses: ['0x123'],
-      });
+      expect(mockProviderManager.getTokenMetadata).toHaveBeenCalledWith('ethereum', ['0x123']);
       // Should save complete metadata with refreshedAt
       expect(mockRepository.save).toHaveBeenCalledWith(
         'ethereum',
@@ -131,7 +127,7 @@ describe('token-metadata-utils', () => {
 
     it('should return undefined if provider does not support metadata', async () => {
       vi.mocked(mockRepository.getByContract).mockResolvedValue(ok(undefined));
-      vi.mocked(mockProviderManager.executeWithFailoverOnce).mockResolvedValue(
+      vi.mocked(mockProviderManager.getTokenMetadata).mockResolvedValue(
         err(new ProviderError('No providers available for ethereum operation: getTokenMetadata', 'NO_PROVIDERS'))
       );
 
@@ -139,10 +135,7 @@ describe('token-metadata-utils', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBeUndefined();
-      expect(mockProviderManager.executeWithFailoverOnce).toHaveBeenCalledWith('ethereum', {
-        type: 'getTokenMetadata',
-        contractAddresses: ['0x123'],
-      });
+      expect(mockProviderManager.getTokenMetadata).toHaveBeenCalledWith('ethereum', ['0x123']);
     });
 
     it('should return fetched metadata even if cache save fails', async () => {
@@ -163,7 +156,7 @@ describe('token-metadata-utils', () => {
           },
         },
       ] as IBlockchainProvider[]);
-      vi.mocked(mockProviderManager.executeWithFailoverOnce).mockResolvedValue(
+      vi.mocked(mockProviderManager.getTokenMetadata).mockResolvedValue(
         ok({
           data: [mockMetadata],
           providerName: 'test-provider',
@@ -202,7 +195,7 @@ describe('token-metadata-utils', () => {
           },
         },
       ] as IBlockchainProvider[]);
-      vi.mocked(mockProviderManager.executeWithFailoverOnce).mockResolvedValue(
+      vi.mocked(mockProviderManager.getTokenMetadata).mockResolvedValue(
         err(new ProviderError('Fetch failed', 'ALL_PROVIDERS_FAILED'))
       );
 
@@ -227,8 +220,7 @@ describe('token-metadata-utils', () => {
 
       mockProviderManager = {
         getProviders: vi.fn(),
-        executeWithFailover: vi.fn(),
-        executeWithFailoverOnce: vi.fn(),
+        getTokenMetadata: vi.fn(),
       } as unknown as BlockchainProviderManager;
     });
 

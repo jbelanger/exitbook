@@ -3,12 +3,7 @@ import type { CosmosTransaction } from '@exitbook/blockchain-providers';
  * Unit tests for the generic Cosmos SDK importer
  * Tests the import pattern across multiple Cosmos SDK chains
  */
-import {
-  assertOperationType,
-  type BlockchainProviderManager,
-  type CosmosChainConfig,
-  ProviderError,
-} from '@exitbook/blockchain-providers';
+import { type BlockchainProviderManager, type CosmosChainConfig, ProviderError } from '@exitbook/blockchain-providers';
 import type { Currency } from '@exitbook/core';
 import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -81,7 +76,7 @@ describe('CosmosImporter', () => {
    * Helper to setup mock for transaction data
    */
   const setupMockData = (data: unknown[] = [], providerName = 'injective-explorer') => {
-    mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+    mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
       yield okAsync({
         data,
         providerName,
@@ -168,15 +163,13 @@ describe('CosmosImporter', () => {
       expect(value.rawTransactions[0]?.eventId).toMatch(/^[a-f0-9]{64}$/);
 
       // Verify API call was made
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(1);
+      expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(1);
 
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
-      const [, operation] = executeCalls[0]!;
-      assertOperationType(operation, 'getAddressTransactions');
-      expect(operation.address).toBe(address);
-      expect(operation.getCacheKey).toBeDefined();
+      const [, callAddress] = executeCalls[0]!;
+      expect(callAddress).toBe(address);
     });
 
     test('should handle IBC transactions', async () => {
@@ -261,7 +254,7 @@ describe('CosmosImporter', () => {
       const importer = createImporter();
       const address = 'inj1abc123def456ghi789';
 
-      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
         yield errAsync(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'injective',
@@ -332,14 +325,13 @@ describe('CosmosImporter', () => {
       expect(result.isOk()).toBe(true);
 
       // Verify calls were made with 'osmosis' blockchain name
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(executeCalls[0]?.[0]).toBe('osmosis');
 
-      const [, operation] = executeCalls[0]!;
-      assertOperationType(operation, 'getAddressTransactions');
-      expect(operation.address).toBe(address);
+      const [, callAddress] = executeCalls[0]!;
+      expect(callAddress).toBe(address);
     });
 
     test('should generate correct error messages for different chains', async () => {
@@ -366,12 +358,11 @@ describe('CosmosImporter', () => {
 
       await consumeImportStream(importer, { sourceName: 'cosmos', sourceType: 'blockchain' as const, address });
 
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
-      const call = calls[0]![1];
-      const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe(`injective:raw-txs:${address}:all`);
+      expect(calls[0]?.[0]).toBe('injective');
+      expect(calls[0]?.[1]).toBe(address);
     });
   });
 });

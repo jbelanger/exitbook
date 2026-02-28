@@ -76,18 +76,10 @@ export class SolanaImporter implements IImporter {
 
     this.logger.info(`Starting ${operationLabel} transaction stream for address: ${address.substring(0, 20)}...`);
 
-    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<SolanaTransaction>>(
+    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<SolanaTransaction>>(
       'solana',
-      {
-        type: 'getAddressTransactions',
-        address,
-        streamType: streamType,
-        getCacheKey: (params) => {
-          if (params.type !== 'getAddressTransactions') return 'unknown';
-          const txType = params.streamType || 'default';
-          return `solana:raw-txs:${txType}:${params.address}:all`;
-        },
-      },
+      address,
+      { streamType },
       resumeCursor
     );
 

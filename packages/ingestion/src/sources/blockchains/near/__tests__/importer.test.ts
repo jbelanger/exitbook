@@ -3,7 +3,6 @@
  * Tests transaction fetching with provider failover
  */
 import { type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
-import { assertOperationType } from '@exitbook/blockchain-providers';
 import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -56,7 +55,7 @@ describe('NearImporter', () => {
    * Helper to setup default mocks for receipt events
    */
   const setupDefaultMocks = (receiptData: unknown[] = []) => {
-    mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
+    mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
       yield okAsync({
         data: receiptData,
         providerName: 'nearblocks',
@@ -76,7 +75,7 @@ describe('NearImporter', () => {
     mockProviderManager = createMockProviderManager('near');
 
     // Default mock: return empty arrays for both calls (tests can override as needed)
-    mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+    mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
       yield okAsync({
         data: [],
         providerName: 'nearblocks',
@@ -118,7 +117,7 @@ describe('NearImporter', () => {
       const mockNormalizedTransfer = mockNearTx;
       const mockNormalizedFunctionCall = mockNearFunctionCallTx;
       // Mock receipt events (includes both native and token transfers)
-      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
         yield okAsync({
           data: [
             { normalized: mockNormalizedTransfer, raw: { transaction_hash: 'AbCdEf123456' } },
@@ -163,18 +162,16 @@ describe('NearImporter', () => {
       });
       expect(value.rawTransactions[1]?.eventId).toMatch(/^[a-f0-9]{64}$/);
       // Verify API calls were made (makes 4 calls for 4 transaction types)
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(4);
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(4);
+      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
       // Verify all 4 transaction types were called
       const transactionTypes = ['transactions', 'receipts', 'balance-changes', 'token-transfers'];
       for (let i = 0; i < 4; i++) {
-        const [, operation] = executeCalls[i]!;
-        assertOperationType(operation, 'getAddressTransactions');
-        expect(operation.address).toBe(address);
-        expect(operation.streamType).toBe(transactionTypes[i]);
-        expect(operation.getCacheKey).toBeDefined();
+        const [, callAddress, options] = executeCalls[i]!;
+        expect(callAddress).toBe(address);
+        expect(options?.streamType).toBe(transactionTypes[i]);
       }
     });
     test('should handle empty transaction list', async () => {
@@ -200,7 +197,7 @@ describe('NearImporter', () => {
         { normalized: tx2, raw: { transaction_hash: 'Tx789' } },
         { normalized: tx3, raw: { transaction_hash: 'Tx012' } },
       ];
-      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
         yield okAsync({
           data: multipleTxs,
           providerName: 'nearblocks',
@@ -229,7 +226,7 @@ describe('NearImporter', () => {
       const importer = createImporter();
       const implicitAddress = '98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de';
       const mockNormalizedTx = { ...mockNearTx, from: implicitAddress };
-      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
         yield okAsync({
           data: [{ normalized: mockNormalizedTx, raw: { transaction_hash: 'ImplicitTx' } }],
           providerName: 'nearblocks',
@@ -256,7 +253,7 @@ describe('NearImporter', () => {
       const importer = createImporter();
       const subAccount = 'sub.alice.near';
       const mockNormalizedTx = { ...mockNearTx, from: subAccount };
-      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
         yield okAsync({
           data: [{ normalized: mockNormalizedTx, raw: { transaction_hash: 'SubAccountTx' } }],
           providerName: 'nearblocks',
@@ -284,7 +281,7 @@ describe('NearImporter', () => {
     test('should fail if provider fails', async () => {
       const importer = createImporter();
       const address = 'alice.near';
-      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
         yield errAsync(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'near',
@@ -312,7 +309,7 @@ describe('NearImporter', () => {
     test('should fail with network timeout error', async () => {
       const importer = createImporter();
       const address = 'alice.near';
-      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
         yield errAsync(
           new ProviderError('Network timeout', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'near',
@@ -333,7 +330,7 @@ describe('NearImporter', () => {
     test('should fail with rate limit error', async () => {
       const importer = createImporter();
       const address = 'alice.near';
-      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
         yield errAsync(
           new ProviderError('Rate limit exceeded', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'near',
@@ -353,36 +350,32 @@ describe('NearImporter', () => {
     });
   });
   describe('Cache Key Generation', () => {
-    test('should generate correct cache keys for named accounts', async () => {
+    test('should call with correct address for named accounts', async () => {
       const importer = createImporter();
       const address = 'alice.near';
       await consumeImportStream(importer, { sourceName: 'near', sourceType: 'blockchain' as const, address });
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-      // Single call for receipt events (includes both native and token transfers)
-      const call = calls[0]![1];
-      const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe('near:transactions:alice.near:all');
+      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
+      expect(calls[0]?.[0]).toBe('near');
+      expect(calls[0]?.[1]).toBe(address);
     });
-    test('should generate correct cache keys for implicit accounts', async () => {
+    test('should call with correct address for implicit accounts', async () => {
       const importer = createImporter();
       const address = '98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de';
       await consumeImportStream(importer, { sourceName: 'near', sourceType: 'blockchain' as const, address });
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-      const call = calls[0]![1];
-      const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe(`near:transactions:${address}:all`);
+      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
+      expect(calls[0]?.[0]).toBe('near');
+      expect(calls[0]?.[1]).toBe(address);
     });
-    test('should generate correct cache keys for sub-accounts', async () => {
+    test('should call with correct address for sub-accounts', async () => {
       const importer = createImporter();
       const address = 'token.sub.alice.near';
       await consumeImportStream(importer, { sourceName: 'near', sourceType: 'blockchain' as const, address });
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-      const call = calls[0]![1];
-      const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe('near:transactions:token.sub.alice.near:all');
+      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
+      expect(calls[0]?.[0]).toBe('near');
+      expect(calls[0]?.[1]).toBe(address);
     });
   });
   describe('Transaction ID Generation', () => {
@@ -399,7 +392,7 @@ describe('NearImporter', () => {
         id: 'Tx2',
         eventId: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
       };
-      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
         yield okAsync({
           data: [
             { normalized: tx1, raw: { transaction_hash: 'Tx1' } },
@@ -435,7 +428,7 @@ describe('NearImporter', () => {
     test('should generate consistent IDs for same transaction', async () => {
       const importer = createImporter();
       const address = 'alice.near';
-      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+      mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
         yield okAsync({
           data: [{ normalized: mockNearTx, raw: { transaction_hash: 'AbCdEf123456' } }],
           providerName: 'nearblocks',

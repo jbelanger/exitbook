@@ -281,12 +281,7 @@ export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
       return cached;
     }
 
-    const result = await this.providerManager.executeWithFailoverOnce(this.chainConfig.chainName, {
-      type: 'getAddressInfo',
-      address,
-      getCacheKey: (params) =>
-        `getAddressInfo:${this.chainConfig.chainName}:${(params as { address: string }).address}`,
-    });
+    const result = await this.providerManager.getAddressInfo(this.chainConfig.chainName, address);
 
     if (result.isErr()) {
       const error = result.error;

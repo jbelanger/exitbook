@@ -56,13 +56,10 @@ export class XrpImporter implements IImporter {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<XrpTransaction>>(
+    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<XrpTransaction>>(
       this.chainConfig.chainName,
-      {
-        type: 'getAddressTransactions',
-        address,
-        getCacheKey: () => `${this.chainConfig.chainName}:raw-txs:${address}:all`,
-      },
+      address,
+      undefined,
       resumeCursor
     );
 

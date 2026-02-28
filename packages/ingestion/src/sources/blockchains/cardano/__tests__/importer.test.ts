@@ -3,7 +3,7 @@
  * Tests transaction fetching with provider failover
  */
 
-import { assertOperationType, type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
+import { type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
 import type { PaginationCursor } from '@exitbook/core';
 import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
@@ -52,7 +52,7 @@ const mockCardanoTx = {
 };
 
 type ProviderManagerMock = Mocked<
-  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'executeWithFailover' | 'getProviders'>
+  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
 >;
 
 describe('CardanoImporter', () => {
@@ -61,7 +61,7 @@ describe('CardanoImporter', () => {
   beforeEach(() => {
     mockProviderManager = {
       autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-      executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
+      streamAddressTransactions: vi.fn<BlockchainProviderManager['streamAddressTransactions']>(),
       getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
 
@@ -123,8 +123,8 @@ describe('CardanoImporter', () => {
         outputs: mockCardanoTx.outputs,
       };
 
-      // Mock executeWithFailover to return an async iterator
-      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+      // Mock streamAddressTransactions to return an async iterator
+      mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
         yield okAsync({
           data: [{ normalized: mockNormalized, raw: mockCardanoTx }],
           providerName: 'blockfrost',
@@ -164,22 +164,20 @@ describe('CardanoImporter', () => {
       }
 
       // Verify API call was made
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(1);
+      expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(1);
 
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+        mockProviderManager.streamAddressTransactions.mock.calls;
 
-      const [, operation] = executeCalls[0]!;
-      assertOperationType(operation, 'getAddressTransactions');
-      expect(operation.address).toBe(USER_ADDRESS);
-      expect(operation.getCacheKey).toBeDefined();
+      const [, opAddress] = executeCalls[0]!;
+      expect(opAddress).toBe(USER_ADDRESS);
     });
 
     test('should handle empty transaction list', async () => {
       const importer = createImporter();
 
-      // Mock executeWithFailover to return an async iterator with empty data
-      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+      // Mock streamAddressTransactions to return an async iterator with empty data
+      mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
         yield okAsync({
           data: [],
           providerName: 'blockfrost',
@@ -223,8 +221,8 @@ describe('CardanoImporter', () => {
         { normalized: { ...tx3, id: 'tx3ghi' }, raw: tx3 },
       ];
 
-      // Mock executeWithFailover to return an async iterator with multiple transactions
-      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+      // Mock streamAddressTransactions to return an async iterator with multiple transactions
+      mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
         yield okAsync({
           data: multipleTxs,
           providerName: 'blockfrost',
@@ -263,8 +261,8 @@ describe('CardanoImporter', () => {
     test('should fail if provider fails', async () => {
       const importer = createImporter();
 
-      // Mock executeWithFailover to return an async iterator that yields an error
-      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+      // Mock streamAddressTransactions to return an async iterator that yields an error
+      mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
         yield errAsync(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'cardano',
@@ -293,45 +291,6 @@ describe('CardanoImporter', () => {
       if (result.isErr()) {
         expect(result.error.message).toBe('Address required for Cardano transaction import');
       }
-    });
-  });
-
-  describe('Cache Key Generation', () => {
-    test('should generate correct cache key', async () => {
-      const importer = createImporter();
-
-      // Mock executeWithFailover to return an async iterator with empty data
-      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
-        yield okAsync({
-          data: [],
-          providerName: 'blockfrost',
-          cursor: {
-            primary: { type: 'blockNumber' as const, value: 0 },
-            lastTransactionId: '',
-            totalFetched: 0,
-            metadata: {
-              providerName: 'blockfrost',
-              updatedAt: Date.now(),
-              isComplete: true,
-            },
-          },
-          isComplete: true,
-          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
-        });
-      });
-
-      await consumeImportStream(importer, {
-        sourceName: 'cardano',
-        sourceType: 'blockchain' as const,
-        address: USER_ADDRESS,
-      });
-
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-
-      const call = calls[0]![1];
-      const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe(`cardano:raw-txs:${USER_ADDRESS}:all`);
     });
   });
 });

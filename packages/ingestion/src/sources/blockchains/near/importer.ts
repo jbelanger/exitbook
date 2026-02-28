@@ -101,17 +101,10 @@ export class NearImporter implements IImporter {
     streamType: NearStreamType,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<NearStreamEvent>>(
+    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<NearStreamEvent>>(
       'near',
-      {
-        type: 'getAddressTransactions',
-        address,
-        streamType: streamType,
-        getCacheKey: (params) => {
-          if (params.type !== 'getAddressTransactions') return 'unknown';
-          return `near:${params.streamType}:${params.address}:all`;
-        },
-      },
+      address,
+      { streamType },
       resumeCursor
     );
 
