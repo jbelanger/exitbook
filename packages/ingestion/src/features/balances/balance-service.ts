@@ -9,7 +9,6 @@ import type {
 } from '@exitbook/core';
 import { parseAssetId, wrapError, type Currency } from '@exitbook/core';
 import { type DataContext } from '@exitbook/data';
-import type { TokenMetadataQueries } from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -44,7 +43,6 @@ export interface BalanceServiceParams {
 export class BalanceService {
   constructor(
     private readonly db: DataContext,
-    private tokenMetadataQueries: TokenMetadataQueries,
     private providerManager: BlockchainProviderManager
   ) {}
 
@@ -393,23 +391,12 @@ export class BalanceService {
       logger.info(`Fetching balances for ${childAccounts.length} child accounts`);
 
       // Don't pass providerName - allow failover to all available providers for accurate balance verification
-      return fetchChildAccountsBalance(
-        this.providerManager,
-        this.tokenMetadataQueries,
-        account.sourceName,
-        account.identifier,
-        childAccounts
-      );
+      return fetchChildAccountsBalance(this.providerManager, account.sourceName, account.identifier, childAccounts);
     }
 
     // Standard single-address balance fetch
     // Don't pass providerName - allow failover to all available providers for accurate balance verification
-    return fetchBlockchainBalance(
-      this.providerManager,
-      this.tokenMetadataQueries,
-      account.sourceName,
-      account.identifier
-    );
+    return fetchBlockchainBalance(this.providerManager, account.sourceName, account.identifier);
   }
 
   /**

@@ -10,13 +10,18 @@ import path from 'node:path';
 import {
   BlockchainProviderManager,
   closeProviderStatsDatabase,
+  closeTokenMetadataDatabase,
   createProviderStatsDatabase,
+  createTokenMetadataDatabase,
   initializeProviderStatsDatabase,
+  initializeTokenMetadataDatabase,
+  createTokenMetadataQueries,
   loadExplorerConfig,
   createProviderStatsQueries,
   type BlockchainExplorersConfig,
   type ProviderEvent,
   type ProviderStatsDB,
+  type TokenMetadataDB,
 } from '@exitbook/blockchain-providers';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
@@ -73,9 +78,35 @@ export async function createProviderManagerWithStats(
     logger.warn(`Failed to create provider stats database: ${dbResult.error.message}. Running without persistence.`);
   }
 
+  // Token metadata cache DB (graceful degradation if unavailable)
+  let tokenMetadataDb: TokenMetadataDB | undefined;
+  let tokenMetadataQueries;
+
+  const tmDbResult = createTokenMetadataDatabase(path.join(dataDir, 'token-metadata.db'));
+  if (tmDbResult.isOk()) {
+    tokenMetadataDb = tmDbResult.value;
+    const tmMigrationResult = await initializeTokenMetadataDatabase(tokenMetadataDb);
+    if (tmMigrationResult.isOk()) {
+      tokenMetadataQueries = createTokenMetadataQueries(tokenMetadataDb);
+    } else {
+      logger.warn(
+        `Token metadata migration failed: ${tmMigrationResult.error.message}. Running without token metadata cache.`
+      );
+      await closeTokenMetadataDatabase(tokenMetadataDb).catch(() => {
+        /* empty */
+      });
+      tokenMetadataDb = undefined;
+    }
+  } else {
+    logger.warn(
+      `Failed to create token metadata database: ${tmDbResult.error.message}. Running without token metadata cache.`
+    );
+  }
+
   const providerManager = new BlockchainProviderManager(providerRegistry, {
     explorerConfig,
     statsQueries,
+    tokenMetadataQueries,
     instrumentation: options?.instrumentation,
     eventBus: options?.eventBus,
   });
@@ -88,6 +119,12 @@ export async function createProviderManagerWithStats(
     try {
       await providerManager.destroy();
     } finally {
+      if (tokenMetadataDb) {
+        const tmCloseResult = await closeTokenMetadataDatabase(tokenMetadataDb);
+        if (tmCloseResult.isErr()) {
+          logger.warn(`Failed to close token metadata database during cleanup: ${tmCloseResult.error.message}`);
+        }
+      }
       if (providerStatsDb) {
         const closeResult = await closeProviderStatsDatabase(providerStatsDb);
         if (closeResult.isErr()) {

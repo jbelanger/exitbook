@@ -8,7 +8,7 @@ import {
   createMovement,
   createPriceAtTxTime,
   createTransactionFromMovements,
-} from '../../../__tests__/test-utils.js';
+} from '../../__tests__/test-utils.js';
 import type { TransactionLink } from '../../linking/types.js';
 import {
   sortTransactionsByDependency,

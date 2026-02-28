@@ -4,7 +4,7 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createTransaction, createTransactionWithFee } from '../../../__tests__/test-utils.js';
+import { createTransaction, createTransactionWithFee } from '../../__tests__/test-utils.js';
 import { calculateCostBasisFromValidatedTransactions } from '../cost-basis-calculator.js';
 import type { CostBasisConfig } from '../cost-basis-config.js';
 import { CanadaRules } from '../jurisdictions/canada-rules.js';

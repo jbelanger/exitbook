@@ -12,11 +12,11 @@ import {
 import type { Selectable } from '@exitbook/sqlite';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { TransactionLinksTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/initialization.js';
+import type { TransactionLinksTable } from '../database-schema.js';
+import type { KyselyDB } from '../database.js';
+import { parseWithSchema, serializeToJson } from '../utils/db-utils.js';
 
 import { BaseRepository } from './base-repository.js';
-import { parseWithSchema, serializeToJson } from './db-utils.js';
 
 export type TransactionLinkRow = Selectable<TransactionLinksTable>;
 

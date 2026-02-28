@@ -1,17 +1,20 @@
-import { getErrorMessage, type CursorState, type TokenMetadata } from '@exitbook/core';
+import { getErrorMessage, type CursorState, type TokenMetadataRecord } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
 import { TtlCache } from '@exitbook/resilience/cache';
 import { CircuitBreakerRegistry, type CircuitStatus } from '@exitbook/resilience/circuit-breaker';
 import type { Result } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 
 import type { ProviderEvent } from '../../events.js';
 import type { ProviderStatsQueries } from '../../persistence/queries/provider-stats-queries.js';
+import type { TokenMetadataQueries } from '../../persistence/token-metadata/queries.js';
 import { ProviderInstanceFactory } from '../factory/provider-instance-factory.js';
 import { ProviderHealthMonitor } from '../health/provider-health-monitor.js';
 import { getProviderKey, ProviderStatsStore, type ProviderStatsStoreOptions } from '../health/provider-stats-store.js';
 import type { ProviderRegistry } from '../registry/provider-registry.js';
+import { TokenMetadataCache } from '../token-metadata/token-metadata-cache.js';
 import type {
   AddressInfoData,
   FailoverExecutionResult,
@@ -32,6 +35,7 @@ export interface BlockchainProviderManagerOptions {
   instrumentation?: InstrumentationCollector | undefined;
   eventBus?: EventBus<ProviderEvent> | undefined;
   statsQueries?: ProviderStatsQueries | undefined;
+  tokenMetadataQueries?: TokenMetadataQueries | undefined;
 }
 
 export class BlockchainProviderManager {
@@ -46,6 +50,7 @@ export class BlockchainProviderManager {
   private eventBus?: EventBus<ProviderEvent> | undefined;
   private providers = new Map<string, IBlockchainProvider[]>();
   private preferredProviders = new Map<string, string>(); // blockchain -> preferred provider name
+  private readonly tokenMetadataCache?: TokenMetadataCache | undefined;
 
   constructor(registry: ProviderRegistry, options?: BlockchainProviderManagerOptions) {
     this.statsStore = new ProviderStatsStore(options?.statsStore);
@@ -72,6 +77,18 @@ export class BlockchainProviderManager {
       this.eventBus,
       (blockchain: string) => this.autoRegisterFromConfig(blockchain)
     );
+
+    if (options?.tokenMetadataQueries) {
+      this.tokenMetadataCache = new TokenMetadataCache(
+        options.tokenMetadataQueries,
+        (blockchain, addresses) =>
+          this.engine.executeOneShotImpl(blockchain, {
+            type: 'getTokenMetadata',
+            contractAddresses: addresses,
+          }),
+        this.eventBus
+      );
+    }
 
     this.syncFactoryContext();
   }
@@ -224,11 +241,42 @@ export class BlockchainProviderManager {
   async getTokenMetadata(
     blockchain: string,
     contractAddresses: string[]
-  ): Promise<Result<FailoverExecutionResult<TokenMetadata[]>, Error>> {
-    return this.engine.executeOneShotImpl(blockchain, {
+  ): Promise<Result<Map<string, TokenMetadataRecord | undefined>, Error>> {
+    if (this.tokenMetadataCache) {
+      return this.tokenMetadataCache.getBatch(blockchain, contractAddresses);
+    }
+
+    // No cache — raw fetch, wrap into map
+    const result = await this.engine.executeOneShotImpl(blockchain, {
       type: 'getTokenMetadata',
       contractAddresses,
     });
+    if (result.isErr()) {
+      // Treat NO_PROVIDERS the same as the cache path: return an all-undefined map
+      if (result.error.code === 'NO_PROVIDERS') {
+        const map = new Map<string, TokenMetadataRecord | undefined>();
+        for (const addr of contractAddresses) map.set(addr, undefined);
+        return ok(map);
+      }
+      return err(result.error);
+    }
+
+    const map = new Map<string, TokenMetadataRecord | undefined>();
+    for (const meta of result.value.data) {
+      map.set(meta.contractAddress, {
+        ...meta,
+        blockchain,
+        source: result.value.providerName,
+        refreshedAt: new Date(),
+      });
+    }
+    // Mark addresses not returned by the provider as undefined
+    for (const addr of contractAddresses) {
+      if (!map.has(addr)) {
+        map.set(addr, undefined);
+      }
+    }
+    return ok(map);
   }
 
   async hasAddressTransactions(

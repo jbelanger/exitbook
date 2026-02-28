@@ -1,8 +1,8 @@
 import { assertOk } from '@exitbook/core/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createTestDatabase } from '../../__tests__/test-utils.js';
-import type { KyselyDB } from '../../storage/initialization.js';
+import type { KyselyDB } from '../../database.js';
+import { createTestDatabase } from '../../utils/test-utils.js';
 import { UserRepository } from '../user-repository.js';
 
 describe('UserRepository', () => {

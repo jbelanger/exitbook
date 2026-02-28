@@ -8,14 +8,11 @@ import {
   tryParseDecimal,
   wrapError,
 } from '@exitbook/core';
-import type { TokenMetadataQueries } from '@exitbook/data';
 import type { IExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
-
-import { getOrFetchTokenMetadata } from '../token-metadata/token-metadata-utils.js';
 
 const logger = getLogger('balance-utils');
 
@@ -124,7 +121,6 @@ export async function fetchExchangeBalance(
  */
 export async function fetchBlockchainBalance(
   providerManager: BlockchainProviderManager,
-  tokenMetadataRepository: TokenMetadataQueries,
   blockchain: string,
   address: string,
   providerName?: string
@@ -146,12 +142,7 @@ export async function fetchBlockchainBalance(
     }
 
     // Enrich and convert native balance
-    const enrichedNativeResult = await enrichBalanceData(
-      nativeResult.value.data,
-      blockchain,
-      tokenMetadataRepository,
-      providerManager
-    );
+    const enrichedNativeResult = await enrichBalanceData(nativeResult.value.data, blockchain, providerManager);
     if (enrichedNativeResult.isErr()) {
       return err(enrichedNativeResult.error);
     }
@@ -195,12 +186,7 @@ export async function fetchBlockchainBalance(
           continue;
         }
 
-        const enrichedResult = await enrichBalanceData(
-          tokenBalance,
-          blockchain,
-          tokenMetadataRepository,
-          providerManager
-        );
+        const enrichedResult = await enrichBalanceData(tokenBalance, blockchain, providerManager);
         if (enrichedResult.isErr()) {
           logger.warn(
             { error: enrichedResult.error, contractAddress: tokenBalance.contractAddress },
@@ -248,7 +234,6 @@ export async function fetchBlockchainBalance(
  */
 export async function fetchChildAccountsBalance(
   providerManager: BlockchainProviderManager,
-  tokenMetadataRepository: TokenMetadataQueries,
   blockchain: string,
   parentAddress: string,
   childAccounts: { identifier: string }[],
@@ -271,13 +256,7 @@ export async function fetchChildAccountsBalance(
 
     for (const childAccount of childAccounts) {
       const address = childAccount.identifier;
-      const balanceResult = await fetchBlockchainBalance(
-        providerManager,
-        tokenMetadataRepository,
-        blockchain,
-        address,
-        providerName
-      );
+      const balanceResult = await fetchBlockchainBalance(providerManager, blockchain, address, providerName);
 
       if (balanceResult.isErr()) {
         const message = `Failed to fetch child account balance for ${blockchain}:${address}: ${balanceResult.error.message}`;
@@ -397,7 +376,6 @@ export function convertBalancesToDecimals(balances: Record<string, string>): Con
 async function enrichBalanceData(
   balance: RawBalanceData,
   blockchain: string,
-  tokenMetadataRepository: TokenMetadataQueries,
   providerManager: BlockchainProviderManager
 ): Promise<Result<RawBalanceData, Error>> {
   // If we have all required fields (symbol and decimals), no need to enrich
@@ -410,20 +388,14 @@ async function enrichBalanceData(
     return ok(balance);
   }
 
-  // Use getOrFetchTokenMetadata which implements cache-aside pattern
   try {
-    const metadataResult = await getOrFetchTokenMetadata(
-      blockchain,
-      balance.contractAddress,
-      tokenMetadataRepository,
-      providerManager
-    );
+    const metadataResult = await providerManager.getTokenMetadata(blockchain, [balance.contractAddress]);
 
     if (metadataResult.isErr()) {
       return err(metadataResult.error);
     }
 
-    const metadata = metadataResult.value;
+    const metadata = metadataResult.value.get(balance.contractAddress);
 
     // If no metadata found (provider doesn't support it), return as-is
     if (!metadata) {

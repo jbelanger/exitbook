@@ -3,7 +3,7 @@ import { assertOk } from '@exitbook/core/test-utils';
 import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createFeeMovement, createPriceAtTxTime, createTransaction } from '../../../__tests__/test-utils.js';
+import { createFeeMovement, createPriceAtTxTime, createTransaction } from '../../__tests__/test-utils.js';
 import { LotMatcher } from '../lot-matcher.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
 

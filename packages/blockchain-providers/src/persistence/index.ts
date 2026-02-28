@@ -10,3 +10,4 @@ export {
   type ProviderStatsQueries,
   type ProviderStatsInput,
 } from './queries/provider-stats-queries.js';
+export * from './token-metadata/index.js';

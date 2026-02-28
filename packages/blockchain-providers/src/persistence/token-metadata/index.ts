@@ -6,4 +6,5 @@ export {
   type TokenMetadataDB,
 } from './database.js';
 export { createTokenMetadataPersistence, type TokenMetadataPersistenceDeps } from './factory.js';
+export { createTokenMetadataQueries, type TokenMetadataQueries } from './queries.js';
 export type { TokenMetadataDatabase } from './schema.js';

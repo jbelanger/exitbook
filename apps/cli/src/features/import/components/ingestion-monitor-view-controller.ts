@@ -187,7 +187,7 @@ export function updateStateFromEvent(
       handleProcessCompleted(state, event);
       break;
 
-    case 'metadata.batch.completed':
+    case 'provider.metadata.batch.completed':
       handleMetadataBatchCompleted(state, event, instrumentation, providerManager);
       break;
 
@@ -895,11 +895,11 @@ function handleProcessCompleted(
 }
 
 /**
- * Handle metadata.batch.completed event
+ * Handle provider.metadata.batch.completed event
  */
 function handleMetadataBatchCompleted(
   state: IngestionMonitorState,
-  event: Extract<IngestionEvent, { type: 'metadata.batch.completed' }>,
+  event: Extract<ProviderEvent, { type: 'provider.metadata.batch.completed' }>,
   instrumentation: InstrumentationCollector,
   providerManager: BlockchainProviderManager
 ): void {

@@ -5,8 +5,6 @@ import type { IExchangeClient, BalanceSnapshot } from '@exitbook/exchange-provid
 import { errAsync, ok } from 'neverthrow';
 import { vi, type Mocked } from 'vitest';
 
-import type { ITokenMetadataService } from '../../features/token-metadata/token-metadata-service.interface.js';
-
 /**
  * Creates a mock raw data queries object with default implementations.
  * All methods return successful Results by default. Override specific methods as needed.
@@ -44,17 +42,6 @@ export function createMockImportSessionQueries(): Mocked<ImportSessionRepository
 }
 
 /**
- * Creates a mock token metadata service with default implementations.
- * Returns successful results by default. Override specific methods as needed.
- */
-export function createMockTokenMetadataService(): Mocked<ITokenMetadataService> {
-  return {
-    enrichBatch: vi.fn().mockResolvedValue(ok()),
-    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
-  } as unknown as Mocked<ITokenMetadataService>;
-}
-
-/**
  * Creates a mock BlockchainProviderManager with default implementations.
  * Provides a single mock provider for the specified blockchain.
  *
@@ -70,13 +57,22 @@ export function createMockTokenMetadataService(): Mocked<ITokenMetadataService> 
  */
 export function createMockProviderManager(
   blockchain: string
-): Mocked<Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>> {
+): Mocked<
+  Pick<
+    BlockchainProviderManager,
+    'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders' | 'getTokenMetadata'
+  >
+> {
   const mockProviderManager = {
     autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
     streamAddressTransactions: vi.fn<BlockchainProviderManager['streamAddressTransactions']>(),
     getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
+    getTokenMetadata: vi.fn<BlockchainProviderManager['getTokenMetadata']>().mockResolvedValue(ok(new Map())),
   } as unknown as Mocked<
-    Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
+    Pick<
+      BlockchainProviderManager,
+      'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders' | 'getTokenMetadata'
+    >
   >;
 
   mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);

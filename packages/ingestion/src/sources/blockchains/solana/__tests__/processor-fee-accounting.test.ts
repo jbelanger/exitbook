@@ -1,8 +1,7 @@
-import type { SolanaTransaction } from '@exitbook/blockchain-providers';
+import type { BlockchainProviderManager, SolanaTransaction } from '@exitbook/blockchain-providers';
 import { ok } from 'neverthrow';
 import { describe, expect, test, vi } from 'vitest';
 
-import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
 import { SolanaProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'user1111111111111111111111111111111111111111';
@@ -11,14 +10,11 @@ const CONTRACT_ADDRESS = 'contract333333333333333333333333333333333333';
 const TOKEN_ACCOUNT = 'token4444444444444444444444444444444444444444';
 
 function createProcessor() {
-  // Create minimal mock for token metadata service
-  const mockTokenMetadataService = {
-    enrichBatch: vi.fn().mockResolvedValue(ok()),
-    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
-    getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
-  } as unknown as ITokenMetadataService;
+  const mockProviderManager = {
+    getTokenMetadata: vi.fn().mockResolvedValue(ok(new Map())),
+  } as unknown as BlockchainProviderManager;
 
-  return new SolanaProcessor(mockTokenMetadataService);
+  return new SolanaProcessor(mockProviderManager);
 }
 
 function createTransaction(overrides: Partial<SolanaTransaction>): SolanaTransaction {

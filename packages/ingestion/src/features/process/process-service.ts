@@ -17,7 +17,6 @@ import type {
 } from '../../shared/types/processors.js';
 import type { IScamDetectionService } from '../scam-detection/scam-detection-service.interface.js';
 import { ScamDetectionService } from '../scam-detection/scam-detection-service.js';
-import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.js';
 
 import {
   AllAtOnceBatchProvider,
@@ -37,7 +36,6 @@ export class RawDataProcessingService {
   constructor(
     private db: DataContext,
     private providerManager: BlockchainProviderManager,
-    private tokenMetadataService: ITokenMetadataService,
     private eventBus: EventBus<IngestionEvent>,
     private registry: AdapterRegistry
   ) {
@@ -503,7 +501,6 @@ export class RawDataProcessingService {
       return ok(
         adapterResult.value.createProcessor({
           providerManager: this.providerManager,
-          tokenMetadataService: this.tokenMetadataService,
           scamDetectionService: this.scamDetectionService,
           db: this.db,
           accountId,

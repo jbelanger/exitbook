@@ -1,7 +1,7 @@
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 
-import type { KyselyDB } from '../storage/initialization.js';
+import type { KyselyDB } from '../database.js';
 
 /**
  * Naming convention for repository query methods:

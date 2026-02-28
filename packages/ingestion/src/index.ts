@@ -17,10 +17,6 @@ export type {
   SessionSummary,
 } from './features/accounts/account-service-utils.js';
 
-// Token metadata services
-export { TokenMetadataService } from './features/token-metadata/token-metadata-service.js';
-export type { ITokenMetadataService } from './features/token-metadata/token-metadata-service.interface.js';
-
 // Balance services
 export { BalanceService, type BalanceServiceParams } from './features/balances/balance-service.js';
 export { calculateBalances } from './features/balances/balance-calculator.js';

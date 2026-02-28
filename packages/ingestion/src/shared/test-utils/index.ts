@@ -55,7 +55,6 @@ export {
 export {
   createMockRawDataQueries,
   createMockImportSessionQueries as createMockImportSessionRepository,
-  createMockTokenMetadataService,
   createMockProviderManager,
   createMockExchangeClient,
   createMockLogger,

@@ -1,8 +1,7 @@
 import { sql } from '@exitbook/sqlite';
+import type { Kysely } from '@exitbook/sqlite';
 
-import type { KyselyDB } from '../storage/initialization.js';
-
-export async function up(db: KyselyDB): Promise<void> {
+export async function up(db: Kysely<unknown>): Promise<void> {
   // Create users table
   await db.schema
     .createTable('users')
@@ -351,7 +350,7 @@ export async function up(db: KyselyDB): Promise<void> {
     .execute();
 }
 
-export async function down(db: KyselyDB): Promise<void> {
+export async function down(db: Kysely<unknown>): Promise<void> {
   // Drop transaction_movements BEFORE transactions (FK constraint)
   await db.schema.dropTable('transaction_movements').execute();
   // Drop transaction linking table

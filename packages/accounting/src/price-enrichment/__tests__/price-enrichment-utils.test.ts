@@ -8,48 +8,28 @@
  */
 
 import { type Currency, parseDecimal } from '@exitbook/core';
-import type { AssetMovement, FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
+import type { FeeMovement } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
+import {
+  createMovement,
+  createPriceAtTxTime,
+  createTransaction,
+  createTransactionFromMovements,
+  createFee,
+} from '../../__tests__/test-utils.js';
 import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from '../price-enrichment-utils.js';
 import type { TransactionGroup } from '../types.js';
 
 describe('inferMultiPass', () => {
-  const createTransaction = (
-    id: number,
-    inflows: AssetMovement[],
-    outflows: AssetMovement[],
-    datetime = '2024-01-15T10:00:00Z'
-  ): UniversalTransactionData => ({
-    id,
-    accountId: 1,
-    externalId: `tx-${id}`,
-    source: 'kraken',
-    sourceType: 'exchange',
-    datetime,
-    timestamp: new Date(datetime).getTime(),
-    status: 'success',
-    operation: { category: 'transfer', type: 'transfer' },
-    movements: { inflows, outflows },
-    fees: [],
-  });
-
-  const createPrice = (source: string, amount: string): PriceAtTxTime => ({
-    price: {
-      amount: parseDecimal(amount),
-      currency: 'USD' as Currency,
-    },
-    source,
-    fetchedAt: new Date(),
-    granularity: 'exact',
-  });
-
   describe('Pass 0: Exchange execution prices', () => {
     it('should extract execution price from USD trade', () => {
       const tx = createTransaction(
         1,
-        [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
-        [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }]
+        '2024-01-15T10:00:00Z',
+        [{ amount: '1.0', assetSymbol: 'BTC', price: '50000' }],
+        [{ amount: '50000', assetSymbol: 'USD', price: '1' }],
+        { category: 'transfer', type: 'transfer' }
       );
 
       const result = inferMultiPass([tx]);
@@ -61,10 +41,15 @@ describe('inferMultiPass', () => {
     });
 
     it('should extract execution price from EUR trade (in native EUR, normalized to USD later)', () => {
-      const tx = createTransaction(
+      const tx = createTransactionFromMovements(
         1,
-        [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
-        [{ assetId: 'test:eur', assetSymbol: 'EUR' as Currency, grossAmount: parseDecimal('40000') }]
+        '2024-01-15T10:00:00Z',
+        {
+          inflows: [createMovement('BTC', '1.0')],
+          outflows: [createMovement('EUR', '40000')],
+        },
+        [],
+        { category: 'transfer', type: 'transfer' }
       );
 
       const result = inferMultiPass([tx]);
@@ -84,10 +69,15 @@ describe('inferMultiPass', () => {
     });
 
     it('should NOT extract price from USDC trade (fetched separately)', () => {
-      const tx = createTransaction(
+      const tx = createTransactionFromMovements(
         1,
-        [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
-        [{ assetId: 'test:usdc', assetSymbol: 'USDC' as Currency, grossAmount: parseDecimal('50000') }]
+        '2024-01-15T10:00:00Z',
+        {
+          inflows: [createMovement('BTC', '1.0')],
+          outflows: [createMovement('USDC', '50000')],
+        },
+        [],
+        { category: 'transfer', type: 'transfer' }
       );
 
       const result = inferMultiPass([tx]);
@@ -99,17 +89,15 @@ describe('inferMultiPass', () => {
 
   describe('Pass 1: Derive inflow from outflow', () => {
     it('should derive inflow price when only outflow has price', () => {
-      const tx = createTransaction(
+      const tx = createTransactionFromMovements(
         1,
-        [{ assetId: 'test:rare_token', assetSymbol: 'RARE_TOKEN' as Currency, grossAmount: parseDecimal('1000') }],
-        [
-          {
-            assetId: 'test:eth',
-            assetSymbol: 'ETH' as Currency,
-            grossAmount: parseDecimal('10'),
-            priceAtTxTime: createPrice('coingecko', '3000'),
-          },
-        ]
+        '2024-01-15T10:00:00Z',
+        {
+          inflows: [createMovement('RARE_TOKEN', '1000')],
+          outflows: [createMovement('ETH', '10', '3000')],
+        },
+        [],
+        { category: 'transfer', type: 'transfer' }
       );
 
       const result = inferMultiPass([tx]);
@@ -123,22 +111,10 @@ describe('inferMultiPass', () => {
     it('should recalculate crypto-crypto swap when both have prices (Pass N+2 behavior)', () => {
       const tx = createTransaction(
         1,
-        [
-          {
-            assetId: 'test:eth',
-            assetSymbol: 'ETH' as Currency,
-            grossAmount: parseDecimal('10'),
-            priceAtTxTime: createPrice('binance', '3000'),
-          },
-        ],
-        [
-          {
-            assetId: 'test:btc',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('1'),
-            priceAtTxTime: createPrice('coingecko', '50000'),
-          },
-        ]
+        '2024-01-15T10:00:00Z',
+        [{ amount: '10', assetSymbol: 'ETH', price: '3000' }],
+        [{ amount: '1', assetSymbol: 'BTC', price: '50000' }],
+        { category: 'transfer', type: 'transfer' }
       );
 
       const result = inferMultiPass([tx]);
@@ -151,10 +127,15 @@ describe('inferMultiPass', () => {
     });
 
     it('should NOT derive when neither has prices', () => {
-      const tx = createTransaction(
+      const tx = createTransactionFromMovements(
         1,
-        [{ assetId: 'test:token_a', assetSymbol: 'TOKEN_A' as Currency, grossAmount: parseDecimal('100') }],
-        [{ assetId: 'test:token_b', assetSymbol: 'TOKEN_B' as Currency, grossAmount: parseDecimal('50') }]
+        '2024-01-15T10:00:00Z',
+        {
+          inflows: [createMovement('TOKEN_A', '100')],
+          outflows: [createMovement('TOKEN_B', '50')],
+        },
+        [],
+        { category: 'transfer', type: 'transfer' }
       );
 
       const result = inferMultiPass([tx]);
@@ -168,22 +149,10 @@ describe('inferMultiPass', () => {
     it('should recalculate inflow price from outflow in crypto-crypto swap', () => {
       const tx = createTransaction(
         1,
-        [
-          {
-            assetId: 'test:eth',
-            assetSymbol: 'ETH' as Currency,
-            grossAmount: parseDecimal('10'),
-            priceAtTxTime: createPrice('coingecko', '2900'),
-          },
-        ],
-        [
-          {
-            assetId: 'test:btc',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('1'),
-            priceAtTxTime: createPrice('binance', '50000'),
-          },
-        ]
+        '2024-01-15T10:00:00Z',
+        [{ amount: '10', assetSymbol: 'ETH', price: '2900' }],
+        [{ amount: '1', assetSymbol: 'BTC', price: '50000' }],
+        { category: 'transfer', type: 'transfer' }
       );
 
       const result = inferMultiPass([tx]);
@@ -198,22 +167,10 @@ describe('inferMultiPass', () => {
     it('should NOT recalculate when outflow is USD (already execution price)', () => {
       const tx = createTransaction(
         1,
-        [
-          {
-            assetId: 'test:btc',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('1'),
-            priceAtTxTime: createPrice('exchange-execution', '50000'),
-          },
-        ],
-        [
-          {
-            assetId: 'test:usd',
-            assetSymbol: 'USD' as Currency,
-            grossAmount: parseDecimal('50000'),
-            priceAtTxTime: createPrice('exchange-execution', '1'),
-          },
-        ]
+        '2024-01-15T10:00:00Z',
+        [{ amount: '1', assetSymbol: 'BTC', price: '50000' }],
+        [{ amount: '50000', assetSymbol: 'USD', price: '1' }],
+        { category: 'transfer', type: 'transfer' }
       );
 
       const result = inferMultiPass([tx]);
@@ -225,24 +182,29 @@ describe('inferMultiPass', () => {
     });
 
     it('should NOT recalculate when inflow is stablecoin', () => {
-      const tx = createTransaction(
+      const tx = createTransactionFromMovements(
         1,
-        [
-          {
-            assetId: 'test:usdc',
-            assetSymbol: 'USDC' as Currency,
-            grossAmount: parseDecimal('50000'),
-            priceAtTxTime: createPrice('coingecko', '1'),
-          },
-        ],
-        [
-          {
-            assetId: 'test:btc',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('1'),
-            priceAtTxTime: createPrice('binance', '50000'),
-          },
-        ]
+        '2024-01-15T10:00:00Z',
+        {
+          inflows: [
+            {
+              assetId: 'test:usdc',
+              assetSymbol: 'USDC' as Currency,
+              grossAmount: parseDecimal('50000'),
+              priceAtTxTime: createPriceAtTxTime('1', 'USD', { source: 'coingecko' }),
+            },
+          ],
+          outflows: [
+            {
+              assetId: 'test:btc',
+              assetSymbol: 'BTC' as Currency,
+              grossAmount: parseDecimal('1'),
+              priceAtTxTime: createPriceAtTxTime('50000', 'USD', { source: 'binance' }),
+            },
+          ],
+        },
+        [],
+        { category: 'transfer', type: 'transfer' }
       );
 
       const result = inferMultiPass([tx]);
@@ -255,22 +217,10 @@ describe('inferMultiPass', () => {
     it('should track modified transaction IDs', () => {
       const tx = createTransaction(
         1,
-        [
-          {
-            assetId: 'test:eth',
-            assetSymbol: 'ETH' as Currency,
-            grossAmount: parseDecimal('10'),
-            priceAtTxTime: createPrice('coingecko', '2900'),
-          },
-        ],
-        [
-          {
-            assetId: 'test:btc',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('1'),
-            priceAtTxTime: createPrice('binance', '50000'),
-          },
-        ]
+        '2024-01-15T10:00:00Z',
+        [{ amount: '10', assetSymbol: 'ETH', price: '2900' }],
+        [{ amount: '1', assetSymbol: 'BTC', price: '50000' }],
+        { category: 'transfer', type: 'transfer' }
       );
 
       const result = inferMultiPass([tx]);
@@ -284,13 +234,17 @@ describe('inferMultiPass', () => {
       const transactions = [
         createTransaction(
           1,
-          [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
-          [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }]
+          '2024-01-15T10:00:00Z',
+          [{ amount: '1', assetSymbol: 'BTC', price: '50000' }],
+          [{ amount: '50000', assetSymbol: 'USD', price: '1' }],
+          { category: 'transfer', type: 'transfer' }
         ),
         createTransaction(
           2,
-          [{ assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('10') }],
-          [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('30000') }]
+          '2024-01-15T10:00:00Z',
+          [{ amount: '10', assetSymbol: 'ETH', price: '30000' }],
+          [{ amount: '30000', assetSymbol: 'USD', price: '1' }],
+          { category: 'transfer', type: 'transfer' }
         ),
       ];
 
@@ -304,52 +258,24 @@ describe('inferMultiPass', () => {
 });
 
 describe('propagatePricesAcrossLinks', () => {
-  const createTransaction = (
-    id: number,
-    inflows: AssetMovement[],
-    outflows: AssetMovement[]
-  ): UniversalTransactionData => ({
-    id,
-    accountId: 1,
-    externalId: `tx-${id}`,
-    source: 'kraken',
-    sourceType: 'exchange',
-    datetime: '2024-01-15T10:00:00Z',
-    timestamp: new Date('2024-01-15T10:00:00Z').getTime(),
-    status: 'success',
-    operation: { category: 'transfer', type: 'withdrawal' },
-    movements: { inflows, outflows },
-    fees: [],
-  });
-
-  const createPrice = (source: string, amount: string): PriceAtTxTime => ({
-    price: {
-      amount: parseDecimal(amount),
-      currency: 'USD' as Currency,
-    },
-    source,
-    fetchedAt: new Date(),
-    granularity: 'exact',
-  });
-
   it('should propagate price from source outflow to target inflow', () => {
     const sourceTx = createTransaction(
       1,
+      '2024-01-15T10:00:00Z',
       [],
-      [
-        {
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
-          grossAmount: parseDecimal('1'),
-          priceAtTxTime: createPrice('exchange-execution', '50000'),
-        },
-      ]
+      [{ amount: '1', assetSymbol: 'BTC', price: '50000' }],
+      { category: 'transfer', type: 'withdrawal' }
     );
 
-    const targetTx = createTransaction(
+    const targetTx = createTransactionFromMovements(
       2,
-      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
-      []
+      '2024-01-15T10:00:00Z',
+      {
+        inflows: [createMovement('BTC', '1')],
+        outflows: [],
+      },
+      [],
+      { category: 'transfer', type: 'withdrawal' }
     );
 
     const group: TransactionGroup = {
@@ -391,22 +317,22 @@ describe('propagatePricesAcrossLinks', () => {
   it('should handle amount tolerance for fee differences', () => {
     const sourceTx = createTransaction(
       1,
+      '2024-01-15T10:00:00Z',
       [],
-      [
-        {
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
-          grossAmount: parseDecimal('1.0'),
-          priceAtTxTime: createPrice('exchange-execution', '50000'),
-        },
-      ]
+      [{ amount: '1.0', assetSymbol: 'BTC', price: '50000' }],
+      { category: 'transfer', type: 'withdrawal' }
     );
 
     // Target has slightly less due to network fee
-    const targetTx = createTransaction(
+    const targetTx = createTransactionFromMovements(
       2,
-      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('0.9999') }],
-      []
+      '2024-01-15T10:00:00Z',
+      {
+        inflows: [createMovement('BTC', '0.9999')],
+        outflows: [],
+      },
+      [],
+      { category: 'transfer', type: 'withdrawal' }
     );
 
     const group: TransactionGroup = {
@@ -447,22 +373,22 @@ describe('propagatePricesAcrossLinks', () => {
   it('should NOT propagate when amounts differ by more than 10%', () => {
     const sourceTx = createTransaction(
       1,
+      '2024-01-15T10:00:00Z',
       [],
-      [
-        {
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
-          grossAmount: parseDecimal('1.0'),
-          priceAtTxTime: createPrice('exchange-execution', '50000'),
-        },
-      ]
+      [{ amount: '1.0', assetSymbol: 'BTC', price: '50000' }],
+      { category: 'transfer', type: 'withdrawal' }
     );
 
     // Target has significantly different amount
-    const targetTx = createTransaction(
+    const targetTx = createTransactionFromMovements(
       2,
-      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('0.8') }],
-      []
+      '2024-01-15T10:00:00Z',
+      {
+        inflows: [createMovement('BTC', '0.8')],
+        outflows: [],
+      },
+      [],
+      { category: 'transfer', type: 'withdrawal' }
     );
 
     const group: TransactionGroup = {
@@ -501,16 +427,26 @@ describe('propagatePricesAcrossLinks', () => {
   });
 
   it('should NOT propagate when source has no price', () => {
-    const sourceTx = createTransaction(
+    const sourceTx = createTransactionFromMovements(
       1,
+      '2024-01-15T10:00:00Z',
+      {
+        inflows: [],
+        outflows: [createMovement('BTC', '1.0')],
+      },
       [],
-      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }]
+      { category: 'transfer', type: 'withdrawal' }
     );
 
-    const targetTx = createTransaction(
+    const targetTx = createTransactionFromMovements(
       2,
-      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
-      []
+      '2024-01-15T10:00:00Z',
+      {
+        inflows: [createMovement('BTC', '1.0')],
+        outflows: [],
+      },
+      [],
+      { category: 'transfer', type: 'withdrawal' }
     );
 
     const group: TransactionGroup = {
@@ -551,21 +487,21 @@ describe('propagatePricesAcrossLinks', () => {
   it('should track modified transaction IDs', () => {
     const sourceTx = createTransaction(
       1,
+      '2024-01-15T10:00:00Z',
       [],
-      [
-        {
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
-          grossAmount: parseDecimal('1'),
-          priceAtTxTime: createPrice('exchange-execution', '50000'),
-        },
-      ]
+      [{ amount: '1', assetSymbol: 'BTC', price: '50000' }],
+      { category: 'transfer', type: 'withdrawal' }
     );
 
-    const targetTx = createTransaction(
+    const targetTx = createTransactionFromMovements(
       2,
-      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
-      []
+      '2024-01-15T10:00:00Z',
+      {
+        inflows: [createMovement('BTC', '1')],
+        outflows: [],
+      },
+      [],
+      { category: 'transfer', type: 'withdrawal' }
     );
 
     const group: TransactionGroup = {
@@ -606,42 +542,30 @@ describe('propagatePricesAcrossLinks', () => {
   it('should handle multiple links in chain when intermediate has prices on both sides', () => {
     const tx1 = createTransaction(
       1,
+      '2024-01-15T10:00:00Z',
       [],
-      [
-        {
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
-          grossAmount: parseDecimal('1'),
-          priceAtTxTime: createPrice('exchange-execution', '50000'),
-        },
-      ]
+      [{ amount: '1', assetSymbol: 'BTC', price: '50000' }],
+      { category: 'transfer', type: 'withdrawal' }
     );
 
     // tx2 has price on BOTH inflow and outflow (from a previous enrichment pass)
     const tx2 = createTransaction(
       2,
-      [
-        {
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
-          grossAmount: parseDecimal('1'),
-          priceAtTxTime: createPrice('link-propagated', '50000'),
-        },
-      ],
-      [
-        {
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
-          grossAmount: parseDecimal('1'),
-          priceAtTxTime: createPrice('link-propagated', '50000'),
-        },
-      ]
+      '2024-01-15T10:00:00Z',
+      [{ amount: '1', assetSymbol: 'BTC', price: '50000' }],
+      [{ amount: '1', assetSymbol: 'BTC', price: '50000' }],
+      { category: 'transfer', type: 'withdrawal' }
     );
 
-    const tx3 = createTransaction(
+    const tx3 = createTransactionFromMovements(
       3,
-      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
-      []
+      '2024-01-15T10:00:00Z',
+      {
+        inflows: [createMovement('BTC', '1')],
+        outflows: [],
+      },
+      [],
+      { category: 'transfer', type: 'withdrawal' }
     );
 
     const group: TransactionGroup = {
@@ -703,50 +627,34 @@ describe('propagatePricesAcrossLinks', () => {
 });
 
 describe('enrichFeePricesFromMovements', () => {
-  const createTransaction = (
-    id: number,
-    inflows: AssetMovement[],
-    outflows: AssetMovement[],
-    platformFee?: AssetMovement,
-    networkFee?: FeeMovement
-  ): UniversalTransactionData => ({
-    id,
-    accountId: 1,
-    externalId: `tx-${id}`,
-    source: 'kraken',
-    sourceType: 'exchange',
-    datetime: '2024-01-15T10:00:00Z',
-    timestamp: new Date('2024-01-15T10:00:00Z').getTime(),
-    status: 'success',
-    operation: { category: 'transfer', type: 'swap' },
-    movements: { inflows, outflows },
-    fees: [platformFee ?? undefined, networkFee ?? undefined].filter(Boolean) as FeeMovement[],
-  });
-
-  const createPrice = (source: string, amount: string): PriceAtTxTime => ({
-    price: {
-      amount: parseDecimal(amount),
-      currency: 'USD' as Currency,
-    },
-    source,
-    fetchedAt: new Date(),
-    granularity: 'exact',
-  });
-
   it('should enrich platform fee with price from matching movement', () => {
-    const tx = createTransaction(
+    const tx = createTransactionFromMovements(
       1,
-      [
-        {
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
-          grossAmount: parseDecimal('1'),
-          priceAtTxTime: createPrice('exchange-execution', '50000'),
-        },
-      ],
-      [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
-      { assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('0.001') }
+      '2024-01-15T10:00:00Z',
+      {
+        inflows: [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000', 'USD', { source: 'exchange-execution' }),
+          },
+        ],
+        outflows: [
+          {
+            assetId: 'test:usd',
+            assetSymbol: 'USD' as Currency,
+            grossAmount: parseDecimal('50000'),
+            priceAtTxTime: createPriceAtTxTime('1', 'USD', { source: 'exchange-execution' }),
+          },
+        ],
+      },
+      [],
+      { category: 'transfer', type: 'swap' }
     );
+
+    // Add platform fee
+    tx.fees = [createFee('BTC', '0.001')];
 
     const result = enrichFeePricesFromMovements([tx]);
 
@@ -755,26 +663,33 @@ describe('enrichFeePricesFromMovements', () => {
   });
 
   it('should enrich network fee with price from matching movement', () => {
-    const tx = createTransaction(
+    const tx = createTransactionFromMovements(
       1,
-      [
-        {
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
-          grossAmount: parseDecimal('1'),
-          priceAtTxTime: createPrice('exchange-execution', '50000'),
-        },
-      ],
-      [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
-      undefined,
+      '2024-01-15T10:00:00Z',
       {
-        scope: 'platform',
-        settlement: 'balance',
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('0.0001'),
-      }
+        inflows: [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000', 'USD', { source: 'exchange-execution' }),
+          },
+        ],
+        outflows: [
+          {
+            assetId: 'test:usd',
+            assetSymbol: 'USD' as Currency,
+            grossAmount: parseDecimal('50000'),
+            priceAtTxTime: createPriceAtTxTime('1', 'USD', { source: 'exchange-execution' }),
+          },
+        ],
+      },
+      [],
+      { category: 'transfer', type: 'swap' }
     );
+
+    // Add network fee
+    tx.fees = [createFee('BTC', '0.0001', { scope: 'platform', settlement: 'balance' })];
 
     const result = enrichFeePricesFromMovements([tx]);
 
@@ -785,22 +700,22 @@ describe('enrichFeePricesFromMovements', () => {
   it('should NOT overwrite existing fee prices', () => {
     const tx = createTransaction(
       1,
-      [
-        {
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
-          grossAmount: parseDecimal('1'),
-          priceAtTxTime: createPrice('exchange-execution', '50000'),
-        },
-      ],
-      [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
-      {
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        grossAmount: parseDecimal('0.001'),
-        priceAtTxTime: createPrice('coingecko', '49000'),
-      }
+      '2024-01-15T10:00:00Z',
+      [{ amount: '1', assetSymbol: 'BTC', price: '50000' }],
+      [{ amount: '50000', assetSymbol: 'USD', price: '1' }],
+      { category: 'transfer', type: 'swap' }
     );
+
+    // Add fee with existing price
+    const fee: FeeMovement = {
+      assetId: 'test:btc',
+      assetSymbol: 'BTC' as Currency,
+      amount: parseDecimal('0.001'),
+      scope: 'platform',
+      settlement: 'balance',
+      priceAtTxTime: createPriceAtTxTime('49000', 'USD', { source: 'coingecko' }),
+    };
+    tx.fees = [fee];
 
     const result = enrichFeePricesFromMovements([tx]);
 
@@ -810,12 +725,19 @@ describe('enrichFeePricesFromMovements', () => {
   });
 
   it('should NOT enrich fee when no matching movement price', () => {
-    const tx = createTransaction(
+    const tx = createTransactionFromMovements(
       1,
-      [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
-      [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
-      { assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('0.01') }
+      '2024-01-15T10:00:00Z',
+      {
+        inflows: [createMovement('BTC', '1')],
+        outflows: [createMovement('USD', '50000', '1')],
+      },
+      [],
+      { category: 'transfer', type: 'swap' }
     );
+
+    // Add ETH fee (no matching movement)
+    tx.fees = [createFee('ETH', '0.01')];
 
     const result = enrichFeePricesFromMovements([tx]);
 
@@ -823,25 +745,39 @@ describe('enrichFeePricesFromMovements', () => {
   });
 
   it('should use first matching asset price', () => {
-    const tx = createTransaction(
+    const tx = createTransactionFromMovements(
       1,
-      [
-        {
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
-          grossAmount: parseDecimal('1'),
-          priceAtTxTime: createPrice('exchange-execution', '50000'),
-        },
-        {
-          assetId: 'test:btc',
-          assetSymbol: 'BTC' as Currency,
-          grossAmount: parseDecimal('0.5'),
-          priceAtTxTime: createPrice('coingecko', '49000'),
-        },
-      ],
-      [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('75000') }],
-      { assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('0.001') }
+      '2024-01-15T10:00:00Z',
+      {
+        inflows: [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('50000', 'USD', { source: 'exchange-execution' }),
+          },
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.5'),
+            priceAtTxTime: createPriceAtTxTime('49000', 'USD', { source: 'coingecko' }),
+          },
+        ],
+        outflows: [
+          {
+            assetId: 'test:usd',
+            assetSymbol: 'USD' as Currency,
+            grossAmount: parseDecimal('75000'),
+            priceAtTxTime: createPriceAtTxTime('1', 'USD', { source: 'exchange-execution' }),
+          },
+        ],
+      },
+      [],
+      { category: 'transfer', type: 'swap' }
     );
+
+    // Add BTC fee
+    tx.fees = [createFee('BTC', '0.001')];
 
     const result = enrichFeePricesFromMovements([tx]);
 
@@ -853,31 +789,23 @@ describe('enrichFeePricesFromMovements', () => {
     const transactions = [
       createTransaction(
         1,
-        [
-          {
-            assetId: 'test:btc',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('1'),
-            priceAtTxTime: createPrice('exchange-execution', '50000'),
-          },
-        ],
-        [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
-        { assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('0.001') }
+        '2024-01-15T10:00:00Z',
+        [{ amount: '1', assetSymbol: 'BTC', price: '50000' }],
+        [{ amount: '50000', assetSymbol: 'USD', price: '1' }],
+        { category: 'transfer', type: 'swap' }
       ),
       createTransaction(
         2,
-        [
-          {
-            assetId: 'test:eth',
-            assetSymbol: 'ETH' as Currency,
-            grossAmount: parseDecimal('10'),
-            priceAtTxTime: createPrice('exchange-execution', '3000'),
-          },
-        ],
-        [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('30000') }],
-        { assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('0.01') }
+        '2024-01-15T10:00:00Z',
+        [{ amount: '10', assetSymbol: 'ETH', price: '3000' }],
+        [{ amount: '30000', assetSymbol: 'USD', price: '1' }],
+        { category: 'transfer', type: 'swap' }
       ),
     ];
+
+    // Add fees to both transactions
+    if (transactions[0]) transactions[0].fees = [createFee('BTC', '0.001')];
+    if (transactions[1]) transactions[1].fees = [createFee('ETH', '0.01')];
 
     const result = enrichFeePricesFromMovements(transactions);
 

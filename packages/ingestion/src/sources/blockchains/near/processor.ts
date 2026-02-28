@@ -10,6 +10,7 @@
  */
 
 import {
+  type BlockchainProviderManager,
   type NearBalanceChange,
   type NearStreamEvent,
   type NearTokenTransfer,
@@ -31,7 +32,6 @@ import type {
   IScamDetectionService,
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
 
 import {
@@ -56,16 +56,13 @@ import type { NearCorrelatedTransaction } from './types.js';
  * into ProcessedTransaction format
  */
 export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
-  // Override to make tokenMetadataService required (guaranteed by factory)
-  declare protected readonly tokenMetadataService: ITokenMetadataService;
-
   constructor(
-    tokenMetadataService: ITokenMetadataService,
+    providerManager: BlockchainProviderManager,
     scamDetectionService?: IScamDetectionService,
     private readonly nearRawDataQueries?: NearRawTransactionRepository,
     private readonly accountId?: number | undefined
   ) {
-    super('near', tokenMetadataService, scamDetectionService);
+    super('near', providerManager, scamDetectionService);
   }
 
   protected get inputSchema() {
@@ -544,21 +541,25 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
    */
   private async enrichTokenMetadata(events: NearStreamEvent[]): Promise<Result<void, Error>> {
     const ftTransferEvents = events.filter((e): e is NearTokenTransfer => e.streamType === 'token-transfers');
+    if (ftTransferEvents.length === 0 || !this.providerManager) return ok();
 
-    return this.enrichWithTokenMetadata(
-      ftTransferEvents,
-      'near',
-      (event) => event.contractAddress,
-      (event, metadata) => {
-        if (metadata.symbol) {
-          event.symbol = metadata.symbol;
+    const addresses = [...new Set(ftTransferEvents.map((e) => e.contractAddress))];
+    const result = await this.providerManager.getTokenMetadata('near', addresses);
+    if (result.isErr()) return err(result.error);
+
+    const metadataMap = result.value;
+    for (const event of ftTransferEvents) {
+      const meta = metadataMap.get(event.contractAddress);
+      if (meta) {
+        if (meta.symbol) {
+          event.symbol = meta.symbol;
         }
-        if (metadata.decimals !== undefined) {
-          event.decimals = metadata.decimals;
+        if (meta.decimals !== undefined) {
+          event.decimals = meta.decimals;
         }
-      },
-      (event) => event.decimals !== undefined
-    );
+      }
+    }
+    return ok();
   }
 
   /**

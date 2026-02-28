@@ -2,16 +2,16 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import type { KyselyDB } from './database.js';
+import { closeDatabase, initializeDatabase } from './database.js';
 import { AccountRepository } from './repositories/account-repository.js';
-import { withControlledTransaction } from './repositories/db-utils.js';
 import { ImportSessionRepository } from './repositories/import-session-repository.js';
 import { NearRawTransactionRepository } from './repositories/near-raw-data-repository.js';
 import { RawTransactionRepository } from './repositories/raw-transaction-repository.js';
 import { TransactionLinkRepository } from './repositories/transaction-link-repository.js';
 import { TransactionRepository } from './repositories/transaction-repository.js';
 import { UserRepository } from './repositories/user-repository.js';
-import type { KyselyDB } from './storage/initialization.js';
-import { closeDatabase, initializeDatabase } from './storage/initialization.js';
+import { withControlledTransaction } from './utils/db-utils.js';
 
 const logger = getLogger('data-context');
 

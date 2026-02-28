@@ -1,4 +1,8 @@
-import { type SolanaTransaction, SolanaTransactionSchema } from '@exitbook/blockchain-providers';
+import {
+  type BlockchainProviderManager,
+  type SolanaTransaction,
+  SolanaTransactionSchema,
+} from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal, type Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok, okAsync } from 'neverthrow';
@@ -8,7 +12,6 @@ import type {
   IScamDetectionService,
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeSolanaFundFlow, classifySolanaOperationFromFundFlow } from './processor-utils.js';
@@ -19,11 +22,8 @@ import { analyzeSolanaFundFlow, classifySolanaOperationFromFundFlow } from './pr
  * and historical context for accurate transaction classification.
  */
 export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction> {
-  // Override to make tokenMetadataService required (guaranteed by factory)
-  declare protected readonly tokenMetadataService: ITokenMetadataService;
-
-  constructor(tokenMetadataService: ITokenMetadataService, scamDetectionService?: IScamDetectionService) {
-    super('solana', tokenMetadataService, scamDetectionService);
+  constructor(providerManager: BlockchainProviderManager, scamDetectionService?: IScamDetectionService) {
+    super('solana', providerManager, scamDetectionService);
   }
 
   protected get inputSchema() {
@@ -227,27 +227,27 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
    * Fetches metadata upfront in batch to populate cache for later use (asset ID building, scam detection).
    */
   private async enrichTokenMetadata(transactions: SolanaTransaction[]): Promise<Result<void, Error>> {
-    // We enrich ALL token changes upfront (not just those with missing metadata) because:
-    // 1. Scam detection needs metadata for all tokens with contract addresses
-    // 2. Batching all fetches upfront is more efficient than separate calls later
     const tokenChanges = transactions.flatMap((tx) => tx.tokenChanges?.filter((c) => !!c.mint) ?? []);
+    if (tokenChanges.length === 0 || !this.providerManager) return ok();
 
-    return this.enrichWithTokenMetadata(
-      tokenChanges,
-      'solana',
-      (change) => change.mint,
-      (change, metadata) => {
-        if (metadata.symbol) {
-          change.symbol = metadata.symbol;
+    const addresses = [...new Set(tokenChanges.map((c) => c.mint))];
+    const result = await this.providerManager.getTokenMetadata('solana', addresses);
+    if (result.isErr()) return err(result.error);
+
+    const metadataMap = result.value;
+    for (const change of tokenChanges) {
+      const meta = metadataMap.get(change.mint);
+      if (meta) {
+        if (meta.symbol) {
+          change.symbol = meta.symbol;
         }
-        // Decimals are already set from provider data, but update if metadata has better info
-        if (metadata.decimals !== undefined && metadata.decimals !== change.decimals) {
-          this.logger.debug(`Updating decimals for ${change.mint} from ${change.decimals} to ${metadata.decimals}`);
-          change.decimals = metadata.decimals;
+        if (meta.decimals !== undefined && meta.decimals !== change.decimals) {
+          this.logger.debug(`Updating decimals for ${change.mint} from ${change.decimals} to ${meta.decimals}`);
+          change.decimals = meta.decimals;
         }
-      },
-      (change) => change.decimals !== undefined // Enrichment failure OK if decimals already present
-    );
+      }
+    }
+    return ok();
   }
 
   /**

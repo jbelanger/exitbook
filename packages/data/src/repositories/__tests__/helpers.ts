@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- acceptable for db */
-import type { KyselyDB } from '../../storage/initialization.js';
+import type { KyselyDB } from '../../database.js';
 
 export async function seedUser(db: KyselyDB): Promise<void> {
   await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();

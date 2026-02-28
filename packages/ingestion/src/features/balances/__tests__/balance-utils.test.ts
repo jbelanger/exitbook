@@ -3,7 +3,6 @@ import type {
   FailoverExecutionResult,
   RawBalanceData,
 } from '@exitbook/blockchain-providers';
-import type { TokenMetadataQueries } from '@exitbook/data';
 import type { BalanceSnapshot, IExchangeClient } from '@exitbook/exchange-providers';
 import { Decimal } from 'decimal.js';
 import { err, ok, okAsync } from 'neverthrow';
@@ -15,16 +14,6 @@ import {
   fetchChildAccountsBalance,
   fetchExchangeBalance,
 } from '../balance-utils.js';
-
-// Helper to create mock TokenMetadataQueries
-function createMockTokenMetadataQueries(): TokenMetadataQueries {
-  return {
-    getByContract: vi.fn().mockResolvedValue(ok(undefined)),
-    save: vi.fn().mockResolvedValue(ok()),
-    isStale: vi.fn().mockReturnValue(false),
-    refreshInBackground: vi.fn(),
-  } as unknown as TokenMetadataQueries;
-}
 
 describe('fetchExchangeBalance', () => {
   it('should fetch and return exchange balance successfully', async () => {
@@ -150,7 +139,6 @@ describe('fetchBlockchainBalance', () => {
 
     const result = await fetchBlockchainBalance(
       mockProviderManager,
-      createMockTokenMetadataQueries(),
       'bitcoin',
       'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
     );
@@ -184,7 +172,6 @@ describe('fetchBlockchainBalance', () => {
 
     const result = await fetchBlockchainBalance(
       mockProviderManager,
-      createMockTokenMetadataQueries(),
       'ethereum',
       '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'
     );
@@ -205,7 +192,6 @@ describe('fetchBlockchainBalance', () => {
 
     const result = await fetchBlockchainBalance(
       mockProviderManager,
-      createMockTokenMetadataQueries(),
       'solana',
       'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK'
     );
@@ -244,7 +230,6 @@ describe('fetchBlockchainBalance', () => {
 
     const result = await fetchBlockchainBalance(
       mockProviderManager,
-      createMockTokenMetadataQueries(),
       'ethereum',
       '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'
     );
@@ -285,7 +270,6 @@ describe('fetchBlockchainBalance', () => {
 
     const result = await fetchBlockchainBalance(
       mockProviderManager,
-      createMockTokenMetadataQueries(),
       'solana',
       'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK'
     );
@@ -328,13 +312,10 @@ describe('fetchChildAccountsBalance', () => {
       ]),
     } as unknown as BlockchainProviderManager;
 
-    const result = await fetchChildAccountsBalance(
-      mockProviderManager,
-      createMockTokenMetadataQueries(),
-      'bitcoin',
-      'xpub-parent',
-      [{ identifier: 'bc1-child-success' }, { identifier: 'bc1-child-fail' }]
-    );
+    const result = await fetchChildAccountsBalance(mockProviderManager, 'bitcoin', 'xpub-parent', [
+      { identifier: 'bc1-child-success' },
+      { identifier: 'bc1-child-fail' },
+    ]);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {

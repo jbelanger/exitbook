@@ -2,7 +2,7 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, test } from 'vitest';
 
-import { createLot } from '../../../__tests__/test-utils.js';
+import { createLot } from '../../__tests__/test-utils.js';
 import { createAcquisitionLot, disposeLot, updateLotStatus } from '../lot.js';
 
 describe('createAcquisitionLot', () => {

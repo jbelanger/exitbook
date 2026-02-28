@@ -2,9 +2,8 @@ import type { BlockchainProviderManager, EvmChainConfig, EvmTransaction } from '
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 import type { Currency } from '@exitbook/core';
 import { ok } from 'neverthrow';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
-import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
 import { EvmProcessor } from '../processor.js';
 
 const ETHEREUM_CONFIG: EvmChainConfig = {
@@ -35,31 +34,16 @@ function createMockProviderManager(isContract = false): BlockchainProviderManage
         providerName: 'mock',
       })
     ),
+    getTokenMetadata: vi.fn().mockResolvedValue(ok(new Map())),
   } as unknown as BlockchainProviderManager;
 }
 
-function createMockTokenMetadataService(): ITokenMetadataService {
-  return {
-    enrichBatch: vi.fn().mockResolvedValue(ok()),
-    getOrFetch: vi.fn().mockResolvedValue(ok()),
-    getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
-  } as unknown as ITokenMetadataService;
-}
-
 function createEthereumProcessor(providerManager?: BlockchainProviderManager) {
-  return new EvmProcessor(
-    ETHEREUM_CONFIG,
-    providerManager ?? createMockProviderManager(),
-    createMockTokenMetadataService()
-  );
+  return new EvmProcessor(ETHEREUM_CONFIG, providerManager ?? createMockProviderManager());
 }
 
 function createAvalancheProcessor(providerManager?: BlockchainProviderManager) {
-  return new EvmProcessor(
-    AVALANCHE_CONFIG,
-    providerManager ?? createMockProviderManager(),
-    createMockTokenMetadataService()
-  );
+  return new EvmProcessor(AVALANCHE_CONFIG, providerManager ?? createMockProviderManager());
 }
 
 function createTransaction(overrides: Partial<EvmTransaction> = {}): EvmTransaction {
@@ -1423,42 +1407,52 @@ describe('EvmProcessor - Classification Uncertainty', () => {
 });
 
 describe('EvmProcessor - Token Metadata Enrichment', () => {
-  let mockTokenMetadataService: ITokenMetadataService;
+  function createMetadataProviderManager(): BlockchainProviderManager {
+    const metadataMap = new Map([
+      [
+        '0xusdc000000000000000000000000000000000000',
+        {
+          symbol: 'USDC',
+          decimals: 6,
+          contractAddress: '0xusdc000000000000000000000000000000000000',
+          blockchain: 'ethereum',
+          source: 'mock',
+          refreshedAt: new Date(),
+        },
+      ],
+      [
+        '0xdai0000000000000000000000000000000000000',
+        {
+          symbol: 'DAI',
+          decimals: 18,
+          contractAddress: '0xdai0000000000000000000000000000000000000',
+          blockchain: 'ethereum',
+          source: 'mock',
+          refreshedAt: new Date(),
+        },
+      ],
+      [
+        '0xtoken00000000000000000000000000000000000',
+        {
+          symbol: 'TOKEN',
+          decimals: 18,
+          contractAddress: '0xtoken00000000000000000000000000000000000',
+          blockchain: 'ethereum',
+          source: 'mock',
+          refreshedAt: new Date(),
+        },
+      ],
+    ]);
 
-  beforeEach(() => {
-    // Mock TokenMetadataService that actually enriches the data
-    mockTokenMetadataService = {
-      enrichBatch: vi
-        .fn()
-        .mockImplementation(
-          (
-            items: EvmTransaction[],
-            _blockchain: string,
-            contractExtractor: (item: EvmTransaction) => string | undefined,
-            metadataUpdater: (item: EvmTransaction, metadata: { decimals: number; symbol: string }) => void
-          ) => {
-            // Simulate enrichment by calling the metadataUpdater callback
-            for (const item of items) {
-              const contractAddress = contractExtractor(item);
-              // Mock metadata based on contract address
-              if (contractAddress === '0xusdc000000000000000000000000000000000000') {
-                metadataUpdater(item, { symbol: 'USDC', decimals: 6 });
-              } else if (contractAddress === '0xdai0000000000000000000000000000000000000') {
-                metadataUpdater(item, { symbol: 'DAI', decimals: 18 });
-              } else if (contractAddress === '0xtoken00000000000000000000000000000000000') {
-                metadataUpdater(item, { symbol: 'TOKEN', decimals: 18 });
-              }
-            }
-            return ok();
-          }
-        ),
-      getOrFetch: vi.fn().mockResolvedValue(ok()),
-      getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
-    } as unknown as ITokenMetadataService;
-  });
+    return {
+      getAddressInfo: vi.fn().mockResolvedValue(ok({ data: { isContract: false }, providerName: 'mock' })),
+      getTokenMetadata: vi.fn().mockResolvedValue(ok(metadataMap)),
+    } as unknown as BlockchainProviderManager;
+  }
 
   test('enriches token metadata when symbol looks like contract address', async () => {
-    const processor = new EvmProcessor(ETHEREUM_CONFIG, createMockProviderManager(), mockTokenMetadataService);
+    const mockManager = createMetadataProviderManager();
+    const processor = new EvmProcessor(ETHEREUM_CONFIG, mockManager);
 
     const normalizedData: EvmTransaction[] = [
       createTransaction({
@@ -1482,30 +1476,21 @@ describe('EvmProcessor - Token Metadata Enrichment', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    // Verify enrichBatch was called with the transactions
-    expect(mockTokenMetadataService.enrichBatch).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          tokenAddress: '0xusdc000000000000000000000000000000000000',
-        }),
-      ]),
-      'ethereum',
-      expect.any(Function),
-      expect.any(Function),
-      expect.any(Function)
-    );
+    expect(mockManager.getTokenMetadata).toHaveBeenCalledWith('ethereum', [
+      '0xusdc000000000000000000000000000000000000',
+    ]);
 
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify enriched symbol is used in transaction
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('USDC');
   });
 
   test('enriches all token transfers to populate cache for scam detection', async () => {
-    const processor = new EvmProcessor(ETHEREUM_CONFIG, createMockProviderManager(), mockTokenMetadataService);
+    const mockManager = createMetadataProviderManager();
+    const processor = new EvmProcessor(ETHEREUM_CONFIG, mockManager);
 
     const normalizedData: EvmTransaction[] = [
       createTransaction({
@@ -1528,13 +1513,13 @@ describe('EvmProcessor - Token Metadata Enrichment', () => {
 
     expect(result.isOk()).toBe(true);
 
-    // Verify enrichBatch IS called even for tokens with complete metadata
-    // This populates the cache upfront for later use by scam detection
-    expect(mockTokenMetadataService.enrichBatch).toHaveBeenCalled();
+    // getTokenMetadata is called even for tokens with complete metadata (populates cache for scam detection)
+    expect(mockManager.getTokenMetadata).toHaveBeenCalled();
   });
 
   test('enriches decimals when missing from transaction', async () => {
-    const processor = new EvmProcessor(ETHEREUM_CONFIG, createMockProviderManager(), mockTokenMetadataService);
+    const mockManager = createMetadataProviderManager();
+    const processor = new EvmProcessor(ETHEREUM_CONFIG, mockManager);
 
     const normalizedData: EvmTransaction[] = [
       createTransaction({
@@ -1558,19 +1543,18 @@ describe('EvmProcessor - Token Metadata Enrichment', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    // Verify enrichBatch was called
-    expect(mockTokenMetadataService.enrichBatch).toHaveBeenCalled();
+    expect(mockManager.getTokenMetadata).toHaveBeenCalled();
 
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify enriched metadata is used
     expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('TOKEN');
   });
 
   test('handles multiple token transfers with enrichment', async () => {
-    const processor = new EvmProcessor(ETHEREUM_CONFIG, createMockProviderManager(), mockTokenMetadataService);
+    const mockManager = createMetadataProviderManager();
+    const processor = new EvmProcessor(ETHEREUM_CONFIG, mockManager);
 
     const normalizedData: EvmTransaction[] = [
       createTransaction({
@@ -1609,14 +1593,12 @@ describe('EvmProcessor - Token Metadata Enrichment', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    // Verify enrichBatch was called once with both tokens
-    expect(mockTokenMetadataService.enrichBatch).toHaveBeenCalledTimes(1);
+    expect(mockManager.getTokenMetadata).toHaveBeenCalledTimes(1);
 
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify both enriched symbols are used
     expect(transaction.movements.outflows?.[0]?.assetSymbol).toBe('USDC');
     expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('DAI');
     expect(transaction.operation.type).toBe('swap');

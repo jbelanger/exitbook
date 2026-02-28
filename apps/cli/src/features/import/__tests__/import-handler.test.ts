@@ -16,7 +16,6 @@ vi.mock('@exitbook/ingestion', () => ({
   ImportSessionRepository: vi.fn(),
   ImportCoordinator: vi.fn(),
   RawTransactionRepository: vi.fn(),
-  TokenMetadataService: vi.fn(),
   RawDataProcessingService: vi.fn(),
   createTransactionQueries: vi.fn(),
   isUtxoAdapter: vi.fn(),
@@ -27,7 +26,6 @@ vi.mock('@exitbook/data', async (importOriginal) => {
   return {
     ...actual,
     createUserQueries: vi.fn(),
-    TokenMetadataQueries: vi.fn(),
   };
 });
 

@@ -9,7 +9,7 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { createDisposal, createLot } from '../../../__tests__/test-utils.js';
+import { createDisposal, createLot } from '../../__tests__/test-utils.js';
 import {
   aggregateAssetGainLoss,
   aggregateOverallGainLoss,

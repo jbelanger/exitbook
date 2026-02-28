@@ -14,7 +14,6 @@ import type {
   IScamDetectionService,
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { looksLikeContractAddress } from '../../../features/token-metadata/token-metadata-utils.js';
 import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
 
@@ -30,17 +29,16 @@ import {
  * to every EVM-compatible chain.
  */
 export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
-  // Override to make tokenMetadataService required (guaranteed by factory)
-  declare protected readonly tokenMetadataService: ITokenMetadataService;
+  // Narrows base class optional to required — EvmProcessor always requires a provider manager
+  declare protected readonly providerManager: BlockchainProviderManager;
   private readonly contractAddressCache = new Map<string, boolean>();
 
   constructor(
     private readonly chainConfig: EvmChainConfig,
-    private readonly providerManager: BlockchainProviderManager,
-    tokenMetadataService: ITokenMetadataService,
+    providerManager: BlockchainProviderManager,
     scamDetectionService?: IScamDetectionService
   ) {
-    super(chainConfig.chainName, tokenMetadataService, scamDetectionService);
+    super(chainConfig.chainName, providerManager, scamDetectionService);
   }
 
   protected get inputSchema() {
@@ -249,30 +247,30 @@ export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
    * Fetches metadata upfront in batch to populate cache for later use (asset ID building, scam detection).
    */
   private async enrichTokenMetadata(transactions: EvmTransaction[]): Promise<Result<void, Error>> {
-    // We enrich ALL token transfers upfront (not just those with missing metadata) because:
-    // 1. Scam detection needs metadata for all tokens with contract addresses
-    // 2. Batching all fetches upfront is more efficient than separate calls later
-    const tokenTransfers = transactions.filter((tx) => tx.type === 'token_transfer' && !!tx.tokenAddress);
-
-    return this.enrichWithTokenMetadata(
-      tokenTransfers,
-      this.chainConfig.chainName,
-      (tx) => tx.tokenAddress,
-      (tx, metadata) => {
-        if (metadata.symbol) {
-          tx.currency = metadata.symbol;
-          tx.tokenSymbol = metadata.symbol;
-        }
-        // Update decimals if available and not already set
-        if (metadata.decimals !== undefined && tx.tokenDecimals === undefined) {
-          this.logger.debug(
-            `Updating decimals for ${tx.tokenAddress} from ${tx.tokenDecimals} to ${metadata.decimals}`
-          );
-          tx.tokenDecimals = metadata.decimals;
-        }
-      },
-      (tx) => tx.tokenDecimals !== undefined // Enrichment failure OK if decimals already present
+    const tokenTransfers = transactions.filter(
+      (tx) => tx.type === 'token_transfer' && !!tx.tokenAddress && looksLikeContractAddress(tx.tokenAddress, 40)
     );
+    if (tokenTransfers.length === 0 || !this.providerManager) return ok();
+
+    const addresses = [...new Set(tokenTransfers.map((tx) => tx.tokenAddress!))];
+    const result = await this.providerManager.getTokenMetadata(this.chainConfig.chainName, addresses);
+    if (result.isErr()) return err(result.error);
+
+    const metadataMap = result.value;
+    for (const tx of tokenTransfers) {
+      const meta = metadataMap.get(tx.tokenAddress!);
+      if (meta) {
+        if (meta.symbol) {
+          tx.currency = meta.symbol;
+          tx.tokenSymbol = meta.symbol;
+        }
+        if (meta.decimals !== undefined && tx.tokenDecimals === undefined) {
+          this.logger.debug(`Updating decimals for ${tx.tokenAddress} from ${tx.tokenDecimals} to ${meta.decimals}`);
+          tx.tokenDecimals = meta.decimals;
+        }
+      }
+    }
+    return ok();
   }
 
   private async resolveIsContract(address: string): Promise<boolean | undefined> {

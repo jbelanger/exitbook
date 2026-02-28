@@ -5,7 +5,7 @@ import { type DatabaseSchema } from '@exitbook/data';
 import type { Kysely } from '@exitbook/sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createTestDatabase } from '../../__tests__/test-utils.js';
+import { createTestDatabase } from '../../utils/test-utils.js';
 import { AccountRepository } from '../account-repository.js';
 
 import { seedUser } from './helpers.js';

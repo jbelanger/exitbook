@@ -5,7 +5,7 @@ import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import type { z } from 'zod';
 
-import type { RawTransactionTable } from '../schema/database-schema.js';
+import type { RawTransactionTable } from '../database-schema.js';
 
 function isDecimalLike(value: unknown): value is { toFixed: () => string } {
   return (

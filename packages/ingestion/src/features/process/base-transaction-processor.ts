@@ -1,3 +1,4 @@
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { TokenMetadataRecord } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -7,7 +8,6 @@ import type { z } from 'zod';
 import type { ITransactionProcessor, AddressContext, ProcessedTransaction } from '../../shared/types/processors.js';
 import { ProcessedTransactionSchema } from '../../shared/types/processors.js';
 import type { IScamDetectionService, MovementWithContext } from '../scam-detection/scam-detection-service.interface.js';
-import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.js';
 
 /**
  * Base class providing common functionality for all processors.
@@ -21,7 +21,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
 
   constructor(
     protected sourceName: string,
-    protected tokenMetadataService?: ITokenMetadataService,
+    protected providerManager?: BlockchainProviderManager,
     protected scamDetectionService?: IScamDetectionService
   ) {
     this.logger = getLogger(`${sourceName}Processor`);
@@ -88,8 +88,8 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
     let metadataMap = new Map<string, TokenMetadataRecord | undefined>();
     let detectionMode: 'metadata' | 'symbol-only' = 'symbol-only';
 
-    if (this.tokenMetadataService && uniqueContracts.length > 0) {
-      const metadataResult = await this.tokenMetadataService.getOrFetchBatch(chainName, uniqueContracts);
+    if (this.providerManager && uniqueContracts.length > 0) {
+      const metadataResult = await this.providerManager.getTokenMetadata(chainName, uniqueContracts);
       if (metadataResult.isOk()) {
         metadataMap = metadataResult.value;
         detectionMode = 'metadata';
@@ -113,7 +113,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
    *
    * @param transactions - All processed transactions
    * @param movements - Token movements with context from fund flow
-   * @param metadataMap - Pre-fetched metadata (from single getOrFetchBatch call, may contain undefined for unfound contracts)
+   * @param metadataMap - Pre-fetched metadata (from single getTokenMetadata call, may contain undefined for unfound contracts)
    */
   protected markScamTransactions(
     transactions: ProcessedTransaction[],
@@ -139,38 +139,6 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
       }
       tx.notes = [...(tx.notes || []), note];
     }
-  }
-
-  /**
-   * Enrich a pre-filtered list of items with token metadata via a single batch call.
-   * Handles the empty-list early-return and delegates to tokenMetadataService.enrichBatch.
-   * Subclasses are responsible for collecting the items to enrich before calling this.
-   */
-  protected async enrichWithTokenMetadata<TItem>(
-    items: TItem[],
-    chainName: string,
-    extractAddress: (item: TItem) => string | undefined,
-    applyMetadata: (item: TItem, metadata: TokenMetadataRecord) => void,
-    canSkip?: (item: TItem) => boolean
-  ): Promise<Result<void, Error>> {
-    if (items.length === 0) return ok();
-
-    this.logger.debug(`Enriching token metadata for ${items.length} items`);
-
-    const result = await this.tokenMetadataService!.enrichBatch(
-      items,
-      chainName,
-      extractAddress,
-      applyMetadata,
-      canSkip
-    );
-
-    if (result.isErr()) {
-      return err(result.error);
-    }
-
-    this.logger.debug('Successfully enriched token metadata');
-    return ok();
   }
 
   protected buildProcessingFailureError(

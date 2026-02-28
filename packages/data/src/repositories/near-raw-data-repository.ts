@@ -5,11 +5,11 @@ import type { Selectable } from '@exitbook/sqlite';
 import { sql } from '@exitbook/sqlite';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { RawTransactionTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/initialization.js';
+import type { RawTransactionTable } from '../database-schema.js';
+import type { KyselyDB } from '../database.js';
+import { toRawTransaction } from '../utils/db-utils.js';
 
 import { BaseRepository } from './base-repository.js';
-import { toRawTransaction } from './db-utils.js';
 
 function isJson1UnavailableError(error: unknown): boolean {
   const errorMessage = error instanceof Error ? error.message : String(error);

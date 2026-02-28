@@ -5,11 +5,7 @@ import type { TransactionLinkRepository, TransactionRepository } from '@exitbook
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  createFeeMovement,
-  createPriceAtTxTime,
-  createTransactionFromMovements,
-} from '../../../__tests__/test-utils.js';
+import { createFeeMovement, createPriceAtTxTime, createTransactionFromMovements } from '../../__tests__/test-utils.js';
 import type { TransactionLink } from '../../linking/types.js';
 import { LotMatcher } from '../lot-matcher.js';
 import { AverageCostStrategy } from '../strategies/average-cost-strategy.js';

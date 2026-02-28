@@ -1,7 +1,6 @@
 import { DataContext } from '../data-context.js';
-import type { KyselyDB } from '../storage/initialization.js';
-import { createDatabase } from '../storage/initialization.js';
-import { runMigrations } from '../storage/migrations.js';
+import type { KyselyDB } from '../database.js';
+import { createDatabase, runMigrations } from '../database.js';
 
 /**
  * Create an in-memory database with migrations applied. For use in tests only.

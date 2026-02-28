@@ -16,12 +16,12 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';
 
-import type { TransactionMovementsTable, TransactionsTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/initialization.js';
+import type { TransactionMovementsTable, TransactionsTable } from '../database-schema.js';
+import type { KyselyDB } from '../database.js';
+import { parseWithSchema, serializeToJson } from '../utils/db-utils.js';
+import { generateDeterministicTransactionHash } from '../utils/transaction-id-utils.js';
 
 import { BaseRepository } from './base-repository.js';
-import { parseWithSchema, serializeToJson } from './db-utils.js';
-import { generateDeterministicTransactionHash } from './transaction-id-utils.js';
 
 export interface TransactionQueryParams {
   sourceName?: string | undefined;

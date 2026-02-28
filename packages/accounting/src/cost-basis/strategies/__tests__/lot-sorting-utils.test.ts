@@ -3,7 +3,7 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import { createLot } from '../../../../__tests__/test-utils.js';
+import { createLot } from '../../../__tests__/test-utils.js';
 import type { DisposalRequest } from '../base-strategy.js';
 import {
   calculateHoldingPeriodDays,

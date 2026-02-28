@@ -277,19 +277,6 @@ export type ProcessEvent =
       type: 'process.skipped';
     };
 
-export interface TokenMetadataEvent {
-  /**
-   * Emitted when a metadata enrichment batch completes successfully.
-   * Used by CLI dashboard cache hit-rate stats.
-   */
-  blockchain: string;
-  batchNumber: number;
-  cacheHits: number; // Per-batch delta (ProgressHandler accumulates)
-  cacheMisses: number; // Per-batch delta (ProgressHandler accumulates)
-  durationMs: number;
-  type: 'metadata.batch.completed';
-}
-
 export interface ScamDetectionEvent {
   /**
    * Emitted when scam detection completes for a batch.
@@ -303,4 +290,4 @@ export interface ScamDetectionEvent {
   type: 'scam.batch.summary';
 }
 
-export type IngestionEvent = ImportEvent | ProcessEvent | TokenMetadataEvent | ScamDetectionEvent;
+export type IngestionEvent = ImportEvent | ProcessEvent | ScamDetectionEvent;

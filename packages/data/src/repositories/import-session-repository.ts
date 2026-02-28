@@ -4,11 +4,11 @@ import { wrapError } from '@exitbook/core';
 import type { Selectable, Updateable } from '@exitbook/sqlite';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ImportSessionsTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/initialization.js';
+import type { ImportSessionsTable } from '../database-schema.js';
+import type { KyselyDB } from '../database.js';
+import { parseJson, serializeToJson } from '../utils/db-utils.js';
 
 import { BaseRepository } from './base-repository.js';
-import { parseJson, serializeToJson } from './db-utils.js';
 
 function toImportSession(row: Selectable<ImportSessionsTable>): Result<ImportSession, Error> {
   const errorDetailsResult = parseJson<unknown>(row.error_details);

@@ -22,8 +22,8 @@ export const evmAdapters: BlockchainAdapter[] = Object.keys(EVM_CHAINS).flatMap(
         preferredProvider: providerName,
       }),
 
-    createProcessor: ({ providerManager, tokenMetadataService, scamDetectionService }) =>
-      new EvmProcessor(config, providerManager, tokenMetadataService, scamDetectionService),
+    createProcessor: ({ providerManager, scamDetectionService }) =>
+      new EvmProcessor(config, providerManager, scamDetectionService),
   };
 
   return [adapter];

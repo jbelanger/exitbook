@@ -1,10 +1,9 @@
-import type { SolanaTransaction } from '@exitbook/blockchain-providers';
+import type { BlockchainProviderManager, SolanaTransaction } from '@exitbook/blockchain-providers';
 import { EventBus } from '@exitbook/events';
 import { ok } from 'neverthrow';
 import { describe, expect, test, vi } from 'vitest';
 
 import type { IngestionEvent } from '../../../../events.js';
-import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
 import { SolanaProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'user1111111111111111111111111111111111111111';
@@ -12,16 +11,14 @@ const EXTERNAL_ADDRESS = 'external222222222222222222222222222222222222';
 const CONTRACT_ADDRESS = 'contract333333333333333333333333333333333333';
 const TOKEN_ACCOUNT = 'token4444444444444444444444444444444444444444';
 
-function createProcessor(customMetadataService?: ITokenMetadataService) {
-  // Create minimal mock for token metadata service
-  const defaultMockService = {
-    // Return NO_PROVIDERS ProviderError to simulate provider not supporting metadata
-    enrichBatch: vi.fn().mockResolvedValue(ok()),
-    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
-    getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
-  } as unknown as ITokenMetadataService;
+function createMockProviderManager(): BlockchainProviderManager {
+  return {
+    getTokenMetadata: vi.fn().mockResolvedValue(ok(new Map())),
+  } as unknown as BlockchainProviderManager;
+}
 
-  return new SolanaProcessor(customMetadataService || defaultMockService);
+function createProcessor(customProviderManager?: BlockchainProviderManager) {
+  return new SolanaProcessor(customProviderManager || createMockProviderManager());
 }
 
 function createTransaction(overrides: Partial<SolanaTransaction> = {}): SolanaTransaction[] {
@@ -1097,32 +1094,23 @@ describe('SolanaProcessor - Blockchain Metadata', () => {
 
 describe('SolanaProcessor - Token Metadata Enrichment', () => {
   test('enriches token symbols from mint addresses when service is provided', async () => {
-    // Mock TokenMetadataService that actually enriches the data
-    const mockTokenMetadataService = {
-      enrichBatch: vi
-        .fn()
-        .mockImplementation(
-          (
-            items: unknown[],
-            _blockchain: string,
-            contractExtractor: (item: unknown) => string,
-            metadataUpdater: (item: unknown, metadata: { decimals: number; symbol: string }) => void
-          ) => {
-            // Simulate enrichment by calling the metadataUpdater callback
-            for (const item of items) {
-              const contractAddress: string = contractExtractor(item);
-              if (contractAddress === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') {
-                metadataUpdater(item, { symbol: 'USDC', decimals: 6 });
-              }
-            }
-            return ok();
-          }
-        ),
-      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
-      getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
-    } as unknown as ITokenMetadataService;
+    const metadataMap = new Map([
+      [
+        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        {
+          symbol: 'USDC',
+          decimals: 6,
+          contractAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+          blockchain: 'solana',
+          source: 'mock',
+          refreshedAt: new Date(),
+        },
+      ],
+    ]);
+    const mockManager = createMockProviderManager();
+    (mockManager.getTokenMetadata as ReturnType<typeof vi.fn>).mockResolvedValue(ok(metadataMap));
 
-    const processor = new SolanaProcessor(mockTokenMetadataService);
+    const processor = new SolanaProcessor(mockManager);
 
     const normalizedData = createTransaction({
       id: 'sigEnrich1',
@@ -1208,13 +1196,7 @@ describe('SolanaProcessor - Token Metadata Enrichment', () => {
   });
 
   test('does not enrich symbols that are already human-readable', async () => {
-    const mockTokenMetadataService = {
-      enrichBatch: vi.fn().mockResolvedValue(ok()),
-      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
-      getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
-    } as unknown as ITokenMetadataService;
-
-    const processor = new SolanaProcessor(mockTokenMetadataService);
+    const processor = createProcessor();
 
     const normalizedData = createTransaction({
       id: 'sigHumanReadable1',
@@ -1255,13 +1237,7 @@ describe('SolanaProcessor - Token Metadata Enrichment', () => {
   });
 
   test('handles service errors gracefully', async () => {
-    const mockTokenMetadataService = {
-      enrichBatch: vi.fn().mockResolvedValue(ok()),
-      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
-      getOrFetchBatch: vi.fn().mockResolvedValue(ok(new Map())),
-    } as unknown as ITokenMetadataService;
-
-    const processor = new SolanaProcessor(mockTokenMetadataService);
+    const processor = createProcessor();
 
     const normalizedData = createTransaction({
       id: 'sigRepoError1',
@@ -1303,41 +1279,23 @@ describe('SolanaProcessor - Token Metadata Enrichment', () => {
 
 describe('SolanaProcessor - Scam Detection', () => {
   test('detects scam token in airdrop', async () => {
-    // Mock metadata service to return a scam token
-    const mockMetadataService = {
-      enrichBatch: vi.fn().mockResolvedValue(ok()),
-      getOrFetch: vi.fn().mockResolvedValue(
-        ok({
+    const scamMetadataMap = new Map([
+      [
+        'ScamTokenAddress123',
+        {
           contractAddress: 'ScamTokenAddress123',
           blockchain: 'solana',
           name: 'Free Money 🎁',
           symbol: 'SCAM',
           decimals: 9,
-          possibleSpam: true, // Professional detection
+          possibleSpam: true,
           source: 'provider-api',
           refreshedAt: new Date(),
-        })
-      ),
-      getOrFetchBatch: vi.fn().mockResolvedValue(
-        ok(
-          new Map([
-            [
-              'ScamTokenAddress123',
-              {
-                contractAddress: 'ScamTokenAddress123',
-                blockchain: 'solana',
-                name: 'Free Money 🎁',
-                symbol: 'SCAM',
-                decimals: 9,
-                possibleSpam: true, // Professional detection
-                source: 'provider-api',
-                refreshedAt: new Date(),
-              },
-            ],
-          ])
-        )
-      ),
-    } as unknown as ITokenMetadataService;
+        },
+      ],
+    ]);
+    const mockManager = createMockProviderManager();
+    (mockManager.getTokenMetadata as ReturnType<typeof vi.fn>).mockResolvedValue(ok(scamMetadataMap));
 
     // Import and instantiate real scam detection service
     const { ScamDetectionService } = await import('../../../../features/scam-detection/scam-detection-service.js');
@@ -1345,7 +1303,7 @@ describe('SolanaProcessor - Scam Detection', () => {
     const mockEventBus = new EventBus<IngestionEvent>({ onError: () => {} });
     const scamDetectionService = new ScamDetectionService(mockEventBus);
 
-    const processor = new SolanaProcessor(mockMetadataService, scamDetectionService);
+    const processor = new SolanaProcessor(mockManager, scamDetectionService);
 
     const normalizedData = createTransaction({
       id: 'sigScam1',

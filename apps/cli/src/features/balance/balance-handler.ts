@@ -1,12 +1,11 @@
 import type { Account, AccountType, ExchangeCredentials, UniversalTransactionData } from '@exitbook/core';
-import { type DataContext, createTokenMetadataPersistence } from '@exitbook/data';
+import { type DataContext } from '@exitbook/data';
 import { BalanceService, calculateBalances } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { EventRelay } from '../../ui/shared/event-relay.js';
 import type { CommandContext } from '../shared/command-runtime.js';
-import { getDataDir } from '../shared/data-dir.js';
 import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
 
 import { buildBalanceAssetDebug } from './balance-debug.js';
@@ -465,13 +464,8 @@ export async function createBalanceHandler(
       return ok(new BalanceHandler(database, undefined));
     }
 
-    const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
-    if (tokenMetadataResult.isErr()) return err(tokenMetadataResult.error);
-    const { queries: tokenMetadataRepo, cleanup: cleanupTokenMetadata } = tokenMetadataResult.value;
-    ctx.onCleanup(async () => cleanupTokenMetadata());
-
     const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-    const balanceService = new BalanceService(database, tokenMetadataRepo, providerManager);
+    const balanceService = new BalanceService(database, providerManager);
     const handler = new BalanceHandler(database, balanceService);
     ctx.onCleanup(async () => {
       await handler.awaitStream();

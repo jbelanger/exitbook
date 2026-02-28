@@ -11,11 +11,11 @@ import type { Selectable, Updateable } from '@exitbook/sqlite';
 import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
-import type { AccountsTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/initialization.js';
+import type { AccountsTable } from '../database-schema.js';
+import type { KyselyDB } from '../database.js';
+import { parseWithSchema, serializeToJson } from '../utils/db-utils.js';
 
 import { BaseRepository } from './base-repository.js';
-import { parseWithSchema, serializeToJson } from './db-utils.js';
 
 export interface AccountKeyParams {
   accountType: AccountType;

@@ -125,4 +125,17 @@ export type ProviderEvent =
       delayMs: number;
       provider: string;
       type: 'provider.backoff';
+    }
+  // Token metadata cache
+  | {
+      batchSize: number;
+      blockchain: string;
+      cacheHits: number;
+      cacheMisses: number;
+      durationMs: number;
+      /**
+       * Emitted when a batch token metadata lookup completes (cache + fetch).
+       * Used for CLI progress display and observability.
+       */
+      type: 'provider.metadata.batch.completed';
     };
