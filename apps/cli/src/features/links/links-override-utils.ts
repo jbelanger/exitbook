@@ -7,7 +7,7 @@ import {
   type OverrideStore,
   type CreateOverrideEventOptions,
 } from '@exitbook/data';
-import type { TransactionQueries } from '@exitbook/data';
+import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('LinkOverrideUtils');
@@ -18,7 +18,7 @@ const logger = getLogger('LinkOverrideUtils');
  * Logs warnings on failure but never throws — the DB update already succeeded.
  */
 export async function writeLinkOverrideEvent(
-  txRepo: TransactionQueries,
+  txRepo: TransactionRepository,
   overrideStore: OverrideStore,
   sourceTransactionId: number,
   targetTransactionId: number,
@@ -51,7 +51,7 @@ export async function writeLinkOverrideEvent(
  * Logs warnings on failure but never throws — the DB update already succeeded.
  */
 export async function writeUnlinkOverrideEvent(
-  txRepo: TransactionQueries,
+  txRepo: TransactionRepository,
   overrideStore: OverrideStore,
   sourceTransactionId: number,
   targetTransactionId: number,
@@ -79,7 +79,7 @@ export async function writeUnlinkOverrideEvent(
  * Returns undefined if any step fails (with warnings logged).
  */
 async function resolveFingerprints(
-  txRepo: TransactionQueries,
+  txRepo: TransactionRepository,
   sourceTransactionId: number,
   targetTransactionId: number,
   assetSymbol: string
@@ -103,8 +103,8 @@ async function resolveFingerprints(
       return undefined;
     }
 
-    const sourceFp = computeTxFingerprint({ source_name: sourceTx.source, external_id: sourceTx.externalId });
-    const targetFp = computeTxFingerprint({ source_name: targetTx.source, external_id: targetTx.externalId });
+    const sourceFp = computeTxFingerprint({ source: sourceTx.source, externalId: sourceTx.externalId });
+    const targetFp = computeTxFingerprint({ source: targetTx.source, externalId: targetTx.externalId });
 
     if (sourceFp.isErr() || targetFp.isErr()) {
       logger.warn('Failed to compute fingerprints for override event');

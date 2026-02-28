@@ -6,7 +6,7 @@ import { ok } from 'neverthrow';
 
 import * as initialSchema from '../migrations/001_initial_schema.js';
 
-import type { KyselyDB } from './db-types.js';
+import type { KyselyDB } from './initialization.js';
 
 const logger = getLogger('Migrations');
 

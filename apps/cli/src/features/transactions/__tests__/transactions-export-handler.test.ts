@@ -1,20 +1,11 @@
 import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
 import { ExportHandler } from '../transactions-export-handler.js';
 import type { ExportHandlerParams } from '../transactions-export-utils.js';
-
-// Mock dependencies
-vi.mock('@exitbook/data', async () => {
-  const actual = await vi.importActual<typeof import('@exitbook/data')>('@exitbook/data');
-  return {
-    ...actual,
-    createTransactionQueries: vi.fn(),
-  };
-});
 
 describe('ExportHandler', () => {
   let mockTransactionRepository: {
@@ -36,10 +27,12 @@ describe('ExportHandler', () => {
       findByTransactionIds: vi.fn().mockResolvedValue(ok([])),
     };
 
-    handler = new ExportHandler(
-      mockTransactionRepository as unknown as TransactionQueries,
-      mockTransactionLinkQueries as unknown as TransactionLinkQueries
-    );
+    const mockDb = {
+      transactions: mockTransactionRepository,
+      transactionLinks: mockTransactionLinkQueries,
+    } as unknown as DataContext;
+
+    handler = new ExportHandler(mockDb);
   });
 
   const createMockTransaction = (id: number, source: string, assetSymbol: string): UniversalTransactionData => ({

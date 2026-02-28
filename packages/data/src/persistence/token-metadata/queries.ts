@@ -5,14 +5,22 @@ import type { Kysely, Selectable } from '@exitbook/sqlite';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { TokenMetadataDatabase } from '../persistence/token-metadata/schema.js';
-
-import { fromSqliteBoolean, toSqliteBoolean } from './sqlite-utils.js';
+import type { TokenMetadataDatabase } from './schema.js';
 
 const STALENESS_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 type TokenMetadataRow = TokenMetadataDatabase['token_metadata'];
 type TokenMetadataSelectableRow = Selectable<TokenMetadataRow>;
+
+function fromSqliteBoolean(value: number | null): boolean | undefined {
+  if (value === null) return undefined;
+  return value === 1;
+}
+
+function toSqliteBoolean(value: boolean | undefined): number | null {
+  if (value === undefined) return null;
+  return value ? 1 : 0;
+}
 
 /**
  * Query module for token metadata storage and retrieval.
@@ -41,9 +49,6 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
     };
   }
 
-  /**
-   * Upsert symbol index entry.
-   */
   async function upsertSymbolIndex(
     blockchain: string,
     symbol: string,
@@ -77,9 +82,6 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
     }
   }
 
-  /**
-   * Delete symbol index entry for a specific contract and symbol.
-   */
   async function deleteSymbolIndex(
     blockchain: string,
     symbol: string,
@@ -100,9 +102,6 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
     }
   }
 
-  /**
-   * Get token metadata by contract address (primary lookup).
-   */
   async function getByContract(
     blockchain: string,
     contractAddress: string
@@ -132,11 +131,6 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
     }
   }
 
-  /**
-   * Get token metadata for multiple contracts (batch lookup).
-   * More efficient than sequential getByContract calls.
-   * Returns a map of contract address to metadata (undefined if not found).
-   */
   async function getByContracts(
     blockchain: string,
     contractAddresses: string[]
@@ -155,12 +149,10 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
 
       const metadataMap = new Map<string, TokenMetadataRecord | undefined>();
 
-      // Initialize all contracts as undefined (not found)
       for (const address of contractAddresses) {
         metadataMap.set(address, undefined);
       }
 
-      // Fill in found metadata
       for (const row of rows) {
         const metadata = mapTokenMetadataRow(row);
         metadataMap.set(row.contract_address, metadata);
@@ -177,9 +169,6 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
     }
   }
 
-  /**
-   * Get token metadata by symbol (reverse lookup, returns array due to collisions).
-   */
   async function getBySymbol(blockchain: string, symbol: string): Promise<Result<TokenMetadataRecord[], Error>> {
     try {
       const contracts = await db
@@ -212,10 +201,6 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
     }
   }
 
-  /**
-   * Save token metadata (upsert).
-   * Merges with existing data - only updates fields that are explicitly provided.
-   */
   async function save(
     blockchain: string,
     contractAddress: string,
@@ -224,7 +209,6 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
     try {
       const now = new Date().toISOString();
 
-      // Fetch existing record to merge with new data
       const existingResult = await getByContract(blockchain, contractAddress);
       if (existingResult.isErr()) {
         return err(existingResult.error);
@@ -232,7 +216,6 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
 
       const existing = existingResult.value;
 
-      // Merge: use new values if provided, otherwise keep existing (or null for new records)
       const mergedSymbol = metadata.symbol !== undefined ? metadata.symbol : (existing?.symbol ?? null);
       const mergedName = metadata.name !== undefined ? metadata.name : (existing?.name ?? null);
       const mergedDecimals = metadata.decimals !== undefined ? metadata.decimals : (existing?.decimals ?? null);
@@ -247,7 +230,6 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
           ? toSqliteBoolean(metadata.verifiedContract)
           : toSqliteBoolean(existing?.verifiedContract);
 
-      // Additional metadata
       const mergedDescription =
         metadata.description !== undefined ? metadata.description : (existing?.description ?? null);
       const mergedExternalUrl =
@@ -296,7 +278,6 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
         )
         .execute();
 
-      // Remove old symbol index entry if symbol has changed
       if (existing?.symbol && existing.symbol !== mergedSymbol) {
         const deleteResult = await deleteSymbolIndex(blockchain, existing.symbol, contractAddress);
         if (deleteResult.isErr()) {
@@ -306,7 +287,6 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
         }
       }
 
-      // Add new symbol index entry
       if (mergedSymbol) {
         const symbolIndexResult = await upsertSymbolIndex(blockchain, mergedSymbol, contractAddress);
         if (symbolIndexResult.isErr()) {
@@ -326,25 +306,17 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
     }
   }
 
-  /**
-   * Check if token metadata is stale (older than 7 days).
-   */
   function isStale(updatedAt: Date): boolean {
     const now = new Date();
     const ageMs = now.getTime() - updatedAt.getTime();
     return ageMs > STALENESS_THRESHOLD_MS;
   }
 
-  /**
-   * Refresh stale token metadata in background (no await).
-   * This is called asynchronously when stale data is served.
-   */
   function refreshInBackground(
     blockchain: string,
     contractAddress: string,
     fetchFn: () => Promise<Result<TokenMetadataRecord, Error>>
   ): void {
-    // Fire and forget - don't block the caller
     (async () => {
       try {
         logger.debug(`Background refresh started - Blockchain: ${blockchain}, Contract: ${contractAddress}`);

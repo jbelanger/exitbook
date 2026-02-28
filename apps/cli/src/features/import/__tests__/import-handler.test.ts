@@ -15,7 +15,7 @@ vi.mock('@exitbook/blockchain-providers', () => ({
 vi.mock('@exitbook/ingestion', () => ({
   ImportSessionRepository: vi.fn(),
   ImportCoordinator: vi.fn(),
-  RawDataRepository: vi.fn(),
+  RawTransactionRepository: vi.fn(),
   TokenMetadataService: vi.fn(),
   RawDataProcessingService: vi.fn(),
   createTransactionQueries: vi.fn(),
@@ -27,7 +27,6 @@ vi.mock('@exitbook/data', async (importOriginal) => {
   return {
     ...actual,
     createUserQueries: vi.fn(),
-    createAccountQueries: vi.fn(),
     TokenMetadataQueries: vi.fn(),
   };
 });

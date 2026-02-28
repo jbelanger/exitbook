@@ -1,30 +1,40 @@
+/* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 /* eslint-disable @typescript-eslint/require-await -- Acceptable for tests */
-import type { KyselyDB } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data';
 import * as dataModule from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CommandContext, runCommand } from '../command-runtime.js';
 
-// Mock the data module
+// Hoisted so they're accessible inside vi.mock factory
+const { mockInitialize } = vi.hoisted(() => ({
+  mockInitialize: vi.fn(),
+}));
+
+// Mock the DataContext class — replace with object exposing mocked static method
 vi.mock('@exitbook/data', async () => {
   const actual = await vi.importActual('@exitbook/data');
   return {
     ...actual,
-    initializeDatabase: vi.fn(),
-    closeDatabase: vi.fn(),
+    DataContext: {
+      initialize: mockInitialize,
+    },
   };
 });
 
 // Mock process.exit to prevent test runner from exiting
 const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
-describe('CommandContext', () => {
-  const mockDatabase = { mock: 'database' } as unknown as KyselyDB;
+// Module-level close mock so it's accessible across both describe blocks
+let mockClose: ReturnType<typeof vi.fn>;
+let mockDataContext: DataContext;
 
+describe('CommandContext', () => {
   beforeEach(() => {
-    vi.mocked(dataModule.initializeDatabase).mockResolvedValue(ok(mockDatabase));
-    vi.mocked(dataModule.closeDatabase).mockResolvedValue(ok(undefined));
+    mockClose = vi.fn().mockResolvedValue(ok(undefined));
+    mockDataContext = { close: mockClose } as unknown as DataContext;
+    mockInitialize.mockResolvedValue(ok(mockDataContext));
   });
 
   afterEach(() => {
@@ -36,8 +46,8 @@ describe('CommandContext', () => {
       const ctx = new CommandContext();
       const db = await ctx.database();
 
-      expect(db).toBe(mockDatabase);
-      expect(dataModule.initializeDatabase).toHaveBeenCalledOnce();
+      expect(db).toBe(mockDataContext);
+      expect(dataModule.DataContext.initialize).toHaveBeenCalledOnce();
     });
 
     it('should return same instance on subsequent calls', async () => {
@@ -46,7 +56,7 @@ describe('CommandContext', () => {
       const db2 = await ctx.database();
 
       expect(db1).toBe(db2);
-      expect(dataModule.initializeDatabase).toHaveBeenCalledOnce();
+      expect(dataModule.DataContext.initialize).toHaveBeenCalledOnce();
     });
 
     it('should throw if called after closeDatabase()', async () => {
@@ -65,15 +75,15 @@ describe('CommandContext', () => {
       await ctx.closeDatabase();
       await ctx.dispose();
 
-      // closeDatabase called once (by closeDatabase), not twice (not again by dispose)
-      expect(dataModule.closeDatabase).toHaveBeenCalledOnce();
+      // close called once (by closeDatabase), not twice (not again by dispose)
+      expect(mockClose).toHaveBeenCalledOnce();
     });
 
     it('should be no-op if database was never opened', async () => {
       const ctx = new CommandContext();
       await ctx.closeDatabase();
 
-      expect(dataModule.closeDatabase).not.toHaveBeenCalled();
+      expect(mockClose).not.toHaveBeenCalled();
     });
   });
 
@@ -137,7 +147,7 @@ describe('CommandContext', () => {
       await ctx.database();
       await ctx.dispose();
 
-      expect(dataModule.closeDatabase).toHaveBeenCalledWith(mockDatabase);
+      expect(mockClose).toHaveBeenCalled();
     });
 
     it('should be idempotent', async () => {
@@ -152,18 +162,18 @@ describe('CommandContext', () => {
       await ctx.dispose();
 
       expect(cleanupFn).toHaveBeenCalledOnce();
-      expect(dataModule.closeDatabase).toHaveBeenCalledOnce();
+      expect(mockClose).toHaveBeenCalledOnce();
     });
 
     it('should not close database if never opened', async () => {
       const ctx = new CommandContext();
       await ctx.dispose();
 
-      expect(dataModule.closeDatabase).not.toHaveBeenCalled();
+      expect(mockClose).not.toHaveBeenCalled();
     });
 
     it('should throw when database close fails', async () => {
-      vi.mocked(dataModule.closeDatabase).mockResolvedValue(err(new Error('close failed')));
+      mockClose.mockResolvedValue(err(new Error('close failed')));
 
       const ctx = new CommandContext();
       await ctx.database();
@@ -174,11 +184,10 @@ describe('CommandContext', () => {
 });
 
 describe('runCommand', () => {
-  const mockDatabase = { mock: 'database' } as unknown as KyselyDB;
-
   beforeEach(() => {
-    vi.mocked(dataModule.initializeDatabase).mockResolvedValue(ok(mockDatabase));
-    vi.mocked(dataModule.closeDatabase).mockResolvedValue(ok(undefined));
+    mockClose = vi.fn().mockResolvedValue(ok(undefined));
+    mockDataContext = { close: mockClose } as unknown as DataContext;
+    mockInitialize.mockResolvedValue(ok(mockDataContext));
   });
 
   afterEach(() => {
@@ -186,14 +195,14 @@ describe('runCommand', () => {
   });
 
   it('should run function and dispose context', async () => {
-    let dbRef: KyselyDB | undefined;
+    let dbRef: DataContext | undefined;
 
     await runCommand(async (ctx) => {
       dbRef = await ctx.database();
     });
 
-    expect(dbRef).toBe(mockDatabase);
-    expect(dataModule.closeDatabase).toHaveBeenCalledWith(mockDatabase);
+    expect(dbRef).toBe(mockDataContext);
+    expect(mockClose).toHaveBeenCalled();
   });
 
   it('should dispose even if function throws', async () => {
@@ -206,7 +215,7 @@ describe('runCommand', () => {
       })
     ).rejects.toThrow(testError);
 
-    expect(dataModule.closeDatabase).toHaveBeenCalledWith(mockDatabase);
+    expect(mockClose).toHaveBeenCalled();
   });
 
   it('should call process.exit with non-zero exitCode', async () => {
@@ -226,7 +235,7 @@ describe('runCommand', () => {
   });
 
   it('should propagate dispose error when fn succeeds', async () => {
-    vi.mocked(dataModule.closeDatabase).mockResolvedValue(err(new Error('close failed')));
+    mockClose.mockResolvedValue(err(new Error('close failed')));
 
     await expect(
       runCommand(async (ctx) => {
@@ -236,7 +245,7 @@ describe('runCommand', () => {
   });
 
   it('should prioritize fn error over dispose error', async () => {
-    vi.mocked(dataModule.closeDatabase).mockResolvedValue(err(new Error('close failed')));
+    mockClose.mockResolvedValue(err(new Error('close failed')));
 
     await expect(
       runCommand(async (ctx) => {
@@ -246,6 +255,6 @@ describe('runCommand', () => {
     ).rejects.toThrow('fn failed');
 
     // DB close was still attempted
-    expect(dataModule.closeDatabase).toHaveBeenCalledWith(mockDatabase);
+    expect(mockClose).toHaveBeenCalled();
   });
 });

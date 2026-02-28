@@ -15,12 +15,7 @@ import {
   type LotTransfer,
 } from '@exitbook/accounting';
 import { type Currency, type UniversalTransactionData } from '@exitbook/core';
-import {
-  createTransactionLinkQueries,
-  createTransactionQueries,
-  type TransactionLinkQueries,
-  type TransactionQueries,
-} from '@exitbook/data';
+import { type DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
@@ -58,10 +53,7 @@ export interface CostBasisResult {
  * Tier 2 handler — query-only constructor, external factory handles prereq orchestration.
  */
 export class CostBasisHandler {
-  constructor(
-    private readonly transactionRepository: TransactionQueries,
-    private readonly transactionLinkRepository: TransactionLinkQueries
-  ) {}
+  constructor(private readonly db: DataContext) {}
 
   /**
    * Execute the cost basis calculation.
@@ -86,8 +78,8 @@ export class CostBasisHandler {
       const pipelineResult = await runCostBasisPipeline(
         txResult.value,
         config,
-        this.transactionRepository,
-        this.transactionLinkRepository
+        this.db.transactions,
+        this.db.transactionLinks
       );
       if (pipelineResult.isErr()) {
         return err(pipelineResult.error);
@@ -152,7 +144,7 @@ export class CostBasisHandler {
       return err(new Error('Start date and end date must be defined'));
     }
 
-    const transactionsResult = await this.transactionRepository.getTransactions();
+    const transactionsResult = await this.db.transactions.getTransactions();
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);
     }
@@ -274,7 +266,5 @@ export async function createCostBasisHandler(
   }
 
   prereqAbort = undefined;
-  const transactionRepository = createTransactionQueries(database);
-  const transactionLinkRepository = createTransactionLinkQueries(database);
-  return ok(new CostBasisHandler(transactionRepository, transactionLinkRepository));
+  return ok(new CostBasisHandler(database));
 }

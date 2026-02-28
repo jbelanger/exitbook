@@ -1,5 +1,5 @@
 import { type Account, wrapError } from '@exitbook/core';
-import { createAccountQueries, createImportSessionQueries, createUserQueries, type KyselyDB } from '@exitbook/data';
+import { type DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -20,15 +20,7 @@ export interface ViewAccountsParams extends AccountQueryParams {
  * Separates persistence orchestration from CLI handlers.
  */
 export class AccountService {
-  private readonly accountQueries: ReturnType<typeof createAccountQueries>;
-  private readonly sessionQueries: ReturnType<typeof createImportSessionQueries>;
-  private readonly userQueries: ReturnType<typeof createUserQueries>;
-
-  constructor(db: KyselyDB) {
-    this.accountQueries = createAccountQueries(db);
-    this.sessionQueries = createImportSessionQueries(db);
-    this.userQueries = createUserQueries(db);
-  }
+  constructor(private readonly db: DataContext) {}
 
   /**
    * Query accounts with optional session details.
@@ -94,14 +86,14 @@ export class AccountService {
    */
   private async fetchAccounts(params: AccountQueryParams): Promise<Result<Account[], Error>> {
     // Get the default user to scope queries
-    const userResult = await this.userQueries.getOrCreateDefaultUser();
+    const userResult = await this.db.users.getOrCreateDefaultUser();
     if (userResult.isErr()) {
       return err(userResult.error);
     }
     const user = userResult.value;
 
     if (params.accountId) {
-      const accountResult = await this.accountQueries.findById(params.accountId);
+      const accountResult = await this.db.accounts.findById(params.accountId);
       if (accountResult.isErr()) {
         return err(accountResult.error);
       }
@@ -120,7 +112,7 @@ export class AccountService {
     }
 
     // Scope to default user's accounts only (not tracking-only accounts with userId=null)
-    return this.accountQueries.findAll({
+    return this.db.accounts.findAll({
       accountType: params.accountType,
       sourceName: params.source,
       userId: user.id,
@@ -132,7 +124,7 @@ export class AccountService {
    */
   private async fetchSessionCounts(accounts: Account[]): Promise<Result<Map<number, number>, Error>> {
     const accountIds = accounts.map((a) => a.id);
-    return this.sessionQueries.getSessionCountsByAccount(accountIds);
+    return this.db.importSessions.getSessionCountsByAccount(accountIds);
   }
 
   /**
@@ -142,7 +134,7 @@ export class AccountService {
     const accountIds = accounts.map((a) => a.id);
 
     // Fetch all sessions for all accounts in one query
-    const sessionsResult = await this.sessionQueries.findByAccounts(accountIds);
+    const sessionsResult = await this.db.importSessions.findAll({ accountIds });
     if (sessionsResult.isErr()) {
       return err(sessionsResult.error);
     }
@@ -194,7 +186,7 @@ export class AccountService {
       }
 
       // Check if this account has children
-      const childAccountsResult = await this.accountQueries.findAll({ parentAccountId: account.id });
+      const childAccountsResult = await this.db.accounts.findAll({ parentAccountId: account.id });
       if (childAccountsResult.isErr()) {
         return err(childAccountsResult.error);
       }

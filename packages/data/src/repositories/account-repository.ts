@@ -7,15 +7,22 @@ import {
   VerificationMetadataSchema,
   wrapError,
 } from '@exitbook/core';
-import { getLogger } from '@exitbook/logger';
 import type { Selectable, Updateable } from '@exitbook/sqlite';
 import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
 import type { AccountsTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/db-types.js';
+import type { KyselyDB } from '../storage/initialization.js';
 
-import { parseWithSchema, serializeToJson } from './query-utils.js';
+import { BaseRepository } from './base-repository.js';
+import { parseWithSchema, serializeToJson } from './db-utils.js';
+
+export interface AccountKeyParams {
+  accountType: AccountType;
+  sourceName: string;
+  identifier: string;
+  userId: number | undefined;
+}
 
 export interface FindOrCreateAccountParams {
   userId: number | undefined;
@@ -37,80 +44,74 @@ export interface UpdateAccountParams {
   metadata?: Account['metadata'] | undefined;
 }
 
-export function createAccountQueries(db: KyselyDB) {
-  const logger = getLogger('account-queries');
-
-  function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
-    const credentialsResult = parseWithSchema(row.credentials, ExchangeCredentialsSchema.optional());
-    if (credentialsResult.isErr()) return err(credentialsResult.error);
-
-    const lastCursorResult = parseWithSchema(row.last_cursor, z.record(z.string(), CursorStateSchema).optional());
-    if (lastCursorResult.isErr()) return err(lastCursorResult.error);
-
-    const verificationMetadataResult = parseWithSchema(
-      row.verification_metadata,
-      VerificationMetadataSchema.optional()
-    );
-    if (verificationMetadataResult.isErr()) return err(verificationMetadataResult.error);
-
-    const metadataSchema = z
+const accountMetadataSchema = z
+  .object({
+    xpub: z
       .object({
-        xpub: z
-          .object({
-            gapLimit: z.number(),
-            lastDerivedAt: z.number(),
-            derivedCount: z.number(),
-          })
-          .optional(),
+        gapLimit: z.number(),
+        lastDerivedAt: z.number(),
+        derivedCount: z.number(),
       })
-      .optional();
-    const metadataResult = parseWithSchema(row.metadata, metadataSchema);
-    if (metadataResult.isErr()) return err(metadataResult.error);
+      .optional(),
+  })
+  .optional();
 
-    const parseResult = AccountSchema.safeParse({
-      id: row.id,
-      userId: row.user_id ?? undefined,
-      parentAccountId: row.parent_account_id ?? undefined,
-      accountType: row.account_type,
-      sourceName: row.source_name,
-      identifier: row.identifier,
-      providerName: row.provider_name ?? undefined,
-      credentials: credentialsResult.value ?? undefined,
-      lastCursor: lastCursorResult.value,
-      lastBalanceCheckAt: row.last_balance_check_at ? new Date(row.last_balance_check_at) : undefined,
-      verificationMetadata: verificationMetadataResult.value,
-      metadata: metadataResult.value,
-      createdAt: new Date(row.created_at),
-      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
-    });
+function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
+  const credentialsResult = parseWithSchema(row.credentials, ExchangeCredentialsSchema.optional());
+  if (credentialsResult.isErr()) return err(credentialsResult.error);
 
-    if (!parseResult.success) {
-      return err(new Error(`Invalid account data: ${parseResult.error.message}`));
-    }
+  const lastCursorResult = parseWithSchema(row.last_cursor, z.record(z.string(), CursorStateSchema).optional());
+  if (lastCursorResult.isErr()) return err(lastCursorResult.error);
 
-    return ok(parseResult.data);
+  const verificationMetadataResult = parseWithSchema(row.verification_metadata, VerificationMetadataSchema.optional());
+  if (verificationMetadataResult.isErr()) return err(verificationMetadataResult.error);
+
+  const metadataResult = parseWithSchema(row.metadata, accountMetadataSchema);
+  if (metadataResult.isErr()) return err(metadataResult.error);
+
+  const parseResult = AccountSchema.safeParse({
+    id: row.id,
+    userId: row.user_id ?? undefined,
+    parentAccountId: row.parent_account_id ?? undefined,
+    accountType: row.account_type,
+    sourceName: row.source_name,
+    identifier: row.identifier,
+    providerName: row.provider_name ?? undefined,
+    credentials: credentialsResult.value ?? undefined,
+    lastCursor: lastCursorResult.value,
+    lastBalanceCheckAt: row.last_balance_check_at ? new Date(row.last_balance_check_at) : undefined,
+    verificationMetadata: verificationMetadataResult.value,
+    metadata: metadataResult.value,
+    createdAt: new Date(row.created_at),
+    updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+  });
+
+  if (!parseResult.success) {
+    return err(new Error(`Invalid account data: ${parseResult.error.message}`));
   }
 
-  async function findByAccountKey(
-    accountType: AccountType,
-    sourceName: string,
-    identifier: string,
-    userId: number | undefined
-  ): Promise<Result<Account | undefined, Error>> {
+  return ok(parseResult.data);
+}
+
+export class AccountRepository extends BaseRepository {
+  constructor(db: KyselyDB) {
+    super(db, 'account-repository');
+  }
+
+  async findBy(params: AccountKeyParams): Promise<Result<Account | undefined, Error>> {
     try {
-      let query = db
+      let query = this.db
         .selectFrom('accounts')
         .selectAll()
-        .where('account_type', '=', accountType)
-        .where('source_name', '=', sourceName)
-        .where('identifier', '=', identifier);
+        .where('account_type', '=', params.accountType)
+        .where('source_name', '=', params.sourceName)
+        .where('identifier', '=', params.identifier);
 
-      // Match COALESCE(user_id, 0)
-      const isNullOrZero = userId === null || userId === undefined || userId === 0;
+      const isNullOrZero = params.userId === null || params.userId === undefined || params.userId === 0;
       if (isNullOrZero) {
         query = query.where((eb) => eb.or([eb('user_id', 'is', null), eb('user_id', '=', 0)]));
       } else {
-        query = query.where('user_id', '=', userId);
+        query = query.where('user_id', '=', params.userId!);
       }
 
       const row = await query.executeTakeFirst();
@@ -125,9 +126,9 @@ export function createAccountQueries(db: KyselyDB) {
     }
   }
 
-  async function findById(accountId: number): Promise<Result<Account, Error>> {
+  async findById(accountId: number): Promise<Result<Account, Error>> {
     try {
-      const row = await db.selectFrom('accounts').selectAll().where('id', '=', accountId).executeTakeFirst();
+      const row = await this.db.selectFrom('accounts').selectAll().where('id', '=', accountId).executeTakeFirst();
 
       if (!row) {
         return err(new Error(`Account ${accountId} not found`));
@@ -139,14 +140,14 @@ export function createAccountQueries(db: KyselyDB) {
     }
   }
 
-  async function findAll(filters?: {
+  async findAll(filters?: {
     accountType?: AccountType | undefined;
     parentAccountId?: number | undefined;
     sourceName?: string | undefined;
     userId?: number | null | undefined;
   }): Promise<Result<Account[], Error>> {
     try {
-      let query = db.selectFrom('accounts').selectAll();
+      let query = this.db.selectFrom('accounts').selectAll();
 
       if (filters?.accountType) {
         query = query.where('account_type', '=', filters.accountType);
@@ -183,7 +184,7 @@ export function createAccountQueries(db: KyselyDB) {
     }
   }
 
-  async function findOrCreate(params: FindOrCreateAccountParams): Promise<Result<Account, Error>> {
+  async findOrCreate(params: FindOrCreateAccountParams): Promise<Result<Account, Error>> {
     try {
       if (!params.identifier || params.identifier.trim() === '') {
         return err(new Error('Account identifier must not be empty'));
@@ -192,21 +193,21 @@ export function createAccountQueries(db: KyselyDB) {
         return err(new Error('Account source name must not be empty'));
       }
 
-      const existingResult = await findByAccountKey(
-        params.accountType,
-        params.sourceName,
-        params.identifier,
-        params.userId
-      );
+      const existingResult = await this.findBy({
+        accountType: params.accountType,
+        sourceName: params.sourceName,
+        identifier: params.identifier,
+        userId: params.userId,
+      });
 
       if (existingResult.isErr()) return err(existingResult.error);
 
       if (existingResult.value) {
         const existing = existingResult.value;
-        logger.debug({ accountId: existing.id }, 'Found existing account');
+        this.logger.debug({ accountId: existing.id }, 'Found existing account');
 
         if (params.parentAccountId !== undefined && existing.parentAccountId !== params.parentAccountId) {
-          logger.info(
+          this.logger.info(
             {
               accountId: existing.id,
               currentParent: existing.parentAccountId,
@@ -215,10 +216,10 @@ export function createAccountQueries(db: KyselyDB) {
             'Updating parent account relationship for existing account'
           );
 
-          const updateResult = await update(existing.id, { parentAccountId: params.parentAccountId });
+          const updateResult = await this.update(existing.id, { parentAccountId: params.parentAccountId });
           if (updateResult.isErr()) return err(updateResult.error);
 
-          return findById(existing.id);
+          return this.findById(existing.id);
         }
 
         return ok(existing);
@@ -235,7 +236,7 @@ export function createAccountQueries(db: KyselyDB) {
         credentialsJson = serializedCredentials.value ?? null;
       }
 
-      const result = await db
+      const result = await this.db
         .insertInto('accounts')
         .values({
           user_id: params.userId,
@@ -254,18 +255,18 @@ export function createAccountQueries(db: KyselyDB) {
         .returning(['id', 'user_id', 'account_type', 'source_name', 'identifier', 'provider_name', 'created_at'])
         .executeTakeFirstOrThrow();
 
-      logger.info(
+      this.logger.info(
         { accountId: result.id, accountType: params.accountType, sourceName: params.sourceName },
         'Created new account'
       );
 
-      return findById(result.id);
+      return this.findById(result.id);
     } catch (error) {
       return wrapError(error, 'Failed to find or create account');
     }
   }
 
-  async function update(accountId: number, updates: UpdateAccountParams): Promise<Result<void, Error>> {
+  async update(accountId: number, updates: UpdateAccountParams): Promise<Result<void, Error>> {
     try {
       const updateData: Updateable<AccountsTable> = {
         updated_at: new Date().toISOString(),
@@ -322,7 +323,7 @@ export function createAccountQueries(db: KyselyDB) {
       const hasChanges = Object.keys(updateData).length > 1;
       if (!hasChanges) return ok();
 
-      await db.updateTable('accounts').set(updateData).where('id', '=', accountId).execute();
+      await this.db.updateTable('accounts').set(updateData).where('id', '=', accountId).execute();
 
       return ok();
     } catch (error) {
@@ -330,13 +331,9 @@ export function createAccountQueries(db: KyselyDB) {
     }
   }
 
-  async function updateCursor(
-    accountId: number,
-    operationType: string,
-    cursor: CursorState
-  ): Promise<Result<void, Error>> {
+  async updateCursor(accountId: number, operationType: string, cursor: CursorState): Promise<Result<void, Error>> {
     try {
-      const accountResult = await findById(accountId);
+      const accountResult = await this.findById(accountId);
       if (accountResult.isErr()) return err(accountResult.error);
 
       const updatedCursors = {
@@ -344,36 +341,24 @@ export function createAccountQueries(db: KyselyDB) {
         [operationType]: cursor,
       };
 
-      return update(accountId, { lastCursor: updatedCursors });
+      return this.update(accountId, { lastCursor: updatedCursors });
     } catch (error) {
       return wrapError(error, 'Failed to update cursor');
     }
   }
 
-  async function deleteByIds(accountIds: number[]): Promise<Result<number, Error>> {
+  async deleteByIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
       if (accountIds.length === 0) return ok(0);
 
-      const result = await db.deleteFrom('accounts').where('id', 'in', accountIds).executeTakeFirst();
+      const result = await this.db.deleteFrom('accounts').where('id', 'in', accountIds).executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      logger.debug({ accountIds, count }, 'Deleted accounts by IDs');
+      this.logger.debug({ accountIds, count }, 'Deleted accounts by IDs');
       return ok(count);
     } catch (error) {
-      logger.error({ error, accountIds }, 'Failed to delete accounts by IDs');
+      this.logger.error({ error, accountIds }, 'Failed to delete accounts by IDs');
       return wrapError(error, 'Failed to delete accounts by IDs');
     }
   }
-
-  return {
-    findOrCreate,
-    findById,
-    findByAccountKey,
-    findAll,
-    update,
-    updateCursor,
-    deleteByIds,
-  };
 }
-
-export type AccountQueries = ReturnType<typeof createAccountQueries>;

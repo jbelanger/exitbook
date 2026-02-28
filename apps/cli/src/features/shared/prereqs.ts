@@ -7,7 +7,7 @@ import {
   type PriceEvent,
 } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
-import { createTransactionLinkQueries, createTransactionQueries } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
@@ -17,8 +17,6 @@ import { createEventDrivenController } from '../../ui/shared/index.js';
 import { LinksRunMonitor } from '../links/components/links-run-components.jsx';
 import { PricesEnrichMonitor } from '../prices/components/prices-enrich-components.jsx';
 import { createDefaultPriceProviderManager } from '../prices/prices-utils.js';
-
-import type { CommandDatabase } from './command-runtime.js';
 
 const logger = getLogger('prereqs');
 
@@ -34,13 +32,11 @@ export interface PrereqExecutionOptions {
  * If newest tx > newest link (or no links exist), re-runs linking.
  */
 export async function ensureLinks(
-  db: CommandDatabase,
+  db: DataContext,
   dataDir: string,
   options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
-  const txRepo = createTransactionQueries(db);
-  const linkRepo = createTransactionLinkQueries(db);
-  const latestTxResult = await txRepo.getLatestCreatedAt();
+  const latestTxResult = await db.transactions.getLatestCreatedAt();
   if (latestTxResult.isErr()) return err(latestTxResult.error);
 
   const latestTx = latestTxResult.value;
@@ -49,7 +45,7 @@ export async function ensureLinks(
     return ok();
   }
 
-  const latestLinkResult = await linkRepo.getLatestCreatedAt();
+  const latestLinkResult = await db.transactionLinks.getLatestCreatedAt();
   if (latestLinkResult.isErr()) return err(latestLinkResult.error);
 
   const latestLink = latestLinkResult.value;
@@ -75,7 +71,7 @@ export async function ensureLinks(
   };
 
   if (options.isJsonMode) {
-    const handler = new LinkingOrchestrator(txRepo, linkRepo, overrideStore);
+    const handler = new LinkingOrchestrator(db.transactions, db.transactionLinks, overrideStore);
     const result = await handler.execute(params);
     if (result.isErr()) return err(result.error);
     logger.info('Linking completed (JSON mode)');
@@ -102,7 +98,7 @@ export async function ensureLinks(
   try {
     await controller.start();
 
-    const handler = new LinkingOrchestrator(txRepo, linkRepo, overrideStore, eventBus);
+    const handler = new LinkingOrchestrator(db.transactions, db.transactionLinks, overrideStore, eventBus);
     const result = await handler.execute(params);
 
     if (result.isErr()) {
@@ -131,14 +127,13 @@ export async function ensureLinks(
  * If missingPricesCount > 0, runs the full PriceEnrichmentPipeline.
  */
 export async function ensurePrices(
-  db: CommandDatabase,
+  db: DataContext,
   startDate: Date,
   endDate: Date,
   currency: string,
   options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
-  const txRepo = createTransactionQueries(db);
-  const txResult = await txRepo.getTransactions();
+  const txResult = await db.transactions.getTransactions();
   if (txResult.isErr()) return err(txResult.error);
 
   const filtered = filterTransactionsByDateRange(txResult.value, startDate, endDate);
@@ -167,8 +162,7 @@ export async function ensurePrices(
     if (priceManagerResult.isErr()) return err(priceManagerResult.error);
     const priceManager = priceManagerResult.value;
     try {
-      const linkRepo = createTransactionLinkQueries(db);
-      const pipeline = new PriceEnrichmentPipeline(txRepo, linkRepo);
+      const pipeline = new PriceEnrichmentPipeline(db);
       const result = await pipeline.execute({}, priceManager);
       if (result.isErr()) return err(result.error);
       logger.info('Price enrichment completed (JSON mode)');
@@ -209,8 +203,7 @@ export async function ensurePrices(
   try {
     await controller.start();
 
-    const linkRepo = createTransactionLinkQueries(db);
-    const pipeline = new PriceEnrichmentPipeline(txRepo, linkRepo, eventBus, instrumentation);
+    const pipeline = new PriceEnrichmentPipeline(db, eventBus, instrumentation);
     const result = await pipeline.execute({}, priceManager);
 
     if (result.isErr()) {

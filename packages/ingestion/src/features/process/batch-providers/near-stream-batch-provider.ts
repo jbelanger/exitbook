@@ -1,5 +1,5 @@
 import type { RawTransaction } from '@exitbook/core';
-import type { NearRawDataQueries } from '@exitbook/data';
+import type { NearRawTransactionRepository } from '@exitbook/data';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { IRawDataBatchProvider } from './raw-data-batch-provider.interface.js';
@@ -21,7 +21,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
   private lastBatchWasEmpty = false;
 
   constructor(
-    private readonly nearRawDataQueries: NearRawDataQueries,
+    private readonly nearRawDataQueries: NearRawTransactionRepository,
     private readonly accountId: number,
     private readonly hashBatchSize = 100
   ) {}

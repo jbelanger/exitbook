@@ -4,14 +4,13 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { createTokenMetadataQueries, type TokenMetadataQueries } from '../../queries/token-metadata-queries.js';
-
 import {
   closeTokenMetadataDatabase,
   createTokenMetadataDatabase,
   initializeTokenMetadataDatabase,
   type TokenMetadataDB,
 } from './database.js';
+import { createTokenMetadataQueries, type TokenMetadataQueries } from './queries.js';
 
 const logger = getLogger('TokenMetadataQueriesFactory');
 

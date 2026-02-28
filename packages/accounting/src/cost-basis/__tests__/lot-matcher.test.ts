@@ -1,22 +1,22 @@
 import { type Currency, parseDecimal, type TransactionLink, type UniversalTransactionData } from '@exitbook/core';
-import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
+import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { describe, expect, it, vi } from 'vitest';
 
 import { LotMatcher } from '../lot-matcher.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
 
 const mockTransactionRepo = () => {
-  const queries: Partial<TransactionQueries> = {
+  const queries: Partial<TransactionRepository> = {
     findById: vi.fn().mockResolvedValue({ isOk: () => false, isErr: () => true, error: new Error('Not found') }),
   };
-  return queries as TransactionQueries;
+  return queries as TransactionRepository;
 };
 
 const mockLinkRepo = () => {
-  const queries: Partial<TransactionLinkQueries> = {
+  const queries: Partial<TransactionLinkRepository> = {
     findAll: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
   };
-  return queries as TransactionLinkQueries;
+  return queries as TransactionLinkRepository;
 };
 
 describe('LotMatcher - Fee Handling', () => {
@@ -1358,7 +1358,7 @@ describe('LotMatcher - Fee Handling', () => {
       };
 
       const mockTransactionRepo = () => {
-        const queries: Partial<TransactionQueries> = {
+        const queries: Partial<TransactionRepository> = {
           findById: vi.fn().mockImplementation((id: number) => {
             const tx = transactions.find((t) => t.id === id);
             return tx
@@ -1366,18 +1366,18 @@ describe('LotMatcher - Fee Handling', () => {
               : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
           }),
         };
-        return queries as TransactionQueries;
+        return queries as TransactionRepository;
       };
 
       const mockLinkRepo = () => {
-        const queries: Partial<TransactionLinkQueries> = {
+        const queries: Partial<TransactionLinkRepository> = {
           findAll: vi.fn().mockResolvedValue({
             isOk: () => true,
             isErr: () => false,
             value: [link],
           }),
         };
-        return queries as TransactionLinkQueries;
+        return queries as TransactionLinkRepository;
       };
 
       const matcherWithLinks = new LotMatcher(mockTransactionRepo(), mockLinkRepo());

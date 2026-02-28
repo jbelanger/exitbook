@@ -1,13 +1,5 @@
 import type { Account, AccountType, ExchangeCredentials, UniversalTransactionData } from '@exitbook/core';
-// eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
-import type { KyselyDB } from '@exitbook/data';
-import {
-  type AccountQueries,
-  type TransactionQueries,
-  createAccountQueries,
-  createTokenMetadataPersistence,
-  createTransactionQueries,
-} from '@exitbook/data';
+import { type DataContext, createTokenMetadataPersistence } from '@exitbook/data';
 import { BalanceService, calculateBalances } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -80,8 +72,7 @@ export class BalanceHandler {
   private streamPromise: Promise<void> | undefined;
 
   constructor(
-    private readonly accountRepo: AccountQueries,
-    private readonly transactionRepo: TransactionQueries,
+    private readonly db: DataContext,
     private readonly balanceService: BalanceService | undefined
   ) {}
 
@@ -90,7 +81,7 @@ export class BalanceHandler {
   }
 
   async loadAccountsForVerification(): Promise<Result<SortedVerificationAccount[], Error>> {
-    const result = await this.accountRepo.findAll();
+    const result = await this.db.accounts.findAll();
     if (result.isErr()) return err(result.error);
 
     const topLevel = result.value.filter((a) => !a.parentAccountId);
@@ -373,27 +364,27 @@ export class BalanceHandler {
   }
 
   private async loadAllAccounts(): Promise<Account[]> {
-    const result = await this.accountRepo.findAll();
+    const result = await this.db.accounts.findAll();
     if (result.isErr()) throw result.error;
     return result.value.filter((a) => !a.parentAccountId);
   }
 
   private async loadSingleAccount(accountId: number): Promise<Account[]> {
-    const result = await this.accountRepo.findById(accountId);
+    const result = await this.db.accounts.findById(accountId);
     if (result.isErr()) throw result.error;
     if (!result.value) throw new Error(`Account #${accountId} not found`);
     return [result.value];
   }
 
   private async loadSingleAccountOrFail(accountId: number): Promise<Account> {
-    const result = await this.accountRepo.findById(accountId);
+    const result = await this.db.accounts.findById(accountId);
     if (result.isErr()) throw result.error;
     if (!result.value) throw new Error(`Account #${accountId} not found`);
     return result.value;
   }
 
   private async loadAccountTransactions(account: Account): Promise<UniversalTransactionData[]> {
-    const childResult = await this.accountRepo.findAll({ parentAccountId: account.id });
+    const childResult = await this.db.accounts.findAll({ parentAccountId: account.id });
     const accountIds = [account.id];
     if (childResult.isOk()) {
       accountIds.push(...childResult.value.map((c) => c.id));
@@ -401,7 +392,7 @@ export class BalanceHandler {
       logger.warn(`Failed to load child accounts for account #${account.id}: ${childResult.error.message}`);
     }
 
-    const txResult = await this.transactionRepo.getTransactions({ accountIds });
+    const txResult = await this.db.transactions.getTransactions({ accountIds });
     if (txResult.isErr()) {
       logger.warn(`Failed to load transactions for account #${account.id}: ${txResult.error.message}`);
       return [];
@@ -466,15 +457,12 @@ export class BalanceHandler {
 
 export async function createBalanceHandler(
   ctx: CommandContext,
-  database: KyselyDB,
+  database: DataContext,
   options: { needsOnline: boolean }
 ): Promise<Result<BalanceHandler, Error>> {
   try {
-    const accountRepo = createAccountQueries(database);
-    const transactionRepo = createTransactionQueries(database);
-
     if (!options.needsOnline) {
-      return ok(new BalanceHandler(accountRepo, transactionRepo, undefined));
+      return ok(new BalanceHandler(database, undefined));
     }
 
     const tokenMetadataResult = await createTokenMetadataPersistence(getDataDir());
@@ -484,7 +472,7 @@ export async function createBalanceHandler(
 
     const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
     const balanceService = new BalanceService(database, tokenMetadataRepo, providerManager);
-    const handler = new BalanceHandler(accountRepo, transactionRepo, balanceService);
+    const handler = new BalanceHandler(database, balanceService);
     ctx.onCleanup(async () => {
       await handler.awaitStream();
       await balanceService.destroy();

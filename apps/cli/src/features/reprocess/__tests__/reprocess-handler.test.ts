@@ -1,4 +1,4 @@
-import type { RawDataQueries } from '@exitbook/data';
+import type { RawTransactionRepository } from '@exitbook/data';
 import type { ClearService, RawDataProcessingService } from '@exitbook/ingestion';
 import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -8,7 +8,7 @@ import { executeReprocess } from '../reprocess-handler.js';
 describe('executeReprocess', () => {
   let mockProcessService: RawDataProcessingService;
   let mockClearService: ClearService;
-  let mockRawDataQueries: RawDataQueries;
+  let mockRawDataRepo: RawTransactionRepository;
 
   beforeEach(() => {
     mockProcessService = {
@@ -34,9 +34,9 @@ describe('executeReprocess', () => {
       ),
     } as unknown as ClearService;
 
-    mockRawDataQueries = {
-      getAccountsWithPendingData: vi.fn().mockResolvedValue(ok([])),
-    } as unknown as RawDataQueries;
+    mockRawDataRepo = {
+      findDistinctAccountIds: vi.fn().mockResolvedValue(ok([])),
+    } as unknown as RawTransactionRepository;
   });
 
   describe('Basic Execution', () => {
@@ -46,7 +46,7 @@ describe('executeReprocess', () => {
         {
           rawDataProcessingService: mockProcessService,
           clearService: mockClearService,
-          rawDataQueries: mockRawDataQueries,
+          rawDataRepo: mockRawDataRepo,
         }
       );
 
@@ -67,7 +67,7 @@ describe('executeReprocess', () => {
         {
           rawDataProcessingService: mockProcessService,
           clearService: mockClearService,
-          rawDataQueries: mockRawDataQueries,
+          rawDataRepo: mockRawDataRepo,
         }
       );
 

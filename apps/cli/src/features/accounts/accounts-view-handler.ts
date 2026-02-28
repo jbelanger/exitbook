@@ -1,6 +1,6 @@
 // Tier 1 handler for accounts view command
-// eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
-import type { KyselyDB } from '@exitbook/data';
+
+import type { DataContext } from '@exitbook/data';
 import { AccountService, type AccountListResult, type ViewAccountsParams } from '@exitbook/ingestion';
 import type { Result } from 'neverthrow';
 
@@ -13,7 +13,7 @@ export type { AccountListResult, ViewAccountsParams };
 export class AccountsViewHandler {
   private readonly accountService: AccountService;
 
-  constructor(database: KyselyDB) {
+  constructor(database: DataContext) {
     this.accountService = new AccountService(database);
   }
 

@@ -1,4 +1,4 @@
-import { createAccountQueries, type AccountQueries } from '@exitbook/data';
+import type { AccountRepository } from '@exitbook/data';
 import { ClearService, type ClearResult, type DeletionPreview } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import React from 'react';
@@ -103,7 +103,7 @@ async function executeClearTUI(options: {
       const previewWithoutRaw = previewWithoutRawResult.value;
       const previewWithRaw = previewWithRawResult.value;
 
-      const scopeLabel = await buildScopeLabel(options.accountId, options.source, createAccountQueries(database));
+      const scopeLabel = await buildScopeLabel(options.accountId, options.source, database.accounts);
 
       const initialState = createClearViewState(
         { accountId: options.accountId, source: options.source, label: scopeLabel },
@@ -137,7 +137,7 @@ async function executeClearTUI(options: {
 async function buildScopeLabel(
   accountId: number | undefined,
   source: string | undefined,
-  accountRepo: AccountQueries
+  accountRepo: AccountRepository
 ): Promise<string> {
   if (accountId) {
     const accountResult = await accountRepo.findById(accountId);

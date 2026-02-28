@@ -1,6 +1,6 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ImportSession } from '@exitbook/core';
-import { createAccountQueries, createImportSessionQueries, createRawDataQueries, type KyselyDB } from '@exitbook/data';
+import { type DataContext } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -18,20 +18,14 @@ import type { IImporter, ImportParams } from '../../shared/types/importers.js';
  */
 export class StreamingImportRunner {
   private readonly logger: Logger;
-  private readonly rawDataQueries: ReturnType<typeof createRawDataQueries>;
-  private readonly importSessionQueries: ReturnType<typeof createImportSessionQueries>;
-  private readonly accountQueries: ReturnType<typeof createAccountQueries>;
 
   constructor(
-    db: KyselyDB,
+    private readonly db: DataContext,
     private readonly providerManager: BlockchainProviderManager,
     private readonly registry: AdapterRegistry,
     private readonly eventBus?: EventBus<ImportEvent> | undefined
   ) {
     this.logger = getLogger('StreamingImportRunner');
-    this.rawDataQueries = createRawDataQueries(db);
-    this.importSessionQueries = createImportSessionQueries(db);
-    this.accountQueries = createAccountQueries(db);
   }
 
   /**
@@ -108,7 +102,7 @@ export class StreamingImportRunner {
   ): Promise<Result<ImportSession, Error>> {
     const sourceName = account.sourceName;
 
-    const incompleteImportSessionResult = await this.importSessionQueries.findLatestIncomplete(account.id);
+    const incompleteImportSessionResult = await this.db.importSessions.findLatestIncomplete(account.id);
 
     if (incompleteImportSessionResult.isErr()) {
       return err(incompleteImportSessionResult.error);
@@ -130,12 +124,12 @@ export class StreamingImportRunner {
       );
 
       // Reset status to 'started' in case the previous attempt failed
-      const updateResult = await this.importSessionQueries.update(importSessionId, { status: 'started' });
+      const updateResult = await this.db.importSessions.update(importSessionId, { status: 'started' });
       if (updateResult.isErr()) {
         return err(updateResult.error);
       }
     } else {
-      const importSessionCreateResult = await this.importSessionQueries.create(account.id);
+      const importSessionCreateResult = await this.db.importSessions.create(account.id);
       if (importSessionCreateResult.isErr()) {
         return err(importSessionCreateResult.error);
       }
@@ -151,7 +145,7 @@ export class StreamingImportRunner {
     let transactionCounts: Map<string, number> | undefined;
     let transactionCountWarning: string | undefined;
     if (!isNewAccount) {
-      const countsResult = await this.rawDataQueries.countByStreamType(account.id);
+      const countsResult = await this.db.rawTransactions.countByStreamType(account.id);
       if (countsResult.isOk()) {
         transactionCounts = countsResult.value;
       } else {
@@ -191,7 +185,7 @@ export class StreamingImportRunner {
 
       for await (const batchResult of batchIterator) {
         if (batchResult.isErr()) {
-          await this.importSessionQueries.update(importSessionId, {
+          await this.db.importSessions.update(importSessionId, {
             status: 'failed',
             error_message: batchResult.error.message,
           });
@@ -217,10 +211,12 @@ export class StreamingImportRunner {
         }
 
         this.logger.debug(`Saving ${batch.rawTransactions.length} ${batch.streamType}...`);
-        const saveResult = await this.rawDataQueries.saveBatch(account.id, batch.rawTransactions);
+        const saveResult = await this.db.executeInTransaction((tx) =>
+          tx.rawTransactions.saveBatch(account.id, batch.rawTransactions)
+        );
 
         if (saveResult.isErr()) {
-          await this.importSessionQueries.update(importSessionId, {
+          await this.db.importSessions.update(importSessionId, {
             status: 'failed',
             error_message: saveResult.error.message,
           });
@@ -237,7 +233,7 @@ export class StreamingImportRunner {
         }
 
         // Update progress and cursor after EACH batch for crash recovery
-        const cursorUpdateResult = await this.accountQueries.updateCursor(account.id, batch.streamType, batch.cursor);
+        const cursorUpdateResult = await this.db.accounts.updateCursor(account.id, batch.streamType, batch.cursor);
 
         if (cursorUpdateResult.isErr()) {
           const warning = `Failed to update cursor for account ${account.id} (${batch.streamType}): ${cursorUpdateResult.error.message}`;
@@ -286,7 +282,7 @@ export class StreamingImportRunner {
       if (allWarnings.length > 0) {
         const warningMessage = `Import completed with ${allWarnings.length} warning(s) and was marked as failed to prevent processing incomplete data. `;
 
-        const finalizeResult = await this.importSessionQueries.finalize(
+        const finalizeResult = await this.db.importSessions.finalize(
           importSessionId,
           'failed',
           startTime,
@@ -312,7 +308,7 @@ export class StreamingImportRunner {
         return err(new Error(warningMessage));
       }
 
-      const finalizeResult = await this.importSessionQueries.finalize(
+      const finalizeResult = await this.db.importSessions.finalize(
         importSessionId,
         'completed',
         startTime,
@@ -341,7 +337,7 @@ export class StreamingImportRunner {
         durationMs: Date.now() - startTime,
       });
 
-      const sessionResult = await this.importSessionQueries.findById(importSessionId);
+      const sessionResult = await this.db.importSessions.findById(importSessionId);
       if (sessionResult.isErr()) {
         return err(sessionResult.error);
       }
@@ -353,7 +349,7 @@ export class StreamingImportRunner {
     } catch (error) {
       const originalError = error instanceof Error ? error : new Error(String(error));
 
-      await this.importSessionQueries.finalize(
+      await this.db.importSessions.finalize(
         importSessionId,
         'failed',
         startTime,

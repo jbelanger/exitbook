@@ -1,6 +1,6 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -41,10 +41,7 @@ function transactionNeedsPrice(transaction: UniversalTransactionData): boolean {
  * - derive: Recalculate crypto-crypto swap ratios for accurate cost basis
  */
 export class PriceDerivationService {
-  constructor(
-    private readonly transactionRepository: TransactionQueries,
-    private readonly linkRepository: TransactionLinkQueries
-  ) {}
+  constructor(private readonly db: DataContext) {}
 
   /**
    * Main entry point: derive prices for all transactions needing prices
@@ -55,7 +52,7 @@ export class PriceDerivationService {
 
       // Get full transaction data - we must process ALL transactions even if none need prices
       // because Pass N+2 recalculates ratios for swaps that already have fetched prices
-      const allTransactionsResult = await this.transactionRepository.getTransactions();
+      const allTransactionsResult = await this.db.transactions.getTransactions();
       if (allTransactionsResult.isErr()) {
         return err(allTransactionsResult.error);
       }
@@ -77,7 +74,7 @@ export class PriceDerivationService {
       );
 
       // Fetch confirmed transaction links
-      const linksResult = await this.linkRepository.findAll('confirmed');
+      const linksResult = await this.db.transactionLinks.findAll('confirmed');
       if (linksResult.isErr()) {
         return err(linksResult.error);
       }
@@ -221,11 +218,6 @@ export class PriceDerivationService {
    * applied by the multi-pass algorithm. Just persist it directly.
    */
   private async updateTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>> {
-    try {
-      // Persist the complete derived transaction
-      return await this.transactionRepository.updateMovementsWithPrices(tx);
-    } catch (error) {
-      return wrapError(error, `Failed to update transaction ${tx.id}`);
-    }
+    return this.db.executeInTransaction((txCtx) => txCtx.transactions.updateMovementsWithPrices(tx));
   }
 }

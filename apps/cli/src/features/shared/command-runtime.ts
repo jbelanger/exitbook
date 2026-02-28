@@ -1,8 +1,6 @@
-/* eslint-disable no-restricted-imports -- ok here since this is the CLI boundary */
 import path from 'node:path';
 
-import type { KyselyDB } from '@exitbook/data';
-import { closeDatabase, initializeDatabase } from '@exitbook/data';
+import { DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { render } from 'ink';
 import type React from 'react';
@@ -12,7 +10,7 @@ import { getDataDir } from './data-dir.js';
 const logger = getLogger('command-runtime');
 
 // CLI-owned database type alias used by feature handlers to avoid direct KyselyDB imports.
-export type CommandDatabase = KyselyDB;
+export type CommandDatabase = DataContext;
 
 /**
  * Manages database lifecycle, SIGINT handling, and cleanup for CLI commands.
@@ -27,7 +25,7 @@ export class CommandContext {
   exitCode = 0;
   readonly dataDir: string;
 
-  private _database?: KyselyDB | undefined;
+  private _database?: DataContext | undefined;
   private _databaseClosed = false;
   private _disposed = false;
   private cleanupStack: (() => Promise<void>)[] = [];
@@ -41,12 +39,12 @@ export class CommandContext {
    * Lazy-initialize and return the database connection.
    * Throws if called after closeDatabase().
    */
-  async database(): Promise<KyselyDB> {
+  async database(): Promise<DataContext> {
     if (this._databaseClosed) {
       throw new Error('Database already closed');
     }
     if (!this._database) {
-      const initResult = await initializeDatabase(path.join(this.dataDir, 'transactions.db'));
+      const initResult = await DataContext.initialize(path.join(this.dataDir, 'transactions.db'));
       if (initResult.isErr()) {
         throw initResult.error;
       }
@@ -61,7 +59,7 @@ export class CommandContext {
    */
   async closeDatabase(): Promise<void> {
     if (this._database && !this._databaseClosed) {
-      const closeResult = await closeDatabase(this._database);
+      const closeResult = await this._database.close();
       if (closeResult.isErr()) {
         throw closeResult.error;
       }
@@ -142,7 +140,7 @@ export class CommandContext {
     // Close DB last (if still open)
     if (this._database && !this._databaseClosed) {
       try {
-        const closeResult = await closeDatabase(this._database);
+        const closeResult = await this._database.close();
         if (closeResult.isErr()) {
           throw closeResult.error;
         }

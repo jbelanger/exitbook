@@ -1,44 +1,45 @@
 /* eslint-disable unicorn/no-null -- null required for db */
 import type { ImportSession, ImportSessionStatus } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import { getLogger } from '@exitbook/logger';
 import type { Selectable, Updateable } from '@exitbook/sqlite';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ImportSessionsTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/db-types.js';
-import type { ImportSessionUpdate } from '../types/data-types.js';
+import type { KyselyDB } from '../storage/initialization.js';
 
-import { parseJson, serializeToJson } from './query-utils.js';
+import { BaseRepository } from './base-repository.js';
+import { parseJson, serializeToJson } from './db-utils.js';
 
-export function createImportSessionQueries(db: KyselyDB) {
-  const logger = getLogger('import-session-queries');
-
-  function toImportSession(row: Selectable<ImportSessionsTable>): Result<ImportSession, Error> {
-    const errorDetailsResult = parseJson<unknown>(row.error_details);
-    if (errorDetailsResult.isErr()) {
-      return err(errorDetailsResult.error);
-    }
-
-    return ok({
-      id: row.id,
-      accountId: row.account_id,
-      status: row.status,
-      startedAt: new Date(row.started_at),
-      completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
-      createdAt: new Date(row.created_at),
-      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
-      durationMs: row.duration_ms ?? undefined,
-      transactionsImported: row.transactions_imported,
-      transactionsSkipped: row.transactions_skipped,
-      errorMessage: row.error_message ?? undefined,
-      errorDetails: errorDetailsResult.value,
-    });
+function toImportSession(row: Selectable<ImportSessionsTable>): Result<ImportSession, Error> {
+  const errorDetailsResult = parseJson<unknown>(row.error_details);
+  if (errorDetailsResult.isErr()) {
+    return err(errorDetailsResult.error);
   }
 
-  async function create(accountId: number): Promise<Result<number, Error>> {
+  return ok({
+    id: row.id,
+    accountId: row.account_id,
+    status: row.status,
+    startedAt: new Date(row.started_at),
+    completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
+    createdAt: new Date(row.created_at),
+    updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+    durationMs: row.duration_ms ?? undefined,
+    transactionsImported: row.transactions_imported,
+    transactionsSkipped: row.transactions_skipped,
+    errorMessage: row.error_message ?? undefined,
+    errorDetails: errorDetailsResult.value,
+  });
+}
+
+export class ImportSessionRepository extends BaseRepository {
+  constructor(db: KyselyDB) {
+    super(db, 'import-session-repository');
+  }
+
+  async create(accountId: number): Promise<Result<number, Error>> {
     try {
-      const result = await db
+      const result = await this.db
         .insertInto('import_sessions')
         .values({
           account_id: accountId,
@@ -57,11 +58,7 @@ export function createImportSessionQueries(db: KyselyDB) {
     }
   }
 
-  /**
-   * Finalize an import session
-   * Sets final status, duration, and transaction results
-   */
-  async function finalize(
+  async finalize(
     sessionId: number,
     status: Exclude<ImportSessionStatus, 'started'>,
     startTime: number,
@@ -78,7 +75,7 @@ export function createImportSessionQueries(db: KyselyDB) {
         return err(serializedErrorDetails.error);
       }
 
-      await db
+      await this.db
         .updateTable('import_sessions')
         .set({
           completed_at: currentTimestamp,
@@ -98,9 +95,13 @@ export function createImportSessionQueries(db: KyselyDB) {
     }
   }
 
-  async function findById(sessionId: number): Promise<Result<ImportSession | undefined, Error>> {
+  async findById(sessionId: number): Promise<Result<ImportSession | undefined, Error>> {
     try {
-      const row = await db.selectFrom('import_sessions').selectAll().where('id', '=', sessionId).executeTakeFirst();
+      const row = await this.db
+        .selectFrom('import_sessions')
+        .selectAll()
+        .where('id', '=', sessionId)
+        .executeTakeFirst();
 
       if (!row) {
         return ok(undefined);
@@ -117,18 +118,19 @@ export function createImportSessionQueries(db: KyselyDB) {
     }
   }
 
-  async function findByAccounts(accountIds: number[]): Promise<Result<ImportSession[], Error>> {
+  async findAll(filters?: { accountIds?: number[] }): Promise<Result<ImportSession[], Error>> {
     try {
-      if (accountIds.length === 0) {
+      if (filters?.accountIds !== undefined && filters.accountIds.length === 0) {
         return ok([]);
       }
 
-      const rows = await db
-        .selectFrom('import_sessions')
-        .selectAll()
-        .where('account_id', 'in', accountIds)
-        .orderBy('started_at', 'desc')
-        .execute();
+      let query = this.db.selectFrom('import_sessions').selectAll().orderBy('started_at', 'desc');
+
+      if (filters?.accountIds !== undefined) {
+        query = query.where('account_id', 'in', filters.accountIds);
+      }
+
+      const rows = await query.execute();
 
       const importSessions: ImportSession[] = [];
       for (const row of rows) {
@@ -141,17 +143,17 @@ export function createImportSessionQueries(db: KyselyDB) {
 
       return ok(importSessions);
     } catch (error) {
-      return wrapError(error, 'Failed to find import sessions by accounts');
+      return wrapError(error, 'Failed to find import sessions');
     }
   }
 
-  async function getSessionCountsByAccount(accountIds: number[]): Promise<Result<Map<number, number>, Error>> {
+  async getSessionCountsByAccount(accountIds: number[]): Promise<Result<Map<number, number>, Error>> {
     try {
       if (accountIds.length === 0) {
         return ok(new Map());
       }
 
-      const results = await db
+      const results = await this.db
         .selectFrom('import_sessions')
         .select(['account_id', (eb) => eb.fn.count<number>('id').as('count')])
         .where('account_id', 'in', accountIds)
@@ -175,7 +177,7 @@ export function createImportSessionQueries(db: KyselyDB) {
     }
   }
 
-  async function update(sessionId: number, updates: ImportSessionUpdate): Promise<Result<void, Error>> {
+  async update(sessionId: number, updates: Updateable<ImportSessionsTable>): Promise<Result<void, Error>> {
     try {
       const currentTimestamp = new Date().toISOString();
       const updateData: Updateable<ImportSessionsTable> = {
@@ -215,18 +217,18 @@ export function createImportSessionQueries(db: KyselyDB) {
         return ok();
       }
 
-      await db.updateTable('import_sessions').set(updateData).where('id', '=', sessionId).execute();
+      await this.db.updateTable('import_sessions').set(updateData).where('id', '=', sessionId).execute();
 
       return ok();
     } catch (error) {
-      logger.error({ error, sessionId }, 'Failed to update import session');
+      this.logger.error({ error, sessionId }, 'Failed to update import session');
       return wrapError(error, 'Failed to update import session');
     }
   }
 
-  async function count(filters?: { accountIds?: number[] }): Promise<Result<number, Error>> {
+  async count(filters?: { accountIds?: number[] }): Promise<Result<number, Error>> {
     try {
-      let query = db.selectFrom('import_sessions').select(({ fn }) => [fn.count<number>('id').as('count')]);
+      let query = this.db.selectFrom('import_sessions').select(({ fn }) => [fn.count<number>('id').as('count')]);
 
       if (filters?.accountIds !== undefined) {
         if (filters.accountIds.length === 0) {
@@ -242,31 +244,24 @@ export function createImportSessionQueries(db: KyselyDB) {
     }
   }
 
-  async function deleteByAccount(accountId: number): Promise<Result<void, Error>> {
+  async deleteBy(filters?: { accountId?: number }): Promise<Result<void, Error>> {
     try {
-      await db.deleteFrom('import_sessions').where('account_id', '=', accountId).execute();
+      let query = this.db.deleteFrom('import_sessions');
+
+      if (filters?.accountId !== undefined) {
+        query = query.where('account_id', '=', filters.accountId);
+      }
+
+      await query.execute();
       return ok();
     } catch (error) {
-      return wrapError(error, 'Failed to delete import sessions by account ID');
+      return wrapError(error, 'Failed to delete import sessions');
     }
   }
 
-  async function deleteAll(): Promise<Result<void, Error>> {
+  async findLatestIncomplete(accountId: number): Promise<Result<ImportSession | undefined, Error>> {
     try {
-      await db.deleteFrom('import_sessions').execute();
-      return ok();
-    } catch (error) {
-      return wrapError(error, 'Failed to delete all import sessions');
-    }
-  }
-
-  /**
-   * Find latest incomplete import session for an account to support resume
-   * Status 'started' or 'failed' indicates incomplete import
-   */
-  async function findLatestIncomplete(accountId: number): Promise<Result<ImportSession | undefined, Error>> {
-    try {
-      const row = await db
+      const row = await this.db
         .selectFrom('import_sessions')
         .selectAll()
         .where('account_id', '=', accountId)
@@ -289,19 +284,4 @@ export function createImportSessionQueries(db: KyselyDB) {
       return wrapError(error, 'Failed to find latest incomplete import session');
     }
   }
-
-  return {
-    create,
-    finalize,
-    findById,
-    findByAccounts,
-    getSessionCountsByAccount,
-    findLatestIncomplete,
-    update,
-    count,
-    deleteByAccount,
-    deleteAll,
-  };
 }
-
-export type ImportSessionQueries = ReturnType<typeof createImportSessionQueries>;

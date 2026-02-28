@@ -14,9 +14,9 @@ export interface CreateOverrideEventOptions {
  * Transaction fingerprint components
  * Simplified version using source_name:external_id pattern
  */
-export interface TransactionIdentity {
-  source_name: string;
-  external_id: string;
+export interface TransactionFingerprintInput {
+  source: string;
+  externalId: string;
 }
 
 /**

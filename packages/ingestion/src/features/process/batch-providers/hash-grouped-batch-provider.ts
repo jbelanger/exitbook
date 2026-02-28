@@ -1,5 +1,5 @@
 import type { RawTransaction } from '@exitbook/core';
-import type { RawDataQueries } from '@exitbook/data';
+import type { RawTransactionRepository } from '@exitbook/data';
 import { ok, type Result } from 'neverthrow';
 
 import type { IRawDataBatchProvider } from './raw-data-batch-provider.interface.js';
@@ -16,7 +16,7 @@ export class HashGroupedBatchProvider implements IRawDataBatchProvider {
   private lastBatchWasEmpty = false;
 
   constructor(
-    private readonly rawDataQueries: RawDataQueries,
+    private readonly rawDataQueries: RawTransactionRepository,
     private readonly accountId: number,
     private readonly hashBatchSize = 100
   ) {}
@@ -26,7 +26,7 @@ export class HashGroupedBatchProvider implements IRawDataBatchProvider {
       return ok([]);
     }
 
-    const result = await this.rawDataQueries.getPendingByHashBatch(this.accountId, this.hashBatchSize);
+    const result = await this.rawDataQueries.findByHashBatch(this.accountId, this.hashBatchSize);
 
     if (result.isErr()) {
       return result;

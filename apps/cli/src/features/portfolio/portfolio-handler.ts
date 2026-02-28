@@ -12,14 +12,7 @@ import {
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
 import { parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
-import {
-  createAccountQueries,
-  createTransactionLinkQueries,
-  createTransactionQueries,
-  type AccountQueries,
-  type TransactionLinkQueries,
-  type TransactionQueries,
-} from '@exitbook/data';
+import { type DataContext } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
@@ -87,9 +80,7 @@ export interface PortfolioResult {
  */
 export class PortfolioHandler {
   constructor(
-    private readonly accountRepository: AccountQueries,
-    private readonly transactionRepository: TransactionQueries,
-    private readonly transactionLinkRepository: TransactionLinkQueries,
+    private readonly db: DataContext,
     private readonly priceManager: PriceProviderManager
   ) {}
 
@@ -109,7 +100,7 @@ export class PortfolioHandler {
         'Starting portfolio calculation'
       );
 
-      const txResult = await this.transactionRepository.getTransactions();
+      const txResult = await this.db.transactions.getTransactions();
       if (txResult.isErr()) {
         return err(txResult.error);
       }
@@ -208,8 +199,8 @@ export class PortfolioHandler {
       const pipelineResult = await runCostBasisPipeline(
         transactionsUpToAsOf,
         costBasisParams.config,
-        this.transactionRepository,
-        this.transactionLinkRepository
+        this.db.transactions,
+        this.db.transactionLinks
       );
       if (pipelineResult.isErr()) {
         return err(pipelineResult.error);
@@ -264,7 +255,7 @@ export class PortfolioHandler {
         realizedGainLossByAssetIdUsd.set(assetId, existing.plus(disposal.gainLoss));
       }
 
-      const accountsResult = await this.accountRepository.findAll();
+      const accountsResult = await this.db.accounts.findAll();
       if (accountsResult.isErr()) {
         return err(accountsResult.error);
       }
@@ -444,10 +435,7 @@ export async function createPortfolioHandler(
   ctx.onCleanup(async () => priceManager.destroy());
 
   prereqAbort = undefined;
-  const accountRepository = createAccountQueries(database);
-  const transactionRepository = createTransactionQueries(database);
-  const transactionLinkRepository = createTransactionLinkQueries(database);
-  return ok(new PortfolioHandler(accountRepository, transactionRepository, transactionLinkRepository, priceManager));
+  return ok(new PortfolioHandler(database, priceManager));
 }
 
 function emptyPortfolioResult(

@@ -1,15 +1,16 @@
 import { getLogger } from '@exitbook/logger';
 import { closeSqliteDatabase, createSqliteDatabase } from '@exitbook/sqlite';
+import type { Kysely } from '@exitbook/sqlite';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import type { DatabaseSchema } from '../schema/database-schema.js';
 
-import type { KyselyDB } from './db-types.js';
 import { runMigrations } from './migrations.js';
 
+export type KyselyDB = Kysely<DatabaseSchema>;
+
 const logger = getLogger('DatabaseInitialization');
-export type { KyselyDB } from './db-types.js';
 
 /**
  * Create and configure database instance.

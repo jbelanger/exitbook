@@ -1,6 +1,6 @@
 import type { FeeMovement } from '@exitbook/core';
 import { type Currency, parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
-import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
+import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -100,7 +100,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
   }
 
   const mockTransactionRepo = () => {
-    const queries: Partial<TransactionQueries> = {
+    const queries: Partial<TransactionRepository> = {
       findById: vi.fn().mockImplementation((id: number) => {
         const sourceTx = transactions.find((t) => t.id === id);
         return sourceTx
@@ -108,18 +108,18 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
           : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
       }),
     };
-    return queries as TransactionQueries;
+    return queries as TransactionRepository;
   };
 
   const mockLinkRepo = (links: TransactionLink[]) => {
-    const queries: Partial<TransactionLinkQueries> = {
+    const queries: Partial<TransactionLinkRepository> = {
       findAll: vi.fn().mockResolvedValue({
         isOk: () => true,
         isErr: () => false,
         value: links,
       }),
     };
-    return queries as TransactionLinkQueries;
+    return queries as TransactionLinkRepository;
   };
 
   let transactions: UniversalTransactionData[] = [];

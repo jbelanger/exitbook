@@ -10,7 +10,7 @@
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
-import { createTestDatabase, type KyselyDB } from '@exitbook/data';
+import { createTestDatabase, DataContext, type KyselyDB } from '@exitbook/data';
 import { ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -54,6 +54,7 @@ const mockImportStreamingFn = vi.fn();
 
 describe('xpub import integration tests', () => {
   let db: KyselyDB;
+  let dataContext: DataContext;
   let orchestrator: ImportCoordinator;
 
   beforeEach(async () => {
@@ -64,6 +65,7 @@ describe('xpub import integration tests', () => {
 
     // Create in-memory database
     db = await createTestDatabase();
+    dataContext = new DataContext(db);
 
     // Create adapter registry with bitcoin and cardano UTXO adapters
     const bitcoinAdapter: BlockchainAdapter = {
@@ -89,7 +91,7 @@ describe('xpub import integration tests', () => {
     const registry = new AdapterRegistry([bitcoinAdapter, cardanoAdapter], []);
 
     // Create orchestrator
-    orchestrator = new ImportCoordinator(db, mockProviderManager, registry);
+    orchestrator = new ImportCoordinator(dataContext, mockProviderManager, registry);
 
     // Reset mocks after orchestrator setup
     mockDeriveAddresses.mockReset();

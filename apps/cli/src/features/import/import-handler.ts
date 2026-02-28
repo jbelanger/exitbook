@@ -1,6 +1,5 @@
 import type { ImportSession } from '@exitbook/core';
-// eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
-import type { KyselyDB } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import {
   type AdapterRegistry,
@@ -172,7 +171,7 @@ export class ImportHandler {
 
 export async function createImportHandler(
   ctx: CommandContext,
-  database: KyselyDB,
+  database: DataContext,
   registry: AdapterRegistry
 ): Promise<Result<ImportHandler, Error>> {
   try {

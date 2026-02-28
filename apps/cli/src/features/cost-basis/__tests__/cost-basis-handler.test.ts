@@ -5,7 +5,7 @@ import {
   type CostBasisSummary,
 } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
-import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
@@ -52,10 +52,12 @@ describe('CostBasisHandler', () => {
     mockTransactionRepo = { getTransactions: vi.fn() };
     mockTransactionLinkRepo = {};
 
-    handler = new CostBasisHandler(
-      mockTransactionRepo as unknown as TransactionQueries,
-      mockTransactionLinkRepo as unknown as TransactionLinkQueries
-    );
+    const mockDb = {
+      transactions: mockTransactionRepo,
+      transactionLinks: mockTransactionLinkRepo,
+    } as unknown as DataContext;
+
+    handler = new CostBasisHandler(mockDb);
   });
 
   describe('execute', () => {

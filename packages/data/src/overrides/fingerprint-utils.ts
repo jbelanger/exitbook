@@ -1,28 +1,28 @@
 import { err, ok, type Result } from 'neverthrow';
 
-import type { TransactionIdentity, LinkIdentity } from './override.types.js';
+import type { TransactionFingerprintInput, LinkIdentity } from './override.types.js';
 
 /**
- * Compute transaction fingerprint from source_name and external_id
- * Format: ${source_name}:${external_id}
+ * Compute transaction fingerprint from source and externalId
+ * Format: ${source}:${externalId}
  *
  * Examples:
  * - blockchain:bitcoin:abc123def456
  * - kraken:TRADE-12345
  * - kucoin:gen-a1b2c3d4
  */
-export function computeTxFingerprint(identity: TransactionIdentity): Result<string, Error> {
-  const { source_name, external_id } = identity;
+export function computeTxFingerprint(identity: TransactionFingerprintInput): Result<string, Error> {
+  const { source, externalId } = identity;
 
-  if (!source_name || source_name.trim() === '') {
-    return err(new Error('source_name must not be empty'));
+  if (!source || source.trim() === '') {
+    return err(new Error('source must not be empty'));
   }
 
-  if (!external_id || external_id.trim() === '') {
-    return err(new Error('external_id must not be empty'));
+  if (!externalId || externalId.trim() === '') {
+    return err(new Error('externalId must not be empty'));
   }
 
-  return ok(`${source_name}:${external_id}`);
+  return ok(`${source}:${externalId}`);
 }
 
 /**

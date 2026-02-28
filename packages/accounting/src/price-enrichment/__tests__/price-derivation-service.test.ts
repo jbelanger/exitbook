@@ -1,10 +1,5 @@
 /* eslint-disable unicorn/no-null -- null needed by db fixtures */
-import {
-  createTestDatabase,
-  createTransactionLinkQueries,
-  createTransactionQueries,
-  type KyselyDB,
-} from '@exitbook/data';
+import { createTestDatabase, DataContext, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { PriceDerivationService } from '../price-derivation-service.js';
@@ -43,8 +38,8 @@ async function setupPrerequisites(db: KyselyDB): Promise<void> {
     .execute();
 }
 
-function createService(db: KyselyDB): PriceDerivationService {
-  return new PriceDerivationService(createTransactionQueries(db), createTransactionLinkQueries(db));
+function createService(db: DataContext): PriceDerivationService {
+  return new PriceDerivationService(db);
 }
 
 const NULL_PRICE = {
@@ -65,15 +60,17 @@ const NULL_FEE = {
 } as const;
 
 describe('PriceEnrichmentService', () => {
-  let db: KyselyDB;
+  let kyselyDb: KyselyDB;
+  let db: DataContext;
 
   beforeEach(async () => {
-    db = await createTestDatabase();
-    await setupPrerequisites(db);
+    kyselyDb = await createTestDatabase();
+    db = new DataContext(kyselyDb);
+    await setupPrerequisites(kyselyDb);
   });
 
   afterEach(async () => {
-    await db.destroy();
+    await kyselyDb.destroy();
   });
 
   describe('Stats and Reporting', () => {
@@ -87,7 +84,7 @@ describe('PriceEnrichmentService', () => {
 
     it('should only count transactions that actually got prices (not just attempted)', async () => {
       // tx1: BTC/USD trade — BTC price CAN be derived from USD outflow
-      await db
+      await kyselyDb
         .insertInto('transactions')
         .values({
           id: 1,
@@ -104,7 +101,7 @@ describe('PriceEnrichmentService', () => {
         })
         .execute();
 
-      await db
+      await kyselyDb
         .insertInto('transaction_movements')
         .values([
           {
@@ -133,7 +130,7 @@ describe('PriceEnrichmentService', () => {
         .execute();
 
       // tx2: SOL/ADA crypto-crypto trade — no price can be derived
-      await db
+      await kyselyDb
         .insertInto('transactions')
         .values({
           id: 2,
@@ -150,7 +147,7 @@ describe('PriceEnrichmentService', () => {
         })
         .execute();
 
-      await db
+      await kyselyDb
         .insertInto('transaction_movements')
         .values([
           {
@@ -189,7 +186,7 @@ describe('PriceEnrichmentService', () => {
 
   describe('Price Propagation Across Links', () => {
     it('should propagate prices from exchange withdrawal to blockchain deposit', async () => {
-      await db
+      await kyselyDb
         .insertInto('accounts')
         .values({
           id: 2,
@@ -212,7 +209,7 @@ describe('PriceEnrichmentService', () => {
       const depositTime = new Date(baseTime.getTime() + 120_000).toISOString();
 
       // tx2: BTC withdrawal from Kraken — already has a priced outflow (derived-trade)
-      await db
+      await kyselyDb
         .insertInto('transactions')
         .values({
           id: 2,
@@ -229,7 +226,7 @@ describe('PriceEnrichmentService', () => {
         })
         .execute();
 
-      await db
+      await kyselyDb
         .insertInto('transaction_movements')
         .values({
           transaction_id: 2,
@@ -252,7 +249,7 @@ describe('PriceEnrichmentService', () => {
         .execute();
 
       // tx3: BTC deposit on Bitcoin blockchain — no price yet
-      await db
+      await kyselyDb
         .insertInto('transactions')
         .values({
           id: 3,
@@ -273,7 +270,7 @@ describe('PriceEnrichmentService', () => {
         })
         .execute();
 
-      await db
+      await kyselyDb
         .insertInto('transaction_movements')
         .values({
           transaction_id: 3,
@@ -289,7 +286,7 @@ describe('PriceEnrichmentService', () => {
         .execute();
 
       // Confirmed link: tx2 withdrawal → tx3 deposit
-      await db
+      await kyselyDb
         .insertInto('transaction_links')
         .values({
           id: 1,
@@ -324,7 +321,7 @@ describe('PriceEnrichmentService', () => {
       expect(result._unsafeUnwrap().transactionsUpdated).toBeGreaterThanOrEqual(1);
 
       // Verify deposit movement received link-propagated price
-      const depositMovements = await db
+      const depositMovements = await kyselyDb
         .selectFrom('transaction_movements')
         .selectAll()
         .where('transaction_id', '=', 3)
@@ -338,7 +335,7 @@ describe('PriceEnrichmentService', () => {
       const baseTime = new Date('2024-01-01T10:00:00.000Z');
 
       // tx1: BTC/USD trade — priced withdrawal
-      await db
+      await kyselyDb
         .insertInto('transactions')
         .values({
           id: 1,
@@ -355,7 +352,7 @@ describe('PriceEnrichmentService', () => {
         })
         .execute();
 
-      await db
+      await kyselyDb
         .insertInto('transaction_movements')
         .values({
           transaction_id: 1,
@@ -378,7 +375,7 @@ describe('PriceEnrichmentService', () => {
         .execute();
 
       // tx2: BTC deposit — no price
-      await db
+      await kyselyDb
         .insertInto('transactions')
         .values({
           id: 2,
@@ -395,7 +392,7 @@ describe('PriceEnrichmentService', () => {
         })
         .execute();
 
-      await db
+      await kyselyDb
         .insertInto('transaction_movements')
         .values({
           transaction_id: 2,
@@ -411,7 +408,7 @@ describe('PriceEnrichmentService', () => {
         .execute();
 
       // Suggested link only (should NOT trigger rederive)
-      await db
+      await kyselyDb
         .insertInto('transaction_links')
         .values({
           id: 1,
@@ -443,7 +440,7 @@ describe('PriceEnrichmentService', () => {
       await service.derivePrices();
 
       // tx2's inflow must remain unpriced (suggested link ignored)
-      const tx2Movements = await db
+      const tx2Movements = await kyselyDb
         .selectFrom('transaction_movements')
         .selectAll()
         .where('transaction_id', '=', 2)
@@ -456,7 +453,7 @@ describe('PriceEnrichmentService', () => {
 
   describe('Edge Cases', () => {
     it('should handle transactions with no movements', async () => {
-      await db
+      await kyselyDb
         .insertInto('transactions')
         .values({
           id: 1,

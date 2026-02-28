@@ -11,21 +11,18 @@ import {
   type UniversalTransactionData,
   wrapError,
 } from '@exitbook/core';
-import { getLogger } from '@exitbook/logger';
 import type { Insertable, Selectable } from '@exitbook/sqlite';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';
 
 import type { TransactionMovementsTable, TransactionsTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/db-types.js';
+import type { KyselyDB } from '../storage/initialization.js';
 
-import { parseWithSchema, serializeToJson, withControlledTransaction } from './query-utils.js';
+import { BaseRepository } from './base-repository.js';
+import { parseWithSchema, serializeToJson } from './db-utils.js';
 import { generateDeterministicTransactionHash } from './transaction-id-utils.js';
 
-/**
- * Filters for querying transactions.
- */
 export interface TransactionQueryParams {
   sourceName?: string | undefined;
   since?: number | undefined;
@@ -34,23 +31,14 @@ export interface TransactionQueryParams {
   includeExcluded?: boolean | undefined;
 }
 
-/**
- * Full transaction projection filters.
- */
 export interface FullTransactionQueryParams extends TransactionQueryParams {
   projection?: 'full' | undefined;
 }
 
-/**
- * Summary transaction projection filters.
- */
 export interface SummaryTransactionQueryParams extends TransactionQueryParams {
   projection: 'summary';
 }
 
-/**
- * Lightweight transaction summary without movements/fees.
- */
 export interface TransactionSummary {
   id: number;
   accountId: number;
@@ -283,10 +271,107 @@ function buildMovementRows(
   return ok(rows);
 }
 
-export function createTransactionQueries(db: KyselyDB) {
-  const logger = getLogger('transaction-queries');
+function buildInsertValues(
+  transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
+  accountId: number,
+  createdAt?: string
+): Result<Insertable<TransactionsTable>, Error> {
+  if (transaction.notes !== undefined) {
+    const notesValidation = z.array(TransactionNoteSchema).safeParse(transaction.notes);
+    if (!notesValidation.success) {
+      return err(new Error(`Invalid notes: ${notesValidation.error.message}`));
+    }
+  }
 
-  async function save(
+  const inflows = transaction.movements.inflows ?? [];
+  const outflows = transaction.movements.outflows ?? [];
+  const fees = transaction.fees ?? [];
+
+  const validationResult = validatePriceDataForPersistence(
+    inflows,
+    outflows,
+    fees,
+    `externalId ${transaction.externalId || '[generated]'}`
+  );
+  if (validationResult.isErr()) {
+    return err(validationResult.error);
+  }
+
+  const notesJsonResult =
+    transaction.notes && transaction.notes.length > 0 ? serializeToJson(transaction.notes) : ok(undefined);
+  if (notesJsonResult.isErr()) {
+    return err(notesJsonResult.error);
+  }
+
+  return ok({
+    created_at: createdAt ?? new Date().toISOString(),
+    external_id: transaction.externalId || generateDeterministicTransactionHash(transaction),
+    from_address: transaction.from ?? null,
+    account_id: accountId,
+    notes_json: notesJsonResult.value ?? null,
+    is_spam: transaction.isSpam ?? false,
+    excluded_from_accounting: transaction.excludedFromAccounting ?? transaction.isSpam ?? false,
+    source_name: transaction.source,
+    source_type: transaction.sourceType,
+    to_address: transaction.to ?? null,
+    transaction_datetime: transaction.datetime
+      ? new Date(transaction.datetime).toISOString()
+      : new Date().toISOString(),
+    transaction_status: transaction.status,
+    operation_category: transaction.operation?.category ?? null,
+    operation_type: transaction.operation?.type ?? null,
+    blockchain_name: transaction.blockchain?.name ?? null,
+    blockchain_block_height: transaction.blockchain?.block_height ?? null,
+    blockchain_transaction_hash: transaction.blockchain?.transaction_hash ?? null,
+    blockchain_is_confirmed: transaction.blockchain?.is_confirmed ?? null,
+  });
+}
+
+function toTransactionSummary(row: Selectable<TransactionsTable>): TransactionSummary {
+  const datetime = row.transaction_datetime;
+  const timestamp = new Date(datetime).getTime();
+  const status: TransactionStatus = row.transaction_status;
+
+  const summary: TransactionSummary = {
+    id: row.id,
+    accountId: row.account_id,
+    externalId: row.external_id ?? `${row.source_name}-${row.id}`,
+    datetime,
+    timestamp,
+    source: row.source_name,
+    sourceType: row.source_type,
+    status,
+    from: row.from_address ?? undefined,
+    to: row.to_address ?? undefined,
+    operation: {
+      category: row.operation_category ?? 'transfer',
+      type: row.operation_type ?? 'transfer',
+    },
+    isSpam: row.is_spam ? true : undefined,
+    excludedFromAccounting: row.excluded_from_accounting ? true : undefined,
+  };
+
+  if (row.blockchain_name) {
+    summary.blockchain = {
+      name: row.blockchain_name,
+      transaction_hash: row.blockchain_transaction_hash ?? '',
+    };
+  }
+
+  return summary;
+}
+
+export class TransactionRepository extends BaseRepository {
+  constructor(db: KyselyDB) {
+    super(db, 'transaction-repository');
+  }
+
+  /**
+   * Save a single transaction with its movements.
+   * Transaction-agnostic: executes directly on this.db.
+   * Callers that need atomicity should use DataContext.executeInTransaction().
+   */
+  async save(
     transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
     accountId: number
   ): Promise<Result<number, Error>> {
@@ -297,52 +382,54 @@ export function createTransactionQueries(db: KyselyDB) {
 
     const values = valuesResult.value;
 
-    return withControlledTransaction(
-      db,
-      logger,
-      async (trx) => {
-        const txResult = await trx
-          .insertInto('transactions')
-          .values(values)
-          .onConflict((oc) => oc.doNothing())
-          .returning('id')
-          .executeTakeFirst();
+    try {
+      const txResult = await this.db
+        .insertInto('transactions')
+        .values(values)
+        .onConflict((oc) => oc.doNothing())
+        .returning('id')
+        .executeTakeFirst();
 
-        if (!txResult) {
-          if (values.blockchain_transaction_hash) {
-            const existing = await trx
-              .selectFrom('transactions')
-              .select('id')
-              .where('account_id', '=', accountId)
-              .where('blockchain_transaction_hash', '=', values.blockchain_transaction_hash)
-              .executeTakeFirst();
+      if (!txResult) {
+        if (values.blockchain_transaction_hash) {
+          const existing = await this.db
+            .selectFrom('transactions')
+            .select('id')
+            .where('account_id', '=', accountId)
+            .where('blockchain_transaction_hash', '=', values.blockchain_transaction_hash)
+            .executeTakeFirst();
 
-            if (existing) {
-              return ok(existing.id);
-            }
+          if (existing) {
+            return ok(existing.id);
           }
-          return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
         }
+        return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
+      }
 
-        const transactionId = txResult.id;
+      const transactionId = txResult.id;
 
-        const movementRowsResult = buildMovementRows(transaction, transactionId);
-        if (movementRowsResult.isErr()) {
-          return err(movementRowsResult.error);
-        }
+      const movementRowsResult = buildMovementRows(transaction, transactionId);
+      if (movementRowsResult.isErr()) {
+        return err(movementRowsResult.error);
+      }
 
-        const movementRows = movementRowsResult.value;
-        if (movementRows.length > 0) {
-          await trx.insertInto('transaction_movements').values(movementRows).execute();
-        }
+      const movementRows = movementRowsResult.value;
+      if (movementRows.length > 0) {
+        await this.db.insertInto('transaction_movements').values(movementRows).execute();
+      }
 
-        return ok(transactionId);
-      },
-      'Failed to save transaction'
-    );
+      return ok(transactionId);
+    } catch (error) {
+      return wrapError(error, 'Failed to save transaction');
+    }
   }
 
-  async function saveBatch(
+  /**
+   * Save a batch of transactions with their movements.
+   * Transaction-agnostic: executes directly on this.db.
+   * Callers that need atomicity should use DataContext.executeInTransaction().
+   */
+  async saveBatch(
     transactions: Omit<UniversalTransactionData, 'id' | 'accountId'>[],
     accountId: number
   ): Promise<Result<{ duplicates: number; saved: number }, Error>> {
@@ -352,83 +439,80 @@ export function createTransactionQueries(db: KyselyDB) {
 
     const createdAt = new Date().toISOString();
 
-    return withControlledTransaction(
-      db,
-      logger,
-      async (trx) => {
-        let saved = 0;
-        let duplicates = 0;
+    try {
+      let saved = 0;
+      let duplicates = 0;
 
-        for (const [index, transaction] of transactions.entries()) {
-          const valuesResult = buildInsertValues(transaction, accountId, createdAt);
-          if (valuesResult.isErr()) {
-            return err(new Error(`Transaction index-${index}: ${valuesResult.error.message}`));
-          }
-          const values = valuesResult.value;
+      for (const [index, transaction] of transactions.entries()) {
+        const valuesResult = buildInsertValues(transaction, accountId, createdAt);
+        if (valuesResult.isErr()) {
+          return err(new Error(`Transaction index-${index}: ${valuesResult.error.message}`));
+        }
+        const values = valuesResult.value;
 
-          const txResult = await trx
-            .insertInto('transactions')
-            .values(values)
-            .onConflict((oc) => oc.doNothing())
-            .returning('id')
-            .executeTakeFirst();
+        const txResult = await this.db
+          .insertInto('transactions')
+          .values(values)
+          .onConflict((oc) => oc.doNothing())
+          .returning('id')
+          .executeTakeFirst();
 
-          let transactionId: number;
-          let isDuplicate = false;
+        let transactionId: number;
+        let isDuplicate = false;
 
-          if (!txResult) {
-            if (values.blockchain_transaction_hash) {
-              const existing = await trx
-                .selectFrom('transactions')
-                .select('id')
-                .where('account_id', '=', accountId)
-                .where('blockchain_transaction_hash', '=', values.blockchain_transaction_hash)
-                .executeTakeFirst();
+        if (!txResult) {
+          if (values.blockchain_transaction_hash) {
+            const existing = await this.db
+              .selectFrom('transactions')
+              .select('id')
+              .where('account_id', '=', accountId)
+              .where('blockchain_transaction_hash', '=', values.blockchain_transaction_hash)
+              .executeTakeFirst();
 
-              if (existing) {
-                transactionId = existing.id;
-                isDuplicate = true;
-                duplicates++;
-              } else {
-                return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
-              }
+            if (existing) {
+              transactionId = existing.id;
+              isDuplicate = true;
+              duplicates++;
             } else {
               return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
             }
           } else {
-            transactionId = txResult.id;
+            return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
           }
-
-          if (!isDuplicate) {
-            const movementRowsResult = buildMovementRows(transaction, transactionId);
-            if (movementRowsResult.isErr()) {
-              return err(movementRowsResult.error);
-            }
-
-            const movementRows = movementRowsResult.value;
-            if (movementRows.length > 0) {
-              await trx.insertInto('transaction_movements').values(movementRows).execute();
-            }
-          }
-
-          saved++;
+        } else {
+          transactionId = txResult.id;
         }
 
-        return ok({ saved, duplicates });
-      },
-      'Failed to save transaction batch'
-    );
+        if (!isDuplicate) {
+          const movementRowsResult = buildMovementRows(transaction, transactionId);
+          if (movementRowsResult.isErr()) {
+            return err(movementRowsResult.error);
+          }
+
+          const movementRows = movementRowsResult.value;
+          if (movementRows.length > 0) {
+            await this.db.insertInto('transaction_movements').values(movementRows).execute();
+          }
+        }
+
+        saved++;
+      }
+
+      return ok({ saved, duplicates });
+    } catch (error) {
+      return wrapError(error, 'Failed to save transaction batch');
+    }
   }
 
-  function getTransactions(filters: SummaryTransactionQueryParams): Promise<Result<TransactionSummary[], Error>>;
-  function getTransactions(filters?: FullTransactionQueryParams): Promise<Result<UniversalTransactionData[], Error>>;
-  async function getTransactions(
+  getTransactions(filters: SummaryTransactionQueryParams): Promise<Result<TransactionSummary[], Error>>;
+  getTransactions(filters?: FullTransactionQueryParams): Promise<Result<UniversalTransactionData[], Error>>;
+  async getTransactions(
     filters?: FullTransactionQueryParams | SummaryTransactionQueryParams
   ): Promise<Result<UniversalTransactionData[] | TransactionSummary[], Error>> {
     try {
       const projection = filters?.projection ?? 'full';
 
-      let query = db.selectFrom('transactions').selectAll();
+      let query = this.db.selectFrom('transactions').selectAll();
 
       if (filters) {
         if (filters.sourceName) {
@@ -455,7 +539,6 @@ export function createTransactionQueries(db: KyselyDB) {
 
       const rows = await query.execute();
 
-      // Summary projection: skip movement JOIN and parsing
       if (projection === 'summary') {
         const summaries: TransactionSummary[] = [];
         for (const row of rows) {
@@ -464,9 +547,8 @@ export function createTransactionQueries(db: KyselyDB) {
         return ok(summaries);
       }
 
-      // Full projection: JOIN movements and parse
       const transactionIds = rows.map((r) => r.id);
-      const movementsMapResult = await loadMovementsForTransactions(transactionIds);
+      const movementsMapResult = await this.loadMovementsForTransactions(transactionIds);
       if (movementsMapResult.isErr()) {
         return err(movementsMapResult.error);
       }
@@ -475,7 +557,7 @@ export function createTransactionQueries(db: KyselyDB) {
       const transactions: UniversalTransactionData[] = [];
       for (const row of rows) {
         const movementRows = movementsMap.get(row.id) ?? [];
-        const result = toUniversalTransaction(row, movementRows);
+        const result = this.toUniversalTransaction(row, movementRows);
         if (result.isErr()) {
           return err(result.error);
         }
@@ -488,21 +570,21 @@ export function createTransactionQueries(db: KyselyDB) {
     }
   }
 
-  async function findById(id: number): Promise<Result<UniversalTransactionData | undefined, Error>> {
+  async findById(id: number): Promise<Result<UniversalTransactionData | undefined, Error>> {
     try {
-      const row = await db.selectFrom('transactions').selectAll().where('id', '=', id).executeTakeFirst();
+      const row = await this.db.selectFrom('transactions').selectAll().where('id', '=', id).executeTakeFirst();
 
       if (!row) {
         return ok(undefined);
       }
 
-      const movementsResult = await loadMovementsForTransactions([id]);
+      const movementsResult = await this.loadMovementsForTransactions([id]);
       if (movementsResult.isErr()) {
         return err(movementsResult.error);
       }
       const movementRows = movementsResult.value.get(id) ?? [];
 
-      const result = toUniversalTransaction(row, movementRows);
+      const result = this.toUniversalTransaction(row, movementRows);
       if (result.isErr()) {
         return err(result.error);
       }
@@ -513,11 +595,9 @@ export function createTransactionQueries(db: KyselyDB) {
     }
   }
 
-  async function findTransactionsNeedingPrices(
-    assetFilter?: string[]
-  ): Promise<Result<UniversalTransactionData[], Error>> {
+  async findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransactionData[], Error>> {
     try {
-      const query = db.selectFrom('transactions').selectAll().where('excluded_from_accounting', '=', false);
+      const query = this.db.selectFrom('transactions').selectAll().where('excluded_from_accounting', '=', false);
 
       const rows = await query.execute();
 
@@ -526,7 +606,7 @@ export function createTransactionQueries(db: KyselyDB) {
       }
 
       const transactionIds = rows.map((r) => r.id);
-      const movementsMapResult = await loadMovementsForTransactions(transactionIds);
+      const movementsMapResult = await this.loadMovementsForTransactions(transactionIds);
       if (movementsMapResult.isErr()) {
         return err(movementsMapResult.error);
       }
@@ -535,7 +615,7 @@ export function createTransactionQueries(db: KyselyDB) {
       const transactions: UniversalTransactionData[] = [];
       for (const row of rows) {
         const movementRows = movementsMap.get(row.id) ?? [];
-        const result = toUniversalTransaction(row, movementRows);
+        const result = this.toUniversalTransaction(row, movementRows);
         if (result.isErr()) {
           return err(result.error);
         }
@@ -562,7 +642,12 @@ export function createTransactionQueries(db: KyselyDB) {
     }
   }
 
-  async function updateMovementsWithPrices(transaction: UniversalTransactionData): Promise<Result<void, Error>> {
+  /**
+   * Update movements with enriched price data.
+   * Transaction-agnostic: executes directly on this.db.
+   * Callers that need atomicity should use DataContext.executeInTransaction().
+   */
+  async updateMovementsWithPrices(transaction: UniversalTransactionData): Promise<Result<void, Error>> {
     const validationResult = validatePriceDataForPersistence(
       transaction.movements.inflows ?? [],
       transaction.movements.outflows ?? [],
@@ -573,57 +658,50 @@ export function createTransactionQueries(db: KyselyDB) {
       return err(validationResult.error);
     }
 
-    return withControlledTransaction(
-      db,
-      logger,
-      async (trx) => {
-        const txExists = await trx
-          .selectFrom('transactions')
-          .select('id')
-          .where('id', '=', transaction.id)
-          .executeTakeFirst();
+    try {
+      const txExists = await this.db
+        .selectFrom('transactions')
+        .select('id')
+        .where('id', '=', transaction.id)
+        .executeTakeFirst();
 
-        if (!txExists) {
-          return err(new Error(`Transaction ${transaction.id} not found`));
-        }
+      if (!txExists) {
+        return err(new Error(`Transaction ${transaction.id} not found`));
+      }
 
-        await trx.deleteFrom('transaction_movements').where('transaction_id', '=', transaction.id).execute();
+      await this.db.deleteFrom('transaction_movements').where('transaction_id', '=', transaction.id).execute();
 
-        const transactionForMovementRebuild = {
-          ...transaction,
-          id: undefined,
-          accountId: undefined,
-        } as Omit<UniversalTransactionData, 'id' | 'accountId'>;
+      const transactionForMovementRebuild = {
+        ...transaction,
+        id: undefined,
+        accountId: undefined,
+      } as Omit<UniversalTransactionData, 'id' | 'accountId'>;
 
-        const movementRowsResult = buildMovementRows(transactionForMovementRebuild, transaction.id);
-        if (movementRowsResult.isErr()) {
-          return err(movementRowsResult.error);
-        }
+      const movementRowsResult = buildMovementRows(transactionForMovementRebuild, transaction.id);
+      if (movementRowsResult.isErr()) {
+        return err(movementRowsResult.error);
+      }
 
-        const movementRows = movementRowsResult.value;
-        if (movementRows.length > 0) {
-          await trx.insertInto('transaction_movements').values(movementRows).execute();
-        }
+      const movementRows = movementRowsResult.value;
+      if (movementRows.length > 0) {
+        await this.db.insertInto('transaction_movements').values(movementRows).execute();
+      }
 
-        await trx
-          .updateTable('transactions')
-          .set({ updated_at: new Date().toISOString() })
-          .where('id', '=', transaction.id)
-          .execute();
+      await this.db
+        .updateTable('transactions')
+        .set({ updated_at: new Date().toISOString() })
+        .where('id', '=', transaction.id)
+        .execute();
 
-        return ok(undefined);
-      },
-      'Failed to update movements with prices'
-    );
+      return ok(undefined);
+    } catch (error) {
+      return wrapError(error, 'Failed to update movements with prices');
+    }
   }
 
-  /**
-   * Count transactions with optional filtering.
-   * Reuses TransactionFilters type for consistent filtering logic.
-   */
-  async function countTransactions(filters?: TransactionQueryParams): Promise<Result<number, Error>> {
+  async countTransactions(filters?: TransactionQueryParams): Promise<Result<number, Error>> {
     try {
-      let query = db.selectFrom('transactions').select(({ fn }) => [fn.count<number>('id').as('count')]);
+      let query = this.db.selectFrom('transactions').select(({ fn }) => [fn.count<number>('id').as('count')]);
 
       if (filters) {
         if (filters.sourceName) {
@@ -647,7 +725,6 @@ export function createTransactionQueries(db: KyselyDB) {
           query = query.where('excluded_from_accounting', '=', false);
         }
       } else {
-        // Default: exclude accounting-excluded transactions
         query = query.where('excluded_from_accounting', '=', false);
       }
 
@@ -658,25 +735,21 @@ export function createTransactionQueries(db: KyselyDB) {
     }
   }
 
-  /**
-   * Delete transactions by account IDs
-   * Deletes transactions WHERE account_id IN (accountIds)
-   */
-  async function deleteByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
+  async deleteByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
       if (accountIds.length === 0) {
         return ok(0);
       }
-      const result = await db.deleteFrom('transactions').where('account_id', 'in', accountIds).executeTakeFirst();
+      const result = await this.db.deleteFrom('transactions').where('account_id', 'in', accountIds).executeTakeFirst();
       return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete transactions by account IDs');
     }
   }
 
-  async function getLatestCreatedAt(): Promise<Result<Date | null, Error>> {
+  async getLatestCreatedAt(): Promise<Result<Date | null, Error>> {
     try {
-      const result = await db
+      const result = await this.db
         .selectFrom('transactions')
         .select(({ fn }) => [fn.max<string>('created_at').as('latest')])
         .executeTakeFirst();
@@ -691,72 +764,16 @@ export function createTransactionQueries(db: KyselyDB) {
     }
   }
 
-  async function deleteAll(): Promise<Result<number, Error>> {
+  async deleteAll(): Promise<Result<number, Error>> {
     try {
-      const result = await db.deleteFrom('transactions').executeTakeFirst();
+      const result = await this.db.deleteFrom('transactions').executeTakeFirst();
       return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete all transactions');
     }
   }
 
-  function buildInsertValues(
-    transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
-    accountId: number,
-    createdAt?: string
-  ): Result<Insertable<TransactionsTable>, Error> {
-    if (transaction.notes !== undefined) {
-      const notesValidation = z.array(TransactionNoteSchema).safeParse(transaction.notes);
-      if (!notesValidation.success) {
-        return err(new Error(`Invalid notes: ${notesValidation.error.message}`));
-      }
-    }
-
-    const inflows = transaction.movements.inflows ?? [];
-    const outflows = transaction.movements.outflows ?? [];
-    const fees = transaction.fees ?? [];
-
-    const validationResult = validatePriceDataForPersistence(
-      inflows,
-      outflows,
-      fees,
-      `externalId ${transaction.externalId || '[generated]'}`
-    );
-    if (validationResult.isErr()) {
-      return err(validationResult.error);
-    }
-
-    const notesJsonResult =
-      transaction.notes && transaction.notes.length > 0 ? serializeToJson(transaction.notes) : ok(undefined);
-    if (notesJsonResult.isErr()) {
-      return err(notesJsonResult.error);
-    }
-
-    return ok({
-      created_at: createdAt ?? new Date().toISOString(),
-      external_id: transaction.externalId || generateDeterministicTransactionHash(transaction),
-      from_address: transaction.from ?? null,
-      account_id: accountId,
-      notes_json: notesJsonResult.value ?? null,
-      is_spam: transaction.isSpam ?? false,
-      excluded_from_accounting: transaction.excludedFromAccounting ?? transaction.isSpam ?? false,
-      source_name: transaction.source,
-      source_type: transaction.sourceType,
-      to_address: transaction.to ?? null,
-      transaction_datetime: transaction.datetime
-        ? new Date(transaction.datetime).toISOString()
-        : new Date().toISOString(),
-      transaction_status: transaction.status,
-      operation_category: transaction.operation?.category ?? null,
-      operation_type: transaction.operation?.type ?? null,
-      blockchain_name: transaction.blockchain?.name ?? null,
-      blockchain_block_height: transaction.blockchain?.block_height ?? null,
-      blockchain_transaction_hash: transaction.blockchain?.transaction_hash ?? null,
-      blockchain_is_confirmed: transaction.blockchain?.is_confirmed ?? null,
-    });
-  }
-
-  async function loadMovementsForTransactions(
+  private async loadMovementsForTransactions(
     transactionIds: number[]
   ): Promise<Result<Map<number, MovementRow[]>, Error>> {
     if (transactionIds.length === 0) {
@@ -764,7 +781,7 @@ export function createTransactionQueries(db: KyselyDB) {
     }
 
     try {
-      const rows = await db
+      const rows = await this.db
         .selectFrom('transaction_movements')
         .selectAll()
         .where('transaction_id', 'in', transactionIds)
@@ -788,41 +805,7 @@ export function createTransactionQueries(db: KyselyDB) {
     }
   }
 
-  function toTransactionSummary(row: Selectable<TransactionsTable>): TransactionSummary {
-    const datetime = row.transaction_datetime;
-    const timestamp = new Date(datetime).getTime();
-    const status: TransactionStatus = row.transaction_status;
-
-    const summary: TransactionSummary = {
-      id: row.id,
-      accountId: row.account_id,
-      externalId: row.external_id ?? `${row.source_name}-${row.id}`,
-      datetime,
-      timestamp,
-      source: row.source_name,
-      sourceType: row.source_type,
-      status,
-      from: row.from_address ?? undefined,
-      to: row.to_address ?? undefined,
-      operation: {
-        category: row.operation_category ?? 'transfer',
-        type: row.operation_type ?? 'transfer',
-      },
-      isSpam: row.is_spam ? true : undefined,
-      excludedFromAccounting: row.excluded_from_accounting ? true : undefined,
-    };
-
-    if (row.blockchain_name) {
-      summary.blockchain = {
-        name: row.blockchain_name,
-        transaction_hash: row.blockchain_transaction_hash ?? '',
-      };
-    }
-
-    return summary;
-  }
-
-  function toUniversalTransaction(
+  private toUniversalTransaction(
     row: Selectable<TransactionsTable>,
     movementRows: MovementRow[]
   ): Result<UniversalTransactionData, Error> {
@@ -837,7 +820,7 @@ export function createTransactionQueries(db: KyselyDB) {
     for (const r of inflowRows) {
       const result = rowToAssetMovement(r);
       if (result.isErr()) {
-        logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse inflow');
+        this.logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse inflow');
         return err(new Error(`Transaction ${row.id} inflow parse failed (movement ${r.id}): ${result.error.message}`));
       }
       inflows.push(result.value);
@@ -847,7 +830,7 @@ export function createTransactionQueries(db: KyselyDB) {
     for (const r of outflowRows) {
       const result = rowToAssetMovement(r);
       if (result.isErr()) {
-        logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse outflow');
+        this.logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse outflow');
         return err(new Error(`Transaction ${row.id} outflow parse failed (movement ${r.id}): ${result.error.message}`));
       }
       outflows.push(result.value);
@@ -857,7 +840,7 @@ export function createTransactionQueries(db: KyselyDB) {
     for (const r of feeRows) {
       const result = rowToFeeMovement(r);
       if (result.isErr()) {
-        logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse fee');
+        this.logger.warn({ error: result.error, movementId: r.id, transactionId: row.id }, 'Failed to parse fee');
         return err(new Error(`Transaction ${row.id} fee parse failed (movement ${r.id}): ${result.error.message}`));
       }
       fees.push(result.value);
@@ -908,19 +891,4 @@ export function createTransactionQueries(db: KyselyDB) {
 
     return ok(transaction);
   }
-
-  return {
-    save,
-    saveBatch,
-    getTransactions,
-    findById,
-    findTransactionsNeedingPrices,
-    updateMovementsWithPrices,
-    countTransactions,
-    deleteByAccountIds,
-    getLatestCreatedAt,
-    deleteAll,
-  };
 }
-
-export type TransactionQueries = ReturnType<typeof createTransactionQueries>;

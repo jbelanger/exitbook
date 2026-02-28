@@ -20,7 +20,7 @@
 
 import type { PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { TransactionQueries } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -54,7 +54,7 @@ export interface NormalizeResult {
  */
 export class PriceNormalizationService {
   constructor(
-    private readonly transactionRepository: TransactionQueries,
+    private readonly db: DataContext,
     private readonly fxRateProvider: IFxRateProvider
   ) {}
 
@@ -81,7 +81,7 @@ export class PriceNormalizationService {
       logger.info('Starting price normalization (non-USD fiat → USD)');
 
       // Get all transactions (we need to check all for non-USD fiat prices)
-      const txResult = await this.transactionRepository.getTransactions();
+      const txResult = await this.db.transactions.getTransactions();
       if (txResult.isErr()) {
         return err(txResult.error);
       }
@@ -205,10 +205,6 @@ export class PriceNormalizationService {
    * Update transaction in database with normalized price data
    */
   private async updateTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>> {
-    try {
-      return await this.transactionRepository.updateMovementsWithPrices(tx);
-    } catch (error) {
-      return wrapError(error, `Failed to update transaction ${tx.id}`);
-    }
+    return this.db.executeInTransaction((txCtx) => txCtx.transactions.updateMovementsWithPrices(tx));
   }
 }

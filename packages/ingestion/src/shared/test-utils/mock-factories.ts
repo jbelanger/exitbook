@@ -1,6 +1,6 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { PaginationCursor } from '@exitbook/core';
-import type { ImportSessionQueries, RawDataQueries } from '@exitbook/data';
+import type { ImportSessionRepository, RawTransactionRepository } from '@exitbook/data';
 import type { IExchangeClient, BalanceSnapshot } from '@exitbook/exchange-providers';
 import { errAsync, ok } from 'neverthrow';
 import { vi, type Mocked } from 'vitest';
@@ -11,36 +11,36 @@ import type { ITokenMetadataService } from '../../features/token-metadata/token-
  * Creates a mock raw data queries object with default implementations.
  * All methods return successful Results by default. Override specific methods as needed.
  */
-export function createMockRawDataQueries(): Mocked<RawDataQueries> {
+export function createMockRawDataQueries(): Mocked<RawTransactionRepository> {
   return {
-    load: vi.fn().mockResolvedValue(ok([])),
+    findAll: vi.fn().mockResolvedValue(ok([])),
     markAsProcessed: vi.fn().mockResolvedValue(ok()),
-    saveBatch: vi.fn().mockResolvedValue(ok(0)),
-    resetProcessingStatusByAccount: vi.fn().mockResolvedValue(ok(0)),
-    resetProcessingStatusAll: vi.fn().mockResolvedValue(ok(0)),
+    saveBatch: vi.fn().mockResolvedValue(ok({ inserted: 0, skipped: 0 })),
+    resetProcessingStatus: vi.fn().mockResolvedValue(ok(0)),
     count: vi.fn().mockResolvedValue(ok(0)),
-    deleteByAccount: vi.fn().mockResolvedValue(ok(0)),
+    countByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
     deleteAll: vi.fn().mockResolvedValue(ok(0)),
-  } as unknown as Mocked<RawDataQueries>;
+    findDistinctAccountIds: vi.fn().mockResolvedValue(ok([])),
+    findByHashBatch: vi.fn().mockResolvedValue(ok([])),
+  } as unknown as Mocked<RawTransactionRepository>;
 }
 
 /**
  * Creates a mock import session queries object with default implementations.
  * All methods return successful Results by default. Override specific methods as needed.
  */
-export function createMockImportSessionQueries(): Mocked<ImportSessionQueries> {
+export function createMockImportSessionQueries(): Mocked<ImportSessionRepository> {
   return {
     create: vi.fn().mockResolvedValue(ok(1)),
     finalize: vi.fn().mockResolvedValue(ok()),
     findById: vi.fn().mockResolvedValue(ok()),
-    findByAccounts: vi.fn().mockResolvedValue(ok([])),
+    findAll: vi.fn().mockResolvedValue(ok([])),
     getSessionCountsByAccount: vi.fn().mockResolvedValue(ok(new Map())),
     findLatestIncomplete: vi.fn().mockResolvedValue(ok(undefined)),
     update: vi.fn().mockResolvedValue(ok()),
     count: vi.fn().mockResolvedValue(ok(0)),
-    deleteByAccount: vi.fn().mockResolvedValue(ok()),
-    deleteAll: vi.fn().mockResolvedValue(ok()),
-  } as unknown as Mocked<ImportSessionQueries>;
+    deleteBy: vi.fn().mockResolvedValue(ok()),
+  } as unknown as Mocked<ImportSessionRepository>;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { isFiat, parseDecimal, wrapError, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
-import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
+import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -120,8 +120,8 @@ export class LotMatcher {
   private readonly logger = getLogger('LotMatcher');
 
   constructor(
-    private readonly transactionRepository: TransactionQueries,
-    private readonly linkRepository: TransactionLinkQueries
+    private readonly transactionRepository: TransactionRepository,
+    private readonly linkRepository: TransactionLinkRepository
   ) {}
 
   /**

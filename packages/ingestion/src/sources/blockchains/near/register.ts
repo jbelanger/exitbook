@@ -1,5 +1,4 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import { createNearRawDataQueries } from '@exitbook/data';
 
 import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter.js';
 
@@ -19,7 +18,6 @@ export const nearAdapter: BlockchainAdapter = {
     }),
 
   createProcessor: ({ tokenMetadataService, scamDetectionService, db, accountId }) => {
-    const nearRawDataQueries = createNearRawDataQueries(db);
-    return new NearProcessor(tokenMetadataService, scamDetectionService, nearRawDataQueries, accountId);
+    return new NearProcessor(tokenMetadataService, scamDetectionService, db.nearRawData, accountId);
   },
 };

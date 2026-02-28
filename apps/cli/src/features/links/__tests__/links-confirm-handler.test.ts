@@ -1,6 +1,6 @@
 import { type TransactionLink } from '@exitbook/accounting';
 import { parseDecimal, type Currency } from '@exitbook/core';
-import type { OverrideStore, TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
+import type { DataContext, OverrideStore } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -36,11 +36,12 @@ describe('LinksConfirmHandler', () => {
       append: vi.fn().mockResolvedValue(ok({ id: 'test-event-id' })),
     };
 
-    handler = new LinksConfirmHandler(
-      mockLinkRepository as unknown as TransactionLinkQueries,
-      mockTransactionRepository as unknown as TransactionQueries,
-      mockOverrideStore as unknown as OverrideStore
-    );
+    const mockDb = {
+      transactionLinks: mockLinkRepository,
+      transactions: mockTransactionRepository,
+    } as unknown as DataContext;
+
+    handler = new LinksConfirmHandler(mockDb, mockOverrideStore as unknown as OverrideStore);
   });
 
   const createMockLink = (

@@ -69,15 +69,13 @@ async function executeLinksConfirmCommand(linkIdArg: string, rawOptions: unknown
   try {
     const spinner = createSpinner('Confirming link...', options.json ?? false);
 
-    const { OverrideStore, createTransactionLinkQueries, createTransactionQueries } = await import('@exitbook/data');
+    const { OverrideStore } = await import('@exitbook/data');
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const overrideStore = new OverrideStore(ctx.dataDir);
-      const linkRepository = createTransactionLinkQueries(database);
-      const transactionRepository = createTransactionQueries(database);
 
-      const handler = new LinksConfirmHandler(linkRepository, transactionRepository, overrideStore);
+      const handler = new LinksConfirmHandler(database, overrideStore);
       const result = await handler.execute({ linkId });
 
       stopSpinner(spinner);

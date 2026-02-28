@@ -1,7 +1,7 @@
 // Command registration for view prices subcommand
 import path from 'node:path';
 
-import { createTransactionQueries, OverrideStore } from '@exitbook/data';
+import { OverrideStore } from '@exitbook/data';
 import { ManualPriceService } from '@exitbook/price-providers';
 import type { Command } from 'commander';
 import React from 'react';
@@ -120,8 +120,7 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = createTransactionQueries(database);
-      const handler = new ViewPricesHandler(txRepo);
+      const handler = new ViewPricesHandler(database);
 
       const detailResult = await handler.executeCoverageDetail(params);
       if (detailResult.isErr()) {
@@ -189,9 +188,8 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = createTransactionQueries(database);
       const overrideStore = new OverrideStore(ctx.dataDir);
-      const handler = new ViewPricesHandler(txRepo);
+      const handler = new ViewPricesHandler(database);
 
       const missingResult = await handler.executeMissing(params);
       if (missingResult.isErr()) {
@@ -241,8 +239,7 @@ async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = createTransactionQueries(database);
-      const handler = new ViewPricesHandler(txRepo);
+      const handler = new ViewPricesHandler(database);
 
       const result = await handler.execute(params);
 
@@ -297,8 +294,7 @@ async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = createTransactionQueries(database);
-      const handler = new ViewPricesHandler(txRepo);
+      const handler = new ViewPricesHandler(database);
 
       const result = await handler.executeMissing(params);
 

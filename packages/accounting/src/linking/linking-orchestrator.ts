@@ -1,6 +1,6 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { applyLinkOverrides, type OverrideStore } from '@exitbook/data';
-import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
+import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -69,8 +69,8 @@ export interface LinkingRunResult {
  */
 export class LinkingOrchestrator {
   constructor(
-    private transactionRepository: TransactionQueries,
-    private linkRepository: TransactionLinkQueries,
+    private transactionRepository: TransactionRepository,
+    private linkRepository: TransactionLinkRepository,
     private overrideStore?: OverrideStore | undefined,
     private eventBus?: EventBus<LinkingEvent> | undefined
   ) {}

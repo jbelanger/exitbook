@@ -1,4 +1,4 @@
-import type { KyselyDB } from './storage/db-types.js';
+import type { KyselyDB } from './storage/initialization.js';
 import { createDatabase } from './storage/initialization.js';
 import { runMigrations } from './storage/migrations.js';
 

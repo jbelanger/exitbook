@@ -2,7 +2,7 @@
 
 import type { UniversalTransactionData } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { TransactionQueries } from '@exitbook/data';
+import { type DataContext } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
@@ -29,13 +29,15 @@ export interface MissingPricesResult {
  * Handler for viewing price coverage.
  */
 export class ViewPricesHandler {
-  constructor(private readonly txRepo: TransactionQueries) {}
+  constructor(private readonly db: DataContext) {}
 
   /**
    * Execute the view prices command (coverage mode).
    */
   async execute(params: ViewPricesParams): Promise<Result<ViewPricesResult, Error>> {
-    const txResult = await this.txRepo.getTransactions(params.source ? { sourceName: params.source } : undefined);
+    const txResult = await this.db.transactions.getTransactions(
+      params.source ? { sourceName: params.source } : undefined
+    );
 
     if (txResult.isErr()) {
       return wrapError(txResult.error, 'Failed to fetch transactions');
@@ -71,7 +73,9 @@ export class ViewPricesHandler {
    * Execute coverage with enhanced detail (source breakdown + date range).
    */
   async executeCoverageDetail(params: ViewPricesParams): Promise<Result<PriceCoverageDetail[], Error>> {
-    const txResult = await this.txRepo.getTransactions(params.source ? { sourceName: params.source } : undefined);
+    const txResult = await this.db.transactions.getTransactions(
+      params.source ? { sourceName: params.source } : undefined
+    );
 
     if (txResult.isErr()) {
       return wrapError(txResult.error, 'Failed to fetch transactions');
@@ -157,7 +161,9 @@ export class ViewPricesHandler {
    * Execute missing mode — returns flat movement rows + asset breakdown.
    */
   async executeMissing(params: ViewPricesParams): Promise<Result<MissingPricesResult, Error>> {
-    const txResult = await this.txRepo.getTransactions(params.source ? { sourceName: params.source } : undefined);
+    const txResult = await this.db.transactions.getTransactions(
+      params.source ? { sourceName: params.source } : undefined
+    );
 
     if (txResult.isErr()) {
       return wrapError(txResult.error, 'Failed to fetch transactions');

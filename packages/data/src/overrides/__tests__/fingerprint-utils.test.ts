@@ -5,8 +5,8 @@ import { computeTxFingerprint, computeLinkFingerprint } from '../fingerprint-uti
 describe('computeTxFingerprint', () => {
   it('should compute fingerprint from source_name and external_id', () => {
     const result = computeTxFingerprint({
-      source_name: 'kraken',
-      external_id: 'TRADE-12345',
+      source: 'kraken',
+      externalId: 'TRADE-12345',
     });
 
     expect(result.isOk()).toBe(true);
@@ -15,32 +15,32 @@ describe('computeTxFingerprint', () => {
 
   it('should handle blockchain transactions with colon in source_name', () => {
     const result = computeTxFingerprint({
-      source_name: 'blockchain:bitcoin',
-      external_id: 'abc123def456',
+      source: 'blockchain:bitcoin',
+      externalId: 'abc123def456',
     });
 
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap()).toBe('blockchain:bitcoin:abc123def456');
   });
 
-  it('should return error if source_name is empty', () => {
+  it('should return error if source is empty', () => {
     const result = computeTxFingerprint({
-      source_name: '',
-      external_id: 'TRADE-12345',
+      source: '',
+      externalId: 'TRADE-12345',
     });
 
     expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toBe('source_name must not be empty');
+    expect(result._unsafeUnwrapErr().message).toBe('source must not be empty');
   });
 
-  it('should return error if external_id is empty', () => {
+  it('should return error if externalId is empty', () => {
     const result = computeTxFingerprint({
-      source_name: 'kraken',
-      external_id: '',
+      source: 'kraken',
+      externalId: '',
     });
 
     expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toBe('external_id must not be empty');
+    expect(result._unsafeUnwrapErr().message).toBe('externalId must not be empty');
   });
 });
 

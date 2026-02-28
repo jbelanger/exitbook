@@ -1,6 +1,4 @@
-// eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
-import type { KyselyDB, RawDataQueries } from '@exitbook/data';
-import { createRawDataQueries } from '@exitbook/data';
+import type { DataContext, RawTransactionRepository } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import {
   ClearService,
@@ -44,18 +42,18 @@ export async function executeReprocess(
   deps: {
     clearService: ClearService;
     rawDataProcessingService: RawDataProcessingService;
-    rawDataQueries: RawDataQueries;
+    rawDataRepo: RawTransactionRepository;
   }
 ): Promise<Result<BatchProcessSummary, Error>> {
   const { accountId } = params;
-  const { rawDataProcessingService, clearService, rawDataQueries } = deps;
+  const { rawDataProcessingService, clearService, rawDataRepo } = deps;
 
   // Resolve account IDs before any mutation
   let accountIds: number[];
   if (accountId) {
     accountIds = [accountId];
   } else {
-    const accountIdsResult = await rawDataQueries.getAccountsWithPendingData();
+    const accountIdsResult = await rawDataRepo.findDistinctAccountIds({ processingStatus: 'pending' });
     if (accountIdsResult.isErr()) {
       return err(accountIdsResult.error);
     }
@@ -102,7 +100,7 @@ export class ProcessHandler {
   constructor(
     private readonly rawDataProcessingService: RawDataProcessingService,
     private readonly clearService: ClearService,
-    private readonly rawDataQueries: RawDataQueries,
+    private readonly rawDataRepo: RawTransactionRepository,
     private readonly ingestionMonitor: EventDrivenController<CliEvent>,
     private readonly instrumentation: InstrumentationCollector
   ) {}
@@ -111,7 +109,7 @@ export class ProcessHandler {
     const result = await executeReprocess(params, {
       rawDataProcessingService: this.rawDataProcessingService,
       clearService: this.clearService,
-      rawDataQueries: this.rawDataQueries,
+      rawDataRepo: this.rawDataRepo,
     });
 
     if (result.isErr()) {
@@ -134,19 +132,18 @@ export class ProcessHandler {
 
 export async function createProcessHandler(
   ctx: CommandContext,
-  database: KyselyDB,
+  database: DataContext,
   registry: AdapterRegistry
 ): Promise<Result<ProcessHandler, Error>> {
   try {
     const infra = await createIngestionInfrastructure(ctx, database, registry);
-    const rawDataQueries = createRawDataQueries(database);
     const clearService = new ClearService(database, infra.eventBus as EventBus<IngestionEvent>);
 
     return ok(
       new ProcessHandler(
         infra.rawDataProcessingService,
         clearService,
-        rawDataQueries,
+        database.rawTransactions,
         infra.ingestionMonitor,
         infra.instrumentation
       )

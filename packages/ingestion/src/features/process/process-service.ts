@@ -1,13 +1,6 @@
 import { type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getErrorMessage, type RawTransaction } from '@exitbook/core';
-import {
-  createAccountQueries,
-  createImportSessionQueries,
-  createNearRawDataQueries,
-  createRawDataQueries,
-  createTransactionQueries,
-  type KyselyDB,
-} from '@exitbook/data';
+import type { DataContext } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -40,13 +33,9 @@ const RAW_DATA_HASH_BATCH_SIZE = 100; // For blockchain accounts, process in has
 export class RawDataProcessingService {
   private logger: Logger;
   private scamDetectionService: IScamDetectionService;
-  private rawDataQueries: ReturnType<typeof createRawDataQueries>;
-  private accountQueries: ReturnType<typeof createAccountQueries>;
-  private transactionQueries: ReturnType<typeof createTransactionQueries>;
-  private importSessionQueries: ReturnType<typeof createImportSessionQueries>;
 
   constructor(
-    private db: KyselyDB,
+    private db: DataContext,
     private providerManager: BlockchainProviderManager,
     private tokenMetadataService: ITokenMetadataService,
     private eventBus: EventBus<IngestionEvent>,
@@ -54,10 +43,6 @@ export class RawDataProcessingService {
   ) {
     this.logger = getLogger('RawDataProcessingService');
     this.scamDetectionService = new ScamDetectionService(eventBus);
-    this.rawDataQueries = createRawDataQueries(db);
-    this.accountQueries = createAccountQueries(db);
-    this.transactionQueries = createTransactionQueries(db);
-    this.importSessionQueries = createImportSessionQueries(db);
   }
 
   /**
@@ -76,13 +61,16 @@ export class RawDataProcessingService {
       const accountTransactionCounts = new Map<number, Map<string, number>>();
 
       for (const accountId of accountIds) {
-        const countResult = await this.rawDataQueries.countPending(accountId);
+        const countResult = await this.db.rawTransactions.count({
+          accountIds: [accountId],
+          processingStatus: 'pending',
+        });
         if (countResult.isOk()) {
           totalRaw += countResult.value;
         }
 
         // Fetch transaction counts by stream type for dashboard display
-        const streamCountsResult = await this.rawDataQueries.countByStreamType(accountId);
+        const streamCountsResult = await this.db.rawTransactions.countByStreamType(accountId);
         if (streamCountsResult.isOk()) {
           accountTransactionCounts.set(accountId, streamCountsResult.value);
         }
@@ -152,7 +140,7 @@ export class RawDataProcessingService {
     this.logger.info('Processing all accounts with pending records');
 
     try {
-      const accountIdsResult = await this.rawDataQueries.getAccountsWithPendingData();
+      const accountIdsResult = await this.db.rawTransactions.findDistinctAccountIds({ processingStatus: 'pending' });
       if (accountIdsResult.isErr()) {
         return err(accountIdsResult.error);
       }
@@ -218,7 +206,7 @@ export class RawDataProcessingService {
       }
 
       // Load account to get source information
-      const accountResult = await this.accountQueries.findById(accountId);
+      const accountResult = await this.db.accounts.findById(accountId);
       if (accountResult.isErr()) {
         return err(new Error(`Failed to load account ${accountId}: ${accountResult.error.message}`));
       }
@@ -251,7 +239,7 @@ export class RawDataProcessingService {
       return ok(undefined);
     }
 
-    const sessionsResult = await this.importSessionQueries.findByAccounts(accountIds);
+    const sessionsResult = await this.db.importSessions.findAll({ accountIds });
     if (sessionsResult.isErr()) {
       return err(new Error(`Failed to check for active imports: ${sessionsResult.error.message}`));
     }
@@ -292,17 +280,16 @@ export class RawDataProcessingService {
   private createBatchProvider(sourceType: string, sourceName: string, accountId: number): IRawDataBatchProvider {
     // NEAR requires special multi-stream batch provider
     if (sourceType === 'blockchain' && sourceName.toLowerCase() === 'near') {
-      const nearRawDataQueries = createNearRawDataQueries(this.db);
-      return new NearStreamBatchProvider(nearRawDataQueries, accountId, RAW_DATA_HASH_BATCH_SIZE);
+      return new NearStreamBatchProvider(this.db.nearRawData, accountId, RAW_DATA_HASH_BATCH_SIZE);
     }
 
     if (sourceType === 'blockchain') {
       // Hash-grouped batching for blockchains to ensure correlation integrity
-      return new HashGroupedBatchProvider(this.rawDataQueries, accountId, RAW_DATA_HASH_BATCH_SIZE);
+      return new HashGroupedBatchProvider(this.db.rawTransactions, accountId, RAW_DATA_HASH_BATCH_SIZE);
     }
 
     // All-at-once batching for exchanges (manageable data volumes)
-    return new AllAtOnceBatchProvider(this.rawDataQueries, accountId);
+    return new AllAtOnceBatchProvider(this.db.rawTransactions, accountId);
   }
 
   /**
@@ -320,7 +307,10 @@ export class RawDataProcessingService {
     let batchNumber = 0;
 
     // Query pending count once at start
-    const pendingCountResult = await this.rawDataQueries.countPending(accountId);
+    const pendingCountResult = await this.db.rawTransactions.count({
+      accountIds: [accountId],
+      processingStatus: 'pending',
+    });
     let pendingCount = 0;
     if (pendingCountResult.isOk()) {
       pendingCount = pendingCountResult.value;
@@ -480,7 +470,7 @@ export class RawDataProcessingService {
       addressContext.primaryAddress = account.identifier;
 
       if (account.userId) {
-        const userAccountsResult = await this.accountQueries.findAll({ userId: account.userId });
+        const userAccountsResult = await this.db.accounts.findAll({ userId: account.userId });
         if (userAccountsResult.isOk()) {
           const userAccounts = userAccountsResult.value;
           const userAddresses = userAccounts
@@ -571,7 +561,7 @@ export class RawDataProcessingService {
 
     for (let start = 0; start < transactions.length; start += TRANSACTION_SAVE_BATCH_SIZE) {
       const batch = transactions.slice(start, start + TRANSACTION_SAVE_BATCH_SIZE);
-      const saveResult = await this.transactionQueries.saveBatch(batch, accountId);
+      const saveResult = await this.db.executeInTransaction((tx) => tx.transactions.saveBatch(batch, accountId));
 
       if (saveResult.isErr()) {
         const errorMessage = `CRITICAL: Failed to save transactions batch starting at index ${start} for account ${accountId}: ${saveResult.error.message}`;
@@ -595,7 +585,7 @@ export class RawDataProcessingService {
     const allRawDataIds = rawDataItems.map((item) => item.id);
     for (let start = 0; start < allRawDataIds.length; start += RAW_DATA_MARK_BATCH_SIZE) {
       const batchIds = allRawDataIds.slice(start, start + RAW_DATA_MARK_BATCH_SIZE);
-      const markAsProcessedResult = await this.rawDataQueries.markAsProcessed(batchIds);
+      const markAsProcessedResult = await this.db.rawTransactions.markAsProcessed(batchIds);
 
       if (markAsProcessedResult.isErr()) {
         return err(markAsProcessedResult.error);

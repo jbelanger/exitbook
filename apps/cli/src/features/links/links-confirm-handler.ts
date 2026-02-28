@@ -1,6 +1,5 @@
-// Handler for links confirm command
-
-import type { OverrideStore, TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
+import type { OverrideStore } from '@exitbook/data';
+import { DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -39,8 +38,7 @@ export interface LinksConfirmResult {
  */
 export class LinksConfirmHandler {
   constructor(
-    private readonly linkRepo: TransactionLinkQueries,
-    private readonly txRepo: TransactionQueries,
+    private readonly db: DataContext,
     private readonly overrideStore?: OverrideStore | undefined
   ) {}
 
@@ -50,7 +48,7 @@ export class LinksConfirmHandler {
   async execute(params: LinksConfirmParams): Promise<Result<LinksConfirmResult, Error>> {
     try {
       // Fetch the link
-      const linkResult = await this.linkRepo.findById(params.linkId);
+      const linkResult = await this.db.transactionLinks.findById(params.linkId);
 
       if (linkResult.isErr()) {
         return err(linkResult.error);
@@ -82,7 +80,7 @@ export class LinksConfirmHandler {
 
       // Update link status to confirmed
       const reviewedBy = getDefaultReviewer();
-      const updateResult = await this.linkRepo.updateStatus(params.linkId, 'confirmed', reviewedBy);
+      const updateResult = await this.db.transactionLinks.updateStatus(params.linkId, 'confirmed', reviewedBy);
 
       if (updateResult.isErr()) {
         return err(updateResult.error);
@@ -97,7 +95,7 @@ export class LinksConfirmHandler {
       // Write override event for durability across reprocessing
       if (this.overrideStore) {
         await writeLinkOverrideEvent(
-          this.txRepo,
+          this.db.transactions,
           this.overrideStore,
           link.sourceTransactionId,
           link.targetTransactionId,
@@ -106,8 +104,8 @@ export class LinksConfirmHandler {
       }
 
       // Fetch transaction details for rich display
-      const sourceTxResult = await this.txRepo.findById(link.sourceTransactionId);
-      const targetTxResult = await this.txRepo.findById(link.targetTransactionId);
+      const sourceTxResult = await this.db.transactions.findById(link.sourceTransactionId);
+      const targetTxResult = await this.db.transactions.findById(link.targetTransactionId);
 
       const sourceTx = sourceTxResult.isOk() ? sourceTxResult.value : undefined;
       const targetTx = targetTxResult.isOk() ? targetTxResult.value : undefined;

@@ -22,7 +22,7 @@ import {
   type Currency,
   type OperationClassification,
 } from '@exitbook/core';
-import type { NearRawDataQueries } from '@exitbook/data';
+import type { NearRawTransactionRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { err, errAsync, ok, type Result } from 'neverthrow';
 
@@ -62,7 +62,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   constructor(
     tokenMetadataService: ITokenMetadataService,
     scamDetectionService?: IScamDetectionService,
-    private readonly nearRawDataQueries?: NearRawDataQueries,
+    private readonly nearRawDataQueries?: NearRawTransactionRepository,
     private readonly accountId?: number | undefined
   ) {
     super('near', tokenMetadataService, scamDetectionService);

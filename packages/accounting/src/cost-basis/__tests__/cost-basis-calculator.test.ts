@@ -1,6 +1,6 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
-import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
+import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTransaction, createTransactionWithFee } from '../../../__tests__/test-utils.js';
@@ -11,17 +11,17 @@ import { USRules } from '../jurisdictions/us-rules.js';
 import { LotMatcher } from '../lot-matcher.js';
 
 const mockTransactionRepo = () => {
-  const queries: Partial<TransactionQueries> = {
+  const queries: Partial<TransactionRepository> = {
     findById: vi.fn().mockResolvedValue({ isOk: () => false, isErr: () => true, error: new Error('Not found') }),
   };
-  return queries as TransactionQueries;
+  return queries as TransactionRepository;
 };
 
 const mockLinkRepo = () => {
-  const queries: Partial<TransactionLinkQueries> = {
+  const queries: Partial<TransactionLinkRepository> = {
     findAll: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
   };
-  return queries as TransactionLinkQueries;
+  return queries as TransactionLinkRepository;
 };
 
 describe('calculateCostBasisFromValidatedTransactions', () => {

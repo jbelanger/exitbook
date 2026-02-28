@@ -1,4 +1,4 @@
-import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
+import { type DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -42,10 +42,7 @@ export interface ExportOutput {
  * Reusable by both CLI command and other contexts.
  */
 export class ExportHandler {
-  constructor(
-    private transactionRepository: TransactionQueries,
-    private transactionLinkRepository: TransactionLinkQueries
-  ) {}
+  constructor(private readonly db: DataContext) {}
 
   /**
    * Execute the export operation.
@@ -60,7 +57,7 @@ export class ExportHandler {
       };
 
       // Fetch transactions from database
-      const transactionsResult = await this.transactionRepository.getTransactions(filters);
+      const transactionsResult = await this.db.transactions.getTransactions(filters);
 
       if (transactionsResult.isErr()) {
         return err(new Error(`Failed to retrieve transactions: ${transactionsResult.error.message}`));
@@ -91,7 +88,7 @@ export class ExportHandler {
         const csvFormat = params.csvFormat ?? 'normalized';
         if (csvFormat === 'normalized') {
           const transactionIds = transactions.map((tx) => tx.id);
-          const linksResult = await this.transactionLinkRepository.findByTransactionIds(transactionIds);
+          const linksResult = await this.db.transactionLinks.findByTransactionIds(transactionIds);
           if (linksResult.isErr()) {
             return err(new Error(`Failed to retrieve transaction links: ${linksResult.error.message}`));
           }

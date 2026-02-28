@@ -1,6 +1,6 @@
 import { sql } from '@exitbook/sqlite';
 
-import type { KyselyDB } from '../storage/db-types.js';
+import type { KyselyDB } from '../storage/initialization.js';
 
 export async function up(db: KyselyDB): Promise<void> {
   // Create users table

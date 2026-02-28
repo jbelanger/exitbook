@@ -1,14 +1,5 @@
 import { type Account, wrapError } from '@exitbook/core';
-import {
-  createAccountQueries,
-  createImportSessionQueries,
-  createRawDataQueries,
-  createTransactionLinkQueries,
-  createTransactionQueries,
-  createUserQueries,
-  type KyselyDB,
-  withControlledTransaction,
-} from '@exitbook/data';
+import { type DataContext } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -37,24 +28,10 @@ export interface ClearResult {
  * Imperative shell that orchestrates repositories and pure functions.
  */
 export class ClearService {
-  private readonly userQueries: ReturnType<typeof createUserQueries>;
-  private readonly accountQueries: ReturnType<typeof createAccountQueries>;
-  private readonly transactionQueries: ReturnType<typeof createTransactionQueries>;
-  private readonly transactionLinkQueries: ReturnType<typeof createTransactionLinkQueries>;
-  private readonly rawDataQueries: ReturnType<typeof createRawDataQueries>;
-  private readonly sessionQueries: ReturnType<typeof createImportSessionQueries>;
-
   constructor(
-    private db: KyselyDB,
+    private db: DataContext,
     private eventBus?: EventBus<IngestionEvent> | undefined
-  ) {
-    this.userQueries = createUserQueries(db);
-    this.accountQueries = createAccountQueries(db);
-    this.transactionQueries = createTransactionQueries(db);
-    this.transactionLinkQueries = createTransactionLinkQueries(db);
-    this.rawDataQueries = createRawDataQueries(db);
-    this.sessionQueries = createImportSessionQueries(db);
-  }
+  ) {}
 
   /**
    * Preview what will be deleted.
@@ -95,13 +72,13 @@ export class ClearService {
         let accountsCount = 0;
 
         if (params.includeRaw) {
-          const sessionsResult = await this.sessionQueries.count({ accountIds });
+          const sessionsResult = await this.db.importSessions.count({ accountIds });
           if (sessionsResult.isErr()) {
             return err(sessionsResult.error);
           }
           sessionsCount = sessionsResult.value;
 
-          const rawDataResult = await this.rawDataQueries.count({ accountIds });
+          const rawDataResult = await this.db.rawTransactions.count({ accountIds });
           if (rawDataResult.isErr()) {
             return err(rawDataResult.error);
           }
@@ -110,7 +87,7 @@ export class ClearService {
           accountsCount = accountsToClear.length;
         }
 
-        const transactionsResult = await this.transactionQueries.countTransactions({
+        const transactionsResult = await this.db.transactions.countTransactions({
           accountIds,
           includeExcluded: true,
         });
@@ -118,7 +95,7 @@ export class ClearService {
           return err(transactionsResult.error);
         }
 
-        const linksResult = await this.transactionLinkQueries.count({ accountIds });
+        const linksResult = await this.db.transactionLinks.count({ accountIds });
         if (linksResult.isErr()) {
           return err(linksResult.error);
         }
@@ -137,25 +114,25 @@ export class ClearService {
         let rawDataCount = 0;
 
         if (params.includeRaw) {
-          const sessionsResult = await this.sessionQueries.count();
+          const sessionsResult = await this.db.importSessions.count();
           if (sessionsResult.isErr()) {
             return err(sessionsResult.error);
           }
           sessionsCount = sessionsResult.value;
 
-          const rawDataResult = await this.rawDataQueries.count();
+          const rawDataResult = await this.db.rawTransactions.count();
           if (rawDataResult.isErr()) {
             return err(rawDataResult.error);
           }
           rawDataCount = rawDataResult.value;
         }
 
-        const transactionsResult = await this.transactionQueries.countTransactions({ includeExcluded: true });
+        const transactionsResult = await this.db.transactions.countTransactions({ includeExcluded: true });
         if (transactionsResult.isErr()) {
           return err(transactionsResult.error);
         }
 
-        const linksResult = await this.transactionLinkQueries.count();
+        const linksResult = await this.db.transactionLinks.count();
         if (linksResult.isErr()) {
           return err(linksResult.error);
         }
@@ -266,49 +243,38 @@ export class ClearService {
   ): Promise<Result<void, Error>> {
     const accountIds = extractAccountIds(accountsToClear);
 
-    return withControlledTransaction(
-      this.db,
-      logger,
-      async (trx) => {
-        const transactionLinkQueries = createTransactionLinkQueries(trx);
-        const transactionQueries = createTransactionQueries(trx);
-        const rawDataQueries = createRawDataQueries(trx);
-        const sessionQueries = createImportSessionQueries(trx);
-        const accountQueries = createAccountQueries(trx);
+    return this.db.executeInTransaction(async (tx) => {
+      // Delete transaction data by account_id
+      const linksResult = await tx.transactionLinks.deleteByAccountIds(accountIds);
+      if (linksResult.isErr()) return err(linksResult.error);
 
-        // Delete transaction data by account_id
-        const linksResult = await transactionLinkQueries.deleteByAccountIds(accountIds);
-        if (linksResult.isErr()) return err(linksResult.error);
+      const transactionsResult = await tx.transactions.deleteByAccountIds(accountIds);
+      if (transactionsResult.isErr()) return err(transactionsResult.error);
 
-        const transactionsResult = await transactionQueries.deleteByAccountIds(accountIds);
-        if (transactionsResult.isErr()) return err(transactionsResult.error);
-
-        // Delete raw data and sessions (by account_id)
-        for (const { account } of accountsToClear) {
-          if (includeRaw) {
-            const rawDataResult = await rawDataQueries.deleteByAccount(account.id);
-            if (rawDataResult.isErr()) return err(rawDataResult.error);
-
-            const importSessionResult = await sessionQueries.deleteByAccount(account.id);
-            if (importSessionResult.isErr()) return err(importSessionResult.error);
-          } else {
-            // Reset raw data processing_status to 'pending' for reprocessing
-            const resetResult = await rawDataQueries.resetProcessingStatusByAccount(account.id);
-            if (resetResult.isErr()) return err(resetResult.error);
-          }
-        }
-
-        // Only delete accounts if we're doing a full clear (includeRaw: true)
-        // When includeRaw: false, we're just resetting for reprocessing, so keep the accounts
+      // Delete raw data and sessions (by account_id)
+      for (const { account } of accountsToClear) {
         if (includeRaw) {
-          const deleteAccountsResult = await accountQueries.deleteByIds(accountIds);
-          if (deleteAccountsResult.isErr()) return err(deleteAccountsResult.error);
-        }
+          const rawDataResult = await tx.rawTransactions.deleteAll({ accountId: account.id });
+          if (rawDataResult.isErr()) return err(rawDataResult.error);
 
-        return ok();
-      },
-      'Failed to delete account data'
-    );
+          const importSessionResult = await tx.importSessions.deleteBy({ accountId: account.id });
+          if (importSessionResult.isErr()) return err(importSessionResult.error);
+        } else {
+          // Reset raw data processing_status to 'pending' for reprocessing
+          const resetResult = await tx.rawTransactions.resetProcessingStatus({ accountId: account.id });
+          if (resetResult.isErr()) return err(resetResult.error);
+        }
+      }
+
+      // Only delete accounts if we're doing a full clear (includeRaw: true)
+      // When includeRaw: false, we're just resetting for reprocessing, so keep the accounts
+      if (includeRaw) {
+        const deleteAccountsResult = await tx.accounts.deleteByIds(accountIds);
+        if (deleteAccountsResult.isErr()) return err(deleteAccountsResult.error);
+      }
+
+      return ok();
+    });
   }
 
   /**
@@ -316,37 +282,27 @@ export class ClearService {
    * All operations run inside a single DB transaction — partial failure rolls back atomically.
    */
   private async deleteAll(includeRaw: boolean): Promise<Result<void, Error>> {
-    return withControlledTransaction(
-      this.db,
-      logger,
-      async (trx) => {
-        const transactionLinkQueries = createTransactionLinkQueries(trx);
-        const transactionQueries = createTransactionQueries(trx);
-        const rawDataQueries = createRawDataQueries(trx);
-        const sessionQueries = createImportSessionQueries(trx);
+    return this.db.executeInTransaction(async (tx) => {
+      const linksResult = await tx.transactionLinks.deleteAll();
+      if (linksResult.isErr()) return err(linksResult.error);
 
-        const linksResult = await transactionLinkQueries.deleteAll();
-        if (linksResult.isErr()) return err(linksResult.error);
+      const transactionsResult = await tx.transactions.deleteAll();
+      if (transactionsResult.isErr()) return err(transactionsResult.error);
 
-        const transactionsResult = await transactionQueries.deleteAll();
-        if (transactionsResult.isErr()) return err(transactionsResult.error);
+      if (includeRaw) {
+        const rawDataResult = await tx.rawTransactions.deleteAll();
+        if (rawDataResult.isErr()) return err(rawDataResult.error);
 
-        if (includeRaw) {
-          const rawDataResult = await rawDataQueries.deleteAll();
-          if (rawDataResult.isErr()) return err(rawDataResult.error);
+        const importSessionResult = await tx.importSessions.deleteBy();
+        if (importSessionResult.isErr()) return err(importSessionResult.error);
+      } else {
+        // Reset raw data processing_status to 'pending' for reprocessing
+        const resetResult = await tx.rawTransactions.resetProcessingStatus();
+        if (resetResult.isErr()) return err(resetResult.error);
+      }
 
-          const importSessionResult = await sessionQueries.deleteAll();
-          if (importSessionResult.isErr()) return err(importSessionResult.error);
-        } else {
-          // Reset raw data processing_status to 'pending' for reprocessing
-          const resetResult = await rawDataQueries.resetProcessingStatusAll();
-          if (resetResult.isErr()) return err(resetResult.error);
-        }
-
-        return ok();
-      },
-      'Failed to delete all data'
-    );
+      return ok();
+    });
   }
 
   /**
@@ -356,7 +312,7 @@ export class ClearService {
    */
   private async resolveAccounts(params: ClearServiceParams): Promise<Result<ResolvedAccount[], Error>> {
     // 1. Ensure default user exists (id=1)
-    const userResult = await this.userQueries.getOrCreateDefaultUser();
+    const userResult = await this.db.users.getOrCreateDefaultUser();
     if (userResult.isErr()) {
       return err(userResult.error);
     }
@@ -368,7 +324,7 @@ export class ClearService {
     // 2. Find accounts scoped to this user
     if (params.accountId) {
       // Use findAll with userId filter to ensure user scoping
-      const result = await this.accountQueries.findAll({ userId: user.id });
+      const result = await this.db.accounts.findAll({ userId: user.id });
       if (result.isErr()) {
         return err(result.error);
       }
@@ -381,7 +337,7 @@ export class ClearService {
 
     if (params.source) {
       // Use findAll with userId and sourceName filters
-      const result = await this.accountQueries.findAll({
+      const result = await this.db.accounts.findAll({
         userId: user.id,
         sourceName: params.source,
       });

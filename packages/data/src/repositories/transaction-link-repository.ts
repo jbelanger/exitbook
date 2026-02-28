@@ -9,79 +9,64 @@ import {
   type TransactionLink,
   wrapError,
 } from '@exitbook/core';
-import { getLogger } from '@exitbook/logger';
 import type { Selectable } from '@exitbook/sqlite';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { TransactionLinksTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/db-types.js';
+import type { KyselyDB } from '../storage/initialization.js';
 
-import { parseWithSchema, serializeToJson } from './query-utils.js';
+import { BaseRepository } from './base-repository.js';
+import { parseWithSchema, serializeToJson } from './db-utils.js';
 
 export type TransactionLinkRow = Selectable<TransactionLinksTable>;
 
-/**
- * Query module for transaction link operations.
- */
-export function createTransactionLinkQueries(db: KyselyDB) {
-  const logger = getLogger('transaction-link-queries');
-
-  /**
-   * Convert database row to TransactionLink domain model.
-   * Uses Zod schema for validation and automatic Decimal transformation.
-   */
-  function toTransactionLink(row: TransactionLinkRow): Result<TransactionLink, Error> {
-    // Parse and validate matchCriteria with schema (handles Decimal rehydration automatically)
-    const matchCriteriaResult = parseWithSchema(row.match_criteria_json, MatchCriteriaSchema);
-    if (matchCriteriaResult.isErr()) {
-      return err(matchCriteriaResult.error);
-    }
-    if (matchCriteriaResult.value === undefined) {
-      return err(new Error('match_criteria_json is required but was undefined'));
-    }
-
-    // Parse and validate metadata with schema
-    const metadataResult = parseWithSchema(row.metadata_json, TransactionLinkMetadataSchema);
-    if (metadataResult.isErr()) {
-      return err(metadataResult.error);
-    }
-
-    return ok({
-      id: row.id,
-      sourceTransactionId: row.source_transaction_id,
-      targetTransactionId: row.target_transaction_id,
-      assetSymbol: CurrencySchema.parse(row.asset),
-      sourceAssetId: row.source_asset_id,
-      targetAssetId: row.target_asset_id,
-      sourceAmount: DecimalSchema.parse(row.source_amount),
-      targetAmount: DecimalSchema.parse(row.target_amount),
-      linkType: row.link_type,
-      confidenceScore: DecimalSchema.parse(row.confidence_score),
-      matchCriteria: matchCriteriaResult.value,
-      status: row.status,
-      reviewedBy: row.reviewed_by ?? undefined,
-      reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : undefined,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
-      metadata: metadataResult.value,
-    });
+function toTransactionLink(row: TransactionLinkRow): Result<TransactionLink, Error> {
+  const matchCriteriaResult = parseWithSchema(row.match_criteria_json, MatchCriteriaSchema);
+  if (matchCriteriaResult.isErr()) {
+    return err(matchCriteriaResult.error);
+  }
+  if (matchCriteriaResult.value === undefined) {
+    return err(new Error('match_criteria_json is required but was undefined'));
   }
 
-  /**
-   * Create a new transaction link.
-   *
-   * @param link - Link data to insert
-   * @returns Result with the created link ID
-   */
-  async function create(link: NewTransactionLink): Promise<Result<number, Error>> {
+  const metadataResult = parseWithSchema(row.metadata_json, TransactionLinkMetadataSchema);
+  if (metadataResult.isErr()) {
+    return err(metadataResult.error);
+  }
+
+  return ok({
+    id: row.id,
+    sourceTransactionId: row.source_transaction_id,
+    targetTransactionId: row.target_transaction_id,
+    assetSymbol: CurrencySchema.parse(row.asset),
+    sourceAssetId: row.source_asset_id,
+    targetAssetId: row.target_asset_id,
+    sourceAmount: DecimalSchema.parse(row.source_amount),
+    targetAmount: DecimalSchema.parse(row.target_amount),
+    linkType: row.link_type,
+    confidenceScore: DecimalSchema.parse(row.confidence_score),
+    matchCriteria: matchCriteriaResult.value,
+    status: row.status,
+    reviewedBy: row.reviewed_by ?? undefined,
+    reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : undefined,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+    metadata: metadataResult.value,
+  });
+}
+
+export class TransactionLinkRepository extends BaseRepository {
+  constructor(db: KyselyDB) {
+    super(db, 'transaction-link-repository');
+  }
+
+  async create(link: NewTransactionLink): Promise<Result<number, Error>> {
     try {
-      // Validate matchCriteria before saving
       const matchCriteriaValidation = MatchCriteriaSchema.safeParse(link.matchCriteria);
       if (!matchCriteriaValidation.success) {
         return err(new Error(`Invalid match criteria: ${matchCriteriaValidation.error.message}`));
       }
 
-      // Validate metadata before saving
       if (link.metadata !== undefined) {
         const metadataValidation = TransactionLinkMetadataSchema.safeParse(link.metadata);
         if (!metadataValidation.success) {
@@ -102,7 +87,7 @@ export function createTransactionLinkQueries(db: KyselyDB) {
         return err(serializedMetadata.error);
       }
 
-      const row = await db
+      const row = await this.db
         .insertInto('transaction_links')
         .values({
           source_transaction_id: link.sourceTransactionId,
@@ -125,27 +110,20 @@ export function createTransactionLinkQueries(db: KyselyDB) {
         .returning('id')
         .executeTakeFirstOrThrow();
 
-      logger.debug({ linkId: row.id }, 'Created transaction link');
+      this.logger.debug({ linkId: row.id }, 'Created transaction link');
       return ok(row.id);
     } catch (error) {
-      logger.error({ error }, 'Failed to create transaction link');
+      this.logger.error({ error }, 'Failed to create transaction link');
       return wrapError(error, 'Failed to create transaction link');
     }
   }
 
-  /**
-   * Bulk create transaction links.
-   *
-   * @param links - Array of links to create
-   * @returns Result with count of created links
-   */
-  async function createBulk(links: NewTransactionLink[]): Promise<Result<number, Error>> {
+  async createBulk(links: NewTransactionLink[]): Promise<Result<number, Error>> {
     try {
       if (links.length === 0) {
         return ok(0);
       }
 
-      // Validate all links before saving
       for (const [i, link] of links.entries()) {
         const matchCriteriaValidation = MatchCriteriaSchema.safeParse(link.matchCriteria);
         if (!matchCriteriaValidation.success) {
@@ -203,25 +181,19 @@ export function createTransactionLinkQueries(db: KyselyDB) {
         });
       }
 
-      await db.insertInto('transaction_links').values(values).execute();
+      await this.db.insertInto('transaction_links').values(values).execute();
 
-      logger.info({ count: links.length }, 'Bulk created transaction links');
+      this.logger.info({ count: links.length }, 'Bulk created transaction links');
       return ok(links.length);
     } catch (error) {
-      logger.error({ error }, 'Failed to bulk create transaction links');
+      this.logger.error({ error }, 'Failed to bulk create transaction links');
       return wrapError(error, 'Failed to bulk create transaction links');
     }
   }
 
-  /**
-   * Find link by ID.
-   *
-   * @param id - Link ID
-   * @returns Result with link or null if not found
-   */
-  async function findById(id: number): Promise<Result<TransactionLink | null, Error>> {
+  async findById(id: number): Promise<Result<TransactionLink | null, Error>> {
     try {
-      const row = await db.selectFrom('transaction_links').selectAll().where('id', '=', id).executeTakeFirst();
+      const row = await this.db.selectFrom('transaction_links').selectAll().where('id', '=', id).executeTakeFirst();
 
       if (!row) {
         return ok(null);
@@ -234,31 +206,23 @@ export function createTransactionLinkQueries(db: KyselyDB) {
 
       return ok(result.value);
     } catch (error) {
-      logger.error({ error, id }, 'Failed to find transaction link by ID');
+      this.logger.error({ error, id }, 'Failed to find transaction link by ID');
       return wrapError(error, 'Failed to find transaction link');
     }
   }
 
-  /**
-   * Find all links with optional status filter.
-   *
-   * @param status - Optional status filter
-   * @returns Result with array of links
-   */
-  async function findAll(status?: LinkStatus): Promise<Result<TransactionLink[], Error>> {
+  async findAll(status?: LinkStatus): Promise<Result<TransactionLink[], Error>> {
     try {
-      let query = db.selectFrom('transaction_links').selectAll();
+      let query = this.db.selectFrom('transaction_links').selectAll();
 
       if (status) {
         query = query.where('status', '=', status);
       }
 
-      // Order by creation time ascending (oldest to newest)
       query = query.orderBy('created_at', 'asc');
 
       const rows = await query.execute();
 
-      // Convert rows to domain models, failing fast on any parse errors
       const links: TransactionLink[] = [];
       for (const row of rows) {
         const result = toTransactionLink(row);
@@ -270,24 +234,18 @@ export function createTransactionLinkQueries(db: KyselyDB) {
 
       return ok(links);
     } catch (error) {
-      logger.error({ error, status }, 'Failed to find transaction links');
+      this.logger.error({ error, status }, 'Failed to find transaction links');
       return wrapError(error, 'Failed to find transaction links');
     }
   }
 
-  /**
-   * Find links by related transaction IDs (source or target).
-   *
-   * @param transactionIds - Transaction IDs to match
-   * @returns Result with array of links
-   */
-  async function findByTransactionIds(transactionIds: number[]): Promise<Result<TransactionLink[], Error>> {
+  async findByTransactionIds(transactionIds: number[]): Promise<Result<TransactionLink[], Error>> {
     try {
       if (transactionIds.length === 0) {
         return ok([]);
       }
 
-      const rows = await db
+      const rows = await this.db
         .selectFrom('transaction_links')
         .selectAll()
         .where((eb) =>
@@ -307,24 +265,16 @@ export function createTransactionLinkQueries(db: KyselyDB) {
 
       return ok(links);
     } catch (error) {
-      logger.error({ error, transactionIds }, 'Failed to find links by transaction IDs');
+      this.logger.error({ error, transactionIds }, 'Failed to find links by transaction IDs');
       return wrapError(error, 'Failed to find links by transaction IDs');
     }
   }
 
-  /**
-   * Update link status.
-   *
-   * @param id - Link ID
-   * @param status - New status
-   * @param reviewedBy - User who reviewed
-   * @returns Result with success boolean
-   */
-  async function updateStatus(id: number, status: LinkStatus, reviewedBy: string): Promise<Result<boolean, Error>> {
+  async updateStatus(id: number, status: LinkStatus, reviewedBy: string): Promise<Result<boolean, Error>> {
     try {
       const now = new Date().toISOString();
 
-      const result = await db
+      const result = await this.db
         .updateTable('transaction_links')
         .set({
           status,
@@ -336,33 +286,28 @@ export function createTransactionLinkQueries(db: KyselyDB) {
         .execute();
 
       const updated = result[0] ? Number(result[0].numUpdatedRows ?? 0) > 0 : false;
-      logger.debug({ linkId: id, status, updated }, 'Updated transaction link status');
+      this.logger.debug({ linkId: id, status, updated }, 'Updated transaction link status');
       return ok(updated);
     } catch (error) {
-      logger.error({ error, id, status }, 'Failed to update transaction link status');
+      this.logger.error({ error, id, status }, 'Failed to update transaction link status');
       return wrapError(error, 'Failed to update transaction link status');
     }
   }
 
-  /**
-   * Count transaction links with optional filters.
-   * When accountIds is provided, counts links where source OR target transactions belong
-   * to those accounts.
-   *
-   * @param filters - Optional filters
-   * @returns Result with count
-   */
-  async function count(filters?: { accountIds?: number[] | undefined }): Promise<Result<number, Error>> {
+  async count(filters?: { accountIds?: number[] | undefined }): Promise<Result<number, Error>> {
     try {
       const accountIds = filters?.accountIds;
       if (accountIds !== undefined && accountIds.length === 0) {
         return ok(0);
       }
 
-      let query = db.selectFrom('transaction_links').select(({ fn }) => [fn.count<number>('id').as('count')]);
+      let query = this.db.selectFrom('transaction_links').select(({ fn }) => [fn.count<number>('id').as('count')]);
 
       if (accountIds !== undefined) {
-        const transactionsSubquery = db.selectFrom('transactions').select('id').where('account_id', 'in', accountIds);
+        const transactionsSubquery = this.db
+          .selectFrom('transactions')
+          .select('id')
+          .where('account_id', 'in', accountIds);
 
         query = query.where((eb) =>
           eb.or([
@@ -375,14 +320,14 @@ export function createTransactionLinkQueries(db: KyselyDB) {
       const result = await query.executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
-      logger.error({ error, filters }, 'Failed to count transaction links');
+      this.logger.error({ error, filters }, 'Failed to count transaction links');
       return wrapError(error, 'Failed to count transaction links');
     }
   }
 
-  async function getLatestCreatedAt(): Promise<Result<Date | null, Error>> {
+  async getLatestCreatedAt(): Promise<Result<Date | null, Error>> {
     try {
-      const result = await db
+      const result = await this.db
         .selectFrom('transaction_links')
         .select(({ fn }) => [fn.max<string>('created_at').as('latest')])
         .executeTakeFirst();
@@ -397,23 +342,18 @@ export function createTransactionLinkQueries(db: KyselyDB) {
     }
   }
 
-  /**
-   * Delete transaction links by account IDs.
-   * Deletes links where source OR target transactions belong to the specified accounts.
-   * Deletes WHERE source_transaction_id IN (...) OR target_transaction_id IN (...).
-   *
-   * @param accountIds - Account IDs to match
-   * @returns Result with count of deleted links
-   */
-  async function deleteByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
+  async deleteByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
       if (accountIds.length === 0) {
         return ok(0);
       }
 
-      const transactionsSubquery = db.selectFrom('transactions').select('id').where('account_id', 'in', accountIds);
+      const transactionsSubquery = this.db
+        .selectFrom('transactions')
+        .select('id')
+        .where('account_id', 'in', accountIds);
 
-      const result = await db
+      const result = await this.db
         .deleteFrom('transaction_links')
         .where((eb) =>
           eb.or([
@@ -424,44 +364,24 @@ export function createTransactionLinkQueries(db: KyselyDB) {
         .executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      logger.debug({ accountIds, count }, 'Deleted transaction links by account IDs');
+      this.logger.debug({ accountIds, count }, 'Deleted transaction links by account IDs');
       return ok(count);
     } catch (error) {
-      logger.error({ error, accountIds }, 'Failed to delete links by account IDs');
+      this.logger.error({ error, accountIds }, 'Failed to delete links by account IDs');
       return wrapError(error, 'Failed to delete links by account IDs');
     }
   }
 
-  /**
-   * Delete all transaction links.
-   *
-   * @returns Result with count of deleted links
-   */
-  async function deleteAll(): Promise<Result<number, Error>> {
+  async deleteAll(): Promise<Result<number, Error>> {
     try {
-      const result = await db.deleteFrom('transaction_links').executeTakeFirst();
+      const result = await this.db.deleteFrom('transaction_links').executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      logger.debug({ count }, 'Deleted all transaction links');
+      this.logger.debug({ count }, 'Deleted all transaction links');
       return ok(count);
     } catch (error) {
-      logger.error({ error }, 'Failed to delete all links');
+      this.logger.error({ error }, 'Failed to delete all links');
       return wrapError(error, 'Failed to delete all links');
     }
   }
-
-  return {
-    create,
-    createBulk,
-    findById,
-    findAll,
-    findByTransactionIds,
-    updateStatus,
-    count,
-    getLatestCreatedAt,
-    deleteByAccountIds,
-    deleteAll,
-  };
 }
-
-export type TransactionLinkQueries = ReturnType<typeof createTransactionLinkQueries>;

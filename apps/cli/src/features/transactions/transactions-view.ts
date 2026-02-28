@@ -109,12 +109,9 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
  * Execute transactions view in TUI mode
  */
 async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promise<void> {
-  const { createTransactionQueries } = await import('@exitbook/data');
-
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = createTransactionQueries(database);
 
       let since: number | undefined;
       if (params.since) {
@@ -133,7 +130,7 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
         includeExcluded: true,
       };
 
-      const txResult = await txRepo.getTransactions(filters);
+      const txResult = await database.transactions.getTransactions(filters);
       if (txResult.isErr()) {
         console.error('\n⚠ Error:', txResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
@@ -164,10 +161,8 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
 
       const initialState = createTransactionsViewState(viewItems, viewFilters, totalCount, categoryCounts);
 
-      const { createTransactionLinkQueries } = await import('@exitbook/data');
       const { ExportHandler } = await import('./transactions-export-handler.js');
-      const txLinkRepo = createTransactionLinkQueries(database);
-      const exportHandler = new ExportHandler(txRepo, txLinkRepo);
+      const exportHandler = new ExportHandler(database);
 
       const onExport: OnExport = async (format, csvFormat) => {
         try {
@@ -225,12 +220,9 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
  * Execute transactions view in JSON mode
  */
 async function executeTransactionsViewJSON(params: ViewTransactionsParams): Promise<void> {
-  const { createTransactionQueries } = await import('@exitbook/data');
-
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const txRepo = createTransactionQueries(database);
 
       // Convert since to unix timestamp if provided
       let since: number | undefined;
@@ -249,7 +241,7 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
         includeExcluded: true,
       };
 
-      const txResult = await txRepo.getTransactions(filters);
+      const txResult = await database.transactions.getTransactions(filters);
       if (txResult.isErr()) {
         displayCliError('view-transactions', txResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;

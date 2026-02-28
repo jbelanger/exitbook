@@ -4,9 +4,8 @@ import {
   type LinkingRunParams,
   type LinkingRunResult,
 } from '@exitbook/accounting';
-// eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
-import type { KyselyDB } from '@exitbook/data';
-import { createTransactionLinkQueries, createTransactionQueries, OverrideStore } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data';
+import { OverrideStore } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -69,19 +68,19 @@ export class LinksRunHandler {
  * Create a LinksRunHandler with appropriate infrastructure.
  *
  * Returns a bare value (not Result) because creation is infallible:
- * createTransactionQueries/createTransactionLinkQueries are pure DB wrappers,
- * OverrideStore constructor only sets a file path, and EventBus construction
- * cannot throw. No Result wrapping needed — this is intentional.
+ * DataContext repos are pre-built wrappers, OverrideStore constructor only
+ * sets a file path, and EventBus construction cannot throw.
+ * No Result wrapping needed — this is intentional.
  *
  * No cleanup registration needed -- LinkingOrchestrator has no persistent resources.
  */
 export function createLinksRunHandler(
   ctx: CommandContext,
-  database: KyselyDB,
+  database: DataContext,
   options: { dryRun: boolean; isJsonMode: boolean }
 ): LinksRunHandler {
-  const transactionRepository = createTransactionQueries(database);
-  const linkRepository = createTransactionLinkQueries(database);
+  const transactionRepository = database.transactions;
+  const linkRepository = database.transactionLinks;
   const overrideStore = new OverrideStore(ctx.dataDir);
 
   if (options.isJsonMode) {

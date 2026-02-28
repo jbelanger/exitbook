@@ -1,6 +1,5 @@
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
-// eslint-disable-next-line no-restricted-imports -- ok here since this is the CLI boundary
-import { createTokenMetadataPersistence, type KyselyDB } from '@exitbook/data';
+import { createTokenMetadataPersistence, type DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import {
   type AdapterRegistry,
@@ -38,7 +37,7 @@ export interface IngestionInfrastructure {
  */
 export async function createIngestionInfrastructure(
   ctx: CommandContext,
-  database: KyselyDB,
+  database: DataContext,
   registry: AdapterRegistry
 ): Promise<IngestionInfrastructure> {
   const dataDir = getDataDir();

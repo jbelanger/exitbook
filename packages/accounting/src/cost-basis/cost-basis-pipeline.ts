@@ -1,5 +1,5 @@
 import { type UniversalTransactionData } from '@exitbook/core';
-import type { TransactionLinkQueries, TransactionQueries } from '@exitbook/data';
+import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -26,8 +26,8 @@ export interface CostBasisPipelineResult {
 export async function runCostBasisPipeline(
   transactions: UniversalTransactionData[],
   config: CostBasisConfig,
-  transactionRepository: TransactionQueries,
-  linkRepository: TransactionLinkQueries
+  transactionRepository: TransactionRepository,
+  linkRepository: TransactionLinkRepository
 ): Promise<Result<CostBasisPipelineResult, Error>> {
   const validationResult = validateTransactionPrices(transactions, config.currency);
   if (validationResult.isErr()) {
