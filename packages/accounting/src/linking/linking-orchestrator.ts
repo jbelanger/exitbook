@@ -8,7 +8,7 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { LinkingEvent } from './linking-events.js';
 import { buildLinkFromOrphanedOverride, categorizeFinalLinks } from './linking-orchestrator-utils.js';
-import { DEFAULT_MATCHING_CONFIG } from './matching-utils.js';
+import { buildMatchingConfig } from './matching-utils.js';
 import { TransactionLinkingEngine } from './transaction-linking-engine.js';
 import type { LinkingResult, NewTransactionLink } from './types.js';
 
@@ -191,13 +191,13 @@ export class LinkingOrchestrator {
     transactions: UniversalTransactionData[],
     params: LinkingRunParams
   ): Result<{ allLinks: NewTransactionLink[]; linkingResult: LinkingResult }, Error> {
-    const service = new TransactionLinkingEngine(logger, {
-      maxTimingWindowHours: 48,
-      clockSkewToleranceHours: DEFAULT_MATCHING_CONFIG.clockSkewToleranceHours,
-      minAmountSimilarity: DEFAULT_MATCHING_CONFIG.minAmountSimilarity,
-      minConfidenceScore: params.minConfidenceScore,
-      autoConfirmThreshold: params.autoConfirmThreshold,
-    });
+    const service = new TransactionLinkingEngine(
+      logger,
+      buildMatchingConfig({
+        minConfidenceScore: params.minConfidenceScore,
+        autoConfirmThreshold: params.autoConfirmThreshold,
+      })
+    );
 
     this.eventBus?.emit({ type: 'match.started' });
 
