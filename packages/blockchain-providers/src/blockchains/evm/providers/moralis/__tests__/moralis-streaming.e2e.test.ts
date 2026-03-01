@@ -338,170 +338,36 @@ describe('MoralisApiClient Streaming E2E', () => {
       }, 60000);
     });
 
-    describe('streamAddressTokenTransactions via executeStreaming', () => {
-      it('should stream token transactions in batches with cursor state', async () => {
-        const batches: StreamingBatchResult<EvmTransaction>[] = [];
-        let batchCount = 0;
-        const maxBatches = 1; // Only 1 batch to minimize API usage
-
+    describe('token stream type yields empty completion batch', () => {
+      it('should yield empty completion batch for token stream (included in wallet history)', async () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           streamType: 'token' as const,
           address: testAddress,
         };
 
+        let batchCount = 0;
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
           expect(result.isOk()).toBe(true);
-          if (result.isErr()) {
-            console.error('Streaming error:', result.error.message);
-            break;
-          }
+          if (result.isErr()) break;
 
           const batch = result.value;
-          batches.push(batch);
           batchCount++;
 
-          // Verify batch structure
-          expect(batch).toHaveProperty('data');
-          expect(batch).toHaveProperty('cursor');
-          expect(Array.isArray(batch.data)).toBe(true);
-
-          // Verify token transactions in batch
-          if (batch.data.length > 0) {
-            const firstTx = batch.data[0]!;
-            expect(firstTx).toHaveProperty('raw');
-            expect(firstTx).toHaveProperty('normalized');
-            expect(firstTx.normalized).toHaveProperty('id');
-            expect(firstTx.normalized.type).toBe('token_transfer');
-            expect(firstTx.normalized).toHaveProperty('tokenAddress');
-            expect(firstTx.normalized).toHaveProperty('tokenDecimals');
-            expect(firstTx.normalized.providerName).toBe('moralis');
-          }
-
-          if (batchCount >= maxBatches) {
-            break;
-          }
+          // Token stream type yields empty completion batch since wallet history covers everything
+          expect(batch.data).toEqual([]);
+          expect(batch.isComplete).toBe(true);
+          expect(batch.cursor).toBeDefined();
+          expect(batch.cursor.primary.type).toBe('blockNumber');
+          expect(batch.cursor.metadata?.providerName).toBe('moralis');
         }
 
-        // If address has no token transactions, skip
-        if (batches.length === 0 || batches[0]!.data.length === 0) {
-          console.log('Test address has no token transactions, skipping test');
-          return;
-        }
-
-        expect(batches.length).toBeGreaterThan(0);
-      }, 60000);
-
-      it('should filter by contract address', async () => {
-        // USDC on Ethereum
-        const usdcAddress = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
-
-        const operation = {
-          type: 'getAddressTransactions' as const,
-          streamType: 'token' as const,
-          address: testAddress,
-          contractAddress: usdcAddress,
-        };
-
-        for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
-          expect(result.isOk()).toBe(true);
-          if (result.isErr()) break;
-
-          const batch = result.value;
-          if (batch.data.length > 0) {
-            // All transactions should be for the specified token
-            for (const tx of batch.data) {
-              expect(tx.normalized.tokenAddress?.toLowerCase()).toBe(usdcAddress.toLowerCase());
-            }
-            break; // Only need to verify first batch
-          }
-        }
-      }, 60000);
-
-      it('should resume token transaction streaming from cursor', async () => {
-        const operation = {
-          type: 'getAddressTransactions' as const,
-          streamType: 'token' as const,
-          address: testAddress,
-        };
-
-        // Fetch first batch
-        let firstBatchCursor: CursorState | undefined;
-        for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
-          expect(result.isOk()).toBe(true);
-          if (result.isErr()) break;
-
-          const batch = result.value;
-          if (batch.data.length > 0) {
-            firstBatchCursor = batch.cursor;
-            break;
-          }
-        }
-
-        // Skip if no token transactions
-        if (!firstBatchCursor) {
-          console.log('Test address has no token transactions, skipping test');
-          return;
-        }
-
-        expect(firstBatchCursor).toBeDefined();
-
-        // Resume from cursor
-        for await (const result of provider.executeStreaming<EvmTransaction>(operation, firstBatchCursor)) {
-          expect(result.isOk()).toBe(true);
-          if (result.isErr()) break;
-
-          const batch = result.value;
-          // Verify we got data (may be empty if first batch was last)
-          expect(Array.isArray(batch.data)).toBe(true);
-
-          // If we got data, verify structure
-          if (batch.data.length > 0) {
-            const firstTx = batch.data[0]!;
-            expect(firstTx.normalized.type).toBe('token_transfer');
-            expect(firstTx.normalized.providerName).toBe('moralis');
-          }
-          break;
-        }
-      }, 60000);
-
-      it('should extract cursors for token transactions', async () => {
-        const operation = {
-          type: 'getAddressTransactions' as const,
-          streamType: 'token' as const,
-          address: testAddress,
-        };
-
-        for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
-          expect(result.isOk()).toBe(true);
-          if (result.isErr()) break;
-
-          const batch = result.value;
-          if (batch.data.length === 0) continue;
-
-          const cursor = batch.cursor;
-
-          // Should have blockNumber cursor
-          const blockNumberCursor = cursor.alternatives?.find((c) => c.type === 'blockNumber');
-          expect(blockNumberCursor).toBeDefined();
-
-          if (blockNumberCursor && blockNumberCursor.type === 'blockNumber') {
-            expect(typeof blockNumberCursor.value).toBe('number');
-            expect(blockNumberCursor.value).toBeGreaterThan(0);
-          }
-
-          // Should have lastTransactionId
-          expect(cursor.lastTransactionId).toBeDefined();
-          expect(typeof cursor.lastTransactionId).toBe('string');
-          expect(cursor.lastTransactionId.length).toBeGreaterThan(0);
-
-          break;
-        }
-      }, 60000);
+        expect(batchCount).toBe(1);
+      }, 30000);
     });
 
-    describe('streamAddressInternalTransactions via executeStreaming', () => {
-      it('should yield empty completion batch for internal transactions', async () => {
+    describe('internal stream type yields empty completion batch', () => {
+      it('should yield empty completion batch for internal transactions (included in wallet history)', async () => {
         const operation = {
           type: 'getAddressTransactions' as const,
           streamType: 'internal' as const,

@@ -97,6 +97,7 @@ const ROUTESCAN_TOKEN_PAGE_SIZE = 1000; // Token endpoint is much slower, smalle
 const ROUTESCAN_BLOCK_CURSOR_PREFIX = 'block:';
 
 export const routescanMetadata: ProviderMetadata = {
+  apiKeyEnvVar: 'ROUTESCAN_API_KEY',
   baseUrl: 'https://api.routescan.io/v2/network/mainnet/evm/1/etherscan/api',
   blockchain: 'ethereum',
   capabilities: {

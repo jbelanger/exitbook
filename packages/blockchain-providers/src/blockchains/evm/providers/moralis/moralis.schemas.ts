@@ -5,102 +5,6 @@ import { parseApiBoolean, timestampToDate } from '../../../../core/index.js';
 import { EvmAddressSchema } from '../../schemas.js';
 
 /**
- * Schema for Moralis internal transaction structure
- * Internal transactions are included in the parent transaction response
- * when using the include=internal_transactions parameter
- */
-export const MoralisInternalTransactionSchema = z.object({
-  block_hash: z.string().min(1, 'Block hash must not be empty'),
-  block_number: z.number().int().nonnegative(),
-  error: z.string().nullish(),
-  from: EvmAddressSchema,
-  gas: z.string().regex(/^\d+$/, 'Gas must be numeric string'),
-  gas_used: z.string().regex(/^\d+$/, 'Gas used must be numeric string'),
-  input: z.string(),
-  output: z.string(),
-  to: EvmAddressSchema,
-  transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
-  type: z.string(), // CALL, DELEGATECALL, STATICCALL, etc.
-  value: DecimalStringSchema,
-});
-
-/**
- * Schema for Moralis transaction structure
- */
-export const MoralisTransactionSchema = z
-  .object({
-    block_hash: z.string().min(1, 'Block hash must not be empty'),
-    block_number: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
-    block_timestamp: timestampToDate,
-    from_address: EvmAddressSchema,
-    gas: z.string().regex(/^\d*$/, 'Gas must be numeric string or empty'), // Can be empty
-    gas_price: z.string().regex(/^\d*$/, 'Gas price must be numeric string or empty'), // Can be empty
-    hash: z.string().min(1, 'Transaction hash must not be empty'),
-    input: z.string(), // Can be empty string (e.g., "0x")
-    internal_transactions: z.array(MoralisInternalTransactionSchema).nullish(),
-    nonce: z.string(),
-    receipt_contract_address: EvmAddressSchema.nullish(), // Null when no contract created
-    receipt_cumulative_gas_used: z.string().regex(/^\d*$/, 'Receipt cumulative gas used must be numeric or empty'),
-    receipt_gas_used: z.string().regex(/^\d*$/, 'Receipt gas used must be numeric string or empty'),
-    receipt_root: z.string().nullish(), // Null for post-Byzantium transactions
-    receipt_status: z.string().regex(/^[01]$/, 'Receipt status must be 0 or 1'),
-    to_address: EvmAddressSchema,
-    transaction_index: z.string(),
-    value: DecimalStringSchema,
-  })
-  .passthrough(); // Allow additional fields from API
-
-/**
- * Schema for arrays of Moralis transactions
- */
-export const MoralisTransactionArraySchema = z.array(MoralisTransactionSchema);
-
-/**
- * Schema for Moralis transaction response
- */
-export const MoralisTransactionResponseSchema = z.object({
-  cursor: z.string().nullish(),
-  page: z.number(),
-  page_size: z.number(),
-  result: z.array(MoralisTransactionSchema),
-});
-
-/**
- * Schema for Moralis token transfer structure
- */
-export const MoralisTokenTransferSchema = z
-  .object({
-    address: EvmAddressSchema,
-    block_hash: z.string().min(1, 'Block hash must not be empty'),
-    block_number: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
-    block_timestamp: timestampToDate,
-    contract_type: z.string().nullish(),
-    from_address: EvmAddressSchema,
-    log_index: z.union([z.string(), z.number()]),
-    to_address: EvmAddressSchema,
-    token_decimals: z.string().regex(/^\d+$/, 'Token decimals must be numeric string'),
-    token_logo: z.string().nullish(),
-    token_name: z.string().nullish(),
-    token_symbol: z.string().nullish(),
-    transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
-    value: DecimalStringSchema,
-  })
-  .transform((data) => ({
-    ...data,
-    log_index: typeof data.log_index === 'number' ? data.log_index.toString() : data.log_index,
-  }));
-
-/**
- * Schema for Moralis token transfer response
- */
-export const MoralisTokenTransferResponseSchema = z.object({
-  cursor: z.string().nullish(),
-  page: z.number(),
-  page_size: z.number(),
-  result: z.array(MoralisTokenTransferSchema),
-});
-
-/**
  * Schema for Moralis token balance
  */
 export const MoralisTokenBalanceSchema = z.object({
@@ -169,12 +73,112 @@ export const MoralisNativeBalanceSchema = z.object({
   balance: DecimalStringSchema,
 });
 
+// ────────────────────────────────────────────────────────────────────────────
+// Wallet History endpoint: GET /wallets/{address}/history
+// Returns a unified view of all transaction types (native, token, internal, NFT)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Schema for native_transfers[] in the wallet history response.
+ * Covers both regular transfers and internal (contract-initiated) transfers.
+ */
+export const MoralisWalletHistoryNativeTransferSchema = z.object({
+  direction: z.enum(['send', 'receive']),
+  from_address: EvmAddressSchema,
+  from_address_label: z.string().nullish(),
+  internal_transaction: z.boolean(),
+  to_address: EvmAddressSchema,
+  to_address_label: z.string().nullish(),
+  token_symbol: z.string(),
+  value: DecimalStringSchema,
+  value_formatted: z.string(),
+});
+
+/**
+ * Schema for erc20_transfers[] in the wallet history response.
+ */
+export const MoralisWalletHistoryErc20TransferSchema = z.object({
+  address: EvmAddressSchema, // contract address
+  direction: z.enum(['send', 'receive']),
+  from_address: EvmAddressSchema,
+  from_address_label: z.string().nullish(),
+  log_index: z.number(),
+  possible_spam: z.boolean(),
+  security_score: z.number().nullish(),
+  to_address: EvmAddressSchema,
+  to_address_label: z.string().nullish(),
+  token_decimals: z.string().regex(/^\d+$/, 'Token decimals must be numeric string'),
+  token_logo: z.string().nullish(),
+  token_name: z.string().nullish(),
+  token_symbol: z.string().nullish(),
+  value: DecimalStringSchema,
+  value_formatted: z.string(),
+  verified_contract: z.boolean().nullish(),
+});
+
+/**
+ * Schema for internal_transactions[] in the wallet history response.
+ */
+export const MoralisWalletHistoryInternalTransactionSchema = z.object({
+  block_hash: z.string().min(1),
+  block_number: z.number().int().nonnegative(),
+  error: z.string().nullish(),
+  from: EvmAddressSchema,
+  gas: z.string().regex(/^\d+$/, 'Gas must be numeric string'),
+  gas_used: z.string().regex(/^\d+$/, 'Gas used must be numeric string'),
+  input: z.string(),
+  output: z.string(),
+  to: EvmAddressSchema,
+  transaction_hash: z.string().min(1),
+  type: z.string(),
+  value: DecimalStringSchema,
+});
+
+/**
+ * Schema for a single transaction in the wallet history response.
+ * Each item is a top-level transaction enriched with sub-arrays for
+ * native_transfers, erc20_transfers, nft_transfers, and internal_transactions.
+ */
+export const MoralisWalletHistoryTransactionSchema = z
+  .object({
+    block_hash: z.string().min(1),
+    block_number: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
+    block_timestamp: timestampToDate,
+    category: z.string(), // "send", "receive", "token send", "token receive", "approve", "airdrop", etc.
+    erc20_transfers: z.array(MoralisWalletHistoryErc20TransferSchema),
+    from_address: EvmAddressSchema,
+    gas_price: z.string().regex(/^\d*$/, 'Gas price must be numeric string or empty'),
+    hash: z.string().min(1),
+    internal_transactions: z.array(MoralisWalletHistoryInternalTransactionSchema),
+    method_label: z.string().nullish(),
+    native_transfers: z.array(MoralisWalletHistoryNativeTransferSchema),
+    nonce: z.string(),
+    possible_spam: z.boolean(),
+    receipt_gas_used: z.string().regex(/^\d*$/, 'Receipt gas used must be numeric string or empty'),
+    receipt_status: z.string().regex(/^[01]$/, 'Receipt status must be 0 or 1'),
+    summary: z.string().nullish(),
+    to_address: EvmAddressSchema.nullish(), // null for contract creation
+    transaction_fee: z.string(), // Already in decimal ETH (e.g. "0.000121971142461")
+    value: DecimalStringSchema, // Main tx value in wei
+  })
+  .passthrough(); // Allow nft_transfers, contract_interactions, entity fields, etc.
+
+/**
+ * Schema for the paginated wallet history response.
+ */
+export const MoralisWalletHistoryResponseSchema = z.object({
+  cursor: z.string().nullish(),
+  page: z.number(),
+  page_size: z.number(),
+  result: z.array(MoralisWalletHistoryTransactionSchema),
+});
+
 // Type exports (inferred from schemas)
-export type MoralisInternalTransaction = z.infer<typeof MoralisInternalTransactionSchema>;
-export type MoralisTransaction = z.infer<typeof MoralisTransactionSchema>;
-export type MoralisTokenTransfer = z.infer<typeof MoralisTokenTransferSchema>;
 export type MoralisTokenBalance = z.infer<typeof MoralisTokenBalanceSchema>;
 export type MoralisTokenMetadata = z.infer<typeof MoralisTokenMetadataSchema>;
 export type MoralisNativeBalance = z.infer<typeof MoralisNativeBalanceSchema>;
-export type MoralisTransactionResponse = z.infer<typeof MoralisTransactionResponseSchema>;
-export type MoralisTokenTransferResponse = z.infer<typeof MoralisTokenTransferResponseSchema>;
+export type MoralisWalletHistoryNativeTransfer = z.infer<typeof MoralisWalletHistoryNativeTransferSchema>;
+export type MoralisWalletHistoryErc20Transfer = z.infer<typeof MoralisWalletHistoryErc20TransferSchema>;
+export type MoralisWalletHistoryInternalTransaction = z.infer<typeof MoralisWalletHistoryInternalTransactionSchema>;
+export type MoralisWalletHistoryTransaction = z.infer<typeof MoralisWalletHistoryTransactionSchema>;
+export type MoralisWalletHistoryResponse = z.infer<typeof MoralisWalletHistoryResponseSchema>;

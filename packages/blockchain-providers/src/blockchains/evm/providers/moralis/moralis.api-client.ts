@@ -31,19 +31,13 @@ import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
 import type { EvmTransaction } from '../../types.js';
 
-import {
-  mapMoralisTransaction,
-  mapMoralisTokenTransfer,
-  mapMoralisInternalTransaction,
-} from './moralis.mapper-utils.js';
+import { mapMoralisWalletHistoryTransaction } from './moralis.mapper-utils.js';
 import {
   MoralisNativeBalanceSchema,
   MoralisTokenBalanceSchema,
   MoralisTokenMetadataSchema,
-  MoralisTokenTransferResponseSchema,
-  MoralisTransactionResponseSchema,
-  type MoralisTokenTransfer,
-  type MoralisTransaction,
+  MoralisWalletHistoryResponseSchema,
+  type MoralisWalletHistoryTransaction,
 } from './moralis.schemas.js';
 
 /**
@@ -61,8 +55,7 @@ export const moralisMetadata: ProviderMetadata = {
   blockchain: 'ethereum',
   capabilities: {
     supportedOperations: [
-      // TEMP disable Moralis, balance mismatches being investigated
-      //'getAddressTransactions',
+      'getAddressTransactions',
       'getAddressBalances',
       'getAddressTokenBalances',
       'getTokenMetadata',
@@ -192,41 +185,30 @@ export class MoralisApiClient extends BaseApiClient {
       return;
     }
 
-    // Route based on transaction type
+    // The wallet history endpoint returns ALL transaction types (normal, internal, token)
+    // in a single unified stream. For the 'normal' stream type, we fetch everything.
+    // For 'internal' and 'token' stream types, yield empty batches since everything
+    // is already captured by the 'normal' stream.
     const streamType = operation.streamType || 'normal';
-    switch (streamType) {
-      case 'normal':
-        yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
-          Result<StreamingBatchResult<T>, Error>
-        >;
-        break;
-      case 'token':
-        yield* this.streamAddressTokenTransactions(
-          operation.address,
-          operation.contractAddress,
-          resumeCursor
-        ) as AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>>;
-        break;
-      case 'internal':
-        // Moralis includes internal transactions automatically in getAddressTransactions
-        // with the 'include=internal_transactions' parameter. Yield empty completion batch
-        // to signal successful completion without duplicate fetching.
-        this.logger.info(
-          `Moralis internal transactions are included in getAddressTransactions stream - yielding empty batch for ${maskAddress(operation.address)}`
-        );
-        yield ok({
-          data: [],
-          cursor: createEmptyCompletionCursor({
-            providerName: this.name,
-            operationType: 'internal',
-            identifier: operation.address,
-          }),
-          isComplete: true,
-        });
-        break;
-      default:
-        yield err(new Error(`Unsupported transaction type: ${streamType}`));
+    if (streamType === 'internal' || streamType === 'token') {
+      this.logger.info(
+        `Moralis wallet history includes ${streamType} transactions in the normal stream - yielding empty batch for ${maskAddress(operation.address)}`
+      );
+      yield ok({
+        data: [],
+        cursor: createEmptyCompletionCursor({
+          providerName: this.name,
+          operationType: streamType,
+          identifier: operation.address,
+        }),
+        isComplete: true,
+      });
+      return;
     }
+
+    yield* this.streamWalletHistory(operation.address, resumeCursor) as AsyncIterableIterator<
+      Result<StreamingBatchResult<T>, Error>
+    >;
   }
 
   getHealthCheckConfig() {
@@ -370,15 +352,25 @@ export class MoralisApiClient extends BaseApiClient {
     return ok(balances);
   }
 
-  private streamAddressTransactions(
+  /**
+   * Streams all transaction history via the unified wallet history endpoint.
+   * GET /wallets/{address}/history returns native transfers, ERC20 transfers,
+   * internal transactions, and NFT transfers in a single paginated stream.
+   * This captures internal ETH transfers where the user is only involved via
+   * contract calls (e.g., bridge withdrawals) which the old /{address} endpoint missed.
+   */
+  private streamWalletHistory(
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
-    const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<MoralisTransaction>, Error>> => {
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<MoralisWalletHistoryTransaction>, Error>> => {
       const params = new URLSearchParams({
         chain: this.moralisChainId,
+        include_internal_transactions: 'true',
         limit: '100',
-        order: 'ASC', // Ascending order (oldest first) for correct cursor extraction
+        order: 'ASC',
       });
 
       if (ctx.pageToken) {
@@ -389,15 +381,12 @@ export class MoralisApiClient extends BaseApiClient {
         params.append('from_block', String(ctx.replayedCursor.value));
       }
 
-      // Include internal transactions in the same call for efficiency
-      params.append('include', 'internal_transactions');
-
-      const endpoint = `/${address}?${params.toString()}`;
-      const result = await this.httpClient.get(endpoint, { schema: MoralisTransactionResponseSchema });
+      const endpoint = `/wallets/${address}/history?${params.toString()}`;
+      const result = await this.httpClient.get(endpoint, { schema: MoralisWalletHistoryResponseSchema });
 
       if (result.isErr()) {
         this.logger.error(
-          `Failed to fetch address transactions for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
+          `Failed to fetch wallet history for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
         );
         return err(result.error);
       }
@@ -410,13 +399,13 @@ export class MoralisApiClient extends BaseApiClient {
       });
     };
 
-    return createStreamingIterator<MoralisTransaction, EvmTransaction>({
+    return createStreamingIterator<MoralisWalletHistoryTransaction, EvmTransaction>({
       providerName: this.name,
       operation: { type: 'getAddressTransactions', address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapMoralisTransaction(raw, this.chainConfig.nativeCurrency);
+        const mapped = mapMoralisWalletHistoryTransaction(raw, this.chainConfig.nativeCurrency);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(
@@ -425,118 +414,19 @@ export class MoralisApiClient extends BaseApiClient {
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 
-        const results: TransactionWithRawData<EvmTransaction>[] = [
-          {
-            raw,
-            normalized: mapped.value,
-          },
-        ];
+        const evmTransactions = mapped.value;
+        const results: TransactionWithRawData<EvmTransaction>[] = evmTransactions.map((normalized) => ({
+          raw,
+          normalized,
+        }));
 
-        // Unpack and map internal transactions
-        if (raw.internal_transactions && raw.internal_transactions.length > 0) {
-          const parentTimestamp = new Date(raw.block_timestamp).getTime();
-
-          for (let i = 0; i < raw.internal_transactions.length; i++) {
-            const internalTx = raw.internal_transactions[i]!;
-            const internalMapResult = mapMoralisInternalTransaction(
-              internalTx,
-              parentTimestamp,
-              this.chainConfig.nativeCurrency,
-              i // Pass array index for uniqueness
-            );
-
-            if (internalMapResult.isErr()) {
-              const errorMessage =
-                internalMapResult.error.type === 'error'
-                  ? internalMapResult.error.message
-                  : internalMapResult.error.reason;
-              this.logger.error(`Internal transaction validation failed - Parent: ${raw.hash}, Error: ${errorMessage}`);
-              return err(new Error(`Internal transaction validation failed: ${errorMessage}`));
-            }
-
-            results.push({
-              raw: internalTx,
-              normalized: internalMapResult.value,
-            });
-          }
-
-          this.logger.debug(`Unpacked ${raw.internal_transactions.length} internal transaction(s) from ${raw.hash}`);
+        if (raw.internal_transactions.length > 0 || raw.erc20_transfers.length > 0) {
+          this.logger.debug(
+            `Unpacked ${raw.native_transfers.filter((nt) => nt.internal_transaction).length} internal + ${raw.erc20_transfers.length} token transfer(s) from ${raw.hash}`
+          );
         }
 
         return ok(results);
-      },
-      extractCursors: (tx) => this.extractCursors(tx),
-      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
-      dedupWindowSize: 500,
-      logger: this.logger,
-    });
-  }
-
-  private streamAddressTokenTransactions(
-    address: string,
-    contractAddress?: string,
-    resumeCursor?: CursorState
-  ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
-    const fetchPage = async (
-      ctx: StreamingPageContext
-    ): Promise<Result<StreamingPage<MoralisTokenTransfer>, Error>> => {
-      const params = new URLSearchParams({
-        chain: this.moralisChainId,
-        limit: '100',
-        order: 'ASC', // Ascending order (oldest first) for correct cursor extraction
-      });
-
-      if (contractAddress) {
-        params.append('contract_addresses[]', contractAddress);
-      }
-
-      if (ctx.pageToken) {
-        params.append('cursor', ctx.pageToken);
-      }
-
-      if (ctx.replayedCursor?.type === 'blockNumber') {
-        params.append('from_block', String(ctx.replayedCursor.value));
-      }
-
-      const endpoint = `/${address}/erc20/transfers?${params.toString()}`;
-      const result = await this.httpClient.get(endpoint, { schema: MoralisTokenTransferResponseSchema });
-
-      if (result.isErr()) {
-        this.logger.error(
-          `Failed to fetch token transactions for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
-        );
-        return err(result.error);
-      }
-
-      const response = result.value;
-      return ok({
-        items: response.result || [],
-        nextPageToken: response.cursor ?? undefined,
-        isComplete: !response.cursor,
-      });
-    };
-
-    return createStreamingIterator<MoralisTokenTransfer, EvmTransaction>({
-      providerName: this.name,
-      operation: { type: 'getAddressTransactions', streamType: 'token', address, contractAddress },
-      resumeCursor,
-      fetchPage,
-      mapItem: (raw) => {
-        const mapped = mapMoralisTokenTransfer(raw);
-        if (mapped.isErr()) {
-          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.error(
-            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
-          );
-          return err(new Error(`Provider data validation failed: ${errorMessage}`));
-        }
-
-        return ok([
-          {
-            raw,
-            normalized: mapped.value,
-          },
-        ]);
       },
       extractCursors: (tx) => this.extractCursors(tx),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
