@@ -400,14 +400,14 @@ describe('schemas', () => {
     it('should validate complete matching config', () => {
       const config = {
         maxTimingWindowHours: 24,
-        minAmountSimilarity: parseDecimal('0.95'),
+
         minConfidenceScore: parseDecimal('0.7'),
         autoConfirmThreshold: parseDecimal('0.95'),
+        minPartialMatchFraction: parseDecimal('0.1'),
       };
 
       const result = MatchingConfigSchema.parse(config);
       expect(result.maxTimingWindowHours).toBe(24);
-      expect(result.minAmountSimilarity).toBeInstanceOf(Decimal);
       expect(result.minConfidenceScore).toBeInstanceOf(Decimal);
       expect(result.autoConfirmThreshold).toBeInstanceOf(Decimal);
     });
@@ -415,14 +415,13 @@ describe('schemas', () => {
     it('should validate config with string Decimals', () => {
       const config = {
         maxTimingWindowHours: 48,
-        minAmountSimilarity: '0.90',
         minConfidenceScore: '0.60',
         autoConfirmThreshold: '0.98',
+        minPartialMatchFraction: '0.1',
       };
 
       const result = MatchingConfigSchema.parse(config);
-      expect(result.minAmountSimilarity).toBeInstanceOf(Decimal);
-      expect(result.minAmountSimilarity.toFixed()).toBe('0.9');
+      expect(result.minConfidenceScore).toBeInstanceOf(Decimal);
       expect(result.minConfidenceScore.toFixed()).toBe('0.6');
       expect(result.autoConfirmThreshold.toFixed()).toBe('0.98');
     });
@@ -431,9 +430,10 @@ describe('schemas', () => {
       expect(() =>
         MatchingConfigSchema.parse({
           maxTimingWindowHours: -1,
-          minAmountSimilarity: parseDecimal('0.95'),
+
           minConfidenceScore: parseDecimal('0.7'),
           autoConfirmThreshold: parseDecimal('0.95'),
+          minPartialMatchFraction: parseDecimal('0.1'),
         })
       ).toThrow();
     });
@@ -442,9 +442,10 @@ describe('schemas', () => {
       expect(() =>
         MatchingConfigSchema.parse({
           maxTimingWindowHours: 0,
-          minAmountSimilarity: parseDecimal('0.95'),
+
           minConfidenceScore: parseDecimal('0.7'),
           autoConfirmThreshold: parseDecimal('0.95'),
+          minPartialMatchFraction: parseDecimal('0.1'),
         })
       ).toThrow();
     });
@@ -452,9 +453,10 @@ describe('schemas', () => {
     it('should default clockSkewToleranceHours to 2 when omitted', () => {
       const result = MatchingConfigSchema.parse({
         maxTimingWindowHours: 24,
-        minAmountSimilarity: parseDecimal('0.95'),
+
         minConfidenceScore: parseDecimal('0.7'),
         autoConfirmThreshold: parseDecimal('0.95'),
+        minPartialMatchFraction: parseDecimal('0.1'),
       });
       expect(result.clockSkewToleranceHours).toBe(2);
     });
@@ -463,9 +465,10 @@ describe('schemas', () => {
       const result = MatchingConfigSchema.parse({
         maxTimingWindowHours: 24,
         clockSkewToleranceHours: 4,
-        minAmountSimilarity: parseDecimal('0.95'),
+
         minConfidenceScore: parseDecimal('0.7'),
         autoConfirmThreshold: parseDecimal('0.95'),
+        minPartialMatchFraction: parseDecimal('0.1'),
       });
       expect(result.clockSkewToleranceHours).toBe(4);
     });
@@ -475,9 +478,10 @@ describe('schemas', () => {
         MatchingConfigSchema.parse({
           maxTimingWindowHours: 24,
           clockSkewToleranceHours: -1,
-          minAmountSimilarity: parseDecimal('0.95'),
+
           minConfidenceScore: parseDecimal('0.7'),
           autoConfirmThreshold: parseDecimal('0.95'),
+          minPartialMatchFraction: parseDecimal('0.1'),
         })
       ).toThrow();
     });
@@ -486,7 +490,7 @@ describe('schemas', () => {
       expect(() =>
         MatchingConfigSchema.parse({
           maxTimingWindowHours: 24,
-          minAmountSimilarity: parseDecimal('0.95'),
+
           // missing fields
         })
       ).toThrow();
@@ -588,28 +592,28 @@ describe('schemas', () => {
     it('should transform string to Decimal', () => {
       const config = {
         maxTimingWindowHours: 24,
-        minAmountSimilarity: '0.95',
         minConfidenceScore: '0.7',
         autoConfirmThreshold: '0.95',
+        minPartialMatchFraction: '0.1',
       };
 
       const result = MatchingConfigSchema.parse(config);
-      expect(result.minAmountSimilarity).toBeInstanceOf(Decimal);
-      expect(result.minAmountSimilarity.toFixed()).toBe('0.95');
+      expect(result.minConfidenceScore).toBeInstanceOf(Decimal);
+      expect(result.minConfidenceScore.toFixed()).toBe('0.7');
     });
 
     it('should keep Decimal as Decimal', () => {
-      const decimalValue = parseDecimal('0.95');
+      const decimalValue = parseDecimal('0.7');
       const config = {
         maxTimingWindowHours: 24,
-        minAmountSimilarity: decimalValue,
-        minConfidenceScore: parseDecimal('0.7'),
+        minConfidenceScore: decimalValue,
         autoConfirmThreshold: parseDecimal('0.95'),
+        minPartialMatchFraction: parseDecimal('0.1'),
       };
 
       const result = MatchingConfigSchema.parse(config);
-      expect(result.minAmountSimilarity).toBeInstanceOf(Decimal);
-      expect(result.minAmountSimilarity).toBe(decimalValue);
+      expect(result.minConfidenceScore).toBeInstanceOf(Decimal);
+      expect(result.minConfidenceScore).toBe(decimalValue);
     });
 
     it('should handle scientific notation strings', () => {

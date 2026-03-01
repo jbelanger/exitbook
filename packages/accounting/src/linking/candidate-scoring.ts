@@ -300,6 +300,10 @@ export function scoreAndFilterMatches(
     if (source.assetSymbol !== target.assetSymbol) continue;
     if (source.direction !== 'out' || target.direction !== 'in') continue;
 
+    // Same-exchange guard: matching within the same exchange is meaningless for transfer linking.
+    // Blockchain same-source matching is allowed (different tracked addresses are valid).
+    if (source.sourceType === 'exchange' && source.sourceName === target.sourceName) continue;
+
     // Check for transaction hash match (perfect match)
     const hashMatch = checkTransactionHashMatch(source, target);
     const bothAreBlockchain = source.sourceType === 'blockchain' && target.sourceType === 'blockchain';
@@ -384,11 +388,6 @@ export function scoreAndFilterMatches(
     // Enforce timing validity as a hard threshold
     // Target must come after source and be within the time window
     if (!criteria.timingValid) {
-      continue;
-    }
-
-    // Enforce minimum amount similarity as a hard threshold
-    if (criteria.amountSimilarity.lessThan(config.minAmountSimilarity)) {
       continue;
     }
 

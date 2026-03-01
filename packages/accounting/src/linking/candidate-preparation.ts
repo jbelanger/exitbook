@@ -159,6 +159,36 @@ export function calculateOutflowAdjustment(
  * @param outflowGroupings - Optional groupings of UTXO outflows (only representative gets a candidate)
  * @returns Array of transaction candidates
  */
+/**
+ * Detect trades/swaps structurally by movement shape.
+ * A transaction with both inflows and outflows in completely disjoint asset sets
+ * is a trade (e.g., buy INJ with USDT). These should never produce link candidates.
+ *
+ * Returns false for:
+ * - Pure outflows (withdrawals) or pure inflows (deposits)
+ * - Same-asset inflows and outflows (e.g., NEAR storage refunds)
+ */
+export function isStructuralTrade(tx: UniversalTransactionData): boolean {
+  const inflows = tx.movements.inflows ?? [];
+  const outflows = tx.movements.outflows ?? [];
+
+  if (inflows.length === 0 || outflows.length === 0) {
+    return false;
+  }
+
+  const inflowAssets = new Set(inflows.map((m) => m.assetId));
+  const outflowAssets = new Set(outflows.map((m) => m.assetId));
+
+  // If any asset appears in both inflows and outflows, there's overlap → not a pure trade
+  for (const asset of inflowAssets) {
+    if (outflowAssets.has(asset)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export function convertToCandidates(
   transactions: UniversalTransactionData[],
   amountOverrides?: Map<number, Map<string, Decimal>>,
@@ -179,6 +209,14 @@ export function convertToCandidates(
   };
 
   for (const tx of transactions) {
+    // Structural trade detection: if a transaction has both inflows and outflows
+    // with completely disjoint asset sets, it's a trade/swap — not a transfer.
+    // Pure inflows (deposits) and pure outflows (withdrawals) always pass through.
+    // Same-asset in+out (e.g., NEAR storage refunds) also passes through.
+    if (isStructuralTrade(tx)) {
+      continue;
+    }
+
     // Create candidates for all inflows
     for (const inflow of tx.movements.inflows ?? []) {
       const candidate: TransactionCandidate = {

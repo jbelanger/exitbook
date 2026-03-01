@@ -18,6 +18,7 @@ import {
   DEFAULT_MATCHING_CONFIG,
   determineLinkType,
   findPotentialMatches,
+  isStructuralTrade,
   isTimingValid,
   normalizeTransactionHash,
   separateSourcesAndTargets,
@@ -26,7 +27,7 @@ import {
 } from '../matching-utils.js';
 import type { PotentialMatch, TransactionCandidate } from '../types.js';
 
-import { createCandidate } from './test-utils.js';
+import { createCandidate, createTransaction } from './test-utils.js';
 
 describe('matching-utils', () => {
   describe('calculateAmountSimilarity', () => {
@@ -503,8 +504,8 @@ describe('matching-utils', () => {
     });
   });
 
-  describe('amount similarity threshold enforcement', () => {
-    it('should reject matches below minAmountSimilarity threshold', () => {
+  describe('amount similarity behavior', () => {
+    it('should pass through matches with low amount similarity (capacity dedup handles filtering)', () => {
       const source = createCandidate({ externalId: 'W123' });
       const targets: TransactionCandidate[] = [
         createCandidate({
@@ -513,18 +514,20 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
-          amount: parseDecimal('0.90'), // 90% similarity (below 95% threshold)
+          amount: parseDecimal('0.90'), // 90% similarity — not a hard filter
           direction: 'in',
         }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
 
-      // Should find no matches due to amount similarity below threshold
-      expect(matches).toHaveLength(0);
+      // Amount similarity feeds into confidence ranking, not hard filtering.
+      // Capacity-based dedup in allocateMatches() handles amount matching.
+      expect(matches).toHaveLength(1);
+      expect(matches[0]!.matchCriteria.amountSimilarity.toFixed(2)).toBe('0.90');
     });
 
-    it('should accept matches at or above minAmountSimilarity threshold', () => {
+    it('should accept matches with high amount similarity', () => {
       const source = createCandidate({ externalId: 'W123' });
       const targets: TransactionCandidate[] = [
         createCandidate({
@@ -533,14 +536,13 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
-          amount: parseDecimal('0.95'), // Exactly 95% (meets threshold)
+          amount: parseDecimal('0.95'),
           direction: 'in',
         }),
       ];
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
 
-      // Should find match since amount similarity meets threshold
       expect(matches).toHaveLength(1);
       expect(matches[0]?.targetTransaction.id).toBe(2);
     });
@@ -705,43 +707,42 @@ describe('matching-utils', () => {
   });
 
   describe('convertToCandidates', () => {
-    it('should convert transactions with single inflow and outflow', () => {
+    it('should convert withdrawal (pure outflow) to candidate', () => {
       const transactions = [
-        {
+        createTransaction({
           id: 1,
-          externalId: 'tx-1',
           source: 'kraken',
-          sourceType: 'exchange',
-          blockchain: undefined,
           datetime: '2024-01-01T12:00:00Z',
-          from: undefined,
-          to: undefined,
-          movements: {
-            inflows: [{ assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') }],
-            outflows: [{ assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
-          },
-        },
-      ] as UniversalTransactionData[]; // Updated type assertion
+          outflows: [{ assetSymbol: 'BTC', amount: '1.0' }],
+        }),
+      ];
 
       const candidates = convertToCandidates(transactions);
 
-      expect(candidates).toHaveLength(2);
+      expect(candidates).toHaveLength(1);
       expect(candidates[0]).toMatchObject({
         id: 1,
-        externalId: 'tx-1',
         sourceName: 'kraken',
         sourceType: 'exchange',
         assetSymbol: 'BTC' as Currency,
-        direction: 'in',
-      });
-      expect(candidates[1]).toMatchObject({
-        id: 1,
-        externalId: 'tx-1',
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        assetSymbol: 'USD' as Currency,
         direction: 'out',
       });
+    });
+
+    it('should skip trades (disjoint inflow/outflow assets)', () => {
+      const transactions = [
+        createTransaction({
+          id: 1,
+          source: 'kraken',
+          datetime: '2024-01-01T12:00:00Z',
+          inflows: [{ assetSymbol: 'BTC', amount: '1.0' }],
+          outflows: [{ assetSymbol: 'USD', amount: '50000' }],
+        }),
+      ];
+
+      const candidates = convertToCandidates(transactions);
+
+      expect(candidates).toHaveLength(0);
     });
 
     it('should handle blockchain transactions', () => {
@@ -786,28 +787,45 @@ describe('matching-utils', () => {
       });
     });
 
-    it('should handle multiple movements per transaction', () => {
+    it('should handle multiple deposits (pure inflows)', () => {
+      const transactions = [
+        createTransaction({
+          id: 3,
+          source: 'kraken',
+          datetime: '2024-01-01T12:00:00Z',
+          inflows: [
+            { assetSymbol: 'BTC', amount: '1.0' },
+            { assetSymbol: 'ETH', amount: '10.0' },
+          ],
+        }),
+      ];
+
+      const candidates = convertToCandidates(transactions);
+
+      expect(candidates).toHaveLength(2);
+      expect(candidates.filter((c) => c.direction === 'in')).toHaveLength(2);
+    });
+
+    it('should keep same-asset inflow+outflow (e.g., NEAR storage refund)', () => {
       const transactions = [
         {
           id: 3,
           externalId: 'tx-3',
-          source: 'kraken',
-          blockchain: undefined,
+          source: 'near',
+          sourceType: 'blockchain',
+          blockchain: { name: 'near', transaction_hash: 'hash-3', is_confirmed: true },
           datetime: '2024-01-01T12:00:00Z',
           movements: {
-            inflows: [
-              { assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') },
-              { assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('10.0') },
-            ],
-            outflows: [{ assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('60000') }],
+            inflows: [{ assetId: 'test:near', assetSymbol: 'NEAR' as Currency, grossAmount: parseDecimal('0.012') }],
+            outflows: [{ assetId: 'test:near', assetSymbol: 'NEAR' as Currency, grossAmount: parseDecimal('62.0') }],
           },
         },
       ] as UniversalTransactionData[];
 
       const candidates = convertToCandidates(transactions);
 
-      expect(candidates).toHaveLength(3);
-      expect(candidates.filter((c) => c.direction === 'in')).toHaveLength(2);
+      expect(candidates).toHaveLength(2);
+      expect(candidates.filter((c) => c.direction === 'in')).toHaveLength(1);
       expect(candidates.filter((c) => c.direction === 'out')).toHaveLength(1);
     });
 
@@ -829,6 +847,146 @@ describe('matching-utils', () => {
       const candidates = convertToCandidates(transactions);
 
       expect(candidates).toHaveLength(0);
+    });
+  });
+
+  describe('isStructuralTrade', () => {
+    it('should detect trade with disjoint inflow/outflow assets', () => {
+      const tx = createTransaction({
+        id: 1,
+        source: 'kucoin',
+        datetime: '2024-01-01T12:00:00Z',
+        inflows: [{ assetSymbol: 'INJ', amount: '13.0' }],
+        outflows: [{ assetSymbol: 'USDT', amount: '267.9' }],
+      });
+      expect(isStructuralTrade(tx)).toBe(true);
+    });
+
+    it('should detect multi-asset trade', () => {
+      const tx = createTransaction({
+        id: 1,
+        source: 'kraken',
+        datetime: '2024-01-01T12:00:00Z',
+        inflows: [{ assetSymbol: 'CAD', amount: '0.27' }],
+        outflows: [
+          { assetSymbol: 'BTC', amount: '0.00001' },
+          { assetSymbol: 'ADA', amount: '0.00001' },
+        ],
+      });
+      expect(isStructuralTrade(tx)).toBe(true);
+    });
+
+    it('should not flag pure outflow (withdrawal)', () => {
+      const tx = createTransaction({
+        id: 1,
+        source: 'kucoin',
+        datetime: '2024-01-01T12:00:00Z',
+        outflows: [{ assetSymbol: 'ETH', amount: '1.0' }],
+      });
+      expect(isStructuralTrade(tx)).toBe(false);
+    });
+
+    it('should not flag pure inflow (deposit)', () => {
+      const tx = createTransaction({
+        id: 1,
+        source: 'kucoin',
+        datetime: '2024-01-01T12:00:00Z',
+        inflows: [{ assetSymbol: 'BTC', amount: '0.5' }],
+      });
+      expect(isStructuralTrade(tx)).toBe(false);
+    });
+
+    it('should not flag same-asset inflow+outflow (e.g., NEAR storage refund)', () => {
+      const tx = createTransaction({
+        id: 1,
+        source: 'near',
+        sourceType: 'blockchain',
+        blockchain: { name: 'near', transaction_hash: 'hash-1', is_confirmed: true },
+        datetime: '2024-01-01T12:00:00Z',
+        inflows: [{ assetSymbol: 'NEAR', amount: '0.012' }],
+        outflows: [{ assetSymbol: 'NEAR', amount: '62.0' }],
+      });
+      expect(isStructuralTrade(tx)).toBe(false);
+    });
+
+    it('should not flag transaction with no movements', () => {
+      const tx = createTransaction({
+        id: 1,
+        source: 'kucoin',
+        datetime: '2024-01-01T12:00:00Z',
+      });
+      expect(isStructuralTrade(tx)).toBe(false);
+    });
+  });
+
+  describe('same-exchange guard in findPotentialMatches', () => {
+    it('should reject matches within the same exchange', () => {
+      const source = createCandidate({
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        externalId: 'W123',
+        direction: 'out',
+      });
+      const targets = [
+        createCandidate({
+          id: 2,
+          sourceName: 'kucoin',
+          sourceType: 'exchange',
+          externalId: 'D456',
+          timestamp: new Date('2024-01-01T13:00:00Z'),
+          direction: 'in',
+        }),
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      expect(matches).toHaveLength(0);
+    });
+
+    it('should allow matches across different exchanges', () => {
+      const source = createCandidate({
+        id: 1,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        externalId: 'W123',
+        direction: 'out',
+      });
+      const targets = [
+        createCandidate({
+          id: 2,
+          sourceName: 'kraken',
+          sourceType: 'exchange',
+          externalId: 'D456',
+          timestamp: new Date('2024-01-01T13:00:00Z'),
+          direction: 'in',
+        }),
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      expect(matches).toHaveLength(1);
+    });
+
+    it('should allow same-source matching for blockchain (different tracked addresses)', () => {
+      const source = createCandidate({
+        id: 1,
+        sourceName: 'bitcoin',
+        sourceType: 'blockchain',
+        externalId: 'tx-out',
+        direction: 'out',
+      });
+      const targets = [
+        createCandidate({
+          id: 2,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          externalId: 'tx-in',
+          timestamp: new Date('2024-01-01T13:00:00Z'),
+          direction: 'in',
+        }),
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      expect(matches).toHaveLength(1);
     });
   });
 
@@ -1092,6 +1250,214 @@ describe('matching-utils', () => {
       expect(confirmed).toHaveLength(2);
       expect(suggested).toHaveLength(0);
     });
+
+    it('should split one source across two targets (1:N)', () => {
+      const source = createCandidate({ id: 1, amount: parseDecimal('10'), direction: 'out' });
+      const target1 = createCandidate({
+        id: 2,
+        amount: parseDecimal('5'),
+        direction: 'in',
+        sourceName: 'blockchain',
+        sourceType: 'blockchain',
+      });
+      const target2 = createCandidate({
+        id: 3,
+        amount: parseDecimal('5'),
+        direction: 'in',
+        sourceName: 'blockchain',
+        sourceType: 'blockchain',
+      });
+
+      const matches: PotentialMatch[] = [
+        {
+          sourceTransaction: source,
+          targetTransaction: target1,
+          confidenceScore: parseDecimal('0.9'),
+          matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('0.5'), timingValid: true, timingHours: 1 },
+          linkType: 'exchange_to_blockchain',
+        },
+        {
+          sourceTransaction: source,
+          targetTransaction: target2,
+          confidenceScore: parseDecimal('0.85'),
+          matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('0.5'), timingValid: true, timingHours: 2 },
+          linkType: 'exchange_to_blockchain',
+        },
+      ];
+
+      const { confirmed, suggested } = deduplicateAndConfirm(matches, DEFAULT_MATCHING_CONFIG);
+      const all = [...confirmed, ...suggested];
+
+      expect(all).toHaveLength(2);
+      expect(all[0]!.consumedAmount?.toFixed()).toBe('5');
+      expect(all[1]!.consumedAmount?.toFixed()).toBe('5');
+    });
+
+    it('should consolidate two sources into one target (N:1)', () => {
+      const source1 = createCandidate({ id: 1, amount: parseDecimal('5'), direction: 'out' });
+      const source2 = createCandidate({ id: 2, amount: parseDecimal('5'), direction: 'out' });
+      const target = createCandidate({
+        id: 3,
+        amount: parseDecimal('10'),
+        direction: 'in',
+        sourceName: 'blockchain',
+        sourceType: 'blockchain',
+      });
+
+      const matches: PotentialMatch[] = [
+        {
+          sourceTransaction: source1,
+          targetTransaction: target,
+          confidenceScore: parseDecimal('0.9'),
+          matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('0.5'), timingValid: true, timingHours: 1 },
+          linkType: 'exchange_to_blockchain',
+        },
+        {
+          sourceTransaction: source2,
+          targetTransaction: target,
+          confidenceScore: parseDecimal('0.85'),
+          matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('0.5'), timingValid: true, timingHours: 2 },
+          linkType: 'exchange_to_blockchain',
+        },
+      ];
+
+      const { confirmed, suggested } = deduplicateAndConfirm(matches, DEFAULT_MATCHING_CONFIG);
+      const all = [...confirmed, ...suggested];
+
+      expect(all).toHaveLength(2);
+      expect(all[0]!.consumedAmount?.toFixed()).toBe('5');
+      expect(all[1]!.consumedAmount?.toFixed()).toBe('5');
+    });
+
+    it('should reject match when consumed is below minPartialMatchFraction of larger original', () => {
+      const source = createCandidate({ id: 1, amount: parseDecimal('10'), direction: 'out' });
+      const target = createCandidate({
+        id: 2,
+        amount: parseDecimal('0.5'),
+        direction: 'in',
+        sourceName: 'blockchain',
+        sourceType: 'blockchain',
+      });
+
+      const matches: PotentialMatch[] = [
+        {
+          sourceTransaction: source,
+          targetTransaction: target,
+          confidenceScore: parseDecimal('0.9'),
+          matchCriteria: {
+            assetMatch: true,
+            amountSimilarity: parseDecimal('0.05'),
+            timingValid: true,
+            timingHours: 1,
+          },
+          linkType: 'exchange_to_blockchain',
+        },
+      ];
+
+      const config = { ...DEFAULT_MATCHING_CONFIG, minPartialMatchFraction: parseDecimal('0.1') };
+      const { confirmed, suggested } = deduplicateAndConfirm(matches, config);
+
+      expect([...confirmed, ...suggested]).toHaveLength(0);
+    });
+
+    it('should preserve original amounts for 1:1 matches (restoration pass)', () => {
+      const source = createCandidate({ id: 1, amount: parseDecimal('1.0'), direction: 'out' });
+      const target = createCandidate({
+        id: 2,
+        amount: parseDecimal('0.999'),
+        direction: 'in',
+        sourceName: 'blockchain',
+        sourceType: 'blockchain',
+      });
+
+      const matches: PotentialMatch[] = [
+        {
+          sourceTransaction: source,
+          targetTransaction: target,
+          confidenceScore: parseDecimal('0.95'),
+          matchCriteria: {
+            assetMatch: true,
+            amountSimilarity: parseDecimal('0.999'),
+            timingValid: true,
+            timingHours: 1,
+          },
+          linkType: 'exchange_to_blockchain',
+        },
+      ];
+
+      const { confirmed } = deduplicateAndConfirm(matches, DEFAULT_MATCHING_CONFIG);
+
+      expect(confirmed).toHaveLength(1);
+      expect(confirmed[0]!.consumedAmount).toBeUndefined();
+    });
+
+    it('should partially consume remaining capacity when exhausted', () => {
+      const source = createCandidate({ id: 1, amount: parseDecimal('10'), direction: 'out' });
+      const target1 = createCandidate({
+        id: 2,
+        amount: parseDecimal('6'),
+        direction: 'in',
+        sourceName: 'blockchain',
+        sourceType: 'blockchain',
+      });
+      const target2 = createCandidate({
+        id: 3,
+        amount: parseDecimal('6'),
+        direction: 'in',
+        sourceName: 'blockchain',
+        sourceType: 'blockchain',
+      });
+
+      const matches: PotentialMatch[] = [
+        {
+          sourceTransaction: source,
+          targetTransaction: target1,
+          confidenceScore: parseDecimal('0.95'),
+          matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('0.6'), timingValid: true, timingHours: 1 },
+          linkType: 'exchange_to_blockchain',
+        },
+        {
+          sourceTransaction: source,
+          targetTransaction: target2,
+          confidenceScore: parseDecimal('0.85'),
+          matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('0.6'), timingValid: true, timingHours: 2 },
+          linkType: 'exchange_to_blockchain',
+        },
+      ];
+
+      const { confirmed, suggested } = deduplicateAndConfirm(matches, DEFAULT_MATCHING_CONFIG);
+      const all = [...confirmed, ...suggested];
+
+      expect(all).toHaveLength(2);
+      expect(all[0]!.consumedAmount?.toFixed()).toBe('6');
+      expect(all[1]!.consumedAmount?.toFixed()).toBe('4');
+    });
+
+    it('should not set consumed amounts for exact 1:1 match', () => {
+      const source = createCandidate({ id: 1, amount: parseDecimal('5'), direction: 'out' });
+      const target = createCandidate({
+        id: 2,
+        amount: parseDecimal('5'),
+        direction: 'in',
+        sourceName: 'blockchain',
+        sourceType: 'blockchain',
+      });
+
+      const matches: PotentialMatch[] = [
+        {
+          sourceTransaction: source,
+          targetTransaction: target,
+          confidenceScore: parseDecimal('0.99'),
+          matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('1'), timingValid: true, timingHours: 0.5 },
+          linkType: 'exchange_to_blockchain',
+        },
+      ];
+
+      const { confirmed } = deduplicateAndConfirm(matches, DEFAULT_MATCHING_CONFIG);
+
+      expect(confirmed).toHaveLength(1);
+      expect(confirmed[0]!.consumedAmount).toBeUndefined();
+    });
   });
 
   describe('createTransactionLink', () => {
@@ -1321,6 +1687,84 @@ describe('matching-utils', () => {
       expect(link.metadata?.['variance']).toBe('0.05');
       expect(link.metadata?.['variancePct']).toBe('5.00');
       expect(link.metadata?.['impliedFee']).toBe('0.05');
+    });
+
+    it('should use consumed amounts and partial metadata for partial match', () => {
+      const source = createCandidate({ id: 1, amount: parseDecimal('10'), direction: 'out' });
+      const target = createCandidate({
+        id: 2,
+        amount: parseDecimal('5'),
+        direction: 'in',
+        sourceName: 'blockchain',
+        sourceType: 'blockchain',
+      });
+
+      const match: PotentialMatch = {
+        sourceTransaction: source,
+        targetTransaction: target,
+        confidenceScore: parseDecimal('0.9'),
+        matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('0.5'), timingValid: true, timingHours: 1 },
+        linkType: 'exchange_to_blockchain',
+        consumedAmount: parseDecimal('5'),
+      };
+
+      const link = assertOk(createTransactionLink(match, 'confirmed', new Date()));
+      expect(link.sourceAmount.toFixed()).toBe('5');
+      expect(link.targetAmount.toFixed()).toBe('5');
+      expect(link.metadata?.['partialMatch']).toBe(true);
+      expect(link.metadata?.['fullSourceAmount']).toBe('10');
+      expect(link.metadata?.['fullTargetAmount']).toBe('5');
+      expect(link.metadata?.['consumedAmount']).toBe('5');
+      expect(link.metadata?.['impliedFee']).toBeUndefined();
+    });
+
+    it('should not produce negative impliedFee for N:1 partial match', () => {
+      const source = createCandidate({ id: 1, amount: parseDecimal('5'), direction: 'out' });
+      const target = createCandidate({
+        id: 2,
+        amount: parseDecimal('10'),
+        direction: 'in',
+        sourceName: 'blockchain',
+        sourceType: 'blockchain',
+      });
+
+      const match: PotentialMatch = {
+        sourceTransaction: source,
+        targetTransaction: target,
+        confidenceScore: parseDecimal('0.85'),
+        matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('0.5'), timingValid: true, timingHours: 1 },
+        linkType: 'exchange_to_blockchain',
+        consumedAmount: parseDecimal('5'),
+      };
+
+      const link = assertOk(createTransactionLink(match, 'confirmed', new Date()));
+      expect(link.metadata?.['impliedFee']).toBeUndefined();
+      expect(link.metadata?.['partialMatch']).toBe(true);
+    });
+
+    it('should include variance metadata for 1:1 match (no consumed amounts)', () => {
+      const source = createCandidate({ id: 1, amount: parseDecimal('1.0'), direction: 'out' });
+      const target = createCandidate({
+        id: 2,
+        amount: parseDecimal('0.999'),
+        direction: 'in',
+        sourceName: 'blockchain',
+        sourceType: 'blockchain',
+      });
+
+      const match: PotentialMatch = {
+        sourceTransaction: source,
+        targetTransaction: target,
+        confidenceScore: parseDecimal('0.95'),
+        matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('0.999'), timingValid: true, timingHours: 1 },
+        linkType: 'exchange_to_blockchain',
+      };
+
+      const link = assertOk(createTransactionLink(match, 'confirmed', new Date()));
+      expect(link.sourceAmount.toFixed()).toBe('1');
+      expect(link.targetAmount.toFixed()).toBe('0.999');
+      expect(link.metadata?.['impliedFee']).toBe('0.001');
+      expect(link.metadata?.['partialMatch']).toBeUndefined();
     });
   });
 

@@ -80,6 +80,25 @@ export class LinkIndex {
    * Mark link as consumed from source side.
    * Removes link from sourceMap and sourceByTxAssetMap but leaves it in targetMap for inflow processing.
    */
+
+  /**
+   * Find all unconsumed links for a source outflow transaction by txId + assetId.
+   * Returns all links (supports 1:N partial matches where one source has multiple links).
+   */
+  findAllBySource(txId: number, assetId: string): TransactionLink[] {
+    const key = buildTxAssetKey(txId, assetId);
+    return this.sourceByTxAssetMap.get(key) ?? [];
+  }
+
+  /**
+   * Find all unconsumed links for a target inflow transaction by txId + assetId.
+   * Returns all links (supports N:1 partial matches where one target has multiple links).
+   */
+  findAllByTarget(txId: number, assetId: string): TransactionLink[] {
+    const key = buildTxAssetKey(txId, assetId);
+    return this.targetMap.get(key) ?? [];
+  }
+
   consumeSourceLink(link: TransactionLink): void {
     const key = this.buildSourceKey(link.sourceTransactionId, link.sourceAssetId, link.sourceAmount);
     const links = this.sourceMap.get(key);

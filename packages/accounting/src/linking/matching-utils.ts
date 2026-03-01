@@ -7,6 +7,7 @@ export {
   aggregateMovementsByTransaction,
   calculateOutflowAdjustment,
   convertToCandidates,
+  isStructuralTrade,
   separateSourcesAndTargets,
 } from './candidate-preparation.js';
 
@@ -23,7 +24,8 @@ export {
   scoreAndFilterMatches,
 } from './candidate-scoring.js';
 
-export { allocateMatches, shouldAutoConfirm } from './match-allocation.js';
+export { allocateMatches, deduplicateWithCapacity, shouldAutoConfirm } from './match-allocation.js';
+export type { DeduplicationDecision } from './match-allocation.js';
 
 export {
   calculateVarianceMetadata,
@@ -44,9 +46,9 @@ export { allocateMatches as deduplicateAndConfirm } from './match-allocation.js'
 export const DEFAULT_MATCHING_CONFIG: MatchingConfig = {
   maxTimingWindowHours: 48,
   clockSkewToleranceHours: 2,
-  minAmountSimilarity: parseDecimal('0.95'),
   minConfidenceScore: parseDecimal('0.7'),
   autoConfirmThreshold: parseDecimal('0.95'),
+  minPartialMatchFraction: parseDecimal('0.1'),
 };
 
 /**

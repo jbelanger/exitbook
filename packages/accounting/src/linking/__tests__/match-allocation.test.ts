@@ -89,9 +89,13 @@ describe('allocateMatches invariants', () => {
       } satisfies MatchCriteria,
     };
 
+    // Source has amount=3 so capacity covers all three targets (amount=1 each)
     const matchA = createMatch({ sourceId: 1, targetId: 10, ...base });
+    matchA.sourceTransaction = createCandidate({ id: 1, direction: 'out', amount: parseDecimal('3') });
     const matchB = createMatch({ sourceId: 1, targetId: 11, ...base });
+    matchB.sourceTransaction = matchA.sourceTransaction;
     const matchC = createMatch({ sourceId: 1, targetId: 12, ...base });
+    matchC.sourceTransaction = matchA.sourceTransaction;
 
     const order1 = allocateMatches([matchA, matchB, matchC], config);
     const order2 = allocateMatches([matchC, matchA, matchB], config);

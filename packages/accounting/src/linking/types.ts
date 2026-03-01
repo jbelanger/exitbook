@@ -61,9 +61,9 @@ export type TransactionCandidate = z.infer<typeof TransactionCandidateSchema>;
 /**
  * Configuration for the matching algorithm
  * - maxTimingWindowHours: Maximum time window between source and target (default: 48 hours)
- * - minAmountSimilarity: Minimum amount similarity threshold 0-1 (default: 0.95 = 95% match accounting for fees)
  * - minConfidenceScore: Minimum confidence score to suggest a match 0-1 (default: 0.7)
  * - autoConfirmThreshold: Automatically confirm matches above this confidence 0-1 (default: 0.95 = 95% confident)
+ * - minPartialMatchFraction: Minimum fraction of the larger amount consumed by a partial match (default: 0.1)
  */
 export type MatchingConfig = z.infer<typeof MatchingConfigSchema>;
 

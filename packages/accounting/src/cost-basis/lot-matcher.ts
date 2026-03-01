@@ -82,7 +82,7 @@ export interface LotMatchResult {
  * - none: No links found (treat as regular disposal)
  */
 type SourceLinkResult =
-  | { isPartialOutflow: boolean; link: TransactionLink; type: 'transfer' }
+  | { isPartialOutflow: boolean; links: TransactionLink[]; type: 'transfer' }
   | { type: 'internal_only' }
   | { type: 'none' };
 
@@ -93,7 +93,7 @@ type SourceLinkResult =
  * - internal_only: Found only blockchain_internal links (inflow should be skipped)
  * - none: No links found (treat as regular acquisition)
  */
-type TargetLinkResult = { link: TransactionLink; type: 'transfer' } | { type: 'internal_only' } | { type: 'none' };
+type TargetLinkResult = { links: TransactionLink[]; type: 'transfer' } | { type: 'internal_only' } | { type: 'none' };
 
 /**
  * Mutable per-asset state used during the global transaction processing pass.
@@ -187,43 +187,54 @@ export class LotMatcher {
           const linkResult = this.findEffectiveSourceLink(linkIndex, tx.id, outflow);
 
           if (linkResult.type === 'transfer') {
-            const { link, isPartialOutflow } = linkResult;
-            const effectiveAmount = isPartialOutflow ? link.sourceAmount : undefined;
+            const { links, isPartialOutflow } = linkResult;
+            let assetFailed = false;
 
-            const transferResult = this.handleTransferSource(
-              tx,
-              outflow,
-              link,
-              assetState.lots,
-              config,
-              effectiveAmount
-            );
-            if (transferResult.isErr()) {
-              this.logger.warn(
-                { assetId: outflow.assetId, assetSymbol: outflow.assetSymbol, error: transferResult.error.message },
-                'Per-asset error during transfer source processing; excluding asset from results'
+            for (const link of links) {
+              // For partial matches, use link.sourceAmount (= consumedAmount) as the effective transfer amount.
+              // For UTXO partial outflows (blockchain_internal consumed), use link.sourceAmount.
+              // For regular 1:1 matches, use undefined (original behavior).
+              const isPartialLink = link.metadata?.['partialMatch'] === true;
+              const effectiveAmount = isPartialOutflow || isPartialLink ? link.sourceAmount : undefined;
+
+              const transferResult = this.handleTransferSource(
+                tx,
+                outflow,
+                link,
+                assetState.lots,
+                config,
+                effectiveAmount
               );
-              failedAssetIds.add(outflow.assetId);
-              errors.push({
-                assetId: outflow.assetId,
-                assetSymbol: outflow.assetSymbol,
-                error: transferResult.error.message,
-              });
-              continue;
+              if (transferResult.isErr()) {
+                this.logger.warn(
+                  { assetId: outflow.assetId, assetSymbol: outflow.assetSymbol, error: transferResult.error.message },
+                  'Per-asset error during transfer source processing; excluding asset from results'
+                );
+                failedAssetIds.add(outflow.assetId);
+                errors.push({
+                  assetId: outflow.assetId,
+                  assetSymbol: outflow.assetSymbol,
+                  error: transferResult.error.message,
+                });
+                assetFailed = true;
+                break;
+              }
+
+              // Record transfers into shared list, per-asset state, and link index
+              for (const transfer of transferResult.value.transfers) {
+                sharedLotTransfers.push(transfer);
+                assetState.lotTransfers.push(transfer);
+                const existing = transfersByLinkId.get(transfer.linkId) ?? [];
+                existing.push(transfer);
+                transfersByLinkId.set(transfer.linkId, existing);
+              }
+
+              assetState.disposals.push(...transferResult.value.disposals);
+              assetState.lots.splice(0, assetState.lots.length, ...transferResult.value.updatedLots);
+              linkIndex.consumeSourceLink(link);
             }
 
-            // Record transfers into shared list, per-asset state, and link index
-            for (const transfer of transferResult.value.transfers) {
-              sharedLotTransfers.push(transfer);
-              assetState.lotTransfers.push(transfer);
-              const existing = transfersByLinkId.get(transfer.linkId) ?? [];
-              existing.push(transfer);
-              transfersByLinkId.set(transfer.linkId, existing);
-            }
-
-            assetState.disposals.push(...transferResult.value.disposals);
-            assetState.lots.splice(0, assetState.lots.length, ...transferResult.value.updatedLots);
-            linkIndex.consumeSourceLink(link);
+            if (assetFailed) continue;
           } else if (linkResult.type === 'none') {
             const result = matchOutflowDisposal(tx, outflow, assetState.lots, config.strategy);
             if (result.isErr()) {
@@ -260,7 +271,7 @@ export class LotMatcher {
           const linkResult = this.findEffectiveTargetLink(linkIndex, tx.id, assetId);
 
           if (linkResult.type === 'transfer') {
-            const { link } = linkResult;
+            const { links } = linkResult;
             // Aggregate all inflows of this asset for transfer targets
             // Use netAmount for consistency with link.targetAmount (net received amount)
             const totalAmount = assetInflows.reduce(
@@ -274,21 +285,27 @@ export class LotMatcher {
               grossAmount: totalAmount,
             };
 
-            // Handle transfer target with pre-filtered transfers for this link
-            const transfersForLink = transfersByLinkId.get(link.id) ?? [];
-            const lotResult = await this.handleTransferTarget(tx, aggregatedInflow, link, transfersForLink, config);
-            if (lotResult.isErr()) {
-              const assetSymbol = assetInflows[0]!.assetSymbol;
-              this.logger.warn(
-                { assetId, assetSymbol, error: lotResult.error.message },
-                'Per-asset error during transfer target processing; excluding asset from results'
-              );
-              failedAssetIds.add(assetId);
-              errors.push({ assetId, assetSymbol, error: lotResult.error.message });
-              continue;
+            let assetFailed = false;
+            for (const link of links) {
+              // Handle transfer target with pre-filtered transfers for this link
+              const transfersForLink = transfersByLinkId.get(link.id) ?? [];
+              const lotResult = await this.handleTransferTarget(tx, aggregatedInflow, link, transfersForLink, config);
+              if (lotResult.isErr()) {
+                const assetSymbol = assetInflows[0]!.assetSymbol;
+                this.logger.warn(
+                  { assetId, assetSymbol, error: lotResult.error.message },
+                  'Per-asset error during transfer target processing; excluding asset from results'
+                );
+                failedAssetIds.add(assetId);
+                errors.push({ assetId, assetSymbol, error: lotResult.error.message });
+                assetFailed = true;
+                break;
+              }
+              assetState.lots.push(lotResult.value);
+              linkIndex.consumeTargetLink(link);
             }
-            assetState.lots.push(lotResult.value);
-            linkIndex.consumeTargetLink(link);
+
+            if (assetFailed) continue;
           } else if (linkResult.type === 'none') {
             // Handle each inflow as regular acquisition
             for (const inflow of assetInflows) {
@@ -410,7 +427,15 @@ export class LotMatcher {
     }
 
     if (link) {
-      return { type: 'transfer', link, isPartialOutflow: foundInternal };
+      // For partial matches (1:N splits), return all partial links for this source.
+      // For regular links (multiple outflows of same asset each with own link), return just one.
+      if (link.metadata?.['partialMatch'] === true) {
+        const allLinks = linkIndex
+          .findAllBySource(txId, outflow.assetId)
+          .filter((l) => l.linkType !== 'blockchain_internal');
+        return { type: 'transfer', links: allLinks, isPartialOutflow: foundInternal };
+      }
+      return { type: 'transfer', links: [link], isPartialOutflow: foundInternal };
     }
     return foundInternal ? { type: 'internal_only' } : { type: 'none' };
   }
@@ -430,7 +455,13 @@ export class LotMatcher {
     }
 
     if (link) {
-      return { link, type: 'transfer' };
+      // For partial matches (N:1 consolidations), return all partial links for this target.
+      // For regular links, return just one.
+      if (link.metadata?.['partialMatch'] === true) {
+        const allLinks = linkIndex.findAllByTarget(txId, assetId).filter((l) => l.linkType !== 'blockchain_internal');
+        return { type: 'transfer', links: allLinks };
+      }
+      return { type: 'transfer', links: [link] };
     }
     return foundInternal ? { type: 'internal_only' } : { type: 'none' };
   }

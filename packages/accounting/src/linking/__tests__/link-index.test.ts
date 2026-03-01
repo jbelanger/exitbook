@@ -843,4 +843,70 @@ describe('LinkIndex', () => {
       expect(byTarget3?.id).toBe(2);
     });
   });
+
+  describe('findAllBySource', () => {
+    it('should return all links for a source with multiple partial links', () => {
+      const link1 = createLink({
+        id: 1,
+        sourceTransactionId: 1,
+        targetTransactionId: 2,
+        assetSymbol: 'ETH',
+        sourceAmount: parseDecimal('5'),
+        targetAmount: parseDecimal('5'),
+      });
+      const link2 = createLink({
+        id: 2,
+        sourceTransactionId: 1,
+        targetTransactionId: 3,
+        assetSymbol: 'ETH',
+        sourceAmount: parseDecimal('5'),
+        targetAmount: parseDecimal('5'),
+      });
+
+      const index = new LinkIndex([link1, link2]);
+      const results = index.findAllBySource(1, 'ETH');
+
+      expect(results).toHaveLength(2);
+    });
+
+    it('should return empty array when no links exist for source', () => {
+      const index = new LinkIndex([]);
+      const results = index.findAllBySource(999, 'BTC');
+
+      expect(results).toHaveLength(0);
+    });
+  });
+
+  describe('findAllByTarget', () => {
+    it('should return all links for a target with multiple partial links', () => {
+      const link1 = createLink({
+        id: 1,
+        sourceTransactionId: 1,
+        targetTransactionId: 3,
+        assetSymbol: 'ETH',
+        sourceAmount: parseDecimal('5'),
+        targetAmount: parseDecimal('5'),
+      });
+      const link2 = createLink({
+        id: 2,
+        sourceTransactionId: 2,
+        targetTransactionId: 3,
+        assetSymbol: 'ETH',
+        sourceAmount: parseDecimal('5'),
+        targetAmount: parseDecimal('5'),
+      });
+
+      const index = new LinkIndex([link1, link2]);
+      const results = index.findAllByTarget(3, 'ETH');
+
+      expect(results).toHaveLength(2);
+    });
+
+    it('should return empty array when no links exist for target', () => {
+      const index = new LinkIndex([]);
+      const results = index.findAllByTarget(999, 'BTC');
+
+      expect(results).toHaveLength(0);
+    });
+  });
 });

@@ -107,8 +107,9 @@ export function calculateVarianceMetadata(
  * Allows small target>source variance when hashMatch is true (UTXO per-address data gaps).
  */
 export function validateLinkAmountsForMatch(match: PotentialMatch): Result<LinkAmountValidationInfo, Error> {
-  const sourceAmount = match.sourceTransaction.amount;
-  const targetAmount = match.targetTransaction.amount;
+  // Use consumed amount if present (partial match), otherwise original amounts
+  const sourceAmount = match.consumedAmount ?? match.sourceTransaction.amount;
+  const targetAmount = match.consumedAmount ?? match.targetTransaction.amount;
 
   const baseValidation = validateLinkAmounts(sourceAmount, targetAmount);
   if (baseValidation.isOk()) {
@@ -158,10 +159,13 @@ export function createTransactionLink(
   status: 'suggested' | 'confirmed',
   now: Date
 ): Result<NewTransactionLink, Error> {
-  // Extract amounts from match
   const assetSymbol = match.sourceTransaction.assetSymbol;
-  const sourceAmount = match.sourceTransaction.amount;
-  const targetAmount = match.targetTransaction.amount;
+
+  // For partial matches (1:N or N:1), use consumed amount for both sides.
+  // For 1:1 matches (no consumed amount), use original transaction amounts.
+  const isPartialMatch = match.consumedAmount !== undefined;
+  const sourceAmount = isPartialMatch ? match.consumedAmount! : match.sourceTransaction.amount;
+  const targetAmount = isPartialMatch ? match.consumedAmount! : match.targetTransaction.amount;
 
   // Validate amounts
   const validationResult = validateLinkAmountsForMatch(match);
@@ -169,25 +173,33 @@ export function createTransactionLink(
     return err(validationResult.error);
   }
 
-  // Calculate variance metadata for debugging
-  const varianceMetadata = calculateVarianceMetadata(sourceAmount, targetAmount);
+  // Build metadata
   const validationInfo = validationResult.value;
-  const metadata = {
-    ...varianceMetadata,
-    ...(validationInfo.allowTargetExcess
-      ? {
-          targetExcessAllowed: true,
-          targetExcess: validationInfo.allowTargetExcess.excess.toFixed(),
-          targetExcessPct: validationInfo.allowTargetExcess.excessPct.toFixed(2),
-        }
-      : {}),
-  };
+  const metadata: Record<string, unknown> = {};
 
-  // Create link with all required fields
+  if (isPartialMatch) {
+    // Partial match: record full original amounts for audit trail.
+    // No impliedFee — it's meaningless for splits/consolidations.
+    metadata['partialMatch'] = true;
+    metadata['fullSourceAmount'] = match.sourceTransaction.amount.toFixed();
+    metadata['fullTargetAmount'] = match.targetTransaction.amount.toFixed();
+    metadata['consumedAmount'] = sourceAmount.toFixed();
+  } else {
+    // 1:1 match: variance/implied fee (original behavior, unchanged)
+    const varianceMetadata = calculateVarianceMetadata(sourceAmount, targetAmount);
+    Object.assign(metadata, varianceMetadata);
+  }
+
+  if (validationInfo.allowTargetExcess) {
+    metadata['targetExcessAllowed'] = true;
+    metadata['targetExcess'] = validationInfo.allowTargetExcess.excess.toFixed();
+    metadata['targetExcessPct'] = validationInfo.allowTargetExcess.excessPct.toFixed(2);
+  }
+
   return ok({
     sourceTransactionId: match.sourceTransaction.id,
     targetTransactionId: match.targetTransaction.id,
-    assetSymbol: assetSymbol,
+    assetSymbol,
     sourceAssetId: match.sourceTransaction.assetId,
     targetAssetId: match.targetTransaction.assetId,
     sourceAmount,

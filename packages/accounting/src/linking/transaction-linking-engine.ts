@@ -82,8 +82,15 @@ export class TransactionLinkingEngine {
 
       this.logger.info({ matchCount: allMatches.length }, 'Found potential cross-source matches');
 
-      // Deduplicate matches
-      const { suggested, confirmed } = deduplicateAndConfirm(allMatches, this.config);
+      // Deduplicate matches using capacity-based algorithm
+      const { suggested, confirmed, decisions } = deduplicateAndConfirm(allMatches, this.config);
+
+      if (decisions.length > 0) {
+        this.logger.debug(
+          { decisions, confirmedCount: confirmed.length, suggestedCount: suggested.length },
+          'Capacity deduplication decisions'
+        );
+      }
 
       // Convert to NewTransactionLink objects with validation (id assigned on persistence)
       const now = new Date();
