@@ -102,26 +102,41 @@ export function checkAddressMatch(
   sourceTransaction: TransactionCandidate,
   targetTransaction: TransactionCandidate
 ): boolean | undefined {
-  const sourceDestinationAddress = sourceTransaction.toAddress;
-  if (!sourceDestinationAddress) {
-    return undefined;
-  }
-
   const targetDestinationAddress = targetTransaction.toAddress;
   const targetSourceAddress = targetTransaction.fromAddress;
+
+  // No target addresses available — inconclusive
   if (!targetDestinationAddress && !targetSourceAddress) {
     return undefined;
   }
 
-  const normalizedSource = sourceDestinationAddress.toLowerCase();
-  if (targetDestinationAddress && normalizedSource === targetDestinationAddress.toLowerCase()) {
-    return true;
+  // Try source.toAddress → target (standard: withdrawal destination matches deposit endpoint)
+  const sourceDestinationAddress = sourceTransaction.toAddress;
+  if (sourceDestinationAddress) {
+    const normalized = sourceDestinationAddress.toLowerCase();
+    if (targetDestinationAddress && normalized === targetDestinationAddress.toLowerCase()) {
+      return true;
+    }
+    if (targetSourceAddress && normalized === targetSourceAddress.toLowerCase()) {
+      return true;
+    }
   }
 
-  if (targetSourceAddress && normalizedSource === targetSourceAddress.toLowerCase()) {
-    return true;
+  // Try source.fromAddress → target.toAddress
+  // Covers blockchain→exchange: user's sending address matches exchange deposit address
+  const sourceOriginAddress = sourceTransaction.fromAddress;
+  if (sourceOriginAddress) {
+    if (targetDestinationAddress && sourceOriginAddress.toLowerCase() === targetDestinationAddress.toLowerCase()) {
+      return true;
+    }
   }
 
+  // If neither source address was available, we can't compare — inconclusive
+  if (!sourceDestinationAddress && !sourceOriginAddress) {
+    return undefined;
+  }
+
+  // Addresses were available on both sides but none matched — mismatch
   return false;
 }
 
@@ -246,6 +261,37 @@ export function calculateConfidenceScore(criteria: MatchCriteria): Decimal {
 }
 
 /**
+ * Calculate fee-aware amount similarity by trying multiple gross/net comparison patterns.
+ *
+ * UTXO chains record grossAmount (total inputs) and netAmount (gross - fee) separately.
+ * The counterparty (e.g., an exchange) may record either the gross or net amount.
+ * This function tries all available amount pairs and returns the best similarity.
+ *
+ * Patterns tried:
+ *  1. source.amount vs target.amount           (net vs net — standard)
+ *  2. source.grossAmount vs target.amount       (gross vs net — UTXO send vs exchange deposit)
+ *  3. source.amount vs target.grossAmount       (net vs gross — reversed)
+ */
+export function calculateFeeAwareAmountSimilarity(source: TransactionCandidate, target: TransactionCandidate): Decimal {
+  // Always try the primary amounts first
+  let best = calculateAmountSimilarity(source.amount, target.amount);
+
+  // If source has a different grossAmount, try gross vs target
+  if (source.grossAmount && best.lessThan(parseDecimal('1'))) {
+    const sim = calculateAmountSimilarity(source.grossAmount, target.amount);
+    if (sim.greaterThan(best)) best = sim;
+  }
+
+  // If target has a different grossAmount, try source vs gross
+  if (target.grossAmount && best.lessThan(parseDecimal('1'))) {
+    const sim = calculateAmountSimilarity(source.amount, target.grossAmount);
+    if (sim.greaterThan(best)) best = sim;
+  }
+
+  return best;
+}
+
+/**
  * Build match criteria for two transaction candidates
  *
  * @param source - Source transaction (withdrawal/send)
@@ -259,7 +305,7 @@ export function buildMatchCriteria(
   config: MatchingConfig
 ): MatchCriteria {
   const assetMatch = source.assetSymbol === target.assetSymbol;
-  const amountSimilarity = calculateAmountSimilarity(source.amount, target.amount);
+  const amountSimilarity = calculateFeeAwareAmountSimilarity(source, target);
   const timingHours = calculateTimeDifferenceHours(source.timestamp, target.timestamp);
   const timingValid = isTimingValid(source.timestamp, target.timestamp, config);
   const addressMatch = checkAddressMatch(source, target);
@@ -300,9 +346,12 @@ export function scoreAndFilterMatches(
     if (source.assetSymbol !== target.assetSymbol) continue;
     if (source.direction !== 'out' || target.direction !== 'in') continue;
 
-    // Same-exchange guard: matching within the same exchange is meaningless for transfer linking.
-    // Blockchain same-source matching is allowed (different tracked addresses are valid).
-    if (source.sourceType === 'exchange' && source.sourceName === target.sourceName) continue;
+    // Same-source guard: matching within the same source is meaningless for transfer linking.
+    // - Exchange: same exchange → skip (internal transfer, not a cross-source link)
+    // - Blockchain: same blockchain → skip heuristic matches (unrelated on-chain events).
+    //   Blockchain same-source matches only make sense with a tx hash match, which is
+    //   handled above this guard.
+    if (source.sourceName === target.sourceName) continue;
 
     // Check for transaction hash match (perfect match)
     const hashMatch = checkTransactionHashMatch(source, target);

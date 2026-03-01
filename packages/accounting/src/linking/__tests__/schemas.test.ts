@@ -645,5 +645,39 @@ describe('schemas', () => {
       expect(result.amount).toBeInstanceOf(Decimal);
       expect(result.amount.toFixed()).toBe('1000000000000');
     });
+
+    it('should accept optional grossAmount', () => {
+      const candidate = {
+        id: 1,
+        sourceName: 'cardano',
+        sourceType: 'blockchain' as const,
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetId: 'blockchain:cardano:native',
+        assetSymbol: 'ADA',
+        amount: '2678.842165',
+        grossAmount: '2679.718442',
+        direction: 'out' as const,
+      };
+
+      const result = TransactionCandidateSchema.parse(candidate);
+      expect(result.grossAmount).toBeInstanceOf(Decimal);
+      expect(result.grossAmount!.toFixed()).toBe('2679.718442');
+    });
+
+    it('should allow omitting grossAmount', () => {
+      const candidate = {
+        id: 1,
+        sourceName: 'kraken',
+        sourceType: 'exchange' as const,
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        assetId: 'test:btc',
+        assetSymbol: 'BTC',
+        amount: '1.0',
+        direction: 'out' as const,
+      };
+
+      const result = TransactionCandidateSchema.parse(candidate);
+      expect(result.grossAmount).toBeUndefined();
+    });
   });
 });

@@ -40,6 +40,7 @@ export const TransactionCandidateSchema = z.object({
   assetId: z.string(),
   assetSymbol: CurrencySchema,
   amount: DecimalSchema,
+  grossAmount: DecimalSchema.optional(), // Only set when different from amount (UTXO outflows with fee)
   direction: z.enum(['in', 'out', 'neutral']),
   fromAddress: z.string().optional(),
   toAddress: z.string().optional(),

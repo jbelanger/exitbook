@@ -7,6 +7,7 @@ import {
   buildMatchCriteria,
   calculateAmountSimilarity,
   calculateConfidenceScore,
+  calculateFeeAwareAmountSimilarity,
   calculateOutflowAdjustment,
   calculateTimeDifferenceHours,
   calculateVarianceMetadata,
@@ -64,6 +65,82 @@ describe('matching-utils', () => {
       const target = parseDecimal('1.0');
       const similarity = calculateAmountSimilarity(source, target);
       expect(similarity.toString()).toBe('0');
+    });
+  });
+
+  describe('calculateFeeAwareAmountSimilarity', () => {
+    it('should fall back to standard comparison when no grossAmount', () => {
+      const source = createCandidate({ amount: parseDecimal('100'), direction: 'out' });
+      const target = createCandidate({ id: 2, amount: parseDecimal('99'), direction: 'in' });
+      const similarity = calculateFeeAwareAmountSimilarity(source, target);
+      expect(similarity.toFixed()).toBe(calculateAmountSimilarity(parseDecimal('100'), parseDecimal('99')).toFixed());
+    });
+
+    it('should match source grossAmount against target when net comparison fails', () => {
+      // Cardano case: source net=2678.84, source gross=2679.72, target=2679.72
+      const source = createCandidate({
+        amount: parseDecimal('2678.842165'),
+        grossAmount: parseDecimal('2679.718442'),
+        direction: 'out',
+        sourceType: 'blockchain',
+      });
+      const target = createCandidate({
+        id: 2,
+        amount: parseDecimal('2679.718442'),
+        direction: 'in',
+        sourceType: 'exchange',
+      });
+      const similarity = calculateFeeAwareAmountSimilarity(source, target);
+      // gross vs target is exact match → 1.0
+      expect(similarity.toFixed()).toBe('1');
+    });
+
+    it('should match source against target grossAmount when target has fee difference', () => {
+      const source = createCandidate({
+        amount: parseDecimal('100'),
+        direction: 'out',
+      });
+      const target = createCandidate({
+        id: 2,
+        amount: parseDecimal('99.5'),
+        grossAmount: parseDecimal('100'),
+        direction: 'in',
+      });
+      const similarity = calculateFeeAwareAmountSimilarity(source, target);
+      // source.amount vs target.grossAmount is exact match → 1.0
+      expect(similarity.toFixed()).toBe('1');
+    });
+
+    it('should return the best similarity across all patterns', () => {
+      const source = createCandidate({
+        amount: parseDecimal('95'),
+        grossAmount: parseDecimal('100'),
+        direction: 'out',
+      });
+      const target = createCandidate({
+        id: 2,
+        amount: parseDecimal('98'),
+        direction: 'in',
+      });
+      // net vs net: 95 vs 98 → target > source → 0 (exceeds 0.1% rounding)
+      // gross vs net: 100 vs 98 → 98/100 = 0.98
+      const similarity = calculateFeeAwareAmountSimilarity(source, target);
+      expect(similarity.toFixed()).toBe('0.98');
+    });
+
+    it('should short-circuit when primary comparison is already perfect', () => {
+      const source = createCandidate({
+        amount: parseDecimal('100'),
+        grossAmount: parseDecimal('105'),
+        direction: 'out',
+      });
+      const target = createCandidate({
+        id: 2,
+        amount: parseDecimal('100'),
+        direction: 'in',
+      });
+      const similarity = calculateFeeAwareAmountSimilarity(source, target);
+      expect(similarity.toFixed()).toBe('1');
     });
   });
 
@@ -212,6 +289,35 @@ describe('matching-utils', () => {
         fromAddress: 'bc1qxyz123',
       });
       expect(checkAddressMatch(source, target)).toBe(true);
+    });
+
+    it('should match source.fromAddress against target.toAddress (blockchain→exchange)', () => {
+      // User sends from their Cardano address, exchange records deposit to user's deposit address
+      const source = createCandidate({
+        sourceName: 'cardano',
+        sourceType: 'blockchain',
+        fromAddress: 'addr1q95qk0u05drsy3', // user's address
+        toAddress: 'addr1q9h4f2vhh5vnqg', // exchange hot wallet
+      });
+      const target = createCandidate({
+        id: 2,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        direction: 'in',
+        toAddress: 'addr1q95qk0u05drsy3', // user's deposit address on exchange
+      });
+      expect(checkAddressMatch(source, target)).toBe(true);
+    });
+
+    it('should return undefined when source has no addresses', () => {
+      const source = createCandidate({ sourceName: 'exchange1' });
+      const target = createCandidate({
+        id: 2,
+        sourceName: 'exchange2',
+        direction: 'in',
+        toAddress: 'someaddr',
+      });
+      expect(checkAddressMatch(source, target)).toBeUndefined();
     });
   });
 
@@ -395,6 +501,73 @@ describe('matching-utils', () => {
       // Best match should be first
       expect(matches[0]?.targetTransaction.id).toBe(3);
       expect(matches[1]?.targetTransaction.id).toBe(2);
+    });
+  });
+
+  describe('findPotentialMatches with fee-aware amounts', () => {
+    it('should match UTXO outflow (net) against exchange inflow (gross) via grossAmount', () => {
+      // Simulates the Cardano case: blockchain OUT net=2678.84, gross=2679.72
+      // Exchange IN records the pre-fee withdrawal amount: 2679.72
+      const source = createCandidate({
+        id: 150,
+        sourceName: 'cardano',
+        sourceType: 'blockchain',
+        assetId: 'blockchain:cardano:native',
+        assetSymbol: 'ADA' as Currency,
+        amount: parseDecimal('2678.842165'), // netAmount (gross - fee)
+        grossAmount: parseDecimal('2679.718442'), // grossAmount (total UTXO inputs)
+        direction: 'out',
+      });
+      const targets: TransactionCandidate[] = [
+        createCandidate({
+          id: 388,
+          sourceName: 'unknown',
+          sourceType: 'exchange',
+          assetId: 'blockchain:cardano:native',
+          assetSymbol: 'ADA' as Currency,
+          timestamp: new Date('2024-01-01T11:51:00Z'), // 9 min before source (within clock skew)
+          amount: parseDecimal('2679.718442'), // gross withdrawal amount
+          direction: 'in',
+        }),
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.targetTransaction.id).toBe(388);
+      // gross vs target is exact match → amountSimilarity = 1.0
+      expect(matches[0]?.matchCriteria.amountSimilarity.toFixed()).toBe('1');
+    });
+
+    it('should not match without grossAmount when target greatly exceeds source net', () => {
+      // Fee difference > 0.1% rounding tolerance → no match without grossAmount
+      const source = createCandidate({
+        id: 150,
+        sourceName: 'cardano',
+        sourceType: 'blockchain',
+        assetId: 'blockchain:cardano:native',
+        assetSymbol: 'ADA' as Currency,
+        amount: parseDecimal('100'), // net (after large fee)
+        // No grossAmount
+        direction: 'out',
+      });
+      const targets: TransactionCandidate[] = [
+        createCandidate({
+          id: 388,
+          sourceName: 'unknown',
+          sourceType: 'exchange',
+          assetId: 'blockchain:cardano:native',
+          assetSymbol: 'ADA' as Currency,
+          timestamp: new Date('2024-01-01T13:00:00Z'),
+          amount: parseDecimal('105'), // 5% larger — exceeds rounding tolerance
+          direction: 'in',
+        }),
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Without grossAmount, target > source by 5% → similarity = 0 → confidence too low
+      expect(matches).toHaveLength(0);
     });
   });
 
@@ -848,6 +1021,57 @@ describe('matching-utils', () => {
 
       expect(candidates).toHaveLength(0);
     });
+
+    it('should populate grossAmount on outflow candidates when netAmount differs from grossAmount', () => {
+      const transactions = [
+        {
+          id: 1,
+          accountId: 1,
+          externalId: 'tx-1',
+          source: 'cardano',
+          sourceType: 'blockchain',
+          datetime: '2024-01-01T12:00:00Z',
+          timestamp: Date.parse('2024-01-01T12:00:00Z'),
+          status: 'success',
+          fees: [],
+          operation: { category: 'transfer', type: 'transfer' },
+          blockchain: { name: 'cardano', transaction_hash: 'hash-1', is_confirmed: true },
+          movements: {
+            inflows: [],
+            outflows: [
+              {
+                assetId: 'blockchain:cardano:native',
+                assetSymbol: 'ADA' as Currency,
+                grossAmount: parseDecimal('2679.718442'),
+                netAmount: parseDecimal('2678.842165'),
+              },
+            ],
+          },
+        },
+      ] as UniversalTransactionData[];
+
+      const candidates = convertToCandidates(transactions);
+
+      expect(candidates).toHaveLength(1);
+      expect(candidates[0]?.amount.toFixed()).toBe('2678.842165'); // net
+      expect(candidates[0]?.grossAmount?.toFixed()).toBe('2679.718442'); // gross
+    });
+
+    it('should not populate grossAmount when netAmount equals grossAmount', () => {
+      const transactions = [
+        createTransaction({
+          id: 1,
+          source: 'kraken',
+          datetime: '2024-01-01T12:00:00Z',
+          outflows: [{ assetSymbol: 'BTC', amount: '1.0' }],
+        }),
+      ];
+
+      const candidates = convertToCandidates(transactions);
+
+      expect(candidates).toHaveLength(1);
+      expect(candidates[0]?.grossAmount).toBeUndefined();
+    });
   });
 
   describe('isStructuralTrade', () => {
@@ -919,7 +1143,7 @@ describe('matching-utils', () => {
     });
   });
 
-  describe('same-exchange guard in findPotentialMatches', () => {
+  describe('same-source guard in findPotentialMatches', () => {
     it('should reject matches within the same exchange', () => {
       const source = createCandidate({
         id: 1,
@@ -966,7 +1190,7 @@ describe('matching-utils', () => {
       expect(matches).toHaveLength(1);
     });
 
-    it('should allow same-source matching for blockchain (different tracked addresses)', () => {
+    it('should reject same-blockchain heuristic matches (unrelated on-chain events)', () => {
       const source = createCandidate({
         id: 1,
         sourceName: 'bitcoin',
@@ -978,6 +1202,29 @@ describe('matching-utils', () => {
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          externalId: 'tx-in',
+          timestamp: new Date('2024-01-01T13:00:00Z'),
+          direction: 'in',
+        }),
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      expect(matches).toHaveLength(0);
+    });
+
+    it('should allow blockchain-to-different-source matching', () => {
+      const source = createCandidate({
+        id: 1,
+        sourceName: 'cardano',
+        sourceType: 'blockchain',
+        externalId: 'tx-out',
+        direction: 'out',
+      });
+      const targets = [
+        createCandidate({
+          id: 2,
+          sourceName: 'unknown',
           sourceType: 'blockchain',
           externalId: 'tx-in',
           timestamp: new Date('2024-01-01T13:00:00Z'),

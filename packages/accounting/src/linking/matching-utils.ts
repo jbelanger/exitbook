@@ -15,6 +15,7 @@ export {
   buildMatchCriteria,
   calculateAmountSimilarity,
   calculateConfidenceScore,
+  calculateFeeAwareAmountSimilarity,
   calculateTimeDifferenceHours,
   checkAddressMatch,
   checkTransactionHashMatch,

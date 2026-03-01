@@ -149,19 +149,18 @@ describe('TransactionLinkingEngine', () => {
       expect(totalTargetTransactions).toBe(0);
     });
 
-    it('should handle blockchain-to-blockchain links', () => {
+    it('should handle cross-source blockchain links (exchange withdrawal → blockchain deposit)', () => {
       const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
 
       const transactions: UniversalTransactionData[] = [
-        // Blockchain send
+        // Exchange withdrawal
         createTransaction({
           id: 1,
-          source: 'bitcoin',
+          source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           outflows: [{ assetSymbol: 'BTC', amount: '0.5' }],
           from: 'bc1qsource',
           to: 'bc1qtarget',
-          blockchain: { name: 'bitcoin', transaction_hash: 'txsend', is_confirmed: true },
         }),
         // Blockchain receive (15 min later, slight fee)
         createTransaction({
@@ -182,7 +181,7 @@ describe('TransactionLinkingEngine', () => {
 
       const link = allLinks[0];
       expect(link).toBeDefined();
-      expect(link!.linkType).toBe('blockchain_to_blockchain');
+      expect(link!.linkType).toBe('exchange_to_blockchain');
     });
 
     it('should handle empty transaction list', () => {

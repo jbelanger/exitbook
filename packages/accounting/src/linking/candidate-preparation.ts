@@ -219,6 +219,10 @@ export function convertToCandidates(
 
     // Create candidates for all inflows
     for (const inflow of tx.movements.inflows ?? []) {
+      const inflowAmount = inflow.netAmount ?? inflow.grossAmount;
+      const inflowGrossAmount =
+        inflow.netAmount && !inflow.netAmount.eq(inflow.grossAmount) ? inflow.grossAmount : undefined;
+
       const candidate: TransactionCandidate = {
         id: tx.id,
         externalId: tx.externalId,
@@ -227,7 +231,8 @@ export function convertToCandidates(
         timestamp: new Date(tx.datetime),
         assetId: inflow.assetId,
         assetSymbol: inflow.assetSymbol,
-        amount: inflow.netAmount ?? inflow.grossAmount,
+        amount: inflowAmount,
+        grossAmount: inflowGrossAmount,
         direction: 'in',
         fromAddress: tx.from,
         toAddress: tx.to,
@@ -244,6 +249,11 @@ export function convertToCandidates(
         continue;
       }
 
+      const outflowAmount =
+        amountOverrides?.get(tx.id)?.get(outflow.assetId) ?? outflow.netAmount ?? outflow.grossAmount;
+      const outflowGrossAmount =
+        outflow.netAmount && !outflow.netAmount.eq(outflow.grossAmount) ? outflow.grossAmount : undefined;
+
       const candidate: TransactionCandidate = {
         id: tx.id,
         externalId: tx.externalId,
@@ -252,7 +262,8 @@ export function convertToCandidates(
         timestamp: new Date(tx.datetime),
         assetId: outflow.assetId,
         assetSymbol: outflow.assetSymbol,
-        amount: amountOverrides?.get(tx.id)?.get(outflow.assetId) ?? outflow.netAmount ?? outflow.grossAmount,
+        amount: outflowAmount,
+        grossAmount: outflowGrossAmount,
         direction: 'out',
         fromAddress: tx.from,
         toAddress: tx.to,

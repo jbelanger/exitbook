@@ -108,6 +108,70 @@ describe('allocateMatches invariants', () => {
     expect(toIds(order2)).toEqual(toIds(order3));
   });
 
+  it('releases capacity when a 1:1 match fails validation, allowing retry', () => {
+    // Bug scenario: source #1 matches target #2 first (higher confidence),
+    // but that match fails validation after 1:1 restoration (target > source).
+    // The capacity should be released so source #1 can match target #3 in a retry pass.
+    const source1 = createCandidate({
+      id: 1,
+      direction: 'out',
+      amount: parseDecimal('100'),
+      sourceName: 'exchange-a',
+      sourceType: 'exchange',
+    });
+
+    // Target with amount > source — will fail validation after 1:1 restoration
+    const target2 = createCandidate({
+      id: 2,
+      direction: 'in',
+      amount: parseDecimal('200'),
+      timestamp: new Date('2024-01-01T13:00:00Z'),
+      sourceName: 'blockchain-a',
+      sourceType: 'blockchain',
+    });
+
+    // Valid target
+    const target3 = createCandidate({
+      id: 3,
+      direction: 'in',
+      amount: parseDecimal('99.5'),
+      timestamp: new Date('2024-01-01T13:00:00Z'),
+      sourceName: 'blockchain-b',
+      sourceType: 'blockchain',
+    });
+
+    const matches: PotentialMatch[] = [
+      // Higher confidence — processed first, accepted in pass 1, rejected in restoration
+      createMatch({
+        sourceId: 1,
+        targetId: 2,
+        confidenceScore: parseDecimal('0.95'),
+        sourceTransaction: source1,
+        targetTransaction: target2,
+      }),
+      // Lower confidence — rejected_no_capacity in pass 1, picked up in retry pass
+      createMatch({
+        sourceId: 1,
+        targetId: 3,
+        confidenceScore: parseDecimal('0.90'),
+        sourceTransaction: source1,
+        targetTransaction: target3,
+      }),
+    ];
+
+    const result = allocateMatches(matches, config);
+    const all = [...result.confirmed, ...result.suggested];
+
+    // The invalid match (#1→#2) should be rejected
+    expect(all.some((m) => m.targetTransaction.id === 2)).toBe(false);
+
+    // The valid match (#1→#3) should succeed via retry pass
+    expect(all.some((m) => m.targetTransaction.id === 3)).toBe(true);
+
+    // Decision trail should show validation rejection
+    expect(result.decisions.some((d) => d.targetId === 2 && d.action === 'rejected_validation')).toBe(true);
+  });
+
   it('calculateConfidenceScore always returns [0, 1] for valid criteria', () => {
     const testCases: MatchCriteria[] = [
       {

@@ -1,5 +1,6 @@
 import { Decimal } from 'decimal.js';
 
+import { validateLinkAmountsForMatch } from './link-construction.js';
 import type { MatchingConfig, PotentialMatch } from './types.js';
 
 /** Decision trace from capacity-based deduplication. Logged at debug level for audit. */
@@ -7,7 +8,7 @@ export interface DeduplicationDecision {
   sourceId: number;
   targetId: number;
   asset: string;
-  action: 'accepted' | 'rejected_no_capacity' | 'rejected_fraction' | 'restored_1to1';
+  action: 'accepted' | 'rejected_no_capacity' | 'rejected_fraction' | 'rejected_validation' | 'restored_1to1';
   consumed?: string | undefined;
   remainingSource?: string | undefined;
   remainingTarget?: string | undefined;
@@ -48,11 +49,11 @@ export function deduplicateWithCapacity(
   sortedMatches: PotentialMatch[],
   config: MatchingConfig
 ): { decisions: DeduplicationDecision[]; matches: PotentialMatch[] } {
-  const sourceCapacity = new Map<string, Decimal>();
-  const targetCapacity = new Map<string, Decimal>();
-
   const makeKey = (txId: number, assetSymbol: string): string => `${txId}:${assetSymbol}`;
 
+  // --- Pass 1: Greedy capacity allocation ---
+  const sourceCapacity = new Map<string, Decimal>();
+  const targetCapacity = new Map<string, Decimal>();
   const deduplicatedMatches: PotentialMatch[] = [];
   const decisions: DeduplicationDecision[] = [];
 
@@ -124,7 +125,7 @@ export function deduplicateWithCapacity(
     targetCapacity.set(targetKey, remainingTarget.minus(consumed));
   }
 
-  // --- 1:1 Restoration Pass ---
+  // --- Pass 2: 1:1 Restoration + Validation ---
   //
   // For matches where both the source and target participate in exactly ONE link,
   // strip consumed amounts. This preserves original 1:1 semantics:
@@ -134,6 +135,9 @@ export function deduplicateWithCapacity(
   //     but the outflow was 1.0, gap analysis would see 0.001 uncovered → false gap.
   //
   // Only actual splits (1:N or N:1) retain consumed amounts.
+  //
+  // When a 1:1 match fails validation after restoration (e.g., target > source),
+  // it is dropped and its capacity is released for a retry pass.
 
   const sourceMatchCount = new Map<string, number>();
   const targetMatchCount = new Map<string, number>();
@@ -145,23 +149,151 @@ export function deduplicateWithCapacity(
     targetMatchCount.set(targetKey, (targetMatchCount.get(targetKey) ?? 0) + 1);
   }
 
-  const restoredMatches = deduplicatedMatches.map((match) => {
+  const restoredMatches: PotentialMatch[] = [];
+  const rejectedKeys = new Set<string>(); // source/target keys freed by validation failures
+  const acceptedPairs = new Set<string>(); // "sourceId:targetId" pairs already accepted
+
+  for (const match of deduplicatedMatches) {
     const sourceKey = makeKey(match.sourceTransaction.id, match.sourceTransaction.assetSymbol);
     const targetKey = makeKey(match.targetTransaction.id, match.targetTransaction.assetSymbol);
     const isPure1to1 = (sourceMatchCount.get(sourceKey) ?? 0) === 1 && (targetMatchCount.get(targetKey) ?? 0) === 1;
 
     if (isPure1to1) {
-      const { consumedAmount: _, ...rest } = match;
+      const restoredMatch: PotentialMatch = { ...match };
+      delete restoredMatch.consumedAmount;
+      const validationResult = validateLinkAmountsForMatch(restoredMatch);
+      if (validationResult.isErr()) {
+        decisions.push({
+          sourceId: match.sourceTransaction.id,
+          targetId: match.targetTransaction.id,
+          asset: match.sourceTransaction.assetSymbol,
+          action: 'rejected_validation',
+          remainingSource: match.sourceTransaction.amount.toFixed(),
+          remainingTarget: match.targetTransaction.amount.toFixed(),
+        });
+        // Release capacity for retry pass
+        rejectedKeys.add(sourceKey);
+        rejectedKeys.add(targetKey);
+        continue;
+      }
+
       decisions.push({
         sourceId: match.sourceTransaction.id,
         targetId: match.targetTransaction.id,
         asset: match.sourceTransaction.assetSymbol,
         action: 'restored_1to1',
       });
-      return rest;
+      restoredMatches.push(restoredMatch);
+    } else {
+      restoredMatches.push(match);
     }
-    return match;
-  });
+    acceptedPairs.add(`${match.sourceTransaction.id}:${match.targetTransaction.id}`);
+  }
+
+  // --- Pass 3: Retry with freed capacity ---
+  //
+  // When a 1:1 match is rejected during restoration, the source/target capacity it consumed
+  // becomes available again. Re-run the greedy pass over the original sorted matches,
+  // skipping already-accepted pairs and the rejected pair, with fresh capacity for freed keys.
+
+  if (rejectedKeys.size > 0) {
+    // Reset capacity for freed sources/targets
+    const retrySourceCapacity = new Map<string, Decimal>();
+    const retryTargetCapacity = new Map<string, Decimal>();
+
+    // Freed keys get full original capacity back
+    // Non-freed keys keep whatever capacity remains after pass 1
+    // (but we only care about candidates that touch a freed key)
+
+    for (const match of sortedMatches) {
+      const sourceKey = makeKey(match.sourceTransaction.id, match.sourceTransaction.assetSymbol);
+      const targetKey = makeKey(match.targetTransaction.id, match.targetTransaction.assetSymbol);
+
+      // Only retry matches that involve at least one freed key
+      if (!rejectedKeys.has(sourceKey) && !rejectedKeys.has(targetKey)) continue;
+
+      // Skip already-accepted pairs
+      if (acceptedPairs.has(`${match.sourceTransaction.id}:${match.targetTransaction.id}`)) continue;
+
+      // Initialize retry capacity
+      if (!retrySourceCapacity.has(sourceKey)) {
+        retrySourceCapacity.set(
+          sourceKey,
+          rejectedKeys.has(sourceKey)
+            ? match.sourceTransaction.amount // freed: full capacity
+            : (sourceCapacity.get(sourceKey) ?? match.sourceTransaction.amount) // keep remaining
+        );
+      }
+      if (!retryTargetCapacity.has(targetKey)) {
+        retryTargetCapacity.set(
+          targetKey,
+          rejectedKeys.has(targetKey)
+            ? match.targetTransaction.amount // freed: full capacity
+            : (targetCapacity.get(targetKey) ?? match.targetTransaction.amount) // keep remaining
+        );
+      }
+
+      const remainingSource = retrySourceCapacity.get(sourceKey)!;
+      const remainingTarget = retryTargetCapacity.get(targetKey)!;
+
+      if (remainingSource.lte(0) || remainingTarget.lte(0)) continue;
+
+      const consumed = Decimal.min(remainingSource, remainingTarget);
+      const largerOriginal = Decimal.max(match.sourceTransaction.amount, match.targetTransaction.amount);
+      if (consumed.lt(largerOriginal.times(config.minPartialMatchFraction))) continue;
+
+      // Pre-validate with original amounts (will be restored if 1:1)
+      const preValidation = validateLinkAmountsForMatch(match);
+      if (preValidation.isErr()) continue;
+
+      restoredMatches.push({
+        ...match,
+        consumedAmount: consumed,
+      });
+
+      decisions.push({
+        sourceId: match.sourceTransaction.id,
+        targetId: match.targetTransaction.id,
+        asset: match.sourceTransaction.assetSymbol,
+        action: 'accepted',
+        consumed: consumed.toFixed(),
+        remainingSource: remainingSource.minus(consumed).toFixed(),
+        remainingTarget: remainingTarget.minus(consumed).toFixed(),
+      });
+
+      retrySourceCapacity.set(sourceKey, remainingSource.minus(consumed));
+      retryTargetCapacity.set(targetKey, remainingTarget.minus(consumed));
+      acceptedPairs.add(`${match.sourceTransaction.id}:${match.targetTransaction.id}`);
+    }
+
+    // --- Retry restoration pass: strip consumed amounts for new 1:1 matches ---
+    const retrySourceCount = new Map<string, number>();
+    const retryTargetCount = new Map<string, number>();
+    for (const match of restoredMatches) {
+      const sk = makeKey(match.sourceTransaction.id, match.sourceTransaction.assetSymbol);
+      const tk = makeKey(match.targetTransaction.id, match.targetTransaction.assetSymbol);
+      retrySourceCount.set(sk, (retrySourceCount.get(sk) ?? 0) + 1);
+      retryTargetCount.set(tk, (retryTargetCount.get(tk) ?? 0) + 1);
+    }
+
+    for (let i = 0; i < restoredMatches.length; i++) {
+      const match = restoredMatches[i]!;
+      if (match.consumedAmount === undefined) continue; // already restored
+      const sk = makeKey(match.sourceTransaction.id, match.sourceTransaction.assetSymbol);
+      const tk = makeKey(match.targetTransaction.id, match.targetTransaction.assetSymbol);
+      if ((retrySourceCount.get(sk) ?? 0) === 1 && (retryTargetCount.get(tk) ?? 0) === 1) {
+        const restored = { ...match };
+        delete restored.consumedAmount;
+        restoredMatches[i] = restored;
+        decisions.push({
+          sourceId: match.sourceTransaction.id,
+          targetId: match.targetTransaction.id,
+          asset: match.sourceTransaction.assetSymbol,
+          action: 'restored_1to1',
+        });
+      }
+    }
+  }
 
   return { matches: restoredMatches, decisions };
 }
