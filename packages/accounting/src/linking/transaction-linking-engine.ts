@@ -15,8 +15,6 @@ import {
 } from './matching-utils.js';
 import type { LinkingResult, MatchingConfig, NewTransactionLink, OutflowGrouping, PotentialMatch } from './types.js';
 
-const UTXO_CHAIN_NAMES = new Set(['bitcoin', 'dogecoin', 'litecoin', 'bitcoin-cash', 'cardano']);
-
 /**
  * Service for linking related transactions (e.g., exchange withdrawals → blockchain deposits)
  */
@@ -36,7 +34,7 @@ export class TransactionLinkingEngine {
     try {
       this.logger.info({ transactionCount: transactions.length }, 'Starting transaction linking process');
 
-      // Detect internal blockchain transfers (UTXO model - same tx_hash, different addresses)
+      // Detect internal blockchain transfers (same tx_hash, different tracked addresses)
       const internalLinksResult = this.detectInternalBlockchainTransfers(transactions);
       if (internalLinksResult.isErr()) {
         this.logger.warn({ error: internalLinksResult.error.message }, 'Failed to detect internal transfers');
@@ -237,17 +235,18 @@ export class TransactionLinkingEngine {
 
   /**
    * Detect internal blockchain transfers (UTXO model)
-   * Links transactions with the same blockchain_transaction_hash across different accounts
+   * Links transactions with the same blockchain_transaction_hash across different tracked accounts.
    *
-   * Example: Bitcoin tx touching 2 addresses creates:
-   *  - Account 2: 0.01916264 BTC outflow (tx_hash: abc123)
-   *  - Account 13: 0.00301222 BTC inflow (tx_hash: abc123)
-   * These are linked as views of the same on-chain transaction.
+   * Works for both UTXO chains (Bitcoin etc.) and account-model chains (EVM etc.).
    *
-   * Note: Transaction hashes are normalized to handle provider inconsistencies:
+   * Examples:
+   *  - UTXO: Bitcoin tx touching 2 tracked addresses → outflow + inflow linked
+   *  - EVM: ETH transfer wallet A → wallet B, both tracked → outflow + inflow linked
+   *  - EVM token: Same tx_hash across tracked wallets, normalized to strip Moralis log-index suffix
+   *
+   * Note: Transaction hashes are normalized to handle cross-provider inconsistencies:
    * - Moralis appends log index (e.g., 0xabc-819 for token transfers)
    * - Routescan/Alchemy use base hash only
-   * Both will group together as the same on-chain transaction.
    *
    * @param transactions - All transactions to analyze
    * @returns Array of internal transfer links (always confirmed, 100% confidence)
@@ -260,11 +259,8 @@ export class TransactionLinkingEngine {
       const txHashGroups = new Map<string, UniversalTransactionData[]>();
 
       for (const tx of transactions) {
-        // Only consider UTXO blockchain transactions with a hash
-        const blockchainName = tx.blockchain?.name;
-        if (!blockchainName || !tx.blockchain?.transaction_hash) continue;
         if (tx.sourceType !== 'blockchain') continue;
-        if (!UTXO_CHAIN_NAMES.has(blockchainName)) continue;
+        if (!tx.blockchain?.name || !tx.blockchain?.transaction_hash) continue;
 
         // Skip transactions with no movements (e.g., contract interactions with zero value)
         const hasMovements = (tx.movements.inflows?.length ?? 0) > 0 || (tx.movements.outflows?.length ?? 0) > 0;
@@ -377,7 +373,7 @@ export class TransactionLinkingEngine {
    *
    * @param transactions - All transactions to analyze
    * @param internalLinks - blockchain_internal links for grouping
-   * @returns Adjustments map and outflow groupings for UTXO transactions
+   * @returns Adjustments map and outflow groupings
    */
   private buildInternalOutflowAdjustments(
     transactions: UniversalTransactionData[],
@@ -475,7 +471,7 @@ export class TransactionLinkingEngine {
           continue;
         }
 
-        // Info when multiple outflows exist - UTXO transaction with multiple inputs
+        // Info when multiple outflows exist (e.g., UTXO transaction with multiple inputs)
         if (result.multipleOutflows) {
           this.logger.info(
             `Multiple outflows detected for ${assetId} - summed all outflows and subtracted change | ` +

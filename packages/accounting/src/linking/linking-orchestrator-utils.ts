@@ -2,6 +2,7 @@ import { parseDecimal, type Currency, type UniversalTransactionData } from '@exi
 import type { OrphanedLinkOverride } from '@exitbook/data';
 import { err, ok, type Result } from 'neverthrow';
 
+import { determineLinkType } from './matching-utils.js';
 import type { NewTransactionLink } from './types.js';
 
 /**
@@ -71,6 +72,12 @@ export function buildLinkFromOrphanedOverride(
     return err(new Error(`Cannot resolve assetId for ${entry.assetSymbol}: source=${sourceCtx}, target=${targetCtx}.`));
   }
 
+  // Derive structural link type from source/target transaction sourceType
+  // (override's linkType is a user-facing category like 'transfer'/'trade', not the DB link_type)
+  const sourceTx = txById.get(entry.sourceTransactionId)!;
+  const targetTx = txById.get(entry.targetTransactionId)!;
+  const linkType = determineLinkType(sourceTx.sourceType, targetTx.sourceType);
+
   return ok({
     sourceTransactionId: entry.sourceTransactionId,
     targetTransactionId: entry.targetTransactionId,
@@ -79,7 +86,7 @@ export function buildLinkFromOrphanedOverride(
     targetAssetId: targetAssetIdResult.value,
     sourceAmount: zero,
     targetAmount: zero,
-    linkType: entry.linkType as NewTransactionLink['linkType'],
+    linkType,
     confidenceScore: parseDecimal('1'),
     matchCriteria: {
       assetMatch: true,
@@ -92,7 +99,7 @@ export function buildLinkFromOrphanedOverride(
     reviewedAt: new Date(entry.override.created_at),
     createdAt: now,
     updatedAt: now,
-    metadata: { overrideId: entry.override.id },
+    metadata: { overrideId: entry.override.id, overrideLinkType: entry.linkType },
   });
 }
 

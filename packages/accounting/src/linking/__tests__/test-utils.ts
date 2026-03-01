@@ -64,6 +64,7 @@ export function createLink(params: {
  * Only requires essential fields; the rest are set to sensible defaults.
  */
 export function createTransaction(params: {
+  accountId?: number;
   blockchain?: { is_confirmed: boolean; name: string; transaction_hash: string };
   datetime: string;
   from?: string;
@@ -77,7 +78,7 @@ export function createTransaction(params: {
   const sourceType = params.sourceType ?? (params.blockchain ? 'blockchain' : 'exchange');
   return {
     id: params.id,
-    accountId: 1,
+    accountId: params.accountId ?? 1,
     externalId: `${params.source}-${params.id}`,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),

@@ -449,6 +449,39 @@ describe('schemas', () => {
       ).toThrow();
     });
 
+    it('should default clockSkewToleranceHours to 2 when omitted', () => {
+      const result = MatchingConfigSchema.parse({
+        maxTimingWindowHours: 24,
+        minAmountSimilarity: parseDecimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
+      });
+      expect(result.clockSkewToleranceHours).toBe(2);
+    });
+
+    it('should accept explicit clockSkewToleranceHours', () => {
+      const result = MatchingConfigSchema.parse({
+        maxTimingWindowHours: 24,
+        clockSkewToleranceHours: 4,
+        minAmountSimilarity: parseDecimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
+      });
+      expect(result.clockSkewToleranceHours).toBe(4);
+    });
+
+    it('should reject negative clockSkewToleranceHours', () => {
+      expect(() =>
+        MatchingConfigSchema.parse({
+          maxTimingWindowHours: 24,
+          clockSkewToleranceHours: -1,
+          minAmountSimilarity: parseDecimal('0.95'),
+          minConfidenceScore: parseDecimal('0.7'),
+          autoConfirmThreshold: parseDecimal('0.95'),
+        })
+      ).toThrow();
+    });
+
     it('should reject missing required fields', () => {
       expect(() =>
         MatchingConfigSchema.parse({

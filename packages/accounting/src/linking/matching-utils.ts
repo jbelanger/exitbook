@@ -18,6 +18,7 @@ import type {
  */
 export const DEFAULT_MATCHING_CONFIG: MatchingConfig = {
   maxTimingWindowHours: 48,
+  clockSkewToleranceHours: 2,
   minAmountSimilarity: parseDecimal('0.95'),
   minConfidenceScore: parseDecimal('0.7'),
   autoConfirmThreshold: parseDecimal('0.95'),
@@ -65,16 +66,8 @@ export function calculateAmountSimilarity(sourceAmount: Decimal, targetAmount: D
  * @returns Hours between timestamps, or Infinity if ordering is wrong
  */
 export function calculateTimeDifferenceHours(sourceTime: Date, targetTime: Date): number {
-  const sourceMs = sourceTime.getTime();
-  const targetMs = targetTime.getTime();
-
-  // Source must be before target
-  if (sourceMs > targetMs) {
-    return Infinity;
-  }
-
-  const diffMs = targetMs - sourceMs;
-  return diffMs / (1000 * 60 * 60); // Convert to hours
+  const diffMs = targetTime.getTime() - sourceTime.getTime();
+  return diffMs / (1000 * 60 * 60);
 }
 
 /**
@@ -87,7 +80,7 @@ export function calculateTimeDifferenceHours(sourceTime: Date, targetTime: Date)
  */
 export function isTimingValid(sourceTime: Date, targetTime: Date, config: MatchingConfig): boolean {
   const hours = calculateTimeDifferenceHours(sourceTime, targetTime);
-  return hours >= 0 && hours <= config.maxTimingWindowHours;
+  return hours >= -config.clockSkewToleranceHours && hours <= config.maxTimingWindowHours;
 }
 
 /**
@@ -324,9 +317,12 @@ export function findPotentialMatches(
     if (source.direction !== 'out' || target.direction !== 'in') continue;
 
     // Check for transaction hash match (perfect match)
-    // Skip hash matching for blockchain→blockchain (internal linking handles those)
     const hashMatch = checkTransactionHashMatch(source, target);
     const bothAreBlockchain = source.sourceType === 'blockchain' && target.sourceType === 'blockchain';
+
+    // blockchain_internal links (same tx hash, different tracked addresses) are created by
+    // detectInternalBlockchainTransfers — skip heuristic matching for these pairs entirely.
+    if (hashMatch === true && bothAreBlockchain) continue;
 
     if (hashMatch === true && !bothAreBlockchain) {
       // Perfect match - same blockchain transaction hash
@@ -339,10 +335,6 @@ export function findPotentialMatches(
         if (t.id === source.id) return false; // Exclude self
         if (t.assetSymbol !== source.assetSymbol) return false;
         if (t.direction !== 'in') return false;
-
-        // Exclude blockchain→blockchain (same as bothAreBlockchain check)
-        const targetIsBlockchain = t.sourceType === 'blockchain';
-        if (source.sourceType === 'blockchain' && targetIsBlockchain) return false;
 
         // Use checkTransactionHashMatch to ensure same log-index rules are applied
         // (e.g., when both have log indices, requires exact match)

@@ -74,11 +74,11 @@ describe('matching-utils', () => {
       expect(hours).toBe(2);
     });
 
-    it('should return Infinity if target is before source', () => {
+    it('should return negative hours if target is before source', () => {
       const source = new Date('2024-01-01T14:00:00Z');
-      const target = new Date('2024-01-01T12:00:00Z'); // Earlier
+      const target = new Date('2024-01-01T12:00:00Z'); // 2 hours earlier
       const hours = calculateTimeDifferenceHours(source, target);
-      expect(hours).toBe(Infinity);
+      expect(hours).toBe(-2);
     });
 
     it('should return 0 for same time', () => {
@@ -104,9 +104,16 @@ describe('matching-utils', () => {
       expect(valid).toBe(false);
     });
 
-    it('should invalidate timing when target is before source', () => {
+    it('should allow timing when target is slightly before source (within clock skew tolerance)', () => {
       const source = new Date('2024-01-01T14:00:00Z');
-      const target = new Date('2024-01-01T12:00:00Z');
+      const target = new Date('2024-01-01T13:00:00Z'); // 1 hour earlier, within 2h tolerance
+      const valid = isTimingValid(source, target, DEFAULT_MATCHING_CONFIG);
+      expect(valid).toBe(true);
+    });
+
+    it('should invalidate timing when target is before source beyond clock skew tolerance', () => {
+      const source = new Date('2024-01-01T14:00:00Z');
+      const target = new Date('2024-01-01T11:00:00Z'); // 3 hours earlier, beyond 2h tolerance
       const valid = isTimingValid(source, target, DEFAULT_MATCHING_CONFIG);
       expect(valid).toBe(false);
     });
@@ -429,7 +436,7 @@ describe('matching-utils', () => {
   });
 
   describe('timing threshold enforcement', () => {
-    it('should reject matches where deposit comes before withdrawal', () => {
+    it('should match deposit that arrives slightly before withdrawal (within clock skew tolerance)', () => {
       const source = createCandidate({
         externalId: 'W123',
         timestamp: new Date('2024-01-01T14:00:00Z'), // Withdrawal at 14:00
@@ -441,7 +448,7 @@ describe('matching-utils', () => {
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
-          timestamp: new Date('2024-01-01T12:00:00Z'), // Deposit at 12:00 (BEFORE withdrawal)
+          timestamp: new Date('2024-01-01T13:00:00Z'), // Deposit 1h before (within 2h tolerance)
           assetId: 'blockchain:bitcoin:btc',
           direction: 'in',
         }),
@@ -449,7 +456,29 @@ describe('matching-utils', () => {
 
       const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
 
-      // Should find no matches due to invalid timing
+      expect(matches).toHaveLength(1);
+    });
+
+    it('should reject deposit that arrives before withdrawal beyond clock skew tolerance', () => {
+      const source = createCandidate({
+        externalId: 'W123',
+        timestamp: new Date('2024-01-01T14:00:00Z'), // Withdrawal at 14:00
+        assetId: 'exchange:kraken:btc',
+      });
+      const targets: TransactionCandidate[] = [
+        createCandidate({
+          id: 2,
+          sourceName: 'bitcoin',
+          sourceType: 'blockchain',
+          externalId: 'txabc',
+          timestamp: new Date('2024-01-01T11:00:00Z'), // Deposit 3h before (beyond 2h tolerance)
+          assetId: 'blockchain:bitcoin:btc',
+          direction: 'in',
+        }),
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
       expect(matches).toHaveLength(0);
     });
 

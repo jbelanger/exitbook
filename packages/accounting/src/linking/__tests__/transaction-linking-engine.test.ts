@@ -360,6 +360,41 @@ describe('TransactionLinkingEngine', () => {
       expect(unmatchedSourceCount).toBe(1); // ETH source unmatched (link filtered)
       expect(unmatchedTargetCount).toBe(1); // ETH target unmatched (link filtered)
     });
+
+    it('should create blockchain_internal links for EVM wallets sharing a tx hash', () => {
+      const service = new TransactionLinkingEngine(logger, DEFAULT_MATCHING_CONFIG);
+
+      const transactions: UniversalTransactionData[] = [
+        // Wallet A (account 1) — ETH outflow
+        createTransaction({
+          id: 1,
+          accountId: 1,
+          source: 'ethereum',
+          datetime: '2024-01-01T12:00:00.000Z',
+          outflows: [{ assetSymbol: 'ETH', amount: '1.0' }],
+          blockchain: { name: 'ethereum', transaction_hash: '0xabc123', is_confirmed: true },
+        }),
+        // Wallet B (account 2) — ETH inflow from same tx
+        createTransaction({
+          id: 2,
+          accountId: 2,
+          source: 'ethereum',
+          datetime: '2024-01-01T12:00:00.000Z',
+          inflows: [{ assetSymbol: 'ETH', amount: '1.0' }],
+          blockchain: { name: 'ethereum', transaction_hash: '0xabc123', is_confirmed: true },
+        }),
+      ];
+
+      const { confirmedLinks, suggestedLinks } = assertOk(service.linkTransactions(transactions));
+      const allLinks = [...confirmedLinks, ...suggestedLinks];
+
+      // Should produce exactly one blockchain_internal link (confirmed, perfect score)
+      expect(allLinks).toHaveLength(1);
+      const link = allLinks[0]!;
+      expect(link.linkType).toBe('blockchain_internal');
+      expect(link.status).toBe('confirmed');
+      expect(link.confidenceScore.toFixed()).toBe('1');
+    });
   });
 
   describe('convertToCandidates', () => {

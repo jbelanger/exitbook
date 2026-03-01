@@ -62,6 +62,7 @@ export const PotentialMatchSchema = z.object({
  */
 export const MatchingConfigSchema = z.object({
   maxTimingWindowHours: z.number().positive(),
+  clockSkewToleranceHours: z.number().nonnegative().default(2),
   minAmountSimilarity: DecimalSchema,
   minConfidenceScore: DecimalSchema,
   autoConfirmThreshold: DecimalSchema,

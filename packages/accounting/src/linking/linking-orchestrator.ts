@@ -193,6 +193,7 @@ export class LinkingOrchestrator {
   ): Result<{ allLinks: NewTransactionLink[]; linkingResult: LinkingResult }, Error> {
     const service = new TransactionLinkingEngine(logger, {
       maxTimingWindowHours: 48,
+      clockSkewToleranceHours: DEFAULT_MATCHING_CONFIG.clockSkewToleranceHours,
       minAmountSimilarity: DEFAULT_MATCHING_CONFIG.minAmountSimilarity,
       minConfidenceScore: params.minConfidenceScore,
       autoConfirmThreshold: params.autoConfirmThreshold,
