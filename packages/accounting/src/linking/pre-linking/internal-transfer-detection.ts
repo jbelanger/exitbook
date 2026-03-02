@@ -15,8 +15,13 @@ export function extractPrimaryMovement(tx: UniversalTransactionData) {
 }
 
 /**
- * Detect internal blockchain transfers (UTXO model).
- * Links transactions with the same blockchain_transaction_hash across different tracked accounts.
+ * Detect internal blockchain transfers.
+ * Links outflow transactions to inflow transactions that share the same blockchain_transaction_hash
+ * across different tracked accounts.
+ *
+ * Only creates links when a hash group contains both outflows and inflows — indicating ADA (or other
+ * assets) moved from one tracked wallet to another. Groups with only outflows (e.g., multi-input
+ * UTXO sends to an external address) are skipped since no internal transfer occurred.
  *
  * Works for both UTXO chains (Bitcoin etc.) and account-model chains (EVM etc.).
  *
@@ -59,25 +64,38 @@ export function detectInternalBlockchainTransfers(
     const accountIds = new Set(group.map((tx) => tx.accountId));
     if (accountIds.size < 2) continue;
 
-    // Create full mesh of links between all pairs from different accounts
-    for (let i = 0; i < group.length; i++) {
-      for (let j = i + 1; j < group.length; j++) {
-        const tx1 = group[i];
-        const tx2 = group[j];
-        if (!tx1 || !tx2) continue;
-        if (tx1.accountId === tx2.accountId) continue;
+    // Separate into outflow and inflow transactions
+    const outflowTxs = group.filter((tx) => (tx.movements.outflows?.length ?? 0) > 0);
+    const inflowTxs = group.filter(
+      (tx) => (tx.movements.inflows?.length ?? 0) > 0 && (tx.movements.outflows?.length ?? 0) === 0
+    );
 
-        const movement1 = extractPrimaryMovement(tx1);
-        const movement2 = extractPrimaryMovement(tx2);
+    // No tracked inflows means this is a multi-input external send (e.g., multiple wallets
+    // co-signing a UTXO transaction to a validator or exchange). Not an internal transfer.
+    if (inflowTxs.length === 0) {
+      logger.debug(
+        { normalizedHash, outflowCount: outflowTxs.length },
+        'Skipping hash group with only outflows — multi-input external send'
+      );
+      continue;
+    }
 
-        if (!movement1 || !movement2 || movement1.assetSymbol !== movement2.assetSymbol) {
+    // Link each outflow to each inflow (the internal transfer: tracked wallet → tracked wallet)
+    for (const outTx of outflowTxs) {
+      for (const inTx of inflowTxs) {
+        if (outTx.accountId === inTx.accountId) continue;
+
+        const outMovement = extractPrimaryMovement(outTx);
+        const inMovement = (inTx.movements.inflows ?? [])[0];
+
+        if (!outMovement || !inMovement || outMovement.assetSymbol !== inMovement.assetSymbol) {
           logger.warn(
             {
               normalizedHash,
-              tx1Id: tx1.id,
-              tx2Id: tx2.id,
-              asset1: movement1?.assetSymbol,
-              asset2: movement2?.assetSymbol,
+              outTxId: outTx.id,
+              inTxId: inTx.id,
+              outAsset: outMovement?.assetSymbol,
+              inAsset: inMovement?.assetSymbol,
             },
             'Skipping internal link - cannot extract matching asset from both transactions'
           );
@@ -85,11 +103,11 @@ export function detectInternalBlockchainTransfers(
         }
 
         links.push({
-          sourceTransactionId: tx1.id,
-          targetTransactionId: tx2.id,
-          assetSymbol: movement1.assetSymbol,
-          sourceAmount: movement1.grossAmount,
-          targetAmount: movement2.grossAmount,
+          sourceTransactionId: outTx.id,
+          targetTransactionId: inTx.id,
+          assetSymbol: outMovement.assetSymbol,
+          sourceAmount: outMovement.grossAmount,
+          targetAmount: inMovement.grossAmount,
           linkType: 'blockchain_internal',
           confidenceScore: parseDecimal('1.0'),
           matchCriteria: {
@@ -106,7 +124,7 @@ export function detectInternalBlockchainTransfers(
           updatedAt: now,
           metadata: {
             blockchainTxHash: normalizedHash,
-            blockchain: tx1.blockchain?.name,
+            blockchain: outTx.blockchain?.name,
           },
         });
       }
