@@ -244,6 +244,10 @@ export class ClearService {
     const accountIds = extractAccountIds(accountsToClear);
 
     return this.db.executeInTransaction(async (tx) => {
+      // Delete derived/consolidated data first
+      const consolidatedResult = await tx.utxoConsolidatedMovements.deleteByAccountIds(accountIds);
+      if (consolidatedResult.isErr()) return err(consolidatedResult.error);
+
       // Delete transaction data by account_id
       const linksResult = await tx.transactionLinks.deleteByAccountIds(accountIds);
       if (linksResult.isErr()) return err(linksResult.error);
@@ -283,6 +287,9 @@ export class ClearService {
    */
   private async deleteAll(includeRaw: boolean): Promise<Result<void, Error>> {
     return this.db.executeInTransaction(async (tx) => {
+      const consolidatedResult = await tx.utxoConsolidatedMovements.deleteAll();
+      if (consolidatedResult.isErr()) return err(consolidatedResult.error);
+
       const linksResult = await tx.transactionLinks.deleteAll();
       if (linksResult.isErr()) return err(linksResult.error);
 
