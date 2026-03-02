@@ -1,3 +1,4 @@
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import React from 'react';
@@ -136,7 +137,7 @@ interface CostBasisCommandResult {
 /**
  * Register the cost-basis command.
  */
-export function registerCostBasisCommand(program: Command): void {
+export function registerCostBasisCommand(program: Command, registry: AdapterRegistry): void {
   program
     .command('cost-basis')
     .description('Calculate cost basis and capital gains/losses for tax reporting')
@@ -148,10 +149,10 @@ export function registerCostBasisCommand(program: Command): void {
     .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
     .option('--asset <symbol>', 'Filter to specific asset (lands on asset history timeline)')
     .option('--json', 'Output results in JSON format')
-    .action(executeCostBasisCommand);
+    .action((rawOptions: unknown) => executeCostBasisCommand(rawOptions, registry));
 }
 
-async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
+async function executeCostBasisCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
   const isJson = isJsonMode(rawOptions);
 
   const parseResult = CostBasisCommandOptionsSchema.safeParse(rawOptions);
@@ -167,21 +168,21 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
   const options = parseResult.data;
 
   if (options.json) {
-    await executeCostBasisCalculateJSON(options);
+    await executeCostBasisCalculateJSON(options, registry);
   } else {
-    await executeCostBasisCalculateTUI(options);
+    await executeCostBasisCalculateTUI(options, registry);
   }
 }
 
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
 
-async function executeCostBasisCalculateJSON(options: CommandOptions): Promise<void> {
+async function executeCostBasisCalculateJSON(options: CommandOptions, registry: AdapterRegistry): Promise<void> {
   try {
     const params = unwrapResult(buildCostBasisParamsFromFlags(options));
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handlerResult = await createCostBasisHandler(ctx, database, { isJsonMode: true, params });
+      const handlerResult = await createCostBasisHandler(ctx, database, { isJsonMode: true, params, registry });
 
       if (handlerResult.isErr()) {
         displayCliError('cost-basis', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -250,7 +251,7 @@ function outputCostBasisJSON(costBasisResult: CostBasisResult): void {
 
 // ─── TUI: Calculate Mode ─────────────────────────────────────────────────────
 
-async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<void> {
+async function executeCostBasisCalculateTUI(options: CommandOptions, registry: AdapterRegistry): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
@@ -268,8 +269,8 @@ async function executeCostBasisCalculateTUI(options: CommandOptions): Promise<vo
         params = unwrapResult(buildCostBasisParamsFromFlags(options));
       }
 
-      // Step 2: Create handler (runs linking + price enrichment prereqs)
-      const handlerResult = await createCostBasisHandler(ctx, database, { isJsonMode: false, params });
+      // Step 2: Create handler (runs projection + linking + price enrichment prereqs)
+      const handlerResult = await createCostBasisHandler(ctx, database, { isJsonMode: false, params, registry });
       if (handlerResult.isErr()) {
         displayCliError('cost-basis', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

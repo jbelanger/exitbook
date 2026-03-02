@@ -1,4 +1,4 @@
-import type { AdapterRegistry, ImportCoordinator, ImportParams, RawDataProcessingService } from '@exitbook/ingestion';
+import type { AdapterRegistry, ImportCoordinator, ImportParams } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -16,7 +16,6 @@ vi.mock('@exitbook/ingestion', () => ({
   ImportSessionRepository: vi.fn(),
   ImportCoordinator: vi.fn(),
   RawTransactionRepository: vi.fn(),
-  RawDataProcessingService: vi.fn(),
   createTransactionQueries: vi.fn(),
   isUtxoAdapter: vi.fn(),
 }));
@@ -50,7 +49,6 @@ const makeSession = (
 
 describe('ImportHandler', () => {
   let mockImportCoordinator: Partial<ImportCoordinator>;
-  let mockProcessService: Partial<RawDataProcessingService>;
   let mockRegistry: { getBlockchain: Mock };
   let mockIngestionMonitor: { abort: Mock; fail: Mock; stop: Mock };
   let mockInstrumentation: { getSummary: Mock };
@@ -63,11 +61,6 @@ describe('ImportHandler', () => {
       importBlockchain: vi.fn(),
       importExchangeApi: vi.fn(),
       importExchangeCsv: vi.fn(),
-    };
-
-    mockProcessService = {
-      processAccountTransactions: vi.fn(),
-      processImportedSessions: vi.fn().mockResolvedValue(ok({ processed: 50, errors: [] })),
     };
 
     // Registry returns Err for all lookups — xpub warning path is skipped
@@ -87,7 +80,6 @@ describe('ImportHandler', () => {
 
     handler = new ImportHandler(
       mockImportCoordinator as ImportCoordinator,
-      mockProcessService as RawDataProcessingService,
       mockRegistry as unknown as AdapterRegistry,
       mockIngestionMonitor as never,
       mockInstrumentation as never
@@ -183,71 +175,6 @@ describe('ImportHandler', () => {
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toBe(importError);
       expect(mockIngestionMonitor.fail).toHaveBeenCalledOnce();
-    });
-  });
-
-  describe('execute — process stage', () => {
-    const successfulImportSession = makeSession();
-
-    beforeEach(() => {
-      (mockImportCoordinator.importBlockchain as Mock).mockResolvedValue(ok(successfulImportSession));
-    });
-
-    const params: ImportParams = {
-      sourceName: 'bitcoin',
-      sourceType: 'blockchain',
-      address: 'bc1qtest',
-    };
-
-    it('should process imported transactions', async () => {
-      (mockProcessService.processImportedSessions as Mock).mockResolvedValue(ok({ processed: 50, errors: [] }));
-
-      const result = await handler.execute(params);
-
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toMatchObject({
-        processed: 50,
-        processingErrors: [],
-        runStats: { totalRequests: 0 },
-      });
-      expect(mockProcessService.processImportedSessions).toHaveBeenCalledWith([1]);
-    });
-
-    it('should return processing errors when present', async () => {
-      const processingErrors = ['Error 1', 'Error 2', 'Error 3'];
-      (mockProcessService.processImportedSessions as Mock).mockResolvedValue(
-        ok({ processed: 47, errors: processingErrors })
-      );
-
-      const result = await handler.execute(params);
-
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toMatchObject({
-        processed: 47,
-        processingErrors,
-      });
-    });
-
-    it('should return error when processing fails', async () => {
-      const processingError = new Error('Processing failed');
-      (mockProcessService.processImportedSessions as Mock).mockResolvedValue(err(processingError));
-
-      const result = await handler.execute(params);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toBe(processingError);
-      expect(mockIngestionMonitor.fail).toHaveBeenCalledOnce();
-    });
-
-    it('should call processImportedSessions even when no transactions were imported', async () => {
-      (mockImportCoordinator.importBlockchain as Mock).mockResolvedValue(ok(makeSession({ transactionsImported: 0 })));
-      (mockProcessService.processImportedSessions as Mock).mockResolvedValue(ok({ processed: 0, errors: [] }));
-
-      const result = await handler.execute(params);
-
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toMatchObject({ processed: 0, processingErrors: [] });
-      expect(mockProcessService.processImportedSessions).toHaveBeenCalledWith([1]);
     });
   });
 });

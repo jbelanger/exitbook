@@ -1,3 +1,4 @@
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -24,7 +25,7 @@ interface NormalizedPortfolioOptions {
   method: string;
 }
 
-export function registerPortfolioCommand(program: Command): void {
+export function registerPortfolioCommand(program: Command, registry: AdapterRegistry): void {
   program
     .command('portfolio')
     .description('View current portfolio holdings, allocation, and unrealized P&L')
@@ -33,10 +34,10 @@ export function registerPortfolioCommand(program: Command): void {
     .option('--fiat-currency <currency>', 'Display currency: USD, CAD, EUR, GBP (default: USD)')
     .option('--as-of <datetime>', 'Point-in-time snapshot (ISO 8601, default: now)')
     .option('--json', 'Output results in JSON format')
-    .action(executePortfolioCommand);
+    .action((rawOptions: unknown) => executePortfolioCommand(rawOptions, registry));
 }
 
-async function executePortfolioCommand(rawOptions: unknown): Promise<void> {
+async function executePortfolioCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
   const jsonMode = isJsonMode(rawOptions);
 
   const parseResult = PortfolioCommandOptionsSchema.safeParse(rawOptions);
@@ -53,13 +54,13 @@ async function executePortfolioCommand(rawOptions: unknown): Promise<void> {
   const options = parseResult.data;
 
   if (options.json) {
-    await executePortfolioJSON(options);
+    await executePortfolioJSON(options, registry);
   } else {
-    await executePortfolioTUI(options);
+    await executePortfolioTUI(options, registry);
   }
 }
 
-async function executePortfolioJSON(options: PortfolioCommandOptions): Promise<void> {
+async function executePortfolioJSON(options: PortfolioCommandOptions, registry: AdapterRegistry): Promise<void> {
   try {
     const normalized = normalizeOptions(options);
 
@@ -68,6 +69,7 @@ async function executePortfolioJSON(options: PortfolioCommandOptions): Promise<v
       const handlerResult = await createPortfolioHandler(ctx, database, {
         isJsonMode: true,
         asOf: normalized.asOf,
+        registry,
       });
 
       if (handlerResult.isErr()) {
@@ -116,7 +118,7 @@ async function executePortfolioJSON(options: PortfolioCommandOptions): Promise<v
   }
 }
 
-async function executePortfolioTUI(options: PortfolioCommandOptions): Promise<void> {
+async function executePortfolioTUI(options: PortfolioCommandOptions, registry: AdapterRegistry): Promise<void> {
   try {
     const normalized = normalizeOptions(options);
 
@@ -125,6 +127,7 @@ async function executePortfolioTUI(options: PortfolioCommandOptions): Promise<vo
       const handlerResult = await createPortfolioHandler(ctx, database, {
         isJsonMode: false,
         asOf: normalized.asOf,
+        registry,
       });
 
       if (handlerResult.isErr()) {

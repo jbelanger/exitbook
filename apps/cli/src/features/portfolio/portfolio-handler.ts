@@ -13,14 +13,14 @@ import {
 } from '@exitbook/accounting';
 import { parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { type DataContext } from '@exitbook/data';
-import { calculateBalances } from '@exitbook/ingestion';
+import { type AdapterRegistry, calculateBalances } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
-import { ensureLinks, ensurePrices } from '../shared/prereqs.js';
+import { ensureLinks, ensurePrices, ensureRawDataIsProcessed } from '../shared/prereqs.js';
 
 import type { PortfolioPositionItem, SpotPriceResult } from './portfolio-types.js';
 import {
@@ -388,7 +388,7 @@ export class PortfolioHandler {
 export async function createPortfolioHandler(
   ctx: CommandContext,
   database: CommandDatabase,
-  options: { asOf: Date; isJsonMode: boolean }
+  options: { asOf: Date; isJsonMode: boolean; registry: AdapterRegistry }
 ): Promise<Result<PortfolioHandler, Error>> {
   const dataDir = ctx.dataDir;
   let prereqAbort: (() => void) | undefined;
@@ -396,6 +396,14 @@ export async function createPortfolioHandler(
     ctx.onAbort(() => {
       prereqAbort?.();
     });
+  }
+
+  // Reprocess derived data if stale
+  const processedResult = await ensureRawDataIsProcessed(database, options.registry, {
+    isJsonMode: options.isJsonMode,
+  });
+  if (processedResult.isErr()) {
+    return err(processedResult.error);
   }
 
   // Run prereqs

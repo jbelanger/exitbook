@@ -9,6 +9,7 @@ import {
 import { parseDecimal } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
+import { type AdapterRegistry, ClearService, type IngestionEvent, RawDataProcessingService } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 import { err, ok, type Result } from 'neverthrow';
@@ -18,11 +19,148 @@ import { LinksRunMonitor } from '../links/components/links-run-components.jsx';
 import { PricesEnrichMonitor } from '../prices/components/prices-enrich-components.jsx';
 import { createDefaultPriceProviderManager } from '../prices/prices-utils.js';
 
+import { createProviderManagerWithStats } from './provider-manager-factory.js';
+
 const logger = getLogger('prereqs');
 
 export interface PrereqExecutionOptions {
   isJsonMode: boolean;
   setAbort?: ((abort: (() => void) | undefined) => void) | undefined;
+}
+
+/**
+ * Compute a deterministic hash of the current account graph.
+ * Changes when accounts are added, removed, or their identifiers change.
+ */
+async function computeAccountHash(db: DataContext): Promise<Result<string, Error>> {
+  const accountsResult = await db.accounts.findAll();
+  if (accountsResult.isErr()) return err(accountsResult.error);
+
+  const sorted = accountsResult.value.map((a) => `${a.id}:${a.identifier}`).sort();
+
+  // Use a simple hash — no crypto dependency needed for this
+  const raw = sorted.join('|');
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const char = raw.charCodeAt(i);
+    hash = ((hash << 5) - hash + char) | 0;
+  }
+  return ok(hash.toString(36));
+}
+
+/**
+ * Check if derived data (processed transactions) is stale and reprocess if so.
+ *
+ * Derived data is stale when:
+ * - Raw data has never been processed (first run)
+ * - Account graph changed (new account added/removed)
+ * - A new import completed since last reprocess
+ */
+export async function ensureRawDataIsProcessed(
+  db: DataContext,
+  registry: AdapterRegistry,
+  options: PrereqExecutionOptions
+): Promise<Result<void, Error>> {
+  // Check if there's any raw data to process at all
+  const rawAccountIdsResult = await db.rawTransactions.findDistinctAccountIds({});
+  if (rawAccountIdsResult.isErr()) return err(rawAccountIdsResult.error);
+  if (rawAccountIdsResult.value.length === 0) {
+    logger.info('No raw data found, skipping reprocess check');
+    return ok();
+  }
+
+  const accountHashResult = await computeAccountHash(db);
+  if (accountHashResult.isErr()) return err(accountHashResult.error);
+  const currentHash = accountHashResult.value;
+
+  const metadataResult = await db.rawDataProcessedState.get();
+  if (metadataResult.isErr()) return err(metadataResult.error);
+  const metadata = metadataResult.value;
+
+  let isStale = false;
+  let reason = '';
+
+  if (!metadata) {
+    isStale = true;
+    reason = 'raw data has never been processed';
+  } else if (metadata.accountHash !== currentHash) {
+    isStale = true;
+    reason = 'account graph changed';
+  } else {
+    // Check if any import completed after the last build
+    const latestImportResult = await db.importSessions.findLatestCompletedAt();
+    if (latestImportResult.isErr()) return err(latestImportResult.error);
+    const latestImport = latestImportResult.value;
+
+    if (latestImport && latestImport > metadata.processedAt) {
+      isStale = true;
+      reason = 'new import completed since last build';
+    }
+  }
+
+  if (!isStale) {
+    logger.info('Derived data is up to date, skipping reprocess');
+    return ok();
+  }
+
+  logger.info({ reason }, 'Derived data is stale, reprocessing');
+
+  if (!options.isJsonMode) {
+    console.log(`\nDerived data is stale (${reason}), reprocessing...\n`);
+  }
+
+  // Create infrastructure for reprocessing
+  const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
+
+  try {
+    const eventBus = new EventBus<IngestionEvent>({
+      onError: (error) => {
+        logger.error({ error }, 'EventBus error during reprocess');
+      },
+    });
+
+    const rawDataProcessingService = new RawDataProcessingService(db, providerManager, eventBus, registry);
+    const clearService = new ClearService(db, eventBus);
+
+    // Get all account IDs with raw data
+    const allAccountIdsResult = await db.rawTransactions.findDistinctAccountIds({});
+    if (allAccountIdsResult.isErr()) return err(allAccountIdsResult.error);
+    const accountIds = allAccountIdsResult.value;
+
+    // Guard against incomplete imports
+    const guardResult = await rawDataProcessingService.assertNoIncompleteImports(accountIds);
+    if (guardResult.isErr()) return err(guardResult.error);
+
+    // Clear derived data and reset raw data to pending
+    const clearResult = await clearService.execute({ includeRaw: false });
+    if (clearResult.isErr()) return err(clearResult.error);
+
+    const deleted = clearResult.value.deleted;
+    logger.info(`Cleared derived data (${deleted.links} links, ${deleted.transactions} transactions)`);
+
+    // Reprocess all accounts
+    const processResult = await rawDataProcessingService.processImportedSessions(accountIds);
+    if (processResult.isErr()) return err(processResult.error);
+
+    logger.info({ processed: processResult.value.processed }, 'Reprocess complete');
+
+    if (processResult.value.errors.length > 0) {
+      logger.warn({ errors: processResult.value.errors.slice(0, 5) }, 'Processing had errors');
+    }
+
+    // Update rebuild metadata
+    const upsertResult = await db.rawDataProcessedState.upsert({
+      processedAt: new Date(),
+      accountHash: currentHash,
+    });
+    if (upsertResult.isErr()) return err(upsertResult.error);
+
+    return ok();
+  } finally {
+    await cleanupProviderManager().catch((e) => {
+      logger.warn({ e }, 'Failed to cleanup provider manager after reprocess');
+    });
+  }
 }
 
 /**

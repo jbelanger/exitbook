@@ -16,13 +16,14 @@ import {
 } from '@exitbook/accounting';
 import { type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { type DataContext } from '@exitbook/data';
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
 import { getDataDir } from '../shared/data-dir.js';
-import { ensureLinks, ensurePrices } from '../shared/prereqs.js';
+import { ensureLinks, ensurePrices, ensureRawDataIsProcessed } from '../shared/prereqs.js';
 
 export type { CostBasisInput };
 
@@ -225,19 +226,27 @@ export class CostBasisHandler {
 }
 
 /**
- * Create a CostBasisHandler with prereqs (linking + price enrichment) run first.
- * Factory runs prereqs -- command files NEVER call ensureLinks/ensurePrices directly.
+ * Create a CostBasisHandler with prereqs (reprocess + linking + price enrichment) run first.
+ * Factory runs prereqs -- command files NEVER call ensureRawDataIsProcessed/ensureLinks/ensurePrices directly.
  */
 export async function createCostBasisHandler(
   ctx: CommandContext,
   database: CommandDatabase,
-  options: { isJsonMode: boolean; params: CostBasisInput }
+  options: { isJsonMode: boolean; params: CostBasisInput; registry: AdapterRegistry }
 ): Promise<Result<CostBasisHandler, Error>> {
   let prereqAbort: (() => void) | undefined;
   if (!options.isJsonMode) {
     ctx.onAbort(() => {
       prereqAbort?.();
     });
+  }
+
+  // Reprocess derived data if stale
+  const processedResult = await ensureRawDataIsProcessed(database, options.registry, {
+    isJsonMode: options.isJsonMode,
+  });
+  if (processedResult.isErr()) {
+    return err(processedResult.error);
   }
 
   // Run linking prereq

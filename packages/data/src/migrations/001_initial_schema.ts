@@ -389,9 +389,18 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .on('linkable_movements')
     .column('transaction_id')
     .execute();
+
+  // Singleton row tracking when raw data was last processed into derived data
+  await db.schema
+    .createTable('raw_data_processed_state')
+    .addColumn('id', 'integer', (col) => col.primaryKey().check(sql`id = 1`))
+    .addColumn('built_at', 'text', (col) => col.notNull())
+    .addColumn('account_hash', 'text', (col) => col.notNull())
+    .execute();
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  await db.schema.dropTable('raw_data_processed_state').execute();
   // Drop linkable_movements table
   await db.schema.dropTable('linkable_movements').execute();
   // Drop transaction_movements BEFORE transactions (FK constraint)

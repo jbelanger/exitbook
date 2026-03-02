@@ -1,13 +1,7 @@
 import type { ImportSession } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
-import {
-  type AdapterRegistry,
-  type ImportEvent,
-  ImportCoordinator,
-  type ImportParams,
-  type RawDataProcessingService,
-} from '@exitbook/ingestion';
+import { type AdapterRegistry, type ImportEvent, ImportCoordinator, type ImportParams } from '@exitbook/ingestion';
 import { isUtxoAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
@@ -17,19 +11,8 @@ import type { EventDrivenController } from '../../ui/shared/index.js';
 import type { CommandContext } from '../shared/command-runtime.js';
 import { createIngestionInfrastructure, type CliEvent } from '../shared/ingestion-infrastructure.js';
 
-interface ImportResult {
-  sessions: ImportSession[];
-}
-
-interface BatchProcessSummary {
-  processed: number;
-  processingErrors: string[];
-}
-
 export interface ImportExecuteResult {
   sessions: ImportSession[];
-  processed: number;
-  processingErrors: string[];
   runStats: MetricsSummary;
 }
 
@@ -42,15 +25,14 @@ export class ImportHandler {
 
   constructor(
     private importCoordinator: ImportCoordinator,
-    private rawDataProcessingService: RawDataProcessingService,
     private registry: AdapterRegistry,
     private ingestionMonitor: EventDrivenController<CliEvent>,
     private instrumentation: InstrumentationCollector
   ) {}
 
   /**
-   * Execute the full import pipeline (import + process).
-   * Manages ingestion monitor lifecycle.
+   * Execute import — writes raw data only. Processing is deferred
+   * to ensureProjections() which runs before linking/cost-basis.
    */
   async execute(params: ImportParams): Promise<Result<ImportExecuteResult, Error>> {
     const importResult = await this.executeImport(params);
@@ -60,18 +42,9 @@ export class ImportHandler {
       return err(importResult.error);
     }
 
-    const processResult = await this.processImportedSessions(importResult.value.sessions);
-    if (processResult.isErr()) {
-      this.ingestionMonitor.fail(processResult.error.message);
-      await this.ingestionMonitor.stop();
-      return err(processResult.error);
-    }
-
     await this.ingestionMonitor.stop();
     return ok({
       sessions: importResult.value.sessions,
-      processed: processResult.value.processed,
-      processingErrors: processResult.value.processingErrors,
       runStats: this.instrumentation.getSummary(),
     });
   }
@@ -83,7 +56,7 @@ export class ImportHandler {
     });
   }
 
-  private async executeImport(params: ImportParams): Promise<Result<ImportResult, Error>> {
+  private async executeImport(params: ImportParams): Promise<Result<{ sessions: ImportSession[] }, Error>> {
     try {
       let importResult: Result<ImportSession | ImportSession[], Error>;
 
@@ -129,10 +102,6 @@ export class ImportHandler {
 
       const sessions = Array.isArray(importResult.value) ? importResult.value : [importResult.value];
 
-      const result: ImportResult = {
-        sessions,
-      };
-
       const incompleteSessions = sessions.filter((session) => session.status !== 'completed');
       if (incompleteSessions.length > 0) {
         const accountStatuses = incompleteSessions.map((session) => `${session.accountId}(${session.status})`);
@@ -144,25 +113,7 @@ export class ImportHandler {
         );
       }
 
-      return ok(result);
-    } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  private async processImportedSessions(sessions: ImportSession[]): Promise<Result<BatchProcessSummary, Error>> {
-    try {
-      const uniqueAccountIds = [...new Set(sessions.map((s) => s.accountId))];
-      const processResult = await this.rawDataProcessingService.processImportedSessions(uniqueAccountIds);
-
-      if (processResult.isErr()) {
-        return err(processResult.error);
-      }
-
-      return ok({
-        processed: processResult.value.processed,
-        processingErrors: processResult.value.errors,
-      });
+      return ok({ sessions });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
@@ -184,15 +135,7 @@ export async function createImportHandler(
       infra.eventBus as EventBus<ImportEvent>
     );
 
-    return ok(
-      new ImportHandler(
-        importCoordinator,
-        infra.rawDataProcessingService,
-        registry,
-        infra.ingestionMonitor,
-        infra.instrumentation
-      )
-    );
+    return ok(new ImportHandler(importCoordinator, registry, infra.ingestionMonitor, infra.instrumentation));
   } catch (error) {
     return err(error instanceof Error ? error : new Error(String(error)));
   }

@@ -8,12 +8,14 @@ export {
   LinkableMovementRepository,
   NearRawTransactionRepository,
   RawTransactionRepository,
+  RawDataProcessedStateRepository,
   TransactionLinkRepository,
   TransactionRepository,
   UserRepository,
 } from './repositories/index.js';
 export type {
   FindOrCreateAccountParams,
+  RawDataProcessedState,
   UpdateAccountParams,
   RawDataQueryParams,
   TransactionLinkRow,

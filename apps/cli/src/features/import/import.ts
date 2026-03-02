@@ -34,12 +34,11 @@ interface ImportSessionSummary {
  * Import command result structure for JSON output
  */
 interface ImportCommandResult {
-  status: 'success' | 'warning';
+  status: 'success';
   import: {
     accountId?: number | undefined;
     counts: {
       imported: number;
-      processed?: number | undefined;
       skipped: number;
     };
     importSessions?: ImportSessionSummary[] | undefined;
@@ -48,9 +47,7 @@ interface ImportCommandResult {
       blockchain?: string | undefined;
       csvDir?: string | undefined;
       exchange?: string | undefined;
-      processed: boolean;
     };
-    processingErrors?: string[] | undefined;
     runStats?: import('@exitbook/observability').MetricsSummary | undefined;
     source?: string | undefined;
   };
@@ -171,13 +168,6 @@ async function executeImportTUI(options: ImportCommandOptions, registry: Adapter
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
         return;
       }
-
-      if (result.value.processingErrors.length > 0) {
-        process.stderr.write('\nFirst 5 processing errors:\n');
-        for (const error of result.value.processingErrors.slice(0, 5)) {
-          process.stderr.write(`  • ${error}\n`);
-        }
-      }
     });
   } catch (error) {
     displayCliError(
@@ -200,7 +190,6 @@ function buildImportResult(importResult: ImportExecuteResult, params: ImportPara
   const inputData = {
     csvDir: params.csvDirectory,
     address: params.address,
-    processed: true,
     ...(sourceIsBlockchain ? { blockchain: params.sourceName } : { exchange: params.sourceName }),
   };
 
@@ -215,7 +204,7 @@ function buildImportResult(importResult: ImportExecuteResult, params: ImportPara
       : undefined;
 
   return {
-    status: importResult.processingErrors.length > 0 ? 'warning' : 'success',
+    status: 'success',
     import: {
       accountId: firstSession?.accountId,
       source: params.sourceName,
@@ -223,10 +212,8 @@ function buildImportResult(importResult: ImportExecuteResult, params: ImportPara
       counts: {
         imported: totalImported,
         skipped: totalSkipped,
-        processed: importResult.processed,
       },
       importSessions: sessionSummaries,
-      processingErrors: importResult.processingErrors.slice(0, 5),
       runStats: importResult.runStats,
     },
     meta: {

@@ -8,6 +8,7 @@ import { AccountRepository } from './repositories/account-repository.js';
 import { ImportSessionRepository } from './repositories/import-session-repository.js';
 import { LinkableMovementRepository } from './repositories/linkable-movement-repository.js';
 import { NearRawTransactionRepository } from './repositories/near-raw-data-repository.js';
+import { RawDataProcessedStateRepository } from './repositories/raw-data-processed-state-repository.js';
 import { RawTransactionRepository } from './repositories/raw-transaction-repository.js';
 import { TransactionLinkRepository } from './repositories/transaction-link-repository.js';
 import { TransactionRepository } from './repositories/transaction-repository.js';
@@ -31,6 +32,7 @@ export class DataContext {
   readonly importSessions: ImportSessionRepository;
   readonly users: UserRepository;
   readonly nearRawData: NearRawTransactionRepository;
+  readonly rawDataProcessedState: RawDataProcessedStateRepository;
 
   private readonly connection: KyselyDB;
 
@@ -44,6 +46,7 @@ export class DataContext {
     this.importSessions = new ImportSessionRepository(connection);
     this.users = new UserRepository(connection);
     this.nearRawData = new NearRawTransactionRepository(connection);
+    this.rawDataProcessedState = new RawDataProcessedStateRepository(connection);
   }
 
   /**

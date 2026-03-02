@@ -1,6 +1,7 @@
 // Unified links command with all link management operations
 // Provides a single namespace for running linking algorithm, viewing, confirming, and rejecting links
 
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
 import { registerLinksConfirmCommand } from './links-confirm.js';
@@ -17,11 +18,11 @@ import { registerLinksViewCommand } from './links-view.js';
  *   links confirm <id>      - Confirm a suggested link
  *   links reject <id>       - Reject a suggested link
  */
-export function registerLinksCommand(program: Command): void {
+export function registerLinksCommand(program: Command, registry: AdapterRegistry): void {
   const links = program.command('links').description('Manage transaction links (run algorithm, view, confirm, reject)');
 
   // Register subcommands
-  registerLinksRunCommand(links);
+  registerLinksRunCommand(links, registry);
   registerLinksViewCommand(links);
   registerLinksConfirmCommand(links);
   registerLinksRejectCommand(links);

@@ -54,16 +54,16 @@ async function main() {
 
   registerImportCommand(program, adapterRegistry);
   registerReprocessCommand(program, adapterRegistry);
-  registerLinksCommand(program);
+  registerLinksCommand(program, adapterRegistry);
   registerAccountsCommand(program);
   registerTransactionsCommand(program);
   registerPricesCommand(program);
   registerClearCommand(program);
-  registerCostBasisCommand(program);
+  registerCostBasisCommand(program, adapterRegistry);
   registerBalanceCommand(program);
   registerBlockchainsCommand(program, adapterRegistry);
   registerProvidersCommand(program, adapterRegistry);
-  registerPortfolioCommand(program);
+  registerPortfolioCommand(program, adapterRegistry);
 
   await program.parseAsync();
 }

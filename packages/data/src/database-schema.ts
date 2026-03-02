@@ -234,6 +234,17 @@ export interface LinkableMovementsTable {
 }
 
 /**
+ * Singleton row tracking when raw data was last processed into derived data.
+ * Used by ensureRawDataIsProcessed() to detect staleness after a new import
+ * or account change.
+ */
+export interface RawDataProcessedStateTable {
+  id: number; // Always 1 (singleton)
+  built_at: DateTime; // ISO timestamp of last reprocess
+  account_hash: string; // Hash of sorted account IDs + identifiers
+}
+
+/**
  * Main database interface combining all tables
  */
 export interface DatabaseSchema {
@@ -245,4 +256,5 @@ export interface DatabaseSchema {
   transaction_links: TransactionLinksTable;
   linkable_movements: LinkableMovementsTable;
   transactions: TransactionsTable;
+  raw_data_processed_state: RawDataProcessedStateTable;
 }

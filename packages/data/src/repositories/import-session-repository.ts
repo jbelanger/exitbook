@@ -259,6 +259,24 @@ export class ImportSessionRepository extends BaseRepository {
     }
   }
 
+  async findLatestCompletedAt(): Promise<Result<Date | null, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('import_sessions')
+        .select(({ fn }) => [fn.max<string>('completed_at').as('latest')])
+        .where('status', '=', 'completed')
+        .executeTakeFirst();
+
+      if (!result?.latest) {
+        return ok(null);
+      }
+
+      return ok(new Date(result.latest));
+    } catch (error) {
+      return wrapError(error, 'Failed to get latest import session completed_at');
+    }
+  }
+
   async findLatestIncomplete(accountId: number): Promise<Result<ImportSession | undefined, Error>> {
     try {
       const row = await this.db

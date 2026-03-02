@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- Used in React component code */
 import type { LinkingRunParams } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
@@ -11,6 +12,7 @@ import { displayCliError } from '../shared/cli-error.js';
 import { runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
+import { ensureRawDataIsProcessed } from '../shared/prereqs.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
@@ -126,7 +128,7 @@ async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
 /**
  * Register the links run subcommand.
  */
-export function registerLinksRunCommand(linksCommand: Command): void {
+export function registerLinksRunCommand(linksCommand: Command, registry: AdapterRegistry): void {
   linksCommand
     .command('run')
     .description('Run the linking algorithm to find matching transactions across sources')
@@ -135,11 +137,11 @@ export function registerLinksRunCommand(linksCommand: Command): void {
     .option('--auto-confirm-threshold <score>', 'Auto-confirm above this score (0-1, default: 0.95)', parseFloat)
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
-      await executeLinksRunCommand(rawOptions);
+      await executeLinksRunCommand(rawOptions, registry);
     });
 }
 
-async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
+async function executeLinksRunCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
   const isJson = isJsonMode(rawOptions);
 
   const parseResult = LinksRunCommandOptionsSchema.safeParse(rawOptions);
@@ -154,21 +156,27 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
 
   const options = parseResult.data;
   if (options.json) {
-    await executeLinksRunJSON(options);
+    await executeLinksRunJSON(options, registry);
   } else {
-    await executeLinksRunTUI(options);
+    await executeLinksRunTUI(options, registry);
   }
 }
 
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
 
-async function executeLinksRunJSON(options: LinksRunCommandOptions): Promise<void> {
+async function executeLinksRunJSON(options: LinksRunCommandOptions, registry: AdapterRegistry): Promise<void> {
   const startTime = Date.now();
   const params = buildLinksRunParamsFromFlags(options);
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+
+      const processedResult = await ensureRawDataIsProcessed(database, registry, { isJsonMode: true });
+      if (processedResult.isErr()) {
+        displayCliError('links-run', processedResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
       const handler = createLinksRunHandler(ctx, database, { dryRun: params.dryRun, isJsonMode: true });
 
       const result = await handler.execute(params);
@@ -190,7 +198,7 @@ async function executeLinksRunJSON(options: LinksRunCommandOptions): Promise<voi
 
 // ─── TUI Mode ────────────────────────────────────────────────────────────────
 
-async function executeLinksRunTUI(options: LinksRunCommandOptions): Promise<void> {
+async function executeLinksRunTUI(options: LinksRunCommandOptions, registry: AdapterRegistry): Promise<void> {
   try {
     let params: LinkingRunParams;
     if (!options.dryRun && !options.minConfidence && !options.autoConfirmThreshold) {
@@ -206,6 +214,13 @@ async function executeLinksRunTUI(options: LinksRunCommandOptions): Promise<void
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+
+      const processedResult = await ensureRawDataIsProcessed(database, registry, { isJsonMode: false });
+      if (processedResult.isErr()) {
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
+
       const handler = createLinksRunHandler(ctx, database, { dryRun: params.dryRun, isJsonMode: false });
 
       ctx.onAbort(() => handler.abort());
