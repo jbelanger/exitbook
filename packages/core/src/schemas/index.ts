@@ -9,3 +9,4 @@ export * from './raw-transaction.js';
 export * from './token-metadata.js';
 export * from './universal-transaction.js';
 export * from './transaction-link.js';
+export * from './linkable-movement.js';

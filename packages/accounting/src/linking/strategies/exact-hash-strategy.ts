@@ -1,0 +1,94 @@
+import { parseDecimal } from '@exitbook/core';
+import { ok, type Result } from 'neverthrow';
+
+import { createTransactionLink } from '../link-construction.js';
+import type { LinkableMovement } from '../pre-linking/types.js';
+import type { MatchingConfig, NewTransactionLink } from '../types.js';
+
+import { calculateTimeDifferenceHours, determineLinkType, isTimingValid } from './amount-timing-utils.js';
+import { checkTransactionHashMatch } from './exact-hash-utils.js';
+import type { ILinkingStrategy, StrategyResult } from './types.js';
+
+/**
+ * Matches movements with the same normalized blockchain transaction hash.
+ *
+ * Skips pairs where both sides are blockchain (those are blockchain_internal
+ * from the pre-linking phase). Handles multi-output scenarios.
+ */
+export class ExactHashStrategy implements ILinkingStrategy {
+  readonly name = 'exact-hash';
+
+  execute(
+    sources: LinkableMovement[],
+    targets: LinkableMovement[],
+    config: MatchingConfig
+  ): Result<StrategyResult, Error> {
+    const links: NewTransactionLink[] = [];
+    const consumedMovementIds = new Set<number>();
+    const now = new Date();
+
+    for (const source of sources) {
+      if (!source.blockchainTxHash) continue;
+
+      // Find all targets with matching hash
+      const hashTargets: LinkableMovement[] = [];
+      for (const target of targets) {
+        if (consumedMovementIds.has(target.id)) continue;
+        if (target.assetSymbol !== source.assetSymbol) continue;
+
+        // Same-source guard
+        if (source.sourceName === target.sourceName) continue;
+
+        // Skip both-blockchain pairs (handled by pre-linking internal detection)
+        if (source.sourceType === 'blockchain' && target.sourceType === 'blockchain') continue;
+
+        const hashMatch = checkTransactionHashMatch(source, target);
+        if (hashMatch === true) {
+          hashTargets.push(target);
+        }
+      }
+
+      if (hashTargets.length === 0) continue;
+
+      // Validate multi-output: sum of targets must not exceed source
+      if (hashTargets.length > 1) {
+        const totalTargetAmount = hashTargets.reduce((sum, t) => sum.plus(t.amount), parseDecimal('0'));
+        if (totalTargetAmount.greaterThan(source.amount)) {
+          // Can't be valid multi-output — skip hash matching for this source
+          continue;
+        }
+      }
+
+      // Create links for each hash-matched target
+      for (const target of hashTargets) {
+        const linkType = determineLinkType(source.sourceType, target.sourceType);
+        const timingHours = calculateTimeDifferenceHours(source.timestamp, target.timestamp);
+        const timingValid = isTimingValid(source.timestamp, target.timestamp, config);
+
+        const match = {
+          sourceMovement: source,
+          targetMovement: target,
+          confidenceScore: parseDecimal('1.0'),
+          matchCriteria: {
+            assetMatch: true,
+            amountSimilarity: parseDecimal('1.0'),
+            timingValid,
+            timingHours,
+            addressMatch: undefined,
+            hashMatch: true,
+          },
+          linkType,
+        };
+
+        const linkResult = createTransactionLink(match, 'confirmed', now);
+        if (linkResult.isErr()) continue;
+
+        links.push(linkResult.value);
+        consumedMovementIds.add(source.id);
+        consumedMovementIds.add(target.id);
+      }
+    }
+
+    return ok({ links, consumedMovementIds });
+  }
+}

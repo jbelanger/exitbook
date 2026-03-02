@@ -17,6 +17,15 @@ export type LinkingEvent =
       count: number;
       type: 'existing.cleared';
     }
+  // Materialize phase events
+  | {
+      type: 'materialize.started';
+    }
+  | {
+      internalLinkCount: number;
+      movementCount: number;
+      type: 'materialize.completed';
+    }
   // Match phase events
   | {
       type: 'match.started';

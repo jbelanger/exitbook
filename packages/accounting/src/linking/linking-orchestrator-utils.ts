@@ -2,42 +2,8 @@ import { parseDecimal, type Currency, type UniversalTransactionData } from '@exi
 import type { OrphanedLinkOverride } from '@exitbook/data';
 import { err, ok, type Result } from 'neverthrow';
 
-import { determineLinkType } from './matching-utils.js';
+import { determineLinkType } from './strategies/amount-timing-utils.js';
 import type { NewTransactionLink } from './types.js';
-
-/**
- * Resolve a unique assetId for an asset symbol within a transaction.
- * Returns an error if there are no matching movements or multiple assetIds.
- */
-export function resolveUniqueAssetId(
-  tx: UniversalTransactionData | undefined,
-  transactionId: number,
-  assetSymbol: string,
-  movementPriority: ('inflows' | 'outflows')[]
-): Result<string, Error> {
-  if (!tx) {
-    return err(new Error(`tx ${transactionId} not found`));
-  }
-
-  const candidates: string[] = [];
-  for (const direction of movementPriority) {
-    for (const movement of tx.movements[direction] ?? []) {
-      if (movement.assetSymbol === assetSymbol) {
-        candidates.push(movement.assetId);
-      }
-    }
-  }
-
-  const unique = [...new Set(candidates)];
-  if (unique.length === 0) {
-    return err(new Error(`tx ${transactionId} has no ${assetSymbol} movements`));
-  }
-  if (unique.length > 1) {
-    return err(new Error(`tx ${transactionId} has ambiguous ${assetSymbol} assetIds: ${unique.join(', ')}`));
-  }
-
-  return ok(unique[0]!);
-}
 
 /**
  * Build a confirmed TransactionLink from an orphaned override.
@@ -53,37 +19,24 @@ export function buildLinkFromOrphanedOverride(
   const now = new Date();
   const zero = parseDecimal('0');
 
-  const sourceAssetIdResult = resolveUniqueAssetId(
-    txById.get(entry.sourceTransactionId),
-    entry.sourceTransactionId,
-    entry.assetSymbol,
-    ['outflows', 'inflows']
-  );
-  const targetAssetIdResult = resolveUniqueAssetId(
-    txById.get(entry.targetTransactionId),
-    entry.targetTransactionId,
-    entry.assetSymbol,
-    ['inflows', 'outflows']
-  );
+  const sourceTx = txById.get(entry.sourceTransactionId);
+  const targetTx = txById.get(entry.targetTransactionId);
 
-  if (sourceAssetIdResult.isErr() || targetAssetIdResult.isErr()) {
-    const sourceCtx = sourceAssetIdResult.isOk() ? sourceAssetIdResult.value : sourceAssetIdResult.error.message;
-    const targetCtx = targetAssetIdResult.isOk() ? targetAssetIdResult.value : targetAssetIdResult.error.message;
-    return err(new Error(`Cannot resolve assetId for ${entry.assetSymbol}: source=${sourceCtx}, target=${targetCtx}.`));
+  if (!sourceTx) {
+    return err(new Error(`Source tx ${entry.sourceTransactionId} not found for orphaned override`));
+  }
+  if (!targetTx) {
+    return err(new Error(`Target tx ${entry.targetTransactionId} not found for orphaned override`));
   }
 
   // Derive structural link type from source/target transaction sourceType
   // (override's linkType is a user-facing category like 'transfer'/'trade', not the DB link_type)
-  const sourceTx = txById.get(entry.sourceTransactionId)!;
-  const targetTx = txById.get(entry.targetTransactionId)!;
   const linkType = determineLinkType(sourceTx.sourceType, targetTx.sourceType);
 
   return ok({
     sourceTransactionId: entry.sourceTransactionId,
     targetTransactionId: entry.targetTransactionId,
     assetSymbol: entry.assetSymbol as Currency,
-    sourceAssetId: sourceAssetIdResult.value,
-    targetAssetId: targetAssetIdResult.value,
     sourceAmount: zero,
     targetAmount: zero,
     linkType,

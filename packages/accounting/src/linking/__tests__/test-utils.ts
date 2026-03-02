@@ -1,25 +1,33 @@
-import { type Currency, type UniversalTransactionData, parseDecimal } from '@exitbook/core';
+import { type Currency, type LinkableMovement, type UniversalTransactionData, parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { TransactionCandidate, TransactionLink } from '../types.js';
+import type { TransactionLink } from '../types.js';
 
 /**
- * Creates a TransactionCandidate with sensible defaults for testing.
+ * Creates a LinkableMovement with sensible defaults for testing.
  * Override only the fields relevant to the test.
  */
-export function createCandidate(overrides: Partial<TransactionCandidate> = {}): TransactionCandidate {
+export function createMovement(overrides: Partial<LinkableMovement> = {}): LinkableMovement {
+  const id = overrides.id ?? 1;
   return {
-    id: 1,
+    id,
+    transactionId: id,
+    accountId: 1,
     sourceName: 'kraken',
     sourceType: 'exchange',
-    timestamp: new Date('2024-01-01T12:00:00Z'),
     assetId: 'test:btc',
     assetSymbol: 'BTC' as Currency,
-    amount: parseDecimal('1.0'),
     direction: 'out',
+    amount: parseDecimal('1.0'),
+    timestamp: new Date('2024-01-01T12:00:00Z'),
+    isInternal: false,
+    excluded: false,
     ...overrides,
   };
 }
+
+/** Alias for backward compatibility in tests */
+export const createCandidate = createMovement;
 
 /**
  * Creates a TransactionLink with sensible defaults for testing.
@@ -39,8 +47,6 @@ export function createLink(params: {
     sourceTransactionId: params.sourceTransactionId,
     targetTransactionId: params.targetTransactionId,
     assetSymbol: params.assetSymbol as Currency,
-    sourceAssetId: params.assetSymbol,
-    targetAssetId: params.assetSymbol,
     sourceAmount: params.sourceAmount,
     targetAmount: params.targetAmount,
     linkType: 'exchange_to_blockchain',

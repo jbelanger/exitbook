@@ -66,11 +66,7 @@ export type { CostBasisReportInput } from './cost-basis/cost-basis-report-genera
 export { LinkingOrchestrator } from './linking/linking-orchestrator.js';
 export type { LinkingRunParams, LinkingRunResult } from './linking/linking-orchestrator.js';
 export type { LinkingEvent } from './linking/linking-events.js';
-export {
-  resolveUniqueAssetId,
-  buildLinkFromOrphanedOverride,
-  categorizeFinalLinks,
-} from './linking/linking-orchestrator-utils.js';
+export { buildLinkFromOrphanedOverride, categorizeFinalLinks } from './linking/linking-orchestrator-utils.js';
 
 // Transaction linking
 export type {
@@ -79,13 +75,19 @@ export type {
   MatchCriteria,
   TransactionLink,
   PotentialMatch,
-  TransactionCandidate,
   MatchingConfig,
-  LinkingResult,
 } from './linking/types.js';
-export { TransactionLinkingEngine } from './linking/transaction-linking-engine.js';
-export { DEFAULT_MATCHING_CONFIG, createTransactionLink } from './linking/matching-utils.js';
+export { DEFAULT_MATCHING_CONFIG } from './linking/matching-config.js';
+export { createTransactionLink } from './linking/link-construction.js';
 export { LinkIndex } from './linking/link-index.js';
+
+// Pre-linking & strategy-based matching
+export { materializeLinkableMovements } from './linking/pre-linking/index.js';
+export type { LinkableMovement, NewLinkableMovement, MaterializationResult } from './linking/pre-linking/index.js';
+export { StrategyRunner } from './linking/strategy-runner.js';
+export type { StrategyRunnerResult, StrategyStats } from './linking/strategy-runner.js';
+export { defaultStrategies } from './linking/strategies/index.js';
+export type { ILinkingStrategy, StrategyResult } from './linking/strategies/types.js';
 // Cost basis utilities
 export {
   buildCostBasisParams,

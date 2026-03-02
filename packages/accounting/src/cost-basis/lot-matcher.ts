@@ -268,7 +268,7 @@ export class LotMatcher {
           if (failedAssetIds.has(assetId)) continue;
 
           const assetState = this.getOrInitAssetState(assetId, assetInflows[0]!.assetSymbol, lotStateByAssetId);
-          const linkResult = this.findEffectiveTargetLink(linkIndex, tx.id, assetId);
+          const linkResult = this.findEffectiveTargetLink(linkIndex, tx.id, assetInflows[0]!.assetSymbol);
 
           if (linkResult.type === 'transfer') {
             const { links } = linkResult;
@@ -399,16 +399,16 @@ export class LotMatcher {
     // Three-level source lookup:
     // 1. netAmount ?? grossAmount — matches cross-source links (convertToCandidates uses netAmount)
     // 2. grossAmount — matches blockchain_internal links (extractPrimaryAmount uses grossAmount)
-    // 3. (txId, asset) only — matches UTXO cross-source links where sourceAmount is an adjusted
+    // 3. (txId, assetSymbol) only — matches UTXO cross-source links where sourceAmount is an adjusted
     //    amount (gross minus internal change) that differs from both netAmount and grossAmount
     const findLink = (): TransactionLink | undefined => {
       const lookupAmount = outflow.netAmount ?? outflow.grossAmount;
-      let link = linkIndex.findBySource(txId, outflow.assetId, lookupAmount);
+      let link = linkIndex.findBySource(txId, outflow.assetSymbol, lookupAmount);
       if (!link && outflow.netAmount && !outflow.netAmount.eq(outflow.grossAmount)) {
-        link = linkIndex.findBySource(txId, outflow.assetId, outflow.grossAmount);
+        link = linkIndex.findBySource(txId, outflow.assetSymbol, outflow.grossAmount);
       }
       if (!link) {
-        link = linkIndex.findAnyBySource(txId, outflow.assetId);
+        link = linkIndex.findAnyBySource(txId, outflow.assetSymbol);
       }
       return link;
     };
@@ -431,7 +431,7 @@ export class LotMatcher {
       // For regular links (multiple outflows of same asset each with own link), return just one.
       if (link.metadata?.['partialMatch'] === true) {
         const allLinks = linkIndex
-          .findAllBySource(txId, outflow.assetId)
+          .findAllBySource(txId, outflow.assetSymbol)
           .filter((l) => l.linkType !== 'blockchain_internal');
         return { type: 'transfer', links: allLinks, isPartialOutflow: foundInternal };
       }
@@ -443,22 +443,24 @@ export class LotMatcher {
   /**
    * Find the effective target link for an inflow, skipping blockchain_internal links.
    */
-  private findEffectiveTargetLink(linkIndex: LinkIndex, txId: number, assetId: string): TargetLinkResult {
+  private findEffectiveTargetLink(linkIndex: LinkIndex, txId: number, assetSymbol: string): TargetLinkResult {
     let foundInternal = false;
-    let link = linkIndex.findByTarget(txId, assetId);
+    let link = linkIndex.findByTarget(txId, assetSymbol);
 
     while (link && link.linkType === 'blockchain_internal') {
-      this.logger.debug({ txId, assetId }, 'Consuming blockchain_internal inflow link');
+      this.logger.debug({ txId, assetSymbol }, 'Consuming blockchain_internal inflow link');
       linkIndex.consumeTargetLink(link);
       foundInternal = true;
-      link = linkIndex.findByTarget(txId, assetId);
+      link = linkIndex.findByTarget(txId, assetSymbol);
     }
 
     if (link) {
       // For partial matches (N:1 consolidations), return all partial links for this target.
       // For regular links, return just one.
       if (link.metadata?.['partialMatch'] === true) {
-        const allLinks = linkIndex.findAllByTarget(txId, assetId).filter((l) => l.linkType !== 'blockchain_internal');
+        const allLinks = linkIndex
+          .findAllByTarget(txId, assetSymbol)
+          .filter((l) => l.linkType !== 'blockchain_internal');
         return { type: 'transfer', links: allLinks };
       }
       return { type: 'transfer', links: [link] };

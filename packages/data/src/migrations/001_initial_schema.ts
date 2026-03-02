@@ -253,8 +253,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('source_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
     .addColumn('target_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
     .addColumn('asset', 'text', (col) => col.notNull())
-    .addColumn('source_asset_id', 'text', (col) => col.notNull())
-    .addColumn('target_asset_id', 'text', (col) => col.notNull())
     .addColumn('source_amount', 'text', (col) => col.notNull())
     .addColumn('target_amount', 'text', (col) => col.notNull())
     .addColumn('link_type', 'text', (col) => col.notNull())
@@ -339,18 +337,63 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
     .createIndex('idx_tx_links_source_lookup')
     .on('transaction_links')
-    .columns(['source_transaction_id', 'source_asset_id', 'source_amount'])
+    .columns(['source_transaction_id', 'asset', 'source_amount'])
     .execute();
 
   // Create composite index for target link lookup (used by LinkIndex)
   await db.schema
     .createIndex('idx_tx_links_target_lookup')
     .on('transaction_links')
-    .columns(['target_transaction_id', 'target_asset_id'])
+    .columns(['target_transaction_id', 'asset'])
+    .execute();
+
+  // Create linkable_movements table - materialized pre-linking data for strategy-based matching
+  await db.schema
+    .createTable('linkable_movements')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
+    .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
+    .addColumn('source_name', 'text', (col) => col.notNull())
+    .addColumn('source_type', 'text', (col) => col.notNull())
+    .addColumn('asset_id', 'text', (col) => col.notNull())
+    .addColumn('asset_symbol', 'text', (col) => col.notNull())
+    .addColumn('direction', 'text', (col) => col.notNull())
+    .addColumn('amount', 'text', (col) => col.notNull())
+    .addColumn('gross_amount', 'text')
+    .addColumn('timestamp', 'text', (col) => col.notNull())
+    .addColumn('blockchain_tx_hash', 'text')
+    .addColumn('from_address', 'text')
+    .addColumn('to_address', 'text')
+    .addColumn('is_internal', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('utxo_group_id', 'text')
+    .addColumn('excluded', 'integer', (col) => col.notNull().defaultTo(0))
+    .addCheckConstraint('linkable_movements_source_type_valid', sql`source_type IN ('exchange', 'blockchain')`)
+    .addCheckConstraint('linkable_movements_direction_valid', sql`direction IN ('in', 'out')`)
+    .execute();
+
+  // Indexes for linkable_movements
+  await db.schema
+    .createIndex('idx_linkable_movements_asset_direction')
+    .on('linkable_movements')
+    .columns(['asset_symbol', 'direction', 'excluded'])
+    .execute();
+
+  await sql`
+    CREATE INDEX idx_linkable_movements_tx_hash
+    ON linkable_movements(blockchain_tx_hash)
+    WHERE blockchain_tx_hash IS NOT NULL
+  `.execute(db);
+
+  await db.schema
+    .createIndex('idx_linkable_movements_transaction_id')
+    .on('linkable_movements')
+    .column('transaction_id')
     .execute();
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  // Drop linkable_movements table
+  await db.schema.dropTable('linkable_movements').execute();
   // Drop transaction_movements BEFORE transactions (FK constraint)
   await db.schema.dropTable('transaction_movements').execute();
   // Drop transaction linking table

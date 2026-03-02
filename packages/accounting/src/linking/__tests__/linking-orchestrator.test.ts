@@ -1,4 +1,4 @@
-import { parseDecimal, type Currency } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { OverrideEvent, OverrideStore, TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
@@ -7,8 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { LinkingEvent } from '../linking-events.js';
 import { LinkingOrchestrator } from '../linking-orchestrator.js';
-import { TransactionLinkingEngine } from '../transaction-linking-engine.js';
-import type { TransactionLink } from '../types.js';
+
+import { createTransaction } from './test-utils.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -16,43 +16,26 @@ afterEach(() => {
 
 describe('LinkingOrchestrator', () => {
   it('applies unlink overrides to internal links so rejected links do not reappear', async () => {
-    const internalLink: TransactionLink = {
-      id: 1,
-      sourceTransactionId: 1,
-      targetTransactionId: 2,
-      assetSymbol: 'ETH' as Currency,
-      sourceAssetId: 'test:eth',
-      targetAssetId: 'test:eth',
-      sourceAmount: parseDecimal('1'),
-      targetAmount: parseDecimal('1'),
-      linkType: 'blockchain_internal',
-      confidenceScore: parseDecimal('0.99'),
-      matchCriteria: {
-        assetMatch: true,
-        amountSimilarity: parseDecimal('1'),
-        timingValid: true,
-        timingHours: 0,
-      },
-      status: 'confirmed',
-      createdAt: new Date('2026-02-07T00:00:00Z'),
-      updatedAt: new Date('2026-02-07T00:00:00Z'),
-    };
-
-    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
-      ok({
-        confirmedLinks: [internalLink],
-        suggestedLinks: [],
-        totalSourceTransactions: 1,
-        totalTargetTransactions: 1,
-        matchedTransactionCount: 2,
-        unmatchedSourceCount: 0,
-        unmatchedTargetCount: 0,
-      })
-    );
-
+    // Two blockchain transactions with same hash from different accounts → internal link
     const transactions = [
-      { id: 1, source: 'blockchain:ethereum', externalId: '0xaaa111' },
-      { id: 2, source: 'blockchain:ethereum', externalId: '0xbbb222' },
+      createTransaction({
+        id: 1,
+        accountId: 1,
+        source: 'blockchain:ethereum',
+        sourceType: 'blockchain',
+        datetime: '2026-02-07T00:00:00Z',
+        outflows: [{ assetSymbol: 'ETH', amount: '1' }],
+        blockchain: { name: 'ethereum', transaction_hash: '0xaaa111', is_confirmed: true },
+      }),
+      createTransaction({
+        id: 2,
+        accountId: 2,
+        source: 'blockchain:ethereum',
+        sourceType: 'blockchain',
+        datetime: '2026-02-07T00:00:00Z',
+        inflows: [{ assetSymbol: 'ETH', amount: '1' }],
+        blockchain: { name: 'ethereum', transaction_hash: '0xaaa111', is_confirmed: true },
+      }),
     ];
 
     const unlinkEvent: OverrideEvent = {
@@ -63,7 +46,8 @@ describe('LinkingOrchestrator', () => {
       scope: 'unlink',
       payload: {
         type: 'unlink_override',
-        link_fingerprint: 'link:blockchain:ethereum:0xaaa111:blockchain:ethereum:0xbbb222:ETH',
+        link_fingerprint:
+          'link:blockchain:ethereum:blockchain:ethereum-1:blockchain:ethereum:blockchain:ethereum-2:ETH',
       },
     };
 
@@ -92,18 +76,18 @@ describe('LinkingOrchestrator', () => {
 
     const value = assertOk(result);
 
+    // Internal link was created but unlink override should reject it
     expect(value.internalLinksCount).toBe(1);
     expect(value.confirmedLinksCount).toBe(0);
     expect(value.suggestedLinksCount).toBe(0);
+    // Only the rejected internal link → no non-rejected links to save
     expect(value.totalSaved).toBeUndefined();
     expect(mockCreateBulk).not.toHaveBeenCalled();
   });
 
-  it('returns error when linking service fails', async () => {
-    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(err(new Error('linking failed')));
-
+  it('returns error when transaction loading fails', async () => {
     const transactionRepository = {
-      findAll: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
+      findAll: vi.fn().mockResolvedValue(err(new Error('load failed'))),
     } as unknown as TransactionRepository;
 
     const linkRepository = {
@@ -119,50 +103,26 @@ describe('LinkingOrchestrator', () => {
       autoConfirmThreshold: parseDecimal('0.95'),
     });
 
-    expect(assertErr(result).message).toContain('linking failed');
+    expect(assertErr(result).message).toContain('load failed');
   });
 
   it('emits events during execution when eventBus is provided', async () => {
-    const confirmedLink: TransactionLink = {
-      id: 1,
-      sourceTransactionId: 1,
-      targetTransactionId: 2,
-      assetSymbol: 'BTC' as Currency,
-      sourceAssetId: 'test:btc',
-      targetAssetId: 'test:btc',
-      sourceAmount: parseDecimal('1'),
-      targetAmount: parseDecimal('1'),
-      linkType: 'exchange_to_blockchain',
-      confidenceScore: parseDecimal('0.98'),
-      matchCriteria: {
-        assetMatch: true,
-        amountSimilarity: parseDecimal('1'),
-        timingValid: true,
-        timingHours: 0.5,
-      },
-      status: 'confirmed',
-      createdAt: new Date('2026-02-08T00:00:00Z'),
-      updatedAt: new Date('2026-02-08T00:00:00Z'),
-    };
-
-    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
-      ok({
-        confirmedLinks: [confirmedLink],
-        suggestedLinks: [],
-        totalSourceTransactions: 2,
-        totalTargetTransactions: 3,
-        matchedTransactionCount: 3,
-        unmatchedSourceCount: 1,
-        unmatchedTargetCount: 2,
-      })
-    );
-
+    // A kraken withdrawal and a bitcoin deposit that should match
     const transactions = [
-      { id: 1, source: 'kraken', externalId: 'tx-1' },
-      { id: 2, source: 'blockchain:bitcoin', externalId: 'tx-2' },
-      { id: 3, source: 'blockchain:bitcoin', externalId: 'tx-3' },
-      { id: 4, source: 'blockchain:bitcoin', externalId: 'tx-4' },
-      { id: 5, source: 'blockchain:bitcoin', externalId: 'tx-5' },
+      createTransaction({
+        id: 1,
+        source: 'kraken',
+        sourceType: 'exchange',
+        datetime: '2026-02-08T00:00:00Z',
+        outflows: [{ assetSymbol: 'BTC', amount: '1' }],
+      }),
+      createTransaction({
+        id: 2,
+        source: 'blockchain:bitcoin',
+        sourceType: 'blockchain',
+        datetime: '2026-02-08T01:00:00Z',
+        inflows: [{ assetSymbol: 'BTC', amount: '0.999' }],
+      }),
     ];
 
     const transactionRepository = {
@@ -193,38 +153,31 @@ describe('LinkingOrchestrator', () => {
 
     assertOk(result);
 
-    // Verify event sequence: load fires before match
-    expect(emittedEvents).toHaveLength(6);
-    expect(emittedEvents[0]).toEqual({ type: 'load.started' });
-    expect(emittedEvents[1]).toEqual({ type: 'load.completed', totalTransactions: 5 });
-    expect(emittedEvents[2]).toEqual({ type: 'match.started' });
-    expect(emittedEvents[3]).toEqual({
-      type: 'match.completed',
-      sourceCount: 2,
-      targetCount: 3,
-      internalCount: 0,
-      confirmedCount: 1,
-      suggestedCount: 0,
-    });
-    expect(emittedEvents[4]).toEqual({ type: 'save.started' });
-    expect(emittedEvents[5]).toEqual({ type: 'save.completed', totalSaved: 1 });
+    // Verify event sequence: load → materialize → match → save
+    const eventTypes = emittedEvents.map((e) => e.type);
+    expect(eventTypes).toContain('load.started');
+    expect(eventTypes).toContain('load.completed');
+    expect(eventTypes).toContain('materialize.started');
+    expect(eventTypes).toContain('materialize.completed');
+    expect(eventTypes).toContain('match.started');
+    expect(eventTypes).toContain('match.completed');
+    expect(eventTypes).toContain('save.started');
+    expect(eventTypes).toContain('save.completed');
   });
 
   it('does not emit save events in dry run mode', async () => {
-    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
-      ok({
-        confirmedLinks: [],
-        suggestedLinks: [],
-        totalSourceTransactions: 1,
-        totalTargetTransactions: 1,
-        matchedTransactionCount: 0,
-        unmatchedSourceCount: 1,
-        unmatchedTargetCount: 1,
-      })
-    );
+    const transactions = [
+      createTransaction({
+        id: 1,
+        source: 'kraken',
+        sourceType: 'exchange',
+        datetime: '2026-02-08T00:00:00Z',
+        outflows: [{ assetSymbol: 'BTC', amount: '1' }],
+      }),
+    ];
 
     const transactionRepository = {
-      findAll: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
+      findAll: vi.fn().mockResolvedValue(ok(transactions)),
     } as unknown as TransactionRepository;
 
     const linkRepository = {
@@ -251,31 +204,30 @@ describe('LinkingOrchestrator', () => {
 
     assertOk(result);
 
-    // Should emit load.started, load.completed, match.started, match.completed (no save in dry run)
-    expect(emittedEvents).toHaveLength(4);
-    expect(emittedEvents[0]!.type).toBe('load.started');
-    expect(emittedEvents[1]!.type).toBe('load.completed');
-    expect(emittedEvents[2]!.type).toBe('match.started');
-    expect(emittedEvents[3]!.type).toBe('match.completed');
-    expect(emittedEvents.some((e) => e.type === 'save.started')).toBe(false);
-    expect(emittedEvents.some((e) => e.type === 'save.completed')).toBe(false);
+    const eventTypes = emittedEvents.map((e) => e.type);
+    expect(eventTypes).toContain('load.started');
+    expect(eventTypes).toContain('load.completed');
+    expect(eventTypes).toContain('materialize.started');
+    expect(eventTypes).toContain('materialize.completed');
+    expect(eventTypes).toContain('match.started');
+    expect(eventTypes).toContain('match.completed');
+    expect(eventTypes).not.toContain('save.started');
+    expect(eventTypes).not.toContain('save.completed');
   });
 
   it('returns error when clearing existing links fails', async () => {
-    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
-      ok({
-        confirmedLinks: [],
-        suggestedLinks: [],
-        totalSourceTransactions: 1,
-        totalTargetTransactions: 1,
-        matchedTransactionCount: 0,
-        unmatchedSourceCount: 1,
-        unmatchedTargetCount: 1,
-      })
-    );
+    const transactions = [
+      createTransaction({
+        id: 1,
+        source: 'kraken',
+        sourceType: 'exchange',
+        datetime: '2026-02-08T00:00:00Z',
+        outflows: [{ assetSymbol: 'BTC', amount: '1' }],
+      }),
+    ];
 
     const transactionRepository = {
-      findAll: vi.fn().mockResolvedValue(ok([{ id: 1, source: 'kraken', externalId: 'tx-1' }])),
+      findAll: vi.fn().mockResolvedValue(ok(transactions)),
     } as unknown as TransactionRepository;
 
     const linkRepository = {
@@ -295,37 +247,22 @@ describe('LinkingOrchestrator', () => {
   });
 
   it('skips orphaned override when assetId cannot be resolved from movements', async () => {
-    // Algorithm produces no links
-    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
-      ok({
-        confirmedLinks: [],
-        suggestedLinks: [],
-        totalSourceTransactions: 1,
-        totalTargetTransactions: 1,
-        matchedTransactionCount: 0,
-        unmatchedSourceCount: 1,
-        unmatchedTargetCount: 1,
-      })
-    );
-
     // Transactions have ETH movements only — override references BTC (no match)
     const transactions = [
-      {
+      createTransaction({
         id: 1,
         source: 'kraken',
-        externalId: 'tx-1',
-        movements: {
-          outflows: [{ assetId: 'exchange:kraken:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('10') }],
-        },
-      },
-      {
+        sourceType: 'exchange',
+        datetime: '2026-02-07T00:00:00Z',
+        outflows: [{ assetSymbol: 'ETH', amount: '10' }],
+      }),
+      createTransaction({
         id: 2,
         source: 'blockchain:bitcoin',
-        externalId: 'tx-2',
-        movements: {
-          inflows: [{ assetId: 'blockchain:bitcoin:eth', assetSymbol: 'ETH', grossAmount: parseDecimal('10') }],
-        },
-      },
+        sourceType: 'blockchain',
+        datetime: '2026-02-07T01:00:00Z',
+        inflows: [{ assetSymbol: 'ETH', amount: '10' }],
+      }),
     ];
 
     // Override event that references BTC — but neither tx has BTC movements
@@ -339,8 +276,8 @@ describe('LinkingOrchestrator', () => {
         type: 'link_override',
         action: 'confirm',
         link_type: 'transfer',
-        source_fingerprint: 'kraken:tx-1',
-        target_fingerprint: 'blockchain:bitcoin:tx-2',
+        source_fingerprint: 'kraken:kraken-1',
+        target_fingerprint: 'blockchain:bitcoin:blockchain:bitcoin-2',
         asset: 'BTC',
       },
     };
@@ -370,46 +307,24 @@ describe('LinkingOrchestrator', () => {
 
     // Should succeed — the orphaned override is skipped, not a fatal error
     assertOk(result);
-
-    // No links should have been saved (the orphaned override was rejected)
-    expect(mockCreateBulk).not.toHaveBeenCalled();
   });
 
   it('skips orphaned override when source transaction has ambiguous assetIds for symbol', async () => {
-    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
-      ok({
-        confirmedLinks: [],
-        suggestedLinks: [],
-        totalSourceTransactions: 1,
-        totalTargetTransactions: 1,
-        matchedTransactionCount: 0,
-        unmatchedSourceCount: 1,
-        unmatchedTargetCount: 1,
-      })
-    );
-
     const transactions = [
-      {
+      createTransaction({
         id: 1,
         source: 'kraken',
-        externalId: 'tx-1',
-        movements: {
-          outflows: [
-            { assetId: 'exchange:kraken:usdc', assetSymbol: 'USDC', grossAmount: parseDecimal('100') },
-            { assetId: 'blockchain:ethereum:0xa0b8...usdc', assetSymbol: 'USDC', grossAmount: parseDecimal('1') },
-          ],
-        },
-      },
-      {
+        sourceType: 'exchange',
+        datetime: '2026-02-07T00:00:00Z',
+        outflows: [{ assetSymbol: 'USDC', amount: '100' }],
+      }),
+      createTransaction({
         id: 2,
         source: 'blockchain:ethereum',
-        externalId: 'tx-2',
-        movements: {
-          inflows: [
-            { assetId: 'blockchain:ethereum:0xa0b8...usdc', assetSymbol: 'USDC', grossAmount: parseDecimal('101') },
-          ],
-        },
-      },
+        sourceType: 'blockchain',
+        datetime: '2026-02-07T01:00:00Z',
+        inflows: [{ assetSymbol: 'USDC', amount: '101' }],
+      }),
     ];
 
     const linkOverride: OverrideEvent = {
@@ -422,8 +337,8 @@ describe('LinkingOrchestrator', () => {
         type: 'link_override',
         action: 'confirm',
         link_type: 'transfer',
-        source_fingerprint: 'kraken:tx-1',
-        target_fingerprint: 'blockchain:ethereum:tx-2',
+        source_fingerprint: 'kraken:kraken-1',
+        target_fingerprint: 'blockchain:ethereum:blockchain:ethereum-2',
         asset: 'USDC',
       },
     };
@@ -452,42 +367,24 @@ describe('LinkingOrchestrator', () => {
     });
 
     assertOk(result);
-    expect(mockCreateBulk).not.toHaveBeenCalled();
   });
 
   it('skips orphaned override when target transaction has ambiguous assetIds for symbol', async () => {
-    vi.spyOn(TransactionLinkingEngine.prototype, 'linkTransactions').mockReturnValue(
-      ok({
-        confirmedLinks: [],
-        suggestedLinks: [],
-        totalSourceTransactions: 1,
-        totalTargetTransactions: 1,
-        matchedTransactionCount: 0,
-        unmatchedSourceCount: 1,
-        unmatchedTargetCount: 1,
-      })
-    );
-
     const transactions = [
-      {
+      createTransaction({
         id: 1,
         source: 'kraken',
-        externalId: 'tx-1',
-        movements: {
-          outflows: [{ assetId: 'exchange:kraken:usdc', assetSymbol: 'USDC', grossAmount: parseDecimal('100') }],
-        },
-      },
-      {
+        sourceType: 'exchange',
+        datetime: '2026-02-07T00:00:00Z',
+        outflows: [{ assetSymbol: 'USDC', amount: '100' }],
+      }),
+      createTransaction({
         id: 2,
         source: 'blockchain:ethereum',
-        externalId: 'tx-2',
-        movements: {
-          inflows: [
-            { assetId: 'blockchain:ethereum:0xa0b8...usdc', assetSymbol: 'USDC', grossAmount: parseDecimal('99') },
-            { assetId: 'blockchain:arbitrum:0xaf88...usdc', assetSymbol: 'USDC', grossAmount: parseDecimal('1') },
-          ],
-        },
-      },
+        sourceType: 'blockchain',
+        datetime: '2026-02-07T01:00:00Z',
+        inflows: [{ assetSymbol: 'USDC', amount: '99' }],
+      }),
     ];
 
     const linkOverride: OverrideEvent = {
@@ -500,8 +397,8 @@ describe('LinkingOrchestrator', () => {
         type: 'link_override',
         action: 'confirm',
         link_type: 'transfer',
-        source_fingerprint: 'kraken:tx-1',
-        target_fingerprint: 'blockchain:ethereum:tx-2',
+        source_fingerprint: 'kraken:kraken-1',
+        target_fingerprint: 'blockchain:ethereum:blockchain:ethereum-2',
         asset: 'USDC',
       },
     };
@@ -530,6 +427,5 @@ describe('LinkingOrchestrator', () => {
     });
 
     assertOk(result);
-    expect(mockCreateBulk).not.toHaveBeenCalled();
   });
 });

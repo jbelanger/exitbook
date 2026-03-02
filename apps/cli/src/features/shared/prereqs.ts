@@ -71,7 +71,13 @@ export async function ensureLinks(
   };
 
   if (options.isJsonMode) {
-    const handler = new LinkingOrchestrator(db.transactions, db.transactionLinks, overrideStore);
+    const handler = new LinkingOrchestrator(
+      db.transactions,
+      db.transactionLinks,
+      overrideStore,
+      undefined,
+      db.linkableMovements
+    );
     const result = await handler.execute(params);
     if (result.isErr()) return err(result.error);
     logger.info('Linking completed (JSON mode)');
@@ -98,7 +104,13 @@ export async function ensureLinks(
   try {
     await controller.start();
 
-    const handler = new LinkingOrchestrator(db.transactions, db.transactionLinks, overrideStore, eventBus);
+    const handler = new LinkingOrchestrator(
+      db.transactions,
+      db.transactionLinks,
+      overrideStore,
+      eventBus,
+      db.linkableMovements
+    );
     const result = await handler.execute(params);
 
     if (result.isErr()) {

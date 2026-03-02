@@ -6,6 +6,7 @@ import type { KyselyDB } from './database.js';
 import { closeDatabase, initializeDatabase } from './database.js';
 import { AccountRepository } from './repositories/account-repository.js';
 import { ImportSessionRepository } from './repositories/import-session-repository.js';
+import { LinkableMovementRepository } from './repositories/linkable-movement-repository.js';
 import { NearRawTransactionRepository } from './repositories/near-raw-data-repository.js';
 import { RawTransactionRepository } from './repositories/raw-transaction-repository.js';
 import { TransactionLinkRepository } from './repositories/transaction-link-repository.js';
@@ -25,6 +26,7 @@ export class DataContext {
   readonly accounts: AccountRepository;
   readonly transactions: TransactionRepository;
   readonly transactionLinks: TransactionLinkRepository;
+  readonly linkableMovements: LinkableMovementRepository;
   readonly rawTransactions: RawTransactionRepository;
   readonly importSessions: ImportSessionRepository;
   readonly users: UserRepository;
@@ -37,6 +39,7 @@ export class DataContext {
     this.accounts = new AccountRepository(connection);
     this.transactions = new TransactionRepository(connection);
     this.transactionLinks = new TransactionLinkRepository(connection);
+    this.linkableMovements = new LinkableMovementRepository(connection);
     this.rawTransactions = new RawTransactionRepository(connection);
     this.importSessions = new ImportSessionRepository(connection);
     this.users = new UserRepository(connection);

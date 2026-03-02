@@ -1,14 +1,13 @@
 import type { z } from 'zod';
 
 import type {
-  LinkingResultSchema,
   LinkStatusSchema,
   LinkTypeSchema,
   MatchCriteriaSchema,
   MatchingConfigSchema,
   NewTransactionLinkSchema,
   PotentialMatchSchema,
-  TransactionCandidateSchema,
+  ScoreComponentSchema,
   TransactionLinkSchema,
 } from './schemas.js';
 
@@ -49,14 +48,14 @@ export type TransactionLink = z.infer<typeof TransactionLinkSchema>;
 export type NewTransactionLink = z.infer<typeof NewTransactionLinkSchema>;
 
 /**
+ * A single component of a confidence score breakdown
+ */
+export type ScoreComponent = z.infer<typeof ScoreComponentSchema>;
+
+/**
  * A potential match found by the matching algorithm
  */
 export type PotentialMatch = z.infer<typeof PotentialMatchSchema>;
-
-/**
- * Simplified transaction data for matching
- */
-export type TransactionCandidate = z.infer<typeof TransactionCandidateSchema>;
 
 /**
  * Configuration for the matching algorithm
@@ -68,17 +67,11 @@ export type TransactionCandidate = z.infer<typeof TransactionCandidateSchema>;
 export type MatchingConfig = z.infer<typeof MatchingConfigSchema>;
 
 /**
- * Result of the linking process
- * - matchedTransactionCount: Total unique transactions involved in links (sources + targets)
- */
-export type LinkingResult = z.infer<typeof LinkingResultSchema>;
-
-/**
  * Represents a group of UTXO outflow transactions that should be treated as one
  * (e.g., multiple inputs from the same wallet going to one destination)
  */
 export interface OutflowGrouping {
   representativeTxId: number; // The TX that represents this group for matching
   groupMemberIds: Set<number>; // All TX IDs in this group (including representative)
-  assetId: string;
+  assetSymbol: string;
 }

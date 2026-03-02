@@ -1,15 +1,14 @@
 import { parseDecimal } from '@exitbook/core';
+import { LinkableMovementSchema } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import {
-  LinkingResultSchema,
   LinkStatusSchema,
   LinkTypeSchema,
   MatchCriteriaSchema,
   MatchingConfigSchema,
   PotentialMatchSchema,
-  TransactionCandidateSchema,
   TransactionLinkSchema,
 } from '../schemas.js';
 
@@ -131,8 +130,6 @@ describe('schemas', () => {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
-        sourceAssetId: 'exchange:kraken:btc',
-        targetAssetId: 'blockchain:bitcoin:btc',
         sourceAmount: parseDecimal('1.0'),
         targetAmount: parseDecimal('0.9995'),
         linkType: 'exchange_to_blockchain',
@@ -157,8 +154,6 @@ describe('schemas', () => {
       expect(result.sourceTransactionId).toBe(1);
       expect(result.targetTransactionId).toBe(2);
       expect(result.assetSymbol).toBe('BTC');
-      expect(result.sourceAssetId).toBe('exchange:kraken:btc');
-      expect(result.targetAssetId).toBe('blockchain:bitcoin:btc');
       expect(result.sourceAmount).toBeInstanceOf(Decimal);
       expect(result.sourceAmount.toFixed()).toBe('1');
       expect(result.targetAmount).toBeInstanceOf(Decimal);
@@ -177,8 +172,6 @@ describe('schemas', () => {
         sourceTransactionId: 3,
         targetTransactionId: 4,
         assetSymbol: 'ETH',
-        sourceAssetId: 'blockchain:ethereum:0xc02...c02',
-        targetAssetId: 'blockchain:arbitrum:0x82a...82a',
         sourceAmount: '10.0',
         targetAmount: '9.98',
         linkType: 'blockchain_to_blockchain',
@@ -227,8 +220,6 @@ describe('schemas', () => {
           sourceTransactionId: 1,
           targetTransactionId: 2,
           assetSymbol: 'BTC',
-          sourceAssetId: 'exchange:kraken:btc',
-          targetAssetId: 'blockchain:bitcoin:btc',
           sourceAmount: parseDecimal('1.0'),
           targetAmount: parseDecimal('1.0'),
           linkType: 'exchange_to_blockchain',
@@ -247,116 +238,27 @@ describe('schemas', () => {
     });
   });
 
-  describe('TransactionCandidateSchema', () => {
-    it('should validate complete transaction candidate', () => {
-      const candidate = {
-        id: 1,
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        externalId: 'W123',
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetSymbol: 'BTC',
-        assetId: 'exchange:kraken:btc',
-        amount: parseDecimal('1.5'),
-        direction: 'out',
-        fromAddress: 'addr123',
-        toAddress: 'addr456',
-      };
-
-      const result = TransactionCandidateSchema.parse(candidate);
-      expect(result.id).toBe(1);
-      expect(result.sourceName).toBe('kraken');
-      expect(result.sourceType).toBe('exchange');
-      expect(result.externalId).toBe('W123');
-      expect(result.timestamp).toBeInstanceOf(Date);
-      expect(result.assetSymbol).toBe('BTC');
-      expect(result.assetId).toBe('exchange:kraken:btc');
-      expect(result.amount).toBeInstanceOf(Decimal);
-      expect(result.amount.toFixed()).toBe('1.5');
-      expect(result.direction).toBe('out');
-    });
-
-    it('should validate blockchain candidate', () => {
-      const candidate = {
-        id: 2,
-        sourceName: 'bitcoin',
-        sourceType: 'blockchain',
-        timestamp: new Date('2024-01-01T13:00:00Z'),
-        assetSymbol: 'BTC',
-        assetId: 'blockchain:bitcoin:btc',
-        amount: '1.5',
-        direction: 'in',
-        toAddress: 'bc1q...',
-      };
-
-      const result = TransactionCandidateSchema.parse(candidate);
-      expect(result.sourceType).toBe('blockchain');
-      expect(result.amount).toBeInstanceOf(Decimal);
-      expect(result.fromAddress).toBeUndefined();
-    });
-
-    it('should validate neutral direction', () => {
-      const candidate = {
-        id: 3,
-        sourceName: 'test',
-        sourceType: 'exchange',
-        timestamp: new Date(),
-        assetSymbol: 'ETH',
-        assetId: 'exchange:test:eth',
-        amount: parseDecimal('0.5'),
-        direction: 'neutral',
-      };
-
-      const result = TransactionCandidateSchema.parse(candidate);
-      expect(result.direction).toBe('neutral');
-    });
-
-    it('should reject invalid direction', () => {
-      expect(() =>
-        TransactionCandidateSchema.parse({
-          id: 1,
-          sourceName: 'test',
-          sourceType: 'exchange',
-          timestamp: new Date(),
-          assetSymbol: 'BTC',
-          amount: parseDecimal('1.0'),
-          direction: 'invalid',
-        })
-      ).toThrow();
-    });
-
-    it('should reject invalid source type', () => {
-      expect(() =>
-        TransactionCandidateSchema.parse({
-          id: 1,
-          sourceName: 'test',
-          sourceType: 'wallet',
-          timestamp: new Date(),
-          assetSymbol: 'BTC',
-          amount: parseDecimal('1.0'),
-          direction: 'in',
-        })
-      ).toThrow();
-    });
-  });
-
   describe('PotentialMatchSchema', () => {
-    const createMockCandidate = (overrides = {}) => ({
+    const createMockMovement = (overrides = {}) => ({
       id: 1,
+      transactionId: 1,
+      accountId: 1,
       sourceName: 'test',
       sourceType: 'exchange' as const,
-      timestamp: new Date(),
+      assetId: 'test:btc',
       assetSymbol: 'BTC',
-      assetId: 'exchange:test:btc',
-      amount: parseDecimal('1.0'),
       direction: 'out' as const,
+      amount: parseDecimal('1.0'),
+      timestamp: new Date(),
+      isInternal: false,
+      excluded: false,
       ...overrides,
     });
 
     it('should validate complete potential match', () => {
       const match = {
-        sourceTransaction: createMockCandidate({ id: 1, direction: 'out' as const }),
-        targetTransaction: createMockCandidate({ id: 2, direction: 'in' as const }),
+        sourceMovement: createMockMovement({ id: 1, transactionId: 1, direction: 'out' as const }),
+        targetMovement: createMockMovement({ id: 2, transactionId: 2, direction: 'in' as const }),
         confidenceScore: parseDecimal('0.95'),
         matchCriteria: {
           assetMatch: true,
@@ -369,16 +271,16 @@ describe('schemas', () => {
       };
 
       const result = PotentialMatchSchema.parse(match);
-      expect(result.sourceTransaction.id).toBe(1);
-      expect(result.targetTransaction.id).toBe(2);
+      expect(result.sourceMovement.id).toBe(1);
+      expect(result.targetMovement.id).toBe(2);
       expect(result.confidenceScore).toBeInstanceOf(Decimal);
       expect(result.linkType).toBe('exchange_to_blockchain');
     });
 
     it('should validate match with string Decimal values', () => {
       const match = {
-        sourceTransaction: createMockCandidate({ amount: '1.5' }),
-        targetTransaction: createMockCandidate({ amount: '1.5' }),
+        sourceMovement: createMockMovement({ amount: '1.5' }),
+        targetMovement: createMockMovement({ amount: '1.5' }),
         confidenceScore: '0.90',
         matchCriteria: {
           assetMatch: true,
@@ -497,97 +399,6 @@ describe('schemas', () => {
     });
   });
 
-  describe('LinkingResultSchema', () => {
-    const createMockLink = (id: number, sourceName: number, targetId: number) => ({
-      id,
-      sourceTransactionId: sourceName,
-      targetTransactionId: targetId,
-      assetSymbol: 'BTC',
-      sourceAssetId: 'test:btc',
-      targetAssetId: 'test:btc',
-      sourceAmount: parseDecimal('1.0'),
-      targetAmount: parseDecimal('1.0'),
-      linkType: 'exchange_to_blockchain' as const,
-      confidenceScore: parseDecimal('0.95'),
-      matchCriteria: {
-        assetMatch: true,
-        amountSimilarity: parseDecimal('1.0'),
-        timingValid: true,
-        timingHours: 1.0,
-      },
-      status: 'confirmed' as const,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    it('should validate complete linking result', () => {
-      const result = {
-        suggestedLinks: [createMockLink(101, 1, 2), createMockLink(102, 3, 4)],
-        confirmedLinks: [createMockLink(1, 5, 6)],
-        totalSourceTransactions: 10,
-        totalTargetTransactions: 15,
-        matchedTransactionCount: 3,
-        unmatchedSourceCount: 7,
-        unmatchedTargetCount: 12,
-      };
-
-      const parsed = LinkingResultSchema.parse(result);
-      expect(parsed.suggestedLinks).toHaveLength(2);
-      expect(parsed.confirmedLinks).toHaveLength(1);
-      expect(parsed.totalSourceTransactions).toBe(10);
-      expect(parsed.totalTargetTransactions).toBe(15);
-      expect(parsed.matchedTransactionCount).toBe(3);
-      expect(parsed.unmatchedSourceCount).toBe(7);
-      expect(parsed.unmatchedTargetCount).toBe(12);
-    });
-
-    it('should validate result with empty arrays', () => {
-      const result = {
-        suggestedLinks: [],
-        confirmedLinks: [],
-        totalSourceTransactions: 5,
-        totalTargetTransactions: 5,
-        matchedTransactionCount: 0,
-        unmatchedSourceCount: 5,
-        unmatchedTargetCount: 5,
-      };
-
-      const parsed = LinkingResultSchema.parse(result);
-      expect(parsed.suggestedLinks).toHaveLength(0);
-      expect(parsed.confirmedLinks).toHaveLength(0);
-      expect(parsed.matchedTransactionCount).toBe(0);
-    });
-
-    it('should reject invalid counts', () => {
-      expect(() =>
-        LinkingResultSchema.parse({
-          suggestedLinks: [],
-          confirmedLinks: [],
-          totalSourceTransactions: 'not-a-number',
-          totalTargetTransactions: 5,
-          matchedTransactionCount: 0,
-          unmatchedSourceCount: 5,
-          unmatchedTargetCount: 5,
-        })
-      ).toThrow();
-    });
-
-    it('should accept non-negative counts', () => {
-      const result = {
-        suggestedLinks: [],
-        confirmedLinks: [],
-        totalSourceTransactions: 0,
-        totalTargetTransactions: 0,
-        matchedTransactionCount: 0,
-        unmatchedSourceCount: 0,
-        unmatchedTargetCount: 0,
-      };
-
-      const parsed = LinkingResultSchema.parse(result);
-      expect(parsed.totalSourceTransactions).toBe(0);
-    });
-  });
-
   describe('Decimal transformation', () => {
     it('should transform string to Decimal', () => {
       const config = {
@@ -630,53 +441,65 @@ describe('schemas', () => {
     });
 
     it('should handle very large numbers', () => {
-      const candidate = {
+      const movement = {
         id: 1,
+        transactionId: 1,
+        accountId: 1,
         sourceName: 'test',
         sourceType: 'exchange' as const,
-        timestamp: new Date(),
-        assetSymbol: 'SHIB',
         assetId: 'test:shib',
-        amount: '1000000000000',
+        assetSymbol: 'SHIB',
         direction: 'in' as const,
+        amount: '1000000000000',
+        timestamp: new Date(),
+        isInternal: false,
+        excluded: false,
       };
 
-      const result = TransactionCandidateSchema.parse(candidate);
+      const result = LinkableMovementSchema.parse(movement);
       expect(result.amount).toBeInstanceOf(Decimal);
       expect(result.amount.toFixed()).toBe('1000000000000');
     });
 
     it('should accept optional grossAmount', () => {
-      const candidate = {
+      const movement = {
         id: 1,
+        transactionId: 1,
+        accountId: 1,
         sourceName: 'cardano',
         sourceType: 'blockchain' as const,
-        timestamp: new Date('2024-01-01T12:00:00Z'),
-        assetId: 'blockchain:cardano:native',
+        assetId: 'test:ada',
         assetSymbol: 'ADA',
+        direction: 'out' as const,
         amount: '2678.842165',
         grossAmount: '2679.718442',
-        direction: 'out' as const,
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        isInternal: false,
+        excluded: false,
       };
 
-      const result = TransactionCandidateSchema.parse(candidate);
+      const result = LinkableMovementSchema.parse(movement);
       expect(result.grossAmount).toBeInstanceOf(Decimal);
       expect(result.grossAmount!.toFixed()).toBe('2679.718442');
     });
 
     it('should allow omitting grossAmount', () => {
-      const candidate = {
+      const movement = {
         id: 1,
+        transactionId: 1,
+        accountId: 1,
         sourceName: 'kraken',
         sourceType: 'exchange' as const,
-        timestamp: new Date('2024-01-01T12:00:00Z'),
         assetId: 'test:btc',
         assetSymbol: 'BTC',
-        amount: '1.0',
         direction: 'out' as const,
+        amount: '1.0',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        isInternal: false,
+        excluded: false,
       };
 
-      const result = TransactionCandidateSchema.parse(candidate);
+      const result = LinkableMovementSchema.parse(movement);
       expect(result.grossAmount).toBeUndefined();
     });
   });

@@ -48,8 +48,6 @@ export const TransactionLinkSchema = z.object({
   sourceTransactionId: z.number(),
   targetTransactionId: z.number(),
   assetSymbol: CurrencySchema,
-  sourceAssetId: z.string(),
-  targetAssetId: z.string(),
   sourceAmount: DecimalSchema,
   targetAmount: DecimalSchema,
   linkType: LinkTypeSchema,

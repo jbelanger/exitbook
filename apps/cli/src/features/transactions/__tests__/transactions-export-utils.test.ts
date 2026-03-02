@@ -496,8 +496,6 @@ describe('export-utils', () => {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC' as Currency,
-        sourceAssetId: 'test:btc',
-        targetAssetId: 'test:btc',
         sourceAmount: parseDecimal('1.5'),
         targetAmount: parseDecimal('1.49'),
         linkType: 'exchange_to_blockchain',

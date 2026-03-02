@@ -5,6 +5,7 @@ export { DataContext } from './data-context.js';
 export {
   AccountRepository,
   ImportSessionRepository,
+  LinkableMovementRepository,
   NearRawTransactionRepository,
   RawTransactionRepository,
   TransactionLinkRepository,
@@ -23,7 +24,12 @@ export type {
 } from './repositories/index.js';
 
 export { generateDeterministicTransactionHash } from './utils/transaction-id-utils.js';
-export type { DatabaseSchema, TransactionLinksTable, RawTransactionTable } from './database-schema.js';
+export type {
+  DatabaseSchema,
+  LinkableMovementsTable,
+  TransactionLinksTable,
+  RawTransactionTable,
+} from './database-schema.js';
 export { toRawTransaction, withControlledTransaction } from './utils/db-utils.js';
 
 export * from './overrides/index.js';

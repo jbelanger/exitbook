@@ -1,7 +1,6 @@
 import {
-  CurrencySchema,
-  DateSchema,
   DecimalSchema,
+  LinkableMovementSchema,
   LinkStatusSchema,
   LinkTypeSchema,
   MatchCriteriaSchema,
@@ -29,34 +28,27 @@ export {
 };
 
 /**
- * Transaction candidate schema
+ * A single component of a confidence score breakdown.
+ * Captures which signal contributed, its weight, raw value, and weighted contribution.
  */
-export const TransactionCandidateSchema = z.object({
-  id: z.number(),
-  sourceName: z.string(),
-  sourceType: z.enum(['exchange', 'blockchain']),
-  externalId: z.string().optional(),
-  timestamp: DateSchema,
-  assetId: z.string(),
-  assetSymbol: CurrencySchema,
-  amount: DecimalSchema,
-  grossAmount: DecimalSchema.optional(), // Only set when different from amount (UTXO outflows with fee)
-  direction: z.enum(['in', 'out', 'neutral']),
-  fromAddress: z.string().optional(),
-  toAddress: z.string().optional(),
-  blockchainTransactionHash: z.string().optional(),
+export const ScoreComponentSchema = z.object({
+  signal: z.string(),
+  weight: DecimalSchema,
+  value: DecimalSchema,
+  contribution: DecimalSchema,
 });
 
 /**
  * Potential match schema
  */
 export const PotentialMatchSchema = z.object({
-  sourceTransaction: TransactionCandidateSchema,
-  targetTransaction: TransactionCandidateSchema,
+  sourceMovement: LinkableMovementSchema,
+  targetMovement: LinkableMovementSchema,
   confidenceScore: UnitIntervalDecimalSchema,
   matchCriteria: MatchCriteriaSchema,
   linkType: LinkTypeSchema,
   consumedAmount: DecimalSchema.optional(),
+  scoreBreakdown: z.array(ScoreComponentSchema).optional(),
 });
 
 /**
@@ -68,17 +60,4 @@ export const MatchingConfigSchema = z.object({
   minConfidenceScore: DecimalSchema,
   autoConfirmThreshold: DecimalSchema,
   minPartialMatchFraction: DecimalSchema,
-});
-
-/**
- * Linking result schema
- */
-export const LinkingResultSchema = z.object({
-  suggestedLinks: z.array(NewTransactionLinkSchema),
-  confirmedLinks: z.array(NewTransactionLinkSchema),
-  totalSourceTransactions: z.number(),
-  totalTargetTransactions: z.number(),
-  matchedTransactionCount: z.number(),
-  unmatchedSourceCount: z.number(),
-  unmatchedTargetCount: z.number(),
 });

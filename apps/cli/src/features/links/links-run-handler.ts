@@ -83,8 +83,16 @@ export function createLinksRunHandler(
   const linkRepository = database.transactionLinks;
   const overrideStore = new OverrideStore(ctx.dataDir);
 
+  const linkableMovementRepository = database.linkableMovements;
+
   if (options.isJsonMode) {
-    const orchestrator = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore);
+    const orchestrator = new LinkingOrchestrator(
+      transactionRepository,
+      linkRepository,
+      overrideStore,
+      undefined,
+      linkableMovementRepository
+    );
     return new LinksRunHandler(orchestrator, undefined);
   }
 
@@ -94,7 +102,13 @@ export function createLinksRunHandler(
     },
   });
   const controller = createEventDrivenController(eventBus, LinksRunMonitor, { dryRun: options.dryRun });
-  const orchestrator = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore, eventBus);
+  const orchestrator = new LinkingOrchestrator(
+    transactionRepository,
+    linkRepository,
+    overrideStore,
+    eventBus,
+    linkableMovementRepository
+  );
 
   return new LinksRunHandler(orchestrator, controller);
 }

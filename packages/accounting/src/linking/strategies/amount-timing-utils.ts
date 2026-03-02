@@ -1,8 +1,10 @@
-import type { SourceType } from '@exitbook/core';
+import type { LinkableMovement, SourceType } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
-import type { LinkType, MatchCriteria, MatchingConfig, PotentialMatch, TransactionCandidate } from './types.js';
+import type { LinkType, MatchCriteria, MatchingConfig, PotentialMatch, ScoreComponent } from '../types.js';
+
+import { checkTransactionHashMatch } from './exact-hash-utils.js';
 
 /**
  * Calculate amount similarity between two amounts (0-1 score)
@@ -94,16 +96,13 @@ export function determineLinkType(sourceType: SourceType, targetType: SourceType
  * Target endpoint may be available as either `to` (preferred) or `from`
  * depending on source-specific ingestion details.
  *
- * @param sourceTransaction - Source transaction with destination address
- * @param targetTransaction - Target transaction with endpoint addresses
+ * @param source - Source movement with destination address
+ * @param target - Target movement with endpoint addresses
  * @returns True if addresses match, false if they conflict, undefined if unavailable
  */
-export function checkAddressMatch(
-  sourceTransaction: TransactionCandidate,
-  targetTransaction: TransactionCandidate
-): boolean | undefined {
-  const targetDestinationAddress = targetTransaction.toAddress;
-  const targetSourceAddress = targetTransaction.fromAddress;
+export function checkAddressMatch(source: LinkableMovement, target: LinkableMovement): boolean | undefined {
+  const targetDestinationAddress = target.toAddress;
+  const targetSourceAddress = target.fromAddress;
 
   // No target addresses available — inconclusive
   if (!targetDestinationAddress && !targetSourceAddress) {
@@ -111,7 +110,7 @@ export function checkAddressMatch(
   }
 
   // Try source.toAddress → target (standard: withdrawal destination matches deposit endpoint)
-  const sourceDestinationAddress = sourceTransaction.toAddress;
+  const sourceDestinationAddress = source.toAddress;
   if (sourceDestinationAddress) {
     const normalized = sourceDestinationAddress.toLowerCase();
     if (targetDestinationAddress && normalized === targetDestinationAddress.toLowerCase()) {
@@ -124,7 +123,7 @@ export function checkAddressMatch(
 
   // Try source.fromAddress → target.toAddress
   // Covers blockchain→exchange: user's sending address matches exchange deposit address
-  const sourceOriginAddress = sourceTransaction.fromAddress;
+  const sourceOriginAddress = source.fromAddress;
   if (sourceOriginAddress) {
     if (targetDestinationAddress && sourceOriginAddress.toLowerCase() === targetDestinationAddress.toLowerCase()) {
       return true;
@@ -141,123 +140,86 @@ export function checkAddressMatch(
 }
 
 /**
- * Normalize a blockchain transaction hash by removing log index suffix.
- * Some providers (e.g., Moralis) append `-{logIndex}` to differentiate token transfers
- * within the same transaction, while others (e.g., Routescan) don't provide log index.
+ * Calculate overall confidence score based on match criteria.
  *
- * Examples:
- * - 0xabc123-819 → 0xabc123
- * - 0xabc123 → 0xabc123
- *
- * @param txHash - Transaction hash, potentially with log index suffix
- * @returns Normalized transaction hash without suffix
- */
-export function normalizeTransactionHash(txHash: string): string {
-  // Strip -<number> suffix if present (log index from Moralis, etc.)
-  return txHash.replace(/-\d+$/, '');
-}
-
-/**
- * Check if blockchain transaction hashes match (if both available).
- * Uses hash normalization to handle provider inconsistencies (e.g., log index suffixes).
- *
- * Safety: Only strips log index when one side has it and the other doesn't. If both
- * sides have log indices, requires exact match to prevent batched transfers from
- * collapsing into the same match.
- *
- * @param sourceTransaction - Source transaction
- * @param targetTransaction - Target transaction
- * @returns True if hashes match, undefined if either hash not available
- */
-export function checkTransactionHashMatch(
-  sourceTransaction: TransactionCandidate,
-  targetTransaction: TransactionCandidate
-): boolean | undefined {
-  const sourceHash = sourceTransaction.blockchainTransactionHash;
-  const targetHash = targetTransaction.blockchainTransactionHash;
-
-  // Both must have hashes to compare
-  if (!sourceHash || !targetHash) {
-    return undefined;
-  }
-
-  // Check if each hash has a log index suffix
-  const sourceHasLogIndex = /-\d+$/.test(sourceHash);
-  const targetHasLogIndex = /-\d+$/.test(targetHash);
-
-  let normalizedSource: string;
-  let normalizedTarget: string;
-
-  if (sourceHasLogIndex && targetHasLogIndex) {
-    // Both have log indices - require exact match (don't strip)
-    // This prevents batched transfers from collapsing into the same match
-    normalizedSource = sourceHash;
-    normalizedTarget = targetHash;
-  } else if (sourceHasLogIndex || targetHasLogIndex) {
-    // Only one has log index - strip it for comparison
-    normalizedSource = normalizeTransactionHash(sourceHash);
-    normalizedTarget = normalizeTransactionHash(targetHash);
-  } else {
-    // Neither has log index - compare as-is
-    normalizedSource = sourceHash;
-    normalizedTarget = targetHash;
-  }
-
-  // Only lowercase hex hashes (0x prefix) - Solana/Cardano hashes are case-sensitive
-  const isHexHash = normalizedSource.startsWith('0x') || normalizedTarget.startsWith('0x');
-  if (isHexHash) {
-    return normalizedSource.toLowerCase() === normalizedTarget.toLowerCase();
-  }
-
-  // Case-sensitive comparison for non-hex hashes (Solana base58, etc.)
-  return normalizedSource === normalizedTarget;
-}
-
-/**
- * Calculate overall confidence score based on match criteria
+ * Returns both the final score and a breakdown array showing how each
+ * signal contributed — useful for audit trails and debugging.
  *
  * @param criteria - Match criteria
- * @returns Confidence score from 0 to 1
+ * @returns Object with score (0-1) and breakdown of weighted components
  */
-export function calculateConfidenceScore(criteria: MatchCriteria): Decimal {
+export function calculateConfidenceScore(criteria: MatchCriteria): {
+  breakdown: ScoreComponent[];
+  score: Decimal;
+} {
+  const breakdown: ScoreComponent[] = [];
   let score = parseDecimal('0');
 
-  // Asset match is mandatory (30% weight)
-  if (criteria.assetMatch) {
-    score = score.plus(parseDecimal('0.3'));
-  } else {
-    return parseDecimal('0'); // No match if assets don't match
+  // Asset match is mandatory (30% weight) — hard veto if false
+  if (!criteria.assetMatch) {
+    return { score: parseDecimal('0'), breakdown: [] };
   }
 
+  const assetBase = parseDecimal('0.3');
+  breakdown.push({ signal: 'asset_match', weight: assetBase, value: parseDecimal('1'), contribution: assetBase });
+  score = score.plus(assetBase);
+
   // Amount similarity (40% weight)
-  const amountWeight = criteria.amountSimilarity.times(parseDecimal('0.4'));
-  score = score.plus(amountWeight);
+  const amountWeight = parseDecimal('0.4');
+  const amountContribution = criteria.amountSimilarity.times(amountWeight);
+  breakdown.push({
+    signal: 'amount_similarity',
+    weight: amountWeight,
+    value: criteria.amountSimilarity,
+    contribution: amountContribution,
+  });
+  score = score.plus(amountContribution);
 
   // Timing validity (20% weight)
   if (criteria.timingValid) {
-    score = score.plus(parseDecimal('0.2'));
+    const timingWeight = parseDecimal('0.2');
+    breakdown.push({
+      signal: 'timing_valid',
+      weight: timingWeight,
+      value: parseDecimal('1'),
+      contribution: timingWeight,
+    });
+    score = score.plus(timingWeight);
 
     // Bonus for very close timing (within 1 hour = extra 5%)
     if (criteria.timingHours <= 1) {
-      score = score.plus(parseDecimal('0.05'));
+      const timingBonus = parseDecimal('0.05');
+      breakdown.push({
+        signal: 'timing_close_bonus',
+        weight: timingBonus,
+        value: parseDecimal('1'),
+        contribution: timingBonus,
+      });
+      score = score.plus(timingBonus);
     }
   }
 
-  // Address match bonus (10% weight)
+  // Address match bonus (10% weight) — hard veto if explicitly false
   if (criteria.addressMatch === true) {
-    score = score.plus(0.1);
+    const addressWeight = parseDecimal('0.1');
+    breakdown.push({
+      signal: 'address_match',
+      weight: addressWeight,
+      value: parseDecimal('1'),
+      contribution: addressWeight,
+    });
+    score = score.plus(addressWeight);
   } else if (criteria.addressMatch === false) {
-    // Addresses don't match - significant penalty
-    return parseDecimal('0');
+    return { score: parseDecimal('0'), breakdown: [] };
   }
 
-  // Clamp to [0, 1]
-  score = Decimal.min(Decimal.max(score, parseDecimal('0')), parseDecimal('1'));
+  // Clamp to [0, 1] and round to 6 decimal places for deterministic threshold comparisons
+  score = Decimal.min(Decimal.max(score, parseDecimal('0')), parseDecimal('1')).toDecimalPlaces(
+    6,
+    Decimal.ROUND_HALF_UP
+  );
 
-  // Round to 6 decimal places to ensure deterministic threshold comparisons
-  // and avoid floating point precision issues. This precision is more than
-  // sufficient for financial matching (effective similarity precision: ~2.5 ppm)
-  return score.toDecimalPlaces(6, Decimal.ROUND_HALF_UP);
+  return { score, breakdown };
 }
 
 /**
@@ -272,7 +234,7 @@ export function calculateConfidenceScore(criteria: MatchCriteria): Decimal {
  *  2. source.grossAmount vs target.amount       (gross vs net — UTXO send vs exchange deposit)
  *  3. source.amount vs target.grossAmount       (net vs gross — reversed)
  */
-export function calculateFeeAwareAmountSimilarity(source: TransactionCandidate, target: TransactionCandidate): Decimal {
+export function calculateFeeAwareAmountSimilarity(source: LinkableMovement, target: LinkableMovement): Decimal {
   // Always try the primary amounts first
   let best = calculateAmountSimilarity(source.amount, target.amount);
 
@@ -292,16 +254,16 @@ export function calculateFeeAwareAmountSimilarity(source: TransactionCandidate, 
 }
 
 /**
- * Build match criteria for two transaction candidates
+ * Build match criteria for two linkable movements
  *
- * @param source - Source transaction (withdrawal/send)
- * @param target - Target transaction (deposit/receive)
+ * @param source - Source movement (withdrawal/send)
+ * @param target - Target movement (deposit/receive)
  * @param config - Matching configuration
  * @returns Match criteria
  */
 export function buildMatchCriteria(
-  source: TransactionCandidate,
-  target: TransactionCandidate,
+  source: LinkableMovement,
+  target: LinkableMovement,
   config: MatchingConfig
 ): MatchCriteria {
   const assetMatch = source.assetSymbol === target.assetSymbol;
@@ -320,27 +282,27 @@ export function buildMatchCriteria(
 }
 
 /**
- * Score and filter matches for a source transaction from a list of target candidates.
+ * Score and filter matches for a source movement from a list of target movements.
  *
  * Evaluates all targets against the source using hard filters (asset, direction, timing,
  * amount similarity, confidence), handles hash-match fast-path for blockchain transactions,
  * and returns matches sorted by confidence (highest first).
  *
- * @param source - Source transaction (withdrawal/send)
- * @param targets - List of target candidates (deposits/receives)
+ * @param source - Source movement (withdrawal/send)
+ * @param targets - List of target movements (deposits/receives)
  * @param config - Matching configuration
  * @returns Array of potential matches sorted by confidence (highest first)
  */
 export function scoreAndFilterMatches(
-  source: TransactionCandidate,
-  targets: TransactionCandidate[],
+  source: LinkableMovement,
+  targets: LinkableMovement[],
   config: MatchingConfig
 ): PotentialMatch[] {
   const matches: PotentialMatch[] = [];
 
   for (const target of targets) {
-    // Prevent self-matching (candidates from the same transaction)
-    if (source.id === target.id) continue;
+    // Prevent self-matching (movements from the same transaction)
+    if (source.transactionId === target.transactionId) continue;
 
     // Quick filters
     if (source.assetSymbol !== target.assetSymbol) continue;
@@ -369,7 +331,7 @@ export function scoreAndFilterMatches(
       // Find all eligible targets with same hash and asset
       // Use checkTransactionHashMatch to ensure consistent log-index handling
       const targetsWithSameHash = targets.filter((t) => {
-        if (t.id === source.id) return false; // Exclude self
+        if (t.transactionId === source.transactionId) return false; // Exclude self
         if (t.assetSymbol !== source.assetSymbol) return false;
         if (t.direction !== 'in') return false;
 
@@ -392,8 +354,8 @@ export function scoreAndFilterMatches(
           const timingValid = isTimingValid(source.timestamp, target.timestamp, config);
 
           matches.push({
-            sourceTransaction: source,
-            targetTransaction: target,
+            sourceMovement: source,
+            targetMovement: target,
             confidenceScore: parseDecimal('1.0'),
             matchCriteria: {
               assetMatch: true,
@@ -414,8 +376,8 @@ export function scoreAndFilterMatches(
         const timingValid = isTimingValid(source.timestamp, target.timestamp, config);
 
         matches.push({
-          sourceTransaction: source,
-          targetTransaction: target,
+          sourceMovement: source,
+          targetMovement: target,
           confidenceScore: parseDecimal('1.0'),
           matchCriteria: {
             assetMatch: true,
@@ -441,7 +403,7 @@ export function scoreAndFilterMatches(
     }
 
     // Calculate confidence
-    const confidenceScore = calculateConfidenceScore(criteria);
+    const { score: confidenceScore, breakdown } = calculateConfidenceScore(criteria);
 
     // Filter by minimum confidence
     if (confidenceScore.lessThan(config.minConfidenceScore)) {
@@ -452,11 +414,12 @@ export function scoreAndFilterMatches(
     const linkType = determineLinkType(source.sourceType, target.sourceType);
 
     matches.push({
-      sourceTransaction: source,
-      targetTransaction: target,
+      sourceMovement: source,
+      targetMovement: target,
       confidenceScore,
       matchCriteria: criteria,
       linkType,
+      scoreBreakdown: breakdown,
     });
   }
 

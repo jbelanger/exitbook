@@ -5,6 +5,9 @@ import type { TransactionLink } from './types.js';
 /**
  * In-memory index for efficient transaction link lookups with support for batched withdrawals.
  *
+ * All keys use assetSymbol (not venue-scoped assetId) because linking is cross-venue:
+ * a withdrawal from an exchange and a deposit on a blockchain share the same symbol.
+ *
  * Provides two-phase consumption:
  * - Source-side: Mark link as consumed during outflow processing (removes from sourceMap)
  * - Target-side: Mark link as consumed during inflow processing (removes from targetMap)
@@ -14,7 +17,7 @@ import type { TransactionLink } from './types.js';
  */
 export class LinkIndex {
   private sourceMap: Map<string, TransactionLink[]>;
-  /** Secondary source index keyed by (txId, assetId) without amount — fallback for UTXO adjusted amounts */
+  /** Secondary source index keyed by (txId, assetSymbol) without amount — fallback for UTXO adjusted amounts */
   private sourceByTxAssetMap: Map<string, TransactionLink[]>;
   private targetMap: Map<string, TransactionLink[]>;
 
@@ -24,9 +27,9 @@ export class LinkIndex {
     this.targetMap = new Map();
 
     for (const link of links) {
-      const sourceKey = this.buildSourceKey(link.sourceTransactionId, link.sourceAssetId, link.sourceAmount);
-      const sourceTxAssetKey = buildTxAssetKey(link.sourceTransactionId, link.sourceAssetId);
-      const targetKey = buildTxAssetKey(link.targetTransactionId, link.targetAssetId);
+      const sourceKey = this.buildSourceKey(link.sourceTransactionId, link.assetSymbol, link.sourceAmount);
+      const sourceTxAssetKey = buildTxAssetKey(link.sourceTransactionId, link.assetSymbol);
+      const targetKey = buildTxAssetKey(link.targetTransactionId, link.assetSymbol);
 
       if (!this.sourceMap.has(sourceKey)) {
         this.sourceMap.set(sourceKey, []);
@@ -47,60 +50,59 @@ export class LinkIndex {
 
   /**
    * Find next unconsumed link for a source outflow transaction.
-   * Returns first available link matching txId + assetId + amount.
+   * Returns first available link matching txId + assetSymbol + amount.
    */
-  findBySource(txId: number, assetId: string, amount: Decimal): TransactionLink | undefined {
-    const key = this.buildSourceKey(txId, assetId, amount);
+  findBySource(txId: number, assetSymbol: string, amount: Decimal): TransactionLink | undefined {
+    const key = this.buildSourceKey(txId, assetSymbol, amount);
     const links = this.sourceMap.get(key);
     return links && links.length > 0 ? (links[0] ?? undefined) : undefined;
   }
 
   /**
-   * Find next unconsumed link for a source outflow transaction by txId + assetId only.
+   * Find next unconsumed link for a source outflow transaction by txId + assetSymbol only.
    * Fallback for UTXO transactions where link sourceAmount is an adjusted amount
    * (gross minus internal change) that doesn't match any movement amount.
    */
-  findAnyBySource(txId: number, assetId: string): TransactionLink | undefined {
-    const key = buildTxAssetKey(txId, assetId);
+  findAnyBySource(txId: number, assetSymbol: string): TransactionLink | undefined {
+    const key = buildTxAssetKey(txId, assetSymbol);
     const links = this.sourceByTxAssetMap.get(key);
     return links && links.length > 0 ? (links[0] ?? undefined) : undefined;
   }
 
   /**
    * Find next unconsumed link for a target inflow transaction.
-   * Returns first available link matching txId + assetId.
+   * Returns first available link matching txId + assetSymbol.
    */
-  findByTarget(txId: number, assetId: string): TransactionLink | undefined {
-    const key = buildTxAssetKey(txId, assetId);
+  findByTarget(txId: number, assetSymbol: string): TransactionLink | undefined {
+    const key = buildTxAssetKey(txId, assetSymbol);
     const links = this.targetMap.get(key);
     return links && links.length > 0 ? (links[0] ?? undefined) : undefined;
+  }
+
+  /**
+   * Find all unconsumed links for a source outflow transaction by txId + assetSymbol.
+   * Returns all links (supports 1:N partial matches where one source has multiple links).
+   */
+  findAllBySource(txId: number, assetSymbol: string): TransactionLink[] {
+    const key = buildTxAssetKey(txId, assetSymbol);
+    return this.sourceByTxAssetMap.get(key) ?? [];
+  }
+
+  /**
+   * Find all unconsumed links for a target inflow transaction by txId + assetSymbol.
+   * Returns all links (supports N:1 partial matches where one target has multiple links).
+   */
+  findAllByTarget(txId: number, assetSymbol: string): TransactionLink[] {
+    const key = buildTxAssetKey(txId, assetSymbol);
+    return this.targetMap.get(key) ?? [];
   }
 
   /**
    * Mark link as consumed from source side.
    * Removes link from sourceMap and sourceByTxAssetMap but leaves it in targetMap for inflow processing.
    */
-
-  /**
-   * Find all unconsumed links for a source outflow transaction by txId + assetId.
-   * Returns all links (supports 1:N partial matches where one source has multiple links).
-   */
-  findAllBySource(txId: number, assetId: string): TransactionLink[] {
-    const key = buildTxAssetKey(txId, assetId);
-    return this.sourceByTxAssetMap.get(key) ?? [];
-  }
-
-  /**
-   * Find all unconsumed links for a target inflow transaction by txId + assetId.
-   * Returns all links (supports N:1 partial matches where one target has multiple links).
-   */
-  findAllByTarget(txId: number, assetId: string): TransactionLink[] {
-    const key = buildTxAssetKey(txId, assetId);
-    return this.targetMap.get(key) ?? [];
-  }
-
   consumeSourceLink(link: TransactionLink): void {
-    const key = this.buildSourceKey(link.sourceTransactionId, link.sourceAssetId, link.sourceAmount);
+    const key = this.buildSourceKey(link.sourceTransactionId, link.assetSymbol, link.sourceAmount);
     const links = this.sourceMap.get(key);
     if (links) {
       const index = links.findIndex((l) => l.id === link.id);
@@ -112,7 +114,7 @@ export class LinkIndex {
       }
     }
 
-    const txAssetKey = buildTxAssetKey(link.sourceTransactionId, link.sourceAssetId);
+    const txAssetKey = buildTxAssetKey(link.sourceTransactionId, link.assetSymbol);
     const txAssetLinks = this.sourceByTxAssetMap.get(txAssetKey);
     if (txAssetLinks) {
       const index = txAssetLinks.findIndex((l) => l.id === link.id);
@@ -130,7 +132,7 @@ export class LinkIndex {
    * Removes link from targetMap after inflow processing.
    */
   consumeTargetLink(link: TransactionLink): void {
-    const key = buildTxAssetKey(link.targetTransactionId, link.targetAssetId);
+    const key = buildTxAssetKey(link.targetTransactionId, link.assetSymbol);
     const links = this.targetMap.get(key);
     if (links) {
       const index = links.findIndex((l) => l.id === link.id);
@@ -143,15 +145,15 @@ export class LinkIndex {
     }
   }
 
-  private buildSourceKey(txId: number, assetId: string, amount: Decimal): string {
-    return `${txId}:${assetId}:${amount.toFixed()}`;
+  private buildSourceKey(txId: number, assetSymbol: string, amount: Decimal): string {
+    return `${txId}:${assetSymbol}:${amount.toFixed()}`;
   }
 }
 
 /**
- * Build key from transaction ID and asset ID (no amount).
+ * Build key from transaction ID and asset symbol (no amount).
  * Used for target lookups and fallback source lookups.
  */
-function buildTxAssetKey(txId: number, assetId: string): string {
-  return `${txId}:${assetId}`;
+function buildTxAssetKey(txId: number, assetSymbol: string): string {
+  return `${txId}:${assetSymbol}`;
 }

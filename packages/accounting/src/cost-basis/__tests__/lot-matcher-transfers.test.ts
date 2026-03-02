@@ -33,16 +33,12 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     assetSymbol: string,
     sourceAmount: string,
     targetAmount: string,
-    confidenceScore = '98.5',
-    sourceAssetId?: string,
-    targetAssetId?: string
+    confidenceScore = '98.5'
   ): TransactionLink => ({
     id,
     sourceTransactionId,
     targetTransactionId,
     assetSymbol: assetSymbol as Currency,
-    sourceAssetId: sourceAssetId ?? `test:${assetSymbol.toLowerCase()}`,
-    targetAssetId: targetAssetId ?? `test:${assetSymbol.toLowerCase()}`,
     sourceAmount: parseDecimal(sourceAmount),
     targetAmount: parseDecimal(targetAmount),
     linkType: 'exchange_to_blockchain',
@@ -1267,18 +1263,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      // Link with different sourceAssetId / targetAssetId
-      const link = createLink(
-        1,
-        2,
-        3,
-        'BTC',
-        '0.9995',
-        '0.9995',
-        '98.5',
-        'exchange:kraken:btc',
-        'blockchain:bitcoin:native'
-      );
+      const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995', '98.5');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);

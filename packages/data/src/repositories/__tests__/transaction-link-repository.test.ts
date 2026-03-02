@@ -18,8 +18,6 @@ function makeBtcLink(sourceTxId: number, targetTxId: number): NewTransactionLink
     sourceTransactionId: sourceTxId,
     targetTransactionId: targetTxId,
     assetSymbol: 'BTC' as Currency,
-    sourceAssetId: 'test:btc',
-    targetAssetId: 'test:btc',
     sourceAmount: parseDecimal('1.0'),
     targetAmount: parseDecimal('0.9995'),
     linkType: 'exchange_to_blockchain',
@@ -94,8 +92,6 @@ describe('TransactionLinkRepository', () => {
       const link: NewTransactionLink = {
         ...makeBtcLink(1, 2),
         assetSymbol: 'ETH' as Currency,
-        sourceAssetId: 'test:eth',
-        targetAssetId: 'test:eth',
         sourceAmount: parseDecimal('10.0'),
         targetAmount: parseDecimal('9.95'),
         linkType: 'blockchain_to_blockchain',
@@ -141,8 +137,6 @@ describe('TransactionLinkRepository', () => {
         {
           ...makeBtcLink(3, 4),
           assetSymbol: 'ETH' as Currency,
-          sourceAssetId: 'test:eth',
-          targetAssetId: 'test:eth',
           sourceAmount: parseDecimal('10.0'),
           targetAmount: parseDecimal('9.98'),
           linkType: 'blockchain_to_blockchain',
@@ -172,8 +166,6 @@ describe('TransactionLinkRepository', () => {
       await repo.create({
         ...makeBtcLink(7, 9),
         assetSymbol: 'ETH' as Currency,
-        sourceAssetId: 'test:eth',
-        targetAssetId: 'test:eth',
         sourceAmount: parseDecimal('5.0'),
         targetAmount: parseDecimal('4.99'),
         confidenceScore: parseDecimal('0.97'),
@@ -212,8 +204,6 @@ describe('TransactionLinkRepository', () => {
       await repo.create({
         ...makeBtcLink(3, 4),
         assetSymbol: 'ETH' as Currency,
-        sourceAssetId: 'test:eth',
-        targetAssetId: 'test:eth',
       });
 
       expect(assertOk(await repo.count())).toBe(2);
@@ -260,8 +250,6 @@ describe('TransactionLinkRepository', () => {
       await repo.create({
         ...makeBtcLink(11, 12),
         assetSymbol: 'ETH' as Currency,
-        sourceAssetId: 'test:eth',
-        targetAssetId: 'test:eth',
       });
 
       expect(assertOk(await repo.count({ accountIds: [1] }))).toBe(1);

@@ -108,8 +108,8 @@ export function calculateVarianceMetadata(
  */
 export function validateLinkAmountsForMatch(match: PotentialMatch): Result<LinkAmountValidationInfo, Error> {
   // Use consumed amount if present (partial match), otherwise original amounts
-  const sourceAmount = match.consumedAmount ?? match.sourceTransaction.amount;
-  const targetAmount = match.consumedAmount ?? match.targetTransaction.amount;
+  const sourceAmount = match.consumedAmount ?? match.sourceMovement.amount;
+  const targetAmount = match.consumedAmount ?? match.targetMovement.amount;
 
   const baseValidation = validateLinkAmounts(sourceAmount, targetAmount);
   if (baseValidation.isOk()) {
@@ -159,13 +159,13 @@ export function createTransactionLink(
   status: 'suggested' | 'confirmed',
   now: Date
 ): Result<NewTransactionLink, Error> {
-  const assetSymbol = match.sourceTransaction.assetSymbol;
+  const assetSymbol = match.sourceMovement.assetSymbol;
 
   // For partial matches (1:N or N:1), use consumed amount for both sides.
   // For 1:1 matches (no consumed amount), use original transaction amounts.
   const isPartialMatch = match.consumedAmount !== undefined;
-  const sourceAmount = isPartialMatch ? match.consumedAmount! : match.sourceTransaction.amount;
-  const targetAmount = isPartialMatch ? match.consumedAmount! : match.targetTransaction.amount;
+  const sourceAmount = isPartialMatch ? match.consumedAmount! : match.sourceMovement.amount;
+  const targetAmount = isPartialMatch ? match.consumedAmount! : match.targetMovement.amount;
 
   // Validate amounts
   const validationResult = validateLinkAmountsForMatch(match);
@@ -181,8 +181,8 @@ export function createTransactionLink(
     // Partial match: record full original amounts for audit trail.
     // No impliedFee — it's meaningless for splits/consolidations.
     metadata['partialMatch'] = true;
-    metadata['fullSourceAmount'] = match.sourceTransaction.amount.toFixed();
-    metadata['fullTargetAmount'] = match.targetTransaction.amount.toFixed();
+    metadata['fullSourceAmount'] = match.sourceMovement.amount.toFixed();
+    metadata['fullTargetAmount'] = match.targetMovement.amount.toFixed();
     metadata['consumedAmount'] = sourceAmount.toFixed();
   } else {
     // 1:1 match: variance/implied fee (original behavior, unchanged)
@@ -196,12 +196,20 @@ export function createTransactionLink(
     metadata['targetExcessPct'] = validationInfo.allowTargetExcess.excessPct.toFixed(2);
   }
 
+  // Persist score breakdown for audit trails / debugging
+  if (match.scoreBreakdown && match.scoreBreakdown.length > 0) {
+    metadata['scoreBreakdown'] = match.scoreBreakdown.map((c) => ({
+      signal: c.signal,
+      weight: c.weight.toFixed(),
+      value: c.value.toFixed(),
+      contribution: c.contribution.toFixed(),
+    }));
+  }
+
   return ok({
-    sourceTransactionId: match.sourceTransaction.id,
-    targetTransactionId: match.targetTransaction.id,
+    sourceTransactionId: match.sourceMovement.transactionId,
+    targetTransactionId: match.targetMovement.transactionId,
     assetSymbol,
-    sourceAssetId: match.sourceTransaction.assetId,
-    targetAssetId: match.targetTransaction.assetId,
     sourceAmount,
     targetAmount,
     linkType: match.linkType,

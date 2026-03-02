@@ -58,15 +58,15 @@ export function deduplicateWithCapacity(
   const decisions: DeduplicationDecision[] = [];
 
   for (const match of sortedMatches) {
-    const sourceKey = makeKey(match.sourceTransaction.id, match.sourceTransaction.assetSymbol);
-    const targetKey = makeKey(match.targetTransaction.id, match.targetTransaction.assetSymbol);
+    const sourceKey = makeKey(match.sourceMovement.transactionId, match.sourceMovement.assetSymbol);
+    const targetKey = makeKey(match.targetMovement.transactionId, match.targetMovement.assetSymbol);
 
     // Initialize capacity on first encounter
     if (!sourceCapacity.has(sourceKey)) {
-      sourceCapacity.set(sourceKey, match.sourceTransaction.amount);
+      sourceCapacity.set(sourceKey, match.sourceMovement.amount);
     }
     if (!targetCapacity.has(targetKey)) {
-      targetCapacity.set(targetKey, match.targetTransaction.amount);
+      targetCapacity.set(targetKey, match.targetMovement.amount);
     }
 
     const remainingSource = sourceCapacity.get(sourceKey)!;
@@ -75,9 +75,9 @@ export function deduplicateWithCapacity(
     // Both must have remaining capacity
     if (remainingSource.lte(0) || remainingTarget.lte(0)) {
       decisions.push({
-        sourceId: match.sourceTransaction.id,
-        targetId: match.targetTransaction.id,
-        asset: match.sourceTransaction.assetSymbol,
+        sourceId: match.sourceMovement.transactionId,
+        targetId: match.targetMovement.transactionId,
+        asset: match.sourceMovement.assetSymbol,
         action: 'rejected_no_capacity',
         remainingSource: remainingSource.toFixed(),
         remainingTarget: remainingTarget.toFixed(),
@@ -90,12 +90,12 @@ export function deduplicateWithCapacity(
 
     // Reject if consumed amount is too small relative to the larger original amount.
     // This prevents garbage matches (e.g., source=10 matching a target=0.01).
-    const largerOriginal = Decimal.max(match.sourceTransaction.amount, match.targetTransaction.amount);
+    const largerOriginal = Decimal.max(match.sourceMovement.amount, match.targetMovement.amount);
     if (consumed.lt(largerOriginal.times(config.minPartialMatchFraction))) {
       decisions.push({
-        sourceId: match.sourceTransaction.id,
-        targetId: match.targetTransaction.id,
-        asset: match.sourceTransaction.assetSymbol,
+        sourceId: match.sourceMovement.transactionId,
+        targetId: match.targetMovement.transactionId,
+        asset: match.sourceMovement.assetSymbol,
         action: 'rejected_fraction',
         consumed: consumed.toFixed(),
         remainingSource: remainingSource.toFixed(),
@@ -111,9 +111,9 @@ export function deduplicateWithCapacity(
     });
 
     decisions.push({
-      sourceId: match.sourceTransaction.id,
-      targetId: match.targetTransaction.id,
-      asset: match.sourceTransaction.assetSymbol,
+      sourceId: match.sourceMovement.transactionId,
+      targetId: match.targetMovement.transactionId,
+      asset: match.sourceMovement.assetSymbol,
       action: 'accepted',
       consumed: consumed.toFixed(),
       remainingSource: remainingSource.minus(consumed).toFixed(),
@@ -143,8 +143,8 @@ export function deduplicateWithCapacity(
   const targetMatchCount = new Map<string, number>();
 
   for (const match of deduplicatedMatches) {
-    const sourceKey = makeKey(match.sourceTransaction.id, match.sourceTransaction.assetSymbol);
-    const targetKey = makeKey(match.targetTransaction.id, match.targetTransaction.assetSymbol);
+    const sourceKey = makeKey(match.sourceMovement.transactionId, match.sourceMovement.assetSymbol);
+    const targetKey = makeKey(match.targetMovement.transactionId, match.targetMovement.assetSymbol);
     sourceMatchCount.set(sourceKey, (sourceMatchCount.get(sourceKey) ?? 0) + 1);
     targetMatchCount.set(targetKey, (targetMatchCount.get(targetKey) ?? 0) + 1);
   }
@@ -154,8 +154,8 @@ export function deduplicateWithCapacity(
   const acceptedPairs = new Set<string>(); // "sourceId:targetId" pairs already accepted
 
   for (const match of deduplicatedMatches) {
-    const sourceKey = makeKey(match.sourceTransaction.id, match.sourceTransaction.assetSymbol);
-    const targetKey = makeKey(match.targetTransaction.id, match.targetTransaction.assetSymbol);
+    const sourceKey = makeKey(match.sourceMovement.transactionId, match.sourceMovement.assetSymbol);
+    const targetKey = makeKey(match.targetMovement.transactionId, match.targetMovement.assetSymbol);
     const isPure1to1 = (sourceMatchCount.get(sourceKey) ?? 0) === 1 && (targetMatchCount.get(targetKey) ?? 0) === 1;
 
     if (isPure1to1) {
@@ -164,12 +164,12 @@ export function deduplicateWithCapacity(
       const validationResult = validateLinkAmountsForMatch(restoredMatch);
       if (validationResult.isErr()) {
         decisions.push({
-          sourceId: match.sourceTransaction.id,
-          targetId: match.targetTransaction.id,
-          asset: match.sourceTransaction.assetSymbol,
+          sourceId: match.sourceMovement.transactionId,
+          targetId: match.targetMovement.transactionId,
+          asset: match.sourceMovement.assetSymbol,
           action: 'rejected_validation',
-          remainingSource: match.sourceTransaction.amount.toFixed(),
-          remainingTarget: match.targetTransaction.amount.toFixed(),
+          remainingSource: match.sourceMovement.amount.toFixed(),
+          remainingTarget: match.targetMovement.amount.toFixed(),
         });
         // Release capacity for retry pass
         rejectedKeys.add(sourceKey);
@@ -178,16 +178,16 @@ export function deduplicateWithCapacity(
       }
 
       decisions.push({
-        sourceId: match.sourceTransaction.id,
-        targetId: match.targetTransaction.id,
-        asset: match.sourceTransaction.assetSymbol,
+        sourceId: match.sourceMovement.transactionId,
+        targetId: match.targetMovement.transactionId,
+        asset: match.sourceMovement.assetSymbol,
         action: 'restored_1to1',
       });
       restoredMatches.push(restoredMatch);
     } else {
       restoredMatches.push(match);
     }
-    acceptedPairs.add(`${match.sourceTransaction.id}:${match.targetTransaction.id}`);
+    acceptedPairs.add(`${match.sourceMovement.transactionId}:${match.targetMovement.transactionId}`);
   }
 
   // --- Pass 3: Retry with freed capacity ---
@@ -206,30 +206,30 @@ export function deduplicateWithCapacity(
     // (but we only care about candidates that touch a freed key)
 
     for (const match of sortedMatches) {
-      const sourceKey = makeKey(match.sourceTransaction.id, match.sourceTransaction.assetSymbol);
-      const targetKey = makeKey(match.targetTransaction.id, match.targetTransaction.assetSymbol);
+      const sourceKey = makeKey(match.sourceMovement.transactionId, match.sourceMovement.assetSymbol);
+      const targetKey = makeKey(match.targetMovement.transactionId, match.targetMovement.assetSymbol);
 
       // Only retry matches that involve at least one freed key
       if (!rejectedKeys.has(sourceKey) && !rejectedKeys.has(targetKey)) continue;
 
       // Skip already-accepted pairs
-      if (acceptedPairs.has(`${match.sourceTransaction.id}:${match.targetTransaction.id}`)) continue;
+      if (acceptedPairs.has(`${match.sourceMovement.transactionId}:${match.targetMovement.transactionId}`)) continue;
 
       // Initialize retry capacity
       if (!retrySourceCapacity.has(sourceKey)) {
         retrySourceCapacity.set(
           sourceKey,
           rejectedKeys.has(sourceKey)
-            ? match.sourceTransaction.amount // freed: full capacity
-            : (sourceCapacity.get(sourceKey) ?? match.sourceTransaction.amount) // keep remaining
+            ? match.sourceMovement.amount // freed: full capacity
+            : (sourceCapacity.get(sourceKey) ?? match.sourceMovement.amount) // keep remaining
         );
       }
       if (!retryTargetCapacity.has(targetKey)) {
         retryTargetCapacity.set(
           targetKey,
           rejectedKeys.has(targetKey)
-            ? match.targetTransaction.amount // freed: full capacity
-            : (targetCapacity.get(targetKey) ?? match.targetTransaction.amount) // keep remaining
+            ? match.targetMovement.amount // freed: full capacity
+            : (targetCapacity.get(targetKey) ?? match.targetMovement.amount) // keep remaining
         );
       }
 
@@ -239,7 +239,7 @@ export function deduplicateWithCapacity(
       if (remainingSource.lte(0) || remainingTarget.lte(0)) continue;
 
       const consumed = Decimal.min(remainingSource, remainingTarget);
-      const largerOriginal = Decimal.max(match.sourceTransaction.amount, match.targetTransaction.amount);
+      const largerOriginal = Decimal.max(match.sourceMovement.amount, match.targetMovement.amount);
       if (consumed.lt(largerOriginal.times(config.minPartialMatchFraction))) continue;
 
       // Pre-validate with original amounts (will be restored if 1:1)
@@ -252,9 +252,9 @@ export function deduplicateWithCapacity(
       });
 
       decisions.push({
-        sourceId: match.sourceTransaction.id,
-        targetId: match.targetTransaction.id,
-        asset: match.sourceTransaction.assetSymbol,
+        sourceId: match.sourceMovement.transactionId,
+        targetId: match.targetMovement.transactionId,
+        asset: match.sourceMovement.assetSymbol,
         action: 'accepted',
         consumed: consumed.toFixed(),
         remainingSource: remainingSource.minus(consumed).toFixed(),
@@ -263,15 +263,15 @@ export function deduplicateWithCapacity(
 
       retrySourceCapacity.set(sourceKey, remainingSource.minus(consumed));
       retryTargetCapacity.set(targetKey, remainingTarget.minus(consumed));
-      acceptedPairs.add(`${match.sourceTransaction.id}:${match.targetTransaction.id}`);
+      acceptedPairs.add(`${match.sourceMovement.transactionId}:${match.targetMovement.transactionId}`);
     }
 
     // --- Retry restoration pass: strip consumed amounts for new 1:1 matches ---
     const retrySourceCount = new Map<string, number>();
     const retryTargetCount = new Map<string, number>();
     for (const match of restoredMatches) {
-      const sk = makeKey(match.sourceTransaction.id, match.sourceTransaction.assetSymbol);
-      const tk = makeKey(match.targetTransaction.id, match.targetTransaction.assetSymbol);
+      const sk = makeKey(match.sourceMovement.transactionId, match.sourceMovement.assetSymbol);
+      const tk = makeKey(match.targetMovement.transactionId, match.targetMovement.assetSymbol);
       retrySourceCount.set(sk, (retrySourceCount.get(sk) ?? 0) + 1);
       retryTargetCount.set(tk, (retryTargetCount.get(tk) ?? 0) + 1);
     }
@@ -279,16 +279,16 @@ export function deduplicateWithCapacity(
     for (let i = 0; i < restoredMatches.length; i++) {
       const match = restoredMatches[i]!;
       if (match.consumedAmount === undefined) continue; // already restored
-      const sk = makeKey(match.sourceTransaction.id, match.sourceTransaction.assetSymbol);
-      const tk = makeKey(match.targetTransaction.id, match.targetTransaction.assetSymbol);
+      const sk = makeKey(match.sourceMovement.transactionId, match.sourceMovement.assetSymbol);
+      const tk = makeKey(match.targetMovement.transactionId, match.targetMovement.assetSymbol);
       if ((retrySourceCount.get(sk) ?? 0) === 1 && (retryTargetCount.get(tk) ?? 0) === 1) {
         const restored = { ...match };
         delete restored.consumedAmount;
         restoredMatches[i] = restored;
         decisions.push({
-          sourceId: match.sourceTransaction.id,
-          targetId: match.targetTransaction.id,
-          asset: match.sourceTransaction.assetSymbol,
+          sourceId: match.sourceMovement.transactionId,
+          targetId: match.targetMovement.transactionId,
+          asset: match.sourceMovement.assetSymbol,
           action: 'restored_1to1',
         });
       }
