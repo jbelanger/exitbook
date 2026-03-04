@@ -1,16 +1,17 @@
 import type { Account, AccountType } from '@exitbook/core';
 
 /**
- * Parameters for account query service
+ * Parameters for account queries.
  */
 export interface AccountQueryParams {
   accountId?: number | undefined;
   accountType?: AccountType | undefined;
   source?: string | undefined;
+  showSessions?: boolean | undefined;
 }
 
 /**
- * Session summary for display
+ * Session summary for display.
  */
 export interface SessionSummary {
   id: number;
@@ -20,7 +21,7 @@ export interface SessionSummary {
 }
 
 /**
- * Formatted account for display
+ * Formatted account for display.
  */
 export interface AccountView {
   id: number;
@@ -37,7 +38,7 @@ export interface AccountView {
 }
 
 /**
- * Result of account query operation
+ * Result of account query operation.
  */
 export interface AccountListResult {
   accounts: AccountView[];

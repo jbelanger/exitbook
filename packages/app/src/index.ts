@@ -22,6 +22,7 @@ export {
   type AccountQueryParams,
   type AccountView,
   type AccountListResult,
+  type SessionSummary,
 } from './accounts/account-query.js';
 
 // Providers

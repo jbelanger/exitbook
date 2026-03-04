@@ -7,15 +7,6 @@ export { RawDataProcessingService } from './features/process/process-service.js'
 export { ClearService } from './features/deletion/clear-service.js';
 export type { ClearResult } from './features/deletion/clear-service.js';
 export type { ClearServiceParams, DeletionPreview } from './features/deletion/clear-service-utils.js';
-export { AccountService } from './features/accounts/account-service.js';
-export type { ViewAccountsParams } from './features/accounts/account-service.js';
-export type {
-  AccountQueryParams,
-  AccountListResult,
-  AccountView,
-  SessionSummary,
-} from './features/accounts/account-service-utils.js';
-
 // Balance services
 export { BalanceService, type BalanceServiceParams } from './features/balances/balance-service.js';
 export { calculateBalances } from './features/balances/balance-calculator.js';

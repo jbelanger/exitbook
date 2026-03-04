@@ -1,5 +1,5 @@
+import type { AccountView, SessionSummary as IngestionSessionSummary } from '@exitbook/app';
 import type { AccountType } from '@exitbook/core';
-import type { AccountView, SessionSummary as IngestionSessionSummary } from '@exitbook/ingestion';
 
 import type { CommonViewFilters } from '../shared/view-utils.js';
 

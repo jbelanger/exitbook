@@ -1,23 +1,25 @@
 // Tier 1 handler for accounts view command
 
+import { AccountQuery, type AccountListResult, type AccountQueryParams } from '@exitbook/app';
 import type { DataContext } from '@exitbook/data';
-import { AccountService, type AccountListResult, type ViewAccountsParams } from '@exitbook/ingestion';
 import type { Result } from 'neverthrow';
 
-export type { AccountListResult, ViewAccountsParams };
+export type { AccountListResult };
+
+export type ViewAccountsParams = AccountQueryParams;
 
 /**
  * Tier 1 handler for `accounts view`.
- * Wraps AccountService; testable with a mock database.
+ * Wraps AccountQuery; testable with a mock database.
  */
 export class AccountsViewHandler {
-  private readonly accountService: AccountService;
+  private readonly accountQuery: AccountQuery;
 
   constructor(database: DataContext) {
-    this.accountService = new AccountService(database);
+    this.accountQuery = new AccountQuery(database);
   }
 
   execute(params: ViewAccountsParams): Promise<Result<AccountListResult, Error>> {
-    return this.accountService.viewAccounts(params);
+    return this.accountQuery.list(params);
   }
 }
