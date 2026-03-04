@@ -6,10 +6,11 @@ import {
   type LinkingEvent,
   type PriceEvent,
 } from '@exitbook/accounting';
+import { ClearOperation } from '@exitbook/app';
 import { parseDecimal } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
-import { type AdapterRegistry, ClearService, type IngestionEvent, RawDataProcessingService } from '@exitbook/ingestion';
+import { type AdapterRegistry, type IngestionEvent, RawDataProcessingService } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 import { err, ok, type Result } from 'neverthrow';
@@ -120,7 +121,7 @@ export async function ensureRawDataIsProcessed(
     });
 
     const rawDataProcessingService = new RawDataProcessingService(db, providerManager, eventBus, registry);
-    const clearService = new ClearService(db, eventBus);
+    const clearOperation = new ClearOperation(db, eventBus);
 
     // Get all account IDs with raw data
     const allAccountIdsResult = await db.rawTransactions.findDistinctAccountIds({});
@@ -132,7 +133,7 @@ export async function ensureRawDataIsProcessed(
     if (guardResult.isErr()) return err(guardResult.error);
 
     // Clear derived data and reset raw data to pending
-    const clearResult = await clearService.execute({ includeRaw: false });
+    const clearResult = await clearOperation.execute({ includeRaw: false });
     if (clearResult.isErr()) return err(clearResult.error);
 
     const deleted = clearResult.value.deleted;

@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Collaboration Preferences
 
 - Give precise terminology suggestions and keep docs crisp first-drafts (not revision logs)
+- **Surface Decisions & Smells:** While working, track any decisions you had to make, potential code smells, workarounds, or possible tech debt introduced during implementation. Summarize these at the end of the task as a brief "Decisions & Smells" section so we can evaluate what to address post-implementation.
 
 ## Essential Commands
 

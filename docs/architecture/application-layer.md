@@ -1,11 +1,12 @@
 # Application Layer — Architecture Plan
 
-> **Status:** Draft — validating approach
+> **Status:** In progress — Phase 1 complete, Phase 1b in progress
 > **Scope:** Major refactor — new `@exitbook/app` package, decoupling ingestion/accounting from data
-> **Last updated:** 2026-03-03
+> **Last updated:** 2026-03-04
 
 ## Table of Contents
 
+- [Current State](#current-state)
 - [Why We Need This](#why-we-need-this)
 - [Goals](#goals)
 - [Package Graph — Before and After](#package-graph--before-and-after)
@@ -26,6 +27,25 @@
 - [Rules and Guidelines](#rules-and-guidelines)
 - [Open Questions](#open-questions)
 - [Appendix: Full Repository Method Audit](#appendix-full-repository-method-audit)
+
+---
+
+## Current State
+
+| Component                                                | Status         | Notes                                                       |
+| -------------------------------------------------------- | -------------- | ----------------------------------------------------------- |
+| `ImportOperation`                                        | ✅ Implemented | Full import lifecycle in app layer                          |
+| `ClearOperation`                                         | ✅ Implemented | Data deletion and reset                                     |
+| `AccountQuery`                                           | ✅ Implemented | Account listing and session summaries                       |
+| `BalanceOperation`                                       | ✅ Implemented | Live vs calculated balance comparison                       |
+| `ProcessOperation`                                       | 🔄 In progress | Reprocess orchestration (clear → guard → process)           |
+| `ClearStep`                                              | 🔄 In progress | Pipeline step stub                                          |
+| `ProviderRegistry`                                       | ✅ Implemented | Provider manager construction                               |
+| Pipeline steps (process, link, price-enrich, cost-basis) | ⬜ Stubs only  | `isDirty()` / `execute()` throw "Not implemented"           |
+| `ProcessingStoreAdapter`                                 | ⬜ Stub only   | Port interface defined, adapter not implemented             |
+| Store adapters (linking, pricing, cost-basis)            | ⬜ Not started | Files don't exist yet                                       |
+| Pipeline runner                                          | ⬜ Stub only   | `PipelineRunner` class exists, methods throw                |
+| Domain port interfaces                                   | ⬜ Not started | Ingestion/accounting still import `@exitbook/data` directly |
 
 ---
 
@@ -340,15 +360,16 @@ The initial pipeline is a linear chain, but the DAG model supports future parall
 import (user-triggered, not a pipeline step)
   │
   ▼
-process ──→ link ──→ price-enrich ──→ cost-basis
+clear ──→ process ──→ link ──→ price-enrich ──→ cost-basis
 ```
 
-- **Process** depends on: nothing (first derived step)
+- **Clear** depends on: nothing (first step — resets derived data before reprocessing)
+- **Process** depends on: clear
 - **Link** depends on: process
 - **Price-enrich** depends on: link (needs confirmed links for cross-platform price derivation)
 - **Cost-basis** depends on: price-enrich
 
-Import is **not** a pipeline step. It's user-triggered with external I/O (API calls, file reads). The pipeline handles only derived computations.
+Import is **not** a pipeline step. It's user-triggered with external I/O (API calls, file reads). Clear exists as both a pipeline step (automated reset before reprocessing) and a standalone operation (user-triggered explicit deletion via `ClearOperation`). The pipeline handles only derived computations.
 
 ### Change Detection
 
@@ -356,6 +377,7 @@ Each step owns its dirty-check logic. The current staleness checks from `prereqs
 
 | Step             | Dirty when                                                         | Current implementation                                  |
 | ---------------- | ------------------------------------------------------------------ | ------------------------------------------------------- |
+| **clear**        | Derived data exists that needs resetting before reprocessing       | Delegates to `ClearOperation` — counts derived rows     |
 | **process**      | Never processed, account hash changed, new import since last build | `rawDataProcessedState` table + account hash comparison |
 | **link**         | `max(transactions.created_at) > max(transaction_links.created_at)` | Timestamp comparison                                    |
 | **price-enrich** | Transactions exist with missing or tentative prices                | `validateTransactionPrices()` check                     |
@@ -391,17 +413,20 @@ packages/app/
 │   │   ├── import-operation.ts           # User/account/session/streaming/xpub — all here
 │   │   └── import-store-adapter.ts       # Narrow port for ingestion: saveRawBatch + updateCursor
 │   │
-│   ├── clear/                            # Data deletion and reset
+│   ├── clear/                            # Data deletion, reset, and pipeline step
 │   │   ├── clear-operation.ts            # Uses DataContext directly — no domain delegation
-│   │   └── clear-operation-utils.ts      # Pure functions: validation, account resolution
+│   │   ├── clear-operation-utils.ts      # Pure functions: validation, account resolution
+│   │   └── clear-step.ts                # Pipeline step stub — delegates to ClearOperation
 │   │
 │   ├── balance/                          # Live vs calculated balance comparison
 │   │   ├── balance-operation.ts
 │   │   └── balance-store-adapter.ts      # Port for balance verification persistence
 │   │
-│   ├── process/                          # Pipeline step: raw → universal transactions
-│   │   ├── process-step.ts
-│   │   └── processing-store-adapter.ts   # Adapter for ProcessingStore port
+│   ├── process/                          # Reprocess orchestration + pipeline step
+│   │   ├── process-operation.ts          # Orchestration: clear → guard → process
+│   │   ├── process-operation-utils.ts    # Types: ProcessParams, ProcessResult
+│   │   ├── process-step.ts              # Pipeline step stub
+│   │   └── processing-store-adapter.ts   # Adapter for ProcessingStore port (stub)
 │   │
 │   ├── link/                             # Pipeline step: transaction linking
 │   │   ├── link-step.ts
@@ -426,15 +451,15 @@ packages/app/
 
 **Two kinds of app-layer code:**
 
-| Kind                                                                  | Pattern                                                        | Examples                                                                |
-| --------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **Operations** — orchestration logic that uses `DataContext` directly | No domain service, no port. App layer _is_ the logic.          | `ImportOperation`, `ClearOperation`, `BalanceOperation`, `AccountQuery` |
-| **Pipeline step adapters** — bridge domain services to persistence    | Define a port in the domain package, adapter in the app layer. | `ProcessingStoreAdapter`, `LinkingStoreAdapter`, `PricingStoreAdapter`  |
+| Kind                                                                  | Pattern                                                        | Examples                                                                                    |
+| --------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| **Operations** — orchestration logic that uses `DataContext` directly | No domain service, no port. App layer _is_ the logic.          | `ImportOperation`, `ClearOperation`, `ProcessOperation`, `BalanceOperation`, `AccountQuery` |
+| **Pipeline step adapters** — bridge domain services to persistence    | Define a port in the domain package, adapter in the app layer. | `ProcessingStoreAdapter`, `LinkingStoreAdapter`, `PricingStoreAdapter`                      |
 
 **Responsibilities:**
 
 - Initialize `DataContext` and manage session lifecycle
-- Own operations: import (full lifecycle), clear, balance, account queries
+- Own operations: import (full lifecycle), clear, process/reprocess, balance, account queries
 - Create store adapters and construct domain services with injected ports
 - Own pipeline step definitions and runner
 - Manage provider manager lifecycles (blockchain, price)
@@ -457,14 +482,18 @@ const app = new Application({ dataDir, providers });
 await app.initialize();
 
 // Import — app layer owns user/account/session/xpub/streaming
-const importOp = new ImportOperation(app.db, app.providerManager, app.events);
+const importOp = new ImportOperation(app.db, app.providerManager, app.registry, app.events);
 const result = await importOp.execute({ blockchain: 'bitcoin', address: 'bc1q...' });
 
 // Clear — app layer owns deletion directly
 const clearOp = new ClearOperation(app.db, app.events);
 await clearOp.execute({ includeRaw: true });
 
-// Cost basis — pipeline runs automatically (process → link → price-enrich → cost-basis)
+// Reprocess — app layer orchestrates clear → guard → process
+const processOp = new ProcessOperation(app.db, app.processingService, app.events);
+await processOp.execute({ accountId: 42 }); // or omit for all pending
+
+// Cost basis — pipeline runs automatically (clear → process → link → price-enrich → cost-basis)
 const pipeline = new PipelineRunner(app.db, app.providerManager, app.events);
 const costBasis = await pipeline.runThrough('cost-basis');
 ```
@@ -477,16 +506,23 @@ const costBasis = await pipeline.runThrough('cost-basis');
 
 This is a large refactor. Phased approach to keep things working at every step:
 
-### Phase 1: Extract import to app layer (current focus)
+### Phase 1: Extract import to app layer ✅ DONE
 
-- Move orchestration out of `ImportCoordinator` into `ImportOperation`:
-  - User find-or-create
-  - Account find-or-create (including xpub derivation + child accounts)
-  - Import session create/resume/finalize
-  - Streaming loop (drive `IImporter.importStreaming()`, persist batches, update cursors)
+- `ImportOperation` in `packages/app/src/import/import-operation.ts` owns the full import lifecycle:
+  - User find-or-create, account find-or-create (including xpub derivation + child accounts)
+  - Import session create/resume/finalize, streaming loop, cursor updates
+- `ImportCoordinator` removed — `ImportOperation` calls `AdapterRegistry` and `IImporter` directly
+- CLI `ImportHandler` delegates to `ImportOperation`
 - Ingestion keeps: `IImporter` implementations, `AdapterRegistry`, adapter types, processor implementations
-- `ImportCoordinator` either shrinks to a thin factory (create importer from registry) or disappears — its orchestration moves to `ImportOperation`
-- CLI `ImportHandler` delegates to `ImportOperation` instead of `ImportCoordinator`
+
+### Phase 1b: Extract process/reprocess to app layer (current focus)
+
+- `ProcessOperation` in `packages/app/src/process/process-operation.ts` orchestrates reprocess:
+  - Resolve account IDs → guard incomplete imports → clear derived data via `ClearOperation` → delegate to `RawDataProcessingService`
+- `ClearStep` added as pipeline step stub (`clear → process → link → price-enrich → cost-basis`)
+- CLI `ProcessHandler` delegates to `ProcessOperation` instead of owning `executeReprocess()` directly
+- `ClearService` in ingestion becomes dead code (replaced by `ClearOperation` in app layer)
+- `RawDataProcessingService` stays in ingestion — deep domain dependencies (processors, batch providers, scam detection)
 
 ### Phase 2: Define remaining ports in domain packages
 
@@ -537,7 +573,7 @@ These rules apply to all code going forward and should be enforced in PR review.
 
 ### Pipeline Rules
 
-11. **Import is not a pipeline step.** It's user-triggered with external I/O. The pipeline handles only derived computations.
+11. **Import is not a pipeline step.** It's user-triggered with external I/O. The pipeline handles only derived computations. Clear is both a pipeline step (automated reset before reprocessing) and a standalone operation (user-triggered explicit deletion).
 12. **Each step declares its dependencies via `dependsOn`.** The runner resolves execution order. Steps never call other steps directly.
 13. **Each step owns its dirty-check logic.** No centralized staleness table (unless a step wants one). Steps know best what "changed" means for their inputs.
 14. **Steps are stateless between runs.** All state lives in the stores. Steps read state, compute, write state.
@@ -553,8 +589,8 @@ These rules apply to all code going forward and should be enforced in PR review.
 
 - **Provider manager lifecycle** — Should `@exitbook/app` own creation/destruction of blockchain and price provider managers? Or should the host pass them in? Leaning toward app-owned with host-provided config (API keys, cache paths).
 - **OverrideStore** — Currently a filesystem-based JSON store in `@exitbook/data`. It's used by `LinkingOrchestrator`. Should it become a port on `LinkingStore`, or remain a separate concern? It's not persistence in the DB sense — it's user-authored override files.
-- **EventSink vs EventBus** — Should domain services receive a minimal `EventSink<T>` (just `emit(event: T)`) or the full `EventBus`? Leaning toward `EventSink` to avoid coupling to the event system implementation.
-- **ImportCoordinator fate** — Does `ImportCoordinator` shrink to a thin helper (e.g., "create the right importer for this account type"), or does `ImportOperation` call `AdapterRegistry` directly? The registry and `IImporter` are already public exports. If the coordinator adds no value beyond what `ImportOperation` can do with the registry, it can go.
+- **~~EventSink vs EventBus~~** — Resolved: domain services and app-layer operations receive `EventSink` (`{ emit(event: unknown): void }`), not `EventBus`. `EventBus<T>` structurally satisfies `EventSink` so hosts pass their event bus directly. Implemented in `ImportOperation`, `ClearOperation`, `ProcessOperation`.
+- **~~ImportCoordinator fate~~** — Resolved: `ImportCoordinator` was removed. `ImportOperation` calls `AdapterRegistry` and `IImporter` directly. The registry and importer interfaces are public exports from ingestion.
 
 ---
 

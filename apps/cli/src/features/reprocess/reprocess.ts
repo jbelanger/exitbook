@@ -9,7 +9,7 @@ import { outputSuccess } from '../shared/json-output.js';
 import { ProcessCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
-import { createProcessHandler, type BatchProcessSummaryWithMetrics } from './reprocess-handler.js';
+import { createProcessHandler, type ProcessResultWithMetrics } from './reprocess-handler.js';
 
 /**
  * Process command options validated by Zod at CLI boundary
@@ -133,7 +133,7 @@ async function executeReprocessTUI(options: ProcessCommandOptions, registry: Ada
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function buildReprocessResult(result: BatchProcessSummaryWithMetrics): ReprocessCommandResult {
+function buildReprocessResult(result: ProcessResultWithMetrics): ReprocessCommandResult {
   return {
     status: result.errors.length > 0 ? 'warning' : 'success',
     reprocess: {

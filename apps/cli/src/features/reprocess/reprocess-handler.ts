@@ -1,11 +1,6 @@
-import type { DataContext, RawTransactionRepository } from '@exitbook/data';
-import type { EventBus } from '@exitbook/events';
-import {
-  ClearService,
-  type AdapterRegistry,
-  type IngestionEvent,
-  type RawDataProcessingService,
-} from '@exitbook/ingestion';
+import { ProcessOperation, type ProcessResult } from '@exitbook/app';
+import type { DataContext } from '@exitbook/data';
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 import { err, ok, type Result } from 'neverthrow';
@@ -14,15 +9,9 @@ import type { EventDrivenController } from '../../ui/shared/index.js';
 import type { CommandContext } from '../shared/command-runtime.js';
 import { createIngestionInfrastructure, type CliEvent } from '../shared/ingestion-infrastructure.js';
 
-export interface BatchProcessSummary {
-  /** Number of transactions processed */
-  processed: number;
+export type { ProcessResult } from '@exitbook/app';
 
-  /** Processing errors if any */
-  errors: string[];
-}
-
-export interface BatchProcessSummaryWithMetrics extends BatchProcessSummary {
+export interface ProcessResultWithMetrics extends ProcessResult {
   runStats: MetricsSummary;
 }
 
@@ -33,84 +22,15 @@ export interface ProcessHandlerParams {
 
 const logger = getLogger('ProcessHandler');
 
-/**
- * Execute the reprocess operation.
- * Always clears derived data and resets raw data to pending before reprocessing.
- */
-export async function executeReprocess(
-  params: ProcessHandlerParams,
-  deps: {
-    clearService: ClearService;
-    rawDataProcessingService: RawDataProcessingService;
-    rawDataRepo: RawTransactionRepository;
-  }
-): Promise<Result<BatchProcessSummary, Error>> {
-  const { accountId } = params;
-  const { rawDataProcessingService, clearService, rawDataRepo } = deps;
-
-  // Resolve account IDs before any mutation
-  let accountIds: number[];
-  if (accountId) {
-    accountIds = [accountId];
-  } else {
-    const accountIdsResult = await rawDataRepo.findDistinctAccountIds({ processingStatus: 'pending' });
-    if (accountIdsResult.isErr()) {
-      return err(accountIdsResult.error);
-    }
-    accountIds = accountIdsResult.value;
-
-    if (accountIds.length === 0) {
-      logger.info('No pending raw data found to process');
-      return ok({ errors: [], processed: 0 });
-    }
-  }
-
-  // Guard: abort before any mutation if any account has an incomplete import
-  const guardResult = await rawDataProcessingService.assertNoIncompleteImports(accountIds);
-  if (guardResult.isErr()) {
-    return err(guardResult.error);
-  }
-
-  // Clear derived data and reset raw data to pending
-  const clearResult = await clearService.execute({
-    accountId,
-    includeRaw: false, // Keep raw data, just reset processing status
-  });
-
-  if (clearResult.isErr()) {
-    return err(clearResult.error);
-  }
-  const deleted = clearResult.value.deleted;
-
-  logger.info(`Cleared derived data (${deleted.links} links, ${deleted.transactions} transactions)`);
-
-  // Use processImportedSessions which emits dashboard events
-  const processResult = await rawDataProcessingService.processImportedSessions(accountIds);
-  if (processResult.isErr()) {
-    return err(processResult.error);
-  }
-
-  return ok({
-    processed: processResult.value.processed,
-    errors: processResult.value.errors,
-  });
-}
-
 export class ProcessHandler {
   constructor(
-    private readonly rawDataProcessingService: RawDataProcessingService,
-    private readonly clearService: ClearService,
-    private readonly rawDataRepo: RawTransactionRepository,
+    private readonly processOperation: ProcessOperation,
     private readonly ingestionMonitor: EventDrivenController<CliEvent>,
     private readonly instrumentation: InstrumentationCollector
   ) {}
 
-  async execute(params: ProcessHandlerParams): Promise<Result<BatchProcessSummaryWithMetrics, Error>> {
-    const result = await executeReprocess(params, {
-      rawDataProcessingService: this.rawDataProcessingService,
-      clearService: this.clearService,
-      rawDataRepo: this.rawDataRepo,
-    });
+  async execute(params: ProcessHandlerParams): Promise<Result<ProcessResultWithMetrics, Error>> {
+    const result = await this.processOperation.execute(params);
 
     if (result.isErr()) {
       this.ingestionMonitor.fail(result.error.message);
@@ -137,17 +57,9 @@ export async function createProcessHandler(
 ): Promise<Result<ProcessHandler, Error>> {
   try {
     const infra = await createIngestionInfrastructure(ctx, database, registry);
-    const clearService = new ClearService(database, infra.eventBus as EventBus<IngestionEvent>);
+    const processOperation = new ProcessOperation(database, infra.rawDataProcessingService, infra.eventBus);
 
-    return ok(
-      new ProcessHandler(
-        infra.rawDataProcessingService,
-        clearService,
-        database.rawTransactions,
-        infra.ingestionMonitor,
-        infra.instrumentation
-      )
-    );
+    return ok(new ProcessHandler(processOperation, infra.ingestionMonitor, infra.instrumentation));
   } catch (error) {
     return err(error instanceof Error ? error : new Error(String(error)));
   }

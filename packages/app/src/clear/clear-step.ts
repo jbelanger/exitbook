@@ -4,14 +4,12 @@ import type { PipelineContext } from '../pipeline/pipeline-context.js';
 import type { DirtyCheckResult, PipelineStep, StepResult } from '../pipeline/pipeline-step.js';
 
 /**
- * Dirty when: raw data exists that hasn't been processed,
- * or account hash changed since last processing run.
- *
- * Delegates to RawDataProcessingService with a ProcessingStore adapter.
+ * Dirty when: derived data exists that needs resetting before reprocessing.
+ * Delegates to ClearOperation when implemented.
  */
-export class ProcessStep implements PipelineStep {
-  readonly name = 'process';
-  readonly dependsOn = ['clear'];
+export class ClearStep implements PipelineStep {
+  readonly name = 'clear';
+  readonly dependsOn: string[] = [];
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/require-await -- will be there when implemented
   async isDirty(context: PipelineContext): Promise<Result<DirtyCheckResult, Error>> {
     throw new Error('Not implemented');

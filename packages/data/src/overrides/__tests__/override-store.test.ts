@@ -273,7 +273,7 @@ describe('OverrideStore', () => {
   describe('file independence', () => {
     it('should store overrides as a plain file independent of database operations', () => {
       // The override store file path is a plain JSONL file on the filesystem,
-      // not a database table. ClearService operates exclusively through SQL
+      // not a database table. ClearOperation operates exclusively through SQL
       // repositories and never touches filesystem files, so overrides.jsonl
       // inherently survives database wipes and reprocessing.
       const filePath = store.getFilePath();

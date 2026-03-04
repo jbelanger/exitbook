@@ -17,6 +17,8 @@ export {
   type BalanceComparison,
 } from './balance/balance-operation.js';
 
+export { ProcessOperation, type ProcessParams, type ProcessResult } from './process/process-operation.js';
+
 export {
   AccountQuery,
   type AccountQueryParams,

@@ -1,14 +1,13 @@
-import type { RawTransactionRepository } from '@exitbook/data';
-import type { ClearService, RawDataProcessingService } from '@exitbook/ingestion';
+import { ProcessOperation } from '@exitbook/app';
+import type { DataContext } from '@exitbook/data';
+import type { RawDataProcessingService } from '@exitbook/ingestion';
 import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { executeReprocess } from '../reprocess-handler.js';
-
-describe('executeReprocess', () => {
+describe('ProcessOperation', () => {
   let mockProcessService: RawDataProcessingService;
-  let mockClearService: ClearService;
-  let mockRawDataRepo: RawTransactionRepository;
+  let mockDb: DataContext;
+  let operation: ProcessOperation;
 
   beforeEach(() => {
     mockProcessService = {
@@ -16,39 +15,39 @@ describe('executeReprocess', () => {
       assertNoIncompleteImports: vi.fn().mockResolvedValue(ok(undefined)),
     } as unknown as RawDataProcessingService;
 
-    mockClearService = {
-      execute: vi.fn().mockResolvedValue(
-        ok({
-          deleted: {
-            accounts: 0,
-            transactions: 0,
-            links: 0,
-            lots: 0,
-            disposals: 0,
-            calculations: 0,
-            transfers: 0,
-            sessions: 0,
-            rawData: 0,
-          },
-        })
-      ),
-    } as unknown as ClearService;
+    mockDb = {
+      rawTransactions: {
+        findDistinctAccountIds: vi.fn().mockResolvedValue(ok([])),
+      },
+      users: {
+        findOrCreateDefault: vi.fn().mockResolvedValue(ok({ id: 1 })),
+      },
+      accounts: {
+        findAll: vi.fn().mockResolvedValue(ok([{ id: 123, identifier: 'test' }])),
+      },
+      transactions: {
+        count: vi.fn().mockResolvedValue(ok(0)),
+      },
+      transactionLinks: {
+        count: vi.fn().mockResolvedValue(ok(0)),
+      },
+      executeInTransaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          utxoConsolidatedMovements: { deleteByAccountIds: vi.fn().mockResolvedValue(ok(undefined)) },
+          transactionLinks: { deleteByAccountIds: vi.fn().mockResolvedValue(ok(undefined)) },
+          transactions: { deleteByAccountIds: vi.fn().mockResolvedValue(ok(undefined)) },
+          rawTransactions: { resetProcessingStatus: vi.fn().mockResolvedValue(ok(undefined)) },
+        };
+        return fn(tx);
+      }),
+    } as unknown as DataContext;
 
-    mockRawDataRepo = {
-      findDistinctAccountIds: vi.fn().mockResolvedValue(ok([])),
-    } as unknown as RawTransactionRepository;
+    operation = new ProcessOperation(mockDb, mockProcessService);
   });
 
   describe('Basic Execution', () => {
-    test('should execute reprocess with no pending data', async () => {
-      const result = await executeReprocess(
-        { accountId: undefined },
-        {
-          rawDataProcessingService: mockProcessService,
-          clearService: mockClearService,
-          rawDataRepo: mockRawDataRepo,
-        }
-      );
+    test('should return early with no pending data', async () => {
+      const result = await operation.execute({ accountId: undefined });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -62,14 +61,7 @@ describe('executeReprocess', () => {
         .fn()
         .mockResolvedValue(ok({ processed: 5, errors: [], failed: 0 }));
 
-      const result = await executeReprocess(
-        { accountId: 123 },
-        {
-          rawDataProcessingService: mockProcessService,
-          clearService: mockClearService,
-          rawDataRepo: mockRawDataRepo,
-        }
-      );
+      const result = await operation.execute({ accountId: 123 });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {

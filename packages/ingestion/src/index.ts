@@ -4,9 +4,6 @@ export { allBlockchainAdapters } from './sources/blockchains/index.js';
 export { allExchangeAdapters } from './sources/exchanges/index.js';
 
 export { RawDataProcessingService } from './features/process/process-service.js';
-export { ClearService } from './features/deletion/clear-service.js';
-export type { ClearResult } from './features/deletion/clear-service.js';
-export type { ClearServiceParams, DeletionPreview } from './features/deletion/clear-service-utils.js';
 // Balance services
 export { BalanceService, type BalanceServiceParams } from './features/balances/balance-service.js';
 export { calculateBalances } from './features/balances/balance-calculator.js';
