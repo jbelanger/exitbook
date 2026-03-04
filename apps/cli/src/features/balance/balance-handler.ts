@@ -1,6 +1,7 @@
+import { BalanceOperation, calculateBalances } from '@exitbook/app';
+import type { BalanceVerificationResult } from '@exitbook/app';
 import type { Account, AccountType, ExchangeCredentials, UniversalTransactionData } from '@exitbook/core';
 import { type DataContext } from '@exitbook/data';
-import { BalanceService, calculateBalances } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -37,7 +38,7 @@ export interface OfflineBalanceResult {
 export interface SingleVerificationResult {
   account: Account;
   comparisons: AssetComparisonItem[];
-  verificationResult: import('@exitbook/ingestion').BalanceVerificationResult;
+  verificationResult: BalanceVerificationResult;
   streamMetadata?: Record<string, unknown> | undefined;
 }
 
@@ -72,7 +73,7 @@ export class BalanceHandler {
 
   constructor(
     private readonly db: DataContext,
-    private readonly balanceService: BalanceService | undefined
+    private readonly balanceOperation: BalanceOperation | undefined
   ) {}
 
   abort(): void {
@@ -122,12 +123,12 @@ export class BalanceHandler {
     accountId: number;
     credentials?: ExchangeCredentials | undefined;
   }): Promise<Result<SingleVerificationResult, Error>> {
-    const service = this.requireBalanceService();
+    const operation = this.requireBalanceOperation();
 
     try {
       const account = await this.loadSingleAccountOrFail(params.accountId);
 
-      const result = await service.verifyBalance({
+      const result = await operation.verifyBalance({
         accountId: account.id,
         credentials: params.credentials,
       });
@@ -165,7 +166,7 @@ export class BalanceHandler {
   }
 
   async executeAll(): Promise<Result<AllAccountsVerificationResult, Error>> {
-    const service = this.requireBalanceService();
+    const operation = this.requireBalanceOperation();
 
     try {
       const accounts = await this.loadAllAccounts();
@@ -195,7 +196,7 @@ export class BalanceHandler {
           continue;
         }
 
-        const result = await service.verifyBalance({ accountId: account.id, credentials });
+        const result = await operation.verifyBalance({ accountId: account.id, credentials });
         if (result.isErr()) {
           accountResults.push({
             accountId: account.id,
@@ -272,7 +273,7 @@ export class BalanceHandler {
   private async runStream(accounts: SortedVerificationAccount[], relay: EventRelay<BalanceEvent>): Promise<void> {
     this.abortController = new AbortController();
     const signal = this.abortController.signal;
-    const service = this.requireBalanceService();
+    const operation = this.requireBalanceOperation();
 
     for (const item of accounts) {
       if (signal.aborted) {
@@ -289,7 +290,7 @@ export class BalanceHandler {
       relay.push({ type: 'VERIFICATION_STARTED', accountId: item.accountId });
 
       try {
-        const result = await service.verifyBalance({ accountId: item.accountId, credentials });
+        const result = await operation.verifyBalance({ accountId: item.accountId, credentials });
 
         if (result.isErr()) {
           relay.push({ type: 'VERIFICATION_ERROR', accountId: item.accountId, error: result.error.message });
@@ -357,9 +358,9 @@ export class BalanceHandler {
     relay.push({ type: 'ALL_VERIFICATIONS_COMPLETE' });
   }
 
-  private requireBalanceService(): BalanceService {
-    if (!this.balanceService) throw new Error('BalanceService not available (offline mode)');
-    return this.balanceService;
+  private requireBalanceOperation(): BalanceOperation {
+    if (!this.balanceOperation) throw new Error('BalanceOperation not available (offline mode)');
+    return this.balanceOperation;
   }
 
   private async loadAllAccounts(): Promise<Account[]> {
@@ -465,11 +466,10 @@ export async function createBalanceHandler(
     }
 
     const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-    const balanceService = new BalanceService(database, providerManager);
-    const handler = new BalanceHandler(database, balanceService);
+    const balanceOperation = new BalanceOperation(database, providerManager);
+    const handler = new BalanceHandler(database, balanceOperation);
     ctx.onCleanup(async () => {
       await handler.awaitStream();
-      await balanceService.destroy();
       await cleanupProviderManager();
     });
 

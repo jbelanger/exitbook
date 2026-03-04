@@ -137,7 +137,7 @@ export const AssetMovementSchema = z
  * - Include ALL fees (all settlements, all scopes)
  * - Fees increase what you paid to acquire the asset
  *
- * For Balance Calculation (balance-calculator.js):
+ * For Balance Calculation (balance-utils.ts):
  * - UTXO chains (settlement='on-chain'): Deduct grossAmount (fee embedded), skip fee subtraction
  * - Account-based chains (settlement='balance'): Deduct grossAmount + fee amount separately
  * - This ensures accurate balance tracking across different blockchain architectures

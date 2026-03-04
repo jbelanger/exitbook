@@ -11,9 +11,10 @@ import {
   type CostBasisInput,
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
+import { calculateBalances } from '@exitbook/app';
 import { parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { type DataContext } from '@exitbook/data';
-import { type AdapterRegistry, calculateBalances } from '@exitbook/ingestion';
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';

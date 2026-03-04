@@ -1,8 +1,13 @@
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Account, Currency, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { calculateBalances } from '../balance-calculator.js';
+import {
+  calculateBalances,
+  compareBalances,
+  createVerificationResult,
+  type BalanceComparison,
+} from '../balance-utils.js';
 
 // Helper function to create a base test transaction with all required fields
 function createTestTransaction(overrides: Partial<UniversalTransactionData>): UniversalTransactionData {
@@ -18,6 +23,17 @@ function createTestTransaction(overrides: Partial<UniversalTransactionData>): Un
     operation: { category: 'transfer', type: 'transfer' }, // Provide a default operation; adjust as needed for your tests
     movements: { inflows: [], outflows: [] },
     fees: [],
+    ...overrides,
+  };
+}
+
+function createTestAccount(overrides: Partial<Account> = {}): Account {
+  return {
+    id: 1,
+    accountType: 'blockchain',
+    sourceName: 'bitcoin',
+    identifier: 'bc1-test',
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
   };
 }
@@ -433,5 +449,127 @@ describe('calculateBalances', () => {
 
     expect(result.balances['test:btc']).toBeDefined();
     expect(result.balances['test:btc']?.toString()).toBe('0');
+  });
+});
+
+describe('compareBalances', () => {
+  it('classifies match, warning, and mismatch using tolerance and percentage thresholds', () => {
+    const calculated = {
+      'blockchain:bitcoin:native': parseDecimal('1.000000009'),
+      'blockchain:ethereum:native': parseDecimal('100.5'),
+      'blockchain:solana:native': parseDecimal('10'),
+    };
+
+    const live = {
+      'blockchain:bitcoin:native': parseDecimal('1.000000001'),
+      'blockchain:ethereum:native': parseDecimal('100'),
+      'blockchain:solana:native': parseDecimal('8'),
+    };
+
+    const metadata = {
+      'blockchain:bitcoin:native': 'BTC',
+      'blockchain:ethereum:native': 'ETH',
+      'blockchain:solana:native': 'SOL',
+    };
+
+    const result = compareBalances(calculated, live, metadata);
+    const byId = new Map(result.map((comparison) => [comparison.assetId, comparison]));
+
+    expect(byId.get('blockchain:bitcoin:native')?.status).toBe('match');
+    expect(byId.get('blockchain:ethereum:native')?.status).toBe('warning');
+    expect(byId.get('blockchain:solana:native')?.status).toBe('mismatch');
+    expect(byId.get('blockchain:ethereum:native')?.percentageDiff).toBeCloseTo(0.5, 8);
+    expect(byId.get('blockchain:solana:native')?.percentageDiff).toBe(25);
+  });
+
+  it('falls back to assetId as display symbol when metadata is missing', () => {
+    const assetId = 'blockchain:bitcoin:native';
+    const result = compareBalances({ [assetId]: parseDecimal('1') }, { [assetId]: parseDecimal('0') }, {});
+
+    expect(result[0]?.assetSymbol).toBe(assetId);
+    expect(result[0]?.percentageDiff).toBe(100);
+  });
+});
+
+describe('createVerificationResult', () => {
+  const baseComparison: BalanceComparison = {
+    assetId: 'blockchain:bitcoin:native',
+    assetSymbol: 'BTC',
+    calculatedBalance: '1',
+    liveBalance: '1',
+    difference: '0',
+    percentageDiff: 0,
+    status: 'match',
+  };
+
+  it('returns failed when mismatches exist and transactions are present', () => {
+    const account = createTestAccount();
+    const mismatch: BalanceComparison = {
+      ...baseComparison,
+      liveBalance: '0.8',
+      difference: '0.2',
+      percentageDiff: 25,
+      status: 'mismatch',
+    };
+
+    const result = createVerificationResult(account, [mismatch], Date.now(), true);
+
+    expect(result.status).toBe('failed');
+    expect(result.summary.mismatches).toBe(1);
+  });
+
+  it('returns warning (not failed) for mismatches when there are no transactions and suggests import', () => {
+    const account = createTestAccount();
+    const mismatch: BalanceComparison = {
+      ...baseComparison,
+      liveBalance: '0.8',
+      difference: '0.2',
+      percentageDiff: 25,
+      status: 'mismatch',
+    };
+
+    const result = createVerificationResult(account, [mismatch], undefined, false);
+
+    expect(result.status).toBe('warning');
+    expect(result.suggestion).toContain('No transactions imported yet');
+  });
+
+  it('returns warning for partial coverage even when all comparisons match', () => {
+    const account = createTestAccount();
+
+    const result = createVerificationResult(account, [baseComparison], Date.now(), true, undefined, {
+      status: 'partial',
+      confidence: 'medium',
+      requestedAddresses: 2,
+      successfulAddresses: 1,
+      failedAddresses: 1,
+      totalAssets: 1,
+      parsedAssets: 1,
+      failedAssets: 0,
+      overallCoverageRatio: 0.5,
+    });
+
+    expect(result.status).toBe('warning');
+  });
+
+  it('generates a stale-import suggestion when mismatch occurs and last import is older than 7 days', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-04T12:00:00.000Z'));
+
+    const account = createTestAccount();
+    const mismatch: BalanceComparison = {
+      ...baseComparison,
+      liveBalance: '0.8',
+      difference: '0.2',
+      percentageDiff: 25,
+      status: 'mismatch',
+    };
+
+    const nineDaysAgo = Date.now() - 9 * 24 * 60 * 60 * 1000;
+    const result = createVerificationResult(account, [mismatch], nineDaysAgo, true);
+
+    expect(result.suggestion).toContain('Last import was 9 days ago');
+
+    vi.useRealTimers();
   });
 });

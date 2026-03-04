@@ -215,6 +215,9 @@ importers:
       '@exitbook/events':
         specifier: workspace:*
         version: link:../events
+      '@exitbook/exchange-providers':
+        specifier: workspace:*
+        version: link:../exchange-providers
       '@exitbook/ingestion':
         specifier: workspace:*
         version: link:../ingestion

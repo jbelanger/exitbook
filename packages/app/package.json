@@ -20,6 +20,7 @@
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
     "@exitbook/events": "workspace:*",
+    "@exitbook/exchange-providers": "workspace:*",
     "@exitbook/ingestion": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "decimal.js": "^10.6.0",

@@ -10,12 +10,23 @@ export {
   type ImportExchangeCsvParams,
 } from './import/import-operation.js';
 export { ClearOperation, type ClearParams, type ClearResult, type DeletionPreview } from './clear/clear-operation.js';
+export { BalanceOperation, type BalanceParams } from './balance/balance-operation.js';
 export {
-  BalanceOperation,
-  type BalanceParams,
-  type BalanceResult,
+  calculateBalances,
+  compareBalances,
+  convertBalancesToDecimals,
+  createVerificationResult,
+  generateVerificationReport,
+  type BalanceCalculationResult,
   type BalanceComparison,
-} from './balance/balance-operation.js';
+  type BalanceVerificationResult,
+} from './balance/balance-utils.js';
+export {
+  fetchBlockchainBalance,
+  fetchChildAccountsBalance,
+  fetchExchangeBalance,
+  type UnifiedBalanceSnapshot,
+} from './balance/balance-fetch-utils.js';
 
 export { ProcessOperation, type ProcessParams, type ProcessResult } from './process/process-operation.js';
 

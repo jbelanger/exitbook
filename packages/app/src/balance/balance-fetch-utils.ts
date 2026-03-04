@@ -5,28 +5,16 @@ import {
   buildBlockchainTokenAssetId,
   buildExchangeAssetId,
   parseDecimal,
-  tryParseDecimal,
   wrapError,
 } from '@exitbook/core';
 import type { IExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger } from '@exitbook/logger';
-import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-const logger = getLogger('balance-utils');
+import type { BalancePartialFailure } from './balance-utils.js';
 
-export type BalancePartialFailureCode = 'child-account-fetch-failed' | 'balance-parse-failed';
-export type BalancePartialFailureScope = 'address' | 'asset';
-
-export interface BalancePartialFailure {
-  code: BalancePartialFailureCode;
-  message: string;
-  scope: BalancePartialFailureScope;
-  accountAddress?: string | undefined;
-  assetId?: string | undefined;
-  rawAmount?: string | undefined;
-}
+const logger = getLogger('balance-fetch-utils');
 
 export interface BalanceCoverageStats {
   failedAddressCount?: number | undefined;
@@ -37,33 +25,16 @@ export interface BalanceCoverageStats {
   failedAssetCount?: number | undefined;
 }
 
-export interface ConvertBalancesToDecimalsResult {
-  balances: Record<string, Decimal>;
-  coverage: {
-    failedAssetCount: number;
-    parsedAssetCount: number;
-    totalAssetCount: number;
-  };
-  partialFailures: BalancePartialFailure[];
-}
-
 /**
  * Unified balance snapshot format for both exchanges and blockchains
  */
 export interface UnifiedBalanceSnapshot {
-  /** Balances as assetId -> amount mapping */
   balances: Record<string, string>;
-  /** Asset metadata as assetId -> assetSymbol mapping for display */
   assetMetadata: Record<string, string>;
-  /** Timestamp when balance was fetched */
   timestamp: number;
-  /** Source type */
   sourceType: SourceType;
-  /** Source identifier (exchange name or blockchain + address) */
   sourceName: string;
-  /** Coverage metadata for this snapshot */
   coverage?: BalanceCoverageStats | undefined;
-  /** Recoverable partial failures observed while building this snapshot */
   partialFailures?: BalancePartialFailure[] | undefined;
 }
 
@@ -84,7 +55,6 @@ export async function fetchExchangeBalance(
 
     const { balances: rawBalances, timestamp } = result.value;
 
-    // Convert currency codes to assetIds and build metadata mapping
     const balances: Record<string, string> = {};
     const assetMetadata: Record<string, string> = {};
     for (const [currencyCode, amount] of Object.entries(rawBalances)) {
@@ -98,7 +68,7 @@ export async function fetchExchangeBalance(
       }
       const assetId = assetIdResult.value;
       balances[assetId] = amount;
-      assetMetadata[assetId] = currencyCode; // Store original currency code as assetSymbol
+      assetMetadata[assetId] = currencyCode;
     }
 
     return ok({
@@ -116,8 +86,6 @@ export async function fetchExchangeBalance(
 /**
  * Fetch balance from a blockchain using the provider manager.
  * Fetches both native asset balance and token balances if the provider supports it.
- *
- * Automatically enriches balance data with token metadata when fields are missing.
  */
 export async function fetchBlockchainBalance(
   providerManager: BlockchainProviderManager,
@@ -126,7 +94,6 @@ export async function fetchBlockchainBalance(
   providerName?: string
 ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
   try {
-    // Auto-register providers for this blockchain with optional provider preference
     const existingProviders = providerManager.getProviders(blockchain);
     if (!existingProviders || existingProviders.length === 0) {
       providerManager.autoRegisterFromConfig(blockchain, providerName);
@@ -141,7 +108,6 @@ export async function fetchBlockchainBalance(
       return err(nativeResult.error);
     }
 
-    // Enrich and convert native balance
     const enrichedNativeResult = await enrichBalanceData(nativeResult.value.data, blockchain, providerManager);
     if (enrichedNativeResult.isErr()) {
       return err(enrichedNativeResult.error);
@@ -173,11 +139,8 @@ export async function fetchBlockchainBalance(
         );
       }
 
-      // Enrich and convert each token balance
       const { data: tokenBalances } = tokenResult.value;
       for (const tokenBalance of tokenBalances) {
-        // CRITICAL: Token balances MUST have contractAddress to prevent collisions
-        // If missing, skip this token entirely rather than misclassifying as native
         if (!tokenBalance.contractAddress) {
           logger.warn(
             { blockchain, symbol: tokenBalance.symbol, tokenBalance },
@@ -230,7 +193,6 @@ export async function fetchBlockchainBalance(
 /**
  * Fetch balance from multiple child accounts (for xpub/extended public keys).
  * Fetches balance for each child account's address and sums them up.
- * Works for any blockchain that supports address derivation (Bitcoin, Cardano, etc.).
  */
 export async function fetchChildAccountsBalance(
   providerManager: BlockchainProviderManager,
@@ -278,7 +240,6 @@ export async function fetchChildAccountsBalance(
         const current = aggregatedBalances[assetId] || parseDecimal('0');
         aggregatedBalances[assetId] = current.plus(parseDecimal(amount));
       }
-      // Merge asset metadata
       Object.assign(aggregatedMetadata, balanceResult.value.assetMetadata);
     }
 
@@ -309,81 +270,17 @@ export async function fetchChildAccountsBalance(
 }
 
 /**
- * Convert balances from Record<string, string> to Record<string, Decimal> with explicit
- * structured partial-failure details. Invalid balances are excluded and reported.
- */
-export function convertBalancesToDecimals(balances: Record<string, string>): ConvertBalancesToDecimalsResult {
-  const decimalBalances: Record<string, Decimal> = {};
-  const partialFailures: BalancePartialFailure[] = [];
-  let parsedAssetCount = 0;
-
-  for (const [assetId, amount] of Object.entries(balances)) {
-    if (amount.trim().length === 0) {
-      const message = `Failed to parse balance amount for ${assetId}: empty string is not a valid balance`;
-
-      logger.warn({ assetId, amount }, 'Failed to parse balance amount; recording partial-failure metadata');
-
-      partialFailures.push({
-        code: 'balance-parse-failed',
-        message,
-        scope: 'asset',
-        assetId,
-        rawAmount: amount,
-      });
-
-      continue;
-    }
-
-    const parsed = { value: parseDecimal('0') };
-    if (tryParseDecimal(amount, parsed)) {
-      decimalBalances[assetId] = parsed.value;
-      parsedAssetCount++;
-    } else {
-      const parseError = new Error(`Invalid decimal: ${amount}`);
-      const message = `Failed to parse balance amount for ${assetId}: ${parseError.message}`;
-
-      logger.warn(
-        { error: parseError, assetId, amount },
-        'Failed to parse balance amount; recording partial-failure metadata'
-      );
-
-      partialFailures.push({
-        code: 'balance-parse-failed',
-        message,
-        scope: 'asset',
-        assetId,
-        rawAmount: amount,
-      });
-    }
-  }
-
-  return {
-    balances: decimalBalances,
-    coverage: {
-      totalAssetCount: Object.keys(balances).length,
-      parsedAssetCount,
-      failedAssetCount: partialFailures.length,
-    },
-    partialFailures,
-  };
-}
-
-/**
  * Enrich RawBalanceData with missing fields by fetching token metadata from cache or provider.
- * Returns enriched balance data with all available fields filled in.
- * Uses cache-aside pattern with stale-while-revalidate for optimal performance.
  */
 async function enrichBalanceData(
   balance: RawBalanceData,
   blockchain: string,
   providerManager: BlockchainProviderManager
 ): Promise<Result<RawBalanceData, Error>> {
-  // If we have all required fields (symbol and decimals), no need to enrich
   if (balance.symbol && balance.decimals !== undefined) {
     return ok(balance);
   }
 
-  // Only enrich if we have a contract address to look up
   if (!balance.contractAddress) {
     return ok(balance);
   }
@@ -397,7 +294,6 @@ async function enrichBalanceData(
 
     const metadata = metadataResult.value.get(balance.contractAddress);
 
-    // If no metadata found (provider doesn't support it), return as-is
     if (!metadata) {
       return ok(balance);
     }
@@ -414,17 +310,11 @@ async function enrichBalanceData(
 
 /**
  * Convert RawBalanceData to amount string, assetId, and assetSymbol.
- * Handles conversion from rawAmount (smallest units) to decimal when decimals are available.
- * Builds proper assetId using Asset Identity Specification format.
- *
- * IMPORTANT: This function should only be called from token balance paths when contractAddress is present.
- * For native balance paths, contractAddress should be undefined/null.
  */
 function convertRawBalance(
   balance: RawBalanceData,
   blockchain: string
 ): Result<{ amount: string; assetId: string; assetSymbol: string }, Error> {
-  // Determine amount
   let amount: string;
   if (balance.decimalAmount !== undefined) {
     amount = balance.decimalAmount;
@@ -442,16 +332,11 @@ function convertRawBalance(
     amount = balance.rawAmount ?? '0';
   }
 
-  // Build assetId using Asset Identity Specification
   let assetIdResult: Result<string, Error>;
 
   if (balance.contractAddress) {
-    // Token asset: blockchain:<chain>:<contractAddress>
     assetIdResult = buildBlockchainTokenAssetId(blockchain, balance.contractAddress);
   } else {
-    // Native asset: blockchain:<chain>:native
-    // Note: Token balances without contractAddress should be filtered out by caller
-    // to prevent collisions. This path should only be used for native balance fetches.
     assetIdResult = buildBlockchainNativeAssetId(blockchain);
   }
 
@@ -459,7 +344,6 @@ function convertRawBalance(
     return err(assetIdResult.error);
   }
 
-  // Determine assetSymbol for display (prefer symbol, fallback to 'UNKNOWN')
   const assetSymbol = balance.symbol ?? 'UNKNOWN';
 
   return ok({ amount, assetId: assetIdResult.value, assetSymbol });

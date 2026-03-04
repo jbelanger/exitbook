@@ -8,12 +8,8 @@ import { Decimal } from 'decimal.js';
 import { err, ok, okAsync } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  convertBalancesToDecimals,
-  fetchBlockchainBalance,
-  fetchChildAccountsBalance,
-  fetchExchangeBalance,
-} from '../balance-utils.js';
+import { fetchBlockchainBalance, fetchChildAccountsBalance, fetchExchangeBalance } from '../balance-fetch-utils.js';
+import { convertBalancesToDecimals } from '../balance-utils.js';
 
 describe('fetchExchangeBalance', () => {
   it('should fetch and return exchange balance successfully', async () => {

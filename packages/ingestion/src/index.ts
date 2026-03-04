@@ -4,22 +4,6 @@ export { allBlockchainAdapters } from './sources/blockchains/index.js';
 export { allExchangeAdapters } from './sources/exchanges/index.js';
 
 export { RawDataProcessingService } from './features/process/process-service.js';
-// Balance services
-export { BalanceService, type BalanceServiceParams } from './features/balances/balance-service.js';
-export { calculateBalances } from './features/balances/balance-calculator.js';
-export {
-  fetchExchangeBalance,
-  fetchBlockchainBalance,
-  fetchChildAccountsBalance,
-  convertBalancesToDecimals,
-  type UnifiedBalanceSnapshot,
-} from './features/balances/balance-utils.js';
-export {
-  compareBalances,
-  createVerificationResult,
-  generateVerificationReport,
-} from './features/balances/balance-verifier.js';
-export type { BalanceComparison, BalanceVerificationResult } from './features/balances/balance-verifier.types.js';
 
 // Types
 export type { IImporter, StreamingImportParams } from './shared/types/importers.js';
