@@ -31,6 +31,6 @@ jobs:
           publish_results: true
 
       - name: Upload to code-scanning dashboard
-        uses: github/codeql-action/upload-sarif@ff0a06e83cb2de871e5a09832bc6a81e7276941f # v3
+        uses: github/codeql-action/upload-sarif@c793b717bc78562f491db7b0e93a3a178b099162 # v3
         with:
           sarif_file: results.sarif
