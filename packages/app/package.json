@@ -1,0 +1,31 @@
+{
+  "name": "@exitbook/app",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "clean": "rm -rf node_modules dist",
+    "lint": "eslint \"src/**/*.ts\"",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@exitbook/accounting": "workspace:*",
+    "@exitbook/blockchain-providers": "workspace:*",
+    "@exitbook/core": "workspace:*",
+    "@exitbook/data": "workspace:*",
+    "@exitbook/events": "workspace:*",
+    "@exitbook/ingestion": "workspace:*",
+    "@exitbook/logger": "workspace:*",
+    "decimal.js": "^10.6.0",
+    "neverthrow": "^8.2.0"
+  },
+  "devDependencies": {
+    "tsconfig": "workspace:*"
+  }
+}

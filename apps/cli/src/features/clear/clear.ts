@@ -1,5 +1,5 @@
+import { ClearOperation, type ClearResult, type DeletionPreview } from '@exitbook/app';
 import type { AccountRepository } from '@exitbook/data';
-import { ClearService, type ClearResult, type DeletionPreview } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import React from 'react';
 
@@ -75,7 +75,7 @@ async function executeClearTUI(options: {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const clearService = new ClearService(database);
+      const clearOperation = new ClearOperation(database);
 
       const params = {
         accountId: options.accountId,
@@ -84,8 +84,8 @@ async function executeClearTUI(options: {
       };
 
       const [previewWithoutRawResult, previewWithRawResult] = await Promise.all([
-        clearService.previewDeletion({ ...params, includeRaw: false }),
-        clearService.previewDeletion({ ...params, includeRaw: true }),
+        clearOperation.preview({ ...params, includeRaw: false }),
+        clearOperation.preview({ ...params, includeRaw: true }),
       ]);
 
       if (previewWithoutRawResult.isErr()) {
@@ -115,7 +115,7 @@ async function executeClearTUI(options: {
       await renderApp((unmount) =>
         React.createElement(ClearViewApp, {
           initialState,
-          clearService,
+          clearOperation,
           params,
           onQuit: unmount,
         })
@@ -167,10 +167,10 @@ async function executeClearNonTui(options: {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const clearService = new ClearService(database);
+      const clearOperation = new ClearOperation(database);
 
       // Preview deletion
-      const previewResult = await clearService.previewDeletion({
+      const previewResult = await clearOperation.preview({
         accountId: options.accountId,
         source: options.source,
         includeRaw,
@@ -226,7 +226,7 @@ async function executeClearNonTui(options: {
       const spinner = createSpinner('Clearing data...', options.json ?? false);
 
       // Execute deletion
-      const result = await clearService.execute({
+      const result = await clearOperation.execute({
         accountId: options.accountId,
         source: options.source,
         includeRaw,

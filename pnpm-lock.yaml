@@ -78,6 +78,9 @@ importers:
       '@exitbook/accounting':
         specifier: workspace:*
         version: link:../../packages/accounting
+      '@exitbook/app':
+        specifier: workspace:*
+        version: link:../../packages/app
       '@exitbook/blockchain-providers':
         specifier: workspace:*
         version: link:../../packages/blockchain-providers
@@ -190,6 +193,40 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.3.6
+    devDependencies:
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+
+  packages/app:
+    dependencies:
+      '@exitbook/accounting':
+        specifier: workspace:*
+        version: link:../accounting
+      '@exitbook/blockchain-providers':
+        specifier: workspace:*
+        version: link:../blockchain-providers
+      '@exitbook/core':
+        specifier: workspace:*
+        version: link:../core
+      '@exitbook/data':
+        specifier: workspace:*
+        version: link:../data
+      '@exitbook/events':
+        specifier: workspace:*
+        version: link:../events
+      '@exitbook/ingestion':
+        specifier: workspace:*
+        version: link:../ingestion
+      '@exitbook/logger':
+        specifier: workspace:*
+        version: link:../logger
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
+      neverthrow:
+        specifier: ^8.2.0
+        version: 8.2.0
     devDependencies:
       tsconfig:
         specifier: workspace:*

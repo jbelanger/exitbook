@@ -2,7 +2,7 @@
  * Clear view controller — reducer and keyboard handler
  */
 
-import type { DeletionPreview } from '@exitbook/ingestion';
+import type { DeletionPreview } from '@exitbook/app';
 
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';

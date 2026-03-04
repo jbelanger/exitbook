@@ -1,4 +1,5 @@
-import type { AdapterRegistry, ImportParams } from '@exitbook/ingestion';
+import type { ImportParams } from '@exitbook/app';
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -146,7 +147,9 @@ async function executeImportTUI(options: ImportCommandOptions, registry: Adapter
 
       const params = unwrapResult(buildImportParams(options, registry));
 
-      const paramsWithCallback: ImportParams = {
+      const sourceName = 'blockchain' in params ? params.blockchain : params.exchange;
+
+      const result = await handler.execute({
         ...params,
         onSingleAddressWarning: async () => {
           process.stderr.write('\n⚠️  Single address import (incomplete wallet view)\n\n');
@@ -155,15 +158,11 @@ async function executeImportTUI(options: ImportCommandOptions, registry: Adapter
           process.stderr.write('  • Change to other addresses will appear as withdrawals\n');
           process.stderr.write('  • Multi-address transactions may show incorrect amounts\n\n');
           process.stderr.write('For complete wallet tracking, use xpub instead:\n');
-          process.stderr.write(
-            `  $ exitbook import --blockchain ${params.sourceName} --address xpub... [--xpub-gap 20]\n\n`
-          );
+          process.stderr.write(`  $ exitbook import --blockchain ${sourceName} --address xpub... [--xpub-gap 20]\n\n`);
           process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
           return await promptConfirm('Continue with single address import?', false);
         },
-      };
-
-      const result = await handler.execute(paramsWithCallback);
+      });
       if (result.isErr()) {
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
         return;
@@ -185,12 +184,14 @@ function buildImportResult(importResult: ImportExecuteResult, params: ImportPara
   const totalImported = importResult.sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
   const totalSkipped = importResult.sessions.reduce((sum, s) => sum + s.transactionsSkipped, 0);
   const firstSession = importResult.sessions[0];
-  const sourceIsBlockchain = params.sourceType === 'blockchain';
+
+  const isBlockchain = 'blockchain' in params;
+  const sourceName = isBlockchain ? params.blockchain : params.exchange;
 
   const inputData = {
-    csvDir: params.csvDirectory,
-    address: params.address,
-    ...(sourceIsBlockchain ? { blockchain: params.sourceName } : { exchange: params.sourceName }),
+    address: isBlockchain ? params.address : undefined,
+    csvDir: 'csvDir' in params ? params.csvDir : undefined,
+    ...(isBlockchain ? { blockchain: params.blockchain } : { exchange: params.exchange }),
   };
 
   const sessionSummaries =
@@ -207,7 +208,7 @@ function buildImportResult(importResult: ImportExecuteResult, params: ImportPara
     status: 'success',
     import: {
       accountId: firstSession?.accountId,
-      source: params.sourceName,
+      source: sourceName,
       input: inputData,
       counts: {
         imported: totalImported,

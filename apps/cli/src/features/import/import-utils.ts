@@ -1,8 +1,9 @@
 // Pure utility functions for import command
 // All functions are pure - no side effects
 
-import type { AccountType, ExchangeCredentials } from '@exitbook/core';
-import type { AdapterRegistry, ImportParams } from '@exitbook/ingestion';
+import type { ImportParams } from '@exitbook/app';
+import type { ExchangeCredentials } from '@exitbook/core';
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import { err, ok, type Result } from 'neverthrow';
 import type { z } from 'zod';
 
@@ -14,85 +15,65 @@ import type { ImportCommandOptionsSchema } from '../shared/schemas.js';
 export type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
 
 /**
- * Build canonical ImportParams from validated CLI flags.
- * Performs normalization (e.g., address normalization for blockchains).
- * This is the single transformation point - all downstream code uses ImportParams as-is.
+ * Build app-layer ImportParams from validated CLI flags.
+ *
+ * NOTE: Address normalization happens here AND in ImportOperation (tech debt —
+ * tracked in plan). Normalization is idempotent so this is safe but redundant.
  */
 export function buildImportParams(
   options: ImportCommandOptions,
   registry: AdapterRegistry
 ): Result<ImportParams, Error> {
-  const sourceName = (options.exchange || options.blockchain)!;
   const isBlockchain = !!options.blockchain;
-  const normalizedSourceName = sourceName.toLowerCase();
 
-  // Determine account type
-  let accountType: AccountType;
   if (isBlockchain) {
-    accountType = 'blockchain';
-  } else if (options.csvDir) {
-    accountType = 'exchange-csv';
-  } else {
-    accountType = 'exchange-api';
-  }
+    const sourceName = options.blockchain!;
+    const normalizedSourceName = sourceName.toLowerCase();
 
-  // Build params based on source type
-  if (isBlockchain) {
-    // Blockchain import - normalize address
     if (!options.address) {
       return err(new Error('Address is required for blockchain imports'));
     }
 
     const adapterResult = registry.getBlockchain(normalizedSourceName);
-    if (adapterResult.isErr()) {
-      return err(adapterResult.error);
-    }
+    if (adapterResult.isErr()) return err(adapterResult.error);
 
     const normalizedAddressResult = adapterResult.value.normalizeAddress(options.address);
-    if (normalizedAddressResult.isErr()) {
-      return err(normalizedAddressResult.error);
-    }
+    if (normalizedAddressResult.isErr()) return err(normalizedAddressResult.error);
 
     return ok({
-      sourceName,
-      sourceType: accountType,
+      blockchain: sourceName,
       address: normalizedAddressResult.value,
       providerName: options.provider,
       xpubGap: options.xpubGap,
     });
   }
 
+  // Exchange import
+  const sourceName = options.exchange!;
+  const normalizedSourceName = sourceName.toLowerCase();
+
   const exchangeAdapterResult = registry.getExchange(normalizedSourceName);
-  if (exchangeAdapterResult.isErr()) {
-    return err(exchangeAdapterResult.error);
-  }
+  if (exchangeAdapterResult.isErr()) return err(exchangeAdapterResult.error);
   const exchangeAdapter = exchangeAdapterResult.value;
 
-  // Exchange import
-  if (accountType === 'exchange-csv') {
+  if (options.csvDir) {
     if (!exchangeAdapter.capabilities.supportsCsv) {
       return err(
         new Error(`Exchange "${sourceName}" does not support CSV import. Use API credentials for this exchange.`)
       );
     }
 
-    // CSV import
-    if (!options.csvDir) {
-      return err(new Error('CSV directory is required for CSV imports'));
-    }
-
     return ok({
-      sourceName,
-      sourceType: accountType,
-      csvDirectory: options.csvDir,
+      exchange: sourceName,
+      csvDir: options.csvDir,
     });
   }
 
+  // API import
   if (!exchangeAdapter.capabilities.supportsApi) {
     return err(new Error(`Exchange "${sourceName}" does not support API import. Use --csv-dir for this exchange.`));
   }
 
-  // API import
   if (!options.apiKey || !options.apiSecret) {
     return err(new Error('API credentials are required for API imports'));
   }
@@ -106,8 +87,7 @@ export function buildImportParams(
   }
 
   return ok({
-    sourceName,
-    sourceType: accountType,
+    exchange: sourceName,
     credentials,
   });
 }

@@ -221,9 +221,7 @@ describe('buildImportParams', () => {
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
-      expect(params.sourceName).toBe('kucoin');
-      expect(params.sourceType).toBe('exchange-csv');
-      expect(params.csvDirectory).toBe('/path/to/csv');
+      expect(params).toEqual({ exchange: 'kucoin', csvDir: '/path/to/csv' });
     });
 
     it('should build params with API credentials', () => {
@@ -237,11 +235,9 @@ describe('buildImportParams', () => {
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
-      expect(params.sourceName).toBe('kraken');
-      expect(params.sourceType).toBe('exchange-api');
-      expect(params.credentials).toEqual({
-        apiKey: 'test-key',
-        apiSecret: 'test-secret',
+      expect(params).toEqual({
+        exchange: 'kraken',
+        credentials: { apiKey: 'test-key', apiSecret: 'test-secret' },
       });
     });
 
@@ -257,10 +253,9 @@ describe('buildImportParams', () => {
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
-      expect(params.credentials).toEqual({
-        apiKey: 'test-key',
-        apiSecret: 'test-secret',
-        apiPassphrase: 'test-passphrase',
+      expect(params).toEqual({
+        exchange: 'kraken',
+        credentials: { apiKey: 'test-key', apiSecret: 'test-secret', apiPassphrase: 'test-passphrase' },
       });
     });
 
@@ -299,9 +294,10 @@ describe('buildImportParams', () => {
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
-      expect(params.sourceName).toBe('bitcoin');
-      expect(params.sourceType).toBe('blockchain');
-      expect(params.address).toBe('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
+      expect(params).toEqual({
+        blockchain: 'bitcoin',
+        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+      });
     });
 
     it('should build params with address and provider', () => {
@@ -315,8 +311,11 @@ describe('buildImportParams', () => {
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
-      expect(params.address).toBe('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
-      expect(params.providerName).toBe('blockstream');
+      expect(params).toEqual({
+        blockchain: 'bitcoin',
+        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+        providerName: 'blockstream',
+      });
     });
   });
 });

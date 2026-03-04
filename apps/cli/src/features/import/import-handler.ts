@@ -1,7 +1,7 @@
+import { ImportOperation, type ImportParams } from '@exitbook/app';
 import type { ImportSession } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import { EventBus } from '@exitbook/events';
-import { type AdapterRegistry, type ImportEvent, ImportCoordinator, type ImportParams } from '@exitbook/ingestion';
+import type { AdapterRegistry } from '@exitbook/ingestion';
 import { isUtxoAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
@@ -17,106 +17,88 @@ export interface ImportExecuteResult {
 }
 
 /**
- * Import handler - encapsulates all import business logic.
- * Reusable by both CLI command and other contexts.
+ * CLI import handler — thin shell over ImportOperation.
+ * Adds CLI-specific concerns: xpub single-address warning, TUI monitor lifecycle, instrumentation.
  */
 export class ImportHandler {
   private readonly logger = getLogger('ImportHandler');
 
   constructor(
-    private importCoordinator: ImportCoordinator,
+    private importOperation: ImportOperation,
     private registry: AdapterRegistry,
     private ingestionMonitor: EventDrivenController<CliEvent>,
     private instrumentation: InstrumentationCollector
   ) {}
 
-  /**
-   * Execute import — writes raw data only. Processing is deferred
-   * to ensureProjections() which runs before linking/cost-basis.
-   */
-  async execute(params: ImportParams): Promise<Result<ImportExecuteResult, Error>> {
-    const importResult = await this.executeImport(params);
+  async execute(
+    params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
+  ): Promise<Result<ImportExecuteResult, Error>> {
+    // CLI-specific: warn about single-address UTXO imports before delegating
+    if ('blockchain' in params && params.address) {
+      const warningResult = await this.checkSingleAddressWarning(params);
+      if (warningResult.isErr()) {
+        this.ingestionMonitor.fail(warningResult.error.message);
+        await this.ingestionMonitor.stop();
+        return err(warningResult.error);
+      }
+    }
+
+    const importResult = await this.importOperation.execute(params);
     if (importResult.isErr()) {
       this.ingestionMonitor.fail(importResult.error.message);
       await this.ingestionMonitor.stop();
       return err(importResult.error);
     }
 
+    const { sessions } = importResult.value;
+
+    // Validate all sessions completed
+    const incompleteSessions = sessions.filter((session) => session.status !== 'completed');
+    if (incompleteSessions.length > 0) {
+      const accountStatuses = incompleteSessions.map((session) => `${session.accountId}(${session.status})`);
+      const error = new Error(
+        `Import did not complete for account(s): ${accountStatuses.join(', ')}. ` +
+          `Processing is blocked until all imports complete successfully.`
+      );
+      this.ingestionMonitor.fail(error.message);
+      await this.ingestionMonitor.stop();
+      return err(error);
+    }
+
     await this.ingestionMonitor.stop();
     return ok({
-      sessions: importResult.value.sessions,
+      sessions,
       runStats: this.instrumentation.getSummary(),
     });
   }
 
   abort(): void {
+    this.importOperation.abort();
     this.ingestionMonitor.abort();
     void this.ingestionMonitor.stop().catch((e) => {
       this.logger.warn({ e }, 'Failed to stop ingestion monitor on abort');
     });
   }
 
-  private async executeImport(params: ImportParams): Promise<Result<{ sessions: ImportSession[] }, Error>> {
-    try {
-      let importResult: Result<ImportSession | ImportSession[], Error>;
+  private async checkSingleAddressWarning(
+    params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
+  ): Promise<Result<void, Error>> {
+    if (!('blockchain' in params) || !params.onSingleAddressWarning) return ok(undefined);
 
-      if (params.sourceType === 'exchange-csv') {
-        if (!params.csvDirectory) {
-          return err(new Error('CSV directory is required for CSV imports'));
-        }
-        importResult = await this.importCoordinator.importExchangeCsv(params.sourceName, params.csvDirectory);
-      } else if (params.sourceType === 'exchange-api') {
-        if (!params.credentials) {
-          return err(new Error('Credentials are required for API imports'));
-        }
-        importResult = await this.importCoordinator.importExchangeApi(params.sourceName, params.credentials);
-      } else {
-        if (!params.address) {
-          return err(new Error('Address is required for blockchain imports'));
-        }
+    const adapterResult = this.registry.getBlockchain(params.blockchain.toLowerCase());
+    if (adapterResult.isErr()) return ok(undefined); // let ImportOperation handle the error
 
-        // Check if this is a single address (not xpub) and warn user
-        const adapterResult = this.registry.getBlockchain(params.sourceName.toLowerCase());
-        if (adapterResult.isOk() && isUtxoAdapter(adapterResult.value)) {
-          const blockchainAdapter = adapterResult.value;
-          const isXpub = blockchainAdapter.isExtendedPublicKey(params.address);
-          if (!isXpub && params.onSingleAddressWarning) {
-            const shouldContinue = await params.onSingleAddressWarning();
-            if (!shouldContinue) {
-              return err(new Error('Import cancelled by user'));
-            }
-          }
+    if (isUtxoAdapter(adapterResult.value)) {
+      const isXpub = adapterResult.value.isExtendedPublicKey(params.address);
+      if (!isXpub) {
+        const shouldContinue = await params.onSingleAddressWarning();
+        if (!shouldContinue) {
+          return err(new Error('Import cancelled by user'));
         }
-
-        importResult = await this.importCoordinator.importBlockchain(
-          params.sourceName,
-          params.address,
-          params.providerName,
-          params.xpubGap
-        );
       }
-
-      if (importResult.isErr()) {
-        return err(importResult.error);
-      }
-
-      const sessions = Array.isArray(importResult.value) ? importResult.value : [importResult.value];
-
-      const incompleteSessions = sessions.filter((session) => session.status !== 'completed');
-      if (incompleteSessions.length > 0) {
-        const accountStatuses = incompleteSessions.map((session) => `${session.accountId}(${session.status})`);
-        return err(
-          new Error(
-            `Import did not complete for account(s): ${accountStatuses.join(', ')}. ` +
-              `Processing is blocked until all imports complete successfully.`
-          )
-        );
-      }
-
-      return ok({ sessions });
-    } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
     }
+
+    return ok(undefined);
   }
 }
 
@@ -128,14 +110,9 @@ export async function createImportHandler(
   try {
     const infra = await createIngestionInfrastructure(ctx, database, registry);
 
-    const importCoordinator = new ImportCoordinator(
-      database,
-      infra.providerManager,
-      registry,
-      infra.eventBus as EventBus<ImportEvent>
-    );
+    const importOperation = new ImportOperation(database, infra.providerManager, registry, infra.eventBus);
 
-    return ok(new ImportHandler(importCoordinator, registry, infra.ingestionMonitor, infra.instrumentation));
+    return ok(new ImportHandler(importOperation, registry, infra.ingestionMonitor, infra.instrumentation));
   } catch (error) {
     return err(error instanceof Error ? error : new Error(String(error)));
   }

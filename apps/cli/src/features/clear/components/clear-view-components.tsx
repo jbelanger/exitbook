@@ -2,7 +2,7 @@
  * Clear view TUI components
  */
 
-import type { ClearService, ClearServiceParams } from '@exitbook/ingestion';
+import type { ClearOperation, ClearParams } from '@exitbook/app';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
@@ -41,11 +41,11 @@ import { formatCount, getCategoryDescription } from '../clear-view-utils.js';
  * Main clear view app component
  */
 export const ClearViewApp: FC<{
-  clearService: ClearService;
+  clearOperation: ClearOperation;
   initialState: ClearViewState;
   onQuit: () => void;
-  params: ClearServiceParams;
-}> = ({ initialState, clearService, params, onQuit }) => {
+  params: ClearParams;
+}> = ({ initialState, clearOperation, params, onQuit }) => {
   const [state, dispatch] = useReducer(clearViewReducer, initialState);
 
   const { stdout } = useStdout();
@@ -54,7 +54,7 @@ export const ClearViewApp: FC<{
 
   // Execution callback
   const executeDelete = async () => {
-    const result = await clearService.execute({
+    const result = await clearOperation.execute({
       ...params,
       includeRaw: state.includeRaw,
     });

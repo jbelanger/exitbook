@@ -3,7 +3,6 @@ export { AdapterRegistry } from './shared/types/adapter-registry.js';
 export { allBlockchainAdapters } from './sources/blockchains/index.js';
 export { allExchangeAdapters } from './sources/exchanges/index.js';
 
-export { ImportCoordinator } from './features/import/import-coordinator.js';
 export { RawDataProcessingService } from './features/process/process-service.js';
 export { ClearService } from './features/deletion/clear-service.js';
 export type { ClearResult } from './features/deletion/clear-service.js';
@@ -35,7 +34,7 @@ export {
 export type { BalanceComparison, BalanceVerificationResult } from './features/balances/balance-verifier.types.js';
 
 // Types
-export type { ImportParams } from './shared/types/importers.js';
+export type { IImporter, ImportParams } from './shared/types/importers.js';
 
 // Events
 export type { ImportEvent, ProcessEvent, IngestionEvent } from './events.js';

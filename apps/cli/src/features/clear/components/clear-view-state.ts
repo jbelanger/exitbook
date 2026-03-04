@@ -2,7 +2,7 @@
  * Clear view state model and pure functions
  */
 
-import type { DeletionPreview } from '@exitbook/ingestion';
+import type { DeletionPreview } from '@exitbook/app';
 
 /**
  * Phase progression: preview → confirming → executing → complete/error
