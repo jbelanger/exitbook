@@ -9,7 +9,7 @@ import type { CursorState } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportParams, ImportBatchResult } from '../../../shared/types/importers.js';
+import type { IImporter, StreamingImportParams, ImportBatchResult } from '../../../shared/types/importers.js';
 
 /**
  * NEAR transaction importer - streams raw unprocessed data from 4 discrete endpoints
@@ -57,7 +57,7 @@ export class NearImporter implements IImporter {
    * Each phase must complete before the next begins. Each phase is independently
    * resumable using its stream type cursor.
    */
-  async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+  async *importStreaming(params: StreamingImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address) {
       yield err(new Error('Address required for NEAR transaction import'));
       return;

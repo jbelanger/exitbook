@@ -7,7 +7,7 @@ import { getErrorMessage, type RawTransactionInput } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportBatchResult, ImportParams } from '../../../shared/types/importers.js';
+import type { IImporter, ImportBatchResult, StreamingImportParams } from '../../../shared/types/importers.js';
 import { parseCsvFile, validateCsvHeaders } from '../shared/csv-parser-utils.js';
 
 import { CSV_FILE_TYPES } from './constants.js';
@@ -45,7 +45,7 @@ export class KucoinCsvImporter implements IImporter {
    * Memory-bounded: processes one file at a time
    * Supports resumption via cursor (skips completed files)
    */
-  async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+  async *importStreaming(params: StreamingImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     this.logger.debug(`Starting KuCoin CSV import from directory: ${params.csvDirectory ?? 'none'}`);
 
     if (!params.csvDirectory) {

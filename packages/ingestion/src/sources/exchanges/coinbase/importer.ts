@@ -2,7 +2,7 @@ import { createCoinbaseClient } from '@exitbook/exchange-providers';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportBatchResult, ImportParams } from '../../../shared/types/importers.js';
+import type { IImporter, ImportBatchResult, StreamingImportParams } from '../../../shared/types/importers.js';
 
 /**
  * API-based importer for Coinbase exchange.
@@ -22,7 +22,7 @@ export class CoinbaseApiImporter implements IImporter {
    * Supports mid-import resumption via per-account cursors
    * Handles multiple Coinbase accounts independently
    */
-  async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+  async *importStreaming(params: StreamingImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     this.logger.info('Starting Coinbase API streaming import');
 
     if (!params.credentials) {

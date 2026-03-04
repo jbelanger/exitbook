@@ -8,7 +8,7 @@ import type { CursorState } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ImportBatchResult, ImportParams, IImporter } from '../../../shared/types/importers.js';
+import type { ImportBatchResult, StreamingImportParams, IImporter } from '../../../shared/types/importers.js';
 import { mapToRawTransactions } from '../shared/importer-utils.js';
 
 /**
@@ -36,7 +36,7 @@ export class XrpImporter implements IImporter {
     );
   }
 
-  async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+  async *importStreaming(params: StreamingImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address) {
       yield err(new Error('Address required for XRP transaction import'));
       return;

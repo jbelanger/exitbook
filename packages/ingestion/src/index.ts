@@ -34,7 +34,7 @@ export {
 export type { BalanceComparison, BalanceVerificationResult } from './features/balances/balance-verifier.types.js';
 
 // Types
-export type { IImporter, ImportParams } from './shared/types/importers.js';
+export type { IImporter, StreamingImportParams } from './shared/types/importers.js';
 
 // Events
 export type { ImportEvent, ProcessEvent, IngestionEvent } from './events.js';

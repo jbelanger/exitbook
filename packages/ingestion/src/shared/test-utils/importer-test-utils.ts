@@ -3,7 +3,7 @@ import type { CursorState, RawTransactionInput } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 import { type Mocked } from 'vitest';
 
-import type { IImporter, ImportParams } from '../../shared/types/importers.js';
+import type { IImporter, StreamingImportParams } from '../../shared/types/importers.js';
 
 export { createMockProviderManager } from './mock-factories.js';
 
@@ -29,7 +29,7 @@ export interface ImportRunResult {
 
 export async function consumeImportStream(
   importer: IImporter,
-  params: ImportParams
+  params: StreamingImportParams
 ): Promise<Result<ImportRunResult, Error>> {
   const allTransactions: RawTransactionInput[] = [];
   const cursorUpdates: Record<string, CursorState> = {};

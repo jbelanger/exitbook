@@ -8,7 +8,7 @@ import type { CursorState } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportParams, ImportBatchResult } from '../../../shared/types/importers.js';
+import type { IImporter, StreamingImportParams, ImportBatchResult } from '../../../shared/types/importers.js';
 import { mapToRawTransactions } from '../shared/importer-utils.js';
 
 /**
@@ -42,7 +42,7 @@ export class CosmosImporter implements IImporter {
    * Streaming import implementation
    * Streams transaction batches without accumulating everything in memory
    */
-  async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+  async *importStreaming(params: StreamingImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address?.length) {
       yield err(new Error(`Address required for ${this.chainConfig.displayName} transaction import`));
       return;

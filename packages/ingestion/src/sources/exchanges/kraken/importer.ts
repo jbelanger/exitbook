@@ -2,7 +2,7 @@ import { createKrakenClient } from '@exitbook/exchange-providers';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportBatchResult, ImportParams } from '../../../shared/types/importers.js';
+import type { IImporter, ImportBatchResult, StreamingImportParams } from '../../../shared/types/importers.js';
 
 /**
  * API-based importer for Kraken exchange.
@@ -21,7 +21,7 @@ export class KrakenApiImporter implements IImporter {
    * Memory-bounded processing (O(batch_size) instead of O(total_transactions))
    * Supports mid-import resumption via cursor
    */
-  async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+  async *importStreaming(params: StreamingImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     this.logger.info('Starting Kraken API streaming import');
 
     if (!params.credentials) {

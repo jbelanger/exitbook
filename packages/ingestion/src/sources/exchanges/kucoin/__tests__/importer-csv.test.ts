@@ -5,7 +5,7 @@ import { type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { assertOk, consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
-import type { ImportBatchResult, ImportParams } from '../../../../shared/types/importers.js';
+import type { ImportBatchResult, StreamingImportParams } from '../../../../shared/types/importers.js';
 import { KucoinCsvImporter } from '../importer-csv.js';
 
 vi.mock('node:fs/promises');
@@ -51,7 +51,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
     mockReadFile.mockResolvedValue(csvContent);
 
-    const params: ImportParams = {
+    const params: StreamingImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
@@ -74,7 +74,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
     mockReadFile.mockResolvedValue(csvContent);
 
-    const params: ImportParams = {
+    const params: StreamingImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
@@ -103,7 +103,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
     mockReadFile.mockResolvedValue(csvContent);
 
-    const params: ImportParams = {
+    const params: StreamingImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
@@ -128,7 +128,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
       Buffer<ArrayBuffer>
     >[]);
 
-    const params: ImportParams = {
+    const params: StreamingImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
@@ -178,7 +178,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,success,`);
     });
 
-    const params: ImportParams = {
+    const params: StreamingImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
@@ -362,7 +362,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
   });
 
   test('returns error when csvDirectory is not provided', async () => {
-    const params: ImportParams = {
+    const params: StreamingImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: undefined,
@@ -383,7 +383,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
   test('handles directory read errors gracefully', async () => {
     mockReaddir.mockRejectedValue(new Error('Directory not found'));
 
-    const params: ImportParams = {
+    const params: StreamingImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/invalid',
@@ -403,7 +403,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
     >[]);
     mockReadFile.mockRejectedValue(new Error('File read error'));
 
-    const params: ImportParams = {
+    const params: StreamingImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',

@@ -9,7 +9,7 @@ import { getErrorMessage, wrapError } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportBatchResult, ImportParams } from '../../../shared/types/importers.js';
+import type { IImporter, ImportBatchResult, StreamingImportParams } from '../../../shared/types/importers.js';
 
 import { mapToRawTransactions } from './evm-importer-utils.js';
 
@@ -59,7 +59,7 @@ export class EvmImporter implements IImporter {
    * Streaming import implementation
    * Streams all transaction types in deterministic order without accumulating everything in memory
    */
-  async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+  async *importStreaming(params: StreamingImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address) {
       yield err(new Error(`Address required for ${this.chainConfig.chainName} transaction import`));
       return;

@@ -17,8 +17,8 @@ export type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
 /**
  * Build app-layer ImportParams from validated CLI flags.
  *
- * NOTE: Address normalization happens here AND in ImportOperation (tech debt —
- * tracked in plan). Normalization is idempotent so this is safe but redundant.
+ * Address normalization and adapter validation are handled by ImportOperation —
+ * this function is a pure options-to-params mapper.
  */
 export function buildImportParams(
   options: ImportCommandOptions,
@@ -28,21 +28,14 @@ export function buildImportParams(
 
   if (isBlockchain) {
     const sourceName = options.blockchain!;
-    const normalizedSourceName = sourceName.toLowerCase();
 
     if (!options.address) {
       return err(new Error('Address is required for blockchain imports'));
     }
 
-    const adapterResult = registry.getBlockchain(normalizedSourceName);
-    if (adapterResult.isErr()) return err(adapterResult.error);
-
-    const normalizedAddressResult = adapterResult.value.normalizeAddress(options.address);
-    if (normalizedAddressResult.isErr()) return err(normalizedAddressResult.error);
-
     return ok({
       blockchain: sourceName,
-      address: normalizedAddressResult.value,
+      address: options.address,
       providerName: options.provider,
       xpubGap: options.xpubGap,
     });

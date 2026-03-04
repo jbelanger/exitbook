@@ -4,12 +4,7 @@ import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ExchangeCredentials, ImportSession } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import type {
-  AdapterRegistry,
-  IImporter,
-  ImportEvent,
-  ImportParams as IngestionImportParams,
-} from '@exitbook/ingestion';
+import type { AdapterRegistry, IImporter, ImportEvent, StreamingImportParams } from '@exitbook/ingestion';
 import { isUtxoAdapter, type UtxoBlockchainAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
@@ -354,7 +349,7 @@ export class ImportOperation {
         durationMs: derivationDuration,
       });
 
-      await this.db.accounts.update(parentAccount.id, {
+      const metadataResult = await this.db.accounts.update(parentAccount.id, {
         metadata: {
           xpub: {
             gapLimit: requestedGap,
@@ -363,6 +358,12 @@ export class ImportOperation {
           },
         },
       });
+      if (metadataResult.isErr()) {
+        logger.warn(
+          { accountId: parentAccount.id, error: metadataResult.error },
+          'Failed to persist xpub metadata; re-derivation may occur on next import'
+        );
+      }
 
       logger.info(
         `Derived ${childAccounts.length} addresses` + (newlyDerivedCount > 0 ? ` (${newlyDerivedCount} new)` : '')
@@ -433,13 +434,13 @@ export class ImportOperation {
     return this.executeStreamingImport(account, importer, params);
   }
 
-  private buildImporter(account: Account): Result<{ importer: IImporter; params: IngestionImportParams }, Error> {
+  private buildImporter(account: Account): Result<{ importer: IImporter; params: StreamingImportParams }, Error> {
     const sourceName = account.sourceName;
     const sourceType = account.accountType;
 
     logger.debug(`Setting up ${sourceType} import for ${sourceName}`);
 
-    const params: IngestionImportParams = {
+    const params: StreamingImportParams = {
       sourceName,
       sourceType,
       cursor: account.lastCursor,
@@ -475,7 +476,7 @@ export class ImportOperation {
   private async executeStreamingImport(
     account: Account,
     importer: IImporter,
-    params: IngestionImportParams
+    params: StreamingImportParams
   ): Promise<Result<ImportSession, Error>> {
     const sourceName = account.sourceName;
 
@@ -556,6 +557,8 @@ export class ImportOperation {
           await this.db.importSessions.update(importSessionId, {
             status: 'failed',
             error_message: 'Import aborted by user',
+            transactions_imported: totalImported,
+            transactions_skipped: totalSkipped,
           });
           return err(new Error('Import aborted by user'));
         }
@@ -564,6 +567,8 @@ export class ImportOperation {
           await this.db.importSessions.update(importSessionId, {
             status: 'failed',
             error_message: batchResult.error.message,
+            transactions_imported: totalImported,
+            transactions_skipped: totalSkipped,
           });
           return err(batchResult.error);
         }
@@ -595,6 +600,8 @@ export class ImportOperation {
           await this.db.importSessions.update(importSessionId, {
             status: 'failed',
             error_message: saveResult.error.message,
+            transactions_imported: totalImported,
+            transactions_skipped: totalSkipped,
           });
           return err(saveResult.error);
         }
@@ -606,6 +613,18 @@ export class ImportOperation {
 
         if (skipped > 0) {
           logger.info(`Skipped ${skipped} duplicate transactions in batch`);
+        }
+
+        // Persist session totals after EACH batch for crash recovery
+        const sessionUpdateResult = await this.db.importSessions.update(importSessionId, {
+          transactions_imported: totalImported,
+          transactions_skipped: totalSkipped,
+        });
+        if (sessionUpdateResult.isErr()) {
+          logger.warn(
+            { sessionId: importSessionId, error: sessionUpdateResult.error },
+            'Failed to persist session totals after batch; totals may be stale on crash recovery'
+          );
         }
 
         // Update cursor after EACH batch for crash recovery

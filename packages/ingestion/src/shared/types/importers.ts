@@ -5,7 +5,7 @@ import type { Result } from 'neverthrow';
  * Canonical import parameters - single source of truth for all import operations.
  * Built once at CLI boundary, passed through all layers, stored in Account.
  */
-export interface ImportParams {
+export interface StreamingImportParams {
   /** Source name (exchange or blockchain identifier) */
   sourceName: string;
 
@@ -75,5 +75,5 @@ export interface IImporter {
    * @param params - Import parameters including optional resume cursors
    * @returns AsyncIterator yielding Result-wrapped batches
    */
-  importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>>;
+  importStreaming(params: StreamingImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>>;
 }
