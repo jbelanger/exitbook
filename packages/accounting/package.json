@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@exitbook/core": "workspace:*",
-    "@exitbook/data": "workspace:*",
     "@exitbook/events": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/observability": "workspace:*",

@@ -1,12 +1,12 @@
 import type { FeeMovement } from '@exitbook/core';
 import { type Currency, parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
-import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createFeeMovement, createPriceAtTxTime, createTransactionFromMovements } from '../../__tests__/test-utils.js';
 import type { TransactionLink } from '../../linking/types.js';
+import type { CostBasisStore } from '../../ports/cost-basis-store.js';
 import { LotMatcher } from '../lot-matcher.js';
 import { AverageCostStrategy } from '../strategies/average-cost-strategy.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
@@ -54,28 +54,20 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     updatedAt: new Date('2024-01-01'),
   });
 
-  const mockTransactionRepo = () => {
-    const queries: Partial<TransactionRepository> = {
-      findById: vi.fn().mockImplementation((id: number) => {
-        const sourceTx = transactions.find((t) => t.id === id);
-        return sourceTx
-          ? { isOk: () => true, isErr: () => false, value: sourceTx }
-          : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
-      }),
-    };
-    return queries as TransactionRepository;
-  };
-
-  const mockLinkRepo = (links: TransactionLink[]) => {
-    const queries: Partial<TransactionLinkRepository> = {
-      findAll: vi.fn().mockResolvedValue({
-        isOk: () => true,
-        isErr: () => false,
-        value: links,
-      }),
-    };
-    return queries as TransactionLinkRepository;
-  };
+  const mockCostBasisStore = (links: TransactionLink[]): CostBasisStore => ({
+    findAllTransactions: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: transactions }),
+    findTransactionById: vi.fn().mockImplementation((id: number) => {
+      const sourceTx = transactions.find((t) => t.id === id);
+      return sourceTx
+        ? { isOk: () => true, isErr: () => false, value: sourceTx }
+        : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
+    }),
+    findConfirmedLinks: vi.fn().mockResolvedValue({
+      isOk: () => true,
+      isErr: () => false,
+      value: links,
+    }),
+  });
 
   let transactions: UniversalTransactionData[] = [];
 
@@ -133,9 +125,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -213,9 +203,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -312,9 +300,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -401,9 +387,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -511,9 +495,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       const link1 = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
       const link2 = createLink(2, 4, 5, 'BTC', '0.9992', '0.9992');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link1, link2]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link1, link2]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -614,9 +596,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const link = createLink(1, 3, 4, 'BTC', '1.0', '1.0');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -719,9 +699,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       const link1 = createLink(1, 2, 3, 'BTC', '0.99975', '0.99975');
       const link2 = createLink(2, 2, 4, 'BTC', '0.99975', '0.99975');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link1, link2]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link1, link2]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -806,9 +784,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -887,9 +863,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -966,9 +940,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9875', '0.9875');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -1037,9 +1009,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.94', '0.94');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -1110,9 +1080,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.98', '0.98');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -1182,9 +1150,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -1265,9 +1231,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995', '98.5');
 
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {
@@ -1364,9 +1328,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseLotA, purchaseLotB, withdrawalTx, depositTx];
 
       const link = createLink(101, 3, 4, 'BTC', '1', '1');
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const averageCostStrategy = new AverageCostStrategy();
 
       const result = await matcher.match(transactions, {
@@ -1453,9 +1415,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseLotA, purchaseLotB, withdrawalTx, depositTx];
 
       const link = createLink(102, 3, 4, 'BTC', '1.5', '1.5');
-      const txRepo = mockTransactionRepo();
-      const linkRepo = mockLinkRepo([link]);
-      const matcher = new LotMatcher(txRepo, linkRepo);
+      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
       const result = await matcher.match(transactions, {

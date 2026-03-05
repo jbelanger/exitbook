@@ -1,7 +1,8 @@
 import { type UniversalTransactionData } from '@exitbook/core';
-import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
+
+import type { CostBasisStore } from '../ports/cost-basis-store.js';
 
 import { calculateCostBasisFromValidatedTransactions, type CostBasisSummary } from './cost-basis-calculator.js';
 import type { CostBasisConfig } from './cost-basis-config.js';
@@ -20,14 +21,13 @@ export interface CostBasisPipelineResult {
 /**
  * Shared cost-basis pipeline: soft-fail price validation → jurisdiction rules → lot matching → gain/loss.
  *
- * Used by CostBasisHandler and PortfolioHandler to avoid duplicating the
+ * Used by CostBasisOperation and PortfolioHandler to avoid duplicating the
  * "validate prices → get rules → run calculator" flow.
  */
 export async function runCostBasisPipeline(
   transactions: UniversalTransactionData[],
   config: CostBasisConfig,
-  transactionRepository: TransactionRepository,
-  linkRepository: TransactionLinkRepository
+  store: CostBasisStore
 ): Promise<Result<CostBasisPipelineResult, Error>> {
   const validationResult = validateTransactionPrices(transactions, config.currency);
   if (validationResult.isErr()) {
@@ -48,7 +48,7 @@ export async function runCostBasisPipeline(
   }
 
   const rules = rulesResult.value;
-  const lotMatcher = new LotMatcher(transactionRepository, linkRepository);
+  const lotMatcher = new LotMatcher(store);
 
   const costBasisResult = await calculateCostBasisFromValidatedTransactions(
     validTransactions,

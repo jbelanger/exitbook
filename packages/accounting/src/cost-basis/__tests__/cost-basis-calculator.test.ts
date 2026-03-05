@@ -1,35 +1,29 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
-import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTransaction, createTransactionWithFee } from '../../__tests__/test-utils.js';
+import type { CostBasisStore } from '../../ports/cost-basis-store.js';
 import { calculateCostBasisFromValidatedTransactions } from '../cost-basis-calculator.js';
 import type { CostBasisConfig } from '../cost-basis-config.js';
 import { CanadaRules } from '../jurisdictions/canada-rules.js';
 import { USRules } from '../jurisdictions/us-rules.js';
 import { LotMatcher } from '../lot-matcher.js';
 
-const mockTransactionRepo = () => {
-  const queries: Partial<TransactionRepository> = {
-    findById: vi.fn().mockResolvedValue({ isOk: () => false, isErr: () => true, error: new Error('Not found') }),
-  };
-  return queries as TransactionRepository;
-};
-
-const mockLinkRepo = () => {
-  const queries: Partial<TransactionLinkRepository> = {
-    findAll: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
-  };
-  return queries as TransactionLinkRepository;
-};
+const mockCostBasisStore = (): CostBasisStore => ({
+  findAllTransactions: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
+  findTransactionById: vi
+    .fn()
+    .mockResolvedValue({ isOk: () => false, isErr: () => true, error: new Error('Not found') }),
+  findConfirmedLinks: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
+});
 
 describe('calculateCostBasisFromValidatedTransactions', () => {
   let lotMatcher: LotMatcher;
 
   beforeEach(() => {
-    lotMatcher = new LotMatcher(mockTransactionRepo(), mockLinkRepo());
+    lotMatcher = new LotMatcher(mockCostBasisStore());
   });
 
   describe('calculate', () => {

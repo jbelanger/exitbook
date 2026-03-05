@@ -63,6 +63,7 @@ export { CostBasisReportGenerator } from './cost-basis/cost-basis-report-generat
 export type { CostBasisReportInput } from './cost-basis/cost-basis-report-generator.js';
 
 // Ports
+export type { CostBasisStore } from './ports/index.js';
 export type { LinkingStore } from './ports/index.js';
 export type { PricingStore } from './ports/index.js';
 

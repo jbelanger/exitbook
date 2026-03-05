@@ -1,28 +1,22 @@
 import { type Currency, parseDecimal, type TransactionLink, type UniversalTransactionData } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
-import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createFeeMovement, createPriceAtTxTime, createTransaction } from '../../__tests__/test-utils.js';
+import type { CostBasisStore } from '../../ports/cost-basis-store.js';
 import { LotMatcher } from '../lot-matcher.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
 
-const mockTransactionRepo = () => {
-  const queries: Partial<TransactionRepository> = {
-    findById: vi.fn().mockResolvedValue({ isOk: () => false, isErr: () => true, error: new Error('Not found') }),
-  };
-  return queries as TransactionRepository;
-};
-
-const mockLinkRepo = () => {
-  const queries: Partial<TransactionLinkRepository> = {
-    findAll: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
-  };
-  return queries as TransactionLinkRepository;
-};
+const mockCostBasisStore = (): CostBasisStore => ({
+  findAllTransactions: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
+  findTransactionById: vi
+    .fn()
+    .mockResolvedValue({ isOk: () => false, isErr: () => true, error: new Error('Not found') }),
+  findConfirmedLinks: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
+});
 
 describe('LotMatcher - Fee Handling', () => {
-  const matcher = new LotMatcher(mockTransactionRepo(), mockLinkRepo());
+  const matcher = new LotMatcher(mockCostBasisStore());
   const fifoStrategy = new FifoStrategy();
 
   describe('Acquisition lots with fees', () => {
@@ -660,30 +654,22 @@ describe('LotMatcher - Fee Handling', () => {
         updatedAt: new Date('2024-02-01'),
       };
 
-      const mockTransactionRepo = () => {
-        const queries: Partial<TransactionRepository> = {
-          findById: vi.fn().mockImplementation((id: number) => {
-            const tx = transactions.find((t) => t.id === id);
-            return tx
-              ? { isOk: () => true, isErr: () => false, value: tx }
-              : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
-          }),
-        };
-        return queries as TransactionRepository;
+      const storeWithLinks: CostBasisStore = {
+        findAllTransactions: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: transactions }),
+        findTransactionById: vi.fn().mockImplementation((id: number) => {
+          const tx = transactions.find((t) => t.id === id);
+          return tx
+            ? { isOk: () => true, isErr: () => false, value: tx }
+            : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
+        }),
+        findConfirmedLinks: vi.fn().mockResolvedValue({
+          isOk: () => true,
+          isErr: () => false,
+          value: [link],
+        }),
       };
 
-      const mockLinkRepo = () => {
-        const queries: Partial<TransactionLinkRepository> = {
-          findAll: vi.fn().mockResolvedValue({
-            isOk: () => true,
-            isErr: () => false,
-            value: [link],
-          }),
-        };
-        return queries as TransactionLinkRepository;
-      };
-
-      const matcherWithLinks = new LotMatcher(mockTransactionRepo(), mockLinkRepo());
+      const matcherWithLinks = new LotMatcher(storeWithLinks);
 
       const result = await matcherWithLinks.match(transactions, {
         calculationId: 'calc1',

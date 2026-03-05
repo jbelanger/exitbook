@@ -40,6 +40,10 @@ export {
 } from './price-enrich/price-enrich-operation.js';
 export { PriceEnrichStep } from './price-enrich/price-enrich-step.js';
 
+export { CostBasisOperation, type CostBasisInput, type CostBasisResult } from './cost-basis/cost-basis-operation.js';
+export { CostBasisStoreAdapter } from './cost-basis/cost-basis-store-adapter.js';
+export { CostBasisStep } from './cost-basis/cost-basis-step.js';
+
 export {
   AccountQuery,
   type AccountQueryParams,

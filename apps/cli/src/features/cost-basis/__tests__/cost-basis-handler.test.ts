@@ -13,7 +13,6 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { CostBasisHandler } from '../cost-basis-handler.js';
 
-// Mock dependencies
 vi.mock('@exitbook/accounting', async () => {
   const actual = await vi.importActual('@exitbook/accounting');
   return {
@@ -41,21 +40,32 @@ vi.mock('@exitbook/logger', () => ({
   }),
 }));
 
+vi.mock('../../shared/data-dir.js', () => ({
+  getDataDir: vi.fn().mockReturnValue('/tmp/test-data'),
+}));
+
 describe('CostBasisHandler', () => {
   let handler: CostBasisHandler;
   let mockTransactionRepo: { findAll: Mock };
-  let mockTransactionLinkRepo: Record<string, never>;
+  let mockTransactionLinkRepo: { findAll: Mock };
+  let mockPriceManager: PriceProviderManager;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
     mockTransactionRepo = { findAll: vi.fn() };
-    mockTransactionLinkRepo = {};
+    mockTransactionLinkRepo = { findAll: vi.fn().mockResolvedValue(ok([])) };
 
     const mockDb = {
       transactions: mockTransactionRepo,
       transactionLinks: mockTransactionLinkRepo,
     } as unknown as DataContext;
+
+    mockPriceManager = {
+      destroy: vi.fn(),
+    } as unknown as PriceProviderManager;
+
+    vi.mocked(createPriceProviderManager).mockResolvedValue(ok(mockPriceManager));
 
     handler = new CostBasisHandler(mockDb);
   });
@@ -203,13 +213,6 @@ describe('CostBasisHandler', () => {
         })
       );
 
-      // Mock Price Provider
-      vi.mocked(createPriceProviderManager).mockResolvedValue(
-        ok({
-          destroy: vi.fn(),
-        } as unknown as PriceProviderManager)
-      );
-
       // Mock Report Generator
       const mockGenerateReport = vi.fn().mockResolvedValue(
         ok({
@@ -244,7 +247,6 @@ describe('CostBasisHandler', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.report).toBeDefined();
-        expect(createPriceProviderManager).toHaveBeenCalled();
       }
     });
 

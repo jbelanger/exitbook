@@ -32,25 +32,26 @@
 
 ## Current State
 
-| Component                                   | Status         | Notes                                                                     |
-| ------------------------------------------- | -------------- | ------------------------------------------------------------------------- |
-| `ImportOperation`                           | ✅ Implemented | Full import lifecycle in app layer                                        |
-| `ClearOperation`                            | ✅ Implemented | Data deletion and reset                                                   |
-| `AccountQuery`                              | ✅ Implemented | Account listing and session summaries                                     |
-| `BalanceOperation`                          | ✅ Implemented | Live vs calculated balance comparison                                     |
-| `ProcessOperation`                          | 🔄 In progress | Reprocess orchestration (clear → guard → process)                         |
-| `ClearStep`                                 | 🔄 In progress | Pipeline step stub                                                        |
-| `ProviderRegistry`                          | ✅ Implemented | Provider manager construction                                             |
-| Pipeline steps (process, link, cost-basis)  | ⬜ Stubs only  | `isDirty()` / `execute()` throw "Not implemented"                         |
-| `PriceEnrichStep`                           | ✅ Implemented | `isDirty()` checks for missing prices; `execute()` deferred to Phase 4    |
-| `PriceEnrichOperation`                      | ✅ Implemented | Constructs adapter + FX provider, delegates to pipeline                   |
-| `PricingStore` port                         | ✅ Implemented | In `@exitbook/accounting/ports`; services decoupled from `@exitbook/data` |
-| `PricingStoreAdapter`                       | ✅ Implemented | Bridges `DataContext` to `PricingStore`                                   |
-| `LinkingStore` port + `LinkingStoreAdapter` | ✅ Implemented | Linking fully decoupled from `@exitbook/data`                             |
-| `ProcessingStoreAdapter`                    | ⬜ Stub only   | Port interface defined, adapter not implemented                           |
-| Store adapters (cost-basis)                 | ⬜ Not started | Files don't exist yet                                                     |
-| Pipeline runner                             | ⬜ Stub only   | `PipelineRunner` class exists, methods throw                              |
-| Domain port interfaces (ingestion)          | ⬜ Not started | Ingestion still imports `@exitbook/data` directly                         |
+| Component                                       | Status         | Notes                                                                     |
+| ----------------------------------------------- | -------------- | ------------------------------------------------------------------------- |
+| `ImportOperation`                               | ✅ Implemented | Full import lifecycle in app layer                                        |
+| `ClearOperation`                                | ✅ Implemented | Data deletion and reset                                                   |
+| `AccountQuery`                                  | ✅ Implemented | Account listing and session summaries                                     |
+| `BalanceOperation`                              | ✅ Implemented | Live vs calculated balance comparison                                     |
+| `ProcessOperation`                              | 🔄 In progress | Reprocess orchestration (clear → guard → process)                         |
+| `ClearStep`                                     | 🔄 In progress | Pipeline step stub                                                        |
+| `ProviderRegistry`                              | ✅ Implemented | Provider manager construction                                             |
+| Pipeline steps (process, link, cost-basis)      | ⬜ Stubs only  | `isDirty()` / `execute()` throw "Not implemented"                         |
+| `PriceEnrichStep`                               | ✅ Implemented | `isDirty()` checks for missing prices; `execute()` deferred to Phase 4    |
+| `PriceEnrichOperation`                          | ✅ Implemented | Constructs adapter + FX provider, delegates to pipeline                   |
+| `PricingStore` port                             | ✅ Implemented | In `@exitbook/accounting/ports`; services decoupled from `@exitbook/data` |
+| `PricingStoreAdapter`                           | ✅ Implemented | Bridges `DataContext` to `PricingStore`                                   |
+| `LinkingStore` port + `LinkingStoreAdapter`     | ✅ Implemented | Linking fully decoupled from `@exitbook/data`                             |
+| `ProcessingStoreAdapter`                        | ⬜ Stub only   | Port interface defined, adapter not implemented                           |
+| `CostBasisStore` port + `CostBasisStoreAdapter` | ✅ Implemented | Cost basis fully decoupled from `@exitbook/data`                          |
+| `CostBasisOperation`                            | ✅ Implemented | App-layer operation; CLI handler delegates to it                          |
+| Pipeline runner                                 | ⬜ Stub only   | `PipelineRunner` class exists, methods throw                              |
+| Domain port interfaces (ingestion)              | ⬜ Not started | Ingestion still imports `@exitbook/data` directly                         |
 
 ---
 

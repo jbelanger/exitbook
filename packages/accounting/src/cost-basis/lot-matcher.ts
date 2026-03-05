@@ -1,11 +1,11 @@
 import { isFiat, parseDecimal, wrapError, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
-import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import { LinkIndex } from '../linking/link-index.js';
 import type { TransactionLink } from '../linking/types.js';
+import type { CostBasisStore } from '../ports/cost-basis-store.js';
 
 import { buildAcquisitionLotFromInflow, filterTransactionsWithoutPrices } from './lot-creation-utils.js';
 import { matchOutflowDisposal } from './lot-disposal-utils.js';
@@ -119,10 +119,7 @@ interface AssetProcessingState {
 export class LotMatcher {
   private readonly logger = getLogger('LotMatcher');
 
-  constructor(
-    private readonly transactionRepository: TransactionRepository,
-    private readonly linkRepository: TransactionLinkRepository
-  ) {}
+  constructor(private readonly store: CostBasisStore) {}
 
   /**
    * Match transactions to create acquisition lots and disposals
@@ -149,7 +146,7 @@ export class LotMatcher {
 
       // Load confirmed transaction links (≥95% confidence)
       // Include blockchain_internal links so we can skip them during matching
-      const linksResult = await this.linkRepository.findAll('confirmed');
+      const linksResult = await this.store.findConfirmedLinks();
       if (linksResult.isErr()) {
         return err(linksResult.error);
       }
@@ -551,7 +548,7 @@ export class LotMatcher {
     transfersForLink: LotTransfer[],
     config: LotMatcherConfig
   ): Promise<Result<AcquisitionLot, Error>> {
-    const sourceTxResult = await this.transactionRepository.findById(link.sourceTransactionId);
+    const sourceTxResult = await this.store.findTransactionById(link.sourceTransactionId);
     if (sourceTxResult.isErr()) {
       return err(sourceTxResult.error);
     }
