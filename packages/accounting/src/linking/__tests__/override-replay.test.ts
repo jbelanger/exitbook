@@ -1,7 +1,7 @@
+import type { LinkOverridePayload, OverrideEvent } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { LinkOverridePayload, OverrideEvent } from '../override.schemas.js';
-import { applyLinkOverrides, buildFingerprintMap, resolveTxId } from '../replay-utils.js';
+import { applyLinkOverrides, buildFingerprintMap, resolveTxId } from '../override-replay.js';
 
 describe('buildFingerprintMap', () => {
   it('should build fingerprint to ID map', () => {

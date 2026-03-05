@@ -62,11 +62,16 @@ export type {
 export { CostBasisReportGenerator } from './cost-basis/cost-basis-report-generator.js';
 export type { CostBasisReportInput } from './cost-basis/cost-basis-report-generator.js';
 
+// Ports
+export type { LinkingStore } from './ports/index.js';
+
 // Linking orchestrator
 export { LinkingOrchestrator } from './linking/linking-orchestrator.js';
 export type { LinkingRunParams, LinkingRunResult } from './linking/linking-orchestrator.js';
 export type { LinkingEvent } from './linking/linking-events.js';
 export { buildLinkFromOrphanedOverride, categorizeFinalLinks } from './linking/linking-orchestrator-utils.js';
+export { applyLinkOverrides, buildFingerprintMap, resolveTxId } from './linking/override-replay.js';
+export type { OrphanedLinkOverride } from './linking/override-replay.js';
 
 // Transaction linking
 export type {

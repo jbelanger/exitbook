@@ -11,9 +11,9 @@ export const ScopeSchema = z.enum(['price', 'fx', 'link', 'unlink']);
 export const LinkActionSchema = z.enum(['confirm']);
 
 /**
- * Link type - transfer or trade
+ * Override link type - transfer or trade (user-facing category, distinct from DB LinkType)
  */
-export const LinkTypeSchema = z.enum(['transfer', 'trade']);
+export const OverrideLinkTypeSchema = z.enum(['transfer', 'trade']);
 
 /**
  * Price override payload
@@ -50,7 +50,7 @@ export const FxOverridePayloadSchema = z.object({
 export const LinkOverridePayloadSchema = z.object({
   type: z.literal('link_override'),
   action: LinkActionSchema,
-  link_type: LinkTypeSchema,
+  link_type: OverrideLinkTypeSchema,
   source_fingerprint: z.string().min(1, 'Source fingerprint must not be empty'),
   target_fingerprint: z.string().min(1, 'Target fingerprint must not be empty'),
   asset: z.string().min(1, 'Asset must not be empty'),
@@ -117,7 +117,7 @@ export const OverrideEventSchema = z
  */
 export type Scope = z.infer<typeof ScopeSchema>;
 export type LinkAction = z.infer<typeof LinkActionSchema>;
-export type LinkType = z.infer<typeof LinkTypeSchema>;
+export type OverrideLinkType = z.infer<typeof OverrideLinkTypeSchema>;
 export type PriceOverridePayload = z.infer<typeof PriceOverridePayloadSchema>;
 export type FxOverridePayload = z.infer<typeof FxOverridePayloadSchema>;
 export type LinkOverridePayload = z.infer<typeof LinkOverridePayloadSchema>;

@@ -5,11 +5,10 @@ import path from 'node:path';
 import { createInterface } from 'node:readline';
 
 import { wrapError } from '@exitbook/core';
+import { OverrideEventSchema, type OverrideEvent, type Scope } from '@exitbook/core';
+import type { CreateOverrideEventOptions } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
-
-import { OverrideEventSchema, type OverrideEvent, type Scope } from './override.schemas.js';
-import type { CreateOverrideEventOptions } from './override.types.js';
 
 /**
  * Override Store - Append-only JSONL persistence for user override events

@@ -1,9 +1,5 @@
-import {
-  LinkingOrchestrator,
-  type LinkingEvent,
-  type LinkingRunParams,
-  type LinkingRunResult,
-} from '@exitbook/accounting';
+import type { LinkingEvent, LinkingRunParams, LinkingRunResult } from '@exitbook/accounting';
+import { LinkOperation } from '@exitbook/app';
 import type { DataContext } from '@exitbook/data';
 import { OverrideStore } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
@@ -23,7 +19,7 @@ const logger = getLogger('LinksRunHandler');
  */
 export class LinksRunHandler {
   constructor(
-    private readonly orchestrator: LinkingOrchestrator,
+    private readonly operation: LinkOperation,
     private readonly controller: EventDrivenController<LinkingEvent> | undefined
   ) {}
 
@@ -33,7 +29,7 @@ export class LinksRunHandler {
         await this.controller.start();
       }
 
-      const result = await this.orchestrator.execute(params);
+      const result = await this.operation.execute(params);
 
       if (result.isErr()) {
         if (this.controller) {
@@ -68,32 +64,21 @@ export class LinksRunHandler {
  * Create a LinksRunHandler with appropriate infrastructure.
  *
  * Returns a bare value (not Result) because creation is infallible:
- * DataContext repos are pre-built wrappers, OverrideStore constructor only
- * sets a file path, and EventBus construction cannot throw.
- * No Result wrapping needed — this is intentional.
+ * OverrideStore constructor only sets a file path, and EventBus
+ * construction cannot throw. No Result wrapping needed.
  *
- * No cleanup registration needed -- LinkingOrchestrator has no persistent resources.
+ * No cleanup registration needed -- LinkOperation has no persistent resources.
  */
 export function createLinksRunHandler(
   ctx: CommandContext,
   database: DataContext,
   options: { dryRun: boolean; isJsonMode: boolean }
 ): LinksRunHandler {
-  const transactionRepository = database.transactions;
-  const linkRepository = database.transactionLinks;
   const overrideStore = new OverrideStore(ctx.dataDir);
 
-  const linkableMovementRepository = database.linkableMovements;
-
   if (options.isJsonMode) {
-    const orchestrator = new LinkingOrchestrator(
-      transactionRepository,
-      linkRepository,
-      overrideStore,
-      undefined,
-      linkableMovementRepository
-    );
-    return new LinksRunHandler(orchestrator, undefined);
+    const operation = new LinkOperation(database, overrideStore);
+    return new LinksRunHandler(operation, undefined);
   }
 
   const eventBus = new EventBus<LinkingEvent>({
@@ -102,13 +87,7 @@ export function createLinksRunHandler(
     },
   });
   const controller = createEventDrivenController(eventBus, LinksRunMonitor, { dryRun: options.dryRun });
-  const orchestrator = new LinkingOrchestrator(
-    transactionRepository,
-    linkRepository,
-    overrideStore,
-    eventBus,
-    linkableMovementRepository
-  );
+  const operation = new LinkOperation(database, overrideStore, eventBus);
 
-  return new LinksRunHandler(orchestrator, controller);
+  return new LinksRunHandler(operation, controller);
 }

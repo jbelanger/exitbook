@@ -1,6 +1,6 @@
 import { err, ok, type Result } from 'neverthrow';
 
-import type { TransactionFingerprintInput, LinkIdentity } from './override.types.js';
+import type { TransactionFingerprintInput, LinkIdentity } from '../schemas/override.types.js';
 
 /**
  * Compute transaction fingerprint from source and externalId

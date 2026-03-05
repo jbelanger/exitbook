@@ -2,10 +2,10 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import type { LinkOverridePayload, PriceOverridePayload } from '@exitbook/core';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 import { OverrideStore } from '../override-store.js';
-import type { LinkOverridePayload, PriceOverridePayload } from '../override.schemas.js';
 
 describe('OverrideStore', () => {
   let tempDir: string;

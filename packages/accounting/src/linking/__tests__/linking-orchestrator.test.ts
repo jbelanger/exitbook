@@ -1,10 +1,11 @@
 import { parseDecimal } from '@exitbook/core';
+import type { OverrideEvent } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
-import type { OverrideEvent, OverrideStore, TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { err, ok } from 'neverthrow';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { LinkingStore } from '../../ports/linking-store.js';
 import type { LinkingEvent } from '../linking-events.js';
 import { LinkingOrchestrator } from '../linking-orchestrator.js';
 
@@ -13,6 +14,29 @@ import { createTransaction } from './test-utils.js';
 afterEach(() => {
   vi.restoreAllMocks();
 });
+
+function createMockStore(overrides: Partial<LinkingStore> = {}): LinkingStore {
+  // Simulate real DB behavior: saved movements are returned by findAll with auto-assigned IDs
+  let savedMovements: unknown[] = [];
+
+  return {
+    findAllTransactions: vi.fn().mockResolvedValue(ok([])),
+    countLinks: vi.fn().mockResolvedValue(ok(0)),
+    deleteAllLinks: vi.fn().mockResolvedValue(ok(0)),
+    saveLinkBatch: vi.fn().mockResolvedValue(ok(0)),
+    deleteAllLinkableMovements: vi.fn().mockImplementation(() => {
+      savedMovements = [];
+      return ok(undefined);
+    }),
+
+    saveLinkableMovementBatch: vi.fn().mockImplementation((movements: unknown[]) => {
+      savedMovements = movements.map((m, i) => ({ ...(m as object), id: i + 1 }));
+      return ok(movements.length);
+    }),
+    findAllLinkableMovements: vi.fn().mockImplementation(() => ok(savedMovements)),
+    ...overrides,
+  };
+}
 
 describe('LinkingOrchestrator', () => {
   it('applies unlink overrides to internal links so rejected links do not reappear', async () => {
@@ -51,28 +75,20 @@ describe('LinkingOrchestrator', () => {
       },
     };
 
-    const transactionRepository = {
-      findAll: vi.fn().mockResolvedValue(ok(transactions)),
-    } as unknown as TransactionRepository;
-
-    const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
-    const linkRepository = {
-      count: vi.fn().mockResolvedValue(ok(0)),
-      deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBatch: mockCreateBulk,
-    } as unknown as TransactionLinkRepository;
-
-    const overrideStore = {
-      readAll: vi.fn().mockResolvedValue(ok([unlinkEvent])),
-    } as unknown as OverrideStore;
-
-    const handler = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore);
-
-    const result = await handler.execute({
-      dryRun: false,
-      minConfidenceScore: parseDecimal('0.7'),
-      autoConfirmThreshold: parseDecimal('0.95'),
+    const store = createMockStore({
+      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
     });
+
+    const handler = new LinkingOrchestrator(store);
+
+    const result = await handler.execute(
+      {
+        dryRun: false,
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
+      },
+      [unlinkEvent]
+    );
 
     const value = assertOk(result);
 
@@ -82,21 +98,16 @@ describe('LinkingOrchestrator', () => {
     expect(value.suggestedLinksCount).toBe(0);
     // Only the rejected internal link → no non-rejected links to save
     expect(value.totalSaved).toBeUndefined();
-    expect(mockCreateBulk).not.toHaveBeenCalled();
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+    expect(store.saveLinkBatch).not.toHaveBeenCalled();
   });
 
   it('returns error when transaction loading fails', async () => {
-    const transactionRepository = {
-      findAll: vi.fn().mockResolvedValue(err(new Error('load failed'))),
-    } as unknown as TransactionRepository;
+    const store = createMockStore({
+      findAllTransactions: vi.fn().mockResolvedValue(err(new Error('load failed'))),
+    });
 
-    const linkRepository = {
-      count: vi.fn().mockResolvedValue(ok(0)),
-      deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBatch: vi.fn().mockResolvedValue(ok(0)),
-    } as unknown as TransactionLinkRepository;
-
-    const handler = new LinkingOrchestrator(transactionRepository, linkRepository);
+    const handler = new LinkingOrchestrator(store);
     const result = await handler.execute({
       dryRun: false,
       minConfidenceScore: parseDecimal('0.7'),
@@ -125,25 +136,20 @@ describe('LinkingOrchestrator', () => {
       }),
     ];
 
-    const transactionRepository = {
-      findAll: vi.fn().mockResolvedValue(ok(transactions)),
-    } as unknown as TransactionRepository;
-
-    const linkRepository = {
-      count: vi.fn().mockResolvedValue(ok(0)),
-      deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBatch: vi.fn().mockResolvedValue(ok(1)),
-    } as unknown as TransactionLinkRepository;
+    const store = createMockStore({
+      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      saveLinkBatch: vi.fn().mockResolvedValue(ok(1)),
+    });
 
     const emittedEvents: LinkingEvent[] = [];
     const mockEventBus = {
-      emit: vi.fn((event: LinkingEvent) => {
+      emit: vi.fn().mockImplementation((event: LinkingEvent) => {
         emittedEvents.push(event);
       }),
       subscribe: vi.fn(),
     } as unknown as EventBus<LinkingEvent>;
 
-    const handler = new LinkingOrchestrator(transactionRepository, linkRepository, undefined, mockEventBus);
+    const handler = new LinkingOrchestrator(store, mockEventBus);
 
     const result = await handler.execute({
       dryRun: false,
@@ -176,25 +182,19 @@ describe('LinkingOrchestrator', () => {
       }),
     ];
 
-    const transactionRepository = {
-      findAll: vi.fn().mockResolvedValue(ok(transactions)),
-    } as unknown as TransactionRepository;
-
-    const linkRepository = {
-      count: vi.fn().mockResolvedValue(ok(0)),
-      deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBatch: vi.fn(),
-    } as unknown as TransactionLinkRepository;
+    const store = createMockStore({
+      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+    });
 
     const emittedEvents: LinkingEvent[] = [];
     const mockEventBus = {
-      emit: vi.fn((event: LinkingEvent) => {
+      emit: vi.fn().mockImplementation((event: LinkingEvent) => {
         emittedEvents.push(event);
       }),
       subscribe: vi.fn(),
     } as unknown as EventBus<LinkingEvent>;
 
-    const handler = new LinkingOrchestrator(transactionRepository, linkRepository, undefined, mockEventBus);
+    const handler = new LinkingOrchestrator(store, mockEventBus);
 
     const result = await handler.execute({
       dryRun: true,
@@ -226,17 +226,13 @@ describe('LinkingOrchestrator', () => {
       }),
     ];
 
-    const transactionRepository = {
-      findAll: vi.fn().mockResolvedValue(ok(transactions)),
-    } as unknown as TransactionRepository;
+    const store = createMockStore({
+      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      countLinks: vi.fn().mockResolvedValue(ok(2)),
+      deleteAllLinks: vi.fn().mockResolvedValue(err(new Error('delete failed'))),
+    });
 
-    const linkRepository = {
-      count: vi.fn().mockResolvedValue(ok(2)),
-      deleteAll: vi.fn().mockResolvedValue(err(new Error('delete failed'))),
-      createBatch: vi.fn(),
-    } as unknown as TransactionLinkRepository;
-
-    const handler = new LinkingOrchestrator(transactionRepository, linkRepository);
+    const handler = new LinkingOrchestrator(store);
     const result = await handler.execute({
       dryRun: false,
       minConfidenceScore: parseDecimal('0.7'),
@@ -282,28 +278,20 @@ describe('LinkingOrchestrator', () => {
       },
     };
 
-    const transactionRepository = {
-      findAll: vi.fn().mockResolvedValue(ok(transactions)),
-    } as unknown as TransactionRepository;
-
-    const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
-    const linkRepository = {
-      count: vi.fn().mockResolvedValue(ok(0)),
-      deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBatch: mockCreateBulk,
-    } as unknown as TransactionLinkRepository;
-
-    const overrideStore = {
-      readAll: vi.fn().mockResolvedValue(ok([linkOverride])),
-    } as unknown as OverrideStore;
-
-    const handler = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore);
-
-    const result = await handler.execute({
-      dryRun: false,
-      minConfidenceScore: parseDecimal('0.7'),
-      autoConfirmThreshold: parseDecimal('0.95'),
+    const store = createMockStore({
+      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
     });
+
+    const handler = new LinkingOrchestrator(store);
+
+    const result = await handler.execute(
+      {
+        dryRun: false,
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
+      },
+      [linkOverride]
+    );
 
     // Should succeed — the orphaned override is skipped, not a fatal error
     assertOk(result);
@@ -343,28 +331,20 @@ describe('LinkingOrchestrator', () => {
       },
     };
 
-    const transactionRepository = {
-      findAll: vi.fn().mockResolvedValue(ok(transactions)),
-    } as unknown as TransactionRepository;
-
-    const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
-    const linkRepository = {
-      count: vi.fn().mockResolvedValue(ok(0)),
-      deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBatch: mockCreateBulk,
-    } as unknown as TransactionLinkRepository;
-
-    const overrideStore = {
-      readAll: vi.fn().mockResolvedValue(ok([linkOverride])),
-    } as unknown as OverrideStore;
-
-    const handler = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore);
-
-    const result = await handler.execute({
-      dryRun: false,
-      minConfidenceScore: parseDecimal('0.7'),
-      autoConfirmThreshold: parseDecimal('0.95'),
+    const store = createMockStore({
+      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
     });
+
+    const handler = new LinkingOrchestrator(store);
+
+    const result = await handler.execute(
+      {
+        dryRun: false,
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
+      },
+      [linkOverride]
+    );
 
     assertOk(result);
   });
@@ -403,28 +383,20 @@ describe('LinkingOrchestrator', () => {
       },
     };
 
-    const transactionRepository = {
-      findAll: vi.fn().mockResolvedValue(ok(transactions)),
-    } as unknown as TransactionRepository;
-
-    const mockCreateBulk = vi.fn().mockResolvedValue(ok(0));
-    const linkRepository = {
-      count: vi.fn().mockResolvedValue(ok(0)),
-      deleteAll: vi.fn().mockResolvedValue(ok(undefined)),
-      createBatch: mockCreateBulk,
-    } as unknown as TransactionLinkRepository;
-
-    const overrideStore = {
-      readAll: vi.fn().mockResolvedValue(ok([linkOverride])),
-    } as unknown as OverrideStore;
-
-    const handler = new LinkingOrchestrator(transactionRepository, linkRepository, overrideStore);
-
-    const result = await handler.execute({
-      dryRun: false,
-      minConfidenceScore: parseDecimal('0.7'),
-      autoConfirmThreshold: parseDecimal('0.95'),
+    const store = createMockStore({
+      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
     });
+
+    const handler = new LinkingOrchestrator(store);
+
+    const result = await handler.execute(
+      {
+        dryRun: false,
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
+      },
+      [linkOverride]
+    );
 
     assertOk(result);
   });

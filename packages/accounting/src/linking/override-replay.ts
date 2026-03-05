@@ -1,8 +1,7 @@
 import { wrapError } from '@exitbook/core';
+import type { LinkOverridePayload, OverrideEvent, UnlinkOverridePayload } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { ok, type Result } from 'neverthrow';
-
-import type { OverrideEvent, LinkOverridePayload, UnlinkOverridePayload } from './override.schemas.js';
 
 const logger = getLogger('OverrideReplay');
 

@@ -1,13 +1,8 @@
 // Shared utility for writing link/unlink override events from CLI handlers.
 // Resolves transaction fingerprints and delegates to OverrideStore.
 
-import {
-  computeLinkFingerprint,
-  computeTxFingerprint,
-  type OverrideStore,
-  type CreateOverrideEventOptions,
-} from '@exitbook/data';
-import type { TransactionRepository } from '@exitbook/data';
+import { computeLinkFingerprint, computeTxFingerprint, type CreateOverrideEventOptions } from '@exitbook/core';
+import { type OverrideStore, type TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('LinkOverrideUtils');

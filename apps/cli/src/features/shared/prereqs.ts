@@ -1,12 +1,11 @@
 import {
-  LinkingOrchestrator,
   PriceEnrichmentPipeline,
   filterTransactionsByDateRange,
   validateTransactionPrices,
   type LinkingEvent,
   type PriceEvent,
 } from '@exitbook/accounting';
-import { ClearOperation } from '@exitbook/app';
+import { ClearOperation, LinkOperation } from '@exitbook/app';
 import { parseDecimal } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
@@ -210,14 +209,8 @@ export async function ensureLinks(
   };
 
   if (options.isJsonMode) {
-    const handler = new LinkingOrchestrator(
-      db.transactions,
-      db.transactionLinks,
-      overrideStore,
-      undefined,
-      db.linkableMovements
-    );
-    const result = await handler.execute(params);
+    const operation = new LinkOperation(db, overrideStore);
+    const result = await operation.execute(params);
     if (result.isErr()) return err(result.error);
     logger.info('Linking completed (JSON mode)');
     return ok();
@@ -243,14 +236,8 @@ export async function ensureLinks(
   try {
     await controller.start();
 
-    const handler = new LinkingOrchestrator(
-      db.transactions,
-      db.transactionLinks,
-      overrideStore,
-      eventBus,
-      db.linkableMovements
-    );
-    const result = await handler.execute(params);
+    const operation = new LinkOperation(db, overrideStore, eventBus);
+    const result = await operation.execute(params);
 
     if (result.isErr()) {
       controller.fail(result.error.message);

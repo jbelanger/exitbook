@@ -1,14 +1,15 @@
-import type { UniversalTransactionData } from '@exitbook/core';
-import { applyLinkOverrides, type LinkableMovementRepository, type OverrideStore } from '@exitbook/data';
-import type { TransactionLinkRepository, TransactionRepository } from '@exitbook/data';
+import type { OverrideEvent, UniversalTransactionData } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
+import type { LinkingStore } from '../ports/linking-store.js';
+
 import type { LinkingEvent } from './linking-events.js';
 import { buildLinkFromOrphanedOverride, categorizeFinalLinks } from './linking-orchestrator-utils.js';
 import { buildMatchingConfig } from './matching-config.js';
+import { applyLinkOverrides } from './override-replay.js';
 import { materializeLinkableMovements } from './pre-linking/materializer.js';
 import type { LinkableMovement, NewLinkableMovement } from './pre-linking/types.js';
 import { defaultStrategies } from './strategies/index.js';
@@ -72,18 +73,18 @@ export interface LinkingRunResult {
  */
 export class LinkingOrchestrator {
   constructor(
-    private transactionRepository: TransactionRepository,
-    private linkRepository: TransactionLinkRepository,
-    private overrideStore?: OverrideStore | undefined,
-    private eventBus?: EventBus<LinkingEvent> | undefined,
-    private linkableMovementRepository?: LinkableMovementRepository | undefined
+    private store: LinkingStore,
+    private eventBus?: EventBus<LinkingEvent> | undefined
   ) {}
 
   /**
    * Execute the full linking pipeline:
    * load → clear → materialize → match → apply overrides → save
+   *
+   * @param params - Linking configuration
+   * @param overrides - Pre-loaded override events (link/unlink scope). Pass empty array if none.
    */
-  async execute(params: LinkingRunParams): Promise<Result<LinkingRunResult, Error>> {
+  async execute(params: LinkingRunParams, overrides: OverrideEvent[] = []): Promise<Result<LinkingRunResult, Error>> {
     try {
       // 1. Load transactions
       const loadResult = await this.loadTransactions();
@@ -118,11 +119,11 @@ export class LinkingOrchestrator {
 
       // 4. Persist linkable movements and get back rows with real IDs
       let movementsWithIds: LinkableMovement[];
-      if (!params.dryRun && this.linkableMovementRepository) {
+      if (!params.dryRun) {
         const persistResult = await this.persistLinkableMovements(movements);
         if (persistResult.isErr()) return err(persistResult.error);
 
-        const readBackResult = await this.linkableMovementRepository.findAll();
+        const readBackResult = await this.store.findAllLinkableMovements();
         if (readBackResult.isErr()) return err(readBackResult.error);
         movementsWithIds = readBackResult.value;
       } else {
@@ -147,7 +148,7 @@ export class LinkingOrchestrator {
       const allLinks = [...internalLinks, ...strategyResult.links];
 
       // 6. Apply user overrides
-      const overrideResult = await this.replayOverrides(allLinks, transactions, txById);
+      const overrideResult = this.replayOverrides(allLinks, overrides, transactions, txById);
       if (overrideResult.isErr()) return err(overrideResult.error);
 
       const finalLinks = overrideResult.value;
@@ -198,7 +199,7 @@ export class LinkingOrchestrator {
   > {
     this.eventBus?.emit({ type: 'load.started' });
 
-    const result = await this.transactionRepository.findAll();
+    const result = await this.store.findAllTransactions();
     if (result.isErr()) return err(result.error);
 
     const transactions = result.value;
@@ -214,7 +215,7 @@ export class LinkingOrchestrator {
   }
 
   private async clearExistingLinks(): Promise<Result<number | undefined, Error>> {
-    const countResult = await this.linkRepository.count();
+    const countResult = await this.store.countLinks();
     if (countResult.isErr()) {
       logger.warn({ error: countResult.error }, 'Failed to count existing links');
       return err(countResult.error);
@@ -223,7 +224,7 @@ export class LinkingOrchestrator {
     const count = countResult.value;
     if (count === 0) return ok(undefined);
 
-    const deleteResult = await this.linkRepository.deleteAll();
+    const deleteResult = await this.store.deleteAllLinks();
     if (deleteResult.isErr()) {
       logger.warn({ error: deleteResult.error, count }, 'Failed to clear existing links before relinking');
       return err(deleteResult.error);
@@ -235,17 +236,14 @@ export class LinkingOrchestrator {
   }
 
   private async clearLinkableMovements(): Promise<void> {
-    if (!this.linkableMovementRepository) return;
-    const result = await this.linkableMovementRepository.deleteAll();
+    const result = await this.store.deleteAllLinkableMovements();
     if (result.isErr()) {
       logger.warn({ error: result.error }, 'Failed to clear linkable movements');
     }
   }
 
   private async persistLinkableMovements(movements: NewLinkableMovement[]): Promise<Result<number, Error>> {
-    if (!this.linkableMovementRepository) return ok(0);
-
-    const result = await this.linkableMovementRepository.createBatch(movements);
+    const result = await this.store.saveLinkableMovementBatch(movements);
     if (result.isErr()) return err(result.error);
 
     logger.info({ count: result.value }, 'Persisted linkable movements');
@@ -254,19 +252,15 @@ export class LinkingOrchestrator {
 
   /**
    * Replay user overrides (confirm/reject) on top of algorithm-generated links.
-   * Returns original links unchanged if no override store is configured.
+   * Returns original links unchanged if no overrides provided.
    */
-  private async replayOverrides(
+  private replayOverrides(
     links: NewTransactionLink[],
+    overrides: OverrideEvent[],
     transactions: UniversalTransactionData[],
     txById: Map<number, UniversalTransactionData>
-  ): Promise<Result<NewTransactionLink[], Error>> {
-    if (!this.overrideStore) return ok(links);
-
-    const overridesResult = await this.overrideStore.readAll();
-    if (overridesResult.isErr()) return err(overridesResult.error);
-
-    const linkOverrides = overridesResult.value.filter((o) => o.scope === 'link' || o.scope === 'unlink');
+  ): Result<NewTransactionLink[], Error> {
+    const linkOverrides = overrides.filter((o) => o.scope === 'link' || o.scope === 'unlink');
     if (linkOverrides.length === 0) return ok(links);
 
     logger.info({ count: linkOverrides.length }, 'Applying link override events');
@@ -319,7 +313,7 @@ export class LinkingOrchestrator {
 
     this.eventBus?.emit({ type: 'save.started' });
 
-    const saveResult = await this.linkRepository.createBatch(linksToSave);
+    const saveResult = await this.store.saveLinkBatch(linksToSave);
     if (saveResult.isErr()) return err(saveResult.error);
 
     logger.info({ count: saveResult.value }, 'Saved links to database');
