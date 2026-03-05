@@ -1,5 +1,4 @@
-import type { LinkingEvent, LinkingRunParams, LinkingRunResult } from '@exitbook/accounting';
-import { LinkOperation } from '@exitbook/app';
+import { LinkOperation, type LinkingEvent, type LinkingRunParams, type LinkingRunResult } from '@exitbook/app';
 import type { DataContext } from '@exitbook/data';
 import { OverrideStore } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';

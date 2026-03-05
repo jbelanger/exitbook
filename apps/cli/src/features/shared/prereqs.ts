@@ -2,10 +2,9 @@ import {
   PriceEnrichmentPipeline,
   filterTransactionsByDateRange,
   validateTransactionPrices,
-  type LinkingEvent,
   type PriceEvent,
 } from '@exitbook/accounting';
-import { ClearOperation, LinkOperation } from '@exitbook/app';
+import { ClearOperation, LinkOperation, type LinkingEvent } from '@exitbook/app';
 import { parseDecimal } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';

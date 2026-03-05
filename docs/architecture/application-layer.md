@@ -1,6 +1,6 @@
 # Application Layer — Architecture Plan
 
-> **Status:** In progress — Phase 1 complete, Phase 1b in progress
+> **Status:** In progress — Phases 1, 1b, 1c complete
 > **Scope:** Major refactor — new `@exitbook/app` package, decoupling ingestion/accounting from data
 > **Last updated:** 2026-03-04
 
@@ -32,20 +32,21 @@
 
 ## Current State
 
-| Component                                                | Status         | Notes                                                       |
-| -------------------------------------------------------- | -------------- | ----------------------------------------------------------- |
-| `ImportOperation`                                        | ✅ Implemented | Full import lifecycle in app layer                          |
-| `ClearOperation`                                         | ✅ Implemented | Data deletion and reset                                     |
-| `AccountQuery`                                           | ✅ Implemented | Account listing and session summaries                       |
-| `BalanceOperation`                                       | ✅ Implemented | Live vs calculated balance comparison                       |
-| `ProcessOperation`                                       | 🔄 In progress | Reprocess orchestration (clear → guard → process)           |
-| `ClearStep`                                              | 🔄 In progress | Pipeline step stub                                          |
-| `ProviderRegistry`                                       | ✅ Implemented | Provider manager construction                               |
-| Pipeline steps (process, link, price-enrich, cost-basis) | ⬜ Stubs only  | `isDirty()` / `execute()` throw "Not implemented"           |
-| `ProcessingStoreAdapter`                                 | ⬜ Stub only   | Port interface defined, adapter not implemented             |
-| Store adapters (linking, pricing, cost-basis)            | ⬜ Not started | Files don't exist yet                                       |
-| Pipeline runner                                          | ⬜ Stub only   | `PipelineRunner` class exists, methods throw                |
-| Domain port interfaces                                   | ⬜ Not started | Ingestion/accounting still import `@exitbook/data` directly |
+| Component                                                | Status         | Notes                                                                       |
+| -------------------------------------------------------- | -------------- | --------------------------------------------------------------------------- |
+| `ImportOperation`                                        | ✅ Implemented | Full import lifecycle in app layer                                          |
+| `ClearOperation`                                         | ✅ Implemented | Data deletion and reset                                                     |
+| `AccountQuery`                                           | ✅ Implemented | Account listing and session summaries                                       |
+| `BalanceOperation`                                       | ✅ Implemented | Live vs calculated balance comparison                                       |
+| `ProcessOperation`                                       | ✅ Implemented | Reprocess orchestration (clear → guard → process)                           |
+| `LinkOperation`                                          | ✅ Implemented | Full linking pipeline: load → clear → materialize → match → override → save |
+| `ClearStep`                                              | 🔄 In progress | Pipeline step stub                                                          |
+| `ProviderRegistry`                                       | ✅ Implemented | Provider manager construction                                               |
+| Pipeline steps (process, link, price-enrich, cost-basis) | ⬜ Stubs only  | `isDirty()` / `execute()` throw "Not implemented"                           |
+| `ProcessingStoreAdapter`                                 | ⬜ Stub only   | Port interface defined, adapter not implemented                             |
+| Store adapters (pricing, cost-basis)                     | ⬜ Not started | Files don't exist yet (linking moved to app-layer operation)                |
+| Pipeline runner                                          | ⬜ Stub only   | `PipelineRunner` class exists, methods throw                                |
+| Domain port interfaces                                   | ⬜ Not started | Ingestion/accounting still import `@exitbook/data` directly                 |
 
 ---
 
@@ -56,7 +57,7 @@ Today the CLI (`apps/cli`) is the orchestrator. It owns:
 - **Pipeline sequencing** — `prereqs.ts` runs process → link → price-enrich before cost-basis
 - **Staleness detection** — account hash comparison, timestamp checks, import session diffing
 - **Infrastructure wiring** — creating provider managers, event buses, monitors, cleanup stacks
-- **Domain service construction** — instantiating `RawDataProcessingService`, `LinkingOrchestrator`, `PriceEnrichmentPipeline` with the right dependencies
+- **Domain service construction** — instantiating `RawDataProcessingService`, `PriceEnrichmentPipeline` with the right dependencies
 
 None of this logic is reusable. A React Native app would need to duplicate all of it. Every new pipeline step requires touching CLI command files, prereqs, and handler factories.
 
@@ -180,21 +181,11 @@ The app layer handles these via `DataContext` directly — no port indirection n
 
 #### `@exitbook/accounting` ports
 
-```typescript
-// packages/accounting/src/ports/linking-store.ts
-
-interface LinkingStore {
-  findAllTransactions(): Promise<Result<UniversalTransactionData[], Error>>;
-
-  countLinks(): Promise<Result<number, Error>>;
-  deleteAllLinks(): Promise<Result<number, Error>>;
-  saveLinkBatch(links: LinkInput[]): Promise<Result<number, Error>>;
-
-  deleteAllLinkableMovements(): Promise<Result<void, Error>>;
-  saveLinkableMovementBatch(movements: LinkableMovementInput[]): Promise<Result<number, Error>>;
-  findAllLinkableMovements(): Promise<Result<LinkableMovement[], Error>>;
-}
-```
+> **Note:** `LinkingStore` was originally planned as an accounting port, but linking orchestration
+> proved to be app-layer policy (load/clear/save), not domain logic. `LinkOperation` now calls
+> `DataContext` directly and delegates to pure functions in accounting (`materializeLinkableMovements`,
+> `StrategyRunner`, `applyLinkOverrides`). This matches the pattern established by `ImportOperation`,
+> `ClearOperation`, and `ProcessOperation`. See [When ports are NOT needed](#when-ports-are-not-needed).
 
 ```typescript
 // packages/accounting/src/ports/pricing-store.ts
@@ -428,9 +419,11 @@ packages/app/
 │   │   ├── process-step.ts              # Pipeline step stub
 │   │   └── processing-store-adapter.ts   # Adapter for ProcessingStore port (stub)
 │   │
-│   ├── link/                             # Pipeline step: transaction linking
-│   │   ├── link-step.ts
-│   │   └── linking-store-adapter.ts      # Adapter for LinkingStore port
+│   ├── link/                             # Linking orchestration + pipeline step
+│   │   ├── link-operation.ts            # Full pipeline: load → clear → materialize → match → save
+│   │   ├── link-operation-utils.ts      # Types: LinkingRunParams, LinkingRunResult
+│   │   ├── linking-events.ts            # LinkingEvent type for CLI progress
+│   │   └── link-step.ts                 # Pipeline step — delegates to LinkOperation
 │   │
 │   ├── price-enrich/                     # Pipeline step: price enrichment
 │   │   ├── price-enrich-step.ts
@@ -451,10 +444,10 @@ packages/app/
 
 **Two kinds of app-layer code:**
 
-| Kind                                                                  | Pattern                                                        | Examples                                                                                    |
-| --------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| **Operations** — orchestration logic that uses `DataContext` directly | No domain service, no port. App layer _is_ the logic.          | `ImportOperation`, `ClearOperation`, `ProcessOperation`, `BalanceOperation`, `AccountQuery` |
-| **Pipeline step adapters** — bridge domain services to persistence    | Define a port in the domain package, adapter in the app layer. | `ProcessingStoreAdapter`, `LinkingStoreAdapter`, `PricingStoreAdapter`                      |
+| Kind                                                                  | Pattern                                                        | Examples                                                                                                     |
+| --------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Operations** — orchestration logic that uses `DataContext` directly | No domain service, no port. App layer _is_ the logic.          | `ImportOperation`, `ClearOperation`, `ProcessOperation`, `LinkOperation`, `BalanceOperation`, `AccountQuery` |
+| **Pipeline step adapters** — bridge domain services to persistence    | Define a port in the domain package, adapter in the app layer. | `ProcessingStoreAdapter`, `PricingStoreAdapter`                                                              |
 
 **Responsibilities:**
 
@@ -524,10 +517,21 @@ This is a large refactor. Phased approach to keep things working at every step:
 - `ClearService` in ingestion becomes dead code (replaced by `ClearOperation` in app layer)
 - `RawDataProcessingService` stays in ingestion — deep domain dependencies (processors, batch providers, scam detection)
 
+### Phase 1c: Inline linking orchestration into app layer ✅ DONE
+
+- `LinkOperation` in `packages/app/src/link/link-operation.ts` now owns the full linking pipeline:
+  - Load transactions → clear existing links → materialize movements → strategy matching → apply overrides → save
+- `LinkingOrchestrator` removed from `@exitbook/accounting` — replaced by direct `DataContext` calls in `LinkOperation`
+- `LinkingStore` port and `LinkingStoreAdapter` removed — linking proved to be app-layer orchestration over pure domain functions
+- `LinkingEvent` and `LinkingRunParams`/`LinkingRunResult` types moved from `@exitbook/accounting` to `@exitbook/app`
+- Accounting retains all pure domain functions: `materializeLinkableMovements()`, `StrategyRunner`, `applyLinkOverrides()`, `buildLinkFromOrphanedOverride()`, `categorizeFinalLinks()`
+- **Key learning:** When the domain surface is entirely pure functions, ports add complexity without value. The app operation should own I/O and pass data into pure functions.
+
 ### Phase 2: Define remaining ports in domain packages
 
 - Add `ports/` directories to `@exitbook/ingestion` and `@exitbook/accounting`
-- Define store interfaces: `ProcessingStore`, `RawDataBatchSource` (ingestion); `LinkingStore`, `PricingStore`, `CostBasisStore` (accounting)
+- Define store interfaces: `ProcessingStore`, `RawDataBatchSource` (ingestion); `PricingStore`, `CostBasisStore` (accounting)
+- `LinkingStore` is no longer needed — linking orchestration lives in `LinkOperation` (app layer)
 - **No behavior changes** — just new files with interface definitions
 
 ### Phase 3: Create adapters and refactor domain services
@@ -571,6 +575,29 @@ These rules apply to all code going forward and should be enforced in PR review.
 9. **Port methods return `Result<T, Error>`.** Consistent with the existing neverthrow convention.
 10. **Port interfaces use domain types from `@exitbook/core`, not Kysely types.** No `Selectable<TransactionTable>` in port signatures — only `UniversalTransactionData`, `Account`, etc.
 
+### When Ports Are NOT Needed
+
+A port exists to decouple a **domain service** from persistence. If the domain package only provides **pure functions** (no I/O, no state), the app layer should call `DataContext` directly and pass data into those pure functions. No port, no adapter.
+
+**The test:** Does the domain package own a class/service that needs to read/write data as part of its algorithm? If yes → port. If the domain package just exports pure functions that transform data → no port, the app operation owns the I/O.
+
+| Feature          | Domain package provides                                                                               | App layer does                                       | Port needed?                                                      |
+| ---------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------- |
+| **Import**       | `IImporter` streaming interface, `AdapterRegistry`                                                    | Session lifecycle, batch persistence, cursor updates | No — app calls `DataContext` directly                             |
+| **Clear**        | Nothing                                                                                               | FK-ordered deletion policy                           | No — pure app-layer operation                                     |
+| **Process**      | `RawDataProcessingService` (stateful, needs DB reads during processing)                               | Clear → guard → delegate to service                  | **Yes** — service reads raw data + writes transactions internally |
+| **Link**         | Pure functions: `materializeLinkableMovements()`, `StrategyRunner.run()`, `applyLinkOverrides()`      | Load → clear → call pure functions → save            | No — app calls `DataContext`, passes data to pure functions       |
+| **Price enrich** | `PriceDerivationService`, `PriceFetchService`, `PriceNormalizationService` (stateful, needs DB reads) | Orchestrate 4-stage pipeline                         | **Yes** — services read transactions + write prices internally    |
+| **Cost basis**   | `LotMatcher`, `CostBasisCalculator` (need transaction + link reads)                                   | Run pipeline, render report                          | **Yes** — calculator reads links + transactions during matching   |
+
+**When refactoring a feature to this pattern:**
+
+1. Identify which parts are pure transforms vs I/O-dependent services
+2. Extract pure functions to the domain package (or keep them there)
+3. Move load/clear/save orchestration to the app-layer operation
+4. If a domain service still needs to read/write during its algorithm, keep the port
+5. If the domain surface is entirely pure functions, delete the port and adapter
+
 ### Pipeline Rules
 
 11. **Import is not a pipeline step.** It's user-triggered with external I/O. The pipeline handles only derived computations. Clear is both a pipeline step (automated reset before reprocessing) and a standalone operation (user-triggered explicit deletion).
@@ -588,7 +615,7 @@ These rules apply to all code going forward and should be enforced in PR review.
 ## Open Questions
 
 - **Provider manager lifecycle** — Should `@exitbook/app` own creation/destruction of blockchain and price provider managers? Or should the host pass them in? Leaning toward app-owned with host-provided config (API keys, cache paths).
-- **OverrideStore** — Currently a filesystem-based JSON store in `@exitbook/data`. It's used by `LinkingOrchestrator`. Should it become a port on `LinkingStore`, or remain a separate concern? It's not persistence in the DB sense — it's user-authored override files.
+- **~~OverrideStore~~** — Resolved: `OverrideStore` stays in `@exitbook/data` as a filesystem-based JSONL store. `LinkOperation` in the app layer reads overrides and passes them to pure domain functions. No port needed — it's an app-layer I/O concern, not a domain persistence contract.
 - **~~EventSink vs EventBus~~** — Resolved: domain services and app-layer operations receive `EventSink` (`{ emit(event: unknown): void }`), not `EventBus`. `EventBus<T>` structurally satisfies `EventSink` so hosts pass their event bus directly. Implemented in `ImportOperation`, `ClearOperation`, `ProcessOperation`.
 - **~~ImportCoordinator fate~~** — Resolved: `ImportCoordinator` was removed. `ImportOperation` calls `AdapterRegistry` and `IImporter` directly. The registry and importer interfaces are public exports from ingestion.
 
@@ -663,17 +690,19 @@ These methods were originally attributed to `ClearService` in `@exitbook/ingesti
 | All `deleteAll/deleteBy/resetProcessingStatus` methods | FK-ordered deletion (in tx) |
 | `executeInTransaction(fn)`                             | Atomic deletion             |
 
-### Accounting → `LinkingStore`
+### App Layer → `LinkOperation` (uses DataContext directly)
 
-| Method                                     | Source              |
-| ------------------------------------------ | ------------------- |
-| `transactions.findAll()`                   | LinkingOrchestrator |
-| `transactionLinks.count()`                 | LinkingOrchestrator |
-| `transactionLinks.deleteAll()`             | LinkingOrchestrator |
-| `transactionLinks.createBatch(links)`      | LinkingOrchestrator |
-| `linkableMovements.deleteAll()`            | LinkingOrchestrator |
-| `linkableMovements.createBatch(movements)` | LinkingOrchestrator |
-| `linkableMovements.findAll()`              | LinkingOrchestrator |
+These methods were originally attributed to `LinkingOrchestrator` in `@exitbook/accounting`. Linking orchestration proved to be app-layer policy — `LinkOperation` calls `DataContext` directly and delegates to pure functions in accounting.
+
+| Method                                     | Purpose                                  |
+| ------------------------------------------ | ---------------------------------------- |
+| `transactions.findAll()`                   | Load transactions for linking            |
+| `transactionLinks.count()`                 | Check if existing links need clearing    |
+| `transactionLinks.deleteAll()`             | Clear existing links before relinking    |
+| `transactionLinks.createBatch(links)`      | Save final links                         |
+| `linkableMovements.deleteAll()`            | Clear existing linkable movements        |
+| `linkableMovements.createBatch(movements)` | Persist materialized movements           |
+| `linkableMovements.findAll()`              | Read back movements with DB-assigned IDs |
 
 ### Accounting → `PricingStore`
 

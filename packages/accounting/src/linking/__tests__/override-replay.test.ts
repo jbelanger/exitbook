@@ -1,7 +1,7 @@
 import type { LinkOverridePayload, OverrideEvent } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { applyLinkOverrides, buildFingerprintMap, resolveTxId } from '../override-replay.js';
+import { applyLinkOverrides, buildFingerprintMap, resolveTxId, type LinkWithStatus } from '../override-replay.js';
 
 describe('buildFingerprintMap', () => {
   it('should build fingerprint to ID map', () => {
@@ -50,13 +50,13 @@ describe('applyLinkOverrides', () => {
       { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
     ];
 
-    const links = [
+    const links: LinkWithStatus[] = [
       {
         id: 'link-1',
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
-        status: 'suggested' as const,
+        status: 'suggested',
       },
     ];
 
@@ -101,13 +101,13 @@ describe('applyLinkOverrides', () => {
       { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
     ];
 
-    const links = [
+    const links: LinkWithStatus[] = [
       {
         id: 'link-1',
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
-        status: 'suggested' as const,
+        status: 'suggested',
       },
     ];
 
@@ -146,13 +146,7 @@ describe('applyLinkOverrides', () => {
     ];
 
     // Empty links — algorithm didn't produce a match for this pair
-    const links: {
-      assetSymbol: string;
-      id: string;
-      sourceTransactionId: number;
-      status: 'suggested';
-      targetTransactionId: number;
-    }[] = [];
+    const links: LinkWithStatus[] = [];
 
     const payload: LinkOverridePayload = {
       type: 'link_override',
@@ -196,13 +190,13 @@ describe('applyLinkOverrides', () => {
   it('should handle unresolved link override when transaction not found', () => {
     const transactions = [{ id: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' }];
 
-    const links = [
+    const links: LinkWithStatus[] = [
       {
         id: 'link-1',
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
-        status: 'suggested' as const,
+        status: 'suggested',
       },
     ];
 
@@ -246,13 +240,13 @@ describe('applyLinkOverrides', () => {
       { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
     ];
 
-    const links = [
+    const links: LinkWithStatus[] = [
       {
         id: 'link-1',
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
-        status: 'suggested' as const,
+        status: 'suggested',
       },
     ];
 
@@ -275,13 +269,7 @@ describe('applyLinkOverrides', () => {
       { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
     ];
 
-    const links: {
-      assetSymbol: string;
-      id: string;
-      sourceTransactionId: number;
-      status: 'suggested';
-      targetTransactionId: number;
-    }[] = []; // Algorithm didn't produce this link
+    const links: LinkWithStatus[] = []; // Algorithm didn't produce this link
 
     const overrides: OverrideEvent[] = [
       {
@@ -329,13 +317,13 @@ describe('applyLinkOverrides', () => {
       { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
     ];
 
-    const links = [
+    const links: LinkWithStatus[] = [
       {
         id: 'link-1',
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
-        status: 'suggested' as const,
+        status: 'suggested',
       },
     ];
 
@@ -402,13 +390,13 @@ describe('applyLinkOverrides', () => {
       { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
     ];
 
-    const links = [
+    const links: LinkWithStatus[] = [
       {
         id: 'link-1',
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
-        status: 'suggested' as const,
+        status: 'suggested',
       },
     ];
 

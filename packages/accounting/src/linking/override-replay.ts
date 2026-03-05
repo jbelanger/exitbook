@@ -20,7 +20,7 @@ interface TransactionWithFingerprint {
  * Link-like object that can be modified by overrides.
  * Uses domain model field names matching TransactionLink from accounting.
  */
-interface LinkWithStatus {
+export interface LinkWithStatus {
   sourceTransactionId: number;
   targetTransactionId: number;
   assetSymbol: string;
@@ -207,11 +207,11 @@ function projectOverrideState(
  * @param transactions - All transactions for fingerprint resolution
  * @returns Result with modified links, orphaned overrides (resolvable but no matching link), and unresolved overrides (transactions missing)
  */
-export function applyLinkOverrides(
-  links: LinkWithStatus[],
+export function applyLinkOverrides<T extends LinkWithStatus>(
+  links: T[],
   overrides: OverrideEvent[],
   transactions: TransactionWithFingerprint[]
-): Result<{ links: LinkWithStatus[]; orphaned: OrphanedLinkOverride[]; unresolved: OverrideEvent[] }, Error> {
+): Result<{ links: T[]; orphaned: OrphanedLinkOverride[]; unresolved: OverrideEvent[] }, Error> {
   try {
     // Build both lookup maps in a single pass for efficiency
     const { fingerprintMap, txById } = buildTransactionMaps(transactions);
@@ -221,7 +221,7 @@ export function applyLinkOverrides(
     const linkOverrides = overrides.filter((o) => o.scope === 'link' || o.scope === 'unlink');
 
     // Build a map of link fingerprints to link objects for fast lookup
-    const linkMap = new Map<string, LinkWithStatus>();
+    const linkMap = new Map<string, T>();
     for (const link of links) {
       const sourceTx = txById.get(link.sourceTransactionId);
       const targetTx = txById.get(link.targetTransactionId);

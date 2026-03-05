@@ -31,6 +31,7 @@ export {
 export { ProcessOperation, type ProcessParams, type ProcessResult } from './process/process-operation.js';
 
 export { LinkOperation, type LinkingRunParams, type LinkingRunResult } from './link/link-operation.js';
+export type { LinkingEvent } from './link/linking-events.js';
 export { LinkStep } from './link/link-step.js';
 
 export {

@@ -7,9 +7,11 @@ import type { Account, Currency, ImportSession, UniversalTransactionData, Verifi
 import { parseDecimal } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { err, ok, type Result } from 'neverthrow';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BalanceOperation } from '../balance-operation.js';
+
+const FROZEN_NOW = new Date('2026-03-01T12:00:00.000Z');
 
 function createAccount(overrides: Partial<Account> = {}): Account {
   return {
@@ -124,6 +126,14 @@ function createDbMock(params: {
 }
 
 describe('BalanceOperation', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ now: FROZEN_NOW });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('adjusts live balances using excluded amounts and persists verification metadata', async () => {
     const account = createAccount();
 
@@ -201,8 +211,8 @@ describe('BalanceOperation', () => {
     expect(updateArg.verificationMetadata.last_verification?.live_balance).toEqual({
       'blockchain:bitcoin:native': '1',
     });
-    expect(updateArg.verificationMetadata.last_verification?.verified_at).toMatch(/^\\d{4}-\\d{2}-\\d{2}T/);
-    expect(updateArg.lastBalanceCheckAt).toBeInstanceOf(Date);
+    expect(updateArg.verificationMetadata.last_verification?.verified_at).toBe(FROZEN_NOW.toISOString());
+    expect(updateArg.lastBalanceCheckAt).toEqual(FROZEN_NOW);
   });
 
   it('adds warning when token transactions are supported but token balances are unavailable', async () => {
