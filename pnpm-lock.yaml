@@ -489,6 +489,12 @@ importers:
         specifier: workspace:*
         version: link:../tsconfig
 
+  packages/result:
+    devDependencies:
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+
   packages/sqlite:
     dependencies:
       '@exitbook/core':
