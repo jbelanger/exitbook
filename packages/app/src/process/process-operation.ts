@@ -6,11 +6,20 @@ import { err, ok, type Result } from 'neverthrow';
 import { ClearOperation } from '../clear/clear-operation.js';
 import type { EventSink } from '../pipeline/pipeline-context.js';
 
-import type { ProcessParams, ProcessResult } from './process-operation-utils.js';
-
-export type { ProcessParams, ProcessResult } from './process-operation-utils.js';
-
 const logger = getLogger('ProcessOperation');
+
+export interface ProcessParams {
+  /** Reprocess only a specific account ID */
+  accountId?: number | undefined;
+}
+
+export interface ProcessResult {
+  /** Number of transactions processed */
+  processed: number;
+
+  /** Processing errors if any */
+  errors: string[];
+}
 
 /**
  * Reprocess orchestration: resolve accounts → guard imports →

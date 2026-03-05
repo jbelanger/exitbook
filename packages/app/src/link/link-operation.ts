@@ -97,6 +97,7 @@ export class LinkOperation {
 
     const transactions = loadResult.value;
     if (transactions.length === 0) {
+      this.eventBus?.emit({ type: 'load.completed', totalTransactions: 0 });
       return ok(emptyLinkingResult(params.dryRun));
     }
 
@@ -117,11 +118,7 @@ export class LinkOperation {
       ]);
 
       if (clearLinksResult.isErr()) return err(clearLinksResult.error);
-
-      // Non-fatal: log warning but continue if movements clear fails
-      if (clearMovementsResult.isErr()) {
-        logger.warn({ error: clearMovementsResult.error }, 'Failed to clear linkable movements');
-      }
+      if (clearMovementsResult.isErr()) return err(clearMovementsResult.error);
 
       const count = clearLinksResult.value;
       if (count > 0) {

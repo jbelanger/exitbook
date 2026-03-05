@@ -298,7 +298,7 @@ describe('LinkOperation', () => {
       expect(emittedEvents.some((event) => event.type === 'existing.cleared')).toBe(true);
     });
 
-    it('continues when clearing linkable movements fails', async () => {
+    it('returns error when clearing linkable movements fails', async () => {
       const db = createMockDb({
         transactions: { findAll: vi.fn().mockResolvedValue(ok(createExchangeToChainTransferPair())) },
         linkableMovements: {
@@ -308,11 +308,9 @@ describe('LinkOperation', () => {
 
       const operation = new LinkOperation(db);
       const result = await operation.execute(defaultLinkParams);
-      const value = assertOk(result);
 
-      expect(value.dryRun).toBe(false);
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- vitest mock assertion
-      expect(db.linkableMovements.deleteAll).toHaveBeenCalledTimes(1);
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toBe('movement clear failed');
     });
 
     it('does not emit save events in dry run mode', async () => {
@@ -357,9 +355,11 @@ describe('LinkOperation', () => {
     });
   });
 
-  it('returns empty result when no transactions exist', async () => {
+  it('returns empty result and emits load.completed when no transactions exist', async () => {
+    const emittedEvents: LinkingEvent[] = [];
     const db = createMockDb();
-    const operation = new LinkOperation(db);
+    const eventBus = createMockEventBus(emittedEvents);
+    const operation = new LinkOperation(db, undefined, eventBus);
     const result = await operation.execute(defaultLinkParams);
 
     const value = assertOk(result);
@@ -367,5 +367,7 @@ describe('LinkOperation', () => {
     expect(value.confirmedLinksCount).toBe(0);
     expect(value.suggestedLinksCount).toBe(0);
     expect(value.dryRun).toBe(false);
+    expect(emittedEvents.some((e) => e.type === 'load.started')).toBe(true);
+    expect(emittedEvents.some((e) => e.type === 'load.completed')).toBe(true);
   });
 });
