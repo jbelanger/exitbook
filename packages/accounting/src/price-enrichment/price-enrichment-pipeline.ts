@@ -13,13 +13,14 @@
  * - Derive (2nd pass) calculates ratios and propagates prices using fetched/normalized data
  */
 
-import type { DataContext } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector, type MetricsSummary } from '@exitbook/observability';
 import type { PriceProviderManager } from '@exitbook/price-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
+
+import type { PricingStore } from '../ports/pricing-store.js';
 
 import { PriceDerivationService } from './price-derivation-service.js';
 import type { PriceEvent } from './price-events.js';
@@ -28,7 +29,7 @@ import type { PricesFetchResult } from './price-fetch-utils.js';
 import { determineEnrichmentStages } from './price-fetch-utils.js';
 import type { NormalizeResult } from './price-normalization-service.js';
 import { PriceNormalizationService } from './price-normalization-service.js';
-import { StandardFxRateProvider } from './standard-fx-rate-provider.js';
+import type { IFxRateProvider } from './types.js';
 
 type StageCompletedResult = Extract<PriceEvent, { type: 'stage.completed' }>['result'];
 type StageName = Extract<PriceEvent, { type: 'stage.started' }>['stage'];
@@ -98,7 +99,7 @@ export class PriceEnrichmentPipeline {
   private readonly instrumentation: InstrumentationCollector;
 
   constructor(
-    private readonly db: DataContext,
+    private readonly store: PricingStore,
     private readonly eventBus?: EventBus<PriceEvent>,
     instrumentation?: InstrumentationCollector
   ) {
@@ -110,10 +111,12 @@ export class PriceEnrichmentPipeline {
    *
    * @param options - Pipeline options
    * @param priceManager - Initialized price provider manager (caller is responsible for lifecycle)
+   * @param fxRateProvider - FX rate provider for normalization stage
    */
   async execute(
     options: PricesEnrichOptions,
-    priceManager: PriceProviderManager
+    priceManager: PriceProviderManager,
+    fxRateProvider: IFxRateProvider
   ): Promise<Result<PricesEnrichResult, Error>> {
     try {
       const stages = determineEnrichmentStages(options);
@@ -127,7 +130,7 @@ export class PriceEnrichmentPipeline {
 
       // Stage 1: Derive (extract from trades: USD + non-USD fiat, propagate via links)
       if (stages.derive) {
-        const enrichmentService = new PriceDerivationService(this.db);
+        const enrichmentService = new PriceDerivationService(this.store);
         const deriveResult = await this.runStage(
           'Stage 1: Deriving prices from trades (USD + fiat)',
           'tradePrices',
@@ -140,8 +143,7 @@ export class PriceEnrichmentPipeline {
 
       // Stage 2: Normalize (FX conversion: CAD/EUR → USD)
       if (stages.normalize) {
-        const fxRateProvider = new StandardFxRateProvider(priceManager);
-        const normalizeService = new PriceNormalizationService(this.db, fxRateProvider);
+        const normalizeService = new PriceNormalizationService(this.store, fxRateProvider);
         const normalizeResult = await this.runStage(
           'Stage 2: Normalizing non-USD fiat prices to USD',
           'fxRates',
@@ -171,7 +173,7 @@ export class PriceEnrichmentPipeline {
 
       // Stage 3: Fetch (external providers for remaining crypto prices)
       if (stages.fetch) {
-        const fetchService = new PriceFetchService(this.db, this.instrumentation, this.eventBus);
+        const fetchService = new PriceFetchService(this.store, this.instrumentation, this.eventBus);
         const fetchResult = await this.runStage(
           'Stage 3: Fetching missing prices from external providers',
           'marketPrices',
@@ -191,7 +193,7 @@ export class PriceEnrichmentPipeline {
 
       // Stage 4: Derive (second pass) — use newly fetched/normalized prices
       if (stages.derive && (stages.fetch || stages.normalize)) {
-        const enrichmentService = new PriceDerivationService(this.db);
+        const enrichmentService = new PriceDerivationService(this.store);
         const propagateResult = await this.runStage(
           'Stage 4: Re-deriving prices using fetched/normalized data',
           'rederive',

@@ -64,6 +64,7 @@ export type { CostBasisReportInput } from './cost-basis/cost-basis-report-genera
 
 // Ports
 export type { LinkingStore } from './ports/index.js';
+export type { PricingStore } from './ports/index.js';
 
 // Linking orchestrator
 export { LinkingOrchestrator } from './linking/linking-orchestrator.js';

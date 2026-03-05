@@ -13,8 +13,19 @@ import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { PricingStore } from '../../ports/pricing-store.js';
 import { PriceNormalizationService } from '../price-normalization-service.js';
 import type { IFxRateProvider } from '../types.js';
+
+function createPricingStoreFromDb(db: DataContext): PricingStore {
+  return {
+    findAllTransactions: () => db.transactions.findAll(),
+    findTransactionsNeedingPrices: (assetFilter?: string[]) => db.transactions.findNeedingPrices(assetFilter),
+    findConfirmedLinks: () => db.transactionLinks.findAll('confirmed'),
+    updateTransactionPrices: (tx) =>
+      db.executeInTransaction((txCtx) => txCtx.transactions.updateMovementsWithPrices(tx)),
+  };
+}
 
 function createMockFxProvider(): IFxRateProvider {
   return { getRateToUSD: vi.fn() } as unknown as IFxRateProvider;
@@ -54,7 +65,7 @@ describe('PriceNormalizationService', () => {
   });
 
   function createService(): PriceNormalizationService {
-    return new PriceNormalizationService(db, mockFxProvider);
+    return new PriceNormalizationService(createPricingStoreFromDb(db), mockFxProvider);
   }
 
   describe('normalize()', () => {

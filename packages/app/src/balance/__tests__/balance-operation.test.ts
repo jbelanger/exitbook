@@ -201,7 +201,7 @@ describe('BalanceOperation', () => {
     expect(updateArg.verificationMetadata.last_verification?.live_balance).toEqual({
       'blockchain:bitcoin:native': '1',
     });
-    expect(updateArg.verificationMetadata.last_verification?.verified_at).toMatch(/^\\d{4}-\\d{2}-\\d{2}T/);
+    expect(updateArg.verificationMetadata.last_verification?.verified_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(updateArg.lastBalanceCheckAt).toBeInstanceOf(Date);
   });
 

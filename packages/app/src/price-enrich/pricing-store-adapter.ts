@@ -1,39 +1,27 @@
+import type { PricingStore } from '@exitbook/accounting';
 import type { TransactionLink, UniversalTransactionData } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
 /**
- * Port for price enrichment. Will move to @exitbook/accounting.
+ * Adapts DataContext repositories to the PricingStore port.
  */
-export interface PricingStore {
-  findAllTransactions(): Promise<Result<UniversalTransactionData[], Error>>;
-  findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransactionData[], Error>>;
-  findConfirmedLinks(): Promise<Result<TransactionLink[], Error>>;
-
-  updateTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>>;
-  executePriceUpdateBatch(updates: UniversalTransactionData[]): Promise<Result<void, Error>>;
-}
-
 export class PricingStoreAdapter implements PricingStore {
   constructor(private readonly db: DataContext) {}
-  // eslint-disable-next-line @typescript-eslint/require-await -- will be there when implemented
-  async findAllTransactions(): Promise<Result<UniversalTransactionData[], Error>> {
-    throw new Error('Not implemented');
+
+  findAllTransactions(): Promise<Result<UniversalTransactionData[], Error>> {
+    return this.db.transactions.findAll();
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/require-await -- will be there when implemented
-  async findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransactionData[], Error>> {
-    throw new Error('Not implemented');
+
+  findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransactionData[], Error>> {
+    return this.db.transactions.findNeedingPrices(assetFilter);
   }
-  // eslint-disable-next-line @typescript-eslint/require-await -- will be there when implemented
-  async findConfirmedLinks(): Promise<Result<TransactionLink[], Error>> {
-    throw new Error('Not implemented');
+
+  findConfirmedLinks(): Promise<Result<TransactionLink[], Error>> {
+    return this.db.transactionLinks.findAll('confirmed');
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/require-await -- will be there when implemented
-  async updateTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>> {
-    throw new Error('Not implemented');
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/require-await -- will be there when implemented
-  async executePriceUpdateBatch(updates: UniversalTransactionData[]): Promise<Result<void, Error>> {
-    throw new Error('Not implemented');
+
+  updateTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>> {
+    return this.db.executeInTransaction((txCtx) => txCtx.transactions.updateMovementsWithPrices(tx));
   }
 }

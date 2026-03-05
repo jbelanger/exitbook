@@ -34,6 +34,13 @@ export { LinkOperation, type LinkingRunParams, type LinkingRunResult } from './l
 export { LinkStep } from './link/link-step.js';
 
 export {
+  PriceEnrichOperation,
+  type PricesEnrichOptions,
+  type PricesEnrichResult,
+} from './price-enrich/price-enrich-operation.js';
+export { PriceEnrichStep } from './price-enrich/price-enrich-step.js';
+
+export {
   AccountQuery,
   type AccountQueryParams,
   type AccountView,

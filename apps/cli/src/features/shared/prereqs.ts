@@ -1,11 +1,10 @@
 import {
-  PriceEnrichmentPipeline,
   filterTransactionsByDateRange,
   validateTransactionPrices,
   type LinkingEvent,
   type PriceEvent,
 } from '@exitbook/accounting';
-import { ClearOperation, LinkOperation } from '@exitbook/app';
+import { ClearOperation, LinkOperation, PriceEnrichOperation } from '@exitbook/app';
 import { parseDecimal } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
@@ -300,8 +299,8 @@ export async function ensurePrices(
     if (priceManagerResult.isErr()) return err(priceManagerResult.error);
     const priceManager = priceManagerResult.value;
     try {
-      const pipeline = new PriceEnrichmentPipeline(db);
-      const result = await pipeline.execute({}, priceManager);
+      const operation = new PriceEnrichOperation(db, priceManager);
+      const result = await operation.execute({});
       if (result.isErr()) return err(result.error);
       logger.info('Price enrichment completed (JSON mode)');
       return ok();
@@ -341,8 +340,8 @@ export async function ensurePrices(
   try {
     await controller.start();
 
-    const pipeline = new PriceEnrichmentPipeline(db, eventBus, instrumentation);
-    const result = await pipeline.execute({}, priceManager);
+    const operation = new PriceEnrichOperation(db, priceManager, eventBus, instrumentation);
+    const result = await operation.execute({});
 
     if (result.isErr()) {
       controller.fail(result.error.message);

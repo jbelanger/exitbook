@@ -1,9 +1,10 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
+
+import type { PricingStore } from '../ports/pricing-store.js';
 
 import { buildLinkGraph } from './link-graph-utils.js';
 import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from './price-enrichment-utils.js';
@@ -41,7 +42,7 @@ function transactionNeedsPrice(transaction: UniversalTransactionData): boolean {
  * - derive: Recalculate crypto-crypto swap ratios for accurate cost basis
  */
 export class PriceDerivationService {
-  constructor(private readonly db: DataContext) {}
+  constructor(private readonly store: PricingStore) {}
 
   /**
    * Main entry point: derive prices for all transactions needing prices
@@ -52,7 +53,7 @@ export class PriceDerivationService {
 
       // Get full transaction data - we must process ALL transactions even if none need prices
       // because Pass N+2 recalculates ratios for swaps that already have fetched prices
-      const allTransactionsResult = await this.db.transactions.findAll();
+      const allTransactionsResult = await this.store.findAllTransactions();
       if (allTransactionsResult.isErr()) {
         return err(allTransactionsResult.error);
       }
@@ -74,7 +75,7 @@ export class PriceDerivationService {
       );
 
       // Fetch confirmed transaction links
-      const linksResult = await this.db.transactionLinks.findAll('confirmed');
+      const linksResult = await this.store.findConfirmedLinks();
       if (linksResult.isErr()) {
         return err(linksResult.error);
       }
@@ -218,6 +219,6 @@ export class PriceDerivationService {
    * applied by the multi-pass algorithm. Just persist it directly.
    */
   private async updateTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>> {
-    return this.db.executeInTransaction((txCtx) => txCtx.transactions.updateMovementsWithPrices(tx));
+    return this.store.updateTransactionPrices(tx);
   }
 }

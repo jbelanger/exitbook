@@ -1,5 +1,4 @@
 import { type Currency } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
@@ -7,6 +6,8 @@ import { type PriceProviderManager } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
+
+import type { PricingStore } from '../ports/pricing-store.js';
 
 import { enrichMovementsWithPrices, enrichWithPrice } from './movement-enrichment-utils.js';
 import type { PriceEvent } from './price-events.js';
@@ -42,7 +43,7 @@ export class PriceFetchAbortError extends Error {
  */
 export class PriceFetchService {
   constructor(
-    private readonly db: DataContext,
+    private readonly store: PricingStore,
     private readonly instrumentation: InstrumentationCollector,
     private readonly eventBus?: EventBus<PriceEvent>
   ) {}
@@ -67,7 +68,7 @@ export class PriceFetchService {
     const assetFilter = assetFilterResult.value?.map((c) => c.toString());
 
     // Query transactions needing prices
-    const transactionsResult = await this.db.transactions.findNeedingPrices(assetFilter);
+    const transactionsResult = await this.store.findTransactionsNeedingPrices(assetFilter);
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);
     }
@@ -203,9 +204,7 @@ export class PriceFetchService {
           fees: enrichedFees,
         };
 
-        const updateResult = await this.db.executeInTransaction((txCtx) =>
-          txCtx.transactions.updateMovementsWithPrices(enrichedTx)
-        );
+        const updateResult = await this.store.updateTransactionPrices(enrichedTx);
 
         if (updateResult.isErr()) {
           logger.error(`Failed to update movements for transaction ${tx.id}: ${updateResult.error.message}`);

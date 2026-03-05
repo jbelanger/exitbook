@@ -4,7 +4,18 @@ import { createTestDataContext } from '@exitbook/data/test-utils';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { PricingStore } from '../../ports/pricing-store.js';
 import { PriceDerivationService } from '../price-derivation-service.js';
+
+function createPricingStoreFromDb(db: DataContext): PricingStore {
+  return {
+    findAllTransactions: () => db.transactions.findAll(),
+    findTransactionsNeedingPrices: (assetFilter?: string[]) => db.transactions.findNeedingPrices(assetFilter),
+    findConfirmedLinks: () => db.transactionLinks.findAll('confirmed'),
+    updateTransactionPrices: (tx) =>
+      db.executeInTransaction((txCtx) => txCtx.transactions.updateMovementsWithPrices(tx)),
+  };
+}
 
 async function setupPrerequisites(db: DataContext): Promise<{ accountId: number; userId: number }> {
   const userResult = await db.users.create();
@@ -27,7 +38,7 @@ async function setupPrerequisites(db: DataContext): Promise<{ accountId: number;
 }
 
 function createService(db: DataContext): PriceDerivationService {
-  return new PriceDerivationService(db);
+  return new PriceDerivationService(createPricingStoreFromDb(db));
 }
 
 describe('PriceEnrichmentService', () => {
