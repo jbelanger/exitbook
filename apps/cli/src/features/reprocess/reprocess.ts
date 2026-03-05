@@ -110,8 +110,7 @@ async function executeReprocessTUI(options: ProcessCommandOptions, registry: Ada
 
       const result = await handler.execute({ accountId: options.accountId });
       if (result.isErr()) {
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
+        displayCliError('reprocess', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }
 
       if (result.value.errors.length > 0) {

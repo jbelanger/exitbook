@@ -164,8 +164,7 @@ async function executeImportTUI(options: ImportCommandOptions, registry: Adapter
         },
       });
       if (result.isErr()) {
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
+        displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }
     });
   } catch (error) {

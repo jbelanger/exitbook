@@ -122,7 +122,7 @@ async function executePricesEnrichTUI(options: CommandOptions, params: PricesEnr
 
       const result = await handler.execute(params);
       if (result.isErr()) {
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        displayCliError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }
     });
   } catch (error) {

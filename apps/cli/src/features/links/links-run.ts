@@ -217,8 +217,7 @@ async function executeLinksRunTUI(options: LinksRunCommandOptions, registry: Ada
 
       const processedResult = await ensureRawDataIsProcessed(database, registry, { isJsonMode: false });
       if (processedResult.isErr()) {
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
+        displayCliError('links-run', processedResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }
 
       const handler = createLinksRunHandler(ctx, database, { dryRun: params.dryRun, isJsonMode: false });
@@ -227,7 +226,7 @@ async function executeLinksRunTUI(options: LinksRunCommandOptions, registry: Ada
 
       const result = await handler.execute(params);
       if (result.isErr()) {
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }
     });
   } catch (error) {
