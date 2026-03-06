@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-import { SourceTypeSchema } from './import-session.js';
-import { CurrencySchema, DecimalSchema } from './money.js';
-import { DateSchema } from './primitives.js';
+import { SourceTypeSchema } from '../import-session/import-session.js';
+import { CurrencySchema, DecimalSchema } from '../money/money.js';
+import { DateSchema } from '../utils/primitives.js';
 
 /**
  * A materialized, UTXO-collapsed, trade-excluded movement ready for linking strategies.

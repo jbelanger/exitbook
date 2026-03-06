@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Currency } from '../../currency.js';
-import type { AssetMovement } from '../../schemas/universal-transaction.js';
-import { parseDecimal } from '../decimal-utils.js';
+import type { Currency } from '../../money/currency.js';
+import { parseDecimal } from '../../money/decimal-utils.js';
 import { computePrimaryMovement } from '../movement-utils.js';
+import type { AssetMovement } from '../universal-transaction.js';
 
 describe('computePrimaryMovement', () => {
   it('returns undefined when no movements exist', () => {

@@ -1,6 +1,6 @@
 import { err, ok, type Result } from 'neverthrow';
 
-import type { TransactionFingerprintInput, LinkIdentity } from '../schemas/override.types.js';
+import type { TransactionFingerprintInput, LinkIdentity } from './override.js';
 
 /**
  * Compute transaction fingerprint from source and externalId
@@ -32,7 +32,7 @@ export function computeTxFingerprint(identity: TransactionFingerprintInput): Res
  * Fingerprints are sorted for deterministic ordering (A->B and B->A produce same fingerprint)
  */
 export function computeLinkFingerprint(identity: LinkIdentity): Result<string, Error> {
-  const { source_tx, target_tx, asset } = identity;
+  const { sourceTx: source_tx, targetTx: target_tx, asset } = identity;
 
   if (!source_tx || source_tx.trim() === '') {
     return err(new Error('source_tx must not be empty'));

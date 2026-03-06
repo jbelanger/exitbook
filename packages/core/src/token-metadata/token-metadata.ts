@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { DateSchema } from './primitives.js';
+import { DateSchema } from '../utils/primitives.js';
 
 /**
  * Schema for token metadata from API clients (write-side)

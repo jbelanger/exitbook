@@ -1,4 +1,4 @@
-import type { CursorState } from '../schemas/cursor.js';
+import type { CursorState } from './cursor.js';
 
 /**
  * Type guard to check if a cursor is a CursorState (blockchain provider format)

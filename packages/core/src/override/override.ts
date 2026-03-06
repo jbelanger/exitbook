@@ -124,3 +124,31 @@ export type LinkOverridePayload = z.infer<typeof LinkOverridePayloadSchema>;
 export type UnlinkOverridePayload = z.infer<typeof UnlinkOverridePayloadSchema>;
 export type OverridePayload = z.infer<typeof OverridePayloadSchema>;
 export type OverrideEvent = z.infer<typeof OverrideEventSchema>;
+
+/**
+ * Options for creating an override event
+ * Actor and source are hardcoded in the store (always 'user'/'cli')
+ */
+export interface CreateOverrideEventOptions {
+  scope: Scope;
+  payload: OverrideEvent['payload'];
+  reason?: string | undefined;
+}
+
+/**
+ * Transaction fingerprint components
+ * Simplified version using source_name:external_id pattern
+ */
+export interface TransactionFingerprintInput {
+  source: string;
+  externalId: string;
+}
+
+/**
+ * Link fingerprint components
+ */
+export interface LinkIdentity {
+  sourceTx: string; // source_name:external_id
+  targetTx: string; // source_name:external_id
+  asset: string;
+}

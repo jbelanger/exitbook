@@ -1,12 +1,38 @@
 import { z } from 'zod';
 
-import { VerificationMetadataSchema } from './balance-verification.js';
-import { CursorStateSchema } from './cursor.js';
+import { CursorStateSchema } from '../cursor/cursor.js';
+import { CurrencySchema } from '../money/money.js';
 
 /**
  * Account type schema - blockchain or exchange variants
  */
 export const AccountTypeSchema = z.enum(['blockchain', 'exchange-api', 'exchange-csv']);
+
+// ─── Verification Sub-Schemas (persisted on Account) ────────────────────────
+
+const BalanceDiscrepancySchema = z.object({
+  assetId: z.string().optional(),
+  assetSymbol: CurrencySchema,
+  calculated: z.string(),
+  difference: z.string(),
+  live: z.string(),
+});
+
+const BalanceVerificationStatusSchema = z.enum(['match', 'mismatch', 'unavailable']);
+
+const BalanceVerificationSchema = z.object({
+  calculated_balance: z.record(z.string(), z.string()),
+  discrepancies: z.array(BalanceDiscrepancySchema).optional(),
+  live_balance: z.record(z.string(), z.string()).optional(),
+  status: BalanceVerificationStatusSchema,
+  suggestions: z.array(z.string()).optional(),
+  verified_at: z.string(),
+});
+
+export const VerificationMetadataSchema = z.object({
+  current_balance: z.record(z.string(), z.string()),
+  last_verification: BalanceVerificationSchema,
+});
 
 /**
  * Exchange credentials schema - generic key-value pairs validated per exchange
@@ -55,3 +81,7 @@ export const AccountSchema = z.object({
 export type AccountType = z.infer<typeof AccountTypeSchema>;
 export type ExchangeCredentials = z.infer<typeof ExchangeCredentialsSchema>;
 export type Account = z.infer<typeof AccountSchema>;
+export type BalanceDiscrepancy = z.infer<typeof BalanceDiscrepancySchema>;
+export type BalanceVerificationStatus = z.infer<typeof BalanceVerificationStatusSchema>;
+export type BalanceVerification = z.infer<typeof BalanceVerificationSchema>;
+export type VerificationMetadata = z.infer<typeof VerificationMetadataSchema>;

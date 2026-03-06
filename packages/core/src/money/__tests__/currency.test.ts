@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Currency } from './currency.js';
-import { isFiat, isFiatOrStablecoin, isStablecoin, parseCurrency } from './currency.js';
+import type { Currency } from '../currency.js';
+import { isFiat, isFiatOrStablecoin, isStablecoin, parseCurrency } from '../currency.js';
 
 describe('parseCurrency', () => {
   it('should normalize currency codes to uppercase', () => {

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { CurrencySchema, DecimalSchema } from './money.js';
-import { DateSchema } from './primitives.js';
+import { CurrencySchema, DecimalSchema } from '../money/money.js';
+import { DateSchema } from '../utils/primitives.js';
 
 const UnitIntervalDecimalSchema = DecimalSchema.refine(
   (value) => value.greaterThanOrEqualTo(0) && value.lessThanOrEqualTo(1),

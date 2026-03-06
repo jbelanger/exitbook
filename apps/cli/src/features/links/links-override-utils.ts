@@ -107,8 +107,8 @@ async function resolveFingerprints(
     }
 
     const linkFpResult = computeLinkFingerprint({
-      source_tx: sourceFp.value,
-      target_tx: targetFp.value,
+      sourceTx: sourceFp.value,
+      targetTx: targetFp.value,
       asset: assetSymbol,
     });
 

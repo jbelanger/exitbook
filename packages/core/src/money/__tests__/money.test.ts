@@ -1,9 +1,8 @@
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import { parseDecimal } from '../utils/decimal-utils.js';
-
-import { DecimalSchema, DecimalStringSchema } from './money.js';
+import { parseDecimal } from '../decimal-utils.js';
+import { DecimalSchema, DecimalStringSchema } from '../money.js';
 
 describe('DecimalSchema', () => {
   it('should accept valid string numbers', () => {

@@ -54,7 +54,6 @@ describe('account-query-utils', () => {
       const matchAccount = createMockAccount({
         verificationMetadata: {
           current_balance: { BTC: '1' },
-          source_params: { blockchain: 'bitcoin', address: 'bc1qtest' },
           last_verification: {
             calculated_balance: { BTC: '1' },
             live_balance: { BTC: '1' },
@@ -67,7 +66,6 @@ describe('account-query-utils', () => {
       const mismatchAccount = createMockAccount({
         verificationMetadata: {
           current_balance: { BTC: '1' },
-          source_params: { blockchain: 'bitcoin', address: 'bc1qtest' },
           last_verification: {
             calculated_balance: { BTC: '1' },
             live_balance: { BTC: '2' },
@@ -85,7 +83,6 @@ describe('account-query-utils', () => {
       const account = createMockAccount({
         verificationMetadata: {
           current_balance: { BTC: '1' },
-          source_params: { blockchain: 'bitcoin', address: 'bc1qtest' },
           last_verification: {
             calculated_balance: { BTC: '1' },
             status: 'unavailable',

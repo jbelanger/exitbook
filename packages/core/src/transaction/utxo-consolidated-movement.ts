@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { CurrencySchema, DecimalSchema } from './money.js';
-import { DateSchema } from './primitives.js';
+import { CurrencySchema, DecimalSchema } from '../money/money.js';
+import { DateSchema } from '../utils/primitives.js';
 
 /**
  * A consolidated UTXO movement that collapses multiple raw UTXO inputs/outputs

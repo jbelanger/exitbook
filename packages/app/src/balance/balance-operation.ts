@@ -3,7 +3,6 @@ import type {
   Account,
   ExchangeCredentials,
   ImportSession,
-  SourceParams,
   UniversalTransactionData,
   VerificationMetadata,
 } from '@exitbook/core';
@@ -376,12 +375,6 @@ export class BalanceOperation {
   ): Promise<Result<void, Error>> {
     try {
       const calculatedBalancesStr = decimalRecordToStringRecord(calculatedBalances);
-
-      const isExchange = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
-      const sourceParams: SourceParams = isExchange
-        ? { exchange: account.sourceName }
-        : { blockchain: account.sourceName, address: account.identifier };
-
       const discrepancies = comparisons
         .filter((c) => c.status !== 'match')
         .map((c) => ({
@@ -393,7 +386,6 @@ export class BalanceOperation {
         }));
 
       const verificationMetadata: VerificationMetadata = {
-        source_params: sourceParams,
         current_balance: calculatedBalancesStr,
         last_verification: {
           status: status === 'success' ? 'match' : 'mismatch',

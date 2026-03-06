@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseDecimal } from '../../utils/decimal-utils.js';
+import { parseDecimal } from '../../money/decimal-utils.js';
 import { AssetMovementSchema, FeeMovementSchema, UniversalTransactionSchema } from '../universal-transaction.js';
 
 describe('AssetMovementSchema', () => {
