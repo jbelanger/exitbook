@@ -1,23 +1,27 @@
-import type { CostBasisStore } from '@exitbook/accounting';
-import type { TransactionLink, UniversalTransactionData } from '@exitbook/core';
+import type { CostBasisContext, ICostBasisPersistence } from '@exitbook/accounting';
 import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 
 /**
- * Adapts DataContext repositories to the CostBasisStore port.
+ * Adapts DataContext repositories to the ICostBasisPersistence port.
+ *
+ * Bundles the transaction + confirmed links load into a single
+ * domain-shaped context-loading method.
  */
-export class CostBasisStoreAdapter implements CostBasisStore {
+export class CostBasisStoreAdapter implements ICostBasisPersistence {
   constructor(private readonly db: DataContext) {}
 
-  findAllTransactions(): Promise<Result<UniversalTransactionData[], Error>> {
-    return this.db.transactions.findAll();
-  }
+  async loadCostBasisContext(): Promise<Result<CostBasisContext, Error>> {
+    const transactionsResult = await this.db.transactions.findAll();
+    if (transactionsResult.isErr()) return err(transactionsResult.error);
 
-  findTransactionById(id: number): Promise<Result<UniversalTransactionData | undefined, Error>> {
-    return this.db.transactions.findById(id);
-  }
+    const linksResult = await this.db.transactionLinks.findAll('confirmed');
+    if (linksResult.isErr()) return err(linksResult.error);
 
-  findConfirmedLinks(): Promise<Result<TransactionLink[], Error>> {
-    return this.db.transactionLinks.findAll('confirmed');
+    return ok({
+      transactions: transactionsResult.value,
+      confirmedLinks: linksResult.value,
+    });
   }
 }

@@ -1,30 +1,17 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { createTransaction, createTransactionWithFee } from '../../__tests__/test-utils.js';
-import type { CostBasisStore } from '../../ports/cost-basis-store.js';
 import { calculateCostBasisFromValidatedTransactions } from '../cost-basis-calculator.js';
 import type { CostBasisConfig } from '../cost-basis-config.js';
 import { CanadaRules } from '../jurisdictions/canada-rules.js';
 import { USRules } from '../jurisdictions/us-rules.js';
 import { LotMatcher } from '../lot-matcher.js';
 
-const mockCostBasisStore = (): CostBasisStore => ({
-  findAllTransactions: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
-  findTransactionById: vi
-    .fn()
-    .mockResolvedValue({ isOk: () => false, isErr: () => true, error: new Error('Not found') }),
-  findConfirmedLinks: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
-});
-
 describe('calculateCostBasisFromValidatedTransactions', () => {
-  let lotMatcher: LotMatcher;
-
-  beforeEach(() => {
-    lotMatcher = new LotMatcher(mockCostBasisStore());
-  });
+  const lotMatcher = new LotMatcher();
 
   describe('calculate', () => {
     it('should successfully calculate cost basis with FIFO method', async () => {

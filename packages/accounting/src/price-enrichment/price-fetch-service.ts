@@ -7,7 +7,7 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 import { type PriceProviderManager } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 
-import type { PricingStore } from '../ports/pricing-store.js';
+import type { IPricingPersistence } from '../ports/pricing-persistence.js';
 
 import { enrichMovementsWithPrices, enrichWithPrice } from './movement-enrichment-utils.js';
 import type { PriceEvent } from './price-events.js';
@@ -43,7 +43,7 @@ export class PriceFetchAbortError extends Error {
  */
 export class PriceFetchService {
   constructor(
-    private readonly store: PricingStore,
+    private readonly store: IPricingPersistence,
     private readonly instrumentation: InstrumentationCollector,
     private readonly eventBus?: EventBus<PriceEvent>
   ) {}
@@ -68,7 +68,7 @@ export class PriceFetchService {
     const assetFilter = assetFilterResult.value?.map((c) => c.toString());
 
     // Query transactions needing prices
-    const transactionsResult = await this.store.findTransactionsNeedingPrices(assetFilter);
+    const transactionsResult = await this.store.loadTransactionsNeedingPrices(assetFilter);
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);
     }
@@ -204,7 +204,7 @@ export class PriceFetchService {
           fees: enrichedFees,
         };
 
-        const updateResult = await this.store.updateTransactionPrices(enrichedTx);
+        const updateResult = await this.store.saveTransactionPrices(enrichedTx);
 
         if (updateResult.isErr()) {
           logger.error(`Failed to update movements for transaction ${tx.id}: ${updateResult.error.message}`);

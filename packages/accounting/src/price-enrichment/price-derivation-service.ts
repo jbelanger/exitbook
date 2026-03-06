@@ -4,7 +4,7 @@ import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import type { PricingStore } from '../ports/pricing-store.js';
+import type { IPricingPersistence } from '../ports/pricing-persistence.js';
 
 import { buildLinkGraph } from './link-graph-utils.js';
 import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from './price-enrichment-utils.js';
@@ -42,7 +42,7 @@ function transactionNeedsPrice(transaction: UniversalTransactionData): boolean {
  * - derive: Recalculate crypto-crypto swap ratios for accurate cost basis
  */
 export class PriceDerivationService {
-  constructor(private readonly store: PricingStore) {}
+  constructor(private readonly store: IPricingPersistence) {}
 
   /**
    * Main entry point: derive prices for all transactions needing prices
@@ -51,14 +51,13 @@ export class PriceDerivationService {
     try {
       logger.info('Starting price derivation process');
 
-      // Get full transaction data - we must process ALL transactions even if none need prices
-      // because Pass N+2 recalculates ratios for swaps that already have fetched prices
-      const allTransactionsResult = await this.store.findAllTransactions();
-      if (allTransactionsResult.isErr()) {
-        return err(allTransactionsResult.error);
+      // Load full pricing context (all transactions + confirmed links)
+      const contextResult = await this.store.loadPricingContext();
+      if (contextResult.isErr()) {
+        return err(contextResult.error);
       }
 
-      const allTransactions = allTransactionsResult.value;
+      const { transactions: allTransactions, confirmedLinks } = contextResult.value;
 
       if (allTransactions.length === 0) {
         logger.info('No transactions in database');
@@ -74,13 +73,6 @@ export class PriceDerivationService {
         'Starting price derivation'
       );
 
-      // Fetch confirmed transaction links
-      const linksResult = await this.store.findConfirmedLinks();
-      if (linksResult.isErr()) {
-        return err(linksResult.error);
-      }
-
-      const confirmedLinks = linksResult.value;
       logger.info({ linkCount: confirmedLinks.length }, 'Fetched confirmed transaction links');
 
       // Build link graph: groups transitively linked transactions together
@@ -219,6 +211,6 @@ export class PriceDerivationService {
    * applied by the multi-pass algorithm. Just persist it directly.
    */
   private async updateTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>> {
-    return this.store.updateTransactionPrices(tx);
+    return this.store.saveTransactionPrices(tx);
   }
 }

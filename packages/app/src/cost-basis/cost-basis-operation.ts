@@ -9,6 +9,7 @@ import {
   type CostBasisInput,
   type CostBasisReport,
   type CostBasisSummary,
+  type ICostBasisPersistence,
   type LotDisposal,
   type LotTransfer,
 } from '@exitbook/accounting';
@@ -42,10 +43,14 @@ export interface CostBasisResult {
  * Constructs the adapter, fetches/filters transactions, and delegates to runCostBasisPipeline.
  */
 export class CostBasisOperation {
+  private readonly store: ICostBasisPersistence;
+
   constructor(
     private readonly db: DataContext,
     private readonly priceManager?: PriceProviderManager | undefined
-  ) {}
+  ) {
+    this.store = new CostBasisStoreAdapter(db);
+  }
 
   async execute(params: CostBasisInput): Promise<Result<CostBasisResult, Error>> {
     const validation = validateCostBasisParams(params);
@@ -61,8 +66,7 @@ export class CostBasisOperation {
       return err(txResult.error);
     }
 
-    const store = new CostBasisStoreAdapter(this.db);
-    const pipelineResult = await runCostBasisPipeline(txResult.value, config, store);
+    const pipelineResult = await runCostBasisPipeline(txResult.value, config, this.store);
     if (pipelineResult.isErr()) {
       return err(pipelineResult.error);
     }

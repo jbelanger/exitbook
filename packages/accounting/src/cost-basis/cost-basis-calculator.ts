@@ -1,4 +1,4 @@
-import { type UniversalTransactionData, wrapError } from '@exitbook/core';
+import { type TransactionLink, type UniversalTransactionData, wrapError } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -8,7 +8,7 @@ import { assertPriceDataQuality } from './cost-basis-validation-utils.js';
 import { calculateGainLoss } from './gain-loss-utils.js';
 import type { IJurisdictionRules } from './jurisdictions/base-rules.js';
 import type { AssetMatchError } from './lot-matcher.js';
-import { LotMatcher } from './lot-matcher.js';
+import type { LotMatcher } from './lot-matcher.js';
 import type { CostBasisCalculation } from './schemas.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from './schemas.js';
 import { getStrategyForMethod } from './strategies/strategy-factory.js';
@@ -50,13 +50,15 @@ const logger = getLogger('calculateCostBasisFromValidatedTransactions');
  * @param transactions - Transactions to process (must have priceAtTxTime populated)
  * @param config - Cost basis configuration
  * @param rules - Jurisdiction-specific tax rules
- * @param lotMatcher - Lot matcher instance with transaction repositories
+ * @param lotMatcher - Lot matcher instance
+ * @param confirmedLinks - Confirmed transaction links for transfer detection
  */
 export async function calculateCostBasisFromValidatedTransactions(
   transactions: UniversalTransactionData[],
   config: CostBasisConfig,
   rules: IJurisdictionRules,
-  lotMatcher: LotMatcher
+  lotMatcher: LotMatcher,
+  confirmedLinks: TransactionLink[] = []
 ): Promise<Result<CostBasisSummary, Error>> {
   // Validate method-jurisdiction compatibility (defense in depth)
   if (config.method === 'average-cost' && config.jurisdiction !== 'CA') {
@@ -89,7 +91,7 @@ export async function calculateCostBasisFromValidatedTransactions(
 
     const jurisdictionConfig = rules.getConfig();
 
-    const matchResult = await lotMatcher.match(transactions, {
+    const matchResult = await lotMatcher.match(transactions, confirmedLinks, {
       calculationId,
       strategy,
       jurisdiction: { sameAssetTransferFeePolicy: jurisdictionConfig.sameAssetTransferFeePolicy },

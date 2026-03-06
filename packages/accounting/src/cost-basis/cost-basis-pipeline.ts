@@ -2,7 +2,7 @@ import { type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import type { CostBasisStore } from '../ports/cost-basis-store.js';
+import type { ICostBasisPersistence } from '../ports/cost-basis-persistence.js';
 
 import { calculateCostBasisFromValidatedTransactions, type CostBasisSummary } from './cost-basis-calculator.js';
 import type { CostBasisConfig } from './cost-basis-config.js';
@@ -27,7 +27,7 @@ export interface CostBasisPipelineResult {
 export async function runCostBasisPipeline(
   transactions: UniversalTransactionData[],
   config: CostBasisConfig,
-  store: CostBasisStore
+  store: ICostBasisPersistence
 ): Promise<Result<CostBasisPipelineResult, Error>> {
   const validationResult = validateTransactionPrices(transactions, config.currency);
   if (validationResult.isErr()) {
@@ -48,13 +48,21 @@ export async function runCostBasisPipeline(
   }
 
   const rules = rulesResult.value;
-  const lotMatcher = new LotMatcher(store);
+
+  // Load confirmed links from persistence
+  const contextResult = await store.loadCostBasisContext();
+  if (contextResult.isErr()) {
+    return err(contextResult.error);
+  }
+
+  const lotMatcher = new LotMatcher();
 
   const costBasisResult = await calculateCostBasisFromValidatedTransactions(
     validTransactions,
     config,
     rules,
-    lotMatcher
+    lotMatcher,
+    contextResult.value.confirmedLinks
   );
   if (costBasisResult.isErr()) {
     return err(costBasisResult.error);

@@ -20,7 +20,7 @@ import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector, type MetricsSummary } from '@exitbook/observability';
 import type { PriceProviderManager } from '@exitbook/price-providers';
 
-import type { PricingStore } from '../ports/pricing-store.js';
+import type { IPricingPersistence } from '../ports/pricing-persistence.js';
 
 import { PriceDerivationService } from './price-derivation-service.js';
 import type { PriceEvent } from './price-events.js';
@@ -99,7 +99,7 @@ export class PriceEnrichmentPipeline {
   private readonly instrumentation: InstrumentationCollector;
 
   constructor(
-    private readonly store: PricingStore,
+    private readonly store: IPricingPersistence,
     private readonly eventBus?: EventBus<PriceEvent>,
     instrumentation?: InstrumentationCollector
   ) {

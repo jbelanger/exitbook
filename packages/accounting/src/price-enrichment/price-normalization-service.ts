@@ -24,7 +24,7 @@ import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import type { PricingStore } from '../ports/pricing-store.js';
+import type { IPricingPersistence } from '../ports/pricing-persistence.js';
 
 import { normalizeTransactionMovements } from './price-normalization-utils.js';
 import type { TransactionNormalizationResult } from './price-normalization-utils.js';
@@ -55,7 +55,7 @@ export interface NormalizeResult {
  */
 export class PriceNormalizationService {
   constructor(
-    private readonly store: PricingStore,
+    private readonly store: IPricingPersistence,
     private readonly fxRateProvider: IFxRateProvider
   ) {}
 
@@ -81,13 +81,13 @@ export class PriceNormalizationService {
     try {
       logger.info('Starting price normalization (non-USD fiat → USD)');
 
-      // Get all transactions (we need to check all for non-USD fiat prices)
-      const txResult = await this.store.findAllTransactions();
-      if (txResult.isErr()) {
-        return err(txResult.error);
+      // Load all transactions (we need to check all for non-USD fiat prices)
+      const contextResult = await this.store.loadPricingContext();
+      if (contextResult.isErr()) {
+        return err(contextResult.error);
       }
 
-      const transactions = txResult.value;
+      const transactions = contextResult.value.transactions;
       logger.info({ transactionCount: transactions.length }, 'Loaded transactions for normalization');
 
       const result: NormalizeResult = {
@@ -206,6 +206,6 @@ export class PriceNormalizationService {
    * Update transaction in database with normalized price data
    */
   private async updateTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>> {
-    return this.store.updateTransactionPrices(tx);
+    return this.store.saveTransactionPrices(tx);
   }
 }

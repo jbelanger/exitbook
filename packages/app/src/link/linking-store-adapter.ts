@@ -1,39 +1,51 @@
-import type { LinkingStore, LinkableMovement, NewLinkableMovement } from '@exitbook/accounting';
+import type { ILinkingPersistence, LinkableMovement, LinksSaveResult, NewLinkableMovement } from '@exitbook/accounting';
 import type { NewTransactionLink, UniversalTransactionData } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 
 /**
- * Adapts DataContext repositories to the LinkingStore port.
+ * Adapts DataContext repositories to the ILinkingPersistence port.
+ *
+ * Encapsulates the clear-save-readback workflows that the orchestrator
+ * previously managed directly.
  */
-export class LinkingStoreAdapter implements LinkingStore {
+export class LinkingStoreAdapter implements ILinkingPersistence {
   constructor(private readonly db: DataContext) {}
 
-  findAllTransactions(): Promise<Result<UniversalTransactionData[], Error>> {
+  loadTransactions(): Promise<Result<UniversalTransactionData[], Error>> {
     return this.db.transactions.findAll();
   }
 
-  countLinks(): Promise<Result<number, Error>> {
-    return this.db.transactionLinks.count();
-  }
+  async replaceMovements(movements: NewLinkableMovement[]): Promise<Result<LinkableMovement[], Error>> {
+    // Clear existing movements
+    const deleteResult = await this.db.linkableMovements.deleteAll();
+    if (deleteResult.isErr()) return err(deleteResult.error);
 
-  deleteAllLinks(): Promise<Result<number, Error>> {
-    return this.db.transactionLinks.deleteAll();
-  }
+    // Save new movements
+    const saveResult = await this.db.linkableMovements.createBatch(movements);
+    if (saveResult.isErr()) return err(saveResult.error);
 
-  saveLinkBatch(links: NewTransactionLink[]): Promise<Result<number, Error>> {
-    return this.db.transactionLinks.createBatch(links);
-  }
-
-  deleteAllLinkableMovements(): Promise<Result<void, Error>> {
-    return this.db.linkableMovements.deleteAll();
-  }
-
-  saveLinkableMovementBatch(movements: NewLinkableMovement[]): Promise<Result<number, Error>> {
-    return this.db.linkableMovements.createBatch(movements);
-  }
-
-  findAllLinkableMovements(): Promise<Result<LinkableMovement[], Error>> {
+    // Read back with database-assigned IDs
     return this.db.linkableMovements.findAll();
+  }
+
+  async replaceLinks(links: NewTransactionLink[]): Promise<Result<LinksSaveResult, Error>> {
+    // Count existing links
+    const countResult = await this.db.transactionLinks.count();
+    if (countResult.isErr()) return err(countResult.error);
+    const previousCount = countResult.value;
+
+    // Clear existing links
+    if (previousCount > 0) {
+      const deleteResult = await this.db.transactionLinks.deleteAll();
+      if (deleteResult.isErr()) return err(deleteResult.error);
+    }
+
+    // Save new links
+    const saveResult = await this.db.transactionLinks.createBatch(links);
+    if (saveResult.isErr()) return err(saveResult.error);
+
+    return ok({ previousCount, savedCount: saveResult.value });
   }
 }

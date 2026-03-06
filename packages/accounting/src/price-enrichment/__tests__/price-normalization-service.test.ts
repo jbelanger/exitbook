@@ -4,7 +4,7 @@ import { err, ok } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { PricingStore } from '../../ports/pricing-store.js';
+import type { IPricingPersistence } from '../../ports/pricing-persistence.js';
 import { PriceNormalizationService } from '../price-normalization-service.js';
 import type { IFxRateProvider } from '../types.js';
 
@@ -45,13 +45,12 @@ function makeTx(
 
 // ── Mock store ──
 
-function createMockStore(transactions: UniversalTransactionData[]): PricingStore {
+function createMockStore(transactions: UniversalTransactionData[]): IPricingPersistence {
   const txMap = new Map(transactions.map((tx) => [tx.id, tx]));
   return {
-    findAllTransactions: vi.fn().mockResolvedValue(ok([...txMap.values()])),
-    findTransactionsNeedingPrices: vi.fn().mockResolvedValue(ok([])),
-    findConfirmedLinks: vi.fn().mockResolvedValue(ok([])),
-    updateTransactionPrices: vi.fn().mockImplementation((tx: UniversalTransactionData) => {
+    loadPricingContext: vi.fn().mockResolvedValue(ok({ transactions: [...txMap.values()], confirmedLinks: [] })),
+    loadTransactionsNeedingPrices: vi.fn().mockResolvedValue(ok([])),
+    saveTransactionPrices: vi.fn().mockImplementation((tx: UniversalTransactionData) => {
       txMap.set(tx.id, tx);
       return ok(undefined);
     }),

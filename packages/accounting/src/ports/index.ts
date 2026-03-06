@@ -1,3 +1,3 @@
-export type { CostBasisStore } from './cost-basis-store.js';
-export type { LinkingStore } from './linking-store.js';
-export type { PricingStore } from './pricing-store.js';
+export type { ICostBasisPersistence, CostBasisContext } from './cost-basis-persistence.js';
+export type { ILinkingPersistence, LinksSaveResult } from './linking-persistence.js';
+export type { IPricingPersistence, PricingContext } from './pricing-persistence.js';

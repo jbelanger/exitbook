@@ -1,11 +1,16 @@
-import { isFiat, parseDecimal, wrapError, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
+import {
+  isFiat,
+  parseDecimal,
+  wrapError,
+  type AssetMovement,
+  type TransactionLink,
+  type UniversalTransactionData,
+} from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
 import { LinkIndex } from '../linking/link-index.js';
-import type { TransactionLink } from '../linking/types.js';
-import type { CostBasisStore } from '../ports/cost-basis-store.js';
 
 import { buildAcquisitionLotFromInflow, filterTransactionsWithoutPrices } from './lot-creation-utils.js';
 import { matchOutflowDisposal } from './lot-disposal-utils.js';
@@ -119,17 +124,17 @@ interface AssetProcessingState {
 export class LotMatcher {
   private readonly logger = getLogger('LotMatcher');
 
-  constructor(private readonly store: CostBasisStore) {}
-
   /**
    * Match transactions to create acquisition lots and disposals
    *
    * @param transactions - List of transactions to process (must have prices populated)
+   * @param confirmedLinks - Confirmed transaction links for transfer detection
    * @param config - Matching configuration
    * @returns Result containing lots and disposals grouped by asset
    */
   async match(
     transactions: UniversalTransactionData[],
+    confirmedLinks: TransactionLink[],
     config: LotMatcherConfig
   ): Promise<Result<LotMatchResult, Error>> {
     try {
@@ -144,24 +149,29 @@ export class LotMatcher {
         );
       }
 
-      // Load confirmed transaction links (≥95% confidence)
+      // Filter to high-confidence links (≥95%)
       // Include blockchain_internal links so we can skip them during matching
-      const linksResult = await this.store.findConfirmedLinks();
-      if (linksResult.isErr()) {
-        return err(linksResult.error);
+      const highConfidenceLinks = confirmedLinks.filter((link) => link.confidenceScore.gte(0.95));
+      this.logger.debug(
+        { linkCount: highConfidenceLinks.length },
+        'Using confirmed transaction links for lot matching'
+      );
+
+      // Build transaction lookup for transfer target resolution
+      const txById = new Map<number, UniversalTransactionData>();
+      for (const tx of transactions) {
+        txById.set(tx.id, tx);
       }
-      const confirmedLinks = linksResult.value.filter((link) => link.confidenceScore.gte(0.95));
-      this.logger.debug({ linkCount: confirmedLinks.length }, 'Loaded confirmed transaction links for lot matching');
 
       // Sort transactions by dependency order (topological sort with chronological tie-breaking)
-      const sortResult = sortTransactionsByDependency(transactions, confirmedLinks);
+      const sortResult = sortTransactionsByDependency(transactions, highConfidenceLinks);
       if (sortResult.isErr()) {
         return err(sortResult.error);
       }
       const sortedTransactions = sortResult.value;
 
       // Build link index for efficient lookup during matching
-      const linkIndex = new LinkIndex(confirmedLinks);
+      const linkIndex = new LinkIndex(highConfidenceLinks);
 
       // Per-asset mutable state for the global transaction pass
       const lotStateByAssetId = new Map<string, AssetProcessingState>();
@@ -286,7 +296,7 @@ export class LotMatcher {
             for (const link of links) {
               // Handle transfer target with pre-filtered transfers for this link
               const transfersForLink = transfersByLinkId.get(link.id) ?? [];
-              const lotResult = await this.handleTransferTarget(tx, aggregatedInflow, link, transfersForLink, config);
+              const lotResult = this.handleTransferTarget(tx, aggregatedInflow, link, transfersForLink, config, txById);
               if (lotResult.isErr()) {
                 const assetSymbol = assetInflows[0]!.assetSymbol;
                 this.logger.warn(
@@ -541,19 +551,15 @@ export class LotMatcher {
    * When an inflow matches a transfer link, this creates a new acquisition lot
    * that inherits cost basis from the source lot transfers and adds fiat fees.
    */
-  private async handleTransferTarget(
+  private handleTransferTarget(
     tx: UniversalTransactionData,
     inflow: AssetMovement,
     link: TransactionLink,
     transfersForLink: LotTransfer[],
-    config: LotMatcherConfig
-  ): Promise<Result<AcquisitionLot, Error>> {
-    const sourceTxResult = await this.store.findTransactionById(link.sourceTransactionId);
-    if (sourceTxResult.isErr()) {
-      return err(sourceTxResult.error);
-    }
-
-    const sourceTx = sourceTxResult.value;
+    config: LotMatcherConfig,
+    txById: Map<number, UniversalTransactionData>
+  ): Result<AcquisitionLot, Error> {
+    const sourceTx = txById.get(link.sourceTransactionId);
     if (!sourceTx) {
       return err(new Error(`Source transaction ${link.sourceTransactionId} not found`));
     }

@@ -1,5 +1,6 @@
 import {
   LinkingOrchestrator,
+  type ILinkingPersistence,
   type LinkingEvent,
   type LinkingRunParams,
   type LinkingRunResult,
@@ -18,15 +19,18 @@ export type { LinkingRunParams, LinkingRunResult };
  * Reads overrides from filesystem, constructs the adapter, and delegates to LinkingOrchestrator.
  */
 export class LinkOperation {
+  private readonly store: ILinkingPersistence;
+
   constructor(
-    private readonly db: DataContext,
+    db: DataContext,
     private readonly overrideStore?: OverrideStore | undefined,
     private readonly eventBus?: EventBus<LinkingEvent> | undefined
-  ) {}
+  ) {
+    this.store = new LinkingStoreAdapter(db);
+  }
 
   async execute(params: LinkingRunParams): Promise<Result<LinkingRunResult, Error>> {
-    const store = new LinkingStoreAdapter(this.db);
-    const orchestrator = new LinkingOrchestrator(store, this.eventBus);
+    const orchestrator = new LinkingOrchestrator(this.store, this.eventBus);
 
     // Read overrides from filesystem
     const overridesResult = await this.readLinkOverrides();

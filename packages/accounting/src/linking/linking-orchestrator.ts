@@ -4,7 +4,7 @@ import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
-import type { LinkingStore } from '../ports/linking-store.js';
+import type { ILinkingPersistence } from '../ports/linking-persistence.js';
 
 import type { LinkingEvent } from './linking-events.js';
 import { buildLinkFromOrphanedOverride, categorizeFinalLinks } from './linking-orchestrator-utils.js';
@@ -73,13 +73,13 @@ export interface LinkingRunResult {
  */
 export class LinkingOrchestrator {
   constructor(
-    private store: LinkingStore,
+    private store: ILinkingPersistence,
     private eventBus?: EventBus<LinkingEvent> | undefined
   ) {}
 
   /**
    * Execute the full linking pipeline:
-   * load → clear → materialize → match → apply overrides → save
+   * load → materialize → match → apply overrides → save
    *
    * @param params - Linking configuration
    * @param overrides - Pre-loaded override events (link/unlink scope). Pass empty array if none.
@@ -95,17 +95,7 @@ export class LinkingOrchestrator {
         return ok(emptyResult(params.dryRun));
       }
 
-      // 2. Clear existing links and linkable_movements (unless dry run)
-      let existingLinksCleared: number | undefined;
-      if (!params.dryRun) {
-        const clearResult = await this.clearExistingLinks();
-        if (clearResult.isErr()) return err(clearResult.error);
-        existingLinksCleared = clearResult.value;
-
-        await this.clearLinkableMovements();
-      }
-
-      // 3. Materialize linkable movements
+      // 2. Materialize linkable movements
       this.eventBus?.emit({ type: 'materialize.started' });
       const materializeResult = materializeLinkableMovements(transactions, logger);
       if (materializeResult.isErr()) return err(materializeResult.error);
@@ -117,20 +107,17 @@ export class LinkingOrchestrator {
         internalLinkCount: internalLinks.length,
       });
 
-      // 4. Persist linkable movements and get back rows with real IDs
+      // 3. Persist linkable movements and get back rows with real IDs (or assign in-memory IDs for dry run)
       let movementsWithIds: LinkableMovement[];
       if (!params.dryRun) {
-        const persistResult = await this.persistLinkableMovements(movements);
+        const persistResult = await this.store.replaceMovements(movements);
         if (persistResult.isErr()) return err(persistResult.error);
-
-        const readBackResult = await this.store.findAllLinkableMovements();
-        if (readBackResult.isErr()) return err(readBackResult.error);
-        movementsWithIds = readBackResult.value;
+        movementsWithIds = persistResult.value;
       } else {
         movementsWithIds = this.assignInMemoryIds(movements);
       }
 
-      // 5. Run strategy-based matching
+      // 4. Run strategy-based matching
       this.eventBus?.emit({ type: 'match.started' });
 
       const config = buildMatchingConfig({
@@ -147,13 +134,13 @@ export class LinkingOrchestrator {
       // Combine internal links with strategy links
       const allLinks = [...internalLinks, ...strategyResult.links];
 
-      // 6. Apply user overrides
+      // 5. Apply user overrides
       const overrideResult = this.replayOverrides(allLinks, overrides, transactions, txById);
       if (overrideResult.isErr()) return err(overrideResult.error);
 
       const finalLinks = overrideResult.value;
 
-      // 7. Emit match results
+      // 6. Emit match results
       const { internalCount, confirmedCount, suggestedCount } = categorizeFinalLinks(finalLinks);
       this.eventBus?.emit({
         type: 'match.completed',
@@ -164,12 +151,23 @@ export class LinkingOrchestrator {
         suggestedCount,
       });
 
-      // 8. Persist (unless dry run)
+      // 7. Persist (unless dry run)
+      let existingLinksCleared: number | undefined;
       let totalSaved: number | undefined;
       if (!params.dryRun) {
-        const saveResult = await this.saveLinks(finalLinks);
-        if (saveResult.isErr()) return err(saveResult.error);
-        totalSaved = saveResult.value;
+        const linksToSave = finalLinks.filter((l) => l.status !== 'rejected');
+        if (linksToSave.length > 0) {
+          this.eventBus?.emit({ type: 'save.started' });
+
+          const saveResult = await this.store.replaceLinks(linksToSave);
+          if (saveResult.isErr()) return err(saveResult.error);
+
+          existingLinksCleared = saveResult.value.previousCount > 0 ? saveResult.value.previousCount : undefined;
+          totalSaved = saveResult.value.savedCount;
+
+          logger.info({ count: totalSaved }, 'Saved links to database');
+          this.eventBus?.emit({ type: 'save.completed', totalSaved });
+        }
       }
 
       return ok({
@@ -199,7 +197,7 @@ export class LinkingOrchestrator {
   > {
     this.eventBus?.emit({ type: 'load.started' });
 
-    const result = await this.store.findAllTransactions();
+    const result = await this.store.loadTransactions();
     if (result.isErr()) return err(result.error);
 
     const transactions = result.value;
@@ -212,42 +210,6 @@ export class LinkingOrchestrator {
     this.eventBus?.emit({ type: 'load.completed', totalTransactions: transactions.length });
 
     return ok({ transactions, txById });
-  }
-
-  private async clearExistingLinks(): Promise<Result<number | undefined, Error>> {
-    const countResult = await this.store.countLinks();
-    if (countResult.isErr()) {
-      logger.warn({ error: countResult.error }, 'Failed to count existing links');
-      return err(countResult.error);
-    }
-
-    const count = countResult.value;
-    if (count === 0) return ok(undefined);
-
-    const deleteResult = await this.store.deleteAllLinks();
-    if (deleteResult.isErr()) {
-      logger.warn({ error: deleteResult.error, count }, 'Failed to clear existing links before relinking');
-      return err(deleteResult.error);
-    }
-
-    logger.info({ count }, 'Cleared existing links');
-    this.eventBus?.emit({ type: 'existing.cleared', count });
-    return ok(count);
-  }
-
-  private async clearLinkableMovements(): Promise<void> {
-    const result = await this.store.deleteAllLinkableMovements();
-    if (result.isErr()) {
-      logger.warn({ error: result.error }, 'Failed to clear linkable movements');
-    }
-  }
-
-  private async persistLinkableMovements(movements: NewLinkableMovement[]): Promise<Result<number, Error>> {
-    const result = await this.store.saveLinkableMovementBatch(movements);
-    if (result.isErr()) return err(result.error);
-
-    logger.info({ count: result.value }, 'Persisted linkable movements');
-    return ok(result.value);
   }
 
   /**
@@ -305,20 +267,6 @@ export class LinkingOrchestrator {
     }
 
     return ok(finalLinks);
-  }
-
-  private async saveLinks(links: NewTransactionLink[]): Promise<Result<number | undefined, Error>> {
-    const linksToSave = links.filter((l) => l.status !== 'rejected');
-    if (linksToSave.length === 0) return ok(undefined);
-
-    this.eventBus?.emit({ type: 'save.started' });
-
-    const saveResult = await this.store.saveLinkBatch(linksToSave);
-    if (saveResult.isErr()) return err(saveResult.error);
-
-    logger.info({ count: saveResult.value }, 'Saved links to database');
-    this.eventBus?.emit({ type: 'save.completed', totalSaved: saveResult.value });
-    return ok(saveResult.value);
   }
 }
 

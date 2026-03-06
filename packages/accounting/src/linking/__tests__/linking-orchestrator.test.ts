@@ -5,7 +5,7 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { EventBus } from '@exitbook/events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { LinkingStore } from '../../ports/linking-store.js';
+import type { ILinkingPersistence, LinksSaveResult } from '../../ports/index.js';
 import type { LinkingEvent } from '../linking-events.js';
 import { LinkingOrchestrator } from '../linking-orchestrator.js';
 
@@ -15,25 +15,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function createMockStore(overrides: Partial<LinkingStore> = {}): LinkingStore {
-  // Simulate real DB behavior: saved movements are returned by findAll with auto-assigned IDs
-  let savedMovements: unknown[] = [];
-
+function createMockStore(overrides: Partial<ILinkingPersistence> = {}): ILinkingPersistence {
   return {
-    findAllTransactions: vi.fn().mockResolvedValue(ok([])),
-    countLinks: vi.fn().mockResolvedValue(ok(0)),
-    deleteAllLinks: vi.fn().mockResolvedValue(ok(0)),
-    saveLinkBatch: vi.fn().mockResolvedValue(ok(0)),
-    deleteAllLinkableMovements: vi.fn().mockImplementation(() => {
-      savedMovements = [];
-      return ok(undefined);
+    loadTransactions: vi.fn().mockResolvedValue(ok([])),
+
+    replaceMovements: vi.fn().mockImplementation((movements: unknown[]) => {
+      const withIds = movements.map((m, i) => ({ ...(m as object), id: i + 1 }));
+      return ok(withIds);
     }),
 
-    saveLinkableMovementBatch: vi.fn().mockImplementation((movements: unknown[]) => {
-      savedMovements = movements.map((m, i) => ({ ...(m as object), id: i + 1 }));
-      return ok(movements.length);
+    replaceLinks: vi.fn().mockImplementation((links: unknown[]) => {
+      return ok({ previousCount: 0, savedCount: links.length } satisfies LinksSaveResult);
     }),
-    findAllLinkableMovements: vi.fn().mockImplementation(() => ok(savedMovements)),
     ...overrides,
   };
 }
@@ -76,7 +69,7 @@ describe('LinkingOrchestrator', () => {
     };
 
     const store = createMockStore({
-      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
     });
 
     const handler = new LinkingOrchestrator(store);
@@ -99,12 +92,12 @@ describe('LinkingOrchestrator', () => {
     // Only the rejected internal link → no non-rejected links to save
     expect(value.totalSaved).toBeUndefined();
     // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
-    expect(store.saveLinkBatch).not.toHaveBeenCalled();
+    expect(store.replaceLinks).not.toHaveBeenCalled();
   });
 
   it('returns error when transaction loading fails', async () => {
     const store = createMockStore({
-      findAllTransactions: vi.fn().mockResolvedValue(err(new Error('load failed'))),
+      loadTransactions: vi.fn().mockResolvedValue(err(new Error('load failed'))),
     });
 
     const handler = new LinkingOrchestrator(store);
@@ -137,8 +130,8 @@ describe('LinkingOrchestrator', () => {
     ];
 
     const store = createMockStore({
-      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
-      saveLinkBatch: vi.fn().mockResolvedValue(ok(1)),
+      loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      replaceLinks: vi.fn().mockResolvedValue(ok({ previousCount: 0, savedCount: 1 })),
     });
 
     const emittedEvents: LinkingEvent[] = [];
@@ -183,7 +176,7 @@ describe('LinkingOrchestrator', () => {
     ];
 
     const store = createMockStore({
-      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
     });
 
     const emittedEvents: LinkingEvent[] = [];
@@ -215,7 +208,7 @@ describe('LinkingOrchestrator', () => {
     expect(eventTypes).not.toContain('save.completed');
   });
 
-  it('returns error when clearing existing links fails', async () => {
+  it('returns error when replacing links fails', async () => {
     const transactions = [
       createTransaction({
         id: 1,
@@ -224,12 +217,18 @@ describe('LinkingOrchestrator', () => {
         datetime: '2026-02-08T00:00:00Z',
         outflows: [{ assetSymbol: 'BTC', amount: '1' }],
       }),
+      createTransaction({
+        id: 2,
+        source: 'blockchain:bitcoin',
+        sourceType: 'blockchain',
+        datetime: '2026-02-08T01:00:00Z',
+        inflows: [{ assetSymbol: 'BTC', amount: '0.999' }],
+      }),
     ];
 
     const store = createMockStore({
-      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
-      countLinks: vi.fn().mockResolvedValue(ok(2)),
-      deleteAllLinks: vi.fn().mockResolvedValue(err(new Error('delete failed'))),
+      loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      replaceLinks: vi.fn().mockResolvedValue(err(new Error('replace failed'))),
     });
 
     const handler = new LinkingOrchestrator(store);
@@ -239,7 +238,7 @@ describe('LinkingOrchestrator', () => {
       autoConfirmThreshold: parseDecimal('0.95'),
     });
 
-    expect(assertErr(result).message).toContain('delete failed');
+    expect(assertErr(result).message).toContain('replace failed');
   });
 
   it('skips orphaned override when assetId cannot be resolved from movements', async () => {
@@ -279,7 +278,7 @@ describe('LinkingOrchestrator', () => {
     };
 
     const store = createMockStore({
-      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
     });
 
     const handler = new LinkingOrchestrator(store);
@@ -332,7 +331,7 @@ describe('LinkingOrchestrator', () => {
     };
 
     const store = createMockStore({
-      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
     });
 
     const handler = new LinkingOrchestrator(store);
@@ -384,7 +383,7 @@ describe('LinkingOrchestrator', () => {
     };
 
     const store = createMockStore({
-      findAllTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
     });
 
     const handler = new LinkingOrchestrator(store);

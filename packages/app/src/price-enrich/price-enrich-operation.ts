@@ -1,6 +1,7 @@
 import {
   PriceEnrichmentPipeline,
   StandardFxRateProvider,
+  type IPricingPersistence,
   type PriceEvent,
   type PricesEnrichOptions,
   type PricesEnrichResult,
@@ -20,17 +21,20 @@ export type { PricesEnrichOptions, PricesEnrichResult };
  * Constructs the adapter and FX rate provider, then delegates to PriceEnrichmentPipeline.
  */
 export class PriceEnrichOperation {
+  private readonly store: IPricingPersistence;
+
   constructor(
-    private readonly db: DataContext,
+    db: DataContext,
     private readonly priceManager: PriceProviderManager,
     private readonly eventBus?: EventBus<PriceEvent> | undefined,
     private readonly instrumentation?: InstrumentationCollector | undefined
-  ) {}
+  ) {
+    this.store = new PricingStoreAdapter(db);
+  }
 
   async execute(options: PricesEnrichOptions): Promise<Result<PricesEnrichResult, Error>> {
-    const store = new PricingStoreAdapter(this.db);
     const fxRateProvider = new StandardFxRateProvider(this.priceManager);
-    const pipeline = new PriceEnrichmentPipeline(store, this.eventBus, this.instrumentation);
+    const pipeline = new PriceEnrichmentPipeline(this.store, this.eventBus, this.instrumentation);
 
     return pipeline.execute(options, this.priceManager, fxRateProvider);
   }

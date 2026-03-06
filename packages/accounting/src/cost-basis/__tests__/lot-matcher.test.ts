@@ -1,22 +1,13 @@
 import { type Currency, parseDecimal, type TransactionLink, type UniversalTransactionData } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { createFeeMovement, createPriceAtTxTime, createTransaction } from '../../__tests__/test-utils.js';
-import type { CostBasisStore } from '../../ports/cost-basis-store.js';
 import { LotMatcher } from '../lot-matcher.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
 
-const mockCostBasisStore = (): CostBasisStore => ({
-  findAllTransactions: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
-  findTransactionById: vi
-    .fn()
-    .mockResolvedValue({ isOk: () => false, isErr: () => true, error: new Error('Not found') }),
-  findConfirmedLinks: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: [] }),
-});
-
 describe('LotMatcher - Fee Handling', () => {
-  const matcher = new LotMatcher(mockCostBasisStore());
+  const matcher = new LotMatcher();
   const fifoStrategy = new FifoStrategy();
 
   describe('Acquisition lots with fees', () => {
@@ -33,7 +24,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
       expect(btcResult).toBeDefined();
@@ -63,7 +54,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const ethResult = resultValue.assetResults.find((r) => r.assetSymbol === 'ETH');
@@ -94,7 +85,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -131,7 +122,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -173,7 +164,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const ethResult = resultValue.assetResults.find((r) => r.assetSymbol === 'ETH');
@@ -208,7 +199,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -251,7 +242,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -303,7 +294,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -344,7 +335,7 @@ describe('LotMatcher - Fee Handling', () => {
         }),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       expect(resultValue.errors).toHaveLength(1);
@@ -361,7 +352,7 @@ describe('LotMatcher - Fee Handling', () => {
         }),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -382,7 +373,7 @@ describe('LotMatcher - Fee Handling', () => {
         }),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       expect(resultValue.errors).toHaveLength(1);
@@ -405,7 +396,7 @@ describe('LotMatcher - Fee Handling', () => {
         }),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const xyzResult = resultValue.assetResults.find((r) => r.assetSymbol === 'XYZ');
@@ -441,7 +432,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const tokenAResult = resultValue.assetResults.find((r) => r.assetSymbol === 'TOKEN_A');
@@ -481,7 +472,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const xyzResult = resultValue.assetResults.find((r) => r.assetSymbol === 'XYZ');
@@ -508,7 +499,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       // Fiat-only transactions produce no asset results (fiat is excluded from cost basis tracking)
@@ -534,7 +525,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -654,24 +645,7 @@ describe('LotMatcher - Fee Handling', () => {
         updatedAt: new Date('2024-02-01'),
       };
 
-      const storeWithLinks: CostBasisStore = {
-        findAllTransactions: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: transactions }),
-        findTransactionById: vi.fn().mockImplementation((id: number) => {
-          const tx = transactions.find((t) => t.id === id);
-          return tx
-            ? { isOk: () => true, isErr: () => false, value: tx }
-            : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
-        }),
-        findConfirmedLinks: vi.fn().mockResolvedValue({
-          isOk: () => true,
-          isErr: () => false,
-          value: [link],
-        }),
-      };
-
-      const matcherWithLinks = new LotMatcher(storeWithLinks);
-
-      const result = await matcherWithLinks.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },

@@ -22,7 +22,7 @@ export class PriceEnrichStep implements PipelineStep {
     try {
       const store = new PricingStoreAdapter(context.db);
 
-      const txResult = await store.findTransactionsNeedingPrices();
+      const txResult = await store.loadTransactionsNeedingPrices();
       if (txResult.isErr()) return err(txResult.error);
 
       if (txResult.value.length === 0) {

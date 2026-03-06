@@ -2,11 +2,10 @@ import type { FeeMovement } from '@exitbook/core';
 import { type Currency, parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { createFeeMovement, createPriceAtTxTime, createTransactionFromMovements } from '../../__tests__/test-utils.js';
 import type { TransactionLink } from '../../linking/types.js';
-import type { CostBasisStore } from '../../ports/cost-basis-store.js';
 import { LotMatcher } from '../lot-matcher.js';
 import { AverageCostStrategy } from '../strategies/average-cost-strategy.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
@@ -54,20 +53,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     updatedAt: new Date('2024-01-01'),
   });
 
-  const mockCostBasisStore = (links: TransactionLink[]): CostBasisStore => ({
-    findAllTransactions: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, value: transactions }),
-    findTransactionById: vi.fn().mockImplementation((id: number) => {
-      const sourceTx = transactions.find((t) => t.id === id);
-      return sourceTx
-        ? { isOk: () => true, isErr: () => false, value: sourceTx }
-        : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
-    }),
-    findConfirmedLinks: vi.fn().mockResolvedValue({
-      isOk: () => true,
-      isErr: () => false,
-      value: links,
-    }),
-  });
+  const matcher = new LotMatcher();
 
   let transactions: UniversalTransactionData[] = [];
 
@@ -125,10 +111,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -203,10 +188,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -300,10 +284,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'add-to-basis' },
@@ -387,10 +370,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -495,10 +477,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       const link1 = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
       const link2 = createLink(2, 4, 5, 'BTC', '0.9992', '0.9992');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link1, link2]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link1, link2], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -596,10 +577,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const link = createLink(1, 3, 4, 'BTC', '1.0', '1.0');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -699,10 +679,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       const link1 = createLink(1, 2, 3, 'BTC', '0.99975', '0.99975');
       const link2 = createLink(2, 2, 4, 'BTC', '0.99975', '0.99975');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link1, link2]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link1, link2], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -784,10 +763,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -863,10 +841,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -940,10 +917,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9875', '0.9875');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -1009,10 +985,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.94', '0.94');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -1080,10 +1055,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.98', '0.98');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -1150,10 +1124,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       // sourceAmount matches outflow's netAmount (what production link creation stores)
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'add-to-basis' },
@@ -1231,10 +1204,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const link = createLink(1, 2, 3, 'BTC', '0.9995', '0.9995', '98.5');
 
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -1328,10 +1300,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseLotA, purchaseLotB, withdrawalTx, depositTx];
 
       const link = createLink(101, 3, 4, 'BTC', '1', '1');
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const averageCostStrategy = new AverageCostStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc-acb-transfer',
         strategy: averageCostStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -1415,10 +1386,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       transactions = [purchaseLotA, purchaseLotB, withdrawalTx, depositTx];
 
       const link = createLink(102, 3, 4, 'BTC', '1.5', '1.5');
-      const matcher = new LotMatcher(mockCostBasisStore([link]));
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, {
+      const result = await matcher.match(transactions, [link], {
         calculationId: 'calc-fifo-transfer',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
