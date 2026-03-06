@@ -1,8 +1,8 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, AccountType, CursorState, ExchangeCredentials, ImportSession } from '@exitbook/core';
+import { ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { AdapterRegistry } from '@exitbook/ingestion';
-import { ok, okAsync } from 'neverthrow';
 import { vi } from 'vitest';
 
 import type { EventSink } from '../../pipeline/pipeline-context.js';
@@ -63,7 +63,7 @@ export function createMockSession(overrides: Partial<ImportSession> = {}): Impor
 
 export function createBlockchainStreamingMock() {
   return vi.fn().mockImplementation(async function* () {
-    yield okAsync({
+    yield ok({
       rawTransactions: [
         { transactionHash: 'tx1', blockHeight: 100 },
         { transactionHash: 'tx2', blockHeight: 101 },
@@ -77,7 +77,7 @@ export function createBlockchainStreamingMock() {
 
 export function createExchangeStreamingMock() {
   return vi.fn().mockImplementation(async function* () {
-    yield okAsync({
+    yield ok({
       rawTransactions: [
         { refid: 'kraken-1', type: 'trade' },
         { refid: 'kraken-2', type: 'deposit' },
@@ -177,17 +177,17 @@ export function createMockDataContext() {
 
   const mockImportSessionRepo = {
     create: vi.fn().mockResolvedValue(ok(1)),
-    finalize: vi.fn().mockResolvedValue(ok()),
+    finalize: vi.fn().mockResolvedValue(ok(undefined)),
     findById: vi.fn(),
     findLatestIncomplete: vi.fn().mockResolvedValue(ok(undefined)),
-    update: vi.fn().mockResolvedValue(ok()),
+    update: vi.fn().mockResolvedValue(ok(undefined)),
   };
 
   const mockAccountRepo = {
     findOrCreate: vi.fn(),
     findAll: vi.fn().mockResolvedValue(ok([])),
     update: vi.fn().mockResolvedValue(ok(undefined)),
-    updateCursor: vi.fn().mockResolvedValue(ok()),
+    updateCursor: vi.fn().mockResolvedValue(ok(undefined)),
   };
 
   const mockUserRepo = {

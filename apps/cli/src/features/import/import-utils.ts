@@ -3,8 +3,8 @@
 
 import type { ImportParams } from '@exitbook/app';
 import type { ExchangeCredentials } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { AdapterRegistry } from '@exitbook/ingestion';
-import { err, ok, type Result } from 'neverthrow';
 import type { z } from 'zod';
 
 import type { ImportCommandOptionsSchema } from '../shared/schemas.js';

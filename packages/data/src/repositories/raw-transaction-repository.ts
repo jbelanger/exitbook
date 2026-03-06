@@ -1,8 +1,8 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
 import type { ProcessingStatus, RawTransaction, RawTransactionInput } from '@exitbook/core';
 import { RawTransactionInputSchema, wrapError } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Selectable } from '@exitbook/sqlite';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { RawTransactionTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
@@ -127,7 +127,7 @@ export class RawTransactionRepository extends BaseRepository {
 
   async markProcessed(rawTransactionIds: number[]): Promise<Result<void, Error>> {
     if (rawTransactionIds.length === 0) {
-      return ok();
+      return ok(undefined);
     }
 
     try {

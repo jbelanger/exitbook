@@ -1,6 +1,6 @@
 import type { ExchangeCredentials } from '@exitbook/core';
-import type { Result } from 'neverthrow';
-import { err } from 'neverthrow';
+import type { Result } from '@exitbook/core';
+import { err } from '@exitbook/core';
 
 import { createCoinbaseClient } from '../exchanges/coinbase/client.js';
 import { createKrakenClient } from '../exchanges/kraken/client.js';

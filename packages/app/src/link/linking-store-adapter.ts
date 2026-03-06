@@ -1,7 +1,7 @@
 import type { LinkingStore, LinkableMovement, NewLinkableMovement } from '@exitbook/accounting';
 import type { NewTransactionLink, UniversalTransactionData } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import type { Result } from 'neverthrow';
 
 /**
  * Adapts DataContext repositories to the LinkingStore port.

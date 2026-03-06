@@ -21,7 +21,7 @@
  *   No handler class. Direct service/query call in command file.
  *   For simple commands: clear, accounts view, transactions view, etc.
  */
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 
 /** Shape that Tier 2 handlers conform to. */
 export interface InfrastructureHandler<TParams, TResult> {

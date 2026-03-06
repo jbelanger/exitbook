@@ -1,7 +1,7 @@
 import type { SubstrateChainConfig, SubstrateTransaction } from '@exitbook/blockchain-providers';
 import { derivePolkadotAddressVariants, normalizeNativeAmount } from '@exitbook/blockchain-providers';
 import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, err, ok } from '@exitbook/core';
 
 import type { AddressContext } from '../../../shared/types/processors.js';
 

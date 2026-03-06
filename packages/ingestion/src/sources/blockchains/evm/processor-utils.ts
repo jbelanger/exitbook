@@ -1,9 +1,9 @@
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/blockchain-providers';
 import { isZeroDecimal, parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { AddressContext } from '../../../shared/types/processors.js';
 

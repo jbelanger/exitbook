@@ -45,6 +45,7 @@ export default [
       '@typescript-eslint/no-unsafe-member-access': 'error',
       '@typescript-eslint/no-unsafe-call': 'error',
       '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/require-await': 'off',
       '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: false }],
       '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
       '@typescript-eslint/no-unused-vars': [

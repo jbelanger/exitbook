@@ -4,9 +4,9 @@
  * No mocks needed - all functions are pure!
  */
 
+import type { Result } from '@exitbook/core';
 import { createInitialCircuitState, type CircuitState } from '@exitbook/resilience/circuit-breaker';
 import { createInitialHealth } from '@exitbook/resilience/provider-health';
-import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import * as ProviderManagerUtils from '../provider-manager-utils.js';

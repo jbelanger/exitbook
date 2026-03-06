@@ -1,6 +1,6 @@
 import { parseDecimal, parseCurrency, type OperationClassification } from '@exitbook/core';
+import { err, type Result } from '@exitbook/core';
 import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers';
-import { err, type Result } from 'neverthrow';
 
 import { classifyExchangeOperationFromFundFlow } from '../shared/correlating-exchange-processor-utils.js';
 import { CorrelatingExchangeProcessor } from '../shared/correlating-exchange-processor.js';

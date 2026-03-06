@@ -1,6 +1,6 @@
 import { parseDecimal } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { AcquisitionLot, LotDisposal } from '../schemas.js';
 

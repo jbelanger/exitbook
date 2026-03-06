@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 export interface FileWrite {
   path: string;

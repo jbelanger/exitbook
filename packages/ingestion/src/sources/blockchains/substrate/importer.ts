@@ -5,8 +5,8 @@ import type {
   TransactionWithRawData,
 } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { IImporter, StreamingImportParams, ImportBatchResult } from '../../../shared/types/importers.js';
 import { mapToRawTransactions } from '../shared/importer-utils.js';

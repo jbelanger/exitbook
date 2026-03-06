@@ -11,11 +11,11 @@
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
+import { ok } from '@exitbook/core';
 import { DataContext } from '@exitbook/data';
 import { createTestDataContext } from '@exitbook/data/test-utils';
 import { AdapterRegistry } from '@exitbook/ingestion';
 import type { BlockchainAdapter } from '@exitbook/ingestion';
-import { ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ImportOperation } from '../import-operation.js';
@@ -137,7 +137,7 @@ describe('ImportOperation integration tests', () => {
       ]);
 
       mockImportStreamingFn.mockImplementation(async function* () {
-        yield okAsync(createTxBatch(['tx1', 'tx2']));
+        yield ok(createTxBatch(['tx1', 'tx2']));
       });
 
       const result = await operation.execute({ blockchain: 'bitcoin', address: xpub });
@@ -171,7 +171,7 @@ describe('ImportOperation integration tests', () => {
         callCount++;
         const txCount = callCount === 1 ? 5 : 3;
         const txIds = Array.from({ length: txCount }, (_, i) => `tx-child${callCount}-${i}`);
-        yield okAsync(createTxBatch(txIds, 'normal', 100 + txCount - 1));
+        yield ok(createTxBatch(txIds, 'normal', 100 + txCount - 1));
       });
 
       await operation.execute({ blockchain: 'bitcoin', address: xpub });
@@ -189,7 +189,7 @@ describe('ImportOperation integration tests', () => {
 
       // First import — 3 transactions
       mockImportStreamingFn.mockImplementationOnce(async function* () {
-        yield okAsync(createTxBatch(['tx1', 'tx2', 'tx3'], 'normal', 102));
+        yield ok(createTxBatch(['tx1', 'tx2', 'tx3'], 'normal', 102));
       });
 
       const firstResult = await operation.execute({ blockchain: 'bitcoin', address: xpub });
@@ -202,7 +202,7 @@ describe('ImportOperation integration tests', () => {
 
       // Second import — 0 new transactions
       mockImportStreamingFn.mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           rawTransactions: [],
           streamType: 'normal',
           cursor: { primary: { type: 'blockNumber', value: 102 }, totalFetched: 3 } as CursorState,
@@ -222,7 +222,7 @@ describe('ImportOperation integration tests', () => {
     it('should handle custom xpubGap parameter', async () => {
       mockDeriveAddresses.mockResolvedValue([{ address: addr1, derivationPath: "m/84'/0'/0'/0/0" }]);
       mockImportStreamingFn.mockImplementation(async function* () {
-        yield okAsync(createTxBatch([], 'normal', 0));
+        yield ok(createTxBatch([], 'normal', 0));
       });
 
       await operation.execute({ blockchain: 'bitcoin', address: xpub, xpubGap: 10 });
@@ -254,7 +254,7 @@ describe('ImportOperation integration tests', () => {
 
       const sharedTxHash = 'abc123def456shared';
       mockImportStreamingFn.mockImplementation(async function* () {
-        yield okAsync({
+        yield ok({
           rawTransactions: [
             {
               providerName: 'test-provider',
@@ -301,7 +301,7 @@ describe('ImportOperation integration tests', () => {
       mockDeriveAddresses.mockResolvedValue([{ address: derivedAddr, derivationPath: "m/1852'/1815'/0'/0/0" }]);
 
       mockImportStreamingFn.mockImplementation(async function* () {
-        yield okAsync(createTxBatch(['cardano-tx1', 'cardano-tx2']));
+        yield ok(createTxBatch(['cardano-tx1', 'cardano-tx2']));
       });
 
       const result = await operation.execute({ blockchain: 'cardano', address: stakeAddress });
@@ -324,7 +324,7 @@ describe('ImportOperation integration tests', () => {
 
       // First import
       mockImportStreamingFn.mockImplementationOnce(async function* () {
-        yield okAsync(createTxBatch(['cardano-tx1'], 'normal', 5_000_000));
+        yield ok(createTxBatch(['cardano-tx1'], 'normal', 5_000_000));
       });
 
       const firstResult = await operation.execute({ blockchain: 'cardano', address: stakeAddress });
@@ -332,7 +332,7 @@ describe('ImportOperation integration tests', () => {
 
       // Second import — no new txs
       mockImportStreamingFn.mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           rawTransactions: [],
           streamType: 'normal',
           cursor: { primary: { type: 'blockNumber', value: 5_000_000 }, totalFetched: 1 } as CursorState,

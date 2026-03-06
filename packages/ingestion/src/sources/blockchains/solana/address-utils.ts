@@ -1,5 +1,5 @@
 import { isValidSolanaAddress } from '@exitbook/blockchain-providers';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 // Solana addresses are case-sensitive base58 — preserve original casing.
 export function normalizeSolanaAddress(address: string): Result<string, Error> {

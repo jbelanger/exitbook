@@ -1,9 +1,9 @@
 /* eslint-disable unicorn/no-null -- null required for db */
 import { type TokenMetadataRecord, wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Kysely, Selectable } from '@exitbook/sqlite';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import type { TokenMetadataDatabase } from './schema.js';
 
@@ -75,7 +75,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
           .execute();
       }
 
-      return ok();
+      return ok(undefined);
     } catch (error) {
       logger.error({ error }, 'Failed to upsert symbol index');
       return wrapError(error, 'Failed to upsert symbol index');
@@ -95,7 +95,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
         .where('contract_address', '=', contractAddress)
         .execute();
 
-      return ok();
+      return ok(undefined);
     } catch (error) {
       logger.error({ error }, 'Failed to delete symbol index');
       return wrapError(error, 'Failed to delete symbol index');
@@ -299,7 +299,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
       logger.debug(
         `Token metadata saved - Blockchain: ${blockchain}, Contract: ${contractAddress}, Symbol: ${mergedSymbol ?? 'unknown'}, Source: ${metadata.source}`
       );
-      return ok();
+      return ok(undefined);
     } catch (error) {
       logger.error({ error }, 'Failed to save token metadata');
       return wrapError(error, 'Failed to save token metadata');

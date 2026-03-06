@@ -94,10 +94,22 @@ Every feature in `apps/cli/src/features/` follows a two-tier wiring pattern:
 <feature>-handler.ts  — Handler class: execute(), optional abort(), optional factory
 ```
 
-### Result Type (neverthrow)
+### Result Type (`@exitbook/core`)
 
-- All fallible functions return `Result<T, Error>` (no throws). Chain/mapErr; propagate/log.
-- **`errAsync`/`okAsync` are valid in async contracts:** Do not report `errAsync`/`okAsync` as a type-safety issue when returned from `async` methods typed as `Promise<Result<...>>` or yielded from `async` generators typed as `AsyncIterableIterator<Result<...>>`; `ResultAsync` is `PromiseLike<Result<...>>` and is unwrapped by `async`/`for await` semantics.
+- Custom `Result<T, E>` type in `packages/core/src/result/` — **not neverthrow**. Classes: `Ok<T, E>`, `Err<T, E>`. Constructors: `ok(value)`, `err(error)`.
+- All fallible functions return `Result<T, Error>` (no throws). Use `isOk()`/`isErr()` to narrow, access `.value` or `.error` directly.
+- **Compose with `resultFrom` / `resultFromAsync`:** Use generator functions with `yield*` to unwrap `Result` values — short-circuits on first `Err`. This replaces neverthrow's `.andThen()`/`.map()` chaining.
+  ```typescript
+  function process(raw: string): Result<Order, Error> {
+    return resultFrom(function* () {
+      const input = yield* parseInput(raw); // unwraps Result
+      const validated = yield* validateOrder(input);
+      return buildOrder(validated); // auto-wrapped in Ok
+    });
+  }
+  ```
+- **`resultFrom` is for functions returning a single `Result`** — do NOT use it for `AsyncIterableIterator` generators that yield multiple `Result` values over time.
+- **Compat shims exist** (`_unsafeUnwrap`, `_unsafeUnwrapErr`, `unwrapOr`) for neverthrow migration — prefer `.value`/`.error` with `isOk()`/`isErr()` narrowing in new code.
 
 ### Zod Schemas
 

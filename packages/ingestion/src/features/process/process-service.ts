@@ -1,11 +1,11 @@
 import { type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getErrorMessage, type RawTransaction } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
-import { err, ok } from 'neverthrow';
-import type { Result } from 'neverthrow';
 
 import type { IngestionEvent } from '../../events.js';
 import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';

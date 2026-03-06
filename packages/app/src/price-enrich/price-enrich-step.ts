@@ -1,5 +1,5 @@
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { PipelineContext } from '../pipeline/pipeline-context.js';
 import type { DirtyCheckResult, PipelineStep, StepResult } from '../pipeline/pipeline-step.js';
@@ -37,7 +37,7 @@ export class PriceEnrichStep implements PipelineStep {
 
   // PipelineContext doesn't currently carry priceManager — this will be wired
   // when the pipeline runner is fully implemented (Phase 4).
-  // eslint-disable-next-line @typescript-eslint/require-await -- waiting implementation
+
   async execute(_context: PipelineContext): Promise<Result<StepResult, Error>> {
     logger.warn('PriceEnrichStep.execute() requires PriceProviderManager in PipelineContext — not yet available');
     return ok({ skipped: true, summary: 'Price enrichment requires provider manager in pipeline context' });

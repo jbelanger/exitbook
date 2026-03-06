@@ -1,4 +1,4 @@
-import { ok, type Result } from 'neverthrow';
+import { resultFrom, type Result } from '@exitbook/core';
 
 import type { NormalizationError } from '../../../../core/index.js';
 import { generateUniqueTransactionEventId, validateOutput } from '../../../../core/index.js';
@@ -40,127 +40,123 @@ export function mapMoralisWalletHistoryTransaction(
   // Convert back to wei for consistency with the rest of the pipeline (processor converts from wei).
   const feeWei = calculateGasFee(rawData.receipt_gas_used || '0', rawData.gas_price || '0').toString();
 
-  const results: EvmTransaction[] = [];
+  return resultFrom(function* () {
+    const results: EvmTransaction[] = [];
 
-  // 1. Parent transaction (native value transfer + fee carrier)
-  const parentTx: EvmTransaction = {
-    amount: rawData.value,
-    blockHeight,
-    blockId: rawData.block_hash,
-    currency: nativeCurrency,
-    eventId: generateUniqueTransactionEventId({
+    // 1. Parent transaction (native value transfer + fee carrier)
+    const parentTx: EvmTransaction = {
       amount: rawData.value,
-      currency: nativeCurrency,
-      from,
-      id: rawData.hash,
-      timestamp,
-      to,
-      type: 'transfer',
-    }),
-    feeAmount: feeWei,
-    feeCurrency: nativeCurrency,
-    from,
-    gasPrice: rawData.gas_price && rawData.gas_price !== '' ? rawData.gas_price : undefined,
-    gasUsed: rawData.receipt_gas_used && rawData.receipt_gas_used !== '' ? rawData.receipt_gas_used : undefined,
-    id: rawData.hash,
-    methodId: extractMethodId(rawData.method_label ? '0x' : undefined), // no raw input in history
-    providerName: 'moralis',
-    status,
-    timestamp,
-    to,
-    tokenType: 'native',
-    type: 'transfer',
-  };
-
-  const parentResult = validateOutput(parentTx, EvmTransactionSchema, 'MoralisWalletHistoryParent');
-  if (parentResult.isErr()) return parentResult.map(() => []);
-  results.push(parentResult.value);
-
-  // 2. Internal native transfers (contract → user ETH movements not in the parent tx value)
-  for (let i = 0; i < rawData.native_transfers.length; i++) {
-    const nt = rawData.native_transfers[i]!;
-
-    // Skip non-internal transfers — those are already represented by the parent tx
-    if (!nt.internal_transaction) continue;
-
-    const ntFrom = normalizeEvmAddress(nt.from_address) ?? '';
-    const ntTo = normalizeEvmAddress(nt.to_address);
-    const traceId = `moralis-internal-${i}`;
-
-    const internalTx: EvmTransaction = {
-      amount: nt.value,
       blockHeight,
       blockId: rawData.block_hash,
       currency: nativeCurrency,
       eventId: generateUniqueTransactionEventId({
-        amount: nt.value,
+        amount: rawData.value,
         currency: nativeCurrency,
-        from: ntFrom,
+        from,
         id: rawData.hash,
         timestamp,
-        to: ntTo,
-        traceId,
-        type: 'internal',
+        to,
+        type: 'transfer',
       }),
-      feeAmount: '0',
+      feeAmount: feeWei,
       feeCurrency: nativeCurrency,
-      from: ntFrom,
+      from,
+      gasPrice: rawData.gas_price && rawData.gas_price !== '' ? rawData.gas_price : undefined,
+      gasUsed: rawData.receipt_gas_used && rawData.receipt_gas_used !== '' ? rawData.receipt_gas_used : undefined,
       id: rawData.hash,
+      methodId: extractMethodId(rawData.method_label ? '0x' : undefined), // no raw input in history
       providerName: 'moralis',
       status,
       timestamp,
-      to: ntTo,
+      to,
       tokenType: 'native',
-      traceId,
-      type: 'internal',
+      type: 'transfer',
     };
 
-    const internalResult = validateOutput(internalTx, EvmTransactionSchema, 'MoralisWalletHistoryInternal');
-    if (internalResult.isErr()) return internalResult.map(() => []);
-    results.push(internalResult.value);
-  }
+    results.push(yield* validateOutput(parentTx, EvmTransactionSchema, 'MoralisWalletHistoryParent'));
 
-  // 3. ERC20 token transfers
-  for (const erc20 of rawData.erc20_transfers) {
-    const tokenAddress = normalizeEvmAddress(erc20.address);
-    const currency = tokenAddress ?? erc20.address;
-    const tokenDecimals = parseInt(erc20.token_decimals);
-    const erc20From = normalizeEvmAddress(erc20.from_address) ?? '';
-    const erc20To = normalizeEvmAddress(erc20.to_address);
+    // 2. Internal native transfers (contract → user ETH movements not in the parent tx value)
+    for (let i = 0; i < rawData.native_transfers.length; i++) {
+      const nt = rawData.native_transfers[i]!;
 
-    const tokenTx: EvmTransaction = {
-      amount: erc20.value,
-      blockHeight,
-      blockId: rawData.block_hash,
-      currency,
-      eventId: generateUniqueTransactionEventId({
+      // Skip non-internal transfers — those are already represented by the parent tx
+      if (!nt.internal_transaction) continue;
+
+      const ntFrom = normalizeEvmAddress(nt.from_address) ?? '';
+      const ntTo = normalizeEvmAddress(nt.to_address);
+      const traceId = `moralis-internal-${i}`;
+
+      const internalTx: EvmTransaction = {
+        amount: nt.value,
+        blockHeight,
+        blockId: rawData.block_hash,
+        currency: nativeCurrency,
+        eventId: generateUniqueTransactionEventId({
+          amount: nt.value,
+          currency: nativeCurrency,
+          from: ntFrom,
+          id: rawData.hash,
+          timestamp,
+          to: ntTo,
+          traceId,
+          type: 'internal',
+        }),
+        feeAmount: '0',
+        feeCurrency: nativeCurrency,
+        from: ntFrom,
+        id: rawData.hash,
+        providerName: 'moralis',
+        status,
+        timestamp,
+        to: ntTo,
+        tokenType: 'native',
+        traceId,
+        type: 'internal',
+      };
+
+      results.push(yield* validateOutput(internalTx, EvmTransactionSchema, 'MoralisWalletHistoryInternal'));
+    }
+
+    // 3. ERC20 token transfers
+    for (const erc20 of rawData.erc20_transfers) {
+      const tokenAddress = normalizeEvmAddress(erc20.address);
+      const currency = tokenAddress ?? erc20.address;
+      const tokenDecimals = parseInt(erc20.token_decimals);
+      const erc20From = normalizeEvmAddress(erc20.from_address) ?? '';
+      const erc20To = normalizeEvmAddress(erc20.to_address);
+
+      const tokenTx: EvmTransaction = {
         amount: erc20.value,
+        blockHeight,
+        blockId: rawData.block_hash,
         currency,
+        eventId: generateUniqueTransactionEventId({
+          amount: erc20.value,
+          currency,
+          from: erc20From,
+          id: rawData.hash,
+          timestamp,
+          to: erc20To,
+          tokenAddress,
+          type: 'token_transfer',
+        }),
         from: erc20From,
         id: rawData.hash,
+        logIndex: erc20.log_index,
+        providerName: 'moralis',
+        status: 'success',
         timestamp,
         to: erc20To,
         tokenAddress,
+        tokenDecimals,
+        tokenSymbol: erc20.token_symbol || undefined,
+        tokenType: 'erc20',
         type: 'token_transfer',
-      }),
-      from: erc20From,
-      id: rawData.hash,
-      logIndex: erc20.log_index,
-      providerName: 'moralis',
-      status: 'success',
-      timestamp,
-      to: erc20To,
-      tokenAddress,
-      tokenDecimals,
-      tokenSymbol: erc20.token_symbol || undefined,
-      tokenType: 'erc20',
-      type: 'token_transfer',
-    };
+      };
 
-    const tokenResult = validateOutput(tokenTx, EvmTransactionSchema, 'MoralisWalletHistoryToken');
-    if (tokenResult.isErr()) return tokenResult.map(() => []);
-    results.push(tokenResult.value);
-  }
+      results.push(yield* validateOutput(tokenTx, EvmTransactionSchema, 'MoralisWalletHistoryToken'));
+    }
 
-  return ok(results);
+    return results;
+  });
 }

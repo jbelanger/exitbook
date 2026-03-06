@@ -1,6 +1,6 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import { type Result } from 'neverthrow';
 
 import type { IScamDetectionService } from '../../features/scam-detection/scam-detection-service.interface.js';
 

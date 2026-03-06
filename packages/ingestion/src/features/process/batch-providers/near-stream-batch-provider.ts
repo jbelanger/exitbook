@@ -1,6 +1,6 @@
 import type { RawTransaction } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { NearRawTransactionRepository } from '@exitbook/data';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { IRawDataBatchProvider } from './raw-data-batch-provider.interface.js';
 

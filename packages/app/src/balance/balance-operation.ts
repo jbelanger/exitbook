@@ -7,11 +7,11 @@ import type {
   VerificationMetadata,
 } from '@exitbook/core';
 import { parseAssetId, wrapError, type Currency } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import {
   fetchBlockchainBalance,
@@ -405,7 +405,7 @@ export class BalanceOperation {
       if (updateResult.isErr()) return err(updateResult.error);
 
       logger.info(`Verification results persisted to account ${account.id}`);
-      return ok();
+      return ok(undefined);
     } catch (error) {
       return wrapError(error, 'Failed to persist verification results');
     }

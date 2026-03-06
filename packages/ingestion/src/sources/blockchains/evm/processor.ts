@@ -7,7 +7,7 @@ import {
   EvmTransactionSchema,
 } from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal, type Currency } from '@exitbook/core';
-import { err, okAsync, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type {
@@ -239,7 +239,7 @@ export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
       );
     }
 
-    return okAsync(transactions);
+    return ok(transactions);
   }
 
   /**
@@ -250,7 +250,7 @@ export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
     const tokenTransfers = transactions.filter(
       (tx) => tx.type === 'token_transfer' && !!tx.tokenAddress && looksLikeContractAddress(tx.tokenAddress, 40)
     );
-    if (tokenTransfers.length === 0 || !this.providerManager) return ok();
+    if (tokenTransfers.length === 0 || !this.providerManager) return ok(undefined);
 
     const addresses = [...new Set(tokenTransfers.map((tx) => tx.tokenAddress!))];
     const result = await this.providerManager.getTokenMetadata(this.chainConfig.chainName, addresses);
@@ -270,7 +270,7 @@ export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
         }
       }
     }
-    return ok();
+    return ok(undefined);
   }
 
   private async resolveIsContract(address: string): Promise<boolean | undefined> {

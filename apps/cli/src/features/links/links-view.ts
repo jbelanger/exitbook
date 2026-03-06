@@ -1,8 +1,8 @@
 // Command registration for links view subcommand
 import type { LinkStatus, TransactionLink } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
 import type { Command } from 'commander';
-import type { Result } from 'neverthrow';
 import React from 'react';
 import type { z } from 'zod';
 

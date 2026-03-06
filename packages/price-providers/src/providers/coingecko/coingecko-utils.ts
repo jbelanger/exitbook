@@ -5,7 +5,7 @@
  */
 
 import { type Currency } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import type { PriceData } from '../../core/types.js';
 import { validateRawPrice, roundTimestampByGranularity } from '../../core/utils.js';

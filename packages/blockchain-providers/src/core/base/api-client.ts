@@ -1,9 +1,9 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/http';
 import { HttpClient } from '@exitbook/http';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
-import { err, errAsync, ok, type Result } from 'neverthrow';
 
 import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
 import { createStreamingIterator, type StreamingAdapterOptions } from '../streaming/streaming-adapter.js';
@@ -83,9 +83,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     _operation: StreamingOperation,
     _cursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
-    yield errAsync(
-      new Error(`Streaming pagination not yet implemented for ${this.name}. Use execute() method instead.`)
-    );
+    yield err(new Error(`Streaming pagination not yet implemented for ${this.name}. Use execute() method instead.`));
   }
 
   /**

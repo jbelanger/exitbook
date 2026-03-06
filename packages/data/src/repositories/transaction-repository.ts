@@ -11,9 +11,9 @@ import {
   type UniversalTransactionData,
   wrapError,
 } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { Insertable, Selectable } from '@exitbook/sqlite';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 import { z } from 'zod';
 
 import type { TransactionMovementsTable, TransactionsTable } from '../database-schema.js';

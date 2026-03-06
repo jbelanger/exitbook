@@ -6,9 +6,9 @@
  */
 
 import { type Currency } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import { createPricesDatabase, initializePricesDatabase } from '../persistence/database.js';
 import { createPriceQueries, type PriceQueries } from '../persistence/queries/price-queries.js';
@@ -148,7 +148,7 @@ export class ManualPriceService {
    */
   private async ensureInitialized(): Promise<Result<void, Error>> {
     if (this.initialized && this.queries) {
-      return ok();
+      return ok(undefined);
     }
 
     try {
@@ -170,7 +170,7 @@ export class ManualPriceService {
       this.queries = createPriceQueries(db);
       this.initialized = true;
 
-      return ok();
+      return ok(undefined);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       return err(new Error(`Failed to initialize manual price service: ${errorMessage}`));

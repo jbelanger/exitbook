@@ -10,8 +10,8 @@
 
 import type { CursorState, PaginationCursor, TokenMetadata } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { HttpClient } from '@exitbook/http';
-import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
 import type {

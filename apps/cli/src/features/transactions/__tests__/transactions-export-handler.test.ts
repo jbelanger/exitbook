@@ -1,7 +1,7 @@
 import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
 import { ExportHandler } from '../transactions-export-handler.js';

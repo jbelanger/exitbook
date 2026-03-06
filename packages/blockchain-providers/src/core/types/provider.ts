@@ -1,7 +1,7 @@
 import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/http';
 import type { IProvider } from '@exitbook/resilience/provider-health';
-import type { Result } from 'neverthrow';
 
 import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
 

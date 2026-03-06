@@ -1,7 +1,7 @@
 import { isFiat, parseDecimal, wrapError, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import { LinkIndex } from '../linking/link-index.js';
 import type { TransactionLink } from '../linking/types.js';

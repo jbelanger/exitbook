@@ -1,6 +1,6 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import { BaseApiClient } from '../../../../core/base/api-client.js';
 import type {

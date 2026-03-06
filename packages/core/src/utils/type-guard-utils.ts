@@ -3,8 +3,8 @@
  * Centralizes type safety patterns found throughout the codebase
  */
 
-import type { Result } from 'neverthrow';
-import { err } from 'neverthrow';
+import type { Result } from '@exitbook/core';
+import { err } from '@exitbook/core';
 
 /**
  * Type guard for checking if a value is an Error instance with a message

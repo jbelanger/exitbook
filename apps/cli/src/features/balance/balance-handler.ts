@@ -1,9 +1,9 @@
 import { BalanceOperation, calculateBalances } from '@exitbook/app';
 import type { BalanceVerificationResult } from '@exitbook/app';
 import type { Account, AccountType, ExchangeCredentials, UniversalTransactionData } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { type DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { EventRelay } from '../../ui/shared/event-relay.js';
 import type { CommandContext } from '../shared/command-runtime.js';

@@ -1,5 +1,5 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import type { NormalizedTransactionBase } from '../index.js';
 import { createDeduplicationWindow, deduplicateTransactions } from '../manager/provider-manager-utils.js';

@@ -23,8 +23,7 @@
     "@exitbook/core": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/sqlite": "workspace:*",
-    "decimal.js": "^10.6.0",
-    "neverthrow": "^8.2.0"
+    "decimal.js": "^10.6.0"
   },
   "devDependencies": {
     "tsconfig": "workspace:*",

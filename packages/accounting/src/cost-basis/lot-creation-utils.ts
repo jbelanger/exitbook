@@ -1,5 +1,5 @@
 import { isFiat, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import { calculateFeesInFiat } from './lot-fee-utils.js';
 import { createAcquisitionLot } from './lot.js';

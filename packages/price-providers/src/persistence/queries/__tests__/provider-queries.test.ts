@@ -1,5 +1,5 @@
 import { type Currency } from '@exitbook/core';
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../database.js';

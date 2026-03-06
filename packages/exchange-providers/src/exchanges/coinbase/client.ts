@@ -1,9 +1,9 @@
 import type { CursorState, ExchangeCredentials, RawTransactionInput } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
+import { resultFrom, wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import * as ExchangeUtils from '../../core/exchange-utils.js';
 import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../core/types.js';
@@ -54,7 +54,7 @@ function validateCoinbaseCredentials(apiKey: string, secret: string): Result<voi
     );
   }
 
-  return ok();
+  return ok(undefined);
 }
 
 function normalizePemKey(secret: string): string {
@@ -132,248 +132,248 @@ async function fetchTransactionPage(
 }
 
 export function createCoinbaseClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
-  return ExchangeUtils.validateCredentials(CoinbaseCredentialsSchema, credentials, 'coinbase').andThen(
-    ({ apiKey, apiSecret }) => {
-      const validationResult = validateCoinbaseCredentials(apiKey, apiSecret);
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
+  return resultFrom(function* () {
+    const { apiKey, apiSecret } = yield* ExchangeUtils.validateCredentials(
+      CoinbaseCredentialsSchema,
+      credentials,
+      'coinbase'
+    );
+    yield* validateCoinbaseCredentials(apiKey, apiSecret);
 
-      const normalizedSecret = normalizePemKey(apiSecret);
-      const auth = { apiKey, secret: normalizedSecret };
+    const normalizedSecret = normalizePemKey(apiSecret);
+    const auth = { apiKey, secret: normalizedSecret };
 
-      const httpClient = new HttpClient({
-        baseUrl: 'https://api.coinbase.com',
-        providerName: 'coinbase',
-        service: 'exchange',
-        rateLimit: COINBASE_RATE_LIMIT,
-        timeout: 30_000,
-        retries: 3,
-      });
+    const httpClient = new HttpClient({
+      baseUrl: 'https://api.coinbase.com',
+      providerName: 'coinbase',
+      service: 'exchange',
+      rateLimit: COINBASE_RATE_LIMIT,
+      timeout: 30_000,
+      retries: 3,
+    });
 
-      return ok({
-        exchangeId: 'coinbase',
+    return {
+      exchangeId: 'coinbase',
 
-        async *fetchTransactionDataStreaming(
-          params?: FetchParams
-        ): AsyncIterableIterator<Result<FetchBatchResult, Error>> {
-          const limit = 100;
+      async *fetchTransactionDataStreaming(
+        params?: FetchParams
+      ): AsyncIterableIterator<Result<FetchBatchResult, Error>> {
+        const limit = 100;
 
-          // Step 1: Fetch all accounts
-          const accountsResult = await fetchAllAccounts(httpClient, auth);
+        // Step 1: Fetch all accounts
+        const accountsResult = await fetchAllAccounts(httpClient, auth);
 
-          if (accountsResult.isErr()) {
-            yield wrapError(accountsResult.error, 'Coinbase API error');
-            return;
-          }
+        if (accountsResult.isErr()) {
+          yield wrapError(accountsResult.error, 'Coinbase API error');
+          return;
+        }
 
-          const accounts = accountsResult.value;
-          if (accounts.length === 0) {
-            yield ok({
-              transactions: [],
-              operationType: 'coinbase:no-accounts',
-              cursor: {
-                primary: { type: 'timestamp', value: Date.now() },
-                lastTransactionId: 'coinbase:no-accounts',
-                totalFetched: 0,
-                metadata: {
-                  providerName: 'coinbase',
-                  updatedAt: Date.now(),
-                  isComplete: true,
-                },
+        const accounts = accountsResult.value;
+        if (accounts.length === 0) {
+          yield ok({
+            transactions: [],
+            operationType: 'coinbase:no-accounts',
+            cursor: {
+              primary: { type: 'timestamp', value: Date.now() },
+              lastTransactionId: 'coinbase:no-accounts',
+              totalFetched: 0,
+              metadata: {
+                providerName: 'coinbase',
+                updatedAt: Date.now(),
+                isComplete: true,
               },
-              isComplete: true,
-            });
-            return;
+            },
+            isComplete: true,
+          });
+          return;
+        }
+
+        // Step 2: Stream transactions for each account
+        let accountIndex = 0;
+        for (const account of accounts) {
+          const accountId = account.id;
+          const accountCursorState = params?.cursor?.[accountId];
+          let startingAfter = accountCursorState?.lastTransactionId;
+          // If resuming from a cursor that used the old timestamp-based format, start fresh
+          if (startingAfter?.startsWith('coinbase:')) {
+            startingAfter = undefined;
           }
+          let cumulativeFetched = (accountCursorState?.totalFetched as number) || 0;
+          let pageCount = 0;
+          let lastCursorState: CursorState | undefined;
 
-          // Step 2: Stream transactions for each account
-          let accountIndex = 0;
-          for (const account of accounts) {
-            const accountId = account.id;
-            const accountCursorState = params?.cursor?.[accountId];
-            let startingAfter = accountCursorState?.lastTransactionId;
-            // If resuming from a cursor that used the old timestamp-based format, start fresh
-            if (startingAfter?.startsWith('coinbase:')) {
-              startingAfter = undefined;
+          while (true) {
+            const pageResult = await fetchTransactionPage(httpClient, auth, accountId, limit, startingAfter);
+
+            if (pageResult.isErr()) {
+              yield wrapError(pageResult.error, 'Coinbase API error');
+              return;
             }
-            let cumulativeFetched = (accountCursorState?.totalFetched as number) || 0;
-            let pageCount = 0;
-            let lastCursorState: CursorState | undefined;
 
-            while (true) {
-              const pageResult = await fetchTransactionPage(httpClient, auth, accountId, limit, startingAfter);
+            const page = pageResult.value;
 
-              if (pageResult.isErr()) {
-                yield wrapError(pageResult.error, 'Coinbase API error');
-                return;
-              }
-
-              const page = pageResult.value;
-
-              if (page.entries.length === 0) {
-                yield ok({
-                  transactions: [],
-                  operationType: accountId,
-                  cursor: {
-                    primary: startingAfter
-                      ? { type: 'pageToken' as const, value: startingAfter, providerName: 'coinbase' }
-                      : { type: 'timestamp' as const, value: Date.now() },
-                    lastTransactionId:
-                      lastCursorState?.lastTransactionId ??
-                      accountCursorState?.lastTransactionId ??
-                      `coinbase:${accountId}:none`,
-                    totalFetched: cumulativeFetched,
-                    metadata: {
-                      providerName: 'coinbase',
-                      updatedAt: Date.now(),
-                      accountId,
-                      isComplete: true,
-                    },
-                  },
-                  isComplete: true,
-                });
-                break;
-              }
-
-              const transactions: RawTransactionInput[] = [];
-              lastCursorState = undefined;
-              let validationError: Error | undefined;
-
-              for (let i = 0; i < page.entries.length; i++) {
-                const entry = page.entries[i];
-
-                let validated;
-                try {
-                  validated = RawCoinbaseLedgerEntrySchema.parse(entry);
-                } catch (error) {
-                  validationError = new Error(`Raw data validation failed after ${i} items in batch: ${String(error)}`);
-                  break;
-                }
-
-                const timestamp = new Date(validated.created_at).getTime();
-
-                transactions.push({
-                  eventId: validated.id,
-                  timestamp,
-                  providerName: 'coinbase',
-                  providerData: validated,
-                });
-
-                lastCursorState = {
-                  primary: { type: 'pageToken', value: validated.id, providerName: 'coinbase' },
-                  lastTransactionId: validated.id,
-                  totalFetched: 1,
-                  metadata: {
-                    providerName: 'coinbase',
-                    updatedAt: Date.now(),
-                    accountId,
-                  },
-                };
-              }
-
-              if (validationError) {
-                if (transactions.length > 0 && lastCursorState) {
-                  cumulativeFetched += transactions.length;
-                  yield ok({
-                    transactions,
-                    operationType: accountId,
-                    cursor: {
-                      ...lastCursorState,
-                      totalFetched: cumulativeFetched,
-                      metadata: {
-                        ...lastCursorState.metadata,
-                        providerName: 'coinbase',
-                        updatedAt: Date.now(),
-                        accountId,
-                      },
-                    },
-                    isComplete: false,
-                  });
-                }
-
-                yield err(
-                  new Error(
-                    `Validation failed for account ${accountId} after ${transactions.length} items in batch: ${validationError.message}`
-                  )
-                );
-                return;
-              }
-
-              cumulativeFetched += transactions.length;
-              pageCount++;
-
-              logger.info(
-                `Account ${accountIndex + 1}/${accounts.length} (${accountId}): page ${pageCount} - ${cumulativeFetched} transactions`
-              );
-
-              const isComplete = page.nextCursor === null || page.nextCursor === undefined;
-
-              if (lastCursorState) {
-                lastCursorState.totalFetched = cumulativeFetched;
-                if (lastCursorState.metadata) {
-                  lastCursorState.metadata.updatedAt = Date.now();
-                  if (isComplete) {
-                    lastCursorState.metadata.isComplete = true;
-                  }
-                }
-              }
-
+            if (page.entries.length === 0) {
               yield ok({
-                transactions,
+                transactions: [],
                 operationType: accountId,
-                cursor: lastCursorState ?? {
+                cursor: {
                   primary: startingAfter
                     ? { type: 'pageToken' as const, value: startingAfter, providerName: 'coinbase' }
                     : { type: 'timestamp' as const, value: Date.now() },
-                  lastTransactionId: transactions[transactions.length - 1]?.eventId ?? '',
+                  lastTransactionId:
+                    lastCursorState?.lastTransactionId ??
+                    accountCursorState?.lastTransactionId ??
+                    `coinbase:${accountId}:none`,
                   totalFetched: cumulativeFetched,
                   metadata: {
                     providerName: 'coinbase',
                     updatedAt: Date.now(),
                     accountId,
-                    isComplete,
+                    isComplete: true,
                   },
                 },
-                isComplete,
+                isComplete: true,
+              });
+              break;
+            }
+
+            const transactions: RawTransactionInput[] = [];
+            lastCursorState = undefined;
+            let validationError: Error | undefined;
+
+            for (let i = 0; i < page.entries.length; i++) {
+              const entry = page.entries[i];
+
+              let validated;
+              try {
+                validated = RawCoinbaseLedgerEntrySchema.parse(entry);
+              } catch (error) {
+                validationError = new Error(`Raw data validation failed after ${i} items in batch: ${String(error)}`);
+                break;
+              }
+
+              const timestamp = new Date(validated.created_at).getTime();
+
+              transactions.push({
+                eventId: validated.id,
+                timestamp,
+                providerName: 'coinbase',
+                providerData: validated,
               });
 
-              if (isComplete) break;
-
-              // Advance cursor for next page
-              startingAfter = page.nextCursor ?? undefined;
+              lastCursorState = {
+                primary: { type: 'pageToken', value: validated.id, providerName: 'coinbase' },
+                lastTransactionId: validated.id,
+                totalFetched: 1,
+                metadata: {
+                  providerName: 'coinbase',
+                  updatedAt: Date.now(),
+                  accountId,
+                },
+              };
             }
 
-            accountIndex++;
-          }
-        },
+            if (validationError) {
+              if (transactions.length > 0 && lastCursorState) {
+                cumulativeFetched += transactions.length;
+                yield ok({
+                  transactions,
+                  operationType: accountId,
+                  cursor: {
+                    ...lastCursorState,
+                    totalFetched: cumulativeFetched,
+                    metadata: {
+                      ...lastCursorState.metadata,
+                      providerName: 'coinbase',
+                      updatedAt: Date.now(),
+                      accountId,
+                    },
+                  },
+                  isComplete: false,
+                });
+              }
 
-        async fetchBalance(): Promise<Result<BalanceSnapshot, Error>> {
-          const accountsResult = await fetchAllAccounts(httpClient, auth);
+              yield err(
+                new Error(
+                  `Validation failed for account ${accountId} after ${transactions.length} items in batch: ${validationError.message}`
+                )
+              );
+              return;
+            }
 
-          if (accountsResult.isErr()) {
-            return wrapError(accountsResult.error, 'Failed to fetch Coinbase balance');
-          }
+            cumulativeFetched += transactions.length;
+            pageCount++;
 
-          const balances: Record<string, string> = {};
+            logger.info(
+              `Account ${accountIndex + 1}/${accounts.length} (${accountId}): page ${pageCount} - ${cumulativeFetched} transactions`
+            );
 
-          for (const account of accountsResult.value) {
-            const amount = parseFloat(account.balance.amount);
-            if (amount !== 0) {
-              const currency = account.balance.currency;
-              // Aggregate balances across accounts with the same currency
-              const existing = balances[currency];
-              if (existing) {
-                balances[currency] = (parseFloat(existing) + amount).toString();
-              } else {
-                balances[currency] = account.balance.amount;
+            const isComplete = page.nextCursor === null || page.nextCursor === undefined;
+
+            if (lastCursorState) {
+              lastCursorState.totalFetched = cumulativeFetched;
+              if (lastCursorState.metadata) {
+                lastCursorState.metadata.updatedAt = Date.now();
+                if (isComplete) {
+                  lastCursorState.metadata.isComplete = true;
+                }
               }
             }
+
+            yield ok({
+              transactions,
+              operationType: accountId,
+              cursor: lastCursorState ?? {
+                primary: startingAfter
+                  ? { type: 'pageToken' as const, value: startingAfter, providerName: 'coinbase' }
+                  : { type: 'timestamp' as const, value: Date.now() },
+                lastTransactionId: transactions[transactions.length - 1]?.eventId ?? '',
+                totalFetched: cumulativeFetched,
+                metadata: {
+                  providerName: 'coinbase',
+                  updatedAt: Date.now(),
+                  accountId,
+                  isComplete,
+                },
+              },
+              isComplete,
+            });
+
+            if (isComplete) break;
+
+            // Advance cursor for next page
+            startingAfter = page.nextCursor ?? undefined;
           }
 
-          return ok({ balances, timestamp: Date.now() });
-        },
-      });
-    }
-  );
+          accountIndex++;
+        }
+      },
+
+      async fetchBalance(): Promise<Result<BalanceSnapshot, Error>> {
+        const accountsResult = await fetchAllAccounts(httpClient, auth);
+
+        if (accountsResult.isErr()) {
+          return wrapError(accountsResult.error, 'Failed to fetch Coinbase balance');
+        }
+
+        const balances: Record<string, string> = {};
+
+        for (const account of accountsResult.value) {
+          const amount = parseFloat(account.balance.amount);
+          if (amount !== 0) {
+            const currency = account.balance.currency;
+            // Aggregate balances across accounts with the same currency
+            const existing = balances[currency];
+            if (existing) {
+              balances[currency] = (parseFloat(existing) + amount).toString();
+            } else {
+              balances[currency] = account.balance.amount;
+            }
+          }
+        }
+
+        return ok({ balances, timestamp: Date.now() });
+      },
+    };
+  });
 }

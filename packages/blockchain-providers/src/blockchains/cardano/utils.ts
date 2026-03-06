@@ -1,6 +1,6 @@
 import { getErrorMessage, wrapError } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { RawBalanceData } from '../../core/index.js';
 import type { BlockchainProviderManager } from '../../core/manager/provider-manager.js';
@@ -215,7 +215,7 @@ export async function initializeCardanoXpubWallet(
       return err(scanResult.error);
     }
 
-    return ok();
+    return ok(undefined);
   } catch (error) {
     const errorMessage = getErrorMessage(error, 'Unknown error');
     logger.error(
@@ -235,7 +235,7 @@ export async function performCardanoAddressGapScanning(
 ): Promise<Result<void, Error>> {
   const allDerived = walletAddress.derivedAddresses ?? [];
   if (allDerived.length === 0) {
-    return ok();
+    return ok(undefined);
   }
 
   const gapLimit = walletAddress.addressGap ?? 10;
@@ -248,5 +248,5 @@ export async function performCardanoAddressGapScanning(
   if (result.isErr()) return err(result.error);
 
   walletAddress.derivedAddresses = result.value.addresses;
-  return ok();
+  return ok(undefined);
 }

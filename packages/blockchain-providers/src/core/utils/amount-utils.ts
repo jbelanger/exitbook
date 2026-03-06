@@ -1,6 +1,6 @@
 import { parseDecimal, wrapError } from '@exitbook/core';
+import { type Result, ok } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
-import { type Result, ok } from 'neverthrow';
 
 /**
  * Normalize token amount from smallest units to human-readable decimal units.

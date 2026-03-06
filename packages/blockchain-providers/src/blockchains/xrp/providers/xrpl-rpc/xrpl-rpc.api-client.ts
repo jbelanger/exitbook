@@ -1,6 +1,6 @@
 import type { CursorState, PaginationCursor, TokenMetadata } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
-import { err, ok, okAsync, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import type {
   NormalizedTransactionBase,
@@ -190,7 +190,7 @@ export class XrplRpcApiClient extends BaseApiClient {
 
   async getTokenMetadata(contractAddresses: string[]): Promise<Result<TokenMetadata[], Error>> {
     if (contractAddresses.length === 0) {
-      return okAsync([]);
+      return ok([]);
     }
 
     // XRPL tokens are identified by issuer:currency format

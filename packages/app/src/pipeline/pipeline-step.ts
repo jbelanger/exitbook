@@ -1,4 +1,4 @@
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 
 import type { PipelineContext } from './pipeline-context.js';
 

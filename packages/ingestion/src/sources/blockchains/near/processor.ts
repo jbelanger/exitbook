@@ -23,9 +23,9 @@ import {
   type Currency,
   type OperationClassification,
 } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { NearRawTransactionRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
-import { err, errAsync, ok, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type {
@@ -541,7 +541,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
    */
   private async enrichTokenMetadata(events: NearStreamEvent[]): Promise<Result<void, Error>> {
     const ftTransferEvents = events.filter((e): e is NearTokenTransfer => e.streamType === 'token-transfers');
-    if (ftTransferEvents.length === 0 || !this.providerManager) return ok();
+    if (ftTransferEvents.length === 0 || !this.providerManager) return ok(undefined);
 
     const addresses = [...new Set(ftTransferEvents.map((e) => e.contractAddress))];
     const result = await this.providerManager.getTokenMetadata('near', addresses);
@@ -559,7 +559,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
         }
       }
     }
-    return ok();
+    return ok(undefined);
   }
 
   /**
@@ -575,7 +575,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
       }
 
       // Non-NEAR asset without contract address
-      return errAsync(
+      return err(
         new Error(`Missing contract address for non-native asset ${movement.asset} in transaction ${transactionId}`)
       );
     }

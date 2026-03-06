@@ -5,7 +5,7 @@ import {
   isBitcoinXpub,
   type BitcoinWalletAddress,
 } from '@exitbook/blockchain-providers';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import type { BlockchainAdapter, DerivedAddress } from '../../../shared/types/blockchain-adapter.js';
 

@@ -1,7 +1,7 @@
 import { type Account, wrapError } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { AccountListResult, AccountQueryParams, AccountView, SessionSummary } from './account-query-utils.js';
 import { formatAccount } from './account-query-utils.js';

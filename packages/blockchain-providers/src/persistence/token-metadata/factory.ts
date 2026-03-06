@@ -1,8 +1,8 @@
 import path from 'node:path';
 
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import {
   closeTokenMetadataDatabase,

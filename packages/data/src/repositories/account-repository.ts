@@ -7,8 +7,8 @@ import {
   VerificationMetadataSchema,
   wrapError,
 } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Selectable, Updateable } from '@exitbook/sqlite';
-import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
 import type { AccountsTable } from '../database-schema.js';
@@ -321,11 +321,11 @@ export class AccountRepository extends BaseRepository {
       }
 
       const hasChanges = Object.keys(updateData).length > 1;
-      if (!hasChanges) return ok();
+      if (!hasChanges) return ok(undefined);
 
       await this.db.updateTable('accounts').set(updateData).where('id', '=', accountId).execute();
 
-      return ok();
+      return ok(undefined);
     } catch (error) {
       return wrapError(error, 'Failed to update account');
     }

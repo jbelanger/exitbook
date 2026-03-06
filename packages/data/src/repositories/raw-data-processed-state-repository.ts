@@ -1,4 +1,4 @@
-import { ok, err, type Result } from 'neverthrow';
+import { ok, err, type Result } from '@exitbook/core';
 
 import type { KyselyDB } from '../database.js';
 

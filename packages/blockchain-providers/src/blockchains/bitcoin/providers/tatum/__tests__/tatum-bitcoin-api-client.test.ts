@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
-import { ok, err } from 'neverthrow';
+import { ok, err } from '@exitbook/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { OneShotOperation } from '../../../../../core/index.js';

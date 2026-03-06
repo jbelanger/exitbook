@@ -6,8 +6,8 @@
  * the executor IS the functional core of the failover loop.
  */
 
+import { err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import { getCircuitStatus } from '../circuit-breaker/circuit-breaker.js';
 import type { CircuitBreakerRegistry } from '../circuit-breaker/registry.js';

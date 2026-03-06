@@ -7,9 +7,9 @@
 
 import type { Currency } from '@exitbook/core';
 import { parseDecimal, wrapError } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { IFxRateProvider } from '../price-enrichment/types.js';
 

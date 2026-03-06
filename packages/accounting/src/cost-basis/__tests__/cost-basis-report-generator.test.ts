@@ -3,10 +3,10 @@
  * Tests for CostBasisReportGenerator
  */
 
-import { type Currency } from '@exitbook/core';
+import { ok, type Currency } from '@exitbook/core';
+import { err } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
-import { err, okAsync } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { FxRateData, IFxRateProvider } from '../../price-enrichment/types.js';
@@ -104,7 +104,7 @@ describe('CostBasisReportGenerator', () => {
           fetchedAt: new Date(),
         };
 
-        return okAsync(fxData);
+        return ok(fxData);
       }),
       getRateToUSD: vi.fn(),
       getCallCount: () => callCount,

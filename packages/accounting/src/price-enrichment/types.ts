@@ -1,6 +1,6 @@
 import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-import type { Result } from 'neverthrow';
 
 import type { TransactionLink } from '../linking/types.js';
 

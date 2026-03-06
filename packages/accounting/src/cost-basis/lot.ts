@@ -1,6 +1,6 @@
 import type { Currency } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { AcquisitionLot, LotStatus } from './types.js';
 

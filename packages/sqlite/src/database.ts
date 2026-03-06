@@ -2,11 +2,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect, type KyselyPlugin } from 'kysely';
-import type { Result } from 'neverthrow';
-import { ok } from 'neverthrow';
 
 import { sqliteTypeAdapterPlugin } from './plugins/sqlite-type-adapter-plugin.js';
 

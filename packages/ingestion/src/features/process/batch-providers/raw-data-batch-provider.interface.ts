@@ -1,5 +1,5 @@
 import type { RawTransaction } from '@exitbook/core';
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 
 /**
  * Provides batches of raw transaction data for processing.

@@ -1,4 +1,4 @@
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 import type { ZodType } from 'zod';
 
 import type { NormalizationError } from '../types/errors.js';

@@ -1,10 +1,10 @@
 import path from 'node:path';
 
 import { type CostBasisInput, CostBasisOperation, type CostBasisResult } from '@exitbook/app';
+import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { createPriceProviderManager } from '@exitbook/price-providers';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
 import { getDataDir } from '../shared/data-dir.js';

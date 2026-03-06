@@ -4,8 +4,7 @@
  */
 
 import { type BlockchainProviderManager, type EvmChainConfig, ProviderError } from '@exitbook/blockchain-providers';
-import type { Currency, PaginationCursor } from '@exitbook/core';
-import { errAsync, okAsync } from 'neverthrow';
+import { err, ok, type Currency, type PaginationCursor } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
 import { consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
@@ -55,7 +54,7 @@ describe('EvmImporter', () => {
   ) => {
     const mock = mockProviderManager.streamAddressTransactions
       .mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           data: normalData,
           providerName: 'alchemy',
           cursor: {
@@ -69,7 +68,7 @@ describe('EvmImporter', () => {
         });
       })
       .mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           data: internalData,
           providerName: 'alchemy',
           cursor: {
@@ -83,7 +82,7 @@ describe('EvmImporter', () => {
         });
       })
       .mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           data: tokenData,
           providerName: 'alchemy',
           cursor: {
@@ -100,7 +99,7 @@ describe('EvmImporter', () => {
     // Only mock beacon withdrawals if explicitly provided
     if (beaconData !== undefined) {
       mock.mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           data: beaconData,
           providerName: 'alchemy',
           cursor: {
@@ -136,7 +135,7 @@ describe('EvmImporter', () => {
         isHealthy: vi.fn().mockResolvedValue(true),
         rateLimit: { requestsPerSecond: 1 },
         executeStreaming: vi.fn(async function* () {
-          yield errAsync(new Error('Streaming not implemented in mock'));
+          yield err(new Error('Streaming not implemented in mock'));
         }),
         extractCursors: vi.fn((_transaction: unknown): PaginationCursor[] => []),
         applyReplayWindow: vi.fn((cursor: PaginationCursor): PaginationCursor => cursor),
@@ -280,7 +279,7 @@ describe('EvmImporter', () => {
 
       // First call (normal) fails
       mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
-        yield errAsync(
+        yield err(
           new ProviderError('Failed to fetch normal transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'ethereum',
           })
@@ -326,7 +325,7 @@ describe('EvmImporter', () => {
 
       // Fourth call (beacon withdrawals) fails
       mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
-        yield errAsync(
+        yield err(
           new ProviderError('Invalid API Key provided', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'ethereum',
             lastError: 'Invalid API Key provided',

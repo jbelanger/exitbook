@@ -1,5 +1,5 @@
+import { ok } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/http';
-import { ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCanUseCurrentPrice, mockTransformPriceResponse, mockTransformHistoricalResponse } = vi.hoisted(() => ({
@@ -56,8 +56,8 @@ describe('CryptoCompareProvider', () => {
     httpClient = { get: httpClientGet } as unknown as HttpClient;
 
     priceRepoMocks = {
-      getPrice: vi.fn().mockResolvedValue(ok()),
-      savePrice: vi.fn().mockResolvedValue(ok()),
+      getPrice: vi.fn().mockResolvedValue(ok(undefined)),
+      savePrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
     priceQueries = priceRepoMocks as unknown as PriceQueries;
 

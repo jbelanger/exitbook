@@ -6,8 +6,8 @@ import {
   type PriceAtTxTime,
   type UniversalTransactionData,
 } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import { getVarianceTolerance } from './lot-sorting-utils.js';
 
@@ -100,7 +100,7 @@ export function validateOutflowFees(
 ): Result<void, Error> {
   // Skip validation if netAmount is not provided (legacy data or incomplete processor)
   if (!outflow.netAmount) {
-    return ok();
+    return ok(undefined);
   }
 
   const grossAmount = outflow.grossAmount;
@@ -138,7 +138,7 @@ export function validateOutflowFees(
     // Just return ok - warnings are logged elsewhere
   }
 
-  return ok();
+  return ok(undefined);
 }
 
 export function collectFiatFees(

@@ -1,8 +1,8 @@
 // Tier 1 handler for accounts view command
 
 import { AccountQuery, type AccountListResult, type AccountQueryParams } from '@exitbook/app';
+import type { Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import type { Result } from 'neverthrow';
 
 export type { AccountListResult };
 

@@ -15,7 +15,7 @@
 
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage, hasStringProperty } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 import { z } from 'zod';
 
 import type {

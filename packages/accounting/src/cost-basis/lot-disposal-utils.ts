@@ -1,6 +1,6 @@
 import { wrapError, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import { calculateFeesInFiat } from './lot-fee-utils.js';
 import type { AcquisitionLot, LotDisposal } from './schemas.js';

@@ -1,11 +1,11 @@
 import { ImportOperation, type ImportParams } from '@exitbook/app';
 import type { ImportSession } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { isUtxoAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { EventDrivenController } from '../../ui/shared/index.js';
 import type { CommandContext } from '../shared/command-runtime.js';

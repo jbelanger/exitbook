@@ -4,14 +4,14 @@
  */
 
 import { isFiat, isStablecoin, type Currency } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { TtlCache } from '@exitbook/resilience/cache';
 import { CircuitBreakerRegistry } from '@exitbook/resilience/circuit-breaker';
 import { executeWithFailover, type FailoverResult } from '@exitbook/resilience/failover';
 import { buildProviderSelectionDebugInfo } from '@exitbook/resilience/provider-selection';
 import { ProviderHealthStore } from '@exitbook/resilience/provider-stats';
-import type { Result } from 'neverthrow';
-import { ok } from 'neverthrow';
 
 import { CoinNotFoundError, PriceDataUnavailableError } from './errors.js';
 import * as ProviderManagerUtils from './provider-manager-utils.js';

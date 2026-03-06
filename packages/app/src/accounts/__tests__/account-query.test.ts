@@ -1,4 +1,4 @@
-import { err, ok } from 'neverthrow';
+import { err, ok } from '@exitbook/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockLogger = vi.hoisted(() => ({

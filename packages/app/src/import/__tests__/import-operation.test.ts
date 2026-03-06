@@ -7,7 +7,7 @@
  */
 
 import type { ImportSession } from '@exitbook/core';
-import { err, errAsync, ok, okAsync } from 'neverthrow';
+import { err, ok } from '@exitbook/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ImportOperation } from '../import-operation.js';
@@ -339,7 +339,7 @@ describe('ImportOperation', () => {
     it('should finalize as failed if importer throws', async () => {
       setupSuccessfulImport();
 
-      // eslint-disable-next-line @typescript-eslint/require-await, require-yield -- acceptable for tests
+      // eslint-disable-next-line require-yield -- acceptable for tests
       blockchainStreamingFn.mockImplementationOnce(async function* () {
         throw new Error('Network timeout');
       });
@@ -363,7 +363,7 @@ describe('ImportOperation', () => {
       setupSuccessfulImport();
 
       blockchainStreamingFn.mockImplementationOnce(async function* () {
-        yield errAsync(new Error('Provider unavailable'));
+        yield err(new Error('Provider unavailable'));
       });
 
       const result = await operation.execute({ blockchain: 'bitcoin', address: 'bc1q...' });
@@ -400,7 +400,7 @@ describe('ImportOperation', () => {
       vi.mocked(ctx.accounts.findOrCreate).mockResolvedValue(ok(account));
 
       exchangeStreamingFn.mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           rawTransactions: [{ refid: 'kraken-1', type: 'trade' }],
           streamType: 'trade',
           cursor: { primary: { type: 'timestamp', value: 2 }, totalFetched: 1 },
@@ -428,7 +428,7 @@ describe('ImportOperation', () => {
       vi.mocked(ctx.rawTransactions.createBatch).mockResolvedValue(ok({ inserted: 0, skipped: 0 }));
 
       exchangeStreamingFn.mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           rawTransactions: [],
           streamType: 'ledger',
           cursor: { primary: { type: 'timestamp', value: 1 }, totalFetched: 0 },
@@ -469,7 +469,7 @@ describe('ImportOperation', () => {
       setupSuccessfulImport();
 
       blockchainStreamingFn.mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           rawTransactions: [{ transactionHash: 'tx1' }, { transactionHash: 'tx2' }],
           streamType: 'normal',
           cursor: { primary: { type: 'blockNumber', value: 2 }, totalFetched: 2 },
@@ -702,7 +702,7 @@ describe('ImportOperation', () => {
       // First child import fails
       vi.mocked(ctx.importSessions.create).mockResolvedValueOnce(ok(1));
       blockchainStreamingFn.mockImplementationOnce(async function* () {
-        yield errAsync(new Error('Network timeout'));
+        yield err(new Error('Network timeout'));
       });
 
       const result = await operation.execute({ blockchain: 'bitcoin', address: 'xpub6C...' });
@@ -789,13 +789,13 @@ describe('ImportOperation', () => {
 
       // Streaming mock that yields batches slowly
       blockchainStreamingFn.mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           rawTransactions: [{ transactionHash: 'tx1' }],
           streamType: 'normal',
           cursor: { primary: { type: 'blockNumber', value: 1 }, totalFetched: 1 },
           isComplete: false,
         });
-        yield okAsync({
+        yield ok({
           rawTransactions: [{ transactionHash: 'tx2' }],
           streamType: 'normal',
           cursor: { primary: { type: 'blockNumber', value: 2 }, totalFetched: 2 },

@@ -2,8 +2,8 @@
 // All functions are pure — no side effects
 
 import type { ProviderInfo } from '@exitbook/blockchain-providers';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 
 import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../shared/prompts.js';
 import { providerRegistry } from '../shared/provider-registry.js';

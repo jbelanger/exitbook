@@ -1,7 +1,7 @@
 import type { Currency } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
 import type { IProvider } from '@exitbook/resilience/provider-health';
 import type { Decimal } from 'decimal.js';
-import type { Result } from 'neverthrow';
 
 /**
  * Query for fetching price data

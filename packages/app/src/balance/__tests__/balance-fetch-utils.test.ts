@@ -3,9 +3,9 @@ import type {
   FailoverExecutionResult,
   RawBalanceData,
 } from '@exitbook/blockchain-providers';
+import { err, ok } from '@exitbook/core';
 import type { BalanceSnapshot, IExchangeClient } from '@exitbook/exchange-providers';
 import { Decimal } from 'decimal.js';
-import { err, ok, okAsync } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { fetchBlockchainBalance, fetchChildAccountsBalance, fetchExchangeBalance } from '../balance-fetch-utils.js';
@@ -286,7 +286,7 @@ describe('fetchChildAccountsBalance', () => {
       destroy: vi.fn(),
       getAddressBalances: vi.fn().mockImplementation(async (_blockchain: string, address: string) => {
         if (address === 'bc1-child-success') {
-          return okAsync({
+          return ok({
             data: {
               rawAmount: '100000000',
               symbol: 'BTC',

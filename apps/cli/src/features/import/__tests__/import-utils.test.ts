@@ -1,5 +1,5 @@
+import { ok } from '@exitbook/core';
 import type { AdapterRegistry } from '@exitbook/ingestion';
-import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ImportCommandOptionsSchema } from '../../shared/schemas.js';

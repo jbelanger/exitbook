@@ -7,8 +7,8 @@ import { createInterface } from 'node:readline';
 import { wrapError } from '@exitbook/core';
 import { OverrideEventSchema, type OverrideEvent, type Scope } from '@exitbook/core';
 import type { CreateOverrideEventOptions } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 /**
  * Override Store - Append-only JSONL persistence for user override events

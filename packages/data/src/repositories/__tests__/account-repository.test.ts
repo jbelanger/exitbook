@@ -405,7 +405,6 @@ describe('AccountRepository', () => {
 
     it('updates verificationMetadata', async () => {
       const metadata = {
-        source_params: { blockchain: 'bitcoin', address: 'bc1q...' },
         current_balance: { BTC: '1.5' },
         last_verification: {
           status: 'match' as const,

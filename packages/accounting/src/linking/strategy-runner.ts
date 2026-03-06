@@ -1,5 +1,5 @@
+import { ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
-import { ok, type Result } from 'neverthrow';
 
 import type { LinkableMovement } from './pre-linking/types.js';
 import type { ILinkingStrategy } from './strategies/types.js';

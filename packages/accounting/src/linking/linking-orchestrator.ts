@@ -1,8 +1,8 @@
 import type { OverrideEvent, UniversalTransactionData } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { LinkingStore } from '../ports/linking-store.js';
 

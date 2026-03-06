@@ -1,5 +1,5 @@
+import type { Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-import type { Result } from 'neverthrow';
 
 import type { AcquisitionLot, LotDisposal } from '../schemas.js';
 

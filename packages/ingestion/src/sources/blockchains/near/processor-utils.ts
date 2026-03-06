@@ -18,9 +18,9 @@ import type {
   NearActionType,
 } from '@exitbook/blockchain-providers';
 import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { NearCorrelatedTransaction, NearReceipt, NearTransactionBundle } from './types.js';
 

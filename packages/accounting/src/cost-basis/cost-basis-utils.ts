@@ -5,9 +5,9 @@ import {
   type FeeMovement,
   type UniversalTransactionData,
 } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { CostBasisConfig, FiatCurrency } from './cost-basis-config.js';
 import { getDefaultDateRange } from './cost-basis-config.js';
@@ -229,7 +229,7 @@ export function validateCostBasisParams(params: CostBasisInput): Result<void, Er
     return err(new Error('Start date must be before end date'));
   }
 
-  return ok();
+  return ok(undefined);
 }
 
 /**

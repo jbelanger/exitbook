@@ -1,5 +1,5 @@
 import type { Account } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 export interface ClearParams {
   accountId?: number | undefined;

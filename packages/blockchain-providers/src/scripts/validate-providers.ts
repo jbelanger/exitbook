@@ -3,8 +3,8 @@ import { getErrorMessage } from '@exitbook/core';
 /**
  * Validate that all providers are properly registered and functional
  */
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 
 import { createProviderRegistry } from '../initialize.js';
 

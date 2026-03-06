@@ -2,8 +2,8 @@
 // All functions are pure — no side effects (except checkApiKeyStatus which reads process.env)
 
 import type { BlockchainExplorersConfig, ProviderInfo, ProviderStatsRow } from '@exitbook/blockchain-providers';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 
 import { providerToSummary } from '../blockchains/blockchains-view-utils.js';
 import { providerRegistry } from '../shared/provider-registry.js';

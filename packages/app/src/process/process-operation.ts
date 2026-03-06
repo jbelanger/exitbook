@@ -1,7 +1,7 @@
+import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import type { RawDataProcessingService } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import { ClearOperation } from '../clear/clear-operation.js';
 import type { EventSink } from '../pipeline/pipeline-context.js';

@@ -1,5 +1,5 @@
+import { ok } from '@exitbook/core';
 import { HDKey } from '@scure/bip32';
-import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { BlockchainProviderManager } from '../../../core/manager/provider-manager.js';

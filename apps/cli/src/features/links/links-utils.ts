@@ -1,7 +1,7 @@
 // Pure utility functions for link operations (Functional Core)
 
 import type { LinkStatus } from '@exitbook/accounting';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 /**
  * Returns the default reviewer identifier for CLI operations.

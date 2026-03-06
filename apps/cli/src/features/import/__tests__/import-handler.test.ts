@@ -1,7 +1,7 @@
 import type { ImportOperation, ImportParams } from '@exitbook/app';
+import { err, ok } from '@exitbook/core';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { isUtxoAdapter } from '@exitbook/ingestion';
-import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { ImportHandler } from '../import-handler.js';

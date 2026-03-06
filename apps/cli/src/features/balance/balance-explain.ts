@@ -1,7 +1,7 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 interface BalanceMismatchInput {
   assetId: string; // Unique asset identity for filtering

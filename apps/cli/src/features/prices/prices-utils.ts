@@ -1,11 +1,11 @@
 import path from 'node:path';
 
 import type { PriceEvent } from '@exitbook/accounting';
+import { type Result } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector } from '@exitbook/observability';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import type { PriceProviderEvent } from '@exitbook/price-providers';
-import { type Result } from 'neverthrow';
 
 import { getDataDir } from '../shared/data-dir.js';
 

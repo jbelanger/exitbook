@@ -1,4 +1,4 @@
-import { type Result } from 'neverthrow';
+import { type Result } from '@exitbook/core';
 
 import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { validateOutput } from '../../../../core/index.js';

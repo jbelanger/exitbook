@@ -11,9 +11,9 @@
 
 import type { AssetMovement, Currency, FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import { isFiat, parseDecimal } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 /**
  * Result of movement classification
@@ -102,7 +102,7 @@ export function validateFxRate(rate: Decimal): Result<void, Error> {
     return err(new Error(`Suspicious FX rate: ${rate.toString()} (too high, possible data error)`));
   }
 
-  return ok();
+  return ok(undefined);
 }
 
 /**

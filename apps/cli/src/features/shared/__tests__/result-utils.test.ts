@@ -1,4 +1,4 @@
-import { err, ok } from 'neverthrow';
+import { err, ok } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { unwrapResult } from '../result-utils.js';

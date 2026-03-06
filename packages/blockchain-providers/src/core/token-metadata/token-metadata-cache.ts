@@ -1,9 +1,9 @@
 import type { TokenMetadataRecord } from '@exitbook/core';
 import type { TokenMetadata } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
-import type { Result } from 'neverthrow';
-import { ok } from 'neverthrow';
 
 import type { ProviderEvent } from '../../events.js';
 import type { TokenMetadataQueries } from '../../persistence/token-metadata/queries.js';

@@ -1,5 +1,5 @@
 import { BaseUniversalTransactionSchema } from '@exitbook/core';
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 import type z from 'zod';
 
 export interface BatchProcessSummary {

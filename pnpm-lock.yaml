@@ -132,9 +132,6 @@ importers:
       libsodium-wrappers-sumo:
         specifier: ^0.8.2
         version: 0.8.2
-      neverthrow:
-        specifier: ^8.2.0
-        version: 8.2.0
       ora:
         specifier: ^9.3.0
         version: 9.3.0
@@ -184,9 +181,6 @@ importers:
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
-      neverthrow:
-        specifier: ^8.2.0
-        version: 8.2.0
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -230,9 +224,6 @@ importers:
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
-      neverthrow:
-        specifier: ^8.2.0
-        version: 8.2.0
     devDependencies:
       tsconfig:
         specifier: workspace:*
@@ -282,9 +273,6 @@ importers:
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
-      neverthrow:
-        specifier: ^8.2.0
-        version: 8.2.0
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -301,9 +289,6 @@ importers:
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
-      neverthrow:
-        specifier: ^8.2.0
-        version: 8.2.0
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -329,9 +314,6 @@ importers:
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
-      neverthrow:
-        specifier: ^8.2.0
-        version: 8.2.0
     devDependencies:
       tsconfig:
         specifier: workspace:*
@@ -360,9 +342,6 @@ importers:
       ccxt:
         specifier: ^4.5.40
         version: 4.5.40
-      neverthrow:
-        specifier: ^8.2.0
-        version: 8.2.0
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -373,6 +352,9 @@ importers:
 
   packages/http:
     dependencies:
+      '@exitbook/core':
+        specifier: workspace:*
+        version: link:../core
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
@@ -481,12 +463,12 @@ importers:
 
   packages/resilience:
     dependencies:
+      '@exitbook/core':
+        specifier: workspace:*
+        version: link:../core
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
-      neverthrow:
-        specifier: ^8.2.0
-        version: 8.2.0
     devDependencies:
       tsconfig:
         specifier: workspace:*
@@ -506,9 +488,6 @@ importers:
       kysely:
         specifier: ^0.28.11
         version: 0.28.11
-      neverthrow:
-        specifier: ^8.2.0
-        version: 8.2.0
     devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.13

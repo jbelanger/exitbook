@@ -1,4 +1,4 @@
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 
 import type { LinkableMovement } from '../pre-linking/types.js';
 import type { MatchingConfig, NewTransactionLink } from '../types.js';

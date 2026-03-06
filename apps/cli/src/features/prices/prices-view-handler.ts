@@ -2,9 +2,9 @@
 
 import type { UniversalTransactionData } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { ok } from '@exitbook/core';
 import { type DataContext } from '@exitbook/data';
-import type { Result } from 'neverthrow';
-import { ok } from 'neverthrow';
 
 import { getAllMovements } from '../shared/view-utils.js';
 

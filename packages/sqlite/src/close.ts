@@ -1,8 +1,8 @@
 import { wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Kysely } from 'kysely';
-import type { Result } from 'neverthrow';
-import { ok } from 'neverthrow';
 
 const logger = getLogger('SqliteDatabase');
 
@@ -14,7 +14,7 @@ export async function closeSqliteDatabase(db: Kysely<any>): Promise<Result<void,
   try {
     await db.destroy();
     logger.debug('Database connection closed');
-    return ok();
+    return ok(undefined);
   } catch (error) {
     logger.error({ error }, 'Error closing database');
     return wrapError(error, 'Failed to close database');

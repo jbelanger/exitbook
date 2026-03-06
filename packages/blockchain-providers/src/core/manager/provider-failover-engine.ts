@@ -1,11 +1,11 @@
 import { getErrorMessage, type CursorState } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { TtlCache } from '@exitbook/resilience/cache';
 import { CircuitBreakerRegistry, isCircuitOpen, type CircuitState } from '@exitbook/resilience/circuit-breaker';
 import { executeWithFailover } from '@exitbook/resilience/failover';
 import { buildProviderSelectionDebugInfo } from '@exitbook/resilience/provider-selection';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderEvent } from '../../events.js';
 import { getProviderKey, type ProviderStatsStore } from '../health/provider-stats-store.js';

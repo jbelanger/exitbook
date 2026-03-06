@@ -1,8 +1,8 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { PaginationCursor } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { ImportSessionRepository, RawTransactionRepository } from '@exitbook/data';
 import type { IExchangeClient, BalanceSnapshot } from '@exitbook/exchange-providers';
-import { errAsync, ok } from 'neverthrow';
 import { vi, type Mocked } from 'vitest';
 
 /**
@@ -12,7 +12,7 @@ import { vi, type Mocked } from 'vitest';
 export function createMockRawDataQueries(): Mocked<RawTransactionRepository> {
   return {
     findAll: vi.fn().mockResolvedValue(ok([])),
-    markProcessed: vi.fn().mockResolvedValue(ok()),
+    markProcessed: vi.fn().mockResolvedValue(ok(undefined)),
     createBatch: vi.fn().mockResolvedValue(ok({ inserted: 0, skipped: 0 })),
     resetProcessingStatus: vi.fn().mockResolvedValue(ok(0)),
     count: vi.fn().mockResolvedValue(ok(0)),
@@ -30,14 +30,14 @@ export function createMockRawDataQueries(): Mocked<RawTransactionRepository> {
 export function createMockImportSessionQueries(): Mocked<ImportSessionRepository> {
   return {
     create: vi.fn().mockResolvedValue(ok(1)),
-    finalize: vi.fn().mockResolvedValue(ok()),
-    findById: vi.fn().mockResolvedValue(ok()),
+    finalize: vi.fn().mockResolvedValue(ok(undefined)),
+    findById: vi.fn().mockResolvedValue(ok(undefined)),
     findAll: vi.fn().mockResolvedValue(ok([])),
     countByAccount: vi.fn().mockResolvedValue(ok(new Map())),
     findLatestIncomplete: vi.fn().mockResolvedValue(ok(undefined)),
-    update: vi.fn().mockResolvedValue(ok()),
+    update: vi.fn().mockResolvedValue(ok(undefined)),
     count: vi.fn().mockResolvedValue(ok(0)),
-    deleteBy: vi.fn().mockResolvedValue(ok()),
+    deleteBy: vi.fn().mockResolvedValue(ok(undefined)),
   } as unknown as Mocked<ImportSessionRepository>;
 }
 
@@ -91,7 +91,7 @@ export function createMockProviderManager(
       isHealthy: vi.fn().mockResolvedValue(true),
       rateLimit: { requestsPerSecond: 1 },
       executeStreaming: vi.fn(async function* () {
-        yield errAsync(new Error('Streaming not implemented in mock'));
+        yield err(new Error('Streaming not implemented in mock'));
       }),
       extractCursors: vi.fn((_transaction: unknown): PaginationCursor[] => []),
       applyReplayWindow: vi.fn((cursor: PaginationCursor): PaginationCursor => cursor),

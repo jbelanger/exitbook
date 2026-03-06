@@ -4,8 +4,8 @@
 
 import type { Currency } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 
 import type { PricesDB } from '../database.js';
 
@@ -102,7 +102,7 @@ export function createProviderQueries(db: PricesDB) {
         .where('id', '=', providerId)
         .execute();
 
-      return ok();
+      return ok(undefined);
     } catch (error) {
       return wrapError(error, `Failed to update provider sync`);
     }
@@ -137,7 +137,7 @@ export function createProviderQueries(db: PricesDB) {
           .execute();
       }
 
-      return ok();
+      return ok(undefined);
     } catch (error) {
       return wrapError(error, `Failed to upsert coin mappings`);
     }

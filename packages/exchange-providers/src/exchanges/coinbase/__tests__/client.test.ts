@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- needed by api response */
 import type { CursorState } from '@exitbook/core';
-import { err, ok } from 'neverthrow';
+import { err, ok } from '@exitbook/core';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import type { FetchBatchResult, IExchangeClient } from '../../../core/types.js';

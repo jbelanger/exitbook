@@ -1,5 +1,5 @@
 import type { AccountType, CursorState, ExchangeCredentials, RawTransactionInput } from '@exitbook/core';
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 
 /**
  * Canonical import parameters - single source of truth for all import operations.

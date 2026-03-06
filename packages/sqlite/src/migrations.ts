@@ -1,8 +1,8 @@
 import { isErrorWithMessage, wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Kysely, Migrator, type Migration } from 'kysely';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 const logger = getLogger('SqliteMigrations');
 
@@ -47,7 +47,7 @@ export async function runMigrations(
       return err(new Error(errorMessage));
     }
 
-    return ok();
+    return ok(undefined);
   } catch (error) {
     logger.error({ error }, 'Error running migrations');
     return wrapError(error, 'Failed to run migrations');

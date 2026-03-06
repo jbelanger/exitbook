@@ -5,9 +5,9 @@
  * and circuit breaker state across CLI runs
  */
 
+import type { Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { closeSqliteDatabase, createSqliteDatabase, runMigrations, type Kysely } from '@exitbook/sqlite';
-import type { Result } from 'neverthrow';
 
 import * as initialSchema from './migrations/001_initial_schema.js';
 import type { ProviderStatsDatabase } from './schema.js';

@@ -5,9 +5,9 @@ import {
   type LinkingRunResult,
 } from '@exitbook/accounting';
 import type { OverrideEvent } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext, OverrideStore } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
-import { err, ok, type Result } from 'neverthrow';
 
 import { LinkingStoreAdapter } from './linking-store-adapter.js';
 

@@ -1,11 +1,11 @@
 import { getErrorMessage, type CursorState, type TokenMetadataRecord } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
 import { TtlCache } from '@exitbook/resilience/cache';
 import { CircuitBreakerRegistry, type CircuitStatus } from '@exitbook/resilience/circuit-breaker';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import type { ProviderEvent } from '../../events.js';
 import type { ProviderStatsQueries } from '../../persistence/queries/provider-stats-queries.js';

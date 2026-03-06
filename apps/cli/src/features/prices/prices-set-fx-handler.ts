@@ -2,11 +2,11 @@
 // Uses ManualPriceService to save manual FX rate entries
 
 import { parseDecimal, type Currency } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { ManualPriceService } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 const logger = getLogger('PricesSetFxHandler');
 

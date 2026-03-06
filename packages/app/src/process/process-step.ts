@@ -1,4 +1,4 @@
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 
 import type { PipelineContext } from '../pipeline/pipeline-context.js';
 import type { DirtyCheckResult, PipelineStep, StepResult } from '../pipeline/pipeline-step.js';
@@ -12,11 +12,11 @@ import type { DirtyCheckResult, PipelineStep, StepResult } from '../pipeline/pip
 export class ProcessStep implements PipelineStep {
   readonly name = 'process';
   readonly dependsOn = ['clear'];
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/require-await -- will be there when implemented
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- will be there when implemented
   async isDirty(context: PipelineContext): Promise<Result<DirtyCheckResult, Error>> {
     throw new Error('Not implemented');
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/require-await -- will be there when implemented
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- will be there when implemented
   async execute(context: PipelineContext): Promise<Result<StepResult, Error>> {
     throw new Error('Not implemented');
   }

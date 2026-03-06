@@ -1,5 +1,5 @@
 import { isErrorWithMessage } from '@exitbook/core';
-import { type Result, err } from 'neverthrow';
+import { type Result, err } from '@exitbook/core';
 
 import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { validateOutput } from '../../../../core/index.js';

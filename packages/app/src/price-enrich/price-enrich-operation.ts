@@ -5,11 +5,11 @@ import {
   type PricesEnrichOptions,
   type PricesEnrichResult,
 } from '@exitbook/accounting';
+import type { Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector } from '@exitbook/observability';
 import type { PriceProviderManager } from '@exitbook/price-providers';
-import type { Result } from 'neverthrow';
 
 import { PricingStoreAdapter } from './pricing-store-adapter.js';
 

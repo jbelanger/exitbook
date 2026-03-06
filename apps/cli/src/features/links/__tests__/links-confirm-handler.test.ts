@@ -1,7 +1,7 @@
 import { type TransactionLink } from '@exitbook/accounting';
 import { parseDecimal, type Currency } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { DataContext, OverrideStore } from '@exitbook/data';
-import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { LinksConfirmHandler } from '../links-confirm-handler.js';

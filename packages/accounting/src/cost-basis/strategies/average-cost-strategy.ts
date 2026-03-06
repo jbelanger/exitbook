@@ -2,8 +2,8 @@
 // (Decimal.set() runs as side effect when @exitbook/core/utils/decimal-utils is loaded)
 // We use parseDecimal below to prevent tree-shaking from removing this critical import
 import { parseDecimal } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { AcquisitionLot, LotDisposal } from '../schemas.js';
 

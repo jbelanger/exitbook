@@ -1,5 +1,5 @@
 import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { applyTransactionFilters, type ViewTransactionsParams } from '../transactions-view-utils.js';

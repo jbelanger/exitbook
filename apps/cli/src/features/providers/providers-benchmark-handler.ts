@@ -1,7 +1,7 @@
 import type { BlockchainProviderManager, ProviderRegistry } from '@exitbook/blockchain-providers';
 import { loadExplorerConfig } from '@exitbook/blockchain-providers';
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { BenchmarkProgressEvent, BenchmarkResult } from './benchmark-tool.js';
 import { benchmarkRateLimit } from './benchmark-tool.js';

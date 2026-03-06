@@ -1,6 +1,6 @@
 import { buildExchangeAssetId, parseDecimal, type Currency } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { ProcessedTransaction } from '../../../shared/types/processors.js';
 

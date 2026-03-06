@@ -5,7 +5,7 @@
 
 import { type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
 import type { PaginationCursor } from '@exitbook/core';
-import { errAsync, okAsync } from 'neverthrow';
+import { err, ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
 import { consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
@@ -75,7 +75,7 @@ describe('CardanoImporter', () => {
         isHealthy: vi.fn().mockResolvedValue(true),
         rateLimit: { requestsPerSecond: 1 },
         executeStreaming: vi.fn(async function* () {
-          yield errAsync(new Error('Streaming not implemented in mock'));
+          yield err(new Error('Streaming not implemented in mock'));
         }),
         extractCursors: vi.fn((_transaction: unknown): PaginationCursor[] => []),
         applyReplayWindow: vi.fn((cursor: PaginationCursor): PaginationCursor => cursor),
@@ -125,7 +125,7 @@ describe('CardanoImporter', () => {
 
       // Mock streamAddressTransactions to return an async iterator
       mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-        yield okAsync({
+        yield ok({
           data: [{ normalized: mockNormalized, raw: mockCardanoTx }],
           providerName: 'blockfrost',
           cursor: {
@@ -178,7 +178,7 @@ describe('CardanoImporter', () => {
 
       // Mock streamAddressTransactions to return an async iterator with empty data
       mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-        yield okAsync({
+        yield ok({
           data: [],
           providerName: 'blockfrost',
           cursor: {
@@ -223,7 +223,7 @@ describe('CardanoImporter', () => {
 
       // Mock streamAddressTransactions to return an async iterator with multiple transactions
       mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-        yield okAsync({
+        yield ok({
           data: multipleTxs,
           providerName: 'blockfrost',
           cursor: {
@@ -263,7 +263,7 @@ describe('CardanoImporter', () => {
 
       // Mock streamAddressTransactions to return an async iterator that yields an error
       mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-        yield errAsync(
+        yield err(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'cardano',
           })

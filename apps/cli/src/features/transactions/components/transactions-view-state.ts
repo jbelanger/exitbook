@@ -3,7 +3,7 @@
  */
 
 import type { OperationCategory } from '@exitbook/core';
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 
 import type { CsvFormat, ExportFormat } from '../transactions-export-utils.js';
 

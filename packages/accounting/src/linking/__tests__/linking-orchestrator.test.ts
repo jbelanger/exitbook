@@ -1,8 +1,8 @@
 import { parseDecimal } from '@exitbook/core';
 import type { OverrideEvent } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { EventBus } from '@exitbook/events';
-import { err, ok } from 'neverthrow';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { LinkingStore } from '../../ports/linking-store.js';

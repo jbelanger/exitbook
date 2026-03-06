@@ -13,12 +13,12 @@
  * - Derive (2nd pass) calculates ratios and propagates prices using fetched/normalized data
  */
 
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector, type MetricsSummary } from '@exitbook/observability';
 import type { PriceProviderManager } from '@exitbook/price-providers';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import type { PricingStore } from '../ports/pricing-store.js';
 

@@ -1,5 +1,5 @@
-import { err, ok } from 'neverthrow';
-import type { Result } from 'neverthrow';
+import { err, ok } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
 
 /**
  * Branded string type for currency codes (e.g. 'USD', 'BTC', 'ETH')

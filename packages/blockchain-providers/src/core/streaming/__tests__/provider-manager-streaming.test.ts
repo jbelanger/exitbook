@@ -4,8 +4,8 @@
  */
 
 import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
-import type { Result } from 'neverthrow';
-import { err, okAsync } from 'neverthrow';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { BlockchainProviderManager } from '../../manager/provider-manager.js';
@@ -79,17 +79,17 @@ class MockProvider implements Partial<IBlockchainProvider> {
         yield err(new Error(`${this.name} failed at batch ${batchIndex}`));
         return;
       }
-      yield okAsync(batch as StreamingBatchResult<T>);
+      yield ok(batch as StreamingBatchResult<T>);
       batchIndex++;
     }
   }
 
   async execute<T>(): Promise<Result<T, Error>> {
-    return okAsync({} as T);
+    return ok({} as T);
   }
 
   async isHealthy() {
-    return okAsync(true);
+    return ok(true);
   }
 
   extractCursors(): PaginationCursor[] {

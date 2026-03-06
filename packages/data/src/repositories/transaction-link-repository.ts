@@ -9,8 +9,8 @@ import {
   type TransactionLink,
   wrapError,
 } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Selectable } from '@exitbook/sqlite';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { TransactionLinksTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';

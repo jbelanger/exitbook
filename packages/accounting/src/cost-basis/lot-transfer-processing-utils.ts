@@ -1,6 +1,6 @@
 import { parseDecimal, type AssetMovement, type PriceAtTxTime, type UniversalTransactionData } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { TransactionLink } from '../linking/types.js';
 

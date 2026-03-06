@@ -6,10 +6,10 @@
  * (e.g. bypassing the provider's rate limiter during benchmarking).
  */
 
+import type { Result } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/http';
 import { RateLimitError } from '@exitbook/http';
 import type { Logger } from '@exitbook/logger';
-import type { Result } from 'neverthrow';
 
 /**
  * Progress events emitted during rate limit benchmarking.

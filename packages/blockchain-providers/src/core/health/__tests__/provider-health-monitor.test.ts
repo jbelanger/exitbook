@@ -3,7 +3,7 @@
  * and multi-blockchain coverage.
  */
 
-import { err, ok } from 'neverthrow';
+import { err, ok } from '@exitbook/core';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import type { IBlockchainProvider } from '../../types/index.js';

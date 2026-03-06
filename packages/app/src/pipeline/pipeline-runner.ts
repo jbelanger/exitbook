@@ -1,4 +1,4 @@
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 
 import type { PipelineContext } from './pipeline-context.js';
 import type { PipelineStep, StepResult } from './pipeline-step.js';
@@ -13,7 +13,7 @@ export class PipelineRunner {
   register(step: PipelineStep): void {
     throw new Error('Not implemented');
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/require-await -- will be there when implemented
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- will be there when implemented
   async run(context: PipelineContext): Promise<Result<PipelineRunResult, Error>> {
     throw new Error('Not implemented');
   }

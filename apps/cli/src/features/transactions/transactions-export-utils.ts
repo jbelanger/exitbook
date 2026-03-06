@@ -3,8 +3,8 @@
 
 import type { TransactionLink } from '@exitbook/accounting';
 import type { FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { z } from 'zod';
 
 import type { ExportCommandOptionsSchema } from '../shared/schemas.js';

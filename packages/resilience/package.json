@@ -25,8 +25,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@exitbook/logger": "workspace:*",
-    "neverthrow": "^8.2.0"
+    "@exitbook/core": "workspace:*",
+    "@exitbook/logger": "workspace:*"
   },
   "devDependencies": {
     "tsconfig": "workspace:*"

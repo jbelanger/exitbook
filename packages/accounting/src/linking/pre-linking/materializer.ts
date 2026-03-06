@@ -1,7 +1,7 @@
 import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import { ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
-import { ok, type Result } from 'neverthrow';
 
 import { normalizeTransactionHash } from '../strategies/exact-hash-utils.js';
 import type { OutflowGrouping } from '../types.js';

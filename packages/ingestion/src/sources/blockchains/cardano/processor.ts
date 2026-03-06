@@ -1,6 +1,6 @@
 import { type CardanoTransaction, CardanoTransactionSchema } from '@exitbook/blockchain-providers';
-import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal } from '@exitbook/core';
-import { type Result, err, okAsync } from 'neverthrow';
+import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, ok, parseDecimal } from '@exitbook/core';
+import { type Result, err } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type {
@@ -242,7 +242,7 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
       );
     }
 
-    return okAsync(transactions);
+    return ok(transactions);
   }
 
   /**

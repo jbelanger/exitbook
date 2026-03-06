@@ -4,8 +4,8 @@
  */
 
 import { type CursorState, type PaginationCursor } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { type RateLimitConfig } from '@exitbook/http';
-import { err, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { createProviderRegistry } from '../../../initialize.js';
@@ -64,7 +64,7 @@ class MockProvider implements IBlockchainProvider {
 
   async isHealthy(): Promise<Result<boolean, Error>> {
     if (this.shouldFail) return err(new Error('Mock provider is unhealthy'));
-    return okAsync(true);
+    return ok(true);
   }
 
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(

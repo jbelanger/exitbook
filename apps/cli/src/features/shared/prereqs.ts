@@ -6,12 +6,12 @@ import {
 } from '@exitbook/accounting';
 import { ClearOperation, LinkOperation, PriceEnrichOperation } from '@exitbook/app';
 import { parseDecimal } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { type AdapterRegistry, type IngestionEvent, RawDataProcessingService } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
-import { err, ok, type Result } from 'neverthrow';
 
 import { createEventDrivenController } from '../../ui/shared/index.js';
 import { LinksRunMonitor } from '../links/components/links-run-components.jsx';
@@ -65,7 +65,7 @@ export async function ensureRawDataIsProcessed(
   if (rawAccountIdsResult.isErr()) return err(rawAccountIdsResult.error);
   if (rawAccountIdsResult.value.length === 0) {
     logger.info('No raw data found, skipping reprocess check');
-    return ok();
+    return ok(undefined);
   }
 
   const accountHashResult = await computeAccountHash(db);
@@ -99,7 +99,7 @@ export async function ensureRawDataIsProcessed(
 
   if (!isStale) {
     logger.info('Derived data is up to date, skipping reprocess');
-    return ok();
+    return ok(undefined);
   }
 
   logger.info({ reason }, 'Derived data is stale, reprocessing');
@@ -154,7 +154,7 @@ export async function ensureRawDataIsProcessed(
     });
     if (upsertResult.isErr()) return err(upsertResult.error);
 
-    return ok();
+    return ok(undefined);
   } finally {
     await cleanupProviderManager().catch((e) => {
       logger.warn({ e }, 'Failed to cleanup provider manager after reprocess');
@@ -179,7 +179,7 @@ export async function ensureLinks(
   const latestTx = latestTxResult.value;
   if (!latestTx) {
     logger.info('No transactions found, skipping link check');
-    return ok();
+    return ok(undefined);
   }
 
   const latestLinkResult = await db.transactionLinks.findLatestCreatedAt();
@@ -190,7 +190,7 @@ export async function ensureLinks(
   // Links are current if they exist and are newer than the latest transaction
   if (latestLink && latestLink >= latestTx) {
     logger.info('Transaction links are up to date, skipping');
-    return ok();
+    return ok(undefined);
   }
 
   logger.info(
@@ -212,7 +212,7 @@ export async function ensureLinks(
     const result = await operation.execute(params);
     if (result.isErr()) return err(result.error);
     logger.info('Linking completed (JSON mode)');
-    return ok();
+    return ok(undefined);
   }
 
   console.log('\nTransaction links are stale, running linking...\n');
@@ -244,7 +244,7 @@ export async function ensureLinks(
     }
 
     controller.complete();
-    return ok();
+    return ok(undefined);
   } catch (error) {
     const caughtError = error instanceof Error ? error : new Error(String(error));
     controller.fail(caughtError.message);
@@ -276,7 +276,7 @@ export async function ensurePrices(
   const filtered = filterTransactionsByDateRange(txResult.value, startDate, endDate);
   if (filtered.length === 0) {
     logger.info('No transactions in date range, skipping price check');
-    return ok();
+    return ok(undefined);
   }
 
   const priceCheck = validateTransactionPrices(filtered, currency);
@@ -286,7 +286,7 @@ export async function ensurePrices(
     logger.info('All transactions missing prices, running enrichment');
   } else if (priceCheck.value.missingPricesCount === 0) {
     logger.info('All prices present for date range, skipping enrichment');
-    return ok();
+    return ok(undefined);
   } else {
     logger.info(
       { missingPricesCount: priceCheck.value.missingPricesCount },
@@ -303,7 +303,7 @@ export async function ensurePrices(
       const result = await operation.execute({});
       if (result.isErr()) return err(result.error);
       logger.info('Price enrichment completed (JSON mode)');
-      return ok();
+      return ok(undefined);
     } finally {
       await priceManager.destroy().catch((cleanupErr) => {
         logger.warn({ cleanupErr }, 'Failed to destroy price manager after JSON enrichment');
@@ -349,7 +349,7 @@ export async function ensurePrices(
     }
 
     controller.complete();
-    return ok();
+    return ok(undefined);
   } catch (error) {
     const caughtError = error instanceof Error ? error : new Error(String(error));
     controller.fail(caughtError.message);

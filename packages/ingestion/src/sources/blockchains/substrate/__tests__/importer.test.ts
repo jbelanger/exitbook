@@ -9,7 +9,7 @@ import {
   type SubstrateChainConfig,
 } from '@exitbook/blockchain-providers';
 import type { Currency, PaginationCursor } from '@exitbook/core';
-import { errAsync, okAsync } from 'neverthrow';
+import { err, ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
 import { consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
@@ -92,7 +92,7 @@ describe('SubstrateImporter', () => {
    */
   const setupMockData = (data: unknown[] = [], providerName = 'subscan') => {
     mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-      yield okAsync({
+      yield ok({
         data,
         providerName,
         cursor: {
@@ -124,7 +124,7 @@ describe('SubstrateImporter', () => {
         name: 'subscan',
         rateLimit: { requestsPerSecond: 1 },
         executeStreaming: vi.fn(async function* () {
-          yield errAsync(new Error('Streaming not implemented in mock'));
+          yield err(new Error('Streaming not implemented in mock'));
         }),
         extractCursors: vi.fn((_transaction: unknown): PaginationCursor[] => []),
         applyReplayWindow: vi.fn((cursor: PaginationCursor): PaginationCursor => cursor),
@@ -339,7 +339,7 @@ describe('SubstrateImporter', () => {
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
       mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-        yield errAsync(
+        yield err(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'polkadot',
           })
@@ -392,7 +392,7 @@ describe('SubstrateImporter', () => {
       const address = '5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL';
 
       mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-        yield errAsync(
+        yield err(
           new ProviderError('Taostats API unavailable', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'bittensor',
           })
@@ -420,7 +420,7 @@ describe('SubstrateImporter', () => {
       });
 
       mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-        yield errAsync(providerError);
+        yield err(providerError);
       });
 
       const result = await consumeImportStream(importer, {
@@ -517,7 +517,7 @@ describe('SubstrateImporter', () => {
 
       mockProviderManager.streamAddressTransactions
         .mockImplementationOnce(async function* () {
-          yield okAsync({
+          yield ok({
             data: [{ raw: { original: 'dot-data' }, normalized: { ...mockSubstrateTx1, chainName: 'polkadot' } }],
             providerName: 'subscan',
             cursor: {
@@ -531,7 +531,7 @@ describe('SubstrateImporter', () => {
           });
         })
         .mockImplementationOnce(async function* () {
-          yield okAsync({
+          yield ok({
             data: [
               {
                 raw: { original: 'tao-data' },

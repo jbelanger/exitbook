@@ -1,5 +1,5 @@
+import { ok, type Result } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
-import { ok, type Result } from 'neverthrow';
 
 import { generateUniqueTransactionEventId, type NormalizationError } from '../../../core/index.js';
 import { withValidation } from '../../../core/index.js';

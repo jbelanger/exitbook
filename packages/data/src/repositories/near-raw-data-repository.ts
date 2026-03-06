@@ -1,9 +1,9 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
 import type { RawTransaction } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Selectable } from '@exitbook/sqlite';
 import { sql } from '@exitbook/sqlite';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { RawTransactionTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';

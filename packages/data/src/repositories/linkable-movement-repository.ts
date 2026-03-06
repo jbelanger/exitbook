@@ -1,8 +1,8 @@
 /* eslint-disable unicorn/no-null -- null needed by Kysely */
 import { CurrencySchema, DecimalSchema, wrapError } from '@exitbook/core';
 import type { LinkableMovement, NewLinkableMovement } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Selectable } from '@exitbook/sqlite';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { LinkableMovementsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';

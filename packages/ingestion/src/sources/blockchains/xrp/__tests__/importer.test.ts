@@ -9,7 +9,7 @@ import {
   ProviderError,
 } from '@exitbook/blockchain-providers';
 import { getXrpChainConfig } from '@exitbook/blockchain-providers';
-import { errAsync, okAsync } from 'neverthrow';
+import { err, ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { consumeImportStream, type ProviderManagerMock } from '../../../../shared/test-utils/importer-test-utils.js';
@@ -72,7 +72,7 @@ describe('XrpImporter', () => {
 
   test('successfully fetches transactions', async () => {
     mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-      yield okAsync({
+      yield ok({
         data: [{ normalized: mockXrpTx, raw: {} }],
         cursor: {
           primary: { type: 'pageToken' as const, value: 'marker1', providerName: 'xrpl-rpc' },
@@ -112,7 +112,7 @@ describe('XrpImporter', () => {
 
   test('handles provider errors', async () => {
     mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-      yield errAsync(new ProviderError('API error', 'NO_PROVIDERS'));
+      yield err(new ProviderError('API error', 'NO_PROVIDERS'));
     });
 
     const result = await consumeImportStream(importer, {
@@ -137,7 +137,7 @@ describe('XrpImporter', () => {
 
   test('handles multiple batches', async () => {
     mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-      yield okAsync({
+      yield ok({
         data: [{ normalized: mockXrpTx, raw: {} }],
         cursor: {
           primary: { type: 'pageToken' as const, value: 'marker1', providerName: 'xrpl-rpc' },
@@ -152,7 +152,7 @@ describe('XrpImporter', () => {
           yielded: 1,
         },
       });
-      yield okAsync({
+      yield ok({
         data: [{ normalized: { ...mockXrpTx, id: 'tx2def', eventId: '0xeventid2' }, raw: {} }],
         cursor: {
           primary: { type: 'pageToken' as const, value: 'marker2', providerName: 'xrpl-rpc' },
@@ -190,7 +190,7 @@ describe('XrpImporter', () => {
     };
 
     mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-      yield okAsync({
+      yield ok({
         data: [{ normalized: mockXrpTx, raw: {} }],
         cursor: {
           primary: { type: 'pageToken' as const, value: 'marker1', providerName: 'xrpl-rpc' },

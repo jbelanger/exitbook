@@ -5,10 +5,10 @@
  */
 
 import { wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { closeSqliteDatabase, createSqliteDatabase, runMigrations, type Kysely } from '@exitbook/sqlite';
-import type { Result } from 'neverthrow';
-import { ok } from 'neverthrow';
 
 import * as initialSchema from './migrations/001_initial_schema.js';
 import type { PricesDatabase } from './schema.js';
@@ -62,7 +62,7 @@ export async function clearPricesDatabase(db: Kysely<PricesDatabase>): Promise<R
     }
 
     logger.info('Prices database cleared successfully');
-    return ok();
+    return ok(undefined);
   } catch (error) {
     logger.error({ error }, 'Error clearing prices database');
     return wrapError(error, 'Failed to clear prices database');

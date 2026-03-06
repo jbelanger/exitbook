@@ -4,8 +4,8 @@
  */
 
 import { wrapError } from '@exitbook/core';
-import type { Result } from 'neverthrow';
-import { ok } from 'neverthrow';
+import type { Result } from '@exitbook/core';
+import { ok } from '@exitbook/core';
 
 import type { ProviderStatsDB } from '../database.js';
 import type { ProviderStatsRow } from '../provider-stats-utils.js';
@@ -92,7 +92,7 @@ export function createProviderStatsQueries(db: ProviderStatsDB) {
         )
         .execute();
 
-      return ok();
+      return ok(undefined);
     } catch (error) {
       return wrapError(error, `Failed to upsert provider stats for ${input.blockchain}/${input.providerName}`);
     }
@@ -155,7 +155,7 @@ export function createProviderStatsQueries(db: ProviderStatsDB) {
   async function clear(): Promise<Result<void, Error>> {
     try {
       await db.deleteFrom('provider_stats').execute();
-      return ok();
+      return ok(undefined);
     } catch (error) {
       return wrapError(error, 'Failed to clear provider stats');
     }

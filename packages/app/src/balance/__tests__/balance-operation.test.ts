@@ -5,8 +5,8 @@ import type {
 } from '@exitbook/blockchain-providers';
 import type { Account, Currency, ImportSession, UniversalTransactionData, VerificationMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import { err, ok, type Result } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BalanceOperation } from '../balance-operation.js';

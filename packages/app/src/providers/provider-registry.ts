@@ -1,5 +1,5 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 
 export interface ProviderConfig {
   apiKeys: Record<string, string>;
@@ -15,11 +15,11 @@ export class ProviderRegistry {
   private blockchainManager: BlockchainProviderManager | undefined;
 
   constructor(private readonly config: ProviderConfig) {}
-  // eslint-disable-next-line @typescript-eslint/require-await -- will be there when implemented
+
   async getBlockchainManager(): Promise<Result<BlockchainProviderManager, Error>> {
     throw new Error('Not implemented');
   }
-  // eslint-disable-next-line @typescript-eslint/require-await -- will be there when implemented
+
   async close(): Promise<void> {
     throw new Error('Not implemented');
   }

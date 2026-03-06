@@ -3,7 +3,7 @@
  * Pure function tests — mocks only for side-effect callbacks
  */
 
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CircuitBreakerRegistry } from '../../circuit-breaker/registry.js';

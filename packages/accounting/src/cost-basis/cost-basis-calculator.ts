@@ -1,7 +1,7 @@
 import { type UniversalTransactionData, wrapError } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { CostBasisConfig } from './cost-basis-config.js';
 import { assertPriceDataQuality } from './cost-basis-validation-utils.js';

@@ -5,7 +5,7 @@
  */
 
 import type { Currency } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import { CoinNotFoundError } from '../../core/errors.js';
 import type { PriceData } from '../../core/types.js';

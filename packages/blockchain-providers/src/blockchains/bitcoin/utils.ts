@@ -1,8 +1,8 @@
 import { getErrorMessage, parseDecimal, wrapError } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
-import { err, ok, type Result } from 'neverthrow';
 
 import { generateUniqueTransactionEventId } from '../../core/index.js';
 import type { BlockchainProviderManager } from '../../core/manager/provider-manager.js';
@@ -281,7 +281,7 @@ export async function initializeBitcoinXpubWallet(
       return err(scanResult.error);
     }
 
-    return ok();
+    return ok(undefined);
   } catch (error) {
     const errorMessage = getErrorMessage(error, 'Unknown error');
     logger.error(
@@ -318,7 +318,7 @@ export async function performBitcoinAddressGapScanning(
   gapLimit = 20
 ): Promise<Result<void, Error>> {
   const allDerived = walletAddress.derivedAddresses || [];
-  if (allDerived.length === 0) return ok();
+  if (allDerived.length === 0) return ok(undefined);
 
   const result = await performAddressGapScanning(
     { blockchain, derivedAddresses: allDerived, gapLimit },
@@ -328,7 +328,7 @@ export async function performBitcoinAddressGapScanning(
   if (result.isErr()) return err(result.error);
 
   walletAddress.derivedAddresses = result.value.addresses;
-  return ok();
+  return ok(undefined);
 }
 
 /**

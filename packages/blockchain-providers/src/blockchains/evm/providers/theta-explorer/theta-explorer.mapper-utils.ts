@@ -1,6 +1,6 @@
 import { parseDecimal } from '@exitbook/core';
+import { type Result, ok, err } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-import { type Result, ok, err } from 'neverthrow';
 
 import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { withValidation } from '../../../../core/index.js';

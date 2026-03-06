@@ -1,6 +1,6 @@
 import { buildExchangeAssetId, parseDecimal } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { LedgerEntryWithRaw } from '../shared/strategies/grouping.js';
 import type {

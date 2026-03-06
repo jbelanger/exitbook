@@ -7,9 +7,9 @@
 
 import type { Currency } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { PriceProviderManager } from '@exitbook/price-providers';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import type { FxRateData, IFxRateProvider } from './types.js';
 

@@ -1,7 +1,7 @@
 // Shared types and utilities for view commands
 
 import type { AssetMovement, UniversalTransactionData } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 /**
  * Common filter options across view subcommands.

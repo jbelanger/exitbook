@@ -4,8 +4,7 @@ import type { CosmosTransaction } from '@exitbook/blockchain-providers';
  * Tests the import pattern across multiple Cosmos SDK chains
  */
 import { type BlockchainProviderManager, type CosmosChainConfig, ProviderError } from '@exitbook/blockchain-providers';
-import type { Currency } from '@exitbook/core';
-import { errAsync, okAsync } from 'neverthrow';
+import { err, ok, type Currency } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
@@ -77,7 +76,7 @@ describe('CosmosImporter', () => {
    */
   const setupMockData = (data: unknown[] = [], providerName = 'injective-explorer') => {
     mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-      yield okAsync({
+      yield ok({
         data,
         providerName,
         cursor: {
@@ -255,7 +254,7 @@ describe('CosmosImporter', () => {
       const address = 'inj1abc123def456ghi789';
 
       mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-        yield errAsync(
+        yield err(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'injective',
           })

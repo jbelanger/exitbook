@@ -7,11 +7,11 @@
 
 import type { Currency } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import { HttpClient } from '@exitbook/http';
 import type { InstrumentationCollector } from '@exitbook/observability';
 import type { Decimal } from 'decimal.js';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import type { PriceData, PriceQuery } from './types.js';
 

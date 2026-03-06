@@ -1,7 +1,7 @@
 import type { BlockchainProviderManager, EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 import type { Currency } from '@exitbook/core';
-import { ok } from 'neverthrow';
+import { ok } from '@exitbook/core';
 import { describe, expect, test, vi } from 'vitest';
 
 import { EvmProcessor } from '../processor.js';

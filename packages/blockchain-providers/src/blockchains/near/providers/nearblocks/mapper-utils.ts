@@ -7,10 +7,10 @@
 
 import { createHash } from 'node:crypto';
 
+import type { Result } from '@exitbook/core';
+import { ok, err } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
-import type { Result } from 'neverthrow';
-import { ok, err } from 'neverthrow';
 
 import type {
   NearTransaction,

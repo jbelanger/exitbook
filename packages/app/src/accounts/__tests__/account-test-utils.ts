@@ -1,7 +1,7 @@
 import type { Account, AccountType, ImportSession } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import type { Result } from 'neverthrow';
-import { ok } from 'neverthrow';
 import { vi } from 'vitest';
 
 export function createMockAccount(

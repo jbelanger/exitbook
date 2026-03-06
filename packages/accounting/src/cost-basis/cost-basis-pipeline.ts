@@ -1,6 +1,6 @@
 import { type UniversalTransactionData } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { CostBasisStore } from '../ports/cost-basis-store.js';
 

@@ -4,7 +4,7 @@
  */
 
 import { type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
-import { errAsync, okAsync } from 'neverthrow';
+import { err, ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
@@ -42,7 +42,7 @@ describe('SolanaImporter', () => {
   const setupMockData = (normalData: unknown[] = [], tokenData: unknown[] = []) => {
     mockProviderManager.streamAddressTransactions.mockImplementation(async function* (_blockchain, _address, options) {
       const data = options?.streamType === 'normal' ? normalData : tokenData;
-      yield okAsync({
+      yield ok({
         data,
         providerName: 'helius',
         cursor: {
@@ -194,7 +194,7 @@ describe('SolanaImporter', () => {
       const address = 'user1111111111111111111111111111111111111111';
 
       mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-        yield errAsync(
+        yield err(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'solana',
           })

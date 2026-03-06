@@ -4,8 +4,8 @@ import {
   SolanaTransactionSchema,
 } from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal, type Currency } from '@exitbook/core';
+import { type Result, err, ok } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
-import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type {
@@ -219,7 +219,7 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
       );
     }
 
-    return okAsync(transactions);
+    return ok(transactions);
   }
 
   /**
@@ -228,7 +228,7 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
    */
   private async enrichTokenMetadata(transactions: SolanaTransaction[]): Promise<Result<void, Error>> {
     const tokenChanges = transactions.flatMap((tx) => tx.tokenChanges?.filter((c) => !!c.mint) ?? []);
-    if (tokenChanges.length === 0 || !this.providerManager) return ok();
+    if (tokenChanges.length === 0 || !this.providerManager) return ok(undefined);
 
     const addresses = [...new Set(tokenChanges.map((c) => c.mint))];
     const result = await this.providerManager.getTokenMetadata('solana', addresses);
@@ -247,7 +247,7 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
         }
       }
     }
-    return ok();
+    return ok(undefined);
   }
 
   /**

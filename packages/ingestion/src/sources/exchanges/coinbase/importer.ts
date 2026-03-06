@@ -1,6 +1,6 @@
+import { err, ok, type Result } from '@exitbook/core';
 import { createCoinbaseClient } from '@exitbook/exchange-providers';
 import { getLogger, type Logger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { IImporter, ImportBatchResult, StreamingImportParams } from '../../../shared/types/importers.js';
 

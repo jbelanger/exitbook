@@ -1,5 +1,5 @@
 import { isValidNearAccountId } from '@exitbook/blockchain-providers';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 // NEAR accounts are case-sensitive — preserve original casing.
 export function normalizeNearAddress(address: string): Result<string, Error> {

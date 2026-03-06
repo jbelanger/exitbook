@@ -1,5 +1,5 @@
 import { isValidEvmAddress, normalizeEvmAddress as applyNormalization } from '@exitbook/blockchain-providers';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 export function normalizeEvmAddress(address: string, chainName: string): Result<string, Error> {
   const normalized = applyNormalization(address);

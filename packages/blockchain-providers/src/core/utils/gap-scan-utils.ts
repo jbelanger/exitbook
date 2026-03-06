@@ -1,5 +1,5 @@
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { BlockchainProviderManager } from '../manager/provider-manager.js';
 

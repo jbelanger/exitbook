@@ -1,10 +1,10 @@
 import type { PriceEvent } from '@exitbook/accounting';
 import { PriceEnrichOperation, type PricesEnrichOptions, type PricesEnrichResult } from '@exitbook/app';
+import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
-import { err, ok, type Result } from 'neverthrow';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
 import type { CommandContext } from '../shared/command-runtime.js';

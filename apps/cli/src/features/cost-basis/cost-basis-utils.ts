@@ -1,5 +1,5 @@
 import { buildCostBasisParams, type CostBasisInput } from '@exitbook/accounting';
-import { err, type Result } from 'neverthrow';
+import { err, type Result } from '@exitbook/core';
 
 /**
  * CLI options for cost-basis command

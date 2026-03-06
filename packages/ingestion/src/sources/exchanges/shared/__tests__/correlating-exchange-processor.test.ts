@@ -1,5 +1,5 @@
 import type { Currency } from '@exitbook/core';
-import { ok, type Result } from 'neverthrow';
+import { ok, type Result } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import { CorrelatingExchangeProcessor } from '../correlating-exchange-processor.js';

@@ -1,7 +1,7 @@
 import { parseCurrency } from '@exitbook/core';
+import { err, type Result } from '@exitbook/core';
 import type { KrakenLedgerEntry } from '@exitbook/exchange-providers';
 import { normalizeKrakenAsset } from '@exitbook/exchange-providers';
-import { err, type Result } from 'neverthrow';
 
 import { CorrelatingExchangeProcessor } from '../shared/correlating-exchange-processor.js';
 import type { ExchangeLedgerEntry } from '../shared/schemas.js';

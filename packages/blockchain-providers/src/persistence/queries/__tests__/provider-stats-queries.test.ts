@@ -1,4 +1,4 @@
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { type ProviderStatsDB, createProviderStatsDatabase, initializeProviderStatsDatabase } from '../../database.js';

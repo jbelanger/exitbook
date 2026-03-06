@@ -1,7 +1,7 @@
 import { ProcessOperation } from '@exitbook/app';
+import { ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import type { RawDataProcessingService } from '@exitbook/ingestion';
-import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 describe('ProcessOperation', () => {

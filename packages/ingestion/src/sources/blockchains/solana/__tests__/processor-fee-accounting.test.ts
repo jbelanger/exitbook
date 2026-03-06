@@ -1,5 +1,5 @@
 import type { BlockchainProviderManager, SolanaTransaction } from '@exitbook/blockchain-providers';
-import { ok } from 'neverthrow';
+import { ok } from '@exitbook/core';
 import { describe, expect, test, vi } from 'vitest';
 
 import { SolanaProcessor } from '../processor.js';

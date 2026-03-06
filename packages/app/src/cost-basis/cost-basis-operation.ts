@@ -13,10 +13,10 @@ import {
   type LotTransfer,
 } from '@exitbook/accounting';
 import { type Currency, type UniversalTransactionData } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { PriceProviderManager } from '@exitbook/price-providers';
-import { err, ok, type Result } from 'neverthrow';
 
 import { CostBasisStoreAdapter } from './cost-basis-store-adapter.js';
 

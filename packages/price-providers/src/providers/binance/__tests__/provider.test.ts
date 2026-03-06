@@ -1,5 +1,5 @@
+import { err, ok } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/http';
-import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -73,8 +73,8 @@ describe('BinanceProvider', () => {
     httpClient = { get: httpClientGet } as unknown as HttpClient;
 
     priceRepoMocks = {
-      getPrice: vi.fn().mockResolvedValue(ok()),
-      savePrice: vi.fn().mockResolvedValue(ok()),
+      getPrice: vi.fn().mockResolvedValue(ok(undefined)),
+      savePrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
     priceQueries = priceRepoMocks as unknown as PriceQueries;
 

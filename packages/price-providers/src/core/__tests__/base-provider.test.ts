@@ -1,7 +1,7 @@
 import { type Currency, parseDecimal } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/http';
-import { err, ok } from 'neverthrow';
-import type { Result } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PriceQueries } from '../../persistence/queries/price-queries.js';
@@ -268,7 +268,7 @@ describe('BasePriceProvider', () => {
     });
 
     it('should return undefined when cache miss', async () => {
-      priceQueriesMocks.getPrice.mockResolvedValue(ok());
+      priceQueriesMocks.getPrice.mockResolvedValue(ok(undefined));
 
       const fetchImpl = vi.fn();
       const provider = new TestPriceProvider(priceQueries, fetchImpl);
@@ -312,7 +312,7 @@ describe('BasePriceProvider', () => {
 
   describe('saveToCache', () => {
     it('should save price data to cache', async () => {
-      priceQueriesMocks.savePrice.mockResolvedValue(ok());
+      priceQueriesMocks.savePrice.mockResolvedValue(ok(undefined));
 
       const fetchImpl = vi.fn();
       const provider = new TestPriceProvider(priceQueries, fetchImpl);

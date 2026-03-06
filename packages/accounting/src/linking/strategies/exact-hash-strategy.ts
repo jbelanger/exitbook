@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import { ok, type Result } from 'neverthrow';
+import { ok, type Result } from '@exitbook/core';
 
 import { createTransactionLink } from '../link-construction.js';
 import type { LinkableMovement } from '../pre-linking/types.js';

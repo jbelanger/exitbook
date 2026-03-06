@@ -1,8 +1,8 @@
 import type { Account } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { EventSink } from '../pipeline/pipeline-context.js';
 

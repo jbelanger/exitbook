@@ -1,5 +1,5 @@
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 import { Agent, fetch as undiciFetch } from 'undici';
 import type { ZodType } from 'zod';
 
@@ -507,7 +507,7 @@ export class HttpClient {
         if (canProceed) {
           // Consume token and record timestamp
           this.rateLimitState = RateLimitCore.consumeToken(this.rateLimitState, now);
-          return ok();
+          return ok(undefined);
         }
 
         // Calculate wait time

@@ -4,9 +4,9 @@
  */
 
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/http';
 import type { Logger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import { deduplicateTransactionHashes } from '../../receipt-utils.js';
 

@@ -1,5 +1,5 @@
+import type { Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
-import type { Result } from 'neverthrow';
 
 import type { CircuitState, CircuitStatus } from '../circuit-breaker/types.js';
 import type { IProvider } from '../provider-health/types.js';

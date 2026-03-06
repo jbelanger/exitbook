@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
-/* eslint-disable @typescript-eslint/require-await -- Acceptable for tests */
+
+import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import * as dataModule from '@exitbook/data';
-import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CommandContext, runCommand } from '../command-runtime.js';

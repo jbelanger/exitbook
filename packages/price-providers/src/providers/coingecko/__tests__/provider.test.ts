@@ -1,5 +1,5 @@
+import { ok } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/http';
-import { ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCanUseSimplePrice, mockTransformSimplePriceResponse, mockTransformHistoricalResponse } = vi.hoisted(() => ({
@@ -68,15 +68,15 @@ describe('CoinGeckoProvider', () => {
     providerRepoMocks = {
       getCoinIdForSymbol: vi.fn().mockResolvedValue(ok('bitcoin')),
       needsCoinListSync: vi.fn().mockResolvedValue(ok(true)),
-      updateProviderSync: vi.fn().mockResolvedValue(ok()),
-      upsertCoinMappings: vi.fn().mockResolvedValue(ok()),
+      updateProviderSync: vi.fn().mockResolvedValue(ok(undefined)),
+      upsertCoinMappings: vi.fn().mockResolvedValue(ok(undefined)),
       upsertProvider: vi.fn().mockResolvedValue(ok({ id: 1 } as const)),
     };
     providerRepo = providerRepoMocks as unknown as ProviderQueries;
 
     priceRepoMocks = {
-      getPrice: vi.fn().mockResolvedValue(ok()),
-      savePrice: vi.fn().mockResolvedValue(ok()),
+      getPrice: vi.fn().mockResolvedValue(ok(undefined)),
+      savePrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
     priceQueries = priceRepoMocks as unknown as PriceQueries;
 
@@ -222,8 +222,8 @@ describe('CoinGeckoProvider', () => {
   });
 
   it('returns an error when no coin mapping exists for the asset', async () => {
-    priceRepoMocks.getPrice.mockResolvedValueOnce(ok());
-    providerRepoMocks.getCoinIdForSymbol.mockResolvedValueOnce(ok());
+    priceRepoMocks.getPrice.mockResolvedValueOnce(ok(undefined));
+    providerRepoMocks.getCoinIdForSymbol.mockResolvedValueOnce(ok(undefined));
     mockCanUseSimplePrice.mockReturnValue(true);
 
     const result = await provider.fetchPrice({

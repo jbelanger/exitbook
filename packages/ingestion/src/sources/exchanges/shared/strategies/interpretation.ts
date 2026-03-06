@@ -1,5 +1,5 @@
 import { buildExchangeAssetId, parseDecimal } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import type { LedgerEntryWithRaw } from './grouping.js';
 

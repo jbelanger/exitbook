@@ -1,8 +1,8 @@
 /* eslint-disable unicorn/no-null -- null required for db */
 import type { ImportSession, ImportSessionStatus } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Selectable, Updateable } from '@exitbook/sqlite';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { ImportSessionsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
@@ -89,7 +89,7 @@ export class ImportSessionRepository extends BaseRepository {
         })
         .where('id', '=', sessionId)
         .execute();
-      return ok();
+      return ok(undefined);
     } catch (error) {
       return wrapError(error, 'Failed to finalize import session');
     }
@@ -214,12 +214,12 @@ export class ImportSessionRepository extends BaseRepository {
 
       const hasChanges = Object.keys(updateData).length > 1;
       if (!hasChanges) {
-        return ok();
+        return ok(undefined);
       }
 
       await this.db.updateTable('import_sessions').set(updateData).where('id', '=', sessionId).execute();
 
-      return ok();
+      return ok(undefined);
     } catch (error) {
       this.logger.error({ error, sessionId }, 'Failed to update import session');
       return wrapError(error, 'Failed to update import session');
@@ -253,7 +253,7 @@ export class ImportSessionRepository extends BaseRepository {
       }
 
       await query.execute();
-      return ok();
+      return ok(undefined);
     } catch (error) {
       return wrapError(error, 'Failed to delete import sessions');
     }

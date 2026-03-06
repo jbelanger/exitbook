@@ -3,11 +3,11 @@
  */
 
 import { type Currency, wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/http';
 import { HttpError } from '@exitbook/http';
 import type { InstrumentationCollector } from '@exitbook/observability';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import { BasePriceProvider } from '../../core/base-provider.js';
 import type { ProviderRateLimitConfig } from '../../core/utils.js';
@@ -183,7 +183,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
     if (result.isErr()) {
       return err(result.error);
     }
-    return ok();
+    return ok(undefined);
   }
 
   /**

@@ -1,4 +1,4 @@
-import { ok, type Result } from 'neverthrow';
+import { ok, type Result } from '@exitbook/core';
 
 import { createTransactionLink } from '../link-construction.js';
 import { allocateMatches } from '../match-allocation.js';

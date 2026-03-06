@@ -1,8 +1,8 @@
 import type { CardanoTransaction } from '@exitbook/blockchain-providers';
 import { isZeroDecimal, parseDecimal, type Currency } from '@exitbook/core';
+import { type Result, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
-import { type Result, ok } from 'neverthrow';
 
 import type { AddressContext } from '../../../shared/types/processors.js';
 

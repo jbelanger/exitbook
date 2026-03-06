@@ -1,6 +1,6 @@
 import { type XrpChainConfig, type XrpTransaction, XrpTransactionSchema } from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, parseDecimal, type Currency } from '@exitbook/core';
-import { type Result, err, okAsync } from 'neverthrow';
+import { type Result, err, ok } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
@@ -165,6 +165,6 @@ export class XrpProcessor extends BaseTransactionProcessor<XrpTransaction> {
       );
     }
 
-    return okAsync(transactions);
+    return ok(transactions);
   }
 }

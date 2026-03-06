@@ -1,7 +1,7 @@
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import { DataContext, type OverrideStore } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import { writeUnlinkOverrideEvent } from './links-override-utils.js';
 import { getDefaultReviewer, validateLinkStatusForReject } from './links-utils.js';

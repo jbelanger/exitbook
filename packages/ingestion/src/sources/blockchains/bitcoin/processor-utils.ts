@@ -1,7 +1,7 @@
 import type { BitcoinTransaction } from '@exitbook/blockchain-providers';
 import { satoshisToBtcString } from '@exitbook/blockchain-providers';
+import { type Result, ok } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
-import { type Result, ok } from 'neverthrow';
 
 import type { AddressContext } from '../../../shared/types/processors.js';
 

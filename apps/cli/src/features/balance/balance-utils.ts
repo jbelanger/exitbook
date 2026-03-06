@@ -1,5 +1,5 @@
 import type { ExchangeCredentials } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 /**
  * Get exchange credentials from environment variables.

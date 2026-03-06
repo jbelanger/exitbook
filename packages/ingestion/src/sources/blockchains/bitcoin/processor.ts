@@ -3,8 +3,8 @@ import {
   type BitcoinTransaction,
   BitcoinTransactionSchema,
 } from '@exitbook/blockchain-providers';
-import { buildBlockchainNativeAssetId, parseDecimal, type Currency } from '@exitbook/core';
-import { type Result, err, okAsync } from 'neverthrow';
+import { buildBlockchainNativeAssetId, ok, parseDecimal, type Currency } from '@exitbook/core';
+import { type Result, err } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
@@ -172,6 +172,6 @@ export class BitcoinProcessor extends BaseTransactionProcessor<BitcoinTransactio
       );
     }
 
-    return okAsync(transactions);
+    return ok(transactions);
   }
 }

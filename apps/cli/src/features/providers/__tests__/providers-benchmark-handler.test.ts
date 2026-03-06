@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 import { loadExplorerConfig, type ProviderRegistry } from '@exitbook/blockchain-providers';
-import { ok } from 'neverthrow';
+import { ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { benchmarkRateLimit } from '../benchmark-tool.js';

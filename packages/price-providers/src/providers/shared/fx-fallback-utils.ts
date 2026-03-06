@@ -1,5 +1,5 @@
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 
 export interface BusinessDayFallbackContext {
   attemptIndex: number;

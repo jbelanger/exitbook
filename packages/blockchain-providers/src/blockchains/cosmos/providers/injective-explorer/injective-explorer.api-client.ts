@@ -1,7 +1,7 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { HttpClient } from '@exitbook/http';
-import { err, ok, type Result } from 'neverthrow';
 
 import type {
   NormalizedTransactionBase,

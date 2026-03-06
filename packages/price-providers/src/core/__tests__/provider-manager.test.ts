@@ -8,8 +8,8 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 
 import { type Currency, parseDecimal } from '@exitbook/core';
-import type { Result } from 'neverthrow';
-import { err, ok, okAsync } from 'neverthrow';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PriceProviderManager } from '../provider-manager.js';
@@ -66,9 +66,7 @@ describe('PriceProviderManager', () => {
 
     return {
       name,
-      fetchPrice: vi.fn(async () =>
-        Promise.resolve(options.fetchPriceResult || (ok(defaultPrice) as Result<PriceData, Error>))
-      ),
+      fetchPrice: vi.fn(async () => Promise.resolve(options.fetchPriceResult || ok(defaultPrice))),
       getMetadata: () => ({
         capabilities: {
           supportedAssetTypes: ['crypto'],
@@ -333,7 +331,7 @@ describe('PriceProviderManager', () => {
             return ok(btcInUsdt);
           }
           if (query.assetSymbol.toString() === 'USDT') {
-            return okAsync(usdtInUsd);
+            return ok(usdtInUsd);
           }
           return err(new Error('Unknown asset'));
         }),
@@ -427,7 +425,7 @@ describe('PriceProviderManager', () => {
         name: 'test',
         fetchPrice: vi.fn(async (query: PriceQuery) => {
           if (query.assetSymbol.toString() === 'BTC') {
-            return okAsync(btcInUsdc);
+            return ok(btcInUsdc);
           }
           if (query.assetSymbol.toString() === 'USDC') {
             return err(new Error('USDC rate not available'));

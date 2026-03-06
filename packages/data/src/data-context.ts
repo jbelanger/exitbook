@@ -1,6 +1,6 @@
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import type { KyselyDB } from './database.js';
 import { closeDatabase, initializeDatabase } from './database.js';
@@ -55,7 +55,7 @@ export class DataContext {
   /**
    * Execute a callback inside a single DB transaction (Unit of Work).
    * The callback receives a transaction-scoped DataContext whose repos
-   * are all bound to the same transaction. Commits on ok(), rolls back on err() or throw.
+   * are all bound to the same transaction. Commits on ok(undefined), rolls back on err() or throw.
    */
   async executeInTransaction<T>(fn: (tx: DataContext) => Promise<Result<T, Error>>): Promise<Result<T, Error>> {
     return withControlledTransaction(

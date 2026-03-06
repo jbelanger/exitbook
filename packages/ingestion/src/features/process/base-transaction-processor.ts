@@ -1,8 +1,8 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { TokenMetadataRecord } from '@exitbook/core';
+import { type Result, err, ok } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
-import { type Result, err, ok } from 'neverthrow';
 import type { z } from 'zod';
 
 import type { ITransactionProcessor, AddressContext, ProcessedTransaction } from '../../shared/types/processors.js';

@@ -3,12 +3,12 @@ import path from 'node:path';
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ExchangeCredentials, ImportSession } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import type { AdapterRegistry, IImporter, ImportEvent, StreamingImportParams } from '@exitbook/ingestion';
 import { isUtxoAdapter, type UtxoBlockchainAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import type { EventSink } from '../pipeline/pipeline-context.js';
 

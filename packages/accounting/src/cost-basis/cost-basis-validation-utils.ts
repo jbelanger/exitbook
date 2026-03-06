@@ -1,6 +1,6 @@
 import { isFiat, type Currency, type UniversalTransactionData } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 const logger = getLogger('cost-basis-validation-utils');
 
@@ -342,5 +342,5 @@ export function assertPriceDataQuality(transactions: UniversalTransactionData[])
     return err(new Error(formatValidationError(result)));
   }
 
-  return ok();
+  return ok(undefined);
 }

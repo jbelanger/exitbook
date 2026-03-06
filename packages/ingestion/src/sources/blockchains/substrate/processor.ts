@@ -4,7 +4,7 @@ import {
   SubstrateTransactionSchema,
 } from '@exitbook/blockchain-providers';
 import { type AssetMovement, buildBlockchainNativeAssetId, parseDecimal } from '@exitbook/core';
-import { type Result, err, ok, okAsync } from 'neverthrow';
+import { type Result, err, ok } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
@@ -164,7 +164,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
       );
     }
 
-    return okAsync(transactions);
+    return ok(transactions);
   }
 
   /**

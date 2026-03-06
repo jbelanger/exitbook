@@ -1,5 +1,5 @@
 import { parseDecimal, type Currency, type UniversalTransactionData } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import type { OrphanedLinkOverride } from './override-replay.js';
 import { determineLinkType } from './strategies/amount-timing-utils.js';

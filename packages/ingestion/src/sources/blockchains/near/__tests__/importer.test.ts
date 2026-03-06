@@ -3,7 +3,7 @@
  * Tests transaction fetching with provider failover
  */
 import { type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
-import { errAsync, okAsync } from 'neverthrow';
+import { err, ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
@@ -56,7 +56,7 @@ describe('NearImporter', () => {
    */
   const setupDefaultMocks = (receiptData: unknown[] = []) => {
     mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
-      yield okAsync({
+      yield ok({
         data: receiptData,
         providerName: 'nearblocks',
         cursor: {
@@ -76,7 +76,7 @@ describe('NearImporter', () => {
 
     // Default mock: return empty arrays for both calls (tests can override as needed)
     mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-      yield okAsync({
+      yield ok({
         data: [],
         providerName: 'nearblocks',
         cursor: {
@@ -118,7 +118,7 @@ describe('NearImporter', () => {
       const mockNormalizedFunctionCall = mockNearFunctionCallTx;
       // Mock receipt events (includes both native and token transfers)
       mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           data: [
             { normalized: mockNormalizedTransfer, raw: { transaction_hash: 'AbCdEf123456' } },
             { normalized: mockNormalizedFunctionCall, raw: { transaction_hash: 'FunctionCallTx456' } },
@@ -198,7 +198,7 @@ describe('NearImporter', () => {
         { normalized: tx3, raw: { transaction_hash: 'Tx012' } },
       ];
       mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           data: multipleTxs,
           providerName: 'nearblocks',
           cursor: {
@@ -227,7 +227,7 @@ describe('NearImporter', () => {
       const implicitAddress = '98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de';
       const mockNormalizedTx = { ...mockNearTx, from: implicitAddress };
       mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           data: [{ normalized: mockNormalizedTx, raw: { transaction_hash: 'ImplicitTx' } }],
           providerName: 'nearblocks',
           cursor: {
@@ -254,7 +254,7 @@ describe('NearImporter', () => {
       const subAccount = 'sub.alice.near';
       const mockNormalizedTx = { ...mockNearTx, from: subAccount };
       mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           data: [{ normalized: mockNormalizedTx, raw: { transaction_hash: 'SubAccountTx' } }],
           providerName: 'nearblocks',
           cursor: {
@@ -282,7 +282,7 @@ describe('NearImporter', () => {
       const importer = createImporter();
       const address = 'alice.near';
       mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
-        yield errAsync(
+        yield err(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'near',
           })
@@ -310,7 +310,7 @@ describe('NearImporter', () => {
       const importer = createImporter();
       const address = 'alice.near';
       mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
-        yield errAsync(
+        yield err(
           new ProviderError('Network timeout', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'near',
             lastError: 'Network timeout',
@@ -331,7 +331,7 @@ describe('NearImporter', () => {
       const importer = createImporter();
       const address = 'alice.near';
       mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
-        yield errAsync(
+        yield err(
           new ProviderError('Rate limit exceeded', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'near',
             lastError: 'Rate limit exceeded',
@@ -393,7 +393,7 @@ describe('NearImporter', () => {
         eventId: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
       };
       mockProviderManager.streamAddressTransactions.mockImplementationOnce(async function* () {
-        yield okAsync({
+        yield ok({
           data: [
             { normalized: tx1, raw: { transaction_hash: 'Tx1' } },
             { normalized: tx2, raw: { transaction_hash: 'Tx2' } },
@@ -429,7 +429,7 @@ describe('NearImporter', () => {
       const importer = createImporter();
       const address = 'alice.near';
       mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {
-        yield okAsync({
+        yield ok({
           data: [{ normalized: mockNearTx, raw: { transaction_hash: 'AbCdEf123456' } }],
           providerName: 'nearblocks',
           cursor: {

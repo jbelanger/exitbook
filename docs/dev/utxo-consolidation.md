@@ -86,13 +86,13 @@ async function ensureProjections(
   options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
   const isStale = await checkProjectionStaleness(db);
-  if (!isStale) return ok();
+  if (!isStale) return ok(undefined);
 
   // Full reprocess: clear derived data, rebuild with current account graph
   await clearDerivedData(db);
   await rebuildProjections(db, registry, providerManager);
   await updateProjectionMetadata(db);
-  return ok();
+  return ok(undefined);
 }
 ```
 

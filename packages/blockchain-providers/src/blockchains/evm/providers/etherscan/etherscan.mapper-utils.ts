@@ -1,7 +1,7 @@
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import { RateLimitError } from '@exitbook/http';
 import { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
 import type { ZodType } from 'zod';
 
 import type { NormalizationError } from '../../../../core/index.js';

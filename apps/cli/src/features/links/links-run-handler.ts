@@ -1,10 +1,10 @@
 import type { LinkingEvent, LinkingRunParams, LinkingRunResult } from '@exitbook/accounting';
 import { LinkOperation } from '@exitbook/app';
+import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { OverrideStore } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
 import type { CommandContext } from '../shared/command-runtime.js';

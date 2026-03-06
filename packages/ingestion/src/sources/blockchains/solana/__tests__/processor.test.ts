@@ -1,6 +1,6 @@
 import type { BlockchainProviderManager, SolanaTransaction } from '@exitbook/blockchain-providers';
+import { ok } from '@exitbook/core';
 import { EventBus } from '@exitbook/events';
-import { ok } from 'neverthrow';
 import { describe, expect, test, vi } from 'vitest';
 
 import type { IngestionEvent } from '../../../../events.js';

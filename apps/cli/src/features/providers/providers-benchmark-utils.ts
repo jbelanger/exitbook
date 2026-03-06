@@ -1,8 +1,8 @@
 // Pure utility functions for providers-benchmark command
 // All functions are pure - no side effects
 
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 
 /**
  * CLI options structure for providers-benchmark command.

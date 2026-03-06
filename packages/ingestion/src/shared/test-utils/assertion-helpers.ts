@@ -1,5 +1,5 @@
 import type { UniversalTransactionData, AssetMovement, FeeMovement } from '@exitbook/core';
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 import { expect } from 'vitest';
 
 import type { ProcessedTransaction } from '../../shared/types/processors.js';

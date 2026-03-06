@@ -18,7 +18,7 @@ import type {
   NearTransaction,
 } from '@exitbook/blockchain-providers';
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import { ok } from 'neverthrow';
+import { ok } from '@exitbook/core';
 import { describe, expect, test, vi, type Mock } from 'vitest';
 
 import type { IScamDetectionService } from '../../../../features/scam-detection/scam-detection-service.interface.js';

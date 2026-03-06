@@ -1,6 +1,6 @@
+import { err, ok, type Result } from '@exitbook/core';
 import { type DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { ExportHandlerParams, NormalizedCsvOutput } from './transactions-export-utils.js';
 import { convertToCSV, convertToJSON, convertToNormalizedCSV } from './transactions-export-utils.js';

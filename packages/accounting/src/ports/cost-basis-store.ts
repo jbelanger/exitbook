@@ -1,5 +1,5 @@
 import type { UniversalTransactionData } from '@exitbook/core';
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 
 import type { TransactionLink } from '../linking/types.js';
 

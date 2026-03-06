@@ -1,4 +1,4 @@
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import type { TransactionFingerprintInput, LinkIdentity } from './override.js';
 

@@ -1,5 +1,5 @@
 import type { CursorState, RawTransactionInput } from '@exitbook/core';
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 
 /**
  * Parameters for fetching exchange data

@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { Result } from 'neverthrow';
+import type { Result } from '@exitbook/core';
 
 import { validateOutput, type NormalizationError } from '../../../../core/index.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';

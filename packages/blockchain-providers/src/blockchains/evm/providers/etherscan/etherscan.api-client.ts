@@ -1,6 +1,6 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
-import { err, errAsync, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import type {
   NormalizedTransactionBase,
@@ -253,7 +253,7 @@ export class EtherscanApiClient extends BaseApiClient {
   async execute<TOperation extends OneShotOperation>(
     _operation: TOperation
   ): Promise<Result<OneShotOperationResult<TOperation>, Error>> {
-    return errAsync(
+    return err(
       new Error('Etherscan provider only supports streaming operations. Use executeStreaming() instead of execute().')
     );
   }

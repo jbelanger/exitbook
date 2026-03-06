@@ -1,5 +1,5 @@
 import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
-import { err, ok, okAsync, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 import type { z } from 'zod';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -201,7 +201,7 @@ export abstract class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseT
       );
     }
 
-    return okAsync(transactions);
+    return ok(transactions);
   }
 
   /**

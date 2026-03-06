@@ -1,4 +1,6 @@
 import { wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import {
   closeSqliteDatabase,
@@ -7,8 +9,6 @@ import {
   runMigrations as runSqliteMigrations,
 } from '@exitbook/sqlite';
 import type { Kysely } from '@exitbook/sqlite';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import type { DatabaseSchema } from './database-schema.js';
 import * as initialSchema from './migrations/001_initial_schema.js';

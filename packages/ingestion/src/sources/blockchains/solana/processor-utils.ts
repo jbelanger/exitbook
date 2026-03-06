@@ -2,9 +2,9 @@ import type { SolanaTransaction } from '@exitbook/blockchain-providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/blockchain-providers';
 import { isZeroDecimal, parseDecimal, type Currency } from '@exitbook/core';
 import type { OperationClassification, TransactionNote } from '@exitbook/core';
+import { type Result, err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
-import { type Result, err, ok } from 'neverthrow';
 
 import type { AddressContext } from '../../../shared/types/processors.js';
 

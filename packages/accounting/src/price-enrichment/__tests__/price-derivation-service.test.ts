@@ -1,6 +1,6 @@
 import type { Currency, TransactionLink, UniversalTransactionData } from '@exitbook/core';
+import { ok } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
-import { ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PricingStore } from '../../ports/pricing-store.js';

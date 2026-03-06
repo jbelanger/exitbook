@@ -1,4 +1,4 @@
-import { type Result, errAsync, okAsync } from 'neverthrow';
+import { type Result, err, ok } from '@exitbook/core';
 import { z } from 'zod';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -155,13 +155,13 @@ export class KucoinProcessor extends BaseTransactionProcessor {
 
       // Fail fast on conversion errors - never silently ignore failures
       const errorDetails = failures.map((f) => `${f.rowType}: ${f.error}`).join('; ');
-      return errAsync(
+      return err(
         `KuCoin CSV processing failed: ${failureCount} conversion error(s), ${unknownRowCount} unknown row type(s). Details: ${errorDetails}`
       );
     } else {
       this.logger.info(summaryMessage);
     }
 
-    return okAsync(allTransactions);
+    return ok(allTransactions);
   }
 }

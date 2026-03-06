@@ -1,4 +1,4 @@
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import type { BlockchainAdapter } from './blockchain-adapter.js';
 import type { ExchangeAdapter } from './exchange-adapter.js';

@@ -4,9 +4,9 @@
 
 import type { Currency } from '@exitbook/core';
 import { CurrencySchema, parseDecimal, wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import type { Result } from 'neverthrow';
-import { ok } from 'neverthrow';
 
 import { roundToMinute, roundToHour, roundToDay } from '../../core/utils.js';
 import type { PriceData } from '../../index.js';
@@ -169,7 +169,7 @@ export function createPriceQueries(db: PricesDB) {
         )
         .execute();
 
-      return ok();
+      return ok(undefined);
     } catch (error) {
       return wrapError(error, `Failed to save price`);
     }
@@ -195,7 +195,7 @@ export function createPriceQueries(db: PricesDB) {
         }
       }
 
-      return ok();
+      return ok(undefined);
     } catch (error) {
       return wrapError(error, `Failed to save prices`);
     }

@@ -1,5 +1,5 @@
+import type { Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import type { Result } from 'neverthrow';
 
 import type { ProviderConfig } from './providers/provider-registry.js';
 
@@ -18,11 +18,11 @@ export class Application {
   private db: DataContext | undefined;
 
   constructor(private readonly config: ApplicationConfig) {}
-  // eslint-disable-next-line @typescript-eslint/require-await -- will be there when implemented
+
   async initialize(): Promise<Result<void, Error>> {
     throw new Error('Not implemented');
   }
-  // eslint-disable-next-line @typescript-eslint/require-await -- will be there when implemented
+
   async close(): Promise<Result<void, Error>> {
     throw new Error('Not implemented');
   }

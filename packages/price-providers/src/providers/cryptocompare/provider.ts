@@ -4,10 +4,10 @@
 
 import type { Currency } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/http';
 import type { InstrumentationCollector } from '@exitbook/observability';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import { BasePriceProvider } from '../../core/base-provider.js';
 import type { ProviderRateLimitConfig } from '../../core/utils.js';

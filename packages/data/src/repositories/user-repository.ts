@@ -1,7 +1,7 @@
 import type { User } from '@exitbook/core';
 import { UserSchema, wrapError } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Selectable } from '@exitbook/sqlite';
-import { err, ok, type Result } from 'neverthrow';
 
 import type { UsersTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';

@@ -5,10 +5,10 @@ import {
   type CostBasisSummary,
 } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
-import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { CostBasisHandler } from '../cost-basis-handler.js';

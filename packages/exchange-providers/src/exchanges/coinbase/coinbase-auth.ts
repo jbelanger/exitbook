@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 
+import { err, ok } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/http';
-import { err, ok } from 'neverthrow';
-import type { Result } from 'neverthrow';
 
 interface CoinbaseAuth {
   readonly apiKey: string;

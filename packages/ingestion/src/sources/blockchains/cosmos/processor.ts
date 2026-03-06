@@ -3,8 +3,8 @@ import {
   type CosmosTransaction,
   CosmosTransactionSchema,
 } from '@exitbook/blockchain-providers';
-import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, parseDecimal } from '@exitbook/core';
-import { type Result, err, okAsync } from 'neverthrow';
+import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, ok, parseDecimal } from '@exitbook/core';
+import { type Result, err } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type {
@@ -209,7 +209,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
       );
     }
 
-    return okAsync(universalTransactions);
+    return ok(universalTransactions);
   }
 
   /**

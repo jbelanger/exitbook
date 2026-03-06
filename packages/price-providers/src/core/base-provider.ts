@@ -4,10 +4,10 @@
  */
 
 import { isFiat, type Currency } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import type { PriceQueries } from '../persistence/queries/price-queries.js';
 

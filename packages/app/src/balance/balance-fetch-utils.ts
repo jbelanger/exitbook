@@ -7,10 +7,10 @@ import {
   parseDecimal,
   wrapError,
 } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 import type { IExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger } from '@exitbook/logger';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
 
 import type { BalancePartialFailure } from './balance-utils.js';
 

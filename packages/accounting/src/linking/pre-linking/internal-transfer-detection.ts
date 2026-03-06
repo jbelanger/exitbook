@@ -1,7 +1,7 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
+import { ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
-import { ok, type Result } from 'neverthrow';
 
 import { normalizeTransactionHash } from '../strategies/exact-hash-utils.js';
 import type { NewTransactionLink } from '../types.js';

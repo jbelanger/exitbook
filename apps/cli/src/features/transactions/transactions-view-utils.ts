@@ -2,7 +2,7 @@
 
 import type { AssetMovement, FeeMovement, UniversalTransactionData } from '@exitbook/core';
 import { computePrimaryMovement, isFiat, type Currency } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from '@exitbook/core';
 
 import { parseDate } from '../shared/view-utils.js';
 import type { CommonViewFilters } from '../shared/view-utils.js';
