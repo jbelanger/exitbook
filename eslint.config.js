@@ -267,15 +267,17 @@ export default [
       'no-restricted-imports': [
         'error',
         {
-          patterns: [
+          paths: [
             {
-              group: ['@exitbook/ingestion'],
+              name: '@exitbook/ingestion',
               message: 'data must import from @exitbook/ingestion/ports, not the main barrel.',
             },
             {
-              group: ['@exitbook/accounting'],
+              name: '@exitbook/accounting',
               message: 'data must import from @exitbook/accounting/ports, not the main barrel.',
             },
+          ],
+          patterns: [
             {
               group: ['@exitbook/*/src/**'],
               message: 'Use barrel imports instead of direct src imports.',

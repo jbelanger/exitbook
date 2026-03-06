@@ -1,44 +1,35 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { PaginationCursor } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
-import type { ImportSessionRepository, RawTransactionRepository } from '@exitbook/data';
 import type { IExchangeClient, BalanceSnapshot } from '@exitbook/exchange-providers';
 import { vi, type Mocked } from 'vitest';
 
+import type { IImportSessionLookup } from '../../ports/import-session-guard.js';
+import type { IProcessingBatchSource } from '../../ports/processing-batch-source.js';
+
 /**
- * Creates a mock raw data queries object with default implementations.
+ * Creates a mock IProcessingBatchSource with default implementations.
  * All methods return successful Results by default. Override specific methods as needed.
  */
-export function createMockRawDataQueries(): Mocked<RawTransactionRepository> {
+export function createMockBatchSource(): Mocked<IProcessingBatchSource> {
   return {
-    findAll: vi.fn().mockResolvedValue(ok([])),
+    findAccountsWithPendingData: vi.fn().mockResolvedValue(ok([])),
+    countPending: vi.fn().mockResolvedValue(ok(0)),
+    countPendingByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
+    fetchAllPending: vi.fn().mockResolvedValue(ok([])),
+    fetchPendingByTransactionHash: vi.fn().mockResolvedValue(ok([])),
     markProcessed: vi.fn().mockResolvedValue(ok(undefined)),
-    createBatch: vi.fn().mockResolvedValue(ok({ inserted: 0, skipped: 0 })),
-    resetProcessingStatus: vi.fn().mockResolvedValue(ok(0)),
-    count: vi.fn().mockResolvedValue(ok(0)),
-    countByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
-    deleteAll: vi.fn().mockResolvedValue(ok(0)),
-    findDistinctAccountIds: vi.fn().mockResolvedValue(ok([])),
-    findByHashes: vi.fn().mockResolvedValue(ok([])),
-  } as unknown as Mocked<RawTransactionRepository>;
+  };
 }
 
 /**
- * Creates a mock import session queries object with default implementations.
+ * Creates a mock IImportSessionLookup with default implementations.
  * All methods return successful Results by default. Override specific methods as needed.
  */
-export function createMockImportSessionQueries(): Mocked<ImportSessionRepository> {
+export function createMockImportSessionLookup(): Mocked<IImportSessionLookup> {
   return {
-    create: vi.fn().mockResolvedValue(ok(1)),
-    finalize: vi.fn().mockResolvedValue(ok(undefined)),
-    findById: vi.fn().mockResolvedValue(ok(undefined)),
-    findAll: vi.fn().mockResolvedValue(ok([])),
-    countByAccount: vi.fn().mockResolvedValue(ok(new Map())),
-    findLatestIncomplete: vi.fn().mockResolvedValue(ok(undefined)),
-    update: vi.fn().mockResolvedValue(ok(undefined)),
-    count: vi.fn().mockResolvedValue(ok(0)),
-    deleteBy: vi.fn().mockResolvedValue(ok(undefined)),
-  } as unknown as Mocked<ImportSessionRepository>;
+    findLatestSessionPerAccount: vi.fn().mockResolvedValue(ok([])),
+  };
 }
 
 /**

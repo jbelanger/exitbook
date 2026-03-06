@@ -20,3 +20,6 @@ export {
 
 // Exchange adapter types
 export { type ExchangeAdapter } from './shared/types/exchange-adapter.js';
+
+// Ports (re-export for convenience — canonical location is @exitbook/ingestion/ports)
+export type { ProcessingPorts } from './ports/index.js';

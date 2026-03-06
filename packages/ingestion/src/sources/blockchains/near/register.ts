@@ -17,7 +17,7 @@ export const nearAdapter: BlockchainAdapter = {
       preferredProvider: providerName,
     }),
 
-  createProcessor: ({ providerManager, scamDetectionService, db, accountId }) => {
-    return new NearProcessor(providerManager, scamDetectionService, db.nearRawData, accountId);
+  createProcessor: ({ providerManager, scamDetectionService, nearBatchSource, accountId }) => {
+    return new NearProcessor(providerManager, scamDetectionService, nearBatchSource, accountId);
   },
 };

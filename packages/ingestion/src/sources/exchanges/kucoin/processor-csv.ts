@@ -38,7 +38,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     return z.unknown();
   }
 
-  protected async transformNormalizedData(rawDataItems: unknown[]): Promise<Result<ProcessedTransaction[], string>> {
+  protected async transformNormalizedData(rawDataItems: unknown[]): Promise<Result<ProcessedTransaction[], Error>> {
     const allTransactions: ProcessedTransaction[] = [];
     const accountHistoryRows: CsvAccountHistoryRow[] = [];
     const failures: { error: string; rowType: string }[] = [];

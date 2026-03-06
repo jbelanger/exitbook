@@ -41,7 +41,7 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
   protected async transformNormalizedData(
     normalizedData: CardanoTransaction[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], Error>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txHash: string }[] = [];
     const movementsForScamDetection: MovementWithContext[] = [];

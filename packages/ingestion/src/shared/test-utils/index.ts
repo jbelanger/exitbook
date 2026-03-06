@@ -3,7 +3,7 @@
  *
  * Provides:
  * - Assertion helpers for Result types, movements, fees, and operations
- * - Mock factories for repositories, services, and provider managers
+ * - Mock factories for port interfaces, services, and provider managers
  * - Test constants for addresses and blockchain configs
  * - Entry builders for creating test data with fluent API
  *
@@ -13,7 +13,7 @@
  *   expectOk,
  *   expectMovement,
  *   expectFee,
- *   createMockRawDataQueries,
+ *   createMockBatchSource,
  *   ExchangeEntryBuilder,
  *   BITCOIN_ADDRESSES,
  * } from '@tests/test-utils';
@@ -24,8 +24,8 @@
  * expectFee(transactions[0], 'network').toHaveAmount('0.0001');
  *
  * // Use mock factories
- * const mockRepo = createMockRawDataQueries();
- * mockRepo.createBatch.mockResolvedValue(ok(2));
+ * const mockBatchSource = createMockBatchSource();
+ * mockBatchSource.countPending.mockResolvedValue(ok(5));
  *
  * // Use builders
  * const entry = new ExchangeEntryBuilder()
@@ -53,8 +53,8 @@ export {
 
 // Mock factories
 export {
-  createMockRawDataQueries,
-  createMockImportSessionQueries as createMockImportSessionRepository,
+  createMockBatchSource,
+  createMockImportSessionLookup,
   createMockProviderManager,
   createMockExchangeClient,
   createMockLogger,

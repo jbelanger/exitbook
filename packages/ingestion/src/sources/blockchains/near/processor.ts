@@ -24,7 +24,6 @@ import {
   type OperationClassification,
 } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
-import type { NearRawTransactionRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -32,6 +31,7 @@ import type {
   IScamDetectionService,
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
+import type { INearBatchSource } from '../../../ports/near-batch-source.js';
 import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
 
 import {
@@ -59,7 +59,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   constructor(
     providerManager: BlockchainProviderManager,
     scamDetectionService?: IScamDetectionService,
-    private readonly nearRawDataQueries?: NearRawTransactionRepository,
+    private readonly nearBatchSource?: INearBatchSource,
     private readonly accountId?: number | undefined
   ) {
     super('near', providerManager, scamDetectionService);
@@ -75,7 +75,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   protected async transformNormalizedData(
     normalizedData: NearStreamEvent[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], Error>> {
     // Derive missing balance deltas from absolute amounts
     // Single source of truth for delta computation
     const balanceChanges = normalizedData.filter(
@@ -222,13 +222,9 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
     return ok(transactions);
   }
 
-  private async loadPreviousBalances(
-    balanceChanges: NearBalanceChange[]
-  ): Promise<Result<Map<string, string>, string>> {
-    if (!this.nearRawDataQueries || this.accountId === undefined) {
-      this.logger.warn(
-        'NEAR processor missing nearRawDataQueries/accountId. Proceeding without previous balance lookup.'
-      );
+  private async loadPreviousBalances(balanceChanges: NearBalanceChange[]): Promise<Result<Map<string, string>, Error>> {
+    if (!this.nearBatchSource || this.accountId === undefined) {
+      this.logger.warn('NEAR processor missing nearBatchSource/accountId. Proceeding without previous balance lookup.');
       return ok(new Map());
     }
 
@@ -247,7 +243,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
     const maxTimestamp = Math.max(...Array.from(earliestByAccount.values(), (c) => c.timestamp));
 
     const affectedAccounts = Array.from(earliestByAccount.keys());
-    const processedResult = await this.nearRawDataQueries.findProcessedBalanceChangesByAccounts(
+    const processedResult = await this.nearBatchSource.findProcessedBalanceChanges(
       this.accountId,
       affectedAccounts,
       maxTimestamp

@@ -14,7 +14,7 @@ import type { BitcoinFundFlow } from './types.js';
 export function analyzeBitcoinFundFlow(
   normalizedTx: BitcoinTransaction,
   context: AddressContext
-): Result<BitcoinFundFlow, string> {
+): Result<BitcoinFundFlow, Error> {
   const walletAddress = context.primaryAddress;
 
   let totalInput = new Decimal(0);

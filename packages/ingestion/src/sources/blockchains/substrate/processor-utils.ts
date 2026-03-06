@@ -19,7 +19,7 @@ import type { SubstrateFundFlow, SubstrateMovement } from './types.js';
  * @param address - The user's Substrate address (in any SS58 format)
  * @returns Session context with original address and all derived SS58 variants
  */
-export function expandSourceContext(address: string): Result<Record<string, unknown>, string> {
+export function expandSourceContext(address: string): Result<Record<string, unknown>, Error> {
   if (!address) {
     return err('Missing address for Substrate session context enrichment');
   }

@@ -1,6 +1,7 @@
 import type { RawTransaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
-import type { NearRawTransactionRepository } from '@exitbook/data';
+
+import type { INearBatchSource } from '../../../ports/near-batch-source.js';
 
 import type { IRawDataBatchProvider } from './raw-data-batch-provider.interface.js';
 
@@ -21,7 +22,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
   private lastBatchWasEmpty = false;
 
   constructor(
-    private readonly nearRawDataQueries: NearRawTransactionRepository,
+    private readonly nearBatchSource: INearBatchSource,
     private readonly accountId: number,
     private readonly hashBatchSize = 100
   ) {}
@@ -32,7 +33,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
     }
 
     // 1) Anchor on transaction hashes from transactions + receipts + token-transfers
-    const hashesResult = await this.nearRawDataQueries.findPendingAnchorHashes(this.accountId, this.hashBatchSize);
+    const hashesResult = await this.nearBatchSource.fetchPendingAnchorHashes(this.accountId, this.hashBatchSize);
     if (hashesResult.isErr()) {
       return err(hashesResult.error);
     }
@@ -44,7 +45,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
     }
 
     // 2) Load all pending rows for those hashes
-    const baseResult = await this.nearRawDataQueries.findPendingByHashes(this.accountId, hashes);
+    const baseResult = await this.nearBatchSource.fetchPendingByHashes(this.accountId, hashes);
     if (baseResult.isErr()) {
       return baseResult;
     }
@@ -63,7 +64,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
     // 4) Fetch balance-changes missing transactionHash linked by receiptId via JSON1
     const extraRows: RawTransaction[] = [];
     if (receiptIds.size > 0) {
-      const extraResult = await this.nearRawDataQueries.findPendingByReceiptIds(this.accountId, [...receiptIds]);
+      const extraResult = await this.nearBatchSource.fetchPendingByReceiptIds(this.accountId, [...receiptIds]);
       if (extraResult.isErr()) {
         return extraResult;
       }

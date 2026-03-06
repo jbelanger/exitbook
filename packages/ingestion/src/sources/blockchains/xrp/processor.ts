@@ -28,7 +28,7 @@ export class XrpProcessor extends BaseTransactionProcessor<XrpTransaction> {
   protected async transformNormalizedData(
     normalizedData: XrpTransaction[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], Error>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 

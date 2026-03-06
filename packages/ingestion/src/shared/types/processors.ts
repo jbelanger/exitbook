@@ -36,5 +36,5 @@ export interface ITransactionProcessor {
   /**
    * Process normalized data with explicit typed context into ProcessedTransaction objects.
    */
-  process(normalizedData: unknown[], context: AddressContext): Promise<Result<ProcessedTransaction[], string>>;
+  process(normalizedData: unknown[], context: AddressContext): Promise<Result<ProcessedTransaction[], Error>>;
 }

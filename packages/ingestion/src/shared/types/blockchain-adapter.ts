@@ -1,8 +1,8 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { type Result } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
 
 import type { IScamDetectionService } from '../../features/scam-detection/scam-detection-service.interface.js';
+import type { INearBatchSource } from '../../ports/near-batch-source.js';
 
 import type { IImporter } from './importers.js';
 import type { ITransactionProcessor } from './processors.js';
@@ -15,7 +15,8 @@ export interface DerivedAddress {
 export interface BlockchainProcessorContext {
   providerManager: BlockchainProviderManager;
   scamDetectionService: IScamDetectionService | undefined;
-  db: DataContext;
+  /** Only needed by NEAR processors for balance-change delta derivation. */
+  nearBatchSource?: INearBatchSource | undefined;
   accountId: number;
 }
 

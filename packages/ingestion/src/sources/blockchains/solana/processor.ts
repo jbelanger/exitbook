@@ -37,7 +37,7 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
   protected async transformNormalizedData(
     normalizedData: SolanaTransaction[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], Error>> {
     // Enrich all transactions with token metadata (required)
     const enrichResult = await this.enrichTokenMetadata(normalizedData);
     if (enrichResult.isErr()) {

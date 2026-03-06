@@ -728,7 +728,7 @@ export function analyzeSolanaBalanceChanges(
 /**
  * Analyze fund flow from normalized SolanaTransaction data
  */
-export function analyzeSolanaFundFlow(tx: SolanaTransaction, context: AddressContext): Result<SolanaFundFlow, string> {
+export function analyzeSolanaFundFlow(tx: SolanaTransaction, context: AddressContext): Result<SolanaFundFlow, Error> {
   // Use all user addresses for multi-address fund-flow analysis
   const allWalletAddresses = new Set<string>(context.userAddresses);
 

@@ -34,7 +34,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
   protected async transformNormalizedData(
     normalizedData: CosmosTransaction[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], Error>> {
     // Deduplicate by eventId (handles cases like Peggy deposits where multiple validators
     // submit the same deposit claim as different tx hashes but represent the same logical event)
     const deduplicatedData = deduplicateByEventId(normalizedData);

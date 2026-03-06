@@ -37,7 +37,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
   protected async transformNormalizedData(
     normalizedData: SubstrateTransaction[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], Error>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 

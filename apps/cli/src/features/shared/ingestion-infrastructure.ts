@@ -1,5 +1,5 @@
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
-import { type DataContext } from '@exitbook/data';
+import { type DataContext, buildProcessingPorts } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { type AdapterRegistry, type IngestionEvent, RawDataProcessingService } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
@@ -46,8 +46,9 @@ export async function createIngestionInfrastructure(
   });
 
   try {
+    const ports = buildProcessingPorts(database);
     const rawDataProcessingService = new RawDataProcessingService(
-      database,
+      ports,
       providerManager,
       eventBus as EventBus<IngestionEvent>,
       registry

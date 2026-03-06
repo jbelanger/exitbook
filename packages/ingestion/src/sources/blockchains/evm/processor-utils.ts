@@ -329,7 +329,7 @@ export function analyzeEvmFundFlow(
   txGroup: EvmTransaction[],
   context: AddressContext,
   chainConfig: EvmChainConfig
-): Result<EvmFundFlow, string> {
+): Result<EvmFundFlow, Error> {
   if (txGroup.length === 0) {
     return err('Empty transaction group');
   }

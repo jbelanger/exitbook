@@ -38,9 +38,9 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
   protected abstract transformNormalizedData(
     normalizedData: T[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], string>>;
+  ): Promise<Result<ProcessedTransaction[], Error>>;
 
-  async process(normalizedData: unknown[], context?: AddressContext): Promise<Result<ProcessedTransaction[], string>> {
+  async process(normalizedData: unknown[], context?: AddressContext): Promise<Result<ProcessedTransaction[], Error>> {
     this.logger.debug(`Processing ${normalizedData.length} items for ${this.sourceName}`);
 
     const validated: T[] = [];
@@ -48,7 +48,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
       const result = this.inputSchema.safeParse(normalizedData[i]);
       if (!result.success) {
         const errorDetail = result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
-        return err(`Input validation failed for ${this.sourceName} item at index ${i}: ${errorDetail}`);
+        return err(new Error(`Input validation failed for ${this.sourceName} item at index ${i}: ${errorDetail}`));
       }
       validated.push(result.data);
     }
@@ -141,15 +141,11 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
     }
   }
 
-  protected buildProcessingFailureError(
-    failed: number,
-    total: number,
-    errors: { error: string; id: string }[]
-  ): string {
-    return (
+  protected buildProcessingFailureError(failed: number, total: number, errors: { error: string; id: string }[]): Error {
+    return new Error(
       `Cannot proceed: ${failed}/${total} transactions failed to process. ` +
-      `Lost ${failed} transactions which would corrupt portfolio calculations. ` +
-      `Errors: ${errors.map((e) => `[${e.id.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+        `Lost ${failed} transactions which would corrupt portfolio calculations. ` +
+        `Errors: ${errors.map((e) => `[${e.id.substring(0, 10)}...]: ${e.error}`).join('; ')}`
     );
   }
 
@@ -161,7 +157,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
    * implementing scam detection during processing with the appropriate context
    * (contract addresses for blockchains, symbol-only for exchanges, etc.)
    */
-  private validateAndFilterTransactions(transactions: ProcessedTransaction[]): Result<ProcessedTransaction[], string> {
+  private validateAndFilterTransactions(transactions: ProcessedTransaction[]): Result<ProcessedTransaction[], Error> {
     const filteredTransactions = this.dropZeroValueContractInteractions(transactions);
     const { invalid, valid } = validateProcessedTransactions(filteredTransactions).unwrapOr({
       invalid: [],
@@ -179,8 +175,10 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
       );
 
       return err(
-        `${invalid.length}/${filteredTransactions.length} transactions failed validation. ` +
-          `This would corrupt portfolio calculations. Errors: ${errorSummary}`
+        new Error(
+          `${invalid.length}/${filteredTransactions.length} transactions failed validation. ` +
+            `This would corrupt portfolio calculations. Errors: ${errorSummary}`
+        )
       );
     }
 

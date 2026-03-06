@@ -37,3 +37,6 @@ export type {
 export { toRawTransaction, withControlledTransaction } from './utils/db-utils.js';
 
 export * from './overrides/index.js';
+
+// Adapters — bridge DataContext to hexagon port interfaces
+export { buildProcessingPorts } from './adapters/processing-ports-adapter.js';

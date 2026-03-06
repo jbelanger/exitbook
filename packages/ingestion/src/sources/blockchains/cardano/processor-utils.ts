@@ -117,7 +117,7 @@ export function normalizeCardanoAmount(quantity: string, decimals: number | unde
 export function analyzeCardanoFundFlow(
   tx: CardanoTransaction,
   context: AddressContext
-): Result<CardanoFundFlow, string> {
+): Result<CardanoFundFlow, Error> {
   const userAddress = context.primaryAddress;
 
   const inflows: CardanoMovement[] = [];

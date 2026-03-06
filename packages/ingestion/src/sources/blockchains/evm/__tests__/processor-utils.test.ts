@@ -207,7 +207,7 @@ describe('analyzeEvmFundFlow', () => {
     const result = analyzeEvmFundFlow(txGroup, context, chainConfig);
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
-      throw new Error(result.error);
+      throw result.error;
     }
 
     expect(result.value.feeAmount).toBe('1');

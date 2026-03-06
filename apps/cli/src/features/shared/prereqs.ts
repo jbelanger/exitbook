@@ -118,7 +118,9 @@ export async function ensureRawDataIsProcessed(
       },
     });
 
-    const rawDataProcessingService = new RawDataProcessingService(db, providerManager, eventBus, registry);
+    const { buildProcessingPorts } = await import('@exitbook/data');
+    const ports = buildProcessingPorts(db);
+    const rawDataProcessingService = new RawDataProcessingService(ports, providerManager, eventBus, registry);
     const clearOperation = new ClearOperation(db, eventBus);
 
     // Get all account IDs with raw data

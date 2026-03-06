@@ -1,6 +1,7 @@
 import type { RawTransaction } from '@exitbook/core';
 import { ok, type Result } from '@exitbook/core';
-import type { RawTransactionRepository } from '@exitbook/data';
+
+import type { IProcessingBatchSource } from '../../../ports/processing-batch-source.js';
 
 import type { IRawDataBatchProvider } from './raw-data-batch-provider.interface.js';
 
@@ -16,7 +17,7 @@ export class HashGroupedBatchProvider implements IRawDataBatchProvider {
   private lastBatchWasEmpty = false;
 
   constructor(
-    private readonly rawDataQueries: RawTransactionRepository,
+    private readonly batchSource: IProcessingBatchSource,
     private readonly accountId: number,
     private readonly hashBatchSize = 100
   ) {}
@@ -26,7 +27,7 @@ export class HashGroupedBatchProvider implements IRawDataBatchProvider {
       return ok([]);
     }
 
-    const result = await this.rawDataQueries.findByHashes(this.accountId, this.hashBatchSize);
+    const result = await this.batchSource.fetchPendingByTransactionHash(this.accountId, this.hashBatchSize);
 
     if (result.isErr()) {
       return result;

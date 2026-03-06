@@ -2,12 +2,12 @@ import { type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getErrorMessage, type RawTransaction } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 
 import type { IngestionEvent } from '../../events.js';
+import type { ProcessingPorts } from '../../ports/processing-ports.js';
 import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import type {
   BatchProcessSummary,
@@ -34,7 +34,7 @@ export class RawDataProcessingService {
   private scamDetectionService: IScamDetectionService;
 
   constructor(
-    private db: DataContext,
+    private ports: ProcessingPorts,
     private providerManager: BlockchainProviderManager,
     private eventBus: EventBus<IngestionEvent>,
     private registry: AdapterRegistry
@@ -59,16 +59,13 @@ export class RawDataProcessingService {
       const accountTransactionCounts = new Map<number, Map<string, number>>();
 
       for (const accountId of accountIds) {
-        const countResult = await this.db.rawTransactions.count({
-          accountIds: [accountId],
-          processingStatus: 'pending',
-        });
+        const countResult = await this.ports.batchSource.countPending(accountId);
         if (countResult.isOk()) {
           totalRaw += countResult.value;
         }
 
         // Fetch transaction counts by stream type for dashboard display
-        const streamCountsResult = await this.db.rawTransactions.countByStreamType(accountId);
+        const streamCountsResult = await this.ports.batchSource.countPendingByStreamType(accountId);
         if (streamCountsResult.isOk()) {
           accountTransactionCounts.set(accountId, streamCountsResult.value);
         }
@@ -138,7 +135,7 @@ export class RawDataProcessingService {
     this.logger.info('Processing all accounts with pending records');
 
     try {
-      const accountIdsResult = await this.db.rawTransactions.findDistinctAccountIds({ processingStatus: 'pending' });
+      const accountIdsResult = await this.ports.batchSource.findAccountsWithPendingData();
       if (accountIdsResult.isErr()) {
         return err(accountIdsResult.error);
       }
@@ -204,7 +201,7 @@ export class RawDataProcessingService {
       }
 
       // Load account to get source information
-      const accountResult = await this.db.accounts.findById(accountId);
+      const accountResult = await this.ports.accountLookup.getAccountInfo(accountId);
       if (accountResult.isErr()) {
         return err(new Error(`Failed to load account ${accountId}: ${accountResult.error.message}`));
       }
@@ -237,19 +234,12 @@ export class RawDataProcessingService {
       return ok(undefined);
     }
 
-    const sessionsResult = await this.db.importSessions.findAll({ accountIds });
+    const sessionsResult = await this.ports.importSessionLookup.findLatestSessionPerAccount(accountIds);
     if (sessionsResult.isErr()) {
       return err(new Error(`Failed to check for active imports: ${sessionsResult.error.message}`));
     }
 
-    const latestByAccount = new Map<number, (typeof sessionsResult.value)[number]>();
-    for (const session of sessionsResult.value) {
-      if (!latestByAccount.has(session.accountId)) {
-        latestByAccount.set(session.accountId, session);
-      }
-    }
-
-    const incompleteSessions = [...latestByAccount.values()].filter((session) => session.status !== 'completed');
+    const incompleteSessions = sessionsResult.value.filter((session) => session.status !== 'completed');
 
     if (incompleteSessions.length > 0) {
       const affectedAccounts = incompleteSessions.map((s) => `${s.accountId}(${s.status})`);
@@ -278,16 +268,16 @@ export class RawDataProcessingService {
   private createBatchProvider(sourceType: string, sourceName: string, accountId: number): IRawDataBatchProvider {
     // NEAR requires special multi-stream batch provider
     if (sourceType === 'blockchain' && sourceName.toLowerCase() === 'near') {
-      return new NearStreamBatchProvider(this.db.nearRawData, accountId, RAW_DATA_HASH_BATCH_SIZE);
+      return new NearStreamBatchProvider(this.ports.nearBatchSource, accountId, RAW_DATA_HASH_BATCH_SIZE);
     }
 
     if (sourceType === 'blockchain') {
       // Hash-grouped batching for blockchains to ensure correlation integrity
-      return new HashGroupedBatchProvider(this.db.rawTransactions, accountId, RAW_DATA_HASH_BATCH_SIZE);
+      return new HashGroupedBatchProvider(this.ports.batchSource, accountId, RAW_DATA_HASH_BATCH_SIZE);
     }
 
     // All-at-once batching for exchanges (manageable data volumes)
-    return new AllAtOnceBatchProvider(this.db.rawTransactions, accountId);
+    return new AllAtOnceBatchProvider(this.ports.batchSource, accountId);
   }
 
   /**
@@ -305,10 +295,7 @@ export class RawDataProcessingService {
     let batchNumber = 0;
 
     // Query pending count once at start
-    const pendingCountResult = await this.db.rawTransactions.count({
-      accountIds: [accountId],
-      processingStatus: 'pending',
-    });
+    const pendingCountResult = await this.ports.batchSource.countPending(accountId);
     let pendingCount = 0;
     if (pendingCountResult.isOk()) {
       pendingCount = pendingCountResult.value;
@@ -468,19 +455,12 @@ export class RawDataProcessingService {
       addressContext.primaryAddress = account.identifier;
 
       if (account.userId) {
-        const userAccountsResult = await this.db.accounts.findAll({ userId: account.userId });
-        if (userAccountsResult.isOk()) {
-          const userAccounts = userAccountsResult.value;
-          const userAddresses = userAccounts
-            .filter((acc) => acc.sourceName === account.sourceName)
-            .map((acc) => acc.identifier);
-
-          if (userAddresses.length > 0) {
-            addressContext.userAddresses = userAddresses;
-            this.logger.debug(
-              `Account ${accountId}: Augmented context with ${userAddresses.length} user addresses for multi-address fund-flow analysis`
-            );
-          }
+        const userAddressesResult = await this.ports.accountLookup.getUserAddresses(account.userId, account.sourceName);
+        if (userAddressesResult.isOk() && userAddressesResult.value.length > 0) {
+          addressContext.userAddresses = userAddressesResult.value;
+          this.logger.debug(
+            `Account ${accountId}: Augmented context with ${userAddressesResult.value.length} user addresses for multi-address fund-flow analysis`
+          );
         }
       }
     }
@@ -502,7 +482,7 @@ export class RawDataProcessingService {
         adapterResult.value.createProcessor({
           providerManager: this.providerManager,
           scamDetectionService: this.scamDetectionService,
-          db: this.db,
+          nearBatchSource: this.ports.nearBatchSource,
           accountId,
         })
       );
@@ -558,7 +538,7 @@ export class RawDataProcessingService {
 
     for (let start = 0; start < transactions.length; start += TRANSACTION_SAVE_BATCH_SIZE) {
       const batch = transactions.slice(start, start + TRANSACTION_SAVE_BATCH_SIZE);
-      const saveResult = await this.db.executeInTransaction((tx) => tx.transactions.createBatch(batch, accountId));
+      const saveResult = await this.ports.transactionSink.saveProcessedBatch(batch, accountId);
 
       if (saveResult.isErr()) {
         const errorMessage = `CRITICAL: Failed to save transactions batch starting at index ${start} for account ${accountId}: ${saveResult.error.message}`;
@@ -582,7 +562,7 @@ export class RawDataProcessingService {
     const allRawDataIds = rawDataItems.map((item) => item.id);
     for (let start = 0; start < allRawDataIds.length; start += RAW_DATA_MARK_BATCH_SIZE) {
       const batchIds = allRawDataIds.slice(start, start + RAW_DATA_MARK_BATCH_SIZE);
-      const markAsProcessedResult = await this.db.rawTransactions.markProcessed(batchIds);
+      const markAsProcessedResult = await this.ports.batchSource.markProcessed(batchIds);
 
       if (markAsProcessedResult.isErr()) {
         return err(markAsProcessedResult.error);

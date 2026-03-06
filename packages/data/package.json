@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@exitbook/core": "workspace:*",
+    "@exitbook/ingestion": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/sqlite": "workspace:*",
     "decimal.js": "^10.6.0"

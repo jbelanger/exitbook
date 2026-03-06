@@ -69,7 +69,7 @@ export abstract class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseT
 
   protected async transformNormalizedData(
     rawInputs: RawExchangeInput<TRaw>[]
-  ): Promise<Result<ProcessedTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], Error>> {
     // Normalize raw inputs into LedgerEntryWithRaw via subclass normalizeEntry
     const entries: LedgerEntryWithRaw<TRaw>[] = [];
     for (const input of rawInputs) {
@@ -208,7 +208,7 @@ export abstract class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseT
    * Analyze fund flow from a group of correlated ledger entries.
    * Uses interpretation strategy to extract amounts/fees from each entry.
    */
-  protected analyzeFundFlow(entryGroup: LedgerEntryWithRaw<TRaw>[]): Result<ExchangeFundFlow, string> {
+  protected analyzeFundFlow(entryGroup: LedgerEntryWithRaw<TRaw>[]): Result<ExchangeFundFlow, Error> {
     if (entryGroup.length === 0) {
       return err('Empty entry group');
     }

@@ -1,6 +1,7 @@
 import type { RawTransaction } from '@exitbook/core';
 import { ok, type Result } from '@exitbook/core';
-import type { RawTransactionRepository } from '@exitbook/data';
+
+import type { IProcessingBatchSource } from '../../../ports/processing-batch-source.js';
 
 import type { IRawDataBatchProvider } from './raw-data-batch-provider.interface.js';
 
@@ -13,7 +14,7 @@ export class AllAtOnceBatchProvider implements IRawDataBatchProvider {
   private fetched = false;
 
   constructor(
-    private readonly rawDataRepository: RawTransactionRepository,
+    private readonly batchSource: IProcessingBatchSource,
     private readonly accountId: number
   ) {}
 
@@ -24,12 +25,7 @@ export class AllAtOnceBatchProvider implements IRawDataBatchProvider {
 
     this.fetched = true;
 
-    const result = await this.rawDataRepository.findAll({
-      processingStatus: 'pending',
-      accountId: this.accountId,
-    });
-
-    return result;
+    return this.batchSource.fetchAllPending(this.accountId);
   }
 
   hasMore(): boolean {

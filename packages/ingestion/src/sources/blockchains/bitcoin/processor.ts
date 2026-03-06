@@ -27,7 +27,7 @@ export class BitcoinProcessor extends BaseTransactionProcessor<BitcoinTransactio
   protected async transformNormalizedData(
     normalizedData: BitcoinTransaction[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], Error>> {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 

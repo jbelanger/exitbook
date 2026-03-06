@@ -305,6 +305,9 @@ importers:
       '@exitbook/core':
         specifier: workspace:*
         version: link:../core
+      '@exitbook/ingestion':
+        specifier: workspace:*
+        version: link:../ingestion
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
@@ -380,9 +383,6 @@ importers:
       '@exitbook/core':
         specifier: workspace:*
         version: link:../core
-      '@exitbook/data':
-        specifier: workspace:*
-        version: link:../data
       '@exitbook/events':
         specifier: workspace:*
         version: link:../events

@@ -48,7 +48,7 @@ export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
   protected async transformNormalizedData(
     normalizedData: EvmTransaction[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], Error>> {
     // Enrich token metadata before processing (required for proper decimal normalization)
     const enrichResult = await this.enrichTokenMetadata(normalizedData);
     if (enrichResult.isErr()) {
@@ -110,18 +110,18 @@ export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
       // Build movements with assetId
       const inflowsResult = this.buildMovements(fundFlow.inflows, hash, 'inflow');
       if (inflowsResult.isErr()) {
-        processingErrors.push({ error: inflowsResult.error, hash, txCount: txGroup.length });
+        processingErrors.push({ error: inflowsResult.error.message, hash, txCount: txGroup.length });
         this.logger.error(
-          `${inflowsResult.error} for ${this.chainConfig.chainName} transaction ${hash} - THIS TRANSACTION GROUP WILL BE LOST`
+          `${inflowsResult.error.message} for ${this.chainConfig.chainName} transaction ${hash} - THIS TRANSACTION GROUP WILL BE LOST`
         );
         continue;
       }
 
       const outflowsResult = this.buildMovements(fundFlow.outflows, hash, 'outflow');
       if (outflowsResult.isErr()) {
-        processingErrors.push({ error: outflowsResult.error, hash, txCount: txGroup.length });
+        processingErrors.push({ error: outflowsResult.error.message, hash, txCount: txGroup.length });
         this.logger.error(
-          `${outflowsResult.error} for ${this.chainConfig.chainName} transaction ${hash} - THIS TRANSACTION GROUP WILL BE LOST`
+          `${outflowsResult.error.message} for ${this.chainConfig.chainName} transaction ${hash} - THIS TRANSACTION GROUP WILL BE LOST`
         );
         continue;
       }
@@ -317,7 +317,7 @@ export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
       grossAmount: ReturnType<typeof parseDecimal>;
       netAmount: ReturnType<typeof parseDecimal>;
     }[],
-    string
+    Error
   > {
     const built: {
       assetId: string;

@@ -10,7 +10,7 @@ import type { XrpFundFlow } from './types.js';
  * Analyze fund flow from normalized XRP transaction.
  * Uses balance changes from transaction metadata to determine net effect.
  */
-export function analyzeXrpFundFlow(normalizedTx: XrpTransaction, context: AddressContext): Result<XrpFundFlow, string> {
+export function analyzeXrpFundFlow(normalizedTx: XrpTransaction, context: AddressContext): Result<XrpFundFlow, Error> {
   const walletAddress = context.primaryAddress;
 
   // Only consider XRP native currency balance changes for the wallet
