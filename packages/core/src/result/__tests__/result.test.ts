@@ -1,6 +1,7 @@
+/* eslint-disable require-yield -- generators that only throw are testing catch behavior */
 import { describe, expect, it } from 'vitest';
 
-import { resultFrom, resultFromAsync } from '../result-from.js';
+import { resultFrom, resultFromAsync, resultFromCatching, resultFromAsyncCatching } from '../result-from.js';
 import { ok, err, type Result } from '../result.js';
 
 // -- Helpers --
@@ -166,6 +167,64 @@ describe('resultFrom', () => {
   });
 });
 
+// -- resultFromCatching (sync) --
+
+describe('resultFromCatching', () => {
+  it('returns Ok when no error thrown', () => {
+    const result = resultFromCatching(function* () {
+      return yield* succeed(42);
+    }, 'should not catch');
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect(result.value).toBe(42);
+  });
+
+  it('short-circuits on yielded Err (not caught)', () => {
+    const result = resultFromCatching(function* () {
+      yield* fail('yielded');
+      return 0;
+    }, 'catch message');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error.message).toBe('yielded');
+  });
+
+  it('catches thrown error with catchMessage string', () => {
+    const result = resultFromCatching(function* () {
+      throw new Error('kaboom');
+    }, 'Operation failed');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe('Operation failed');
+      expect(result.error.cause).toBeInstanceOf(Error);
+      expect((result.error.cause as Error).message).toBe('kaboom');
+    }
+  });
+
+  it('catches thrown error with catchError factory', () => {
+    class CustomError {
+      constructor(
+        readonly message: string,
+        readonly originalCause: unknown
+      ) {}
+    }
+
+    const result = resultFromCatching(
+      function* () {
+        throw new Error('oops');
+      },
+      (cause) => new CustomError('Wrapped', cause)
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBeInstanceOf(CustomError);
+      expect((result.error as unknown as CustomError).originalCause).toBeInstanceOf(Error);
+    }
+  });
+});
+
 // -- resultFromAsync --
 
 describe('resultFromAsync', () => {
@@ -271,11 +330,236 @@ describe('resultFromAsync', () => {
 
     const result = await resultFromAsync(async function* () {
       yield* await succeedAsync(1);
-      yield* await Promise.resolve(err<number, Error>(specificError));
+      yield* await Promise.resolve(err<number>(specificError));
       return 0;
     });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) expect(result.error).toBe(specificError);
+  });
+
+  it('passes ctx as parameter when provided', async () => {
+    const ctx = { multiplier: 10 };
+
+    const result = await resultFromAsync(async function* (self) {
+      const a = yield* await succeedAsync(3);
+      return a * self.multiplier;
+    }, ctx);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect(result.value).toBe(30);
+  });
+
+  it('passes ctx and short-circuits on Err', async () => {
+    const ctx = { label: 'test' };
+
+    const result = await resultFromAsync(async function* (self) {
+      yield* await failAsync(`${self.label}-failed`);
+      return 0;
+    }, ctx);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error.message).toBe('test-failed');
+  });
+
+  it('propagates thrown errors when no catch handler', async () => {
+    await expect(
+      resultFromAsync(async function* () {
+        throw new Error('kaboom');
+      })
+    ).rejects.toThrow('kaboom');
+  });
+});
+
+// -- resultFromAsyncCatching --
+
+describe('resultFromAsyncCatching', () => {
+  it('returns Ok when all steps succeed', async () => {
+    const ctx = { value: 5 };
+    const result = await resultFromAsyncCatching(
+      async function* (self) {
+        return self.value + (yield* await succeedAsync(10));
+      },
+      ctx,
+      'should not catch'
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect(result.value).toBe(15);
+  });
+
+  it('short-circuits on yielded Err (not caught)', async () => {
+    const result = await resultFromAsyncCatching(async function* () {
+      yield* await failAsync('yielded-err');
+      return 0;
+    }, 'catch message');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error.message).toBe('yielded-err');
+  });
+
+  it('catches thrown error with catchMessage string', async () => {
+    const result = await resultFromAsyncCatching(async function* () {
+      throw new Error('db connection failed');
+    }, 'Failed to query database');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe('Failed to query database');
+      expect(result.error.cause).toBeInstanceOf(Error);
+      expect((result.error.cause as Error).message).toBe('db connection failed');
+    }
+  });
+
+  it('catches thrown error with catchError factory', async () => {
+    class CustomError {
+      constructor(
+        readonly message: string,
+        readonly originalCause: unknown
+      ) {}
+    }
+
+    const result = await resultFromAsyncCatching(
+      async function* () {
+        throw new Error('network timeout');
+      },
+      (cause) => new CustomError('Request failed', cause)
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBeInstanceOf(CustomError);
+      expect(result.error.message).toBe('Request failed');
+      expect((result.error as unknown as CustomError).originalCause).toBeInstanceOf(Error);
+    }
+  });
+
+  it('catches non-Error thrown values with catchMessage', async () => {
+    const result = await resultFromAsyncCatching(async function* () {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error -- testing non-Error throw handling
+      throw 'raw string error';
+    }, 'Wrapped error');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe('Wrapped error');
+      expect(result.error.cause).toBe('raw string error');
+    }
+  });
+
+  it('passes ctx and catches thrown error', async () => {
+    const ctx = { tableName: 'accounts' };
+
+    const result = await resultFromAsyncCatching(
+      async function* (self) {
+        throw new Error(`table ${self.tableName} locked`);
+      },
+      ctx,
+      (cause) => new Error('DB operation failed', { cause: cause as Error })
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe('DB operation failed');
+      expect((result.error.cause as Error).message).toBe('table accounts locked');
+    }
+  });
+
+  it('runs finally block before catch wraps the error', async () => {
+    let finalized = false;
+
+    const result = await resultFromAsyncCatching(async function* () {
+      try {
+        throw new Error('boom');
+      } finally {
+        finalized = true;
+      }
+    }, 'Caught');
+
+    expect(result.isErr()).toBe(true);
+    expect(finalized).toBe(true);
+  });
+
+  it('works without ctx using 2-arg form', async () => {
+    const result = await resultFromAsyncCatching(async function* () {
+      const a = yield* await succeedAsync(1);
+      const b = yield* await succeedAsync(2);
+      return a + b;
+    }, 'should not catch');
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect(result.value).toBe(3);
+  });
+});
+
+// -- err() overloads --
+
+describe('err()', () => {
+  it('creates Err from Error instance', () => {
+    const error = new Error('direct');
+    const result = err(error);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error).toBe(error);
+  });
+
+  it('creates Err from message string', () => {
+    const result = err('something failed');
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error.message).toBe('something failed');
+      expect(result.error.cause).toBeUndefined();
+    }
+  });
+
+  it('creates Err from message string with Error cause', () => {
+    const cause = new Error('root cause');
+    const result = err('wrapper message', cause);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe('wrapper message');
+      expect(result.error.cause).toBe(cause);
+    }
+  });
+
+  it('creates Err from message string with non-Error cause', () => {
+    const result = err('wrapper', 'string cause');
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe('wrapper');
+      expect(result.error.cause).toBeInstanceOf(Error);
+      expect((result.error.cause as Error).message).toBe('string cause');
+    }
+  });
+});
+
+// -- compat shims --
+
+describe('compat shims', () => {
+  it('Ok._unsafeUnwrap returns value', () => {
+    expect(ok(42)._unsafeUnwrap()).toBe(42);
+  });
+
+  it('Ok._unsafeUnwrapErr throws', () => {
+    expect(() => ok(42)._unsafeUnwrapErr()).toThrow('Called _unsafeUnwrapErr on Ok');
+  });
+
+  it('Ok.unwrapOr returns value, ignoring default', () => {
+    expect(ok(42).unwrapOr(0)).toBe(42);
+  });
+
+  it('Err._unsafeUnwrap throws the error', () => {
+    const error = new Error('boom');
+    expect(() => err(error)._unsafeUnwrap()).toThrow(error);
+  });
+
+  it('Err._unsafeUnwrapErr returns the error', () => {
+    const error = new Error('boom');
+    const result = err(error);
+    if (result.isErr()) expect(result._unsafeUnwrapErr()).toBe(error);
+  });
+
+  it('Err.unwrapOr returns default value', () => {
+    expect(err<number>(new Error('boom')).unwrapOr(99)).toBe(99);
   });
 });

@@ -8,7 +8,7 @@
  * ```ts
  * // Construction
  * const success = ok(42);
- * const failure = err(new Error('not found'));
+ * const failure = err('not found');
  *
  * // Narrowing
  * if (result.isOk()) {
@@ -41,7 +41,9 @@ export class Ok<T, E> {
   unwrapOr(_defaultValue: T): T {
     return this.value;
   }
-  // eslint-disable-next-line require-yield -- allows for easier composition with resultFrom()
+  // Yielded type is the short-circuit carrier: yield* on Ok extracts the value,
+  // yield* on Err propagates the error and terminates the generator.
+  // eslint-disable-next-line require-yield -- Ok never yields; it returns the value directly
   *[Symbol.iterator](): Generator<Err<never, E>, T> {
     return this.value;
   }
@@ -71,9 +73,24 @@ export class Err<T, E> {
   }
   *[Symbol.iterator](): Generator<Err<never, E>, never> {
     yield this as unknown as Err<never, E>;
+    // Required to satisfy generator completion typing; control never reaches here
+    // because resultFrom/resultFromAsync terminate the generator on receiving the yielded Err
     throw new Error('unreachable');
   }
 }
 
 export const ok = <T, E = never>(value: T): Result<T, E> => new Ok(value);
-export const err = <T = never, E = Error>(error: E): Result<T, E> => new Err(error);
+
+/** Normalizes unknown values to Error instances. */
+export function toError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value));
+}
+
+export function err<T = never>(message: string, cause?: unknown): Result<T, Error>;
+export function err<T = never, E = Error>(error: E): Result<T, E>;
+export function err<T = never>(errorOrMessage: unknown, cause?: unknown): Result<T, Error> {
+  if (typeof errorOrMessage === 'string') {
+    return new Err(new Error(errorOrMessage, cause !== undefined ? { cause: toError(cause) } : undefined));
+  }
+  return new Err(errorOrMessage as Error);
+}

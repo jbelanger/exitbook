@@ -61,12 +61,7 @@ export default [
 
       // --- Unicorn (Node pragmatics) ---
       'unicorn/no-null': 'error', // prefer Option/undefined in core/domain
-      'unicorn/no-useless-undefined': [
-        'error',
-        {
-          checkArguments: false,
-        },
-      ],
+      'unicorn/no-useless-undefined': 'off',
       'unicorn/prefer-node-protocol': 'error',
 
       // --- Perfectionist (deterministic ordering) ---
@@ -128,7 +123,7 @@ export default [
                 'Use barrel imports instead of direct src imports. Import from @exitbook/package-name instead of @exitbook/package-name/src/...',
             },
             {
-              group: ['@exitbook/blockchain-providers/*', '@exitbook/ingestion/*'],
+              group: ['@exitbook/blockchain-providers/*'],
               message:
                 'Do not import package internals via sub-path exports. Import from the package root barrel instead.',
             },
@@ -223,6 +218,80 @@ export default [
               target: 'packages/ingestion/src/app/**',
               from: 'packages/ingestion/src/infrastructure/**',
               message: 'app layer must not import from infrastructure layer',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // === Hexagonal boundary: hexagons must not depend on data adapter ===
+  {
+    files: ['packages/ingestion/**/src/**/*.{ts,tsx}', 'packages/accounting/**/src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@exitbook/data', '@exitbook/data/*'],
+              message: 'Hexagons must not depend on the data adapter. Define ports in your ports/ directory instead.',
+            },
+            {
+              group: ['@exitbook/*/src/**'],
+              message: 'Use barrel imports instead of direct src imports.',
+            },
+            {
+              group: [
+                './*.ts',
+                './**/*.ts',
+                '../*.ts',
+                '../**/*.ts',
+                './*.tsx',
+                './**/*.tsx',
+                '../*.tsx',
+                '../**/*.tsx',
+              ],
+              message: 'Use .js extensions for relative imports (NodeNext convention).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // === Hexagonal boundary: data adapter can only import hexagon ports ===
+  {
+    files: ['packages/data/**/src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@exitbook/ingestion'],
+              message: 'data must import from @exitbook/ingestion/ports, not the main barrel.',
+            },
+            {
+              group: ['@exitbook/accounting'],
+              message: 'data must import from @exitbook/accounting/ports, not the main barrel.',
+            },
+            {
+              group: ['@exitbook/*/src/**'],
+              message: 'Use barrel imports instead of direct src imports.',
+            },
+            {
+              group: [
+                './*.ts',
+                './**/*.ts',
+                '../*.ts',
+                '../**/*.ts',
+                './*.tsx',
+                './**/*.tsx',
+                '../*.tsx',
+                '../**/*.tsx',
+              ],
+              message: 'Use .js extensions for relative imports (NodeNext convention).',
             },
           ],
         },

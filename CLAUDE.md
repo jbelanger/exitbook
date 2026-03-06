@@ -6,6 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Give precise terminology suggestions and keep docs crisp first-drafts (not revision logs)
 - **Surface Decisions & Smells:** While working, track any decisions you had to make, potential code smells, workarounds, or possible tech debt introduced during implementation. Summarize these at the end of the task as a brief "Decisions & Smells" section so we can evaluate what to address post-implementation.
+- **Hexagonal Architecture:** Textbook ports & adapters. Flag irregularities. Details in `docs/code-assistants/hexagonal.md`.
 
 ## Essential Commands
 
@@ -72,44 +73,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### CLI Command Wiring
 
-Every feature in `apps/cli/src/features/` follows a two-tier wiring pattern:
-
-**Tier 1 — DB-only handlers** (`CostBasisHandler`, `PortfolioHandler`, `ViewPricesHandler`, etc.)
-
-- Constructor accepts `database: KyselyDB` (or derived query objects)
-- Instantiated inline: `new FooHandler(await ctx.database())`
-- No cleanup registration needed
-
-**Tier 2 — Infrastructure handlers** (`ImportHandler`, `ProcessHandler`, `BalanceHandler`)
-
-- Created via `createFooHandler(ctx, database, registry?)` factory defined in the handler file
-- Factory registers `ctx.onCleanup` internally — command files never wire cleanup manually
-- Handler exposes `abort(): void` — registered via `ctx.onAbort(() => handler.abort())` in TUI mode only
-- Shared infrastructure (tokenMetadata + providerManager + EventBus + IngestionMonitor) is created via `createIngestionInfrastructure()` in `features/shared/ingestion-infrastructure.ts`
-
-**File layout per feature:**
-
-```
-<feature>.ts          — Commander registration, option parsing, JSON/TUI dispatch
-<feature>-handler.ts  — Handler class: execute(), optional abort(), optional factory
-```
+Two-tier handler pattern (DB-only vs infrastructure). Details in `docs/code-assistants/cli-command-wiring.md`.
 
 ### Result Type (`@exitbook/core`)
 
-- Custom `Result<T, E>` type in `packages/core/src/result/` — **not neverthrow**. Classes: `Ok<T, E>`, `Err<T, E>`. Constructors: `ok(value)`, `err(error)`.
-- All fallible functions return `Result<T, Error>` (no throws). Use `isOk()`/`isErr()` to narrow, access `.value` or `.error` directly.
-- **Compose with `resultFrom` / `resultFromAsync`:** Use generator functions with `yield*` to unwrap `Result` values — short-circuits on first `Err`. This replaces neverthrow's `.andThen()`/`.map()` chaining.
-  ```typescript
-  function process(raw: string): Result<Order, Error> {
-    return resultFrom(function* () {
-      const input = yield* parseInput(raw); // unwraps Result
-      const validated = yield* validateOrder(input);
-      return buildOrder(validated); // auto-wrapped in Ok
-    });
-  }
-  ```
-- **`resultFrom` is for functions returning a single `Result`** — do NOT use it for `AsyncIterableIterator` generators that yield multiple `Result` values over time.
-- **Compat shims exist** (`_unsafeUnwrap`, `_unsafeUnwrapErr`, `unwrapOr`) for neverthrow migration — prefer `.value`/`.error` with `isOk()`/`isErr()` narrowing in new code.
+- Custom `Result<T, E>` in `packages/core/src/result/` — **not neverthrow**. Constructors: `ok(value)`, `err(error)`.
+- All fallible functions return `Result<T, Error>` (no throws). Narrow with `isOk()`/`isErr()`, access `.value`/`.error`.
+- Compose with `resultFrom`/`resultFromAsync` using `yield*` — short-circuits on first `Err`.
+- Full API reference and examples: `docs/code-assistants/result-type.md`
 
 ### Zod Schemas
 
@@ -117,15 +88,7 @@ Runtime validation. Core schemas in `packages/core/src/schemas/`, feature-specif
 
 ### Logging
 
-Custom logger in `packages/logger` — not Pino. Interface: `Logger` with `trace/debug/info/warn/error` methods. Structured context passed as first arg when needed.
-
-```typescript
-import { getLogger } from '@exitbook/logger';
-const logger = getLogger('component-name');
-logger.info('message');
-logger.warn({ field: value }, 'message with context');
-logger.error({ error }, 'error message');
-```
+Custom logger (`@exitbook/logger`) — not Pino. Use `getLogger('name')` with `trace/debug/info/warn/error`. Structured context as first arg: `logger.warn({ field }, 'msg')`.
 
 ## Code Requirements
 
@@ -137,18 +100,9 @@ logger.error({ error }, 'error message');
 - Remove all legacy code paths and backward compatibility when refactoring - clean breaks only
 - **Vertical Slices Over Technical Layers:** Organize by feature (e.g., `exchanges/kraken/`) not technical layer (e.g., `importers/`, `processors/`). Keep related code together - each feature directory contains its importer, processor, schemas, and tests.
 - **Dynamic Over Hardcoded:** Avoid hardcoded lists; rely on registries/metadata (auto-discovers blockchains/exchanges/providers).
-- **Functional Core, Imperative Shell:** Extract business logic into pure functions in `*-utils.ts` modules. Match the construct to the shape:
+- **Functional Core, Imperative Shell:** Extract business logic into pure functions in `*-utils.ts` modules. Details in `docs/code-assistants/construct-shapes.md`.
 
-  | Shape                         | Use                         | Example                                              |
-  | ----------------------------- | --------------------------- | ---------------------------------------------------- |
-  | State + methods               | Class                       | `TransactionRepository`, `PriceService`, API clients |
-  | Pure transform                | Function                    | `toUniversalTransaction()`, `buildMovementRows()`    |
-  | Config → single function      | Factory/closure             | `createRetryWrapper(config)` returning one function  |
-  | Bag of related pure functions | Named exports from a module | `cost-basis-utils.ts`                                |
-
-  **Never use closure factories (`createFooQueries(db)` returning an object of methods) as a substitute for classes** — if it captures state and exposes multiple methods, it's a class.
-
-- **Interfaces:** Use `I`-prefixed interfaces (`IProvider`, `IImporter`) only for polymorphic contracts with multiple implementations. Don't create interfaces for single-implementation classes — extract when a second implementation appears. Use plain `interface` or `z.infer<>` for data shapes.
+- **Interfaces:** `I`-prefixed interfaces for ports (always, even single implementation) and polymorphic contracts. For hexagon-internal classes, extract when a second implementation appears. Use plain `interface` or `z.infer<>` for data shapes.
 - **Testing:** Apply DRY within test files — extract shared fixtures, builders, and assertion helpers into `test-utils.ts` files co-located with the tests. Prefer reusable setup over repeated inline boilerplate; maintainable tests read like specs, not setup noise.
 - **Simplicity Over DRY:** KISS > DRY. Prefer simple, readable code over complex abstractions. Some repetition acceptable for maintainability.
 - **Developer Experience:** Prioritize clean DX when developing packages. Intuitive APIs, helpful errors, minimal setup.
@@ -158,72 +112,10 @@ logger.error({ error }, 'error message');
 - **Context Management:** When context exceeds 125k tokens, warn and propose sub-tasks after `/clear`
 - **Document Naming Issues:** When working on code, identify variables or functions with unclear names. Include rename suggestions in task summaries to track clarity improvements.
 
-## Environment Variables
-
-Create `.env` in project root (loaded via `tsx --env-file-if-exists`):
-
-```bash
-# Blockchain providers (examples)
-ALCHEMY_API_KEY=...
-HELIUS_API_KEY=...
-
-# Exchanges (for API import, not CSV)
-KUCOIN_API_KEY=...
-KUCOIN_SECRET=...
-KUCOIN_PASSPHRASE=...
-```
-
 ## Common Development Workflows
 
-### Issue Tracking
-
+- `.env` in project root for API keys (loaded via `tsx --env-file-if-exists`)
 - Use `gh issue list/view/create` and load comments for context.
-
-### Adding a New Blockchain Provider
-
-1. **Provider:** `packages/blockchain-providers/src/blockchains/<blockchain>/providers/<provider-name>/`
-   - API client (extends `BaseApiClient`)
-   - Mapper utilities + Zod schemas
-   - Export provider factory (optional barrel export from provider directory)
-   - Add factory to blockchain `register-apis.ts` array (aggregated by `packages/blockchain-providers/src/register-apis.ts`)
-
-2. **Ingestion:** `packages/ingestion/src/sources/blockchains/<blockchain>/`
-   - Importer (implements `IImporter`)
-   - Processor (transforms to `UniversalTransaction`)
-   - Utilities and types
-
-3. **Configuration:** Add to `<blockchain>-chains.json` if multi-chain
-
-### Adding a New Exchange Adapter
-
-1. **Exchange Client (API):** `packages/exchange-providers/src/exchanges/<exchange>/`
-   - Client using ccxt + Zod schemas
-   - Credentials validation, error handling
-   - Export from `packages/exchange-providers/src/index.ts`
-
-2. **Importer/Processor:** `packages/ingestion/src/sources/exchanges/<exchange>/`
-   - Importer (implements `IImporter`) for CSV/API
-   - Processor (transforms to `UniversalTransaction`)
-   - Schemas, types, utilities
-
-3. **Registration:** Add to factory in `packages/ingestion/src/sources/exchanges/shared/`
-
-### Testing Changes
-
-```bash
-pnpm build  # Type check all packages
-
-# Run tests for specific packages
-pnpm --filter @exitbook/blockchain-providers test
-
-# Run specific test file
-pnpm vitest run packages/blockchain-providers/src/blockchains/bitcoin
-
-pnpm test  # Full test suite
-
-# CLI integration test
-pnpm run dev import --exchange kucoin --csv-dir ./test-data
-```
 
 ## Project Context
 
