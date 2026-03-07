@@ -28,7 +28,6 @@ type LinksRunCommandOptions = z.infer<typeof LinksRunCommandOptionsSchema>;
  */
 function buildLinksRunParamsFromFlags(options: LinksRunCommandOptions): LinkingRunParams {
   return {
-    dryRun: options.dryRun ?? false,
     minConfidenceScore: parseDecimal(options.minConfidence?.toString() ?? '0.7'),
     autoConfirmThreshold: parseDecimal(options.autoConfirmThreshold?.toString() ?? '0.95'),
   };
@@ -40,13 +39,6 @@ function buildLinksRunParamsFromFlags(options: LinksRunCommandOptions): LinkingR
 async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
   return new Promise<LinkingRunParams | null>((resolve) => {
     const steps: PromptStep[] = [
-      {
-        type: 'confirm',
-        props: {
-          message: 'Run in dry-run mode (preview matches without saving)?',
-          initialValue: false,
-        },
-      },
       {
         type: 'text',
         props: {
@@ -91,10 +83,9 @@ async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
         onComplete: (answers) => {
           unmount();
 
-          const dryRun = answers[0] as boolean;
-          const minConfidenceInput = answers[1] as string;
-          const autoConfirmInput = answers[2] as string;
-          const shouldProceed = answers[3] as boolean;
+          const minConfidenceInput = answers[0] as string;
+          const autoConfirmInput = answers[1] as string;
+          const shouldProceed = answers[2] as boolean;
 
           if (!shouldProceed) {
             resolve(null);
@@ -111,7 +102,6 @@ async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
           }
 
           resolve({
-            dryRun,
             minConfidenceScore: parseDecimal(minConfidenceInput),
             autoConfirmThreshold: parseDecimal(autoConfirmInput),
           });
@@ -132,7 +122,6 @@ export function registerLinksRunCommand(linksCommand: Command, registry: Adapter
   linksCommand
     .command('run')
     .description('Run the linking algorithm to find matching transactions across sources')
-    .option('--dry-run', 'Show matches without saving to database')
     .option('--min-confidence <score>', 'Minimum confidence threshold (0-1, default: 0.7)', parseFloat)
     .option('--auto-confirm-threshold <score>', 'Auto-confirm above this score (0-1, default: 0.95)', parseFloat)
     .option('--json', 'Output results in JSON format')
@@ -182,7 +171,7 @@ async function executeLinksRunJSON(options: LinksRunCommandOptions, registry: Ad
         displayCliError('links-run', readyResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
-      const handler = createLinksRunHandler(ctx, database, { dryRun: params.dryRun, isJsonMode: true });
+      const handler = createLinksRunHandler(ctx, database, { isJsonMode: true });
 
       const result = await handler.execute(params);
       if (result.isErr()) {
@@ -206,7 +195,7 @@ async function executeLinksRunJSON(options: LinksRunCommandOptions, registry: Ad
 async function executeLinksRunTUI(options: LinksRunCommandOptions, registry: AdapterRegistry): Promise<void> {
   try {
     let params: LinkingRunParams;
-    if (!options.dryRun && !options.minConfidence && !options.autoConfirmThreshold) {
+    if (!options.minConfidence && !options.autoConfirmThreshold) {
       const prompted = await promptForLinksRunParams();
       if (!prompted) {
         console.log('Transaction linking cancelled.');
@@ -230,7 +219,7 @@ async function executeLinksRunTUI(options: LinksRunCommandOptions, registry: Ada
         displayCliError('links-run', readyResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }
 
-      const handler = createLinksRunHandler(ctx, database, { dryRun: params.dryRun, isJsonMode: false });
+      const handler = createLinksRunHandler(ctx, database, { isJsonMode: false });
 
       ctx.onAbort(() => handler.abort());
 

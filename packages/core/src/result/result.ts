@@ -29,10 +29,6 @@ export class Ok<T, E> {
   isErr(): this is Err<T, E> {
     return false;
   }
-  // TODO: neverthrow compat — convert call sites to use .error directly, then remove
-  _unsafeUnwrapErr(): never {
-    throw new Error('Called _unsafeUnwrapErr on Ok');
-  }
   // TODO: neverthrow compat — convert call sites to use isOk() narrowing, then remove
   unwrapOr(_defaultValue: T): T {
     return this.value;
@@ -53,10 +49,6 @@ export class Err<T, E> {
   }
   isErr(): this is Err<T, E> {
     return true;
-  }
-  // TODO: neverthrow compat — convert call sites to use .error directly, then remove
-  _unsafeUnwrapErr(): E {
-    return this.error;
   }
   // TODO: neverthrow compat — convert call sites to use isOk() narrowing, then remove
   unwrapOr(defaultValue: T): T {

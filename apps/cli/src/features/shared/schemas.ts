@@ -233,7 +233,6 @@ export const LinksViewCommandOptionsSchema = z
  */
 export const LinksRunCommandOptionsSchema = z
   .object({
-    dryRun: z.boolean().optional(),
     minConfidence: z.number().min(0).max(1).optional(),
     autoConfirmThreshold: z.number().min(0).max(1).optional(),
     json: z.boolean().optional(),

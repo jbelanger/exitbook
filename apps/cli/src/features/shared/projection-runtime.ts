@@ -171,7 +171,6 @@ function buildLinksRuntime(deps: ProjectionRuntimeDeps): ProjectionRuntime {
       }
 
       const params = {
-        dryRun: false,
         minConfidenceScore: parseDecimal('0.7'),
         autoConfirmThreshold: parseDecimal('0.95'),
       };
@@ -194,7 +193,7 @@ function buildLinksRuntime(deps: ProjectionRuntimeDeps): ProjectionRuntime {
           logger.error({ error }, 'EventBus error during linking');
         },
       });
-      const controller = createEventDrivenController(eventBus, LinksRunMonitor, { dryRun: false });
+      const controller = createEventDrivenController(eventBus, LinksRunMonitor, {});
       const abort = () => {
         controller.abort();
         void controller.stop().catch((cleanupErr) => {
@@ -288,7 +287,7 @@ async function resetSingleProjection(
 export async function ensureConsumerInputsReady(
   target: ConsumerTarget,
   deps: ProjectionRuntimeDeps,
-  priceConfig?: PricePrereqConfig  
+  priceConfig?: PricePrereqConfig
 ): Promise<Result<void, Error>> {
   const projectionTarget: ProjectionId = target === 'links-run' ? 'processed-transactions' : 'links';
   const plan = [...rebuildPlan(projectionTarget), projectionTarget];

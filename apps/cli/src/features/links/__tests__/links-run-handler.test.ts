@@ -14,7 +14,6 @@ describe('LinksRunHandler', () => {
   let handler: LinksRunHandler;
 
   const params: LinkingRunParams = {
-    dryRun: false,
     minConfidenceScore: parseDecimal('0.7'),
     autoConfirmThreshold: parseDecimal('0.95'),
   };
@@ -62,7 +61,6 @@ describe('LinksRunHandler', () => {
 
   it('should load overrides before starting the controller', async () => {
     const linkingResult: LinkingRunResult = {
-      dryRun: false,
       existingLinksCleared: 2,
       internalLinksCount: 1,
       confirmedLinksCount: 3,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { assertErr } from '../../../../../core/src/__tests__/test-utils.js';
 import { normalizeNativeAmount, normalizeTokenAmount } from '../amount-utils.js';
 
 describe('amount-utils', () => {
@@ -56,7 +57,7 @@ describe('amount-utils', () => {
     it('should return error for invalid amounts', () => {
       const result = normalizeTokenAmount('invalid', 18);
       expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Invalid argument');
+      expect(assertErr(result).message).toContain('Invalid argument');
     });
   });
 
@@ -110,7 +111,7 @@ describe('amount-utils', () => {
     it('should return error for invalid amounts', () => {
       const result = normalizeNativeAmount('invalid', 18);
       expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Invalid argument');
+      expect(assertErr(result).message).toContain('Invalid argument');
     });
   });
 });

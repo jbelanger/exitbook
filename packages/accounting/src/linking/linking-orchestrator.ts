@@ -1,5 +1,5 @@
 import type { OverrideEvent, UniversalTransactionData } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, resultDo, resultDoAsync, resultTryAsync, type Result } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -20,9 +20,6 @@ import type { NewTransactionLink } from './types.js';
  * Links run handler parameters.
  */
 export interface LinkingRunParams {
-  /** Whether to run in dry-run mode (no database writes) */
-  dryRun: boolean;
-
   /** Minimum confidence score to suggest a match (0-1) */
   minConfidenceScore: Decimal;
 
@@ -36,7 +33,7 @@ const logger = getLogger('LinkingOrchestrator');
  * Result of the links run operation.
  */
 export interface LinkingRunResult {
-  /** Number of existing links cleared before running (undefined if none or dry run) */
+  /** Number of existing links cleared before running (undefined if none) */
   existingLinksCleared?: number | undefined;
 
   /** Number of internal links (same tx hash) */
@@ -60,11 +57,8 @@ export interface LinkingRunResult {
   /** Number of unmatched target candidates */
   unmatchedTargetCandidateCount: number;
 
-  /** Total links saved to database (undefined if dry run) */
+  /** Total links saved to database */
   totalSaved?: number | undefined;
-
-  /** Whether this was a dry run */
-  dryRun: boolean;
 }
 
 /**
@@ -85,106 +79,84 @@ export class LinkingOrchestrator {
    * @param overrides - Pre-loaded override events (link/unlink scope). Pass empty array if none.
    */
   async execute(params: LinkingRunParams, overrides: OverrideEvent[] = []): Promise<Result<LinkingRunResult, Error>> {
-    try {
-      // Mark building before transaction — externally visible in-progress state
-      if (!params.dryRun) {
-        const buildingResult = await this.store.markLinksBuilding();
-        if (buildingResult.isErr()) return err(buildingResult.error);
-      }
+    const result = await resultTryAsync(
+      async function* (self) {
+        // Mark building before transaction — externally visible in-progress state
+        yield* await self.store.markLinksBuilding();
 
-      // 1. Load transactions
-      const loadResult = await this.loadTransactions();
-      if (loadResult.isErr()) return err(loadResult.error);
-
-      const { transactions, txById } = loadResult.value;
-      if (transactions.length === 0) {
-        if (!params.dryRun) {
-          const freshResult = await this.store.markLinksFresh();
-          if (freshResult.isErr()) return err(freshResult.error);
+        // 1. Load transactions
+        const { transactions, txById } = yield* await self.loadTransactions();
+        if (transactions.length === 0) {
+          yield* await self.store.markLinksFresh();
+          return emptyResult();
         }
-        return ok(emptyResult(params.dryRun));
-      }
 
-      // 2. Build link candidates (in-memory for both dry-run and live mode)
-      this.eventBus?.emit({ type: 'candidates.started' });
-      const candidateBuildResult = buildLinkCandidates(transactions, logger);
-      if (candidateBuildResult.isErr()) return err(candidateBuildResult.error);
-
-      const { candidates, internalLinks } = candidateBuildResult.value;
-      this.eventBus?.emit({
-        type: 'candidates.completed',
-        candidateCount: candidates.length,
-        internalLinkCount: internalLinks.length,
-      });
-
-      // 3–5. Match + overrides (pure computation, no I/O)
-      const matchResult = this.runMatching(candidates, internalLinks, params, overrides, transactions, txById);
-      if (matchResult.isErr()) return err(matchResult.error);
-
-      const { finalLinks, internalCount, confirmedCount, suggestedCount, strategyResult } = matchResult.value;
-
-      let existingLinksCleared: number | undefined;
-      let totalSaved: number | undefined;
-
-      // 7. Persist links (live mode only)
-      if (!params.dryRun) {
-        const persistResult = await this.store.withTransaction(async (txStore) => {
-          const linksToSave = finalLinks.filter((l) => l.status !== 'rejected');
-          let cleared: number | undefined;
-          let saved: number | undefined;
-
-          if (linksToSave.length > 0) {
-            this.eventBus?.emit({ type: 'save.started' });
-            const saveResult = await txStore.replaceLinks(linksToSave);
-            if (saveResult.isErr()) return err(saveResult.error);
-
-            cleared = saveResult.value.previousCount > 0 ? saveResult.value.previousCount : undefined;
-            saved = saveResult.value.savedCount;
-
-            logger.info({ count: saved }, 'Saved links to database');
-            this.eventBus?.emit({ type: 'save.completed', totalSaved: saved });
-          }
-
-          // 8. Mark links fresh — atomic with link persistence
-          const freshResult = await txStore.markLinksFresh();
-          if (freshResult.isErr()) return err(freshResult.error);
-
-          return ok({ existingLinksCleared: cleared, totalSaved: saved });
+        // 2. Build link candidates
+        self.eventBus?.emit({ type: 'candidates.started' });
+        const { candidates, internalLinks } = yield* buildLinkCandidates(transactions, logger);
+        self.eventBus?.emit({
+          type: 'candidates.completed',
+          candidateCount: candidates.length,
+          internalLinkCount: internalLinks.length,
         });
 
-        if (persistResult.isErr()) {
-          const failedResult = await this.store.markLinksFailed();
-          if (failedResult.isErr()) {
-            logger.warn({ error: failedResult.error }, 'Failed to mark links as failed');
-          }
-          return err(persistResult.error);
-        }
+        // 3–5. Match + overrides (pure computation, no I/O)
+        const { finalLinks, internalCount, confirmedCount, suggestedCount, strategyResult } = yield* self.runMatching(
+          candidates,
+          internalLinks,
+          params,
+          overrides,
+          transactions,
+          txById
+        );
 
-        existingLinksCleared = persistResult.value.existingLinksCleared;
-        totalSaved = persistResult.value.totalSaved;
-      }
+        // 7. Persist links
+        const { existingLinksCleared, totalSaved } = yield* await self.store.withTransaction(async (txStore) =>
+          resultDoAsync(async function* () {
+            const linksToSave = finalLinks.filter((l) => l.status !== 'rejected');
+            let cleared: number | undefined;
+            let saved: number | undefined;
 
-      return ok({
-        existingLinksCleared,
-        internalLinksCount: internalCount,
-        confirmedLinksCount: confirmedCount,
-        suggestedLinksCount: suggestedCount,
-        totalSourceCandidates: strategyResult.totalSourceCandidates,
-        totalTargetCandidates: strategyResult.totalTargetCandidates,
-        unmatchedSourceCandidateCount: strategyResult.unmatchedSourceCandidateCount,
-        unmatchedTargetCandidateCount: strategyResult.unmatchedTargetCandidateCount,
-        totalSaved,
-        dryRun: params.dryRun,
-      });
-    } catch (error) {
-      if (!params.dryRun) {
-        const failedResult = await this.store.markLinksFailed();
-        if (failedResult.isErr()) {
-          logger.warn({ error: failedResult.error }, 'Failed to mark links as failed');
-        }
+            if (linksToSave.length > 0) {
+              self.eventBus?.emit({ type: 'save.started' });
+              const { previousCount, savedCount } = yield* await txStore.replaceLinks(linksToSave);
+              cleared = previousCount > 0 ? previousCount : undefined;
+              saved = savedCount;
+              logger.info({ count: saved }, 'Saved links to database');
+              self.eventBus?.emit({ type: 'save.completed', totalSaved: saved });
+            }
+
+            // 8. Mark links fresh — atomic with link persistence
+            yield* await txStore.markLinksFresh();
+            return { existingLinksCleared: cleared, totalSaved: saved };
+          })
+        );
+
+        return {
+          existingLinksCleared,
+          internalLinksCount: internalCount,
+          confirmedLinksCount: confirmedCount,
+          suggestedLinksCount: suggestedCount,
+          totalSourceCandidates: strategyResult.totalSourceCandidates,
+          totalTargetCandidates: strategyResult.totalTargetCandidates,
+          unmatchedSourceCandidateCount: strategyResult.unmatchedSourceCandidateCount,
+          unmatchedTargetCandidateCount: strategyResult.unmatchedTargetCandidateCount,
+          totalSaved,
+        };
+      },
+      this,
+      'Linking pipeline failed'
+    );
+
+    if (result.isErr()) {
+      const failedResult = await this.store.markLinksFailed();
+      if (failedResult.isErr()) {
+        logger.warn({ error: failedResult.error }, 'Failed to mark links as failed');
       }
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return err(result.error);
     }
+
+    return result;
   }
 
   /** Run matching pipeline: strategy matching → overrides → emit events. Pure computation, no I/O. */
@@ -205,56 +177,49 @@ export class LinkingOrchestrator {
     },
     Error
   > {
-    this.eventBus?.emit({ type: 'match.started' });
+    const { eventBus } = this;
+    return resultDo(function* (self) {
+      eventBus?.emit({ type: 'match.started' });
 
-    const config = buildMatchingConfig({
-      minConfidenceScore: params.minConfidenceScore,
-      autoConfirmThreshold: params.autoConfirmThreshold,
-    });
+      const config = buildMatchingConfig({
+        minConfidenceScore: params.minConfidenceScore,
+        autoConfirmThreshold: params.autoConfirmThreshold,
+      });
 
-    const runner = new StrategyRunner(defaultStrategies(), logger, config);
-    const runResult = runner.run(candidates);
-    if (runResult.isErr()) return err(runResult.error);
+      const runner = new StrategyRunner(defaultStrategies(), logger, config);
+      const strategyResult = yield* runner.run(candidates);
+      const allLinks = [...internalLinks, ...strategyResult.links];
 
-    const strategyResult = runResult.value;
-    const allLinks = [...internalLinks, ...strategyResult.links];
+      const finalLinks = yield* self.replayOverrides(allLinks, overrides, transactions, txById);
+      const { internalCount, confirmedCount, suggestedCount } = categorizeFinalLinks(finalLinks);
 
-    const overrideResult = this.replayOverrides(allLinks, overrides, transactions, txById);
-    if (overrideResult.isErr()) return err(overrideResult.error);
+      eventBus?.emit({
+        type: 'match.completed',
+        sourceCandidateCount: strategyResult.totalSourceCandidates,
+        targetCandidateCount: strategyResult.totalTargetCandidates,
+        internalCount,
+        confirmedCount,
+        suggestedCount,
+      });
 
-    const finalLinks = overrideResult.value;
-    const { internalCount, confirmedCount, suggestedCount } = categorizeFinalLinks(finalLinks);
-
-    this.eventBus?.emit({
-      type: 'match.completed',
-      sourceCandidateCount: strategyResult.totalSourceCandidates,
-      targetCandidateCount: strategyResult.totalTargetCandidates,
-      internalCount,
-      confirmedCount,
-      suggestedCount,
-    });
-
-    return ok({ finalLinks, internalCount, confirmedCount, suggestedCount, strategyResult });
+      return { finalLinks, internalCount, confirmedCount, suggestedCount, strategyResult };
+    }, this);
   }
 
   private async loadTransactions(): Promise<
     Result<{ transactions: UniversalTransactionData[]; txById: Map<number, UniversalTransactionData> }, Error>
   > {
-    this.eventBus?.emit({ type: 'load.started' });
+    return resultDoAsync(async function* (self) {
+      self.eventBus?.emit({ type: 'load.started' });
 
-    const result = await this.store.loadTransactions();
-    if (result.isErr()) return err(result.error);
+      const transactions = yield* await self.store.loadTransactions();
+      const txById = new Map(transactions.map((tx) => [tx.id, tx]));
 
-    const transactions = result.value;
-    const txById = new Map<number, UniversalTransactionData>();
-    for (const tx of transactions) {
-      txById.set(tx.id, tx);
-    }
+      logger.info({ transactionCount: transactions.length }, 'Fetched transactions for linking');
+      self.eventBus?.emit({ type: 'load.completed', totalTransactions: transactions.length });
 
-    logger.info({ transactionCount: transactions.length }, 'Fetched transactions for linking');
-    this.eventBus?.emit({ type: 'load.completed', totalTransactions: transactions.length });
-
-    return ok({ transactions, txById });
+      return { transactions, txById };
+    }, this);
   }
 
   /**
@@ -272,50 +237,53 @@ export class LinkingOrchestrator {
 
     logger.info({ count: linkOverrides.length }, 'Applying link override events');
 
-    const applyResult = applyLinkOverrides(links, linkOverrides, transactions);
-    if (applyResult.isErr()) return err(applyResult.error);
+    return resultDo(function* () {
+      const {
+        links: adjustedLinks,
+        orphaned,
+        unresolved,
+      } = yield* applyLinkOverrides(links, linkOverrides, transactions);
+      const finalLinks = adjustedLinks as NewTransactionLink[];
 
-    const { links: adjustedLinks, orphaned, unresolved } = applyResult.value;
-    const finalLinks = adjustedLinks as NewTransactionLink[];
-
-    for (const entry of orphaned) {
-      const linkResult = buildLinkFromOrphanedOverride(entry, txById);
-      if (linkResult.isErr()) {
-        logger.error(
+      for (const entry of orphaned) {
+        const linkResult = buildLinkFromOrphanedOverride(entry, txById);
+        if (linkResult.isErr()) {
+          logger.error(
+            {
+              overrideId: entry.override.id,
+              sourceTransactionId: entry.sourceTransactionId,
+              targetTransactionId: entry.targetTransactionId,
+              asset: entry.assetSymbol,
+            },
+            `Skipping orphaned override: ${linkResult.error.message}`
+          );
+          continue;
+        }
+        finalLinks.push(linkResult.value);
+        logger.info(
           {
             overrideId: entry.override.id,
             sourceTransactionId: entry.sourceTransactionId,
             targetTransactionId: entry.targetTransactionId,
             asset: entry.assetSymbol,
           },
-          `Skipping orphaned override: ${linkResult.error.message}`
+          'Created link from override (algorithm did not rediscover this pair)'
         );
-        continue;
       }
-      finalLinks.push(linkResult.value);
-      logger.info(
-        {
-          overrideId: entry.override.id,
-          sourceTransactionId: entry.sourceTransactionId,
-          targetTransactionId: entry.targetTransactionId,
-          asset: entry.assetSymbol,
-        },
-        'Created link from override (algorithm did not rediscover this pair)'
-      );
-    }
 
-    if (unresolved.length > 0) {
-      logger.warn(
-        { unresolvedCount: unresolved.length },
-        'Some override events could not resolve transaction fingerprints'
-      );
-    }
+      if (unresolved.length > 0) {
+        logger.warn(
+          { unresolvedCount: unresolved.length },
+          'Some override events could not resolve transaction fingerprints'
+        );
+      }
 
-    return ok(finalLinks);
+      return finalLinks;
+    });
   }
 }
 
-function emptyResult(dryRun: boolean): LinkingRunResult {
+function emptyResult(): LinkingRunResult {
   return {
     internalLinksCount: 0,
     confirmedLinksCount: 0,
@@ -324,6 +292,5 @@ function emptyResult(dryRun: boolean): LinkingRunResult {
     totalTargetCandidates: 0,
     unmatchedSourceCandidateCount: 0,
     unmatchedTargetCandidateCount: 0,
-    dryRun,
   };
 }

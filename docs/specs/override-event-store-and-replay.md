@@ -95,12 +95,12 @@ Sorting makes A->B and B->A equivalent.
 `LinksRunHandler` flow:
 
 1. Load transactions
-2. Clear existing links (non-dry-run)
+2. Clear existing links
 3. Run linking algorithm
 4. Build link entities (confirmed + suggested)
 5. Count internal links (for reporting)
 6. Apply link/unlink overrides to all links
-7. Save all non-rejected links (non-dry-run)
+7. Save all non-rejected links
 
 Replay semantics:
 

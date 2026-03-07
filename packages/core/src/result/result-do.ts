@@ -31,10 +31,22 @@ function toShortCircuitErr<E>(yielded: unknown, helperName: string): Err<never, 
  *     return buildOrder(validated);
  *   });
  * }
+ *
+ * // With ctx (e.g. class methods)
+ * class MyService {
+ *   process(raw: string): Result<Order, Error> {
+ *     return resultDo(function* (self) {
+ *       const input = yield* self.parse(raw);
+ *       return yield* self.validate(input);
+ *     }, this);
+ *   }
+ * }
  * ```
  */
-export function resultDo<T, E>(fn: () => Generator<Err<never, E>, T>): Result<T, E> {
-  const it = fn();
+export function resultDo<T, E>(fn: () => Generator<Err<never, E>, T>): Result<T, E>;
+export function resultDo<T, E, Ctx>(fn: (ctx: Ctx) => Generator<Err<never, E>, T>, ctx: Ctx): Result<T, E>;
+export function resultDo<T, E>(fn: (ctx?: unknown) => Generator<Err<never, E>, T>, ctx?: unknown): Result<T, E> {
+  const it = ctx !== undefined ? fn(ctx) : fn();
   const next = it.next();
   if (next.done) return new Ok(next.value);
   const shortCircuitErr = toShortCircuitErr<E>(next.value, 'resultDo');

@@ -24,8 +24,8 @@ const REFRESH_INTERVAL_MS = 250;
 
 // --- Hook ---
 
-function useLinksRunState(relay: EventRelay<LinkingEvent>, lifecycle: LifecycleBridge, dryRun: boolean): LinksRunState {
-  const [state, dispatch] = useReducer(linksRunReducer, dryRun, createLinksRunState);
+function useLinksRunState(relay: EventRelay<LinkingEvent>, lifecycle: LifecycleBridge): LinksRunState {
+  const [state, dispatch] = useReducer(linksRunReducer, undefined, createLinksRunState);
 
   // Connect to the event relay (replays any buffered events, then forwards new ones).
   // Also register lifecycle callbacks for synchronous abort/fail/complete dispatch.
@@ -60,7 +60,6 @@ function useLinksRunState(relay: EventRelay<LinkingEvent>, lifecycle: LifecycleB
 // --- Components ---
 
 interface LinksRunMonitorProps {
-  dryRun: boolean;
   lifecycle: LifecycleBridge;
   relay: EventRelay<LinkingEvent>;
 }
@@ -68,8 +67,8 @@ interface LinksRunMonitorProps {
 /**
  * Main links run monitor component
  */
-export const LinksRunMonitor: FC<LinksRunMonitorProps> = ({ relay, lifecycle, dryRun }) => {
-  const state = useLinksRunState(relay, lifecycle, dryRun);
+export const LinksRunMonitor: FC<LinksRunMonitorProps> = ({ relay, lifecycle }) => {
+  const state = useLinksRunState(relay, lifecycle);
   return (
     <Box flexDirection="column">
       {/* Blank line before first operation */}
@@ -79,19 +78,14 @@ export const LinksRunMonitor: FC<LinksRunMonitorProps> = ({ relay, lifecycle, dr
       {state.load && <LoadSection load={state.load} />}
 
       {/* Phase 2: Clear existing (conditional) */}
-      {state.existingCleared !== undefined && state.existingCleared > 0 && !state.dryRun && (
+      {state.existingCleared !== undefined && state.existingCleared > 0 && (
         <Text>
           <Text color="green">✓</Text> {state.existingCleared} existing links cleared
         </Text>
       )}
 
       {/* Phase 3: Matching */}
-      {state.match && (
-        <MatchSection
-          match={state.match}
-          dryRun={state.dryRun}
-        />
-      )}
+      {state.match && <MatchSection match={state.match} />}
 
       {/* Phase 4: Save */}
       {state.save && <SaveSection save={state.save} />}
@@ -132,7 +126,7 @@ const LoadSection: FC<{ load: LoadPhase }> = ({ load }) => {
 /**
  * Matching section
  */
-const MatchSection: FC<{ dryRun: boolean; match: MatchPhase }> = ({ match, dryRun }) => {
+const MatchSection: FC<{ match: MatchPhase }> = ({ match }) => {
   const elapsed = match.completedAt ? match.completedAt - match.startedAt : performance.now() - match.startedAt;
   const duration = formatDuration(elapsed);
 
@@ -173,8 +167,7 @@ const MatchSection: FC<{ dryRun: boolean; match: MatchPhase }> = ({ match, dryRu
     return (
       <Box flexDirection="column">
         <Text>
-          <Text color="green">✓</Text> Matching{dryRun && <Text color="yellow"> — dry run</Text>}{' '}
-          <Text dimColor>({duration})</Text>
+          <Text color="green">✓</Text> Matching <Text dimColor>({duration})</Text>
         </Text>
         {lines.map((line, index) => (
           <Text key={index}>
@@ -253,18 +246,6 @@ const CompletionSection: FC<{ state: LinksRunState }> = ({ state }) => {
 
   // Success - determine next steps
   const hasSuggested = state.match && state.match.suggestedCount > 0;
-
-  if (state.dryRun) {
-    return (
-      <Box flexDirection="column">
-        <Text> </Text>
-        <Text>
-          <Text color="green">✓</Text> Done — <Text color="yellow">dry run, nothing saved</Text>{' '}
-          {duration && <Text dimColor>({duration})</Text>}
-        </Text>
-      </Box>
-    );
-  }
 
   return (
     <Box flexDirection="column">

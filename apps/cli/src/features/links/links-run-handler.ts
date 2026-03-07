@@ -79,7 +79,7 @@ export class LinksRunHandler {
 export function createLinksRunHandler(
   ctx: CommandContext,
   database: DataContext,
-  options: { dryRun: boolean; isJsonMode: boolean }
+  options: { isJsonMode: boolean }
 ): LinksRunHandler {
   const overrideStore = new OverrideStore(ctx.dataDir);
   const store = buildLinkingPorts(database);
@@ -94,7 +94,7 @@ export function createLinksRunHandler(
       logger.error({ err: busErr }, 'EventBus error');
     },
   });
-  const controller = createEventDrivenController(eventBus, LinksRunMonitor, { dryRun: options.dryRun });
+  const controller = createEventDrivenController(eventBus, LinksRunMonitor, {});
   const orchestrator = new LinkingOrchestrator(store, eventBus);
 
   return new LinksRunHandler(orchestrator, overrideStore, controller);

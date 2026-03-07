@@ -41,20 +41,6 @@ Next: exitbook links view --status suggested
 ✓ Done (1.7s)
 ```
 
-### Dry Run
-
-```
-✓ Loaded 4,063 transactions (1.2s)
-  ├─ 2,847 outflows (sources)
-  └─ 1,216 inflows (targets)
-✓ Matching — dry run (340ms)
-  ├─ 47 internal (same tx hash)
-  ├─ 8 confirmed (≥95%)
-  └─ 4 suggested (70–95%)
-
-✓ Done — dry run, nothing saved (1.5s)
-```
-
 ### No Matches Found
 
 ```
@@ -119,7 +105,7 @@ Sub-lines only appear when `count > 0`.
 
 ### Phase 2: Clear Existing (conditional)
 
-Only shown when existing links are present and this is not a dry run:
+Only shown when existing links are present:
 
 ```
 ✓ {existingCount} existing links cleared
@@ -149,12 +135,6 @@ Completed (no matches):
   └─ No matches found
 ```
 
-Dry run label:
-
-```
-✓ Matching — dry run ({duration})
-```
-
 Sub-line rules:
 
 - Internal line only appears when `internalCount > 0`
@@ -163,7 +143,7 @@ Sub-line rules:
 
 ### Phase 4: Save
 
-Only shown when not dry run and matches exist:
+Only shown when matches exist:
 
 ```
 ✓ Saved {totalLinks} links ({duration})
@@ -175,12 +155,6 @@ Success:
 
 ```
 ✓ Done ({totalDuration})
-```
-
-Success (dry run):
-
-```
-✓ Done — dry run, nothing saved ({totalDuration})
 ```
 
 With next steps (only when suggested > 0):
@@ -224,7 +198,6 @@ Follows the same three-tier hierarchy as the ingestion dashboard:
 | -------------------------------------------- | ---------- |
 | Phase labels: `Loading`, `Matching`, `Saved` | white/bold |
 | Counts: `4,063`, `59`, `12`                  | green      |
-| `dry run` label                              | yellow     |
 | `No matches found`                           | dim        |
 
 ### Context tier (recedes)
@@ -278,7 +251,6 @@ interface LinksRunState {
   aborted?: boolean;
   errorMessage?: string;
   totalDurationMs?: number;
-  dryRun: boolean;
 }
 ```
 
@@ -289,9 +261,6 @@ interface LinksRunState {
 When no flags are provided, `links run` prompts before executing:
 
 ```
-◆ Run in dry-run mode?
-│ ○ Yes / ● No
-│
 ◆ Minimum confidence score (0-1):
 │ 0.7
 │
@@ -320,8 +289,7 @@ Bypasses the Ink TUI entirely. Outputs structured JSON:
   "totalTargetTransactions": 1216,
   "unmatchedSourceCount": 2788,
   "unmatchedTargetCount": 1154,
-  "totalSaved": 62,
-  "dryRun": false
+  "totalSaved": 62
 }
 ```
 

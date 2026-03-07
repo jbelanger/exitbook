@@ -59,13 +59,12 @@ export interface LinksRunState {
   aborted?: boolean | undefined;
   errorMessage?: string | undefined;
   totalDurationMs?: number | undefined;
-  dryRun: boolean;
 }
 
 /**
  * Create initial links run state
  */
-export function createLinksRunState(dryRun: boolean): LinksRunState {
+export function createLinksRunState(): LinksRunState {
   return {
     load: undefined,
     existingCleared: undefined,
@@ -75,6 +74,5 @@ export function createLinksRunState(dryRun: boolean): LinksRunState {
     aborted: undefined,
     errorMessage: undefined,
     totalDurationMs: undefined,
-    dryRun,
   };
 }

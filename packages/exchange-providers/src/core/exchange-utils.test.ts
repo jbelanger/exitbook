@@ -1,3 +1,4 @@
+import { assertErr } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -26,7 +27,7 @@ describe('validateCredentials', () => {
     const result = validateCredentials(TestCredentialsSchema, credentials, 'kraken');
 
     expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('Invalid kraken credentials');
+    expect(assertErr(result).message).toContain('Invalid kraken credentials');
   });
 
   it('should fail with missing secret', () => {
@@ -35,7 +36,7 @@ describe('validateCredentials', () => {
     const result = validateCredentials(TestCredentialsSchema, credentials, 'kraken');
 
     expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('Invalid kraken credentials');
+    expect(assertErr(result).message).toContain('Invalid kraken credentials');
   });
 
   it('should fail with empty apiKey', () => {
@@ -44,7 +45,7 @@ describe('validateCredentials', () => {
     const result = validateCredentials(TestCredentialsSchema, credentials, 'kraken');
 
     expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('Invalid kraken credentials');
+    expect(assertErr(result).message).toContain('Invalid kraken credentials');
   });
 
   it('should fail with empty secret', () => {
@@ -53,7 +54,7 @@ describe('validateCredentials', () => {
     const result = validateCredentials(TestCredentialsSchema, credentials, 'kraken');
 
     expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('Invalid kraken credentials');
+    expect(assertErr(result).message).toContain('Invalid kraken credentials');
   });
 
   it('should fail with extra unexpected fields', () => {
@@ -107,7 +108,7 @@ describe('validateCredentials', () => {
     const result = validateCredentials(TestCredentialsSchema, credentials, 'binance');
 
     expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('Invalid binance credentials');
+    expect(assertErr(result).message).toContain('Invalid binance credentials');
   });
 
   it('should handle null credentials', () => {
@@ -147,7 +148,7 @@ describe('validateRawData', () => {
     const result = validateRawData(TestDataSchema, rawData, 'kraken');
 
     expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('timestamp');
+    expect(assertErr(result).message).toContain('timestamp');
   });
 
   it('should fail with wrong type', () => {
@@ -156,7 +157,7 @@ describe('validateRawData', () => {
     const result = validateRawData(TestDataSchema, rawData, 'kraken');
 
     expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('amount');
+    expect(assertErr(result).message).toContain('amount');
   });
 
   it('should succeed with exact schema match', () => {
@@ -191,7 +192,7 @@ describe('validateRawData', () => {
 
     expect(result.isErr()).toBe(true);
     // Should contain field names from validation errors
-    expect(result._unsafeUnwrapErr().message).toContain('id');
+    expect(assertErr(result).message).toContain('id');
   });
 });
 

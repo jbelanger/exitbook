@@ -174,6 +174,30 @@ describe('resultDo', () => {
       } as unknown as () => Generator<Err<never, Error>, number, unknown>)
     ).toThrow('resultDo expected the generator to yield an Err short-circuit value');
   });
+
+  it('passes ctx as parameter when provided', () => {
+    const ctx = { multiplier: 10 };
+
+    const result = resultDo(function* (self) {
+      const a = yield* succeed(3);
+      return a * self.multiplier;
+    }, ctx);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect(result.value).toBe(30);
+  });
+
+  it('passes ctx and short-circuits on Err', () => {
+    const ctx = { label: 'test' };
+
+    const result = resultDo(function* (self) {
+      yield* fail(`${self.label}-failed`);
+      return 0;
+    }, ctx);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error.message).toBe('test-failed');
+  });
 });
 
 // -- resultTry (sync) --
@@ -555,18 +579,8 @@ describe('err()', () => {
 // -- compat shims --
 
 describe('compat shims', () => {
-  it('Ok._unsafeUnwrapErr throws', () => {
-    expect(() => ok(42)._unsafeUnwrapErr()).toThrow('Called _unsafeUnwrapErr on Ok');
-  });
-
   it('Ok.unwrapOr returns value, ignoring default', () => {
     expect(ok(42).unwrapOr(0)).toBe(42);
-  });
-
-  it('Err._unsafeUnwrapErr returns the error', () => {
-    const error = new Error('boom');
-    const result = err(error);
-    if (result.isErr()) expect(result._unsafeUnwrapErr()).toBe(error);
   });
 
   it('Err.unwrapOr returns default value', () => {

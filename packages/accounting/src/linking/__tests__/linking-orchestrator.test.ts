@@ -86,7 +86,6 @@ describe('LinkingOrchestrator', () => {
 
     const result = await handler.execute(
       {
-        dryRun: false,
         minConfidenceScore: parseDecimal('0.7'),
         autoConfirmThreshold: parseDecimal('0.95'),
       },
@@ -112,7 +111,6 @@ describe('LinkingOrchestrator', () => {
 
     const handler = new LinkingOrchestrator(store);
     const result = await handler.execute({
-      dryRun: false,
       minConfidenceScore: parseDecimal('0.7'),
       autoConfirmThreshold: parseDecimal('0.95'),
     });
@@ -155,7 +153,6 @@ describe('LinkingOrchestrator', () => {
     const handler = new LinkingOrchestrator(store, mockEventBus);
 
     const result = await handler.execute({
-      dryRun: false,
       minConfidenceScore: parseDecimal('0.7'),
       autoConfirmThreshold: parseDecimal('0.95'),
     });
@@ -172,50 +169,6 @@ describe('LinkingOrchestrator', () => {
     expect(eventTypes).toContain('match.completed');
     expect(eventTypes).toContain('save.started');
     expect(eventTypes).toContain('save.completed');
-  });
-
-  it('does not emit save events in dry run mode', async () => {
-    const transactions = [
-      createTransaction({
-        id: 1,
-        source: 'kraken',
-        sourceType: 'exchange',
-        datetime: '2026-02-08T00:00:00Z',
-        outflows: [{ assetSymbol: 'BTC', amount: '1' }],
-      }),
-    ];
-
-    const store = createMockStore({
-      loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
-    });
-
-    const emittedEvents: LinkingEvent[] = [];
-    const mockEventBus = {
-      emit: vi.fn().mockImplementation((event: LinkingEvent) => {
-        emittedEvents.push(event);
-      }),
-      subscribe: vi.fn(),
-    } as unknown as EventBus<LinkingEvent>;
-
-    const handler = new LinkingOrchestrator(store, mockEventBus);
-
-    const result = await handler.execute({
-      dryRun: true,
-      minConfidenceScore: parseDecimal('0.7'),
-      autoConfirmThreshold: parseDecimal('0.95'),
-    });
-
-    assertOk(result);
-
-    const eventTypes = emittedEvents.map((e) => e.type);
-    expect(eventTypes).toContain('load.started');
-    expect(eventTypes).toContain('load.completed');
-    expect(eventTypes).toContain('candidates.started');
-    expect(eventTypes).toContain('candidates.completed');
-    expect(eventTypes).toContain('match.started');
-    expect(eventTypes).toContain('match.completed');
-    expect(eventTypes).not.toContain('save.started');
-    expect(eventTypes).not.toContain('save.completed');
   });
 
   it('returns error when replacing links fails', async () => {
@@ -243,7 +196,6 @@ describe('LinkingOrchestrator', () => {
 
     const handler = new LinkingOrchestrator(store);
     const result = await handler.execute({
-      dryRun: false,
       minConfidenceScore: parseDecimal('0.7'),
       autoConfirmThreshold: parseDecimal('0.95'),
     });
@@ -295,7 +247,6 @@ describe('LinkingOrchestrator', () => {
 
     const result = await handler.execute(
       {
-        dryRun: false,
         minConfidenceScore: parseDecimal('0.7'),
         autoConfirmThreshold: parseDecimal('0.95'),
       },
@@ -348,7 +299,6 @@ describe('LinkingOrchestrator', () => {
 
     const result = await handler.execute(
       {
-        dryRun: false,
         minConfidenceScore: parseDecimal('0.7'),
         autoConfirmThreshold: parseDecimal('0.95'),
       },
@@ -360,12 +310,11 @@ describe('LinkingOrchestrator', () => {
 
   describe('projection lifecycle', () => {
     const defaultParams = {
-      dryRun: false,
       minConfidenceScore: parseDecimal('0.7'),
       autoConfirmThreshold: parseDecimal('0.95'),
     };
 
-    it('marks building then fresh on successful non-dry-run', async () => {
+    it('marks building then fresh on successful run', async () => {
       const transactions = [
         createTransaction({
           id: 1,
@@ -444,48 +393,6 @@ describe('LinkingOrchestrator', () => {
       expect(store.markLinksFailed).toHaveBeenCalledOnce();
       // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
       expect(store.markLinksFresh).not.toHaveBeenCalled();
-    });
-
-    it('does not touch projection state on dry run', async () => {
-      const transactions = [
-        createTransaction({
-          id: 1,
-          source: 'kraken',
-          sourceType: 'exchange',
-          datetime: '2026-02-08T00:00:00Z',
-          outflows: [{ assetSymbol: 'BTC', amount: '1' }],
-        }),
-      ];
-
-      const store = createMockStore({
-        loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
-      });
-
-      const handler = new LinkingOrchestrator(store);
-      assertOk(await handler.execute({ ...defaultParams, dryRun: true }));
-
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
-      expect(store.markLinksBuilding).not.toHaveBeenCalled();
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
-      expect(store.markLinksFresh).not.toHaveBeenCalled();
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
-      expect(store.markLinksFailed).not.toHaveBeenCalled();
-    });
-
-    it('does not mark failed on dry-run failure', async () => {
-      const store = createMockStore({
-        loadTransactions: vi.fn().mockResolvedValue(err(new Error('load failed'))),
-      });
-
-      const handler = new LinkingOrchestrator(store);
-      assertErr(await handler.execute({ ...defaultParams, dryRun: true }));
-
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
-      expect(store.markLinksBuilding).not.toHaveBeenCalled();
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
-      expect(store.markLinksFresh).not.toHaveBeenCalled();
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
-      expect(store.markLinksFailed).not.toHaveBeenCalled();
     });
 
     it('marks fresh even when zero links are saved (all rejected by overrides)', async () => {
@@ -582,7 +489,6 @@ describe('LinkingOrchestrator', () => {
 
     const result = await handler.execute(
       {
-        dryRun: false,
         minConfidenceScore: parseDecimal('0.7'),
         autoConfirmThreshold: parseDecimal('0.95'),
       },
