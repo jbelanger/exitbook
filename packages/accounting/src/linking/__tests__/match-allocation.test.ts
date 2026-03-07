@@ -1,6 +1,7 @@
-import { type LinkableMovement, parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
+import type { LinkCandidate } from '../link-candidate.js';
 import { allocateMatches, shouldAutoConfirm } from '../match-allocation.js';
 import { DEFAULT_MATCHING_CONFIG } from '../matching-config.js';
 import { calculateConfidenceScore } from '../strategies/amount-timing-utils.js';
@@ -215,8 +216,8 @@ describe('allocateMatches invariants', () => {
 describe('shouldAutoConfirm', () => {
   it('should auto-confirm high confidence matches', () => {
     const match: PotentialMatch = {
-      sourceMovement: {} as LinkableMovement,
-      targetMovement: {} as LinkableMovement,
+      sourceMovement: {} as LinkCandidate,
+      targetMovement: {} as LinkCandidate,
       confidenceScore: parseDecimal('0.96'), // Above threshold
       matchCriteria: {
         assetMatch: true,
@@ -233,8 +234,8 @@ describe('shouldAutoConfirm', () => {
 
   it('should not auto-confirm low confidence matches', () => {
     const match: PotentialMatch = {
-      sourceMovement: {} as LinkableMovement,
-      targetMovement: {} as LinkableMovement,
+      sourceMovement: {} as LinkCandidate,
+      targetMovement: {} as LinkCandidate,
       confidenceScore: parseDecimal('0.85'), // Below threshold
       matchCriteria: {
         assetMatch: true,
@@ -258,12 +259,12 @@ describe('allocateMatches scenarios', () => {
           id: 1,
           assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
-        } as LinkableMovement,
+        } as LinkCandidate,
         targetMovement: {
           id: 2,
           assetSymbol: 'BTC',
           amount: parseDecimal('0.9995'),
-        } as LinkableMovement,
+        } as LinkCandidate,
         confidenceScore: parseDecimal('0.98'),
         matchCriteria: {
           assetMatch: true,
@@ -278,12 +279,12 @@ describe('allocateMatches scenarios', () => {
           id: 3,
           assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
-        } as LinkableMovement,
+        } as LinkCandidate,
         targetMovement: {
           id: 2,
           assetSymbol: 'BTC',
           amount: parseDecimal('0.9995'),
-        } as LinkableMovement,
+        } as LinkCandidate,
         confidenceScore: parseDecimal('0.85'),
         matchCriteria: {
           assetMatch: true,
@@ -309,12 +310,12 @@ describe('allocateMatches scenarios', () => {
           id: 1,
           assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
-        } as LinkableMovement,
+        } as LinkCandidate,
         targetMovement: {
           id: 2,
           assetSymbol: 'BTC',
           amount: parseDecimal('0.9995'),
-        } as LinkableMovement,
+        } as LinkCandidate,
         confidenceScore: parseDecimal('0.98'),
         matchCriteria: {
           assetMatch: true,
@@ -342,12 +343,12 @@ describe('allocateMatches scenarios', () => {
           id: 1,
           assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
-        } as LinkableMovement,
+        } as LinkCandidate,
         targetMovement: {
           id: 2,
           assetSymbol: 'BTC',
           amount: parseDecimal('0.95'),
-        } as LinkableMovement,
+        } as LinkCandidate,
         confidenceScore: parseDecimal('0.85'),
         matchCriteria: {
           assetMatch: true,
@@ -372,12 +373,12 @@ describe('allocateMatches scenarios', () => {
           id: 1,
           assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
-        } as LinkableMovement,
+        } as LinkCandidate,
         targetMovement: {
           id: 2,
           assetSymbol: 'BTC',
           amount: parseDecimal('0.9995'),
-        } as LinkableMovement,
+        } as LinkCandidate,
         confidenceScore: parseDecimal('0.98'),
         matchCriteria: {
           assetMatch: true,
@@ -392,12 +393,12 @@ describe('allocateMatches scenarios', () => {
           id: 3,
           assetSymbol: 'ETH',
           amount: parseDecimal('10.0'),
-        } as LinkableMovement,
+        } as LinkCandidate,
         targetMovement: {
           id: 4,
           assetSymbol: 'ETH',
           amount: parseDecimal('9.98'),
-        } as LinkableMovement,
+        } as LinkCandidate,
         confidenceScore: parseDecimal('0.97'),
         matchCriteria: {
           assetMatch: true,

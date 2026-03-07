@@ -1,15 +1,14 @@
-export type { LinkableMovement, NewLinkableMovement } from '@exitbook/core';
-
-import type { NewLinkableMovement } from '@exitbook/core';
-
+import type { LinkCandidate } from '../link-candidate.js';
 import type { NewTransactionLink } from '../types.js';
 
 /**
- * Result of the materialization phase.
+ * Result of building link candidates.
  */
-export interface MaterializationResult {
-  /** Linkable movements to persist and pass to strategies */
-  movements: NewLinkableMovement[];
+export interface LinkCandidateBuildResult {
+  /** Link candidates to pass to matching strategies */
+  candidates: LinkCandidate[];
   /** Internal blockchain links (same tx hash, different tracked addresses) — always confirmed */
   internalLinks: NewTransactionLink[];
 }
+
+export type { LinkCandidate } from '../link-candidate.js';

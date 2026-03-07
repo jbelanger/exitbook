@@ -2,7 +2,7 @@ import { parseDecimal } from '@exitbook/core';
 import { ok, type Result } from '@exitbook/core';
 
 import { createTransactionLink } from '../link-construction.js';
-import type { LinkableMovement } from '../pre-linking/types.js';
+import type { LinkCandidate } from '../pre-linking/types.js';
 import type { MatchingConfig, NewTransactionLink } from '../types.js';
 
 import { calculateTimeDifferenceHours, determineLinkType, isTimingValid } from './amount-timing-utils.js';
@@ -18,22 +18,18 @@ import type { ILinkingStrategy, StrategyResult } from './types.js';
 export class ExactHashStrategy implements ILinkingStrategy {
   readonly name = 'exact-hash';
 
-  execute(
-    sources: LinkableMovement[],
-    targets: LinkableMovement[],
-    config: MatchingConfig
-  ): Result<StrategyResult, Error> {
+  execute(sources: LinkCandidate[], targets: LinkCandidate[], config: MatchingConfig): Result<StrategyResult, Error> {
     const links: NewTransactionLink[] = [];
-    const consumedMovementIds = new Set<number>();
+    const consumedCandidateIds = new Set<number>();
     const now = new Date();
 
     for (const source of sources) {
       if (!source.blockchainTxHash) continue;
 
       // Find all targets with matching hash
-      const hashTargets: LinkableMovement[] = [];
+      const hashTargets: LinkCandidate[] = [];
       for (const target of targets) {
-        if (consumedMovementIds.has(target.id)) continue;
+        if (consumedCandidateIds.has(target.id)) continue;
         if (target.assetSymbol !== source.assetSymbol) continue;
 
         // Same-source guard
@@ -84,11 +80,11 @@ export class ExactHashStrategy implements ILinkingStrategy {
         if (linkResult.isErr()) continue;
 
         links.push(linkResult.value);
-        consumedMovementIds.add(source.id);
-        consumedMovementIds.add(target.id);
+        consumedCandidateIds.add(source.id);
+        consumedCandidateIds.add(target.id);
       }
     }
 
-    return ok({ links, consumedMovementIds });
+    return ok({ links, consumedCandidateIds });
   }
 }

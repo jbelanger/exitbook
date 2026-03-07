@@ -1,9 +1,9 @@
 import { parseDecimal } from '@exitbook/core';
-import { LinkableMovementSchema } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import {
+  LinkCandidateSchema,
   LinkStatusSchema,
   LinkTypeSchema,
   MatchCriteriaSchema,
@@ -456,7 +456,7 @@ describe('schemas', () => {
         excluded: false,
       };
 
-      const result = LinkableMovementSchema.parse(movement);
+      const result = LinkCandidateSchema.parse(movement);
       expect(result.amount).toBeInstanceOf(Decimal);
       expect(result.amount.toFixed()).toBe('1000000000000');
     });
@@ -478,7 +478,7 @@ describe('schemas', () => {
         excluded: false,
       };
 
-      const result = LinkableMovementSchema.parse(movement);
+      const result = LinkCandidateSchema.parse(movement);
       expect(result.grossAmount).toBeInstanceOf(Decimal);
       expect(result.grossAmount!.toFixed()).toBe('2679.718442');
     });
@@ -499,7 +499,7 @@ describe('schemas', () => {
         excluded: false,
       };
 
-      const result = LinkableMovementSchema.parse(movement);
+      const result = LinkCandidateSchema.parse(movement);
       expect(result.grossAmount).toBeUndefined();
     });
   });

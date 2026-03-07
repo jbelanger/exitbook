@@ -11,13 +11,6 @@ export function buildLinkingPorts(db: DataContext): ILinkingPersistence {
   return {
     loadTransactions: () => db.transactions.findAll(),
 
-    replaceMovements: (movements) =>
-      resultDoAsync(async function* () {
-        yield* await db.linkableMovements.deleteAll();
-        yield* await db.linkableMovements.createBatch(movements);
-        return yield* await db.linkableMovements.findAll();
-      }),
-
     replaceLinks: (links) =>
       resultDoAsync(async function* () {
         const previousCount = yield* await db.transactionLinks.count();

@@ -3,7 +3,7 @@ import { ok, type Result } from '@exitbook/core';
 
 import { createTransactionLink } from '../link-construction.js';
 import { allocateMatches } from '../match-allocation.js';
-import type { LinkableMovement } from '../pre-linking/types.js';
+import type { LinkCandidate } from '../pre-linking/types.js';
 import type { MatchingConfig, NewTransactionLink, PotentialMatch } from '../types.js';
 
 import { scoreAndFilterMatches } from './amount-timing-utils.js';
@@ -16,13 +16,9 @@ import type { ILinkingStrategy, StrategyResult } from './types.js';
 export class PartialMatchStrategy implements ILinkingStrategy {
   readonly name = 'partial-match';
 
-  execute(
-    sources: LinkableMovement[],
-    targets: LinkableMovement[],
-    config: MatchingConfig
-  ): Result<StrategyResult, Error> {
+  execute(sources: LinkCandidate[], targets: LinkCandidate[], config: MatchingConfig): Result<StrategyResult, Error> {
     const links: NewTransactionLink[] = [];
-    const consumedMovementIds = new Set<number>();
+    const consumedCandidateIds = new Set<number>();
 
     // Use relaxed config — lower confidence threshold, keep partial fraction
     const relaxedConfig: MatchingConfig = {
@@ -38,7 +34,7 @@ export class PartialMatchStrategy implements ILinkingStrategy {
     }
 
     if (allMatches.length === 0) {
-      return ok({ links, consumedMovementIds });
+      return ok({ links, consumedCandidateIds });
     }
 
     const { suggested } = allocateMatches(allMatches, relaxedConfig);
@@ -49,10 +45,10 @@ export class PartialMatchStrategy implements ILinkingStrategy {
       const linkResult = createTransactionLink(match, 'suggested', now);
       if (linkResult.isErr()) continue;
       links.push(linkResult.value);
-      consumedMovementIds.add(match.sourceMovement.id);
-      consumedMovementIds.add(match.targetMovement.id);
+      consumedCandidateIds.add(match.sourceMovement.id);
+      consumedCandidateIds.add(match.targetMovement.id);
     }
 
-    return ok({ links, consumedMovementIds });
+    return ok({ links, consumedCandidateIds });
   }
 }

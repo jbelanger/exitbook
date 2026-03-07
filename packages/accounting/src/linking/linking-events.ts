@@ -17,14 +17,14 @@ export type LinkingEvent =
       count: number;
       type: 'existing.cleared';
     }
-  // Materialize phase events
+  // Candidate build phase events
   | {
-      type: 'materialize.started';
+      type: 'candidates.started';
     }
   | {
+      candidateCount: number;
       internalLinkCount: number;
-      movementCount: number;
-      type: 'materialize.completed';
+      type: 'candidates.completed';
     }
   // Match phase events
   | {
@@ -33,9 +33,9 @@ export type LinkingEvent =
   | {
       confirmedCount: number;
       internalCount: number;
-      sourceCount: number;
+      sourceCandidateCount: number;
       suggestedCount: number;
-      targetCount: number;
+      targetCandidateCount: number;
       type: 'match.completed';
     }
   // Save phase events

@@ -1,7 +1,6 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 
-import type { LinkableMovement, NewLinkableMovement } from '../linking/pre-linking/types.js';
 import type { NewTransactionLink } from '../linking/types.js';
 
 /**
@@ -17,18 +16,12 @@ export interface LinksSaveResult {
 /**
  * Port for transaction linking persistence.
  *
- * Domain-shaped: encapsulates the clear-save-readback workflows
- * rather than exposing individual CRUD operations.
+ * Domain-shaped: encapsulates link persistence and projection lifecycle.
+ * Linkable movements are built in-memory — only links are persisted.
  */
 export interface ILinkingPersistence {
   /** Load all transactions needed for the linking pipeline */
   loadTransactions(): Promise<Result<UniversalTransactionData[], Error>>;
-
-  /**
-   * Clear existing linkable movements and persist new ones.
-   * Returns the persisted movements with database-assigned IDs.
-   */
-  replaceMovements(movements: NewLinkableMovement[]): Promise<Result<LinkableMovement[], Error>>;
 
   /**
    * Clear existing links and persist new ones.

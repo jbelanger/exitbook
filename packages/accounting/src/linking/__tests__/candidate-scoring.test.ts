@@ -1,7 +1,7 @@
 import { type Currency, parseDecimal } from '@exitbook/core';
-import type { LinkableMovement } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
+import type { LinkCandidate } from '../link-candidate.js';
 import { DEFAULT_MATCHING_CONFIG } from '../matching-config.js';
 import {
   buildMatchCriteria,
@@ -434,7 +434,7 @@ describe('candidate-scoring', () => {
 
   describe('scoreAndFilterMatches', () => {
     it('should find matching transactions', () => {
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -463,7 +463,7 @@ describe('candidate-scoring', () => {
     });
 
     it('should filter by minimum confidence', () => {
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -481,7 +481,7 @@ describe('candidate-scoring', () => {
     });
 
     it('should sort by confidence descending', () => {
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -522,7 +522,7 @@ describe('candidate-scoring', () => {
         grossAmount: parseDecimal('2679.718442'), // grossAmount (total UTXO inputs)
         direction: 'out',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 388,
           sourceName: 'unknown',
@@ -553,7 +553,7 @@ describe('candidate-scoring', () => {
         // No grossAmount
         direction: 'out',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 388,
           sourceName: 'unknown',
@@ -577,7 +577,7 @@ describe('candidate-scoring', () => {
       const source = createCandidate({
         timestamp: new Date('2024-01-01T14:00:00Z'), // Withdrawal at 14:00
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -596,7 +596,7 @@ describe('candidate-scoring', () => {
       const source = createCandidate({
         timestamp: new Date('2024-01-01T14:00:00Z'), // Withdrawal at 14:00
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -612,7 +612,7 @@ describe('candidate-scoring', () => {
     });
 
     it('should reject matches outside the time window', () => {
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -631,7 +631,7 @@ describe('candidate-scoring', () => {
 
   describe('amount similarity behavior', () => {
     it('should pass through matches with low amount similarity (capacity dedup handles filtering)', () => {
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -651,7 +651,7 @@ describe('candidate-scoring', () => {
     });
 
     it('should accept matches with high amount similarity', () => {
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -999,7 +999,7 @@ describe('candidate-scoring', () => {
   describe('scoreAndFilterMatches with hash matching', () => {
     it('should create perfect match when transaction hashes match', () => {
       const source = createCandidate({ sourceName: 'kucoin', blockchainTxHash: '0xabc123' });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -1020,7 +1020,7 @@ describe('candidate-scoring', () => {
 
     it('should prioritize hash match over amount-based matching', () => {
       const source = createCandidate({ sourceName: 'kucoin', blockchainTxHash: '0xabc123' });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         // Perfect amount match but no hash
         createCandidate({
           id: 2,
@@ -1059,7 +1059,7 @@ describe('candidate-scoring', () => {
         assetSymbol: 'ETH' as Currency,
         blockchainTxHash: '0xdef456',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'ethereum',
@@ -1084,7 +1084,7 @@ describe('candidate-scoring', () => {
         sourceType: 'blockchain',
         blockchainTxHash: '0xabc123',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -1109,7 +1109,7 @@ describe('candidate-scoring', () => {
 
     it('should calculate actual timing validation for hash matches', () => {
       const source = createCandidate({ sourceName: 'kucoin', blockchainTxHash: '0xabc123' });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -1136,7 +1136,7 @@ describe('candidate-scoring', () => {
         amount: parseDecimal('100.0'),
         blockchainTxHash: '0xabc123',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         // Two deposits with same normalized hash (0xabc123-819 and 0xabc123-820 both normalize to 0xabc123)
         createCandidate({
           id: 2,
@@ -1177,7 +1177,7 @@ describe('candidate-scoring', () => {
         amount: parseDecimal('100.0'),
         blockchainTxHash: '0xabc123',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         // Only one deposit with this normalized hash
         createCandidate({
           id: 2,
@@ -1218,7 +1218,7 @@ describe('candidate-scoring', () => {
         amount: parseDecimal('100.0'),
         blockchainTxHash: '0xabc123',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         // Same hash but uppercase
         createCandidate({
           id: 2,
@@ -1260,7 +1260,7 @@ describe('candidate-scoring', () => {
         amount: parseDecimal('10.0'),
         blockchainTxHash: 'AbC123DeFg456',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         // Exact case match
         createCandidate({
           id: 2,
@@ -1302,7 +1302,7 @@ describe('candidate-scoring', () => {
         amount: parseDecimal('1.0'), // Source has 1.0
         blockchainTxHash: '0xabc123',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -1337,7 +1337,7 @@ describe('candidate-scoring', () => {
         amount: parseDecimal('1.0'), // Source has 1.0
         blockchainTxHash: '0xabc123',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -1376,7 +1376,7 @@ describe('candidate-scoring', () => {
         sourceName: 'kucoin',
         blockchainTxHash: '0xabc123',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         // Self-target (same transaction id as source)
         createCandidate({
           id: 1,
@@ -1412,7 +1412,7 @@ describe('candidate-scoring', () => {
         sourceType: 'blockchain',
         blockchainTxHash: '0xabc123',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         // Blockchain target (should be excluded from hash path)
         createCandidate({
           id: 2,
@@ -1438,7 +1438,7 @@ describe('candidate-scoring', () => {
         sourceName: 'kucoin',
         blockchainTxHash: '0xabc123',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         createCandidate({
           id: 2,
           sourceName: 'bitcoin',
@@ -1465,7 +1465,7 @@ describe('candidate-scoring', () => {
         amount: parseDecimal('100.0'),
         blockchainTxHash: '0xabc123-100',
       });
-      const targets: LinkableMovement[] = [
+      const targets: LinkCandidate[] = [
         // Same hash with same log index (should match via checkTransactionHashMatch)
         createCandidate({
           id: 2,

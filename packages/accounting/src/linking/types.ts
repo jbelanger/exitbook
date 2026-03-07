@@ -65,13 +65,3 @@ export type PotentialMatch = z.infer<typeof PotentialMatchSchema>;
  * - minPartialMatchFraction: Minimum fraction of the larger amount consumed by a partial match (default: 0.1)
  */
 export type MatchingConfig = z.infer<typeof MatchingConfigSchema>;
-
-/**
- * Represents a group of UTXO outflow transactions that should be treated as one
- * (e.g., multiple inputs from the same wallet going to one destination)
- */
-export interface OutflowGrouping {
-  representativeTxId: number; // The TX that represents this group for matching
-  groupMemberIds: Set<number>; // All TX IDs in this group (including representative)
-  assetSymbol: string;
-}

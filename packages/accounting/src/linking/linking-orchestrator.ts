@@ -6,12 +6,12 @@ import type { Decimal } from 'decimal.js';
 
 import type { ILinkingPersistence } from '../ports/linking-persistence.js';
 
+import type { LinkCandidate } from './link-candidate.js';
 import type { LinkingEvent } from './linking-events.js';
 import { buildLinkFromOrphanedOverride, categorizeFinalLinks } from './linking-orchestrator-utils.js';
 import { buildMatchingConfig } from './matching-config.js';
 import { applyLinkOverrides } from './override-replay.js';
-import { materializeLinkableMovements } from './pre-linking/materializer.js';
-import type { LinkableMovement, NewLinkableMovement } from './pre-linking/types.js';
+import { buildLinkCandidates } from './pre-linking/build-link-candidates.js';
 import { defaultStrategies } from './strategies/index.js';
 import { StrategyRunner, type StrategyRunnerResult } from './strategy-runner.js';
 import type { NewTransactionLink } from './types.js';
@@ -48,17 +48,17 @@ export interface LinkingRunResult {
   /** Number of suggested links (needs manual review, 70-95%) */
   suggestedLinksCount: number;
 
-  /** Total source transactions analyzed */
-  totalSourceTransactions: number;
+  /** Total source candidates analyzed */
+  totalSourceCandidates: number;
 
-  /** Total target transactions analyzed */
-  totalTargetTransactions: number;
+  /** Total target candidates analyzed */
+  totalTargetCandidates: number;
 
-  /** Number of unmatched source transactions */
-  unmatchedSourceCount: number;
+  /** Number of unmatched source candidates */
+  unmatchedSourceCandidateCount: number;
 
-  /** Number of unmatched target transactions */
-  unmatchedTargetCount: number;
+  /** Number of unmatched target candidates */
+  unmatchedTargetCandidateCount: number;
 
   /** Total links saved to database (undefined if dry run) */
   totalSaved?: number | undefined;
@@ -68,7 +68,7 @@ export interface LinkingRunResult {
 }
 
 /**
- * Orchestrates transaction linking — materializes linkable movements,
+ * Orchestrates transaction linking — builds link candidates,
  * runs strategy-based matching, applies user overrides, and persists results.
  */
 export class LinkingOrchestrator {
@@ -79,7 +79,7 @@ export class LinkingOrchestrator {
 
   /**
    * Execute the full linking pipeline:
-   * load → materialize → match → apply overrides → save
+   * load → build candidates → match → apply overrides → save
    *
    * @param params - Linking configuration
    * @param overrides - Pre-loaded override events (link/unlink scope). Pass empty array if none.
@@ -105,64 +105,30 @@ export class LinkingOrchestrator {
         return ok(emptyResult(params.dryRun));
       }
 
-      // 2. Materialize linkable movements
-      this.eventBus?.emit({ type: 'materialize.started' });
-      const materializeResult = materializeLinkableMovements(transactions, logger);
-      if (materializeResult.isErr()) return err(materializeResult.error);
+      // 2. Build link candidates (in-memory for both dry-run and live mode)
+      this.eventBus?.emit({ type: 'candidates.started' });
+      const candidateBuildResult = buildLinkCandidates(transactions, logger);
+      if (candidateBuildResult.isErr()) return err(candidateBuildResult.error);
 
-      const { movements, internalLinks } = materializeResult.value;
+      const { candidates, internalLinks } = candidateBuildResult.value;
       this.eventBus?.emit({
-        type: 'materialize.completed',
-        movementCount: movements.length,
+        type: 'candidates.completed',
+        candidateCount: candidates.length,
         internalLinkCount: internalLinks.length,
       });
 
-      // 3–7. Persist movements, run matching, persist links — all in one transaction for atomicity.
-      //       Matching (steps 4–6) is pure CPU work, so holding the transaction open is fine.
-      //       Dry-run skips persistence entirely.
-      let movementsWithIds: LinkableMovement[];
+      // 3–5. Match + overrides (pure computation, no I/O)
+      const matchResult = this.runMatching(candidates, internalLinks, params, overrides, transactions, txById);
+      if (matchResult.isErr()) return err(matchResult.error);
+
+      const { finalLinks, internalCount, confirmedCount, suggestedCount, strategyResult } = matchResult.value;
+
       let existingLinksCleared: number | undefined;
       let totalSaved: number | undefined;
 
-      let internalCount: number;
-      let confirmedCount: number;
-      let suggestedCount: number;
-      let totalSourceTransactions: number;
-      let totalTargetTransactions: number;
-      let unmatchedSourceCount: number;
-      let unmatchedTargetCount: number;
-
-      if (params.dryRun) {
-        // Dry run: assign in-memory IDs, run matching, skip persistence
-        movementsWithIds = this.assignInMemoryIds(movements);
-
-        const matchResult = this.runMatching(movementsWithIds, internalLinks, params, overrides, transactions, txById);
-        if (matchResult.isErr()) return err(matchResult.error);
-
-        ({ internalCount, confirmedCount, suggestedCount } = matchResult.value);
-        totalSourceTransactions = matchResult.value.strategyResult.totalSourceMovements;
-        totalTargetTransactions = matchResult.value.strategyResult.totalTargetMovements;
-        unmatchedSourceCount = matchResult.value.strategyResult.unmatchedSourceCount;
-        unmatchedTargetCount = matchResult.value.strategyResult.unmatchedTargetCount;
-      } else {
+      // 7. Persist links (live mode only)
+      if (!params.dryRun) {
         const persistResult = await this.store.withTransaction(async (txStore) => {
-          // 3. Persist linkable movements
-          const movementsResult = await txStore.replaceMovements(movements);
-          if (movementsResult.isErr()) return err(movementsResult.error);
-
-          // 4–6. Match + overrides (pure computation, no I/O)
-          const matchResult = this.runMatching(
-            movementsResult.value,
-            internalLinks,
-            params,
-            overrides,
-            transactions,
-            txById
-          );
-          if (matchResult.isErr()) return err(matchResult.error);
-          const { finalLinks, internalCount, confirmedCount, suggestedCount, strategyResult } = matchResult.value;
-
-          // 7. Persist links
           const linksToSave = finalLinks.filter((l) => l.status !== 'rejected');
           let cleared: number | undefined;
           let saved: number | undefined;
@@ -179,19 +145,11 @@ export class LinkingOrchestrator {
             this.eventBus?.emit({ type: 'save.completed', totalSaved: saved });
           }
 
-          // 8. Mark links fresh — atomic with data mutations
+          // 8. Mark links fresh — atomic with link persistence
           const freshResult = await txStore.markLinksFresh();
           if (freshResult.isErr()) return err(freshResult.error);
 
-          return ok({
-            movementsWithIds: movementsResult.value,
-            existingLinksCleared: cleared,
-            totalSaved: saved,
-            internalCount,
-            confirmedCount,
-            suggestedCount,
-            strategyResult,
-          });
+          return ok({ existingLinksCleared: cleared, totalSaved: saved });
         });
 
         if (persistResult.isErr()) {
@@ -202,14 +160,8 @@ export class LinkingOrchestrator {
           return err(persistResult.error);
         }
 
-        movementsWithIds = persistResult.value.movementsWithIds;
         existingLinksCleared = persistResult.value.existingLinksCleared;
         totalSaved = persistResult.value.totalSaved;
-        ({ internalCount, confirmedCount, suggestedCount } = persistResult.value);
-        totalSourceTransactions = persistResult.value.strategyResult.totalSourceMovements;
-        totalTargetTransactions = persistResult.value.strategyResult.totalTargetMovements;
-        unmatchedSourceCount = persistResult.value.strategyResult.unmatchedSourceCount;
-        unmatchedTargetCount = persistResult.value.strategyResult.unmatchedTargetCount;
       }
 
       return ok({
@@ -217,10 +169,10 @@ export class LinkingOrchestrator {
         internalLinksCount: internalCount,
         confirmedLinksCount: confirmedCount,
         suggestedLinksCount: suggestedCount,
-        totalSourceTransactions,
-        totalTargetTransactions,
-        unmatchedSourceCount,
-        unmatchedTargetCount,
+        totalSourceCandidates: strategyResult.totalSourceCandidates,
+        totalTargetCandidates: strategyResult.totalTargetCandidates,
+        unmatchedSourceCandidateCount: strategyResult.unmatchedSourceCandidateCount,
+        unmatchedTargetCandidateCount: strategyResult.unmatchedTargetCandidateCount,
         totalSaved,
         dryRun: params.dryRun,
       });
@@ -237,7 +189,7 @@ export class LinkingOrchestrator {
 
   /** Run matching pipeline: strategy matching → overrides → emit events. Pure computation, no I/O. */
   private runMatching(
-    movementsWithIds: LinkableMovement[],
+    candidates: LinkCandidate[],
     internalLinks: NewTransactionLink[],
     params: LinkingRunParams,
     overrides: OverrideEvent[],
@@ -261,7 +213,7 @@ export class LinkingOrchestrator {
     });
 
     const runner = new StrategyRunner(defaultStrategies(), logger, config);
-    const runResult = runner.run(movementsWithIds);
+    const runResult = runner.run(candidates);
     if (runResult.isErr()) return err(runResult.error);
 
     const strategyResult = runResult.value;
@@ -275,19 +227,14 @@ export class LinkingOrchestrator {
 
     this.eventBus?.emit({
       type: 'match.completed',
-      sourceCount: strategyResult.totalSourceMovements,
-      targetCount: strategyResult.totalTargetMovements,
+      sourceCandidateCount: strategyResult.totalSourceCandidates,
+      targetCandidateCount: strategyResult.totalTargetCandidates,
       internalCount,
       confirmedCount,
       suggestedCount,
     });
 
     return ok({ finalLinks, internalCount, confirmedCount, suggestedCount, strategyResult });
-  }
-
-  /** Assign sequential IDs to NewLinkableMovements for dry-run mode (no DB) */
-  private assignInMemoryIds(movements: NewLinkableMovement[]): LinkableMovement[] {
-    return movements.map((m, i) => ({ ...m, id: i + 1 }));
   }
 
   private async loadTransactions(): Promise<
@@ -373,10 +320,10 @@ function emptyResult(dryRun: boolean): LinkingRunResult {
     internalLinksCount: 0,
     confirmedLinksCount: 0,
     suggestedLinksCount: 0,
-    totalSourceTransactions: 0,
-    totalTargetTransactions: 0,
-    unmatchedSourceCount: 0,
-    unmatchedTargetCount: 0,
+    totalSourceCandidates: 0,
+    totalTargetCandidates: 0,
+    unmatchedSourceCandidateCount: 0,
+    unmatchedTargetCandidateCount: 0,
     dryRun,
   };
 }

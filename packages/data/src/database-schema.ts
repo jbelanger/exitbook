@@ -210,30 +210,6 @@ export interface TransactionLinksTable {
 }
 
 /**
- * Linkable movements table - materialized pre-linking data for strategy-based matching.
- * Rows represent UTXO-collapsed, trade-excluded movements ready for linking strategies.
- */
-export interface LinkableMovementsTable {
-  id: Generated<number>;
-  transaction_id: number; // FK to transactions.id
-  account_id: number; // FK to accounts.id
-  source_name: string;
-  source_type: 'exchange' | 'blockchain';
-  asset_id: string;
-  asset_symbol: string;
-  direction: 'in' | 'out';
-  amount: DecimalString; // Decimal string, UTXO-adjusted
-  gross_amount: DecimalString | null; // Original gross before adjustment
-  timestamp: DateTime; // ISO datetime
-  blockchain_tx_hash: string | null; // Normalized (no log-index suffix)
-  from_address: string | null;
-  to_address: string | null;
-  is_internal: boolean; // SQLite: INTEGER (0/1)
-  utxo_group_id: string | null;
-  excluded: boolean; // SQLite: INTEGER (0/1)
-}
-
-/**
  * UTXO consolidated movements table - stores collapsed UTXO movements
  * that merge multiple raw inputs/outputs into single logical movements per direction.
  */
@@ -280,7 +256,6 @@ export interface DatabaseSchema {
   import_sessions: ImportSessionsTable;
   transaction_movements: TransactionMovementsTable;
   transaction_links: TransactionLinksTable;
-  linkable_movements: LinkableMovementsTable;
   transactions: TransactionsTable;
   utxo_consolidated_movements: UtxoConsolidatedMovementsTable;
   projection_state: ProjectionStateTable;

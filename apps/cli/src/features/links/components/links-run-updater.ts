@@ -116,8 +116,8 @@ function updateStateFromEvent(state: LinksRunState, event: LinkingEvent): void {
       state.match = {
         status: 'active',
         startedAt: performance.now(),
-        sourceCount: 0,
-        targetCount: 0,
+        sourceCandidateCount: 0,
+        targetCandidateCount: 0,
         internalCount: 0,
         confirmedCount: 0,
         suggestedCount: 0,
@@ -128,8 +128,8 @@ function updateStateFromEvent(state: LinksRunState, event: LinkingEvent): void {
       if (state.match) {
         state.match.status = 'completed';
         state.match.completedAt = performance.now();
-        state.match.sourceCount = event.sourceCount;
-        state.match.targetCount = event.targetCount;
+        state.match.sourceCandidateCount = event.sourceCandidateCount;
+        state.match.targetCandidateCount = event.targetCandidateCount;
         state.match.internalCount = event.internalCount;
         state.match.confirmedCount = event.confirmedCount;
         state.match.suggestedCount = event.suggestedCount;

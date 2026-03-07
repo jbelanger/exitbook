@@ -147,11 +147,11 @@ const MatchSection: FC<{ dryRun: boolean; match: MatchPhase }> = ({ match, dryRu
   if (match.status === 'completed') {
     const totalMatches = match.internalCount + match.confirmedCount + match.suggestedCount;
 
-    // Build sub-lines: source/target classification, then match results
+    // Build sub-lines: source/target candidate counts, then match results
     const lines: { count: number; isLast: boolean; label: string }[] = [];
 
-    lines.push({ count: match.sourceCount, label: 'outflows (sources)', isLast: false });
-    lines.push({ count: match.targetCount, label: 'inflows (targets)', isLast: false });
+    lines.push({ count: match.sourceCandidateCount, label: 'outflows (sources)', isLast: false });
+    lines.push({ count: match.targetCandidateCount, label: 'inflows (targets)', isLast: false });
 
     if (totalMatches === 0) {
       lines.push({ count: 0, label: 'no matches found', isLast: true });

@@ -1,6 +1,5 @@
 import {
   DecimalSchema,
-  LinkableMovementSchema,
   LinkStatusSchema,
   LinkTypeSchema,
   MatchCriteriaSchema,
@@ -9,6 +8,8 @@ import {
   TransactionLinkSchema,
 } from '@exitbook/core';
 import { z } from 'zod';
+
+import { LinkCandidateSchema } from './link-candidate.js';
 
 const UnitIntervalDecimalSchema = DecimalSchema.refine(
   (value) => value.greaterThanOrEqualTo(0) && value.lessThanOrEqualTo(1),
@@ -19,6 +20,7 @@ const UnitIntervalDecimalSchema = DecimalSchema.refine(
  * Shared transaction link schemas re-exported for accounting APIs
  */
 export {
+  LinkCandidateSchema,
   LinkTypeSchema,
   LinkStatusSchema,
   MatchCriteriaSchema,
@@ -42,8 +44,8 @@ export const ScoreComponentSchema = z.object({
  * Potential match schema
  */
 export const PotentialMatchSchema = z.object({
-  sourceMovement: LinkableMovementSchema,
-  targetMovement: LinkableMovementSchema,
+  sourceMovement: LinkCandidateSchema,
+  targetMovement: LinkCandidateSchema,
   confidenceScore: UnitIntervalDecimalSchema,
   matchCriteria: MatchCriteriaSchema,
   linkType: LinkTypeSchema,

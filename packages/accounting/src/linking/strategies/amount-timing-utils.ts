@@ -1,7 +1,8 @@
-import type { LinkableMovement, SourceType } from '@exitbook/core';
+import type { SourceType } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
+import type { LinkCandidate } from '../link-candidate.js';
 import type { LinkType, MatchCriteria, MatchingConfig, PotentialMatch, ScoreComponent } from '../types.js';
 
 import { checkTransactionHashMatch } from './exact-hash-utils.js';
@@ -100,7 +101,7 @@ export function determineLinkType(sourceType: SourceType, targetType: SourceType
  * @param target - Target movement with endpoint addresses
  * @returns True if addresses match, false if they conflict, undefined if unavailable
  */
-export function checkAddressMatch(source: LinkableMovement, target: LinkableMovement): boolean | undefined {
+export function checkAddressMatch(source: LinkCandidate, target: LinkCandidate): boolean | undefined {
   const targetDestinationAddress = target.toAddress;
   const targetSourceAddress = target.fromAddress;
 
@@ -234,7 +235,7 @@ export function calculateConfidenceScore(criteria: MatchCriteria): {
  *  2. source.grossAmount vs target.amount       (gross vs net — UTXO send vs exchange deposit)
  *  3. source.amount vs target.grossAmount       (net vs gross — reversed)
  */
-export function calculateFeeAwareAmountSimilarity(source: LinkableMovement, target: LinkableMovement): Decimal {
+export function calculateFeeAwareAmountSimilarity(source: LinkCandidate, target: LinkCandidate): Decimal {
   // Always try the primary amounts first
   let best = calculateAmountSimilarity(source.amount, target.amount);
 
@@ -254,7 +255,7 @@ export function calculateFeeAwareAmountSimilarity(source: LinkableMovement, targ
 }
 
 /**
- * Build match criteria for two linkable movements
+ * Build match criteria for two link candidates
  *
  * @param source - Source movement (withdrawal/send)
  * @param target - Target movement (deposit/receive)
@@ -262,8 +263,8 @@ export function calculateFeeAwareAmountSimilarity(source: LinkableMovement, targ
  * @returns Match criteria
  */
 export function buildMatchCriteria(
-  source: LinkableMovement,
-  target: LinkableMovement,
+  source: LinkCandidate,
+  target: LinkCandidate,
   config: MatchingConfig
 ): MatchCriteria {
   const assetMatch = source.assetSymbol === target.assetSymbol;
@@ -294,8 +295,8 @@ export function buildMatchCriteria(
  * @returns Array of potential matches sorted by confidence (highest first)
  */
 export function scoreAndFilterMatches(
-  source: LinkableMovement,
-  targets: LinkableMovement[],
+  source: LinkCandidate,
+  targets: LinkCandidate[],
   config: MatchingConfig
 ): PotentialMatch[] {
   const matches: PotentialMatch[] = [];

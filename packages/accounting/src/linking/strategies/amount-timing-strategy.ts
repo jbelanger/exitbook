@@ -2,7 +2,7 @@ import { ok, type Result } from '@exitbook/core';
 
 import { createTransactionLink } from '../link-construction.js';
 import { allocateMatches } from '../match-allocation.js';
-import type { LinkableMovement } from '../pre-linking/types.js';
+import type { LinkCandidate } from '../pre-linking/types.js';
 import type { MatchingConfig, NewTransactionLink, PotentialMatch } from '../types.js';
 
 import { scoreAndFilterMatches } from './amount-timing-utils.js';
@@ -16,13 +16,9 @@ import type { ILinkingStrategy, StrategyResult } from './types.js';
 export class AmountTimingStrategy implements ILinkingStrategy {
   readonly name = 'amount-timing';
 
-  execute(
-    sources: LinkableMovement[],
-    targets: LinkableMovement[],
-    config: MatchingConfig
-  ): Result<StrategyResult, Error> {
+  execute(sources: LinkCandidate[], targets: LinkCandidate[], config: MatchingConfig): Result<StrategyResult, Error> {
     const links: NewTransactionLink[] = [];
-    const consumedMovementIds = new Set<number>();
+    const consumedCandidateIds = new Set<number>();
 
     // Collect all potential matches
     const allMatches: PotentialMatch[] = [];
@@ -32,7 +28,7 @@ export class AmountTimingStrategy implements ILinkingStrategy {
     }
 
     if (allMatches.length === 0) {
-      return ok({ links, consumedMovementIds });
+      return ok({ links, consumedCandidateIds });
     }
 
     // Capacity-based deduplication
@@ -45,8 +41,8 @@ export class AmountTimingStrategy implements ILinkingStrategy {
       const linkResult = createTransactionLink(match, 'confirmed', now);
       if (linkResult.isErr()) continue;
       links.push(linkResult.value);
-      consumedMovementIds.add(match.sourceMovement.id);
-      consumedMovementIds.add(match.targetMovement.id);
+      consumedCandidateIds.add(match.sourceMovement.id);
+      consumedCandidateIds.add(match.targetMovement.id);
     }
 
     // Convert suggested matches to links
@@ -54,10 +50,10 @@ export class AmountTimingStrategy implements ILinkingStrategy {
       const linkResult = createTransactionLink(match, 'suggested', now);
       if (linkResult.isErr()) continue;
       links.push(linkResult.value);
-      consumedMovementIds.add(match.sourceMovement.id);
-      consumedMovementIds.add(match.targetMovement.id);
+      consumedCandidateIds.add(match.sourceMovement.id);
+      consumedCandidateIds.add(match.targetMovement.id);
     }
 
-    return ok({ links, consumedMovementIds });
+    return ok({ links, consumedCandidateIds });
   }
 }

@@ -2,7 +2,6 @@ export { BaseRepository } from './base-repository.js';
 export { AccountRepository } from './account-repository.js';
 export type { AccountKeyParams, FindOrCreateAccountParams, UpdateAccountParams } from './account-repository.js';
 export { ImportSessionRepository } from './import-session-repository.js';
-export { LinkableMovementRepository } from './linkable-movement-repository.js';
 export { NearRawTransactionRepository } from './near-raw-data-repository.js';
 export { ProjectionStateRepository } from './projection-state-repository.js';
 export type { ProjectionStateRow } from './projection-state-repository.js';

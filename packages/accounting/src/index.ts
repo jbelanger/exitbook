@@ -91,8 +91,8 @@ export { createTransactionLink } from './linking/link-construction.js';
 export { LinkIndex } from './linking/link-index.js';
 
 // Pre-linking & strategy-based matching
-export { materializeLinkableMovements } from './linking/pre-linking/index.js';
-export type { LinkableMovement, NewLinkableMovement, MaterializationResult } from './linking/pre-linking/index.js';
+export { buildLinkCandidates } from './linking/pre-linking/index.js';
+export type { LinkCandidate, LinkCandidateBuildResult } from './linking/pre-linking/index.js';
 export { StrategyRunner } from './linking/strategy-runner.js';
 export type { StrategyRunnerResult, StrategyStats } from './linking/strategy-runner.js';
 export { defaultStrategies } from './linking/strategies/index.js';

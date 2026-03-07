@@ -1,13 +1,14 @@
-import { type Currency, type LinkableMovement, type UniversalTransactionData, parseDecimal } from '@exitbook/core';
+import { type Currency, type UniversalTransactionData, parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
+import type { LinkCandidate } from '../link-candidate.js';
 import type { TransactionLink } from '../types.js';
 
 /**
- * Creates a LinkableMovement with sensible defaults for testing.
+ * Creates a LinkCandidate with sensible defaults for testing.
  * Override only the fields relevant to the test.
  */
-export function createMovement(overrides: Partial<LinkableMovement> = {}): LinkableMovement {
+export function createCandidate(overrides: Partial<LinkCandidate> = {}): LinkCandidate {
   const id = overrides.id ?? 1;
   return {
     id,
@@ -25,9 +26,6 @@ export function createMovement(overrides: Partial<LinkableMovement> = {}): Linka
     ...overrides,
   };
 }
-
-/** Alias for backward compatibility in tests */
-export const createCandidate = createMovement;
 
 /**
  * Creates a TransactionLink with sensible defaults for testing.
@@ -75,8 +73,8 @@ export function createTransaction(params: {
   datetime: string;
   from?: string;
   id: number;
-  inflows?: { amount: string; assetSymbol: string }[];
-  outflows?: { amount: string; assetSymbol: string }[];
+  inflows?: { amount: string; assetSymbol: string; netAmount?: string | undefined }[];
+  outflows?: { amount: string; assetSymbol: string; netAmount?: string | undefined }[];
   source: string;
   sourceType?: 'blockchain' | 'exchange';
   to?: string;
@@ -99,6 +97,7 @@ export function createTransaction(params: {
             assetId: `test:${m.assetSymbol.toLowerCase()}`,
             assetSymbol: m.assetSymbol as Currency,
             grossAmount: parseDecimal(m.amount),
+            netAmount: m.netAmount ? parseDecimal(m.netAmount) : parseDecimal(m.amount),
           }))
         : [],
       outflows: params.outflows
@@ -106,6 +105,7 @@ export function createTransaction(params: {
             assetId: `test:${m.assetSymbol.toLowerCase()}`,
             assetSymbol: m.assetSymbol as Currency,
             grossAmount: parseDecimal(m.amount),
+            netAmount: m.netAmount ? parseDecimal(m.netAmount) : parseDecimal(m.amount),
           }))
         : [],
     },

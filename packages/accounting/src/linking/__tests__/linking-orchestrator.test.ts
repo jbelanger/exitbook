@@ -19,11 +19,6 @@ function createMockStore(overrides: Partial<ILinkingPersistence> = {}): ILinking
   const store: ILinkingPersistence = {
     loadTransactions: vi.fn().mockResolvedValue(ok([])),
 
-    replaceMovements: vi.fn().mockImplementation((movements: unknown[]) => {
-      const withIds = movements.map((m, i) => ({ ...(m as object), id: i + 1 }));
-      return ok(withIds);
-    }),
-
     replaceLinks: vi.fn().mockImplementation((links: unknown[]) => {
       return ok({ previousCount: 0, savedCount: links.length } satisfies LinksSaveResult);
     }),
@@ -167,12 +162,12 @@ describe('LinkingOrchestrator', () => {
 
     assertOk(result);
 
-    // Verify event sequence: load → materialize → match → save
+    // Verify event sequence: load → build candidates → match → save
     const eventTypes = emittedEvents.map((e) => e.type);
     expect(eventTypes).toContain('load.started');
     expect(eventTypes).toContain('load.completed');
-    expect(eventTypes).toContain('materialize.started');
-    expect(eventTypes).toContain('materialize.completed');
+    expect(eventTypes).toContain('candidates.started');
+    expect(eventTypes).toContain('candidates.completed');
     expect(eventTypes).toContain('match.started');
     expect(eventTypes).toContain('match.completed');
     expect(eventTypes).toContain('save.started');
@@ -215,8 +210,8 @@ describe('LinkingOrchestrator', () => {
     const eventTypes = emittedEvents.map((e) => e.type);
     expect(eventTypes).toContain('load.started');
     expect(eventTypes).toContain('load.completed');
-    expect(eventTypes).toContain('materialize.started');
-    expect(eventTypes).toContain('materialize.completed');
+    expect(eventTypes).toContain('candidates.started');
+    expect(eventTypes).toContain('candidates.completed');
     expect(eventTypes).toContain('match.started');
     expect(eventTypes).toContain('match.completed');
     expect(eventTypes).not.toContain('save.started');

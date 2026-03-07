@@ -21,8 +21,8 @@ export interface MatchPhase {
   status: OperationStatus;
   startedAt: number;
   completedAt?: number | undefined;
-  sourceCount: number; // outflows (sources)
-  targetCount: number; // inflows (targets)
+  sourceCandidateCount: number; // outflows (sources)
+  targetCandidateCount: number; // inflows (targets)
   internalCount: number; // same tx hash links
   confirmedCount: number; // ≥95% confidence
   suggestedCount: number; // 70-95% confidence

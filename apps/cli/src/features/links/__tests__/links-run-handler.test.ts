@@ -67,10 +67,10 @@ describe('LinksRunHandler', () => {
       internalLinksCount: 1,
       confirmedLinksCount: 3,
       suggestedLinksCount: 1,
-      totalSourceTransactions: 5,
-      totalTargetTransactions: 5,
-      unmatchedSourceCount: 0,
-      unmatchedTargetCount: 0,
+      totalSourceCandidates: 5,
+      totalTargetCandidates: 5,
+      unmatchedSourceCandidateCount: 0,
+      unmatchedTargetCandidateCount: 0,
       totalSaved: 4,
     };
 
