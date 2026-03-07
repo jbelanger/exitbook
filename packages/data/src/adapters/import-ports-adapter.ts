@@ -1,3 +1,4 @@
+import { cascadeInvalidation, resultDoAsync } from '@exitbook/core';
 import type { ImportPorts } from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';
@@ -40,6 +41,14 @@ export function buildImportPorts(db: DataContext): ImportPorts {
       createBatch: (accountId, transactions) => db.rawTransactions.createBatch(accountId, transactions),
       countByStreamType: (accountId) => db.rawTransactions.countByStreamType(accountId),
     },
+
+    invalidateProjections: (reason) =>
+      resultDoAsync(async function* () {
+        yield* await db.projectionState.markStale('processed-transactions', reason);
+        for (const downstream of cascadeInvalidation('processed-transactions')) {
+          yield* await db.projectionState.markStale(downstream, `upstream-import:processed-transactions`);
+        }
+      }),
 
     withTransaction: (fn) => db.executeInTransaction((txDb) => fn(buildImportPorts(txDb))),
   };

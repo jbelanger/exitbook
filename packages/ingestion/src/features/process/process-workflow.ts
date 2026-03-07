@@ -58,6 +58,10 @@ export class ProcessingWorkflow {
 
     const startTime = Date.now();
     try {
+      // Mark projection as building — fail-fast
+      const buildingResult = await this.ports.markProcessedTransactionsBuilding();
+      if (buildingResult.isErr()) return err(buildingResult.error);
+
       // Count total raw data to process and collect transaction counts by stream type
       let totalRaw = 0;
       const accountTransactionCounts = new Map<number, Map<string, number>>();
@@ -112,6 +116,17 @@ export class ProcessingWorkflow {
         errors: allErrors,
       });
 
+      // Mark projection fresh + cascade-invalidate downstream, or failed
+      if (totalFailed === 0) {
+        const freshResult = await this.ports.markProcessedTransactionsFresh();
+        if (freshResult.isErr()) return err(freshResult.error);
+      } else {
+        const failedResult = await this.ports.markProcessedTransactionsFailed();
+        if (failedResult.isErr()) {
+          this.logger.warn({ error: failedResult.error }, 'Failed to mark processed-transactions as failed');
+        }
+      }
+
       return ok({
         errors: allErrors,
         failed: totalFailed,
@@ -120,6 +135,11 @@ export class ProcessingWorkflow {
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       this.logger.error(`Unexpected error processing imported sessions: ${errorMessage}`);
+
+      const failedResult = await this.ports.markProcessedTransactionsFailed();
+      if (failedResult.isErr()) {
+        this.logger.warn({ error: failedResult.error }, 'Failed to mark processed-transactions as failed');
+      }
 
       // Emit failure event
       this.eventBus.emit({

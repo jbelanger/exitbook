@@ -687,15 +687,34 @@ export class ImportWorkflow {
         return err(new Error(warningMessage));
       }
 
-      // Success
-      const finalizeResult = await this.ports.importSessions.finalize(
-        importSessionId,
-        'completed',
-        startTime,
-        totalImported,
-        totalSkipped
-      );
-      if (finalizeResult.isErr()) return err(finalizeResult.error);
+      // Success: finalize session + invalidate projections atomically
+      if (totalImported > 0) {
+        const finalizeResult = await this.ports.withTransaction(async (tx) => {
+          const finalize = await tx.importSessions.finalize(
+            importSessionId,
+            'completed',
+            startTime,
+            totalImported,
+            totalSkipped
+          );
+          if (finalize.isErr()) return err(finalize.error);
+
+          const invalidate = await tx.invalidateProjections(`import:${sourceName}:account-${account.id}`);
+          if (invalidate.isErr()) return err(invalidate.error);
+
+          return ok(undefined);
+        });
+        if (finalizeResult.isErr()) return err(finalizeResult.error);
+      } else {
+        const finalizeResult = await this.ports.importSessions.finalize(
+          importSessionId,
+          'completed',
+          startTime,
+          totalImported,
+          totalSkipped
+        );
+        if (finalizeResult.isErr()) return err(finalizeResult.error);
+      }
 
       if (account.accountType === 'exchange-csv') {
         logger.info(`Import completed for ${sourceName}: ${totalImported} items saved`);

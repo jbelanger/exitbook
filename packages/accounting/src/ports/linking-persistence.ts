@@ -36,6 +36,15 @@ export interface ILinkingPersistence {
    */
   replaceLinks(links: NewTransactionLink[]): Promise<Result<LinksSaveResult, Error>>;
 
+  /** Mark links projection as building (call before transaction for external visibility). */
+  markLinksBuilding(): Promise<Result<void, Error>>;
+
+  /** Mark links projection as fresh. */
+  markLinksFresh(): Promise<Result<void, Error>>;
+
+  /** Mark links projection as failed. */
+  markLinksFailed(): Promise<Result<void, Error>>;
+
   /** Execute a callback where all port operations share a single atomic transaction. */
   withTransaction<T>(fn: (txStore: ILinkingPersistence) => Promise<Result<T, Error>>): Promise<Result<T, Error>>;
 }

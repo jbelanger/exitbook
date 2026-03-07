@@ -28,6 +28,10 @@ function createMockStore(overrides: Partial<ILinkingPersistence> = {}): ILinking
       return ok({ previousCount: 0, savedCount: links.length } satisfies LinksSaveResult);
     }),
 
+    markLinksBuilding: vi.fn().mockResolvedValue(ok(undefined)),
+    markLinksFresh: vi.fn().mockResolvedValue(ok(undefined)),
+    markLinksFailed: vi.fn().mockResolvedValue(ok(undefined)),
+
     withTransaction: vi.fn(),
 
     ...overrides,
@@ -357,6 +361,188 @@ describe('LinkingOrchestrator', () => {
     );
 
     assertOk(result);
+  });
+
+  describe('projection lifecycle', () => {
+    const defaultParams = {
+      dryRun: false,
+      minConfidenceScore: parseDecimal('0.7'),
+      autoConfirmThreshold: parseDecimal('0.95'),
+    };
+
+    it('marks building then fresh on successful non-dry-run', async () => {
+      const transactions = [
+        createTransaction({
+          id: 1,
+          source: 'kraken',
+          sourceType: 'exchange',
+          datetime: '2026-02-08T00:00:00Z',
+          outflows: [{ assetSymbol: 'BTC', amount: '1' }],
+        }),
+        createTransaction({
+          id: 2,
+          source: 'blockchain:bitcoin',
+          sourceType: 'blockchain',
+          datetime: '2026-02-08T01:00:00Z',
+          inflows: [{ assetSymbol: 'BTC', amount: '0.999' }],
+        }),
+      ];
+
+      const store = createMockStore({
+        loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      });
+
+      const handler = new LinkingOrchestrator(store);
+      assertOk(await handler.execute(defaultParams));
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksBuilding).toHaveBeenCalledOnce();
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksFresh).toHaveBeenCalledOnce();
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksFailed).not.toHaveBeenCalled();
+    });
+
+    it('marks fresh on empty transactions (not stuck in building)', async () => {
+      const store = createMockStore();
+
+      const handler = new LinkingOrchestrator(store);
+      assertOk(await handler.execute(defaultParams));
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksBuilding).toHaveBeenCalledOnce();
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksFresh).toHaveBeenCalledOnce();
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksFailed).not.toHaveBeenCalled();
+    });
+
+    it('marks failed when transaction persistence fails', async () => {
+      const transactions = [
+        createTransaction({
+          id: 1,
+          source: 'kraken',
+          sourceType: 'exchange',
+          datetime: '2026-02-08T00:00:00Z',
+          outflows: [{ assetSymbol: 'BTC', amount: '1' }],
+        }),
+        createTransaction({
+          id: 2,
+          source: 'blockchain:bitcoin',
+          sourceType: 'blockchain',
+          datetime: '2026-02-08T01:00:00Z',
+          inflows: [{ assetSymbol: 'BTC', amount: '0.999' }],
+        }),
+      ];
+
+      const store = createMockStore({
+        loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+        replaceLinks: vi.fn().mockResolvedValue(err(new Error('db write failed'))),
+      });
+
+      const handler = new LinkingOrchestrator(store);
+      assertErr(await handler.execute(defaultParams));
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksBuilding).toHaveBeenCalledOnce();
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksFailed).toHaveBeenCalledOnce();
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksFresh).not.toHaveBeenCalled();
+    });
+
+    it('does not touch projection state on dry run', async () => {
+      const transactions = [
+        createTransaction({
+          id: 1,
+          source: 'kraken',
+          sourceType: 'exchange',
+          datetime: '2026-02-08T00:00:00Z',
+          outflows: [{ assetSymbol: 'BTC', amount: '1' }],
+        }),
+      ];
+
+      const store = createMockStore({
+        loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      });
+
+      const handler = new LinkingOrchestrator(store);
+      assertOk(await handler.execute({ ...defaultParams, dryRun: true }));
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksBuilding).not.toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksFresh).not.toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksFailed).not.toHaveBeenCalled();
+    });
+
+    it('does not mark failed on dry-run failure', async () => {
+      const store = createMockStore({
+        loadTransactions: vi.fn().mockResolvedValue(err(new Error('load failed'))),
+      });
+
+      const handler = new LinkingOrchestrator(store);
+      assertErr(await handler.execute({ ...defaultParams, dryRun: true }));
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksBuilding).not.toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksFresh).not.toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksFailed).not.toHaveBeenCalled();
+    });
+
+    it('marks fresh even when zero links are saved (all rejected by overrides)', async () => {
+      const transactions = [
+        createTransaction({
+          id: 1,
+          accountId: 1,
+          source: 'blockchain:ethereum',
+          sourceType: 'blockchain',
+          datetime: '2026-02-07T00:00:00Z',
+          outflows: [{ assetSymbol: 'ETH', amount: '1' }],
+          blockchain: { name: 'ethereum', transaction_hash: '0xaaa111', is_confirmed: true },
+        }),
+        createTransaction({
+          id: 2,
+          accountId: 2,
+          source: 'blockchain:ethereum',
+          sourceType: 'blockchain',
+          datetime: '2026-02-07T00:00:00Z',
+          inflows: [{ assetSymbol: 'ETH', amount: '1' }],
+          blockchain: { name: 'ethereum', transaction_hash: '0xaaa111', is_confirmed: true },
+        }),
+      ];
+
+      const unlinkEvent: OverrideEvent = {
+        id: 'evt-1',
+        created_at: '2026-02-07T10:00:00.000Z',
+        actor: 'cli-user',
+        source: 'cli',
+        scope: 'unlink',
+        payload: {
+          type: 'unlink_override',
+          link_fingerprint:
+            'link:blockchain:ethereum:blockchain:ethereum-1:blockchain:ethereum:blockchain:ethereum-2:ETH',
+        },
+      };
+
+      const store = createMockStore({
+        loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      });
+
+      const handler = new LinkingOrchestrator(store);
+      const result = assertOk(await handler.execute(defaultParams, [unlinkEvent]));
+
+      expect(result.totalSaved).toBeUndefined();
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksBuilding).toHaveBeenCalledOnce();
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksFresh).toHaveBeenCalledOnce();
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest mock assertion
+      expect(store.markLinksFailed).not.toHaveBeenCalled();
+    });
   });
 
   it('skips orphaned override when target transaction has ambiguous assetIds for symbol', async () => {

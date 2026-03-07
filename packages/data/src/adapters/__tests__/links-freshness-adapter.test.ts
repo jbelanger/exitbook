@@ -130,4 +130,21 @@ describe('buildLinksFreshnessPorts', () => {
     const result = assertOk(await freshness.checkFreshness());
     expect(result.status).toBe('failed');
   });
+
+  it('returns fresh when projection state is fresh even with zero links', async () => {
+    // Scenario: linking ran successfully but produced no links (e.g. all overridden/rejected).
+    // Projection state says fresh — trust it, do not fall through to timestamp heuristic.
+    await seedUser(db);
+    await seedAccount(db, 1, 'exchange-api', 'kraken');
+    await seedTransaction(1, '2025-06-01T00:00:00.000Z');
+
+    const repo = new ProjectionStateRepository(db);
+    // eslint-disable-next-line unicorn/no-null -- DB layer expects null for absent metadata
+    assertOk(await repo.markFresh('links', null));
+
+    const freshness = buildLinksFreshnessPorts(ctx);
+    const result = assertOk(await freshness.checkFreshness());
+    expect(result.status).toBe('fresh');
+    expect(result.reason).toBeUndefined();
+  });
 });

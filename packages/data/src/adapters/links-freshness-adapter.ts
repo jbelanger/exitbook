@@ -21,7 +21,12 @@ export function buildLinksFreshnessPorts(db: DataContext): ILinksFreshness {
           return { status: state.status, reason: state.invalidatedBy ?? `projection is ${state.status}` };
         }
 
-        // Timestamp comparison: latest transaction vs latest link
+        // Projection state says fresh — trust it (linking ran and marked fresh, even if zero links produced)
+        if (state && state.status === 'fresh') {
+          return { status: 'fresh' as const, reason: undefined };
+        }
+
+        // No projection state row — fall back to timestamp heuristic (legacy/first run)
         const latestTx = yield* await db.transactions.findLatestCreatedAt();
         if (!latestTx) {
           // No transactions => nothing to link, consider fresh

@@ -31,6 +31,13 @@ export function buildLinkingPorts(db: DataContext): ILinkingPersistence {
         return { previousCount, savedCount };
       }),
 
+    markLinksBuilding: () => db.projectionState.markBuilding('links'),
+
+    // eslint-disable-next-line unicorn/no-null -- DB layer expects null for absent metadata
+    markLinksFresh: () => db.projectionState.markFresh('links', null),
+
+    markLinksFailed: () => db.projectionState.markFailed('links'),
+
     withTransaction: (fn) => db.executeInTransaction((txDb) => fn(buildLinkingPorts(txDb))),
   };
 }

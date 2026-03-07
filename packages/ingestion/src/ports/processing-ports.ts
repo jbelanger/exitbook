@@ -17,6 +17,15 @@ export interface ProcessingPorts {
   accountLookup: IAccountLookup;
   importSessionLookup: IImportSessionLookup;
 
+  /** Mark processed-transactions projection as building. */
+  markProcessedTransactionsBuilding(): Promise<Result<void, Error>>;
+
+  /** Mark processed-transactions projection as fresh. Computes account hash and cascades downstream invalidation. */
+  markProcessedTransactionsFresh(): Promise<Result<void, Error>>;
+
+  /** Mark processed-transactions projection as failed. */
+  markProcessedTransactionsFailed(): Promise<Result<void, Error>>;
+
   /** Execute a callback where all port operations share a single atomic transaction. */
   withTransaction<T>(fn: (txPorts: ProcessingPorts) => Promise<Result<T, Error>>): Promise<Result<T, Error>>;
 }

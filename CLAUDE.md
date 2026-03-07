@@ -94,6 +94,7 @@ Custom logger (`@exitbook/logger`) — not Pino. Use `getLogger('name')` with `t
 ## Code Requirements
 
 - **No Sub-Agents:** Use direct tool calls (Read, Grep, Glob) instead of Task tool with sub-agents unless explicitly requested. Sub-agents are costly.
+- **Greenfield Mindset:** When refactoring or planning, always think as if designing from scratch. Prioritize correctness over speed — do it right, even if it's slower. Address every issue, edge case, and design concern as it surfaces rather than deferring. No shortcuts, no "we'll fix it later."
 - **No Technical Debt:** Stop and report architectural issues immediately. Fix foundational problems first.
 - **Never Silently Hide Errors:** This is a financial system where accuracy is critical. Never catch and suppress errors without logging. Never make silent assumptions or apply defaults for unexpected behavior. Always log warnings for edge cases, validation failures, or data inconsistencies. Use `logger.warn()` liberally for unexpected but recoverable conditions. Propagate errors upward via Result types rather than swallowing them.
 - Use `exactOptionalPropertyTypes` - add `| undefined` to optional properties

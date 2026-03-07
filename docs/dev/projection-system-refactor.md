@@ -268,7 +268,7 @@ Location: `@exitbook/ingestion`
 
 ```ts
 export interface IProcessedTransactionsFreshness {
-  checkFreshness(): Promise<Result<{ status: ProjectionStatus; reason: string | null }, Error>>;
+  checkFreshness(): Promise<Result<ProcessedTransactionsFreshnessResult, Error>>;
 }
 
 export interface IProcessedTransactionsReset {
@@ -289,7 +289,7 @@ Location: `@exitbook/accounting`
 
 ```ts
 export interface ILinksFreshness {
-  checkFreshness(): Promise<Result<{ status: ProjectionStatus; reason: string | null }, Error>>;
+  checkFreshness(): Promise<Result<LinksFreshnessResult, Error>>;
 }
 
 export interface ILinksReset {
@@ -302,6 +302,63 @@ export interface ILinksReset {
 
 - deleting `transaction_links`
 
+`links` freshness semantics are projection-state first:
+
+- if a `projection_state` row exists, its status is authoritative
+- if there is no row yet, the adapter may fall back to timestamp/no-links heuristics for legacy and first-run behavior
+
+### Capability-Owned Lifecycle Contracts
+
+Projection lifecycle writes are owned by the same capability ports that own the underlying mutations.
+There is no generic projection-state writer in `@exitbook/core`.
+
+#### Import
+
+Location: `@exitbook/ingestion`
+
+```ts
+export interface ImportPorts {
+  // ...existing ports...
+  invalidateProjections(reason: string): Promise<Result<void, Error>>;
+  withTransaction<T>(fn: (txPorts: ImportPorts) => Promise<Result<T, Error>>): Promise<Result<T, Error>>;
+}
+```
+
+`invalidateProjections()` marks `processed-transactions` stale and cascade-invalidates downstream projections.
+
+#### Processing
+
+Location: `@exitbook/ingestion`
+
+```ts
+export interface ProcessingPorts {
+  // ...existing ports...
+  markProcessedTransactionsBuilding(): Promise<Result<void, Error>>;
+  markProcessedTransactionsFresh(): Promise<Result<void, Error>>;
+  markProcessedTransactionsFailed(): Promise<Result<void, Error>>;
+  withTransaction<T>(fn: (txPorts: ProcessingPorts) => Promise<Result<T, Error>>): Promise<Result<T, Error>>;
+}
+```
+
+`markProcessedTransactionsFresh()` computes and persists the current account hash inside the data adapter, then cascade-invalidates downstream projections.
+
+#### Linking
+
+Location: `@exitbook/accounting`
+
+```ts
+export interface ILinkingPersistence {
+  // ...existing ports...
+  markLinksBuilding(): Promise<Result<void, Error>>;
+  markLinksFresh(): Promise<Result<void, Error>>;
+  markLinksFailed(): Promise<Result<void, Error>>;
+  withTransaction<T>(fn: (txStore: ILinkingPersistence) => Promise<Result<T, Error>>): Promise<Result<T, Error>>;
+}
+```
+
+`markLinksBuilding()` is called before the linking transaction so in-progress state is externally visible.
+`markLinksFresh()` runs inside the persistence transaction so fresh state commits atomically with link data.
+
 ### Price Coverage Contract
 
 Transaction price coverage stays outside the projection system, but it still should not live in the CLI.
@@ -309,13 +366,18 @@ Transaction price coverage stays outside the projection system, but it still sho
 Location: `@exitbook/accounting`
 
 ```ts
-export interface ITransactionPriceCoverage {
-  checkCoverage(input: {
-    startDate: Date;
-    endDate: Date;
-    currency: string;
-  }): Promise<Result<{ complete: boolean; reason: string | null }, Error>>;
+export interface IPriceCoverageData {
+  loadTransactions(): Promise<Result<UniversalTransactionData[], Error>>;
 }
+```
+
+Accounting owns the coverage decision:
+
+```ts
+export function checkTransactionPriceCoverage(
+  data: IPriceCoverageData,
+  input: PriceCoverageInput
+): Promise<Result<PriceCoverageResult, Error>>;
 ```
 
 `PriceEnrichmentPipeline` remains the rebuild path for this prerequisite.
@@ -330,7 +392,7 @@ Create adapters for the new projection contracts:
 - `buildProcessedTransactionsResetPorts`
 - `buildLinksFreshnessPorts`
 - `buildLinksResetPorts`
-- `buildTransactionPriceCoveragePorts`
+- `buildPriceCoverageDataPorts`
 
 This is the point where `utxo_consolidated_movements` moves from the accounting reset adapter into the processed-transactions reset adapter.
 
@@ -340,12 +402,16 @@ Invalidation happens at mutation points, not in the CLI.
 
 ### Processed Transactions
 
-- After import completes: mark `processed-transactions` stale
-- After processing rebuild succeeds: mark `processed-transactions` fresh, cascade-invalidate downstream projections
+- After import finalization commits: mark `processed-transactions` stale and cascade-invalidate downstream projections in the same transaction
+- Before processing starts: mark `processed-transactions` building
+- After processing rebuild succeeds: mark `processed-transactions` fresh with current account-hash metadata, then cascade-invalidate downstream projections
+- If processing fails: mark `processed-transactions` failed
 
 ### Links
 
-- After linking rebuild succeeds: mark `links` fresh
+- Before linking begins: mark `links` building
+- After linking rebuild succeeds: mark `links` fresh inside the linking persistence transaction
+- If linking fails: mark `links` failed
 - If link overrides or other link mutations occur: mark `links` stale
 
 ### Transaction Price Coverage
@@ -390,6 +456,7 @@ There is no independent reset step for transaction price enrichment.
 ## CLI Composition
 
 The CLI remains the composition root, but now composes projection-native pieces.
+Projection lifecycle is internal to capability ports and workflows; the CLI does not compose a generic projection-state writer.
 
 ### Host Context
 
@@ -418,7 +485,7 @@ This is composition, not domain logic.
 
 ```ts
 interface ProjectionRuntime {
-  checkFreshness(): Promise<Result<{ status: ProjectionStatus; reason: string | null }, Error>>;
+  checkFreshness(): Promise<Result<ProjectionFreshnessResult, Error>>;
   rebuild(): Promise<Result<void, Error>>;
   reset(accountIds?: number[]): Promise<Result<void, Error>>;
 }
@@ -490,7 +557,7 @@ Each phase should leave the repo runnable.
    - `IProcessedTransactionsReset`
    - `ILinksFreshness`
    - `ILinksReset`
-   - `ITransactionPriceCoverage`
+   - `IPriceCoverageData`
 2. Implement new adapters in `@exitbook/data`
 3. Keep old capability-wide reset ports temporarily so commands still work
 
@@ -498,7 +565,7 @@ Each phase should leave the repo runnable.
 
 1. Move `utxo_consolidated_movements` reset ownership into processed-transactions reset
 2. Reduce links reset to `transaction_links` only
-3. Add projection-state updates to import, processing, and linking workflows
+3. Move projection lifecycle ownership into capability ports and wire required state transitions into import, processing, and linking workflows
 
 ### Phase 4: Rewrite CLI Orchestration
 
@@ -523,12 +590,14 @@ Each phase should leave the repo runnable.
 - `packages/accounting/src/ports/links-freshness.ts`
 - `packages/accounting/src/ports/links-reset.ts`
 - `packages/accounting/src/ports/transaction-price-coverage.ts`
+- `packages/accounting/src/cost-basis/transaction-price-coverage-utils.ts`
 - `packages/data/src/repositories/projection-state-repository.ts`
 - `packages/data/src/adapters/processed-transactions-freshness-adapter.ts`
 - `packages/data/src/adapters/processed-transactions-reset-adapter.ts`
 - `packages/data/src/adapters/links-freshness-adapter.ts`
 - `packages/data/src/adapters/links-reset-adapter.ts`
 - `packages/data/src/adapters/transaction-price-coverage-adapter.ts`
+- `packages/data/src/utils/account-hash.ts`
 
 ## Files to Modify
 
@@ -573,7 +642,9 @@ Each phase should leave the repo runnable.
 - links freshness reads projection-state correctly
 - processed-transactions reset clears `utxo_consolidated_movements`
 - links reset only clears `transaction_links`
-- transaction price coverage detects missing coverage for requested window/currency
+- price coverage data adapter only loads transactions
+- processing lifecycle persists account-hash metadata on fresh
+- linking lifecycle handles empty runs, dry-run failures, and zero-link fresh state correctly
 
 ### E2E
 

@@ -86,12 +86,22 @@ export class LinkingOrchestrator {
    */
   async execute(params: LinkingRunParams, overrides: OverrideEvent[] = []): Promise<Result<LinkingRunResult, Error>> {
     try {
+      // Mark building before transaction — externally visible in-progress state
+      if (!params.dryRun) {
+        const buildingResult = await this.store.markLinksBuilding();
+        if (buildingResult.isErr()) return err(buildingResult.error);
+      }
+
       // 1. Load transactions
       const loadResult = await this.loadTransactions();
       if (loadResult.isErr()) return err(loadResult.error);
 
       const { transactions, txById } = loadResult.value;
       if (transactions.length === 0) {
+        if (!params.dryRun) {
+          const freshResult = await this.store.markLinksFresh();
+          if (freshResult.isErr()) return err(freshResult.error);
+        }
         return ok(emptyResult(params.dryRun));
       }
 
@@ -169,6 +179,10 @@ export class LinkingOrchestrator {
             this.eventBus?.emit({ type: 'save.completed', totalSaved: saved });
           }
 
+          // 8. Mark links fresh — atomic with data mutations
+          const freshResult = await txStore.markLinksFresh();
+          if (freshResult.isErr()) return err(freshResult.error);
+
           return ok({
             movementsWithIds: movementsResult.value,
             existingLinksCleared: cleared,
@@ -180,7 +194,13 @@ export class LinkingOrchestrator {
           });
         });
 
-        if (persistResult.isErr()) return err(persistResult.error);
+        if (persistResult.isErr()) {
+          const failedResult = await this.store.markLinksFailed();
+          if (failedResult.isErr()) {
+            logger.warn({ error: failedResult.error }, 'Failed to mark links as failed');
+          }
+          return err(persistResult.error);
+        }
 
         movementsWithIds = persistResult.value.movementsWithIds;
         existingLinksCleared = persistResult.value.existingLinksCleared;
@@ -205,6 +225,12 @@ export class LinkingOrchestrator {
         dryRun: params.dryRun,
       });
     } catch (error) {
+      if (!params.dryRun) {
+        const failedResult = await this.store.markLinksFailed();
+        if (failedResult.isErr()) {
+          logger.warn({ error: failedResult.error }, 'Failed to mark links as failed');
+        }
+      }
       return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
