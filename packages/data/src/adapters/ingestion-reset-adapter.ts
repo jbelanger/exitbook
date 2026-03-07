@@ -20,26 +20,24 @@ export function buildIngestionResetPorts(db: DataContext): IIngestionDataReset {
     },
 
     async resetDerivedData(accountIds) {
-      return resultDoAsync(async function* (self) {
-        const impact = yield* await self.countResetImpact(accountIds);
+      return db.executeInTransaction(async (tx) =>
+        resultDoAsync(async function* () {
+          const transactions = yield* await (accountIds
+            ? tx.transactions.deleteByAccountIds(accountIds)
+            : tx.transactions.deleteAll());
 
-        return yield* await db.executeInTransaction(async (tx) =>
-          resultDoAsync(async function* () {
-            yield* await (accountIds ? tx.transactions.deleteByAccountIds(accountIds) : tx.transactions.deleteAll());
-
-            // Reset all raw data to pending so reprocessing picks them up
-            if (accountIds) {
-              for (const accountId of accountIds) {
-                yield* await tx.rawTransactions.resetProcessingStatus({ accountId });
-              }
-            } else {
-              yield* await tx.rawTransactions.resetProcessingStatus();
+          // Reset all raw data to pending so reprocessing picks them up
+          if (accountIds) {
+            for (const accountId of accountIds) {
+              yield* await tx.rawTransactions.resetProcessingStatus({ accountId });
             }
+          } else {
+            yield* await tx.rawTransactions.resetProcessingStatus();
+          }
 
-            return impact;
-          })
-        );
-      }, this);
+          return { transactions };
+        })
+      );
     },
   };
 }

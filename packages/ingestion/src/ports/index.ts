@@ -6,6 +6,11 @@ export type { IAccountLookup, ProcessingAccountInfo } from './account-lookup.js'
 export type { IImportSessionLookup, ImportSessionStatus } from './import-session-guard.js';
 export type { IIngestionDataReset, IngestionResetImpact } from './ingestion-data-reset.js';
 export type { IIngestionDataPurge, IngestionPurgeImpact } from './ingestion-data-purge.js';
+export type {
+  IProcessedTransactionsFreshness,
+  ProcessedTransactionsFreshnessResult,
+} from './processed-transactions-freshness.js';
+export type { IProcessedTransactionsReset, ProcessedTransactionsResetImpact } from './processed-transactions-reset.js';
 
 // Aggregate dependency types
 export type { ProcessingPorts } from './processing-ports.js';

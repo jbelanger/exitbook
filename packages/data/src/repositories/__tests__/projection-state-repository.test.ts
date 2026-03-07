@@ -94,6 +94,19 @@ describe('ProjectionStateRepository', () => {
       expect(row!.status).toBe('fresh');
       expect(row!.metadata).toBeNull();
     });
+
+    it('clears stale-cause metadata when marking fresh', async () => {
+      assertOk(await repo.markStale('links', 'upstream-rebuild'));
+      const staleRow = assertOk(await repo.get('links'));
+      expect(staleRow!.invalidatedBy).toBe('upstream-rebuild');
+      expect(staleRow!.lastInvalidatedAt).toBeInstanceOf(Date);
+
+      assertOk(await repo.markFresh('links', null));
+      const freshRow = assertOk(await repo.get('links'));
+      expect(freshRow!.status).toBe('fresh');
+      expect(freshRow!.invalidatedBy).toBeNull();
+      expect(freshRow!.lastInvalidatedAt).toBeNull();
+    });
   });
 
   describe('markFailed', () => {

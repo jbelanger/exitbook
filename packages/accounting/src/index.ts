@@ -110,6 +110,10 @@ export {
 } from './cost-basis/cost-basis-utils.js';
 export type { CostBasisInput, ValidatedCostBasisConfig } from './cost-basis/cost-basis-utils.js';
 
+// Transaction price coverage
+export { checkTransactionPriceCoverage } from './cost-basis/transaction-price-coverage-utils.js';
+export type { PriceCoverageResult, PriceCoverageInput } from './cost-basis/transaction-price-coverage-utils.js';
+
 export { PriceDerivationService } from './price-enrichment/price-derivation-service.js';
 export type { PriceEvent } from './price-enrichment/price-events.js';
 export {

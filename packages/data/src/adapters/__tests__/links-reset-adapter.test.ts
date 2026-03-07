@@ -1,0 +1,145 @@
+import { assertOk } from '@exitbook/core/test-utils';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { DataContext } from '../../data-context.js';
+import type { KyselyDB } from '../../database.js';
+import { seedUser, seedAccount } from '../../repositories/__tests__/helpers.js';
+import { createTestDatabase } from '../../utils/test-utils.js';
+import { buildLinksResetPorts } from '../links-reset-adapter.js';
+
+describe('buildLinksResetPorts', () => {
+  let db: KyselyDB;
+  let ctx: DataContext;
+
+  beforeEach(async () => {
+    db = await createTestDatabase();
+    ctx = new DataContext(db);
+    await seedUser(db);
+    await seedAccount(db, 1, 'exchange-api', 'kraken');
+    await seedAccount(db, 2, 'exchange-api', 'coinbase');
+  });
+
+  afterEach(async () => {
+    await db.destroy();
+  });
+
+  async function seedTransactionPair() {
+    const tx1 = await db
+      .insertInto('transactions')
+      .values({
+        account_id: 1,
+        source_name: 'test',
+        source_type: 'exchange',
+        transaction_status: 'success',
+        transaction_datetime: '2025-01-01T00:00:00.000Z',
+        is_spam: false,
+        excluded_from_accounting: false,
+        created_at: new Date().toISOString(),
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    const tx2 = await db
+      .insertInto('transactions')
+      .values({
+        account_id: 2,
+        source_name: 'test',
+        source_type: 'exchange',
+        transaction_status: 'success',
+        transaction_datetime: '2025-01-01T00:00:00.000Z',
+        is_spam: false,
+        excluded_from_accounting: false,
+        created_at: new Date().toISOString(),
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    return { tx1Id: tx1.id, tx2Id: tx2.id };
+  }
+
+  async function seedLink(fromTxId: number, toTxId: number) {
+    const now = new Date().toISOString();
+    await db
+      .insertInto('transaction_links')
+      .values({
+        source_transaction_id: fromTxId,
+        target_transaction_id: toTxId,
+        asset: 'BTC',
+        source_amount: '1.0',
+        target_amount: '1.0',
+        link_type: 'exchange_to_blockchain',
+        confidence_score: '1.0',
+        match_criteria_json: JSON.stringify({
+          assetMatch: true,
+          timingValid: true,
+          timingHours: 1,
+          amountSimilarity: 0.95,
+        }),
+        status: 'confirmed',
+        created_at: now,
+        updated_at: now,
+      })
+      .execute();
+  }
+
+  it('counts links impact', async () => {
+    const { tx1Id, tx2Id } = await seedTransactionPair();
+    await seedLink(tx1Id, tx2Id);
+
+    const reset = buildLinksResetPorts(ctx);
+    const impact = assertOk(await reset.countResetImpact());
+    expect(impact.links).toBe(1);
+  });
+
+  it('deletes all links on reset', async () => {
+    const { tx1Id, tx2Id } = await seedTransactionPair();
+    await seedLink(tx1Id, tx2Id);
+
+    const reset = buildLinksResetPorts(ctx);
+    const impact = assertOk(await reset.reset());
+    expect(impact.links).toBe(1);
+
+    const remaining = assertOk(await ctx.transactionLinks.count());
+    expect(remaining).toBe(0);
+
+    // Verify projection state is marked stale
+    const linksState = assertOk(await ctx.projectionState.get('links'));
+    expect(linksState!.status).toBe('stale');
+    expect(linksState!.invalidatedBy).toBe('reset');
+  });
+
+  it('does not touch utxo_consolidated_movements', async () => {
+    const { tx1Id, tx2Id } = await seedTransactionPair();
+    await seedLink(tx1Id, tx2Id);
+
+    // Seed a consolidated movement
+    await db
+      .insertInto('utxo_consolidated_movements')
+      .values({
+        account_id: 1,
+        transaction_id: tx1Id,
+        source_name: 'test',
+        asset_symbol: 'BTC',
+        direction: 'in',
+        amount: '1.0',
+        timestamp: new Date().toISOString(),
+        blockchain_tx_hash: `hash-${globalThis.crypto.randomUUID()}`,
+        created_at: new Date().toISOString(),
+      })
+      .execute();
+
+    const reset = buildLinksResetPorts(ctx);
+    assertOk(await reset.reset());
+
+    // Consolidated movements should remain
+    const cmCount = assertOk(await ctx.utxoConsolidatedMovements.count());
+    expect(cmCount).toBe(1);
+  });
+
+  it('scopes reset to specific account IDs', async () => {
+    const { tx1Id, tx2Id } = await seedTransactionPair();
+    await seedLink(tx1Id, tx2Id);
+
+    const reset = buildLinksResetPorts(ctx);
+    const impact = assertOk(await reset.reset([1]));
+    expect(impact.links).toBe(1);
+  });
+});

@@ -26,23 +26,19 @@ export function buildAccountingResetPorts(db: DataContext): IAccountingDataReset
     },
 
     async resetDerivedData(accountIds) {
-      return resultDoAsync(async function* (self) {
-        const impact = yield* await self.countResetImpact(accountIds);
+      return db.executeInTransaction(async (tx) =>
+        resultDoAsync(async function* () {
+          // FK-ordered: consolidated movements first, then links
+          const consolidatedMovements = yield* await (accountIds
+            ? tx.utxoConsolidatedMovements.deleteByAccountIds(accountIds)
+            : tx.utxoConsolidatedMovements.deleteAll());
+          const links = yield* await (accountIds
+            ? tx.transactionLinks.deleteByAccountIds(accountIds)
+            : tx.transactionLinks.deleteAll());
 
-        return yield* await db.executeInTransaction(async (tx) =>
-          resultDoAsync(async function* () {
-            // FK-ordered: consolidated movements first, then links
-            yield* await (accountIds
-              ? tx.utxoConsolidatedMovements.deleteByAccountIds(accountIds)
-              : tx.utxoConsolidatedMovements.deleteAll());
-            yield* await (accountIds
-              ? tx.transactionLinks.deleteByAccountIds(accountIds)
-              : tx.transactionLinks.deleteAll());
-
-            return impact;
-          })
-        );
-      }, this);
+          return { links, consolidatedMovements };
+        })
+      );
     },
   };
 }

@@ -149,6 +149,8 @@ export class ProjectionStateRepository extends BaseRepository {
           oc.columns(['projection_id', 'scope_key']).doUpdateSet({
             status: 'fresh',
             last_built_at: now,
+            last_invalidated_at: null,
+            invalidated_by: null,
             metadata_json: metadata ? JSON.stringify(metadata) : null,
           })
         )

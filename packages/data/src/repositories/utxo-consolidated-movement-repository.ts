@@ -109,20 +109,23 @@ export class UtxoConsolidatedMovementRepository extends BaseRepository {
     }
   }
 
-  async deleteByAccountIds(accountIds: number[]): Promise<Result<void, Error>> {
+  async deleteByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (accountIds.length === 0) return ok(undefined);
-      await this.db.deleteFrom('utxo_consolidated_movements').where('account_id', 'in', accountIds).execute();
-      return ok(undefined);
+      if (accountIds.length === 0) return ok(0);
+      const result = await this.db
+        .deleteFrom('utxo_consolidated_movements')
+        .where('account_id', 'in', accountIds)
+        .executeTakeFirst();
+      return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete UTXO consolidated movements by account IDs');
     }
   }
 
-  async deleteAll(): Promise<Result<void, Error>> {
+  async deleteAll(): Promise<Result<number, Error>> {
     try {
-      await this.db.deleteFrom('utxo_consolidated_movements').execute();
-      return ok(undefined);
+      const result = await this.db.deleteFrom('utxo_consolidated_movements').executeTakeFirst();
+      return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete UTXO consolidated movements');
     }
