@@ -1,7 +1,6 @@
-import { ProcessOperation, type ProcessResult } from '@exitbook/app';
 import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import type { AdapterRegistry } from '@exitbook/ingestion';
+import type { AdapterRegistry, ProcessingWorkflow, ReprocessResult } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 
@@ -9,9 +8,7 @@ import type { EventDrivenController } from '../../ui/shared/index.js';
 import type { CommandContext } from '../shared/command-runtime.js';
 import { createIngestionInfrastructure, type CliEvent } from '../shared/ingestion-infrastructure.js';
 
-export type { ProcessResult } from '@exitbook/app';
-
-export interface ProcessResultWithMetrics extends ProcessResult {
+export interface ProcessResultWithMetrics extends ReprocessResult {
   runStats: MetricsSummary;
 }
 
@@ -24,13 +21,13 @@ const logger = getLogger('ProcessHandler');
 
 export class ProcessHandler {
   constructor(
-    private readonly processOperation: ProcessOperation,
+    private readonly processingWorkflow: ProcessingWorkflow,
     private readonly ingestionMonitor: EventDrivenController<CliEvent>,
     private readonly instrumentation: InstrumentationCollector
   ) {}
 
   async execute(params: ProcessHandlerParams): Promise<Result<ProcessResultWithMetrics, Error>> {
-    const result = await this.processOperation.execute(params);
+    const result = await this.processingWorkflow.reprocess(params);
 
     if (result.isErr()) {
       this.ingestionMonitor.fail(result.error.message);
@@ -57,9 +54,8 @@ export async function createProcessHandler(
 ): Promise<Result<ProcessHandler, Error>> {
   try {
     const infra = await createIngestionInfrastructure(ctx, database, registry);
-    const processOperation = new ProcessOperation(database, infra.rawDataProcessingService, infra.eventBus);
 
-    return ok(new ProcessHandler(processOperation, infra.ingestionMonitor, infra.instrumentation));
+    return ok(new ProcessHandler(infra.processingWorkflow, infra.ingestionMonitor, infra.instrumentation));
   } catch (error) {
     return err(error instanceof Error ? error : new Error(String(error)));
   }

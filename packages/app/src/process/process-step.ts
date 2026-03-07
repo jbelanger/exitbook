@@ -7,7 +7,7 @@ import type { DirtyCheckResult, PipelineStep, StepResult } from '../pipeline/pip
  * Dirty when: raw data exists that hasn't been processed,
  * or account hash changed since last processing run.
  *
- * Delegates to RawDataProcessingService with a ProcessingStore adapter.
+ * Delegates to ProcessingWorkflow with a ProcessingStore adapter.
  */
 export class ProcessStep implements PipelineStep {
   readonly name = 'process';

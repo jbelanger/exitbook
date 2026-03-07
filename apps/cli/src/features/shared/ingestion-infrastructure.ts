@@ -1,7 +1,7 @@
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import { type DataContext, buildProcessingPorts } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
-import { type AdapterRegistry, type IngestionEvent, RawDataProcessingService } from '@exitbook/ingestion';
+import { type AdapterRegistry, type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 
@@ -16,7 +16,7 @@ const logger = getLogger('ingestion-infrastructure');
 export type CliEvent = IngestionEvent | ProviderEvent;
 
 export interface IngestionInfrastructure {
-  rawDataProcessingService: RawDataProcessingService;
+  processingWorkflow: ProcessingWorkflow;
   providerManager: ProviderManagerWithStats['providerManager'];
   instrumentation: InstrumentationCollector;
   eventBus: EventBus<CliEvent>;
@@ -25,7 +25,7 @@ export interface IngestionInfrastructure {
 
 /**
  * Create shared ingestion infrastructure (providerManager +
- * RawDataProcessingService + IngestionMonitor).
+ * ProcessingWorkflow + IngestionMonitor).
  * Registers cleanup with ctx internally — callers do NOT need ctx.onCleanup.
  */
 export async function createIngestionInfrastructure(
@@ -47,7 +47,7 @@ export async function createIngestionInfrastructure(
 
   try {
     const ports = buildProcessingPorts(database);
-    const rawDataProcessingService = new RawDataProcessingService(
+    const processingWorkflow = new ProcessingWorkflow(
       ports,
       providerManager,
       eventBus as EventBus<IngestionEvent>,
@@ -70,7 +70,7 @@ export async function createIngestionInfrastructure(
     });
 
     return {
-      rawDataProcessingService,
+      processingWorkflow,
       providerManager,
       instrumentation,
       eventBus,

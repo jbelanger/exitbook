@@ -1,5 +1,4 @@
-import type { ImportParams } from '@exitbook/app';
-import type { AdapterRegistry } from '@exitbook/ingestion';
+import type { AdapterRegistry, ImportParams } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 

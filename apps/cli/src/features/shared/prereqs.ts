@@ -1,15 +1,16 @@
 import {
   filterTransactionsByDateRange,
+  LinkingOrchestrator,
   validateTransactionPrices,
   type LinkingEvent,
   type PriceEvent,
 } from '@exitbook/accounting';
-import { ClearOperation, LinkOperation, PriceEnrichOperation } from '@exitbook/app';
+import { PriceEnrichOperation } from '@exitbook/app';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
-import { type AdapterRegistry, type IngestionEvent, RawDataProcessingService } from '@exitbook/ingestion';
+import { type AdapterRegistry, type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 
@@ -120,27 +121,9 @@ export async function ensureRawDataIsProcessed(
 
     const { buildProcessingPorts } = await import('@exitbook/data');
     const ports = buildProcessingPorts(db);
-    const rawDataProcessingService = new RawDataProcessingService(ports, providerManager, eventBus, registry);
-    const clearOperation = new ClearOperation(db, eventBus);
+    const processingWorkflow = new ProcessingWorkflow(ports, providerManager, eventBus, registry);
 
-    // Get all account IDs with raw data
-    const allAccountIdsResult = await db.rawTransactions.findDistinctAccountIds({});
-    if (allAccountIdsResult.isErr()) return err(allAccountIdsResult.error);
-    const accountIds = allAccountIdsResult.value;
-
-    // Guard against incomplete imports
-    const guardResult = await rawDataProcessingService.assertNoIncompleteImports(accountIds);
-    if (guardResult.isErr()) return err(guardResult.error);
-
-    // Clear derived data and reset raw data to pending
-    const clearResult = await clearOperation.execute({ includeRaw: false });
-    if (clearResult.isErr()) return err(clearResult.error);
-
-    const deleted = clearResult.value.deleted;
-    logger.info(`Cleared derived data (${deleted.links} links, ${deleted.transactions} transactions)`);
-
-    // Reprocess all accounts
-    const processResult = await rawDataProcessingService.processImportedSessions(accountIds);
+    const processResult = await processingWorkflow.reprocess({});
     if (processResult.isErr()) return err(processResult.error);
 
     logger.info({ processed: processResult.value.processed }, 'Reprocess complete');
@@ -200,8 +183,16 @@ export async function ensureLinks(
     'Transaction links are stale, running linking'
   );
 
-  const { OverrideStore } = await import('@exitbook/data');
+  const { OverrideStore, buildLinkingPorts } = await import('@exitbook/data');
   const overrideStore = new OverrideStore(dataDir);
+
+  let overrides: import('@exitbook/core').OverrideEvent[] = [];
+  if (overrideStore.exists()) {
+    const overridesResult = await overrideStore.readAll();
+    if (overridesResult.isErr())
+      return err(new Error(`Failed to read override events: ${overridesResult.error.message}`));
+    overrides = overridesResult.value.filter((o) => o.scope === 'link' || o.scope === 'unlink');
+  }
 
   const params = {
     dryRun: false,
@@ -209,9 +200,11 @@ export async function ensureLinks(
     autoConfirmThreshold: parseDecimal('0.95'),
   };
 
+  const store = buildLinkingPorts(db);
+
   if (options.isJsonMode) {
-    const operation = new LinkOperation(db, overrideStore);
-    const result = await operation.execute(params);
+    const orchestrator = new LinkingOrchestrator(store);
+    const result = await orchestrator.execute(params, overrides);
     if (result.isErr()) return err(result.error);
     logger.info('Linking completed (JSON mode)');
     return ok(undefined);
@@ -237,8 +230,8 @@ export async function ensureLinks(
   try {
     await controller.start();
 
-    const operation = new LinkOperation(db, overrideStore, eventBus);
-    const result = await operation.execute(params);
+    const orchestrator = new LinkingOrchestrator(store, eventBus);
+    const result = await orchestrator.execute(params, overrides);
 
     if (result.isErr()) {
       controller.fail(result.error.message);

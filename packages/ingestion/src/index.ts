@@ -3,7 +3,17 @@ export { AdapterRegistry } from './shared/types/adapter-registry.js';
 export { allBlockchainAdapters } from './sources/blockchains/index.js';
 export { allExchangeAdapters } from './sources/exchanges/index.js';
 
-export { RawDataProcessingService } from './features/process/process-service.js';
+// Workflows
+export { ImportWorkflow } from './features/import/import-workflow.js';
+export type {
+  ImportParams,
+  ImportResult,
+  ImportBlockchainParams,
+  ImportExchangeApiParams,
+  ImportExchangeCsvParams,
+} from './features/import/import-workflow.js';
+export { ProcessingWorkflow } from './features/process/process-workflow.js';
+export type { ReprocessResult } from './features/process/process-workflow.js';
 
 // Types
 export type { IImporter, StreamingImportParams } from './shared/types/importers.js';
@@ -22,4 +32,4 @@ export {
 export { type ExchangeAdapter } from './shared/types/exchange-adapter.js';
 
 // Ports (re-export for convenience — canonical location is @exitbook/ingestion/ports)
-export type { ProcessingPorts } from './ports/index.js';
+export type { ProcessingPorts, ImportPorts } from './ports/index.js';

@@ -1,9 +1,10 @@
-import { ImportOperation, type ImportParams } from '@exitbook/app';
 import type { ImportSession } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import type { AdapterRegistry } from '@exitbook/ingestion';
-import { isUtxoAdapter } from '@exitbook/ingestion';
+import { buildImportPorts } from '@exitbook/data';
+import type { EventBus } from '@exitbook/events';
+import type { AdapterRegistry, ImportParams, IngestionEvent } from '@exitbook/ingestion';
+import { ImportWorkflow, isUtxoAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 
@@ -17,14 +18,14 @@ export interface ImportExecuteResult {
 }
 
 /**
- * CLI import handler — thin shell over ImportOperation.
+ * CLI import handler — thin shell over ImportWorkflow.
  * Adds CLI-specific concerns: xpub single-address warning, TUI monitor lifecycle, instrumentation.
  */
 export class ImportHandler {
   private readonly logger = getLogger('ImportHandler');
 
   constructor(
-    private importOperation: ImportOperation,
+    private importWorkflow: ImportWorkflow,
     private registry: AdapterRegistry,
     private ingestionMonitor: EventDrivenController<CliEvent>,
     private instrumentation: InstrumentationCollector
@@ -43,7 +44,7 @@ export class ImportHandler {
       }
     }
 
-    const importResult = await this.importOperation.execute(params);
+    const importResult = await this.importWorkflow.execute(params);
     if (importResult.isErr()) {
       this.ingestionMonitor.fail(importResult.error.message);
       await this.ingestionMonitor.stop();
@@ -73,7 +74,7 @@ export class ImportHandler {
   }
 
   abort(): void {
-    this.importOperation.abort();
+    this.importWorkflow.abort();
     this.ingestionMonitor.abort();
     void this.ingestionMonitor.stop().catch((e) => {
       this.logger.warn({ e }, 'Failed to stop ingestion monitor on abort');
@@ -86,7 +87,7 @@ export class ImportHandler {
     if (!('blockchain' in params) || !params.onSingleAddressWarning) return ok(undefined);
 
     const adapterResult = this.registry.getBlockchain(params.blockchain.toLowerCase());
-    if (adapterResult.isErr()) return ok(undefined); // let ImportOperation handle the error
+    if (adapterResult.isErr()) return ok(undefined); // let ImportWorkflow handle the error
 
     if (isUtxoAdapter(adapterResult.value)) {
       const isXpub = adapterResult.value.isExtendedPublicKey(params.address);
@@ -110,9 +111,15 @@ export async function createImportHandler(
   try {
     const infra = await createIngestionInfrastructure(ctx, database, registry);
 
-    const importOperation = new ImportOperation(database, infra.providerManager, registry, infra.eventBus);
+    const importPorts = buildImportPorts(database);
+    const importWorkflow = new ImportWorkflow(
+      importPorts,
+      infra.providerManager,
+      registry,
+      infra.eventBus as EventBus<IngestionEvent>
+    );
 
-    return ok(new ImportHandler(importOperation, registry, infra.ingestionMonitor, infra.instrumentation));
+    return ok(new ImportHandler(importWorkflow, registry, infra.ingestionMonitor, infra.instrumentation));
   } catch (error) {
     return err(error instanceof Error ? error : new Error(String(error)));
   }

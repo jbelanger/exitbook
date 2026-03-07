@@ -1,74 +1,82 @@
-import { ProcessOperation } from '@exitbook/app';
-import { ok } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
-import type { RawDataProcessingService } from '@exitbook/ingestion';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { err, ok } from '@exitbook/core';
+import type { ProcessingWorkflow } from '@exitbook/ingestion';
+import { beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 
-describe('ProcessOperation', () => {
-  let mockProcessService: RawDataProcessingService;
-  let mockDb: DataContext;
-  let operation: ProcessOperation;
+import { ProcessHandler } from '../reprocess-handler.js';
+
+vi.mock('@exitbook/logger', () => ({
+  getLogger: () => ({
+    debug: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+  }),
+}));
+
+describe('ProcessHandler', () => {
+  let mockProcessingWorkflow: { reprocess: Mock };
+  let mockIngestionMonitor: { abort: Mock; fail: Mock; stop: Mock };
+  let mockInstrumentation: { getSummary: Mock };
+  let handler: ProcessHandler;
 
   beforeEach(() => {
-    mockProcessService = {
-      processImportedSessions: vi.fn().mockResolvedValue(ok({ processed: 0, errors: [], failed: 0 })),
-      assertNoIncompleteImports: vi.fn().mockResolvedValue(ok(undefined)),
-    } as unknown as RawDataProcessingService;
+    vi.clearAllMocks();
 
-    mockDb = {
-      rawTransactions: {
-        findDistinctAccountIds: vi.fn().mockResolvedValue(ok([])),
-      },
-      users: {
-        findOrCreateDefault: vi.fn().mockResolvedValue(ok({ id: 1 })),
-      },
-      accounts: {
-        findAll: vi.fn().mockResolvedValue(ok([{ id: 123, identifier: 'test' }])),
-      },
-      transactions: {
-        count: vi.fn().mockResolvedValue(ok(0)),
-      },
-      transactionLinks: {
-        count: vi.fn().mockResolvedValue(ok(0)),
-      },
-      executeInTransaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
-        const tx = {
-          utxoConsolidatedMovements: { deleteByAccountIds: vi.fn().mockResolvedValue(ok(undefined)) },
-          transactionLinks: { deleteByAccountIds: vi.fn().mockResolvedValue(ok(undefined)) },
-          transactions: { deleteByAccountIds: vi.fn().mockResolvedValue(ok(undefined)) },
-          rawTransactions: { resetProcessingStatus: vi.fn().mockResolvedValue(ok(undefined)) },
-        };
-        return fn(tx);
-      }),
-    } as unknown as DataContext;
+    mockProcessingWorkflow = {
+      reprocess: vi.fn().mockResolvedValue(ok({ processed: 0, errors: [] })),
+    };
 
-    operation = new ProcessOperation(mockDb, mockProcessService);
+    mockIngestionMonitor = {
+      fail: vi.fn(),
+      stop: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn(),
+    };
+
+    mockInstrumentation = {
+      getSummary: vi.fn().mockReturnValue({ totalRequests: 0 }),
+    };
+
+    handler = new ProcessHandler(
+      mockProcessingWorkflow as unknown as ProcessingWorkflow,
+      mockIngestionMonitor as never,
+      mockInstrumentation as never
+    );
   });
 
-  describe('Basic Execution', () => {
-    test('should return early with no pending data', async () => {
-      const result = await operation.execute({ accountId: undefined });
+  test('should return result with metrics on success', async () => {
+    mockProcessingWorkflow.reprocess.mockResolvedValue(ok({ processed: 5, errors: [] }));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.processed).toBe(0);
-        expect(result.value.errors).toEqual([]);
-      }
-    });
+    const result = await handler.execute({});
 
-    test('should execute reprocess with specific account ID', async () => {
-      mockProcessService.processImportedSessions = vi
-        .fn()
-        .mockResolvedValue(ok({ processed: 5, errors: [], failed: 0 }));
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().processed).toBe(5);
+    expect(result._unsafeUnwrap().runStats).toEqual({ totalRequests: 0 });
+    expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
+  });
 
-      const result = await operation.execute({ accountId: 123 });
+  test('should pass accountId to reprocess', async () => {
+    mockProcessingWorkflow.reprocess.mockResolvedValue(ok({ processed: 3, errors: [] }));
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.processed).toBe(5);
-      }
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
-      expect(mockProcessService.processImportedSessions).toHaveBeenCalledWith([123]);
-    });
+    await handler.execute({ accountId: 123 });
+
+    expect(mockProcessingWorkflow.reprocess).toHaveBeenCalledWith({ accountId: 123 });
+  });
+
+  test('should fail monitor and return error on reprocess failure', async () => {
+    const error = new Error('Processing failed');
+    mockProcessingWorkflow.reprocess.mockResolvedValue(err(error));
+
+    const result = await handler.execute({});
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr()).toBe(error);
+    expect(mockIngestionMonitor.fail).toHaveBeenCalledWith('Processing failed');
+    expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
+  });
+
+  test('should delegate abort to monitor', () => {
+    handler.abort();
+
+    expect(mockIngestionMonitor.abort).toHaveBeenCalledOnce();
   });
 });

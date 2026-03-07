@@ -38,5 +38,7 @@ export { toRawTransaction, withControlledTransaction } from './utils/db-utils.js
 
 export * from './overrides/index.js';
 
-// Adapters — bridge DataContext to hexagon port interfaces
+// Adapters — bridge DataContext to capability-owned port interfaces
+export { buildLinkingPorts } from './adapters/linking-ports-adapter.js';
 export { buildProcessingPorts } from './adapters/processing-ports-adapter.js';
+export { buildImportPorts } from './adapters/import-ports-adapter.js';

@@ -13,6 +13,7 @@ import type { IProcessingBatchSource } from '../../ports/processing-batch-source
  */
 export function createMockBatchSource(): Mocked<IProcessingBatchSource> {
   return {
+    findAccountsWithRawData: vi.fn().mockResolvedValue(ok([])),
     findAccountsWithPendingData: vi.fn().mockResolvedValue(ok([])),
     countPending: vi.fn().mockResolvedValue(ok(0)),
     countPendingByStreamType: vi.fn().mockResolvedValue(ok(new Map())),

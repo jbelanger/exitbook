@@ -1,6 +1,5 @@
-import type { ImportOperation, ImportParams } from '@exitbook/app';
 import { err, ok } from '@exitbook/core';
-import type { AdapterRegistry } from '@exitbook/ingestion';
+import type { AdapterRegistry, ImportParams, ImportWorkflow } from '@exitbook/ingestion';
 import { isUtxoAdapter } from '@exitbook/ingestion';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -40,7 +39,7 @@ const makeSession = (
 });
 
 describe('ImportHandler', () => {
-  let mockImportOperation: { abort: Mock; execute: Mock };
+  let mockImportWorkflow: { abort: Mock; execute: Mock };
   let mockRegistry: { getBlockchain: Mock };
   let mockIngestionMonitor: { abort: Mock; fail: Mock; stop: Mock };
   let mockInstrumentation: { getSummary: Mock };
@@ -49,7 +48,7 @@ describe('ImportHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockImportOperation = {
+    mockImportWorkflow = {
       execute: vi.fn(),
       abort: vi.fn(),
     };
@@ -70,7 +69,7 @@ describe('ImportHandler', () => {
     };
 
     handler = new ImportHandler(
-      mockImportOperation as unknown as ImportOperation,
+      mockImportWorkflow as unknown as ImportWorkflow,
       mockRegistry as unknown as AdapterRegistry,
       mockIngestionMonitor as never,
       mockInstrumentation as never
@@ -80,7 +79,7 @@ describe('ImportHandler', () => {
   describe('execute — import stage', () => {
     it('should successfully import blockchain data', async () => {
       const session = makeSession({ transactionsImported: 50 });
-      mockImportOperation.execute.mockResolvedValue(ok({ sessions: [session] }));
+      mockImportWorkflow.execute.mockResolvedValue(ok({ sessions: [session] }));
 
       const params: ImportParams = {
         blockchain: 'bitcoin',
@@ -91,13 +90,13 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().sessions).toEqual([session]);
-      expect(mockImportOperation.execute).toHaveBeenCalledWith(params);
+      expect(mockImportWorkflow.execute).toHaveBeenCalledWith(params);
       expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
     });
 
     it('should successfully import exchange data from CSV', async () => {
       const session = makeSession({ id: 456, accountId: 2, transactionsImported: 100 });
-      mockImportOperation.execute.mockResolvedValue(ok({ sessions: [session] }));
+      mockImportWorkflow.execute.mockResolvedValue(ok({ sessions: [session] }));
 
       const params: ImportParams = {
         exchange: 'kraken',
@@ -108,12 +107,12 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().sessions).toEqual([session]);
-      expect(mockImportOperation.execute).toHaveBeenCalledWith(params);
+      expect(mockImportWorkflow.execute).toHaveBeenCalledWith(params);
     });
 
     it('should successfully import exchange data from API', async () => {
       const session = makeSession({ id: 789, accountId: 3, transactionsImported: 75 });
-      mockImportOperation.execute.mockResolvedValue(ok({ sessions: [session] }));
+      mockImportWorkflow.execute.mockResolvedValue(ok({ sessions: [session] }));
 
       const params: ImportParams = {
         exchange: 'kucoin',
@@ -128,11 +127,11 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().sessions).toEqual([session]);
-      expect(mockImportOperation.execute).toHaveBeenCalledWith(params);
+      expect(mockImportWorkflow.execute).toHaveBeenCalledWith(params);
     });
 
     it('should fail when import sessions are not completed', async () => {
-      mockImportOperation.execute.mockResolvedValue(ok({ sessions: [makeSession({ status: 'failed' })] }));
+      mockImportWorkflow.execute.mockResolvedValue(ok({ sessions: [makeSession({ status: 'failed' })] }));
 
       const result = await handler.execute({
         blockchain: 'bitcoin',
@@ -147,7 +146,7 @@ describe('ImportHandler', () => {
 
     it('should return error when import fails', async () => {
       const importError = new Error('Import failed: network timeout');
-      mockImportOperation.execute.mockResolvedValue(err(importError));
+      mockImportWorkflow.execute.mockResolvedValue(err(importError));
 
       const result = await handler.execute({
         blockchain: 'bitcoin',
@@ -178,7 +177,7 @@ describe('ImportHandler', () => {
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().message).toContain('cancelled');
       expect(onSingleAddressWarning).toHaveBeenCalled();
-      expect(mockImportOperation.execute).not.toHaveBeenCalled();
+      expect(mockImportWorkflow.execute).not.toHaveBeenCalled();
     });
 
     it('should proceed when user accepts single-address warning', async () => {
@@ -187,7 +186,7 @@ describe('ImportHandler', () => {
       vi.mocked(isUtxoAdapter).mockReturnValue(true);
 
       const session = makeSession();
-      mockImportOperation.execute.mockResolvedValue(ok({ sessions: [session] }));
+      mockImportWorkflow.execute.mockResolvedValue(ok({ sessions: [session] }));
 
       const onSingleAddressWarning = vi.fn().mockResolvedValue(true);
 
@@ -198,7 +197,7 @@ describe('ImportHandler', () => {
       });
 
       expect(result.isOk()).toBe(true);
-      expect(mockImportOperation.execute).toHaveBeenCalled();
+      expect(mockImportWorkflow.execute).toHaveBeenCalled();
     });
 
     it('should skip warning for xpub addresses', async () => {
@@ -207,7 +206,7 @@ describe('ImportHandler', () => {
       vi.mocked(isUtxoAdapter).mockReturnValue(true);
 
       const session = makeSession();
-      mockImportOperation.execute.mockResolvedValue(ok({ sessions: [session] }));
+      mockImportWorkflow.execute.mockResolvedValue(ok({ sessions: [session] }));
 
       const onSingleAddressWarning = vi.fn();
 
@@ -223,10 +222,10 @@ describe('ImportHandler', () => {
   });
 
   describe('abort', () => {
-    it('should delegate abort to ImportOperation and monitor', () => {
+    it('should delegate abort to ImportWorkflow and monitor', () => {
       handler.abort();
 
-      expect(mockImportOperation.abort).toHaveBeenCalledOnce();
+      expect(mockImportWorkflow.abort).toHaveBeenCalledOnce();
       expect(mockIngestionMonitor.abort).toHaveBeenCalledOnce();
     });
   });

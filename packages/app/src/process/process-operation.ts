@@ -1,6 +1,6 @@
 import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import type { RawDataProcessingService } from '@exitbook/ingestion';
+import type { ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 
 import { ClearOperation } from '../clear/clear-operation.js';
@@ -14,17 +14,17 @@ const logger = getLogger('ProcessOperation');
 
 /**
  * Reprocess orchestration: resolve accounts → guard imports →
- * clear derived data → delegate to RawDataProcessingService.
+ * clear derived data → delegate to ProcessingWorkflow.
  *
  * Uses DataContext + ClearOperation — pure app-layer policy.
- * RawDataProcessingService stays in @exitbook/ingestion.
+ * ProcessingWorkflow stays in @exitbook/ingestion.
  */
 export class ProcessOperation {
   private readonly clearOperation: ClearOperation;
 
   constructor(
     private readonly db: DataContext,
-    private readonly processingService: RawDataProcessingService,
+    private readonly processingService: ProcessingWorkflow,
     private readonly events?: EventSink | undefined
   ) {
     this.clearOperation = new ClearOperation(db, events);

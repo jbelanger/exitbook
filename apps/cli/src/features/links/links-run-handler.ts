@@ -1,8 +1,11 @@
-import type { LinkingEvent, LinkingRunParams, LinkingRunResult } from '@exitbook/accounting';
-import { LinkOperation } from '@exitbook/app';
-import { err, ok, type Result } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
-import { OverrideStore } from '@exitbook/data';
+import {
+  LinkingOrchestrator,
+  type LinkingEvent,
+  type LinkingRunParams,
+  type LinkingRunResult,
+} from '@exitbook/accounting';
+import { err, ok, type OverrideEvent, type Result } from '@exitbook/core';
+import { buildLinkingPorts, type DataContext, OverrideStore } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 
@@ -19,17 +22,21 @@ const logger = getLogger('LinksRunHandler');
  */
 export class LinksRunHandler {
   constructor(
-    private readonly operation: LinkOperation,
+    private readonly orchestrator: LinkingOrchestrator,
+    private readonly overrideStore: OverrideStore,
     private readonly controller: EventDrivenController<LinkingEvent> | undefined
   ) {}
 
   async execute(params: LinkingRunParams): Promise<Result<LinkingRunResult, Error>> {
     try {
+      const overrides = await readLinkOverrides(this.overrideStore);
+      if (overrides.isErr()) return err(overrides.error);
+
       if (this.controller) {
         await this.controller.start();
       }
 
-      const result = await this.operation.execute(params);
+      const result = await this.orchestrator.execute(params, overrides.value);
 
       if (result.isErr()) {
         if (this.controller) {
@@ -67,7 +74,7 @@ export class LinksRunHandler {
  * OverrideStore constructor only sets a file path, and EventBus
  * construction cannot throw. No Result wrapping needed.
  *
- * No cleanup registration needed -- LinkOperation has no persistent resources.
+ * No cleanup registration needed -- LinkingOrchestrator has no persistent resources.
  */
 export function createLinksRunHandler(
   ctx: CommandContext,
@@ -75,10 +82,11 @@ export function createLinksRunHandler(
   options: { dryRun: boolean; isJsonMode: boolean }
 ): LinksRunHandler {
   const overrideStore = new OverrideStore(ctx.dataDir);
+  const store = buildLinkingPorts(database);
 
   if (options.isJsonMode) {
-    const operation = new LinkOperation(database, overrideStore);
-    return new LinksRunHandler(operation, undefined);
+    const orchestrator = new LinkingOrchestrator(store);
+    return new LinksRunHandler(orchestrator, overrideStore, undefined);
   }
 
   const eventBus = new EventBus<LinkingEvent>({
@@ -87,7 +95,19 @@ export function createLinksRunHandler(
     },
   });
   const controller = createEventDrivenController(eventBus, LinksRunMonitor, { dryRun: options.dryRun });
-  const operation = new LinkOperation(database, overrideStore, eventBus);
+  const orchestrator = new LinkingOrchestrator(store, eventBus);
 
-  return new LinksRunHandler(operation, controller);
+  return new LinksRunHandler(orchestrator, overrideStore, controller);
+}
+
+/**
+ * Read link/unlink override events from the override store.
+ */
+async function readLinkOverrides(overrideStore: OverrideStore): Promise<Result<OverrideEvent[], Error>> {
+  if (!overrideStore.exists()) return ok([]);
+
+  const result = await overrideStore.readAll();
+  if (result.isErr()) return err(new Error(`Failed to read override events: ${result.error.message}`));
+
+  return ok(result.value.filter((o) => o.scope === 'link' || o.scope === 'unlink'));
 }

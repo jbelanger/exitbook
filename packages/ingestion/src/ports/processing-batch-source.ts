@@ -6,6 +6,9 @@ import type { Result } from '@exitbook/core';
  * Implementations live in the data adapter layer.
  */
 export interface IProcessingBatchSource {
+  /** Find all accounts that have any raw data (regardless of processing status). */
+  findAccountsWithRawData(): Promise<Result<number[], Error>>;
+
   /** Find all accounts that have unprocessed raw data. */
   findAccountsWithPendingData(): Promise<Result<number[], Error>>;
 

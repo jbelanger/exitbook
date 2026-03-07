@@ -86,7 +86,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when xpub address derivation begins.
-       * Location: ImportOperation.importFromXpub() - before calling deriveAddressesFromXpub()
+       * Location: ImportWorkflow.importFromXpub() - before calling deriveAddressesFromXpub()
        */
       blockchain: string;
       gapLimit: number;
@@ -99,7 +99,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when xpub address derivation completes successfully.
-       * Location: ImportOperation.importFromXpub() - after deriveAddressesFromXpub() returns
+       * Location: ImportWorkflow.importFromXpub() - after deriveAddressesFromXpub() returns
        */
       derivedCount: number;
       durationMs: number;
@@ -110,7 +110,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when xpub derivation fails.
-       * Location: ImportOperation.importFromXpub() - if deriveAddressesFromXpub() returns error
+       * Location: ImportWorkflow.importFromXpub() - if deriveAddressesFromXpub() returns error
        */
       durationMs: number;
       error: string;
@@ -120,7 +120,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when xpub import begins (wrapper for all child imports).
-       * Location: ImportOperation.importFromXpub() - after creating child accounts, before importing them
+       * Location: ImportWorkflow.importFromXpub() - after creating child accounts, before importing them
        */
       blockchain: string;
       childAccountCount: number;
@@ -131,7 +131,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when xpub import completes (all children imported).
-       * Location: ImportOperation.importFromXpub() - after all child imports succeed
+       * Location: ImportWorkflow.importFromXpub() - after all child imports succeed
        */
       parentAccountId: number;
       sessions: ImportSession[];
@@ -142,7 +142,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when any child import fails (entire xpub import fails).
-       * Location: ImportOperation.importFromXpub() - when a child import returns error
+       * Location: ImportWorkflow.importFromXpub() - when a child import returns error
        */
       error: string;
       failedChildAccountId: number;
@@ -152,7 +152,7 @@ export type ImportEvent =
   | {
       /**
        * Emitted when xpub has no active addresses found.
-       * Location: ImportOperation.importFromXpub() - when derivedAddresses.length === 0
+       * Location: ImportWorkflow.importFromXpub() - when derivedAddresses.length === 0
        */
       blockchain: string;
       parentAccountId: number;

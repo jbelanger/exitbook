@@ -1,10 +1,9 @@
 // Pure utility functions for import command
 // All functions are pure - no side effects
 
-import type { ImportParams } from '@exitbook/app';
 import type { ExchangeCredentials } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
-import type { AdapterRegistry } from '@exitbook/ingestion';
+import type { AdapterRegistry, ImportParams } from '@exitbook/ingestion';
 import type { z } from 'zod';
 
 import type { ImportCommandOptionsSchema } from '../shared/schemas.js';

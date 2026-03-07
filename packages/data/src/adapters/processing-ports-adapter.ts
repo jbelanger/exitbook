@@ -9,7 +9,48 @@ import type { DataContext } from '../data-context.js';
  */
 export function buildProcessingPorts(db: DataContext): ProcessingPorts {
   return {
+    derivedDataCleaner: {
+      clearDerivedData: async (accountId) => {
+        return db.executeInTransaction(async (tx) => {
+          const accountIds = accountId ? [accountId] : undefined;
+
+          // FK-ordered: consolidated movements → links → transactions
+          const consolidatedResult = accountIds
+            ? await tx.utxoConsolidatedMovements.deleteByAccountIds(accountIds)
+            : await tx.utxoConsolidatedMovements.deleteAll();
+          if (consolidatedResult.isErr()) return err(consolidatedResult.error);
+
+          const linksResult = accountIds
+            ? await tx.transactionLinks.deleteByAccountIds(accountIds)
+            : await tx.transactionLinks.deleteAll();
+          if (linksResult.isErr()) return err(linksResult.error);
+
+          const transactionsResult = accountIds
+            ? await tx.transactions.deleteByAccountIds(accountIds)
+            : await tx.transactions.deleteAll();
+          if (transactionsResult.isErr()) return err(transactionsResult.error);
+
+          // Reset raw data processing status (do NOT delete raw data)
+          const resetResult = accountId
+            ? await tx.rawTransactions.resetProcessingStatus({ accountId })
+            : await tx.rawTransactions.resetProcessingStatus();
+          if (resetResult.isErr()) return err(resetResult.error);
+
+          // Count what we deleted for observability
+          const linksCount = linksResult.value ?? 0;
+          const transactionsCount = transactionsResult.value ?? 0;
+
+          return ok({
+            transactions: transactionsCount,
+            links: linksCount,
+          });
+        });
+      },
+    },
+
     batchSource: {
+      findAccountsWithRawData: () => db.rawTransactions.findDistinctAccountIds({}),
+
       findAccountsWithPendingData: () => db.rawTransactions.findDistinctAccountIds({ processingStatus: 'pending' }),
 
       countPending: (accountId) => db.rawTransactions.count({ accountIds: [accountId], processingStatus: 'pending' }),
