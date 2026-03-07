@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 function createMockStore(overrides: Partial<ILinkingPersistence> = {}): ILinkingPersistence {
-  return {
+  const store: ILinkingPersistence = {
     loadTransactions: vi.fn().mockResolvedValue(ok([])),
 
     replaceMovements: vi.fn().mockImplementation((movements: unknown[]) => {
@@ -27,8 +27,19 @@ function createMockStore(overrides: Partial<ILinkingPersistence> = {}): ILinking
     replaceLinks: vi.fn().mockImplementation((links: unknown[]) => {
       return ok({ previousCount: 0, savedCount: links.length } satisfies LinksSaveResult);
     }),
+
+    withTransaction: vi.fn(),
+
     ...overrides,
   };
+
+  // Passthrough: just call the function with the same store (no real transaction in tests)
+  (store.withTransaction as ReturnType<typeof vi.fn>).mockImplementation(
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- store.withTransaction is expected to be async, but our mock doesn't need real transactions
+    (fn: (txStore: ILinkingPersistence) => Promise<unknown>) => fn(store)
+  );
+
+  return store;
 }
 
 describe('LinkingOrchestrator', () => {

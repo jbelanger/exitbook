@@ -594,54 +594,45 @@ export class ImportWorkflow {
         }
 
         logger.debug(`Saving ${batch.rawTransactions.length} ${batch.streamType}...`);
-        const saveResult = await this.ports.rawTransactions.createBatch(account.id, batch.rawTransactions);
 
-        if (saveResult.isErr()) {
+        // Atomically: save raw transactions + update session totals + advance cursor
+        const batchCommitResult = await this.ports.withTransaction(async (tx) => {
+          const saveResult = await tx.rawTransactions.createBatch(account.id, batch.rawTransactions);
+          if (saveResult.isErr()) return err(saveResult.error);
+
+          const { inserted, skipped } = saveResult.value;
+          const newTotalImported = totalImported + inserted;
+          const newTotalSkipped = totalSkipped + skipped;
+
+          const sessionUpdateResult = await tx.importSessions.update(importSessionId, {
+            transactions_imported: newTotalImported,
+            transactions_skipped: newTotalSkipped,
+          });
+          if (sessionUpdateResult.isErr()) return err(sessionUpdateResult.error);
+
+          const cursorUpdateResult = await tx.accounts.updateCursor(account.id, batch.streamType, batch.cursor);
+          if (cursorUpdateResult.isErr()) return err(cursorUpdateResult.error);
+
+          return ok({ inserted, skipped });
+        });
+
+        if (batchCommitResult.isErr()) {
           await this.ports.importSessions.update(importSessionId, {
             status: 'failed',
-            error_message: saveResult.error.message,
+            error_message: batchCommitResult.error.message,
             transactions_imported: totalImported,
             transactions_skipped: totalSkipped,
           });
-          return err(saveResult.error);
+          return err(batchCommitResult.error);
         }
 
-        const { inserted, skipped } = saveResult.value;
+        const { inserted, skipped } = batchCommitResult.value;
         totalImported += inserted;
         totalSkipped += skipped;
         totalFetchedRun += fetchedInBatch;
 
         if (skipped > 0) {
           logger.info(`Skipped ${skipped} duplicate transactions in batch`);
-        }
-
-        // Persist session totals after EACH batch for crash recovery
-        const sessionUpdateResult = await this.ports.importSessions.update(importSessionId, {
-          transactions_imported: totalImported,
-          transactions_skipped: totalSkipped,
-        });
-        if (sessionUpdateResult.isErr()) {
-          logger.warn(
-            { sessionId: importSessionId, error: sessionUpdateResult.error },
-            'Failed to persist session totals after batch; totals may be stale on crash recovery'
-          );
-        }
-
-        // Update cursor after EACH batch for crash recovery
-        const cursorUpdateResult = await this.ports.accounts.updateCursor(account.id, batch.streamType, batch.cursor);
-        if (cursorUpdateResult.isErr()) {
-          const warning = `Failed to update cursor for account ${account.id} (${batch.streamType}): ${cursorUpdateResult.error.message}`;
-          logger.warn(
-            { accountId: account.id, streamType: batch.streamType, error: cursorUpdateResult.error },
-            'Failed to update cursor after saving batch; continuing import with dedup protection on resume'
-          );
-          this.emit({
-            type: 'import.warning',
-            sourceName,
-            accountId: account.id,
-            streamType: batch.streamType,
-            warning,
-          });
         }
 
         logger.info(

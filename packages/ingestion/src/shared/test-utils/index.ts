@@ -58,6 +58,7 @@ export {
   createMockProviderManager,
   createMockExchangeClient,
   createMockLogger,
+  mockWithTransaction,
 } from './mock-factories.js';
 
 // Test constants

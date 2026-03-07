@@ -1,3 +1,5 @@
+import type { Result } from '@exitbook/core';
+
 import type { IAccountLookup } from './account-lookup.js';
 import type { IDerivedDataCleaner } from './derived-data-cleaner.js';
 import type { IImportSessionLookup } from './import-session-guard.js';
@@ -16,4 +18,7 @@ export interface ProcessingPorts {
   accountLookup: IAccountLookup;
   importSessionLookup: IImportSessionLookup;
   derivedDataCleaner: IDerivedDataCleaner;
+
+  /** Execute a callback where all port operations share a single atomic transaction. */
+  withTransaction<T>(fn: (txPorts: ProcessingPorts) => Promise<Result<T, Error>>): Promise<Result<T, Error>>;
 }

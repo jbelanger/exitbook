@@ -71,4 +71,7 @@ export interface ImportPorts {
   accounts: IImportAccountStore;
   importSessions: IImportSessionStore;
   rawTransactions: IImportRawTransactionSink;
+
+  /** Execute a callback where all port operations share a single atomic transaction. */
+  withTransaction<T>(fn: (txPorts: ImportPorts) => Promise<Result<T, Error>>): Promise<Result<T, Error>>;
 }

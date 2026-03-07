@@ -429,12 +429,21 @@ export class ProcessingWorkflow {
       const transactions = transactionsResult.value;
       totalProcessed += rawDataItems.length;
 
-      // Save transactions
-      const saveResult = await this.saveTransactions(transactions, accountId);
-      if (saveResult.isErr()) {
-        return err(saveResult.error);
+      // Atomically: save processed transactions + mark raw data as processed
+      const commitResult = await this.ports.withTransaction(async (tx) => {
+        const saveResult = await this.saveTransactionsWithPorts(tx, transactions, accountId);
+        if (saveResult.isErr()) return err(saveResult.error);
+
+        const markResult = await this.markRawDataAsProcessedWithPorts(tx, rawDataItems);
+        if (markResult.isErr()) return err(markResult.error);
+
+        return ok(saveResult.value);
+      });
+
+      if (commitResult.isErr()) {
+        return err(commitResult.error);
       }
-      const { saved, duplicates } = saveResult.value;
+      const { saved, duplicates } = commitResult.value;
 
       totalSaved += saved;
 
@@ -442,12 +451,6 @@ export class ProcessingWorkflow {
         this.logger.debug(
           `Account ${accountId} batch ${batchNumber}: ${duplicates} duplicate transactions were skipped during save`
         );
-      }
-
-      // Mark raw data items as processed
-      const markResult = await this.markRawDataAsProcessed(rawDataItems);
-      if (markResult.isErr()) {
-        return err(markResult.error);
       }
 
       // Update pending count (approximate - tracks what we've processed)
@@ -576,7 +579,8 @@ export class ProcessingWorkflow {
     return ok(processorInputs);
   }
 
-  private async saveTransactions(
+  private async saveTransactionsWithPorts(
+    ports: ProcessingPorts,
     transactions: ProcessedTransaction[],
     accountId: number
   ): Promise<Result<{ duplicates: number; saved: number }, Error>> {
@@ -587,7 +591,7 @@ export class ProcessingWorkflow {
 
     for (let start = 0; start < transactions.length; start += TRANSACTION_SAVE_BATCH_SIZE) {
       const batch = transactions.slice(start, start + TRANSACTION_SAVE_BATCH_SIZE);
-      const saveResult = await this.ports.transactionSink.saveProcessedBatch(batch, accountId);
+      const saveResult = await ports.transactionSink.saveProcessedBatch(batch, accountId);
 
       if (saveResult.isErr()) {
         const errorMessage = `CRITICAL: Failed to save transactions batch starting at index ${start} for account ${accountId}: ${saveResult.error.message}`;
@@ -607,11 +611,14 @@ export class ProcessingWorkflow {
     return ok({ saved: savedCount, duplicates: duplicateCount });
   }
 
-  private async markRawDataAsProcessed(rawDataItems: { id: number }[]): Promise<Result<void, Error>> {
+  private async markRawDataAsProcessedWithPorts(
+    ports: ProcessingPorts,
+    rawDataItems: { id: number }[]
+  ): Promise<Result<void, Error>> {
     const allRawDataIds = rawDataItems.map((item) => item.id);
     for (let start = 0; start < allRawDataIds.length; start += RAW_DATA_MARK_BATCH_SIZE) {
       const batchIds = allRawDataIds.slice(start, start + RAW_DATA_MARK_BATCH_SIZE);
-      const markAsProcessedResult = await this.ports.batchSource.markProcessed(batchIds);
+      const markAsProcessedResult = await ports.batchSource.markProcessed(batchIds);
 
       if (markAsProcessedResult.isErr()) {
         return err(markAsProcessedResult.error);

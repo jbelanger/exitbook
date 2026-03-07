@@ -37,9 +37,10 @@ export function buildImportPorts(db: DataContext): ImportPorts {
     },
 
     rawTransactions: {
-      createBatch: (accountId, transactions) =>
-        db.executeInTransaction((tx) => tx.rawTransactions.createBatch(accountId, transactions)),
+      createBatch: (accountId, transactions) => db.rawTransactions.createBatch(accountId, transactions),
       countByStreamType: (accountId) => db.rawTransactions.countByStreamType(accountId),
     },
+
+    withTransaction: (fn) => db.executeInTransaction((txDb) => fn(buildImportPorts(txDb))),
   };
 }

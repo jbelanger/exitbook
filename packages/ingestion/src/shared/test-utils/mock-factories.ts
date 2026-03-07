@@ -11,6 +11,17 @@ import type { IProcessingBatchSource } from '../../ports/processing-batch-source
  * Creates a mock IProcessingBatchSource with default implementations.
  * All methods return successful Results by default. Override specific methods as needed.
  */
+/**
+ * Creates a passthrough withTransaction for mock ports.
+ * In tests, atomicity doesn't matter — just call the function with the same ports.
+ */
+export function mockWithTransaction<T extends { withTransaction: unknown }>(ports: T): T {
+  (ports as Record<string, unknown>)['withTransaction'] = vi
+    .fn()
+    .mockImplementation((fn: (txPorts: T) => Promise<unknown>) => fn(ports));
+  return ports;
+}
+
 export function createMockBatchSource(): Mocked<IProcessingBatchSource> {
   return {
     findAccountsWithRawData: vi.fn().mockResolvedValue(ok([])),

@@ -35,4 +35,7 @@ export interface ILinkingPersistence {
    * Returns counts for the cleared and saved links.
    */
   replaceLinks(links: NewTransactionLink[]): Promise<Result<LinksSaveResult, Error>>;
+
+  /** Execute a callback where all port operations share a single atomic transaction. */
+  withTransaction<T>(fn: (txStore: ILinkingPersistence) => Promise<Result<T, Error>>): Promise<Result<T, Error>>;
 }

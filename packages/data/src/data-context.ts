@@ -37,9 +37,11 @@ export class DataContext {
   readonly utxoConsolidatedMovements: UtxoConsolidatedMovementRepository;
 
   private readonly connection: KyselyDB;
+  private readonly isTransactionScoped: boolean;
 
-  constructor(connection: KyselyDB) {
+  constructor(connection: KyselyDB, isTransactionScoped = false) {
     this.connection = connection;
+    this.isTransactionScoped = isTransactionScoped;
     this.accounts = new AccountRepository(connection);
     this.transactions = new TransactionRepository(connection);
     this.transactionLinks = new TransactionLinkRepository(connection);
@@ -55,14 +57,23 @@ export class DataContext {
   /**
    * Execute a callback inside a single DB transaction (Unit of Work).
    * The callback receives a transaction-scoped DataContext whose repos
-   * are all bound to the same transaction. Commits on ok(undefined), rolls back on err() or throw.
+   * are all bound to the same transaction. Commits on ok(), rolls back on err() or throw.
+   *
+   * If this DataContext is already transaction-scoped (created by an outer
+   * executeInTransaction), the callback runs directly on this context — no
+   * nested transaction is opened. This lets port methods that internally use
+   * executeInTransaction participate in a caller's transaction transparently.
    */
   async executeInTransaction<T>(fn: (tx: DataContext) => Promise<Result<T, Error>>): Promise<Result<T, Error>> {
+    if (this.isTransactionScoped) {
+      return fn(this);
+    }
+
     return withControlledTransaction(
       this.connection,
       logger,
       async (trx) => {
-        const txContext = new DataContext(trx);
+        const txContext = new DataContext(trx, true);
         return fn(txContext);
       },
       'Transaction failed'

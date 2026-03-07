@@ -77,8 +77,7 @@ export function buildProcessingPorts(db: DataContext): ProcessingPorts {
     },
 
     transactionSink: {
-      saveProcessedBatch: (transactions, accountId) =>
-        db.executeInTransaction((tx) => tx.transactions.createBatch(transactions, accountId)),
+      saveProcessedBatch: (transactions, accountId) => db.transactions.createBatch(transactions, accountId),
     },
 
     accountLookup: {
@@ -113,5 +112,7 @@ export function buildProcessingPorts(db: DataContext): ProcessingPorts {
         return ok([...latestByAccount.values()]);
       },
     },
+
+    withTransaction: (fn) => db.executeInTransaction((txDb) => fn(buildProcessingPorts(txDb))),
   };
 }

@@ -36,5 +36,7 @@ export function buildLinkingPorts(db: DataContext): ILinkingPersistence {
 
       return ok({ previousCount, savedCount: saveResult.value });
     },
+
+    withTransaction: (fn) => db.executeInTransaction((txDb) => fn(buildLinkingPorts(txDb))),
   };
 }
