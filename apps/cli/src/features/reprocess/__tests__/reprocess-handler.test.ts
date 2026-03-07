@@ -1,4 +1,5 @@
 import { err, ok } from '@exitbook/core';
+import type { DataContext } from '@exitbook/data';
 import type { ProcessingWorkflow } from '@exitbook/ingestion';
 import { beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 
@@ -13,8 +14,18 @@ vi.mock('@exitbook/logger', () => ({
   }),
 }));
 
+vi.mock('@exitbook/data', () => ({
+  buildAccountingResetPorts: () => ({
+    resetDerivedData: vi.fn().mockResolvedValue(ok({ links: 0, consolidatedMovements: 0 })),
+  }),
+  buildIngestionResetPorts: () => ({
+    resetDerivedData: vi.fn().mockResolvedValue(ok({ transactions: 0 })),
+  }),
+}));
+
 describe('ProcessHandler', () => {
-  let mockProcessingWorkflow: { reprocess: Mock };
+  let mockDatabase: DataContext;
+  let mockProcessingWorkflow: { prepareReprocess: Mock; processImportedSessions: Mock };
   let mockIngestionMonitor: { abort: Mock; fail: Mock; stop: Mock };
   let mockInstrumentation: { getSummary: Mock };
   let handler: ProcessHandler;
@@ -22,8 +33,11 @@ describe('ProcessHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    mockDatabase = {} as DataContext;
+
     mockProcessingWorkflow = {
-      reprocess: vi.fn().mockResolvedValue(ok({ processed: 0, errors: [] })),
+      prepareReprocess: vi.fn().mockResolvedValue(ok({ accountIds: [1] })),
+      processImportedSessions: vi.fn().mockResolvedValue(ok({ processed: 0, errors: [], failed: 0 })),
     };
 
     mockIngestionMonitor = {
@@ -37,6 +51,7 @@ describe('ProcessHandler', () => {
     };
 
     handler = new ProcessHandler(
+      mockDatabase,
       mockProcessingWorkflow as unknown as ProcessingWorkflow,
       mockIngestionMonitor as never,
       mockInstrumentation as never
@@ -44,7 +59,8 @@ describe('ProcessHandler', () => {
   });
 
   test('should return result with metrics on success', async () => {
-    mockProcessingWorkflow.reprocess.mockResolvedValue(ok({ processed: 5, errors: [] }));
+    mockProcessingWorkflow.prepareReprocess.mockResolvedValue(ok({ accountIds: [1, 2] }));
+    mockProcessingWorkflow.processImportedSessions.mockResolvedValue(ok({ processed: 5, errors: [], failed: 0 }));
 
     const result = await handler.execute({});
 
@@ -54,17 +70,42 @@ describe('ProcessHandler', () => {
     expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
   });
 
-  test('should pass accountId to reprocess', async () => {
-    mockProcessingWorkflow.reprocess.mockResolvedValue(ok({ processed: 3, errors: [] }));
+  test('should pass accountId to prepareReprocess', async () => {
+    mockProcessingWorkflow.prepareReprocess.mockResolvedValue(ok({ accountIds: [123] }));
+    mockProcessingWorkflow.processImportedSessions.mockResolvedValue(ok({ processed: 3, errors: [], failed: 0 }));
 
     await handler.execute({ accountId: 123 });
 
-    expect(mockProcessingWorkflow.reprocess).toHaveBeenCalledWith({ accountId: 123 });
+    expect(mockProcessingWorkflow.prepareReprocess).toHaveBeenCalledWith({ accountId: 123 });
   });
 
-  test('should fail monitor and return error on reprocess failure', async () => {
+  test('should return processed: 0 when plan is empty', async () => {
+    mockProcessingWorkflow.prepareReprocess.mockResolvedValue(ok(undefined));
+
+    const result = await handler.execute({});
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().processed).toBe(0);
+    expect(mockProcessingWorkflow.processImportedSessions).not.toHaveBeenCalled();
+    expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
+  });
+
+  test('should fail monitor and return error on prepareReprocess failure', async () => {
+    const error = new Error('Incomplete import');
+    mockProcessingWorkflow.prepareReprocess.mockResolvedValue(err(error));
+
+    const result = await handler.execute({});
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr()).toBe(error);
+    expect(mockIngestionMonitor.fail).toHaveBeenCalledWith('Incomplete import');
+    expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
+  });
+
+  test('should fail monitor and return error on processImportedSessions failure', async () => {
     const error = new Error('Processing failed');
-    mockProcessingWorkflow.reprocess.mockResolvedValue(err(error));
+    mockProcessingWorkflow.prepareReprocess.mockResolvedValue(ok({ accountIds: [1] }));
+    mockProcessingWorkflow.processImportedSessions.mockResolvedValue(err(error));
 
     const result = await handler.execute({});
 

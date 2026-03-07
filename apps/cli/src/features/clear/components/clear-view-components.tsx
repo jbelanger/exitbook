@@ -2,7 +2,6 @@
  * Clear view TUI components
  */
 
-import type { ClearOperation, ClearParams } from '@exitbook/app';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
 
@@ -15,6 +14,7 @@ import {
   getSelectionCursor,
   StatusIcon,
 } from '../../../ui/shared/index.js';
+import type { ClearHandler, ClearParams, FlatDeletionPreview } from '../clear-handler.js';
 
 import { clearViewReducer, handleClearKeyboardInput } from './clear-view-controller.js';
 import {
@@ -41,11 +41,11 @@ import { formatCount, getCategoryDescription } from '../clear-view-utils.js';
  * Main clear view app component
  */
 export const ClearViewApp: FC<{
-  clearOperation: ClearOperation;
+  clearHandler: ClearHandler;
   initialState: ClearViewState;
   onQuit: () => void;
   params: ClearParams;
-}> = ({ initialState, clearOperation, params, onQuit }) => {
+}> = ({ initialState, clearHandler, params, onQuit }) => {
   const [state, dispatch] = useReducer(clearViewReducer, initialState);
 
   const { stdout } = useStdout();
@@ -54,12 +54,19 @@ export const ClearViewApp: FC<{
 
   // Execution callback
   const executeDelete = async () => {
-    const result = await clearOperation.execute({
+    const result = await clearHandler.execute({
       ...params,
       includeRaw: state.includeRaw,
     });
     if (result.isOk()) {
-      dispatch({ type: 'EXECUTION_COMPLETE', result: result.value.deleted });
+      const flat: FlatDeletionPreview = {
+        transactions: result.value.deleted.ingestion.transactions,
+        links: result.value.deleted.accounting.links,
+        accounts: result.value.deleted.purge?.accounts ?? 0,
+        sessions: result.value.deleted.purge?.sessions ?? 0,
+        rawData: result.value.deleted.purge?.rawData ?? 0,
+      };
+      dispatch({ type: 'EXECUTION_COMPLETE', result: flat });
     } else {
       dispatch({ type: 'EXECUTION_FAILED', error: result.error });
     }

@@ -1,11 +1,8 @@
 import type { Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 
-import type { ProviderConfig } from './providers/provider-registry.js';
-
 export interface ApplicationConfig {
   dataDir: string;
-  providers: ProviderConfig;
 }
 
 /**

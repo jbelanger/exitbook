@@ -65,6 +65,7 @@ export { CostBasisReportGenerator } from './cost-basis/cost-basis-report-generat
 export type { CostBasisReportInput } from './cost-basis/cost-basis-report-generator.js';
 
 // Ports
+export type { IAccountingDataReset, AccountingResetImpact } from './ports/index.js';
 export type { ICostBasisPersistence, CostBasisContext } from './ports/index.js';
 export type { ILinkingPersistence, LinksSaveResult } from './ports/index.js';
 export type { IPricingPersistence, PricingContext } from './ports/index.js';

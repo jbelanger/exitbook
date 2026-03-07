@@ -2,7 +2,7 @@
  * Clear view state model and pure functions
  */
 
-import type { DeletionPreview } from '@exitbook/app';
+import type { FlatDeletionPreview } from '../clear-handler.js';
 
 /**
  * Phase progression: preview → confirming → executing → complete/error
@@ -35,19 +35,19 @@ export interface ClearCategoryItem {
 export interface ClearViewState {
   phase: ClearPhase;
   scope: ClearScope;
-  previewWithRaw: DeletionPreview; // Pre-fetched
-  previewWithoutRaw: DeletionPreview; // Pre-fetched
+  previewWithRaw: FlatDeletionPreview; // Pre-fetched
+  previewWithoutRaw: FlatDeletionPreview; // Pre-fetched
   includeRaw: boolean;
   selectedIndex: number;
   scrollOffset: number;
-  result?: DeletionPreview | undefined; // Populated after execution
+  result?: FlatDeletionPreview | undefined; // Populated after execution
   error?: Error | undefined; // Populated on execution failure
 }
 
 /**
  * Get the active preview based on current includeRaw setting
  */
-export function getActivePreview(state: ClearViewState): DeletionPreview {
+export function getActivePreview(state: ClearViewState): FlatDeletionPreview {
   return state.includeRaw ? state.previewWithRaw : state.previewWithoutRaw;
 }
 
@@ -138,7 +138,7 @@ export function buildCategoryItems(state: ClearViewState): ClearCategoryItem[] {
 /**
  * Build category items from deletion result (for complete phase)
  */
-export function buildResultCategoryItems(result: DeletionPreview): ClearCategoryItem[] {
+export function buildResultCategoryItems(result: FlatDeletionPreview): ClearCategoryItem[] {
   // All items show what was deleted
   const processed: ClearCategoryItem[] = [
     {
@@ -189,8 +189,8 @@ export function buildResultCategoryItems(result: DeletionPreview): ClearCategory
  */
 export function createClearViewState(
   scope: ClearScope,
-  previewWithRaw: DeletionPreview,
-  previewWithoutRaw: DeletionPreview,
+  previewWithRaw: FlatDeletionPreview,
+  previewWithoutRaw: FlatDeletionPreview,
   includeRaw: boolean
 ): ClearViewState {
   return {

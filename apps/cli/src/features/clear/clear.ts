@@ -1,4 +1,3 @@
-import { ClearOperation, type ClearResult, type DeletionPreview } from '@exitbook/app';
 import type { AccountRepository } from '@exitbook/data';
 import type { Command } from 'commander';
 import React from 'react';
@@ -11,13 +10,20 @@ import { handleCancellation, promptConfirm } from '../shared/prompts.js';
 import { ClearCommandOptionsSchema } from '../shared/schemas.js';
 import { createSpinner, stopSpinner, type SpinnerWrapper } from '../shared/spinner.js';
 
+import {
+  createClearHandler,
+  flattenPreview,
+  calculateTotalDeletionItems,
+  type ClearResult,
+  type FlatDeletionPreview,
+} from './clear-handler.js';
 import { ClearViewApp, createClearViewState } from './components/index.js';
 
 /**
  * Clear command result data.
  */
 interface ClearCommandResult {
-  deleted: DeletionPreview;
+  deleted: FlatDeletionPreview;
 }
 
 /**
@@ -41,7 +47,6 @@ export function registerClearCommand(program: Command): void {
  * Execute the clear command.
  */
 async function executeClearCommand(rawOptions: unknown): Promise<void> {
-  // Validate options at CLI boundary with Zod
   const validationResult = ClearCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
     const firstError = validationResult.error.issues[0];
@@ -49,12 +54,9 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
   }
 
   const options = validationResult.data;
-
-  // Check if we should use JSON mode or --confirm bypass
   const useJsonMode = options.json ?? false;
   const useConfirmBypass = options.confirm ?? false;
 
-  // Use TUI unless JSON mode or --confirm bypass
   if (!useJsonMode && !useConfirmBypass) {
     await executeClearTUI(options);
   } else {
@@ -75,7 +77,7 @@ async function executeClearTUI(options: {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const clearOperation = new ClearOperation(database);
+      const clearHandler = createClearHandler({ db: database });
 
       const params = {
         accountId: options.accountId,
@@ -84,8 +86,8 @@ async function executeClearTUI(options: {
       };
 
       const [previewWithoutRawResult, previewWithRawResult] = await Promise.all([
-        clearOperation.preview({ ...params, includeRaw: false }),
-        clearOperation.preview({ ...params, includeRaw: true }),
+        clearHandler.preview({ ...params, includeRaw: false }),
+        clearHandler.preview({ ...params, includeRaw: true }),
       ]);
 
       if (previewWithoutRawResult.isErr()) {
@@ -100,8 +102,8 @@ async function executeClearTUI(options: {
         return;
       }
 
-      const previewWithoutRaw = previewWithoutRawResult.value;
-      const previewWithRaw = previewWithRawResult.value;
+      const previewWithoutRaw = flattenPreview(previewWithoutRawResult.value);
+      const previewWithRaw = flattenPreview(previewWithRawResult.value);
 
       const scopeLabel = await buildScopeLabel(options.accountId, options.source, database.accounts);
 
@@ -115,7 +117,7 @@ async function executeClearTUI(options: {
       await renderApp((unmount) =>
         React.createElement(ClearViewApp, {
           initialState,
-          clearOperation,
+          clearHandler,
           params,
           onQuit: unmount,
         })
@@ -167,10 +169,10 @@ async function executeClearNonTui(options: {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const clearOperation = new ClearOperation(database);
+      const clearHandler = createClearHandler({ db: database });
 
       // Preview deletion
-      const previewResult = await clearOperation.preview({
+      const previewResult = await clearHandler.preview({
         accountId: options.accountId,
         source: options.source,
         includeRaw,
@@ -180,15 +182,15 @@ async function executeClearNonTui(options: {
         displayCliError('clear', previewResult.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
       }
 
-      const preview = previewResult.value;
+      const flat = flattenPreview(previewResult.value);
 
       // Check if there's anything to delete
-      const totalToDelete = preview.accounts + preview.transactions + preview.links;
-      if (totalToDelete === 0 && (!includeRaw || (preview.sessions === 0 && preview.rawData === 0))) {
+      const totalToDelete = calculateTotalDeletionItems(flat);
+      if (totalToDelete === 0) {
         if (!options.json) {
           console.error('No data to clear.');
         } else {
-          outputSuccess('clear', { deleted: preview });
+          outputSuccess('clear', { deleted: flat });
         }
         return;
       }
@@ -198,19 +200,19 @@ async function executeClearNonTui(options: {
       if (shouldConfirm) {
         if (!options.json) {
           console.error('\nThis will clear:');
-          if (preview.accounts > 0) console.error(`  • ${preview.accounts} accounts`);
-          if (preview.transactions > 0) console.error(`  • ${preview.transactions} transactions`);
-          if (preview.links > 0) console.error(`  • ${preview.links} transaction links`);
+          if (flat.transactions > 0) console.error(`  • ${flat.transactions} transactions`);
+          if (flat.links > 0) console.error(`  • ${flat.links} transaction links`);
 
           if (includeRaw) {
             console.error('\n⚠️  WARNING: Raw data will also be deleted:');
-            if (preview.sessions > 0) console.error(`  • ${preview.sessions} import sessions`);
-            if (preview.rawData > 0) console.error(`  • ${preview.rawData} raw data items`);
+            if (flat.accounts > 0) console.error(`  • ${flat.accounts} accounts`);
+            if (flat.sessions > 0) console.error(`  • ${flat.sessions} import sessions`);
+            if (flat.rawData > 0) console.error(`  • ${flat.rawData} raw data items`);
             console.error('\n⚠️  You will need to re-import from exchanges/blockchains (slow, rate-limited).');
           } else {
             console.error('\nRaw imported data will be preserved:');
-            if (preview.sessions > 0) console.error(`  • ${preview.sessions} sessions`);
-            if (preview.rawData > 0) console.error(`  • ${preview.rawData} raw data items`);
+            if (flat.sessions > 0) console.error(`  • ${flat.sessions} sessions`);
+            if (flat.rawData > 0) console.error(`  • ${flat.rawData} raw data items`);
             console.error('\nYou can reprocess with: exitbook reprocess');
           }
           console.error('');
@@ -226,7 +228,7 @@ async function executeClearNonTui(options: {
       const spinner = createSpinner('Clearing data...', options.json ?? false);
 
       // Execute deletion
-      const result = await clearOperation.execute({
+      const result = await clearHandler.execute({
         accountId: options.accountId,
         source: options.source,
         includeRaw,
@@ -253,16 +255,15 @@ async function executeClearNonTui(options: {
  * Handle successful clear.
  */
 function handleClearSuccess(clearResult: ClearResult, spinner: SpinnerWrapper | undefined, isJsonMode: boolean): void {
-  const resultData: ClearCommandResult = {
-    deleted: clearResult.deleted,
-  };
+  const flat = flattenPreview(clearResult.deleted);
+  const resultData: ClearCommandResult = { deleted: flat };
 
   const parts: string[] = [];
-  if (clearResult.deleted.accounts > 0) parts.push(`${clearResult.deleted.accounts} accounts`);
-  if (clearResult.deleted.transactions > 0) parts.push(`${clearResult.deleted.transactions} transactions`);
-  if (clearResult.deleted.links > 0) parts.push(`${clearResult.deleted.links} links`);
-  if (clearResult.deleted.rawData > 0) parts.push(`${clearResult.deleted.rawData} raw items`);
-  if (clearResult.deleted.sessions > 0) parts.push(`${clearResult.deleted.sessions} sessions`);
+  if (flat.transactions > 0) parts.push(`${flat.transactions} transactions`);
+  if (flat.links > 0) parts.push(`${flat.links} links`);
+  if (flat.accounts > 0) parts.push(`${flat.accounts} accounts`);
+  if (flat.sessions > 0) parts.push(`${flat.sessions} sessions`);
+  if (flat.rawData > 0) parts.push(`${flat.rawData} raw items`);
 
   const completionMessage =
     parts.length > 0 ? `Clear complete - ${parts.join(', ')}` : 'Clear complete - no data deleted';

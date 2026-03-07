@@ -96,6 +96,19 @@ export class UtxoConsolidatedMovementRepository extends BaseRepository {
     }
   }
 
+  async count(filters?: { accountIds?: number[] | undefined }): Promise<Result<number, Error>> {
+    try {
+      let query = this.db.selectFrom('utxo_consolidated_movements').select(this.db.fn.countAll<number>().as('count'));
+      if (filters?.accountIds && filters.accountIds.length > 0) {
+        query = query.where('account_id', 'in', filters.accountIds);
+      }
+      const result = await query.executeTakeFirstOrThrow();
+      return ok(Number(result.count));
+    } catch (error) {
+      return wrapError(error, 'Failed to count UTXO consolidated movements');
+    }
+  }
+
   async deleteByAccountIds(accountIds: number[]): Promise<Result<void, Error>> {
     try {
       if (accountIds.length === 0) return ok(undefined);

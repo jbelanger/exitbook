@@ -2,10 +2,9 @@
  * Clear view controller — reducer and keyboard handler
  */
 
-import type { DeletionPreview } from '@exitbook/app';
-
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
+import type { FlatDeletionPreview } from '../clear-handler.js';
 
 import { CHROME_LINES } from './clear-view-components.js';
 import type { ClearViewState } from './clear-view-state.js';
@@ -28,7 +27,7 @@ export type ClearViewAction =
   | { type: 'CONFIRM_DELETE' } // Second 'd' press
   | { type: 'CANCEL_CONFIRM' } // Any key (except 'd') in confirming
   // Execution
-  | { result: DeletionPreview; type: 'EXECUTION_COMPLETE' }
+  | { result: FlatDeletionPreview; type: 'EXECUTION_COMPLETE' }
   | { error: Error; type: 'EXECUTION_FAILED' };
 
 /**

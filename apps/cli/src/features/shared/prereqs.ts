@@ -120,11 +120,31 @@ export async function ensureRawDataIsProcessed(
       },
     });
 
-    const { buildProcessingPorts } = await import('@exitbook/data');
+    const { buildProcessingPorts, buildAccountingResetPorts, buildIngestionResetPorts } =
+      await import('@exitbook/data');
     const ports = buildProcessingPorts(db);
     const processingWorkflow = new ProcessingWorkflow(ports, providerManager, eventBus, registry);
 
-    const processResult = await processingWorkflow.reprocess({});
+    // 1. Plan: resolve accounts and guard incomplete imports (no mutations)
+    const planResult = await processingWorkflow.prepareReprocess({});
+    if (planResult.isErr()) return err(planResult.error);
+
+    if (!planResult.value) {
+      logger.info('No raw data found to reprocess');
+      return ok(undefined);
+    }
+
+    const { accountIds } = planResult.value;
+
+    // 2. Reset derived data before reprocessing
+    const accountingResult = await buildAccountingResetPorts(db).resetDerivedData(accountIds);
+    if (accountingResult.isErr()) return err(accountingResult.error);
+
+    const ingestionResult = await buildIngestionResetPorts(db).resetDerivedData(accountIds);
+    if (ingestionResult.isErr()) return err(ingestionResult.error);
+
+    // 3. Process raw data
+    const processResult = await processingWorkflow.processImportedSessions(accountIds);
     if (processResult.isErr()) return err(processResult.error);
 
     logger.info({ processed: processResult.value.processed }, 'Reprocess complete');

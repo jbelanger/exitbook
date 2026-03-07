@@ -25,9 +25,8 @@ import {
   type IRawDataBatchProvider,
 } from './batch-providers/index.js';
 
-export interface ReprocessResult {
-  processed: number;
-  errors: string[];
+export interface ReprocessPlan {
+  accountIds: number[];
 }
 
 const TRANSACTION_SAVE_BATCH_SIZE = 500;
@@ -134,13 +133,20 @@ export class ProcessingWorkflow {
   }
 
   /**
-   * Reprocess: resolve accounts → guard imports → clear derived data → process.
-   * This is the full reprocess lifecycle previously in ProcessOperation.
+   * Validate and plan a reprocess run without mutating any data.
+   *
+   * Resolves target accounts, checks for raw data, and guards against
+   * incomplete imports. Returns a plan the caller uses to orchestrate
+   * cross-capability resets before calling `processImportedSessions()`.
+   *
+   * Returns `undefined` when there is nothing to reprocess.
    */
-  async reprocess(params: { accountId?: number | undefined }): Promise<Result<ReprocessResult, Error>> {
+  async prepareReprocess(params: {
+    accountId?: number | undefined;
+  }): Promise<Result<ReprocessPlan | undefined, Error>> {
     const { accountId } = params;
 
-    // 1. Resolve all accounts with raw data (before clear, for the guard)
+    // 1. Resolve all accounts with raw data
     let accountIds: number[];
     if (accountId) {
       accountIds = [accountId];
@@ -151,7 +157,7 @@ export class ProcessingWorkflow {
 
       if (accountIds.length === 0) {
         this.logger.info('No raw data found to process');
-        return ok({ errors: [], processed: 0 });
+        return ok(undefined);
       }
     }
 
@@ -159,22 +165,7 @@ export class ProcessingWorkflow {
     const guardResult = await this.assertNoIncompleteImports(accountIds);
     if (guardResult.isErr()) return err(guardResult.error);
 
-    // 3. Clear derived data and reset all raw data to pending
-    const clearResult = await this.ports.derivedDataCleaner.clearDerivedData(accountId);
-    if (clearResult.isErr()) return err(clearResult.error);
-
-    this.logger.info(
-      `Cleared derived data (${clearResult.value.links} links, ${clearResult.value.transactions} transactions)`
-    );
-
-    // 4. Process all accounts (all raw rows are now pending after clear)
-    const processResult = await this.processImportedSessions(accountIds);
-    if (processResult.isErr()) return err(processResult.error);
-
-    return ok({
-      processed: processResult.value.processed,
-      errors: processResult.value.errors,
-    });
+    return ok({ accountIds });
   }
 
   /**

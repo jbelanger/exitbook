@@ -13,7 +13,7 @@ export type {
   ImportExchangeCsvParams,
 } from './features/import/import-workflow.js';
 export { ProcessingWorkflow } from './features/process/process-workflow.js';
-export type { ReprocessResult } from './features/process/process-workflow.js';
+export type { ReprocessPlan } from './features/process/process-workflow.js';
 export { BalanceWorkflow } from './features/balance/balance-workflow.js';
 export type { BalanceParams } from './features/balance/balance-workflow.js';
 export {
@@ -51,3 +51,5 @@ export { type ExchangeAdapter } from './shared/types/exchange-adapter.js';
 
 // Ports (re-export for convenience — canonical location is @exitbook/ingestion/ports)
 export type { ProcessingPorts, ImportPorts, BalancePorts } from './ports/index.js';
+export type { IIngestionDataReset, IngestionResetImpact } from './ports/index.js';
+export type { IIngestionDataPurge, IngestionPurgeImpact } from './ports/index.js';
