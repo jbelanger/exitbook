@@ -1,4 +1,5 @@
 import { err, ok } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { AdapterRegistry, ImportParams, ImportWorkflow } from '@exitbook/ingestion';
 import { isUtxoAdapter } from '@exitbook/ingestion';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
@@ -88,8 +89,8 @@ describe('ImportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().sessions).toEqual([session]);
+      const importResult = assertOk(result);
+      expect(importResult.sessions).toEqual([session]);
       expect(mockImportWorkflow.execute).toHaveBeenCalledWith(params);
       expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
     });
@@ -105,8 +106,8 @@ describe('ImportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().sessions).toEqual([session]);
+      const importResult = assertOk(result);
+      expect(importResult.sessions).toEqual([session]);
       expect(mockImportWorkflow.execute).toHaveBeenCalledWith(params);
     });
 
@@ -125,8 +126,8 @@ describe('ImportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().sessions).toEqual([session]);
+      const importResult = assertOk(result);
+      expect(importResult.sessions).toEqual([session]);
       expect(mockImportWorkflow.execute).toHaveBeenCalledWith(params);
     });
 
@@ -138,8 +139,8 @@ describe('ImportHandler', () => {
         address: 'bc1qtest',
       });
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('not complete');
+      const error = assertErr(result);
+      expect(error.message).toContain('not complete');
       expect(mockIngestionMonitor.fail).toHaveBeenCalledOnce();
       expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
     });
@@ -153,8 +154,8 @@ describe('ImportHandler', () => {
         address: 'bc1qtest',
       });
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toBe(importError);
+      const error = assertErr(result);
+      expect(error).toBe(importError);
       expect(mockIngestionMonitor.fail).toHaveBeenCalledOnce();
     });
   });
@@ -174,8 +175,8 @@ describe('ImportHandler', () => {
         onSingleAddressWarning,
       });
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('cancelled');
+      const error = assertErr(result);
+      expect(error.message).toContain('cancelled');
       expect(onSingleAddressWarning).toHaveBeenCalled();
       expect(mockImportWorkflow.execute).not.toHaveBeenCalled();
     });

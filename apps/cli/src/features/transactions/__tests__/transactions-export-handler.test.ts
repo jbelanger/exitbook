@@ -1,6 +1,7 @@
 import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext } from '@exitbook/data';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -71,8 +72,7 @@ describe('ExportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
-      const exportResult = result._unsafeUnwrap();
+      const exportResult = assertOk(result);
       expect(exportResult.transactionCount).toBe(2);
       expect(exportResult.format).toBe('csv');
       expect(exportResult.csvFormat).toBe('normalized');
@@ -99,8 +99,7 @@ describe('ExportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
-      const exportResult = result._unsafeUnwrap();
+      const exportResult = assertOk(result);
       expect(exportResult.transactionCount).toBe(1);
       expect(exportResult.format).toBe('json');
       expect(exportResult.outputs).toHaveLength(1);
@@ -126,8 +125,7 @@ describe('ExportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
-      const exportResult = result._unsafeUnwrap();
+      const exportResult = assertOk(result);
       expect(exportResult.format).toBe('csv');
       expect(exportResult.csvFormat).toBe('simple');
       expect(exportResult.outputs).toHaveLength(1);
@@ -148,8 +146,7 @@ describe('ExportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
-      const exportResult = result._unsafeUnwrap();
+      const exportResult = assertOk(result);
       expect(exportResult.sourceName).toBe('kraken');
       expect(exportResult.transactionCount).toBe(1);
 
@@ -173,7 +170,7 @@ describe('ExportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
+      assertOk(result);
       expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({
         since: sinceTimestamp,
         includeExcluded: true,
@@ -195,7 +192,7 @@ describe('ExportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
+      assertOk(result);
       expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({
         sourceName: 'bitcoin',
         since: sinceTimestamp,
@@ -213,8 +210,7 @@ describe('ExportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
-      const exportResult = result._unsafeUnwrap();
+      const exportResult = assertOk(result);
       expect(exportResult.transactionCount).toBe(0);
       expect(exportResult.outputs[0]?.content).toBe('');
     });
@@ -229,8 +225,7 @@ describe('ExportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
-      const exportResult = result._unsafeUnwrap();
+      const exportResult = assertOk(result);
       expect(exportResult.transactionCount).toBe(0);
       expect(exportResult.outputs[0]?.content).toBe('[]');
     });
@@ -249,9 +244,9 @@ describe('ExportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Failed to retrieve transactions');
-      expect(result._unsafeUnwrapErr().message).toContain('Database connection failed');
+      const error = assertErr(result);
+      expect(error.message).toContain('Failed to retrieve transactions');
+      expect(error.message).toContain('Database connection failed');
     });
 
     it('should handle unexpected errors gracefully', async () => {
@@ -264,8 +259,8 @@ describe('ExportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toBe('Unexpected error');
+      const error = assertErr(result);
+      expect(error.message).toBe('Unexpected error');
     });
 
     it('should handle non-Error exceptions', async () => {
@@ -278,8 +273,8 @@ describe('ExportHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toBe('String error');
+      const error = assertErr(result);
+      expect(error.message).toBe('String error');
     });
   });
 });

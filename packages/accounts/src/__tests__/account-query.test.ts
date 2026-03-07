@@ -1,4 +1,5 @@
 import { err, ok } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockLogger = vi.hoisted(() => ({
@@ -51,8 +52,7 @@ describe('AccountQuery', () => {
 
     const result = await query.list();
 
-    expect(result.isOk()).toBe(true);
-    const value = result._unsafeUnwrap();
+    const value = assertOk(result);
 
     expect(value.accounts).toHaveLength(2);
     expect(value.count).toBe(3);
@@ -99,8 +99,7 @@ describe('AccountQuery', () => {
 
     const result = await query.list({ showSessions: true });
 
-    expect(result.isOk()).toBe(true);
-    const value = result._unsafeUnwrap();
+    const value = assertOk(result);
 
     expect(ctx.importSessions.countByAccount).not.toHaveBeenCalled();
     expect(ctx.importSessions.findAll).toHaveBeenCalledWith({ accountIds: [1, 2] });
@@ -120,8 +119,7 @@ describe('AccountQuery', () => {
 
     const result = await query.list({ accountId: 7 });
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('does not belong to the default user');
+    expect(assertErr(result).message).toContain('does not belong to the default user');
   });
 
   it('lists a single child account directly when queried by accountId', async () => {
@@ -134,8 +132,7 @@ describe('AccountQuery', () => {
 
     const result = await query.list({ accountId: 8 });
 
-    expect(result.isOk()).toBe(true);
-    const value = result._unsafeUnwrap();
+    const value = assertOk(result);
 
     expect(value.accounts).toHaveLength(1);
     expect(value.count).toBe(1);
@@ -164,8 +161,7 @@ describe('AccountQuery', () => {
 
     const result = await query.findById(1);
 
-    expect(result.isOk()).toBe(true);
-    const account = result._unsafeUnwrap();
+    const account = assertOk(result);
 
     expect(account).toMatchObject({
       id: 1,
@@ -187,8 +183,7 @@ describe('AccountQuery', () => {
 
     const result = await query.findById(9);
 
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBeUndefined();
+    expect(assertOk(result)).toBeUndefined();
     expect(ctx.importSessions.countByAccount).not.toHaveBeenCalled();
   });
 
@@ -200,8 +195,7 @@ describe('AccountQuery', () => {
 
     const result = await query.list();
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toBe('Failed to query accounts: database unavailable');
+    expect(assertErr(result).message).toBe('Failed to query accounts: database unavailable');
     const firstCall = mockLogger.error.mock.calls[0];
     expect(firstCall?.[1]).toBe('Failed to query accounts');
   });
@@ -214,7 +208,6 @@ describe('AccountQuery', () => {
 
     const result = await query.findById(22);
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toBe('Account 22 not found');
+    expect(assertErr(result).message).toBe('Account 22 not found');
   });
 });

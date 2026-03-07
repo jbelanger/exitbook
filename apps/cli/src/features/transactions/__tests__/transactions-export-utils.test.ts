@@ -1,6 +1,7 @@
 import type { TransactionLink } from '@exitbook/accounting';
 import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, it, expect } from 'vitest';
 
 import {
@@ -16,26 +17,22 @@ describe('export-utils', () => {
   describe('parseSinceDate', () => {
     it('should parse "0" as 0 timestamp', () => {
       const result = parseSinceDate('0');
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBe(0);
+      expect(assertOk(result)).toBe(0);
     });
 
     it('should parse ISO date string', () => {
       const result = parseSinceDate('2024-01-01');
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBe(Date.parse('2024-01-01'));
+      expect(assertOk(result)).toBe(Date.parse('2024-01-01'));
     });
 
     it('should parse ISO datetime string', () => {
       const result = parseSinceDate('2024-01-01T00:00:00Z');
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBe(Date.parse('2024-01-01T00:00:00Z'));
+      expect(assertOk(result)).toBe(Date.parse('2024-01-01T00:00:00Z'));
     });
 
     it('should reject invalid date format', () => {
       const result = parseSinceDate('not-a-date');
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Invalid date format');
+      expect(assertErr(result).message).toContain('Invalid date format');
     });
 
     it('should reject empty string', () => {
@@ -49,8 +46,7 @@ describe('export-utils', () => {
       const options: ExportCommandOptions = {};
       const result = buildExportParamsFromFlags(options);
 
-      expect(result.isOk()).toBe(true);
-      const params = result._unsafeUnwrap();
+      const params = assertOk(result);
       expect(params.format).toBe('csv');
       expect(params.csvFormat).toBe('normalized');
       expect(params.outputPath).toBe('data/transactions.csv');
@@ -66,8 +62,7 @@ describe('export-utils', () => {
       };
       const result = buildExportParamsFromFlags(options);
 
-      expect(result.isOk()).toBe(true);
-      const params = result._unsafeUnwrap();
+      const params = assertOk(result);
       expect(params.sourceName).toBe('kraken');
       expect(params.format).toBe('json');
       expect(params.csvFormat).toBeUndefined();
@@ -82,8 +77,7 @@ describe('export-utils', () => {
       };
       const result = buildExportParamsFromFlags(options);
 
-      expect(result.isOk()).toBe(true);
-      const params = result._unsafeUnwrap();
+      const params = assertOk(result);
       expect(params.sourceName).toBe('bitcoin');
       expect(params.format).toBe('csv');
       expect(params.csvFormat).toBe('normalized');
@@ -95,8 +89,7 @@ describe('export-utils', () => {
       };
       const result = buildExportParamsFromFlags(options);
 
-      expect(result.isOk()).toBe(true);
-      const params = result._unsafeUnwrap();
+      const params = assertOk(result);
       expect(params.since).toBe(Date.parse('2024-01-01'));
     });
 
@@ -106,8 +99,7 @@ describe('export-utils', () => {
       };
       const result = buildExportParamsFromFlags(options);
 
-      expect(result.isOk()).toBe(true);
-      const params = result._unsafeUnwrap();
+      const params = assertOk(result);
       expect(params.since).toBe(0);
     });
 
@@ -118,8 +110,7 @@ describe('export-utils', () => {
       };
       const result = buildExportParamsFromFlags(options);
 
-      expect(result.isOk()).toBe(true);
-      const params = result._unsafeUnwrap();
+      const params = assertOk(result);
       expect(params.format).toBe('csv');
       expect(params.csvFormat).toBe('simple');
     });
@@ -131,8 +122,7 @@ describe('export-utils', () => {
       };
       const result = buildExportParamsFromFlags(options);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('--csv-format');
+      expect(assertErr(result).message).toContain('--csv-format');
     });
 
     it('should reject invalid since date', () => {
@@ -141,8 +131,7 @@ describe('export-utils', () => {
       };
       const result = buildExportParamsFromFlags(options);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Invalid date format');
+      expect(assertErr(result).message).toContain('Invalid date format');
     });
   });
 

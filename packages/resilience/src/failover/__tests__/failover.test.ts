@@ -4,6 +4,7 @@
  */
 
 import { err, ok, type Result } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CircuitBreakerRegistry } from '../../circuit-breaker/registry.js';
@@ -52,8 +53,7 @@ describe('executeWithFailover', () => {
     const p1 = createProvider('p1', () => Promise.resolve(ok('data-1')));
     const result = await executeWithFailover(baseOptions([p1]));
 
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toEqual({ data: 'data-1', providerName: 'p1' });
+    expect(assertOk(result)).toEqual({ data: 'data-1', providerName: 'p1' });
   });
 
   it('should failover when first provider fails', async () => {
@@ -61,8 +61,7 @@ describe('executeWithFailover', () => {
     const p2 = createProvider('p2', () => Promise.resolve(ok('data-2')));
     const result = await executeWithFailover(baseOptions([p1, p2]));
 
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toEqual({ data: 'data-2', providerName: 'p2' });
+    expect(assertOk(result)).toEqual({ data: 'data-2', providerName: 'p2' });
   });
 
   it('should return error when all providers fail', async () => {
@@ -70,15 +69,13 @@ describe('executeWithFailover', () => {
     const p2 = createProvider('p2', () => Promise.resolve(err(new Error('p2 failed'))));
     const result = await executeWithFailover(baseOptions([p1, p2]));
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('p1, p2');
+    expect(assertErr(result).message).toContain('p1, p2');
   });
 
   it('should return error when no providers available', async () => {
     const result = await executeWithFailover(baseOptions([]));
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('No providers available');
+    expect(assertErr(result).message).toContain('No providers available');
   });
 
   it('should skip provider with open circuit when alternatives exist', async () => {
@@ -96,8 +93,7 @@ describe('executeWithFailover', () => {
 
     const result = await executeWithFailover(baseOptions([p1, p2], { circuitBreakers: registry }));
 
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap().providerName).toBe('p2');
+    expect(assertOk(result).providerName).toBe('p2');
   });
 
   it('should use provider with open circuit when no alternatives', async () => {
@@ -114,8 +110,7 @@ describe('executeWithFailover', () => {
     const logger = createLogger();
     const result = await executeWithFailover(baseOptions([p1], { circuitBreakers: registry, logger }));
 
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap().providerName).toBe('p1');
+    expect(assertOk(result).providerName).toBe('p1');
     expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('despite open circuit breaker'));
   });
 
@@ -215,8 +210,7 @@ describe('executeWithFailover', () => {
       }) as FailoverOptions<ReturnType<typeof createProvider>, string, CustomError>
     );
 
-    expect(result.isErr()).toBe(true);
-    const resultError = result._unsafeUnwrapErr();
+    const resultError = assertErr(result);
     expect(resultError).toBeInstanceOf(CustomError);
     expect(resultError.code).toBe('ALL_FAILED:p1');
   });
@@ -372,8 +366,7 @@ describe('executeWithFailover', () => {
 
       const result = await executeWithFailover(baseOptions([p1], { signal: controller.signal }));
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('cancelled');
+      expect(assertErr(result).message).toContain('cancelled');
     });
 
     it('should pass signal to execute callback', async () => {
@@ -411,8 +404,7 @@ describe('executeWithFailover', () => {
 
       const result = await executeWithFailover(baseOptions([p1, p2], { totalTimeoutMs: 10 }));
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Total timeout exceeded');
+      expect(assertErr(result).message).toContain('Total timeout exceeded');
     });
 
     it('should not record circuit failure when caller signal aborts mid-attempt', async () => {
@@ -430,8 +422,7 @@ describe('executeWithFailover', () => {
         baseOptions([p1], { signal: controller.signal, circuitBreakers: registry })
       );
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('user cancelled');
+      expect(assertErr(result).message).toContain('user cancelled');
       // Provider was not at fault — circuit must not be penalised
       const state = registry.get('p1')!;
       expect(state.failureCount).toBe(0);
@@ -456,8 +447,7 @@ describe('executeWithFailover', () => {
 
       const result = await executeWithFailover(baseOptions([p1], { signal: controller.signal }));
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toBe('string-reason');
+      expect(assertErr(result).message).toBe('string-reason');
     });
 
     it('should pass timeout error to buildFinalError on total timeout expiry', async () => {

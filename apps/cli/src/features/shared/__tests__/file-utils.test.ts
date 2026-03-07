@@ -6,6 +6,7 @@ import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { writeFilesAtomically } from '../file-utils.js';
@@ -29,8 +30,7 @@ describe('writeFilesAtomically', () => {
     ];
 
     const result = await writeFilesAtomically(files);
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toEqual([
+    expect(assertOk(result)).toEqual([
       join(testDir, 'file1.txt'),
       join(testDir, 'file2.txt'),
       join(testDir, 'file3.txt'),
@@ -51,7 +51,7 @@ describe('writeFilesAtomically', () => {
     const files = [{ path: nestedPath, content: 'nested content' }];
 
     const result = await writeFilesAtomically(files);
-    expect(result.isOk()).toBe(true);
+    assertOk(result);
 
     expect(await fs.readFile(nestedPath, 'utf8')).toBe('nested content');
   });
@@ -61,8 +61,8 @@ describe('writeFilesAtomically', () => {
     const files = [{ path: '/dev/null/invalid/path/file.txt', content: 'will fail' }];
 
     const result = await writeFilesAtomically(files);
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toMatch(/ENOTDIR|EACCES|EPERM/);
+    const error = assertErr(result);
+    expect(error.message).toMatch(/ENOTDIR|EACCES|EPERM/);
   });
 
   it('handles single file write', async () => {

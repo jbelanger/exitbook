@@ -1,4 +1,5 @@
 import { ok } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -219,8 +220,7 @@ describe('buildImportParams', () => {
 
       const result = buildImportParams(options, createTestRegistry());
 
-      expect(result.isOk()).toBe(true);
-      const params = result._unsafeUnwrap();
+      const params = assertOk(result);
       expect(params).toEqual({ exchange: 'kucoin', csvDir: '/path/to/csv' });
     });
 
@@ -233,8 +233,7 @@ describe('buildImportParams', () => {
 
       const result = buildImportParams(options, createTestRegistry());
 
-      expect(result.isOk()).toBe(true);
-      const params = result._unsafeUnwrap();
+      const params = assertOk(result);
       expect(params).toEqual({
         exchange: 'kraken',
         credentials: { apiKey: 'test-key', apiSecret: 'test-secret' },
@@ -251,8 +250,7 @@ describe('buildImportParams', () => {
 
       const result = buildImportParams(options, createTestRegistry());
 
-      expect(result.isOk()).toBe(true);
-      const params = result._unsafeUnwrap();
+      const params = assertOk(result);
       expect(params).toEqual({
         exchange: 'kraken',
         credentials: { apiKey: 'test-key', apiSecret: 'test-secret', apiPassphrase: 'test-passphrase' },
@@ -266,8 +264,7 @@ describe('buildImportParams', () => {
       };
 
       const result = buildImportParams(options, createTestRegistry());
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('does not support CSV import');
+      expect(assertErr(result).message).toContain('does not support CSV import');
     });
 
     it('should reject API mode for CSV-only exchange', () => {
@@ -278,8 +275,7 @@ describe('buildImportParams', () => {
       };
 
       const result = buildImportParams(options, createTestRegistry());
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('does not support API import');
+      expect(assertErr(result).message).toContain('does not support API import');
     });
   });
 
@@ -292,8 +288,7 @@ describe('buildImportParams', () => {
 
       const result = buildImportParams(options, createTestRegistry());
 
-      expect(result.isOk()).toBe(true);
-      const params = result._unsafeUnwrap();
+      const params = assertOk(result);
       expect(params).toEqual({
         blockchain: 'bitcoin',
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
@@ -309,8 +304,7 @@ describe('buildImportParams', () => {
 
       const result = buildImportParams(options, createTestRegistry());
 
-      expect(result.isOk()).toBe(true);
-      const params = result._unsafeUnwrap();
+      const params = assertOk(result);
       expect(params).toEqual({
         blockchain: 'bitcoin',
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',

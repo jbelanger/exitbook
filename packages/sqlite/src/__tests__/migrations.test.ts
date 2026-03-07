@@ -1,3 +1,4 @@
+import { assertOk } from '@exitbook/core/test-utils';
 import { sql } from 'kysely';
 import type { Migration } from 'kysely';
 import { describe, expect, it } from 'vitest';
@@ -9,8 +10,7 @@ import { runMigrations } from '../migrations.js';
 describe('runMigrations', () => {
   it('executes registered migrations', async () => {
     const dbResult = createSqliteDatabase<Record<string, never>>(':memory:');
-    expect(dbResult.isOk()).toBe(true);
-    const db = dbResult._unsafeUnwrap();
+    const db = assertOk(dbResult);
 
     const migrations: Record<string, Migration> = {
       '001_create_notes': {

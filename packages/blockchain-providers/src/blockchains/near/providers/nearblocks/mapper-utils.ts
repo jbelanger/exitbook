@@ -156,10 +156,11 @@ export function mapRawReceiptToNearReceipt(rawReceipt: NearBlocksReceipt): Resul
     if (rawReceipt.actions && rawReceipt.actions.length > 0) {
       const actionResults = rawReceipt.actions.map(mapRawActionToNearAction);
       const failed = actionResults.find((r) => r.isErr());
-      if (failed?.isErr()) {
+      if (failed) {
         return err(failed.error);
       }
-      actions = actionResults.map((r) => r._unsafeUnwrap());
+
+      actions = actionResults.map((r) => (r.isOk() ? r.value : undefined!)).filter((a) => a !== undefined);
     }
 
     const blockHeight = rawReceipt.receipt_block?.block_height;

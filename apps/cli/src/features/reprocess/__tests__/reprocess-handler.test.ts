@@ -1,4 +1,5 @@
 import { err, ok } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext } from '@exitbook/data';
 import type { ProcessingWorkflow } from '@exitbook/ingestion';
 import { beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
@@ -59,9 +60,9 @@ describe('ProcessHandler', () => {
 
     const result = await handler.execute({});
 
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap().processed).toBe(5);
-    expect(result._unsafeUnwrap().runStats).toEqual({ totalRequests: 0 });
+    const summary = assertOk(result);
+    expect(summary.processed).toBe(5);
+    expect(summary.runStats).toEqual({ totalRequests: 0 });
     expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
   });
 
@@ -79,8 +80,8 @@ describe('ProcessHandler', () => {
 
     const result = await handler.execute({});
 
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap().processed).toBe(0);
+    const summary = assertOk(result);
+    expect(summary.processed).toBe(0);
     expect(mockProcessingWorkflow.processImportedSessions).not.toHaveBeenCalled();
     expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
   });
@@ -91,8 +92,7 @@ describe('ProcessHandler', () => {
 
     const result = await handler.execute({});
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr()).toBe(error);
+    expect(assertErr(result)).toBe(error);
     expect(mockIngestionMonitor.fail).toHaveBeenCalledWith('Incomplete import');
     expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
   });
@@ -104,8 +104,7 @@ describe('ProcessHandler', () => {
 
     const result = await handler.execute({});
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr()).toBe(error);
+    expect(assertErr(result)).toBe(error);
     expect(mockIngestionMonitor.fail).toHaveBeenCalledWith('Processing failed');
     expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
   });

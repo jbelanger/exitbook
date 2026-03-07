@@ -1,19 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
+import { assertOk } from '../../__tests__/test-utils.js';
 import type { Currency } from '../currency.js';
 import { isFiat, isFiatOrStablecoin, isStablecoin, parseCurrency } from '../currency.js';
 
 describe('parseCurrency', () => {
   it('should normalize currency codes to uppercase', () => {
     const result = parseCurrency('btc');
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe('BTC');
+    expect(assertOk(result)).toBe('BTC');
   });
 
   it('should trim whitespace', () => {
     const result = parseCurrency('  BTC  ');
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe('BTC');
+    expect(assertOk(result)).toBe('BTC');
   });
 
   it('should return Err for empty string', () => {
@@ -62,9 +61,9 @@ describe('isFiat', () => {
   });
 
   it('should be case insensitive via parseCurrency', () => {
-    expect(isFiat(parseCurrency('usd')._unsafeUnwrap())).toBe(true);
-    expect(isFiat(parseCurrency('UsD')._unsafeUnwrap())).toBe(true);
-    expect(isFiat(parseCurrency('USD')._unsafeUnwrap())).toBe(true);
+    expect(isFiat(assertOk(parseCurrency('usd')))).toBe(true);
+    expect(isFiat(assertOk(parseCurrency('UsD')))).toBe(true);
+    expect(isFiat(assertOk(parseCurrency('USD')))).toBe(true);
   });
 });
 
@@ -105,9 +104,9 @@ describe('isStablecoin', () => {
   });
 
   it('should be case insensitive via parseCurrency', () => {
-    expect(isStablecoin(parseCurrency('usdt')._unsafeUnwrap())).toBe(true);
-    expect(isStablecoin(parseCurrency('UsDt')._unsafeUnwrap())).toBe(true);
-    expect(isStablecoin(parseCurrency('USDT')._unsafeUnwrap())).toBe(true);
+    expect(isStablecoin(assertOk(parseCurrency('usdt')))).toBe(true);
+    expect(isStablecoin(assertOk(parseCurrency('UsDt')))).toBe(true);
+    expect(isStablecoin(assertOk(parseCurrency('USDT')))).toBe(true);
   });
 });
 
@@ -131,32 +130,32 @@ describe('isFiatOrStablecoin', () => {
 
 describe('Currency equality', () => {
   it('same codes are equal via ===', () => {
-    const btc1 = parseCurrency('BTC')._unsafeUnwrap();
-    const btc2 = parseCurrency('BTC')._unsafeUnwrap();
+    const btc1 = assertOk(parseCurrency('BTC'));
+    const btc2 = assertOk(parseCurrency('BTC'));
     expect(btc1 === btc2).toBe(true);
   });
 
   it('different codes are not equal', () => {
-    const btc = parseCurrency('BTC')._unsafeUnwrap();
-    const eth = parseCurrency('ETH')._unsafeUnwrap();
+    const btc = assertOk(parseCurrency('BTC'));
+    const eth = assertOk(parseCurrency('ETH'));
     expect(btc === eth).toBe(false);
   });
 
   it('case-normalized codes are equal', () => {
-    const lower = parseCurrency('btc')._unsafeUnwrap();
-    const upper = parseCurrency('BTC')._unsafeUnwrap();
+    const lower = assertOk(parseCurrency('btc'));
+    const upper = assertOk(parseCurrency('BTC'));
     expect(lower === upper).toBe(true);
   });
 });
 
 describe('Currency as string', () => {
   it('toLowerCase works as native string method', () => {
-    const currency = parseCurrency('BTC')._unsafeUnwrap();
+    const currency = assertOk(parseCurrency('BTC'));
     expect(currency.toLowerCase()).toBe('btc');
   });
 
   it('serializes as plain string in JSON', () => {
-    const currency = parseCurrency('BTC')._unsafeUnwrap();
+    const currency = assertOk(parseCurrency('BTC'));
     expect(JSON.stringify({ currency })).toBe('{"currency":"BTC"}');
   });
 });

@@ -1,6 +1,7 @@
 import { type TransactionLink } from '@exitbook/accounting';
 import { parseDecimal, type Currency } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext, OverrideStore } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -103,8 +104,7 @@ describe('LinksRejectHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
-      const rejectResult = result._unsafeUnwrap();
+      const rejectResult = assertOk(result);
       expect(rejectResult.linkId).toBe(123);
       expect(rejectResult.newStatus).toBe('rejected');
       expect(rejectResult.reviewedBy).toBe('cli-user');
@@ -174,8 +174,7 @@ describe('LinksRejectHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
-      const rejectResult = result._unsafeUnwrap();
+      const rejectResult = assertOk(result);
       expect(rejectResult.linkId).toBe(123);
       expect(rejectResult.newStatus).toBe('rejected');
       expect(rejectResult.reviewedBy).toBe('cli-user');
@@ -203,8 +202,7 @@ describe('LinksRejectHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
-      const rejectResult = result._unsafeUnwrap();
+      const rejectResult = assertOk(result);
       expect(rejectResult.linkId).toBe(123);
       expect(rejectResult.newStatus).toBe('rejected');
       expect(rejectResult.reviewedBy).toBe('cli-user');
@@ -221,8 +219,8 @@ describe('LinksRejectHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('not found');
+      const error = assertErr(result);
+      expect(error.message).toContain('not found');
 
       expect(mockLinkQueries.updateStatus).not.toHaveBeenCalled();
     });
@@ -236,8 +234,8 @@ describe('LinksRejectHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toBe('Database error');
+      const error = assertErr(result);
+      expect(error.message).toBe('Database error');
 
       expect(mockLinkQueries.updateStatus).not.toHaveBeenCalled();
     });
@@ -254,8 +252,8 @@ describe('LinksRejectHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toBe('Update failed');
+      const error = assertErr(result);
+      expect(error.message).toBe('Update failed');
     });
 
     it('should return error if updateStatus returns false', async () => {
@@ -270,8 +268,8 @@ describe('LinksRejectHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Failed to update link');
+      const error = assertErr(result);
+      expect(error.message).toContain('Failed to update link');
     });
 
     it('should handle exceptions gracefully', async () => {
@@ -283,8 +281,8 @@ describe('LinksRejectHandler', () => {
 
       const result = await handler.execute(params);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toBe('Unexpected error');
+      const error = assertErr(result);
+      expect(error.message).toBe('Unexpected error');
     });
   });
 });

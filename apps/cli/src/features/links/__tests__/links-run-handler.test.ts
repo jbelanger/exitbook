@@ -1,6 +1,7 @@
 import type { LinkingRunResult, LinkingRunParams } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
+import { assertErr } from '@exitbook/core/test-utils';
 import type { OverrideStore } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -51,8 +52,8 @@ describe('LinksRunHandler', () => {
 
     const result = await handler.execute(params);
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('Overrides file is invalid');
+    const error = assertErr(result);
+    expect(error.message).toContain('Overrides file is invalid');
     expect(mockController.start).not.toHaveBeenCalled();
     expect(mockController.fail).not.toHaveBeenCalled();
     expect(mockController.stop).not.toHaveBeenCalled();

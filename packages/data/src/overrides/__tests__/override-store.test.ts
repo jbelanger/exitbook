@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { LinkOverridePayload, PriceOverridePayload } from '@exitbook/core';
+import { assertErr } from '@exitbook/core/test-utils';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 import { OverrideStore } from '../override-store.js';
@@ -91,8 +92,7 @@ describe('OverrideStore', () => {
         },
       });
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain("scope 'link' requires payload type 'link_override'");
+      expect(assertErr(result).message).toContain("scope 'link' requires payload type 'link_override'");
     });
 
     it('should create overrides.jsonl file if it does not exist', async () => {

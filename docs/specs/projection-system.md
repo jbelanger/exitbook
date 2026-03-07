@@ -212,13 +212,22 @@ No independent reset step for transaction price enrichment.
 
 Consumers declare what they need; the system walks the graph and rebuilds as necessary:
 
-| Consumer     | Required Projections              | Also Requires Price Coverage |
-| ------------ | --------------------------------- | ---------------------------- |
-| `links run`  | `processed-transactions`          | No                           |
-| `cost-basis` | `processed-transactions`, `links` | Yes                          |
-| `portfolio`  | `processed-transactions`, `links` | Yes                          |
+| Consumer     | Required Projections              | Price Coverage Window                                                      |
+| ------------ | --------------------------------- | -------------------------------------------------------------------------- |
+| `links run`  | `processed-transactions`          | None                                                                       |
+| `cost-basis` | `processed-transactions`, `links` | Requested reporting window, if both `startDate` and `endDate` are supplied |
+| `portfolio`  | `processed-transactions`, `links` | `new Date(0)` through the requested `asOf` date                            |
 
-The readiness API walks `rebuildPlan(target)` then the target itself, checking freshness and triggering rebuilds for any stale/failed/building projections. Price coverage is checked separately after projections are ready.
+The readiness API walks `rebuildPlan(target)` then the target itself, checking freshness and triggering rebuilds for any non-`fresh` projection (`stale`, `failed`, or lingering `building`). Price coverage is checked separately after projections are ready, using an explicit date window:
+
+```ts
+interface PriceCoverageInput {
+  startDate: Date;
+  endDate: Date;
+}
+```
+
+`cost-basis` only runs the price-coverage prerequisite when both bounds are present; `portfolio` always runs it from epoch through `asOf`.
 
 ### Links Freshness Semantics
 
@@ -234,13 +243,38 @@ Each projection defines its own freshness and reset interfaces in its owning cap
 **Ingestion** (`@exitbook/ingestion`):
 
 - `IProcessedTransactionsFreshness` — checks if processing is current
-- `IProcessedTransactionsReset` — resets processed output, UTXO consolidations, and raw status
+- `IProcessedTransactionsReset` — previews and resets processed output, UTXO consolidations, and raw status
+
+  ```ts
+  interface ProcessedTransactionsResetImpact {
+    transactions: number;
+    consolidatedMovements: number;
+  }
+
+  interface IProcessedTransactionsReset {
+    countResetImpact(accountIds?: number[]): Promise<Result<ProcessedTransactionsResetImpact, Error>>;
+    reset(accountIds?: number[]): Promise<Result<ProcessedTransactionsResetImpact, Error>>;
+  }
+  ```
 
 **Accounting** (`@exitbook/accounting`):
 
 - `ILinksFreshness` — checks if links are current
-- `ILinksReset` — resets transaction links
+- `ILinksReset` — previews and resets transaction links
 - `IPriceCoverageData` — loads transactions for coverage checks
+
+  ```ts
+  interface LinksResetImpact {
+    links: number;
+  }
+
+  interface ILinksReset {
+    countResetImpact(accountIds?: number[]): Promise<Result<LinksResetImpact, Error>>;
+    reset(accountIds?: number[]): Promise<Result<LinksResetImpact, Error>>;
+  }
+  ```
+
+`countResetImpact(...)` is part of the canonical contract because CLI preview flows use the same projection-owned reset ports before executing destructive resets.
 
 ### Capability-Owned Lifecycle Writes
 
@@ -262,7 +296,16 @@ Projection state transitions are written by the same capability ports that own t
 
 ### CLI Composition
 
-The CLI is the composition root. It builds a projection runtime registry mapping `ProjectionId` to `{ checkFreshness, rebuild, reset }` and uses it for consumer readiness and reset commands. TUI, abort wiring, and provider lifecycle remain CLI concerns.
+The CLI is the composition root. It builds a projection runtime registry for readiness work and a separate reset dispatcher for projection-native resets.
+
+```ts
+interface ProjectionRuntime {
+  checkFreshness(): Promise<Result<ProjectionFreshnessResult, Error>>;
+  rebuild(): Promise<Result<void, Error>>;
+}
+```
+
+The runtime registry is keyed by `ProjectionId` and used only for readiness/rebuild orchestration. Reset execution is handled separately by a helper that walks `resetPlan(target)` and dispatches to the owning projection reset ports (`ILinksReset`, `IProcessedTransactionsReset`) inside a transaction. TUI, abort wiring, and provider lifecycle remain CLI concerns.
 
 ## Invariants
 
