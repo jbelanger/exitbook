@@ -14,7 +14,7 @@
  */
 
 import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import { err, ok, resultTryAsync } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector, type MetricsSummary } from '@exitbook/observability';
@@ -118,98 +118,92 @@ export class PriceEnrichmentPipeline {
     priceManager: PriceProviderManager,
     fxRateProvider: IFxRateProvider
   ): Promise<Result<PricesEnrichResult, Error>> {
-    try {
-      const stages = determineEnrichmentStages(options);
+    return resultTryAsync(
+      async function* (self) {
+        const stages = determineEnrichmentStages(options);
 
-      this.logger.info(
-        { normalize: stages.normalize, derive: stages.derive, fetch: stages.fetch },
-        'Enrichment stages enabled'
-      );
-
-      const result: PricesEnrichResult = {};
-
-      // Stage 1: Derive (extract from trades: USD + non-USD fiat, propagate via links)
-      if (stages.derive) {
-        const enrichmentService = new PriceDerivationService(this.store);
-        const deriveResult = await this.runStage(
-          'Stage 1: Deriving prices from trades (USD + fiat)',
-          'tradePrices',
-          () => enrichmentService.derivePrices(),
-          (value) => ({ stage: 'tradePrices' as const, transactionsUpdated: value.transactionsUpdated })
+        self.logger.info(
+          { normalize: stages.normalize, derive: stages.derive, fetch: stages.fetch },
+          'Enrichment stages enabled'
         );
-        if (deriveResult.isErr()) return err(deriveResult.error);
-        result.derive = deriveResult.value;
-      }
 
-      // Stage 2: Normalize (FX conversion: CAD/EUR → USD)
-      if (stages.normalize) {
-        const normalizeService = new PriceNormalizationService(this.store, fxRateProvider);
-        const normalizeResult = await this.runStage(
-          'Stage 2: Normalizing non-USD fiat prices to USD',
-          'fxRates',
-          () => normalizeService.normalize(),
-          (value) => ({
-            stage: 'fxRates' as const,
-            movementsNormalized: value.movementsNormalized,
-            movementsSkipped: value.movementsSkipped,
-            failures: value.failures,
-            errors: value.errors,
-          })
-        );
-        if (normalizeResult.isErr()) return err(normalizeResult.error);
-        result.normalize = normalizeResult.value;
+        const result: PricesEnrichResult = {};
 
-        if (options.onMissing === 'fail' && result.normalize.failures > 0) {
-          return err(
-            new NormalizeAbortError(
-              result.normalize.failures,
-              result.normalize.errors,
-              result.normalize.movementsNormalized,
-              result.normalize.movementsSkipped
-            )
+        // Stage 1: Derive (extract from trades: USD + non-USD fiat, propagate via links)
+        if (stages.derive) {
+          const enrichmentService = new PriceDerivationService(self.store);
+          result.derive = yield* await self.runStage(
+            'Stage 1: Deriving prices from trades (USD + fiat)',
+            'tradePrices',
+            () => enrichmentService.derivePrices(),
+            (value) => ({ stage: 'tradePrices' as const, transactionsUpdated: value.transactionsUpdated })
           );
         }
-      }
 
-      // Stage 3: Fetch (external providers for remaining crypto prices)
-      if (stages.fetch) {
-        const fetchService = new PriceFetchService(this.store, this.instrumentation, this.eventBus);
-        const fetchResult = await this.runStage(
-          'Stage 3: Fetching missing prices from external providers',
-          'marketPrices',
-          () => fetchService.fetchPrices({ asset: options.asset, onMissing: options.onMissing }, priceManager),
-          (value) => ({
-            stage: 'marketPrices' as const,
-            pricesFetched: value.stats.pricesFetched,
-            movementsUpdated: value.stats.movementsUpdated,
-            skipped: value.stats.skipped,
-            failures: value.stats.failures,
-            errors: value.errors,
-          })
-        );
-        if (fetchResult.isErr()) return err(fetchResult.error);
-        result.fetch = fetchResult.value;
-      }
+        // Stage 2: Normalize (FX conversion: CAD/EUR → USD)
+        if (stages.normalize) {
+          const normalizeService = new PriceNormalizationService(self.store, fxRateProvider);
+          result.normalize = yield* await self.runStage(
+            'Stage 2: Normalizing non-USD fiat prices to USD',
+            'fxRates',
+            () => normalizeService.normalize(),
+            (value) => ({
+              stage: 'fxRates' as const,
+              movementsNormalized: value.movementsNormalized,
+              movementsSkipped: value.movementsSkipped,
+              failures: value.failures,
+              errors: value.errors,
+            })
+          );
 
-      // Stage 4: Derive (second pass) — use newly fetched/normalized prices
-      if (stages.derive && (stages.fetch || stages.normalize)) {
-        const enrichmentService = new PriceDerivationService(this.store);
-        const propagateResult = await this.runStage(
-          'Stage 4: Re-deriving prices using fetched/normalized data',
-          'rederive',
-          () => enrichmentService.derivePrices(),
-          (value) => ({ stage: 'rederive' as const, transactionsUpdated: value.transactionsUpdated })
-        );
-        if (propagateResult.isErr()) return err(propagateResult.error);
-        result.rederive = propagateResult.value;
-      }
+          if (options.onMissing === 'fail' && result.normalize.failures > 0) {
+            yield* err(
+              new NormalizeAbortError(
+                result.normalize.failures,
+                result.normalize.errors,
+                result.normalize.movementsNormalized,
+                result.normalize.movementsSkipped
+              )
+            );
+          }
+        }
 
-      this.logger.info('Unified price enrichment pipeline completed');
-      result.runStats = this.instrumentation.getSummary();
-      return ok(result);
-    } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
-    }
+        // Stage 3: Fetch (external providers for remaining crypto prices)
+        if (stages.fetch) {
+          const fetchService = new PriceFetchService(self.store, self.instrumentation, self.eventBus);
+          result.fetch = yield* await self.runStage(
+            'Stage 3: Fetching missing prices from external providers',
+            'marketPrices',
+            () => fetchService.fetchPrices({ asset: options.asset, onMissing: options.onMissing }, priceManager),
+            (value) => ({
+              stage: 'marketPrices' as const,
+              pricesFetched: value.stats.pricesFetched,
+              movementsUpdated: value.stats.movementsUpdated,
+              skipped: value.stats.skipped,
+              failures: value.stats.failures,
+              errors: value.errors,
+            })
+          );
+        }
+
+        // Stage 4: Derive (second pass) — use newly fetched/normalized prices
+        if (stages.derive && (stages.fetch || stages.normalize)) {
+          const enrichmentService = new PriceDerivationService(self.store);
+          result.rederive = yield* await self.runStage(
+            'Stage 4: Re-deriving prices using fetched/normalized data',
+            'rederive',
+            () => enrichmentService.derivePrices(),
+            (value) => ({ stage: 'rederive' as const, transactionsUpdated: value.transactionsUpdated })
+          );
+        }
+
+        self.logger.info('Unified price enrichment pipeline completed');
+        result.runStats = self.instrumentation.getSummary();
+        return result;
+      },
+      this,
+      (error) => (error instanceof Error ? error : new Error(String(error)))
+    );
   }
 
   /**

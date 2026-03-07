@@ -1,5 +1,5 @@
 import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 import type { KyselyDB } from './database.js';
@@ -20,9 +20,10 @@ const logger = getLogger('data-context');
 
 export class DataContext {
   static async initialize(dbPath: string): Promise<Result<DataContext, Error>> {
-    const initResult = await initializeDatabase(dbPath);
-    if (initResult.isErr()) return err(initResult.error);
-    return ok(new DataContext(initResult.value));
+    return resultDoAsync(async function* () {
+      const connection = yield* await initializeDatabase(dbPath);
+      return new DataContext(connection);
+    });
   }
 
   readonly accounts: AccountRepository;

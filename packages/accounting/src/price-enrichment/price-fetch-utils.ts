@@ -1,7 +1,7 @@
 // Pure business logic for price fetch operations
 
 import { isFiat, parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, resultDo, type Result } from '@exitbook/core';
 import type { MetricsSummary } from '@exitbook/observability';
 import type { PriceQuery } from '@exitbook/price-providers';
 
@@ -62,13 +62,15 @@ export function validateAssetFilter(asset: string | string[] | undefined): Resul
     }
   }
 
-  const results: Currency[] = [];
-  for (const a of assets) {
-    const result = parseCurrency(a);
-    if (result.isErr()) return err(result.error);
-    results.push(result.value);
-  }
-  return ok(results);
+  return resultDo(function* () {
+    const currencies: Currency[] = [];
+
+    for (const candidate of assets) {
+      currencies.push(yield* parseCurrency(candidate));
+    }
+
+    return currencies;
+  });
 }
 
 /**
@@ -127,16 +129,15 @@ export function createPriceQuery(
     return err(new Error(`Transaction ${tx.id} has invalid datetime: ${tx.datetime}`));
   }
 
-  const assetResult = parseCurrency(assetSymbol);
-  if (assetResult.isErr()) return err(assetResult.error);
+  return resultDo(function* () {
+    const asset = yield* parseCurrency(assetSymbol);
+    const currency = yield* parseCurrency(targetCurrency);
 
-  const currencyResult = parseCurrency(targetCurrency);
-  if (currencyResult.isErr()) return err(currencyResult.error);
-
-  return ok({
-    assetSymbol: assetResult.value,
-    timestamp,
-    currency: currencyResult.value,
+    return {
+      assetSymbol: asset,
+      timestamp,
+      currency,
+    };
   });
 }
 

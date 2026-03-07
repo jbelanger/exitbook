@@ -1,4 +1,4 @@
-import { err, ok } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/core';
 import type { ProcessingPorts } from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';
@@ -44,34 +44,32 @@ export function buildProcessingPorts(db: DataContext): ProcessingPorts {
     accountLookup: {
       getAccountInfo: (accountId) => db.accounts.findById(accountId),
 
-      getUserAddresses: async (userId, blockchain) => {
-        const result = await db.accounts.findAll({ userId });
-        if (result.isErr()) return err(result.error);
-        return ok(
-          result.value.filter((account) => account.sourceName === blockchain).map((account) => account.identifier)
-        );
-      },
+      getUserAddresses: (userId, blockchain) =>
+        resultDoAsync(async function* () {
+          const accounts = yield* await db.accounts.findAll({ userId });
+          return accounts.filter((account) => account.sourceName === blockchain).map((account) => account.identifier);
+        }),
     },
 
     importSessionLookup: {
-      findLatestSessionPerAccount: async (accountIds) => {
-        const result = await db.importSessions.findAll({ accountIds });
-        if (result.isErr()) return err(result.error);
+      findLatestSessionPerAccount: (accountIds) =>
+        resultDoAsync(async function* () {
+          const sessions = yield* await db.importSessions.findAll({ accountIds });
 
-        // Sessions are returned ordered by creation date descending,
-        // so the first one per account is the latest.
-        const latestByAccount = new Map<number, { accountId: number; status: string }>();
-        for (const session of result.value) {
-          if (!latestByAccount.has(session.accountId)) {
-            latestByAccount.set(session.accountId, {
-              accountId: session.accountId,
-              status: session.status,
-            });
+          // Sessions are returned ordered by creation date descending,
+          // so the first one per account is the latest.
+          const latestByAccount = new Map<number, { accountId: number; status: string }>();
+          for (const session of sessions) {
+            if (!latestByAccount.has(session.accountId)) {
+              latestByAccount.set(session.accountId, {
+                accountId: session.accountId,
+                status: session.status,
+              });
+            }
           }
-        }
 
-        return ok([...latestByAccount.values()]);
-      },
+          return [...latestByAccount.values()];
+        }),
     },
 
     withTransaction: (fn) => db.executeInTransaction((txDb) => fn(buildProcessingPorts(txDb))),
