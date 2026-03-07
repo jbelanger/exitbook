@@ -442,9 +442,25 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('built_at', 'text', (col) => col.notNull())
     .addColumn('account_hash', 'text', (col) => col.notNull())
     .execute();
+
+  // Projection state table - generalized lifecycle tracking for persisted derived datasets
+  await sql`
+    CREATE TABLE projection_state (
+      projection_id        TEXT NOT NULL,
+      scope_key            TEXT NOT NULL DEFAULT '__global__',
+      status               TEXT NOT NULL DEFAULT 'stale'
+                                 CHECK(status IN ('fresh', 'stale', 'building', 'failed')),
+      last_built_at        TEXT,
+      last_invalidated_at  TEXT,
+      invalidated_by       TEXT,
+      metadata_json        TEXT CHECK(metadata_json IS NULL OR json_valid(metadata_json)),
+      PRIMARY KEY (projection_id, scope_key)
+    )
+  `.execute(db);
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  await db.schema.dropTable('projection_state').execute();
   await db.schema.dropTable('raw_data_processed_state').execute();
   // Drop utxo_consolidated_movements table
   await db.schema.dropTable('utxo_consolidated_movements').execute();

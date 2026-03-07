@@ -8,3 +8,4 @@ export * from './cursor/index.js';
 export * from './override/index.js';
 export * from './token-metadata/token-metadata.js';
 export * from './result/index.js';
+export * from './projections/index.js';

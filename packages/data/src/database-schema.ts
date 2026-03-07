@@ -268,6 +268,20 @@ export interface RawDataProcessedStateTable {
 }
 
 /**
+ * Projection state table - tracks lifecycle state of persisted derived datasets.
+ * Replaces the singleton raw_data_processed_state with a generalized model.
+ */
+export interface ProjectionStateTable {
+  projection_id: string;
+  scope_key: string; // Default '__global__'
+  status: string; // 'fresh' | 'stale' | 'building' | 'failed'
+  last_built_at: DateTime | null;
+  last_invalidated_at: DateTime | null;
+  invalidated_by: string | null;
+  metadata_json: JSONString | null;
+}
+
+/**
  * Main database interface combining all tables
  */
 export interface DatabaseSchema {
@@ -281,4 +295,5 @@ export interface DatabaseSchema {
   transactions: TransactionsTable;
   utxo_consolidated_movements: UtxoConsolidatedMovementsTable;
   raw_data_processed_state: RawDataProcessedStateTable;
+  projection_state: ProjectionStateTable;
 }

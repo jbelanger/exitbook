@@ -7,6 +7,7 @@ export {
   ImportSessionRepository,
   LinkableMovementRepository,
   NearRawTransactionRepository,
+  ProjectionStateRepository,
   RawTransactionRepository,
   RawDataProcessedStateRepository,
   TransactionLinkRepository,
@@ -16,6 +17,7 @@ export {
 } from './repositories/index.js';
 export type {
   FindOrCreateAccountParams,
+  ProjectionStateRow,
   RawDataProcessedState,
   UpdateAccountParams,
   RawDataQueryParams,
@@ -30,6 +32,7 @@ export { generateDeterministicTransactionHash } from './utils/transaction-id-uti
 export type {
   DatabaseSchema,
   LinkableMovementsTable,
+  ProjectionStateTable,
   TransactionLinksTable,
   RawTransactionTable,
   UtxoConsolidatedMovementsTable,
