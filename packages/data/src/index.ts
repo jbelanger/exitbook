@@ -43,5 +43,6 @@ export { buildAccountQueryPorts } from './adapters/account-query-ports-adapter.j
 export { buildCostBasisPorts } from './adapters/cost-basis-ports-adapter.js';
 export { buildLinkingPorts } from './adapters/linking-ports-adapter.js';
 export { buildPricingPorts } from './adapters/pricing-ports-adapter.js';
+export { buildBalancePorts } from './adapters/balance-ports-adapter.js';
 export { buildProcessingPorts } from './adapters/processing-ports-adapter.js';
 export { buildImportPorts } from './adapters/import-ports-adapter.js';

@@ -8,10 +8,11 @@ import type {
 } from '@exitbook/core';
 import { parseAssetId, wrapError, type Currency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
+
+import type { BalancePorts } from '../../ports/balance-ports.js';
 
 import {
   fetchBlockchainBalance,
@@ -29,7 +30,7 @@ import {
   createVerificationResult,
 } from './balance-utils.js';
 
-const logger = getLogger('BalanceOperation');
+const logger = getLogger('BalanceWorkflow');
 
 export interface BalanceParams {
   accountId: number;
@@ -43,23 +44,21 @@ export type { BalanceComparison, BalanceVerificationResult };
  *
  * Fetches live balances from providers, calculates from stored transactions,
  * compares, and writes verification results to accounts.
- *
- * Uses DataContext directly — pure app-layer orchestration.
  */
-export class BalanceOperation {
+export class BalanceWorkflow {
   constructor(
-    private readonly db: DataContext,
+    private readonly ports: BalancePorts,
     private readonly providerManager: BlockchainProviderManager
   ) {}
 
   /**
-   * Verify balance for a single account: fetch live → calculate from transactions →
-   * subtract scam tokens → compare → persist results.
+   * Verify balance for a single account: fetch live -> calculate from transactions ->
+   * subtract scam tokens -> compare -> persist results.
    */
   async verifyBalance(params: BalanceParams): Promise<Result<BalanceVerificationResult, Error>> {
     try {
       // 1. Fetch the account
-      const accountResult = await this.db.accounts.findById(params.accountId);
+      const accountResult = await this.ports.accountLookup.findById(params.accountId);
       if (accountResult.isErr()) return err(accountResult.error);
       if (!accountResult.value) return err(new Error(`No account found with ID ${params.accountId}`));
 
@@ -172,7 +171,7 @@ export class BalanceOperation {
     }
   }
 
-  // ─── Private helpers ────────────────────────────────────────────────────────
+  // --- Private helpers -------------------------------------------------------
 
   private buildVerificationCoverage(
     liveSnapshot: UnifiedBalanceSnapshot,
@@ -230,14 +229,15 @@ export class BalanceOperation {
 
   private async getLastImportTimestamp(account: Account): Promise<number | undefined> {
     try {
-      const childAccountsResult = await this.db.accounts.findAll({ parentAccountId: account.id });
+      const childAccountsResult = await this.ports.accountLookup.findChildAccounts(account.id);
       if (childAccountsResult.isErr()) {
         logger.warn(`Failed to fetch child accounts: ${childAccountsResult.error.message}`);
         return undefined;
       }
 
       const accountIds = [account.id, ...childAccountsResult.value.map((child) => child.id)];
-      const sessionsResult: Result<ImportSession[], Error> = await this.db.importSessions.findAll({ accountIds });
+      const sessionsResult: Result<ImportSession[], Error> =
+        await this.ports.importSessionLookup.findByAccountIds(accountIds);
 
       if (sessionsResult.isErr()) {
         logger.warn(`Failed to fetch import sessions: ${sessionsResult.error.message}`);
@@ -267,7 +267,8 @@ export class BalanceOperation {
       if (accountIdsResult.isErr()) return err(accountIdsResult.error);
       const accountIds = accountIdsResult.value;
 
-      const sessionsResult: Result<ImportSession[], Error> = await this.db.importSessions.findAll({ accountIds });
+      const sessionsResult: Result<ImportSession[], Error> =
+        await this.ports.importSessionLookup.findByAccountIds(accountIds);
       if (sessionsResult.isErr()) return err(sessionsResult.error);
 
       const allSessions = sessionsResult.value;
@@ -279,9 +280,10 @@ export class BalanceOperation {
         return err(new Error(`No completed import session found for ${account.sourceName}`));
       }
 
-      const transactionsResult: Result<UniversalTransactionData[], Error> = await this.db.transactions.findAll({
-        accountIds,
-      });
+      const transactionsResult: Result<UniversalTransactionData[], Error> =
+        await this.ports.transactionSource.findByAccountIds({
+          accountIds,
+        });
       if (transactionsResult.isErr()) return err(transactionsResult.error);
 
       const allTransactions = transactionsResult.value;
@@ -324,7 +326,7 @@ export class BalanceOperation {
   }
 
   private async fetchBlockchainLiveBalance(account: Account): Promise<Result<UnifiedBalanceSnapshot, Error>> {
-    const childAccountsResult = await this.db.accounts.findAll({ parentAccountId: account.id });
+    const childAccountsResult = await this.ports.accountLookup.findChildAccounts(account.id);
     if (childAccountsResult.isErr()) return err(childAccountsResult.error);
 
     const childAccounts = childAccountsResult.value;
@@ -345,7 +347,8 @@ export class BalanceOperation {
       if (accountIdsResult.isErr()) return err(accountIdsResult.error);
       const accountIds = accountIdsResult.value;
 
-      const sessionsResult: Result<ImportSession[], Error> = await this.db.importSessions.findAll({ accountIds });
+      const sessionsResult: Result<ImportSession[], Error> =
+        await this.ports.importSessionLookup.findByAccountIds(accountIds);
       if (sessionsResult.isErr()) return err(sessionsResult.error);
 
       const allSessions = sessionsResult.value;
@@ -353,10 +356,11 @@ export class BalanceOperation {
         return ok({ amounts: {}, spamAssetIds: new Set() });
       }
 
-      const excludedTxResult: Result<UniversalTransactionData[], Error> = await this.db.transactions.findAll({
-        accountIds,
-        includeExcluded: true,
-      });
+      const excludedTxResult: Result<UniversalTransactionData[], Error> =
+        await this.ports.transactionSource.findByAccountIds({
+          accountIds,
+          includeExcluded: true,
+        });
       if (excludedTxResult.isErr()) return err(excludedTxResult.error);
 
       return ok(collectExcludedAssetInfo(excludedTxResult.value));
@@ -397,7 +401,7 @@ export class BalanceOperation {
         },
       };
 
-      const updateResult: Result<void, Error> = await this.db.accounts.update(account.id, {
+      const updateResult: Result<void, Error> = await this.ports.accountUpdater.updateVerification(account.id, {
         verificationMetadata,
         lastBalanceCheckAt: new Date(),
       });
@@ -412,13 +416,13 @@ export class BalanceOperation {
   }
 
   private async resolveAccountScope(account: Account): Promise<Result<number[], Error>> {
-    const childAccountsResult = await this.db.accounts.findAll({ parentAccountId: account.id });
+    const childAccountsResult = await this.ports.accountLookup.findChildAccounts(account.id);
     if (childAccountsResult.isErr()) return err(childAccountsResult.error);
     return ok([account.id, ...childAccountsResult.value.map((child) => child.id)]);
   }
 }
 
-// ─── Pure helpers ───────────────────────────────────────────────────────────
+// --- Pure helpers ------------------------------------------------------------
 
 function decimalRecordToStringRecord(record: Record<string, Decimal>): Record<string, string> {
   const result: Record<string, string> = {};

@@ -6,10 +6,10 @@ import type {
 import type { Account, Currency, ImportSession, UniversalTransactionData, VerificationMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
 import { describe, expect, it, vi } from 'vitest';
 
-import { BalanceOperation } from '../balance-operation.js';
+import type { BalancePorts } from '../../../ports/balance-ports.js';
+import { BalanceWorkflow } from '../balance-workflow.js';
 
 function createAccount(overrides: Partial<Account> = {}): Account {
   return {
@@ -73,13 +73,14 @@ function createProviderManager(
   } as unknown as BlockchainProviderManager;
 }
 
-function createDbMock(params: {
+function createPortsMock(params: {
   account: Account;
   excludedTransactions: UniversalTransactionData[];
   normalTransactions: UniversalTransactionData[];
   sessions: ImportSession[];
 }): {
-  accountsUpdate: ReturnType<
+  ports: BalancePorts;
+  updateVerification: ReturnType<
     typeof vi.fn<
       (
         accountId: number,
@@ -87,9 +88,8 @@ function createDbMock(params: {
       ) => Promise<Result<void, Error>>
     >
   >;
-  db: DataContext;
 } {
-  const accountsUpdate = vi
+  const updateVerification = vi
     .fn<
       (
         accountId: number,
@@ -97,17 +97,20 @@ function createDbMock(params: {
       ) => Promise<Result<void, Error>>
     >()
     .mockResolvedValue(ok(undefined));
-  const db = {
-    accounts: {
+
+  const ports: BalancePorts = {
+    accountLookup: {
       findById: vi.fn().mockResolvedValue(ok(params.account)),
-      findAll: vi.fn().mockResolvedValue(ok([])),
-      update: accountsUpdate,
+      findChildAccounts: vi.fn().mockResolvedValue(ok([])),
     },
-    importSessions: {
-      findAll: vi.fn().mockResolvedValue(ok(params.sessions)),
+    accountUpdater: {
+      updateVerification,
     },
-    transactions: {
-      findAll: vi
+    importSessionLookup: {
+      findByAccountIds: vi.fn().mockResolvedValue(ok(params.sessions)),
+    },
+    transactionSource: {
+      findByAccountIds: vi
         .fn()
         .mockImplementation(
           (query: { includeExcluded?: boolean | undefined }): Result<UniversalTransactionData[], Error> => {
@@ -118,12 +121,12 @@ function createDbMock(params: {
           }
         ),
     },
-  } as unknown as DataContext;
+  };
 
-  return { accountsUpdate, db };
+  return { updateVerification, ports };
 }
 
-describe('BalanceOperation', () => {
+describe('BalanceWorkflow', () => {
   it('adjusts live balances using excluded amounts and persists verification metadata', async () => {
     const account = createAccount();
 
@@ -162,7 +165,7 @@ describe('BalanceOperation', () => {
       }),
     ];
 
-    const { accountsUpdate, db } = createDbMock({
+    const { updateVerification, ports } = createPortsMock({
       account,
       sessions: [createCompletedImportSession(account.id)],
       normalTransactions,
@@ -176,8 +179,8 @@ describe('BalanceOperation', () => {
       decimals: 8,
     });
 
-    const operation = new BalanceOperation(db, providerManager);
-    const result = await operation.verifyBalance({ accountId: account.id });
+    const workflow = new BalanceWorkflow(ports, providerManager);
+    const result = await workflow.verifyBalance({ accountId: account.id });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -187,11 +190,11 @@ describe('BalanceOperation', () => {
       expect(result.value.comparisons[0]?.difference).toBe('0');
     }
 
-    expect(accountsUpdate).toHaveBeenCalledTimes(1);
-    const call = accountsUpdate.mock.calls[0];
+    expect(updateVerification).toHaveBeenCalledTimes(1);
+    const call = updateVerification.mock.calls[0];
     expect(call).toBeDefined();
     if (!call) {
-      throw new Error('Expected accounts.update call to be recorded');
+      throw new Error('Expected updateVerification call to be recorded');
     }
     const updateArg = call[1];
     expect(updateArg.verificationMetadata.current_balance).toEqual({
@@ -224,7 +227,7 @@ describe('BalanceOperation', () => {
       }),
     ];
 
-    const { db } = createDbMock({
+    const { ports } = createPortsMock({
       account,
       sessions: [createCompletedImportSession(account.id)],
       normalTransactions,
@@ -248,8 +251,8 @@ describe('BalanceOperation', () => {
       }
     );
 
-    const operation = new BalanceOperation(db, providerManager);
-    const result = await operation.verifyBalance({ accountId: account.id });
+    const workflow = new BalanceWorkflow(ports, providerManager);
+    const result = await workflow.verifyBalance({ accountId: account.id });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -261,18 +264,22 @@ describe('BalanceOperation', () => {
   });
 
   it('returns an error when account does not exist', async () => {
-    const db = {
-      accounts: {
+    const ports: BalancePorts = {
+      accountLookup: {
         findById: vi.fn().mockResolvedValue(ok(undefined)),
+        findChildAccounts: vi.fn(),
       },
-    } as unknown as DataContext;
+      accountUpdater: { updateVerification: vi.fn() },
+      importSessionLookup: { findByAccountIds: vi.fn() },
+      transactionSource: { findByAccountIds: vi.fn() },
+    };
 
     const providerManager = {
       destroy: vi.fn().mockResolvedValue(undefined),
     } as unknown as BlockchainProviderManager;
 
-    const operation = new BalanceOperation(db, providerManager);
-    const result = await operation.verifyBalance({ accountId: 999 });
+    const workflow = new BalanceWorkflow(ports, providerManager);
+    const result = await workflow.verifyBalance({ accountId: 999 });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -283,7 +290,7 @@ describe('BalanceOperation', () => {
   it('returns provider errors from live balance fetch', async () => {
     const account = createAccount();
 
-    const { db } = createDbMock({
+    const { ports } = createPortsMock({
       account,
       sessions: [createCompletedImportSession(account.id)],
       normalTransactions: [],
@@ -297,8 +304,8 @@ describe('BalanceOperation', () => {
       getAddressBalances: vi.fn().mockResolvedValue(err(new Error('RPC down'))),
     } as unknown as BlockchainProviderManager;
 
-    const operation = new BalanceOperation(db, providerManager);
-    const result = await operation.verifyBalance({ accountId: account.id });
+    const workflow = new BalanceWorkflow(ports, providerManager);
+    const result = await workflow.verifyBalance({ accountId: account.id });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {

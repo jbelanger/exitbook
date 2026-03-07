@@ -25,9 +25,8 @@ adapters where dependency inversion actually protects a capability boundary.
   - Historically hosted operations that wrapped capability workflows
   - Capability workflows now live in their owning packages; hosts compose
     them directly
-  - Still contains some operations (`ClearOperation`, `BalanceOperation`,
-    accounting-side ops) — these will migrate to capability packages or the
-    host over time
+  - Still contains `ClearOperation` and accounting-side ops — these will
+    migrate to capability packages or the host over time
 - `apps/cli` is the host and composition root
   - Command parsing, process lifecycle, cleanup, TUI wiring, runtime setup
   - Builds ports from `@exitbook/data`, constructs workflows from capability

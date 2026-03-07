@@ -1,8 +1,7 @@
-import { BalanceOperation, calculateBalances } from '@exitbook/app';
-import type { BalanceVerificationResult } from '@exitbook/app';
 import type { Account, AccountType, ExchangeCredentials, UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
-import { type DataContext } from '@exitbook/data';
+import { buildBalancePorts, type DataContext } from '@exitbook/data';
+import { BalanceWorkflow, calculateBalances, type BalanceVerificationResult } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 
 import type { EventRelay } from '../../ui/shared/event-relay.js';
@@ -73,7 +72,7 @@ export class BalanceHandler {
 
   constructor(
     private readonly db: DataContext,
-    private readonly balanceOperation: BalanceOperation | undefined
+    private readonly balanceOperation: BalanceWorkflow | undefined
   ) {}
 
   abort(): void {
@@ -123,7 +122,7 @@ export class BalanceHandler {
     accountId: number;
     credentials?: ExchangeCredentials | undefined;
   }): Promise<Result<SingleVerificationResult, Error>> {
-    const operation = this.requireBalanceOperation();
+    const operation = this.requireBalanceWorkflow();
 
     try {
       const account = await this.loadSingleAccountOrFail(params.accountId);
@@ -166,7 +165,7 @@ export class BalanceHandler {
   }
 
   async executeAll(): Promise<Result<AllAccountsVerificationResult, Error>> {
-    const operation = this.requireBalanceOperation();
+    const operation = this.requireBalanceWorkflow();
 
     try {
       const accounts = await this.loadAllAccounts();
@@ -273,7 +272,7 @@ export class BalanceHandler {
   private async runStream(accounts: SortedVerificationAccount[], relay: EventRelay<BalanceEvent>): Promise<void> {
     this.abortController = new AbortController();
     const signal = this.abortController.signal;
-    const operation = this.requireBalanceOperation();
+    const operation = this.requireBalanceWorkflow();
 
     for (const item of accounts) {
       if (signal.aborted) {
@@ -358,8 +357,8 @@ export class BalanceHandler {
     relay.push({ type: 'ALL_VERIFICATIONS_COMPLETE' });
   }
 
-  private requireBalanceOperation(): BalanceOperation {
-    if (!this.balanceOperation) throw new Error('BalanceOperation not available (offline mode)');
+  private requireBalanceWorkflow(): BalanceWorkflow {
+    if (!this.balanceOperation) throw new Error('BalanceWorkflow not available (offline mode)');
     return this.balanceOperation;
   }
 
@@ -466,8 +465,9 @@ export async function createBalanceHandler(
     }
 
     const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
-    const balanceOperation = new BalanceOperation(database, providerManager);
-    const handler = new BalanceHandler(database, balanceOperation);
+    const balancePorts = buildBalancePorts(database);
+    const balanceWorkflow = new BalanceWorkflow(balancePorts, providerManager);
+    const handler = new BalanceHandler(database, balanceWorkflow);
     ctx.onCleanup(async () => {
       await handler.awaitStream();
       await cleanupProviderManager();

@@ -14,6 +14,24 @@ export type {
 } from './features/import/import-workflow.js';
 export { ProcessingWorkflow } from './features/process/process-workflow.js';
 export type { ReprocessResult } from './features/process/process-workflow.js';
+export { BalanceWorkflow } from './features/balance/balance-workflow.js';
+export type { BalanceParams } from './features/balance/balance-workflow.js';
+export {
+  calculateBalances,
+  compareBalances,
+  convertBalancesToDecimals,
+  createVerificationResult,
+  generateVerificationReport,
+  type BalanceCalculationResult,
+  type BalanceComparison,
+  type BalanceVerificationResult,
+} from './features/balance/balance-utils.js';
+export {
+  fetchBlockchainBalance,
+  fetchChildAccountsBalance,
+  fetchExchangeBalance,
+  type UnifiedBalanceSnapshot,
+} from './features/balance/balance-fetch-utils.js';
 
 // Types
 export type { IImporter, StreamingImportParams } from './shared/types/importers.js';
@@ -32,4 +50,4 @@ export {
 export { type ExchangeAdapter } from './shared/types/exchange-adapter.js';
 
 // Ports (re-export for convenience — canonical location is @exitbook/ingestion/ports)
-export type { ProcessingPorts, ImportPorts } from './ports/index.js';
+export type { ProcessingPorts, ImportPorts, BalancePorts } from './ports/index.js';

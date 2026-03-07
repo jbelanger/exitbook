@@ -16,3 +16,10 @@ export type {
   IImportRawTransactionSink,
   FindOrCreateAccountParams,
 } from './import-ports.js';
+export type {
+  BalancePorts,
+  IBalanceAccountLookup,
+  IBalanceAccountUpdater,
+  IBalanceImportSessionLookup,
+  IBalanceTransactionSource,
+} from './balance-ports.js';
