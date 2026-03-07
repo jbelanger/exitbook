@@ -19,7 +19,7 @@ import {
   createCostBasisAssetState,
   createCostBasisTimelineState,
 } from './components/cost-basis-view-state.js';
-import type { CostBasisResult, CostBasisInput } from './cost-basis-handler.js';
+import type { CostBasisWorkflowResult, CostBasisInput } from './cost-basis-handler.js';
 import { createCostBasisHandler } from './cost-basis-handler.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.js';
 import { buildCostBasisParamsFromFlags } from './cost-basis-utils.js';
@@ -207,7 +207,7 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, registry: 
   }
 }
 
-function outputCostBasisJSON(costBasisResult: CostBasisResult): void {
+function outputCostBasisJSON(costBasisResult: CostBasisWorkflowResult): void {
   const { summary, missingPricesWarning, report, lots, disposals, lotTransfers } = costBasisResult;
   const currency = summary.calculation.config.currency;
   const jurisdiction = summary.calculation.config.jurisdiction;

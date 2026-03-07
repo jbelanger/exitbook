@@ -78,6 +78,9 @@ importers:
       '@exitbook/accounting':
         specifier: workspace:*
         version: link:../../packages/accounting
+      '@exitbook/accounts':
+        specifier: workspace:*
+        version: link:../../packages/accounts
       '@exitbook/app':
         specifier: workspace:*
         version: link:../../packages/app
@@ -184,6 +187,19 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.3.6
+    devDependencies:
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+
+  packages/accounts:
+    dependencies:
+      '@exitbook/core':
+        specifier: workspace:*
+        version: link:../core
+      '@exitbook/logger':
+        specifier: workspace:*
+        version: link:../logger
     devDependencies:
       tsconfig:
         specifier: workspace:*
@@ -305,6 +321,9 @@ importers:
       '@exitbook/accounting':
         specifier: workspace:*
         version: link:../accounting
+      '@exitbook/accounts':
+        specifier: workspace:*
+        version: link:../accounts
       '@exitbook/core':
         specifier: workspace:*
         version: link:../core

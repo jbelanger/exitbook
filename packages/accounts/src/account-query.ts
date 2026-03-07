@@ -1,12 +1,12 @@
 import { type Account, wrapError } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 
-import type { AccountListResult, AccountQueryParams, AccountView, SessionSummary } from './account-query-utils.js';
-import { formatAccount } from './account-query-utils.js';
+import type { AccountListResult, AccountQueryParams, AccountSummary, SessionSummary } from './account-query-utils.js';
+import { toAccountSummary } from './account-query-utils.js';
+import type { AccountQueryPorts } from './ports/account-query-ports.js';
 
-export type { AccountListResult, AccountQueryParams, AccountView, SessionSummary } from './account-query-utils.js';
+export type { AccountListResult, AccountQueryParams, AccountSummary, SessionSummary } from './account-query-utils.js';
 
 const logger = getLogger('AccountQuery');
 
@@ -14,10 +14,10 @@ const logger = getLogger('AccountQuery');
  * Read model for account views.
  *
  * Builds account hierarchy (parent/child for xpub), attaches session summaries,
- * scopes to default user. Uses DataContext directly — pure app-layer query.
+ * scopes to default user. Uses capability-owned ports for persistence access.
  */
 export class AccountQuery {
-  constructor(private readonly db: DataContext) {}
+  constructor(private readonly ports: AccountQueryPorts) {}
 
   /**
    * List accounts with optional session details.
@@ -34,7 +34,6 @@ export class AccountQuery {
 
       const accounts = accountsResult.value;
 
-      // Optionally fetch session counts and details
       let sessionCounts: Map<number, number> | undefined;
       let sessionDetails: Map<number, SessionSummary[]> | undefined;
 
@@ -55,7 +54,6 @@ export class AccountQuery {
         sessionCounts = countsResult.value;
       }
 
-      // Build result with parent/child hierarchy
       const formattedAccounts = await this.formatAccountsWithHierarchy(accounts, sessionCounts);
       if (formattedAccounts.isErr()) {
         return err(formattedAccounts.error);
@@ -78,45 +76,42 @@ export class AccountQuery {
    * Find a single account by ID.
    * Scopes to default user.
    */
-  async findById(id: number): Promise<Result<AccountView | undefined, Error>> {
+  async findById(id: number): Promise<Result<AccountSummary | undefined, Error>> {
     try {
-      const userResult = await this.db.users.findOrCreateDefault();
+      const userResult = await this.ports.users.findOrCreateDefault();
       if (userResult.isErr()) {
         return err(userResult.error);
       }
       const user = userResult.value;
 
-      const accountResult = await this.db.accounts.findById(id);
+      const accountResult = await this.ports.accounts.findById(id);
       if (accountResult.isErr()) {
         return err(accountResult.error);
       }
       const account = accountResult.value;
 
-      // Enforce tenancy
       if (account.userId !== user.id) {
         return ok(undefined);
       }
 
-      // Fetch session count
-      const countsResult = await this.db.importSessions.countByAccount([id]);
+      const countsResult = await this.ports.importSessions.countByAccount([id]);
       if (countsResult.isErr()) {
         return err(countsResult.error);
       }
 
       const sessionCount = countsResult.value.get(id) ?? 0;
 
-      // Fetch children
-      const childAccountsResult = await this.db.accounts.findAll({ parentAccountId: id });
+      const childAccountsResult = await this.ports.accounts.findAll({ parentAccountId: id });
       if (childAccountsResult.isErr()) {
         return err(childAccountsResult.error);
       }
 
-      let formattedChildren: AccountView[] | undefined;
+      let formattedChildren: AccountSummary[] | undefined;
       let totalSessionCount = sessionCount;
 
       if (childAccountsResult.value.length > 0) {
         const childIds = childAccountsResult.value.map((c) => c.id);
-        const childCountsResult = await this.db.importSessions.countByAccount(childIds);
+        const childCountsResult = await this.ports.importSessions.countByAccount(childIds);
         if (childCountsResult.isErr()) {
           return err(childCountsResult.error);
         }
@@ -125,36 +120,31 @@ export class AccountQuery {
         for (const child of childAccountsResult.value) {
           const childSessionCount = childCountsResult.value.get(child.id) ?? 0;
           totalSessionCount += childSessionCount;
-          formattedChildren.push(formatAccount(child, childSessionCount));
+          formattedChildren.push(toAccountSummary(child, childSessionCount));
         }
       }
 
-      return ok(formatAccount(account, totalSessionCount, formattedChildren));
+      return ok(toAccountSummary(account, totalSessionCount, formattedChildren));
     } catch (error) {
       logger.error({ error }, 'Failed to find account');
       return wrapError(error, 'Failed to find account');
     }
   }
 
-  /**
-   * Fetch accounts based on filters.
-   * Scopes to default user's accounts (not tracking-only accounts with userId=null).
-   */
   private async fetchAccounts(params: AccountQueryParams): Promise<Result<Account[], Error>> {
-    const userResult = await this.db.users.findOrCreateDefault();
+    const userResult = await this.ports.users.findOrCreateDefault();
     if (userResult.isErr()) {
       return err(userResult.error);
     }
     const user = userResult.value;
 
     if (params.accountId) {
-      const accountResult = await this.db.accounts.findById(params.accountId);
+      const accountResult = await this.ports.accounts.findById(params.accountId);
       if (accountResult.isErr()) {
         return err(accountResult.error);
       }
       const account = accountResult.value;
 
-      // Enforce tenancy: only return accounts owned by the default user
       if (account.userId !== user.id) {
         return err(
           new Error(
@@ -166,29 +156,22 @@ export class AccountQuery {
       return ok([account]);
     }
 
-    // Scope to default user's accounts only
-    return this.db.accounts.findAll({
+    return this.ports.accounts.findAll({
       accountType: params.accountType,
       sourceName: params.source,
       userId: user.id,
     });
   }
 
-  /**
-   * Fetch session counts for accounts (aggregated query to avoid N+1).
-   */
   private async fetchSessionCounts(accounts: Account[]): Promise<Result<Map<number, number>, Error>> {
     const accountIds = accounts.map((a) => a.id);
-    return this.db.importSessions.countByAccount(accountIds);
+    return this.ports.importSessions.countByAccount(accountIds);
   }
 
-  /**
-   * Fetch session details for accounts in one query (avoids N+1).
-   */
   private async fetchSessionsForAccounts(accounts: Account[]): Promise<Result<Map<number, SessionSummary[]>, Error>> {
     const accountIds = accounts.map((a) => a.id);
 
-    const sessionsResult = await this.db.importSessions.findAll({ accountIds });
+    const sessionsResult = await this.ports.importSessions.findAll({ accountIds });
     if (sessionsResult.isErr()) {
       return err(sessionsResult.error);
     }
@@ -214,40 +197,31 @@ export class AccountQuery {
     return ok(sessions);
   }
 
-  /**
-   * Format accounts with parent/child hierarchy.
-   * For parent accounts, includes child accounts and aggregates session counts.
-   * Special case: When viewing a single child account by ID, include it directly.
-   */
   private async formatAccountsWithHierarchy(
     accounts: Account[],
     sessionCounts: Map<number, number> | undefined
-  ): Promise<Result<AccountView[], Error>> {
-    const formatted: AccountView[] = [];
+  ): Promise<Result<AccountSummary[], Error>> {
+    const formatted: AccountSummary[] = [];
 
     for (const account of accounts) {
-      // Special case: If user requested a specific child account by ID, include it directly
       if (account.parentAccountId && accounts.length === 1) {
         const sessionCount = sessionCounts?.get(account.id) ?? 0;
-        formatted.push(formatAccount(account, sessionCount));
+        formatted.push(toAccountSummary(account, sessionCount));
         continue;
       }
 
-      // Skip child accounts - they'll be included under their parents
       if (account.parentAccountId) {
         continue;
       }
 
-      // Check if this account has children
-      const childAccountsResult = await this.db.accounts.findAll({ parentAccountId: account.id });
+      const childAccountsResult = await this.ports.accounts.findAll({ parentAccountId: account.id });
       if (childAccountsResult.isErr()) {
         return err(childAccountsResult.error);
       }
 
       const childAccounts = childAccountsResult.value;
 
-      // Format child accounts
-      let formattedChildren: AccountView[] | undefined;
+      let formattedChildren: AccountSummary[] | undefined;
       let totalSessionCount = sessionCounts?.get(account.id) ?? 0;
 
       if (childAccounts.length > 0) {
@@ -255,20 +229,17 @@ export class AccountQuery {
         for (const child of childAccounts) {
           const childSessionCount = sessionCounts?.get(child.id) ?? 0;
           totalSessionCount += childSessionCount;
-          formattedChildren.push(formatAccount(child, childSessionCount));
+          formattedChildren.push(toAccountSummary(child, childSessionCount));
         }
       }
 
-      formatted.push(formatAccount(account, totalSessionCount, formattedChildren));
+      formatted.push(toAccountSummary(account, totalSessionCount, formattedChildren));
     }
 
     return ok(formatted);
   }
 
-  /**
-   * Count total displayed accounts including nested children.
-   */
-  private countDisplayedAccounts(accounts: AccountView[]): number {
+  private countDisplayedAccounts(accounts: AccountSummary[]): number {
     let count = 0;
     for (const account of accounts) {
       count++;

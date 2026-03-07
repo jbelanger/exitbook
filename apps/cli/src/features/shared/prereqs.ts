@@ -1,11 +1,12 @@
 import {
   filterTransactionsByDateRange,
   LinkingOrchestrator,
+  PriceEnrichmentPipeline,
+  StandardFxRateProvider,
   validateTransactionPrices,
   type LinkingEvent,
   type PriceEvent,
 } from '@exitbook/accounting';
-import { PriceEnrichOperation } from '@exitbook/app';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
@@ -289,13 +290,17 @@ export async function ensurePrices(
     );
   }
 
+  const { buildPricingPorts } = await import('@exitbook/data');
+  const store = buildPricingPorts(db);
+
   if (options.isJsonMode) {
     const priceManagerResult = await createDefaultPriceProviderManager();
     if (priceManagerResult.isErr()) return err(priceManagerResult.error);
     const priceManager = priceManagerResult.value;
     try {
-      const operation = new PriceEnrichOperation(db, priceManager);
-      const result = await operation.execute({});
+      const pipeline = new PriceEnrichmentPipeline(store);
+      const fxRateProvider = new StandardFxRateProvider(priceManager);
+      const result = await pipeline.execute({}, priceManager, fxRateProvider);
       if (result.isErr()) return err(result.error);
       logger.info('Price enrichment completed (JSON mode)');
       return ok(undefined);
@@ -335,8 +340,9 @@ export async function ensurePrices(
   try {
     await controller.start();
 
-    const operation = new PriceEnrichOperation(db, priceManager, eventBus, instrumentation);
-    const result = await operation.execute({});
+    const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation);
+    const fxRateProvider = new StandardFxRateProvider(priceManager);
+    const result = await pipeline.execute({}, priceManager, fxRateProvider);
 
     if (result.isErr()) {
       controller.fail(result.error.message);

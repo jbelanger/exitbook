@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatAccount, getVerificationStatus, maskIdentifier } from '../account-query-utils.js';
+import { getVerificationStatus, maskIdentifier, toAccountSummary } from '../account-query-utils.js';
 
 import { createMockAccount } from './account-test-utils.js';
 
@@ -95,7 +95,7 @@ describe('account-query-utils', () => {
     });
   });
 
-  describe('formatAccount', () => {
+  describe('toAccountSummary', () => {
     it('formats an account with masked identifiers and ISO timestamps', () => {
       const account = createMockAccount({
         id: 42,
@@ -107,7 +107,7 @@ describe('account-query-utils', () => {
         lastBalanceCheckAt: new Date('2025-01-02T12:00:00.000Z'),
       });
 
-      const formatted = formatAccount(account, 7);
+      const formatted = toAccountSummary(account, 7);
 
       expect(formatted).toMatchObject({
         id: 42,

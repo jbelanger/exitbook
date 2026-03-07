@@ -1,8 +1,5 @@
 import type { Account, AccountType } from '@exitbook/core';
 
-/**
- * Parameters for account queries.
- */
 export interface AccountQueryParams {
   accountId?: number | undefined;
   accountType?: AccountType | undefined;
@@ -10,9 +7,6 @@ export interface AccountQueryParams {
   showSessions?: boolean | undefined;
 }
 
-/**
- * Session summary for display.
- */
 export interface SessionSummary {
   id: number;
   status: 'started' | 'completed' | 'failed' | 'cancelled';
@@ -20,10 +14,7 @@ export interface SessionSummary {
   completedAt?: string | undefined;
 }
 
-/**
- * Formatted account for display.
- */
-export interface AccountView {
+export interface AccountSummary {
   id: number;
   accountType: AccountType;
   sourceName: string;
@@ -33,15 +24,12 @@ export interface AccountView {
   lastBalanceCheckAt?: string | undefined;
   verificationStatus?: 'match' | 'mismatch' | 'never-checked' | undefined;
   sessionCount: number | undefined;
-  childAccounts?: AccountView[] | undefined;
+  childAccounts?: AccountSummary[] | undefined;
   createdAt: string;
 }
 
-/**
- * Result of account query operation.
- */
 export interface AccountListResult {
-  accounts: AccountView[];
+  accounts: AccountSummary[];
   sessions?: Map<number, SessionSummary[]> | undefined;
   count: number;
 }
@@ -52,14 +40,12 @@ export interface AccountListResult {
  */
 export function maskIdentifier(account: Account): string {
   if (account.accountType === 'exchange-api' && account.identifier) {
-    // Mask API keys: show first 8 chars + ***
     const key = account.identifier;
     if (key.length <= 8) {
       return '***';
     }
     return `${key.slice(0, 8)}***`;
   }
-  // For blockchain and exchange-csv, show the full identifier
   return account.identifier;
 }
 
@@ -82,13 +68,13 @@ export function getVerificationStatus(account: Account): 'match' | 'mismatch' | 
 }
 
 /**
- * Format account for display.
+ * Project an Account domain object to an AccountSummary read model.
  */
-export function formatAccount(
+export function toAccountSummary(
   account: Account,
   sessionCount: number | undefined,
-  childAccounts?: AccountView[]
-): AccountView {
+  childAccounts?: AccountSummary[]
+): AccountSummary {
   return {
     id: account.id,
     accountType: account.accountType,

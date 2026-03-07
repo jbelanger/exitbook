@@ -1,13 +1,13 @@
 {
-  "name": "@exitbook/data",
+  "name": "@exitbook/accounts",
   "version": "0.1.0",
   "private": true,
-  "description": "Data access layer for cryptocurrency platform",
+  "description": "Account query and projection logic",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./test-utils": "./src/utils/test-utils.ts"
+    "./ports": "./src/ports/index.ts"
   },
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -20,16 +20,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@exitbook/accounting": "workspace:*",
-    "@exitbook/accounts": "workspace:*",
     "@exitbook/core": "workspace:*",
-    "@exitbook/ingestion": "workspace:*",
-    "@exitbook/logger": "workspace:*",
-    "@exitbook/sqlite": "workspace:*",
-    "decimal.js": "^10.6.0"
+    "@exitbook/logger": "workspace:*"
   },
   "devDependencies": {
-    "tsconfig": "workspace:*",
-    "tsx": "^4.21.0"
+    "tsconfig": "workspace:*"
   }
 }

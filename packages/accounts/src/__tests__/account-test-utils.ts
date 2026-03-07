@@ -1,8 +1,9 @@
 import type { Account, AccountType, ImportSession } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { ok } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
 import { vi } from 'vitest';
+
+import type { AccountQueryPorts } from '../ports/account-query-ports.js';
 
 export function createMockAccount(
   options?: Partial<Account> & {
@@ -48,19 +49,19 @@ export function createMockSession(overrides?: Partial<ImportSession>): ImportSes
   };
 }
 
-export function createMockDataContext() {
-  interface FindAllFilters {
-    accountType?: AccountType | undefined;
-    parentAccountId?: number | undefined;
-    sourceName?: string | undefined;
-    userId?: number | null | undefined;
-  }
+interface AccountFindAllFilters {
+  accountType?: AccountType | undefined;
+  parentAccountId?: number | undefined;
+  sourceName?: string | undefined;
+  userId?: number | undefined;
+}
 
-  type AccountFindAll = (filters?: FindAllFilters) => Promise<Result<Account[], Error>>;
-  type AccountFindById = (accountId: number) => Promise<Result<Account, Error>>;
-  type CountByAccount = (accountIds: number[]) => Promise<Result<Map<number, number>, Error>>;
-  type SessionFindAll = (filters?: { accountIds?: number[] | undefined }) => Promise<Result<ImportSession[], Error>>;
+type AccountFindAll = (filters?: AccountFindAllFilters) => Promise<Result<Account[], Error>>;
+type AccountFindById = (accountId: number) => Promise<Result<Account, Error>>;
+type CountByAccount = (accountIds: number[]) => Promise<Result<Map<number, number>, Error>>;
+type SessionFindAll = (filters?: { accountIds?: number[] }) => Promise<Result<ImportSession[], Error>>;
 
+export function createMockPorts() {
   const users = {
     findOrCreateDefault: vi.fn().mockResolvedValue(ok({ id: 1, createdAt: new Date('2025-01-01T00:00:00.000Z') })),
   };
@@ -77,14 +78,14 @@ export function createMockDataContext() {
     findAll: vi.fn<SessionFindAll>().mockResolvedValue(ok([])),
   };
 
-  const db = {
+  const ports: AccountQueryPorts = {
     users,
     accounts,
     importSessions,
-  } as unknown as DataContext;
+  };
 
   return {
-    db,
+    ports,
     users,
     accounts,
     importSessions,

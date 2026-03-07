@@ -1,5 +1,6 @@
 // Command registration for accounts view subcommand
 import type { AccountType } from '@exitbook/core';
+import { buildAccountQueryPorts } from '@exitbook/data';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -103,7 +104,7 @@ async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void>
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = new AccountsViewHandler(database);
+      const handler = new AccountsViewHandler(buildAccountQueryPorts(database));
 
       const result = await handler.execute({
         accountId: params.accountId,
@@ -159,7 +160,7 @@ async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = new AccountsViewHandler(database);
+      const handler = new AccountsViewHandler(buildAccountQueryPorts(database));
 
       const result = await handler.execute({
         accountId: params.accountId,

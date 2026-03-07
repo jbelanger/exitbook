@@ -38,6 +38,8 @@ export { calculateCostBasisFromValidatedTransactions } from './cost-basis/cost-b
 export type { CostBasisSummary } from './cost-basis/cost-basis-calculator.js';
 export { runCostBasisPipeline } from './cost-basis/cost-basis-pipeline.js';
 export type { CostBasisPipelineResult } from './cost-basis/cost-basis-pipeline.js';
+export { CostBasisWorkflow } from './cost-basis/cost-basis-workflow.js';
+export type { CostBasisWorkflowResult } from './cost-basis/cost-basis-workflow.js';
 
 // Strategies
 export { FifoStrategy } from './cost-basis/strategies/fifo-strategy.js';

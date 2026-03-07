@@ -15,7 +15,7 @@ vi.mock('@exitbook/logger', () => ({
 
 import { AccountQuery } from '../account-query.js';
 
-import { createMockAccount, createMockDataContext, createMockSession } from './account-test-utils.js';
+import { createMockAccount, createMockPorts, createMockSession } from './account-test-utils.js';
 
 interface AccountFindAllFilters {
   parentAccountId?: number | undefined;
@@ -27,8 +27,8 @@ describe('AccountQuery', () => {
   });
 
   it('lists accounts with parent/child hierarchy and aggregated session counts', async () => {
-    const ctx = createMockDataContext();
-    const query = new AccountQuery(ctx.db);
+    const ctx = createMockPorts();
+    const query = new AccountQuery(ctx.ports);
 
     const parent = createMockAccount({ id: 1, identifier: 'xpub-parent' });
     const child = createMockAccount({ id: 2, parentAccountId: 1, identifier: 'bc1qchild' });
@@ -78,8 +78,8 @@ describe('AccountQuery', () => {
   });
 
   it('lists account sessions when showSessions is true', async () => {
-    const ctx = createMockDataContext();
-    const query = new AccountQuery(ctx.db);
+    const ctx = createMockPorts();
+    const query = new AccountQuery(ctx.ports);
 
     const a1 = createMockAccount({ id: 1 });
     const a2 = createMockAccount({ id: 2, identifier: 'bc1qsecond' });
@@ -113,8 +113,8 @@ describe('AccountQuery', () => {
   });
 
   it('returns an error when accountId does not belong to the default user', async () => {
-    const ctx = createMockDataContext();
-    const query = new AccountQuery(ctx.db);
+    const ctx = createMockPorts();
+    const query = new AccountQuery(ctx.ports);
 
     vi.mocked(ctx.accounts.findById).mockResolvedValue(ok(createMockAccount({ id: 7, userId: 999 })));
 
@@ -125,8 +125,8 @@ describe('AccountQuery', () => {
   });
 
   it('lists a single child account directly when queried by accountId', async () => {
-    const ctx = createMockDataContext();
-    const query = new AccountQuery(ctx.db);
+    const ctx = createMockPorts();
+    const query = new AccountQuery(ctx.ports);
 
     const child = createMockAccount({ id: 8, parentAccountId: 2, identifier: 'bc1qchild-single' });
     vi.mocked(ctx.accounts.findById).mockResolvedValue(ok(child));
@@ -148,8 +148,8 @@ describe('AccountQuery', () => {
   });
 
   it('finds an account by id and aggregates child session counts', async () => {
-    const ctx = createMockDataContext();
-    const query = new AccountQuery(ctx.db);
+    const ctx = createMockPorts();
+    const query = new AccountQuery(ctx.ports);
 
     const parent = createMockAccount({ id: 1, accountType: 'exchange-api', identifier: 'apikey-secret' });
     const child = createMockAccount({ id: 2, parentAccountId: 1, identifier: 'bc1qchild' });
@@ -180,8 +180,8 @@ describe('AccountQuery', () => {
   });
 
   it('returns undefined when findById resolves an account outside default user tenancy', async () => {
-    const ctx = createMockDataContext();
-    const query = new AccountQuery(ctx.db);
+    const ctx = createMockPorts();
+    const query = new AccountQuery(ctx.ports);
 
     vi.mocked(ctx.accounts.findById).mockResolvedValue(ok(createMockAccount({ id: 9, userId: 42 })));
 
@@ -193,8 +193,8 @@ describe('AccountQuery', () => {
   });
 
   it('wraps and logs unexpected list errors', async () => {
-    const ctx = createMockDataContext();
-    const query = new AccountQuery(ctx.db);
+    const ctx = createMockPorts();
+    const query = new AccountQuery(ctx.ports);
 
     vi.mocked(ctx.accounts.findAll).mockRejectedValue(new Error('database unavailable'));
 
@@ -207,8 +207,8 @@ describe('AccountQuery', () => {
   });
 
   it('propagates repository errors from findById', async () => {
-    const ctx = createMockDataContext();
-    const query = new AccountQuery(ctx.db);
+    const ctx = createMockPorts();
+    const query = new AccountQuery(ctx.ports);
 
     vi.mocked(ctx.accounts.findById).mockResolvedValue(err(new Error('Account 22 not found')));
 

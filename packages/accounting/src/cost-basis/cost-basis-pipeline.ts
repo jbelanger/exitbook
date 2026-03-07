@@ -21,7 +21,7 @@ export interface CostBasisPipelineResult {
 /**
  * Shared cost-basis pipeline: soft-fail price validation → jurisdiction rules → lot matching → gain/loss.
  *
- * Used by CostBasisOperation and PortfolioHandler to avoid duplicating the
+ * Used by CostBasisWorkflow and PortfolioHandler to avoid duplicating the
  * "validate prices → get rules → run calculator" flow.
  */
 export async function runCostBasisPipeline(

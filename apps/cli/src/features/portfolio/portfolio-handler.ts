@@ -12,9 +12,10 @@ import {
   type ICostBasisPersistence,
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
-import { calculateBalances, CostBasisStoreAdapter } from '@exitbook/app';
+import { calculateBalances } from '@exitbook/app';
 import { parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
+import { buildCostBasisPorts } from '@exitbook/data';
 import { type DataContext } from '@exitbook/data';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
@@ -198,7 +199,7 @@ export class PortfolioHandler {
         return err(costBasisValidation.error);
       }
 
-      const costBasisStore: ICostBasisPersistence = new CostBasisStoreAdapter(this.db);
+      const costBasisStore: ICostBasisPersistence = buildCostBasisPorts(this.db);
       const pipelineResult = await runCostBasisPipeline(transactionsUpToAsOf, costBasisParams.config, costBasisStore);
       if (pipelineResult.isErr()) {
         return err(pipelineResult.error);

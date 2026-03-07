@@ -1,8 +1,13 @@
 import path from 'node:path';
 
-import { type CostBasisInput, CostBasisOperation, type CostBasisResult } from '@exitbook/app';
+import {
+  CostBasisWorkflow,
+  StandardFxRateProvider,
+  type CostBasisInput,
+  type CostBasisWorkflowResult,
+} from '@exitbook/accounting';
 import { err, ok, type Result } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
+import { buildCostBasisPorts, type DataContext } from '@exitbook/data';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 
@@ -10,15 +15,16 @@ import type { CommandContext, CommandDatabase } from '../shared/command-runtime.
 import { getDataDir } from '../shared/data-dir.js';
 import { ensureLinks, ensurePrices, ensureRawDataIsProcessed } from '../shared/prereqs.js';
 
-export type { CostBasisInput, CostBasisResult };
+export type { CostBasisInput, CostBasisWorkflowResult };
 
 /**
- * Cost Basis Handler - Thin CLI wrapper that runs prereqs then delegates to CostBasisOperation.
+ * Cost Basis Handler - Thin CLI wrapper that runs prereqs then delegates to CostBasisWorkflow.
  */
 export class CostBasisHandler {
   constructor(private readonly db: DataContext) {}
 
-  async execute(params: CostBasisInput): Promise<Result<CostBasisResult, Error>> {
+  async execute(params: CostBasisInput): Promise<Result<CostBasisWorkflowResult, Error>> {
+    const store = buildCostBasisPorts(this.db);
     const dataDir = getDataDir();
     const priceManagerResult = await createPriceProviderManager({
       providers: { databasePath: path.join(dataDir, 'prices.db') },
@@ -29,8 +35,13 @@ export class CostBasisHandler {
 
     const priceManager = priceManagerResult.value;
     try {
-      const operation = new CostBasisOperation(this.db, priceManager);
-      return await operation.execute(params);
+      const fxRateProvider = new StandardFxRateProvider(priceManager);
+      const workflow = new CostBasisWorkflow(store, fxRateProvider);
+
+      const txResult = await this.db.transactions.findAll();
+      if (txResult.isErr()) return err(txResult.error);
+
+      return await workflow.execute(params, txResult.value);
     } finally {
       await priceManager.destroy();
     }

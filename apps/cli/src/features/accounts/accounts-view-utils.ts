@@ -1,4 +1,4 @@
-import type { AccountView, SessionSummary as IngestionSessionSummary } from '@exitbook/app';
+import type { AccountSummary, SessionSummary } from '@exitbook/accounts';
 import type { AccountType } from '@exitbook/core';
 
 import type { CommonViewFilters } from '../shared/view-utils.js';
@@ -17,12 +17,9 @@ export interface ViewAccountsParams extends CommonViewFilters {
 // ─── TUI Transformation Utilities ───────────────────────────────────────────
 
 /**
- * Convert a AccountView to an AccountViewItem for TUI display.
+ * Convert an AccountSummary to an AccountViewItem for TUI display.
  */
-export function toAccountViewItem(
-  account: AccountView,
-  sessions?: Map<number, IngestionSessionSummary[]>
-): AccountViewItem {
+export function toAccountViewItem(account: AccountSummary, sessions?: Map<number, SessionSummary[]>): AccountViewItem {
   const childAccounts: ChildAccountViewItem[] | undefined = account.childAccounts?.map((child) => ({
     id: child.id,
     identifier: child.identifier,

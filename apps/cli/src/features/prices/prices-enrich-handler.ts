@@ -1,7 +1,12 @@
-import type { PriceEvent } from '@exitbook/accounting';
-import { PriceEnrichOperation, type PricesEnrichOptions, type PricesEnrichResult } from '@exitbook/app';
+import {
+  PriceEnrichmentPipeline,
+  StandardFxRateProvider,
+  type PriceEvent,
+  type PricesEnrichOptions,
+  type PricesEnrichResult,
+} from '@exitbook/accounting';
 import { err, ok, type Result } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
+import { buildPricingPorts, type DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
@@ -20,7 +25,8 @@ const logger = getLogger('PricesEnrichHandler');
  */
 export class PricesEnrichHandler {
   constructor(
-    private readonly operation: PriceEnrichOperation,
+    private readonly pipeline: PriceEnrichmentPipeline,
+    private readonly priceManager: import('@exitbook/price-providers').PriceProviderManager,
     private readonly controller: EventDrivenController<PriceEvent> | undefined
   ) {}
 
@@ -30,7 +36,8 @@ export class PricesEnrichHandler {
         await this.controller.start();
       }
 
-      const result = await this.operation.execute(params);
+      const fxRateProvider = new StandardFxRateProvider(this.priceManager);
+      const result = await this.pipeline.execute(params, this.priceManager, fxRateProvider);
 
       if (result.isErr()) {
         if (this.controller) {
@@ -77,6 +84,8 @@ export async function createPricesEnrichHandler(
   database: DataContext,
   options: { isJsonMode: boolean }
 ): Promise<Result<PricesEnrichHandler, Error>> {
+  const store = buildPricingPorts(database);
+
   if (options.isJsonMode) {
     const instrumentation = new InstrumentationCollector();
     const priceManagerResult = await createDefaultPriceProviderManager(instrumentation);
@@ -86,8 +95,8 @@ export async function createPricesEnrichHandler(
     const priceManager = priceManagerResult.value;
     ctx.onCleanup(async () => priceManager.destroy());
 
-    const operation = new PriceEnrichOperation(database, priceManager, undefined, instrumentation);
-    return ok(new PricesEnrichHandler(operation, undefined));
+    const pipeline = new PriceEnrichmentPipeline(store, undefined, instrumentation);
+    return ok(new PricesEnrichHandler(pipeline, priceManager, undefined));
   }
 
   const eventBus = new EventBus<PriceEvent>({
@@ -107,6 +116,6 @@ export async function createPricesEnrichHandler(
   const priceManager = priceManagerResult.value;
   ctx.onCleanup(async () => priceManager.destroy());
 
-  const operation = new PriceEnrichOperation(database, priceManager, eventBus, instrumentation);
-  return ok(new PricesEnrichHandler(operation, controller));
+  const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation);
+  return ok(new PricesEnrichHandler(pipeline, priceManager, controller));
 }
