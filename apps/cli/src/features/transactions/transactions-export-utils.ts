@@ -4,7 +4,7 @@
 import type { TransactionLink } from '@exitbook/accounting';
 import type { FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import { err, ok, resultFrom } from '@exitbook/core';
 import type { z } from 'zod';
 
 import type { ExportCommandOptionsSchema } from '../shared/schemas.js';
@@ -78,33 +78,25 @@ export function parseSinceDate(since: string): Result<number, Error> {
  * No validation needed - options are already validated by Zod schema.
  */
 export function buildExportParamsFromFlags(options: ExportCommandOptions): Result<ExportHandlerParams, Error> {
-  const sourceName = options.exchange || options.blockchain;
-  const format = options.format ?? 'csv';
-  const csvFormat = options.csvFormat ?? 'normalized';
+  return resultFrom(function* () {
+    const sourceName = options.exchange || options.blockchain;
+    const format = options.format ?? 'csv';
+    const csvFormat = options.csvFormat ?? 'normalized';
 
-  if (format !== 'csv' && options.csvFormat) {
-    return err(new Error('--csv-format is only supported for CSV exports'));
-  }
-
-  // Parse since date if provided
-  let since: number | undefined;
-  if (options.since) {
-    const sinceResult = parseSinceDate(options.since);
-    if (sinceResult.isErr()) {
-      return err(sinceResult.error);
+    if (format !== 'csv' && options.csvFormat) {
+      yield* err(new Error('--csv-format is only supported for CSV exports'));
     }
-    since = sinceResult.value;
-  }
 
-  // Build output path
-  const outputPath = options.output || `data/transactions.${format}`;
+    const since = options.since ? yield* parseSinceDate(options.since) : undefined;
+    const outputPath = options.output || `data/transactions.${format}`;
 
-  return ok({
-    sourceName,
-    format,
-    csvFormat: format === 'csv' ? csvFormat : undefined,
-    outputPath,
-    since,
+    return {
+      sourceName,
+      format,
+      csvFormat: format === 'csv' ? csvFormat : undefined,
+      outputPath,
+      since,
+    };
   });
 }
 

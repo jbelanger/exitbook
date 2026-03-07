@@ -1,4 +1,4 @@
-import { err, ok } from '@exitbook/core';
+import { resultFromAsync } from '@exitbook/core';
 import type { IIngestionDataReset } from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';
@@ -10,38 +10,36 @@ import type { DataContext } from '../data-context.js';
 export function buildIngestionResetPorts(db: DataContext): IIngestionDataReset {
   return {
     async countResetImpact(accountIds) {
-      const transactionsResult = accountIds
-        ? await db.transactions.count({ accountIds, includeExcluded: true })
-        : await db.transactions.count({ includeExcluded: true });
-      if (transactionsResult.isErr()) return err(transactionsResult.error);
+      return resultFromAsync(async function* () {
+        const transactions = yield* await (accountIds
+          ? db.transactions.count({ accountIds, includeExcluded: true })
+          : db.transactions.count({ includeExcluded: true }));
 
-      return ok({ transactions: transactionsResult.value });
+        return { transactions };
+      });
     },
 
     async resetDerivedData(accountIds) {
-      const impactResult = await this.countResetImpact(accountIds);
-      if (impactResult.isErr()) return err(impactResult.error);
-      const impact = impactResult.value;
+      return resultFromAsync(async function* (self) {
+        const impact = yield* await self.countResetImpact(accountIds);
 
-      return db.executeInTransaction(async (tx) => {
-        const transactionsResult = accountIds
-          ? await tx.transactions.deleteByAccountIds(accountIds)
-          : await tx.transactions.deleteAll();
-        if (transactionsResult.isErr()) return err(transactionsResult.error);
+        return yield* await db.executeInTransaction(async (tx) =>
+          resultFromAsync(async function* () {
+            yield* await (accountIds ? tx.transactions.deleteByAccountIds(accountIds) : tx.transactions.deleteAll());
 
-        // Reset all raw data to pending so reprocessing picks them up
-        if (accountIds) {
-          for (const accountId of accountIds) {
-            const resetResult = await tx.rawTransactions.resetProcessingStatus({ accountId });
-            if (resetResult.isErr()) return err(resetResult.error);
-          }
-        } else {
-          const resetResult = await tx.rawTransactions.resetProcessingStatus();
-          if (resetResult.isErr()) return err(resetResult.error);
-        }
+            // Reset all raw data to pending so reprocessing picks them up
+            if (accountIds) {
+              for (const accountId of accountIds) {
+                yield* await tx.rawTransactions.resetProcessingStatus({ accountId });
+              }
+            } else {
+              yield* await tx.rawTransactions.resetProcessingStatus();
+            }
 
-        return ok(impact);
-      });
+            return impact;
+          })
+        );
+      }, this);
     },
   };
 }

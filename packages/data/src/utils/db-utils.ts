@@ -1,5 +1,5 @@
 import { type RawTransaction, wrapError } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, resultFrom, type Result } from '@exitbook/core';
 import { type Logger } from '@exitbook/logger';
 import type { ControlledTransaction, Kysely, Selectable } from '@exitbook/sqlite';
 import { Decimal } from 'decimal.js';
@@ -116,33 +116,28 @@ export function parseJson<T = unknown>(value: unknown): Result<T | undefined, Er
  * Convert raw_transactions row to RawTransaction domain model.
  */
 export function toRawTransaction(row: Selectable<RawTransactionTable>): Result<RawTransaction, Error> {
-  const rawDataResult = parseJson<unknown>(row.provider_data);
-  const normalizedDataResult = parseJson<unknown>(row.normalized_data);
+  return resultFrom(function* () {
+    const providerData = yield* parseJson<unknown>(row.provider_data);
+    const normalizedData = yield* parseJson<unknown>(row.normalized_data);
 
-  if (rawDataResult.isErr()) {
-    return err(rawDataResult.error);
-  }
-  if (normalizedDataResult.isErr()) {
-    return err(normalizedDataResult.error);
-  }
+    if (!row.provider_name) {
+      yield* err(new Error('Missing required provider_name field'));
+    }
 
-  if (!row.provider_name) {
-    return err(new Error('Missing required provider_name field'));
-  }
-
-  return ok({
-    id: row.id,
-    accountId: row.account_id,
-    providerName: row.provider_name,
-    sourceAddress: row.source_address ?? undefined,
-    transactionTypeHint: row.transaction_type_hint ?? undefined,
-    eventId: row.event_id,
-    blockchainTransactionHash: row.blockchain_transaction_hash ?? undefined,
-    timestamp: row.timestamp,
-    providerData: rawDataResult.value,
-    normalizedData: normalizedDataResult.value,
-    processingStatus: row.processing_status,
-    processedAt: row.processed_at ? new Date(row.processed_at) : undefined,
-    createdAt: new Date(row.created_at),
+    return {
+      id: row.id,
+      accountId: row.account_id,
+      providerName: row.provider_name,
+      sourceAddress: row.source_address ?? undefined,
+      transactionTypeHint: row.transaction_type_hint ?? undefined,
+      eventId: row.event_id,
+      blockchainTransactionHash: row.blockchain_transaction_hash ?? undefined,
+      timestamp: row.timestamp,
+      providerData,
+      normalizedData,
+      processingStatus: row.processing_status,
+      processedAt: row.processed_at ? new Date(row.processed_at) : undefined,
+      createdAt: new Date(row.created_at),
+    };
   });
 }

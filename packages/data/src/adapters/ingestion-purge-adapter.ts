@@ -1,4 +1,4 @@
-import { err, ok } from '@exitbook/core';
+import { resultFromAsync } from '@exitbook/core';
 import type { IIngestionDataPurge } from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';
@@ -13,52 +13,44 @@ import type { DataContext } from '../data-context.js';
 export function buildIngestionPurgePorts(db: DataContext): IIngestionDataPurge {
   return {
     async countPurgeImpact(accountIds) {
-      const sessionsResult = accountIds
-        ? await db.importSessions.count({ accountIds })
-        : await db.importSessions.count();
-      if (sessionsResult.isErr()) return err(sessionsResult.error);
+      return resultFromAsync(async function* () {
+        const sessions = yield* await (accountIds
+          ? db.importSessions.count({ accountIds })
+          : db.importSessions.count());
+        const rawData = yield* await (accountIds
+          ? db.rawTransactions.count({ accountIds })
+          : db.rawTransactions.count());
 
-      const rawDataResult = accountIds
-        ? await db.rawTransactions.count({ accountIds })
-        : await db.rawTransactions.count();
-      if (rawDataResult.isErr()) return err(rawDataResult.error);
-
-      const accountsCount = accountIds ? accountIds.length : 0;
-
-      return ok({
-        accounts: accountsCount,
-        sessions: sessionsResult.value,
-        rawData: rawDataResult.value,
+        return {
+          accounts: accountIds ? accountIds.length : 0,
+          sessions,
+          rawData,
+        };
       });
     },
 
     async purgeImportedData(accountIds) {
-      const impactResult = await this.countPurgeImpact(accountIds);
-      if (impactResult.isErr()) return err(impactResult.error);
-      const impact = impactResult.value;
+      return resultFromAsync(async function* (self) {
+        const impact = yield* await self.countPurgeImpact(accountIds);
 
-      return db.executeInTransaction(async (tx) => {
-        if (accountIds) {
-          for (const accountId of accountIds) {
-            const rawResult = await tx.rawTransactions.deleteAll({ accountId });
-            if (rawResult.isErr()) return err(rawResult.error);
+        return yield* await db.executeInTransaction(async (tx) =>
+          resultFromAsync(async function* () {
+            if (accountIds) {
+              for (const accountId of accountIds) {
+                yield* await tx.rawTransactions.deleteAll({ accountId });
+                yield* await tx.importSessions.deleteBy({ accountId });
+              }
 
-            const sessionResult = await tx.importSessions.deleteBy({ accountId });
-            if (sessionResult.isErr()) return err(sessionResult.error);
-          }
+              yield* await tx.accounts.deleteByIds(accountIds);
+            } else {
+              yield* await tx.rawTransactions.deleteAll();
+              yield* await tx.importSessions.deleteBy();
+            }
 
-          const deleteAccountsResult = await tx.accounts.deleteByIds(accountIds);
-          if (deleteAccountsResult.isErr()) return err(deleteAccountsResult.error);
-        } else {
-          const rawResult = await tx.rawTransactions.deleteAll();
-          if (rawResult.isErr()) return err(rawResult.error);
-
-          const sessionResult = await tx.importSessions.deleteBy();
-          if (sessionResult.isErr()) return err(sessionResult.error);
-        }
-
-        return ok(impact);
-      });
+            return impact;
+          })
+        );
+      }, this);
     },
   };
 }

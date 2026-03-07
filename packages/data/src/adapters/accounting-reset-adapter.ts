@@ -1,5 +1,5 @@
 import type { IAccountingDataReset } from '@exitbook/accounting/ports';
-import { err, ok } from '@exitbook/core';
+import { resultFromAsync } from '@exitbook/core';
 
 import type { DataContext } from '../data-context.js';
 
@@ -10,40 +10,39 @@ import type { DataContext } from '../data-context.js';
 export function buildAccountingResetPorts(db: DataContext): IAccountingDataReset {
   return {
     async countResetImpact(accountIds) {
-      const linksResult = accountIds
-        ? await db.transactionLinks.count({ accountIds })
-        : await db.transactionLinks.count();
-      if (linksResult.isErr()) return err(linksResult.error);
+      return resultFromAsync(async function* () {
+        const links = yield* await (accountIds
+          ? db.transactionLinks.count({ accountIds })
+          : db.transactionLinks.count());
+        const consolidatedMovements = yield* await db.utxoConsolidatedMovements.count(
+          accountIds ? { accountIds } : undefined
+        );
 
-      const consolidatedResult = await db.utxoConsolidatedMovements.count(accountIds ? { accountIds } : undefined);
-      if (consolidatedResult.isErr()) return err(consolidatedResult.error);
-
-      return ok({
-        links: linksResult.value,
-        consolidatedMovements: consolidatedResult.value,
+        return {
+          links,
+          consolidatedMovements,
+        };
       });
     },
 
     async resetDerivedData(accountIds) {
-      // Count before deleting for the result
-      const impactResult = await this.countResetImpact(accountIds);
-      if (impactResult.isErr()) return err(impactResult.error);
-      const impact = impactResult.value;
+      return resultFromAsync(async function* (self) {
+        const impact = yield* await self.countResetImpact(accountIds);
 
-      return db.executeInTransaction(async (tx) => {
-        // FK-ordered: consolidated movements first, then links
-        const consolidatedResult = accountIds
-          ? await tx.utxoConsolidatedMovements.deleteByAccountIds(accountIds)
-          : await tx.utxoConsolidatedMovements.deleteAll();
-        if (consolidatedResult.isErr()) return err(consolidatedResult.error);
+        return yield* await db.executeInTransaction(async (tx) =>
+          resultFromAsync(async function* () {
+            // FK-ordered: consolidated movements first, then links
+            yield* await (accountIds
+              ? tx.utxoConsolidatedMovements.deleteByAccountIds(accountIds)
+              : tx.utxoConsolidatedMovements.deleteAll());
+            yield* await (accountIds
+              ? tx.transactionLinks.deleteByAccountIds(accountIds)
+              : tx.transactionLinks.deleteAll());
 
-        const linksResult = accountIds
-          ? await tx.transactionLinks.deleteByAccountIds(accountIds)
-          : await tx.transactionLinks.deleteAll();
-        if (linksResult.isErr()) return err(linksResult.error);
-
-        return ok(impact);
-      });
+            return impact;
+          })
+        );
+      }, this);
     },
   };
 }

@@ -1,5 +1,5 @@
 import type { RawTransaction } from '@exitbook/core';
-import { ok, type Result } from '@exitbook/core';
+import { ok, resultFromAsync, type Result } from '@exitbook/core';
 
 import type { IProcessingBatchSource } from '../../../ports/processing-batch-source.js';
 
@@ -27,19 +27,15 @@ export class HashGroupedBatchProvider implements IRawDataBatchProvider {
       return ok([]);
     }
 
-    const result = await this.batchSource.fetchPendingByTransactionHash(this.accountId, this.hashBatchSize);
+    return resultFromAsync(async function* (self) {
+      const batch = yield* await self.batchSource.fetchPendingByTransactionHash(self.accountId, self.hashBatchSize);
 
-    if (result.isErr()) {
-      return result;
-    }
+      if (batch.length === 0) {
+        self.lastBatchWasEmpty = true;
+      }
 
-    const batch = result.value;
-
-    if (batch.length === 0) {
-      this.lastBatchWasEmpty = true;
-    }
-
-    return ok(batch);
+      return batch;
+    }, this);
   }
 
   hasMore(): boolean {

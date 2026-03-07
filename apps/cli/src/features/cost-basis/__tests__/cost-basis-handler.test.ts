@@ -1,30 +1,14 @@
-import {
-  CostBasisReportGenerator,
-  runCostBasisPipeline,
-  type CostBasisReport,
-  type CostBasisSummary,
-} from '@exitbook/accounting';
-import type { UniversalTransactionData } from '@exitbook/core';
+import { CostBasisWorkflow } from '@exitbook/accounting';
 import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
-import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { CostBasisHandler } from '../cost-basis-handler.js';
 
 vi.mock('@exitbook/accounting', async () => {
   const actual = await vi.importActual('@exitbook/accounting');
-  return {
-    ...actual,
-    runCostBasisPipeline: vi.fn(),
-    CostBasisReportGenerator: vi.fn(),
-    StandardFxRateProvider: vi.fn(),
-    getDefaultDateRange: vi.fn().mockReturnValue({
-      startDate: new Date('2024-01-01'),
-      endDate: new Date('2024-12-31'),
-    }),
-  };
+  return { ...actual, CostBasisWorkflow: vi.fn(), StandardFxRateProvider: vi.fn() };
 });
 
 vi.mock('@exitbook/price-providers', () => ({
@@ -32,12 +16,7 @@ vi.mock('@exitbook/price-providers', () => ({
 }));
 
 vi.mock('@exitbook/logger', () => ({
-  getLogger: () => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  }),
+  getLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
 vi.mock('../../shared/data-dir.js', () => ({
@@ -49,11 +28,23 @@ describe('CostBasisHandler', () => {
   let mockTransactionRepo: { findAll: Mock };
   let mockTransactionLinkRepo: { findAll: Mock };
   let mockPriceManager: PriceProviderManager;
+  let mockWorkflowExecute: Mock;
+
+  const validParams = {
+    config: {
+      method: 'fifo' as const,
+      jurisdiction: 'US' as const,
+      taxYear: 2024,
+      currency: 'USD' as const,
+      startDate: new Date('2024-01-01'),
+      endDate: new Date('2024-12-31'),
+    },
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockTransactionRepo = { findAll: vi.fn() };
+    mockTransactionRepo = { findAll: vi.fn().mockResolvedValue(ok([])) };
     mockTransactionLinkRepo = { findAll: vi.fn().mockResolvedValue(ok([])) };
 
     const mockDb = {
@@ -61,45 +52,32 @@ describe('CostBasisHandler', () => {
       transactionLinks: mockTransactionLinkRepo,
     } as unknown as DataContext;
 
-    mockPriceManager = {
-      destroy: vi.fn(),
-    } as unknown as PriceProviderManager;
-
+    mockPriceManager = { destroy: vi.fn() } as unknown as PriceProviderManager;
     vi.mocked(createPriceProviderManager).mockResolvedValue(ok(mockPriceManager));
+
+    mockWorkflowExecute = vi
+      .fn()
+      .mockResolvedValue(ok({ summary: {}, lots: [], disposals: [], lotTransfers: [], errors: [] }));
+    vi.mocked(CostBasisWorkflow).mockImplementation(function () {
+      return { execute: mockWorkflowExecute } as unknown as CostBasisWorkflow;
+    } as unknown as typeof CostBasisWorkflow);
 
     handler = new CostBasisHandler(mockDb);
   });
 
   describe('execute', () => {
-    const validParams = {
-      config: {
-        method: 'fifo' as const,
-        jurisdiction: 'US' as const,
-        taxYear: 2024,
-        currency: 'USD' as const,
-        startDate: new Date('2024-01-01'),
-        endDate: new Date('2024-12-31'),
-      },
-    };
+    it('returns error when price manager creation fails', async () => {
+      vi.mocked(createPriceProviderManager).mockResolvedValue(err(new Error('DB init failed')));
 
-    it('should return error if validation fails (start date after end date)', async () => {
-      const invalidParams = {
-        config: {
-          ...validParams.config,
-          startDate: new Date('2024-12-31'),
-          endDate: new Date('2024-01-01'),
-        },
-      };
-
-      const result = await handler.execute(invalidParams);
+      const result = await handler.execute(validParams);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('Start date must be before end date');
+        expect(result.error.message).toContain('Failed to create price provider manager');
       }
     });
 
-    it('should return error if fetching transactions fails', async () => {
+    it('returns error when transaction fetch fails', async () => {
       vi.mocked(mockTransactionRepo.findAll).mockResolvedValue(err(new Error('DB Error')));
 
       const result = await handler.execute(validParams);
@@ -110,184 +88,29 @@ describe('CostBasisHandler', () => {
       }
     });
 
-    it('should return error if no transactions found in DB', async () => {
-      vi.mocked(mockTransactionRepo.findAll).mockResolvedValue(ok([]));
-
-      const result = await handler.execute(validParams);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('No transactions found in database');
-      }
-    });
-
-    it('should return error if all transactions are after endDate', async () => {
-      const dbTransactions = [
-        { timestamp: new Date('2025-06-01').getTime(), movements: { inflows: [], outflows: [] } },
-      ] as unknown as UniversalTransactionData[];
-
-      vi.mocked(mockTransactionRepo.findAll).mockResolvedValue(ok(dbTransactions));
-
-      const result = await handler.execute(validParams);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('No transactions found on or before');
-      }
-    });
-
-    it('should calculate cost basis successfully for USD', async () => {
-      const transactions = [
-        {
-          timestamp: new Date('2024-06-01').getTime(),
-          movements: {
-            inflows: [{ assetSymbol: 'BTC', amount: '1', priceAtTxTime: '50000' }],
-            outflows: [],
-          },
-        },
-      ] as unknown as UniversalTransactionData[];
-
-      vi.mocked(mockTransactionRepo.findAll).mockResolvedValue(ok(transactions));
-
-      vi.mocked(runCostBasisPipeline).mockResolvedValue(
-        ok({
-          summary: {
-            calculation: { id: 'calc-123', config: validParams.config, transactionsProcessed: 1 },
-            lotsCreated: 1,
-            disposalsProcessed: 0,
-            assetsProcessed: ['BTC'],
-            lots: [],
-            disposals: [],
-            lotTransfers: [],
-            errors: [],
-          } as unknown as CostBasisSummary,
-          missingPricesCount: 0,
-          validTransactions: transactions,
-        })
-      );
-
-      const result = await handler.execute(validParams);
-
-      expect(result.isOk()).toBe(true);
-      expect(runCostBasisPipeline).toHaveBeenCalled();
-      if (result.isOk()) {
-        expect(result.value.summary.calculation.id).toBe('calc-123');
-        expect(result.value.report).toBeUndefined();
-      }
-    });
-
-    it('should generate report if currency is not USD', async () => {
-      const cadParams = {
-        config: {
-          ...validParams.config,
-          currency: 'CAD' as const,
-        },
+    it('delegates to CostBasisWorkflow and returns its result', async () => {
+      const workflowResult = {
+        summary: { calculation: { id: 'calc-123' } },
+        lots: [],
+        disposals: [],
+        lotTransfers: [],
+        errors: [],
       };
-
-      const transactions = [
-        {
-          timestamp: new Date('2024-06-01').getTime(),
-          movements: {
-            inflows: [{ assetSymbol: 'BTC', amount: '1', priceAtTxTime: '50000' }],
-            outflows: [],
-          },
-        },
-      ] as unknown as UniversalTransactionData[];
-
-      vi.mocked(mockTransactionRepo.findAll).mockResolvedValue(ok(transactions));
-
-      vi.mocked(runCostBasisPipeline).mockResolvedValue(
-        ok({
-          summary: {
-            calculation: { id: 'calc-123', config: cadParams.config, transactionsProcessed: 1 },
-            lotsCreated: 1,
-            disposalsProcessed: 0,
-            assetsProcessed: ['BTC'],
-            lots: [],
-            disposals: [],
-            lotTransfers: [],
-            errors: [],
-          } as unknown as CostBasisSummary,
-          missingPricesCount: 0,
-          validTransactions: transactions,
-        })
-      );
-
-      // Mock Report Generator
-      const mockGenerateReport = vi.fn().mockResolvedValue(
-        ok({
-          calculationId: 'calc-123',
-          displayCurrency: 'CAD',
-          originalCurrency: 'USD',
-          summary: {
-            totalProceeds: new Decimal('100'),
-            totalCostBasis: new Decimal('50'),
-            totalGainLoss: new Decimal('50'),
-            totalTaxableGainLoss: new Decimal('25'),
-          },
-          originalSummary: {
-            totalProceeds: new Decimal('100'),
-            totalCostBasis: new Decimal('50'),
-            totalGainLoss: new Decimal('50'),
-            totalTaxableGainLoss: new Decimal('25'),
-          },
-          disposals: [],
-          lots: [],
-          lotTransfers: [],
-        } as CostBasisReport)
-      );
-      vi.mocked(CostBasisReportGenerator).mockImplementation(function () {
-        return {
-          generateReport: mockGenerateReport,
-        } as unknown as CostBasisReportGenerator;
-      });
-
-      const result = await handler.execute(cadParams);
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.report).toBeDefined();
-      }
-    });
-
-    it('should warn about missing prices but proceed', async () => {
-      const transactions = [
-        {
-          timestamp: new Date('2024-06-01').getTime(),
-          movements: { inflows: [{ assetSymbol: 'BTC', priceAtTxTime: '50000' }], outflows: [] },
-        },
-        {
-          timestamp: new Date('2024-06-02').getTime(),
-          movements: { inflows: [{ assetSymbol: 'ETH', priceAtTxTime: undefined }], outflows: [] },
-        },
-      ] as unknown as UniversalTransactionData[];
-
-      vi.mocked(mockTransactionRepo.findAll).mockResolvedValue(ok(transactions));
-
-      vi.mocked(runCostBasisPipeline).mockResolvedValue(
-        ok({
-          summary: {
-            calculation: { id: 'calc-123', config: validParams.config, transactionsProcessed: 1 },
-            lotsCreated: 1,
-            disposalsProcessed: 0,
-            assetsProcessed: ['BTC'],
-            lots: [],
-            disposals: [],
-            lotTransfers: [],
-            errors: [],
-          } as unknown as CostBasisSummary,
-          missingPricesCount: 1,
-          validTransactions: [transactions[0]!],
-        })
-      );
+      mockWorkflowExecute.mockResolvedValue(ok(workflowResult));
 
       const result = await handler.execute(validParams);
 
       expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.missingPricesWarning).toBeDefined();
-        expect(result.value.missingPricesWarning).toContain('1 transactions were excluded');
-      }
+      expect(mockWorkflowExecute).toHaveBeenCalledWith(validParams, []);
+    });
+
+    it('destroys price manager even when workflow fails', async () => {
+      mockWorkflowExecute.mockResolvedValue(err(new Error('workflow error')));
+
+      await handler.execute(validParams);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- we just want to check that destroy was called, not its this context
+      expect(mockPriceManager.destroy).toHaveBeenCalled();
     });
   });
 });

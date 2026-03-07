@@ -1,5 +1,5 @@
 import type { RawTransaction } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { ok, resultFromAsync, type Result } from '@exitbook/core';
 
 import type { INearBatchSource } from '../../../ports/near-batch-source.js';
 
@@ -32,52 +32,42 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
       return ok([]);
     }
 
-    // 1) Anchor on transaction hashes from transactions + receipts + token-transfers
-    const hashesResult = await this.nearBatchSource.fetchPendingAnchorHashes(this.accountId, this.hashBatchSize);
-    if (hashesResult.isErr()) {
-      return err(hashesResult.error);
-    }
-    const hashes = hashesResult.value;
+    return resultFromAsync(async function* (self) {
+      // 1) Anchor on transaction hashes from transactions + receipts + token-transfers
+      const hashes = yield* await self.nearBatchSource.fetchPendingAnchorHashes(self.accountId, self.hashBatchSize);
 
-    if (hashes.length === 0) {
-      this.lastBatchWasEmpty = true;
-      return ok([]);
-    }
-
-    // 2) Load all pending rows for those hashes
-    const baseResult = await this.nearBatchSource.fetchPendingByHashes(this.accountId, hashes);
-    if (baseResult.isErr()) {
-      return baseResult;
-    }
-    const baseRows = baseResult.value;
-
-    // 3) Collect receiptIds from receipt rows
-    const receiptIds = new Set<string>();
-    for (const row of baseRows) {
-      if (row.transactionTypeHint !== 'receipts') continue;
-      const receiptId = (row.normalizedData as { receiptId?: string }).receiptId;
-      if (receiptId) {
-        receiptIds.add(receiptId);
+      if (hashes.length === 0) {
+        self.lastBatchWasEmpty = true;
+        return [];
       }
-    }
 
-    // 4) Fetch balance-changes missing transactionHash linked by receiptId via JSON1
-    const extraRows: RawTransaction[] = [];
-    if (receiptIds.size > 0) {
-      const extraResult = await this.nearBatchSource.fetchPendingByReceiptIds(this.accountId, [...receiptIds]);
-      if (extraResult.isErr()) {
-        return extraResult;
+      // 2) Load all pending rows for those hashes
+      const baseRows = yield* await self.nearBatchSource.fetchPendingByHashes(self.accountId, hashes);
+
+      // 3) Collect receiptIds from receipt rows
+      const receiptIds = new Set<string>();
+      for (const row of baseRows) {
+        if (row.transactionTypeHint !== 'receipts') continue;
+        const receiptId = (row.normalizedData as { receiptId?: string }).receiptId;
+        if (receiptId) {
+          receiptIds.add(receiptId);
+        }
       }
-      extraRows.push(...extraResult.value);
-    }
 
-    // 5) Merge and deduplicate by raw row ID
-    const byId = new Map<number, RawTransaction>();
-    for (const row of [...baseRows, ...extraRows]) {
-      byId.set(row.id, row);
-    }
+      // 4) Fetch balance-changes missing transactionHash linked by receiptId via JSON1
+      const extraRows: RawTransaction[] =
+        receiptIds.size > 0
+          ? yield* await self.nearBatchSource.fetchPendingByReceiptIds(self.accountId, [...receiptIds])
+          : [];
 
-    return ok([...byId.values()]);
+      // 5) Merge and deduplicate by raw row ID
+      const byId = new Map<number, RawTransaction>();
+      for (const row of [...baseRows, ...extraRows]) {
+        byId.set(row.id, row);
+      }
+
+      return [...byId.values()];
+    }, this);
   }
 
   hasMore(): boolean {
