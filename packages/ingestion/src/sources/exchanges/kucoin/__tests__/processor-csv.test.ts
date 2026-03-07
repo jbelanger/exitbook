@@ -367,8 +367,8 @@ describe('KucoinProcessor (CSV) - Error Handling', () => {
     expect(result.isErr()).toBe(true);
     if (result.isOk()) return;
 
-    expect(result.error).toContain('KuCoin CSV processing failed');
-    expect(result.error).toContain('1 conversion error(s)');
+    expect(result.error.message).toContain('KuCoin CSV processing failed');
+    expect(result.error.message).toContain('1 conversion error(s)');
   });
 
   test('handles unknown row type by failing (strict mode)', async () => {
@@ -385,8 +385,8 @@ describe('KucoinProcessor (CSV) - Error Handling', () => {
     expect(result.isErr()).toBe(true);
     if (result.isOk()) return;
 
-    expect(result.error).toContain('KuCoin CSV processing failed');
-    expect(result.error).toContain('1 unknown row type(s)');
+    expect(result.error.message).toContain('KuCoin CSV processing failed');
+    expect(result.error.message).toContain('1 unknown row type(s)');
   });
 });
 

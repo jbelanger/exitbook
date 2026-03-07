@@ -690,9 +690,9 @@ describe('NearProcessor', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toContain('Missing transaction record');
-        expect(result.error).toContain('Cannot proceed');
-        expect(result.error).toContain('1/1 transactions failed');
+        expect(result.error.message).toContain('Missing transaction record');
+        expect(result.error.message).toContain('Cannot proceed');
+        expect(result.error.message).toContain('1/1 transactions failed');
       }
     });
 
@@ -713,8 +713,8 @@ describe('NearProcessor', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toContain('Balance change missing deltaAmount');
-        expect(result.error).toContain('Cannot proceed');
+        expect(result.error.message).toContain('Balance change missing deltaAmount');
+        expect(result.error.message).toContain('Cannot proceed');
       }
     });
 
@@ -731,7 +731,7 @@ describe('NearProcessor', () => {
       // Should return error during grouping
       const result = await processor.process(events, createFundFlowContext());
       expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toMatch(/Duplicate transaction record/);
+      expect(result._unsafeUnwrapErr().message).toMatch(/Duplicate transaction record/);
     });
 
     test('should accumulate errors from multiple failed transactions', async () => {
@@ -762,8 +762,8 @@ describe('NearProcessor', () => {
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         // Transaction 1 fails (missing transaction record), but transaction 2 may derive delta from absolutes
-        expect(result.error).toContain('transactions failed');
-        expect(result.error).toContain('Missing transaction record');
+        expect(result.error.message).toContain('transactions failed');
+        expect(result.error.message).toContain('Missing transaction record');
       }
     });
 
@@ -1062,7 +1062,7 @@ describe('NearProcessor', () => {
       // Should fail fast due to invalid receipt_id for RECEIPT-level cause
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toContain("has invalid receipt_id 'orphan-receipt'");
+        expect(result.error.message).toContain("has invalid receipt_id 'orphan-receipt'");
       }
     });
 

@@ -225,8 +225,8 @@ describe('analyzeXrpFundFlow', () => {
     expect(result.isErr()).toBe(true);
     if (!result.isErr()) return;
 
-    expect(result.error).toContain('Missing balance change for sender address');
-    expect(result.error).toContain(USER_ADDRESS);
-    expect(result.error).toContain('data extraction bug');
+    expect(result.error.message).toContain('Missing balance change for sender address');
+    expect(result.error.message).toContain(USER_ADDRESS);
+    expect(result.error.message).toContain('data extraction bug');
   });
 });

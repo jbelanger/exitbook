@@ -1085,7 +1085,7 @@ describe('EvmProcessor - Edge Cases', () => {
     expect(result.isErr()).toBe(true);
     if (!result.isErr()) return;
 
-    expect(result.error).toContain('Input validation failed');
+    expect(result.error.message).toContain('Input validation failed');
   });
 });
 

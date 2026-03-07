@@ -135,7 +135,7 @@ describe('expandSourceContext', () => {
     expect(result.isErr()).toBe(true);
     if (!result.isErr()) return;
 
-    expect(result.error).toContain('Missing address');
+    expect(result.error.message).toContain('Missing address');
   });
 
   test('generates unique derived addresses', () => {
