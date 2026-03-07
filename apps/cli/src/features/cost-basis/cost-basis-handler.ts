@@ -13,7 +13,7 @@ import { createPriceProviderManager } from '@exitbook/price-providers';
 
 import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
 import { getDataDir } from '../shared/data-dir.js';
-import { ensureLinks, ensurePrices, ensureRawDataIsProcessed } from '../shared/prereqs.js';
+import { ensureConsumerInputsReady } from '../shared/projection-runtime.js';
 
 export type { CostBasisInput, CostBasisWorkflowResult };
 
@@ -50,7 +50,7 @@ export class CostBasisHandler {
 
 /**
  * Create a CostBasisHandler with prereqs (reprocess + linking + price enrichment) run first.
- * Factory runs prereqs -- command files NEVER call ensureRawDataIsProcessed/ensureLinks/ensurePrices directly.
+ * Factory runs prereqs via ensureConsumerInputsReady -- command files NEVER call prereqs directly.
  */
 export async function createCostBasisHandler(
   ctx: CommandContext,
@@ -64,37 +64,25 @@ export async function createCostBasisHandler(
     });
   }
 
-  // Reprocess derived data if stale
-  const processedResult = await ensureRawDataIsProcessed(database, options.registry, {
-    isJsonMode: options.isJsonMode,
-  });
-  if (processedResult.isErr()) {
-    return err(processedResult.error);
-  }
-
-  // Run linking prereq
-  const linksResult = await ensureLinks(database, ctx.dataDir, {
-    isJsonMode: options.isJsonMode,
-    setAbort: (abort) => {
-      prereqAbort = abort;
-    },
-  });
-  if (linksResult.isErr()) {
-    return err(linksResult.error);
-  }
-
-  // Run price enrichment prereq (needs date range from params)
   const { config } = options.params;
-  if (config.startDate && config.endDate) {
-    const pricesResult = await ensurePrices(database, config.startDate, config.endDate, config.currency, {
+  const priceConfig =
+    config.startDate && config.endDate ? { startDate: config.startDate, endDate: config.endDate } : undefined;
+
+  const readyResult = await ensureConsumerInputsReady(
+    'cost-basis',
+    {
+      db: database,
+      registry: options.registry,
+      dataDir: ctx.dataDir,
       isJsonMode: options.isJsonMode,
       setAbort: (abort) => {
         prereqAbort = abort;
       },
-    });
-    if (pricesResult.isErr()) {
-      return err(pricesResult.error);
-    }
+    },
+    priceConfig
+  );
+  if (readyResult.isErr()) {
+    return err(readyResult.error);
   }
 
   prereqAbort = undefined;

@@ -14,13 +14,8 @@ vi.mock('@exitbook/logger', () => ({
   }),
 }));
 
-vi.mock('@exitbook/data', () => ({
-  buildAccountingResetPorts: () => ({
-    resetDerivedData: vi.fn().mockResolvedValue(ok({ links: 0, consolidatedMovements: 0 })),
-  }),
-  buildIngestionResetPorts: () => ({
-    resetDerivedData: vi.fn().mockResolvedValue(ok({ transactions: 0 })),
-  }),
+vi.mock('../../shared/projection-runtime.js', () => ({
+  resetProjections: vi.fn().mockResolvedValue(ok(undefined)),
 }));
 
 describe('ProcessHandler', () => {

@@ -12,7 +12,7 @@ import { displayCliError } from '../shared/cli-error.js';
 import { runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { outputSuccess } from '../shared/json-output.js';
-import { ensureRawDataIsProcessed } from '../shared/prereqs.js';
+import { ensureConsumerInputsReady } from '../shared/projection-runtime.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 import { isJsonMode } from '../shared/utils.js';
 
@@ -172,9 +172,14 @@ async function executeLinksRunJSON(options: LinksRunCommandOptions, registry: Ad
     await runCommand(async (ctx) => {
       const database = await ctx.database();
 
-      const processedResult = await ensureRawDataIsProcessed(database, registry, { isJsonMode: true });
-      if (processedResult.isErr()) {
-        displayCliError('links-run', processedResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      const readyResult = await ensureConsumerInputsReady('links-run', {
+        db: database,
+        registry,
+        dataDir: ctx.dataDir,
+        isJsonMode: true,
+      });
+      if (readyResult.isErr()) {
+        displayCliError('links-run', readyResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
       const handler = createLinksRunHandler(ctx, database, { dryRun: params.dryRun, isJsonMode: true });
@@ -215,9 +220,14 @@ async function executeLinksRunTUI(options: LinksRunCommandOptions, registry: Ada
     await runCommand(async (ctx) => {
       const database = await ctx.database();
 
-      const processedResult = await ensureRawDataIsProcessed(database, registry, { isJsonMode: false });
-      if (processedResult.isErr()) {
-        displayCliError('links-run', processedResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      const readyResult = await ensureConsumerInputsReady('links-run', {
+        db: database,
+        registry,
+        dataDir: ctx.dataDir,
+        isJsonMode: false,
+      });
+      if (readyResult.isErr()) {
+        displayCliError('links-run', readyResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }
 
       const handler = createLinksRunHandler(ctx, database, { dryRun: params.dryRun, isJsonMode: false });

@@ -1,6 +1,5 @@
 import { err, ok, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import { buildAccountingResetPorts, buildIngestionResetPorts } from '@exitbook/data';
 import type { AdapterRegistry, ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
@@ -8,6 +7,7 @@ import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observa
 import type { EventDrivenController } from '../../ui/shared/index.js';
 import type { CommandContext } from '../shared/command-runtime.js';
 import { createIngestionInfrastructure, type CliEvent } from '../shared/ingestion-infrastructure.js';
+import { resetProjections } from '../shared/projection-runtime.js';
 
 export interface ProcessResultWithMetrics {
   processed: number;
@@ -45,27 +45,14 @@ export class ProcessHandler {
       return ok({ processed: 0, errors: [], runStats: this.instrumentation.getSummary() });
     }
 
-    // 2. Accounting reset (links, consolidated movements)
-    const accountingReset = buildAccountingResetPorts(this.database);
-    const accountingResult = await accountingReset.resetDerivedData(plan.accountIds);
-    if (accountingResult.isErr()) {
-      this.ingestionMonitor.fail(accountingResult.error.message);
+    // 2. Reset projections in graph order (downstream first)
+    const resetResult = await resetProjections(this.database, 'processed-transactions', plan.accountIds);
+    if (resetResult.isErr()) {
+      this.ingestionMonitor.fail(resetResult.error.message);
       await this.ingestionMonitor.stop();
-      return err(accountingResult.error);
+      return err(resetResult.error);
     }
-    logger.info(
-      `Reset accounting data (${accountingResult.value.links} links, ${accountingResult.value.consolidatedMovements} consolidated movements)`
-    );
-
-    // 3. Ingestion reset (transactions + raw processing status)
-    const ingestionReset = buildIngestionResetPorts(this.database);
-    const ingestionResult = await ingestionReset.resetDerivedData(plan.accountIds);
-    if (ingestionResult.isErr()) {
-      this.ingestionMonitor.fail(ingestionResult.error.message);
-      await this.ingestionMonitor.stop();
-      return err(ingestionResult.error);
-    }
-    logger.info(`Reset ingestion data (${ingestionResult.value.transactions} transactions)`);
+    logger.info('Reset projections for reprocess');
 
     // 4. Process raw data
     const result = await this.processingWorkflow.processImportedSessions(plan.accountIds);

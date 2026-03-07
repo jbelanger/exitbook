@@ -1,6 +1,5 @@
 import { type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
-import { getLogger } from '@exitbook/logger';
 
 import type { ICostBasisPersistence } from '../ports/cost-basis-persistence.js';
 
@@ -9,17 +8,15 @@ import type { CostBasisConfig } from './cost-basis-config.js';
 import { getJurisdictionRules, validateTransactionPrices } from './cost-basis-utils.js';
 import { LotMatcher } from './lot-matcher.js';
 
-const logger = getLogger('cost-basis-pipeline');
-
 export interface CostBasisPipelineResult {
   summary: CostBasisSummary;
   missingPricesCount: number;
-  /** Transactions that passed price validation — available for callers that need to build richer exclusion warnings */
+  /** Transactions that passed strict price validation. */
   validTransactions: UniversalTransactionData[];
 }
 
 /**
- * Shared cost-basis pipeline: soft-fail price validation → jurisdiction rules → lot matching → gain/loss.
+ * Shared cost-basis pipeline: strict price validation → jurisdiction rules → lot matching → gain/loss.
  *
  * Used by CostBasisWorkflow and PortfolioHandler to avoid duplicating the
  * "validate prices → get rules → run calculator" flow.
@@ -36,9 +33,11 @@ export async function runCostBasisPipeline(
 
   const { validTransactions, missingPricesCount } = validationResult.value;
   if (missingPricesCount > 0) {
-    logger.warn(
-      { missingPricesCount, validCount: validTransactions.length },
-      'Some transactions missing prices will be excluded from cost basis'
+    return err(
+      new Error(
+        `${missingPricesCount} transactions are missing required price data. ` +
+          `Run 'exitbook prices enrich' and retry cost basis.`
+      )
     );
   }
 

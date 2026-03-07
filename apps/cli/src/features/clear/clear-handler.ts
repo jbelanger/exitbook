@@ -1,9 +1,10 @@
-import type { AccountingResetImpact } from '@exitbook/accounting';
+import type { LinksResetImpact } from '@exitbook/accounting/ports';
 import type { Account } from '@exitbook/core';
-import { err, ok, wrapError, type Result } from '@exitbook/core';
+import { err, ok, resetPlan, wrapError, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import { buildAccountingResetPorts, buildIngestionPurgePorts, buildIngestionResetPorts } from '@exitbook/data';
-import type { IngestionPurgeImpact, IngestionResetImpact } from '@exitbook/ingestion';
+import { buildIngestionPurgePorts, buildLinksResetPorts, buildProcessedTransactionsResetPorts } from '@exitbook/data';
+import type { IngestionPurgeImpact } from '@exitbook/ingestion';
+import type { ProcessedTransactionsResetImpact } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('ClearHandler');
@@ -19,8 +20,8 @@ export interface ClearParams {
 }
 
 export interface DeletionPreview {
-  accounting: AccountingResetImpact;
-  ingestion: IngestionResetImpact;
+  links: LinksResetImpact;
+  processedTransactions: ProcessedTransactionsResetImpact;
   purge: IngestionPurgeImpact | undefined;
 }
 
@@ -39,8 +40,8 @@ export interface FlatDeletionPreview {
 
 export function flattenPreview(preview: DeletionPreview): FlatDeletionPreview {
   return {
-    transactions: preview.ingestion.transactions,
-    links: preview.accounting.links,
+    transactions: preview.processedTransactions.transactions,
+    links: preview.links.links,
     accounts: preview.purge?.accounts ?? 0,
     sessions: preview.purge?.sessions ?? 0,
     rawData: preview.purge?.rawData ?? 0,
@@ -81,7 +82,7 @@ export interface ClearHandlerDeps {
 }
 
 /**
- * Composes accounting reset → ingestion reset → optional purge.
+ * Composes projection-native resets → optional purge.
  * CLI-owned orchestration — not a package-level workflow.
  */
 export function createClearHandler(deps: ClearHandlerDeps) {
@@ -127,15 +128,15 @@ export function createClearHandler(deps: ClearHandlerDeps) {
       if (accountIdsResult.isErr()) return wrapError(accountIdsResult.error, 'Failed to resolve accounts');
       const accountIds = accountIdsResult.value;
 
-      const accountingReset = buildAccountingResetPorts(db);
-      const ingestionReset = buildIngestionResetPorts(db);
+      const linksReset = buildLinksResetPorts(db);
+      const ptReset = buildProcessedTransactionsResetPorts(db);
 
-      const [accountingResult, ingestionResult] = await Promise.all([
-        accountingReset.countResetImpact(accountIds),
-        ingestionReset.countResetImpact(accountIds),
+      const [linksResult, ptResult] = await Promise.all([
+        linksReset.countResetImpact(accountIds),
+        ptReset.countResetImpact(accountIds),
       ]);
-      if (accountingResult.isErr()) return wrapError(accountingResult.error, 'Failed to count accounting impact');
-      if (ingestionResult.isErr()) return wrapError(ingestionResult.error, 'Failed to count ingestion impact');
+      if (linksResult.isErr()) return wrapError(linksResult.error, 'Failed to count links impact');
+      if (ptResult.isErr()) return wrapError(ptResult.error, 'Failed to count processed-transactions impact');
 
       let purge: IngestionPurgeImpact | undefined;
       if (params.includeRaw) {
@@ -146,8 +147,8 @@ export function createClearHandler(deps: ClearHandlerDeps) {
       }
 
       return ok({
-        accounting: accountingResult.value,
-        ingestion: ingestionResult.value,
+        links: linksResult.value,
+        processedTransactions: ptResult.value,
         purge,
       });
     },
@@ -169,18 +170,24 @@ export function createClearHandler(deps: ClearHandlerDeps) {
       // the transaction-scoped context so their internal executeInTransaction
       // calls become no-ops (isTransactionScoped short-circuit).
       return db.executeInTransaction(async (txDb) => {
-        const accountingReset = buildAccountingResetPorts(txDb);
-        const ingestionReset = buildIngestionResetPorts(txDb);
+        // Reset projections in graph order (downstream first)
+        const plan = resetPlan('processed-transactions');
+        let linksImpact: LinksResetImpact = { links: 0 };
+        let ptImpact: ProcessedTransactionsResetImpact = { transactions: 0, consolidatedMovements: 0 };
 
-        // 1. Accounting reset (links, consolidated movements)
-        const accountingResult = await accountingReset.resetDerivedData(accountIds);
-        if (accountingResult.isErr()) return wrapError(accountingResult.error, 'Failed to reset accounting data');
+        for (const projectionId of plan) {
+          if (projectionId === 'links') {
+            const result = await buildLinksResetPorts(txDb).reset(accountIds);
+            if (result.isErr()) return wrapError(result.error, 'Failed to reset links');
+            linksImpact = result.value;
+          } else if (projectionId === 'processed-transactions') {
+            const result = await buildProcessedTransactionsResetPorts(txDb).reset(accountIds);
+            if (result.isErr()) return wrapError(result.error, 'Failed to reset processed-transactions');
+            ptImpact = result.value;
+          }
+        }
 
-        // 2. Ingestion reset (transactions + raw status)
-        const ingestionResult = await ingestionReset.resetDerivedData(accountIds);
-        if (ingestionResult.isErr()) return wrapError(ingestionResult.error, 'Failed to reset ingestion data');
-
-        // 3. Optional purge (raw data, sessions, accounts)
+        // Optional purge (raw data, sessions, accounts)
         let purge: IngestionPurgeImpact | undefined;
         if (params.includeRaw) {
           const ingestionPurge = buildIngestionPurgePorts(txDb);
@@ -190,8 +197,8 @@ export function createClearHandler(deps: ClearHandlerDeps) {
         }
 
         const deleted: DeletionPreview = {
-          accounting: accountingResult.value,
-          ingestion: ingestionResult.value,
+          links: linksImpact,
+          processedTransactions: ptImpact,
           purge,
         };
 

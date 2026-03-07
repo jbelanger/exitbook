@@ -60,8 +60,8 @@ export const ClearViewApp: FC<{
     });
     if (result.isOk()) {
       const flat: FlatDeletionPreview = {
-        transactions: result.value.deleted.ingestion.transactions,
-        links: result.value.deleted.accounting.links,
+        transactions: result.value.deleted.processedTransactions.transactions,
+        links: result.value.deleted.links.links,
         accounts: result.value.deleted.purge?.accounts ?? 0,
         sessions: result.value.deleted.purge?.sessions ?? 0,
         rawData: result.value.deleted.purge?.rawData ?? 0,

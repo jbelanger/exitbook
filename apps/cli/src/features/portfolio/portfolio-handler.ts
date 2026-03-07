@@ -23,7 +23,7 @@ import { createPriceProviderManager, type PriceProviderManager } from '@exitbook
 import { Decimal } from 'decimal.js';
 
 import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
-import { ensureLinks, ensurePrices, ensureRawDataIsProcessed } from '../shared/prereqs.js';
+import { ensureConsumerInputsReady } from '../shared/projection-runtime.js';
 
 import type { PortfolioPositionItem, SpotPriceResult } from './portfolio-types.js';
 import {
@@ -397,35 +397,21 @@ export async function createPortfolioHandler(
     });
   }
 
-  // Reprocess derived data if stale
-  const processedResult = await ensureRawDataIsProcessed(database, options.registry, {
-    isJsonMode: options.isJsonMode,
-  });
-  if (processedResult.isErr()) {
-    return err(processedResult.error);
-  }
-
-  // Run prereqs
-  const linksResult = await ensureLinks(database, dataDir, {
-    isJsonMode: options.isJsonMode,
-    setAbort: (abort) => {
-      prereqAbort = abort;
+  const readyResult = await ensureConsumerInputsReady(
+    'portfolio',
+    {
+      db: database,
+      registry: options.registry,
+      dataDir,
+      isJsonMode: options.isJsonMode,
+      setAbort: (abort) => {
+        prereqAbort = abort;
+      },
     },
-  });
-  if (linksResult.isErr()) {
-    return err(linksResult.error);
-  }
-
-  const startDate = new Date(0);
-  const endDate = options.asOf;
-  const pricesResult = await ensurePrices(database, startDate, endDate, 'USD', {
-    isJsonMode: options.isJsonMode,
-    setAbort: (abort) => {
-      prereqAbort = abort;
-    },
-  });
-  if (pricesResult.isErr()) {
-    return err(pricesResult.error);
+    { startDate: new Date(0), endDate: options.asOf }
+  );
+  if (readyResult.isErr()) {
+    return err(readyResult.error);
   }
 
   // Create price manager for spot prices + FX
