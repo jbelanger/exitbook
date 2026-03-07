@@ -4,7 +4,6 @@ export type { INearBatchSource } from './near-batch-source.js';
 export type { IProcessedTransactionSink } from './processed-transaction-sink.js';
 export type { IAccountLookup, ProcessingAccountInfo } from './account-lookup.js';
 export type { IImportSessionLookup, ImportSessionStatus } from './import-session-guard.js';
-export type { IIngestionDataReset, IngestionResetImpact } from './ingestion-data-reset.js';
 export type { IIngestionDataPurge, IngestionPurgeImpact } from './ingestion-data-purge.js';
 export type {
   IProcessedTransactionsFreshness,

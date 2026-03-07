@@ -257,17 +257,6 @@ export interface UtxoConsolidatedMovementsTable {
 }
 
 /**
- * Singleton row tracking when raw data was last processed into derived data.
- * Used by ensureRawDataIsProcessed() to detect staleness after a new import
- * or account change.
- */
-export interface RawDataProcessedStateTable {
-  id: number; // Always 1 (singleton)
-  built_at: DateTime; // ISO timestamp of last reprocess
-  account_hash: string; // Hash of sorted account IDs + identifiers
-}
-
-/**
  * Projection state table - tracks lifecycle state of persisted derived datasets.
  * Replaces the singleton raw_data_processed_state with a generalized model.
  */
@@ -294,6 +283,5 @@ export interface DatabaseSchema {
   linkable_movements: LinkableMovementsTable;
   transactions: TransactionsTable;
   utxo_consolidated_movements: UtxoConsolidatedMovementsTable;
-  raw_data_processed_state: RawDataProcessedStateTable;
   projection_state: ProjectionStateTable;
 }

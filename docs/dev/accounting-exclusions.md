@@ -141,16 +141,16 @@ CREATE TABLE asset_balances (
 
 Column ownership:
 
-| Column               | Source                                            | Rebuildable?              |
-| -------------------- | ------------------------------------------------- | ------------------------- |
-| `calculated_balance` | `calculateBalances()` from processed transactions | Yes — recompute           |
-| `live_balance`       | Last balance verification run                     | Yes — re-verify (or null) |
-| `balance_status`     | Comparison during verification                    | Yes — recompute           |
-| `excluded`           | Override store replay                             | Yes — replay events       |
-| `exclusion_reason`   | Override store replay                             | Yes — replay events       |
-| `excluded_at`        | Override store replay                             | Yes — replay events       |
+| Column               | Source                                            | Rebuild behavior                                |
+| -------------------- | ------------------------------------------------- | ----------------------------------------------- |
+| `calculated_balance` | `calculateBalances()` from processed transactions | Recomputed deterministically                    |
+| `live_balance`       | Last balance verification run                     | Re-verifiable observed cache; nulled on rebuild |
+| `balance_status`     | Comparison during verification                    | Re-verifiable observed cache; nulled on rebuild |
+| `excluded`           | Override store replay                             | Replayed deterministically from override events |
+| `exclusion_reason`   | Override store replay                             | Replayed deterministically from override events |
+| `excluded_at`        | Override store replay                             | Replayed deterministically from override events |
 
-Every column is deterministically reproducible. The table is safe to wipe and rebuild.
+The table is safe to wipe and rebuild. Policy columns are deterministically replayed from the override store. Verification columns (`live_balance`, `balance_status`, `last_verified_at`) are observational cache — a rebuild nulls them, and re-verification produces a new observation rather than the same state. This is acceptable: the projection contract is rebuildability, not bitwise reproducibility of cached observations.
 
 ### Override Store: Asset Exclusion Events
 
@@ -271,52 +271,163 @@ This is not part of the first implementation.
 
 ## Integration Points
 
-### 1. Shared domain predicate
+### The mixed-transaction problem
 
-Location: `packages/accounting/src/cost-basis/cost-basis-utils.ts` (or a new `accounting-exclusion-utils.ts`)
+The escape hatch must handle mixed transactions — transactions where an excluded asset appears alongside included assets (e.g., a swap of SCAMTOKEN -> ETH). These transactions stay in scope for accounting (the ETH side matters), but the excluded-asset movements must not block price gates.
+
+The current price-checking functions operate at the transaction level:
+
+- `transactionHasAllPrices()` iterates all movements and returns false if any lack prices
+- `collectPricedEntities()` collects all movements for validation
+- `checkTransactionPriceCoverage()` counts transactions, not movements
+
+If SCAMTOKEN is excluded but the swap transaction stays in scope (correct for ETH), the SCAMTOKEN movements still fail price checks, blocking cost-basis despite the exclusion. Skipping whole excluded transactions is insufficient.
+
+### Solution: movement-level exclusion awareness in price gates
+
+Price coverage and validation functions accept a set of excluded asset IDs. Movements for excluded assets are skipped during price checks — the transaction itself stays in scope, but only in-scope movements require prices.
+
+The excluded asset set is derived from `asset_balances.excluded` (which is materialized from override store events). It is passed through as a parameter, not looked up internally by the price functions.
+
+### Data flow: where the excluded asset set comes from
+
+The `excludedAssets: Set<string>` must be loaded and threaded through from the consumer entry point. The flow:
+
+1. **Data port:** Add `IExclusionData` port to `@exitbook/accounting`:
 
 ```ts
-export function isExcludedFromAccounting(tx: UniversalTransactionData): boolean {
-  return tx.excludedFromAccounting === true;
+export interface IExclusionData {
+  loadExcludedAssetIds(): Promise<Result<Set<string>, Error>>;
 }
 ```
 
-Single source of truth for all gates. Reads the denormalized cache on transactions.
+2. **Data adapter:** Implement in `@exitbook/data` — reads `asset_id` from `asset_balances WHERE excluded = 1`.
 
-### 2. `checkTransactionPriceCoverage()`
+3. **Consumer entry points** load the set once and thread it through:
+   - `checkTransactionPriceCoverage(data, input, excludedAssets)` — receives it from the caller
+   - `runCostBasisPipeline(transactions, config, excludedAssets)` — receives it from the caller
+   - CLI handlers (`cost-basis-handler`, `portfolio-handler`) load via `IExclusionData` and pass down
+
+4. **Pure functions** (`transactionHasAllPrices`, `collectPricedEntities`, `validateTransactionPrices`) receive the set as a parameter — no port access, no I/O.
+
+This keeps the pure functions pure and makes the data dependency explicit at every call site.
+
+### 1. Shared predicates
+
+Location: `packages/accounting/src/cost-basis/accounting-exclusion-utils.ts`
+
+```ts
+/** Transaction-level: is this entire transaction excluded? */
+export function isExcludedFromAccounting(tx: UniversalTransactionData): boolean {
+  return tx.excludedFromAccounting === true;
+}
+
+/** Build excluded asset set from balances projection for movement-level filtering */
+export function buildExcludedAssetSet(assetBalances: { assetId: string; excluded: boolean }[]): Set<string> {
+  return new Set(assetBalances.filter((a) => a.excluded).map((a) => a.assetId));
+}
+
+/** Movement-level: should this movement's asset be skipped in price gates? */
+export function isExcludedAsset(assetId: string, excludedAssets: Set<string>): boolean {
+  return excludedAssets.has(assetId);
+}
+```
+
+### 2. `transactionHasAllPrices()`
+
+Location: `packages/accounting/src/cost-basis/cost-basis-utils.ts`
+
+Add optional `excludedAssets` parameter. When provided, skip movements for excluded assets:
+
+```ts
+export function transactionHasAllPrices(
+  tx: UniversalTransactionData,
+  excludedAssets?: Set<string>
+): Result<boolean, Error> {
+  for (const inflow of tx.movements.inflows ?? []) {
+    if (excludedAssets?.has(inflow.assetId)) continue;
+    const hasPriceResult = movementHasPrice(inflow);
+    if (hasPriceResult.isErr()) return err(hasPriceResult.error);
+    if (!hasPriceResult.value) return ok(false);
+  }
+
+  for (const outflow of tx.movements.outflows ?? []) {
+    if (excludedAssets?.has(outflow.assetId)) continue;
+    const hasPriceResult = movementHasPrice(outflow);
+    if (hasPriceResult.isErr()) return err(hasPriceResult.error);
+    if (!hasPriceResult.value) return ok(false);
+  }
+
+  return ok(true);
+}
+```
+
+Backward compatible: callers that don't pass `excludedAssets` get existing behavior.
+
+### 3. `collectPricedEntities()`
+
+Location: `packages/accounting/src/cost-basis/cost-basis-validation-utils.ts`
+
+Same pattern — add optional `excludedAssets` parameter, skip movements for excluded assets:
+
+```ts
+export function collectPricedEntities(
+  transactions: UniversalTransactionData[],
+  excludedAssets?: Set<string>
+): PricedEntity[] {
+  // ... existing logic, adding at the start of each movement loop:
+  // if (excludedAssets?.has(movement.assetId)) continue;
+}
+```
+
+### 4. `checkTransactionPriceCoverage()`
 
 Location: `packages/accounting/src/cost-basis/transaction-price-coverage-utils.ts`
 
-Current code counts all transactions. Change to skip excluded:
+Two layers of filtering — skip whole excluded transactions, and pass excluded assets for movement-level filtering:
 
 ```ts
 for (const tx of filtered) {
-  if (isExcludedFromAccounting(tx)) continue; // <-- add this
-  const hasPrices = yield * transactionHasAllPrices(tx);
+  if (isExcludedFromAccounting(tx)) continue;
+  const hasPrices = yield * transactionHasAllPrices(tx, excludedAssets);
   if (!hasPrices) {
     missingCount++;
   }
 }
 ```
 
-### 3. `runCostBasisPipeline()`
+### 5. `runCostBasisPipeline()`
 
 Location: `packages/accounting/src/cost-basis/cost-basis-pipeline.ts`
 
-Filter excluded transactions before validation:
+Filter whole excluded transactions, and pass excluded assets to validation:
 
 ```ts
 const inScopeTransactions = transactions.filter((tx) => !isExcludedFromAccounting(tx));
-const validationResult = validateTransactionPrices(inScopeTransactions, config.currency);
+const validationResult = validateTransactionPrices(inScopeTransactions, config.currency, excludedAssets);
 ```
 
-### 4. `validateTransactionPrices()`
+### 6. Cost-basis for mixed transactions
 
-Location: `packages/accounting/src/cost-basis/cost-basis-utils.ts`
+When cost-basis processes a mixed transaction (e.g., SCAMTOKEN -> ETH swap), the excluded-asset movements lack prices. The cost-basis calculator needs a policy for this.
 
-No change needed if the caller pre-filters. But for defense-in-depth, it could also skip excluded transactions internally.
+**Decision: zero-cost acquisition (Option A).**
 
-### 5. Portfolio reporting
+Treat the included-asset inflow as acquired at zero cost. For a SCAMTOKEN -> ETH swap where SCAMTOKEN is excluded:
+
+- The ETH inflow is recorded with a cost basis of zero
+- The SCAMTOKEN outflow is ignored (no disposal event for an excluded asset)
+- This is conservative for tax purposes — it overstates gains, which is the safer direction
+
+Why not skip entirely (Option B): skipping the excluded side means the ETH inflow has no acquisition event at all, which creates a different problem — the ETH appears in the portfolio with no cost basis history. Zero-cost acquisition is explicit and auditable.
+
+**Implementation in Phase 2:** The cost-basis calculator needs explicit changes to support this. Today, `buildAcquisitionLotFromInflow()` in `lot-creation-utils.ts` requires `inflow.priceAtTxTime` to compute basis, and `LotMatcher` assumes priced movements before matching. For zero-cost acquisition of excluded-asset mixed transactions:
+
+- Filter excluded-asset movements before they reach the lot creation and matching paths
+- When an inflow's corresponding outflow was excluded (no valued counterpart), create the acquisition lot with an explicit zero cost basis
+- This is a deliberate code change in the calculator/matcher, not something that falls out of existing behavior
+
+### 7. Portfolio reporting
 
 Location: `apps/cli/src/features/portfolio/portfolio-handler.ts`
 
@@ -328,14 +439,14 @@ Cost Basis Summary (2025 tax year)
   3 transactions excluded from accounting by user
 ```
 
-### 6. Cost-basis error messages
+### 8. Cost-basis error messages
 
 When cost-basis is blocked by missing prices, the error message should differentiate:
 
 - **Assets with missing prices** -> "Run `exitbook assets review` to review 3 assets with missing prices"
 - **Included assets with missing prices** -> "Run `exitbook prices enrich` to fetch prices for 2 included assets, or reconsider their review status with `exitbook assets review`"
 
-### 7. Balance CLI command
+### 9. Balance CLI command
 
 The existing `balance` command becomes a consumer of the `balances` projection:
 
@@ -362,27 +473,23 @@ The primary UX is asset-level, but the persistence must be transaction-level bec
 5. Add balances runtime to `ProjectionRuntime` registry in CLI
 6. Wire invalidation: `processed-transactions` rebuild cascades to `balances`
 
-### Phase 2: Wire existing fields into gates
+### Phase 2: Exclusion gates and override integration
 
-No new exclusion logic yet. Just use `excludedFromAccounting` that already exists.
+Wire exclusion awareness into accounting gates and connect to override store in the same phase. No intermediate manual-DB-edit workflow.
 
-1. Add `isExcludedFromAccounting()` predicate to `@exitbook/accounting`
-2. Update `checkTransactionPriceCoverage()` to skip excluded transactions
-3. Update `runCostBasisPipeline()` to filter excluded transactions before validation
-4. Replace `isSpamOrExcludedTransaction()` in portfolio-handler with shared predicate
-5. Update cost-basis error messages to mention `assets review`
+1. Add shared predicates (`isExcludedFromAccounting`, `buildExcludedAssetSet`, `isExcludedAsset`) to `@exitbook/accounting`
+2. Add movement-level `excludedAssets` parameter to `transactionHasAllPrices()`, `collectPricedEntities()`
+3. Update `checkTransactionPriceCoverage()` to skip excluded transactions and excluded-asset movements
+4. Update `runCostBasisPipeline()` to filter excluded transactions and pass excluded assets to validation
+5. Replace `isSpamOrExcludedTransaction()` in portfolio-handler with shared predicate
+6. Define asset exclusion/inclusion event types for override store
+7. Extend balances projection build to replay exclusion overrides
+8. Add `excluded`/`exclusion_reason`/`excluded_at` population during build
+9. Add bulk-update of `transactions.excluded_from_accounting` during build
+10. Wire override store changes to invalidate `balances` projection
+11. Update cost-basis error messages to mention `assets review`
 
-After this phase, manually setting `excluded_from_accounting = 1` in the database will unblock cost-basis. The UX is not there yet, but the gates work.
-
-### Phase 3: Exclusion override events and projection integration
-
-1. Define asset exclusion/inclusion event types for override store
-2. Extend balances projection build to replay exclusion overrides
-3. Add `excluded`/`exclusion_reason`/`excluded_at` population during build
-4. Add bulk-update of `transactions.excluded_from_accounting` during build
-5. Wire override store changes to invalidate `balances` projection
-
-### Phase 4: Asset review CLI command
+### Phase 3: Asset review CLI command
 
 1. Build `exitbook assets review` command:
    - Read asset inventory from `asset_balances`
@@ -391,20 +498,20 @@ After this phase, manually setting `excluded_from_accounting = 1` in the databas
 2. On exclusion: write event to override store, rebuild balances projection
 3. On inclusion: write event to override store, rebuild balances projection
 
-### Phase 5: Balance CLI integration
+### Phase 4: Balance CLI integration
 
 1. Refactor `balance view` (offline) to read from `asset_balances` projection
 2. Refactor `balance verify` (online) to write live balances back to `asset_balances`
 3. Add balance health as optional readiness gate for consumers
 
-### Phase 6: Disclosure and reporting
+### Phase 5: Disclosure and reporting
 
 1. Add exclusion counts to cost-basis output
 2. Add exclusion summary to portfolio output
 3. Add `--show-excluded` flag to `transactions view` for auditability
 4. `assets review` shows previously-excluded assets with reason and timestamp
 
-### Phase 7 (future): Transaction-level overrides
+### Phase 6 (future): Transaction-level overrides
 
 1. `exitbook transactions exclude --tx-id 123 --reason "..."`
 2. `exitbook transactions include --tx-id 123`

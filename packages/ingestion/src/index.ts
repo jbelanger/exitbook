@@ -51,5 +51,4 @@ export { type ExchangeAdapter } from './shared/types/exchange-adapter.js';
 
 // Ports (re-export for convenience — canonical location is @exitbook/ingestion/ports)
 export type { ProcessingPorts, ImportPorts, BalancePorts } from './ports/index.js';
-export type { IIngestionDataReset, IngestionResetImpact } from './ports/index.js';
 export type { IIngestionDataPurge, IngestionPurgeImpact } from './ports/index.js';
