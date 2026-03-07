@@ -90,7 +90,9 @@ describe('PriceDerivationService', () => {
       const result = await new PriceDerivationService(store).derivePrices();
 
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().transactionsUpdated).toBe(0);
+      if (result.isOk()) {
+        expect(result.value.transactionsUpdated).toBe(0);
+      }
     });
 
     it('should only count transactions that actually got prices (not just attempted)', async () => {
@@ -121,7 +123,9 @@ describe('PriceDerivationService', () => {
       const result = await new PriceDerivationService(store).derivePrices();
 
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().transactionsUpdated).toBe(1);
+      if (result.isOk()) {
+        expect(result.value.transactionsUpdated).toBe(1);
+      }
     });
   });
 
@@ -171,7 +175,9 @@ describe('PriceDerivationService', () => {
       const result = await new PriceDerivationService(store).derivePrices();
 
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().transactionsUpdated).toBeGreaterThanOrEqual(1);
+      if (result.isOk()) {
+        expect(result.value.transactionsUpdated).toBeGreaterThanOrEqual(1);
+      }
 
       const updatedDeposit = getUpdatedTx(deposit.id);
       expect(updatedDeposit?.movements.inflows?.[0]?.priceAtTxTime?.source).toBe('link-propagated');
@@ -241,7 +247,9 @@ describe('PriceDerivationService', () => {
       const result = await new PriceDerivationService(store).derivePrices();
 
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().transactionsUpdated).toBe(0);
+      if (result.isOk()) {
+        expect(result.value.transactionsUpdated).toBe(0);
+      }
     });
   });
 });

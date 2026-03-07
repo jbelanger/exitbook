@@ -1,5 +1,6 @@
 import type { SolanaTransaction } from '@exitbook/blockchain-providers';
 import { isZeroDecimal, type Currency } from '@exitbook/core';
+import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -729,7 +730,7 @@ describe('Solana Processor Utils', () => {
         ],
       });
 
-      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
       expect(result.outflows).toHaveLength(1);
       expect(result.outflows[0]?.asset).toBe('SOL');
@@ -751,7 +752,7 @@ describe('Solana Processor Utils', () => {
         ],
       });
 
-      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
       expect(result.inflows).toHaveLength(1);
       expect(result.inflows[0]?.asset).toBe('SOL');
@@ -776,7 +777,7 @@ describe('Solana Processor Utils', () => {
         ],
       });
 
-      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
       expect(result.outflows).toHaveLength(1);
       expect(result.outflows[0]?.asset).toBe('USDC');
@@ -804,7 +805,7 @@ describe('Solana Processor Utils', () => {
         ],
       });
 
-      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
       expect(result.inflows).toHaveLength(1);
       expect(result.inflows[0]?.asset).toBe('USDC');
@@ -825,7 +826,7 @@ describe('Solana Processor Utils', () => {
         ],
       });
 
-      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
       expect(result.feePaidByUser).toBe(true);
     });
@@ -844,7 +845,7 @@ describe('Solana Processor Utils', () => {
         ],
       });
 
-      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
       expect(result.feePaidByUser).toBe(false);
     });
@@ -864,7 +865,7 @@ describe('Solana Processor Utils', () => {
         tokenChanges: [],
       });
 
-      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
       expect(result.feePaidByUser).toBe(true);
     });
@@ -883,7 +884,7 @@ describe('Solana Processor Utils', () => {
           ],
         });
 
-        const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+        const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
         // The raw outflow is 0.000005005, fee is 0.000005, so result should be 0.000000005
         expect(result.outflows).toHaveLength(1);
@@ -905,7 +906,7 @@ describe('Solana Processor Utils', () => {
           ],
         });
 
-        const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+        const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
         // Fee exactly matches outflow, so outflow is removed
         expect(result.outflows).toHaveLength(0);
@@ -926,7 +927,7 @@ describe('Solana Processor Utils', () => {
           ],
         });
 
-        const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+        const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
         expect(result.feeAbsorbedByMovement).toBe(true);
       });
@@ -944,7 +945,7 @@ describe('Solana Processor Utils', () => {
           ],
         });
 
-        const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+        const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
         expect(result.feeAbsorbedByMovement).toBe(false);
         expect(result.outflows.length).toBeGreaterThan(0);
@@ -974,7 +975,7 @@ describe('Solana Processor Utils', () => {
           ],
         });
 
-        const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+        const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
         // USDC outflow should not be affected by fee
         const usdcOutflow = result.outflows.find((o) => o.asset === 'USDC');
@@ -998,7 +999,7 @@ describe('Solana Processor Utils', () => {
           ],
         });
 
-        const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+        const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
         // After fee deduction, outflow should be zero
         expect(result.outflows).toHaveLength(0);
@@ -1019,7 +1020,7 @@ describe('Solana Processor Utils', () => {
         ],
       });
 
-      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
       expect(result.inflows).toHaveLength(0);
       expect(result.outflows).toHaveLength(0);
@@ -1039,7 +1040,7 @@ describe('Solana Processor Utils', () => {
         ],
       });
 
-      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
       expect(result.inflows).toHaveLength(0);
       expect(result.outflows).toHaveLength(0);
@@ -1080,7 +1081,7 @@ describe('Solana Processor Utils', () => {
         ],
       });
 
-      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
       expect(result.classificationUncertainty).toBeDefined();
       expect(result.classificationUncertainty).toContain('Complex transaction');
@@ -1114,7 +1115,7 @@ describe('Solana Processor Utils', () => {
         ],
       });
 
-      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
       expect(result.primary.asset).toBe('USDC');
       expect(result.primary.amount).toBe('1.5');
@@ -1144,7 +1145,7 @@ describe('Solana Processor Utils', () => {
         ],
       });
 
-      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
 
       // SOL outflow (0.999995) is larger than USDC (0.5)
       expect(result.primary.asset).toBe('SOL');

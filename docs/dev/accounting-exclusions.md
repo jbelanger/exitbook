@@ -154,24 +154,68 @@ The table is safe to wipe and rebuild. Policy columns are deterministically repl
 
 ### Override Store: Asset Exclusion Events
 
-Asset exclusion events in the override store, keyed by `assetId`:
+Asset exclusion is **portfolio-wide** — keyed by `assetId` alone, not `(accountId, assetId)`. When a user excludes SCAMTOKEN, it is excluded from every account where it appears. This is the right default: spam tokens are spam everywhere. Per-account exclusion adds complexity with no real benefit in v1 (transaction-level overrides in Phase 6 cover edge cases where the same `assetId` is legitimate in one context and junk in another).
+
+Asset exclusion events in the override store, keyed by `payload.asset_id`:
 
 ```ts
 interface AssetExcludeEvent {
   scope: 'asset-exclude';
-  assetId: string;
-  reason: string;
-  timestamp: string; // ISO 8601
+  payload: {
+    type: 'asset_exclude';
+    asset_id: string;
+  };
+  reason?: string;
+  created_at: string; // ISO 8601
 }
 
 interface AssetIncludeEvent {
   scope: 'asset-include';
-  assetId: string;
-  timestamp: string;
+  payload: {
+    type: 'asset_include';
+    asset_id: string;
+  };
+  reason?: string;
+  created_at: string;
 }
 ```
 
-Latest event per `assetId` wins. This follows the same pattern as link override events.
+Latest event per `payload.asset_id` wins. This follows the same pattern as link override events.
+
+#### Required schema changes in `@exitbook/core`
+
+The current override store schema (`packages/core/src/override/override.ts`) only accepts `'price' | 'fx' | 'link' | 'unlink'` scopes and enforces scope↔payload pairing via `SCOPE_TO_PAYLOAD_TYPE`. New events will be rejected on both write (`appendImpl` validates with `safeParse`) and read (`readAll` skips invalid events) unless the schema is extended. Changes needed:
+
+1. **Extend `ScopeSchema`:** Add `'asset-exclude'` and `'asset-include'` to the enum:
+
+   ```ts
+   export const ScopeSchema = z.enum(['price', 'fx', 'link', 'unlink', 'asset-exclude', 'asset-include']);
+   ```
+
+2. **Add payload schemas:**
+
+   ```ts
+   export const AssetExcludePayloadSchema = z.object({
+     type: z.literal('asset_exclude'),
+     asset_id: z.string().min(1, 'Asset ID must not be empty'),
+   });
+
+   export const AssetIncludePayloadSchema = z.object({
+     type: z.literal('asset_include'),
+     asset_id: z.string().min(1, 'Asset ID must not be empty'),
+   });
+   ```
+
+3. **Extend `OverridePayloadSchema`** discriminated union with both new payload schemas.
+
+4. **Extend `SCOPE_TO_PAYLOAD_TYPE`:**
+
+   ```ts
+   'asset-exclude': 'asset_exclude',
+   'asset-include': 'asset_include',
+   ```
+
+5. **Add `OverrideStore.readByAssetExclusion()`** convenience method that returns latest-event-wins per `assetId` from `asset-exclude` and `asset-include` scoped events.
 
 ### Denormalized Cache: `transactions.excluded_from_accounting`
 
@@ -200,6 +244,8 @@ This avoids expensive joins during cost-basis runs — accounting just filters o
 2. Reset `transactions.excluded_from_accounting` to 0
 3. Mark `balances` projection stale
 
+**Atomicity requirement:** Steps 1–3 must execute within a single database transaction. Between reset and rebuild, `transactions.excluded_from_accounting = 0` means previously-excluded transactions are visible to any consumer that queries with the default filter (`WHERE excluded_from_accounting = false` in `transaction-repository.ts:534`). Consumers that depend on exclusion state (cost-basis, portfolio) must check balances projection freshness before reading — if `balances` is stale, they should refuse to run rather than silently operating on unfiltered data.
+
 ### Invalidation
 
 - `processed-transactions` rebuild → invalidate `balances` (cascade)
@@ -207,31 +253,32 @@ This avoids expensive joins during cost-basis runs — accounting just filters o
 
 ### Verification (live balance update)
 
-When `exitbook balance verify` runs for an account:
+When balance verification runs for an account:
 
 1. Fetch live balances from provider
-2. Compare with `asset_balances.calculated_balance`
-3. Update `live_balance`, `balance_status`, `last_verified_at` on matching rows
+2. Compare with `asset_balances.calculated_balance` using `compareBalances()` (which unions calculated and live asset IDs — a live-only asset is a first-class mismatch)
+3. Update `live_balance`, `balance_status`, `last_verified_at` on existing rows
+4. **Upsert synthetic rows for live-only assets** — assets present on-chain/exchange but absent from transactions. These get `calculated_balance = '0'`, the live balance, `balance_status = 'mismatch'`, and no exclusion state. This preserves the "present live, absent in transactions" signal that is one of the most important indicators of incomplete imports.
 
-This is a write-back to the projection, not a rebuild. It updates observed state columns only.
+This is a write-back to the projection, not a rebuild. It updates observed state columns only. Synthetic live-only rows are deleted on projection rebuild (they have no transaction basis) and re-created on the next verification run.
 
 ## Asset Review Workflow
 
 ### Primary command: `exitbook assets review`
 
-Interactive checklist powered by `asset_balances`:
+Interactive checklist powered by `asset_balances`. Since exclusion is portfolio-wide, the review surface **aggregates by `assetId` across all accounts** — each asset appears once regardless of how many accounts hold it. Transaction counts and price coverage are summed across accounts.
 
 ```
 Assets with complete price coverage (42):
   BTC, ETH, SOL, ...                              [all included]
 
 Assets with missing prices (3):
-  SCAMTOKEN    12 txs, 0% priced                   [ ] exclude
-  DUSTCOIN      2 txs, 50% priced                  [ ] exclude
-  WEIRDNFT      1 tx,  0% priced                   [ ] exclude
+  SCAMTOKEN    12 txs across 2 accounts, 0% priced   [ ] exclude
+  DUSTCOIN      2 txs, 50% priced                     [ ] exclude
+  WEIRDNFT      1 tx,  0% priced                      [ ] exclude
 
 Previously excluded assets (1):
-  OLDSPAM       3 txs, excluded on 2026-01-15      [excluded]
+  OLDSPAM       3 txs, excluded on 2026-01-15         [excluded]
 ```
 
 When the user excludes an asset:
@@ -291,7 +338,9 @@ The excluded asset set is derived from `asset_balances.excluded` (which is mater
 
 ### Data flow: where the excluded asset set comes from
 
-The `excludedAssets: Set<string>` must be loaded and threaded through from the consumer entry point. The flow:
+The `excludedAssets: Set<string>` must be loaded in the **projection-readiness path**, not in individual handlers. Today, `ensureConsumerInputsReady()` in `apps/cli/src/features/shared/projection-runtime.ts` already runs price coverage checks for `cost-basis` and `portfolio` targets before handlers execute (line 314). That is the correct integration point — exclusion state must be available there, not threaded from handlers.
+
+The flow:
 
 1. **Data port:** Add `IExclusionData` port to `@exitbook/accounting`:
 
@@ -303,14 +352,40 @@ export interface IExclusionData {
 
 2. **Data adapter:** Implement in `@exitbook/data` — reads `asset_id` from `asset_balances WHERE excluded = 1`.
 
-3. **Consumer entry points** load the set once and thread it through:
-   - `checkTransactionPriceCoverage(data, input, excludedAssets)` — receives it from the caller
-   - `runCostBasisPipeline(transactions, config, excludedAssets)` — receives it from the caller
-   - CLI handlers (`cost-basis-handler`, `portfolio-handler`) load via `IExclusionData` and pass down
+3. **Projection-readiness integration:** `ensureConsumerInputsReady()` gains two responsibilities for `cost-basis`/`portfolio` targets:
+   - **Balances freshness gate:** Before checking price coverage, verify the `balances` projection is fresh. If stale, rebuild it (which replays exclusion overrides and updates `transactions.excluded_from_accounting`). This ensures exclusion state is current before any downstream check.
+   - **Excluded asset loading:** Load `excludedAssets` via `IExclusionData` and pass it to `ensureTransactionPricesReady()` → `checkTransactionPriceCoverage(data, config, excludedAssets)`.
 
-4. **Pure functions** (`transactionHasAllPrices`, `collectPricedEntities`, `validateTransactionPrices`) receive the set as a parameter — no port access, no I/O.
+   Updated flow in `ensureConsumerInputsReady`:
 
-This keeps the pure functions pure and makes the data dependency explicit at every call site.
+   ```ts
+   // After projection rebuilds, before price coverage:
+   if (target === 'cost-basis' || target === 'portfolio') {
+     // 1. Ensure balances projection is fresh (includes exclusion state)
+     const balancesFreshness = await registry['balances'].checkFreshness();
+     if (balancesFreshness.isErr()) return err(balancesFreshness.error);
+     if (balancesFreshness.value.status !== 'fresh') {
+       const rebuild = await registry['balances'].rebuild();
+       if (rebuild.isErr()) return err(rebuild.error);
+     }
+
+     // 2. Load excluded assets from fresh balances projection
+     const excludedResult = await exclusionData.loadExcludedAssetIds();
+     if (excludedResult.isErr()) return err(excludedResult.error);
+
+     // 3. Price coverage check with exclusion awareness
+     if (priceConfig) {
+       const pricesResult = await ensureTransactionPricesReady(deps, priceConfig, excludedResult.value);
+       if (pricesResult.isErr()) return err(pricesResult.error);
+     }
+   }
+   ```
+
+4. **Handler-level threading:** Handlers (`cost-basis-handler`, `portfolio-handler`) also need `excludedAssets` for `runCostBasisPipeline()`. They load it independently via `IExclusionData` (cheap — reads from already-fresh projection). This is a second read, not a second source of truth.
+
+5. **Pure functions** (`transactionHasAllPrices`, `collectPricedEntities`, `validateTransactionPrices`) receive the set as a parameter — no port access, no I/O.
+
+This keeps the pure functions pure, puts the freshness gate where it belongs (projection runtime), and makes the data dependency explicit at every call site.
 
 ### 1. Shared predicates
 
@@ -400,12 +475,58 @@ for (const tx of filtered) {
 
 Location: `packages/accounting/src/cost-basis/cost-basis-pipeline.ts`
 
-Filter whole excluded transactions, and pass excluded assets to validation:
+Filter whole excluded transactions, pass excluded assets to validation, **and forward to `calculateCostBasisFromValidatedTransactions`:**
 
 ```ts
 const inScopeTransactions = transactions.filter((tx) => !isExcludedFromAccounting(tx));
 const validationResult = validateTransactionPrices(inScopeTransactions, config.currency, excludedAssets);
+// ...
+const costBasisResult = await calculateCostBasisFromValidatedTransactions(
+  validTransactions,
+  config,
+  rules,
+  lotMatcher,
+  confirmedLinks,
+  excludedAssets
+);
 ```
+
+### 5a. `assertPriceDataQuality()` — defense-in-depth update
+
+Location: `packages/accounting/src/cost-basis/cost-basis-validation-utils.ts`
+
+`calculateCostBasisFromValidatedTransactions()` calls `assertPriceDataQuality(transactions)` as a defense-in-depth check (`cost-basis-calculator.ts:77`). This function calls `collectPricedEntities(transactions)` which iterates all movements unconditionally. **Without changes, mixed transactions with excluded-asset movements will fail this hard gate even after passing the soft gate above.**
+
+Update `assertPriceDataQuality` to accept and forward `excludedAssets`:
+
+```ts
+export function assertPriceDataQuality(
+  transactions: UniversalTransactionData[],
+  excludedAssets?: Set<string>
+): Result<void, Error> {
+  const entities = collectPricedEntities(transactions, excludedAssets);
+  // ... rest unchanged
+}
+```
+
+And update `calculateCostBasisFromValidatedTransactions` to accept and forward it:
+
+```ts
+export async function calculateCostBasisFromValidatedTransactions(
+  transactions: UniversalTransactionData[],
+  config: CostBasisConfig,
+  rules: IJurisdictionRules,
+  lotMatcher: LotMatcher,
+  confirmedLinks: TransactionLink[] = [],
+  excludedAssets?: Set<string>
+): Promise<Result<CostBasisSummary, Error>> {
+  // ...
+  const validationResult = assertPriceDataQuality(transactions, excludedAssets);
+  // ...
+}
+```
+
+The full chain is: `runCostBasisPipeline(excludedAssets)` → `calculateCostBasisFromValidatedTransactions(excludedAssets)` → `assertPriceDataQuality(excludedAssets)` → `collectPricedEntities(excludedAssets)`.
 
 ### 6. Cost-basis for mixed transactions
 
@@ -425,6 +546,7 @@ Why not skip entirely (Option B): skipping the excluded side means the ETH inflo
 
 - Filter excluded-asset movements before they reach the lot creation and matching paths
 - When an inflow's corresponding outflow was excluded (no valued counterpart), create the acquisition lot with an explicit zero cost basis
+- **Log a warning** for every zero-cost acquisition created this way: `logger.warn({ txId, assetSymbol, excludedAsset }, 'Acquired at zero cost basis — counterpart asset excluded from accounting')`. This is a financial system; silent basis invention is not acceptable.
 - This is a deliberate code change in the calculator/matcher, not something that falls out of existing behavior
 
 ### 7. Portfolio reporting
@@ -448,10 +570,10 @@ When cost-basis is blocked by missing prices, the error message should different
 
 ### 9. Balance CLI command
 
-The existing `balance` command becomes a consumer of the `balances` projection:
+The existing `balance` command (currently a single command with `--offline` flag) becomes a consumer of the `balances` projection. **Command surface change:** split into subcommands to match the projection model:
 
-- **Offline mode** (`balance view`): reads directly from `asset_balances` — instant, no recalculation
-- **Online mode** (`balance verify`): fetches live balances, compares with projected calculated balances, writes results back to `asset_balances`
+- **`balance view`** (replaces `balance --offline`): reads directly from `asset_balances` — instant, no recalculation. Shows live-only synthetic rows when present.
+- **`balance verify`** (replaces `balance` without `--offline`): fetches live balances, compares with projected calculated balances, writes results back to `asset_balances` (including synthetic rows for live-only assets).
 
 ## Why Asset-Only Exclusion Is Too Coarse
 
@@ -480,14 +602,15 @@ Wire exclusion awareness into accounting gates and connect to override store in 
 1. Add shared predicates (`isExcludedFromAccounting`, `buildExcludedAssetSet`, `isExcludedAsset`) to `@exitbook/accounting`
 2. Add movement-level `excludedAssets` parameter to `transactionHasAllPrices()`, `collectPricedEntities()`
 3. Update `checkTransactionPriceCoverage()` to skip excluded transactions and excluded-asset movements
-4. Update `runCostBasisPipeline()` to filter excluded transactions and pass excluded assets to validation
+4. Update `runCostBasisPipeline()` to filter excluded transactions and pass excluded assets to validation and calculator (full chain: `runCostBasisPipeline` → `calculateCostBasisFromValidatedTransactions` → `assertPriceDataQuality` → `collectPricedEntities`)
 5. Replace `isSpamOrExcludedTransaction()` in portfolio-handler with shared predicate
-6. Define asset exclusion/inclusion event types for override store
+6. Extend override store schema: add `'asset-exclude'` / `'asset-include'` to `ScopeSchema`, add payload schemas, extend `OverridePayloadSchema` union, update `SCOPE_TO_PAYLOAD_TYPE`
 7. Extend balances projection build to replay exclusion overrides
 8. Add `excluded`/`exclusion_reason`/`excluded_at` population during build
 9. Add bulk-update of `transactions.excluded_from_accounting` during build
 10. Wire override store changes to invalidate `balances` projection
-11. Update cost-basis error messages to mention `assets review`
+11. Wire `ensureConsumerInputsReady()` in projection-runtime: add balances freshness check + excluded-asset loading before price coverage for `cost-basis`/`portfolio` targets
+12. Update cost-basis error messages to mention `assets review`
 
 ### Phase 3: Asset review CLI command
 
@@ -500,8 +623,10 @@ Wire exclusion awareness into accounting gates and connect to override store in 
 
 ### Phase 4: Balance CLI integration
 
-1. Refactor `balance view` (offline) to read from `asset_balances` projection
-2. Refactor `balance verify` (online) to write live balances back to `asset_balances`
+Command surface change: split `balance` (with `--offline` flag) into subcommands.
+
+1. Add `balance view` subcommand — reads from `asset_balances` projection (replaces `balance --offline`). Shows live-only synthetic rows when present.
+2. Add `balance verify` subcommand — fetches live balances, compares with projected calculated balances, writes back to `asset_balances` including synthetic rows for live-only assets (replaces `balance` default mode)
 3. Add balance health as optional readiness gate for consumers
 
 ### Phase 5: Disclosure and reporting
@@ -558,7 +683,7 @@ The core model uses "accounting exclusion" because it covers spam, dust, junk re
 
 - Automatic spam detection improvements (separate concern)
 - Bulk import of exclusion lists
-- Per-account exclusion rules
-- Transaction-level overrides (Phase 7, future)
+- Per-account exclusion rules (exclusion is portfolio-wide by `assetId`; transaction-level overrides cover per-context edge cases)
+- Transaction-level overrides (Phase 6, future)
 - Persisted cost-basis projection (covered by projection-system-refactor.md)
 - Balance verification as a mandatory gate (opt-in readiness check only)

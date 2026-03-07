@@ -1,5 +1,11 @@
-import type { Currency } from '@exitbook/core';
+import type { Currency, Result } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
+
+function unwrap<T>(result: Result<T, Error>): T {
+  expect(result.isOk()).toBe(true);
+  if (result.isErr()) throw result.error;
+  return result.value;
+}
 
 import type { ExchangeLedgerEntry } from '../../schemas.js';
 import type { LedgerEntryWithRaw } from '../grouping.js';
@@ -30,7 +36,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
   test('interprets positive amount as inflow', () => {
     const entry = wrapEntry(createEntry({ amount: '100', assetSymbol: 'USD' as Currency }));
 
-    const result = standardAmounts.interpret(entry, [entry], 'test')._unsafeUnwrap();
+    const result = unwrap(standardAmounts.interpret(entry, [entry], 'test'));
 
     expect(result.inflows).toHaveLength(1);
     expect(result.inflows[0]).toEqual({
@@ -46,7 +52,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
   test('interprets negative amount as outflow', () => {
     const entry = wrapEntry(createEntry({ amount: '-100', assetSymbol: 'USD' as Currency }));
 
-    const result = standardAmounts.interpret(entry, [entry], 'test')._unsafeUnwrap();
+    const result = unwrap(standardAmounts.interpret(entry, [entry], 'test'));
 
     expect(result.inflows).toHaveLength(0);
     expect(result.outflows).toHaveLength(1);
@@ -62,7 +68,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
   test('interprets zero amount as no movement (actually produces inflow of 0 in standard strategy)', () => {
     const entry = wrapEntry(createEntry({ amount: '0', assetSymbol: 'USD' as Currency }));
 
-    const result = standardAmounts.interpret(entry, [entry], 'test')._unsafeUnwrap();
+    const result = unwrap(standardAmounts.interpret(entry, [entry], 'test'));
 
     // Note: standardAmounts returns inflow with '0' amount when amount is exactly zero
     // This is by design - the processor filters zeros later
@@ -77,7 +83,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
       createEntry({ amount: '100', assetSymbol: 'USD' as Currency, fee: '2.50', feeCurrency: 'USD' as Currency })
     );
 
-    const result = standardAmounts.interpret(entry, [entry], 'test')._unsafeUnwrap();
+    const result = unwrap(standardAmounts.interpret(entry, [entry], 'test'));
 
     expect(result.fees).toHaveLength(1);
     expect(result.fees[0]).toEqual({
@@ -92,7 +98,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
   test('uses asset as default fee currency when feeCurrency not specified', () => {
     const entry = wrapEntry(createEntry({ amount: '100', assetSymbol: 'BTC' as Currency, fee: '0.001' }));
 
-    const result = standardAmounts.interpret(entry, [entry], 'test')._unsafeUnwrap();
+    const result = unwrap(standardAmounts.interpret(entry, [entry], 'test'));
 
     expect(result.fees).toHaveLength(1);
     expect(result.fees[0]).toEqual({
@@ -109,7 +115,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
       createEntry({ amount: '100', assetSymbol: 'USD' as Currency, fee: '0', feeCurrency: 'USD' as Currency })
     );
 
-    const result = standardAmounts.interpret(entry, [entry], 'test')._unsafeUnwrap();
+    const result = unwrap(standardAmounts.interpret(entry, [entry], 'test'));
 
     expect(result.fees).toHaveLength(0);
   });
@@ -117,7 +123,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
   test('handles decimal amounts correctly', () => {
     const entry = wrapEntry(createEntry({ amount: '0.00123456', assetSymbol: 'BTC' as Currency }));
 
-    const result = standardAmounts.interpret(entry, [entry], 'test')._unsafeUnwrap();
+    const result = unwrap(standardAmounts.interpret(entry, [entry], 'test'));
 
     expect(result.inflows[0]?.grossAmount).toBe('0.00123456');
   });
@@ -125,7 +131,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
   test('handles large amounts', () => {
     const entry = wrapEntry(createEntry({ amount: '1000000.50', assetSymbol: 'USD' as Currency }));
 
-    const result = standardAmounts.interpret(entry, [entry], 'test')._unsafeUnwrap();
+    const result = unwrap(standardAmounts.interpret(entry, [entry], 'test'));
 
     expect(result.inflows[0]?.grossAmount).toBe('1000000.5');
   });
@@ -133,7 +139,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
   test('handles negative decimal amounts', () => {
     const entry = wrapEntry(createEntry({ amount: '-0.00123456', assetSymbol: 'BTC' as Currency }));
 
-    const result = standardAmounts.interpret(entry, [entry], 'test')._unsafeUnwrap();
+    const result = unwrap(standardAmounts.interpret(entry, [entry], 'test'));
 
     expect(result.outflows[0]?.grossAmount).toBe('0.00123456');
   });
@@ -143,7 +149,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
       createEntry({ amount: '-100', assetSymbol: 'USD' as Currency, fee: '1.50', feeCurrency: 'USD' as Currency })
     );
 
-    const result = standardAmounts.interpret(entry, [entry], 'test')._unsafeUnwrap();
+    const result = unwrap(standardAmounts.interpret(entry, [entry], 'test'));
 
     expect(result.outflows[0]?.grossAmount).toBe('100');
     expect(result.fees[0]?.amount).toBe('1.5');
@@ -154,7 +160,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
     const entry1 = wrapEntry(createEntry({ id: 'E1', amount: '-100', assetSymbol: 'USD' as Currency }));
     const entry2 = wrapEntry(createEntry({ id: 'E2', amount: '0.001', assetSymbol: 'BTC' as Currency }));
 
-    const result = standardAmounts.interpret(entry1, [entry1, entry2], 'test')._unsafeUnwrap();
+    const result = unwrap(standardAmounts.interpret(entry1, [entry1, entry2], 'test'));
 
     expect(result.outflows).toHaveLength(1);
     expect(result.outflows[0]?.grossAmount).toBe('100');
@@ -164,8 +170,8 @@ describe('InterpretationStrategy - standardAmounts', () => {
     const eurEntry = wrapEntry(createEntry({ amount: '500', assetSymbol: 'EUR' as Currency }));
     const btcEntry = wrapEntry(createEntry({ amount: '0.5', assetSymbol: 'BTC' as Currency }));
 
-    const eurResult = standardAmounts.interpret(eurEntry, [eurEntry], 'test')._unsafeUnwrap();
-    const btcResult = standardAmounts.interpret(btcEntry, [btcEntry], 'test')._unsafeUnwrap();
+    const eurResult = unwrap(standardAmounts.interpret(eurEntry, [eurEntry], 'test'));
+    const btcResult = unwrap(standardAmounts.interpret(btcEntry, [btcEntry], 'test'));
 
     expect(eurResult.inflows[0]?.assetSymbol).toBe('EUR');
     expect(btcResult.inflows[0]?.assetSymbol).toBe('BTC');
@@ -176,7 +182,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
       createEntry({ amount: '0.1', assetSymbol: 'BTC' as Currency, fee: '5', feeCurrency: 'USD' as Currency })
     );
 
-    const result = standardAmounts.interpret(entry, [entry], 'test')._unsafeUnwrap();
+    const result = unwrap(standardAmounts.interpret(entry, [entry], 'test'));
 
     expect(result.inflows[0]?.assetSymbol).toBe('BTC');
     expect(result.fees[0]?.assetSymbol).toBe('USD');

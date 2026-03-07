@@ -20,7 +20,9 @@ describe('performAddressGapScanning', () => {
     );
 
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap().addresses).toEqual([]);
+    if (result.isOk()) {
+      expect(result.value.addresses).toEqual([]);
+    }
   });
 
   it('should stop after gap limit consecutive unused addresses', async () => {
@@ -40,7 +42,9 @@ describe('performAddressGapScanning', () => {
 
     expect(result.isOk()).toBe(true);
     // addr1 (active, index 0) + gapLimit 2 = indices 0..2
-    expect(result._unsafeUnwrap().addresses).toEqual(['addr1', 'addr2', 'addr3']);
+    if (result.isOk()) {
+      expect(result.value.addresses).toEqual(['addr1', 'addr2', 'addr3']);
+    }
   });
 
   it('should fail after maxErrors consecutive API errors', async () => {
@@ -58,7 +62,9 @@ describe('performAddressGapScanning', () => {
     );
 
     expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('Failed to scan addresses');
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Failed to scan addresses');
+    }
   });
 
   it('should use gapLimit as fallback when no addresses have activity', async () => {
@@ -76,7 +82,9 @@ describe('performAddressGapScanning', () => {
 
     expect(result.isOk()).toBe(true);
     // No activity: targetIndex = gapLimit - 1 = 2, so indices 0..2
-    expect(result._unsafeUnwrap().addresses).toEqual(['a', 'b', 'c']);
+    if (result.isOk()) {
+      expect(result.value.addresses).toEqual(['a', 'b', 'c']);
+    }
   });
 
   it('should work with cardano blockchain parameter', async () => {
@@ -95,7 +103,9 @@ describe('performAddressGapScanning', () => {
     );
 
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap().addresses).toHaveLength(3);
+    if (result.isOk()) {
+      expect(result.value.addresses).toHaveLength(3);
+    }
 
     // Verify this test's calls use the cardano blockchain name
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for test

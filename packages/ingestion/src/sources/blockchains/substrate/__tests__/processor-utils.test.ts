@@ -88,7 +88,9 @@ function getFundFlow(
   sessionContext = createSessionContext(),
   config = POLKADOT_CONFIG
 ) {
-  return analyzeSubstrateFundFlow(transaction, sessionContext, config)._unsafeUnwrap();
+  const result = analyzeSubstrateFundFlow(transaction, sessionContext, config);
+  if (result.isErr()) throw result.error;
+  return result.value;
 }
 
 describe('expandSourceContext', () => {

@@ -12,13 +12,17 @@ describe('buildBlockchainNativeAssetId', () => {
   it('builds assetId for native blockchain assets', () => {
     const result = buildBlockchainNativeAssetId('bitcoin');
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe('blockchain:bitcoin:native');
+    if (result.isOk()) {
+      expect(result.value).toBe('blockchain:bitcoin:native');
+    }
   });
 
   it('normalizes chain name to lowercase', () => {
     const result = buildBlockchainNativeAssetId('Ethereum');
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe('blockchain:ethereum:native');
+    if (result.isOk()) {
+      expect(result.value).toBe('blockchain:ethereum:native');
+    }
   });
 
   it('returns error for empty chain name', () => {
@@ -31,19 +35,25 @@ describe('buildBlockchainTokenAssetId', () => {
   it('builds assetId for ERC-20 tokens', () => {
     const result = buildBlockchainTokenAssetId('ethereum', '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48');
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe('blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48');
+    if (result.isOk()) {
+      expect(result.value).toBe('blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48');
+    }
   });
 
   it('builds assetId for SPL tokens (preserves case)', () => {
     const result = buildBlockchainTokenAssetId('solana', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe('blockchain:solana:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+    if (result.isOk()) {
+      expect(result.value).toBe('blockchain:solana:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+    }
   });
 
   it('normalizes hex addresses to lowercase', () => {
     const result = buildBlockchainTokenAssetId('Ethereum', '0xA0B86991C6218B36C1D19D4A2E9EB0CE3606EB48');
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe('blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48');
+    if (result.isOk()) {
+      expect(result.value).toBe('blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48');
+    }
   });
 
   it('preserves case for non-hex references (IBC denoms)', () => {
@@ -52,9 +62,11 @@ describe('buildBlockchainTokenAssetId', () => {
       'ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2'
     );
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe(
-      'blockchain:cosmos:ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2'
-    );
+    if (result.isOk()) {
+      expect(result.value).toBe(
+        'blockchain:cosmos:ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2'
+      );
+    }
   });
 
   it('returns error for empty chain name', () => {
@@ -72,13 +84,17 @@ describe('buildExchangeAssetId', () => {
   it('builds assetId for exchange assets', () => {
     const result = buildExchangeAssetId('kraken', 'BTC');
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe('exchange:kraken:btc');
+    if (result.isOk()) {
+      expect(result.value).toBe('exchange:kraken:btc');
+    }
   });
 
   it('normalizes to lowercase', () => {
     const result = buildExchangeAssetId('Kraken', 'USDC');
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe('exchange:kraken:usdc');
+    if (result.isOk()) {
+      expect(result.value).toBe('exchange:kraken:usdc');
+    }
   });
 
   it('returns error for empty exchange name', () => {
@@ -96,13 +112,17 @@ describe('buildFiatAssetId', () => {
   it('builds assetId for fiat currencies', () => {
     const result = buildFiatAssetId('USD');
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe('fiat:usd');
+    if (result.isOk()) {
+      expect(result.value).toBe('fiat:usd');
+    }
   });
 
   it('normalizes to lowercase', () => {
     const result = buildFiatAssetId('EUR');
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBe('fiat:eur');
+    if (result.isOk()) {
+      expect(result.value).toBe('fiat:eur');
+    }
   });
 
   it('returns error for empty currency code', () => {
@@ -115,55 +135,65 @@ describe('parseAssetId', () => {
   it('parses blockchain native assetId', () => {
     const result = parseAssetId('blockchain:ethereum:native');
     expect(result.isOk()).toBe(true);
-    const parsed = result._unsafeUnwrap();
-    expect(parsed).toEqual({
-      namespace: 'blockchain',
-      chain: 'ethereum',
-      ref: 'native',
-    });
+    if (result.isOk()) {
+      const parsed = result.value;
+      expect(parsed).toEqual({
+        namespace: 'blockchain',
+        chain: 'ethereum',
+        ref: 'native',
+      });
+    }
   });
 
   it('parses blockchain token assetId', () => {
     const result = parseAssetId('blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48');
     expect(result.isOk()).toBe(true);
-    const parsed = result._unsafeUnwrap();
-    expect(parsed).toEqual({
-      namespace: 'blockchain',
-      chain: 'ethereum',
-      ref: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-    });
+    if (result.isOk()) {
+      const parsed = result.value;
+      expect(parsed).toEqual({
+        namespace: 'blockchain',
+        chain: 'ethereum',
+        ref: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      });
+    }
   });
 
   it('parses unknown assetId with multiple colons', () => {
     const result = parseAssetId('blockchain:ethereum:unknown:usdc');
     expect(result.isOk()).toBe(true);
-    const parsed = result._unsafeUnwrap();
-    expect(parsed).toEqual({
-      namespace: 'blockchain',
-      chain: 'ethereum',
-      ref: 'unknown:usdc',
-    });
+    if (result.isOk()) {
+      const parsed = result.value;
+      expect(parsed).toEqual({
+        namespace: 'blockchain',
+        chain: 'ethereum',
+        ref: 'unknown:usdc',
+      });
+    }
   });
 
   it('parses exchange assetId', () => {
     const result = parseAssetId('exchange:kraken:btc');
     expect(result.isOk()).toBe(true);
-    const parsed = result._unsafeUnwrap();
-    expect(parsed).toEqual({
-      namespace: 'exchange',
-      exchange: 'kraken',
-      currencyCode: 'btc',
-    });
+    if (result.isOk()) {
+      const parsed = result.value;
+      expect(parsed).toEqual({
+        namespace: 'exchange',
+        exchange: 'kraken',
+        currencyCode: 'btc',
+      });
+    }
   });
 
   it('parses fiat assetId', () => {
     const result = parseAssetId('fiat:usd');
     expect(result.isOk()).toBe(true);
-    const parsed = result._unsafeUnwrap();
-    expect(parsed).toEqual({
-      namespace: 'fiat',
-      currencyCode: 'usd',
-    });
+    if (result.isOk()) {
+      const parsed = result.value;
+      expect(parsed).toEqual({
+        namespace: 'fiat',
+        currencyCode: 'usd',
+      });
+    }
   });
 
   it('returns error for invalid format', () => {

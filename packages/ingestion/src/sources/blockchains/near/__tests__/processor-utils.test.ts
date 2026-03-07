@@ -18,6 +18,7 @@ import type {
   NearReceiptAction,
 } from '@exitbook/blockchain-providers';
 import { parseDecimal, type Currency } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, test } from 'vitest';
 
 import {
@@ -112,8 +113,7 @@ describe('NEAR Processor Utils - groupByTransactionHash', () => {
 
     const result = groupNearEventsByTransaction(events);
 
-    expect(result.isOk()).toBe(true);
-    const groups = result._unsafeUnwrap();
+    const groups = assertOk(result);
     expect(groups.size).toBe(1);
     const group = groups.get('tx1');
     expect(group).toBeDefined();
@@ -128,8 +128,7 @@ describe('NEAR Processor Utils - groupByTransactionHash', () => {
 
     const result = groupNearEventsByTransaction(events);
 
-    expect(result.isOk()).toBe(true);
-    const groups = result._unsafeUnwrap();
+    const groups = assertOk(result);
     expect(groups.size).toBe(2);
     expect(groups.get('tx1')?.transaction).toBeDefined();
     expect(groups.get('tx2')?.transaction).toBeDefined();
@@ -144,8 +143,7 @@ describe('NEAR Processor Utils - groupByTransactionHash', () => {
 
     const result = groupNearEventsByTransaction(events);
 
-    expect(result.isOk()).toBe(true);
-    const groups = result._unsafeUnwrap();
+    const groups = assertOk(result);
     expect(groups.size).toBe(1);
     const group = groups.get('tx1');
     expect(group!.receipts).toHaveLength(3);
@@ -159,8 +157,7 @@ describe('NEAR Processor Utils - groupByTransactionHash', () => {
 
     const result = groupNearEventsByTransaction(events);
 
-    expect(result.isOk()).toBe(true);
-    const groups = result._unsafeUnwrap();
+    const groups = assertOk(result);
     expect(groups.size).toBe(1);
     const group = groups.get('tx1');
     expect(group!.balanceChanges).toHaveLength(2);
@@ -171,8 +168,7 @@ describe('NEAR Processor Utils - groupByTransactionHash', () => {
 
     const result = groupNearEventsByTransaction(events);
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toBe('Duplicate transaction record for hash tx1');
+    expect(assertErr(result).message).toBe('Duplicate transaction record for hash tx1');
   });
 
   test('should return error on unknown transaction type hint', () => {
@@ -180,15 +176,13 @@ describe('NEAR Processor Utils - groupByTransactionHash', () => {
 
     const result = groupNearEventsByTransaction(events);
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toBe('Unknown transaction type hint: unknown-type');
+    expect(assertErr(result).message).toBe('Unknown transaction type hint: unknown-type');
   });
 
   test('should handle empty input', () => {
     const result = groupNearEventsByTransaction([]);
 
-    expect(result.isOk()).toBe(true);
-    const groups = result._unsafeUnwrap();
+    const groups = assertOk(result);
     expect(groups.size).toBe(0);
   });
 });
@@ -217,10 +211,7 @@ describe('NEAR Processor Utils - validateTransactionGroup', () => {
 
     const result = validateTransactionGroup('tx123', group);
 
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toBe('Missing transaction record for hash tx123');
-    }
+    expect(assertErr(result).message).toBe('Missing transaction record for hash tx123');
   });
 
   test('should allow empty receipts, balance changes, and token transfers', () => {
@@ -254,13 +245,7 @@ describe('NEAR Processor Utils - correlateTransactionData', () => {
 
     const result = correlateTransactionData(group);
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) {
-      console.error(result.error);
-      return;
-    }
-
-    const correlated = result.value;
+    const correlated = assertOk(result);
     expect(correlated.receipts).toHaveLength(2); // receipt1 and receipt2
 
     // Receipt 1 should have 1 balance change
@@ -289,12 +274,10 @@ describe('NEAR Processor Utils - correlateTransactionData', () => {
 
     const result = correlateTransactionData(group);
 
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toContain('Balance change missing deltaAmount');
-      expect(result.error.message).toContain('receipt1');
-      expect(result.error.message).toContain('alice.near');
-    }
+    const error = assertErr(result);
+    expect(error.message).toContain('Balance change missing deltaAmount');
+    expect(error.message).toContain('receipt1');
+    expect(error.message).toContain('alice.near');
   });
 
   test('should fail when transaction is missing', () => {
@@ -307,10 +290,7 @@ describe('NEAR Processor Utils - correlateTransactionData', () => {
 
     const result = correlateTransactionData(group);
 
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toBe('Missing transaction in group');
-    }
+    expect(assertErr(result).message).toBe('Missing transaction in group');
   });
 
   test('should fail fast for RECEIPT-cause balance changes with invalid receipt_id', () => {

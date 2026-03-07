@@ -555,21 +555,12 @@ describe('err()', () => {
 // -- compat shims --
 
 describe('compat shims', () => {
-  it('Ok._unsafeUnwrap returns value', () => {
-    expect(ok(42)._unsafeUnwrap()).toBe(42);
-  });
-
   it('Ok._unsafeUnwrapErr throws', () => {
     expect(() => ok(42)._unsafeUnwrapErr()).toThrow('Called _unsafeUnwrapErr on Ok');
   });
 
   it('Ok.unwrapOr returns value, ignoring default', () => {
     expect(ok(42).unwrapOr(0)).toBe(42);
-  });
-
-  it('Err._unsafeUnwrap throws the error', () => {
-    const error = new Error('boom');
-    expect(() => err(error)._unsafeUnwrap()).toThrow(error);
   });
 
   it('Err._unsafeUnwrapErr returns the error', () => {

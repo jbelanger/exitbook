@@ -49,7 +49,8 @@ describe('convertKucoinAccountHistoryConvertToTransaction', () => {
 
     const resultObj = convertKucoinAccountHistoryConvertToTransaction(deposit, withdrawal, '2024-01-15 10:30:00');
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.source).toBe('kucoin');
     expect(result.operation.category).toBe('trade');
@@ -100,7 +101,8 @@ describe('convertKucoinAccountHistoryConvertToTransaction', () => {
 
     const resultObj = convertKucoinAccountHistoryConvertToTransaction(deposit, withdrawal, '2024-02-20 15:45:00');
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     // Function always includes fee entry even when amount is 0
     expect(result.fees).toHaveLength(1);
@@ -126,7 +128,8 @@ describe('convertKucoinDepositToTransaction', () => {
 
     const resultObj = convertKucoinDepositToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.source).toBe('kucoin');
     expect(result.operation.category).toBe('transfer');
@@ -166,7 +169,8 @@ describe('convertKucoinDepositToTransaction', () => {
 
     const resultObj = convertKucoinDepositToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.fees).toHaveLength(0);
   });
@@ -187,7 +191,8 @@ describe('convertKucoinDepositToTransaction', () => {
 
     const resultObj = convertKucoinDepositToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.externalId).toBe('unique-hash-123');
   });
@@ -208,7 +213,8 @@ describe('convertKucoinDepositToTransaction', () => {
 
     const resultObj = convertKucoinDepositToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.externalId).toContain('user222');
     expect(result.externalId).toContain('deposit');
@@ -231,7 +237,8 @@ describe('convertKucoinDepositToTransaction', () => {
 
     const resultObj = convertKucoinDepositToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.blockchain).toBeDefined();
     expect(result.blockchain?.name).toBe('unknown');
@@ -255,7 +262,8 @@ describe('convertKucoinDepositToTransaction', () => {
 
     const resultObj = convertKucoinDepositToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.blockchain).toBeDefined();
     expect(result.blockchain?.transaction_hash).toBe('pending-hash');
@@ -278,7 +286,8 @@ describe('convertKucoinDepositToTransaction', () => {
 
     const resultObj = convertKucoinDepositToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.blockchain).toBeUndefined();
   });
@@ -305,7 +314,8 @@ describe('convertKucoinOrderSplittingToTransaction', () => {
 
     const resultObj = convertKucoinOrderSplittingToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.source).toBe('kucoin');
     expect(result.operation.category).toBe('trade');
@@ -347,7 +357,8 @@ describe('convertKucoinOrderSplittingToTransaction', () => {
 
     const resultObj = convertKucoinOrderSplittingToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.operation.type).toBe('sell');
 
@@ -383,7 +394,8 @@ describe('convertKucoinOrderSplittingToTransaction', () => {
 
     const resultObj = convertKucoinOrderSplittingToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.externalId).toContain('order-123');
     expect(result.externalId).toContain('50'); // filled amount
@@ -410,7 +422,8 @@ describe('convertKucoinTradingBotToTransaction', () => {
 
     const resultObj = convertKucoinTradingBotToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.source).toBe('kucoin');
     expect(result.operation.category).toBe('trade');
@@ -444,7 +457,8 @@ describe('convertKucoinTradingBotToTransaction', () => {
 
     const resultObj = convertKucoinTradingBotToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.operation.type).toBe('sell');
 
@@ -481,7 +495,8 @@ describe('convertKucoinSpotOrderToTransaction', () => {
 
     const resultObj = convertKucoinSpotOrderToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.source).toBe('kucoin');
     expect(result.operation.category).toBe('trade');
@@ -520,7 +535,8 @@ describe('convertKucoinSpotOrderToTransaction', () => {
 
     const resultObj = convertKucoinSpotOrderToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.operation.type).toBe('sell');
 
@@ -555,7 +571,8 @@ describe('convertKucoinSpotOrderToTransaction', () => {
 
     const resultObj = convertKucoinSpotOrderToTransaction(partialRow);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.status).toBe('open');
   });
@@ -579,7 +596,8 @@ describe('convertKucoinWithdrawalToTransaction', () => {
 
     const resultObj = convertKucoinWithdrawalToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.source).toBe('kucoin');
     expect(result.operation.category).toBe('transfer');
@@ -617,7 +635,8 @@ describe('convertKucoinWithdrawalToTransaction', () => {
 
     const resultObj = convertKucoinWithdrawalToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.movements.outflows![0]?.grossAmount.toString()).toBe('100');
   });
@@ -639,7 +658,8 @@ describe('convertKucoinWithdrawalToTransaction', () => {
 
     const resultObj = convertKucoinWithdrawalToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.fees).toHaveLength(0);
   });
@@ -661,7 +681,8 @@ describe('convertKucoinWithdrawalToTransaction', () => {
 
     const resultObj = convertKucoinWithdrawalToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.externalId).toBe('unique-withdrawal-hash');
   });
@@ -683,7 +704,8 @@ describe('convertKucoinWithdrawalToTransaction', () => {
 
     const resultObj = convertKucoinWithdrawalToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.blockchain).toBeDefined();
     expect(result.blockchain?.name).toBe('unknown');
@@ -708,7 +730,8 @@ describe('convertKucoinWithdrawalToTransaction', () => {
 
     const resultObj = convertKucoinWithdrawalToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.blockchain).toBeDefined();
     expect(result.blockchain?.transaction_hash).toBe('pending-hash');
@@ -732,7 +755,8 @@ describe('convertKucoinWithdrawalToTransaction', () => {
 
     const resultObj = convertKucoinWithdrawalToTransaction(row);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result.blockchain).toBeUndefined();
   });
@@ -818,7 +842,8 @@ describe('processKucoinAccountHistory', () => {
 
     const resultObj = processKucoinAccountHistory(rows, logger);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result).toHaveLength(1);
     expect(result[0]?.operation.type).toBe('swap');
@@ -878,7 +903,8 @@ describe('processKucoinAccountHistory', () => {
 
     const resultObj = processKucoinAccountHistory(rows, logger);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result).toHaveLength(2);
     expect(result[0]?.movements.inflows![0]?.assetSymbol).toBe('USDT');
@@ -924,7 +950,8 @@ describe('processKucoinAccountHistory', () => {
 
     const resultObj = processKucoinAccountHistory(rows, logger);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result).toHaveLength(1); // Only one valid convert market pair
   });
@@ -947,7 +974,8 @@ describe('processKucoinAccountHistory', () => {
 
     const resultObj = processKucoinAccountHistory(rows, logger);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result).toHaveLength(0); // No valid pairs
   });
@@ -991,7 +1019,8 @@ describe('processKucoinAccountHistory', () => {
 
     const resultObj = processKucoinAccountHistory(rows, logger);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result).toHaveLength(0); // No valid pairs (group has 3 entries)
   });
@@ -999,7 +1028,8 @@ describe('processKucoinAccountHistory', () => {
   test('returns empty array for empty input', () => {
     const resultObj = processKucoinAccountHistory([], logger);
     expect(resultObj.isOk()).toBe(true);
-    const result = resultObj._unsafeUnwrap();
+    if (resultObj.isErr()) return;
+    const result = resultObj.value;
 
     expect(result).toHaveLength(0);
   });

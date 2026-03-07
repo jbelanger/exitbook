@@ -1,6 +1,12 @@
-import type { Currency } from '@exitbook/core';
+import type { Currency, Result } from '@exitbook/core';
 import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers';
 import { describe, expect, test } from 'vitest';
+
+function unwrap<T>(result: Result<T, Error>): T {
+  expect(result.isOk()).toBe(true);
+  if (result.isErr()) throw result.error;
+  return result.value;
+}
 
 import type { DeepPartial } from '../../../../shared/test-utils/index.js';
 import type { LedgerEntryWithRaw } from '../../shared/strategies/grouping.js';
@@ -63,7 +69,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'advanced_trade_fill', amount: { amount: '317.60', currency: 'USDC' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.inflows).toHaveLength(1);
       expect(result.inflows[0]?.grossAmount).toBe('317.6');
@@ -77,7 +83,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'advanced_trade_fill', amount: { amount: '-72.31', currency: 'USDC' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.outflows).toHaveLength(1);
       expect(result.outflows[0]?.grossAmount).toBe('72.31');
@@ -99,7 +105,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'advanced_trade_fill', amount: { amount: '-100.00', currency: 'USDC' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.outflows).toHaveLength(1);
       expect(result.outflows[0]?.grossAmount).toBe('100');
@@ -122,7 +128,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'advanced_trade_fill', amount: { amount: '0.04', currency: 'ETH' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.inflows).toHaveLength(1);
       expect(result.inflows[0]?.grossAmount).toBe('0.04');
@@ -151,7 +157,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'buy', amount: { amount: '-747.94', currency: 'CAD' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.outflows).toHaveLength(1);
       expect(result.outflows[0]?.grossAmount).toBe('747.94');
@@ -170,7 +176,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'buy', amount: { amount: '37.41', currency: 'HNT' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.inflows).toHaveLength(1);
       expect(result.inflows[0]?.grossAmount).toBe('37.41');
@@ -190,7 +196,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'buy', amount: { amount: '534.99', currency: 'USDC' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.inflows).toHaveLength(1);
       expect(result.fees).toHaveLength(0);
@@ -217,7 +223,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'sell', amount: { amount: '0.06', currency: 'CAD' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.inflows).toHaveLength(1);
       expect(result.inflows[0]?.grossAmount).toBe('0.06');
@@ -247,7 +253,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'fiat_withdrawal', amount: { amount: '-500', currency: 'CAD' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.outflows).toHaveLength(1);
       expect(result.outflows[0]?.grossAmount).toBe('500');
@@ -267,7 +273,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'send', amount: { amount: '-713.23', currency: 'USDC' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.outflows).toHaveLength(1);
       expect(result.outflows[0]?.grossAmount).toBe('713.23');
@@ -287,7 +293,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'send', amount: { amount: '-1.5', currency: 'ETH' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.outflows).toHaveLength(1);
       expect(result.outflows[0]?.grossAmount).toBe('1.5');
@@ -308,7 +314,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'fiat_deposit', amount: { amount: '1000', currency: 'CAD' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.inflows).toHaveLength(1);
       expect(result.inflows[0]?.grossAmount).toBe('1000');
@@ -327,7 +333,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'interest', amount: { amount: '0.001232', currency: 'USDC' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.inflows).toHaveLength(1);
       expect(result.inflows[0]?.grossAmount).toBe('0.001232');
@@ -345,7 +351,7 @@ describe('coinbaseGrossAmounts', () => {
         raw: { type: 'trade', amount: { amount: '26.22', currency: 'HNT' } },
       });
 
-      const result = coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase')._unsafeUnwrap();
+      const result = unwrap(coinbaseGrossAmounts.interpret(entry, [entry], 'coinbase'));
 
       expect(result.inflows).toHaveLength(1);
       expect(result.inflows[0]?.grossAmount).toBe('26.22');
@@ -383,8 +389,8 @@ describe('coinbaseGrossAmounts', () => {
       });
 
       const group = [cadEntry, hntEntry];
-      const cadResult = coinbaseGrossAmounts.interpret(cadEntry, group, 'coinbase')._unsafeUnwrap();
-      const hntResult = coinbaseGrossAmounts.interpret(hntEntry, group, 'coinbase')._unsafeUnwrap();
+      const cadResult = unwrap(coinbaseGrossAmounts.interpret(cadEntry, group, 'coinbase'));
+      const hntResult = unwrap(coinbaseGrossAmounts.interpret(hntEntry, group, 'coinbase'));
 
       // First entry in group gets the fee
       expect(cadResult.fees).toHaveLength(1);

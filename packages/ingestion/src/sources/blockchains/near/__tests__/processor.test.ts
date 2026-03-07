@@ -731,7 +731,8 @@ describe('NearProcessor', () => {
       // Should return error during grouping
       const result = await processor.process(events, createFundFlowContext());
       expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toMatch(/Duplicate transaction record/);
+      expect(result.isErr()).toBe(true);
+      expect(result.isErr() && result.error.message).toMatch(/Duplicate transaction record/);
     });
 
     test('should accumulate errors from multiple failed transactions', async () => {
