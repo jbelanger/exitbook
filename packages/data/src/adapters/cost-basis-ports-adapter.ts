@@ -1,5 +1,5 @@
 import type { ICostBasisPersistence } from '@exitbook/accounting/ports';
-import { resultFromAsync } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/core';
 
 import type { DataContext } from '../data-context.js';
 
@@ -10,7 +10,7 @@ import type { DataContext } from '../data-context.js';
 export function buildCostBasisPorts(db: DataContext): ICostBasisPersistence {
   return {
     loadCostBasisContext: () =>
-      resultFromAsync(async function* () {
+      resultDoAsync(async function* () {
         const transactions = yield* await db.transactions.findAll();
         const confirmedLinks = yield* await db.transactionLinks.findAll('confirmed');
 

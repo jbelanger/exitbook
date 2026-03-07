@@ -1,5 +1,5 @@
 import type { CursorState, ExchangeCredentials, RawTransactionInput } from '@exitbook/core';
-import { resultFrom, wrapError } from '@exitbook/core';
+import { resultDo, wrapError } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { HttpClient } from '@exitbook/http';
@@ -132,7 +132,7 @@ async function fetchTransactionPage(
 }
 
 export function createCoinbaseClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
-  return resultFrom(function* () {
+  return resultDo(function* () {
     const { apiKey, apiSecret } = yield* ExchangeUtils.validateCredentials(
       CoinbaseCredentialsSchema,
       credentials,

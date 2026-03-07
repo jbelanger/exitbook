@@ -1,4 +1,4 @@
-import { resultFromAsync } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/core';
 import type { IIngestionDataPurge } from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';
@@ -13,7 +13,7 @@ import type { DataContext } from '../data-context.js';
 export function buildIngestionPurgePorts(db: DataContext): IIngestionDataPurge {
   return {
     async countPurgeImpact(accountIds) {
-      return resultFromAsync(async function* () {
+      return resultDoAsync(async function* () {
         const sessions = yield* await (accountIds
           ? db.importSessions.count({ accountIds })
           : db.importSessions.count());
@@ -30,11 +30,11 @@ export function buildIngestionPurgePorts(db: DataContext): IIngestionDataPurge {
     },
 
     async purgeImportedData(accountIds) {
-      return resultFromAsync(async function* (self) {
+      return resultDoAsync(async function* (self) {
         const impact = yield* await self.countPurgeImpact(accountIds);
 
         return yield* await db.executeInTransaction(async (tx) =>
-          resultFromAsync(async function* () {
+          resultDoAsync(async function* () {
             if (accountIds) {
               for (const accountId of accountIds) {
                 yield* await tx.rawTransactions.deleteAll({ accountId });

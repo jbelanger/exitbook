@@ -79,7 +79,7 @@ Two-tier handler pattern (DB-only vs infrastructure). Details in `docs/code-assi
 
 - Custom `Result<T, E>` in `packages/core/src/result/` — **not neverthrow**. Constructors: `ok(value)`, `err(error)`.
 - All fallible functions return `Result<T, Error>` (no throws). Narrow with `isOk()`/`isErr()`, access `.value`/`.error`.
-- Compose with `resultFrom`/`resultFromAsync` using `yield*` — short-circuits on first `Err`.
+- Compose with `resultDo`/`resultTry`/`resultDoAsync`/`resultTryAsync` using `yield*` — short-circuits on first `Err`.
 - Full API reference and examples: `docs/code-assistants/result-type.md`
 
 ### Zod Schemas

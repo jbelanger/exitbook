@@ -1,5 +1,5 @@
 import { type RawTransaction, wrapError } from '@exitbook/core';
-import { err, ok, resultFrom, type Result } from '@exitbook/core';
+import { err, ok, resultDo, type Result } from '@exitbook/core';
 import { type Logger } from '@exitbook/logger';
 import type { ControlledTransaction, Kysely, Selectable } from '@exitbook/sqlite';
 import { Decimal } from 'decimal.js';
@@ -116,7 +116,7 @@ export function parseJson<T = unknown>(value: unknown): Result<T | undefined, Er
  * Convert raw_transactions row to RawTransaction domain model.
  */
 export function toRawTransaction(row: Selectable<RawTransactionTable>): Result<RawTransaction, Error> {
-  return resultFrom(function* () {
+  return resultDo(function* () {
     const providerData = yield* parseJson<unknown>(row.provider_data);
     const normalizedData = yield* parseJson<unknown>(row.normalized_data);
 

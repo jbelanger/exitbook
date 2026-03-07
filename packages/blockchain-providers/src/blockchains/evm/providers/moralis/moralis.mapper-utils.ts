@@ -1,4 +1,4 @@
-import { resultFrom, type Result } from '@exitbook/core';
+import { resultDo, type Result } from '@exitbook/core';
 
 import type { NormalizationError } from '../../../../core/index.js';
 import { generateUniqueTransactionEventId, validateOutput } from '../../../../core/index.js';
@@ -40,7 +40,7 @@ export function mapMoralisWalletHistoryTransaction(
   // Convert back to wei for consistency with the rest of the pipeline (processor converts from wei).
   const feeWei = calculateGasFee(rawData.receipt_gas_used || '0', rawData.gas_price || '0').toString();
 
-  return resultFrom(function* () {
+  return resultDo(function* () {
     const results: EvmTransaction[] = [];
 
     // 1. Parent transaction (native value transfer + fee carrier)

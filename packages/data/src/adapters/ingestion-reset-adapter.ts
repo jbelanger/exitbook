@@ -1,4 +1,4 @@
-import { resultFromAsync } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/core';
 import type { IIngestionDataReset } from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';
@@ -10,7 +10,7 @@ import type { DataContext } from '../data-context.js';
 export function buildIngestionResetPorts(db: DataContext): IIngestionDataReset {
   return {
     async countResetImpact(accountIds) {
-      return resultFromAsync(async function* () {
+      return resultDoAsync(async function* () {
         const transactions = yield* await (accountIds
           ? db.transactions.count({ accountIds, includeExcluded: true })
           : db.transactions.count({ includeExcluded: true }));
@@ -20,11 +20,11 @@ export function buildIngestionResetPorts(db: DataContext): IIngestionDataReset {
     },
 
     async resetDerivedData(accountIds) {
-      return resultFromAsync(async function* (self) {
+      return resultDoAsync(async function* (self) {
         const impact = yield* await self.countResetImpact(accountIds);
 
         return yield* await db.executeInTransaction(async (tx) =>
-          resultFromAsync(async function* () {
+          resultDoAsync(async function* () {
             yield* await (accountIds ? tx.transactions.deleteByAccountIds(accountIds) : tx.transactions.deleteAll());
 
             // Reset all raw data to pending so reprocessing picks them up

@@ -1,5 +1,5 @@
 import type { ExchangeCredentials } from '@exitbook/core';
-import { ExchangeCredentialsSchema, resultFrom, wrapError } from '@exitbook/core';
+import { ExchangeCredentialsSchema, resultDo, wrapError } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
@@ -18,7 +18,7 @@ import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } 
 export function createKuCoinClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
   const logger = getLogger('KuCoinClient');
 
-  return resultFrom(function* () {
+  return resultDo(function* () {
     const { apiKey, apiSecret, apiPassphrase } = yield* ExchangeUtils.validateCredentials(
       ExchangeCredentialsSchema,
       credentials,

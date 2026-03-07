@@ -4,7 +4,7 @@
 import type { TransactionLink } from '@exitbook/accounting';
 import type { FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
-import { err, ok, resultFrom } from '@exitbook/core';
+import { err, ok, resultDo } from '@exitbook/core';
 import type { z } from 'zod';
 
 import type { ExportCommandOptionsSchema } from '../shared/schemas.js';
@@ -78,7 +78,7 @@ export function parseSinceDate(since: string): Result<number, Error> {
  * No validation needed - options are already validated by Zod schema.
  */
 export function buildExportParamsFromFlags(options: ExportCommandOptions): Result<ExportHandlerParams, Error> {
-  return resultFrom(function* () {
+  return resultDo(function* () {
     const sourceName = options.exchange || options.blockchain;
     const format = options.format ?? 'csv';
     const csvFormat = options.csvFormat ?? 'normalized';

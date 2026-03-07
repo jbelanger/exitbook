@@ -1,5 +1,5 @@
 import type { RawTransaction } from '@exitbook/core';
-import { ok, resultFromAsync, type Result } from '@exitbook/core';
+import { ok, resultDoAsync, type Result } from '@exitbook/core';
 
 import type { INearBatchSource } from '../../../ports/near-batch-source.js';
 
@@ -32,7 +32,7 @@ export class NearStreamBatchProvider implements IRawDataBatchProvider {
       return ok([]);
     }
 
-    return resultFromAsync(async function* (self) {
+    return resultDoAsync(async function* (self) {
       // 1) Anchor on transaction hashes from transactions + receipts + token-transfers
       const hashes = yield* await self.nearBatchSource.fetchPendingAnchorHashes(self.accountId, self.hashBatchSize);
 

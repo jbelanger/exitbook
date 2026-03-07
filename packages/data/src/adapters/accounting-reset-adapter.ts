@@ -1,5 +1,5 @@
 import type { IAccountingDataReset } from '@exitbook/accounting/ports';
-import { resultFromAsync } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/core';
 
 import type { DataContext } from '../data-context.js';
 
@@ -10,7 +10,7 @@ import type { DataContext } from '../data-context.js';
 export function buildAccountingResetPorts(db: DataContext): IAccountingDataReset {
   return {
     async countResetImpact(accountIds) {
-      return resultFromAsync(async function* () {
+      return resultDoAsync(async function* () {
         const links = yield* await (accountIds
           ? db.transactionLinks.count({ accountIds })
           : db.transactionLinks.count());
@@ -26,11 +26,11 @@ export function buildAccountingResetPorts(db: DataContext): IAccountingDataReset
     },
 
     async resetDerivedData(accountIds) {
-      return resultFromAsync(async function* (self) {
+      return resultDoAsync(async function* (self) {
         const impact = yield* await self.countResetImpact(accountIds);
 
         return yield* await db.executeInTransaction(async (tx) =>
-          resultFromAsync(async function* () {
+          resultDoAsync(async function* () {
             // FK-ordered: consolidated movements first, then links
             yield* await (accountIds
               ? tx.utxoConsolidatedMovements.deleteByAccountIds(accountIds)

@@ -6,7 +6,7 @@ import {
   ExchangeCredentialsSchema,
   VerificationMetadataSchema,
 } from '@exitbook/core';
-import { err, ok, resultFrom, resultFromAsyncCatching, type Result } from '@exitbook/core';
+import { err, ok, resultDo, resultTryAsync, type Result } from '@exitbook/core';
 import type { Selectable, Updateable } from '@exitbook/sqlite';
 import { z } from 'zod';
 
@@ -64,7 +64,7 @@ function isUnsetUserId(userId: number | null | undefined): boolean {
 }
 
 function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
-  return resultFrom(function* () {
+  return resultDo(function* () {
     const credentials = yield* parseWithSchema(row.credentials, ExchangeCredentialsSchema.optional());
     const lastCursor = yield* parseWithSchema(row.last_cursor, z.record(z.string(), CursorStateSchema).optional());
     const verificationMetadata = yield* parseWithSchema(
@@ -103,7 +103,7 @@ export class AccountRepository extends BaseRepository {
   }
 
   async findBy(params: AccountKeyParams): Promise<Result<Account | undefined, Error>> {
-    return resultFromAsyncCatching(
+    return resultTryAsync(
       async function* (self) {
         let query = self.db
           .selectFrom('accounts')
@@ -129,7 +129,7 @@ export class AccountRepository extends BaseRepository {
   }
 
   async findById(accountId: number): Promise<Result<Account, Error>> {
-    return resultFromAsyncCatching(
+    return resultTryAsync(
       async function* (self) {
         const row = await self.db.selectFrom('accounts').selectAll().where('id', '=', accountId).executeTakeFirst();
         if (!row) yield* err(`Account ${accountId} not found`);
@@ -146,7 +146,7 @@ export class AccountRepository extends BaseRepository {
     sourceName?: string | undefined;
     userId?: number | undefined;
   }): Promise<Result<Account[], Error>> {
-    return resultFromAsyncCatching(
+    return resultTryAsync(
       async function* (self) {
         let query = self.db.selectFrom('accounts').selectAll();
 
@@ -180,7 +180,7 @@ export class AccountRepository extends BaseRepository {
   }
 
   async findOrCreate(params: FindOrCreateAccountParams): Promise<Result<Account, Error>> {
-    return resultFromAsyncCatching(
+    return resultTryAsync(
       async function* (self) {
         if (!params.identifier || params.identifier.trim() === '') {
           yield* err('Account identifier must not be empty');
@@ -253,7 +253,7 @@ export class AccountRepository extends BaseRepository {
   }
 
   async update(accountId: number, updates: UpdateAccountParams): Promise<Result<void, Error>> {
-    return resultFromAsyncCatching(
+    return resultTryAsync(
       async function* (self) {
         const updateData: Updateable<AccountsTable> = {
           updated_at: new Date().toISOString(),
@@ -315,7 +315,7 @@ export class AccountRepository extends BaseRepository {
   }
 
   async updateCursor(accountId: number, operationType: string, cursor: CursorState): Promise<Result<void, Error>> {
-    return resultFromAsyncCatching(
+    return resultTryAsync(
       async function* (self) {
         const account = yield* await self.findById(accountId);
         const updatedCursors = { ...(account.lastCursor ?? {}), [operationType]: cursor };

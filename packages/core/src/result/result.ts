@@ -1,7 +1,7 @@
 /**
  * A discriminated union representing either success (`Ok`) or failure (`Err`).
  *
- * Use `ok(value)` and `err(error)` to construct, and `resultFrom` / `resultFromAsync`
+ * Use `ok(value)` and `err(error)` to construct, and `resultDo` / `resultDoAsync`
  * for composing multiple Result-returning operations with automatic error propagation.
  *
  * @example
@@ -74,23 +74,23 @@ export class Err<T, E> {
   *[Symbol.iterator](): Generator<Err<never, E>, never> {
     yield this as unknown as Err<never, E>;
     // Required to satisfy generator completion typing; control never reaches here
-    // because resultFrom/resultFromAsync terminate the generator on receiving the yielded Err
+    // because resultDo/resultDoAsync terminate the generator on receiving the yielded Err
     throw new Error('unreachable');
   }
 }
 
-export const ok = <T, E = never>(value: T): Result<T, E> => new Ok(value);
+export const ok = <T, E = never>(value: T): Ok<T, E> => new Ok(value);
 
 /** Normalizes unknown values to Error instances. */
-export function toError(value: unknown): Error {
+export function normalizeError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value));
 }
 
-export function err<T = never>(message: string, cause?: unknown): Result<T, Error>;
-export function err<T = never, E = Error>(error: E): Result<T, E>;
-export function err<T = never>(errorOrMessage: unknown, cause?: unknown): Result<T, Error> {
+export function err<T = never>(message: string, cause?: unknown): Err<T, Error>;
+export function err<T = never, E = Error>(error: E): Err<T, E>;
+export function err<T = never>(errorOrMessage: unknown, cause?: unknown): Err<T, Error> {
   if (typeof errorOrMessage === 'string') {
-    return new Err(new Error(errorOrMessage, cause !== undefined ? { cause: toError(cause) } : undefined));
+    return new Err(new Error(errorOrMessage, cause !== undefined ? { cause: normalizeError(cause) } : undefined));
   }
   return new Err(errorOrMessage as Error);
 }

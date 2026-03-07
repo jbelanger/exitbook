@@ -1,5 +1,5 @@
 import type { ILinkingPersistence } from '@exitbook/accounting/ports';
-import { resultFromAsync } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/core';
 
 import type { DataContext } from '../data-context.js';
 
@@ -12,14 +12,14 @@ export function buildLinkingPorts(db: DataContext): ILinkingPersistence {
     loadTransactions: () => db.transactions.findAll(),
 
     replaceMovements: (movements) =>
-      resultFromAsync(async function* () {
+      resultDoAsync(async function* () {
         yield* await db.linkableMovements.deleteAll();
         yield* await db.linkableMovements.createBatch(movements);
         return yield* await db.linkableMovements.findAll();
       }),
 
     replaceLinks: (links) =>
-      resultFromAsync(async function* () {
+      resultDoAsync(async function* () {
         const previousCount = yield* await db.transactionLinks.count();
 
         if (previousCount > 0) {
